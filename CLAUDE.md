@@ -18,7 +18,7 @@ Read before any work:
 6. **Teaching errors:** every gate's error message states what failed, why the rule exists (one clause), and the exact fix. Error messages are designed content, reviewed like code.
 7. **Every gate ships its red→green fixture** in `modules/<name>/tests/` — one input that fails without the check and passes with it.
 8. **Sizes in characters, never tokens.**
-9. **Kit decisions follow the kernel's own stakes triage.** Routine → act, note in the commit. `process` (most kit changes) → decision record in `docs/decisions/`, one human yes in the PR. Kernel changes are always recorded. A record is `active` while its ruling is being applied and `inactive` once applied (born `inactive` when applied in its own commit); reversing a ruling is a new record, never an edit of the old one. Current-state documents are superseded by in-place edit, named in the commit message; unreferenced documents are deleted — git is the archive.
+9. **Kit decisions follow the kernel's own stakes triage.** Routine → act, note in the commit. `process` (most kit changes) → decision record in `docs/decisions/`, one human yes in the PR. Kernel changes are always recorded. Record lifecycle, supersession, and deletion: kernel §1 and §5 — not restated here.
 
 ## Session conduct
 
