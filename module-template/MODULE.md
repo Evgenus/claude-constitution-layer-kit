@@ -1,22 +1,45 @@
-# MODULE.md — <const-aspect-name>
+---
+id: module-const-<aspect>
+type: current-state
+title: M<n> — const-<aspect>
+status: active
+---
 
-*Template. Every constitution module is a Claude Code plugin with this document at its root. Fill every section; a section that does not apply says "none" with one line of reasoning. The module depends on the kernel (`CONVENTIONS.md` + schemas) and on nothing else — if it seems to need a sibling module, the shared concept belongs in the kernel; raise that instead of coupling. **No file in the module references a project directly** (paths, names, values): project specifics arrive only through the dials namespace, and the module must install and operate on an empty repository using its defaults (kernel §6, portability rule). References to sibling modules are permitted **only as optional enhancements** ("when `const-x` is installed, ..."); every rule must be executable with the kernel alone — the test: **kernel + this module on an empty repository is a functioning installation.***
+# MODULE.md — `const-<aspect>`
 
-## Purpose
+*Template. Every constitution module is a Claude Code plugin with this document at its root, and this document is the module's **description** from the first draft on — there is no separate specification kind (decision `module-spec-kind`). A draft module carries manifest version `0.0.x`; it is published at `0.1.0` or higher, once every gate has its fixture and no open marker is left. Open slots in a draft are written inline as `[decide: <slot> — default <X> — stakes <level> — decider <who>]`; an authoring session derives its questions from these markers in document order, and a published module carries none.*
 
-One paragraph: the failure pattern this module prevents, stated concretely. If the failure pattern cannot be named, the module is not ready to exist.
+*Fill every section; a section that does not apply says "none" with one line of reasoning. The module depends on the kernel (`CONVENTIONS.md` + schemas) and on nothing else — if it seems to need a sibling module, the shared concept belongs in the kernel; raise that instead of coupling. **No file in the module references a project directly** (paths, names, values): project specifics arrive only through the dials namespace, and the module must install and operate on an empty repository using its defaults (kernel §6, portability rule). References to sibling modules are permitted **only as optional enhancements** ("when `const-x` is installed, ..."); every rule must be executable with the kernel alone — the test: **kernel + this module on an empty repository is a functioning installation.** Every list and table row carries a handle so one item can be cited without quoting it.*
 
-## Failure class
+## 1. Purpose
 
-`accumulating` or `self-limiting`, with one line of reasoning. Accumulating modules belong in every project's day-one install set; self-limiting modules are installed when their friction is observed.
+One paragraph: the failure pattern this module prevents, stated concretely — in terms someone has observed, not a category name. If the failure pattern cannot be named, the module is not ready to exist.
 
-## Invariant
+## 2. Failure class
 
-The one rule the module guarantees, stated in a single testable sentence built only from kernel vocabulary and this module's own definitions.
+`accumulating` or `self-limiting`, with one line of reasoning; a module may be split honestly — name the accumulating slice and the self-limiting remainder. Then the **entry trigger**: accumulating modules belong in every project's day-one install set; a self-limiting module names the observed friction signal that earns its installation, stated so a consumer can recognize it.
 
-## Artifacts (rule-to-artifact mapping)
+## 3. Rows
 
-What this plugin ships and what each part carries — only components the module actually uses exist:
+The requirement set, and nothing else (law 4): every matrix row homed in this module, by handle. The row's one-line text lives in the matrix and is not repeated; the table carries the *reading* the row needs beyond its line — interpretation, boundary rulings, the part of a shared row this module owns. A row under a boundary test (marked † in the matrix) states which of the three tests is open — *one invariant? one enforcement moment? one lifecycle trigger?* — and which sibling takes the row if the boundary moves.
+
+| row | this module's reading |
+|---|---|
+| A<n>.<m> | … |
+
+## 4. Decisions
+
+Rulings that bind this module, each a record id in `docs/decisions/` or, below recorded stakes, the commit that noted it. Nothing is restated; the record holds the options and reasoning.
+
+1. `<record-id>` — one line naming what it fixes here.
+
+## 5. Invariant
+
+The one rule the module guarantees, stated in a single testable sentence built only from kernel vocabulary and this module's own definitions. An advisory-only module claims no invariant; in its place stands the numbered rule list, each rule labeled `advisory` in its own text.
+
+## 6. Artifacts (rule-to-artifact mapping)
+
+What this plugin ships and what each part carries — only components the module actually uses exist. Native-first: platform component > repo script > third-party tool > new infrastructure; every step down from a platform component names, in one clause, what the native option cannot do.
 
 | component | path | carries |
 |---|---|---|
@@ -27,9 +50,14 @@ What this plugin ships and what each part carries — only components the module
 | script | `scripts/<name>` | checks and generators; all paths via `${CLAUDE_PLUGIN_ROOT}` |
 | install note | `INSTALL.md` | at most one pointer line for the project's own `CLAUDE.md`, for discoverability only. Always-on rules ship via a `SessionStart` hook (see hook row), never via a pointer or a plugin-root `CLAUDE.md` (not loaded); a copy-into-CLAUDE.md fallback may be offered, labeled as manual and version-drifting |
 
-Every check's **error message** is written here as part of the design — it is the highest-bandwidth channel for teaching an agent mid-session: state what failed, why the rule exists (one clause), and the exact fix.
+Two fixed sub-slots follow the table:
 
-## Dials
+- **Always-on content:** the exact lines the `SessionStart` hook prints and their size in characters; or "none". This is the module's whole always-on budget.
+- **Platform facts relied on:** each fact, the date it was verified against the official documentation, and what breaks if it changes. Nothing in this slot comes from memory.
+
+Every check's **error message** is written here as part of the design — it is the highest-bandwidth channel for teaching an agent mid-session: state what failed, why the rule exists (one clause), and the exact fix. Reviewed like code; copied verbatim into the script.
+
+## 7. Dials
 
 The module's calibration surface. Namespace = plugin name in the project's `constitution.yaml`; every dial has a default; the module works with zero configuration.
 
@@ -37,17 +65,25 @@ The module's calibration surface. Namespace = plugin name in the project's `cons
 |---|---|---|
 | `<dial>` | `<value>` | one line |
 
-## Boundary examples
+## 8. Boundary examples
 
-For every judgment-based boundary the module introduces (including its slice of the routine/product stakes line, if any): 3–4 contrastive pairs (violates / complies). The examples are the definition; no abstract criteria.
+For every judgment-based boundary the module introduces (including its slice of the routine/product stakes line, if any): 3–4 contrastive pairs (violates / complies), numbered. The examples are the definition; no abstract criteria. The project's own pairs arrive through dials.
 
-## Enforcement honesty
+## 9. Enforcement honesty
 
-For each artifact: `gate` (deterministic — hook or script, red means fix) or `advisory` (judgment-shaping — skill prose, suggestions in review). Nothing advisory is dressed as a gate.
+For each artifact: `gate` (deterministic — hook or script, red means fix) or `advisory` (judgment-shaping — skill prose, suggestions in review). Nothing advisory is dressed as a gate. A deterministic check whose blocking is a dial is a `gate` with its severity dial named — the check is still deterministic. Then the **honest limits**: every path the gate does not see (a tool that bypasses the hook's event, a moment outside its trigger), each with its backstop.
 
-## Acceptance
+## 10. Acceptance
 
-For each gate: the red→green fixture proving it (a fixture that fails without the check, passes with it). For each advisory rule: the boundary examples above stand as its acceptance.
+For each gate: the red→green fixture proving it (a fixture that fails without the check, passes with it) and its path under `tests/` (law 7). For each advisory rule: the boundary examples above stand as its acceptance. Each item labeled by verification kind: `fixture` (bare temp repo), `live` (a consumer project, plugin loaded from this repo), `review` (the human, at the one yes).
+
+## 11. Siblings
+
+**Depends on:** the kernel sections used — nothing else. Then the kernel-alone statement: what the module does on a bare repository with the kernel only. Then each optional enhancement as "when `const-<x>` is installed, …". A concept this module needs from a sibling is a kernel candidate, raised as a `process` decision, never coupled.
+
+## 12. Deferred
+
+What this module deliberately does not ship yet, each with the friction signal that would earn it. Nothing here is a hidden requirement: a deferred item has no matrix row, or its row is marked deferred there.
 
 ---
 
@@ -56,7 +92,7 @@ For each gate: the red→green fixture proving it (a fixture that fails without 
 ```
 const-<aspect-name>/
 ├── .claude-plugin/
-│   └── plugin.json          # manifest — the ONLY file inside .claude-plugin/
+│   └── plugin.json          # manifest — the ONLY file inside .claude-plugin/; version 0.0.x while draft
 ├── MODULE.md                # this document, filled in
 ├── INSTALL.md               # install/uninstall notes; the one CLAUDE.md pointer line if any
 ├── skills/
@@ -64,7 +100,8 @@ const-<aspect-name>/
 ├── commands/<name>.md       # optional
 ├── agents/<name>.md         # optional
 ├── hooks/hooks.json         # optional
-└── scripts/                 # optional; reference via ${CLAUDE_PLUGIN_ROOT}
+├── scripts/                 # optional; reference via ${CLAUDE_PLUGIN_ROOT}
+└── tests/                   # one red→green fixture per gate (law 7)
 ```
 
 Kebab-case everywhere. Only plugin.json lives inside `.claude-plugin/`; every component directory sits at plugin root. Verify the manifest fields against the current plugin reference at authoring time.
