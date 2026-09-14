@@ -72,7 +72,7 @@ Friction in a project → commit note → recurring notes on one theme → modul
 | A5.4 | References stay valid under supersession (stable id/path) | kernel §1 | git-native + caught by A5.3 when violated |
 | **A6 — Question asking** | | | |
 | A6.1 | Threshold: ask only at recorded stakes or genuine blockers; below → decide + commit note | M6 skill | advisory — honestly ungateable |
-| A6.2 | One decision per message; options, pros/cons, one recommendation, named decider | M6 skill | advisory |
+| A6.2 | One decision per message, in a fixed chat shape: options lettered A, B, C… (letters never collide with numbered items), each a bullet with a one-sentence description and separate **Pros:** / **Cons:** sub-bullets (one prose line each, several points joined by semicolons — never inline, never a table); exactly one recommendation with reasoning; named decider. Fewer than five options: the platform's question tool follows, carrying only letter + short label, never the argument. Complex trade-offs: a weighted-analysis policy, added at first concrete need | M6 skill | advisory |
 | A6.3 | Derive-don't-improvise: questions from the artifact's open slots, in order | M6 skill | advisory |
 | A6.4 | Enum-first: closed vocabularies offered as the option set | M6 skill | advisory |
 | A6.5 | Defaults-with-override; overrides carry a one-line reason | M6 skill | advisory |
@@ -152,7 +152,7 @@ Friction in a project → commit note → recurring notes on one theme → modul
 **Rules (advisory — skill prose, honestly labeled):**
 - **Threshold first:** ask only at recorded stakes (`process`/`product`/`architecture`) or at a genuine blocker; below it, make the reasonable call and note it in the commit — a question that shouldn't be asked is the first defect class.
 - **One decision per message**, never bundled; simple factual clarifications exempt from the full format.
-- **Format:** the options, pros/cons per option, exactly **one** recommendation with reasoning, and the **named decider**.
+- **Format:** the argument lives in the chat message. Options are lettered **A, B, C…** — capital letters, so an option is never confused with a numbered finding, step, or assumption. Each option is a bullet: bold letter and title plus a one-sentence description on the first line, then two indented sub-bullets **Pros:** and **Cons:**, one prose line each; several points on one line are joined by semicolons, never a third nesting level; pros and cons are never inline in the description and never a table. Then exactly **one** recommendation with reasoning, and the **named decider**. When there are fewer than five options, the platform's question tool follows the message and only collects the pick: one-line question, letter plus short label per option, at most one clause of description — the pros, cons, and recommendation never go inside the tool. Five or more options: chat only, answered by letter. Trade-offs too complex for this shape get a weighted-analysis policy — deferred until a consumer hits the need.
 - **Derive, don't improvise:** questions come from the artifact's open slots (template fields, missing dials, unresolved `[decide]` markers), in order — not from free association.
 - **Enum-first:** where a closed vocabulary exists (kernel enums, dial values, policy lists), the question offers exactly that option set; free text only for genuinely open values.
 - **Defaults with override:** a slot with a sensible default is asked as "default is X — accept or override?"; overrides carry a one-line reason.
