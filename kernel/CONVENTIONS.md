@@ -10,16 +10,16 @@ Every governed project document (Markdown) carries YAML frontmatter with at leas
 id: <stable-kebab-id>        # never changes after creation; never reused
 type: <meta-type>            # see §2
 title: <one line>
-status: active               # active | inactive
+status: active               # active | inactive — lifecycle, see the lifecycle rule below
 ```
 
 Creation and modification history is the repository's job — no envelope field duplicates git metadata.
 
 Additional fields are allowed and expected — upper layers (knowledge, binding) and individual modules extend the envelope; they never alter the meaning of the fields above. Schema: `schemas/document-frontmatter.schema.json`.
 
-**Supersession rule:** the working tree holds only current truth; history is git's. Superseding a ruling or a state description means *editing the document in place* — id and path stay stable so every inbound reference keeps resolving to the current version; the previous version lives immutably in git history; the commit message names the change a supersession. No field or status duplicates this — git is the append-only layer.
+**Supersession rule:** the working tree holds only current truth; history is git's. Superseding a state description (a `current-state` document) means *editing the document in place* — id and path stay stable so every inbound reference keeps resolving to the current version; the previous version lives immutably in git history; the commit message names the change a supersession. No field or status duplicates this — git is the append-only layer. Records are not superseded in place: reversing a ruling is a new record (§5).
 
-**Lifecycle rule:** a document that nothing should reference is **deleted** — git history is the archive, reachable on explicit demand yet impossible to load or reference from the working tree. `inactive` is a deliberately *temporary* marker used only inside a transition or migration; an inactive document must resolve to `active` or be deleted, never persist.
+**Lifecycle rule:** `status` encodes lifecycle, one meaning for every meta-type: `active` = in force (a current-state document that binds; a task-record whose delta is being applied); `inactive` = historical — no authority, kept only as evidence while something references it. A document that nothing should reference is **deleted** — git history is the archive, reachable on explicit demand yet impossible to load or reference from the working tree. Authority is meta-type × status (§2); existence in the tree carries no authority by itself.
 
 ## 2. Meta-types
 
@@ -34,8 +34,8 @@ Exactly one per document:
 **Precedence on conflict** — authority is meta-type × lifecycle:
 
 1. Policies bind always.
-2. An **in-progress** `task-record` is the write-head: within its scope it outranks the current-state documents it is changing. **Task close is a single act:** changes are applied to code *and* to the affected current-state documents together; then the task becomes history (deleted per the lifecycle rule — git remembers). Going inactive without commit-back or rollback is prohibited drift.
-3. Current-state documents outrank every historical record. Done tasks are evidence of their moment, nothing more.
+2. An **active** `task-record` is the write-head: within its scope it outranks the current-state documents it is changing. **Task close is a single act:** changes are applied to code *and* to the affected current-state documents together; then the record is set `inactive` and its working files are deleted (git remembers). An active task-record whose scope sees no commits is stalled drift — the halfway state must be committed back or rolled back, never left as de-facto truth.
+3. Current-state documents outrank every `inactive` record. Closed tasks are evidence of their moment, nothing more.
 4. **Planned** `task-record`s bind nothing; the further out, the less they even inform.
 
 **The defect rule:** divergence between current-state documents and code outside any active task's scope is a defect — doc rot or an unrecorded change — to be resolved, never tolerated. Code is authoritative for *what is*; current-state documents add *what must not change and why*; intent that is not yet real rides in an open task's delta, never in a standing document.
@@ -45,7 +45,7 @@ Exactly one per document:
 Policies claim **territories**: path patterns declared in the project's dials file (§6). Within claimed territory, **every document resolves to exactly one governing policy**:
 
 1. **By path** (primary): the canonical-location mapping binds the document to its policy. A policy is itself a governed document (`type: current-state`), referenced **by id** from the territory declarations; its machine-readable calibration lives in its dials namespace, its body is prose for humans and agents — the kernel specifies no internal policy format.
-2. **By frontmatter declaration** (secondary): permitted only where the path mapping is absent or ambiguous — typically mid-transition, pairing with `status: inactive`.
+2. **By frontmatter declaration** (secondary): permitted only where the path mapping is absent or ambiguous — typically mid-transition, while an active task-record covers the move.
 
 A document in claimed territory resolving to no policy, to more than one, or carrying a declaration that contradicts its path mapping, is a **defect**. Outside claimed territory the constitution is silent. Which policy governs a document is exactly the semantics neither git nor the platform expresses — hence kernel; the catalog itself and territory boundaries are module and project concerns.
 
@@ -71,9 +71,9 @@ stakes: process | product | architecture
 decider: <person or role>   # kept because git cannot derive it: the committer is often not the decider
 ```
 
-The decision moment and ordering are git's: a decision is operative when committed, and commit sequence is the precedence clock — no date field duplicates it.
+The decision moment and ordering are git's: a decision is operative when committed, and commit sequence is the precedence clock — no date field duplicates it. A record is `active` while its ruling is being applied and `inactive` once applied — the ruling then lives in the current-state documents it changed, and the record remains as evidence of the options and reasoning (§1 lifecycle rule). A record whose ruling is applied in the same commit that creates it is born `inactive`. Reversing a ruling is a new record, never an in-place edit of the old one.
 
-Body shape, when a real choice existed: the options considered, pros/cons per option, one recommendation with reasoning, the choice made. When no real choice existed, a record states the ruling and reasoning — no manufactured options. Records are append-only per §1. Schema: `schemas/decision-record.schema.json`.
+Body shape, when a real choice existed: the options considered, pros/cons per option, one recommendation with reasoning, the choice made. When no real choice existed, a record states the ruling and reasoning — no manufactured options. Schema: `schemas/decision-record.schema.json`.
 
 ## 6. Dials file
 

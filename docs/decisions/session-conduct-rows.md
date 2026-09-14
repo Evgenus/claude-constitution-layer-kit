@@ -2,7 +2,7 @@
 id: session-conduct-rows
 type: task-record
 title: Add the session-conduct rules to the traceability matrix
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---

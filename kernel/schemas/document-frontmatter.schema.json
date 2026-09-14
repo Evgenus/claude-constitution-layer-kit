@@ -33,7 +33,7 @@
         "active",
         "inactive"
       ],
-      "$comment": "inactive: temporary transition/migration marker only. Supersession is an in-place edit (git holds prior versions); unreferenced documents are deleted."
+      "$comment": "Lifecycle: active = in force (binding current-state; task-record being applied); inactive = historical evidence, no authority, kept only while referenced. Supersession of current-state is an in-place edit (git holds prior versions); records are never edited in place; unreferenced documents are deleted."
     }
   },
   "additionalProperties": true,
