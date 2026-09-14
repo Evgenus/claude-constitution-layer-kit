@@ -23,6 +23,7 @@ Read before any work:
 ## Session conduct
 
 - One decision per message: options, pros/cons, exactly one recommendation with reasoning, named decider. Below recorded stakes: decide yourself and note it in the commit — do not ask.
+- **Decision format.** Options are lettered A, B, C… (never numbered — numbers are for every other list item, so an option is never confused with a finding or a step). Each option carries its pros and cons as prose bullets, never a table. The recommended option comes first, marked "(Recommended)". Fewer than five options go through the `AskUserQuestion` tool; five or more stay in prose.
 - Derive questions from the artifact's open slots (template sections, matrix rows, missing dials), in order. Closed vocabularies are offered as the option set. Defaults are proposed as "default is X — accept or override?".
 - No deferred questions: delivered work contains resolved decisions only; an absent decider becomes a named blocker.
 - Lead with the answer.
