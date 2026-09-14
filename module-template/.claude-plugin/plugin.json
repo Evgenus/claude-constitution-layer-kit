@@ -1,0 +1,7 @@
+{
+  "name": "const-aspect-name",
+  "version": "0.1.0",
+  "description": "One line: the failure pattern this module prevents.",
+  "author": { "name": "your-name" },
+  "license": "MIT"
+}

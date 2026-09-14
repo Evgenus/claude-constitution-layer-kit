@@ -1,0 +1,47 @@
+---
+id: kit-intent
+type: current-state
+title: Constitution Kit — Intent
+status: active
+---
+
+# Intent
+
+## What this repository is
+
+A **portable constitution for AI-driven development with Claude Code**: the rules, conventions, and mechanisms that govern how sessions produce documents, make decisions, and keep artifacts consistent — designed once, at the right level of abstraction, and installed into any project (existing or new) when needed. Distribution unit: Claude Code plugins. Per-project cost of adoption: install, pick a profile, override a few dials. No design session, no re-derivation.
+
+## The problem it solves
+
+Without a constitution, every project and every participant improvises: documents without declared authority, decisions living in chat scrollback, rulings priced identically whether trivial or structural, doc↔code drift with no owner, session exhaust posing as knowledge. With a *heavyweight* constitution, the cure exceeds the disease: fixed-price ceremony for every uncertainty, harness fixes deadlocked behind the gates they fix, hundreds of rules built before the first product decision. This kit is the deliberate middle: **a minimal semantic core, hard gates only where checks are deterministic, honesty everywhere else, and growth only from observed friction.**
+
+## Architecture
+
+Three layers, strictly separated:
+
+1. **Mechanical kernel — Claude Code itself.** Plugins, skills, hooks, agents, rules, settings are the component model. This repo never mirrors or wraps them; wanting infrastructure the platform omitted is a design smell.
+2. **Semantic kernel — `kernel/CONVENTIONS.md` + schemas.** One page: document envelope, meta-types with lifecycle-aware precedence, governance binding by territory, stakes triage, decision-record shape, dials, naming. Only vocabulary two or more modules need; nothing derivable from git (git owns history, ordering, authorship, supersession trails, archives).
+3. **Modules — `modules/const-*`.** Invariant-shaped installation units, each a plugin: one invariant, one enforcement moment, one lifecycle trigger; depending on the kernel and nothing else; project-blind, calibrated per project through a single `constitution.yaml`. Requirements are the traceability matrix in `docs/rollout-plan.md` — a module implements exactly its rows.
+
+**Consumer projects** hold the binding: territory maps, boundary examples, thresholds, deciders, and all governed content. The relationship is package-shaped: modules are versioned here, installed there; friction flows back as commit notes; recurring themes become kit changes.
+
+## Design principles (each earned, not assumed)
+
+- **Native-first:** platform mechanisms > repo scripts > third-party tools > new infrastructure; each step down names what the native option cannot do.
+- **Invariant, not machinery:** what ships day one is the minimal deterministic guard against *accumulating* failures (each unguarded artifact raises repair cost silently); *self-limiting* frictions wait for observed pain. Governance sophistication is self-limiting by definition.
+- **Ceremony scales with stakes:** routine → act and note in the commit; `process` → record plus one human yes (the fast lane — a harness fix never queues behind the gate it fixes); `product`/`architecture` → record, review. A constitution that prices a naming nit and a security ruling identically is defective.
+- **Enforcement honesty:** gates are deterministic and red-means-fix; everything judgment-based is advisory and says so. Conversation is shaped, never gated.
+- **Git-derivability razor:** no field, status, or record duplicates what the repository already expresses. The working tree holds current truth; history, ordering, and archives are git's.
+- **Reconciliation model:** current-state documents are the truth reality converges to, aligned with code at every task close; in-progress tasks are the write-head; divergence outside an active task's scope is a defect; drift without commit-back is prohibited.
+- **Boundaries by example:** judgment thresholds are defined by contrastive pairs, never abstract criteria.
+
+## What this repository is not
+
+- **Not a project.** No project names, paths, content, or calibration anywhere (kernel §6; enforced by CI: bare-repo install, single-module run, project-reference grep).
+- **Not the knowledge layer.** Subject-shaped knowledge units, distillation, pointer generation, and staleness tracking are a separate layer built by consumers on top of these modules — out of scope here by design.
+- **Not SDLC workflows.** Story implementation, review flows, and delivery pipelines live above the constitution.
+- **Not complete by ambition.** The module set grows only when consumer friction recurs; a module for a failure nobody has hit is the failure.
+
+## Success criteria
+
+A new project adopts the constitution in under an hour. A gate's error message teaches the fix without a human explaining it. A harness change lands with one yes. Nothing in a consumer repo needs editing when a module updates. And the kit's own history reads as evidence: every rule traceable to the friction that earned it.

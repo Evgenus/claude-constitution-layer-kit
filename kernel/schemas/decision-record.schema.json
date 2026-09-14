@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "constitution-kernel/decision-record",
+  "title": "Decision record frontmatter (extends the document envelope)",
+  "allOf": [
+    {
+      "$ref": "constitution-kernel/document-frontmatter"
+    }
+  ],
+  "type": "object",
+  "required": [
+    "stakes",
+    "decider"
+  ],
+  "properties": {
+    "type": {
+      "const": "task-record"
+    },
+    "stakes": {
+      "enum": [
+        "process",
+        "product",
+        "architecture"
+      ],
+      "$comment": "routine stakes never produce a record (commit note); process stakes take the fast lane: record + one human yes."
+    },
+    "decider": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$comment": "Frontmatter admission rule: a field exists only if git cannot derive it. Decision time and ordering come from commit history."
+}

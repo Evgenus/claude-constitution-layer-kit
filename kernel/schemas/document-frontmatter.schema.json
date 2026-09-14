@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "constitution-kernel/document-frontmatter",
+  "title": "Governed project document frontmatter envelope",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "title",
+    "status"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Stable kebab-case identifier; never changed, never reused."
+    },
+    "type": {
+      "enum": [
+        "current-state",
+        "task-record",
+        "non-authoritative"
+      ],
+      "description": "Meta-type per kernel CONVENTIONS.md section 2."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "status": {
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "$comment": "inactive: temporary transition/migration marker only. Supersession is an in-place edit (git holds prior versions); unreferenced documents are deleted."
+    }
+  },
+  "additionalProperties": true,
+  "$comment": "additionalProperties stays true by design: upper layers and modules extend the envelope. No field duplicates git metadata; the repository owns history."
+}
