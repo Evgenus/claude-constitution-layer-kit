@@ -21,11 +21,11 @@ What this plugin ships and what each part carries — only components the module
 | component | path | carries |
 |---|---|---|
 | skill | `skills/<name>/SKILL.md` | the procedure, loaded when the activity occurs |
-| hook | `hooks/hooks.json` + `scripts/` | deterministic enforcement of the invariant |
+| hook | `hooks/hooks.json` + `scripts/` | deterministic enforcement of the invariant; or, as a `SessionStart` hook printing rules to stdout, the always-on carrier for advisory content — declared `advisory`, never `gate` |
 | command | `commands/<name>.md` | only for acts a human deliberately initiates — name the scenario where a human actually types it, or delete this row |
 | agent | `agents/<name>.md` | only for a genuine delegation boundary |
 | script | `scripts/<name>` | checks and generators; all paths via `${CLAUDE_PLUGIN_ROOT}` |
-| install note | `INSTALL.md` | at most one pointer line for the project's own `CLAUDE.md` (plugins cannot ship always-on context — by design; keep the pointer to one line or none) |
+| install note | `INSTALL.md` | at most one pointer line for the project's own `CLAUDE.md`, for discoverability only. Always-on rules ship via a `SessionStart` hook (see hook row), never via a pointer or a plugin-root `CLAUDE.md` (not loaded); a copy-into-CLAUDE.md fallback may be offered, labeled as manual and version-drifting |
 
 Every check's **error message** is written here as part of the design — it is the highest-bandwidth channel for teaching an agent mid-session: state what failed, why the rule exists (one clause), and the exact fix.
 
