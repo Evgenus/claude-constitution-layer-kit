@@ -31,5 +31,5 @@ As listed under Decisions, by the decider in chat on 2026-09-15.
 
 ## Rulings carried
 
-- [aspect A13](../rollout-plan.md#a13) rows [requirements [A13.1](../rollout-plan.md#a13-1)–[requirement A13.7](../rollout-plan.md#a13-7)](../rollout-plan.md#a13) and module description [`const-catalogs`](../rollout-plan.md#const-catalogs) in `docs/rollout-plan.md`.
+- [aspect A13](../rollout-plan.md#a13) rows [A13.1](../rollout-plan.md#a13-1)–[A13.7](../rollout-plan.md#a13-7) and module description [`const-catalogs`](../rollout-plan.md#const-catalogs) in `docs/rollout-plan.md`.
 - [`const-catalogs`](../rollout-plan.md#const-catalogs) is accumulating: renumbering after items exist is retrofit debt. Entry: the first numbered kind, typically the first decision record.
