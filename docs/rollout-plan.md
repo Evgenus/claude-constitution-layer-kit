@@ -105,6 +105,14 @@ Friction in a project → commit note → recurring notes on one theme → modul
 | A12.1 | No project references in modules; specifics via dials; empty-repo test | kernel §6 + template | **gate**: kit-repo CI — install on bare repo + project-reference grep |
 | A12.2 | Sibling references only as optional enhancements; kernel+module alone = functioning install | template | **gate**: kit-repo CI — kernel+single-module bare-repo run |
 | A12.3 | One dials file, namespace per module, defaults always work | kernel §6 | **gate**: covered by A12.1's defaults-only run |
+| **A13 — Catalogs (numbered kinds)** | | | |
+| A13.1 | Catalogued id form: for a numbered kind, the kernel `id` and the filename stem are `<prefix>-<nnnn>-<slug>` — lowercase kebab (kernel §1, §7), one prefix per kind with its own sequence, fixed zero-padded width; uppercase prefix tolerated in prose and resolved case-insensitively | M11 hook+script | **gate**: write-time hook in catalog territory blocks a non-conforming id or stem with a teaching error |
+| A13.2 | A catalog is virtual: the set of files carrying its prefix; no index, ledger, or register file exists; a listing is rendered on demand | M11 skill+script | advisory; listing script is an assist, never a gate |
+| A13.3 | Allocation: next number = highest existing on the branch + 1; provisional until it lands on main, frozen from then; reference items after they land | M11 skill | advisory procedure — the creation skill computes the number |
+| A13.4 | Uniqueness: no two items of one catalog share a number; a collision at PR is repaired by the younger branch renumbering its own item and its same-branch references | M11 gate+skill | **gate**: CI script on PR, red = fix; renumber procedure advisory |
+| A13.5 | Gaps are legitimate: a missing number is a deleted or renumbered item, git holds what it was; no continuity check, no placeholder records (kernel §1 deletion rule) | M11 | definitional — stated as an honest limit; backstop = branch review + git log |
+| A13.6 | Reference forms: the full stem is canonical on machine surfaces (frontmatter, links); bare `PREFIX-NNNN` tolerated in prose; either resolves by one glob | M11 policy | advisory; syntax lint when `const-referencing` is installed |
+| A13.7 | Catalog declarations: a policy declares its kind's prefix and width in its own frontmatter, resolved through the kernel's territory map (§3); a project without policies lists catalogs in the module's dials; the same prefix declared in both places, or twice anywhere, is a defect | binding + M11 script | config validated at module load (**gate**); double-declaration defect (**gate**) |
 
 ## M1 `const-meta-types` — accumulating; enters Phase B
 
@@ -189,6 +197,15 @@ Friction in a project → commit note → recurring notes on one theme → modul
 **Ships:** length-check script + wiring; a month of observed length data informs the ceilings before any becomes blocking.
 **Dials:** ceiling per document kind (start with one per meta-type at most).
 **Acceptance:** red→green on an over-limit fixture.
+
+## M11 `const-catalogs` — accumulating; enters with the first numbered kind (typically the first decision record, beside M3)
+
+**Failure pattern:** items that people cite by number — decisions, tasks, escalations — kept in a flat register file or numbered ad hoc in chat; when the register is migrated or an item is renumbered, every citation dangles (observed: a design-phase decisions register whose migration left 74 dangling `D<n>` references). Numbers assigned by hand collide across parallel branches, and the collision is found by a reader, not a check.
+**Invariant:** for every declared catalog, each item's kernel `id` and filename stem are `<prefix>-<nnnn>-<slug>` with a unique number within that catalog; the catalog is the set of such files and nothing else.
+**Ships:** write-time hook + script (id/stem form, A13.1); PR-time uniqueness script (A13.4); creation skill — takes the highest existing number on the branch + 1, writes the item from the kind's template with a valid envelope, states the provisional-until-main rule; renumber procedure in the same skill for the collision case (own item + same-branch references only); listing script rendering a catalog on demand (A13.2) — no index file ever. Reference-form policy text (A13.6). Declaration reader (A13.7): a policy's frontmatter `catalog: {prefix, width}` found through the kernel territory map, or the dials list — never both for one prefix. Honest limits stated in the module: a silently deleted item is not detected (A13.5 — gaps are legitimate by kernel §1; backstop is branch review and `git log`); a reference to a provisional id from another branch breaks at renumber (backstop: the uniqueness gate names the renumbered stem).
+**Dials:** `catalogs` — list of `{prefix, territory, width}` for projects without policies (default: empty, module silent); `width` default 4; severity of the write-time hook (block | warn).
+**Acceptance:** red→green fixtures — a file in catalog territory with a non-conforming stem blocked with the designed message, then passes; two files sharing a number fail the PR script, renumbered pair passes; a prefix declared in both a policy and the dials fails load. Listing script output on a three-item fixture catalog (review).
+**Siblings:** kernel alone — dials-declared catalogs, or policy-declared through the kernel territory map. When `const-locations` is installed, its creation command hands the home and template to this module's creation skill. When `const-referencing` is installed, A13.6's forms become lint rules there. When `const-decision-records` is installed, its skill calls this module's allocation for the record's number.
 
 ---
 
