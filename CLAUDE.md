@@ -10,15 +10,15 @@ Read before any work:
 
 ## Laws of this repository
 
-1. **Kernel is authoritative; never restate it.** Modules and documents reference kernel definitions by name — duplication is a defect.
-2. **Portability (kernel §6):** no file in a module references any project — no paths, names, repos, values. Project specifics enter only through the module's dials namespace. Test: the module installs and operates on an empty repository using defaults alone.
-3. **Sibling independence:** modules depend on the kernel and nothing else. Sibling references only as optional enhancements ("when `const-x` is installed…"). Test: kernel + this module alone on a bare repo is a functioning installation. If a module seems to need a sibling, the shared concept belongs in the kernel — raise that as a `process`-stakes decision instead of coupling.
-4. **A module implements exactly its matrix rows.** Its `MODULE.md` cites them. Content beyond its rows is scope creep; a missing row is incompleteness. Both are review findings.
-5. **Enforcement honesty:** every artifact is `gate` (deterministic, red = fix) or `advisory` (judgment-shaping) — declared, never blurred. Nothing judgment-based is dressed as a check.
-6. **Teaching errors:** every gate's error message states what failed, why the rule exists (one clause), and the exact fix. Error messages are designed content, reviewed like code.
-7. **Every gate ships its red→green fixture** in `modules/<name>/tests/` — one input that fails without the check and passes with it.
-8. **Sizes in characters, never tokens.**
-9. **Kit decisions follow the kernel's own stakes triage.** Routine → act, note in the commit. `process` (most kit changes) → decision record in `docs/decisions/`, one human yes in the PR. Kernel changes are always recorded. Record lifecycle, supersession, and deletion: kernel §1 and §5 — not restated here.
+1. <a id="law-1"></a>**Kernel is authoritative; never restate it.** Modules and documents reference kernel definitions by name — duplication is a defect.
+2. <a id="law-2"></a>**Portability ([kernel §6](kernel/CONVENTIONS.md#k6)):** no file in a module references any project — no paths, names, repos, values. Project specifics enter only through the module's dials namespace. Test: the module installs and operates on an empty repository using defaults alone.
+3. <a id="law-3"></a>**Sibling independence:** modules depend on the kernel and nothing else. Sibling references only as optional enhancements ("when `const-x` is installed…"). Test: kernel + this module alone on a bare repo is a functioning installation. If a module seems to need a sibling, the shared concept belongs in the kernel — raise that as a `process`-stakes decision instead of coupling.
+4. <a id="law-4"></a>**A module implements exactly its matrix rows.** Its `MODULE.md` cites them. Content beyond its rows is scope creep; a missing row is incompleteness. Both are review findings.
+5. <a id="law-5"></a>**Enforcement honesty:** every artifact is `gate` (deterministic, red = fix) or `advisory` (judgment-shaping) — declared, never blurred. Nothing judgment-based is dressed as a check.
+6. <a id="law-6"></a>**Teaching errors:** every gate's error message states what failed, why the rule exists (one clause), and the exact fix. Error messages are designed content, reviewed like code.
+7. <a id="law-7"></a>**Every gate ships its red→green fixture** in `modules/<name>/tests/` — one input that fails without the check and passes with it.
+8. <a id="law-8"></a>**Sizes in characters, never tokens.**
+9. <a id="law-9"></a>**Kit decisions follow the kernel's own stakes triage.** Routine → act, note in the commit. `process` (most kit changes) → decision record in `docs/decisions/`, one human yes in the PR. Kernel changes are always recorded. Record lifecycle, supersession, and deletion: [kernel §1](kernel/CONVENTIONS.md#k1) and [kernel §5](kernel/CONVENTIONS.md#k5) — not restated here.
 
 ## Session conduct
 
@@ -32,11 +32,12 @@ Read before any work:
 - **Every list item is addressable.** Any list, table, or set of options in a reply, a document, or a module carries a stable handle per item — a number, a letter, or a short key — so the user can refer to one item without quoting it. Table rows get an id column or numbered rows. This applies to findings, options, assumptions, questions, and steps alike.
 - **Honesty over agreement.** Say plainly when a request is wrong, unreasonable, or conflicts with the laws above, and say why — even when the user has already decided. Do not soften findings, hide failures, or report unverified work as done.
 - **Commit before you edit.** Rollback points live in git, not in chat rewind — rewind does not track changes made through Bash, scripts, or subagents. Before starting any batch of edits, commit the current state if the tree is dirty; after finishing a coherent change, commit again. Never leave uncommitted work behind at the end of a turn. Rolling back is then `git revert` or `git checkout` of a named commit, and it works regardless of which tool made the change.
+- **References are clickable; handles are scoped.** In chat, every reference to a file, section, requirement, law, or record is a markdown link. A numbered item resolves within its message, a lettered option within its decision, a table key within the session; across that boundary, name the message or decision. Verbose handles: "law 3 of CLAUDE.md", "dial `ns.key`", "requirement [A5.3](docs/rollout-plan.md#a5-3)" or "[aspect A5](docs/rollout-plan.md#a5)", "module `const-x`". In documents a bare handle is local to its own document; across documents it is a link to the target's anchor ([requirements A5.5–A5.7](docs/rollout-plan.md#a5)); `scripts/check-references.sh` is the gate.
 - **Refuse destructive moves without a spoken confirmation.** Before any hard-to-reverse action (deleting files or documents, rewriting history, force-pushing, dropping a kernel definition, breaking a published module's contract), state the consequence and the reversible alternative, then wait for an explicit yes in chat. An approval covers that action only. If the user repeats the request after the warning, it is their decision — proceed and note the objection in the commit.
 
 ## Developing a module
 
-1. `cp -r module-template/ modules/const-<name>/` — kebab-case, `const-` prefix.
+1. `cp -r module-template/ modules/const-<name>/` — kebab-case, `const-` prefix. The template's relative links gain one `../` level in the copy; `scripts/check-references.sh` turns red until they are fixed.
 2. Fill `MODULE.md` top-down from the module's matrix rows; every section filled or "none" with one line of reasoning.
 3. Implement artifacts: hooks/scripts for gates (paths via `${CLAUDE_PLUGIN_ROOT}`), skills for procedures and advisory rules, `INSTALL.md` with at most one CLAUDE.md pointer line. Only `.claude-plugin/plugin.json` lives inside `.claude-plugin/`; components sit at module root.
 4. Prove twice: fixtures against a bare temp repo (laws 2–3 by hand until CI exists), then live in a consumer project — session in the project, plugin loaded from this repo's path (verify current local plugin-dir / marketplace mechanics against official docs; do not trust memory for this surface).

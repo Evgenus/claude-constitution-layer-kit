@@ -35,7 +35,7 @@ Run from the consumer project root. Commit after each step.
      "docs/constitution/**": constitution-kernel
    ```
    Claim nothing else yet; territories grow only over documents that exist.
-4. **Write decision record #1** — "Adopt constitution kernel", `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit (kernel §5). Validate against `docs/constitution/schemas/decision-record.schema.json`.
+4. **Write decision record #1** — "Adopt constitution kernel", `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). Validate against `docs/constitution/schemas/decision-record.schema.json`.
 5. **Commit and merge** with one human yes. The kernel is installed.
 
 ## Part 2 — Install a module
