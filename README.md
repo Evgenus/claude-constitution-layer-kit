@@ -44,34 +44,45 @@ Each module is one plugin named `const-<aspect>`. Repeat these steps per module.
 
 ### 1. Load the plugin — pick one path
 
-- **A. Development path (works now):** load from your kit clone for one session.
-  ```bash
-  claude --plugin-dir ~/dev/constitution-kit/modules/const-<aspect>
-  ```
-  Pass the flag once per module, or point it at the whole `modules/` folder to load every module that has a manifest (Claude Code v2.1.265+):
-  ```bash
-  claude --plugin-dir ~/dev/constitution-kit/modules
-  ```
-  After editing module source, run `/reload-plugins` inside the session.
-- **B. Marketplace path (once `marketplace.json` exists):** register the kit as a marketplace, then install at project scope so every collaborator gets it via `.claude/settings.json`.
-  ```bash
-  claude plugin marketplace add ~/dev/constitution-kit
-  ```
-  A GitHub-hosted kit registers as `owner/repo` instead of a path. Then:
-  ```bash
-  claude plugin install const-<aspect>@constitution-kit --scope project
-  ```
-  The same two commands work as `/plugin marketplace add …` and `/plugin install …` inside a session.
-- **C. Team auto-registration:** commit the marketplace to the project's `.claude/settings.json` so the catalog is added automatically when a teammate trusts the folder. Plugins from an external source still need one `claude plugin install` per person.
-  ```json
-  {
-    "extraKnownMarketplaces": {
-      "constitution-kit": {
-        "source": { "source": "github", "repo": "<owner>/constitution-kit" }
-      }
+**A. Development path (works now).** Load from your kit clone for one session:
+
+```bash
+claude --plugin-dir ~/dev/constitution-kit/modules/const-<aspect>
+```
+
+Pass the flag once per module, or point it at the whole `modules/` folder to load every module that has a manifest (Claude Code v2.1.265+):
+
+```bash
+claude --plugin-dir ~/dev/constitution-kit/modules
+```
+
+After editing module source, run `/reload-plugins` inside the session.
+
+**B. Marketplace path (once `marketplace.json` exists).** Register the kit as a marketplace, then install at project scope so every collaborator gets it via `.claude/settings.json`:
+
+```bash
+claude plugin marketplace add ~/dev/constitution-kit
+```
+
+A GitHub-hosted kit registers as `owner/repo` instead of a path. Then:
+
+```bash
+claude plugin install const-<aspect>@constitution-kit --scope project
+```
+
+The same two commands work as `/plugin marketplace add …` and `/plugin install …` inside a session.
+
+**C. Team auto-registration.** Commit the marketplace to the project's `.claude/settings.json` so the catalog is added automatically when a teammate trusts the folder. Plugins from an external source still need one `claude plugin install` per person.
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "constitution-kit": {
+      "source": { "source": "github", "repo": "<owner>/constitution-kit" }
     }
   }
-  ```
+}
+```
 
 ### 2. Calibrate (optional)
 
@@ -98,16 +109,19 @@ Commit `constitution.yaml`, `.claude/settings.json`, and any CLAUDE.md line. Not
 
 ## Update and uninstall
 
-- **Update:** modules are versioned; the consumer bumps by version.
-  ```bash
-  claude plugin marketplace update constitution-kit
-  ```
-  Then `/reload-plugins`. Nothing in the consumer repo needs editing when a module updates.
-- **Uninstall:** remove the plugin, its namespace from `constitution.yaml`, and its CLAUDE.md line.
-  ```bash
-  claude plugin uninstall const-<aspect>@constitution-kit --scope project
-  ```
-  The kernel copy in `docs/constitution/` stays; delete it only by a recorded `process` decision.
+**Update.** Modules are versioned; the consumer bumps by version. Nothing in the consumer repo needs editing when a module updates.
+
+```bash
+claude plugin marketplace update constitution-kit
+```
+
+Then `/reload-plugins`.
+
+**Uninstall.** Remove the plugin, its namespace from `constitution.yaml`, and its CLAUDE.md line. The kernel copy in `docs/constitution/` stays; delete it only by a recorded `process` decision.
+
+```bash
+claude plugin uninstall const-<aspect>@constitution-kit --scope project
+```
 
 ## Where to go next
 
