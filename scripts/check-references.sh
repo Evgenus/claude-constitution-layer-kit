@@ -27,7 +27,7 @@ bare() { perl -0pe 's/\A---\n.*?\n---\n//s; s/\[[^\]]*\]\([^)]*\)//g' "$1"; }
 for f in $(git ls-files --cached --others --exclude-standard '*.md'); do
   b="$(bare "$f")"
   case "$f" in docs/rollout-plan.md) ;; *)
-    if grep -nE '\bM[0-9]+\b' <<<"$b" | grep -v '^[0-9]*:title:' >/dev/null; then
+    if grep -nE '\bM[0-9]+\b' <<<"$b" >/dev/null; then
       red "$f cites a module as M<n>" "M<n> resolves only inside the rollout plan (docs/decisions/reference-forms.md#r7)" \
           "link the module's spec: [\`const-<name>\`](<rel>/docs/rollout-plan.md#const-<name>)"
     fi

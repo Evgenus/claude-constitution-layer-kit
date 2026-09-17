@@ -1,7 +1,7 @@
 ---
 id: module-const-<aspect>
 type: current-state
-title: M<n> — const-<aspect>
+title: const-<aspect>
 status: active
 ---
 
