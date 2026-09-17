@@ -42,6 +42,10 @@ for f in $(git ls-files --cached --others --exclude-standard '*.md'); do
           "link it: [kernel §4](<rel>/kernel/CONVENTIONS.md#k4)"
     fi
   esac
+  if grep -nE '(/Users/|/home/|file://)' "$f" >/dev/null; then
+    red "$f references a location outside this repository" "a local path resolves on one machine only, and never for a consumer (docs/decisions/module-research-per-module.md)" \
+        "cite the public source that verified the fact, or drop the reference"
+  fi
   case "$f" in CLAUDE.md) ;; *)
     if grep -nEi '\blaws? [0-9]' <<<"$b" >/dev/null; then
       red "$f cites a law bare" "laws are cited verbosely and linked (docs/decisions/reference-forms.md#r17)" \

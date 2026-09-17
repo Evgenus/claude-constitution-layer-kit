@@ -8,7 +8,7 @@ Read before any work:
 - `module-template/MODULE.md` — the fixed shape every module fills.
 - `docs/rollout-plan.md` — module specs and the traceability matrix (requirement rows per module).
 - `constitution.yaml` — the kit's own dials file; its `root_policy` key locates the policies that govern this repository's documents ([kernel §3](kernel/CONVENTIONS.md#k3)). Not a reading assignment: open a policy only when working in its territory.
-- [`docs/research/`](docs/research/README.md) — the dated comparisons the mechanisms rest on. Not a reading assignment: open one when choosing or changing a mechanism.
+- `docs/research/` — one dated comparison per module, written by that module's own research round. Not a reading assignment: open one when changing a mechanism.
 
 ## Laws of this repository
 
@@ -40,12 +40,13 @@ Read before any work:
 ## Developing a module
 
 1. `cp -r module-template/ modules/const-<name>/` — kebab-case, `const-` prefix. The template's relative links gain one `../` level in the copy; `scripts/check-references.sh` turns red until they are fixed.
-2. Fill `MODULE.md` top-down from the module's matrix rows; every section filled or "none" with one line of reasoning. Before the artifacts table, confirm or overturn the matrix's recommended enforcement for each row, naming on every step down what the native option cannot do, and cite the comparison in `docs/research/` each mechanism rests on — or write one first.
-3. Implement artifacts: hooks/scripts for gates (paths via `${CLAUDE_PLUGIN_ROOT}`), skills for procedures and advisory rules, `INSTALL.md` with at most one CLAUDE.md pointer line. Only `.claude-plugin/plugin.json` lives inside `.claude-plugin/`; components sit at module root.
-4. Prove twice: fixtures against a bare temp repo (laws 2–3 by hand until CI exists), then live — in this repository for document-shaped modules (the kit is consumer zero), and in a consumer project: session in the project, plugin loaded from this repo's path (verify current local plugin-dir / marketplace mechanics against official docs; do not trust memory for this surface).
-5. Validate fresh-context before the human yes: a subagent holding only the module's files, the template, this file, and the module's matrix rows — never the authoring reasoning — reviews against laws 2–7 and every template section. Every finding is fixed or justified in the pull request (decision [module-routine-validation-and-inputs](docs/decisions/module-routine-validation-and-inputs.md)).
-6. Version bump on every change once published; consumer projects update by version.
+2. Research first: a subagent surveys how this module's matrix rows are addressed today — official Claude Code documentation for the native surface, community harnesses, applicable tools — and returns one dated comparison in kit vocabulary at `docs/research/const-<name>.md`: candidate approaches, mechanism class, maturity, cost, one recommendation per mechanism with reasoning (decision [module-research-per-module](docs/decisions/module-research-per-module.md)). Earlier design work is a clue set, never a source: nothing enters unverified. Raw material stays in the subagent; only the comparison returns.
+3. Fill `MODULE.md` top-down from the module's matrix rows; every section filled or "none" with one line of reasoning. Before the artifacts table, confirm or overturn the matrix's recommended enforcement for each row from the comparison, naming on every step down what the native option cannot do.
+4. Implement artifacts: hooks/scripts for gates (paths via `${CLAUDE_PLUGIN_ROOT}`), skills for procedures and advisory rules, `INSTALL.md` with at most one CLAUDE.md pointer line. Only `.claude-plugin/plugin.json` lives inside `.claude-plugin/`; components sit at module root.
+5. Prove twice: fixtures against a bare temp repo (laws 2–3 by hand until CI exists), then live — in this repository for document-shaped modules (the kit is consumer zero), and in a consumer project: session in the project, plugin loaded from this repo's path (verify current local plugin-dir / marketplace mechanics against official docs; do not trust memory for this surface).
+6. Validate fresh-context before the human yes: a subagent holding only the module's files, the template, this file, and the module's matrix rows — never the authoring reasoning — reviews against laws 2–7 and every template section. Every finding is fixed or justified in the pull request (decision [module-routine-validation-and-inputs](docs/decisions/module-routine-validation-and-inputs.md)).
+7. Version bump on every change once published; consumer projects update by version.
 
 ## Never in this repository
 
-Project content or references (law 2). Knowledge-layer content (separate layer, separate concern). A parallel component model — Claude Code's plugins/skills/hooks/agents are the mechanical kernel; this repo adds semantics only. Machinery for failures no consumer has hit — growth is friction-earned, via consumer commit notes recurring on a theme.
+Project content or references (law 2). References to any location outside this repository other than a public URL — no local folder, no sibling repository, no absolute filesystem path; information from such places enters only after verification, cited to the public source that verified it (`scripts/check-references.sh` turns red on an absolute local path or a `file:` link). Knowledge-layer content (separate layer, separate concern). A parallel component model — Claude Code's plugins/skills/hooks/agents are the mechanical kernel; this repo adds semantics only. Machinery for failures no consumer has hit — growth is friction-earned, via consumer commit notes recurring on a theme.

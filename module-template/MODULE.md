@@ -59,8 +59,8 @@ What this plugin ships and what each part carries — only components the module
 Two fixed sub-slots follow the table:
 
 - **Always-on content:** the exact lines the `SessionStart` hook prints and their size in characters; or "none". This is the module's whole always-on budget.
-- **Platform facts relied on:** each fact, the date it was verified against the official documentation, and what breaks if it changes. Nothing in this slot comes from memory; the [native surface map](../docs/research/native-surface-map.md) is the starting list, never the evidence.
-- **Research inputs:** for each mechanism, the dated comparison in [`docs/research/`](../docs/research/README.md) it rests on, and whether the matrix's recommended enforcement for the row was confirmed or overturned here. A mechanism no comparison covers gets one written first, in the same shape (decision [module-routine-validation-and-inputs](../docs/decisions/module-routine-validation-and-inputs.md)).
+- **Platform facts relied on:** each fact, the date it was verified against the official documentation, and what breaks if it changes. Nothing in this slot comes from memory.
+- **Research:** a link to this module's own dated comparison in `docs/research/` — written at authoring, in kit vocabulary, from a survey of the official documentation, community harnesses, and applicable tools for exactly this module's rows — and, per row, whether the matrix's recommended enforcement was confirmed or overturned by it (decision [module-research-per-module](../docs/decisions/module-research-per-module.md)). Nothing from earlier design work enters unverified.
 
 Every check's **error message** is written here as part of the design — it is the highest-bandwidth channel for teaching an agent mid-session: state what failed, why the rule exists (one clause), and the exact fix. Reviewed like code; copied verbatim into the script.
 

@@ -7,7 +7,7 @@ status: active
 
 # Kit documents policy
 
-Governs the kit's own governed documents, as claimed under this policy's id in `constitution.yaml`: the kernel, the intent page, the decision records, the research inputs, and every module's `MODULE.md`. The kit is consumer zero of its document-shaped modules (decision [accumulating-set-first](../decisions/accumulating-set-first.md)); this policy is what those modules enforce here.
+Governs the kit's own governed documents, as claimed under this policy's id in `constitution.yaml`: the kernel, the intent page, the decision records, the research comparisons, and every module's `MODULE.md`. The kit is consumer zero of its document-shaped modules (decision [accumulating-set-first](../decisions/accumulating-set-first.md)); this policy is what those modules enforce here.
 
 ## Rules
 
@@ -16,4 +16,4 @@ Governs the kit's own governed documents, as claimed under this policy's id in `
 3. **Module documents.** A `MODULE.md` fills every section of `module-template/MODULE.md`, cites exactly its matrix rows ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)), and carries no project reference ([law 2 of CLAUDE.md](../../CLAUDE.md#law-2)).
 4. **References.** Cross-document cites are links to explicit anchors (decision [reference-forms](../decisions/reference-forms.md)); `scripts/check-references.sh` is the gate until module `const-referencing` ships its lint.
 5. **Supersession.** The kernel and the intent page are superseded in place; records never are ([kernel §1](../../kernel/CONVENTIONS.md#k1), [kernel §5](../../kernel/CONVENTIONS.md#k5)).
-6. **Research inputs.** A document in `docs/research/` is `non-authoritative`: a dated comparison of candidate mechanisms ending in one recommendation, never a rule. Imported comparisons carry a provenance line; a new one is written before a module adopts a mechanism no comparison covers (decision [module-routine-validation-and-inputs](../decisions/module-routine-validation-and-inputs.md)). The index [README](../research/README.md) is the one `active` document there.
+6. **Research.** A document in `docs/research/` is `non-authoritative`: one module's dated comparison of candidate mechanisms, written in kit vocabulary by that module's own research round and ending in one recommendation per mechanism, never a rule (decision [module-research-per-module](../decisions/module-research-per-module.md)). Nothing in it is copied from earlier design work; every fact names the public source that verified it.
