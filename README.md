@@ -20,15 +20,19 @@ Run from the consumer project root. Commit after each step. Install the accumula
    ```
    Only the kernel is copied. Module source never lives in a project.
 2. **Check the kernel's envelope.** `docs/constitution/CONVENTIONS.md` ships with its own frontmatter (`id: constitution-kernel`, `type: current-state`, `status: active`), so the kernel is the first document governed by its own rules. Nothing to add; confirm it survived the copy.
-3. **Create the dials file** at the repository root, claiming exactly one territory:
+3. **Create the root policy and the first policy.** Two Markdown documents under `docs/policies/`, each with the kernel envelope: a root policy, the policy for policies, whose territory is `docs/policies/**` including itself; and a constitution-documents policy for `docs/constitution/**` and `docs/decisions/**`. A document is a policy because it sits in the root's territory ([kernel §3](kernel/CONVENTIONS.md#k3)). Copy the kit's own pair from `docs/policies/` and rename the ids; bodies are prose, the kernel specifies no format.
+4. **Create the dials file** at the repository root. Each policy's territory sits under its id:
    ```yaml
    # constitution.yaml
-   territories:
-     "docs/constitution/**": constitution-kernel
+   root_policy: docs/policies/root-policy.md
+   root-policy:
+     territory: ["docs/policies/**"]
+   constitution-documents:
+     territory: ["docs/constitution/**", "docs/decisions/**"]
    ```
    Claim nothing else yet; territories grow only over documents that exist.
-4. **Write decision record #1** — "Adopt constitution kernel", `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). Validate against `docs/constitution/schemas/decision-record.schema.json`.
-5. **Commit and merge** with one human yes. The kernel is installed.
+5. **Write decision record #1** — "Adopt constitution kernel", `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). Validate against `docs/constitution/schemas/decision-record.schema.json`.
+6. **Commit and merge** with one human yes. The kernel is installed.
 
 ## Part 2 — Install a module
 
