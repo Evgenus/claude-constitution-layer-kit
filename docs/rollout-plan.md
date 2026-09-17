@@ -55,7 +55,7 @@ Friction in a project → commit note → recurring notes on one theme → modul
 | <a id="a2-3"></a>A2.3 | Resolution enforcement: no-policy / multi-policy / contradicting declaration blocked | M2 hook+script † | **gate**: write-time hook block; same script as CI backstop on PR |
 | <a id="a2-4"></a>A2.4 | Documents created by command from the policy's template into the canonical home | M2 skill | advisory procedure — its *output* is caught by A1.4+A2.3 gates |
 | <a id="a2-5"></a>A2.5 | New-document-kind procedure: policy first (`process` stakes), then creation | M2 skill | advisory — skipping it lands in A2.3's no-policy defect anyway |
-| <a id="a2-6"></a>A2.6 | The territory declarations themselves: `root_policy` plus each policy's territory in its dials namespace ([kernel §3](../kernel/CONVENTIONS.md#k3)) | binding | config — schema-validated at module load; no declarations = silent territory |
+| <a id="a2-6"></a>A2.6 | The territory declarations themselves: `root_policy`, the optional `territory_dialect`, and each policy's territory in its dials namespace ([kernel §3](../kernel/CONVENTIONS.md#k3), [kernel §6](../kernel/CONVENTIONS.md#k6)) | binding | config — schema-validated at module load; no declarations = silent territory |
 | <a id="a3"></a>**A3 — Decisions & records** | | | |
 | <a id="a3-1"></a>A3.1 | Stakes enum, ceremony table, fast lane | [kernel §4](../kernel/CONVENTIONS.md#k4) | definitional — enum enforced through A3.4; ceremony via review |
 | <a id="a3-2"></a>A3.2 | Record shape: `stakes`+`decider`; body = options, pros/cons, one recommendation, choice | [kernel §5](../kernel/CONVENTIONS.md#k5) | frontmatter: **gate** via A3.4; body shape: advisory (skill-emitted, review-judged) |

@@ -1,6 +1,7 @@
 # Dials file of the constitution kit itself: the kit is consumer zero of the
 # document-shaped modules (decision accumulating-set-first). Calibration of
-# this repository, never of any project. Patterns: gitignore-style globs.
+# this repository, never of any project. Territory patterns use the default
+# dialect, gitignore (kernel §6); no territory_dialect key is needed.
 # Shape per kernel §3 and §6 (decision policies-by-location).
 
 root_policy: docs/policies/kit-root-policy.md
