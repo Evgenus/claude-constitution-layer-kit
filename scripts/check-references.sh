@@ -3,15 +3,19 @@
 # Fails when a kit document cites another document by a bare handle instead of a link,
 # or when any link or anchor does not resolve. Run from the repository root.
 # Examines tracked and untracked (non-ignored) files, so a new document is checked before it is staged.
+# Exit codes: 0 green; 2 findings (the repository is wrong); 1 configuration failure (the checker
+# could not run: nothing to examine, lychee missing). The examined counts are printed on every exit.
 set -u
 cd "$(dirname "$0")/.."
 fail=0
+broken=0
 docs=$(git ls-files --cached --others --exclude-standard '*.md' | wc -l | tr -d ' ')
 links=0
 red() { echo "RED: $1"; echo "  why: $2"; echo "  fix: $3"; fail=1; }
+config() { echo "BROKEN: $1"; echo "  why: $2"; echo "  fix: $3"; broken=1; }
 
 if [ "$docs" -eq 0 ]; then
-  red "no documents examined" "a check that inspects nothing reports green vacuously" \
+  config "no documents examined" "a check that inspects nothing reports green vacuously" \
       "run from the root of a kit checkout whose markdown files are tracked by git"
 else
   links=$(git ls-files --cached --others --exclude-standard '*.md' | xargs grep -ohE '\]\([^)]+\)' | wc -l | tr -d ' ')
@@ -38,6 +42,10 @@ for f in $(git ls-files --cached --others --exclude-standard '*.md'); do
           "link it: [kernel §4](<rel>/kernel/CONVENTIONS.md#k4)"
     fi
   esac
+  if grep -nE '(/Users/|/home/|file://)' "$f" >/dev/null; then
+    red "$f references a location outside this repository" "a local path resolves on one machine only, and never for a consumer (docs/decisions/module-research-per-module.md)" \
+        "cite the public source that verified the fact, or drop the reference"
+  fi
   case "$f" in CLAUDE.md) ;; *)
     if grep -nEi '\blaws? [0-9]' <<<"$b" >/dev/null; then
       red "$f cites a law bare" "laws are cited verbosely and linked (docs/decisions/reference-forms.md#r17)" \
@@ -61,7 +69,11 @@ elif command -v lychee >/dev/null; then
     red "a link or anchor does not resolve" "no merge introduces a broken reference (requirement A5.3)" \
         "fix the target path or anchor named above"
 else
-  red "lychee not installed" "requirement A5.3 needs lychee >= 0.24.2" "install lychee and rerun"
+  config "lychee not installed" "requirement A5.3 needs lychee >= 0.24.2" "install lychee and rerun"
 fi
-[ $fail -eq 0 ] && echo "GREEN: references resolve — $docs documents, $links links examined"
-exit $fail
+if [ $broken -eq 1 ]; then
+  echo "BROKEN: the check could not run in full — $docs documents, $links links examined"; exit 1
+elif [ $fail -eq 1 ]; then
+  echo "RED: findings above — $docs documents, $links links examined"; exit 2
+fi
+echo "GREEN: references resolve — $docs documents, $links links examined"
