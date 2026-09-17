@@ -52,9 +52,9 @@ Exactly one per document:
 <a id="k3"></a>
 ## 3. Governance binding
 
-Policies claim **territories**: path patterns declared under the `territories` key of the project's dials file (§6). Within claimed territory, **every document resolves to exactly one governing policy**:
+Policies claim **territories**: path patterns declared in the project's dials file (§6), each under the claiming policy's id. Within claimed territory, **every document resolves to exactly one governing policy**:
 
-1. **By path** (primary): the canonical-location mapping binds the document to its policy. A policy is itself a governed document (`type: current-state`), referenced **by id** from the territory declarations; its machine-readable calibration lives in its dials namespace, its body is prose for humans and agents — the kernel specifies no internal policy format.
+1. **By path** (primary): the canonical-location mapping binds the document to its policy. A policy is itself a governed document (`type: current-state`). **A document is a policy because it lies in the root policy's territory** — nothing declares itself a policy and nothing enumerates them. The dials file's one kernel-owned key, `root_policy`, holds the root policy's path; the root's own namespace declares the territory where policies live, which contains the root itself, so every chain of governance ends there. A policy's machine-readable calibration, its territory included, lives in its dials namespace, which is its id; its body is prose for humans and agents — the kernel specifies no internal policy format. A namespace whose id has no document in the root's territory is not a policy's, whatever keys it carries; a document in the root's territory with no namespace is a policy that claims nothing.
 2. **By frontmatter declaration** (secondary): permitted only where the path mapping is absent or ambiguous — typically mid-transition, while an active task-record covers the move.
 
 A document in claimed territory resolving to no policy, to more than one, or carrying a declaration that contradicts its path mapping, is a **defect**. Outside claimed territory the constitution is silent. Which policy governs a document is exactly the semantics neither git nor the platform expresses — hence kernel; the catalog itself and territory boundaries are module and project concerns.
@@ -90,17 +90,19 @@ Body shape, when a real choice existed: the options considered, pros/cons per op
 <a id="k6"></a>
 ## 6. Dials file
 
-Per-project calibration lives in **one** file at the repository root: `constitution.yaml`. Each module reads only its own namespace (its plugin name) and ships defaults that apply when the file or namespace is absent — install-and-run must work with zero configuration.
+Per-project calibration lives in **one** file at the repository root: `constitution.yaml`. Each module reads its own namespace (its plugin name) and ships defaults that apply when the file or namespace is absent — install-and-run must work with zero configuration. To resolve territory a module also reads the `root_policy` key and the policy namespaces (§3); it reads no other module's namespace.
 
 ```yaml
 # constitution.yaml
-territories:                  # kernel-owned: path pattern → governing policy id (§3)
-  "docs/**": some-policy-id
-const-example-aspect:         # one namespace per module, named after the plugin
+root_policy: docs/policies/root-policy.md   # the one kernel-owned key: where the root policy is
+root-policy:                                # a policy's namespace is its id
+  territory: ["docs/policies/**"]           # where policies live; the root lies inside
+some-policy:                                # a policy found in the root's territory
+  territory: ["docs/**"]
+  some_calibration: value
+const-example-aspect:                       # a module's namespace, named after the plugin
   some_dial: value
 ```
-
-`territories` is the one key the kernel owns; every module may read it. It is the sole exception to the namespace rule.
 
 Profiles (e.g. solo-agents, small-team, regulated) are nothing but prewritten `constitution.yaml` files shipped with the kit.
 
