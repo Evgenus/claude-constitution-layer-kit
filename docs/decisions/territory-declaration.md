@@ -15,9 +15,9 @@ decider: Eugene Chernyshov
 
 ## Options
 
-- **A. A top-level `territories` key, path pattern to policy id, owned by the kernel.** Kernel §6 states that one key beside the module namespaces.
-  - **Pros:** one map at one path for every module; exactly the glob-to-id semantics kernel §3 already defines; module names are `const-*`, so no namespace can collide with it.
-  - **Cons:** kernel §6 needs one stated exception to "only its own namespace".
+- **A. A top-level `territories` key, path pattern to policy id, owned by the kernel.** [Kernel §6](../../kernel/CONVENTIONS.md#k6) states that one key beside the module namespaces.
+  - **Pros:** one map at one path for every module; exactly the glob-to-id semantics [kernel §3](../../kernel/CONVENTIONS.md#k3) already defines; module names are `const-*`, so no namespace can collide with it.
+  - **Cons:** [kernel §6](../../kernel/CONVENTIONS.md#k6) needs one stated exception to "only its own namespace".
 - **B. A reserved `kernel` namespace holding `territories`.**
   - **Pros:** the exception is visible as a namespace; room for other project-binding values.
   - **Cons:** one more nesting level on the most-read key; `kernel` is not a plugin name, so the namespace rule is broken anyway; invites kernel-level dials, which the kernel does not have.
@@ -26,11 +26,11 @@ decider: Eugene Chernyshov
   - **Cons:** breaks [law 3 of CLAUDE.md](../../CLAUDE.md#law-3); kernel plus [`const-meta-types`](../rollout-plan.md#const-meta-types) alone would claim nothing.
 - **D. Each policy claims its paths in its own frontmatter; no map in the dials file.**
   - **Pros:** a policy and its territory travel together.
-  - **Cons:** rewrites kernel §3 twice; kernel §6 loses "one file"; the kernel file, as the kit's own policy, would carry kit paths that every consumer copies and edits; a hook must discover every policy before judging one file.
+  - **Cons:** rewrites [kernel §3](../../kernel/CONVENTIONS.md#k3) twice; [kernel §6](../../kernel/CONVENTIONS.md#k6) loses "one file"; the kernel file, as the kit's own policy, would carry kit paths that every consumer copies and edits; a hook must discover every policy before judging one file.
 
 ## Recommendation
 
-A. It is the shape kernel §3 already describes in words, and the cost is one sentence in kernel §6.
+A. It is the shape [kernel §3](../../kernel/CONVENTIONS.md#k3) already describes in words, and the cost is one sentence in [kernel §6](../../kernel/CONVENTIONS.md#k6).
 
 ## Choice
 
