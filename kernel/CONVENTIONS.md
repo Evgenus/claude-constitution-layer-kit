@@ -52,7 +52,7 @@ Exactly one per document:
 <a id="k3"></a>
 ## 3. Governance binding
 
-Policies claim **territories**: path patterns declared in the project's dials file (§6). Within claimed territory, **every document resolves to exactly one governing policy**:
+Policies claim **territories**: path patterns declared under the `territories` key of the project's dials file (§6). Within claimed territory, **every document resolves to exactly one governing policy**:
 
 1. **By path** (primary): the canonical-location mapping binds the document to its policy. A policy is itself a governed document (`type: current-state`), referenced **by id** from the territory declarations; its machine-readable calibration lives in its dials namespace, its body is prose for humans and agents — the kernel specifies no internal policy format.
 2. **By frontmatter declaration** (secondary): permitted only where the path mapping is absent or ambiguous — typically mid-transition, while an active task-record covers the move.
@@ -94,9 +94,13 @@ Per-project calibration lives in **one** file at the repository root: `constitut
 
 ```yaml
 # constitution.yaml
-const-example-aspect:
+territories:                  # kernel-owned: path pattern → governing policy id (§3)
+  "docs/**": some-policy-id
+const-example-aspect:         # one namespace per module, named after the plugin
   some_dial: value
 ```
+
+`territories` is the one key the kernel owns; every module may read it. It is the sole exception to the namespace rule.
 
 Profiles (e.g. solo-agents, small-team, regulated) are nothing but prewritten `constitution.yaml` files shipped with the kit.
 
