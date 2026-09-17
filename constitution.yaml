@@ -8,10 +8,17 @@ root_policy: docs/policies/kit-root-policy.md
 kit-root-policy:                      # the policy for policies; its territory is where policies live
   territory: ["docs/policies/**"]
 
-kit-documents:                        # the kit's own governed documents
-  territory:
-    - "kernel/**"
-    - "INTENT.md"
-    - "docs/decisions/**"
-    - "docs/research/**"
-    - "modules/*/MODULE.md"
+kit-kernel:                           # one policy per document kind (decision one-policy-per-kind)
+  territory: ["kernel/**"]
+
+kit-intent:
+  territory: ["INTENT.md"]
+
+kit-decision-records:
+  territory: ["docs/decisions/**"]
+
+kit-research:
+  territory: ["docs/research/**"]
+
+kit-module-documents:
+  territory: ["modules/*/MODULE.md"]

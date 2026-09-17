@@ -20,15 +20,17 @@ Run from the consumer project root. Commit after each step. Install the accumula
    ```
    Only the kernel is copied. Module source never lives in a project.
 2. **Check the kernel's envelope.** `docs/constitution/CONVENTIONS.md` ships with its own frontmatter (`id: constitution-kernel`, `type: current-state`, `status: active`), so the kernel is the first document governed by its own rules. Nothing to add; confirm it survived the copy.
-3. **Create the root policy and the first policy.** Two Markdown documents under `docs/policies/`, each with the kernel envelope: a root policy, the policy for policies, whose territory is `docs/policies/**` including itself; and a constitution-documents policy for `docs/constitution/**` and `docs/decisions/**`. A document is a policy because it sits in the root's territory ([kernel §3](kernel/CONVENTIONS.md#k3)). Write both yourself; the kit's own pair under `docs/policies/` is an example to read, not to copy, since it cites kit-only rules. Bodies are prose, the kernel specifies no format. Policies are consumer content: never kernel, never shipped by a module.
+3. **Create the root policy and one policy per document kind.** Markdown documents under `docs/policies/`, each with the kernel envelope: a root policy, the policy for policies, whose territory is `docs/policies/**` including itself; a policy for the kernel copy, `docs/constitution/**`; a policy for decision records, `docs/decisions/**`. One policy governs exactly one kind, and a policy never lists its documents: the territory does ([kernel §3](kernel/CONVENTIONS.md#k3)). A document is a policy because it sits in the root's territory. Write them yourself; the kit's own policies under `docs/policies/` are examples to read, not to copy, since they cite kit-only rules. Bodies are prose, the kernel specifies no format. Policies are consumer content: never kernel, never shipped by a module.
 4. **Create the dials file** at the repository root. Each policy's territory sits under its id:
    ```yaml
    # constitution.yaml
    root_policy: docs/policies/root-policy.md
    root-policy:
      territory: ["docs/policies/**"]
-   constitution-documents:
-     territory: ["docs/constitution/**", "docs/decisions/**"]
+   constitution-kernel:
+     territory: ["docs/constitution/**"]
+   decision-records:
+     territory: ["docs/decisions/**"]
    ```
    Claim nothing else yet; territories grow only over documents that exist.
 5. **Write decision record #1** — "Adopt constitution kernel", `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). Validate against `docs/constitution/schemas/decision-record.schema.json`.
