@@ -13,7 +13,7 @@
 
 ## Phase B — Bootstrap the consumer project (~1 hour)
 
-5. In the project: copy `kernel/` to `docs/constitution/`; a root policy and a constitution-documents policy under `docs/policies/` (copy the kit's own pair from `docs/policies/`, rename the ids); `constitution.yaml` at the root with `root_policy` and the two policies' territories — `docs/policies/**` for the root, `docs/constitution/**` and `docs/decisions/**` for the other ([kernel §3](../kernel/CONVENTIONS.md#k3)); the four Phase A modules loaded from the kit path from the first commit, so no governed document is ever written unguarded.
+5. In the project: copy `kernel/` to `docs/constitution/`; a root policy and a constitution-documents policy under `docs/policies/` (written for the project; the kit's pair under `docs/policies/` is an example to read, not to copy — policies are consumer content, never kernel, never module); `constitution.yaml` at the root with `root_policy` and the two policies' territories — `docs/policies/**` for the root, `docs/constitution/**` and `docs/decisions/**` for the other ([kernel §3](../kernel/CONVENTIONS.md#k3)); the four Phase A modules loaded from the kit path from the first commit, so no governed document is ever written unguarded.
 6. Decision record #1 — "Adopt constitution kernel", `stakes: process`, `decider: <you>`, numbered by [`const-catalogs`](#const-catalogs) — merged with your one yes: the fast lane's first run.
 7. Commit each step with honest messages.
 

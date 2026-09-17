@@ -20,7 +20,7 @@ Run from the consumer project root. Commit after each step. Install the accumula
    ```
    Only the kernel is copied. Module source never lives in a project.
 2. **Check the kernel's envelope.** `docs/constitution/CONVENTIONS.md` ships with its own frontmatter (`id: constitution-kernel`, `type: current-state`, `status: active`), so the kernel is the first document governed by its own rules. Nothing to add; confirm it survived the copy.
-3. **Create the root policy and the first policy.** Two Markdown documents under `docs/policies/`, each with the kernel envelope: a root policy, the policy for policies, whose territory is `docs/policies/**` including itself; and a constitution-documents policy for `docs/constitution/**` and `docs/decisions/**`. A document is a policy because it sits in the root's territory ([kernel §3](kernel/CONVENTIONS.md#k3)). Copy the kit's own pair from `docs/policies/` and rename the ids; bodies are prose, the kernel specifies no format.
+3. **Create the root policy and the first policy.** Two Markdown documents under `docs/policies/`, each with the kernel envelope: a root policy, the policy for policies, whose territory is `docs/policies/**` including itself; and a constitution-documents policy for `docs/constitution/**` and `docs/decisions/**`. A document is a policy because it sits in the root's territory ([kernel §3](kernel/CONVENTIONS.md#k3)). Write both yourself; the kit's own pair under `docs/policies/` is an example to read, not to copy, since it cites kit-only rules. Bodies are prose, the kernel specifies no format. Policies are consumer content: never kernel, never shipped by a module.
 4. **Create the dials file** at the repository root. Each policy's territory sits under its id:
    ```yaml
    # constitution.yaml
