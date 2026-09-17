@@ -13,4 +13,5 @@ kit-documents:                        # the kit's own governed documents
     - "kernel/**"
     - "INTENT.md"
     - "docs/decisions/**"
+    - "docs/research/**"
     - "modules/*/MODULE.md"
