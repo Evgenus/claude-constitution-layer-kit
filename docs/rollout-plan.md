@@ -2,27 +2,32 @@
 
 *Working rule throughout: author against real files, extract when proven, install everywhere else. No module is designed against imagined content.*
 
-## Phase A — Bootstrap in the real project (~1 hour)
+## Phase A — Kit as consumer zero: the document-shaped accumulating modules (~1 week)
 
-1. Create the **kit workspace** — a plain folder beside your projects (e.g. `~/dev/constitution-kit/`) holding `kernel/`, `module-template/`, and later `modules/`. Copy `kernel/` from it into the project as `docs/constitution/`. Module source will live in the workspace only — never in any project repo; the workspace becomes the kit repository at Phase C.
-2. Add envelope frontmatter to `CONVENTIONS.md` itself (`id: constitution-kernel`, `type: current-state`, `status: active`) — the kernel becomes the first document governed by its own rules.
-3. Create `constitution.yaml` at repo root with one territory: `docs/constitution/**` → `constitution-kernel`. Claim nothing else yet.
-4. Write decision record #1 — "Adopt constitution kernel", `stakes: process`, `decider: <you>`. Merge with your one yes (the fast lane's first run).
-5. Commit each step with honest messages.
+*Accumulating failures compound with every unguarded artifact, so their modules exist before the first consumer document does (decision [accumulating-set-first](decisions/accumulating-set-first.md)). Four of the six have their objects in this repository already — envelopes, decision records, cross-references, a numbered kind — and are authored here against real files.*
 
-## Phase B — First module, in-project (~half a day)
+1. Rule on the territory-declaration shape in the kernel ([kernel §3](../kernel/CONVENTIONS.md#k3) names the dials file; [kernel §6](../kernel/CONVENTIONS.md#k6) shows no shared key) — a kernel change, recorded.
+2. Make the kit consumer zero: `constitution.yaml` at the kit root claiming the kit's own governed documents (decision records, module documents, the intent page) with the kernel as their policy; `kernel/CONVENTIONS.md` carries its own envelope.
+3. Author, in this order, each from the template and each proven twice — fixtures on a bare temp repo (A12.1–A12.2 by hand) and live in this repository with the plugin loaded via `--plugin-dir`: [`const-meta-types`](#const-meta-types), [`const-decision-records`](#const-decision-records), [`const-catalogs`](#const-catalogs), [`const-referencing`](#const-referencing). One `process` record and one human yes per module; manifest `0.0.x` while any marker remains.
+4. Review each against the template; fix the template where it failed you. Log every session annoyance as a commit note — the friction signal that earns [`const-questions`](#const-questions) and [`const-interaction`](#const-interaction).
 
-6. In the workspace: `modules/const-meta-types/` from the template, `MODULE.md` filled from its matrix rows (A1.4, A1.5; discharging A1.1/A1.3). Then a Claude Code session **in the project repo** with the plugin loaded from the workspace path (verify current local plugin-dir / local-marketplace mechanics in-session) — source in the workspace, iteration against real files.
-7. Review against the template; fix the template where it failed you.
-8. Prove red→green twice: fixtures in `modules/const-meta-types/tests/` against a bare temp repo (A12.1–A12.2 by hand), and live blocking in the project's claimed territory.
-9. Log any session-behavior annoyance as a commit note — the friction signal that earns [`const-interaction`](#const-interaction).
+## Phase B — Bootstrap the consumer project (~1 hour)
 
-## Phase C — Extract to the kit repo (~1 hour, only after B is green)
+5. In the project: copy `kernel/` to `docs/constitution/`; `constitution.yaml` at the root with one territory, `docs/constitution/**` → [constitution-kernel](../kernel/CONVENTIONS.md); the four Phase A modules loaded from the kit path from the first commit, so no governed document is ever written unguarded.
+6. Decision record #1 — "Adopt constitution kernel", `stakes: process`, `decider: <you>`, numbered by [`const-catalogs`](#const-catalogs) — merged with your one yes: the fast lane's first run.
+7. Commit each step with honest messages.
 
-10. Promote the workspace to the kit repository: git init, `profiles/`, `marketplace.json` (verify marketplace shape and private-repo team access in-session), CI wiring the A12 gates — bare-repo install, kernel+single-module run, project-reference grep.
-11. Switch the project from workspace-path load to marketplace install. From here every project is a consumer; all module development stays in the kit repo (`process` stakes, one human yes per change).
+## Phase C — The consumer's first week: the remaining accumulating modules
 
-## Phase D — Steady state
+8. [`const-locations`](#const-locations) before the second territory is claimed; [`const-task-close`](#const-task-close) before the first task closes against code. Authored in the kit, proven on fixtures and live in the project — against ten documents, not a thousand. Their dials (territory map, coverage map) grow with the project; the modules never wait for calibration.
+9. Self-limiting modules ([`const-questions`](#const-questions) through [`const-doc-budgets`](#const-doc-budgets)) wait for their friction signal. Until [`const-interaction`](#const-interaction) ships, the project's `CLAUDE.md` carries a copy of the kit's session-conduct block, labeled manual and version-drifting — the fallback that module's spec names.
+
+## Phase D — Publish (~1 hour, only after the six are green)
+
+10. `profiles/`, `.claude-plugin/marketplace.json` (verify marketplace shape and private-repo team access in-session), CI wiring the A12 gates — bare-repo install, kernel+single-module run, project-reference grep. Modules go to `0.1.0`.
+11. Switch the project from path load to marketplace install. From here every project is a consumer; all module development stays in the kit repo (`process` stakes, one human yes per change).
+
+## Phase E — Steady state
 
 Friction in a project → commit note → recurring notes on one theme → module authored/amended in the kit (`process` stakes, one human yes) → version bump → projects update. Never: a module for a failure no one has hit; a territory over documents that don't exist. Onboarding = clone, install, read one page of `CONVENTIONS.md`.
 
@@ -31,6 +36,8 @@ Friction in a project → commit note → recurring notes on one theme → modul
 # Module Specifications — in order of introduction
 
 **Traceability matrix** — every aspect decomposed into requirement parts, each with exactly one primary destination. Destination classes: **kernel §n** (shared semantics), **Mx** (module, with artifact kind), **binding** (per-project `constitution.yaml` — never module content), **template** (authoring law). An authoring session for module X takes exactly its rows as the requirement set; coverage check = every part homed, every module = exactly its rows.
+
+**"Enters when" has two meanings** (decision [accumulating-set-first](decisions/accumulating-set-first.md)). For an accumulating module it names the first moment an object for the module exists; the module is authored *before* that moment, and for a greenfield consumer the whole accumulating set is the day-one install set. For a self-limiting module it names the friction signal that earns authoring. Dials follow the consumer; modules never wait for calibration.
 
 **Module boundaries remain provisional until authoring** — settled by three tests: *one invariant? one enforcement moment? one lifecycle trigger?* Flagged rows (†) sit on boundaries under test: M1+M2 may merge (same hook event, territory, write-time moment); M7 may dissolve (A8.x → M6, A10.2 → M9).
 
@@ -119,7 +126,7 @@ Friction in a project → commit note → recurring notes on one theme → modul
 | <a id="a13-7"></a>A13.7 | Catalog declarations: a policy declares its kind's prefix and width in its own frontmatter, resolved through the kernel's territory map ([kernel §3](../kernel/CONVENTIONS.md#k3)); a project without policies lists catalogs in the module's dials; the same prefix declared in both places, or twice anywhere, is a defect | binding + M11 script | config validated at module load (**gate**); double-declaration defect (**gate**) |
 
 <a id="const-meta-types"></a>
-## M1 `const-meta-types` — accumulating; enters Phase B
+## M1 `const-meta-types` — accumulating; authored first, in Phase A
 
 **Failure pattern:** documents with undeclared or invalid authority; agents treating research notes, stale mirrors, or half-migrated remnants as binding truth (the retroactive-canonization problem).
 **Invariant:** every Markdown document in claimed territory carries valid envelope frontmatter — `id` (stable kebab, never reused), `type` ∈ {current-state, task-record, non-authoritative}, `title`, `status` ∈ {active, inactive} — per the kernel schema.
@@ -165,7 +172,7 @@ Friction in a project → commit note → recurring notes on one theme → modul
 **Acceptance:** red→green with a deliberately broken reference and a deliberately moved anchor.
 
 <a id="const-questions"></a>
-## M6 `const-questions` — self-limiting; enters on the friction signal (expect it in Phase B's authoring session)
+## M6 `const-questions` — self-limiting; enters on the friction signal (expect it in Phase A's authoring sessions)
 
 **Failure pattern:** both poles observed in the field — questions bundled, improvised, or asked without options and a recommendation; questions asked below the threshold (the agent should have decided and noted); open questions deferred into delivered documents; and the inverse ritualization: every small uncertainty escalated as a fixed-price ceremony.
 **Rules (advisory — skill prose, honestly labeled):**

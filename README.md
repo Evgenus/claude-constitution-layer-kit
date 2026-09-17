@@ -2,7 +2,7 @@
 
 A portable governance layer for Claude Code projects: a one-page semantic kernel plus modules shipped as plugins. This page is the install procedure only. For purpose read `INTENT.md`; for vocabulary read `kernel/CONVENTIONS.md`.
 
-**Status today.** The kit ships the kernel and the module template. `modules/`, `profiles/`, and `.claude-plugin/marketplace.json` arrive in rollout Phase C (`docs/rollout-plan.md`). Part 1 works now; Part 2 describes both the development path that works now and the marketplace path that applies once the catalog exists.
+**Status today.** The kit ships the kernel and the module template. `modules/`, `profiles/`, and `.claude-plugin/marketplace.json` arrive in rollout Phase D (`docs/rollout-plan.md`). Part 1 works now; Part 2 describes both the development path that works now and the marketplace path that applies once the catalog exists.
 
 ## Prerequisites
 
@@ -12,22 +12,14 @@ A portable governance layer for Claude Code projects: a one-page semantic kernel
 
 ## Part 1 — Install the constitution (kernel) into a project
 
-Run from the consumer project root. Commit after each step.
+Run from the consumer project root. Commit after each step. Install the accumulating modules (Part 2) in the same session, before any governed document beyond the kernel is written — their failures compound with every unguarded file (`docs/rollout-plan.md`, Phase B).
 
 1. **Copy the kernel into the project.**
    ```bash
    mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/
    ```
    Only the kernel is copied. Module source never lives in a project.
-2. **Give the kernel its own envelope.** Add frontmatter to `docs/constitution/CONVENTIONS.md` so the kernel becomes the first document governed by its own rules:
-   ```yaml
-   ---
-   id: constitution-kernel
-   type: current-state
-   title: Constitution Kernel — Shared Conventions
-   status: active
-   ---
-   ```
+2. **Check the kernel's envelope.** `docs/constitution/CONVENTIONS.md` ships with its own frontmatter (`id: constitution-kernel`, `type: current-state`, `status: active`), so the kernel is the first document governed by its own rules. Nothing to add; confirm it survived the copy.
 3. **Create the dials file** at the repository root, claiming exactly one territory:
    ```yaml
    # constitution.yaml

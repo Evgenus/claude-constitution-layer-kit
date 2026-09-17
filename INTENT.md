@@ -37,7 +37,7 @@ Three layers, strictly separated:
 
 ## What this repository is not
 
-- **Not a project.** No project names, paths, content, or calibration anywhere ([kernel §6](kernel/CONVENTIONS.md#k6); enforced by CI: bare-repo install, single-module run, project-reference grep).
+- **Not a project.** No project names, paths, content, or calibration anywhere ([kernel §6](kernel/CONVENTIONS.md#k6); enforced by CI: bare-repo install, single-module run, project-reference grep). The kit is nonetheless **consumer zero** of the document-shaped modules: its own records, intent page, and module documents sit under a claimed territory in a kit-root `constitution.yaml` — calibration of the kit, never of a project (decision [accumulating-set-first](docs/decisions/accumulating-set-first.md)).
 - **Not the knowledge layer.** Subject-shaped knowledge units, distillation, pointer generation, and staleness tracking are a separate layer built by consumers on top of these modules — out of scope here by design.
 - **Not SDLC workflows.** Story implementation, review flows, and delivery pipelines live above the constitution.
 - **Not complete by ambition.** The module set grows only when consumer friction recurs; a module for a failure nobody has hit is the failure.

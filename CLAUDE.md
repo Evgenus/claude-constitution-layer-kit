@@ -40,7 +40,7 @@ Read before any work:
 1. `cp -r module-template/ modules/const-<name>/` — kebab-case, `const-` prefix. The template's relative links gain one `../` level in the copy; `scripts/check-references.sh` turns red until they are fixed.
 2. Fill `MODULE.md` top-down from the module's matrix rows; every section filled or "none" with one line of reasoning.
 3. Implement artifacts: hooks/scripts for gates (paths via `${CLAUDE_PLUGIN_ROOT}`), skills for procedures and advisory rules, `INSTALL.md` with at most one CLAUDE.md pointer line. Only `.claude-plugin/plugin.json` lives inside `.claude-plugin/`; components sit at module root.
-4. Prove twice: fixtures against a bare temp repo (laws 2–3 by hand until CI exists), then live in a consumer project — session in the project, plugin loaded from this repo's path (verify current local plugin-dir / marketplace mechanics against official docs; do not trust memory for this surface).
+4. Prove twice: fixtures against a bare temp repo (laws 2–3 by hand until CI exists), then live — in this repository for document-shaped modules (the kit is consumer zero), and in a consumer project: session in the project, plugin loaded from this repo's path (verify current local plugin-dir / marketplace mechanics against official docs; do not trust memory for this surface).
 5. Version bump on every change once published; consumer projects update by version.
 
 ## Never in this repository

@@ -1,3 +1,10 @@
+---
+id: constitution-kernel
+type: current-state
+title: Constitution Kernel — Shared Conventions
+status: active
+---
+
 # Constitution Kernel — Shared Conventions
 
 *The semantic kernel. Everything here is vocabulary and shape — no machinery, no loading, no enforcement. Claude Code's own component model (plugins, skills, hooks, rules, config) is the mechanical kernel; this document defines only what the platform deliberately leaves undefined. A concept enters this document only when two or more modules need it; everything else belongs to the module that owns it. Modules reference these definitions and never redefine them.*
