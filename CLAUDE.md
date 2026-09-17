@@ -7,6 +7,7 @@ Read before any work:
 - `kernel/CONVENTIONS.md` — the semantic kernel (one page). Authoritative for all vocabulary: envelope, meta-types, governance binding, stakes, decision records, dials, naming.
 - `module-template/MODULE.md` — the fixed shape every module fills.
 - `docs/rollout-plan.md` — module specs and the traceability matrix (requirement rows per module).
+- `constitution.yaml` — the kit's own dials file; its `root_policy` key locates the policies that govern this repository's documents ([kernel §3](kernel/CONVENTIONS.md#k3)). Not a reading assignment: open a policy only when working in its territory.
 
 ## Laws of this repository
 
