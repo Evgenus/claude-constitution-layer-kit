@@ -1,0 +1,16 @@
+# Dials file of the constitution kit itself: the kit is consumer zero of the
+# document-shaped modules (decision accumulating-set-first). Calibration of
+# this repository, never of any project. Patterns: gitignore-style globs.
+# Shape per kernel §3 and §6 (decision policies-by-location).
+
+root_policy: docs/policies/kit-root-policy.md
+
+kit-root-policy:                      # the policy for policies; its territory is where policies live
+  territory: ["docs/policies/**"]
+
+kit-documents:                        # the kit's own governed documents
+  territory:
+    - "kernel/**"
+    - "INTENT.md"
+    - "docs/decisions/**"
+    - "modules/*/MODULE.md"
