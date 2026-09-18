@@ -13,7 +13,7 @@ kit-kernel:                           # one policy per document kind (decision o
   territory: ["kernel/**"]
 
 kit-intent-page:
-  territory: ["INTENT.md"]
+  territory: ["/INTENT.md"]              # leading slash: a slash-less gitignore pattern matches at any depth
 
 kit-decision-records:
   territory: ["docs/decisions/**"]

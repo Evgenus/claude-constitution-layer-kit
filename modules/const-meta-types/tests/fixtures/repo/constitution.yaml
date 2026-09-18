@@ -1,0 +1,10 @@
+# Fixture dials file: a minimal consumer. Three policies, two of them overlapping on purpose
+# (docs/notes/shared/** lies in both notes-policy and shared-policy) so the multi-policy
+# defect and its declaration escape can be exercised.
+root_policy: docs/policies/root-policy.md
+root-policy:
+  territory: ["docs/policies/**"]
+notes-policy:
+  territory: ["docs/notes/**"]
+shared-policy:
+  territory: ["docs/notes/shared/**"]

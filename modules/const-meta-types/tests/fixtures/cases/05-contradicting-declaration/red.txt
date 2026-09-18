@@ -1,0 +1,7 @@
+---
+id: note-a
+type: non-authoritative
+title: Note A
+status: active
+policy: root-policy
+---

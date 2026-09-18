@@ -1,0 +1,8 @@
+---
+id: note-a
+type: non-authoritative
+title: Note A
+status: active
+---
+
+# Note A
