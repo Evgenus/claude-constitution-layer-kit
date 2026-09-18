@@ -22,7 +22,7 @@ KIT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KIT / "modules" / "const-meta-types" / "scripts"))  # kit-side test code only
 
 try:
-    import jsonschema  # type: ignore[import-untyped]  # no stubs installed; a kit development dependency
+    import jsonschema
     import yaml
 except ImportError as exc:
     print(f"BROKEN: {exc.name} is not installed — fix: python3 -m pip install jsonschema pyyaml")
