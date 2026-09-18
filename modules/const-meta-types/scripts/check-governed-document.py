@@ -38,7 +38,8 @@ try:
 except ImportError:  # the shell wrapper reports this first; kept for direct invocation
     sys.stderr.write(
         "BROKEN: const-meta-types needs PyYAML — run: python3 -m pip install pyyaml"
-        " — until then Markdown writes pass unchecked\n")
+        " — until then Markdown writes pass unchecked\n"
+        "BROKEN: the check could not run — 0 documents examined\n")
     sys.exit(1)
 
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -160,30 +161,35 @@ def read_frontmatter(text):
 
 def field_errors(data):
     errs = []
+    def scalar(key, v):
+        if not isinstance(v, str):
+            errs.append("%s must be a quoted string (YAML read it as %s)" % (key, type(v).__name__))
+            return False
+        return True
     v = data.get("id")
     if v is None:
         errs.append("id missing")
-    elif not isinstance(v, str) or not ID_RE.match(v):
+    elif scalar("id", v) and not ID_RE.match(v):
         errs.append("id %r is not kebab-case" % (v,))
     v = data.get("type")
     if v is None:
         errs.append("type missing")
-    elif v not in TYPES:
+    elif scalar("type", v) and v not in TYPES:
         errs.append("type %r not one of %s" % (v, " | ".join(TYPES)))
     v = data.get("title")
     if v is None:
         errs.append("title missing")
-    elif not isinstance(v, str) or not v.strip():
+    elif scalar("title", v) and not v.strip():
         errs.append("title empty")
-    elif len(v) > 200:
+    elif isinstance(v, str) and len(v) > 200:
         errs.append("title longer than 200 characters")
     v = data.get("status")
     if v is None:
         errs.append("status missing")
-    elif v not in STATUSES:
+    elif scalar("status", v) and v not in STATUSES:
         errs.append("status %r not one of %s" % (v, " | ".join(STATUSES)))
     v = data.get(DECLARATION)
-    if v is not None and (not isinstance(v, str) or not ID_RE.match(v)):
+    if v is not None and scalar(DECLARATION, v) and not ID_RE.match(v):
         errs.append("%s %r is not a kebab-case policy id" % (DECLARATION, v))
     return errs
 
@@ -228,33 +234,33 @@ def validate_dials(d):
     """The keys this module reads, against the kernel schema. Broken on the first violation."""
     def bad(detail, fix):
         raise Broken("%s: %s" % (DIALS_FILE, detail), fix)
-    if "root_policy" in d and (not isinstance(d["root_policy"], str) or not d["root_policy"].strip()):
-        bad("root_policy must be a non-empty string", "root_policy: <repository-relative path of the root policy>")
+    if "root_policy" in d:
+        rp = d["root_policy"]
+        if (not isinstance(rp, str) or not rp.strip() or os.path.isabs(rp)
+                or ".." in os.path.normpath(rp).split("/")):
+            bad("root_policy must be a repository-relative path", "root_policy: docs/policies/<root>.md")
+        d["root_policy"] = os.path.normpath(rp).replace(os.sep, "/")
     dialect = d.get("territory_dialect", DIALECT)
     if not isinstance(dialect, str) or not dialect.strip():
         bad("territory_dialect must be a non-empty string", "remove the key (default gitignore) or name a dialect")
     if dialect != DIALECT:
         bad("territory_dialect %r is not supported by %s (supports: %s)" % (dialect, NAMESPACE, DIALECT),
             "set territory_dialect: %s, or remove the key" % DIALECT)
+    # policy namespaces: the territory key. Other modules' namespaces (const-*) are not read.
     for key, ns in d.items():
-        if key in KERNEL_KEYS:
+        if key in KERNEL_KEYS or (key.startswith("const-") and key != NAMESPACE):
             continue
         if not isinstance(ns, dict):
-            bad("namespace %r must be a mapping" % key, "write it as a mapping: %s: {territory: [...]}, or the module's dials" % key)
+            bad("namespace %r must be a mapping" % key, "write it as %s: {territory: [...]}" % key)
         terr = ns.get("territory")
         if terr is not None and (not isinstance(terr, list)
                                  or not all(isinstance(p, str) and p.strip() for p in terr)):
             bad("%s.territory must be a list of non-empty strings" % key,
                 "write it as %s: {territory: [\"docs/%s/**\"]}" % (key, key))
-        cat = ns.get("catalog")
-        if cat is not None:
-            if (not isinstance(cat, dict) or not isinstance(cat.get("prefix"), str)
-                    or not re.match(r"^[a-z0-9]+$", cat["prefix"])
-                    or ("width" in cat and (not isinstance(cat["width"], int) or cat["width"] < 1))
-                    or set(cat) - {"prefix", "width"}):
-                bad("%s.catalog must be {prefix: <a-z0-9>, width: <integer >= 1>}" % key,
-                    "write it as %s: {catalog: {prefix: dec, width: 4}}" % key)
-    sev = (d.get(NAMESPACE) or {}).get("severity", "block")
+    own = d.get(NAMESPACE)
+    if own is not None and not isinstance(own, dict):
+        bad("namespace %r must be a mapping" % NAMESPACE, "write it as %s: {severity: block}" % NAMESPACE)
+    sev = (own or {}).get("severity", "block")
     if sev not in SEVERITIES:
         bad("%s.severity must be block or warn" % NAMESPACE, "write %s: {severity: block} or {severity: warn}" % NAMESPACE)
     return sev
@@ -292,7 +298,7 @@ class Index:
         if rp not in in_root:
             raise Broken("root policy %r lies outside its own territory %s" % (rp, root_terr),
                          "every chain of governance ends at the root; widen %s.territory to include it" % root_id)
-        self.root_id, self.root_territory = root_id, root_terr
+        self.root_id, self.root_territory, self.in_root = root_id, root_terr, in_root
         # policies: every Markdown document in the root's territory that carries an id
         self.policies = {}          # id -> {"path", "territory", "claims": {path: pattern}}
         for p in sorted(in_root):
@@ -360,8 +366,10 @@ def examine(index, rel, text):
         findings.append((
             "%s: declares policy %r but its path is claimed by %r (%s)" % (rel, declared, matches[0][0], matches[0][1]),
             "the path mapping is primary; a declaration may resolve an absent or ambiguous mapping, never override it",
-            "remove '%s: %s' from the envelope, or move the file into the territory of %r: %s"
-            % (DECLARATION, declared, declared, index.policies[declared]["territory"] if declared in index.policies else "(no such policy)")))
+            ("remove '%s: %s' from the envelope, or move the file into the territory of %r: %s"
+             % (DECLARATION, declared, declared, index.policies[declared]["territory"]))
+            if declared in index.policies else
+            ("remove '%s: %s' from the envelope — no policy with that id exists" % (DECLARATION, declared))))
     elif len(matches) > 1:
         ids = [m[0] for m in matches]
         if declared in ids:
@@ -405,6 +413,11 @@ def examine(index, rel, text):
             "repair the YAML between the '---' lines; keep the four fields id, type, title, status"))
     else:
         errs = field_errors(data)
+        if not errs and rel in index.in_root and data["type"] != "current-state":
+            findings.append((
+                "%s: lies in the root policy's territory but has type %r" % (rel, data["type"]),
+                "a policy is a current-state document, and only policies lie where policies live",
+                "set type: current-state, or move the file out of %s" % index.root_territory))
         if errs:
             findings.append((
                 "%s: envelope field(s) invalid: %s" % (rel, "; ".join(errs)),
@@ -472,6 +485,11 @@ def hook_mode():
         if current is None or not isinstance(old, str) or not isinstance(new, str) or old not in current:
             return skip("the Edit cannot be applied to %s; the tool will report it" % rel)
         text = current.replace(old, new) if ti.get("replace_all") else current.replace(old, new, 1)
+    if rel == dials["root_policy"]:
+        # the root itself: a damaged envelope is a finding on this write, not a configuration failure
+        findings = root_findings(dials, rel, text)
+        if findings:
+            return report(findings, rel, severity)
     matcher = Matcher()
     try:
         index = Index(root, dials, matcher, pending=(rel, text))
@@ -480,9 +498,46 @@ def hook_mode():
         matcher.close()
     if policy is None and not findings:
         return skip("%s is outside claimed territory" % rel)
+    for n in index.notes:
+        print("note: " + n)
     if not findings:
         print("GREEN: %s: 1 document examined, governed by %s" % (NAMESPACE, policy))
         return EXIT_GREEN
+    return report(findings, rel, severity)
+
+
+def root_findings(dials, rel, text):
+    """The root policy about to be written: envelope, type, and a namespace under its id."""
+    state, data, detail = read_frontmatter(text)
+    if state != "ok":
+        return [(
+            "%s: the root policy has no readable envelope (%s)" % (rel, state if state != "invalid" else detail),
+            "the root policy's id names the namespace where policies live; without it nothing is governed",
+            "keep the YAML block between two '---' lines with id, type: current-state, title, status: active")]
+    errs = field_errors(data)
+    if errs:
+        return [(
+            "%s: envelope field(s) invalid: %s" % (rel, "; ".join(errs)),
+            "the envelope is the one place a document's authority is declared, and it is read by machines",
+            "set each named field: id = stable kebab-case (never changed, never reused);"
+            " type = current-state (reconciled truth) | task-record (change delta) | non-authoritative (explanation);"
+            " title = one line; status = active | inactive")]
+    findings = []
+    if data["type"] != "current-state":
+        findings.append((
+            "%s: the root policy has type %r" % (rel, data["type"]),
+            "a policy is a current-state document, and the root is the policy for policies",
+            "set type: current-state"))
+    ns = dials.get(data["id"])
+    if not (isinstance(ns, dict) and ns.get("territory")):
+        findings.append((
+            "%s: the root policy's id %r has no territory under that id in %s" % (rel, data["id"], DIALS_FILE),
+            "the root's namespace is where policies live; changing the id orphans every policy",
+            "keep the id that has the namespace, or rename the namespace in %s in the same change" % DIALS_FILE))
+    return findings
+
+
+def report(findings, rel, severity):
     body = fmt(findings) + "RED: %d finding(s) — 1 document examined (%s)\n" % (len(findings), rel)
     if severity == "warn":
         note = ("%s: severity is warn: the write proceeds, but the finding stands"
@@ -524,7 +579,10 @@ def scan_mode(start):
                          " — a claim without a policy behind it governs nothing")
         findings, examined = [], 0
         for rel in index.md:
-            f, policy = examine(index, rel, index.text(rel) or "")
+            text = index.text(rel)
+            if text is None:
+                raise Broken("%s is listed by git but cannot be read" % rel, "check the file's permissions and encoding")
+            f, policy = examine(index, rel, text)
             if policy is None and not f:
                 continue
             examined += 1

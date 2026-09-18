@@ -12,8 +12,9 @@ paths: "**/*.md"
 
 # Choose the meta-type
 
-Every governed document declares exactly one meta-type in its envelope. The kernel
-defines the three and their authority; this skill only helps you pick the right one.
+Every governed document declares exactly one meta-type in its envelope. The three types
+and their authority are defined by the constitution's conventions page that the project
+adopted; this skill only helps you pick the right one.
 The choice is judgment, so it is defined by the contrastive pairs below, not by a rule.
 The gate (this plugin's hook) checks only that `type` is one of the three values and
 that the document resolves to one policy; it cannot tell a wrong choice from a right
@@ -66,4 +67,6 @@ will make it, or merely explain something?**
   typically mid-move, while an active task-record covers the move — never to
   override where the file sits.
 - If you edited a governed document through the shell (heredoc, `sed`), the hook did
-  not see it: run the plugin's scan mode over the repository before you finish.
+  not see it: run the scan over the repository before you finish —
+  `python3 <plugin root>/scripts/check-governed-document.py --scan` (exit 2 lists the
+  findings with the same messages the hook gives).
