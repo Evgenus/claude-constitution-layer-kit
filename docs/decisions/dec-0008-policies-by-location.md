@@ -1,5 +1,5 @@
 ---
-id: policies-by-location
+id: dec-0008-policies-by-location
 type: task-record
 title: A policy is a document in the root policy's territory; territories are declared in the dials file under the policy's id
 status: inactive
@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[territory-declaration](territory-declaration.md) ruled, earlier on 2026-09-17, that the dials file holds a kernel-owned `territories` map from path pattern to policy id. The decider then worked through what a policy *is*: a document cannot proclaim itself a policy from an arbitrary location, so policy-ness must be external judgment, and the judgment must have a root that governs itself. The map made the dials file that judge and left the root implicit. This record reverses ruling 1 of [territory-declaration](territory-declaration.md); a record is never edited in place ([kernel §5](../../kernel/CONVENTIONS.md#k5)). Its ruling 3, the policy namespace default, is settled here in passing.
+[dec-0007-territory-declaration](dec-0007-territory-declaration.md) ruled, earlier on 2026-09-17, that the dials file holds a kernel-owned `territories` map from path pattern to policy id. The decider then worked through what a policy *is*: a document cannot proclaim itself a policy from an arbitrary location, so policy-ness must be external judgment, and the judgment must have a root that governs itself. The map made the dials file that judge and left the root implicit. This record reverses ruling 1 of [dec-0007-territory-declaration](dec-0007-territory-declaration.md); a record is never edited in place ([kernel §5](../../kernel/CONVENTIONS.md#k5)). Its ruling 3, the policy namespace default, is settled here in passing.
 
 ## Options
 
@@ -50,5 +50,5 @@ D, chosen by the decider in chat on 2026-09-17.
 
 ## Applied in the same commit
 
-- `docs/rollout-plan.md`: "territory map" wording in rows [A2.6](../rollout-plan.md#a2-6) and [A13.7](../rollout-plan.md#a13-7) and in the [`const-locations`](../rollout-plan.md#const-locations) and [`const-catalogs`](../rollout-plan.md#const-catalogs) specs replaced by "territory declarations"; Phase A steps 1 and 2 updated.
+- `docs/rollout-plan.md`: "territory map" wording in rows [A2.6](../requirements.md#a2-6) and [A13.7](../requirements.md#a13-7) and in the [`const-locations`](../requirements.md#const-locations) and [`const-catalogs`](../requirements.md#const-catalogs) specs replaced by "territory declarations"; Phase A steps 1 and 2 updated.
 - Following commits: [kernel §3](../../kernel/CONVENTIONS.md#k3) and [kernel §6](../../kernel/CONVENTIONS.md#k6); the kit's two policies and its dials file; Phase B and the README.

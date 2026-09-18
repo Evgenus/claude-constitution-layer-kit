@@ -27,7 +27,7 @@ Additional fields are allowed and expected — upper layers (knowledge, binding)
 
 **Supersession rule:** the working tree holds only current truth; history is git's. Superseding a state description (a `current-state` document) means *editing the document in place* — id and path stay stable so every inbound reference keeps resolving to the current version; the previous version lives immutably in git history; the commit message names the change a supersession. No field or status duplicates this — git is the append-only layer. Records are not superseded in place: reversing a ruling is a new record (§5).
 
-**Lifecycle rule:** `status` encodes lifecycle, one meaning for every meta-type: `active` = in force (a current-state document that binds; a task-record whose delta is being applied); `inactive` = historical — no authority, kept only as evidence while something references it. A document that nothing should reference is **deleted** — git history is the archive, reachable on explicit demand yet impossible to load or reference from the working tree. Authority is meta-type × status (§2); existence in the tree carries no authority by itself.
+**Lifecycle rule:** `status` encodes lifecycle, one meaning for every meta-type: `active` = in force or current (a current-state document that binds; a task-record whose delta is being applied; a non-authoritative document that is the current account of its subject — the version a reader consults); `inactive` = historical — no authority, kept only as evidence while something references it (for a non-authoritative document: superseded by a later account). A document that nothing should reference is **deleted** — git history is the archive, reachable on explicit demand yet impossible to load or reference from the working tree. Authority is meta-type × status (§2); existence in the tree carries no authority by itself.
 
 <a id="k2"></a>
 ## 2. Meta-types
@@ -54,7 +54,7 @@ Exactly one per document:
 
 Policies claim **territories**: path patterns declared in the project's dials file (§6), each under the claiming policy's id. Within claimed territory, **every document resolves to exactly one governing policy**:
 
-1. **By path** (primary): the canonical-location mapping binds the document to its policy. A policy is itself a governed document (`type: current-state`). **A document is a policy because it lies in the root policy's territory** — nothing declares itself a policy and nothing enumerates them. A policy governs exactly one **document kind** — documents sharing one shape and one rule set; documents of different kinds never share a policy, and a policy never enumerates the documents it governs: its territory is the enumeration. The dials file's one kernel-owned key, `root_policy`, holds the root policy's path; the root's own namespace declares the territory where policies live, which contains the root itself, so every chain of governance ends there. A policy's machine-readable calibration, its territory included, lives in its dials namespace, which is its id; its body is prose for humans and agents — the kernel specifies no internal policy format. A namespace whose id has no document in the root's territory is not a policy's, whatever keys it carries; a document in the root's territory with no namespace is a policy that claims nothing.
+1. **By path** (primary): the canonical-location mapping binds the document to its policy. A policy is itself a governed document (`type: current-state`). **A document is a policy because it lies in the root policy's territory** — nothing declares itself a policy and nothing enumerates them. A policy governs exactly one **document kind** — documents sharing one shape and one rule set; documents of different kinds never share a policy, and a policy never enumerates the documents it governs: its territory is the enumeration. The dials file's kernel-owned key `root_policy` holds the root policy's path; the root's own namespace declares the territory where policies live, which contains the root itself, so every chain of governance ends there. A policy's machine-readable calibration, its territory included, lives in its dials namespace, which is its id; its body is prose for humans and agents — the kernel specifies no internal policy format. A namespace whose id has no document in the root's territory is not a policy's, whatever keys it carries; a document in the root's territory with no namespace is a policy that claims nothing.
 2. **By frontmatter declaration** (secondary): permitted only where the path mapping is absent or ambiguous — typically mid-transition, while an active task-record covers the move.
 
 A document in claimed territory resolving to no policy, to more than one, or carrying a declaration that contradicts its path mapping, is a **defect**. Outside claimed territory the constitution is silent. Which policy governs a document is exactly the semantics neither git nor the platform expresses — hence kernel; the catalog itself and territory boundaries are module and project concerns.
@@ -67,7 +67,7 @@ Every governed decision is one of:
 | stakes | meaning | ceremony |
 |---|---|---|
 | `routine` | reversible, cheap to revert | act; note in the commit message; no record |
-| `process` | harness, policy, or procedure ruling | decision record + one human yes in the PR (the fast lane — a process fix never queues behind the full gate) |
+| `process` | harness, policy, or procedure ruling | decision record + one human yes on the change — PR approval where a PR flow exists, otherwise named in the commit message that lands it (the fast lane — a process fix never queues behind the full gate) |
 | `product` | user-visible behavior | decision record |
 | `architecture` | structural, hard to reverse | decision record + review |
 
@@ -83,18 +83,19 @@ stakes: process | product | architecture
 decider: <person or role>   # kept because git cannot derive it: the committer is often not the decider
 ```
 
-The decision moment and ordering are git's: a decision is operative when committed, and commit sequence is the precedence clock — no date field duplicates it. A record is `active` while its ruling is being applied and `inactive` once applied — the ruling then lives in the current-state documents it changed, and the record remains as evidence of the options and reasoning (§1 lifecycle rule). A record whose ruling is applied in the same commit that creates it is born `inactive`. Reversing a ruling is a new record, never an in-place edit of the old one. A reference-form migration — rewriting how a record cites other documents, its ruling untouched — is not a ruling change: it is applied in place and the commit names it a migration.
+The decision moment and ordering are git's: a decision is operative when committed, and commit sequence is the precedence clock — no date field duplicates it. A record is `active` while its ruling is being applied and `inactive` once applied — the ruling then lives in the current-state documents it changed, and the record remains as evidence of the options and reasoning (§1 lifecycle rule). A current-state document states every rule it binds in its own text; its references to records are provenance — where and why a rule was decided — never authority. A record whose ruling is applied in the same commit that creates it is born `inactive`. Reversing a ruling is a new record, never an in-place edit of the old one. A reference-form migration — rewriting how a record cites other documents, its ruling untouched — is not a ruling change: it is applied in place and the commit names it a migration.
 
 Body shape, when a real choice existed: the options considered, pros/cons per option, one recommendation with reasoning, the choice made. When no real choice existed, a record states the ruling and reasoning — no manufactured options. Schema: `schemas/decision-record.schema.json`.
 
 <a id="k6"></a>
 ## 6. Dials file
 
-Per-project calibration lives in **one** file at the repository root: `constitution.yaml`. Each module reads its own namespace (its plugin name) and ships defaults that apply when the file or namespace is absent — install-and-run must work with zero configuration. To resolve territory a module also reads the `root_policy` key and the policy namespaces (§3); it reads no other module's namespace.
+Per-project calibration lives in **one** file at the repository root: `constitution.yaml`. Each module reads its own namespace (its plugin name) and ships defaults that apply when the file or namespace is absent — install-and-run must work with zero configuration. To resolve territory a module also reads the two kernel-owned keys, `root_policy` and `territory_dialect`, and the policy namespaces (§3); it reads no other module's namespace.
 
 ```yaml
 # constitution.yaml
-root_policy: docs/policies/root-policy.md   # the one kernel-owned key: where the root policy is
+root_policy: docs/policies/root-policy.md   # kernel-owned: where the root policy is
+# territory_dialect: gitignore              # kernel-owned, optional: the pattern dialect of every territory; default gitignore
 root-policy:                                # a policy's namespace is its id
   territory: ["docs/policies/**"]           # where policies live; the root lies inside
 some-policy:                                # a policy found in the root's territory
@@ -103,6 +104,10 @@ some-policy:                                # a policy found in the root's terri
 const-example-aspect:                       # a module's namespace, named after the plugin
   some_dial: value
 ```
+
+**Territory patterns** follow the dialect named by the kernel-owned key `territory_dialect`. The default, `gitignore`, is `.gitignore` syntax evaluated against paths relative to the repository root: `**` crosses directories, `*` does not. A reader that does not support the declared dialect reports a configuration failure, never a silent pass. Two territories matching one path is the multi-policy defect of §3, whatever the dialect.
+
+Schema: `schemas/constitution.schema.json` — the kernel-owned keys and the keys of a policy's namespace; module namespaces are open. Every reader validates the keys it reads against it at each read; a malformed file is a configuration failure, never a silent pass.
 
 Profiles (e.g. solo-agents, small-team, regulated) are nothing but prewritten `constitution.yaml` files shipped with the kit.
 

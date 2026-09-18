@@ -21,7 +21,7 @@ Three layers, strictly separated:
 
 1. **Mechanical kernel — Claude Code itself.** Plugins, skills, hooks, agents, rules, settings are the component model. This repo never mirrors or wraps them; wanting infrastructure the platform omitted is a design smell.
 2. **Semantic kernel — `kernel/CONVENTIONS.md` + schemas.** One page: document envelope, meta-types with lifecycle-aware precedence, governance binding by territory, stakes triage, decision-record shape, dials, naming. Only vocabulary two or more modules need; nothing derivable from git (git owns history, ordering, authorship, supersession trails, archives).
-3. **Modules — `modules/const-*`.** Invariant-shaped installation units, each a plugin: one invariant, one enforcement moment, one lifecycle trigger; depending on the kernel and nothing else; project-blind, calibrated per project through a single `constitution.yaml`. Requirements are the traceability matrix in `docs/rollout-plan.md` — a module implements exactly its rows.
+3. **Modules — `modules/const-*`.** Invariant-shaped installation units, each a plugin: one invariant, one enforcement moment, one lifecycle trigger; depending on the kernel and nothing else; project-blind, calibrated per project through a single `constitution.yaml`. Requirements are the traceability matrix in `docs/requirements.md` — a module implements exactly its rows.
 
 **Consumer projects** hold the binding: territory maps, boundary examples, thresholds, deciders, and all governed content. The relationship is package-shaped: modules are versioned here, installed there; friction flows back as commit notes; recurring themes become kit changes.
 
@@ -37,7 +37,7 @@ Three layers, strictly separated:
 
 ## What this repository is not
 
-- **Not a project.** No project names, paths, content, or calibration anywhere ([kernel §6](kernel/CONVENTIONS.md#k6); enforced by CI: bare-repo install, single-module run, project-reference grep). The kit is nonetheless **consumer zero** of the document-shaped modules: its own records, intent page, and module documents sit under a claimed territory in a kit-root `constitution.yaml` — calibration of the kit, never of a project (decision [accumulating-set-first](docs/decisions/accumulating-set-first.md)).
+- **Not a project.** No project names, paths, content, or calibration anywhere ([kernel §6](kernel/CONVENTIONS.md#k6); enforced by CI: bare-repo install, single-module run, project-reference grep). The kit is nonetheless **consumer zero** of the document-shaped modules: its own records, intent page, and module documents sit under a claimed territory in a kit-root `constitution.yaml` — calibration of the kit, never of a project (decision [dec-0006-accumulating-set-first](docs/decisions/dec-0006-accumulating-set-first.md)).
 - **Not the knowledge layer.** Subject-shaped knowledge units, distillation, pointer generation, and staleness tracking are a separate layer built by consumers on top of these modules — out of scope here by design.
 - **Not SDLC workflows.** Story implementation, review flows, and delivery pipelines live above the constitution.
 - **Not complete by ambition.** The module set grows only when consumer friction recurs; a module for a failure nobody has hit is the failure.

@@ -14,4 +14,4 @@ Governs the document kind *kernel*: the conventions page that is authoritative f
 1. **Type.** `current-state`, superseded in place ([kernel §1](../../kernel/CONVENTIONS.md#k1)).
 2. **Authority.** The kernel is never restated: every other document references its definitions by link ([law 1 of CLAUDE.md](../../CLAUDE.md#law-1)).
 3. **Change.** Every kernel change is a recorded decision ([law 9 of CLAUDE.md](../../CLAUDE.md#law-9)), whatever its size.
-4. **Anchors.** Every section carries an explicit anchor of the form `k<n>` (decision [reference-forms](../decisions/reference-forms.md)).
+4. **Anchors.** Every section carries an explicit anchor of the form `k<n>` (decision [dec-0005-reference-forms](../decisions/dec-0005-reference-forms.md)).

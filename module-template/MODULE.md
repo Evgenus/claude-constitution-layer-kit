@@ -1,13 +1,13 @@
 ---
 id: module-const-<aspect>
 type: current-state
-title: M<n> — const-<aspect>
+title: const-<aspect>
 status: active
 ---
 
 # MODULE.md — `const-<aspect>`
 
-*Template. Every constitution module is a Claude Code plugin with this document at its root, and this document is the module's **description** from the first draft on — there is no separate specification kind (decision [module-spec-kind](../docs/decisions/module-spec-kind.md)). A draft module carries manifest version `0.0.x`; it is published at `0.1.0` or higher, once every gate has its fixture and no open marker is left. Open slots in a draft are written inline as `[decide: <slot> — default <X> — stakes <level> — decider <who>]`; an authoring session derives its questions from these markers in document order, and a published module carries none.*
+*Template. Every constitution module is a Claude Code plugin with this document at its root, and this document is the module's **description** from the first draft on — there is no separate specification kind (decision [dec-0003-module-spec-kind](../docs/decisions/dec-0003-module-spec-kind.md)). A draft module carries manifest version `0.0.x`; it is published at `0.1.0` or higher, once every gate has its fixture and no open marker is left. Open slots in a draft are written inline as `[decide: <slot> — default <X> — stakes <level> — decider <who>]`; an authoring session derives its questions from these markers in document order, and a published module carries none.*
 
 *Fill every section; a section that does not apply says "none" with one line of reasoning. The module depends on the kernel (`CONVENTIONS.md` + schemas) and on nothing else — if it seems to need a sibling module, the shared concept belongs in the kernel; raise that instead of coupling. **No file in the module references a project directly** (paths, names, values): project specifics arrive only through the dials namespace, and the module must install and operate on an empty repository using its defaults ([kernel §6](../kernel/CONVENTIONS.md#k6), portability rule). References to sibling modules are permitted **only as optional enhancements** ("when module `const-x` is installed, ..."); every rule must be executable with the kernel alone — the test: **kernel + this module on an empty repository is a functioning installation.** Every list and table row carries a handle so one item can be cited without quoting it.*
 
@@ -33,7 +33,7 @@ The requirement set, and nothing else ([law 4 of CLAUDE.md](../CLAUDE.md#law-4))
 <a id="t4"></a>
 ## 4. Decisions
 
-Rulings that bind this module, each a record id in `docs/decisions/` or, below recorded stakes, the commit that noted it. Nothing is restated; the record holds the options and reasoning.
+Provenance of this module's rules: the records whose rulings it applies, each a record id in `docs/decisions/` or, below recorded stakes, the commit that noted it. The rule itself is stated in the section where it acts ([§5](#t5)–[§9](#t9)); a record is cited for where and why it was decided, never in place of the rule ([kernel §5](../kernel/CONVENTIONS.md#k5)). The record holds the options and reasoning, which are not restated here.
 
 1. `<record-id>` — one line naming what it fixes here.
 
@@ -53,23 +53,23 @@ What this plugin ships and what each part carries — only components the module
 | hook | `hooks/hooks.json` + `scripts/` | deterministic enforcement of the invariant; or, as a `SessionStart` hook printing rules to stdout, the always-on carrier for advisory content — declared `advisory`, never `gate` |
 | command | `commands/<name>.md` | only for acts a human deliberately initiates — name the scenario where a human actually types it, or delete this row |
 | agent | `agents/<name>.md` | only for a genuine delegation boundary |
-| script | `scripts/<name>` | checks and generators; all paths via `${CLAUDE_PLUGIN_ROOT}` |
+| script | `scripts/<name>` | checks and generators; all paths via `${CLAUDE_PLUGIN_ROOT}`; Python 3 with PyYAML when the script reads YAML, POSIX shell otherwise; a missing runtime or library is a configuration failure ([§9](#t9)) |
 | install note | `INSTALL.md` | at most one pointer line for the project's own `CLAUDE.md`, for discoverability only. Always-on rules ship via a `SessionStart` hook (see hook row), never via a pointer or a plugin-root `CLAUDE.md` (not loaded); a copy-into-CLAUDE.md fallback may be offered, labeled as manual and version-drifting |
 
 Two fixed sub-slots follow the table:
 
 - **Always-on content:** the exact lines the `SessionStart` hook prints and their size in characters; or "none". This is the module's whole always-on budget.
 - **Platform facts relied on:** each fact, the date it was verified against the official documentation, and what breaks if it changes. Nothing in this slot comes from memory.
-- **Research:** a link to this module's own dated comparison in `docs/research/` — written at authoring, in kit vocabulary, from a survey of the official documentation, community harnesses, and applicable tools for exactly this module's rows — and, per row, whether the matrix's recommended enforcement was confirmed or overturned by it (decision [module-research-per-module](../docs/decisions/module-research-per-module.md)). Nothing from earlier design work enters unverified.
+- **Research:** a link to this module's own dated comparison in `docs/research/` — written at authoring, in kit vocabulary, from a survey of the official documentation, community harnesses, and applicable tools for exactly this module's rows — and, per row, whether the matrix's recommended enforcement was confirmed or overturned by it (decision [dec-0010-module-research-per-module](../docs/decisions/dec-0010-module-research-per-module.md)). Nothing from earlier design work enters unverified.
 
 Every check's **error message** is written here as part of the design — it is the highest-bandwidth channel for teaching an agent mid-session: state what failed, why the rule exists (one clause), and the exact fix. Reviewed like code; copied verbatim into the script.
 
-**Installed components reference nothing in the kit.** A skill, hook, script, command, agent, error text, or install note never cites the rollout plan, a matrix row, a decision record, a research comparison, or this document: consumers install the module without the kit, so every such reference dangles there. Rules are stated in those components in plain words; the reasoning lives here and in [§4](#t4).
+**Installed components reference nothing in the kit.** A skill, hook, script, command, agent, error text, or install note never cites the requirements document, the rollout plan, a matrix row, a decision record, a research comparison, or this document: consumers install the module without the kit, so every such reference dangles there. Rules are stated in those components in plain words; the reasoning lives here and in [§4](#t4).
 
 <a id="t7"></a>
 ## 7. Dials
 
-The module's calibration surface. Namespace = plugin name in the project's `constitution.yaml`; every dial has a default; the module works with zero configuration.
+The module's calibration surface. Namespace = plugin name in the project's `constitution.yaml`; every dial has a default; the module works with zero configuration. A module with a write-time gate carries the fixed dial `severity` — `block` (default) or `warn` — as its first row; its repository-scan mode ignores the dial and always reports.
 
 | dial | default | meaning |
 |---|---|---|
@@ -83,7 +83,7 @@ For every judgment-based boundary the module introduces (including its slice of 
 <a id="t9"></a>
 ## 9. Enforcement honesty
 
-For each artifact: `gate` (deterministic — hook or script, red means fix) or `advisory` (judgment-shaping — skill prose, suggestions in review). Nothing advisory is dressed as a gate. A deterministic check whose blocking is a dial is a `gate` with its severity dial named — the check is still deterministic. Then the **honest limits**: every path the gate does not see (a tool that bypasses the hook's event, a moment outside its trigger), each with its backstop.
+For each artifact: `gate` (deterministic — hook or script, red means fix) or `advisory` (judgment-shaping — skill prose, suggestions in review). Nothing advisory is dressed as a gate. A deterministic check whose blocking is a dial is a `gate` with its severity dial named — the check is still deterministic. For a write-time gate that dial is `severity` ([§7](#t7)): `warn` reports the finding and lets the write through, the adoption path onto a repository with legacy documents; the default `block` keeps the gate a gate. Then the **honest limits**: every path the gate does not see (a tool that bypasses the hook's event, a moment outside its trigger), each with its backstop.
 
 **Exit-code contract** for every check: a finding (the repository is wrong) and a configuration failure (the checker is broken, a pinned tool is missing, the invocation is malformed) are distinct exit codes with distinct messages, so a reader never mistakes one for the other. A missing tool is loud, never a silent pass; a check that could not run reports that it could not run.
 

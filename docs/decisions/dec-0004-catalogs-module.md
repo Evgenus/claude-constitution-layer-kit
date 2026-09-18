@@ -1,5 +1,5 @@
 ---
-id: catalogs-module
+id: dec-0004-catalogs-module
 type: task-record
 title: Add the const-catalogs module (numbered kinds) to the rollout plan
 status: inactive
@@ -7,7 +7,7 @@ stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Add the [`const-catalogs`](../rollout-plan.md#const-catalogs) module to the rollout plan
+# Add the [`const-catalogs`](../requirements.md#const-catalogs) module to the rollout plan
 
 ## Context
 
@@ -31,5 +31,5 @@ As listed under Decisions, by the decider in chat on 2026-09-15.
 
 ## Rulings carried
 
-- [aspect A13](../rollout-plan.md#a13) rows [A13.1](../rollout-plan.md#a13-1)–[A13.7](../rollout-plan.md#a13-7) and module description [`const-catalogs`](../rollout-plan.md#const-catalogs) in `docs/rollout-plan.md`.
-- [`const-catalogs`](../rollout-plan.md#const-catalogs) is accumulating: renumbering after items exist is retrofit debt. Entry: the first numbered kind, typically the first decision record.
+- [aspect A13](../requirements.md#a13) rows [A13.1](../requirements.md#a13-1)–[A13.7](../requirements.md#a13-7) and module description [`const-catalogs`](../requirements.md#const-catalogs) in `docs/rollout-plan.md`.
+- [`const-catalogs`](../requirements.md#const-catalogs) is accumulating: renumbering after items exist is retrofit debt. Entry: the first numbered kind, typically the first decision record.

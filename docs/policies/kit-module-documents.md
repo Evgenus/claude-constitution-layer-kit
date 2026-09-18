@@ -7,7 +7,7 @@ status: active
 
 # Module-document policy
 
-Governs the document kind *module document*: the `MODULE.md` at the root of a module, which is the module's description from its first draft on (decision [module-spec-kind](../decisions/module-spec-kind.md)). Territory under this policy's id in `constitution.yaml`.
+Governs the document kind *module document*: the `MODULE.md` at the root of a module, which is the module's description from its first draft on (decision [dec-0003-module-spec-kind](../decisions/dec-0003-module-spec-kind.md)). Territory under this policy's id in `constitution.yaml`.
 
 ## Rules
 

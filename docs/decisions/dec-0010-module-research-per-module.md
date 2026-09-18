@@ -1,5 +1,5 @@
 ---
-id: module-research-per-module
+id: dec-0010-module-research-per-module
 type: task-record
 title: Every module runs its own research round; design-phase material is a clue set, never a source; nothing here references a location outside this repository
 status: inactive
@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Decision [module-routine-validation-and-inputs](module-routine-validation-and-inputs.md) ruled, in its rulings 1 and 2, that the constitution design phase's comparisons be copied into the kit and cited by each module as the research its mechanism rests on. On 2026-09-18 the decider reversed that part in chat, with the reasoning below. Rulings 3 to 6 of that record stand.
+Decision [dec-0009-module-routine-validation-and-inputs](dec-0009-module-routine-validation-and-inputs.md) ruled, in its rulings 1 and 2, that the constitution design phase's comparisons be copied into the kit and cited by each module as the research its mechanism rests on. On 2026-09-18 the decider reversed that part in chat, with the reasoning below. Rulings 3 to 6 of that record stand.
 
 ## Ruling
 
