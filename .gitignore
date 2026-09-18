@@ -2,3 +2,4 @@
 
 # Local working files, never part of the kit (law 2).
 local/
+__pycache__/
