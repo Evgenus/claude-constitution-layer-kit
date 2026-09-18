@@ -15,7 +15,7 @@ Before the first module, the kit's governing documents were audited against each
 
 ## 1. Runtime for gate scripts
 
-The template skeleton was bash, the [`const-meta-types`](../rollout-plan.md#const-meta-types) spec said PyYAML, the kernel was silent. Every gate that reads the envelope or the dials file parses YAML, a dependency on the consumer's machine.
+The template skeleton was bash, the [`const-meta-types`](../requirements.md#const-meta-types) spec said PyYAML, the kernel was silent. Every gate that reads the envelope or the dials file parses YAML, a dependency on the consumer's machine.
 
 - **A. Bash and git only**, a hand-rolled YAML subset for the dials file.
   - **Pros:** no dependency beyond git, already required.
@@ -37,36 +37,36 @@ Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUD
 
 ## 2. The meta-types/locations boundary and the shared territory lookup
 
-[`const-meta-types`](../rollout-plan.md#const-meta-types) and [`const-locations`](../rollout-plan.md#const-locations) fired on the same hook, at the same moment, over the same territory, and both needed the [kernel §3](../../kernel/CONVENTIONS.md#k3) lookup — root policy, documents in its territory, union of their territories. [Law 3 of CLAUDE.md](../../CLAUDE.md#law-3) forbids sharing code and the kernel ships no machinery. The matrix flagged the boundary with †.
+[`const-meta-types`](../requirements.md#const-meta-types) and [`const-locations`](../requirements.md#const-locations) fired on the same hook, at the same moment, over the same territory, and both needed the [kernel §3](../../kernel/CONVENTIONS.md#k3) lookup — root policy, documents in its territory, union of their territories. [Law 3 of CLAUDE.md](../../CLAUDE.md#law-3) forbids sharing code and the kernel ships no machinery. The matrix flagged the boundary with †.
 
-- **A. Move [A2.3](../rollout-plan.md#a2-3) into [`const-meta-types`](../rollout-plan.md#const-meta-types).** One write-time guard of claimed territory: valid envelope and exactly one policy. [`const-locations`](../rollout-plan.md#const-locations) keeps creation and the new-kind procedure, advisory.
-  - **Pros:** the lookup is written once for write time; both modules pass the three boundary tests; kernel plus [`const-locations`](../rollout-plan.md#const-locations) alone still works.
-  - **Cons:** [`const-meta-types`](../rollout-plan.md#const-meta-types) grows to three rows and four fixture classes; [`const-catalogs`](../rollout-plan.md#const-catalogs) still writes its own lookup.
-- **B. Merge [`const-meta-types`](../rollout-plan.md#const-meta-types) and [`const-locations`](../rollout-plan.md#const-locations) fully.**
+- **A. Move [A2.3](../requirements.md#a2-3) into [`const-meta-types`](../requirements.md#const-meta-types).** One write-time guard of claimed territory: valid envelope and exactly one policy. [`const-locations`](../requirements.md#const-locations) keeps creation and the new-kind procedure, advisory.
+  - **Pros:** the lookup is written once for write time; both modules pass the three boundary tests; kernel plus [`const-locations`](../requirements.md#const-locations) alone still works.
+  - **Cons:** [`const-meta-types`](../requirements.md#const-meta-types) grows to three rows and four fixture classes; [`const-catalogs`](../requirements.md#const-catalogs) still writes its own lookup.
+- **B. Merge [`const-meta-types`](../requirements.md#const-meta-types) and [`const-locations`](../requirements.md#const-locations) fully.**
   - **Pros:** one plugin for the write-time and creation surface.
   - **Cons:** the first module carries the undesigned creation-from-template mechanism; creation and write are different moments.
-- **C. Keep the plan, a kernel reference library vendored into [`const-meta-types`](../rollout-plan.md#const-meta-types), [`const-locations`](../rollout-plan.md#const-locations), [`const-catalogs`](../rollout-plan.md#const-catalogs)**, with an admission rule (implements a kernel section literally; two or more modules need it) and a copy gate.
+- **C. Keep the plan, a kernel reference library vendored into [`const-meta-types`](../requirements.md#const-meta-types), [`const-locations`](../requirements.md#const-locations), [`const-catalogs`](../requirements.md#const-catalogs)**, with an admission rule (implements a kernel section literally; two or more modules need it) and a copy gate.
   - **Pros:** one invariant per module; one source for the resolver.
-  - **Cons:** two hooks parse one write; library, INTENT amendment and copy gate before [`const-meta-types`](../rollout-plan.md#const-meta-types).
-- **D. Defer to [`const-meta-types`](../rollout-plan.md#const-meta-types)'s authoring.**
+  - **Cons:** two hooks parse one write; library, INTENT amendment and copy gate before [`const-meta-types`](../requirements.md#const-meta-types).
+- **D. Defer to [`const-meta-types`](../requirements.md#const-meta-types)'s authoring.**
   - **Pros:** evidence from writing the lookup once.
-  - **Cons:** [`const-meta-types`](../rollout-plan.md#const-meta-types)'s row set unknown, so its research round cannot be scoped.
-- **E. Decide A or C now; extract the library when [`const-catalogs`](../rollout-plan.md#const-catalogs) is the second reader.**
+  - **Cons:** [`const-meta-types`](../requirements.md#const-meta-types)'s row set unknown, so its research round cannot be scoped.
+- **E. Decide A or C now; extract the library when [`const-catalogs`](../requirements.md#const-catalogs) is the second reader.**
   - **Pros:** no library before a second consumer proves its shape.
-  - **Cons:** [`const-meta-types`](../rollout-plan.md#const-meta-types)'s resolver written twice.
+  - **Cons:** [`const-meta-types`](../requirements.md#const-meta-types)'s resolver written twice.
 - **F. Kernel library as a pip package into system Python.**
   - **Pros:** one install, PyYAML included.
   - **Cons:** gate logic depends on machine state, so two developers can get different verdicts on one file; version skew across modules and machines; PEP 668 blocks the system install on Debian, Ubuntu and Homebrew.
 - **G. Keep the plan, each module reimplements the lookup by hand.**
-  - **Pros:** nothing new before [`const-meta-types`](../rollout-plan.md#const-meta-types).
+  - **Pros:** nothing new before [`const-meta-types`](../requirements.md#const-meta-types).
   - **Cons:** three drifting copies.
-- **H. Move [A1.4](../rollout-plan.md#a1-4) into [`const-locations`](../rollout-plan.md#const-locations) instead**, [`const-meta-types`](../rollout-plan.md#const-meta-types) keeps the type-choice skill only.
+- **H. Move [A1.4](../requirements.md#a1-4) into [`const-locations`](../requirements.md#const-locations) instead**, [`const-meta-types`](../requirements.md#const-meta-types) keeps the type-choice skill only.
   - **Pros:** the envelope rule applies only to governed documents, so the check sits where the concept lives; [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) splits by module.
-  - **Cons:** the first module authored becomes [`const-locations`](../rollout-plan.md#const-locations) with the undesigned creation mechanism attached, or with rows marked deferred; [`const-meta-types`](../rollout-plan.md#const-meta-types) is a one-skill plugin.
+  - **Cons:** the first module authored becomes [`const-locations`](../requirements.md#const-locations) with the undesigned creation mechanism attached, or with rows marked deferred; [`const-meta-types`](../requirements.md#const-meta-types) is a one-skill plugin.
 
 Recommendation A with E's terms: A and H are symmetric, and A keeps the undesigned piece in the module authored later. Chosen A with E by the decider in chat on 2026-09-18.
 
-Rulings: (a) [A2.3](../rollout-plan.md#a2-3) is [`const-meta-types`](../rollout-plan.md#const-meta-types)'s; [`const-meta-types`](../rollout-plan.md#const-meta-types) guards claimed territory at write time, envelope and resolution in one script, with a repository-scan mode as backstop; [`const-locations`](../rollout-plan.md#const-locations) is advisory creation and claims no gate. (b) No shared library before a second reader exists. When [`const-catalogs`](../rollout-plan.md#const-catalogs) needs the lookup, a kernel reference implementation is extracted, vendored into each module with a kit gate on copy equality, admitted only for functions that implement a kernel section literally and that two or more modules need; [INTENT.md](../../INTENT.md) is amended then. A pip package is the delivery for readers outside plugins, if one appears. Applied: matrix intro and row [A2.3](../rollout-plan.md#a2-3); [`const-meta-types`](../rollout-plan.md#const-meta-types) and [`const-locations`](../rollout-plan.md#const-locations) spec text.
+Rulings: (a) [A2.3](../requirements.md#a2-3) is [`const-meta-types`](../requirements.md#const-meta-types)'s; [`const-meta-types`](../requirements.md#const-meta-types) guards claimed territory at write time, envelope and resolution in one script, with a repository-scan mode as backstop; [`const-locations`](../requirements.md#const-locations) is advisory creation and claims no gate. (b) No shared library before a second reader exists. When [`const-catalogs`](../requirements.md#const-catalogs) needs the lookup, a kernel reference implementation is extracted, vendored into each module with a kit gate on copy equality, admitted only for functions that implement a kernel section literally and that two or more modules need; [INTENT.md](../../INTENT.md) is amended then. A pip package is the delivery for readers outside plugins, if one appears. Applied: matrix intro and row [A2.3](../requirements.md#a2-3); [`const-meta-types`](../requirements.md#const-meta-types) and [`const-locations`](../requirements.md#const-locations) spec text.
 
 ## 3. Live proof in a consumer project before a consumer exists
 
@@ -104,4 +104,23 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [CLAUD
   - **Pros:** the plan stays complete during authoring.
   - **Cons:** two descriptions during the draft period, the drift the kernel calls a defect; the stub question returns at publication.
 
-Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the module-specifications header of `docs/rollout-plan.md`; [CLAUDE.md](../../CLAUDE.md) step 3.
+Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the module-specifications header of `docs/requirements.md`; [CLAUDE.md](../../CLAUDE.md) step 3.
+
+## 5. The rollout plan was ungoverned and mixed
+
+`docs/rollout-plan.md` was the requirements source of every module by [law 4 of CLAUDE.md](../../CLAUDE.md#law-4), yet carried no envelope, sat in no territory, and mixed normative content (the matrix, the module specifications) with intent not yet real (the phases), which [kernel §2](../../kernel/CONVENTIONS.md#k2) keeps out of standing documents.
+
+- **A. Claim it whole as `current-state`, phases tolerated as a roadmap section.**
+  - **Pros:** one policy, no move.
+  - **Cons:** a standing document carrying unrealized intent; the kit's gate module would look away from the kit's central file.
+- **B. Leave it ungoverned and say so.**
+  - **Pros:** zero cost.
+  - **Cons:** consumer zero exempts its most important document; [law 4 of CLAUDE.md](../../CLAUDE.md#law-4) rests on nothing the kernel expresses.
+- **C. Split by normative content.** Matrix and specifications become `docs/requirements.md`, `current-state`, under a requirements policy; the phases stay in `docs/rollout-plan.md` as an `active` task-record under a rollout-plan policy. Anchors keep their keys; links are rewritten in one commit under the migration carve-out of [kernel §5](../../kernel/CONVENTIONS.md#k5).
+  - **Pros:** each half has one meta-type and one lifecycle; the split is done on a real file before the first module exists.
+  - **Cons:** two new policies; a large mechanical diff; two file names to learn.
+- **D. Split as C, phases as a decision record.**
+  - **Pros:** no rollout-plan policy.
+  - **Cons:** a schedule is not a ruling; a record with no choice is the manufactured shape the kernel forbids.
+
+Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: the split; policies [kit-requirements](../policies/kit-requirements.md) and [kit-rollout-plan](../policies/kit-rollout-plan.md), their territories in `constitution.yaml`; every anchored link migrated from `rollout-plan.md#` to `requirements.md#` across records, `CLAUDE.md`, `INTENT.md`, `README.md`, the template, and `scripts/check-references.sh`, whose `M<n>` exemption follows the specifications; bare mentions of the old path in inactive records are left as evidence of their moment, since nothing resolves through them. Found in passing and repaired in the preceding commit: the intent policy had reused the id of [INTENT.md](../../INTENT.md); it is now [kit-intent-page](../policies/kit-intent-page.md).

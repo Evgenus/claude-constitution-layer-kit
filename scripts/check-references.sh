@@ -26,14 +26,14 @@ bare() { perl -0pe 's/\A---\n.*?\n---\n//s; s/\[[^\]]*\]\([^)]*\)//g' "$1"; }
 
 for f in $(git ls-files --cached --others --exclude-standard '*.md'); do
   b="$(bare "$f")"
-  case "$f" in docs/rollout-plan.md) ;; *)
+  case "$f" in docs/requirements.md) ;; *)
     if grep -nE '\bM[0-9]+\b' <<<"$b" >/dev/null; then
-      red "$f cites a module as M<n>" "M<n> resolves only inside the rollout plan (docs/decisions/reference-forms.md#r7)" \
-          "link the module's spec: [\`const-<name>\`](<rel>/docs/rollout-plan.md#const-<name>)"
+      red "$f cites a module as M<n>" "M<n> resolves only inside the requirements document (docs/decisions/reference-forms.md#r7; docs/policies/kit-requirements.md)" \
+          "link the module's spec: [\`const-<name>\`](<rel>/docs/requirements.md#const-<name>)"
     fi
     if grep -nE '\bA[0-9]+\.[0-9]+' <<<"$b" >/dev/null; then
       red "$f cites a requirement row bare" "rows resolve only inside the matrix (docs/decisions/reference-forms.md#r6)" \
-          "link it: [requirement A5.3](<rel>/docs/rollout-plan.md#a5-3)"
+          "link it: [requirement A5.3](<rel>/docs/requirements.md#a5-3)"
     fi
   esac
   case "$f" in kernel/CONVENTIONS.md) ;; *)

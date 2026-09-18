@@ -50,5 +50,5 @@ D, chosen by the decider in chat on 2026-09-17.
 
 ## Applied in the same commit
 
-- `docs/rollout-plan.md`: "territory map" wording in rows [A2.6](../rollout-plan.md#a2-6) and [A13.7](../rollout-plan.md#a13-7) and in the [`const-locations`](../rollout-plan.md#const-locations) and [`const-catalogs`](../rollout-plan.md#const-catalogs) specs replaced by "territory declarations"; Phase A steps 1 and 2 updated.
+- `docs/rollout-plan.md`: "territory map" wording in rows [A2.6](../requirements.md#a2-6) and [A13.7](../requirements.md#a13-7) and in the [`const-locations`](../requirements.md#const-locations) and [`const-catalogs`](../requirements.md#const-catalogs) specs replaced by "territory declarations"; Phase A steps 1 and 2 updated.
 - Following commits: [kernel §3](../../kernel/CONVENTIONS.md#k3) and [kernel §6](../../kernel/CONVENTIONS.md#k6); the kit's two policies and its dials file; Phase B and the README.

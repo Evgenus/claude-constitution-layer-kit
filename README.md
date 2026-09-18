@@ -124,5 +124,6 @@ claude plugin uninstall const-<aspect>@constitution-kit --scope project
 ## Where to go next
 
 - `kernel/CONVENTIONS.md` — the one page every participant reads.
-- `docs/rollout-plan.md` — phases, module specs, traceability matrix.
+- `docs/requirements.md` — traceability matrix and module specifications.
+- `docs/rollout-plan.md` — phases.
 - `module-template/` — how a module is shaped, if you intend to author one.

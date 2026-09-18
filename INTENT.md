@@ -21,7 +21,7 @@ Three layers, strictly separated:
 
 1. **Mechanical kernel — Claude Code itself.** Plugins, skills, hooks, agents, rules, settings are the component model. This repo never mirrors or wraps them; wanting infrastructure the platform omitted is a design smell.
 2. **Semantic kernel — `kernel/CONVENTIONS.md` + schemas.** One page: document envelope, meta-types with lifecycle-aware precedence, governance binding by territory, stakes triage, decision-record shape, dials, naming. Only vocabulary two or more modules need; nothing derivable from git (git owns history, ordering, authorship, supersession trails, archives).
-3. **Modules — `modules/const-*`.** Invariant-shaped installation units, each a plugin: one invariant, one enforcement moment, one lifecycle trigger; depending on the kernel and nothing else; project-blind, calibrated per project through a single `constitution.yaml`. Requirements are the traceability matrix in `docs/rollout-plan.md` — a module implements exactly its rows.
+3. **Modules — `modules/const-*`.** Invariant-shaped installation units, each a plugin: one invariant, one enforcement moment, one lifecycle trigger; depending on the kernel and nothing else; project-blind, calibrated per project through a single `constitution.yaml`. Requirements are the traceability matrix in `docs/requirements.md` — a module implements exactly its rows.
 
 **Consumer projects** hold the binding: territory maps, boundary examples, thresholds, deciders, and all governed content. The relationship is package-shaped: modules are versioned here, installed there; friction flows back as commit notes; recurring themes become kit changes.
 

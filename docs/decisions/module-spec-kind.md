@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The module descriptions [`const-meta-types`](../rollout-plan.md#const-meta-types)–[`const-doc-budgets`](../rollout-plan.md#const-doc-budgets) sit in `docs/rollout-plan.md` beside the traceability matrix. To start authoring modules, each description is to move into its own file. The question was which document kind holds a description and how that kind relates to the module's own `MODULE.md`. A template for a separate kind was drafted first, at `docs/modules/TEMPLATE.md` (commit 64495e7), written for option A.
+The module descriptions [`const-meta-types`](../requirements.md#const-meta-types)–[`const-doc-budgets`](../requirements.md#const-doc-budgets) sit in `docs/rollout-plan.md` beside the traceability matrix. To start authoring modules, each description is to move into its own file. The question was which document kind holds a description and how that kind relates to the module's own `MODULE.md`. A template for a separate kind was drafted first, at `docs/modules/TEMPLATE.md` (commit 64495e7), written for option A.
 
 ## Options
 

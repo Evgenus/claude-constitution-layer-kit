@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[territory-declaration](territory-declaration.md) ruling 2 left the pattern dialect and overlap handling to the first module that reads the territory declarations. The pre-module audit of 2026-09-18 found the kit's own `constitution.yaml` already asserting gitignore-style globs, and three modules ([`const-meta-types`](../rollout-plan.md#const-meta-types), [`const-locations`](../rollout-plan.md#const-locations), [`const-catalogs`](../rollout-plan.md#const-catalogs)) reading the same declarations: a dialect chosen per module lets two readers disagree about one path, and a consumer writing a territory finds no dialect in the kernel page. The [`const-meta-types`](../rollout-plan.md#const-meta-types) spec names a Python script, whose `fnmatch` lets `*` cross `/` and has no `**`, so `modules/*/MODULE.md` would mean something else there. This record reverses ruling 2 of territory-declaration; it also supersedes the "one kernel-owned key" wording of [policies-by-location](policies-by-location.md) ruling 1, the file now having two.
+[territory-declaration](territory-declaration.md) ruling 2 left the pattern dialect and overlap handling to the first module that reads the territory declarations. The pre-module audit of 2026-09-18 found the kit's own `constitution.yaml` already asserting gitignore-style globs, and three modules ([`const-meta-types`](../requirements.md#const-meta-types), [`const-locations`](../requirements.md#const-locations), [`const-catalogs`](../requirements.md#const-catalogs)) reading the same declarations: a dialect chosen per module lets two readers disagree about one path, and a consumer writing a territory finds no dialect in the kernel page. The [`const-meta-types`](../requirements.md#const-meta-types) spec names a Python script, whose `fnmatch` lets `*` cross `/` and has no `**`, so `modules/*/MODULE.md` would mean something else there. This record reverses ruling 2 of territory-declaration; it also supersedes the "one kernel-owned key" wording of [policies-by-location](policies-by-location.md) ruling 1, the file now having two.
 
 ## Options — the dialect
 
@@ -54,4 +54,4 @@ Recommendation A. Chosen: **B**, by the decider in chat on 2026-09-18, against t
 
 - [Kernel §3](../../kernel/CONVENTIONS.md#k3): "one kernel-owned key" wording dropped. [Kernel §6](../../kernel/CONVENTIONS.md#k6): the key in the example, the dialect paragraph, the read set of a module.
 - `constitution.yaml`: comment names the default; the kit declares no key, proving the default path.
-- [requirement A2.6](../rollout-plan.md#a2-6): the optional key joins the declarations.
+- [requirement A2.6](../requirements.md#a2-6): the optional key joins the declarations.

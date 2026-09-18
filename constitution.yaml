@@ -23,3 +23,9 @@ kit-research:
 
 kit-module-documents:
   territory: ["modules/*/MODULE.md"]
+
+kit-requirements:
+  territory: ["docs/requirements.md"]
+
+kit-rollout-plan:
+  territory: ["docs/rollout-plan.md"]
