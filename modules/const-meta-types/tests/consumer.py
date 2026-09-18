@@ -25,12 +25,14 @@ def envelope(doc_id: str, meta_type: str = "non-authoritative", **extra: str) ->
 @dataclass
 class Consumer:
     root: Path
-    dials: dict[str, object] = field(default_factory=lambda: {
-        "root_policy": ROOT_POLICY,
-        "root-policy": {"territory": ["docs/policies/**"]},
-        "notes-policy": {"territory": ["docs/notes/**"]},
-        "shared-policy": {"territory": ["docs/notes/shared/**"]},      # overlaps notes-policy
-    })
+    dials: dict[str, object] = field(
+        default_factory=lambda: {
+            "root_policy": ROOT_POLICY,
+            "root-policy": {"territory": ["docs/policies/**"]},
+            "notes-policy": {"territory": ["docs/notes/**"]},
+            "shared-policy": {"territory": ["docs/notes/shared/**"]},  # overlaps notes-policy
+        }
+    )
 
     def write(self, rel: str, text: str) -> None:
         path = self.root / rel
@@ -47,7 +49,9 @@ class Consumer:
 
     def commit(self) -> None:
         self.git("add", "-A")
-        self.git("-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture")
+        self.git(
+            "-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture"
+        )
 
     def git(self, *args: str) -> None:
         subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True)

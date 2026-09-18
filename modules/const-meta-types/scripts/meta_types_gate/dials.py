@@ -58,8 +58,12 @@ def _parse(raw: dict[object, object]) -> Dials:
         own = {}
     if not isinstance(own, dict):
         raise ConfigurationFailure(messages.c5_own_namespace_not_mapping())
-    return Dials(root_policy=_root_policy(raw.get("root_policy")), severity=_severity(own.get("severity")),
-                 log_dir=_relative_dir(own.get("log_dir")), namespaces=namespaces)
+    return Dials(
+        root_policy=_root_policy(raw.get("root_policy")),
+        severity=_severity(own.get("severity")),
+        log_dir=_relative_dir(own.get("log_dir")),
+        namespaces=namespaces,
+    )
 
 
 def _check_dialect(value: object) -> None:
@@ -84,7 +88,9 @@ def _territory(name: str, value: object, lenient: bool) -> tuple[str, ...]:
 
 
 def _is_relative(value: str) -> bool:
-    return bool(value.strip()) and not os.path.isabs(value) and ".." not in os.path.normpath(value).split(os.sep)
+    return (
+        bool(value.strip()) and not os.path.isabs(value) and ".." not in os.path.normpath(value).split(os.sep)
+    )
 
 
 def _root_policy(value: object) -> str | None:

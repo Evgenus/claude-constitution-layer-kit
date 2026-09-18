@@ -35,8 +35,9 @@ def parse_envelope(text: str) -> Envelope:
 
 
 def _field(value: object) -> FieldValue:
-    return FieldValue(text=value if isinstance(value, str) else None,
-                      yaml_type=type(value).__name__, shown=str(value))
+    return FieldValue(
+        text=value if isinstance(value, str) else None, yaml_type=type(value).__name__, shown=str(value)
+    )
 
 
 def envelope_errors(envelope: Envelope) -> list[str]:

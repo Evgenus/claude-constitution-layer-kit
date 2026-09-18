@@ -31,12 +31,15 @@ def read_event(stream: TextIO) -> ToolEvent:
     tool_input = loaded.get("tool_input")
     fields: dict[object, object] = tool_input if isinstance(tool_input, dict) else {}
     if tool is not None:
-        required = ("file_path", "content") if tool is FileTool.WRITE else ("file_path", "old_string", "new_string")
+        required = (
+            ("file_path", "content") if tool is FileTool.WRITE else ("file_path", "old_string", "new_string")
+        )
         for name in required:
             if not isinstance(fields.get(name), str) or (name == "file_path" and not fields.get(name)):
                 raise ConfigurationFailure(messages.c12_input(messages.detail_tool_input(tool.value, name)))
     return ToolEvent(
-        tool=tool, tool_name=tool_name,
+        tool=tool,
+        tool_name=tool_name,
         file_path=_text(fields.get("file_path")) or "",
         cwd=_text(loaded.get("cwd")) or "",
         session_id=_text(loaded.get("session_id")) or "",

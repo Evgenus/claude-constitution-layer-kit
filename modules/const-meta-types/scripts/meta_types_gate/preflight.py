@@ -25,4 +25,5 @@ def check() -> None:
             importlib.import_module(module)
         except ImportError as exc:
             raise ConfigurationFailure(
-                messages.c2_library_missing(distribution, str(requirements_file()))) from exc
+                messages.c2_library_missing(distribution, str(requirements_file()))
+            ) from exc

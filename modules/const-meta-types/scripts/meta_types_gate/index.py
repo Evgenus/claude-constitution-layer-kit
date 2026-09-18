@@ -22,13 +22,13 @@ from .territory import Matcher
 @dataclass(slots=True)
 class Index:
     root: Path
-    paths: list[str]                                   # every Markdown path considered
+    paths: list[str]  # every Markdown path considered
     pending: PendingDocument | None
     root_id: str = ""
     root_territory: tuple[str, ...] = ()
     in_root: dict[str, str] = field(default_factory=dict)
     policies: dict[str, Policy] = field(default_factory=dict)
-    void: dict[str, dict[str, str]] = field(default_factory=dict)   # namespace -> would-be claims
+    void: dict[str, dict[str, str]] = field(default_factory=dict)  # namespace -> would-be claims
     notes: list[str] = field(default_factory=list)
     _owners: dict[str, list[str]] | None = None
 
@@ -66,10 +66,11 @@ class Index:
         return [name for name, claims in self.void.items() if rel in claims]
 
 
-def build_index(root: Path, dials: Dials, root_policy: str, matcher: Matcher,
-                pending: PendingDocument | None = None) -> Index:
+def build_index(
+    root: Path, dials: Dials, root_policy: str, matcher: Matcher, pending: PendingDocument | None = None
+) -> Index:
     paths = set(list_markdown(root))
-    paths.add(root_policy)              # even when git ignores it or it is not named *.md
+    paths.add(root_policy)  # even when git ignores it or it is not named *.md
     if pending is not None:
         paths.add(pending.rel)
     index = Index(root=root, paths=sorted(paths), pending=pending)
@@ -101,7 +102,9 @@ def _discover_policies(index: Index, dials: Dials, matcher: Matcher) -> None:
         if policy_id is None:
             index.notes.append(messages.n1_note_policy_without_id(path))
         elif policy_id in index.policies:
-            index.notes.append(messages.n1_note_policy_id_shared(index.policies[policy_id].path, path, policy_id))
+            index.notes.append(
+                messages.n1_note_policy_id_shared(index.policies[policy_id].path, path, policy_id)
+            )
         else:
             index.policies[policy_id] = Policy(policy_id, path, dials.territory_of(policy_id))
     for policy in index.policies.values():

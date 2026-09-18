@@ -26,17 +26,21 @@ Output:   findings on stderr (hook, block) or stdout (scan; hook warn as one JSO
 This file stays parseable by any Python 3 so that an interpreter below the floor gets the
 teaching message rather than a syntax error; the code lives in the package beside it.
 """
+
 import sys
 
 FLOOR = (3, 12)
 
+# Percent formatting on purpose: this file must parse on any Python 3, and f-strings do not.
+TOO_OLD = (
+    "BROKEN: const-meta-types needs Python %d.%d or newer, found %d.%d — fix: install a current"
+    " Python 3 (https://www.python.org/downloads/) and put it first on PATH"
+    " — until then Markdown writes pass unchecked\n"
+    "BROKEN: the check could not run — 0 documents examined\n"
+)
+
 if sys.version_info < FLOOR:
-    sys.stderr.write(
-        "BROKEN: const-meta-types needs Python %d.%d or newer, found %d.%d — fix: install a current"
-        " Python 3 (https://www.python.org/downloads/) and put it first on PATH"
-        " — until then Markdown writes pass unchecked\n"
-        "BROKEN: the check could not run — 0 documents examined\n"
-        % (FLOOR + tuple(sys.version_info[:2])))
+    sys.stderr.write(TOO_OLD % (FLOOR + tuple(sys.version_info[:2])))  # noqa: UP031
     sys.exit(1)
 
 from meta_types_gate import cli  # noqa: E402  (after the floor check, by design)

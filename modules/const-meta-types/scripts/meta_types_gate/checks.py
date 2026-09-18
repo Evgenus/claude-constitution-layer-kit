@@ -27,7 +27,7 @@ def resolve(index: Index, rel: str, envelope: Envelope) -> tuple[str | None, lis
             return declared, []
         return None, [messages.f8b_contradiction_in_overlap(rel, declared, matches)]
     if declared is None:
-        return None, []                                     # outside claimed territory: silence
+        return None, []  # outside claimed territory: silence
     if declared in index.policies:
         return declared, []
     return None, [messages.f6_no_such_policy(rel, declared, index.root_territory)]
