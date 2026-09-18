@@ -12,7 +12,7 @@ kit-root-policy:                      # the policy for policies; its territory i
 kit-kernel:                           # one policy per document kind (decision one-policy-per-kind)
   territory: ["kernel/**"]
 
-kit-intent:
+kit-intent-page:
   territory: ["INTENT.md"]
 
 kit-decision-records:

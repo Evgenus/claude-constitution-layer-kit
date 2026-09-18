@@ -1,5 +1,5 @@
 ---
-id: kit-intent
+id: kit-intent-page
 type: current-state
 title: Intent policy — the frame of the kit
 status: active
