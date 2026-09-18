@@ -1,0 +1,12 @@
+# Development tooling of the kit repository only (decision dec-0020-gate-script-rules).
+# Never shipped to consumers: modules carry no tool configuration of their own.
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "UP", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
