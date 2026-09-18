@@ -107,6 +107,8 @@ const-example-aspect:                       # a module's namespace, named after 
 
 **Territory patterns** follow the dialect named by the kernel-owned key `territory_dialect`. The default, `gitignore`, is `.gitignore` syntax evaluated against paths relative to the repository root: `**` crosses directories, `*` does not. A reader that does not support the declared dialect reports a configuration failure, never a silent pass. Two territories matching one path is the multi-policy defect of §3, whatever the dialect.
 
+Schema: `schemas/constitution.schema.json` — the kernel-owned keys and the keys of a policy's namespace; module namespaces are open. Every reader validates the keys it reads against it at each read; a malformed file is a configuration failure, never a silent pass.
+
 Profiles (e.g. solo-agents, small-team, regulated) are nothing but prewritten `constitution.yaml` files shipped with the kit.
 
 **Portability rule:** no file in a module references a project directly — no project paths, names, repositories, or values anywhere in a module's skills, hooks, scripts, or prose. Everything project-specific enters through the module's dials namespace at runtime. The test is mechanical: **a module must install and operate on an empty repository** using only its defaults; anything that breaks there is a binding leak.

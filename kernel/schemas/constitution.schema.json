@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "constitution-kernel/constitution",
+  "title": "Dials file — constitution.yaml (kernel CONVENTIONS.md section 6)",
+  "type": "object",
+  "properties": {
+    "root_policy": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repository-relative path of the root policy (section 3). Absent: no territory is claimed and the constitution is silent."
+    },
+    "territory_dialect": {
+      "type": "string",
+      "minLength": 1,
+      "default": "gitignore",
+      "description": "Pattern dialect of every territory in this file. A reader that does not support the declared dialect reports a configuration failure, never a silent pass."
+    }
+  },
+  "additionalProperties": {
+    "type": "object",
+    "description": "A namespace. A policy's when a document with this id lies in the root policy's territory; otherwise a module's, keyed by its plugin name, whose keys are that module's own.",
+    "properties": {
+      "territory": {
+        "type": "array",
+        "items": { "type": "string", "minLength": 1 },
+        "description": "Path patterns this policy claims, in the file's dialect. Meaningful only in a policy's namespace; elsewhere it claims nothing."
+      },
+      "catalog": {
+        "type": "object",
+        "required": ["prefix"],
+        "properties": {
+          "prefix": { "type": "string", "pattern": "^[a-z0-9]+$" },
+          "width": { "type": "integer", "minimum": 1, "default": 4 }
+        },
+        "additionalProperties": false,
+        "description": "Declares the policy's kind as numbered: ids and stems are <prefix>-<nnnn>-<slug>. One prefix is declared once."
+      }
+    },
+    "additionalProperties": true
+  },
+  "$comment": "Every reader validates the keys it reads against these rules at each read; a malformed file is a configuration failure with its own exit code, never a silent pass. The file may be absent: every module ships defaults."
+}
