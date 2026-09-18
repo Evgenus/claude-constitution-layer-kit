@@ -99,7 +99,7 @@ root_policy: docs/policies/root-policy.md   # kernel-owned: where the root polic
 root-policy:                                # a policy's namespace is its id
   territory: ["docs/policies/**"]           # where policies live; the root lies inside
 some-policy:                                # a policy found in the root's territory
-  territory: ["docs/**"]
+  territory: ["docs/notes/**"]              # never overlapping another policy's, the root's included
   some_calibration: value
 const-example-aspect:                       # a module's namespace, named after the plugin
   some_dial: value

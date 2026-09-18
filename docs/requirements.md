@@ -25,7 +25,7 @@ status: active
 | <a id="a1-1"></a>A1.1 | Vocabulary: current-state / task-record / non-authoritative, with definitions | [kernel §2](../kernel/CONVENTIONS.md#k2) | definitional — enforced through A1.4's enum check |
 | <a id="a1-2"></a>A1.2 | Lifecycle-aware precedence (policies always; write-head; current over historical; planned binds nothing) | [kernel §2](../kernel/CONVENTIONS.md#k2) | advisory — applied in agent judgment; conflicts surface via A4.4 |
 | <a id="a1-3"></a>A1.3 | Reconciliation semantics: current-state = is-and-should-be, aligned at every task close | [kernel §2](../kernel/CONVENTIONS.md#k2) | definitional — enforced through A4.4's close gate |
-| <a id="a1-4"></a>A1.4 | Every document in territory declares a valid type; nonconforming writes blocked with teaching errors | M1 hook+script | **gate**: PreToolUse hook, exit 2 blocks at write |
+| <a id="a1-4"></a>A1.4 | Every document in territory declares a valid envelope (id unique in the tree, type, title, status); nonconforming writes blocked with teaching errors | M1 hook+script | **gate**: PreToolUse hook, exit 2 blocks at write |
 | <a id="a1-5"></a>A1.5 | Type-selection guidance incl. founding contrastive pairs and the mixed-document split rule | M1 skill | advisory — skill prose; pairs are the definition |
 | <a id="a2"></a>**A2 — Location & governance binding** | | | |
 | <a id="a2-1"></a>A2.1 | Territories; path-first resolution; declaration only where path absent/ambiguous; three defect classes | [kernel §3](../kernel/CONVENTIONS.md#k3) | definitional — enforced through A2.3 |
@@ -106,11 +106,7 @@ status: active
 <a id="const-meta-types"></a>
 ## M1 `const-meta-types` — accumulating; authored first, in Phase A
 
-**Failure pattern:** documents with undeclared or invalid authority; agents treating research notes, stale mirrors, or half-migrated remnants as binding truth (the retroactive-canonization problem); documents in claimed territory that no policy, or more than one, governs.
-**Invariant:** every Markdown document in claimed territory is governable: it carries valid envelope frontmatter — `id` (stable kebab, never reused), `type` ∈ {current-state, task-record, non-authoritative}, `title`, `status` ∈ {active, inactive} — per the kernel schema, and it resolves to exactly one governing policy, path-first per [kernel §3](../kernel/CONVENTIONS.md#k3) (frontmatter declaration only where the path mapping is absent or ambiguous, while an active task-record covers the move); no-policy, multi-policy, and path-contradicting declarations are blocked defects (A2.3, moved here from M2 — decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)).
-**Ships:** PreToolUse hook (Write|Edit, claimed territory) → one Python script (envelope against the schema, resolution against the territory declarations), exit 2 blocks; the same script in repository-scan mode as the backstop for writes the hook does not see; teaching errors per contract (what failed / why the rule exists in one clause / exact fix). Skill: choosing the meta-type, carrying the founding contrastive pairs — *architecture-of-what-should-be mid-task rides with the task delta; standing spec = current-state; as-is structure description = non-authoritative, dated, generated-preferred; a doc mixing as-is with direction must be split or classified by its normative content.*
-**Dials:** `severity` (block | warn, default block — the fixed dial of a write-time gate, [template §7](../module-template/MODULE.md#t7)); territory comes from the kernel's declarations, not from a dial.
-**Acceptance:** red→green fixtures — frontmatter-less file blocked with the designed message, corrected file passes; one fixture per resolution defect class (no policy, two policies, declaration contradicting the path), each blocked then passing.
+Description moved into the module's document: [`modules/const-meta-types/MODULE.md`](../modules/const-meta-types/MODULE.md) (rows [A1.4](#a1-4), [A1.5](#a1-5), [A2.3](#a2-3)); this anchor stays the module's handle.
 
 <a id="const-locations"></a>
 ## M2 `const-locations` — accumulating; enters with the second territory
