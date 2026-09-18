@@ -25,14 +25,13 @@ HERE = Path(__file__).resolve().parent
 SCRIPTS = HERE.parent / "scripts"
 WRAPPER = SCRIPTS / "check-governed-document.sh"
 ENTRY = SCRIPTS / "check-governed-document.py"
-sys.path.insert(0, str(SCRIPTS))           # the runner only: no gate code ever edits the path
+sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
 SH = shutil.which("sh") or "sh"
 SCRATCH = Path(tempfile.mkdtemp(prefix="const-meta-types-fixtures-"))
 atexit.register(shutil.rmtree, SCRATCH, ignore_errors=True)
 
-from meta_types_gate.model import Finding  # noqa: E402
-
 from consumer import Consumer  # noqa: E402
+from meta_types_gate.model import Finding  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -78,17 +77,34 @@ def event_json(repo: Path, action: Write | Edit, session: str = "fixture-session
         tool_input["content"] = action.text
     else:
         tool_input.update({"old_string": action.old, "new_string": action.new, "replace_all": False})
-    return json.dumps({"hook_event_name": "PreToolUse", "session_id": session, "cwd": str(repo),
-                       "tool_name": type(action).__name__, "tool_input": tool_input})
+    return json.dumps(
+        {
+            "hook_event_name": "PreToolUse",
+            "session_id": session,
+            "cwd": str(repo),
+            "tool_name": type(action).__name__,
+            "tool_input": tool_input,
+        }
+    )
 
 
-def run_gate(stdin: str, args: Sequence[str] = (), env: Mapping[str, str] | None = None,
-             command: Sequence[str] | None = None) -> Result:
+def run_gate(
+    stdin: str,
+    args: Sequence[str] = (),
+    env: Mapping[str, str] | None = None,
+    command: Sequence[str] | None = None,
+) -> Result:
     merged = dict(os.environ)
     merged.pop("CLAUDE_PLUGIN_DATA", None)
     merged.update(env or {})
-    done = subprocess.run([*(command or [SH, str(WRAPPER)]), *args], input=stdin, text=True,
-                          capture_output=True, env=merged, check=False)
+    done = subprocess.run(
+        [*(command or [SH, str(WRAPPER)]), *args],
+        input=stdin,
+        text=True,
+        capture_output=True,
+        env=merged,
+        check=False,
+    )
     return Result(done.returncode, done.stdout, done.stderr)
 
 
@@ -110,8 +126,12 @@ def run_case(case: Case) -> tuple[bool, str]:
     red = run_gate(event_json(fresh_consumer(case.setup).root, case.red))
     if red.code != 2:
         return False, f"red half exited {red.code}, not 2: {red.stdout}{red.stderr}".strip()
-    if case.expect.render() not in red.stderr:          # what failed, why, and the fix: all three lines
-        return False, f"red fired but did not teach {case.expect.key}:\n{case.expect.render()}\ngot:\n{red.stderr.strip()}"
+    if case.expect.render() not in red.stderr:  # what failed, why, and the fix: all three lines
+        return (
+            False,
+            f"red fired but did not teach {case.expect.key}:\n{case.expect.render()}\n"
+            f"got:\n{red.stderr.strip()}",
+        )
     green = run_gate(event_json(fresh_consumer(case.setup).root, case.green))
     if green.code != 0 or "1 document examined, governed by" not in green.stdout:
         return False, f"green half did not pass (exit {green.code}): {green.stdout}{green.stderr}".strip()
@@ -127,6 +147,8 @@ def run_all(cases: Sequence[Case], assertions: Sequence[Assertion]) -> int:
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {item.number:>2}. ({kind}) {item.title}\n        {evidence}")
     total = len(cases) + len(assertions)
-    print(f"{total - failed}/{total} acceptance items green — {len(cases)} red→green cases,"
-          f" {len(assertions)} assertions examined")
+    print(
+        f"{total - failed}/{total} acceptance items green — {len(cases)} red→green cases,"
+        f" {len(assertions)} assertions examined"
+    )
     return 0 if failed == 0 else 2

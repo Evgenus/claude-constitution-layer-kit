@@ -19,13 +19,13 @@ from __future__ import annotations
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .model import GATE, NAMESPACE, Mode, Stream
 
 LOG_NAME = NAMESPACE + ".jsonl"
-ROTATE_AT = 1_048_576          # bytes; the previous log is kept as <name>.1
+ROTATE_AT = 1_048_576  # bytes; the previous log is kept as <name>.1
 
 
 class Output:
@@ -51,11 +51,22 @@ class Output:
         self._append(stream, text)
 
     def _append(self, stream: Stream, text: str) -> None:
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        now = datetime.now(UTC).isoformat(timespec="seconds")
         for line in text.splitlines() or [""]:
-            self._pending.append(json.dumps(
-                {"ts": now, "module": NAMESPACE, "gate": GATE, "mode": self.mode.value,
-                 "session": self.session, "stream": stream.value, "text": line}, ensure_ascii=False))
+            self._pending.append(
+                json.dumps(
+                    {
+                        "ts": now,
+                        "module": NAMESPACE,
+                        "gate": GATE,
+                        "mode": self.mode.value,
+                        "session": self.session,
+                        "stream": stream.value,
+                        "text": line,
+                    },
+                    ensure_ascii=False,
+                )
+            )
 
     def flush(self) -> None:
         """Write what was printed. Called once, by the guard, however the run ended."""
@@ -68,5 +79,5 @@ class Output:
             with self.log_file.open("a", encoding="utf-8") as log:
                 log.write("\n".join(self._pending) + "\n")
         except OSError:
-            pass    # deliberate: see the module docstring
+            pass  # deliberate: see the module docstring
         self._pending.clear()

@@ -40,7 +40,8 @@ def make_parser() -> Parser:
 def main(argv: Sequence[str], output: Output) -> int:
     args = make_parser().parse_args(list(argv))
     preflight.check()
-    from . import modes                 # imported after the preflight: it needs the declared libraries
+    from . import modes  # imported after the preflight: it needs the declared libraries
+
     if args.scan is not None:
         return modes.scan_mode(output, Path(args.scan))
     return modes.hook_mode(output, sys.stdin)
@@ -54,7 +55,7 @@ def run(argv: Sequence[str]) -> int:
     except ConfigurationFailure as failure:
         output.err(failure.broken.render())
         output.err(messages.c11_broken_count())
-    except Exception as exc:            # not fail-open: an unexpected failure exits 1, never 0
+    except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
         # the BROKEN line first: in hook mode only the first stderr line reaches the user
         output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
         output.err(messages.c11_broken_count())

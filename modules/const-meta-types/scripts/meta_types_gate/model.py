@@ -9,7 +9,7 @@ from enum import StrEnum
 NAMESPACE = "const-meta-types"
 GATE = "check-governed-document"
 DIALS_FILE = "constitution.yaml"
-DECLARATION = "policy"          # the envelope field of the secondary binding
+DECLARATION = "policy"  # the envelope field of the secondary binding
 DIALECT = "gitignore"
 
 
@@ -48,12 +48,14 @@ class Stream(StrEnum):
 
 class FileTool(StrEnum):
     """The platform tools whose writes this gate judges."""
+
     WRITE = "Write"
     EDIT = "Edit"
 
 
 class Key(StrEnum):
     """Stable handles of the findings and configuration failures."""
+
     F1 = "F1"
     F2 = "F2"
     F3 = "F3"
@@ -84,6 +86,7 @@ class Key(StrEnum):
 @dataclass(frozen=True, slots=True)
 class Finding:
     """The repository is wrong: what failed, why the rule exists, the exact fix."""
+
     key: Key
     headline: str
     why: str
@@ -97,6 +100,7 @@ class Finding:
 class Broken:
     """The checker could not run. One self-sufficient line: in hook mode only the first
     stderr line reaches the user."""
+
     key: Key
     headline: str
     fix: str
@@ -108,7 +112,8 @@ class Broken:
 @dataclass(frozen=True, slots=True)
 class ToolEvent:
     """A PreToolUse event, reduced to the fields this gate reads."""
-    tool: FileTool | None        # None: a tool this gate does not judge
+
+    tool: FileTool | None  # None: a tool this gate does not judge
     tool_name: str
     file_path: str
     cwd: str
@@ -122,6 +127,7 @@ class ToolEvent:
 @dataclass(frozen=True, slots=True)
 class FieldValue:
     """One envelope field as YAML read it: the text when it is a string, and the YAML type."""
+
     text: str | None
     yaml_type: str
     shown: str
@@ -130,6 +136,7 @@ class FieldValue:
 @dataclass(frozen=True, slots=True)
 class Envelope:
     """A document's frontmatter as read."""
+
     state: EnvelopeState
     detail: str = ""
     fields: dict[str, FieldValue] = field(default_factory=dict)
@@ -148,6 +155,7 @@ class Namespace:
 @dataclass(frozen=True, slots=True)
 class Dials:
     """The keys of the dials file this gate reads, validated."""
+
     root_policy: str | None
     severity: Severity
     log_dir: str | None
@@ -161,6 +169,7 @@ class Dials:
 @dataclass(frozen=True, slots=True)
 class PendingDocument:
     """A document about to be written: judged as it will be, not as it is on disk."""
+
     rel: str
     text: str
 
@@ -176,12 +185,13 @@ class Policy:
     id: str
     path: str
     territory: tuple[str, ...]
-    claims: dict[str, str] = field(default_factory=dict)     # path -> deciding pattern
+    claims: dict[str, str] = field(default_factory=dict)  # path -> deciding pattern
 
 
 @dataclass(frozen=True, slots=True)
 class Examination:
     """One document's verdict. No findings and no policy: outside claimed territory."""
+
     findings: tuple[Finding, ...]
     policy: str | None
 
@@ -193,6 +203,6 @@ class Examination:
 # Exit codes, identical in both modes. On the platform, a PreToolUse hook exiting 2 blocks
 # the tool call and its stderr reaches the model; any other non-zero exit is non-blocking
 # and shows the first stderr line to the user. Exit 1 therefore never blocks.
-EXIT_GREEN = 0       # green, or nothing to examine (the count line says which)
-EXIT_BROKEN = 1      # configuration failure: the checker could not run
-EXIT_RED = 2         # finding: the repository is wrong
+EXIT_GREEN = 0  # green, or nothing to examine (the count line says which)
+EXIT_BROKEN = 1  # configuration failure: the checker could not run
+EXIT_RED = 2  # finding: the repository is wrong

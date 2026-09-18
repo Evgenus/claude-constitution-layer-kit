@@ -58,7 +58,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
             index = build_index(root, dials, dials.root_policy, matcher, PendingDocument(rel, text))
             examination = examine(index, rel, text)
     except ConfigurationFailure as failure:
-        if writes_root and failure.broken.key in ROOT_KEYS:     # this write would break governance
+        if writes_root and failure.broken.key in ROOT_KEYS:  # this write would break governance
             finding = messages.f14_root_breaks_governance(rel, failure.broken)
             return _report(output, [finding], (), rel, dials.severity)
         raise
@@ -66,7 +66,9 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         for note in index.notes:
             output.out(note)
         void = index.void_namespaces_claiming(rel)
-        reason = messages.g1_skip_void_territory(rel, void) if void else messages.g1_skip_outside_territory(rel)
+        reason = (
+            messages.g1_skip_void_territory(rel, void) if void else messages.g1_skip_outside_territory(rel)
+        )
         return _skip(output, reason)
     if examination.findings:
         return _report(output, list(examination.findings), index.notes, rel, dials.severity)
@@ -104,7 +106,7 @@ def scan_mode(output: Output, start: Path) -> int:
     for note in index.notes + [messages.n1_note_void_namespace(name) for name in sorted(index.void)]:
         output.out(note)
     tail = messages.f9_scan_tail(examined, len(index.paths), len(index.policies))
-    if findings:                         # the scan ignores the severity dial and always reports
+    if findings:  # the scan ignores the severity dial and always reports
         for finding in findings:
             output.out(finding.render())
         output.out(messages.f9_count_scan(len(findings), tail))
@@ -127,18 +129,25 @@ def _route_log(output: Output, root: Path, dials: Dials) -> None:
     output.use_log_dir(root / dials.log_dir)
 
 
-def _report(output: Output, findings: Sequence[Finding], notes: Sequence[str], rel: str,
-            severity: Severity) -> int:
+def _report(
+    output: Output, findings: Sequence[Finding], notes: Sequence[str], rel: str, severity: Severity
+) -> int:
     """Hook verdict on findings. Block: exit 2, stderr reaches the model. Warn: exit 0 with
     nothing on stdout but one JSON object — additionalContext reaches the model,
     systemMessage the user — so the notes travel inside it, never before it."""
     body = "\n".join([*notes, *(f.render() for f in findings), messages.f9_count_hook(len(findings), rel)])
     if severity is Severity.WARN:
-        output.out(json.dumps({
-            "hookSpecificOutput": {"hookEventName": "PreToolUse",
-                                   "additionalContext": body + "\n" + messages.w1_warn_note()},
-            "systemMessage": messages.w1_warn_system(findings[0].headline),
-        }))
+        output.out(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "additionalContext": body + "\n" + messages.w1_warn_note(),
+                    },
+                    "systemMessage": messages.w1_warn_system(findings[0].headline),
+                }
+            )
+        )
         return EXIT_GREEN
     output.err(body)
     return EXIT_RED

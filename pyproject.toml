@@ -1,5 +1,10 @@
 # Development tooling of the kit repository only (decision dec-0020-gate-script-rules).
 # Never shipped to consumers: modules carry no tool configuration of their own.
+#
+# Run from the kit root before a module's scripts are reviewed:
+#   python3 -m ruff format --check modules scripts && python3 -m ruff check modules scripts
+#   (cd modules/<name>/scripts && mypy --strict <package>)
+#   (cd modules/<name>/tests && MYPYPATH=../scripts mypy --strict *.py)
 [tool.ruff]
 line-length = 110
 target-version = "py312"
