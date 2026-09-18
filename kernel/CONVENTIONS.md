@@ -67,7 +67,7 @@ Every governed decision is one of:
 | stakes | meaning | ceremony |
 |---|---|---|
 | `routine` | reversible, cheap to revert | act; note in the commit message; no record |
-| `process` | harness, policy, or procedure ruling | decision record + one human yes in the PR (the fast lane — a process fix never queues behind the full gate) |
+| `process` | harness, policy, or procedure ruling | decision record + one human yes on the change — PR approval where a PR flow exists, otherwise named in the commit message that lands it (the fast lane — a process fix never queues behind the full gate) |
 | `product` | user-visible behavior | decision record |
 | `architecture` | structural, hard to reverse | decision record + review |
 

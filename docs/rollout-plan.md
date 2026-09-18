@@ -33,7 +33,7 @@ status: active
 
 ## Phase D — Publish (~1 hour, only after the six are green)
 
-10. `profiles/`, `.claude-plugin/marketplace.json` (verify marketplace shape and private-repo team access in-session), CI wiring the [aspect A12](requirements.md#a12) gates — bare-repo install, kernel+single-module run, project-reference grep. Modules go to `0.1.0`.
+10. A remote with protected main and a branch-per-change PR flow: the kit's yes moves from the commit message to PR approval (decision [yes-on-the-change](decisions/yes-on-the-change.md)). Then `profiles/`, `.claude-plugin/marketplace.json` (verify marketplace shape and private-repo team access in-session), CI wiring the [aspect A12](requirements.md#a12) gates — bare-repo install, kernel+single-module run, project-reference grep. Modules go to `0.1.0`.
 11. Switch the project from path load to marketplace install. From here every project is a consumer; all module development stays in the kit repo (`process` stakes, one human yes per change).
 
 ## Phase E — Steady state
