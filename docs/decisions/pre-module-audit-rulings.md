@@ -86,3 +86,22 @@ Rulings: (a) [A2.3](../rollout-plan.md#a2-3) is [`const-meta-types`](../rollout-
   - **Cons:** rejected in accumulating-set-first; the bare-repo fixtures are that proof already.
 
 Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [CLAUDE.md](../../CLAUDE.md) step 5; Phase B step 5 of `docs/rollout-plan.md`.
+
+## 4. Where a module's description lives after it moves into `MODULE.md`
+
+[module-spec-kind](module-spec-kind.md) moves each plan description into the module's draft `MODULE.md`; reference form R7 of [reference-forms](reference-forms.md) sends every module cite to the plan's anchor, and eleven records link there.
+
+- **A. The plan keeps a one-line stub per module under the same anchor**, linking the module's `MODULE.md`; the anchor stays the canonical handle, authored or not.
+  - **Pros:** no link migration ever; one stable handle per module; authored and unauthored modules cited alike.
+  - **Cons:** a one-line stub is a second place, with nothing in it to drift.
+- **B. Migrate every link to `MODULE.md` at the move; delete the plan section.**
+  - **Pros:** one place.
+  - **Cons:** eleven records edited per move; a changing draft as link target; two forms coexist while modules remain unauthored.
+- **C. Descriptions stay in the plan; `MODULE.md` links to them.**
+  - **Pros:** nothing moves.
+  - **Cons:** reverses module-spec-kind; a module document without its own description fails the template.
+- **D. Move at publication, not at draft.**
+  - **Pros:** the plan stays complete during authoring.
+  - **Cons:** two descriptions during the draft period, the drift the kernel calls a defect; the stub question returns at publication.
+
+Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the module-specifications header of `docs/rollout-plan.md`; [CLAUDE.md](../../CLAUDE.md) step 3.

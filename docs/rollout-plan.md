@@ -35,6 +35,8 @@ Friction in a project → commit note → recurring notes on one theme → modul
 
 # Module Specifications — in order of introduction
 
+*A description below is the module's draft until authoring begins; then it moves into the module's `MODULE.md` and this heading keeps its anchor with a one-line stub linking there. The anchor is the module's stable handle in the kit for its whole life, authored or not (decision [pre-module-audit-rulings](decisions/pre-module-audit-rulings.md)).*
+
 **Traceability matrix** — every aspect decomposed into requirement parts, each with exactly one primary destination. Destination classes: **kernel §n** (shared semantics), **Mx** (module, with artifact kind), **binding** (per-project `constitution.yaml` — never module content), **template** (authoring law). An authoring session for module X takes exactly its rows as the requirement set; coverage check = every part homed, every module = exactly its rows.
 
 **"Enters when" has two meanings** (decision [accumulating-set-first](decisions/accumulating-set-first.md)). For an accumulating module it names the first moment an object for the module exists; the module is authored *before* that moment, and for a greenfield consumer the whole accumulating set is the day-one install set. For a self-limiting module it names the friction signal that earns authoring. Dials follow the consumer; modules never wait for calibration.
