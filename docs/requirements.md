@@ -25,7 +25,7 @@ status: active
 | <a id="a1-1"></a>A1.1 | Vocabulary: current-state / task-record / non-authoritative, with definitions | [kernel §2](../kernel/CONVENTIONS.md#k2) | definitional — enforced through A1.4's enum check |
 | <a id="a1-2"></a>A1.2 | Lifecycle-aware precedence (policies always; write-head; current over historical; planned binds nothing) | [kernel §2](../kernel/CONVENTIONS.md#k2) | advisory — applied in agent judgment; conflicts surface via A4.4 |
 | <a id="a1-3"></a>A1.3 | Reconciliation semantics: current-state = is-and-should-be, aligned at every task close | [kernel §2](../kernel/CONVENTIONS.md#k2) | definitional — enforced through A4.4's close gate |
-| <a id="a1-4"></a>A1.4 | Every document in territory declares a valid type; nonconforming writes blocked with teaching errors | M1 hook+script | **gate**: PreToolUse hook, exit 2 blocks at write |
+| <a id="a1-4"></a>A1.4 | Every document in territory declares a valid envelope (id unique in the tree, type, title, status); nonconforming writes blocked with teaching errors | M1 hook+script | **gate**: PreToolUse hook, exit 2 blocks at write |
 | <a id="a1-5"></a>A1.5 | Type-selection guidance incl. founding contrastive pairs and the mixed-document split rule | M1 skill | advisory — skill prose; pairs are the definition |
 | <a id="a2"></a>**A2 — Location & governance binding** | | | |
 | <a id="a2-1"></a>A2.1 | Territories; path-first resolution; declaration only where path absent/ambiguous; three defect classes | [kernel §3](../kernel/CONVENTIONS.md#k3) | definitional — enforced through A2.3 |

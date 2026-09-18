@@ -316,7 +316,8 @@ class Index:
             self.policies[pid] = {"path": p, "territory": terr or [], "claims": {}}
         for pid, pol in self.policies.items():
             pol["claims"] = matcher.match(pol["territory"], self.md)
-        # namespaces carrying a territory with no policy behind them (module namespaces excepted)
+        # namespaces carrying a territory with no policy behind them: not a policy's, they claim
+        # nothing (module namespaces are never policies)
         self.void = {}              # namespace -> {path: pattern}
         for key, ns in dials.items():
             if key in KERNEL_KEYS or key in self.policies or key.startswith("const-"):
@@ -344,12 +345,6 @@ def examine(index, rel, text):
 
     A finding is (headline, why, fix). policy_id is None when the document is
     outside claimed territory (nothing was checked)."""
-    for ns, claims in index.void.items():
-        if rel in claims:
-            raise Broken("%s: namespace %r claims territory but no policy with id %r lies in the"
-                         " root policy's territory" % (DIALS_FILE, ns, ns),
-                         "create the policy document there first, or remove the namespace"
-                         " — a claim without a policy behind it governs nothing")
     matches = [(pid, pol["claims"][rel]) for pid, pol in index.policies.items() if rel in pol["claims"]]
     state, data, detail = read_frontmatter(text)
     declared = data.get(DECLARATION) if state == "ok" and isinstance(data.get(DECLARATION), str) else None
@@ -497,6 +492,10 @@ def hook_mode():
     finally:
         matcher.close()
     if policy is None and not findings:
+        void = [ns for ns, claims in index.void.items() if rel in claims]
+        if void:
+            return skip("%s lies only in the territory of namespace %s, which has no policy document"
+                        " behind it and so claims nothing" % (rel, ", ".join("%r" % v for v in void)))
         return skip("%s is outside claimed territory" % rel)
     for n in index.notes:
         print("note: " + n)
@@ -573,10 +572,8 @@ def scan_mode(start):
     try:
         index = Index(root, dials, matcher)
         for ns in sorted(index.void):
-            raise Broken("%s: namespace %r claims territory but no policy with id %r lies in the"
-                         " root policy's territory" % (DIALS_FILE, ns, ns),
-                         "create the policy document there first, or remove the namespace"
-                         " — a claim without a policy behind it governs nothing")
+            index.notes.append("namespace %r declares a territory but no policy with id %r lies in the root"
+                               " policy's territory; it claims nothing until that policy exists" % (ns, ns))
         findings, examined = [], 0
         for rel in index.md:
             text = index.text(rel)

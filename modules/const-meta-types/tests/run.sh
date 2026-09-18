@@ -7,7 +7,8 @@
 #   1-9   one red -> green pair per gate class (the red input is blocked with the designed
 #         message, the green input passes), including the root policy itself (case 9)
 #   10    an Edit is judged on the document as it will be after the edit
-#   11-13 exit-code split: a configuration failure exits 1 with BROKEN, never 2, never 0
+#   11-13 exit-code split: a configuration failure exits 1 with BROKEN, never 2, never 0;
+#         a territory with no policy behind it claims nothing (a skip, not a failure)
 #   14-15 the examined count is printed on green and on a skip
 #   16    a negated pattern (!path) excludes a file from a territory
 #   17    severity warn: the finding is reported on stdout as JSON and the write proceeds
@@ -67,7 +68,7 @@ printf 'root-policy: [\n' > "$repo/constitution.yaml"
 name="11 malformed dials file is BROKEN, exit 1"; event Write docs/notes/a.md "$here/fixtures/cases/01-envelope-missing/green.txt" >"$work/event"; run 1 '^BROKEN: constitution.yaml is not valid YAML' -- /bin/sh "$gate"
 cp "$work/dials.bak" "$repo/constitution.yaml"
 printf 'ghost:\n  territory: ["docs/ghost/**"]\n' >> "$repo/constitution.yaml"
-name="12 territory without a policy is BROKEN, exit 1"; event Write docs/ghost/g.md "$here/fixtures/cases/01-envelope-missing/red.txt" >"$work/event"; run 1 "^BROKEN: constitution.yaml: namespace 'ghost'" -- /bin/sh "$gate"
+name="12 territory without a policy claims nothing: 0 examined, exit 0"; event Write docs/ghost/g.md "$here/fixtures/cases/01-envelope-missing/red.txt" >"$work/event"; run 0 "0 documents examined — docs/ghost/g.md lies only in the territory of namespace 'ghost', which has no policy document behind it" -- /bin/sh "$gate"
 cp "$work/dials.bak" "$repo/constitution.yaml"
 mkdir -p "$work/nopython"; ln -s "$(command -v dirname)" "$work/nopython/dirname"
 name="13 missing python3 is BROKEN, exit 1"; event Write docs/notes/a.md "$here/fixtures/cases/01-envelope-missing/red.txt" >"$work/event"; run 1 '^BROKEN: const-meta-types needs python3' -- env PATH="$work/nopython" /bin/sh "$gate"
