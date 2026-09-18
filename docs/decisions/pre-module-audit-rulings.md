@@ -67,3 +67,22 @@ Recommendation B. Chosen B by the decider in chat on 2026-09-18. Applied: [CLAUD
 Recommendation A with E's terms: A and H are symmetric, and A keeps the undesigned piece in the module authored later. Chosen A with E by the decider in chat on 2026-09-18.
 
 Rulings: (a) [A2.3](../rollout-plan.md#a2-3) is [`const-meta-types`](../rollout-plan.md#const-meta-types)'s; [`const-meta-types`](../rollout-plan.md#const-meta-types) guards claimed territory at write time, envelope and resolution in one script, with a repository-scan mode as backstop; [`const-locations`](../rollout-plan.md#const-locations) is advisory creation and claims no gate. (b) No shared library before a second reader exists. When [`const-catalogs`](../rollout-plan.md#const-catalogs) needs the lookup, a kernel reference implementation is extracted, vendored into each module with a kit gate on copy equality, admitted only for functions that implement a kernel section literally and that two or more modules need; [INTENT.md](../../INTENT.md) is amended then. A pip package is the delivery for readers outside plugins, if one appears. Applied: matrix intro and row [A2.3](../rollout-plan.md#a2-3); [`const-meta-types`](../rollout-plan.md#const-meta-types) and [`const-locations`](../rollout-plan.md#const-locations) spec text.
+
+## 3. Live proof in a consumer project before a consumer exists
+
+[CLAUDE.md](../../CLAUDE.md) step 5 requires two live proofs before the yes, in this repository and in a consumer project; the consumer is born in Phase B, after the four Phase A modules.
+
+- **A. Two-stage proof, one yes.** The record and the yes follow the kit-live proof; the consumer-live proof is a named step of Phase B, and a finding there is a fix with a version bump.
+  - **Pros:** matches the sequence of [accumulating-set-first](accumulating-set-first.md); drafts stay `0.0.x` until Phase D, so the yes accepts a draft; the consumer proof still precedes publication.
+  - **Cons:** a yes can be followed by a rework.
+- **B. Hold every yes until Phase B.**
+  - **Pros:** one yes covers both proofs.
+  - **Cons:** the consumer is born on four unapproved modules; Phase A closes nothing; the fast lane exists to avoid this queue.
+- **C. Drop the consumer-live requirement for document-shaped modules.**
+  - **Pros:** simplest wording.
+  - **Cons:** the kit is an unusual consumer, no code and no tasks, so a leak toward kit habits surfaces only in a real project.
+- **D. A synthetic consumer for the second proof.**
+  - **Pros:** both proofs in Phase A.
+  - **Cons:** rejected in accumulating-set-first; the bare-repo fixtures are that proof already.
+
+Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [CLAUDE.md](../../CLAUDE.md) step 5; Phase B step 5 of `docs/rollout-plan.md`.
