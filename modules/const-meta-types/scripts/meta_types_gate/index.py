@@ -12,7 +12,7 @@ from pathlib import Path
 
 from . import messages
 from .dials import MODULE_PREFIX
-from .envelope import id_of_text
+from .envelope import declared_policy, document_id, id_of_text, parse_envelope
 from .errors import ConfigurationFailure
 from .model import Dials, Match, PendingDocument, Policy
 from .repository import list_markdown, read_text
@@ -30,6 +30,7 @@ class Index:
     policies: dict[str, Policy] = field(default_factory=dict)
     void: dict[str, dict[str, str]] = field(default_factory=dict)   # namespace -> would-be claims
     notes: list[str] = field(default_factory=list)
+    _owners: dict[str, list[str]] | None = None
 
     def text(self, rel: str) -> str | None:
         if self.pending is not None and rel == self.pending.rel:
@@ -45,6 +46,22 @@ class Index:
             claimed.update(policy.claims)
         return sorted(claimed)
 
+    def id_owners(self) -> dict[str, list[str]]:
+        """id -> the governed documents carrying it (claimed by path, or bound by a declaration
+        naming a policy). Built once per run: every Markdown file is read a single time."""
+        if self._owners is None:
+            claimed = set(self.governed())
+            owners: dict[str, list[str]] = {}
+            for rel in self.paths:
+                envelope = parse_envelope(self.text(rel) or "")
+                doc_id = document_id(envelope)
+                if doc_id is None:
+                    continue
+                if rel in claimed or declared_policy(envelope) in self.policies:
+                    owners.setdefault(doc_id, []).append(rel)
+            self._owners = owners
+        return self._owners
+
     def void_namespaces_claiming(self, rel: str) -> list[str]:
         return [name for name, claims in self.void.items() if rel in claims]
 
@@ -52,6 +69,7 @@ class Index:
 def build_index(root: Path, dials: Dials, root_policy: str, matcher: Matcher,
                 pending: PendingDocument | None = None) -> Index:
     paths = set(list_markdown(root))
+    paths.add(root_policy)              # even when git ignores it or it is not named *.md
     if pending is not None:
         paths.add(pending.rel)
     index = Index(root=root, paths=sorted(paths), pending=pending)
@@ -81,9 +99,9 @@ def _discover_policies(index: Index, dials: Dials, matcher: Matcher) -> None:
     for path in sorted(index.in_root):
         policy_id = id_of_text(index.text(path))
         if policy_id is None:
-            index.notes.append(messages.note_policy_without_id(path))
+            index.notes.append(messages.n1_note_policy_without_id(path))
         elif policy_id in index.policies:
-            index.notes.append(messages.note_policy_id_shared(index.policies[policy_id].path, path, policy_id))
+            index.notes.append(messages.n1_note_policy_id_shared(index.policies[policy_id].path, path, policy_id))
         else:
             index.policies[policy_id] = Policy(policy_id, path, dials.territory_of(policy_id))
     for policy in index.policies.values():

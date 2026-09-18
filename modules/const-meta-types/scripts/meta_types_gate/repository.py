@@ -13,7 +13,8 @@ from .errors import ConfigurationFailure
 
 def git(args: list[str], cwd: Path, stdin: bytes | None = None) -> subprocess.CompletedProcess[bytes]:
     try:
-        return subprocess.run(["git", *args], cwd=cwd, input=stdin, capture_output=True, check=False)
+        return subprocess.run(["git", *args], cwd=cwd, input=stdin, capture_output=True, check=False,
+                              env={**os.environ, "LC_ALL": "C"})
     except FileNotFoundError as exc:
         raise ConfigurationFailure(messages.c3_git_missing()) from exc
 
@@ -27,7 +28,10 @@ def repo_root(path: Path) -> Path | None:
         probe = probe.parent
     result = git(["rev-parse", "--show-toplevel"], cwd=probe)
     if result.returncode != 0:
-        return None
+        detail = result.stderr.decode("utf-8", "replace").strip()
+        if "not a git repository" in detail:
+            return None
+        raise ConfigurationFailure(messages.c12_git_failed(detail.splitlines()[0] if detail else "no message"))
     return Path(os.path.realpath(result.stdout.decode("utf-8", "replace").strip()))
 
 

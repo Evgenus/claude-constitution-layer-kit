@@ -6,7 +6,9 @@ one JSON line: timestamp, module, gate, mode, session, stream, text. The log hol
 was printed and nothing more.
 
 Location, first that applies: the dial ``log_dir`` (repository-relative, verified
-git-ignored by the caller); the platform's per-plugin data directory; nowhere.
+git-ignored by the caller); the platform's per-plugin data directory; nowhere. Lines are
+held in memory until ``flush``, so that everything one invocation printed lands in one
+place even when the dial is read after the first line was printed.
 A logging failure never changes a verdict: this is the one place the gate swallows an
 exception, deliberately, because a full disk must not turn a finding into a pass or a
 pass into a failure.
@@ -32,6 +34,7 @@ class Output:
         self.session = ""
         data_dir = os.environ.get("CLAUDE_PLUGIN_DATA", "")
         self.log_file: Path | None = Path(data_dir) / LOG_NAME if data_dir else None
+        self._pending: list[str] = []
 
     def use_log_dir(self, directory: Path) -> None:
         self.log_file = directory / LOG_NAME
@@ -48,17 +51,22 @@ class Output:
         self._append(stream, text)
 
     def _append(self, stream: Stream, text: str) -> None:
-        if self.log_file is None:
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        for line in text.splitlines() or [""]:
+            self._pending.append(json.dumps(
+                {"ts": now, "module": NAMESPACE, "gate": GATE, "mode": self.mode.value,
+                 "session": self.session, "stream": stream.value, "text": line}, ensure_ascii=False))
+
+    def flush(self) -> None:
+        """Write what was printed. Called once, by the guard, however the run ended."""
+        if self.log_file is None or not self._pending:
             return
         try:
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
             if self.log_file.exists() and self.log_file.stat().st_size > ROTATE_AT:
                 os.replace(self.log_file, self.log_file.with_name(LOG_NAME + ".1"))
-            now = datetime.now(timezone.utc).isoformat(timespec="seconds")
             with self.log_file.open("a", encoding="utf-8") as log:
-                for line in text.splitlines() or [""]:
-                    log.write(json.dumps({"ts": now, "module": NAMESPACE, "gate": GATE, "mode": self.mode.value,
-                                          "session": self.session, "stream": stream.value, "text": line},
-                                         ensure_ascii=False) + "\n")
+                log.write("\n".join(self._pending) + "\n")
         except OSError:
             pass    # deliberate: see the module docstring
+        self._pending.clear()

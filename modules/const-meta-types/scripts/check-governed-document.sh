@@ -1,7 +1,7 @@
 #!/bin/sh
 # const-meta-types: POSIX entry point of the write-time guard. Reads no YAML.
-# Finds python3, checks the interpreter floor, then hands stdin and arguments to the
-# Python entry point. A missing or too-old interpreter is a configuration failure:
+# Finds python3, then hands stdin and arguments to the Python entry point, which checks
+# the interpreter floor. A missing or too-old interpreter is a configuration failure:
 # exit 1 with the fix on the first line, never a silent pass. (Declared libraries are
 # preflighted by the Python side, from the plugin's requirements file.)
 here=$(dirname "$0")

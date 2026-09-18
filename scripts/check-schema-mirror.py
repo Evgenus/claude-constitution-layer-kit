@@ -50,7 +50,8 @@ def envelope_corpus() -> list[EnvelopeCase]:
     cases += [EnvelopeCase("id not kebab", {**GOOD, "id": "Note_A"}), EnvelopeCase("id trailing dash", {**GOOD, "id": "a-"}),
               EnvelopeCase("type outside enum", {**GOOD, "type": "spec"}),
               EnvelopeCase("status outside enum", {**GOOD, "status": "open"}),
-              EnvelopeCase("title empty", {**GOOD, "title": ""}), EnvelopeCase("title 200", {**GOOD, "title": "x" * 200}),
+              EnvelopeCase("title empty", {**GOOD, "title": ""}), EnvelopeCase("title of spaces", {**GOOD, "title": "   "}),
+              EnvelopeCase("title of two lines", {**GOOD, "title": "a\nb"}), EnvelopeCase("title 200", {**GOOD, "title": "x" * 200}),
               EnvelopeCase("title 201", {**GOOD, "title": "x" * 201})]
     for meta_type in ("current-state", "task-record"):
         cases.append(EnvelopeCase(f"type {meta_type}", {**GOOD, "type": meta_type}))

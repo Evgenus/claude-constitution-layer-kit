@@ -16,10 +16,10 @@ TITLE_MAX = 200
 
 def parse_envelope(text: str) -> Envelope:
     lines = text.lstrip("﻿").splitlines()
-    if not lines or lines[0].strip() != "---":
+    if not lines or lines[0].rstrip() != "---":
         return Envelope(EnvelopeState.NONE)
     for i in range(1, len(lines)):
-        if lines[i].strip() != "---":
+        if lines[i].rstrip() != "---":
             continue
         try:
             loaded: object = yaml.safe_load("\n".join(lines[1:i]))
@@ -28,7 +28,7 @@ def parse_envelope(text: str) -> Envelope:
         if loaded is None:
             loaded = {}
         if not isinstance(loaded, dict):
-            return Envelope(EnvelopeState.INVALID, detail="the block is not a mapping of field: value")
+            return Envelope(EnvelopeState.INVALID, detail=messages.detail_not_a_mapping())
         fields = {key: _field(loaded[key]) for key in READ_FIELDS if loaded.get(key) is not None}
         return Envelope(EnvelopeState.OK, fields=fields)
     return Envelope(EnvelopeState.UNTERMINATED)
@@ -46,29 +46,29 @@ def envelope_errors(envelope: Envelope) -> list[str]:
     def string(key: str) -> str | None:
         value = envelope.fields.get(key)
         if value is None:
-            errors.append(messages.field_missing(key))
+            errors.append(messages.f4_field_missing(key))
             return None
         if value.text is None:
-            errors.append(messages.field_not_string(key, value.yaml_type))
+            errors.append(messages.f4_field_not_string(key, value.yaml_type))
         return value.text
 
     doc_id = string("id")
     if doc_id is not None and not ID_RE.match(doc_id):
-        errors.append(messages.id_not_kebab(doc_id))
+        errors.append(messages.f4_id_not_kebab(doc_id))
     meta_type = string("type")
     if meta_type is not None and meta_type not in {t.value for t in MetaType}:
-        errors.append(messages.type_not_allowed(meta_type))
+        errors.append(messages.f4_type_not_allowed(meta_type))
     title = string("title")
-    if title is not None and not title.strip():
-        errors.append(messages.title_empty())
+    if title is not None and not title:
+        errors.append(messages.f4_title_empty())
     elif title is not None and len(title) > TITLE_MAX:
-        errors.append(messages.title_too_long())
+        errors.append(messages.f4_title_too_long())
     status = string("status")
     if status is not None and status not in {s.value for s in Status}:
-        errors.append(messages.status_not_allowed(status))
+        errors.append(messages.f4_status_not_allowed(status))
     declaration = envelope.fields.get(DECLARATION)
     if declaration is not None and (declaration.text is None or not ID_RE.match(declaration.text)):
-        errors.append(messages.declaration_not_kebab(declaration.shown))
+        errors.append(messages.f4_declaration_not_kebab(declaration.shown))
     return errors
 
 

@@ -46,10 +46,45 @@ class Stream(StrEnum):
     STDERR = "stderr"
 
 
+class FileTool(StrEnum):
+    """The platform tools whose writes this gate judges."""
+    WRITE = "Write"
+    EDIT = "Edit"
+
+
+class Key(StrEnum):
+    """Stable handles of the findings and configuration failures."""
+    F1 = "F1"
+    F2 = "F2"
+    F3 = "F3"
+    F4 = "F4"
+    F5 = "F5"
+    F6 = "F6"
+    F7 = "F7"
+    F8 = "F8"
+    F8B = "F8b"
+    F10 = "F10"
+    F11 = "F11"
+    F12 = "F12"
+    F13 = "F13"
+    F14 = "F14"
+    C2 = "C2"
+    C3 = "C3"
+    C4 = "C4"
+    C4B = "C4b"
+    C5 = "C5"
+    C6 = "C6"
+    C7 = "C7"
+    C8 = "C8"
+    C9 = "C9"
+    C12 = "C12"
+    C13 = "C13"
+
+
 @dataclass(frozen=True, slots=True)
 class Finding:
     """The repository is wrong: what failed, why the rule exists, the exact fix."""
-    key: str
+    key: Key
     headline: str
     why: str
     fix: str
@@ -62,7 +97,7 @@ class Finding:
 class Broken:
     """The checker could not run. One self-sufficient line: in hook mode only the first
     stderr line reaches the user."""
-    key: str
+    key: Key
     headline: str
     fix: str
 
@@ -73,6 +108,7 @@ class Broken:
 @dataclass(frozen=True, slots=True)
 class ToolEvent:
     """A PreToolUse event, reduced to the fields this gate reads."""
+    tool: FileTool | None        # None: a tool this gate does not judge
     tool_name: str
     file_path: str
     cwd: str

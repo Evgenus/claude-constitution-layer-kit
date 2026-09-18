@@ -18,7 +18,7 @@ first Markdown write, with the fix on the first line; nothing is silently skippe
 3. Backstop for writes the hook cannot see (shell edits, other tools, other people): run the
    scan on demand and in CI:
    ```bash
-   python3 <plugin root>/scripts/check-governed-document.py --scan
+   sh <plugin root>/scripts/check-governed-document.sh --scan
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity`.
 4. Output log: every line the gate prints is also appended, as one JSON line (timestamp,

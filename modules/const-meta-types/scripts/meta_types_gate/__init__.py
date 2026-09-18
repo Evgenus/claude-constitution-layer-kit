@@ -6,5 +6,6 @@ the import path, so ``import meta_types_gate`` needs no path manipulation anywhe
 Modules, in reading order: ``model`` (enums and dataclasses), ``messages`` (every
 user-facing text), ``errors``, ``preflight``, ``output`` (screen plus log), ``repository``
 (git and files), ``territory`` (pattern matching through git), ``envelope``, ``dials``,
-``events`` (the hook payload), ``index`` (policies and claims), ``checks``, ``cli``.
+``events`` (the hook payload), ``index`` (policies and claims), ``checks``, ``modes`` (hook and
+scan), ``cli`` (argparse and the single guard).
 """

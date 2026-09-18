@@ -4,7 +4,7 @@ and the envelope (is the document governable)."""
 from __future__ import annotations
 
 from . import messages
-from .envelope import declared_policy, envelope_errors, id_of_text, parse_envelope
+from .envelope import declared_policy, envelope_errors, parse_envelope
 from .index import Index
 from .model import Dials, Envelope, EnvelopeState, Examination, Finding, MetaType
 
@@ -51,10 +51,9 @@ def check_envelope(index: Index, rel: str, envelope: Envelope) -> list[Finding]:
     meta_type, doc_id = envelope.text("type") or "", envelope.text("id") or ""
     if rel in index.in_root and meta_type != MetaType.CURRENT_STATE:
         findings.append(messages.f10_policy_type(rel, meta_type, index.root_territory))
-    for other in index.governed():
-        if other != rel and id_of_text(index.text(other)) == doc_id:
-            findings.append(messages.f5_duplicate_id(rel, doc_id, other))
-            break
+    others = [path for path in index.id_owners().get(doc_id, []) if path != rel]
+    if others:
+        findings.append(messages.f5_duplicate_id(rel, doc_id, others[0]))
     return findings
 
 

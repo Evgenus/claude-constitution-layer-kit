@@ -18,8 +18,10 @@ Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — hook mode blocks the write, unless severity is warn: then exit 0
             with JSON carrying the finding to the model and the user;
           1 configuration failure — the checker could not run. Never a silent pass.
-Output:   findings on stderr (hook, block) or stdout (scan; hook warn as JSON); green and
-          skip lines on stdout; every printed line is also appended to the output log.
+Output:   findings on stderr (hook, block) or stdout (scan; hook warn as one JSON object);
+          notes, green and skip lines on stdout; every printed line is also appended to the
+          output log — under log_dir when set, else under the directory the platform names
+          in the environment variable CLAUDE_PLUGIN_DATA, else nowhere.
 
 This file stays parseable by any Python 3 so that an interpreter below the floor gets the
 teaching message rather than a syntax error; the code lives in the package beside it.

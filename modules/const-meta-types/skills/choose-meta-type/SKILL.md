@@ -68,5 +68,5 @@ will make it, or merely explain something?**
   override where the file sits.
 - If you edited a governed document through the shell (heredoc, `sed`), the hook did
   not see it: run the scan over the repository before you finish —
-  `python3 <plugin root>/scripts/check-governed-document.py --scan` (exit 2 lists the
+  `sh "${CLAUDE_PLUGIN_ROOT}/scripts/check-governed-document.sh" --scan` (exit 2 lists the
   findings with the same messages the hook gives).

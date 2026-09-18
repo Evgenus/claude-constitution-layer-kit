@@ -1,6 +1,8 @@
 """The dials file: read once, validated against the kernel's rules for the keys this gate
-reads — the two kernel-owned keys, `territory` of every non-module namespace, and this
-module's own namespace. Other modules' namespaces (const-*) are not read."""
+reads — the two kernel-owned keys, `territory` of every namespace that could be a
+policy's, and this module's own dials. A namespace named like a module (const-*) is a
+policy's only when a policy document carries that id, so its `territory` is read leniently:
+a well-formed one is kept for that case, anything else is another module's business."""
 
 from __future__ import annotations
 
@@ -23,8 +25,12 @@ def load_dials(root: Path) -> Dials | None:
     if not path.is_file():
         return None
     try:
-        loaded: object = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as exc:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigurationFailure(messages.c12_dials_unreadable(str(exc))) from exc
+    try:
+        loaded: object = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
         raise ConfigurationFailure(messages.c4_dials_invalid_yaml(str(exc).splitlines()[0])) from exc
     if loaded is None:
         loaded = {}
@@ -38,14 +44,20 @@ def _parse(raw: dict[object, object]) -> Dials:
     namespaces: dict[str, Namespace] = {}
     for key, value in raw.items():
         name = str(key)
-        if name in KERNEL_KEYS or (name.startswith(MODULE_PREFIX) and name != NAMESPACE):
+        if name in KERNEL_KEYS:
+            continue
+        if name.startswith(MODULE_PREFIX):
+            if isinstance(value, dict):
+                namespaces[name] = Namespace(name, _territory(name, value.get("territory"), lenient=True))
             continue
         if not isinstance(value, dict):
             raise ConfigurationFailure(messages.c5_namespace_not_mapping(name))
-        if name != NAMESPACE:
-            namespaces[name] = Namespace(name, _territory(name, value.get("territory")))
-    own = raw.get(NAMESPACE) or {}
-    assert isinstance(own, dict)            # a non-mapping was rejected in the loop above
+        namespaces[name] = Namespace(name, _territory(name, value.get("territory"), lenient=False))
+    own = raw.get(NAMESPACE, {})
+    if own is None:
+        own = {}
+    if not isinstance(own, dict):
+        raise ConfigurationFailure(messages.c5_own_namespace_not_mapping())
     return Dials(root_policy=_root_policy(raw.get("root_policy")), severity=_severity(own.get("severity")),
                  log_dir=_relative_dir(own.get("log_dir")), namespaces=namespaces)
 
@@ -57,12 +69,18 @@ def _check_dialect(value: object) -> None:
         raise ConfigurationFailure(messages.c5_dialect_unsupported(value))
 
 
-def _territory(name: str, value: object) -> tuple[str, ...]:
+def _territory(name: str, value: object, lenient: bool) -> tuple[str, ...]:
     if value is None:
         return ()
     if not isinstance(value, list) or not all(isinstance(p, str) and p.strip() for p in value):
+        if lenient:
+            return ()
         raise ConfigurationFailure(messages.c5_territory_shape(name))
-    return tuple(str(p) for p in value)
+    patterns = tuple(str(p) for p in value)
+    for pattern in patterns:
+        if pattern.startswith("#") or "\n" in pattern or "\r" in pattern:
+            raise ConfigurationFailure(messages.c5_territory_pattern(name, pattern))
+    return patterns
 
 
 def _is_relative(value: str) -> bool:

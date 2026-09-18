@@ -10,8 +10,10 @@ reported separately so they are never mistaken for each other.
 
 from __future__ import annotations
 
+import atexit
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -23,7 +25,10 @@ HERE = Path(__file__).resolve().parent
 SCRIPTS = HERE.parent / "scripts"
 WRAPPER = SCRIPTS / "check-governed-document.sh"
 ENTRY = SCRIPTS / "check-governed-document.py"
-sys.path.insert(0, str(SCRIPTS))           # test code only: shipped code never edits the path
+sys.path.insert(0, str(SCRIPTS))           # the runner only: no gate code ever edits the path
+SH = shutil.which("sh") or "sh"
+SCRATCH = Path(tempfile.mkdtemp(prefix="const-meta-types-fixtures-"))
+atexit.register(shutil.rmtree, SCRATCH, ignore_errors=True)
 
 from meta_types_gate.model import Finding  # noqa: E402
 
@@ -82,13 +87,18 @@ def run_gate(stdin: str, args: Sequence[str] = (), env: Mapping[str, str] | None
     merged = dict(os.environ)
     merged.pop("CLAUDE_PLUGIN_DATA", None)
     merged.update(env or {})
-    done = subprocess.run([*(command or ["/bin/sh", str(WRAPPER)]), *args], input=stdin, text=True,
+    done = subprocess.run([*(command or [SH, str(WRAPPER)]), *args], input=stdin, text=True,
                           capture_output=True, env=merged, check=False)
     return Result(done.returncode, done.stdout, done.stderr)
 
 
-def fresh_consumer(tmp: str, setup: Sequence[Write] = ()) -> Consumer:
-    consumer = Consumer(Path(os.path.realpath(tmp))).build()
+def scratch_dir() -> Path:
+    """A fresh directory under the runner's scratch root, removed when the runner exits."""
+    return Path(os.path.realpath(tempfile.mkdtemp(dir=SCRATCH)))
+
+
+def fresh_consumer(setup: Sequence[Write] = ()) -> Consumer:
+    consumer = Consumer(scratch_dir()).build()
     for item in setup:
         consumer.write(item.target, item.text)
     if setup:
@@ -97,16 +107,12 @@ def fresh_consumer(tmp: str, setup: Sequence[Write] = ()) -> Consumer:
 
 
 def run_case(case: Case) -> tuple[bool, str]:
-    with tempfile.TemporaryDirectory() as tmp:
-        consumer = fresh_consumer(tmp, case.setup)
-        red = run_gate(event_json(consumer.root, case.red))
+    red = run_gate(event_json(fresh_consumer(case.setup).root, case.red))
     if red.code != 2:
         return False, f"red half exited {red.code}, not 2: {red.stdout}{red.stderr}".strip()
-    if case.expect.headline not in red.stderr:
-        return False, f"red fired but did not teach {case.expect.key} {case.expect.headline!r}: {red.stderr.strip()}"
-    with tempfile.TemporaryDirectory() as tmp:
-        consumer = fresh_consumer(tmp, case.setup)
-        green = run_gate(event_json(consumer.root, case.green))
+    if case.expect.render() not in red.stderr:          # what failed, why, and the fix: all three lines
+        return False, f"red fired but did not teach {case.expect.key}:\n{case.expect.render()}\ngot:\n{red.stderr.strip()}"
+    green = run_gate(event_json(fresh_consumer(case.setup).root, case.green))
     if green.code != 0 or "1 document examined, governed by" not in green.stdout:
         return False, f"green half did not pass (exit {green.code}): {green.stdout}{green.stderr}".strip()
     return True, f"red → {case.expect.key}: {case.expect.headline}"
