@@ -2,7 +2,7 @@
 id: dec-0015-pre-module-audit-rulings
 type: task-record
 title: Procedure rulings from the pre-module audit of 2026-09-18
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -143,3 +143,26 @@ Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: the sp
   - **Cons:** the allowlist becomes the exemption marker C refuses.
 
 Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: [requirement A12.1](../requirements.md#a12-1); [CLAUDE.md](../../CLAUDE.md) step 5 names the by-hand form.
+
+## 7. Severity posture of write-time gates
+
+[`const-catalogs`](../requirements.md#const-catalogs) declared a block-or-warn dial for its write-time hook; [`const-meta-types`](../requirements.md#const-meta-types) declared none. A consumer adopting on a repository with legacy documents needs to see findings before every write is blocked, and only one of the two write-time gates offered it.
+
+- **A. Template convention: every write-time gate exposes `severity`, `block` or `warn`, default `block`**; the scan mode ignores it.
+  - **Pros:** one word, one meaning; an adoption path from the first module; the default keeps the gate a gate.
+  - **Cons:** a dial for the first module before a consumer asked, though the same dial was already ruled for `const-catalogs`.
+- **B. No dial for the first module.**
+  - **Pros:** nothing added.
+  - **Cons:** two postures; the first consumer meets the stricter one on the module that touches every document.
+- **C. Remove the catalogs dial; write-time gates always block.**
+  - **Pros:** no severity anywhere.
+  - **Cons:** reverses part of [dec-0004-catalogs-module](dec-0004-catalogs-module.md); no adoption path for a legacy repository.
+- **D. A kernel-owned severity key for all gates.**
+  - **Pros:** one migration switch.
+  - **Cons:** a kernel key for a module concern; a switch silencing every gate is the vacuous green the template forbids.
+
+Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [template §7](../../module-template/MODULE.md#t7) and [§9](../../module-template/MODULE.md#t9); the `const-meta-types` specification's dials line.
+
+## Close
+
+Every item of the audit that needed a ruling is applied: items 1, 2, 13, 17 and 18 in their own records ([dec-0013](dec-0013-non-authoritative-status.md), [dec-0014](dec-0014-territory-dialect.md), [dec-0016](dec-0016-yes-on-the-change.md), [dec-0017](dec-0017-records-numbered-now.md), [dec-0018](dec-0018-dials-schema.md)), the procedure items in sections 1 to 7 above, the routine repairs in commits ebf17ff and 5f32fab. The remaining audit items were design slots of the first module (hook coverage, platform facts) and are its `MODULE.md` sections, not rulings. This record is set `inactive` with this section.
