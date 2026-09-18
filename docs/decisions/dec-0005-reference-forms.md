@@ -1,5 +1,5 @@
 ---
-id: reference-forms
+id: dec-0005-reference-forms
 type: task-record
 title: Reference forms for kit documents and chat; explicit anchors on every citable unit
 status: inactive
@@ -51,7 +51,7 @@ Choice: option 1.
 
 ## Sub-decision 2 — id-reference syntax
 
-1. **Markdown link, id as text, current path as target**: `[session-conduct-rows](docs/decisions/session-conduct-rows.md)`; the id is the durable part, the path is derived and repaired by tooling on a move.
+1. **Markdown link, id as text, current path as target**: `[dec-0001-session-conduct-rows](docs/decisions/dec-0001-session-conduct-rows.md)`; the id is the durable part, the path is derived and repaired by tooling on a move.
    - Pro: clickable now, verified by lychee, repairable later; no new syntax.
    - Con: the path is a second copy that rots between a move and the repair.
 2. Wiki-link `[[id]]`.

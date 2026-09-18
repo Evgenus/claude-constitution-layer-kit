@@ -1,5 +1,5 @@
 ---
-id: policies-by-location
+id: dec-0008-policies-by-location
 type: task-record
 title: A policy is a document in the root policy's territory; territories are declared in the dials file under the policy's id
 status: inactive
@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[territory-declaration](territory-declaration.md) ruled, earlier on 2026-09-17, that the dials file holds a kernel-owned `territories` map from path pattern to policy id. The decider then worked through what a policy *is*: a document cannot proclaim itself a policy from an arbitrary location, so policy-ness must be external judgment, and the judgment must have a root that governs itself. The map made the dials file that judge and left the root implicit. This record reverses ruling 1 of [territory-declaration](territory-declaration.md); a record is never edited in place ([kernel §5](../../kernel/CONVENTIONS.md#k5)). Its ruling 3, the policy namespace default, is settled here in passing.
+[dec-0007-territory-declaration](dec-0007-territory-declaration.md) ruled, earlier on 2026-09-17, that the dials file holds a kernel-owned `territories` map from path pattern to policy id. The decider then worked through what a policy *is*: a document cannot proclaim itself a policy from an arbitrary location, so policy-ness must be external judgment, and the judgment must have a root that governs itself. The map made the dials file that judge and left the root implicit. This record reverses ruling 1 of [dec-0007-territory-declaration](dec-0007-territory-declaration.md); a record is never edited in place ([kernel §5](../../kernel/CONVENTIONS.md#k5)). Its ruling 3, the policy namespace default, is settled here in passing.
 
 ## Options
 

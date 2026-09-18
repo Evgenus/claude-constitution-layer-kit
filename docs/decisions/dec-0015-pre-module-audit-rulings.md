@@ -1,5 +1,5 @@
 ---
-id: pre-module-audit-rulings
+id: dec-0015-pre-module-audit-rulings
 type: task-record
 title: Procedure rulings from the pre-module audit of 2026-09-18
 status: active
@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Before the first module, the kit's governing documents were audited against each other and against the module routine on 2026-09-18. Kernel-touching findings got their own records ([record-references-are-provenance](record-references-are-provenance.md), [non-authoritative-status](non-authoritative-status.md), [territory-dialect](territory-dialect.md)). The procedure findings — rulings on how the kit works, each a sentence or two in `CLAUDE.md`, the template, or the plan — are gathered here, one section per item, decided one at a time in chat. The record is `active` while items remain open and is set `inactive` when the last one is applied ([kernel §5](../../kernel/CONVENTIONS.md#k5)).
+Before the first module, the kit's governing documents were audited against each other and against the module routine on 2026-09-18. Kernel-touching findings got their own records ([dec-0012-record-references-are-provenance](dec-0012-record-references-are-provenance.md), [dec-0013-non-authoritative-status](dec-0013-non-authoritative-status.md), [dec-0014-territory-dialect](dec-0014-territory-dialect.md)). The procedure findings — rulings on how the kit works, each a sentence or two in `CLAUDE.md`, the template, or the plan — are gathered here, one section per item, decided one at a time in chat. The record is `active` while items remain open and is set `inactive` when the last one is applied ([kernel §5](../../kernel/CONVENTIONS.md#k5)).
 
 ## 1. Runtime for gate scripts
 
@@ -73,7 +73,7 @@ Rulings: (a) [A2.3](../requirements.md#a2-3) is [`const-meta-types`](../requirem
 [CLAUDE.md](../../CLAUDE.md) step 5 requires two live proofs before the yes, in this repository and in a consumer project; the consumer is born in Phase B, after the four Phase A modules.
 
 - **A. Two-stage proof, one yes.** The record and the yes follow the kit-live proof; the consumer-live proof is a named step of Phase B, and a finding there is a fix with a version bump.
-  - **Pros:** matches the sequence of [accumulating-set-first](accumulating-set-first.md); drafts stay `0.0.x` until Phase D, so the yes accepts a draft; the consumer proof still precedes publication.
+  - **Pros:** matches the sequence of [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md); drafts stay `0.0.x` until Phase D, so the yes accepts a draft; the consumer proof still precedes publication.
   - **Cons:** a yes can be followed by a rework.
 - **B. Hold every yes until Phase B.**
   - **Pros:** one yes covers both proofs.
@@ -89,7 +89,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [CLAUD
 
 ## 4. Where a module's description lives after it moves into `MODULE.md`
 
-[module-spec-kind](module-spec-kind.md) moves each plan description into the module's draft `MODULE.md`; reference form R7 of [reference-forms](reference-forms.md) sends every module cite to the plan's anchor, and eleven records link there.
+[dec-0003-module-spec-kind](dec-0003-module-spec-kind.md) moves each plan description into the module's draft `MODULE.md`; reference form R7 of [dec-0005-reference-forms](dec-0005-reference-forms.md) sends every module cite to the plan's anchor, and eleven records link there.
 
 - **A. The plan keeps a one-line stub per module under the same anchor**, linking the module's `MODULE.md`; the anchor stays the canonical handle, authored or not.
   - **Pros:** no link migration ever; one stable handle per module; authored and unauthored modules cited alike.

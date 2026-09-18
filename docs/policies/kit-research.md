@@ -7,7 +7,7 @@ status: active
 
 # Research policy
 
-Governs the document kind *research comparison*: one module's dated survey of how its matrix rows are addressed today, ending in one recommendation per mechanism (decision [module-research-per-module](../decisions/module-research-per-module.md)). Territory under this policy's id in `constitution.yaml`.
+Governs the document kind *research comparison*: one module's dated survey of how its matrix rows are addressed today, ending in one recommendation per mechanism (decision [dec-0010-module-research-per-module](../decisions/dec-0010-module-research-per-module.md)). Territory under this policy's id in `constitution.yaml`.
 
 ## Rules
 

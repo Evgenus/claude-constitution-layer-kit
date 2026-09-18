@@ -1,5 +1,5 @@
 ---
-id: status-encodes-lifecycle
+id: dec-0002-status-encodes-lifecycle
 type: task-record
 title: status encodes lifecycle; inactive is the historical end state
 status: inactive
@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The kernel said two incompatible things about a decision record once applied: [kernel §2](../../kernel/CONVENTIONS.md#k2) deleted a closed task-record, [kernel §5](../../kernel/CONVENTIONS.md#k5) kept records for in-place supersession. The first record in this repository ([session-conduct-rows](session-conduct-rows.md)) was applied in the commit that created it and sat `active` with no meaning attached. Meanwhile "in-progress vs done" was encoded by existence in the tree, not by any field, so a persisting record had no way to say it was done.
+The kernel said two incompatible things about a decision record once applied: [kernel §2](../../kernel/CONVENTIONS.md#k2) deleted a closed task-record, [kernel §5](../../kernel/CONVENTIONS.md#k5) kept records for in-place supersession. The first record in this repository ([dec-0001-session-conduct-rows](dec-0001-session-conduct-rows.md)) was applied in the commit that created it and sat `active` with no meaning attached. Meanwhile "in-progress vs done" was encoded by existence in the tree, not by any field, so a persisting record had no way to say it was done.
 
 ## Options
 
@@ -40,4 +40,4 @@ Option 3, proposed by the decider and confirmed in chat on 2026-09-14. Applied i
 - [kernel §3](../../kernel/CONVENTIONS.md#k3): declaration pairs with an active task-record, not with `inactive`.
 - [kernel §5](../../kernel/CONVENTIONS.md#k5): record lifecycle stated; "append-only" clause dropped (git holds it).
 - Schema comment on `status` updated.
-- Plan: rows [A4.3](../requirements.md#a4-3), [A4.5](../requirements.md#a4-5), [A4.6](../requirements.md#a4-6); [`const-locations`](../requirements.md#const-locations), [`const-decision-records`](../requirements.md#const-decision-records), [`const-task-close`](../requirements.md#const-task-close) spec text; [session-conduct-rows](session-conduct-rows.md) set `inactive`.
+- Plan: rows [A4.3](../requirements.md#a4-3), [A4.5](../requirements.md#a4-5), [A4.6](../requirements.md#a4-6); [`const-locations`](../requirements.md#const-locations), [`const-decision-records`](../requirements.md#const-decision-records), [`const-task-close`](../requirements.md#const-task-close) spec text; [dec-0001-session-conduct-rows](dec-0001-session-conduct-rows.md) set `inactive`.

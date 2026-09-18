@@ -1,5 +1,5 @@
 ---
-id: record-references-are-provenance
+id: dec-0012-record-references-are-provenance
 type: task-record
 title: A current-state document states its own rules; its references to records are provenance, never authority
 status: inactive
@@ -23,7 +23,7 @@ On 2026-09-18 the decider observed that the kit's most authoritative documents (
   - **Cons:** a kernel change, so a recorded decision before the first module.
 - **C. Forbid references from current-state documents to records.**
   - **Pros:** no judgment about which cite is which.
-  - **Cons:** reverses [status-encodes-lifecycle](status-encodes-lifecycle.md); unreferenced records must be deleted by the lifecycle rule, so options and reasoning leave the tree; every provenance cite in the policies and `CLAUDE.md` is stripped.
+  - **Cons:** reverses [dec-0002-status-encodes-lifecycle](dec-0002-status-encodes-lifecycle.md); unreferenced records must be deleted by the lifecycle rule, so options and reasoning leave the tree; every provenance cite in the policies and `CLAUDE.md` is stripped.
 
 ## Recommendation
 

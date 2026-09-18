@@ -17,6 +17,7 @@ kit-intent-page:
 
 kit-decision-records:
   territory: ["docs/decisions/**"]
+  catalog: {prefix: dec, width: 4}    # a numbered kind (requirement A13.7): id and stem dec-<nnnn>-<slug>
 
 kit-research:
   territory: ["docs/research/**"]

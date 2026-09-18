@@ -1,5 +1,5 @@
 ---
-id: yes-on-the-change
+id: dec-0016-yes-on-the-change
 type: task-record
 title: The process-stakes yes is given on the change — PR approval where a PR flow exists, otherwise named in the commit message
 status: inactive

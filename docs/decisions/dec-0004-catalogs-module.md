@@ -1,5 +1,5 @@
 ---
-id: catalogs-module
+id: dec-0004-catalogs-module
 type: task-record
 title: Add the const-catalogs module (numbered kinds) to the rollout plan
 status: inactive

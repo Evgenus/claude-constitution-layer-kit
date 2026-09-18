@@ -1,5 +1,5 @@
 ---
-id: territory-declaration
+id: dec-0007-territory-declaration
 type: task-record
 title: Territories are declared under a kernel-owned top-level key of the dials file
 status: inactive
@@ -45,4 +45,4 @@ A, chosen by the decider in chat on 2026-09-17. The decider first chose D; the s
 ## Applied in the same commit
 
 - [Kernel §3](../../kernel/CONVENTIONS.md#k3) names the key; [kernel §6](../../kernel/CONVENTIONS.md#k6) shows it in the example and states the exception.
-- `constitution.yaml` at the kit root claims the kit's own governed documents with the kernel as their policy (decision [accumulating-set-first](accumulating-set-first.md), ruling 3).
+- `constitution.yaml` at the kit root claims the kit's own governed documents with the kernel as their policy (decision [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md), ruling 3).

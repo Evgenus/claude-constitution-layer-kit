@@ -1,5 +1,5 @@
 ---
-id: accumulating-set-first
+id: dec-0006-accumulating-set-first
 type: task-record
 title: Accumulating modules are authored before the consumer that needs them; the kit is consumer zero
 status: inactive

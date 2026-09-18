@@ -1,5 +1,5 @@
 ---
-id: non-authoritative-status
+id: dec-0013-non-authoritative-status
 type: task-record
 title: status on a non-authoritative document means current or superseded
 status: inactive
@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The lifecycle rule of [kernel §1](../../kernel/CONVENTIONS.md#k1) claimed one meaning of `status` for every meta-type but spelled it out for two: `active` for a binding current-state document or a task-record being applied, `inactive` for historical evidence. A `non-authoritative` document binds nothing and is never applied, so neither reading fit. The gap was found in the pre-module audit of 2026-09-18: the module routine's first artifact, the research comparison under `docs/research/`, lands in claimed territory and must carry a status on day one. [kit-research](../policies/kit-research.md) was silent; the reversed ruling 1 of [module-routine-validation-and-inputs](module-routine-validation-and-inputs.md) had said `inactive`.
+The lifecycle rule of [kernel §1](../../kernel/CONVENTIONS.md#k1) claimed one meaning of `status` for every meta-type but spelled it out for two: `active` for a binding current-state document or a task-record being applied, `inactive` for historical evidence. A `non-authoritative` document binds nothing and is never applied, so neither reading fit. The gap was found in the pre-module audit of 2026-09-18: the module routine's first artifact, the research comparison under `docs/research/`, lands in claimed territory and must carry a status on day one. [kit-research](../policies/kit-research.md) was silent; the reversed ruling 1 of [dec-0009-module-routine-validation-and-inputs](dec-0009-module-routine-validation-and-inputs.md) had said `inactive`.
 
 ## Options
 

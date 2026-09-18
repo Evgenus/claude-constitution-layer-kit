@@ -1,5 +1,5 @@
 ---
-id: territory-dialect
+id: dec-0014-territory-dialect
 type: task-record
 title: Territory patterns have a kernel-stated default dialect, gitignore, overridable by a kernel-owned key
 status: inactive
@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[territory-declaration](territory-declaration.md) ruling 2 left the pattern dialect and overlap handling to the first module that reads the territory declarations. The pre-module audit of 2026-09-18 found the kit's own `constitution.yaml` already asserting gitignore-style globs, and three modules ([`const-meta-types`](../requirements.md#const-meta-types), [`const-locations`](../requirements.md#const-locations), [`const-catalogs`](../requirements.md#const-catalogs)) reading the same declarations: a dialect chosen per module lets two readers disagree about one path, and a consumer writing a territory finds no dialect in the kernel page. The [`const-meta-types`](../requirements.md#const-meta-types) spec names a Python script, whose `fnmatch` lets `*` cross `/` and has no `**`, so `modules/*/MODULE.md` would mean something else there. This record reverses ruling 2 of territory-declaration; it also supersedes the "one kernel-owned key" wording of [policies-by-location](policies-by-location.md) ruling 1, the file now having two.
+[dec-0007-territory-declaration](dec-0007-territory-declaration.md) ruling 2 left the pattern dialect and overlap handling to the first module that reads the territory declarations. The pre-module audit of 2026-09-18 found the kit's own `constitution.yaml` already asserting gitignore-style globs, and three modules ([`const-meta-types`](../requirements.md#const-meta-types), [`const-locations`](../requirements.md#const-locations), [`const-catalogs`](../requirements.md#const-catalogs)) reading the same declarations: a dialect chosen per module lets two readers disagree about one path, and a consumer writing a territory finds no dialect in the kernel page. The [`const-meta-types`](../requirements.md#const-meta-types) spec names a Python script, whose `fnmatch` lets `*` cross `/` and has no `**`, so `modules/*/MODULE.md` would mean something else there. This record reverses ruling 2 of territory-declaration; it also supersedes the "one kernel-owned key" wording of [dec-0008-policies-by-location](dec-0008-policies-by-location.md) ruling 1, the file now having two.
 
 ## Options — the dialect
 

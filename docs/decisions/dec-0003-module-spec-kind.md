@@ -1,5 +1,5 @@
 ---
-id: module-spec-kind
+id: dec-0003-module-spec-kind
 type: task-record
 title: Module descriptions live in draft MODULE.md files, not in a separate spec kind
 status: inactive
