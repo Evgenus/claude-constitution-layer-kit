@@ -1,7 +1,0 @@
----
-id: shared-x
-type: non-authoritative
-title: Shared X
-status: active
-policy: shared-policy
----

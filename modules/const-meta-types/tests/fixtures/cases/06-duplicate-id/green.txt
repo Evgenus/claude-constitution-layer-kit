@@ -1,6 +1,0 @@
----
-id: note-b
-type: non-authoritative
-title: Note B
-status: active
----

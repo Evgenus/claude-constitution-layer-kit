@@ -36,6 +36,7 @@ A session opens a research note, a stale structure description, or a half-migrat
 3. [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — every read of `constitution.yaml` validates the keys read; a malformed file is a configuration failure.
 4. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 5. [dec-0019-meta-types-module-rulings](../../docs/decisions/dec-0019-meta-types-module-rulings.md) — the three rulings of this module's authoring: id uniqueness in the present tree is part of a valid envelope; the declaration field is `policy`; a territory with no policy behind it claims nothing.
+6. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md) — the fifteen gate-script rules this module's scripts follow: package shape, typed message functions, exit codes, floor 3.12, declared dependencies, no fail-open, strict typing, the output log and its `log_dir` dial, case-record fixtures, absence fixtures.
 
 <a id="t5"></a>
 ## 5. Invariant
@@ -47,12 +48,14 @@ A session opens a research note, a stale structure description, or a half-migrat
 
 | component | path | carries |
 |---|---|---|
-| hook | `hooks/hooks.json` | `PreToolUse`, matcher `Write\|Edit` (an exact-string list on the platform), command `sh "${CLAUDE_PLUGIN_ROOT}/scripts/check-governed-document.sh"`, timeout 30 s. The gate. |
-| script (sh) | `scripts/check-governed-document.sh` | POSIX entry point: finds `python3` and PyYAML, exits 1 with the install command when either is missing, otherwise hands stdin and arguments to the Python script. Reads no YAML. |
-| script (py) | `scripts/check-governed-document.py` | The check, in two modes: hook mode (reconstructs the document as it will be after the `Write` or `Edit`, examines it) and `--scan [<dir>]` (examines every Markdown document in claimed territory of the repository). Step down from a platform component: no platform component evaluates a document against a schema or resolves a path to a policy. Step down from a pure-shell script: legal YAML outside a hand-rolled subset would yield a wrong answer, not an error. Territory matching is delegated to `git check-ignore` rather than reimplemented: the dialect is git's, so git's verdict is the reference. |
+| hook | `hooks/hooks.json` | `PreToolUse`, matcher `Write\|Edit` (an exact-string list on the platform), exec form: `command` `sh`, `args` `["${CLAUDE_PLUGIN_ROOT}/scripts/check-governed-document.sh"]`, timeout 30 s. The gate. |
+| script (sh) | `scripts/check-governed-document.sh` | POSIX entry point: finds `python3`, exits 1 with the fix when it is missing, otherwise hands stdin and arguments to the Python entry point. Reads no YAML. |
+| script (py) | `scripts/check-governed-document.py` | Thin Python entry point, parseable by any Python 3: checks the interpreter floor (3.12), then runs the package. Its docstring is the contract: events, modes, input read, exit codes, output channels, dials read. |
+| package | `scripts/meta_types_gate/` | The check, beside its entry point, imported with no path manipulation: `model` (enums, dataclasses), `messages` (every text, as typed functions keyed as in the table below), `errors`, `preflight` (declared libraries), `output` (screen plus log), `repository` (git, files), `territory` (patterns through `git check-ignore`), `envelope`, `dials`, `events` (the hook payload, the document after the write), `index` (policies and claims), `checks` (resolution, envelope), `modes` (hook, `--scan [DIR]`), `cli` (`argparse`, the single guard). Step down from a platform component: no platform component evaluates a document against a schema or resolves a path to a policy. Step down from a pure-shell script: legal YAML outside a hand-rolled subset would yield a wrong answer, not an error. Territory matching is delegated to git: the dialect is git's, so git's verdict is the reference. `mypy --strict` clean. |
+| dependencies | `requirements.txt` | The declared libraries (PyYAML); the preflight imports each on every invocation, and the configuration-failure message prints the one install command for this file. |
 | skill | `skills/choose-meta-type/SKILL.md` | The type-selection procedure ([A1.5](../../docs/requirements.md#a1-5)): the contrastive pairs of [§8](#t8), the split rule, envelope reminders, and the advice to run the scan after a shell edit. `paths: "**/*.md"`. Advisory. |
-| install note | `INSTALL.md` | Requirements, the dial, the scan command for CI, no CLAUDE.md pointer. |
-| tests | `tests/run.sh`, `tests/fixtures/` | The fixtures of [§10](#t10). |
+| install note | `INSTALL.md` | Requirements, the two dials, the scan command for CI, where the output log goes, no CLAUDE.md pointer. |
+| tests | `tests/run.py`, `tests/harness.py`, `tests/consumer.py` | The fixtures of [§10](#t10): numbered case records and assertions, driving the real entry point with real hook events. |
 | command | none | no act here is one a human deliberately initiates; the scan is a shell command, documented in the install note. |
 | agent | none | no delegation boundary. |
 
@@ -67,9 +70,11 @@ A session opens a research note, a stale structure description, or a half-migrat
   7. Default command-hook timeout is 600 s; per-hook `timeout` is in seconds. Breaks: nothing at 30 s unless a repository holds tens of thousands of Markdown files.
   8. `git check-ignore --no-index -v -n -z --stdin` against a fresh null repository with an empty work tree and `core.excludesfile` set to one policy's patterns evaluates paths that do not exist yet, reports one deciding pattern per path (a `!` pattern means not in territory), and is unaffected by the consumer's own `.gitignore`; `core.ignorecase` must be pinned false. Breaks: territory verdicts.
   9. A skill's `paths` limits automatic activation; `description` plus `when_to_use` are capped at 1,536 characters in the listing. Breaks: the always-on budget.
-- **Research:** [docs/research/const-meta-types.md](../../docs/research/const-meta-types.md) (2026-09-18). Per row: [A1.4](../../docs/requirements.md#a1-4) gate at `PreToolUse` — **confirmed**; [A1.5](../../docs/requirements.md#a1-5) advisory skill — **confirmed**; [A2.3](../../docs/requirements.md#a2-3) same script at write time plus scan backstop — **confirmed** (no `SessionStart` scan: cost on every compaction without a gate). Schema validation is a PyYAML-only mirror of the kernel schemas rather than the `jsonschema` library (four more dependencies, one compiled), proven equal by the kit's fixtures; the module ships without the kit's schema files, so the mirror is the only copy a consumer has.
+  10. `hooks.json` has an exec form — `command` plus `args`, no shell, each element one argument — which the documentation says to use whenever a path placeholder appears. Breaks: hook wiring.
+  11. `${CLAUDE_PLUGIN_DATA}` is a persistent per-plugin directory outside the repository, exported to hook processes as an environment variable, removed on uninstall unless kept. Breaks: the default log location (the gate then logs nowhere, silently — stdout remains).
+- **Research:** [docs/research/const-meta-types.md](../../docs/research/const-meta-types.md) (2026-09-18). Per row: [A1.4](../../docs/requirements.md#a1-4) gate at `PreToolUse` — **confirmed**; [A1.5](../../docs/requirements.md#a1-5) advisory skill — **confirmed**; [A2.3](../../docs/requirements.md#a2-3) same script at write time plus scan backstop — **confirmed** (no `SessionStart` scan: cost on every compaction without a gate). Schema validation is a PyYAML-only mirror of the kernel schemas rather than the `jsonschema` library (four more dependencies, one compiled); the module ships without the kit's schema files, so the mirror is the only copy a consumer has. The kit proves the mirror with `scripts/check-schema-mirror.py`, which runs the real schemas through `jsonschema` (a development dependency of the kit only) over one corpus: exact equality for the envelope, never more lenient for the dials file, where the mirror is deliberately stricter (repository-relative paths).
 
-**Error messages.** Copied verbatim into the script; `{…}` are the values filled in. Findings are `RED`, three lines each (what failed / why the rule exists / the exact fix), followed by a count line; configuration failures are `BROKEN`, one self-sufficient line (only the first stderr line reaches the user in hook mode), followed by a count line.
+**Error messages.** Each row is one function of `messages.py`, under the same key; `{…}` are its parameters. Findings are `RED`, three lines each (what failed / why the rule exists / the exact fix), followed by a count line; configuration failures are `BROKEN`, one self-sufficient line (only the first stderr line reaches the user in hook mode), followed by a count line.
 
 | key | first line | why | fix |
 |---|---|---|---|
@@ -89,18 +94,20 @@ A session opens a research note, a stale structure description, or a half-migrat
 | F9 | count: `RED: {n} finding(s) — 1 document examined ({path})` (hook) / `RED: {n} finding(s) — {g} governed document(s) examined, {m} Markdown file(s) scanned, {p} policies` (scan) | — | — |
 | G1 | `GREEN: const-meta-types: 1 document examined, governed by {policy id}` / `GREEN: const-meta-types: 0 documents examined — {reason}` (`tool '{t}' carries no file to examine`; `{path} is not a Markdown document`; `{path} is not inside a git repository; the constitution is silent there`; `{path} is outside the repository`; `no constitution.yaml in {root}: nothing is claimed`; `constitution.yaml has no root_policy: nothing is claimed`; `Write carries no content`; `the Edit cannot be applied to {path}; the tool will report it`; `{path} is outside claimed territory`; `{path} lies only in the territory of namespace '{ns}', which has no policy document behind it and so claims nothing`) / scan: `GREEN: const-meta-types: {g} governed document(s) examined, {m} Markdown file(s) scanned, {p} policies` | — | — |
 | W1 | `severity: warn`: exit 0 with JSON — `additionalContext` = the `RED` lines plus `const-meta-types: severity is warn: the write proceeds, but the finding stands and recurs on every write until fixed`; `systemMessage` = `const-meta-types (warn): {first line}` | — | — |
-| C1 | `BROKEN: const-meta-types needs python3 — install Python 3 (https://www.python.org/downloads/) — until then Markdown writes pass unchecked` | — | — |
-| C2 | `BROKEN: const-meta-types needs PyYAML — run: python3 -m pip install pyyaml — until then Markdown writes pass unchecked` | — | — |
+| C1 | `BROKEN: const-meta-types needs python3 — fix: install Python 3.12 or newer (https://www.python.org/downloads/) — until then Markdown writes pass unchecked` (printed by the POSIX entry point) | — | — |
+| C2 | `BROKEN: const-meta-types needs {distribution} — fix: run: python3 -m pip install -r {the plugin's requirements.txt} — until then Markdown writes pass unchecked` (one per declared library that does not import) | — | — |
 | C3 | `BROKEN: const-meta-types needs git on PATH — fix: install git (https://git-scm.com/downloads)` | — | — |
 | C4 | `BROKEN: constitution.yaml is not valid YAML ({error}) — fix: fix the file; nothing is checked until it parses` | — | — |
 | C4b | `BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: root_policy, then one namespace per policy or module` | — | — |
-| C5 | `BROKEN: constitution.yaml: {detail} — fix: {fix}` for each schema rule read: `root_policy must be a repository-relative path`; `territory_dialect must be a non-empty string`; `territory_dialect '{d}' is not supported by const-meta-types (supports: gitignore)`; `namespace '{k}' must be a mapping`; `{k}.territory must be a list of non-empty strings`; `const-meta-types.severity must be block or warn`. Only the keys this module reads are validated: the two kernel-owned keys, `territory` of every non-module namespace, and its own `severity`; other modules' namespaces (`const-*`) are not read ([kernel §6](../../kernel/CONVENTIONS.md#k6)) | — | — |
+| C5 | `BROKEN: constitution.yaml: {detail} — fix: {fix}` for each schema rule read: `root_policy must be a repository-relative path`; `territory_dialect must be a non-empty string`; `territory_dialect '{d}' is not supported by const-meta-types (supports: gitignore)`; `namespace '{k}' must be a mapping`; `{k}.territory must be a list of non-empty strings`; `const-meta-types.severity must be block or warn`; `const-meta-types.log_dir must be a repository-relative directory`. Only the keys this module reads are validated: the two kernel-owned keys, `territory` of every non-module namespace, and its own `severity` and `log_dir`; other modules' namespaces (`const-*`) are not read ([kernel §6](../../kernel/CONVENTIONS.md#k6)) | — | — |
 | C6 | `BROKEN: constitution.yaml names root_policy '{path}' but no such file exists — fix: create it, or point root_policy at the policy for policies` | — | — |
 | C7 | `BROKEN: root policy '{path}' carries no readable id in its envelope — fix: give it the envelope (id, type, title, status); its id names its namespace` | — | — |
 | C8 | `BROKEN: root policy '{id}' claims no territory in constitution.yaml — fix: write {id}: {territory: [<where policies live, including the root itself>]} — nothing is governed until then` | — | — |
 | C9 | `BROKEN: root policy '{path}' lies outside its own territory {patterns} — fix: every chain of governance ends at the root; widen {id}.territory to include it` | — | — |
 | C11 | count: `BROKEN: the check could not run — 0 documents examined` | — | — |
-| C12 | internal failures, one line each with its fix: `BROKEN: git ls-files failed in {root} — fix: run the check from inside a git repository`; `BROKEN: git init of the scratch repository failed — fix: check that git works: git --version`; `BROKEN: git check-ignore failed: {stderr} — fix: territory patterns must be gitignore syntax; check constitution.yaml`; `BROKEN: hook input is not JSON ({error}) — fix: this script reads a PreToolUse event on stdin`; `BROKEN: {dir} is not inside a git repository — fix: run --scan from a repository, or pass its path`; `BROKEN: unknown invocation '{args}' — fix: run with no arguments (hook) or --scan [<dir>]`; `BROKEN: {path} is listed by git but cannot be read — fix: check the file's permissions and encoding` | — | — |
+| C12 | internal failures, one line each with its fix: `BROKEN: git ls-files failed in {root} — fix: run the check from inside a git repository`; `BROKEN: git init of the scratch repository failed — fix: check that git works: git --version`; `BROKEN: git check-ignore failed: {stderr} — fix: territory patterns must be gitignore syntax; check constitution.yaml`; `BROKEN: hook input is not a JSON object ({error}) — fix: this script reads a PreToolUse event on stdin`; `BROKEN: {dir} is not inside a git repository — fix: run --scan from a repository, or pass its path`; `BROKEN: misinvocation: {argparse message} — fix: run with no arguments (hook) or --scan [<dir>]`; `BROKEN: {path} is listed by git but cannot be read — fix: check the file's permissions and encoding`; `BROKEN: unexpected failure inside the checker: {exception} — fix: this is a defect of the gate, not of the repository; report it with the traceback above` (the traceback is printed first) | — | — |
+| C13 | `BROKEN: constitution.yaml: const-meta-types.log_dir '{dir}' is not ignored by git — fix: a log inside the working tree must be git-ignored, or every verdict dirties the tree; add the directory to .gitignore, or remove the key` | — | — |
+| C14 | `BROKEN: const-meta-types needs Python 3.12 or newer, found {major}.{minor} — fix: install a current Python 3 (https://www.python.org/downloads/) and put it first on PATH — until then Markdown writes pass unchecked` (printed by the Python entry file, which any Python 3 can parse; its text lives there, not in `messages.py`, which an old interpreter cannot import) | — | — |
 | N1 | notes, printed in both modes before the verdict: `note: {path} lies in the root policy's territory but carries no readable id; it claims nothing until it does`; `note: {a} and {b} both carry id '{id}'; the first claims, the second is ignored`; scan only: `note: namespace '{ns}' declares a territory but no policy with id '{ns}' lies in the root policy's territory; it claims nothing until that policy exists` | — | — |
 
 **Installed components reference nothing in the kit.** The skill, hook, scripts, error text, fixtures, and install note name no kit document; the reasoning lives here and in [§4](#t4).
@@ -111,6 +118,7 @@ A session opens a research note, a stale structure description, or a half-migrat
 | dial | default | meaning |
 |---|---|---|
 | `severity` | `block` | `block`: a finding exits 2 and the write is blocked. `warn`: the finding is reported to Claude and to the user and the write proceeds — the adoption path onto a repository with legacy documents. The scan ignores it. |
+| `log_dir` | absent | A repository-relative directory for the output log. The gate verifies with git that the directory is ignored and reports a configuration failure otherwise. Absent: the log goes to the platform's per-plugin data directory; where that is absent too (CI), nowhere, and stdout is the record. |
 
 Territory, the root policy, and the dialect are the kernel-owned keys and the policy namespaces of [kernel §6](../../kernel/CONVENTIONS.md#k6), not dials of this module.
 
@@ -140,45 +148,52 @@ The resolution and envelope boundaries are deterministic and need no examples; t
 
 1. **Shell writes.** A heredoc, `sed -i`, `mv`, or any Bash command is not a `Write` or `Edit`; the hook never sees it. Backstop: the scan, on demand and in CI; the skill tells the agent to run it after a shell edit.
 2. **Writes by other actors.** Humans, other tools, merges, and rebases bypass the hook. Backstop: the scan in CI.
-3. **Configuration failure is non-blocking in hook mode.** Exit 1 is what the runtime ruling fixes, and the platform treats it as a non-blocking error: the user sees the first stderr line, Claude sees nothing, the write proceeds. The message is designed to be complete on that one line. Backstop: the scan exits 1 with the same message, so CI turns red until the configuration is repaired.
+3. **Configuration failure is non-blocking in hook mode.** Exit 1 is what the runtime ruling fixes, and the platform treats it as a non-blocking error: the user sees the first stderr line, Claude sees nothing, the write proceeds. The message is designed to be complete on that one line, and it lands in the output log. Backstop: the scan exits 1 with the same message, so CI turns red until the configuration is repaired.
 4. **`Edit` is reconstructed, not observed.** The script applies `old_string` → `new_string` to the file on disk to judge the result; an edit the tool itself would reject (file missing, string absent) is skipped with a visible zero count.
 5. **The declaration's condition is not checked.** Whether "an active task-record covers the move" holds is judgment; the gate accepts any declaration that names a matching or existing policy.
 6. **Markdown means `.md`.** Other extensions are outside the module.
 7. **Timeout.** At 30 s the platform abandons the hook as a non-blocking error; repositories large enough to hit it are the friction signal of [§12](#t12).
+12. **The output log is best-effort evidence, not a gate.** A logging failure never changes a verdict, so a full disk or an unwritable directory loses log lines silently; the two lines the POSIX entry point prints when `python3` is missing, and the interpreter-floor message, are printed but not logged, since no Python runs to log them. With neither `log_dir` nor the platform's data directory, nothing is logged.
 8. **Duplicate ids across history** ("never reused") are not checked; only the present tree is.
 9. **Negation cannot carve a subtree out of a `**` territory.** Under gitignore's rule that a file below an excluded directory cannot be re-included, `["docs/notes/**", "!docs/notes/private/**"]` still claims `docs/notes/private/p.md`; a file-level negation such as `"!docs/notes/secret.md"` against `"docs/notes/*.md"` does exclude. This is the dialect's semantics, not the module's; write the territory without the parent match instead.
 10. **The envelope ends at the first line that is exactly `---`.** A block scalar containing such a line truncates the envelope and is reported as invalid fields; quote or indent the value instead.
 11. **Untracked and gitignored Markdown in territory is invisible to the scan** (it lists tracked and untracked non-ignored files); the hook still checks such a file when it is written through the file tools.
 
-**Exit-code contract** (both modes): `0` green or nothing examined (the count line says which); `2` finding — the repository is wrong; `1` configuration failure — the checker could not run (missing runtime or library, malformed or contradictory dials file, missing root policy, git absent). A territory with no policy behind it is none of these: it claims nothing, and the skip says so. A missing tool is loud, never a silent pass.
+**Exit-code contract** (both modes): `0` green or nothing examined (the count line says which); `2` finding — the repository is wrong; `1` configuration failure — the checker could not run (missing or too-old interpreter, missing library, malformed or contradictory dials file, missing root policy, git absent, a log directory git does not ignore, unparseable hook input, a bad argument, or an unexpected exception, whose traceback is printed). Nothing exits 0 on error. A territory with no policy behind it is none of these: it claims nothing, and the skip says so. A missing tool is loud, never a silent pass.
 
 <a id="t10"></a>
 ## 10. Acceptance
 
-Runner: `tests/run.sh` (bash; needs git, Python 3, PyYAML) builds `tests/fixtures/repo/` — a three-policy consumer with a deliberate overlap — in a temporary git repository and drives the gate with real `PreToolUse` events. Each item names its verification kind.
+Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries). It builds a three-policy consumer with a deliberate overlap in a temporary git repository, fresh for every half of every case, and drives the real entry point — POSIX wrapper, stdin, exit code — with real `PreToolUse` events. A case fails when its red half does not exit 2, when red does not teach the expected message (compared against the text the `messages` function returns), or when its green half does not pass. Items are numbered as the runner prints them; envelope documents are rendered through the YAML dumper, malformed ones typed on purpose.
 
 | item | kind | what it proves |
 |---|---|---|
-| T1 `tests/fixtures/cases/01-envelope-missing/` (each case: `target`, `red.txt`, `green.txt` — inputs the runner writes as Markdown into the temporary consumer) | fixture | frontmatter-less file blocked (F1); corrected file passes |
-| T2 `tests/fixtures/cases/02-envelope-invalid/` | fixture | invalid `id`, `type`, `status` blocked (F4); corrected file passes |
-| T3 `tests/fixtures/cases/03-no-policy/` | fixture | declaration naming a non-policy blocked (F6); declaration naming a policy, path mapping absent, passes |
-| T4 `tests/fixtures/cases/04-multi-policy/` | fixture | two territories, no declaration, blocked (F7); declaration naming one of them passes |
-| T5 `tests/fixtures/cases/05-contradicting-declaration/` | fixture | declaration contradicting the path blocked (F8); without it passes |
-| T6 `tests/fixtures/cases/06-duplicate-id/` | fixture | id carried by another governed document blocked (F5); own id passes |
-| T7 `tests/fixtures/cases/07-contradicting-declaration-in-overlap/` | fixture | in an overlap, a declaration naming neither policy blocked (F8b); naming one passes |
-| T8 `tests/fixtures/cases/08-policy-with-wrong-type/` | fixture | a document in the root's territory with `type: task-record` blocked (F10); `current-state` passes |
-| T9 `tests/fixtures/cases/09-root-policy-damaged/` | fixture | a `Write` of the root policy without its envelope blocked (F11), never a non-blocking configuration failure; the intact root passes |
-| T10 (runner, case 10) | fixture | an `Edit` removing `type` is blocked on the reconstructed result; an `Edit` in the body passes |
-| T11, T13 (runner, cases 11 and 13) | fixture | exit-code split: malformed dials file and missing `python3` each exit 1 with `BROKEN`, never 2, never 0 |
-| T12 (runner, case 12) | fixture | a write into a territory with no policy behind it is a visible skip naming the namespace, exit 0 |
-| T14–T15 (runner, cases 14–15) | fixture | examined count on a skip: outside territory and non-Markdown both print `0 documents examined` and exit 0 |
-| T16 (runner, case 16) | fixture | a file-level negated pattern excludes the file from the territory |
-| T17 (runner, case 17) | fixture | `severity: warn`: exit 0, JSON with `additionalContext` carrying the `RED` lines |
-| T18–T19 (runner, cases 18–19) | fixture | scan mode reports the finding with counts and exits 2 under `warn`; green prints counts |
-| T20 | live | the scan over this repository (consumer zero): every governed kit document green, counts printed — passed 2026-09-18 |
-| T21 | live | the plugin loaded in a headless session in this repository via `--plugin-dir`: a frontmatter-less write into claimed territory blocked with F1 and the file not created; the corrected write landed; the skill reachable as `/const-meta-types:choose-meta-type` — passed 2026-09-18 |
-| T22 | review | the pairs of [§8](#t8) and the error texts of [§6](#t6), at the one yes |
-| T23 | live, deferred to the consumer's bootstrap | the consumer-live proof (decision [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) section 3) |
+| T1 | fixture, red→green | no envelope blocked (F1); with one, passes |
+| T2 | fixture, red→green | unclosed envelope blocked (F2) |
+| T3 | fixture, red→green | invalid `id`, `type`, `status` blocked in one message (F4) |
+| T4 | fixture, red→green | id carried by another governed document blocked (F5); own id passes |
+| T5 | fixture, red→green | no policy: declaration naming a non-policy blocked (F6); naming a policy, path mapping absent, passes |
+| T6 | fixture, red→green | multi-policy: two territories, no declaration, blocked (F7); declaring one of them passes |
+| T7 | fixture, red→green | contradiction: declaration against the path blocked (F8); without it passes |
+| T8 | fixture, red→green | contradiction in an overlap: declaration naming neither claimant blocked (F8b) |
+| T9 | fixture, red→green | a document in the root's territory with `type: task-record` blocked (F10) |
+| T10 | fixture, red→green | the root policy written without its envelope is a blocked write (F11), never a non-blocking configuration failure |
+| T11 | fixture, red→green | an `Edit` removing `type` is blocked on the reconstructed result (F4); an `Edit` in the body passes |
+| T12 | fixture, assertion | exit-code split: a malformed dials file exits 1 with `BROKEN`, never 2, never 0 |
+| T13–T16 | fixture, assertion | absence: `python3`, an interpreter below the floor (reported as not exercised, with a zero count, on a machine that has none), git, a declared library — each exits 1 with its install message |
+| T17–T18 | fixture, assertion | misinvocation exits 1 (the `argparse` override); unparseable hook input is a configuration failure, not an empty event |
+| T19–T20 | fixture, assertion | examined count on a skip: outside territory and non-Markdown print `0 documents examined` and exit 0 |
+| T21 | fixture, assertion | a write into a territory with no policy behind it is a visible skip naming the namespace |
+| T22 | fixture, assertion | a file-level negated pattern excludes the file from the territory |
+| T23 | fixture, assertion | `severity: warn`: exit 0, the finding in `additionalContext` and `systemMessage` |
+| T24–T25 | fixture, assertion | scan: finding with counts and exit 2 under `warn`; green with counts and a note per void namespace |
+| T26–T28 | fixture, assertion | output log: lines land in the plugin data directory with all seven fields; `log_dir` routes them to a git-ignored directory; a `log_dir` git does not ignore exits 1 (C13) |
+| T29–T30 | fixture, assertion | `requirements.txt` equals the preflight table; every taught finding carries what, why, fix |
+| T31 | kit check | `scripts/check-schema-mirror.py` in the kit: the mirror equals the kernel envelope schema and is never more lenient than the dials schema |
+| T32 | live | the scan over this repository (consumer zero): every governed kit document green, counts printed |
+| T33 | live | the plugin loaded in a headless session in this repository via `--plugin-dir`: a frontmatter-less write into claimed territory blocked with F1 and the file not created; the corrected write landed; the skill reachable as `/const-meta-types:choose-meta-type` |
+| T34 | review | the pairs of [§8](#t8) and the error texts of [§6](#t6), at the one yes |
+| T35 | live, deferred to the consumer's bootstrap | the consumer-live proof (decision [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) section 3) |
 
 **Examined count.** Every exit prints it: hook mode `1 document examined, governed by …` or `0 documents examined — <reason>`; scan mode governed documents, Markdown files scanned, and policies; `BROKEN` prints `0 documents examined`.
 

@@ -1,8 +1,0 @@
----
-id: root-policy
-type: current-state
-title: Root policy — the policy for policies
-status: active
----
-
-# Root policy

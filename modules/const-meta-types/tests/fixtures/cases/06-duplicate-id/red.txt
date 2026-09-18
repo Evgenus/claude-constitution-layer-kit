@@ -1,6 +1,0 @@
----
-id: notes-policy
-type: non-authoritative
-title: Note B
-status: active
----

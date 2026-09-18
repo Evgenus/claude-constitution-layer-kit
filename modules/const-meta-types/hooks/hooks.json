@@ -6,7 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/check-governed-document.sh\"",
+            "command": "sh",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/check-governed-document.sh"],
             "timeout": 30
           }
         ]

@@ -1,8 +1,0 @@
----
-id: Note_A
-type: spec
-title: Note A
-status: open
----
-
-# Note A

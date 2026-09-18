@@ -1,6 +1,0 @@
----
-id: drafts-policy
-type: current-state
-title: Drafts policy
-status: active
----

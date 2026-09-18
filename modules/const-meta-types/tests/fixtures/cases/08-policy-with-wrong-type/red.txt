@@ -1,6 +1,0 @@
----
-id: drafts-policy
-type: task-record
-title: Drafts policy
-status: active
----

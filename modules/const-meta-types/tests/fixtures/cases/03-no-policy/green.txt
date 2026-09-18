@@ -1,9 +1,0 @@
----
-id: loose
-type: non-authoritative
-title: Loose note
-status: active
-policy: notes-policy
----
-
-# Loose
