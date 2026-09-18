@@ -1,0 +1,7 @@
+{
+  "name": "const-decision-records",
+  "version": "0.0.1",
+  "description": "Keeps recorded rulings out of chat scrollback: a decision record is valid at the moment it is written, and routine calls stay commit notes.",
+  "author": { "name": "Eugene Chernyshov" },
+  "license": "MIT"
+}
