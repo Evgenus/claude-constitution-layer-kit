@@ -91,7 +91,7 @@ status: active
 | <a id="a11-2"></a>A11.2 | Post-hoc length gate per document kind; ceilings, not targets | M10 script | **gate**: script, warn → block per dial (ladder) |
 | <a id="a11-3"></a>A11.3 | Ceilings set from observed data (≥ a month), one per meta-type at most | binding | review judgment, data-informed |
 | <a id="a12"></a>**A12 — Kit portability** | | | |
-| <a id="a12-1"></a>A12.1 | No project references in modules; specifics via dials; empty-repo test | [kernel §6](../kernel/CONVENTIONS.md#k6) + template | **gate**: kit-repo CI — install on bare repo + project-reference grep |
+| <a id="a12-1"></a>A12.1 | No project references in modules; specifics via dials; empty-repo test | [kernel §6](../kernel/CONVENTIONS.md#k6) + template | **gate**: kit-repo CI — install on bare repo + project-reference grep. The grep (decision [pre-module-audit-rulings](decisions/pre-module-audit-rulings.md)): in every file of a module, any absolute path, `file:` link, `~/`, or repository-relative path literal not prefixed by `${CLAUDE_PLUGIN_ROOT}` and not a public URL is a finding, with no exemption marker; the one repository path a module may name is `constitution.yaml`, every other location comes from the dials file or the territory declarations at runtime. A heuristic: the bare-repo defaults-only run stays the gate of record |
 | <a id="a12-2"></a>A12.2 | Sibling references only as optional enhancements; kernel+module alone = functioning install | template | **gate**: kit-repo CI — kernel+single-module bare-repo run |
 | <a id="a12-3"></a>A12.3 | One dials file, namespace per module, defaults always work | [kernel §6](../kernel/CONVENTIONS.md#k6) | **gate**: covered by A12.1's defaults-only run |
 | <a id="a13"></a>**A13 — Catalogs (numbered kinds)** | | | |

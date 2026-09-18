@@ -124,3 +124,22 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: the mo
   - **Cons:** a schedule is not a ruling; a record with no choice is the manufactured shape the kernel forbids.
 
 Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: the split; policies [kit-requirements](../policies/kit-requirements.md) and [kit-rollout-plan](../policies/kit-rollout-plan.md), their territories in `constitution.yaml`; every anchored link migrated from `rollout-plan.md#` to `requirements.md#` across records, `CLAUDE.md`, `INTENT.md`, `README.md`, the template, and `scripts/check-references.sh`, whose `M<n>` exemption follows the specifications; bare mentions of the old path in inactive records are left as evidence of their moment, since nothing resolves through them. Found in passing and repaired in the preceding commit: the intent policy had reused the id of [INTENT.md](../../INTENT.md); it is now [kit-intent-page](../policies/kit-intent-page.md).
+
+## 6. What the portability grep looks for
+
+[Requirement A12.1](../requirements.md#a12-1) named a project-reference grep as half of the portability gate without defining a project reference; a list of consumer names cannot be the definition, being project content by [law 2 of CLAUDE.md](../../CLAUDE.md#law-2). The check arrives with CI in Phase D, but [CLAUDE.md](../../CLAUDE.md) step 5 runs it by hand from the first module on.
+
+- **A. Absolute paths and links only**, as `scripts/check-references.sh` already does for kit documents.
+  - **Pros:** zero false positives; implemented.
+  - **Cons:** misses the leak that matters, a repository-relative path written into a skill or script.
+- **B. Drop the grep; the bare-repo defaults-only run is the whole gate.**
+  - **Pros:** no heuristic.
+  - **Cons:** a hardcoded path that only acts when it exists passes a bare repo untouched.
+- **C. Literal-path heuristic, no denylist.** Any absolute path, `file:` link, `~/`, or repository-relative path literal not prefixed by `${CLAUDE_PLUGIN_ROOT}` and not a public URL is a finding; the one repository path a module may name is `constitution.yaml`; no exemption marker.
+  - **Pros:** targets the real leak class without naming any project; enforces the discipline the kernel's portability rule states.
+  - **Cons:** noise on in-plugin paths in prose, resolved by writing them `${CLAUDE_PLUGIN_ROOT}`-relative or in words; a heuristic, so the bare-repo run stays the gate of record.
+- **D. C plus an allowlist of kit-defined names.**
+  - **Pros:** less noise.
+  - **Cons:** the allowlist becomes the exemption marker C refuses.
+
+Recommendation C. Chosen C by the decider in chat on 2026-09-18. Applied: [requirement A12.1](../requirements.md#a12-1); [CLAUDE.md](../../CLAUDE.md) step 5 names the by-hand form.
