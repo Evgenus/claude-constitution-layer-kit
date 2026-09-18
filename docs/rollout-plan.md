@@ -39,7 +39,7 @@ Friction in a project → commit note → recurring notes on one theme → modul
 
 **"Enters when" has two meanings** (decision [accumulating-set-first](decisions/accumulating-set-first.md)). For an accumulating module it names the first moment an object for the module exists; the module is authored *before* that moment, and for a greenfield consumer the whole accumulating set is the day-one install set. For a self-limiting module it names the friction signal that earns authoring. Dials follow the consumer; modules never wait for calibration.
 
-**Module boundaries remain provisional until authoring** — settled by three tests: *one invariant? one enforcement moment? one lifecycle trigger?* Flagged rows (†) sit on boundaries under test: M1+M2 may merge (same hook event, territory, write-time moment); M7 may dissolve (A8.x → M6, A10.2 → M9).
+**Module boundaries remain provisional until authoring** — settled by three tests: *one invariant? one enforcement moment? one lifecycle trigger?* Flagged rows (†) sit on boundaries under test: M7 may dissolve (A8.x → M6, A10.2 → M9). Settled: the M1/M2 boundary — [A2.3](#a2-3) is M1's, so one write-time script guards claimed territory and M2 is advisory creation (decision [pre-module-audit-rulings](decisions/pre-module-audit-rulings.md)).
 
 | Part | Requirement (one line) | Destination | Recommended enforcement |
 |---|---|---|---|
@@ -52,7 +52,7 @@ Friction in a project → commit note → recurring notes on one theme → modul
 | <a id="a2"></a>**A2 — Location & governance binding** | | | |
 | <a id="a2-1"></a>A2.1 | Territories; path-first resolution; declaration only where path absent/ambiguous; three defect classes | [kernel §3](../kernel/CONVENTIONS.md#k3) | definitional — enforced through A2.3 |
 | <a id="a2-2"></a>A2.2 | Policy interface: governed current-state doc, referenced by id, calibration in dials, no internal format | [kernel §3](../kernel/CONVENTIONS.md#k3) | definitional — id-resolution checked by A2.3 |
-| <a id="a2-3"></a>A2.3 | Resolution enforcement: no-policy / multi-policy / contradicting declaration blocked | M2 hook+script † | **gate**: write-time hook block; same script as CI backstop on PR |
+| <a id="a2-3"></a>A2.3 | Resolution enforcement: no-policy / multi-policy / contradicting declaration blocked | M1 hook+script | **gate**: write-time hook block; same script as CI backstop on PR |
 | <a id="a2-4"></a>A2.4 | Documents created by command from the policy's template into the canonical home | M2 skill | advisory procedure — its *output* is caught by A1.4+A2.3 gates |
 | <a id="a2-5"></a>A2.5 | New-document-kind procedure: policy first (`process` stakes), then creation | M2 skill | advisory — skipping it lands in A2.3's no-policy defect anyway |
 | <a id="a2-6"></a>A2.6 | The territory declarations themselves: `root_policy`, the optional `territory_dialect`, and each policy's territory in its dials namespace ([kernel §3](../kernel/CONVENTIONS.md#k3), [kernel §6](../kernel/CONVENTIONS.md#k6)) | binding | config — schema-validated at module load; no declarations = silent territory |
@@ -128,20 +128,20 @@ Friction in a project → commit note → recurring notes on one theme → modul
 <a id="const-meta-types"></a>
 ## M1 `const-meta-types` — accumulating; authored first, in Phase A
 
-**Failure pattern:** documents with undeclared or invalid authority; agents treating research notes, stale mirrors, or half-migrated remnants as binding truth (the retroactive-canonization problem).
-**Invariant:** every Markdown document in claimed territory carries valid envelope frontmatter — `id` (stable kebab, never reused), `type` ∈ {current-state, task-record, non-authoritative}, `title`, `status` ∈ {active, inactive} — per the kernel schema.
-**Ships:** PreToolUse hook (Write|Edit, claimed territory) → ~60-line PyYAML script, exit 2 blocks; teaching errors per contract (what failed / why the rule exists in one clause / exact fix). Skill: choosing the meta-type, carrying the founding contrastive pairs — *architecture-of-what-should-be mid-task rides with the task delta; standing spec = current-state; as-is structure description = non-authoritative, dated, generated-preferred; a doc mixing as-is with direction must be split or classified by its normative content.*
+**Failure pattern:** documents with undeclared or invalid authority; agents treating research notes, stale mirrors, or half-migrated remnants as binding truth (the retroactive-canonization problem); documents in claimed territory that no policy, or more than one, governs.
+**Invariant:** every Markdown document in claimed territory is governable: it carries valid envelope frontmatter — `id` (stable kebab, never reused), `type` ∈ {current-state, task-record, non-authoritative}, `title`, `status` ∈ {active, inactive} — per the kernel schema, and it resolves to exactly one governing policy, path-first per [kernel §3](../kernel/CONVENTIONS.md#k3) (frontmatter declaration only where the path mapping is absent or ambiguous, while an active task-record covers the move); no-policy, multi-policy, and path-contradicting declarations are blocked defects (A2.3, moved here from M2 — decision [pre-module-audit-rulings](decisions/pre-module-audit-rulings.md)).
+**Ships:** PreToolUse hook (Write|Edit, claimed territory) → one Python script (envelope against the schema, resolution against the territory declarations), exit 2 blocks; the same script in repository-scan mode as the backstop for writes the hook does not see; teaching errors per contract (what failed / why the rule exists in one clause / exact fix). Skill: choosing the meta-type, carrying the founding contrastive pairs — *architecture-of-what-should-be mid-task rides with the task delta; standing spec = current-state; as-is structure description = non-authoritative, dated, generated-preferred; a doc mixing as-is with direction must be split or classified by its normative content.*
 **Dials:** none beyond territory (from `constitution.yaml`).
-**Acceptance:** red→green fixture — frontmatter-less file blocked with the designed message; corrected file passes.
+**Acceptance:** red→green fixtures — frontmatter-less file blocked with the designed message, corrected file passes; one fixture per resolution defect class (no policy, two policies, declaration contradicting the path), each blocked then passing.
 
 <a id="const-locations"></a>
 ## M2 `const-locations` — accumulating; enters with the second territory
 
 **Failure pattern:** documents created in arbitrary places; kinds without homes; governance resolution ambiguity — every misplaced document is retrofit debt.
-**Invariant:** every document in claimed territory resolves to exactly one governing policy, **path-first** (frontmatter declaration only where the path mapping is absent/ambiguous, while an active task-record covers the move); no-policy, multi-policy, and path-contradicting declarations are blocked defects.
-**Ships:** hook/script implementing [kernel §3](../kernel/CONVENTIONS.md#k3) resolution against the territory declarations. Creation skill: new documents are created **by command/skill from the policy's template, landing in the canonical home with valid envelope** — templates are outputs of commands, never exemplars to imitate. Procedure for a new document kind: routine if a policy covers it; otherwise a `process`-stakes decision creates the policy first (escalation, stakes-triaged).
+**Rules (advisory — skill prose, honestly labeled):** a new document is born in its canonical home with a valid envelope, from its policy's template; a new kind gets its policy first. The resolution gate that catches a misplaced document is [`const-meta-types`](#const-meta-types)' (A2.3, moved there — decision [pre-module-audit-rulings](decisions/pre-module-audit-rulings.md)); this module claims no gate and works with the kernel alone.
+**Ships:** creation skill: new documents are created **by command/skill from the policy's template, landing in the canonical home with valid envelope** — templates are outputs of commands, never exemplars to imitate. Procedure for a new document kind: routine if a policy covers it; otherwise a `process`-stakes decision creates the policy first (escalation, stakes-triaged).
 **Dials:** none of its own beyond the kernel's territory declarations (the project's core calibration); default policy for otherwise-unclaimed governed roots (optional).
-**Acceptance:** fixtures for all three defect classes + a clean creation via the command.
+**Acceptance:** a clean creation via the command lands in the canonical home with a valid envelope (review); the three defect classes are [`const-meta-types`](#const-meta-types)' fixtures.
 
 <a id="const-decision-records"></a>
 ## M3 `const-decision-records` — accumulating; enters at the first real decision
