@@ -12,7 +12,7 @@ line-length = 110
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "UP", "I"]
+select = ["E", "F", "B", "UP", "I", "PLC0415"]  # PLC0415: gate-script rule 16, imports at the top
 
 [tool.mypy]
 python_version = "3.12"

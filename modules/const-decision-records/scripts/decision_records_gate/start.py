@@ -17,7 +17,9 @@ GATE = Identity(
 
 
 def load_modes() -> cli.Modes:
-    from . import modes
+    # Necessary here, not at the top: the modes import the declared libraries, and only after the
+    # preflight does a missing one become its designed message instead of a traceback.
+    from . import modes  # noqa: PLC0415
 
     return cli.Modes(hook=modes.hook_mode, scan=modes.scan_mode)
 
