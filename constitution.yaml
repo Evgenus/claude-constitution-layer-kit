@@ -1,15 +1,15 @@
 # Dials file of the constitution kit itself: the kit is consumer zero of the
-# document-shaped modules (decision accumulating-set-first). Calibration of
+# document-shaped modules (decision dec-0006-accumulating-set-first). Calibration of
 # this repository, never of any project. Territory patterns use the default
 # dialect, gitignore (kernel §6); no territory_dialect key is needed.
-# Shape per kernel §3 and §6 (decision policies-by-location).
+# Shape per kernel §3 and §6 (decision dec-0008-policies-by-location).
 
 root_policy: docs/policies/kit-root-policy.md
 
 kit-root-policy:                      # the policy for policies; its territory is where policies live
   territory: ["docs/policies/**"]
 
-kit-kernel:                           # one policy per document kind (decision one-policy-per-kind)
+kit-kernel:                           # one policy per document kind (decision dec-0011-one-policy-per-kind)
   territory: ["kernel/**"]
 
 kit-intent-page:
