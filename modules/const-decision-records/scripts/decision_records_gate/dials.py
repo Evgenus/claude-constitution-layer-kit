@@ -124,4 +124,4 @@ def _policy_ids(value: object) -> tuple[str, ...]:
         return ()
     if not isinstance(value, list) or not all(isinstance(i, str) and ID_RE.match(i) for i in value):
         raise ConfigurationFailure(messages.c5_record_policies())
-    return tuple(str(i) for i in value)
+    return tuple(dict.fromkeys(str(i) for i in value))  # a policy named twice counts once

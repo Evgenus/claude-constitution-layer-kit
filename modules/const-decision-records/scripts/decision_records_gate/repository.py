@@ -44,12 +44,14 @@ def repo_root(path: Path) -> Path | None:
 
 
 def list_markdown(root: Path) -> list[str]:
-    """Tracked and untracked non-ignored Markdown files, repository-relative."""
+    """Tracked and untracked non-ignored Markdown files, repository-relative. A tracked file
+    deleted from the working tree is still listed by git until the deletion is staged; it is
+    not a document any more, so it is left out."""
     result = git(["ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root)
     if result.returncode != 0:
         raise ConfigurationFailure(messages.c12_ls_files(str(root)))
     paths = result.stdout.decode("utf-8", "replace").split("\0")
-    return sorted({p for p in paths if p and p.lower().endswith(".md")})
+    return sorted({p for p in paths if p and p.lower().endswith(".md") and (root / p).is_file()})
 
 
 def is_ignored(root: Path, rel: str) -> bool:

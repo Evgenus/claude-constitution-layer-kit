@@ -18,9 +18,11 @@ decision first and writes a record only when the price says so. Stakes, the cere
 level gets, and the shape of a decision record are defined by the constitution's conventions
 page that the project adopted; nothing here redefines them.
 
-What is checked and what is not: this plugin's hook blocks a decision record whose envelope
-lacks `type: task-record`, a `stakes` of `process | product | architecture`, or a non-empty
-`decider`. Everything else on this page is judgment, and it is yours: whether a record was
+What is checked and what is not: once the project has named its record policy (step 3,
+item 1), this plugin's hook blocks a decision record whose envelope lacks
+`type: task-record`, a `stakes` of `process | product | architecture`, or a non-empty
+`decider` — or, where the project set `severity: warn`, reports it and lets the write
+through. Until a record policy is named the hook examines nothing and says so. Everything else on this page is judgment, and it is yours: whether a record was
 due, what its stakes are, whether the body is honest.
 
 ## 1. Price it: which stakes?
@@ -59,7 +61,7 @@ unrecorded structural call costs the next session its reasoning.
 `decider` is the person or role who made the choice — not who typed the commit; git already
 knows that, and it is often not the same. If the project says who may decide at each level
 (`deciders` under `const-decision-records` in `constitution.yaml`, a list per stakes level),
-the decider comes from that list. If the person who should decide is absent, do not decide
+the decider comes from that list; if the project names nobody, ask who decides. If the person who should decide is absent, do not decide
 for them at recorded stakes: stop, put the question with its options, and name them as the
 blocker.
 
@@ -70,13 +72,16 @@ blocker.
    territory sits under that policy's id. Read the policy document itself for the project's
    own rules — naming, numbering, anything else. When a module that allocates numbers is
    installed and the policy declares a numbered kind, take the number from it.
+   If the project has no `constitution.yaml`, or names no record policy, ask the user where
+   decision records live and write the record there; say once that the write-time check is
+   off until `record_policies` names the policy for that place.
 2. **From the template,** never from a blank page or from another record:
    [record-template.md](record-template.md) in this skill's directory
    (`${CLAUDE_SKILL_DIR}/record-template.md`). It holds both body shapes; delete the one
    that does not apply.
 3. **Envelope.** `id` stable kebab-case, never changed afterwards; `type: task-record`;
    `title` one line stating the ruling, not the topic; `stakes`; `decider`; `status` as in
-   step 4. No date: the commit is the decision moment and the ordering.
+   item 5. No date: the commit is the decision moment and the ordering.
 4. **Body, when a real choice existed:** the options considered; pros and cons per option;
    exactly **one** recommendation with its reasoning; the choice made and by whom — which
    may differ from the recommendation, and then the record says why.

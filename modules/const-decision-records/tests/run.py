@@ -37,9 +37,9 @@ from harness import (
 
 # isort: split
 # the harness comes first: it, and only it, puts the scripts directory on the import path
-from consumer import Consumer, document, envelope
+from consumer import Consumer, envelope
 from decision_records_gate import messages, preflight
-from decision_records_gate.model import Broken, Finding
+from decision_records_gate.model import Broken, EnvelopeState, Finding
 from decision_records_gate.output import LOG_NAME, ROTATE_AT
 
 NAMESPACE = "const-decision-records"
@@ -53,9 +53,11 @@ RECORD_DIALS: dict[str, object] = {
 }
 
 
-def record(doc_id: str = "record-a", **changes: str) -> str:
-    """A valid decision record, with the named envelope fields replaced or added."""
-    fields = {
+def record(doc_id: str = "record-a", drop: tuple[str, ...] = (), **changes: object) -> str:
+    """A valid decision record, rendered by the YAML dumper, with the named envelope fields
+    replaced, added, or dropped. A value may be any YAML type: a number where a string is
+    due is a fixture, not a typing accident."""
+    fields: dict[str, object] = {
         "id": doc_id,
         "type": "task-record",
         "title": f"Fixture {doc_id}",
@@ -64,11 +66,8 @@ def record(doc_id: str = "record-a", **changes: str) -> str:
         "decider": "the maintainer",
     }
     fields.update(changes)
-    return document(**fields)
-
-
-def without(text: str, key: str) -> str:
-    return "".join(line for line in text.splitlines(keepends=True) if not line.startswith(key + ":"))
+    kept = {key: value for key, value in fields.items() if key not in drop}
+    return "---\n" + yaml.safe_dump(kept, sort_keys=False, allow_unicode=True) + "---\n\n# Fixture\n"
 
 
 def dials_text(patch: dict[str, object] | None = None) -> str:
@@ -92,7 +91,7 @@ CASES = [
         "R1: a record with no envelope is blocked; a valid record passes",
         Write(RECORD_A, NO_ENVELOPE),
         VALID,
-        messages.r1_no_readable_envelope(RECORD_A, messages.r1_detail_none()),
+        messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.NONE),
         SETUP,
     ),
     Case(
@@ -100,7 +99,7 @@ CASES = [
         "R1: an envelope opened and never closed is blocked",
         Write(RECORD_A, "---\nid: record-a\nstakes: process\n\n# Record A\n"),
         VALID,
-        messages.r1_no_readable_envelope(RECORD_A, messages.r1_detail_unterminated()),
+        messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.UNTERMINATED),
         SETUP,
     ),
     Case(
@@ -108,15 +107,13 @@ CASES = [
         "R1: an envelope that is not valid YAML is blocked",
         Write(RECORD_A, "---\nstakes: [unclosed\n---\n"),
         VALID,
-        messages.r1_no_readable_envelope(
-            RECORD_A, messages.r1_detail_invalid_yaml("while parsing a flow sequence")
-        ),
+        messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.INVALID, "while parsing a flow sequence"),
         SETUP,
     ),
     Case(
         4,
         "R2: a wrong type, stakes outside the enum and a missing decider are blocked in one message",
-        Write(RECORD_A, without(record(type="current-state", stakes="high"), "decider")),
+        Write(RECORD_A, record(type="current-state", stakes="high", drop=("decider",))),
         VALID,
         messages.r2_invalid_fields(
             RECORD_A,
@@ -141,7 +138,7 @@ CASES = [
     Case(
         6,
         "R2: a decider YAML reads as a number is blocked, and the message says to quote it",
-        Write(RECORD_A, without(record(), "decider").replace("---\n\n", "decider: 42\n---\n\n")),
+        Write(RECORD_A, record(decider=42)),
         VALID,
         messages.r2_invalid_fields(RECORD_A, [messages.f4_field_not_string("decider", "int")]),
         SETUP,
@@ -187,6 +184,34 @@ CASES = [
         Write("docs/decisions/shared/s.md", record("record-s")),
         messages.r2_invalid_fields("docs/decisions/shared/s.md", [messages.r2_stakes_not_allowed("high")]),
         OVERLAP,
+    ),
+    Case(
+        55,
+        "R2: a missing type, and stakes YAML reads as a number, are taught by name",
+        Write(RECORD_A, record(stakes=3, drop=("type",))),
+        VALID,
+        messages.r2_invalid_fields(
+            RECORD_A, [messages.f4_field_missing("type"), messages.f4_field_not_string("stakes", "int")]
+        ),
+        SETUP,
+    ),
+    Case(
+        56,
+        "R1: an envelope that is YAML but no mapping of fields is blocked",
+        Write(RECORD_A, "---\n- stakes\n- decider\n---\n"),
+        VALID,
+        messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.INVALID, messages.detail_not_a_mapping()),
+        SETUP,
+    ),
+    Case(
+        58,
+        "an Edit that creates a file — no file yet, an empty old_string — is judged on what it creates",
+        Edit(RECORD_A, "", record(drop=("stakes", "decider"))),
+        Edit(RECORD_A, "", record()),
+        messages.r2_invalid_fields(
+            RECORD_A, [messages.f4_field_missing("stakes"), messages.f4_field_missing("decider")]
+        ),
+        SETUP,
     ),
 ]
 
@@ -289,6 +314,106 @@ def rest_of_envelope_not_judged() -> tuple[bool, str]:
     """An id that is not kebab-case and a status outside the enum are another check's business."""
     result, _ = _gate_on(Write(RECORD_A, record("Record_A", status="open")))
     return _expect(result, 0, messages.g1_green_hook(RECORDS_POLICY), "stdout")
+
+
+def routine_and_more() -> tuple[bool, str]:
+    """Stakes routine with a missing decider: both findings are taught, and the count says two."""
+    result, _ = _gate_on(Write(RECORD_A, record(stakes="routine", drop=("decider",))))
+    wanted = [
+        messages.r3_routine_record(RECORD_A).render(),
+        messages.r2_invalid_fields(RECORD_A, [messages.f4_field_missing("decider")]).render(),
+        messages.f9_count_hook(2, RECORD_A),
+    ]
+    ok = result.code == 2 and all(text in result.stderr for text in wanted)
+    return ok, f"exit {result.code}; R3, R2 and a count of 2" if ok else result.stderr
+
+
+def policy_in_record_territory() -> tuple[bool, str]:
+    """A document where policies live is a policy, whatever else claims its path."""
+    target = "docs/policies/extra-policy.md"
+    result, _ = _gate_on(
+        Write(target, envelope("extra-policy", "current-state")),
+        dials_patch={RECORDS_POLICY: {"territory": ["docs/**"]}},
+    )
+    skip = messages.g1_skip_not_a_record(target, [RECORDS_POLICY])
+    return _expect(result, 0, messages.g1_green_skip(skip), "stdout")
+
+
+def root_named_as_record_policy() -> tuple[bool, str]:
+    result, _ = _gate_on(VALID, dials_patch={NAMESPACE: {"record_policies": ["root-policy"]}})
+    return _broken(result, messages.c5_record_policy_is_root("root-policy"))
+
+
+def policy_named_twice() -> tuple[bool, str]:
+    consumer = fresh_consumer()
+    consumer.write("constitution.yaml", dials_text({NAMESPACE: {"record_policies": [RECORDS_POLICY] * 2}}))
+    consumer.write(POLICY_DOCUMENT.target, POLICY_DOCUMENT.text)
+    result = run_gate("", args=["--scan", str(consumer.root)])
+    return _expect(result, 0, messages.f9_scan_tail(0, 4, 1), "stdout")
+
+
+def edit_unappliable() -> tuple[bool, str]:
+    result, _ = _gate_on(Edit(RECORD_A, "no such text", "x"), files={RECORD_A: record()})
+    skip = messages.g1_skip_edit_unappliable(RECORD_A)
+    return _expect(result, 0, messages.g1_green_skip(skip), "stdout")
+
+
+def edit_replace_all() -> tuple[bool, str]:
+    """replace_all is judged on the whole result. The harness's Edit has no such field, so the
+    events are built here."""
+
+    def run(new: str) -> Result:
+        consumer = fresh_consumer((*SETUP, VALID))
+        event = json.loads(event_json(consumer.root, Edit(RECORD_A, "process", new)))
+        event["tool_input"]["replace_all"] = True
+        return run_gate(json.dumps(event))
+
+    red, green = run("high"), run("product")
+    taught = messages.r2_invalid_fields(RECORD_A, [messages.r2_stakes_not_allowed("high")]).render()
+    ok = red.code == 2 and taught in red.stderr and green.code == 0
+    return ok, f"red exit {red.code} teaching R2, green exit {green.code}"
+
+
+def relative_path() -> tuple[bool, str]:
+    """A relative file_path is resolved against the event's cwd."""
+    consumer = fresh_consumer(SETUP)
+    event = json.loads(event_json(consumer.root, Write(RECORD_A, NO_ENVELOPE)))
+    event["tool_input"]["file_path"] = RECORD_A
+    result = run_gate(json.dumps(event))
+    return _expect(
+        result, 2, messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.NONE).render(), "stderr"
+    )
+
+
+def outside_any_repository() -> tuple[bool, str]:
+    target = scratch_dir() / "loose.md"
+    event = json.loads(event_json(target.parent, Write("loose.md", NO_ENVELOPE)))
+    result = run_gate(json.dumps(event), env={"GIT_CEILING_DIRECTORIES": str(target.parent.parent)})
+    return _expect(result, 0, messages.g1_green_skip(messages.g1_skip_no_repo(str(target))), "stdout")
+
+
+def no_dials_file() -> tuple[bool, str]:
+    consumer = fresh_consumer()
+    (consumer.root / "constitution.yaml").unlink()
+    result = run_gate(event_json(consumer.root, Write(RECORD_A, NO_ENVELOPE)))
+    return _expect(result, 0, messages.g1_green_skip(messages.g1_skip_no_dials(str(consumer.root))), "stdout")
+
+
+def no_root_policy() -> tuple[bool, str]:
+    result, _ = _gate_on(Write(RECORD_A, NO_ENVELOPE), raw_dials=yaml.safe_dump(RECORD_DIALS))
+    return _expect(result, 0, messages.g1_green_skip(messages.g1_skip_no_root()), "stdout")
+
+
+def scan_with_deleted_file() -> tuple[bool, str]:
+    """A tracked record deleted from the working tree, deletion not staged: not a document any more."""
+    consumer = fresh_consumer((*SETUP, VALID, Write("docs/decisions/b.md", record("record-b"))))
+    (consumer.root / RECORD_A).unlink()
+    result = run_gate("", args=["--scan", str(consumer.root)])
+    return _expect(result, 0, messages.g1_green_scan(messages.f9_scan_tail(1, 5, 1)), "stdout")
+
+
+def abbreviated_flag() -> tuple[bool, str]:
+    return _expect(run_gate("", args=["--sc", "."]), 1, "BROKEN: misinvocation:", "stderr")
 
 
 def malformed_dials() -> tuple[bool, str]:
@@ -402,7 +527,7 @@ def not_markdown() -> tuple[bool, str]:
 
 def _warn(files: dict[str, str] | None = None) -> tuple[Result, Finding]:
     result, _ = _gate_on(Write(RECORD_A, NO_ENVELOPE), dials_patch=_own(severity="warn"), files=files)
-    return result, messages.r1_no_readable_envelope(RECORD_A, messages.r1_detail_none())
+    return result, messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.NONE)
 
 
 def severity_warn() -> tuple[bool, str]:
@@ -474,7 +599,7 @@ def log_in_plugin_data() -> tuple[bool, str]:
     _gate_on(Write(RECORD_A, NO_ENVELOPE), env={"CLAUDE_PLUGIN_DATA": str(data)})
     lines = _log_lines(data / LOG_NAME)
     first = lines[0]
-    headline = messages.r1_no_readable_envelope(RECORD_A, messages.r1_detail_none()).headline
+    headline = messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.NONE).headline
     ok = (
         set(first) == {"ts", "module", "gate", "mode", "session", "stream", "text"}
         and first["text"] == "RED: " + headline
@@ -601,6 +726,26 @@ ASSERTIONS = [
     Assertion(46, "output log: a logging failure never changes the verdict", log_failure_keeps_verdict),
     Assertion(47, "declared dependencies: requirements.txt equals the preflight table", declared_libraries),
     Assertion(48, "message shape: every taught finding has what, why and fix", message_shape),
+    Assertion(59, "stakes routine and a missing decider: both taught, the count says two", routine_and_more),
+    Assertion(60, "a document where policies live is never a record", policy_in_record_territory),
+    Assertion(61, "C5: the root policy named as a record policy", root_named_as_record_policy),
+    Assertion(62, "a record policy named twice counts once", policy_named_twice),
+    Assertion(
+        63, "an Edit whose old_string is absent is a visible skip; the tool reports it", edit_unappliable
+    ),
+    Assertion(57, "an Edit with replace_all is judged on the whole result", edit_replace_all),
+    Assertion(64, "a relative file_path is resolved against the event's cwd", relative_path),
+    Assertion(65, "a file outside any git repository is a visible skip", outside_any_repository),
+    Assertion(66, "no dials file: a visible skip", no_dials_file),
+    Assertion(67, "a dials file with no root_policy: a visible skip", no_root_policy),
+    Assertion(
+        68,
+        "scan: a tracked file deleted from the working tree is left out, not a failure",
+        scan_with_deleted_file,
+    ),
+    Assertion(
+        69, "an abbreviated flag is a misinvocation, not a scan logged as a hook run", abbreviated_flag
+    ),
 ]
 
 if __name__ == "__main__":

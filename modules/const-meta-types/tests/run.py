@@ -167,6 +167,13 @@ CASES = [
         messages.f4_invalid_fields(NOTE_A, [messages.f4_field_missing("type")]),
         setup=[Write(NOTE_A, envelope("note-a"))],
     ),
+    Case(
+        60,
+        "an Edit that creates a file — no file yet, an empty old_string — is judged on what it creates",
+        Edit(NOTE_A, "", NO_ENVELOPE),
+        Edit(NOTE_A, "", envelope("note-a")),
+        messages.f1_no_envelope(NOTE_A),
+    ),
 ]
 
 # ------------------------------------------------------------------ assertions
@@ -523,6 +530,18 @@ def log_failure_keeps_verdict() -> tuple[bool, str]:
     return ok, f"log location unwritable: red still exits {red.code}, green still exits {green.code}"
 
 
+def scan_with_deleted_file() -> tuple[bool, str]:
+    """A tracked document deleted from the working tree, deletion not staged: not a document any more."""
+    consumer = fresh_consumer([Write(NOTE_A, envelope("note-a"))])
+    (consumer.root / NOTE_A).unlink()
+    result = run_gate("", args=["--scan", str(consumer.root)])
+    return _expect(result, 0, messages.g1_green_scan(messages.f9_scan_tail(3, 3, 3)), "stdout")
+
+
+def abbreviated_flag() -> tuple[bool, str]:
+    return _expect(run_gate("", args=["--sc", "."]), 1, "BROKEN: misinvocation:", "stderr")
+
+
 def declared_libraries() -> tuple[bool, str]:
     declared = {
         line.split(">=")[0].split("==")[0].strip()
@@ -594,6 +613,14 @@ ASSERTIONS = [
     Assertion(52, "output log: a logging failure never changes the verdict", log_failure_keeps_verdict),
     Assertion(53, "declared dependencies: requirements.txt equals the preflight table", declared_libraries),
     Assertion(54, "message shape: every taught finding has what, why and fix", message_shape),
+    Assertion(
+        61,
+        "scan: a tracked file deleted from the working tree is left out, not a failure",
+        scan_with_deleted_file,
+    ),
+    Assertion(
+        62, "an abbreviated flag is a misinvocation, not a scan logged as a hook run", abbreviated_flag
+    ),
 ]
 
 if __name__ == "__main__":

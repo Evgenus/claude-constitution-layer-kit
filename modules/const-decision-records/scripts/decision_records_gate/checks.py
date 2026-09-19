@@ -31,16 +31,8 @@ def record_policy(candidates: Sequence[str], record_policies: Sequence[str]) -> 
 
 
 def check_record(rel: str, envelope: Envelope) -> list[Finding]:
-    match envelope.state:
-        case EnvelopeState.NONE:
-            return [messages.r1_no_readable_envelope(rel, messages.r1_detail_none())]
-        case EnvelopeState.UNTERMINATED:
-            return [messages.r1_no_readable_envelope(rel, messages.r1_detail_unterminated())]
-        case EnvelopeState.INVALID:
-            detail = messages.r1_detail_invalid_yaml(envelope.detail)
-            return [messages.r1_no_readable_envelope(rel, detail)]
-        case EnvelopeState.OK:
-            pass
+    if envelope.state is not EnvelopeState.OK:
+        return [messages.r1_no_readable_envelope(rel, envelope.state, envelope.detail)]
     errors: list[str] = []
 
     def string(key: str) -> str | None:
@@ -69,6 +61,8 @@ def check_record(rel: str, envelope: Envelope) -> list[Finding]:
 
 
 def examine(index: Index, record_policies: Sequence[str], rel: str, text: str) -> Examination:
+    if rel in index.in_root:  # where policies live: a policy, whatever else claims the path
+        return Examination((), None)
     envelope = parse_envelope(text)
     policy = record_policy(candidate_policies(index, rel, envelope), record_policies)
     if policy is None:

@@ -21,8 +21,10 @@ Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — hook mode blocks the write, unless severity is warn: then exit 0
             with JSON carrying the finding to the model and the user;
           1 configuration failure — the checker could not run. Never a silent pass.
-Output:   findings on stderr (hook, block) or stdout (scan; hook warn as one JSON object);
-          notes, green and skip lines on stdout; every printed line is also appended to the
+Output:   hook, block: findings, with any notes above them, on stderr; hook, warn: one JSON
+          object on stdout and nothing else, the notes inside it; scan: everything on stdout.
+          Green and skip lines, and the notes above them, on stdout. Configuration failures
+          (BROKEN) on stderr in both modes. Every printed line is also appended to the
           output log — under log_dir when set, else under the directory the platform names
           in the environment variable CLAUDE_PLUGIN_DATA, else nowhere.
 

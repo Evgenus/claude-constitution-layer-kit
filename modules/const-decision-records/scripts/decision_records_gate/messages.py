@@ -2,7 +2,7 @@
 
 Error messages are a teaching surface: a finding states what failed, why the rule exists
 (one clause), and the exact fix; a configuration failure is one self-sufficient line. Every
-function name starts with the stable key of its text (f1_, c4_, g1_, ...), so a text can be
+function name starts with the stable key of its text (r1_, c4_, g1_, ...), so a text can be
 cited, reviewed and asserted by key. A reader must be able to act on a message without
 holding any other document: no text here cites one.
 """
@@ -11,7 +11,19 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from .model import DECLARATION, DIALECT, DIALS_FILE, NAMESPACE, Broken, Finding, Key, MetaType, Stakes, Status
+from .model import (
+    DECLARATION,
+    DIALECT,
+    DIALS_FILE,
+    NAMESPACE,
+    Broken,
+    EnvelopeState,
+    Finding,
+    Key,
+    MetaType,
+    Stakes,
+    Status,
+)
 
 _TYPES = " | ".join(t.value for t in MetaType)
 _STATUSES = " | ".join(s.value for s in Status)
@@ -26,15 +38,28 @@ def _patterns(patterns: Sequence[str]) -> str:
 _STAKES = " | ".join(level.value for level in Stakes)
 
 
-def r1_no_readable_envelope(rel: str, detail: str) -> Finding:
+def r1_no_readable_envelope(rel: str, state: EnvelopeState, yaml_detail: str = "") -> Finding:
+    """state is NONE, UNTERMINATED or INVALID; yaml_detail says what YAML could not read."""
+    carries = (
+        f"id: <kebab-id>, type: task-record, title: <one line>, status: {_STATUSES}, stakes: {_STAKES},"
+        " decider: <person or role>"
+    )
+    match state:
+        case EnvelopeState.UNTERMINATED:
+            detail = "opened with '---' but never closed"
+            fix = f"close the YAML block with a line holding only '---'; the block carries {carries}"
+        case EnvelopeState.INVALID:
+            detail = f"the block between the '---' lines cannot be read: {yaml_detail}"
+            fix = f"repair the YAML between the '---' lines; the block carries {carries}"
+        case _:
+            detail = "the file does not start with a '---' line"
+            fix = f"start the file with a YAML block between two '---' lines carrying {carries}"
     return Finding(
         Key.R1,
         f"{rel}: a decision record with no readable envelope ({detail})",
         "a record declares its stakes and its decider in the envelope: without them the ruling has no"
         " price and nobody accountable",
-        "start the file with a YAML block between two '---' lines carrying id: <kebab-id>,"
-        f" type: task-record, title: <one line>, status: {_STATUSES}, stakes: {_STAKES},"
-        " decider: <person or role>",
+        fix,
     )
 
 
@@ -42,8 +67,8 @@ def r2_invalid_fields(rel: str, errors: Sequence[str]) -> Finding:
     return Finding(
         Key.R2,
         f"{rel}: decision-record field(s) invalid: {'; '.join(errors)}",
-        "stakes set the ceremony a ruling gets and decider names who is accountable for it; git can"
-        " derive neither",
+        "a decision record is a task-record whose envelope adds the stakes, which set the ceremony the"
+        " ruling gets, and the decider, who is accountable for it; git can derive neither",
         "set each named field: type = task-record (a record is a change delta); stakes = process"
         " (harness, policy or procedure) | product (user-visible behaviour) | architecture (structural,"
         " hard to reverse); decider = the person or role who made the choice, a non-empty string",
@@ -56,24 +81,9 @@ def r3_routine_record(rel: str) -> Finding:
         f"{rel}: stakes 'routine' — a routine call never produces a record",
         "ceremony scales with stakes: a call that is cheap to revert is noted in the commit message,"
         " and a record for it is ritual",
-        "delete this file and put the note in the commit message; or, if the ruling is not cheap to"
-        f" revert, set stakes: {_STAKES}",
+        "write no record: put the note in the commit message, and delete this file if it already"
+        f" exists; or, if the ruling is not cheap to revert, set stakes: {_STAKES}",
     )
-
-
-# details of R1
-
-
-def r1_detail_none() -> str:
-    return "the file does not start with a '---' line"
-
-
-def r1_detail_unterminated() -> str:
-    return "opened with '---' but never closed"
-
-
-def r1_detail_invalid_yaml(detail: str) -> str:
-    return f"not valid YAML: {detail}"
 
 
 # field-level parts of R2, beside the two shared ones below
@@ -320,7 +330,8 @@ def c5_own_namespace_not_mapping() -> Broken:
     return Broken(
         Key.C5,
         f"{DIALS_FILE}: namespace '{NAMESPACE}' must be a mapping of this module's dials",
-        f"write {NAMESPACE}: {{severity: block}}, or remove the key",
+        f"write its dials as a mapping, for example {NAMESPACE}: {{record_policies: [<policy id>]}},"
+        " or remove the key",
     )
 
 
@@ -344,7 +355,7 @@ def c5_severity() -> Broken:
     return Broken(
         Key.C5,
         f"{DIALS_FILE}: {NAMESPACE}.severity must be block or warn",
-        f"write {NAMESPACE}: {{severity: block}} or {{severity: warn}}",
+        f"under {NAMESPACE}, set severity: block or severity: warn, or remove that line",
     )
 
 
@@ -352,7 +363,7 @@ def c5_log_dir() -> Broken:
     return Broken(
         Key.C5,
         f"{DIALS_FILE}: {NAMESPACE}.log_dir must be a repository-relative directory",
-        f"write {NAMESPACE}: {{log_dir: <a git-ignored directory>}}, or remove the key",
+        f"under {NAMESPACE}, set log_dir: <a git-ignored directory>, or remove that line",
     )
 
 
@@ -362,6 +373,16 @@ def c5_record_policies() -> Broken:
         f"{DIALS_FILE}: {NAMESPACE}.record_policies must be a list of kebab-case policy ids",
         f"write {NAMESPACE}: {{record_policies: [<id of the policy that governs decision records>]}},"
         " or remove the key",
+    )
+
+
+def c5_record_policy_is_root(root_id: str) -> Broken:
+    return Broken(
+        Key.C5,
+        f"{DIALS_FILE}: {NAMESPACE}.record_policies names the root policy '{root_id}', which governs"
+        " policies, never decision records",
+        "name the policy that governs decision records instead; if there is none yet, write that"
+        " policy first",
     )
 
 

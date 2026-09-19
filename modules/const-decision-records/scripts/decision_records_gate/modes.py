@@ -49,6 +49,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         return _skip(output, messages.g1_skip_edit_unappliable(rel))
     with Matcher() as matcher:
         index = build_index(root, dials, dials.root_policy, matcher, PendingDocument(rel, text))
+        _refuse_root_as_record_policy(index, dials)
         examination = examine(index, dials.record_policies, rel, text)
     notes = _notes(index, dials)
     if examination.outside:
@@ -81,6 +82,7 @@ def scan_mode(output: Output, start: Path) -> int:
     examined = 0
     with Matcher() as matcher:
         index = build_index(root, dials, dials.root_policy, matcher)
+        _refuse_root_as_record_policy(index, dials)
         for rel in index.paths:
             text = index.text(rel)
             if text is None:
@@ -101,6 +103,11 @@ def scan_mode(output: Output, start: Path) -> int:
         return EXIT_RED
     output.out(messages.g1_green_scan(tail))
     return EXIT_GREEN
+
+
+def _refuse_root_as_record_policy(index: Index, dials: Dials) -> None:
+    if index.root_id in dials.record_policies:
+        raise ConfigurationFailure(messages.c5_record_policy_is_root(index.root_id))
 
 
 def _notes(index: Index, dials: Dials) -> list[str]:

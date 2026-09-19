@@ -32,7 +32,7 @@ class Parser(argparse.ArgumentParser):
 
 
 def make_parser() -> Parser:
-    parser = Parser(prog=GATE, add_help=False)
+    parser = Parser(prog=GATE, add_help=False, allow_abbrev=False)  # --sc is not --scan
     parser.add_argument(SCAN_FLAG, nargs="?", const=".", default=None, metavar="DIR")
     return parser
 

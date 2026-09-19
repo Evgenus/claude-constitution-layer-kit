@@ -2,7 +2,7 @@
 
 Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirements.txt`
 (`python3 -m pip install -r <plugin root>/requirements.txt`). A missing one is reported on the
-first Markdown write, with the fix on the first line; nothing is silently skipped.
+first `Write` or `Edit` of any file, with the fix on the first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
    session). The hook fires on every `Write` and `Edit`; it examines Markdown files governed
@@ -17,7 +17,7 @@ first Markdown write, with the fix on the first line; nothing is silently skippe
    const-decision-records:
      record_policies: [<id of your decision-record policy>]
      severity: block      # block (default) | warn — warn reports the finding and lets the write through
-     log_dir: <a git-ignored directory>   # optional; see step 5
+     # log_dir: .gate-logs   # optional, and the directory must be git-ignored; see step 5
    ```
    With no `constitution.yaml`, or no `root_policy` in it, nothing is claimed and nothing is
    checked.
@@ -52,8 +52,8 @@ first Markdown write, with the fix on the first line; nothing is silently skippe
    being made or commit notes are being reviewed.
 
 What this module does not check: the rest of the envelope (`id`, `title`, `status`) and
-which policy governs a document. Install module `const-meta-types`, which guards the envelope, beside this
-one; alone, this gate lets a record with a malformed `id` through.
+which policy governs a document. When module `const-meta-types` is installed beside this
+one, both are guarded there; alone, this gate lets a record with a malformed `id` through.
 
 Uninstall: remove the plugin; remove the `const-decision-records:` namespace from
 `constitution.yaml` if present.

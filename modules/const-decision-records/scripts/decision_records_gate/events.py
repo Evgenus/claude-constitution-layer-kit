@@ -56,10 +56,13 @@ def _text(value: object) -> str | None:
 
 def document_after_write(event: ToolEvent, root: Path, rel: str) -> str | None:
     """None when the Edit cannot be applied (missing file, absent old_string): there is
-    nothing to judge, and the tool reports its own error."""
+    nothing to judge, and the tool reports its own error. An Edit of a missing file with an
+    empty old_string creates the file from new_string, so that is what is judged."""
     if event.tool is FileTool.WRITE:
         return event.content
     current = read_text(root, rel)
+    if current is None and event.old_string == "" and event.new_string is not None:
+        return event.new_string
     if current is None or event.old_string is None or event.new_string is None:
         return None
     if event.old_string not in current:
