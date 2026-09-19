@@ -248,7 +248,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         """Brackets nested past the parser's depth are an unreadable envelope, never a crash that
         lets the write through."""
         text = "---\nid: " + "[" * 600 + "\n---\n"
-        result, _ = s.gate_on(Write(s.red.target, text))
+        result, _ = s.gate_on(Write(s.valid.target, text))  # a path where the envelope is the only defect
         return expect(result, 2, messages.detail_nested_too_deeply(), "stderr")
 
     def other_tool() -> tuple[bool, str]:
