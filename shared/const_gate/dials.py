@@ -1,7 +1,8 @@
 """The dials file: read once, validated against the kernel's rules for the keys every gate
 reads — the two kernel-owned keys, `territory` of every namespace that could be a policy's,
 and the two dials every gate has, `severity` and `log_dir`. The rest of the module's own
-namespace is handed over as read, for the module to parse.
+namespace, and every key of a namespace that could be a policy's, are handed over as read,
+for the module to parse.
 
 A namespace named like a module (const-*) is a policy's only when a policy document carries
 that id, so its `territory` is read leniently: a well-formed one is kept for that case,
@@ -55,11 +56,11 @@ def _parse(raw: dict[object, object]) -> Dials:
             continue
         if name.startswith(MODULE_PREFIX):
             if isinstance(value, dict):
-                namespaces[name] = Namespace(name, _territory(name, value.get("territory"), lenient=True))
+                namespaces[name] = _namespace(name, value, lenient=True)
             continue
         if not isinstance(value, dict):
             raise ConfigurationFailure(messages.c5_namespace_not_mapping(name))
-        namespaces[name] = Namespace(name, _territory(name, value.get("territory"), lenient=False))
+        namespaces[name] = _namespace(name, value, lenient=False)
     own = raw.get(
         identity.current().namespace, {}
     )  # absent: defaults; present: a mapping, as the schema says
@@ -72,6 +73,11 @@ def _parse(raw: dict[object, object]) -> Dials:
         own={str(key): value for key, value in own.items()},
         namespaces=namespaces,
     )
+
+
+def _namespace(name: str, value: dict[object, object], lenient: bool) -> Namespace:
+    as_read = {str(key): item for key, item in value.items()}
+    return Namespace(name, _territory(name, value.get("territory"), lenient), as_read)
 
 
 def _check_dialect(value: object) -> None:

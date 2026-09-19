@@ -134,8 +134,14 @@ class Envelope:
 
 @dataclass(frozen=True, slots=True)
 class Namespace:
+    """One namespace of the dials file: its territory, validated, and every key of it as YAML
+    read it — untyped on purpose, like `Dials.own`: a module that reads a policy's calibration
+    beyond the territory parses that key at its own edge. A module consults this only for a
+    namespace that is a policy's; another module's namespace is never its to read."""
+
     name: str
     territory: tuple[str, ...]
+    as_read: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +159,10 @@ class Dials:
     def territory_of(self, name: str) -> tuple[str, ...]:
         namespace = self.namespaces.get(name)
         return namespace.territory if namespace is not None else ()
+
+    def as_read_of(self, name: str) -> Mapping[str, object]:
+        namespace = self.namespaces.get(name)
+        return namespace.as_read if namespace is not None else {}
 
 
 @dataclass(frozen=True, slots=True)
