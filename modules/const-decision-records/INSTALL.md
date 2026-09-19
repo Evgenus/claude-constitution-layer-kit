@@ -7,6 +7,10 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
    session). The hook fires on every `Write` and `Edit`; it examines Markdown files governed
    by a record policy and nothing else.
+   A copy of this plugin's folder made outside the repository it comes from must follow links
+   (`cp -RL`): `scripts/const_gate` is a link to code the plugin shares with its siblings, and
+   an install from the marketplace copies what it points at. A plugin without it says so on
+   the first `Write` or `Edit` and checks nothing until repaired.
 2. **Switch the check on: name the record policy.** A document is a decision record because
    a policy for decision records governs it. The module ships no policy and guesses none:
    until `record_policies` names one, every run prints `0 documents examined` and says why.

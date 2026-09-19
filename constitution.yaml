@@ -25,6 +25,9 @@ kit-research:
 kit-module-documents:
   territory: ["modules/*/MODULE.md"]
 
+kit-shared-code:
+  territory: ["shared/GATE.md"]
+
 kit-requirements:
   territory: ["docs/requirements.md"]
 

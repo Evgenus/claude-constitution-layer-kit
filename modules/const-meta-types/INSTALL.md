@@ -2,18 +2,22 @@
 
 Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirements.txt`
 (`python3 -m pip install -r <plugin root>/requirements.txt`). A missing one is reported on the
-first Markdown write, with the fix on the first line; nothing is silently skipped.
+first `Write` or `Edit` of any file, with the fix on the first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
    session). The hook fires on every `Write` and `Edit`; it examines Markdown files inside
    the territories declared in the repository's `constitution.yaml` and nothing else.
+   A copy of this plugin's folder made outside the repository it comes from must follow links
+   (`cp -RL`): `scripts/const_gate` is a link to code the plugin shares with its siblings, and
+   an install from the marketplace copies what it points at. A plugin without it says so on
+   the first `Write` or `Edit` and checks nothing until repaired.
 2. Optional calibration in the project's `constitution.yaml`; defaults apply otherwise —
    the module works with zero configuration (with no `constitution.yaml`, or no
    `root_policy` in it, nothing is claimed and nothing is checked):
    ```yaml
    const-meta-types:
      severity: block      # block (default) | warn — warn reports the finding and lets the write through
-     log_dir: <a git-ignored directory>   # optional; see step 4
+     # log_dir: .gate-logs   # optional, and the directory must be git-ignored; see step 4
    ```
 3. Backstop for writes the hook cannot see (shell edits, other tools, other people): run the
    scan on demand and in CI:

@@ -2,7 +2,7 @@
 id: dec-0023-shared-gate-code-at-module-two
 type: task-record
 title: Shared gate code is extracted at the end of the second module, from recorded evidence; the admission rule gains a second class
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
