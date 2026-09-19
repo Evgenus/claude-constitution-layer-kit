@@ -76,7 +76,6 @@ def build_index(
     index = Index(root=root, paths=sorted(paths), pending=pending)
     _locate_root(index, dials, root_policy, matcher)
     _discover_policies(index, dials, matcher)
-    _collect_void_namespaces(index, dials, matcher)
     return index
 
 
@@ -111,7 +110,9 @@ def _discover_policies(index: Index, dials: Dials, matcher: Matcher) -> None:
         policy.claims = matcher.match(policy.territory, index.paths)
 
 
-def _collect_void_namespaces(index: Index, dials: Dials, matcher: Matcher) -> None:
+def collect_void_namespaces(index: Index, dials: Dials, matcher: Matcher) -> None:
+    """What each namespace with a territory and no policy behind it would claim. One git run
+    per such namespace, so only a gate that reports them asks for it."""
     for name, namespace in dials.namespaces.items():
         if name in index.policies or name.startswith(MODULE_PREFIX) or not namespace.territory:
             continue

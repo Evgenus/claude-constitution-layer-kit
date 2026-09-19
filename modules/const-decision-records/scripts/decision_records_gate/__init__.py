@@ -1,11 +1,10 @@
 """The write-time gate on decision records, as a package beside its entry point.
 
-The entry point in the parent directory is a thin file; Python puts that directory on
-the import path, so ``import decision_records_gate`` needs no path manipulation anywhere.
+The entry point in the parent directory is a thin file; Python puts that directory on the
+import path, so this package and the shared one beside it, ``const_gate``, are imported with
+no path manipulation anywhere.
 
-Modules, in reading order: ``model`` (enums and dataclasses), ``messages`` (every
-user-facing text), ``errors``, ``preflight``, ``output`` (screen plus log), ``repository``
-(git and files), ``territory`` (pattern matching through git), ``envelope``, ``dials``,
-``events`` (the hook payload), ``index`` (policies and claims), ``checks``, ``modes`` (hook and
-scan), ``cli`` (argparse and the single guard).
+Modules, in reading order: ``model`` (this module's vocabulary and dials), ``messages`` (its
+own texts), ``dials`` (its own dials, parsed), ``checks``, ``modes`` (hook and scan),
+``start`` (which gate this is).
 """

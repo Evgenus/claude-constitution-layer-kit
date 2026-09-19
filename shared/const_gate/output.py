@@ -38,9 +38,14 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .model import GATE, NAMESPACE, Mode, Stream
+from . import identity
+from .model import Mode, Stream
 
-LOG_NAME = NAMESPACE + ".jsonl"
+
+def log_name() -> str:
+    return identity.current().namespace + ".jsonl"
+
+
 ROTATE_AT = 1_048_576  # bytes; the previous log is kept as <name>.1
 HELD_RECORDS = 1_000_000  # the memory handler never flushes on its own; the guard flushes once
 
@@ -67,8 +72,8 @@ class _JsonLine(logging.Formatter):
         return json.dumps(
             {
                 "ts": datetime.fromtimestamp(record.created, UTC).isoformat(timespec="seconds"),
-                "module": NAMESPACE,
-                "gate": GATE,
+                "module": identity.current().namespace,
+                "gate": identity.current().gate,
                 "mode": getattr(record, "gate_mode", ""),
                 "session": getattr(record, "gate_session", ""),
                 "stream": stream.value,
@@ -91,14 +96,14 @@ class Output:
     def __init__(self, mode: Mode) -> None:
         logging.raiseExceptions = False  # see the module docstring
         data_dir = os.environ.get("CLAUDE_PLUGIN_DATA", "")
-        self.log_file: Path | None = Path(data_dir) / LOG_NAME if data_dir else None
+        self.log_file: Path | None = Path(data_dir) / log_name() if data_dir else None
         self._context = _Context(mode)
         self._held = logging.handlers.MemoryHandler(HELD_RECORDS, flushLevel=logging.CRITICAL + 1)
         to_stdout = logging.StreamHandler(sys.stdout)
         to_stdout.addFilter(_Below(logging.WARNING))
         to_stderr = logging.StreamHandler(sys.stderr)
         to_stderr.setLevel(logging.WARNING)
-        self._logger = logging.getLogger(NAMESPACE)
+        self._logger = logging.getLogger(identity.current().namespace)
         self._logger.handlers.clear()
         self._logger.propagate = False
         self._logger.setLevel(logging.INFO)
@@ -115,7 +120,7 @@ class Output:
         self._context.session = value
 
     def use_log_dir(self, directory: Path) -> None:
-        self.log_file = directory / LOG_NAME
+        self.log_file = directory / log_name()
 
     def out(self, text: str) -> None:
         self._emit(Stream.STDOUT, text)

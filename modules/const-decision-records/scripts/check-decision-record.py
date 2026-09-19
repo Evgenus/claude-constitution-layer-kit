@@ -48,7 +48,23 @@ if sys.version_info < FLOOR:
     sys.stderr.write(TOO_OLD % (FLOOR + tuple(sys.version_info[:2])))  # noqa: UP031
     sys.exit(1)
 
-from decision_records_gate import cli  # noqa: E402  (after the floor check, by design)
+# The shared code is a directory beside this file. An install that dropped it must say so
+# in words, not in a traceback: only the first stderr line reaches the user.
+NO_SHARED_CODE = (
+    "BROKEN: const-decision-records is installed without its shared code (scripts/const_gate is missing"
+    " or is not a directory) — fix: install the plugin from its marketplace, or load it from a"
+    " full checkout of the repository it comes from; a copy of the plugin's folder must be made"
+    " with links followed (cp -RL) — until then Markdown writes pass unchecked\n"
+    "BROKEN: the check could not run — 0 documents examined\n"
+)
+
+try:
+    import const_gate  # noqa: E402, F401  (after the floor check, by design)
+except ImportError:
+    sys.stderr.write(NO_SHARED_CODE)
+    sys.exit(1)
+
+from decision_records_gate import start  # noqa: E402
 
 if __name__ == "__main__":
-    sys.exit(cli.run(sys.argv[1:]))
+    sys.exit(start.main(sys.argv[1:]))

@@ -33,11 +33,13 @@ except ImportError as exc:
     print("BROKEN: the check could not run — 0 cases examined")
     sys.exit(1)
 
+from const_gate import identity  # noqa: E402
+from const_gate.dials import load_dials  # noqa: E402
+from const_gate.envelope import parse_envelope  # noqa: E402
+from const_gate.errors import ConfigurationFailure  # noqa: E402
 from decision_records_gate.checks import check_record  # noqa: E402
-from decision_records_gate.envelope import parse_envelope as parse_record_envelope  # noqa: E402
-from meta_types_gate.dials import load_dials  # noqa: E402
-from meta_types_gate.envelope import envelope_errors, parse_envelope  # noqa: E402
-from meta_types_gate.errors import ConfigurationFailure  # noqa: E402
+from meta_types_gate import start  # noqa: E402
+from meta_types_gate.checks import envelope_errors  # noqa: E402
 
 GOOD = {"id": "note-a", "type": "non-authoritative", "title": "Note A", "status": "active"}
 
@@ -134,6 +136,7 @@ def record_validator(
 
 
 def main() -> int:
+    identity.declare(start.GATE)  # the shared reader asks which gate it serves
     schemas = KIT / "kernel" / "schemas"
     envelope_schema = json.loads((schemas / "document-frontmatter.schema.json").read_text(encoding="utf-8"))
     record_schema = json.loads((schemas / "decision-record.schema.json").read_text(encoding="utf-8"))
@@ -154,7 +157,7 @@ def main() -> int:
     validator = record_validator(record_schema, envelope_schema)
     for case in records:
         text = "---\n" + yaml.safe_dump(case.fields, sort_keys=False) + "---\n"
-        mirror = not check_record("record.md", parse_record_envelope(text))
+        mirror = not check_record("record.md", parse_envelope(text))
         schema = not list(validator.iter_errors(case.fields))
         stricter = case.name in STRICTER_ON_PURPOSE and schema and not mirror
         if mirror != schema and not stricter:
@@ -168,9 +171,8 @@ def main() -> int:
             print(
                 f"RED: {line}\n"
                 "  why: the module's mirror is the only copy of the kernel schema a consumer has\n"
-                "  fix: align with kernel/schemas/ — envelope.py or dials.py of"
-                " modules/const-meta-types/scripts/meta_types_gate/, or checks.py of"
-                " modules/const-decision-records/scripts/decision_records_gate/"
+                "  fix: align with kernel/schemas/ — dials.py of shared/const_gate/, or checks.py of"
+                " the module the line names"
             )
         print(f"RED: {len(disagreements)} disagreement(s) — {counts}")
         return 2

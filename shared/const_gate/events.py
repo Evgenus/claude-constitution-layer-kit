@@ -23,7 +23,7 @@ def read_event(stream: TextIO) -> ToolEvent:
     try:
         loaded: object = json.load(stream)
     except ValueError as exc:
-        raise ConfigurationFailure(messages.c12_input(str(exc))) from exc
+        raise ConfigurationFailure(messages.c12_input(messages.detail_not_json(str(exc)))) from exc
     if not isinstance(loaded, dict):
         raise ConfigurationFailure(messages.c12_input(messages.detail_not_an_object()))
     tool_name = _text(loaded.get("tool_name")) or ""

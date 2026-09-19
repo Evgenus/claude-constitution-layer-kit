@@ -5,28 +5,24 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from const_gate import messages as shared
+from const_gate.envelope import parse_envelope
+from const_gate.index import Index
+from const_gate.model import Envelope, EnvelopeState, Examination, Finding, MetaType, Resolution
+from const_gate.resolution import resolve
+
 from . import messages
-from .envelope import declared_policy, parse_envelope
-from .index import Index
-from .model import ROUTINE, Envelope, EnvelopeState, Examination, Finding, MetaType, Stakes
+from .model import ROUTINE, Stakes
 
 
-def candidate_policies(index: Index, rel: str, envelope: Envelope) -> list[str]:
-    """The policies that may govern the document: by path first; a declaration picks among
-    several path matches, or stands in where the path maps to none. Whether the resolution
-    is a defect is not judged here: every candidate counts, so a record in an overlap is
-    still examined as a record."""
-    matched = [match.policy_id for match in index.matches(rel)]
-    declared = declared_policy(envelope)
-    if not matched:
-        return [declared] if declared is not None and declared in index.policies else []
-    if declared is not None and len(matched) > 1 and declared in matched:
-        return [declared]
-    return matched
-
-
-def record_policy(candidates: Sequence[str], record_policies: Sequence[str]) -> str | None:
-    """The first candidate that is a record policy; None: the document is not a record."""
+def record_policy(resolution: Resolution, record_policies: Sequence[str]) -> str | None:
+    """The record policy that governs the document, or None: not a record. Where the
+    resolution is a defect — an overlap nobody resolved, a declaration against the path —
+    every policy whose territory matches still counts: the defect is another check's, and a
+    record in an overlap is examined as a record."""
+    candidates = (
+        [resolution.policy] if resolution.policy is not None else [m.policy_id for m in resolution.matches]
+    )
     return next((policy for policy in candidates if policy in record_policies), None)
 
 
@@ -38,10 +34,10 @@ def check_record(rel: str, envelope: Envelope) -> list[Finding]:
     def string(key: str) -> str | None:
         value = envelope.fields.get(key)
         if value is None:
-            errors.append(messages.f4_field_missing(key))
+            errors.append(shared.field_missing(key))
             return None
         if value.text is None:
-            errors.append(messages.f4_field_not_string(key, value.yaml_type))
+            errors.append(shared.field_not_string(key, value.yaml_type))
         return value.text
 
     meta_type = string("type")
@@ -64,7 +60,7 @@ def examine(index: Index, record_policies: Sequence[str], rel: str, text: str) -
     if rel in index.in_root:  # where policies live: a policy, whatever else claims the path
         return Examination((), None)
     envelope = parse_envelope(text)
-    policy = record_policy(candidate_policies(index, rel, envelope), record_policies)
+    policy = record_policy(resolve(index, rel, envelope), record_policies)
     if policy is None:
         return Examination((), None)
     return Examination(tuple(check_record(rel, envelope)), policy)

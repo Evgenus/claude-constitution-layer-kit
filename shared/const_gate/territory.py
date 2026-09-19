@@ -14,15 +14,14 @@ from collections.abc import Sequence
 from pathlib import Path
 from types import TracebackType
 
-from . import messages
+from . import identity, messages
 from .errors import ConfigurationFailure
-from .model import NAMESPACE
 from .repository import git
 
 
 class Matcher:
     def __init__(self) -> None:
-        self.tmp = Path(tempfile.mkdtemp(prefix=NAMESPACE + "-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix=identity.current().namespace + "-"))
         self.git_dir = self.tmp / "null" / ".git"
         self.tree = self.tmp / "tree"
         template = self.tmp / "template"
