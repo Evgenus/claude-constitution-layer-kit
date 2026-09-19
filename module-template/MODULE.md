@@ -33,7 +33,7 @@ The requirement set, and nothing else ([law 4 of CLAUDE.md](../CLAUDE.md#law-4))
 <a id="t4"></a>
 ## 4. Decisions
 
-Provenance of this module's rules: the records whose rulings it applies, each a record id in `docs/decisions/` or, below recorded stakes, the commit that noted it. The rule itself is stated in the section where it acts ([§5](#t5)–[§9](#t9)); a record is cited for where and why it was decided, never in place of the rule ([kernel §5](../kernel/CONVENTIONS.md#k5)). The record holds the options and reasoning, which are not restated here.
+Provenance of this module's rules: the records whose rulings it applies, each cited by its record id while the record exists. When a record is deleted its entry goes with it and nothing replaces it; a ruling below recorded stakes has no entry. The rule itself is stated in the section where it acts ([§5](#t5)–[§9](#t9)); a record is cited for where and why it was decided, never in place of the rule ([kernel §5](../kernel/CONVENTIONS.md#k5)). The record holds the options and reasoning, which are not restated here.
 
 1. `<record-id>` — one line naming what it fixes here.
 

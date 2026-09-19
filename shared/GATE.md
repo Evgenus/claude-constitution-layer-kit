@@ -29,6 +29,8 @@ Code is admitted here only when it implements a kernel section literally (class 
 | `pipeline` | R | from the event, or the scan's directory, to the repository and its dials; from findings to the verdict the platform understands — block, warn as one JSON object, scan |
 | `tests/harness`, `tests/consumer`, `tests/shared_items` | R | the case runner driving a module's real entry point; the throwaway three-policy consumer; the acceptance items of [§5](#g5) |
 
+Deferred: delivery of this code through a package index is not built — inside a plugin the link delivers it. Signal: a reader of this code outside plugins appears.
+
 <a id="g2"></a>
 ## 2. The interface a module fills
 
@@ -103,7 +105,7 @@ Every module that links this code has these limits and states its own beside the
 
 1. **Shell writes and other actors.** A heredoc, `sed -i`, a human's editor, a merge, another server's file tool: none is a `Write` or `Edit`, and the hook never sees it. Backstop: the module's scan, on demand and in CI.
 2. **A configuration failure, a timeout, and a hook that cannot start are non-blocking in hook mode.** Exit 1 shows the user the first stderr line and the write proceeds; the platform treats a hook past its timeout, or one whose script is missing, the same way. Backstop: the scan exits 1 with the same line, so CI turns red; the line lands in the output log.
-3. **The link to this code may be dropped by an install.** The platform documents that a link leading outside a plugin is copied into a marketplace install, and skipped when a plugin is loaded from a local path in copy mode; on Claude Code 2.1.251 a plugin loaded with `--plugin-dir` runs in place and the link resolves (observed 2026-09-19). Backstop: `C15` — loud, exit 1, the same class as a missing library — with an absence fixture in every module; the kit gate on the links; `cp -RL` for a copy of a module's folder.
+3. **The link to this code may be dropped by an install.** The platform documents that a link leading outside a plugin is copied into a marketplace install, and skipped when a plugin is loaded from a local path in copy mode; on Claude Code 2.1.251 a plugin loaded with `--plugin-dir` runs in place and the link resolves (observed 2026-09-19). Backstop: `C15` — loud, exit 1, the same class as a missing library — with an absence fixture in every module; the kit gate on the links; `cp -RL` for a copy of a module's folder. Fallback: when the consumer-live proof or a platform update shows the link skipped, the links are replaced by copies and the kit's link gate by a gate on copy equality — no module code changes.
 4. **`Edit` is reconstructed, not observed.** The edit is applied to the file on disk and the result judged; an absent `old_string` is a visible skip; an `old_string` occurring twice without `replace_all` is judged on its first occurrence though the tool will refuse the edit; an `Edit` of a missing file with an empty `old_string` is judged on what it creates, and one with an empty `old_string` on a file that exists is a visible skip, since it matches everywhere. Backstop: the tool's own refusal comes after the hook, and the next real write is judged again.
 5. **Symbolic links in the consumer.** The written path is resolved before it is matched, so a territory that names only a link does not claim what is written through it. Backstop: territories over real paths; the scan lists files under the paths git records.
 6. **A key given twice in an envelope.** YAML keeps the last one. Backstop: review.

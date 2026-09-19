@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Interim reference gate (requirements A5.5–A5.7, decision reference-forms).
+# Interim reference gate (requirements A5.5–A5.7).
 # Fails when a kit document cites another document by a bare handle instead of a link,
-# or when any link or anchor does not resolve. Run from the repository root.
+# when any link or anchor does not resolve, or when a file that is not markdown names a decision
+# record that does not exist. Run from the repository root.
 # Examines tracked and untracked (non-ignored) files, so a new document is checked before it is staged.
 # Exit codes: 0 green; 2 findings (the repository is wrong); 1 configuration failure (the checker
 # could not run: nothing to examine, lychee missing). The examined counts are printed on every exit.
@@ -28,27 +29,27 @@ for f in $(git ls-files --cached --others --exclude-standard '*.md'); do
   b="$(bare "$f")"
   case "$f" in docs/requirements.md) ;; *)
     if grep -nE '\bM[0-9]+\b' <<<"$b" >/dev/null; then
-      red "$f cites a module as M<n>" "M<n> resolves only inside the requirements document (docs/decisions/dec-0005-reference-forms.md#r7; docs/policies/kit-requirements.md)" \
+      red "$f cites a module as M<n>" "M<n> resolves only inside the requirements document (docs/requirements.md#a5-6; docs/policies/kit-requirements.md)" \
           "link the module's spec: [\`const-<name>\`](<rel>/docs/requirements.md#const-<name>)"
     fi
     if grep -nE '\bA[0-9]+\.[0-9]+' <<<"$b" >/dev/null; then
-      red "$f cites a requirement row bare" "rows resolve only inside the matrix (docs/decisions/dec-0005-reference-forms.md#r6)" \
+      red "$f cites a requirement row bare" "rows resolve only inside the matrix (docs/requirements.md#a5-6)" \
           "link it: [requirement A5.3](<rel>/docs/requirements.md#a5-3)"
     fi
   esac
   case "$f" in kernel/CONVENTIONS.md) ;; *)
     if grep -nE '§ ?[0-9]' <<<"$b" >/dev/null; then
-      red "$f cites a kernel section bare" "§n is a local alias inside the kernel only (docs/decisions/dec-0005-reference-forms.md#r2)" \
+      red "$f cites a kernel section bare" "§n is a local alias inside the kernel only (docs/requirements.md#a5-5)" \
           "link it: [kernel §4](<rel>/kernel/CONVENTIONS.md#k4)"
     fi
   esac
   if grep -nE '(/Users/|/home/|file://)' "$f" >/dev/null; then
-    red "$f references a location outside this repository" "a local path resolves on one machine only, and never for a consumer (docs/decisions/dec-0010-module-research-per-module.md)" \
+    red "$f references a location outside this repository" "a local path resolves on one machine only, and never for a consumer (CLAUDE.md, \"Never in this repository\")" \
         "cite the public source that verified the fact, or drop the reference"
   fi
   case "$f" in CLAUDE.md) ;; *)
     if grep -nEi '\blaws? [0-9]' <<<"$b" >/dev/null; then
-      red "$f cites a law bare" "laws are cited verbosely and linked (docs/decisions/dec-0005-reference-forms.md#r17)" \
+      red "$f cites a law bare" "laws are cited verbosely and linked (docs/requirements.md#a5-6)" \
           "link it: [law 4 of CLAUDE.md](<rel>/CLAUDE.md#law-4)"
     fi
   esac
@@ -56,9 +57,19 @@ for f in $(git ls-files --cached --others --exclude-standard '*.md'); do
     own="$(sed -n 's/^id: \([a-z0-9-]*\)$/\1/p' "$f" | head -1)"
     [ "$id" = "$own" ] && continue
     if grep -nF "\`$id\`" <<<"$b" >/dev/null; then
-      red "$f cites governed document $id by bare id" "id references are links (docs/decisions/dec-0005-reference-forms.md#r1)" \
+      red "$f cites governed document $id by bare id" "id references are links (docs/requirements.md#a5-6)" \
           "link it: [$id](<rel>/<path-of-$id>)"
     fi
+  done
+done
+
+# A record named outside markdown — a comment, an error text, configuration — is seen by no link checker.
+for f in $(git ls-files --cached --others --exclude-standard | grep -vE '\.md$'); do
+  [ -f "$f" ] && [ ! -L "$f" ] || continue
+  for stem in $(grep -IohE '\bdec-[0-9]{4}-[a-z0-9-]+' "$f" 2>/dev/null | sort -u); do
+    [ -f "docs/decisions/$stem.md" ] && continue
+    red "$f names record $stem, which is not in docs/decisions/" "lychee reads markdown only, so a record name in any other file dangles silently once the record is renamed or deleted" \
+        "correct the name, or drop the mention — the rule it points to is stated in a current-state document"
   done
 done
 
