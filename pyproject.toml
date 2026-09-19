@@ -2,15 +2,17 @@
 # Never shipped to consumers: modules carry no tool configuration of their own.
 #
 # Run from the kit root before a module's scripts are reviewed:
-#   python3 -m ruff format --check modules scripts && python3 -m ruff check modules scripts
+#   python3 -m ruff format --check modules scripts shared && python3 -m ruff check modules scripts shared
+#   (cd shared && mypy --strict const_gate)
 #   (cd modules/<name>/scripts && mypy --strict <package>)
 #   (cd modules/<name>/tests && MYPYPATH=../scripts mypy --strict *.py)
+#   python3 scripts/check-shared-links.py && python3 scripts/check-shared-links.py --self-test
 [tool.ruff]
 line-length = 110
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "UP", "I"]
+select = ["E", "F", "B", "UP", "I", "PLC0415"]  # PLC0415: gate-script rule 16, imports at the top
 
 [tool.mypy]
 python_version = "3.12"

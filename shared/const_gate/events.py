@@ -23,7 +23,7 @@ def read_event(stream: TextIO) -> ToolEvent:
     try:
         loaded: object = json.load(stream)
     except ValueError as exc:
-        raise ConfigurationFailure(messages.c12_input(str(exc))) from exc
+        raise ConfigurationFailure(messages.c12_input(messages.detail_not_json(str(exc)))) from exc
     if not isinstance(loaded, dict):
         raise ConfigurationFailure(messages.c12_input(messages.detail_not_an_object()))
     tool_name = _text(loaded.get("tool_name")) or ""
@@ -56,11 +56,16 @@ def _text(value: object) -> str | None:
 
 def document_after_write(event: ToolEvent, root: Path, rel: str) -> str | None:
     """None when the Edit cannot be applied (missing file, absent old_string): there is
-    nothing to judge, and the tool reports its own error."""
+    nothing to judge, and the tool reports its own error. An Edit of a missing file with an
+    empty old_string creates the file from new_string, so that is what is judged."""
     if event.tool is FileTool.WRITE:
         return event.content
     current = read_text(root, rel)
+    if current is None and event.old_string == "" and event.new_string is not None:
+        return event.new_string
     if current is None or event.old_string is None or event.new_string is None:
+        return None
+    if event.old_string == "":  # matches everywhere, so nowhere exactly once: the tool refuses it
         return None
     if event.old_string not in current:
         return None

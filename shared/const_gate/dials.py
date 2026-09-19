@@ -1,8 +1,11 @@
-"""The dials file: read once, validated against the kernel's rules for the keys this gate
-reads — the two kernel-owned keys, `territory` of every namespace that could be a
-policy's, and this module's own dials. A namespace named like a module (const-*) is a
-policy's only when a policy document carries that id, so its `territory` is read leniently:
-a well-formed one is kept for that case, anything else is another module's business."""
+"""The dials file: read once, validated against the kernel's rules for the keys every gate
+reads — the two kernel-owned keys, `territory` of every namespace that could be a policy's,
+and the two dials every gate has, `severity` and `log_dir`. The rest of the module's own
+namespace is handed over as read, for the module to parse.
+
+A namespace named like a module (const-*) is a policy's only when a policy document carries
+that id, so its `territory` is read leniently: a well-formed one is kept for that case,
+anything else is another module's business."""
 
 from __future__ import annotations
 
@@ -11,9 +14,10 @@ from pathlib import Path
 
 import yaml
 
-from . import messages
+from . import identity, messages
+from .envelope import yaml_error_line
 from .errors import ConfigurationFailure
-from .model import DIALECT, DIALS_FILE, NAMESPACE, Dials, Namespace, Severity
+from .model import DIALECT, DIALS_FILE, Dials, Namespace, Severity
 
 KERNEL_KEYS = ("root_policy", "territory_dialect")
 MODULE_PREFIX = "const-"
@@ -31,7 +35,10 @@ def load_dials(root: Path) -> Dials | None:
     try:
         loaded: object = yaml.safe_load(text)
     except yaml.YAMLError as exc:
-        raise ConfigurationFailure(messages.c4_dials_invalid_yaml(str(exc).splitlines()[0])) from exc
+        raise ConfigurationFailure(messages.c4_dials_invalid_yaml(yaml_error_line(exc))) from exc
+    except RecursionError as exc:
+        failure = messages.c4_dials_invalid_yaml(messages.detail_nested_too_deeply())
+        raise ConfigurationFailure(failure) from exc
     if loaded is None:
         loaded = {}
     if not isinstance(loaded, dict):
@@ -53,15 +60,16 @@ def _parse(raw: dict[object, object]) -> Dials:
         if not isinstance(value, dict):
             raise ConfigurationFailure(messages.c5_namespace_not_mapping(name))
         namespaces[name] = Namespace(name, _territory(name, value.get("territory"), lenient=False))
-    own = raw.get(NAMESPACE, {})
-    if own is None:
-        own = {}
+    own = raw.get(
+        identity.current().namespace, {}
+    )  # absent: defaults; present: a mapping, as the schema says
     if not isinstance(own, dict):
         raise ConfigurationFailure(messages.c5_own_namespace_not_mapping())
     return Dials(
         root_policy=_root_policy(raw.get("root_policy")),
         severity=_severity(own.get("severity")),
         log_dir=_relative_dir(own.get("log_dir")),
+        own={str(key): value for key, value in own.items()},
         namespaces=namespaces,
     )
 

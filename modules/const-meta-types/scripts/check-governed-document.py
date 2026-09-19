@@ -18,8 +18,10 @@ Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — hook mode blocks the write, unless severity is warn: then exit 0
             with JSON carrying the finding to the model and the user;
           1 configuration failure — the checker could not run. Never a silent pass.
-Output:   findings on stderr (hook, block) or stdout (scan; hook warn as one JSON object);
-          notes, green and skip lines on stdout; every printed line is also appended to the
+Output:   hook, block: findings, with any notes above them, on stderr; hook, warn: one JSON
+          object on stdout and nothing else, the notes inside it; scan: everything on stdout.
+          Green and skip lines, and the notes above them, on stdout. Configuration failures
+          (BROKEN) on stderr in both modes. Every printed line is also appended to the
           output log — under log_dir when set, else under the directory the platform names
           in the environment variable CLAUDE_PLUGIN_DATA, else nowhere.
 
@@ -43,7 +45,23 @@ if sys.version_info < FLOOR:
     sys.stderr.write(TOO_OLD % (FLOOR + tuple(sys.version_info[:2])))  # noqa: UP031
     sys.exit(1)
 
-from meta_types_gate import cli  # noqa: E402  (after the floor check, by design)
+# The shared code is a directory beside this file. An install that dropped it must say so
+# in words, not in a traceback: only the first stderr line reaches the user.
+NO_SHARED_CODE = (
+    "BROKEN: const-meta-types is installed without its shared code (scripts/const_gate is missing"
+    " or is not a directory) — fix: install the plugin from its marketplace, or load it from a"
+    " full checkout of the repository it comes from; a copy of the plugin's folder must be made"
+    " with links followed (cp -RL) — until then Markdown writes pass unchecked\n"
+    "BROKEN: the check could not run — 0 documents examined\n"
+)
+
+try:
+    from const_gate import cli  # noqa: E402, F401  (after the floor check; an empty directory fails here too)
+except ImportError:
+    sys.stderr.write(NO_SHARED_CODE)
+    sys.exit(1)
+
+from meta_types_gate import start  # noqa: E402
 
 if __name__ == "__main__":
-    sys.exit(cli.run(sys.argv[1:]))
+    sys.exit(start.main(sys.argv[1:]))

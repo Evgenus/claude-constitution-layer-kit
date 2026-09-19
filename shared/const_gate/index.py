@@ -7,12 +7,12 @@ and claims nothing, whatever keys it carries.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import messages
-from .dials import MODULE_PREFIX
-from .envelope import declared_policy, document_id, id_of_text, parse_envelope
+from .envelope import id_of_text
 from .errors import ConfigurationFailure
 from .model import Dials, Match, PendingDocument, Policy
 from .repository import list_markdown, read_text
@@ -28,9 +28,7 @@ class Index:
     root_territory: tuple[str, ...] = ()
     in_root: dict[str, str] = field(default_factory=dict)
     policies: dict[str, Policy] = field(default_factory=dict)
-    void: dict[str, dict[str, str]] = field(default_factory=dict)  # namespace -> would-be claims
     notes: list[str] = field(default_factory=list)
-    _owners: dict[str, list[str]] | None = None
 
     def text(self, rel: str) -> str | None:
         if self.pending is not None and rel == self.pending.rel:
@@ -40,30 +38,14 @@ class Index:
     def matches(self, rel: str) -> list[Match]:
         return [Match(p.id, p.claims[rel]) for p in self.policies.values() if rel in p.claims]
 
-    def governed(self) -> list[str]:
-        claimed: set[str] = set()
-        for policy in self.policies.values():
-            claimed.update(policy.claims)
-        return sorted(claimed)
-
-    def id_owners(self) -> dict[str, list[str]]:
-        """id -> the governed documents carrying it (claimed by path, or bound by a declaration
-        naming a policy). Built once per run: every Markdown file is read a single time."""
-        if self._owners is None:
-            claimed = set(self.governed())
-            owners: dict[str, list[str]] = {}
-            for rel in self.paths:
-                envelope = parse_envelope(self.text(rel) or "")
-                doc_id = document_id(envelope)
-                if doc_id is None:
-                    continue
-                if rel in claimed or declared_policy(envelope) in self.policies:
-                    owners.setdefault(doc_id, []).append(rel)
-            self._owners = owners
-        return self._owners
-
-    def void_namespaces_claiming(self, rel: str) -> list[str]:
-        return [name for name, claims in self.void.items() if rel in claims]
+    def documents(self) -> Iterator[tuple[str, str]]:
+        """Every Markdown path considered, with its text. A file git lists and nobody can read is
+        a configuration failure: a scan that skipped it would report a count it did not examine."""
+        for rel in self.paths:
+            text = self.text(rel)
+            if text is None:
+                raise ConfigurationFailure(messages.c12_unreadable(rel))
+            yield rel, text
 
 
 def build_index(
@@ -76,7 +58,6 @@ def build_index(
     index = Index(root=root, paths=sorted(paths), pending=pending)
     _locate_root(index, dials, root_policy, matcher)
     _discover_policies(index, dials, matcher)
-    _collect_void_namespaces(index, dials, matcher)
     return index
 
 
@@ -109,10 +90,3 @@ def _discover_policies(index: Index, dials: Dials, matcher: Matcher) -> None:
             index.policies[policy_id] = Policy(policy_id, path, dials.territory_of(policy_id))
     for policy in index.policies.values():
         policy.claims = matcher.match(policy.territory, index.paths)
-
-
-def _collect_void_namespaces(index: Index, dials: Dials, matcher: Matcher) -> None:
-    for name, namespace in dials.namespaces.items():
-        if name in index.policies or name.startswith(MODULE_PREFIX) or not namespace.territory:
-            continue
-        index.void[name] = matcher.match(namespace.territory, index.paths)

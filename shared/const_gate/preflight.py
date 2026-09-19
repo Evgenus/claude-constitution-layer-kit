@@ -8,19 +8,24 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
-from . import messages
+from . import identity, messages
 from .errors import ConfigurationFailure
 
-# distribution name in requirements.txt -> the module it provides
-DECLARED: dict[str, str] = {"PyYAML": "yaml"}
+# distribution name in requirements.txt -> the module it provides; what the shared code itself needs
+SHARED: dict[str, str] = {"PyYAML": "yaml"}
+
+
+def declared() -> dict[str, str]:
+    """The shared libraries and the ones the module declared with its identity."""
+    return {**SHARED, **identity.current().libraries}
 
 
 def requirements_file() -> Path:
-    return Path(__file__).resolve().parents[2] / "requirements.txt"
+    return identity.current().plugin_root / "requirements.txt"
 
 
 def check() -> None:
-    for distribution, module in DECLARED.items():
+    for distribution, module in declared().items():
         try:
             importlib.import_module(module)
         except ImportError as exc:
