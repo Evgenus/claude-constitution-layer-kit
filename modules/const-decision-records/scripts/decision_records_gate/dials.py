@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from . import messages
+from .envelope import ID_RE
 from .errors import ConfigurationFailure
 from .model import DIALECT, DIALS_FILE, NAMESPACE, Dials, Namespace, Severity
 
@@ -62,6 +63,7 @@ def _parse(raw: dict[object, object]) -> Dials:
         root_policy=_root_policy(raw.get("root_policy")),
         severity=_severity(own.get("severity")),
         log_dir=_relative_dir(own.get("log_dir")),
+        record_policies=_policy_ids(own.get("record_policies")),
         namespaces=namespaces,
     )
 
@@ -115,3 +117,11 @@ def _relative_dir(value: object) -> str | None:
     if not isinstance(value, str) or not _is_relative(value):
         raise ConfigurationFailure(messages.c5_log_dir())
     return os.path.normpath(value).replace(os.sep, "/")
+
+
+def _policy_ids(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or not all(isinstance(i, str) and ID_RE.match(i) for i in value):
+        raise ConfigurationFailure(messages.c5_record_policies())
+    return tuple(str(i) for i in value)

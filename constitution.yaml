@@ -30,3 +30,6 @@ kit-requirements:
 
 kit-rollout-plan:
   territory: ["docs/rollout-plan.md"]
+
+const-decision-records:               # a module's namespace (kernel §6): its own dials
+  record_policies: [kit-decision-records]   # the policies whose territory holds decision records

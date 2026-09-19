@@ -23,15 +23,15 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SCRIPTS = HERE.parent / "scripts"
-WRAPPER = SCRIPTS / "check-governed-document.sh"
-ENTRY = SCRIPTS / "check-governed-document.py"
+WRAPPER = SCRIPTS / "check-decision-record.sh"
+ENTRY = SCRIPTS / "check-decision-record.py"
 sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
 SH = shutil.which("sh") or "sh"
-SCRATCH = Path(tempfile.mkdtemp(prefix="const-meta-types-fixtures-"))
+SCRATCH = Path(tempfile.mkdtemp(prefix="const-decision-records-fixtures-"))
 atexit.register(shutil.rmtree, SCRATCH, ignore_errors=True)
 
 from consumer import Consumer  # noqa: E402
-from meta_types_gate.model import Finding  # noqa: E402
+from decision_records_gate.model import Finding  # noqa: E402
 
 
 @dataclass(frozen=True)

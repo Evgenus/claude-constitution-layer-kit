@@ -11,17 +11,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from .model import DECLARATION, DIALECT, DIALS_FILE, NAMESPACE, Broken, Finding, Key, Match, MetaType, Status
+from .model import DECLARATION, DIALECT, DIALS_FILE, NAMESPACE, Broken, Finding, Key, MetaType, Stakes, Status
 
-_ENVELOPE_WHY = "the envelope is the one place a document's authority is declared, and it is read by machines"
-_DECLARATION_WHY = (
-    "the path mapping is primary; a declaration may resolve an absent or ambiguous mapping, never override it"
-)
-_FIELD_FIX = (
-    "set each named field: id = stable kebab-case (never changed, never reused);"
-    " type = current-state (reconciled truth) | task-record (change delta) | non-authoritative (explanation);"
-    " title = one line; status = active | inactive"
-)
 _TYPES = " | ".join(t.value for t in MetaType)
 _STATUSES = " | ".join(s.value for s in Status)
 
@@ -30,67 +21,77 @@ def _patterns(patterns: Sequence[str]) -> str:
     return "[" + ", ".join(f"'{p}'" for p in patterns) + "]"
 
 
-def _matches(matches: Sequence[Match]) -> str:
-    return ", ".join(f"{m.policy_id} ({m.pattern})" for m in matches)
+# ---------------------------------------------------------------- findings: the decision record
+
+_STAKES = " | ".join(level.value for level in Stakes)
 
 
-# ---------------------------------------------------------------- findings: the envelope
-
-
-def f1_no_envelope(rel: str) -> Finding:
+def r1_no_readable_envelope(rel: str, detail: str) -> Finding:
     return Finding(
-        Key.F1,
-        f"{rel}: no frontmatter envelope",
-        "a governed document declares its authority in its envelope, or sessions guess it",
+        Key.R1,
+        f"{rel}: a decision record with no readable envelope ({detail})",
+        "a record declares its stakes and its decider in the envelope: without them the ruling has no"
+        " price and nobody accountable",
         "start the file with a YAML block between two '---' lines carrying id: <kebab-id>,"
-        f" type: {_TYPES}, title: <one line>, status: {_STATUSES}",
+        f" type: task-record, title: <one line>, status: {_STATUSES}, stakes: {_STAKES},"
+        " decider: <person or role>",
     )
 
 
-def f2_unterminated(rel: str) -> Finding:
+def r2_invalid_fields(rel: str, errors: Sequence[str]) -> Finding:
     return Finding(
-        Key.F2,
-        f"{rel}: frontmatter opened with '---' but never closed",
-        "an unclosed envelope is unreadable by machines and by the next session",
-        "close the YAML block with a line holding only '---'",
+        Key.R2,
+        f"{rel}: decision-record field(s) invalid: {'; '.join(errors)}",
+        "stakes set the ceremony a ruling gets and decider names who is accountable for it; git can"
+        " derive neither",
+        "set each named field: type = task-record (a record is a change delta); stakes = process"
+        " (harness, policy or procedure) | product (user-visible behaviour) | architecture (structural,"
+        " hard to reverse); decider = the person or role who made the choice, a non-empty string",
     )
 
 
-def f3_invalid_yaml(rel: str, detail: str) -> Finding:
+def r3_routine_record(rel: str) -> Finding:
     return Finding(
-        Key.F3,
-        f"{rel}: frontmatter is not valid YAML ({detail})",
-        "the envelope is read by machines, so it must parse",
-        "repair the YAML between the '---' lines; keep the four fields id, type, title, status",
+        Key.R3,
+        f"{rel}: stakes 'routine' — a routine call never produces a record",
+        "ceremony scales with stakes: a call that is cheap to revert is noted in the commit message,"
+        " and a record for it is ritual",
+        "delete this file and put the note in the commit message; or, if the ruling is not cheap to"
+        f" revert, set stakes: {_STAKES}",
     )
 
 
-def f4_invalid_fields(rel: str, errors: Sequence[str]) -> Finding:
-    return Finding(
-        Key.F4, f"{rel}: envelope field(s) invalid: {'; '.join(errors)}", _ENVELOPE_WHY, _FIELD_FIX
-    )
+# details of R1
 
 
-def f5_duplicate_id(rel: str, doc_id: str, other: str) -> Finding:
-    return Finding(
-        Key.F5,
-        f"{rel}: id '{doc_id}' is already carried by {other}",
-        "an id is a stable identifier: two documents sharing one break every reference to it",
-        "give this document its own id, never a retired one; if this is a move, delete or git mv the"
-        " old file first, then write",
-    )
+def r1_detail_none() -> str:
+    return "the file does not start with a '---' line"
 
 
-def f10_policy_type(rel: str, found_type: str, root_territory: Sequence[str]) -> Finding:
-    return Finding(
-        Key.F10,
-        f"{rel}: lies in the root policy's territory but has type '{found_type}'",
-        "a policy is a current-state document, and only policies lie where policies live",
-        f"set type: current-state, or move the file out of {_patterns(root_territory)}",
-    )
+def r1_detail_unterminated() -> str:
+    return "opened with '---' but never closed"
 
 
-# field-level parts of F4, in reading order
+def r1_detail_invalid_yaml(detail: str) -> str:
+    return f"not valid YAML: {detail}"
+
+
+# field-level parts of R2, beside the two shared ones below
+
+
+def r2_type_not_task_record(shown: str) -> str:
+    return f"type '{shown}' is not task-record"
+
+
+def r2_stakes_not_allowed(shown: str) -> str:
+    return f"stakes '{shown}' not one of {_STAKES}"
+
+
+def r2_decider_empty() -> str:
+    return "decider empty"
+
+
+# field-level parts of a finding, in reading order
 
 
 def f4_field_missing(key: str) -> str:
@@ -125,100 +126,6 @@ def f4_declaration_not_kebab(shown: str) -> str:
     return f"{DECLARATION} '{shown}' is not a kebab-case policy id"
 
 
-# ---------------------------------------------------------------- findings: resolution
-
-
-def f6_no_such_policy(rel: str, declared: str, root_territory: Sequence[str]) -> Finding:
-    return Finding(
-        Key.F6,
-        f"{rel}: declares policy '{declared}' but no policy with that id lies in the root"
-        f" policy's territory {_patterns(root_territory)}",
-        "a governed document resolves to exactly one governing policy, or its rules are undefined",
-        "declare the id of a policy that exists there, or drop the declaration and place the file"
-        " in a claimed territory",
-    )
-
-
-def f7_multi_policy(rel: str, matches: Sequence[Match]) -> Finding:
-    return Finding(
-        Key.F7,
-        f"{rel}: matched by {len(matches)} policy territories: {_matches(matches)}",
-        "a document resolves to exactly one governing policy, or two rule sets compete",
-        f"narrow one territory in {DIALS_FILE} so the patterns no longer overlap; during a move,"
-        f" declare the intended one with '{DECLARATION}: <id>' in the envelope while an active"
-        " task-record covers it",
-    )
-
-
-def f8_contradiction(
-    rel: str, declared: str, match: Match, declared_territory: Sequence[str] | None
-) -> Finding:
-    """declared_territory is None when the declared id is no policy at all."""
-    headline = (
-        f"{rel}: declares policy '{declared}' but its path is claimed by"
-        f" '{match.policy_id}' ({match.pattern})"
-    )
-    if declared_territory is None:
-        fix = f"remove '{DECLARATION}: {declared}' from the envelope — no policy with that id exists"
-    else:
-        fix = (
-            f"remove '{DECLARATION}: {declared}' from the envelope, or move the file into the territory"
-            f" of '{declared}': {_patterns(declared_territory)}"
-        )
-    return Finding(Key.F8, headline, _DECLARATION_WHY, fix)
-
-
-def f8b_contradiction_in_overlap(rel: str, declared: str, matches: Sequence[Match]) -> Finding:
-    return Finding(
-        Key.F8B,
-        f"{rel}: declares policy '{declared}' but its path is claimed by {_matches(matches)}",
-        _DECLARATION_WHY,
-        "declare one of the policies that claim the path, or remove the declaration and narrow"
-        f" the territories in {DIALS_FILE}",
-    )
-
-
-# ---------------------------------------------------------------- findings: the root policy itself
-
-
-def f14_root_breaks_governance(rel: str, broken: Broken) -> Finding:
-    """A write to the root policy that would leave the repository ungovernable is blocked
-    as a finding: as a configuration failure it would be non-blocking and the damage would land."""
-    return Finding(
-        Key.F14,
-        f"{rel}: as written, {broken.headline}",
-        "every chain of governance ends at the root policy; a write that breaks it ungoverns the repository",
-        broken.fix,
-    )
-
-
-def f11_root_unreadable(rel: str, detail: str) -> Finding:
-    return Finding(
-        Key.F11,
-        f"{rel}: the root policy has no readable envelope ({detail})",
-        "the root policy's id names the namespace where policies live; without it nothing is governed",
-        "keep the YAML block between two '---' lines with id, type: current-state, title, status: active",
-    )
-
-
-def f12_root_type(rel: str, found_type: str) -> Finding:
-    return Finding(
-        Key.F12,
-        f"{rel}: the root policy has type '{found_type}'",
-        "a policy is a current-state document, and the root is the policy for policies",
-        "set type: current-state",
-    )
-
-
-def f13_root_id_orphaned(rel: str, doc_id: str) -> Finding:
-    return Finding(
-        Key.F13,
-        f"{rel}: the root policy's id '{doc_id}' has no territory under that id in {DIALS_FILE}",
-        "the root's namespace is where policies live; changing the id orphans every policy",
-        f"keep the id that has the namespace, or rename the namespace in {DIALS_FILE} in the same change",
-    )
-
-
 # ---------------------------------------------------------------- verdict and count lines (F9, G1, W1)
 
 
@@ -226,9 +133,10 @@ def f9_count_hook(findings: int, rel: str) -> str:
     return f"RED: {findings} finding(s) — 1 document examined ({rel})"
 
 
-def f9_scan_tail(examined: int, scanned: int, policies: int) -> str:
+def f9_scan_tail(records: int, scanned: int, record_policies: int) -> str:
     return (
-        f"{examined} governed document(s) examined, {scanned} Markdown file(s) scanned, {policies} policies"
+        f"{records} decision record(s) examined, {scanned} Markdown file(s) scanned,"
+        f" {record_policies} record policy(ies)"
     )
 
 
@@ -286,6 +194,18 @@ def g1_skip_edit_unappliable(rel: str) -> str:
     return f"the Edit cannot be applied to {rel}; the tool will report it"
 
 
+def g1_skip_no_record_policies() -> str:
+    return (
+        f"{NAMESPACE}.record_policies names no policy, so no document is known to be a decision"
+        f" record — to switch the check on, write {NAMESPACE}: {{record_policies: [<id of the policy"
+        f" that governs decision records>]}} in {DIALS_FILE}"
+    )
+
+
+def g1_skip_not_a_record(rel: str, record_policies: Sequence[str]) -> str:
+    return f"{rel} is not governed by a record policy ({', '.join(record_policies)})"
+
+
 def g1_skip_outside_territory(rel: str) -> str:
     return f"{rel} is outside claimed territory"
 
@@ -321,6 +241,13 @@ def n1_note_void_namespace(name: str) -> str:
     return (
         f"note: namespace '{name}' declares a territory but no policy with id '{name}' lies in the root"
         " policy's territory; it claims nothing until that policy exists"
+    )
+
+
+def n2_note_dangling_record_policy(policy_id: str) -> str:
+    return (
+        f"note: {NAMESPACE}.record_policies names '{policy_id}', but no policy with that id lies in the"
+        " root policy's territory; it claims nothing until that policy exists"
     )
 
 
@@ -426,6 +353,15 @@ def c5_log_dir() -> Broken:
         Key.C5,
         f"{DIALS_FILE}: {NAMESPACE}.log_dir must be a repository-relative directory",
         f"write {NAMESPACE}: {{log_dir: <a git-ignored directory>}}, or remove the key",
+    )
+
+
+def c5_record_policies() -> Broken:
+    return Broken(
+        Key.C5,
+        f"{DIALS_FILE}: {NAMESPACE}.record_policies must be a list of kebab-case policy ids",
+        f"write {NAMESPACE}: {{record_policies: [<id of the policy that governs decision records>]}},"
+        " or remove the key",
     )
 
 

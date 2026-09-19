@@ -7,10 +7,10 @@ import re
 import yaml
 
 from . import messages
-from .model import DECLARATION, Envelope, EnvelopeState, FieldValue, MetaType, Status
+from .model import DECLARATION, RECORD_FIELDS, Envelope, EnvelopeState, FieldValue, MetaType, Status
 
 ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-READ_FIELDS = ("id", "type", "title", "status", DECLARATION)
+READ_FIELDS = ("id", "type", "title", "status", DECLARATION, *RECORD_FIELDS)
 TITLE_MAX = 200
 
 

@@ -6,11 +6,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-NAMESPACE = "const-meta-types"
-GATE = "check-governed-document"
+NAMESPACE = "const-decision-records"
+GATE = "check-decision-record"
 DIALS_FILE = "constitution.yaml"
 DECLARATION = "policy"  # the envelope field of the secondary binding
 DIALECT = "gitignore"
+RECORD_FIELDS = ("stakes", "decider")  # what a decision record adds to the envelope
+ROUTINE = "routine"  # the one stakes level that never produces a record
 
 
 class MetaType(StrEnum):
@@ -22,6 +24,14 @@ class MetaType(StrEnum):
 class Status(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
+
+
+class Stakes(StrEnum):
+    """The recorded stakes levels."""
+
+    PROCESS = "process"
+    PRODUCT = "product"
+    ARCHITECTURE = "architecture"
 
 
 class Severity(StrEnum):
@@ -56,20 +66,9 @@ class FileTool(StrEnum):
 class Key(StrEnum):
     """Stable handles of the findings and configuration failures."""
 
-    F1 = "F1"
-    F2 = "F2"
-    F3 = "F3"
-    F4 = "F4"
-    F5 = "F5"
-    F6 = "F6"
-    F7 = "F7"
-    F8 = "F8"
-    F8B = "F8b"
-    F10 = "F10"
-    F11 = "F11"
-    F12 = "F12"
-    F13 = "F13"
-    F14 = "F14"
+    R1 = "R1"
+    R2 = "R2"
+    R3 = "R3"
     C2 = "C2"
     C3 = "C3"
     C4 = "C4"
@@ -159,6 +158,7 @@ class Dials:
     root_policy: str | None
     severity: Severity
     log_dir: str | None
+    record_policies: tuple[str, ...]
     namespaces: dict[str, Namespace]
 
     def territory_of(self, name: str) -> tuple[str, ...]:
@@ -190,7 +190,7 @@ class Policy:
 
 @dataclass(frozen=True, slots=True)
 class Examination:
-    """One document's verdict. No findings and no policy: outside claimed territory."""
+    """One document's verdict. No findings and no policy: not a decision record."""
 
     findings: tuple[Finding, ...]
     policy: str | None
