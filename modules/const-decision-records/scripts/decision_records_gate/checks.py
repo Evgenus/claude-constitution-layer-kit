@@ -5,8 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from const_gate import messages as shared
-from const_gate.envelope import parse_envelope
+from const_gate.envelope import parse_envelope, string_field
 from const_gate.index import Index
 from const_gate.model import Envelope, EnvelopeState, Examination, Finding, MetaType, Resolution
 from const_gate.resolution import resolve
@@ -32,13 +31,7 @@ def check_record(rel: str, envelope: Envelope) -> list[Finding]:
     errors: list[str] = []
 
     def string(key: str) -> str | None:
-        value = envelope.fields.get(key)
-        if value is None:
-            errors.append(shared.field_missing(key))
-            return None
-        if value.text is None:
-            errors.append(shared.field_not_string(key, value.yaml_type))
-        return value.text
+        return string_field(envelope, key, errors)
 
     meta_type = string("type")
     if meta_type is not None and meta_type != MetaType.TASK_RECORD:

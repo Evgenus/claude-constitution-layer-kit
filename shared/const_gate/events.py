@@ -65,6 +65,8 @@ def document_after_write(event: ToolEvent, root: Path, rel: str) -> str | None:
         return event.new_string
     if current is None or event.old_string is None or event.new_string is None:
         return None
+    if event.old_string == "":  # matches everywhere, so nowhere exactly once: the tool refuses it
+        return None
     if event.old_string not in current:
         return None
     if event.replace_all:

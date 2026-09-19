@@ -6,20 +6,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TextIO
 
-from const_gate import messages as shared
 from const_gate import pipeline
 from const_gate.errors import ConfigurationFailure
-from const_gate.index import build_index, collect_void_namespaces
-from const_gate.model import Finding, Key, PendingDocument
+from const_gate.index import build_index
+from const_gate.model import Finding, PendingDocument, SharedKey
 from const_gate.output import Output
 from const_gate.pipeline import Skip
 from const_gate.territory import Matcher
 
 from . import messages
-from .checks import check_root_policy, examine
+from .checks import check_root_policy, examine, id_owners, void_claims
 
 # configuration failures a write to the root policy can itself cause
-ROOT_KEYS = (Key.C6, Key.C7, Key.C8, Key.C9)
+ROOT_KEYS = (SharedKey.C6, SharedKey.C7, SharedKey.C8, SharedKey.C9)
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
@@ -36,17 +35,19 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         with Matcher() as matcher:
             pending = PendingDocument(rel, target.text)
             index = build_index(target.root, dials, target.root_policy, matcher, pending)
-            collect_void_namespaces(index, dials, matcher)
-            examination = examine(index, rel, target.text)
+            void = void_claims(index, dials, matcher)
+            examination = examine(index, id_owners(index), rel, target.text)
     except ConfigurationFailure as failure:
         if writes_root and failure.broken.key in ROOT_KEYS:  # this write would break governance
             finding = messages.f14_root_breaks_governance(rel, failure.broken)
             return pipeline.report_hook(output, [finding], (), rel, dials.severity)
         raise
     if examination.outside:
-        void = index.void_namespaces_claiming(rel)
+        claiming = [name for name, claims in void.items() if rel in claims]
         reason = (
-            messages.g1_skip_void_territory(rel, void) if void else messages.g1_skip_outside_territory(rel)
+            messages.g1_skip_void_territory(rel, claiming)
+            if claiming
+            else messages.g1_skip_outside_territory(rel)
         )
         return pipeline.skip(output, reason, index.notes)
     if examination.findings:
@@ -62,16 +63,14 @@ def scan_mode(output: Output, start: Path) -> int:
     examined = 0
     with Matcher() as matcher:
         index = build_index(target.root, target.dials, target.root_policy, matcher)
-        collect_void_namespaces(index, target.dials, matcher)
-        for rel in index.paths:
-            text = index.text(rel)
-            if text is None:
-                raise ConfigurationFailure(shared.c12_unreadable(rel))
-            examination = examine(index, rel, text)
+        void = void_claims(index, target.dials, matcher)
+        owners = id_owners(index)
+        for rel, text in index.documents():
+            examination = examine(index, owners, rel, text)
             if examination.outside:
                 continue
             examined += 1
             findings.extend(examination.findings)
-    notes = index.notes + [messages.n1_note_void_namespace(name) for name in sorted(index.void)]
+    notes = index.notes + [messages.n1_note_void_namespace(name) for name in sorted(void)]
     tail = messages.f9_scan_tail(examined, len(index.paths), len(index.policies))
     return pipeline.report_scan(output, findings, notes, tail)

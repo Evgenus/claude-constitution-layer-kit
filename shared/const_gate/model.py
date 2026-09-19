@@ -52,7 +52,7 @@ class FileTool(StrEnum):
     EDIT = "Edit"
 
 
-class Key(StrEnum):
+class SharedKey(StrEnum):
     """Stable handles of the configuration failures every gate shares. A module's findings
     carry keys of the module's own enum."""
 

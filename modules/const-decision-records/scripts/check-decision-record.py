@@ -59,7 +59,7 @@ NO_SHARED_CODE = (
 )
 
 try:
-    import const_gate  # noqa: E402, F401  (after the floor check, by design)
+    from const_gate import cli  # noqa: E402, F401  (after the floor check; an empty directory fails here too)
 except ImportError:
     sys.stderr.write(NO_SHARED_CODE)
     sys.exit(1)

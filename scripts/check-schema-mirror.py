@@ -109,7 +109,22 @@ DIALS_CORPUS: list[tuple[str, object]] = [
     ("territory with empty item", {"notes-policy": {"territory": [""]}}),
     ("territory with non-string item", {"notes-policy": {"territory": [1]}}),
     ("valid policy namespace", {"notes-policy": {"territory": ["docs/notes/**"], "anything": 1}}),
+    ("policy namespace null", {"notes-policy": None}),
+    ("own namespace null", {"const-meta-types": None}),
+    ("own namespace not a mapping", {"const-meta-types": "x"}),
+    ("another module's namespace not a mapping", {"const-other": 5}),
+    ("another module's territory not a list", {"const-other": {"territory": "x"}}),
+    ("own territory with a non-string item", {"const-meta-types": {"territory": [1]}}),
 ]
+# Kernel §6: a reader reads its own namespace and the policy namespaces, no other module's. A
+# namespace named like a module is a policy's only when a policy document carries that id, so
+# its territory is read leniently, and what another module's namespace holds is that module's
+# to validate. On these cases the schema is stricter than this reader, on purpose.
+NOT_THIS_READERS = {
+    "another module's namespace not a mapping",
+    "another module's territory not a list",
+    "own territory with a non-string item",
+}
 
 
 def schema_accepts(schema: dict[str, object], instance: object) -> bool:
@@ -151,7 +166,7 @@ def main() -> int:
             disagreements.append(f"envelope '{case.name}': schema accepts={schema}, mirror accepts={mirror}")
     for name, instance in DIALS_CORPUS:
         mirror, schema = mirror_accepts_dials(instance), schema_accepts(dials_schema, instance)
-        if mirror and not schema:  # the mirror may be stricter (repository-relative paths), never looser
+        if mirror and not schema and name not in NOT_THIS_READERS:  # stricter is fine, looser is not
             disagreements.append(f"dials '{name}': the schema rejects it but the mirror accepts it")
     records = record_corpus()
     validator = record_validator(record_schema, envelope_schema)
@@ -163,7 +178,8 @@ def main() -> int:
         if mirror != schema and not stricter:
             disagreements.append(f"record '{case.name}': schema accepts={schema}, mirror accepts={mirror}")
     counts = (
-        f"{len(corpus)} envelope cases (equality), {len(DIALS_CORPUS)} dials cases (never more lenient),"
+        f"{len(corpus)} envelope cases (equality), {len(DIALS_CORPUS)} dials cases (never more lenient on"
+        f" the keys a gate reads; {len(NOT_THIS_READERS)} are another reader's),"
         f" {len(records)} record cases (equality but {len(STRICTER_ON_PURPOSE)} stricter on purpose) examined"
     )
     if disagreements:

@@ -30,6 +30,7 @@ full disk must not turn a finding into a pass or a pass into a failure.
 
 from __future__ import annotations
 
+import io
 import json
 import logging
 import logging.handlers
@@ -95,6 +96,9 @@ class _Below(logging.Filter):
 class Output:
     def __init__(self, mode: Mode) -> None:
         logging.raiseExceptions = False  # see the module docstring
+        for stream in (sys.stdout, sys.stderr):  # a verdict line must survive a stream that cannot encode '—'
+            if isinstance(stream, io.TextIOWrapper):
+                stream.reconfigure(errors="backslashreplace")
         data_dir = os.environ.get("CLAUDE_PLUGIN_DATA", "")
         self.log_file: Path | None = Path(data_dir) / log_name() if data_dir else None
         self._context = _Context(mode)

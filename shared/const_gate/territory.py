@@ -8,7 +8,6 @@ policy is one run; a deciding pattern that starts with '!' means "not in the ter
 
 from __future__ import annotations
 
-import shutil
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
@@ -16,22 +15,22 @@ from types import TracebackType
 
 from . import identity, messages
 from .errors import ConfigurationFailure
-from .repository import git
+from .repository import first_line, git
 
 
 class Matcher:
     def __init__(self) -> None:
-        self.tmp = Path(tempfile.mkdtemp(prefix=identity.current().namespace + "-"))
+        self._scratch = tempfile.TemporaryDirectory(prefix=identity.current().namespace + "-")
+        self.tmp = Path(self._scratch.name)
         self.git_dir = self.tmp / "null" / ".git"
         self.tree = self.tmp / "tree"
         template = self.tmp / "template"
         self.tree.mkdir()
         template.mkdir()
-        if (
-            git(["init", "-q", f"--template={template}", str(self.tmp / "null")], cwd=self.tmp).returncode
-            != 0
-        ):
-            raise ConfigurationFailure(messages.c12_init())
+        done = git(["init", "-q", f"--template={template}", str(self.tmp / "null")], cwd=self.tmp)
+        if done.returncode != 0:
+            self._scratch.cleanup()
+            raise ConfigurationFailure(messages.c12_init(first_line(done.stderr)))
         self.runs = 0
 
     def __enter__(self) -> Matcher:
@@ -40,7 +39,7 @@ class Matcher:
     def __exit__(
         self, kind: type[BaseException] | None, value: BaseException | None, trace: TracebackType | None
     ) -> None:
-        shutil.rmtree(self.tmp, ignore_errors=True)
+        self._scratch.cleanup()
 
     def match(self, patterns: Sequence[str], paths: Sequence[str]) -> dict[str, str]:
         """{path: deciding pattern} for the paths inside the territory; others are absent."""

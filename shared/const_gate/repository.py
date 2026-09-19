@@ -43,14 +43,19 @@ def repo_root(path: Path) -> Path | None:
     return Path(os.path.realpath(result.stdout.decode("utf-8", "replace").strip()))
 
 
+def first_line(stderr: bytes) -> str:
+    lines = stderr.decode("utf-8", "replace").strip().splitlines()
+    return lines[0] if lines else "no message"
+
+
 def list_markdown(root: Path) -> list[str]:
     """Tracked and untracked non-ignored Markdown files, repository-relative. A tracked file
     deleted from the working tree is still listed by git until the deletion is staged; it is
     not a document any more, so it is left out."""
     result = git(["ls-files", "-z", "--cached", "--others", "--exclude-standard"], cwd=root)
     if result.returncode != 0:
-        raise ConfigurationFailure(messages.c12_ls_files(str(root)))
-    paths = result.stdout.decode("utf-8", "replace").split("\0")
+        raise ConfigurationFailure(messages.c12_ls_files(str(root), first_line(result.stderr)))
+    paths = os.fsdecode(result.stdout).split("\0")  # bytes git cannot decode survive as they are
     return sorted({p for p in paths if p and p.lower().endswith(".md") and (root / p).is_file()})
 
 

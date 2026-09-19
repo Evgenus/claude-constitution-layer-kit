@@ -139,7 +139,7 @@ CASES = [
         "F11: the root policy losing its envelope is a blocked write, never a non-blocking failure",
         Write(ROOT_POLICY, NO_ENVELOPE),
         Write(ROOT_POLICY, envelope("root-policy", "current-state")),
-        messages.f11_root_unreadable(ROOT_POLICY, "none"),
+        messages.f11_root_unreadable(ROOT_POLICY, messages.f11_detail_no_envelope()),
     ),
     Case(
         13,
@@ -304,6 +304,15 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(3, 3, 3)), "stdout")
 
 
+def long_value_is_cut() -> tuple[bool, str]:
+    """A value a page long is echoed cut, so the whole verdict stays under the platform's cap."""
+    text = document(id="note-a", type="x" * 12_000, title="Note A", status="active")
+    result, _ = gate_on(Write(NOTE_A, text))
+    taught = messages.f4_invalid_fields(NOTE_A, [messages.f4_type_not_allowed("x" * 12_000)]).render()
+    ok = result.code == 2 and taught in result.stderr and len(result.stderr) < 2_000
+    return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
+
+
 def message_shape() -> tuple[bool, str]:
     built = [case.expect for case in CASES]
     ok = all(isinstance(f, Finding) and f.key and f.headline and f.why and f.fix for f in built)
@@ -326,6 +335,7 @@ ASSERTIONS = [
         "scan: a tracked file deleted from the working tree is left out, not a failure",
         scan_with_deleted_file,
     ),
+    Assertion(28, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(27, "message shape: every taught finding has what, why and fix", message_shape),
 ]
 
@@ -336,6 +346,7 @@ SUBJECT = Subject(
     valid=VALID,
     red=Write(NOTE_A, NO_ENVELOPE),
     red_finding=messages.f1_no_envelope(NOTE_A),
+    territory=["docs/notes/**"],
     governed_by="notes-policy",
 )
 

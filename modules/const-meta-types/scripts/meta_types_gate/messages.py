@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from const_gate.messages import patterns
+from const_gate.messages import patterns, shown
 from const_gate.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, Status
 
 from .model import Key
@@ -166,6 +166,14 @@ def f11_root_unreadable(rel: str, detail: str) -> Finding:
     )
 
 
+def f11_detail_no_envelope() -> str:
+    return "the file does not start with a '---' line"
+
+
+def f11_detail_unterminated() -> str:
+    return "opened with '---' but never closed"
+
+
 def f12_root_type(rel: str, found_type: str) -> Finding:
     return Finding(
         Key.F12,
@@ -217,16 +225,16 @@ def n1_note_void_namespace(name: str) -> str:
 # field-level parts of F4, beside the two every gate shares, in reading order
 
 
-def f4_id_not_kebab(shown: str) -> str:
-    return f"id '{shown}' is not kebab-case"
+def f4_id_not_kebab(value: str) -> str:
+    return f"id '{shown(value)}' is not kebab-case"
 
 
-def f4_type_not_allowed(shown: str) -> str:
-    return f"type '{shown}' not one of {_TYPES}"
+def f4_type_not_allowed(value: str) -> str:
+    return f"type '{shown(value)}' not one of {_TYPES}"
 
 
-def f4_status_not_allowed(shown: str) -> str:
-    return f"status '{shown}' not one of {_STATUSES}"
+def f4_status_not_allowed(value: str) -> str:
+    return f"status '{shown(value)}' not one of {_STATUSES}"
 
 
 def f4_title_empty() -> str:
@@ -237,5 +245,5 @@ def f4_title_too_long() -> str:
     return "title longer than 200 characters"
 
 
-def f4_declaration_not_kebab(shown: str) -> str:
-    return f"{DECLARATION} '{shown}' is not a kebab-case policy id"
+def f4_declaration_not_kebab(value: str) -> str:
+    return f"{DECLARATION} '{shown(value)}' is not a kebab-case policy id"

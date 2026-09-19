@@ -36,6 +36,9 @@ def load_dials(root: Path) -> Dials | None:
         loaded: object = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         raise ConfigurationFailure(messages.c4_dials_invalid_yaml(yaml_error_line(exc))) from exc
+    except RecursionError as exc:
+        failure = messages.c4_dials_invalid_yaml(messages.detail_nested_too_deeply())
+        raise ConfigurationFailure(failure) from exc
     if loaded is None:
         loaded = {}
     if not isinstance(loaded, dict):
@@ -57,9 +60,9 @@ def _parse(raw: dict[object, object]) -> Dials:
         if not isinstance(value, dict):
             raise ConfigurationFailure(messages.c5_namespace_not_mapping(name))
         namespaces[name] = Namespace(name, _territory(name, value.get("territory"), lenient=False))
-    own = raw.get(identity.current().namespace, {})
-    if own is None:
-        own = {}
+    own = raw.get(
+        identity.current().namespace, {}
+    )  # absent: defaults; present: a mapping, as the schema says
     if not isinstance(own, dict):
         raise ConfigurationFailure(messages.c5_own_namespace_not_mapping())
     return Dials(

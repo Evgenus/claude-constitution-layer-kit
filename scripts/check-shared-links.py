@@ -9,9 +9,9 @@ platform copies what such a link points at into an installed plugin, so an insta
 carries the code; inside the kit there is one copy to read, to fix and to review.
 
 Modes:  no arguments   check every module under modules/;
-        --self-test    prove the check on a throwaway tree: red for a copy, a dangling
-                       link, a link leading elsewhere, a text file left by a checkout without
-                       symlink support; green for the right link.
+        --self-test    prove the check on a throwaway tree: red for a missing link, a copy, a dangling
+                       link, a link leading elsewhere, an absolute one, a text file left by a
+                       checkout without symlink support; green for the right link.
 Exit:   0 green; 2 a link is wrong; 1 the check could not run.
 """
 
@@ -47,8 +47,8 @@ class Finding:
 
 
 def uses_shared_code(module: Path) -> bool:
-    """A module with no gate has no scripts/const_gate and owes no link."""
-    return any((module / link).exists() or (module / link).is_symlink() for link in LINKS)
+    """A module with a gate: it wires a hook. A module of skills alone owes no link."""
+    return (module / "hooks" / "hooks.json").is_file() or any((module / link).is_symlink() for link in LINKS)
 
 
 def check_link(kit: Path, module: Path, link: str, source: str) -> Finding | None:
@@ -106,6 +106,8 @@ def self_test() -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.mkdir() if "." not in target.name else target.write_text("", encoding="utf-8")
         module = root / "modules" / "const-sample"
+        (module / "hooks").mkdir(parents=True)
+        (module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
         for link, source in LINKS.items():
             (module / link).parent.mkdir(parents=True, exist_ok=True)
             os.symlink(os.path.relpath(root / source, (module / link).parent), module / link)
@@ -132,7 +134,17 @@ def self_test() -> int:
         link.unlink()
         os.symlink(target, link)
 
+    def as_missing(link: Path) -> None:
+        link.unlink()
+
+    def harness_as_copy(link: Path) -> None:
+        harness = link.parent.parent / "tests" / "harness.py"
+        harness.unlink()
+        harness.write_text("", encoding="utf-8")
+
     wrong = {
+        "a missing link": as_missing,
+        "a copied harness in tests/": harness_as_copy,
         "a copy": as_copy,
         "a text file": as_text_file,
         "a dangling link": as_dangling,

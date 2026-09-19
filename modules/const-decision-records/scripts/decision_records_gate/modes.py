@@ -6,7 +6,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TextIO
 
-from const_gate import messages as shared
 from const_gate import pipeline
 from const_gate.errors import ConfigurationFailure
 from const_gate.index import Index, build_index
@@ -54,10 +53,7 @@ def scan_mode(output: Output, start: Path) -> int:
     with Matcher() as matcher:
         index = build_index(target.root, target.dials, target.root_policy, matcher)
         _refuse_root_as_record_policy(index, own)
-        for rel in index.paths:
-            text = index.text(rel)
-            if text is None:
-                raise ConfigurationFailure(shared.c12_unreadable(rel))
+        for rel, text in index.documents():
             examination = examine(index, own.record_policies, rel, text)
             if examination.outside:
                 continue

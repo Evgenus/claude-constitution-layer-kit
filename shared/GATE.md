@@ -16,8 +16,8 @@ Code is admitted here only when it implements a kernel section literally (class 
 
 | part | class | carries |
 |---|---|---|
-| `identity` | R | which gate this process is — namespace, gate name, plugin root — declared once by the entry point; the only global of the package |
-| `model` | K, R | the kernel's closed vocabularies (meta-type, status, severity, the file tools), the typed structures that cross function boundaries, `Finding` and `Broken`, the keys of the shared configuration failures, the exit codes |
+| `identity` | R | which gate this process is — namespace, gate name, plugin root, any library the module needs beyond the shared ones — declared once by the entry point, before anything is printed; the package's one global of its own |
+| `model` | K, R | the kernel's closed vocabularies (meta-type, status), the template's (severity, mode, stream) and the platform's file tools, the typed structures that cross function boundaries, `Finding` and `Broken`, the keys of the shared configuration failures, the exit codes |
 | `messages` | R | every shared text of [§3](#g3), as typed functions under their keys |
 | `errors`, `preflight`, `cli` | R | the configuration-failure exception; the import check of each declared library; `argparse` with its exit 2 turned into 1, the single guard, no fail-open |
 | `output` | R | every printed line also appended to a log, on the standard library's `logging` |
@@ -25,25 +25,26 @@ Code is admitted here only when it implements a kernel section literally (class 
 | `envelope` | K | the frontmatter block parsed once, every field kept as YAML read it ([kernel §1](../kernel/CONVENTIONS.md#k1)); which fields matter is the module's |
 | `dials` | K | the dials file read and validated for the keys every gate reads: the two kernel-owned keys, `territory` of every policy namespace, `severity`, `log_dir`; the rest of the module's namespace handed over as read ([kernel §6](../kernel/CONVENTIONS.md#k6)) |
 | `events` | R | the hook payload parsed into a typed event; the document as it will be after a `Write` or an `Edit` |
-| `index`, `resolution` | K | the policies found in the root policy's territory and what each claims; which policy governs a document, path first, as a typed result with no message ([kernel §3](../kernel/CONVENTIONS.md#k3)) |
+| `index`, `resolution` | K | the policies found in the root policy's territory, what each claims, and the documents of a scan; which policy governs a document, path first, as a typed result — the policy, or one of the four defects — with no message ([kernel §3](../kernel/CONVENTIONS.md#k3)). What one module alone needs — the first module's id owners and void namespaces — lives in that module |
 | `pipeline` | R | from the event, or the scan's directory, to the repository and its dials; from findings to the verdict the platform understands — block, warn as one JSON object, scan |
 | `tests/harness`, `tests/consumer`, `tests/shared_items` | R | the case runner driving a module's real entry point; the throwaway three-policy consumer; the acceptance items of [§5](#g5) |
 
 <a id="g2"></a>
 ## 2. The interface a module fills
 
-1. **Identity.** The module's `start` builds one `Identity` and calls `cli.run(argv, identity, load_modes)`. The shared code never imports a module.
-2. **Two modes.** `load_modes` returns the module's `hook` and `scan` functions; it is called after the preflight, because the module's code needs the declared libraries.
-3. **The middle of a run is the module's.** A mode calls `pipeline.locate_write` or `pipeline.locate_scan`, which returns a target or a `Skip`; builds the index; examines documents with its own checks; and hands findings and notes to `pipeline.report_hook`, `report_scan`, `green_hook` or `skip`. Nothing in the pipeline calls back into the module.
+1. **Identity.** The module's `start` builds one `Identity(namespace, gate, plugin_root, libraries)` and calls `cli.run(argv, identity, load_modes)`. The shared code never imports a module. A library the module needs beyond PyYAML goes into `libraries` and into the plugin's `requirements.txt`; the preflight imports each, and the shared item S137 holds the two lists equal.
+2. **Two modes.** `load_modes` returns `cli.Modes(hook, scan)` — `hook(output, stdin) -> int` and `scan(output, start_directory) -> int`, each returning an exit code; it is called after the preflight, because the module's code needs the declared libraries.
+3. **The middle of a run is the module's.** A mode calls `pipeline.locate_write` or `pipeline.locate_scan`, which returns a target or a `Skip`; opens `with Matcher() as matcher` and builds the index inside it — `build_index(root, dials, root_policy, matcher, pending)`, the pending document only in hook mode; examines documents with its own checks — in a scan by iterating `index.documents()`, which raises the shared failure for a file nobody can read; and hands findings and notes to `pipeline.report_hook`, `report_scan`, `green_hook` or `skip`. Nothing in the pipeline calls back into the module.
 4. **Own dials.** `Dials.own` is the module's namespace as YAML read it; the module parses it once into its own dataclass and raises the shared `ConfigurationFailure` with its own `C5` text when it is malformed.
-5. **Own messages.** A module's findings, skip reasons, notes and dial failures live in the module's `messages`, written like the shared ones; its finding keys are its own enum.
-6. **The entry file.** Parseable by any Python 3: the interpreter floor, then `import const_gate` guarded by the designed message `C15` of [§3](#g3), then the module's `start`.
-7. **Links.** `scripts/const_gate` → `shared/const_gate`; `tests/harness.py`, `tests/consumer.py`, `tests/shared_items.py` → their sources in `shared/tests/`; all relative. The kit gate is `scripts/check-shared-links.py`: red for a copy, a plain file, a dangling, absolute or misdirected link; `--self-test` is its red→green fixture.
+5. **Own messages.** A module's findings, skip reasons, notes and dial failures live in the module's `messages`, written like the shared ones; its finding keys are its own enum; a value echoed from a document goes through the shared `shown`; a field read as a string goes through the shared `envelope.string_field`.
+6. **The entry files.** The POSIX one prints `C1` and `C11` itself when `python3` is missing. The Python one, parseable by any Python 3, checks the interpreter floor and prints `C14` and `C11`; imports `const_gate.cli` inside a guard that prints `C15` and `C11` — an empty directory fails there too; then runs the module's `start`. These two exits, before any package can be imported, are the only ones outside the single guard.
+7. **Links.** `scripts/const_gate` → `shared/const_gate`; `tests/harness.py`, `tests/consumer.py`, `tests/shared_items.py` → their sources in `shared/tests/`; all relative. The kit gate is `scripts/check-shared-links.py`: red for a missing link, a copy, a plain file, a dangling, absolute or misdirected link, in `scripts/` or in `tests/`; `--self-test` is its red→green fixture. A module that wires a hook owes the links.
+8. **The runner.** A module's `tests/run.py` puts its own `scripts/` directory on the import path — the runner only, never gate code — declares the module's identity before any expected message is built, builds one `Harness(scripts, wrapper, entry, namespace)`, and hands the shared items one `Subject`: the harness, a function that runs the gate on a prepared consumer, a patch of its own namespace, a write it passes and one it blocks with the finding that teaches, the policy that governs them and its territory.
 
 <a id="g3"></a>
 ## 3. Shared messages
 
-Each row is one function of `const_gate/messages.py` under the same key, word for word; `{module}` is the namespace the entry point declared, other `{…}` are parameters. A configuration failure is one self-sufficient line — in hook mode only the first stderr line reaches the user — followed by the count line `C11`.
+Each row is the text of `const_gate/messages.py` under that key, word for word — one function per sub-key (`c5_…`, `c12_…`, `g1_skip_…`), the row's handle being the table's, not the function's name; `{module}` is the namespace the entry point declared, other `{…}` are parameters. A configuration failure is one self-sufficient line — in hook mode only the first stderr line reaches the user — followed by the count line `C11`.
 
 | key | text |
 |---|---|
@@ -58,42 +59,42 @@ Each row is one function of `const_gate/messages.py` under the same key, word fo
 | W1 | `severity: warn`: exit 0 with one JSON object on stdout and nothing else — `hookSpecificOutput.additionalContext` = any notes, the `RED` lines, the count line, and `{module}: severity is warn: the write proceeds, but the finding stands and recurs on every write until fixed`; `systemMessage` = `{module} (warn): {headline of the first finding}` |
 | N1.1 | `note: {path} lies in the root policy's territory but carries no readable id; it claims nothing until it does` |
 | N1.2 | `note: {a} and {b} both carry id '{id}'; the first claims, the second is ignored` |
-| P1 | field-level parts of a module's finding: `{field} missing`; `{field} must be a quoted string (YAML read it as {yaml type})` |
+| P1 | field-level parts of a module's finding: `{field} missing`; `{field} must be a quoted string (YAML read it as {yaml type})`. A value a module echoes from a document is cut at 80 characters — `{first 80}… [{n} characters]` — so that one verdict stays far below the platform's cap on hook output |
 | C1 | `BROKEN: {module} needs python3 — fix: install Python 3.12 or newer (https://www.python.org/downloads/) — until then Markdown writes pass unchecked` (printed by the module's POSIX entry point; no Python runs to print it) |
-| C2 | `BROKEN: {module} needs {distribution} — fix: run: python3 -m pip install -r {the plugin's requirements.txt} — until then Markdown writes pass unchecked` |
+| C2 | `BROKEN: {module} needs {distribution} — fix: run: python3 -m pip install -r '{the plugin's requirements.txt}' — until then Markdown writes pass unchecked` |
 | C3 | `BROKEN: {module} needs git on PATH — fix: install git (https://git-scm.com/downloads)` |
-| C4 | `BROKEN: constitution.yaml is not valid YAML ({the parser's message, on one line}) — fix: fix the file; nothing is checked until it parses` |
+| C4 | `BROKEN: constitution.yaml is not valid YAML ({detail}) — fix: repair the YAML at the place the message names; nothing is checked until the file parses` — detail: the parser's whole message on one line, or `brackets are nested too deeply to read` |
 | C4b | `BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: root_policy, then one namespace per policy or module` |
 | C5.1 | `BROKEN: constitution.yaml: root_policy must be a repository-relative path — fix: root_policy: <path of the root policy, relative to the repository root>` |
-| C5.2 | `BROKEN: constitution.yaml: territory_dialect must be a non-empty string — fix: remove the key (default gitignore) or name a dialect` |
+| C5.2 | `BROKEN: constitution.yaml: territory_dialect must be a non-empty string — fix: remove the key, or set territory_dialect: gitignore — the one dialect supported` |
 | C5.3 | `BROKEN: constitution.yaml: territory_dialect '{d}' is not supported by {module} (supports: gitignore) — fix: set territory_dialect: gitignore, or remove the key` |
 | C5.4 | `BROKEN: constitution.yaml: namespace '{k}' must be a mapping — fix: write it as {k}: {territory: [...]}` |
 | C5.5 | `BROKEN: constitution.yaml: namespace '{module}' must be a mapping of this module's dials — fix: write this module's dials under it as a mapping, or remove the key` |
 | C5.6 | `BROKEN: constitution.yaml: {k}.territory must be a list of non-empty strings — fix: write it as {k}: {territory: ["<pattern>", ...]}` |
-| C5.7 | `BROKEN: constitution.yaml: {k}.territory holds a pattern git would not read as one: '{pattern}' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it` |
+| C5.7 | `BROKEN: constitution.yaml: {k}.territory holds a pattern git would not read as one: '{pattern}' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it` — the pattern is shown as Python writes a string, quotes and escapes included |
 | C5.8 | `BROKEN: constitution.yaml: {module}.severity must be block or warn — fix: under {module}, set severity: block or severity: warn, or remove that line` |
 | C5.9 | `BROKEN: constitution.yaml: {module}.log_dir must be a repository-relative directory — fix: under {module}, set log_dir: <a git-ignored directory>, or remove that line` |
 | C6 | `BROKEN: constitution.yaml names root_policy '{path}' but no such file exists — fix: create it, or point root_policy at the policy for policies` |
 | C7 | `BROKEN: root policy '{path}' carries no readable id in its envelope — fix: give it the envelope (id, type, title, status); its id names its namespace` |
 | C8 | `BROKEN: root policy '{id}' claims no territory in constitution.yaml — fix: write {id}: {territory: [<where policies live, including the root itself>]} — nothing is governed until then` |
-| C9 | `BROKEN: root policy '{path}' lies outside its own territory [{patterns}] — fix: every chain of governance ends at the root; widen {id}.territory to include it` |
+| C9 | `BROKEN: root policy '{path}' lies outside its own territory ['{pattern}', '{pattern}'] — fix: every chain of governance ends at the root; widen {id}.territory to include it` |
 | C11 | count: `BROKEN: the check could not run — 0 documents examined` |
-| C12.1 | `BROKEN: git ls-files failed in {root} — fix: run the check from inside a git repository` |
-| C12.2 | `BROKEN: git init of the scratch repository failed — fix: check that git works: git --version` |
+| C12.1 | `BROKEN: git could not list the files of {root}: {git's first line} — fix: repair what git names in the message, then check by hand: git -C <that directory> ls-files` — git's own first line, so the cause is named |
+| C12.2 | `BROKEN: git init of the scratch repository failed: {git's first line} — fix: repair what git names in the message; the scratch repository lives in the system's temporary directory` — git's own first line, so the cause is named |
 | C12.3 | `BROKEN: git check-ignore failed: {stderr} — fix: territory patterns must be gitignore syntax; check constitution.yaml` |
-| C12.4 | `BROKEN: hook input cannot be used ({detail}) — fix: this script reads one PreToolUse event, a JSON object, on stdin` — detail one of `it is not JSON: {the parser's message}`, `it is JSON, but the top level is not an object`, `a {tool} event must carry a string tool_input.{field}` |
+| C12.4 | `BROKEN: hook input cannot be used ({detail}) — fix: as a hook this script reads one PreToolUse event, a JSON object, on stdin; to check a repository by hand run it with --scan [<dir>]` — detail one of `it is not JSON: {the parser's message}`, `it is JSON, but the top level is not an object`, `a {tool} event must carry a string tool_input.{field}` |
 | C12.5 | `BROKEN: git could not answer where the repository is: {git's first line} — fix: repair the git setup named in the message (configuration, ownership, installation)` |
 | C12.6 | `BROKEN: {path} does not exist — fix: pass --scan an existing directory, or none for the current one` |
 | C12.7 | `BROKEN: constitution.yaml cannot be read ({error}) — fix: check the file's permissions` |
 | C12.8 | `BROKEN: {dir} is not inside a git repository — fix: run --scan from a repository, or pass its path` |
 | C12.9 | `BROKEN: misinvocation: {argparse message} — fix: run with no arguments (hook) or --scan [<dir>]` |
-| C12.10 | `BROKEN: {path} is listed by git but cannot be read — fix: check the file's permissions and encoding` |
-| C12.11 | `BROKEN: unexpected failure inside the checker: {exception} — fix: this is a defect of the gate, not of the repository; report it with the traceback below` (the line first, the traceback after it) |
+| C12.10 | `BROKEN: {path} is listed by git but cannot be read — fix: check that the file can be read: its permissions, or a link that leads nowhere` |
+| C12.11 | `BROKEN: unexpected failure inside the checker: {exception} — fix: this is a defect of the gate, not of the repository; report it, with the traceback below, to whoever maintains the plugin — until it is fixed this check does not run` (the line first, the traceback after it) |
 | C13 | `BROKEN: constitution.yaml: {module}.log_dir '{dir}' is not ignored by git — fix: a log inside the working tree must be git-ignored, or every verdict dirties the tree; add the directory to .gitignore, or remove the key` |
 | C14 | `BROKEN: {module} needs Python 3.12 or newer, found {major}.{minor} — fix: install a current Python 3 (https://www.python.org/downloads/) and put it first on PATH — until then Markdown writes pass unchecked` (printed by the module's Python entry file, which any Python 3 can parse; its text lives there) |
 | C15 | `BROKEN: {module} is installed without its shared code (scripts/const_gate is missing or is not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout of the repository it comes from; a copy of the plugin's folder must be made with links followed (cp -RL) — until then Markdown writes pass unchecked` (printed by the module's Python entry file, for the same reason as C14) |
 
-An envelope that is YAML but no mapping is reported by the module with the shared detail `the block is not a mapping of field: value`; a YAML error is the parser's whole message on one line, so the line and the column survive.
+An envelope that is YAML but no mapping is reported by the module with the shared detail `the block is not a mapping of field: value`; one nested past the parser's depth with `brackets are nested too deeply to read` — an unreadable envelope, never a crash that lets the write through; any other YAML error is the parser's whole message on one line, so the line and the column survive.
 
 <a id="g4"></a>
 ## 4. Shared honest limits
@@ -103,10 +104,10 @@ Every module that links this code has these limits and states its own beside the
 1. **Shell writes and other actors.** A heredoc, `sed -i`, a human's editor, a merge, another server's file tool: none is a `Write` or `Edit`, and the hook never sees it. Backstop: the module's scan, on demand and in CI.
 2. **A configuration failure, a timeout, and a hook that cannot start are non-blocking in hook mode.** Exit 1 shows the user the first stderr line and the write proceeds; the platform treats a hook past its timeout, or one whose script is missing, the same way. Backstop: the scan exits 1 with the same line, so CI turns red; the line lands in the output log.
 3. **The link to this code may be dropped by an install.** The platform documents that a link leading outside a plugin is copied into a marketplace install, and skipped when a plugin is loaded from a local path in copy mode; on Claude Code 2.1.251 a plugin loaded with `--plugin-dir` runs in place and the link resolves (observed 2026-09-19). Backstop: `C15` — loud, exit 1, the same class as a missing library — with an absence fixture in every module; the kit gate on the links; `cp -RL` for a copy of a module's folder.
-4. **`Edit` is reconstructed, not observed.** The edit is applied to the file on disk and the result judged; an absent `old_string` is a visible skip; an `old_string` occurring twice without `replace_all` is judged on its first occurrence though the tool will refuse the edit; an `Edit` of a missing file with an empty `old_string` is judged on what it creates. Backstop: the tool's own refusal comes after the hook, and the next real write is judged again.
+4. **`Edit` is reconstructed, not observed.** The edit is applied to the file on disk and the result judged; an absent `old_string` is a visible skip; an `old_string` occurring twice without `replace_all` is judged on its first occurrence though the tool will refuse the edit; an `Edit` of a missing file with an empty `old_string` is judged on what it creates, and one with an empty `old_string` on a file that exists is a visible skip, since it matches everywhere. Backstop: the tool's own refusal comes after the hook, and the next real write is judged again.
 5. **Symbolic links in the consumer.** The written path is resolved before it is matched, so a territory that names only a link does not claim what is written through it. Backstop: territories over real paths; the scan lists files under the paths git records.
 6. **A key given twice in an envelope.** YAML keeps the last one. Backstop: review.
-7. **Markdown means `.md`; git-ignored files are invisible to the scan,** which lists tracked files and untracked ones git does not ignore; a tracked file deleted from the working tree is left out. Backstop: the hook still judges such a file when it is written through the file tools.
+7. **Markdown means `.md`; git-ignored files are invisible to the scan,** which lists tracked files and untracked ones git does not ignore; a tracked file deleted from the working tree is left out; a path holding a line break is examined, and its finding's headline then spans two lines. Backstop: the hook still judges such a file when it is written through the file tools.
 8. **The envelope ends at the first line holding only `---`**; a block scalar containing such a line truncates it. Backstop: the module reports the truncated envelope as invalid.
 9. **Patterns match case-sensitively on every platform,** so one repository gets one verdict everywhere. Backstop: the scan sees a file under the case git records.
 10. **The output log is best-effort evidence, not a gate.** A logging failure never changes a verdict; `C1`, `C14` and `C15` are printed and not logged, since no shared code runs to log them. Backstop: stdout and stderr remain the record.
@@ -116,7 +117,7 @@ Every module that links this code has these limits and states its own beside the
 <a id="g5"></a>
 ## 5. Shared acceptance items
 
-`tests/shared_items.py`, run by each module's runner through that module's real entry point, numbered from 101 there. A module hands over one write its gate passes and one it blocks.
+`tests/shared_items.py`, run by each module's runner through that module's real entry point, numbered from 101 there, in the order of the file.
 
 | item | what it proves |
 |---|---|
@@ -127,4 +128,12 @@ Every module that links this code has these limits and states its own beside the
 | S131 | `severity: warn`: exit 0 with the whole finding in `additionalContext` and `systemMessage` |
 | S132–S136 | the output log: seven fields per line under the module's name; `log_dir` routes the whole run to a git-ignored directory; a `log_dir` git does not ignore is `C13`; rotation; a logging failure never changes the verdict |
 | S137 | `requirements.txt` equals the preflight table |
-| S138 | kit check: `scripts/check-shared-links.py --self-test` — the right link green; a copy, a plain file, a dangling link, a misdirected link and an absolute link each red |
+| S138–S139 | the dials file again: the module's own namespace given as `null` is `C5.5`; `C5.1`, `C5.2`, `C5.4`, `C5.6`, `C5.9` each exit 1 with their own line |
+| S140 | the scripts copied with links followed, as an install copies them, run |
+| S141 | not fail-open: an unexpected exception exits 1, `C12.11` first, the traceback after it, the count line present |
+| S142–S144 | an `Edit` event without its fields is a configuration failure; a stdout that cannot encode the dash still carries the count line; an envelope nested past the parser's depth is blocked, never a crash that lets the write through |
+| S145–S146 | `--scan` outside any repository exits 1; `--scan=DIR` and a scan from a subdirectory examine the same repository |
+| S147–S150 | a byte-order mark before the envelope is not part of it; a file-level negated pattern takes the file out of the territory; a document where policies live with no readable id earns note `N1.1`; an `Edit` with an empty `old_string` on an existing file is a visible skip |
+| K1 | kit check, not in `shared_items.py`: `scripts/check-shared-links.py --self-test` — the right links green; a missing link, a copied harness, a copy, a plain file, a dangling link, a misdirected link and an absolute link each red |
+
+Every configuration-failure item also requires the count line `C11` after its first line. Not fixtured, because each needs a git that fails in one particular way: `C12.1`, `C12.2`, `C12.3`; and `C12.7`, `C12.10`, which need a file the process may list and not read. `N1.2` and a policy whose id looks like a module's name are fixtured by the first module, the log going nowhere by every run of the runner, which unsets the platform's data directory.

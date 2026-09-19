@@ -14,7 +14,7 @@ import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -40,22 +40,29 @@ class GateOn(Protocol):
     ) -> tuple[Result, Path]: ...
 
 
+class OwnPatch(Protocol):
+    def __call__(self, **dials: object) -> dict[str, object]: ...
+
+
 @dataclass(frozen=True)
 class Subject:
     harness: Harness
     gate_on: GateOn
-    own: Callable[..., dict[str, object]]  # a patch of the module's namespace that keeps it working
+    own: OwnPatch  # a patch of the module's namespace that keeps it working
     valid: Write  # a write the gate passes, green with `governed by <governed_by>`
     red: Write  # a write the gate blocks
     red_finding: Finding
     governed_by: str
+    territory: Sequence[str]  # the patterns of the policy that governs `valid` and `red`
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
     h, ns = s.harness, s.harness.namespace
 
     def broken(result: Result, failure: Broken) -> tuple[bool, str]:
-        return broken_first_line(result, failure.render())
+        ok, evidence = broken_first_line(result, failure.render())
+        counted = messages.c11_broken_count() in result.stderr  # a run that examined nothing says so
+        return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
     def bin_with(*tools: str) -> str:
         """A PATH directory holding only the named tools, to simulate the absence of the rest."""
@@ -88,6 +95,21 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     def dials_unsupported_dialect() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, dials_patch={"territory_dialect": "regex"})
         return broken(result, messages.c5_dialect_unsupported("regex"))
+
+    def dials_own_namespace_null() -> tuple[bool, str]:
+        return broken(s.gate_on(s.valid, dials_patch={ns: None})[0], messages.c5_own_namespace_not_mapping())
+
+    def dials_other_pairs() -> tuple[bool, str]:
+        pairs: list[tuple[dict[str, object], Broken]] = [
+            ({"root_policy": "/absolute/root.md"}, messages.c5_root_policy_path()),
+            ({"territory_dialect": ""}, messages.c5_dialect_empty()),
+            ({"notes-policy": "docs/notes/**"}, messages.c5_namespace_not_mapping("notes-policy")),
+            ({"notes-policy": {"territory": "docs/notes/**"}}, messages.c5_territory_shape("notes-policy")),
+            (s.own(log_dir="/absolute/logs"), messages.c5_log_dir()),
+        ]
+        results = [broken(s.gate_on(s.valid, dials_patch=patch)[0], failure) for patch, failure in pairs]
+        failed = [evidence for ok, evidence in results if not ok]
+        return not failed, "; ".join(failed) or f"{len(pairs)} dial failures, each exit 1 with its own line"
 
     def root_missing() -> tuple[bool, str]:
         return broken(s.gate_on(s.valid, remove=ROOT_POLICY)[0], messages.c6_root_missing(ROOT_POLICY))
@@ -157,7 +179,38 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         result = h.run_gate(
             event_json(consumer.root, s.valid), command=[h.sh, str(plugin / "scripts" / h.wrapper.name)]
         )
-        return expect(result, 1, f"BROKEN: {ns} is installed without its shared code", "stderr")
+        first = expect(result, 1, f"BROKEN: {ns} is installed without its shared code", "stderr")
+        shared.mkdir()  # an install that left an empty directory behind: importable, and still no code
+        result = h.run_gate(
+            event_json(consumer.root, s.valid), command=[h.sh, str(plugin / "scripts" / h.wrapper.name)]
+        )
+        second = expect(result, 1, f"BROKEN: {ns} is installed without its shared code", "stderr")
+        return first[0] and second[0], f"link removed: {first[1][:60]}…; empty directory: {second[1][:60]}…"
+
+    def copy_with_links_followed() -> tuple[bool, str]:
+        """The plugin's scripts copied the way an install copies them: what the link points at."""
+        plugin = h.scratch_dir() / "plugin"
+        shutil.copytree(h.scripts, plugin / "scripts", symlinks=False)
+        shutil.copy(preflight.requirements_file(), plugin / "requirements.txt")
+        result = h.run_gate(
+            event_json(h.fresh_consumer().root, Write("README.md", NO_ENVELOPE)),
+            command=[h.sh, str(plugin / "scripts" / h.wrapper.name)],
+        )
+        return expect(result, 0, "0 documents examined", "stdout")
+
+    def unexpected_failure() -> tuple[bool, str]:
+        """Not fail-open: an exception nobody planned for exits 1, its BROKEN line first, the
+        traceback after it."""
+        shadow = h.scratch_dir()
+        (shadow / "yaml.py").write_text(
+            "class YAMLError(Exception): pass\n\n\n"
+            "def safe_load(text): raise RuntimeError('simulated defect')\n",
+            encoding="utf-8",
+        )
+        result, _ = s.gate_on(s.valid, env={"PYTHONPATH": str(shadow)})
+        failure = messages.c12_unexpected("RuntimeError: simulated defect")
+        ok, evidence = broken(result, failure)
+        return ok and "Traceback (most recent call last)" in result.stderr, evidence
 
     # ---------------------------------------------------------------- invocation and hook input
 
@@ -182,6 +235,22 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         event = json.dumps({"tool_name": "Write", "tool_input": ["not", "an", "object"]})
         return broken(h.run_gate(event), messages.c12_input(messages.detail_tool_input("Write", "file_path")))
 
+    def edit_without_fields() -> tuple[bool, str]:
+        event = json.dumps({"tool_name": "Edit", "tool_input": {"file_path": "/x/a.md", "old_string": "a"}})
+        return broken(h.run_gate(event), messages.c12_input(messages.detail_tool_input("Edit", "new_string")))
+
+    def stdout_cannot_encode() -> tuple[bool, str]:
+        """The count line carries a dash; a stream that cannot encode it must not swallow the line."""
+        result, _ = s.gate_on(Write("README.md", NO_ENVELOPE), env={"PYTHONIOENCODING": "ascii"})
+        return expect(result, 0, "0 documents examined", "stdout")
+
+    def deeply_nested_envelope() -> tuple[bool, str]:
+        """Brackets nested past the parser's depth are an unreadable envelope, never a crash that
+        lets the write through."""
+        text = "---\nid: " + "[" * 600 + "\n---\n"
+        result, _ = s.gate_on(Write(s.red.target, text))
+        return expect(result, 2, messages.detail_nested_too_deeply(), "stderr")
+
     def other_tool() -> tuple[bool, str]:
         event = json.dumps({"tool_name": "Read", "tool_input": {"file_path": "x.md"}})
         skip = messages.g1_green_skip(messages.g1_skip_no_file("Read"))
@@ -191,6 +260,22 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         result = h.run_gate("", args=["--scan", "no-such-directory"])
         return broken(result, messages.c12_scan_path("no-such-directory"))
 
+    def scan_outside_repository() -> tuple[bool, str]:
+        directory = h.scratch_dir()
+        result = h.run_gate(
+            "", args=["--scan", str(directory)], env={"GIT_CEILING_DIRECTORIES": str(directory.parent)}
+        )
+        return broken(result, messages.c12_no_repo(str(directory)))
+
+    def scan_forms() -> tuple[bool, str]:
+        """--scan=DIR, and a scan started from a subdirectory, examine the same repository."""
+        _, root = s.gate_on(s.valid, files={s.valid.target: s.valid.text})
+        whole = h.run_gate("", args=["--scan", str(root)])
+        equals = h.run_gate("", args=[f"--scan={root}"])
+        below = h.run_gate("", args=["--scan", str((root / s.valid.target).parent)])
+        ok = whole.code == 0 and whole.stdout == equals.stdout == below.stdout
+        return ok, whole.stdout.strip().splitlines()[-1] if ok else f"{whole}\n{equals}\n{below}"
+
     # ---------------------------------------------------------------- paths and skips
 
     def not_markdown() -> tuple[bool, str]:
@@ -199,7 +284,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def relative_path() -> tuple[bool, str]:
         """A relative file_path is resolved against the event's cwd."""
-        result, root = s.gate_on(s.valid)  # prepares the consumer; the event below is the one judged
+        _, root = s.gate_on(s.valid)  # prepares the consumer; the event below is the one judged
         event = json.loads(event_json(root, s.red))
         event["tool_input"]["file_path"] = s.red.target
         return expect(h.run_gate(json.dumps(event)), 2, s.red_finding.render(), "stderr")
@@ -221,6 +306,27 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     def no_root_policy() -> tuple[bool, str]:
         result, _ = s.gate_on(s.red, raw_dials="notes-policy:\n  territory: ['docs/notes/**']\n")
         return expect(result, 0, messages.g1_green_skip(messages.g1_skip_no_root()), "stdout")
+
+    def byte_order_mark() -> tuple[bool, str]:
+        result, _ = s.gate_on(Write(s.valid.target, "\ufeff" + s.valid.text))
+        return expect(result, 0, f"governed by {s.governed_by}", "stdout")
+
+    def negated_pattern() -> tuple[bool, str]:
+        """A file-level negated pattern takes the file out of the territory."""
+        territory = [*s.territory, "!" + s.red.target]
+        result, _ = s.gate_on(s.red, dials_patch={s.governed_by: {"territory": territory}})
+        return expect(result, 0, "0 documents examined", "stdout")
+
+    def policy_without_id_note() -> tuple[bool, str]:
+        result, _ = s.gate_on(s.valid, files={"docs/policies/zz-no-id.md": NO_ENVELOPE})
+        return expect(result, 0, messages.n1_note_policy_without_id("docs/policies/zz-no-id.md"), "stdout")
+
+    def edit_empty_old_string() -> tuple[bool, str]:
+        """An empty old_string on a file that exists matches everywhere: the tool refuses it."""
+        action = Edit(s.valid.target, "", "junk ")
+        result, _ = s.gate_on(action, files={s.valid.target: s.valid.text})
+        skip = messages.g1_green_skip(messages.g1_skip_edit_unappliable(s.valid.target))
+        return expect(result, 0, skip, "stdout")
 
     def edit_unappliable() -> tuple[bool, str]:
         action = Edit(s.valid.target, "no such text anywhere", "x")
@@ -304,8 +410,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             for line in preflight.requirements_file().read_text().splitlines()
             if line.strip()
         }
-        ok = declared == set(preflight.DECLARED)
-        return ok, f"requirements.txt {sorted(declared)} == preflight table {sorted(preflight.DECLARED)}"
+        ok = declared == set(preflight.declared())
+        return ok, f"requirements.txt {sorted(declared)} == preflight table {sorted(preflight.declared())}"
 
     items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
@@ -351,5 +457,30 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ("output log: rotation past the size limit", log_rotates),
         ("output log: a logging failure never changes the verdict", log_failure_keeps_verdict),
         ("declared dependencies: requirements.txt equals the preflight table", declared_libraries),
+        ("C5: the module's own namespace given as null", dials_own_namespace_null),
+        (
+            "C5: root_policy, an empty dialect, a namespace and a territory of the wrong shape, log_dir",
+            dials_other_pairs,
+        ),
+        (
+            "absence, the other way round: the scripts copied with links followed run",
+            copy_with_links_followed,
+        ),
+        (
+            "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after",
+            unexpected_failure,
+        ),
+        ("an Edit event without its documented fields is a configuration failure", edit_without_fields),
+        ("a stdout that cannot encode the dash still carries the count line", stdout_cannot_encode),
+        (
+            "an envelope nested past the parser's depth is blocked, never a crash that lets it through",
+            deeply_nested_envelope,
+        ),
+        ("--scan outside any repository is a configuration failure", scan_outside_repository),
+        ("--scan=DIR and a scan from a subdirectory examine the same repository", scan_forms),
+        ("a byte-order mark before the envelope is not part of it", byte_order_mark),
+        ("a file-level negated pattern takes the file out of the territory", negated_pattern),
+        ("a document where policies live with no readable id earns a note", policy_without_id_note),
+        ("an Edit with an empty old_string on an existing file is a visible skip", edit_empty_old_string),
     ]
     return [Assertion(first + n, title, check) for n, (title, check) in enumerate(items)]

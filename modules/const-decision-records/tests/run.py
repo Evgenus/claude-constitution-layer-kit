@@ -400,6 +400,14 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 5, 1)), "stdout")
 
 
+def long_value_is_cut() -> tuple[bool, str]:
+    """A value a page long is echoed cut, so the whole verdict stays under the platform's cap."""
+    result, _ = gate_on(Write(RECORD_A, record(stakes="x" * 12_000)))
+    taught = messages.r2_invalid_fields(RECORD_A, [messages.r2_stakes_not_allowed("x" * 12_000)]).render()
+    ok = result.code == 2 and taught in result.stderr and len(result.stderr) < 2_000
+    return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
+
+
 def message_shape() -> tuple[bool, str]:
     built = [case.expect for case in CASES]
     ok = all(isinstance(f, Finding) and f.key and f.headline and f.why and f.fix for f in built)
@@ -436,6 +444,7 @@ ASSERTIONS = [
         "scan: a tracked file deleted from the working tree is left out, not a failure",
         scan_with_deleted_file,
     ),
+    Assertion(34, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(29, "message shape: every taught finding has what, why and fix", message_shape),
 ]
 
@@ -446,6 +455,7 @@ SUBJECT = Subject(
     valid=VALID,
     red=Write(RECORD_A, NO_ENVELOPE),
     red_finding=messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.NONE),
+    territory=["docs/decisions/**"],
     governed_by=RECORDS_POLICY,
 )
 

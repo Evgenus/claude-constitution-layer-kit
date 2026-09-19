@@ -59,7 +59,7 @@ def main(argv: Sequence[str], output: Output, load_modes: Callable[[], Modes]) -
 def run(argv: Sequence[str], gate: Identity, load_modes: Callable[[], Modes]) -> int:
     """The guard: the one place exit codes are decided for failures. The entry point says
     which gate this is and how to load its two modes."""
-    identity.declare(gate)
+    identity.declare(gate)  # first: every text, and the log's name, ask which gate this is
     output = Output(Mode.SCAN if any(a.startswith(SCAN_FLAG) for a in argv) else Mode.HOOK)
     try:
         return main(argv, output, load_modes)

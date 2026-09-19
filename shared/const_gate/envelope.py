@@ -24,6 +24,8 @@ def parse_envelope(text: str) -> Envelope:
             loaded: object = yaml.safe_load("\n".join(lines[1:i]))
         except yaml.YAMLError as exc:
             return Envelope(EnvelopeState.INVALID, detail=yaml_error_line(exc))
+        except RecursionError:  # brackets nested past the parser's depth: unreadable, never a crash
+            return Envelope(EnvelopeState.INVALID, detail=messages.detail_nested_too_deeply())
         if loaded is None:
             loaded = {}
         if not isinstance(loaded, dict):
@@ -42,6 +44,18 @@ def _field(value: object) -> FieldValue:
     return FieldValue(
         text=value if isinstance(value, str) else None, yaml_type=type(value).__name__, shown=str(value)
     )
+
+
+def string_field(envelope: Envelope, key: str, errors: list[str]) -> str | None:
+    """The field's text. A missing field, or one YAML read as something other than a string,
+    is appended to `errors` in the shared wording."""
+    value = envelope.fields.get(key)
+    if value is None:
+        errors.append(messages.field_missing(key))
+        return None
+    if value.text is None:
+        errors.append(messages.field_not_string(key, value.yaml_type))
+    return value.text
 
 
 def document_id(envelope: Envelope) -> str | None:
