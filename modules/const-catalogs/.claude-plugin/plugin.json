@@ -1,0 +1,5 @@
+{
+  "name": "const-catalogs",
+  "version": "0.0.1",
+  "description": "Numbered kinds: a catalogued document's id and file name are <prefix>-<nnnn>-<slug>, and no two items of one catalog share a number. Draft: the gate and the skills are not authored yet."
+}
