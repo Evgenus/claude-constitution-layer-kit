@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Kit check: the const-meta-types gate's hand-written validation is never more lenient
-than the kernel's JSON Schemas, and for the envelope it is exactly equal.
+"""Kit check: the gates' hand-written validation is never more lenient than the kernel's
+JSON Schemas — const-meta-types for the envelope (exactly equal) and the dials file,
+const-decision-records for what a decision record adds to the envelope (equal, except
+where the mirror is stricter on purpose: a decider of blanks).
 
-The module ships without the kit, so it cannot read kernel/schemas/ at run time; it carries
+A module ships without the kit, so it cannot read kernel/schemas/ at run time; it carries
 a mirror of the rules instead. This check runs the real schemas (through the jsonschema
 library, a development dependency of the kit only) and the mirror over one corpus and
 compares verdicts. Run from anywhere: python3 scripts/check-schema-mirror.py
@@ -19,16 +21,20 @@ from dataclasses import dataclass
 from pathlib import Path
 
 KIT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(KIT / "modules" / "const-meta-types" / "scripts"))  # kit-side test code only
+for module in ("const-meta-types", "const-decision-records"):  # kit-side test code only
+    sys.path.insert(0, str(KIT / "modules" / module / "scripts"))
 
 try:
     import jsonschema
+    import referencing
     import yaml
 except ImportError as exc:
-    print(f"BROKEN: {exc.name} is not installed — fix: python3 -m pip install jsonschema pyyaml")
+    print(f"BROKEN: {exc.name} is not installed — fix: python3 -m pip install jsonschema referencing pyyaml")
     print("BROKEN: the check could not run — 0 cases examined")
     sys.exit(1)
 
+from decision_records_gate.checks import check_record  # noqa: E402
+from decision_records_gate.envelope import parse_envelope as parse_record_envelope  # noqa: E402
 from meta_types_gate.dials import load_dials  # noqa: E402
 from meta_types_gate.envelope import envelope_errors, parse_envelope  # noqa: E402
 from meta_types_gate.errors import ConfigurationFailure  # noqa: E402
@@ -66,6 +72,29 @@ def envelope_corpus() -> list[EnvelopeCase]:
     return cases
 
 
+RECORD = {**GOOD, "id": "record-a", "type": "task-record", "stakes": "process", "decider": "the maintainer"}
+STRICTER_ON_PURPOSE = {"decider of blanks"}  # the schema's minLength 1 lets blanks through
+
+
+def record_corpus() -> list[EnvelopeCase]:
+    """The envelope's own four fields stay valid throughout: only what a record adds varies."""
+    cases = [EnvelopeCase("valid record", dict(RECORD))]
+    for stakes in ("product", "architecture", "routine", "high", ""):
+        cases.append(EnvelopeCase(f"stakes '{stakes}'", {**RECORD, "stakes": stakes}))
+    for key in ("stakes", "decider"):
+        cases.append(EnvelopeCase(f"{key} missing", {k: v for k, v in RECORD.items() if k != key}))
+        cases.append(EnvelopeCase(f"{key} not a string", {**RECORD, key: 7}))
+        cases.append(EnvelopeCase(f"{key} a list", {**RECORD, key: ["a", "b"]}))
+    cases += [
+        EnvelopeCase("decider empty", {**RECORD, "decider": ""}),
+        EnvelopeCase("decider of blanks", {**RECORD, "decider": "   "}),
+        EnvelopeCase("type current-state", {**RECORD, "type": "current-state"}),
+        EnvelopeCase("type non-authoritative", {**RECORD, "type": "non-authoritative"}),
+        EnvelopeCase("extra field allowed", {**RECORD, "policy": "records-policy"}),
+    ]
+    return cases
+
+
 DIALS_CORPUS: list[tuple[str, object]] = [
     ("empty file", {}),
     ("root only", {"root_policy": "docs/policies/root.md"}),
@@ -95,9 +124,19 @@ def mirror_accepts_dials(instance: object) -> bool:
         return True
 
 
+def record_validator(
+    record_schema: dict[str, object], envelope_schema: dict[str, object]
+) -> jsonschema.Draft202012Validator:
+    """The record schema extends the envelope schema by reference; resolve it from the kit's files."""
+    resource = referencing.Resource.from_contents(envelope_schema)
+    registry = referencing.Registry().with_resource(str(envelope_schema["$id"]), resource)
+    return jsonschema.Draft202012Validator(record_schema, registry=registry)
+
+
 def main() -> int:
     schemas = KIT / "kernel" / "schemas"
     envelope_schema = json.loads((schemas / "document-frontmatter.schema.json").read_text(encoding="utf-8"))
+    record_schema = json.loads((schemas / "decision-record.schema.json").read_text(encoding="utf-8"))
     dials_schema = json.loads((schemas / "constitution.schema.json").read_text(encoding="utf-8"))
     disagreements: list[str] = []
     corpus = envelope_corpus()
@@ -111,21 +150,31 @@ def main() -> int:
         mirror, schema = mirror_accepts_dials(instance), schema_accepts(dials_schema, instance)
         if mirror and not schema:  # the mirror may be stricter (repository-relative paths), never looser
             disagreements.append(f"dials '{name}': the schema rejects it but the mirror accepts it")
+    records = record_corpus()
+    validator = record_validator(record_schema, envelope_schema)
+    for case in records:
+        text = "---\n" + yaml.safe_dump(case.fields, sort_keys=False) + "---\n"
+        mirror = not check_record("record.md", parse_record_envelope(text))
+        schema = not list(validator.iter_errors(case.fields))
+        stricter = case.name in STRICTER_ON_PURPOSE and schema and not mirror
+        if mirror != schema and not stricter:
+            disagreements.append(f"record '{case.name}': schema accepts={schema}, mirror accepts={mirror}")
     counts = (
-        f"{len(corpus)} envelope cases (equality),"
-        f" {len(DIALS_CORPUS)} dials cases (never more lenient) examined"
+        f"{len(corpus)} envelope cases (equality), {len(DIALS_CORPUS)} dials cases (never more lenient),"
+        f" {len(records)} record cases (equality but {len(STRICTER_ON_PURPOSE)} stricter on purpose) examined"
     )
     if disagreements:
         for line in disagreements:
             print(
                 f"RED: {line}\n"
                 "  why: the module's mirror is the only copy of the kernel schema a consumer has\n"
-                "  fix: align envelope.py or dials.py of modules/const-meta-types/scripts/meta_types_gate/"
-                " with kernel/schemas/"
+                "  fix: align with kernel/schemas/ — envelope.py or dials.py of"
+                " modules/const-meta-types/scripts/meta_types_gate/, or checks.py of"
+                " modules/const-decision-records/scripts/decision_records_gate/"
             )
         print(f"RED: {len(disagreements)} disagreement(s) — {counts}")
         return 2
-    print(f"GREEN: the const-meta-types mirror agrees with the kernel schemas — {counts}")
+    print(f"GREEN: the mirrors agree with the kernel schemas — {counts}")
     return 0
 
 

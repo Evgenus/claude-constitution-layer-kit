@@ -120,11 +120,7 @@ Description moved into the module's document: [`modules/const-meta-types/MODULE.
 <a id="const-decision-records"></a>
 ## M3 `const-decision-records` — accumulating; enters at the first real decision
 
-**Failure pattern:** rulings living in chat scrollback; ceremony mispriced (naming nits ritualized, structural calls unrecorded); process fixes deadlocked behind the gates they fix.
-**Invariant:** decision records exist for `process`/`product`/`architecture` stakes only, valid per schema (`stakes`, `decider` — nothing git-derivable), created via the skill, never free-form; `routine` calls leave commit notes, never records; a record is `active` while applied, `inactive` once applied; reversing a ruling is a new record, never an in-place edit.
-**Ships:** creation skill enforcing the body shape — when a real choice existed: options, pros/cons, **one** recommendation with reasoning, the choice; when not: ruling + reasoning, no manufactured options. Triage guidance with contrastive pairs seeding the routine/recorded boundary (*worktree location, review-declaration placement, stub fake-mode → routine; meta-type vocabulary, prompt-injection policy → recorded*). The **fast lane** stated operationally: `process` = record + one human yes in the PR, never the full gate. The **promotion loop**: recurring commit notes on one theme are the documented signal to promote it to a record or procedure — described as procedure, no machinery.
-**Dials:** the routine/recorded boundary examples (per-project); who may decide per stakes level.
-**Acceptance:** schema fixtures; a walked example of each stakes level.
+Description moved into the module's document: [`modules/const-decision-records/MODULE.md`](../modules/const-decision-records/MODULE.md) (rows [A3.4](#a3-4), [A3.6](#a3-6)); this anchor stays the module's handle.
 
 <a id="const-task-close"></a>
 ## M4 `const-task-close` — accumulating; enters at the first real task

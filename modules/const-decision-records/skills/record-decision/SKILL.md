@@ -1,0 +1,102 @@
+---
+name: record-decision
+description: >
+  Price a decision by its stakes and, when it is a recorded one, write the decision record:
+  envelope with stakes and decider, body with the options, pros and cons, one recommendation
+  and the choice. Use when a ruling is being made or has just been made in the dialog — a
+  policy, procedure or harness ruling, a user-visible behaviour, a structural choice — when
+  unsure whether a call deserves a record or only a commit note, when reversing an earlier
+  ruling, or when a write was blocked for a record's stakes or decider. Advisory: it shapes
+  the triage and the body; the write-time gate checks only type, stakes and decider.
+---
+
+# Record a decision
+
+A ruling that lives only in the chat is gone with the session. A ruling recorded with more
+ceremony than it deserves teaches everyone to skip the ceremony. This procedure prices the
+decision first and writes a record only when the price says so. Stakes, the ceremony each
+level gets, and the shape of a decision record are defined by the constitution's conventions
+page that the project adopted; nothing here redefines them.
+
+What is checked and what is not: this plugin's hook blocks a decision record whose envelope
+lacks `type: task-record`, a `stakes` of `process | product | architecture`, or a non-empty
+`decider`. Everything else on this page is judgment, and it is yours: whether a record was
+due, what its stakes are, whether the body is honest.
+
+## 1. Price it: which stakes?
+
+Ask one question: **is the call cheap to revert?**
+
+- **Yes → `routine`.** Act. Put one line in the commit message saying what was chosen and
+  why. Write no record — a record for a routine call is ritual, and the gate refuses
+  `stakes: routine`.
+- **No, and it rules on the harness, a policy or a procedure → `process`.** A record, and one
+  human yes on the change: approval of the pull request where a PR flow exists, otherwise
+  the yes is named in the commit message that lands the change. This is the fast lane: a
+  process fix needs that one yes and nothing more — it never waits behind a heavier gate,
+  least of all the gate it is fixing.
+- **No, and it changes what a user sees → `product`.** A record.
+- **No, and it is structural and hard to reverse → `architecture`.** A record, and review.
+
+The line between routine and recorded is drawn by examples, not by criteria. The project's
+own pairs come first: read `boundary_examples` under `const-decision-records` in
+`constitution.yaml`. When the project has none, use these:
+
+1. Where a worktree or a scratch directory lives → routine. / Which kinds of document exist
+   and what authority each carries → recorded (`process`).
+2. Where in a pull-request description a review note goes → routine. / Whether a change may
+   land without a review → recorded (`process`).
+3. How a test stub fakes a dependency → routine. / How the product treats untrusted input →
+   recorded (`product` or `architecture`).
+4. Renaming a helper nobody else calls → routine. / Renaming an identifier, a setting or a
+   contract that others already depend on → recorded.
+
+When two readings stay plausible, take the higher one: an unneeded record costs minutes, an
+unrecorded structural call costs the next session its reasoning.
+
+## 2. Name the decider
+
+`decider` is the person or role who made the choice — not who typed the commit; git already
+knows that, and it is often not the same. If the project says who may decide at each level
+(`deciders` under `const-decision-records` in `constitution.yaml`, a list per stakes level),
+the decider comes from that list. If the person who should decide is absent, do not decide
+for them at recorded stakes: stop, put the question with its options, and name them as the
+blocker.
+
+## 3. Write the record
+
+1. **Where.** Decision records live in the territory of the project's record policy: in
+   `constitution.yaml`, `const-decision-records.record_policies` names the policy, and the
+   territory sits under that policy's id. Read the policy document itself for the project's
+   own rules — naming, numbering, anything else. When a module that allocates numbers is
+   installed and the policy declares a numbered kind, take the number from it.
+2. **From the template,** never from a blank page or from another record:
+   [record-template.md](record-template.md) in this skill's directory
+   (`${CLAUDE_SKILL_DIR}/record-template.md`). It holds both body shapes; delete the one
+   that does not apply.
+3. **Envelope.** `id` stable kebab-case, never changed afterwards; `type: task-record`;
+   `title` one line stating the ruling, not the topic; `stakes`; `decider`; `status` as in
+   step 4. No date: the commit is the decision moment and the ordering.
+4. **Body, when a real choice existed:** the options considered; pros and cons per option;
+   exactly **one** recommendation with its reasoning; the choice made and by whom — which
+   may differ from the recommendation, and then the record says why.
+   **Body, when no real choice existed:** the ruling and the reasoning. Never manufacture
+   options to fill the shape.
+5. **Status.** `active` while the ruling is still being applied to the documents and code
+   it changes; `inactive` once it is applied. A record whose ruling is applied in the same
+   commit that creates it is born `inactive`. Once applied, the rule must stand in the text
+   of the current-state document it changed: the record is provenance — where and why —
+   never the place a rule lives.
+
+## 4. Reversing or changing an earlier ruling
+
+Write a **new** record that names the old one and says what replaces it. Never edit the old
+record's ruling, stakes or decider in place: the old record is evidence of its moment. The
+only in-place edit of a closed record is mechanical — a typo, or rewriting how it cites
+other documents — with the commit message saying so.
+
+## 5. Before you finish
+
+If a record was written or edited through the shell (heredoc, `sed`), the hook did not see
+it. Run the scan: `sh "${CLAUDE_PLUGIN_ROOT}/scripts/check-decision-record.sh" --scan` —
+exit 2 lists the findings with the same messages the hook gives.
