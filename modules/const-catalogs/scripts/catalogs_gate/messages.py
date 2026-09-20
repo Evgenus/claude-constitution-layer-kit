@@ -12,12 +12,24 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey
 
 from .model import DEFAULT_WIDTH, Catalog, Key
 
-_DECLARATION = f"catalog: {{prefix: <lowercase letters and digits>, width: {DEFAULT_WIDTH}}}"
+_ENTRY = (
+    "{prefix: <lowercase letters and digits>, territory: [<patterns of the paths where the numbered"
+    f" documents live>], width: {DEFAULT_WIDTH}}}"
+)
+
+
+def _ns() -> str:
+    return identity.current().namespace
+
+
+def _declaration() -> str:
+    return f"{_ns()}: {{catalogs: [{_ENTRY}]}}"
 
 
 def _form(catalog: Catalog) -> str:
@@ -31,7 +43,7 @@ def k1_name_without_form(rel: str, stem: str, catalog: Catalog) -> Finding:
     return Finding(
         Key.K1,
         f"{rel}: file name '{shown(stem)}' is not {_form(catalog)}, the form of catalog"
-        f" '{catalog.prefix}' (declared by policy {catalog.policy})",
+        f" '{catalog.prefix}', whose territory holds this file",
         "an item of a numbered kind is cited by its number, and a citation resolves only when the"
         " number stands in the file's name, in one form for the whole catalog",
         f"name the file {catalog.prefix}-<number>-<slug>.md: the number is the catalog's highest plus"
@@ -84,7 +96,11 @@ def k3_number_shared(catalog: Catalog, number: int, paths: Sequence[str]) -> Fin
     )
 
 
-# ---------------------------------------------------------------- count line and skips
+# ---------------------------------------------------------------- green line, count line, skips
+
+
+def g1_item_of(catalog: Catalog) -> str:
+    return f"an item of catalog '{catalog.prefix}'"
 
 
 def f9_scan_tail(items: int, scanned: int, catalogs: int) -> str:
@@ -93,32 +109,41 @@ def f9_scan_tail(items: int, scanned: int, catalogs: int) -> str:
 
 def g1_skip_no_catalog() -> str:
     return (
-        "no catalog is declared, so no document is known to be numbered — to declare one, write"
-        f" {_DECLARATION} under the id of the kind's policy in {DIALS_FILE}, beside its territory"
+        f"{_ns()}.catalogs lists no catalog, so no document is known to be numbered — to declare"
+        f" one, write {_declaration()} in {DIALS_FILE}"
     )
 
 
 def g1_skip_not_an_item(rel: str, catalogs: Sequence[Catalog]) -> str:
-    declared = ", ".join(f"{c.prefix} by {c.policy}" for c in catalogs)
-    return f"{rel} is not governed by a policy that declares a catalog ({declared})"
+    return f"{rel} lies in no catalog's territory ({', '.join(c.prefix for c in catalogs)})"
 
 
 # ---------------------------------------------------------------- this module's dial failures
 
 
-def c5_catalog_shape(policy_id: str) -> Broken:
+def c5_catalogs_not_a_list() -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {policy_id}.catalog must be a mapping of prefix, lowercase letters and"
-        " digits, and an optional width, a whole number of at least 1, with no other key",
-        f"write it as {policy_id}: {{{_DECLARATION}}}, or remove the key",
+        f"{DIALS_FILE}: {_ns()}.catalogs must be a list of catalogs",
+        f"write it as {_declaration()}, or remove the key",
     )
 
 
-def c5_prefix_declared_twice(prefix: str, first: str, second: str) -> Broken:
+def c5_catalog_entry(position: int) -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: prefix '{prefix}' is declared by both {first} and {second}",
-        "one prefix names one catalog, or a number would cite two kinds: give one of the two another"
-        " prefix — before it has items, since an id never changes",
+        f"{DIALS_FILE}: entry {position} of {_ns()}.catalogs must be a mapping of prefix, lowercase"
+        " letters and digits; territory, a non-empty list of path patterns; and an optional width, a"
+        " whole number of at least 1 — with no other key",
+        f"write the entry as {_ENTRY}",
+    )
+
+
+def c5_prefix_listed_twice(prefix: str) -> Broken:
+    return Broken(
+        SharedKey.C5,
+        f"{DIALS_FILE}: {_ns()}.catalogs lists prefix '{prefix}' twice",
+        "one prefix names one catalog, or a number would cite two kinds: join the two entries'"
+        " territories in one entry, or give one of them another prefix — before it has items, since"
+        " an id never changes",
     )

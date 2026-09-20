@@ -5,15 +5,18 @@ Needs git, Python 3.12+, and the libraries in the plugin's requirements file. Ev
 has a stable number: this module's own items from 1, the items every gate shares from 101.
 Exit 0 when every item is green, 2 otherwise.
 
-The fixture consumer is the shared one — three policies, none of them for a numbered kind —
-so every item adds the items policy, whose namespace declares the catalog: through the
-case's setup for the red→green cases, through `gate_on` for the assertions.
+The fixture consumer is the shared one, with its three policies. None of them matters here:
+a catalog is declared in this module's own dial, with a territory no policy claims, so every
+item writes that dial — through the case's setup for the red→green cases, through `gate_on`
+for the assertions. The shared items about the root policy and the policies' documents are
+not this gate's, and are left out; their numbers stay free.
 """
 
 from __future__ import annotations
 
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
@@ -27,7 +30,7 @@ from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
 from const_gate.envelope import yaml_error_line  # noqa: E402
 from const_gate.model import Broken, EnvelopeState, Finding  # noqa: E402
-from consumer import Consumer, envelope  # noqa: E402
+from consumer import ROOT_POLICY, Consumer  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
     Case,
@@ -45,14 +48,20 @@ identity.declare(start.GATE)  # the expected messages are built by the same func
 H = Harness(SCRIPTS, "check-catalog-item.sh", "check-catalog-item.py", start.GATE.namespace)
 
 NAMESPACE = start.GATE.namespace
-ITEMS_POLICY = "items-policy"
-CATALOG = Catalog("itm", 4, ITEMS_POLICY)
+TERRITORY = ["docs/items/**"]
+CATALOG = Catalog("itm", 4, tuple(TERRITORY))
 STEM_A = "itm-0001-first"
 ITEM_A = f"docs/items/{STEM_A}.md"
-NOTE_A = "docs/notes/a.md"
-ITEMS_DIALS: dict[str, object] = {
-    ITEMS_POLICY: {"territory": ["docs/items/**"], "catalog": {"prefix": "itm", "width": 4}},
-}
+ELSEWHERE = "docs/elsewhere/a.md"
+
+
+def entry(prefix: str = "itm", territory: list[str] | None = None, **more: object) -> dict[str, object]:
+    return {"prefix": prefix, "territory": TERRITORY if territory is None else territory, **more}
+
+
+def catalogs(*entries: object) -> dict[str, object]:
+    """A patch of the dials file that lists these catalogs."""
+    return {NAMESPACE: {"catalogs": list(entries)}}
 
 
 def item(stem: str = STEM_A, drop: tuple[str, ...] = (), **changes: object) -> str:
@@ -84,16 +93,11 @@ def yaml_error(block: str) -> str:
 
 
 def dials_text(patch: dict[str, object] | None = None) -> str:
-    dials = {**Consumer(Path()).dials, **ITEMS_DIALS, **(patch or {})}
+    dials = {**Consumer(Path()).dials, **catalogs(entry(width=4)), **(patch or {})}
     return yaml.safe_dump(dials, sort_keys=False)
 
 
-def policy_document(policy_id: str) -> Write:
-    return Write(f"docs/policies/{policy_id}.md", envelope(policy_id, "current-state"))
-
-
-POLICY_DOCUMENT = policy_document(ITEMS_POLICY)
-SETUP = (Write("constitution.yaml", dials_text()), POLICY_DOCUMENT)
+SETUP = (Write("constitution.yaml", dials_text()),)
 VALID = Write(ITEM_A, item())
 
 
@@ -206,19 +210,11 @@ CASES = [
     ),
     Case(
         13,
-        "K1: a width the policy declares is the width required",
+        "K1: the width the entry declares is the width required",
         Write(at("itm-0001-first"), item()),
         Write(at("itm-000001-first"), item("itm-000001-first")),
-        k1("itm-0001-first", Catalog("itm", 6, ITEMS_POLICY)),
-        (
-            Write(
-                "constitution.yaml",
-                dials_text(
-                    {ITEMS_POLICY: {"territory": ["docs/items/**"], "catalog": {"prefix": "itm", "width": 6}}}
-                ),
-            ),
-            POLICY_DOCUMENT,
-        ),
+        k1("itm-0001-first", Catalog("itm", 6, tuple(TERRITORY))),
+        (Write("constitution.yaml", dials_text(catalogs(entry(width=6)))),),
     ),
 ]
 
@@ -236,7 +232,6 @@ def gate_on(
 ) -> tuple[Result, Path]:
     consumer = H.fresh_consumer()
     consumer.write("constitution.yaml", raw_dials if raw_dials is not None else dials_text(dials_patch))
-    consumer.write(POLICY_DOCUMENT.target, POLICY_DOCUMENT.text)
     for rel, text in (files or {}).items():
         consumer.write(rel, text)
     if remove is not None:
@@ -245,14 +240,13 @@ def gate_on(
 
 
 def own(**dials: object) -> dict[str, object]:
-    """A patch of this module's namespace; the catalog is declared in the policy's, so any keeps it."""
-    return {NAMESPACE: dials}
+    """A patch of this module's namespace that keeps the catalog listed."""
+    return {NAMESPACE: {"catalogs": [entry(width=4)], **dials}}
 
 
 def scan_of(files: dict[str, str], dials_patch: dict[str, object] | None = None) -> Result:
     consumer = H.fresh_consumer()
     consumer.write("constitution.yaml", dials_text(dials_patch))
-    consumer.write(POLICY_DOCUMENT.target, POLICY_DOCUMENT.text)
     for rel, text in files.items():
         consumer.write(rel, text)
     return H.run_gate("", args=["--scan", str(consumer.root)])
@@ -264,125 +258,151 @@ def broken(result: Result, failure: Broken) -> tuple[bool, str]:
     return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
 
-def no_catalog_declared() -> tuple[bool, str]:
-    """With no catalog declared, any name passes — and the count line says why."""
-    result, _ = gate_on(
-        Write(at("first"), NO_ENVELOPE), dials_patch={ITEMS_POLICY: {"territory": ["docs/items/**"]}}
-    )
+def all_of(results: list[tuple[bool, str]], summary: str) -> tuple[bool, str]:
+    failed = [evidence for ok, evidence in results if not ok]
+    return not failed, failed[0] if failed else summary
+
+
+def no_catalog_listed() -> tuple[bool, str]:
+    """With no catalog listed, any name passes — and the count line says why."""
+    result, _ = gate_on(Write(at("first"), NO_ENVELOPE), dials_patch={NAMESPACE: {}})
     return expect(result, 0, shared.g1_green_skip(messages.g1_skip_no_catalog()), "stdout")
 
 
-def no_catalog_declared_scan() -> tuple[bool, str]:
+def no_catalog_listed_scan() -> tuple[bool, str]:
     result = H.run_gate("", args=["--scan", str(H.fresh_consumer().root)])
     return expect(result, 0, shared.g1_green_skip(messages.g1_skip_no_catalog()), "stdout")
 
 
 def not_an_item() -> tuple[bool, str]:
-    result, _ = gate_on(Write(NOTE_A, NO_ENVELOPE))
-    skip = messages.g1_skip_not_an_item(NOTE_A, [CATALOG])
+    result, _ = gate_on(Write(ELSEWHERE, NO_ENVELOPE))
+    skip = messages.g1_skip_not_an_item(ELSEWHERE, [CATALOG])
     return expect(result, 0, shared.g1_green_skip(skip), "stdout")
 
 
-def declaration_without_policy() -> tuple[bool, str]:
-    """A namespace with a catalog key and no policy document behind it is not a policy's: it
-    may be another reader's, and declares nothing."""
-    consumer = H.fresh_consumer()
-    consumer.write("constitution.yaml", dials_text())  # the items policy's document is never written
-    result = H.run_gate(event_json(consumer.root, Write(at("first"), NO_ENVELOPE)))
-    return expect(result, 0, shared.g1_green_skip(messages.g1_skip_no_catalog()), "stdout")
+NO_POLICIES = yaml.safe_dump(catalogs(entry()), sort_keys=False)  # a dials file with no root_policy at all
+
+
+def no_policies_red() -> tuple[bool, str]:
+    """A project without policies numbers its documents: the dial is all the gate reads."""
+    result, _ = gate_on(Write(at("first"), item("first")), raw_dials=NO_POLICIES)
+    return expect(result, 2, k1("first").render(), "stderr")
+
+
+def no_policies_green() -> tuple[bool, str]:
+    result, _ = gate_on(VALID, raw_dials=NO_POLICIES)
+    return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
+
+
+def broken_governance_is_not_this_gates() -> tuple[bool, str]:
+    """A root policy that is named and missing breaks the gates that resolve policies, not this one."""
+    result, _ = gate_on(VALID, remove=ROOT_POLICY)
+    return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
+
+
+def inside_a_policys_territory() -> tuple[bool, str]:
+    """A catalog's territory may lie inside a policy's: numbering and governance do not meet."""
+    patch = catalogs(entry("note", ["docs/notes/**"]))
+    result, _ = gate_on(Write("docs/notes/a.md", item("a")), dials_patch=patch)
+    taught = messages.k1_name_without_form("docs/notes/a.md", "a", Catalog("note", 4, ("docs/notes/**",)))
+    return expect(result, 2, taught.render(), "stderr")
+
+
+def territory_by_alias() -> tuple[bool, str]:
+    """One territory written once and used twice, by YAML's own alias: the policy's and the catalog's."""
+    raw = (
+        f"root_policy: {ROOT_POLICY}\n"
+        "root-policy: {territory: ['docs/policies/**']}\n"
+        "notes-policy:\n  territory: &notes ['docs/notes/**']\n"
+        f"{NAMESPACE}:\n  catalogs:\n    - {{prefix: note, territory: *notes}}\n"
+    )
+    result, _ = gate_on(Write("docs/notes/note-0001-first.md", item("note-0001-first")), raw_dials=raw)
+    green = messages.g1_item_of(Catalog("note", 4, ("docs/notes/**",)))
+    return expect(result, 0, shared.g1_green_hook(green), "stdout")
 
 
 def rest_of_envelope_not_judged() -> tuple[bool, str]:
     result, _ = gate_on(Write(ITEM_A, item(type="memo", status="draft", drop=("title",))))
-    return expect(result, 0, f"governed by {ITEMS_POLICY}", "stdout")
-
-
-def policy_is_never_an_item() -> tuple[bool, str]:
-    """A catalog territory that reaches where policies live does not number the policies."""
-    patch: dict[str, object] = {ITEMS_POLICY: {"territory": ["docs/**"], "catalog": {"prefix": "itm"}}}
-    result, _ = gate_on(policy_document("another-policy"), dials_patch=patch)
-    skip = messages.g1_skip_not_an_item("docs/policies/another-policy.md", [CATALOG])
-    return expect(result, 0, shared.g1_green_skip(skip), "stdout")
-
-
-def root_declares_a_catalog() -> tuple[bool, str]:
-    """The root policy may number the policies themselves."""
-    patch: dict[str, object] = {
-        "root-policy": {"territory": ["docs/policies/**"], "catalog": {"prefix": "pol"}},
-        ITEMS_POLICY: {"territory": ["docs/items/**"]},
-    }
-    result, _ = gate_on(policy_document("another-policy"), dials_patch=patch)
-    taught = messages.k1_name_without_form(
-        "docs/policies/another-policy.md", "another-policy", Catalog("pol", 4, "root-policy")
-    )
-    return expect(result, 2, taught.render(), "stderr")
+    return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
 
 
 def width_defaults_to_four() -> tuple[bool, str]:
-    patch: dict[str, object] = {ITEMS_POLICY: {"territory": ["docs/items/**"], "catalog": {"prefix": "itm"}}}
-    result, _ = gate_on(VALID, dials_patch=patch)
-    return expect(result, 0, f"governed by {ITEMS_POLICY}", "stdout")
+    result, _ = gate_on(VALID, dials_patch=catalogs(entry()))
+    return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
 
 
-def catalog_shapes() -> tuple[bool, str]:
+def catalogs_not_a_list() -> tuple[bool, str]:
+    result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"catalogs": entry()}})
+    return broken(result, messages.c5_catalogs_not_a_list())
+
+
+def entry_shapes() -> tuple[bool, str]:
     shapes: list[object] = [
         "itm",
-        {"width": 4},
-        {"prefix": "ITM"},
-        {"prefix": "it-m"},
-        {"prefix": 7},
-        {"prefix": "itm", "width": 0},
-        {"prefix": "itm", "width": "4"},
-        {"prefix": "itm", "width": True},
-        {"prefix": "itm", "start": 1},
+        {"territory": TERRITORY},
+        {"prefix": "itm"},
+        entry("ITM"),
+        entry("it-m"),
+        entry(7),  # type: ignore[arg-type]  # the fixture is the wrong type on purpose
+        entry(territory=[]),
+        entry(territory=[""]),
+        {"prefix": "itm", "territory": "docs/items/**"},
+        entry(width=0),
+        entry(width="4"),
+        entry(width=True),
+        entry(start=1),
     ]
     results = [
-        broken(
-            gate_on(VALID, dials_patch={ITEMS_POLICY: {"territory": ["docs/items/**"], "catalog": shape}})[0],
-            messages.c5_catalog_shape(ITEMS_POLICY),
-        )
+        broken(gate_on(VALID, dials_patch=catalogs(entry("ok"), shape))[0], messages.c5_catalog_entry(2))
         for shape in shapes
     ]
-    failed = [evidence for ok, evidence in results if not ok]
-    return not failed, failed[0] if failed else f"{len(shapes)} malformed declarations, each exit 1 with C5"
+    return all_of(results, f"{len(shapes)} malformed entries, each exit 1 with C5 naming entry 2")
 
 
-TWICE: dict[str, object] = {
-    "notes-policy": {"territory": ["docs/notes/**"], "catalog": {"prefix": "itm", "width": 3}}
-}
+def entry_pattern_git_would_misread() -> tuple[bool, str]:
+    result, _ = gate_on(VALID, dials_patch=catalogs(entry(territory=["#docs/items/**"])))
+    return broken(result, shared.c5_territory_pattern(f"{NAMESPACE}.catalogs[itm]", "#docs/items/**"))
 
 
-def prefix_declared_twice() -> tuple[bool, str]:
-    result, _ = gate_on(VALID, dials_patch=TWICE)
-    return broken(result, messages.c5_prefix_declared_twice("itm", ITEMS_POLICY, "notes-policy"))
+TWICE = catalogs(entry(), entry(territory=["docs/more/**"], width=3))
 
 
-def prefix_declared_twice_scan() -> tuple[bool, str]:
-    return broken(scan_of({}, TWICE), messages.c5_prefix_declared_twice("itm", ITEMS_POLICY, "notes-policy"))
+def prefix_listed_twice() -> tuple[bool, str]:
+    return broken(gate_on(VALID, dials_patch=TWICE)[0], messages.c5_prefix_listed_twice("itm"))
+
+
+def prefix_listed_twice_scan() -> tuple[bool, str]:
+    return broken(scan_of({}, TWICE), messages.c5_prefix_listed_twice("itm"))
 
 
 def two_catalogs() -> tuple[bool, str]:
     """Two kinds, two prefixes, one sequence each: the same number in both is no collision."""
-    patch: dict[str, object] = {
-        "notes-policy": {"territory": ["docs/notes/**"], "catalog": {"prefix": "note"}}
-    }
+    patch = catalogs(entry(), entry("note", ["docs/notes/**"]))
     files = {ITEM_A: item(), "docs/notes/note-0001-first.md": item("note-0001-first")}
-    return expect(scan_of(files, patch), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 6, 2)), "stdout")
+    return expect(scan_of(files, patch), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, 2)), "stdout")
 
 
 def overlap_takes_the_prefix_carried() -> tuple[bool, str]:
-    """In an overlap nobody resolved, the item is judged against the catalog whose prefix it carries."""
-    patch: dict[str, object] = {
-        "shared-policy": {"territory": ["docs/items/shared/**"], "catalog": {"prefix": "shr"}}
-    }
-    target = "docs/items/shared/shr-0001-first.md"
-    result, _ = gate_on(Write(target, item("shr-0001-first")), dials_patch=patch)
-    return expect(result, 0, "governed by shared-policy", "stdout")
+    """Where two territories hold one file, the catalog whose prefix the name carries judges it."""
+    patch = catalogs(entry(), entry("shr", ["docs/items/shared/**"]))
+    result, _ = gate_on(
+        Write("docs/items/shared/shr-0001-first.md", item("shr-0001-first")), dials_patch=patch
+    )
+    green = messages.g1_item_of(Catalog("shr", 4, ("docs/items/shared/**",)))
+    return expect(result, 0, shared.g1_green_hook(green), "stdout")
+
+
+def overlap_without_a_prefix() -> tuple[bool, str]:
+    """A name that carries neither prefix is judged by the first catalog listed."""
+    patch = catalogs(entry(), entry("shr", ["docs/items/shared/**"]))
+    result, _ = gate_on(Write("docs/items/shared/first.md", item("first")), dials_patch=patch)
+    taught = messages.k1_name_without_form("docs/items/shared/first.md", "first", CATALOG)
+    return expect(result, 2, taught.render(), "stderr")
 
 
 def severity_warn() -> tuple[bool, str]:
     result, _ = gate_on(Write(at("first"), item("first")), dials_patch=own(severity="warn"))
-    ok = result.code == 0 and "K1" not in result.stderr and k1("first").headline in result.stdout
+    ok = result.code == 0 and not result.stderr and k1("first").headline in result.stdout
     return ok, f"exit {result.code}; the finding travels in the JSON on stdout"
 
 
@@ -397,7 +417,7 @@ K3 = messages.k3_number_shared(CATALOG, 1, [ITEM_A, at("itm-0001-second")])
 def scan_collision() -> tuple[bool, str]:
     """The red half of the uniqueness gate: two items under one number."""
     result = scan_of(COLLIDING)
-    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 7, 1))
+    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 6, 1))
     ok = result.code == 2 and K3.render() in result.stdout and count in result.stdout
     return (
         ok,
@@ -412,12 +432,12 @@ def scan_renumbered() -> tuple[bool, str]:
         at("itm-0003-second"): item("itm-0003-second"),
         at("itm-0002-third"): item("itm-0002-third"),
     }
-    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(3, 7, 1)), "stdout")
+    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(3, 6, 1)), "stdout")
 
 
 def scan_gap_is_legitimate() -> tuple[bool, str]:
     files = {ITEM_A: item(), at("itm-0009-ninth"): item("itm-0009-ninth")}
-    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 6, 1)), "stdout")
+    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, 1)), "stdout")
 
 
 def scan_ignores_warn() -> tuple[bool, str]:
@@ -428,15 +448,23 @@ def scan_ignores_warn() -> tuple[bool, str]:
 def scan_name_and_number() -> tuple[bool, str]:
     """An item whose name carries no number is one finding and takes no part in the collision check."""
     result = scan_of({**COLLIDING, at("first"): item("first")})
-    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 8, 1))
+    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 7, 1))
     ok = result.code == 2 and all(
         text in result.stdout for text in (k1("first").render(), K3.render(), count)
     )
     return ok, f"exit {result.code}: two findings, four items"
 
 
+def scan_with_deleted_file() -> tuple[bool, str]:
+    """A tracked item deleted from the working tree, deletion not staged: not a document any more."""
+    consumer = H.fresh_consumer((*SETUP, VALID, Write(at("itm-0002-second"), item("itm-0002-second"))))
+    (consumer.root / ITEM_A).unlink()
+    result = H.run_gate("", args=["--scan", str(consumer.root)])
+    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, 1)), "stdout")
+
+
 def scan_scales() -> tuple[bool, str]:
-    """The scan reads each document once: a few hundred items take seconds, not minutes."""
+    """The scan reads each item once: a few hundred items take seconds, not minutes."""
     files = {at(f"itm-{n:04d}-item"): item(f"itm-{n:04d}-item") for n in range(1, 301)}
     started = time.monotonic()
     result = scan_of(files)
@@ -461,50 +489,78 @@ def message_shape() -> tuple[bool, str]:
 
 ASSERTIONS = [
     Assertion(
-        14,
-        "no catalog declared: nothing is examined, and the count line teaches the key",
-        no_catalog_declared,
+        14, "no catalog listed: nothing is examined, and the count line teaches the dial", no_catalog_listed
     ),
-    Assertion(15, "no catalog declared, scan: the same visible zero", no_catalog_declared_scan),
-    Assertion(16, "a document no catalog policy governs is a visible skip", not_an_item),
+    Assertion(15, "no catalog listed, scan: the same visible zero", no_catalog_listed_scan),
+    Assertion(16, "a document in no catalog's territory is a visible skip", not_an_item),
     Assertion(
-        17,
-        "a catalog key in a namespace with no policy behind it declares nothing",
-        declaration_without_policy,
+        17, "no policies at all, red half: the dial alone numbers a project's documents", no_policies_red
+    ),
+    Assertion(18, "no policies at all, green half", no_policies_green),
+    Assertion(
+        19, "a root policy named and missing is not this gate's failure", broken_governance_is_not_this_gates
     ),
     Assertion(
-        18,
+        20,
+        "a catalog inside a policy's territory: numbering and governance do not meet",
+        inside_a_policys_territory,
+    ),
+    Assertion(
+        21,
+        "one territory, written once, used by a policy and a catalog through a YAML alias",
+        territory_by_alias,
+    ),
+    Assertion(
+        22,
         "the rest of the envelope is not judged here: a bad type and status pass",
         rest_of_envelope_not_judged,
     ),
-    Assertion(19, "a document where policies live is never another catalog's item", policy_is_never_an_item),
-    Assertion(
-        20, "the root policy may declare a catalog: the policies are then its items", root_declares_a_catalog
-    ),
-    Assertion(21, "width defaults to four", width_defaults_to_four),
-    Assertion(22, "C5: a catalog declaration of the wrong shape, nine ways", catalog_shapes),
-    Assertion(23, "C5: one prefix declared by two policies fails the load", prefix_declared_twice),
-    Assertion(24, "C5: the same in a scan: exit 1, so CI turns red", prefix_declared_twice_scan),
-    Assertion(25, "two catalogs: one sequence each, the same number in both is no collision", two_catalogs),
+    Assertion(23, "width defaults to four", width_defaults_to_four),
+    Assertion(24, "C5: catalogs that is not a list", catalogs_not_a_list),
+    Assertion(25, "C5: an entry of the wrong shape, thirteen ways, named by its position", entry_shapes),
     Assertion(
         26,
-        "in an unresolved overlap the catalog whose prefix the name carries judges",
+        "C5: a territory pattern git would read as a comment, in an entry",
+        entry_pattern_git_would_misread,
+    ),
+    Assertion(27, "C5: one prefix listed twice fails the load", prefix_listed_twice),
+    Assertion(28, "C5: the same in a scan: exit 1, so CI turns red", prefix_listed_twice_scan),
+    Assertion(29, "two catalogs: one sequence each, the same number in both is no collision", two_catalogs),
+    Assertion(
+        30,
+        "two territories over one file: the catalog whose prefix the name carries judges",
         overlap_takes_the_prefix_carried,
     ),
-    Assertion(27, "severity warn: the finding travels in the JSON and the write proceeds", severity_warn),
     Assertion(
-        28, "K3, red half: two items under one number fail the scan, exit 2, both files named", scan_collision
+        31,
+        "two territories over one file, no prefix carried: the first listed judges",
+        overlap_without_a_prefix,
     ),
-    Assertion(29, "K3, green half: the renumbered pair passes", scan_renumbered),
-    Assertion(30, "a gap is legitimate: numbers 1 and 9 alone are green", scan_gap_is_legitimate),
-    Assertion(31, "scan: a finding with counts, exit 2, ignoring severity warn", scan_ignores_warn),
+    Assertion(32, "severity warn: the finding travels in the JSON and the write proceeds", severity_warn),
     Assertion(
-        32, "scan: a name with no number is one finding and no part of a collision", scan_name_and_number
+        33, "K3, red half: two items under one number fail the scan, exit 2, both files named", scan_collision
     ),
-    Assertion(33, "scan: 300 items in seconds (each document read once)", scan_scales),
-    Assertion(34, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
-    Assertion(35, "message shape: every taught finding has what, why and fix", message_shape),
+    Assertion(34, "K3, green half: the renumbered pair passes", scan_renumbered),
+    Assertion(35, "a gap is legitimate: numbers 1 and 9 alone are green", scan_gap_is_legitimate),
+    Assertion(36, "scan: a finding with counts, exit 2, ignoring severity warn", scan_ignores_warn),
+    Assertion(
+        37, "scan: a name with no number is one finding and no part of a collision", scan_name_and_number
+    ),
+    Assertion(
+        38,
+        "scan: a tracked file deleted from the working tree is left out, not a failure",
+        scan_with_deleted_file,
+    ),
+    Assertion(39, "scan: 300 items in seconds (each item read once)", scan_scales),
+    Assertion(40, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
+    Assertion(41, "message shape: every taught finding has what, why and fix", message_shape),
 ]
+
+
+def claim(territory: Sequence[str]) -> dict[str, object]:
+    """The dials patch that gives the catalog another territory."""
+    return catalogs(entry(territory=list(territory)))
+
 
 SUBJECT = Subject(
     harness=H,
@@ -513,8 +569,10 @@ SUBJECT = Subject(
     valid=VALID,
     red=Write(at("first"), item("first")),
     red_finding=k1("first"),
-    territory=["docs/items/**"],
-    governed_by=ITEMS_POLICY,
+    green=messages.g1_item_of(CATALOG),
+    territory=TERRITORY,
+    claim=claim,
+    resolves_policies=False,
 )
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""This module's own structures: a declared catalog, an item of one, the keys of its findings."""
+"""This module's own structures: a declared catalog, its dials, an item, the keys of its findings."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache
+
+from const_gate.model import Finding
 
 DEFAULT_WIDTH = 4
 PREFIX_RE = re.compile(r"^[a-z0-9]+$")
@@ -22,11 +24,12 @@ class Key(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class Catalog:
-    """A numbered kind, as its policy declares it."""
+    """A numbered kind, as the dial declares it: the Markdown documents in its territory are
+    its items."""
 
     prefix: str
     width: int
-    policy: str  # the id of the declaring policy: the documents it governs are the items
+    territory: tuple[str, ...]
 
     def number_of(self, stem: str) -> int | None:
         """The number a file name carries, or None when the name has not the catalog's form."""
@@ -43,9 +46,17 @@ def _form(prefix: str, width: int) -> re.Pattern[str]:
 
 
 @dataclass(frozen=True, slots=True)
+class CatalogDials:
+    """This module's own dials, validated. The two every gate has are read by the shared code."""
+
+    catalogs: tuple[Catalog, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class Item:
-    """One document of a catalog, as the scan met it."""
+    """One document of a catalog, examined."""
 
     rel: str
     catalog: Catalog
-    number: int | None  # None: the file name carries none, which is its own finding
+    number: int | None  # None: the file name carries none, which is finding K1
+    findings: tuple[Finding, ...]

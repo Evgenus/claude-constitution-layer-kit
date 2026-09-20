@@ -9,6 +9,7 @@ from typing import TextIO
 from const_gate import pipeline
 from const_gate.errors import ConfigurationFailure
 from const_gate.index import build_index
+from const_gate.messages import governed_by
 from const_gate.model import Finding, PendingDocument, SharedKey
 from const_gate.output import Output
 from const_gate.pipeline import Skip
@@ -25,8 +26,10 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     target = pipeline.locate_write(output, stdin)
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
-    rel, dials = target.rel, target.dials
-    writes_root = rel == target.root_policy
+    rel, dials, root_policy = target.rel, target.dials, target.dials.root_policy
+    if root_policy is None:
+        return pipeline.no_root_policy(output)
+    writes_root = rel == root_policy
     if writes_root:
         root_findings = check_root_policy(dials, rel, target.text)
         if root_findings:
@@ -34,7 +37,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     try:
         with Matcher() as matcher:
             pending = PendingDocument(rel, target.text)
-            index = build_index(target.root, dials, target.root_policy, matcher, pending)
+            index = build_index(target.root, dials, root_policy, matcher, pending)
             void = void_claims(index, dials, matcher)
             examination = examine(index, id_owners(index), rel, target.text)
     except ConfigurationFailure as failure:
@@ -52,17 +55,20 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         return pipeline.skip(output, reason, index.notes)
     if examination.findings:
         return pipeline.report_hook(output, examination.findings, index.notes, rel, dials.severity)
-    return pipeline.green_hook(output, examination.policy or "", index.notes)
+    return pipeline.green_hook(output, governed_by(examination.policy or ""), index.notes)
 
 
 def scan_mode(output: Output, start: Path) -> int:
     target = pipeline.locate_scan(output, start)
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
+    root_policy = target.dials.root_policy
+    if root_policy is None:
+        return pipeline.no_root_policy(output)
     findings: list[Finding] = []
     examined = 0
     with Matcher() as matcher:
-        index = build_index(target.root, target.dials, target.root_policy, matcher)
+        index = build_index(target.root, target.dials, root_policy, matcher)
         void = void_claims(index, target.dials, matcher)
         owners = id_owners(index)
         for rel, text in index.documents():

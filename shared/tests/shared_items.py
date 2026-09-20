@@ -44,16 +44,23 @@ class OwnPatch(Protocol):
     def __call__(self, **dials: object) -> dict[str, object]: ...
 
 
+class Claim(Protocol):
+    def __call__(self, territory: Sequence[str]) -> dict[str, object]: ...
+
+
 @dataclass(frozen=True)
 class Subject:
     harness: Harness
     gate_on: GateOn
     own: OwnPatch  # a patch of the module's namespace that keeps it working
-    valid: Write  # a write the gate passes, green with `governed by <governed_by>`
+    valid: Write  # a write the gate passes, its green line ending in `green`
     red: Write  # a write the gate blocks
     red_finding: Finding
-    governed_by: str
-    territory: Sequence[str]  # the patterns of the policy that governs `valid` and `red`
+    green: str  # what the green line says `valid` is: `governed by <policy>`, or the module's words
+    territory: Sequence[str]  # the patterns of the territory that holds `valid` and `red`
+    claim: Claim  # the dials patch that declares that territory with other patterns
+    resolves_policies: bool = True  # False: the gate reads only its own dials, so the items about
+    # the root policy and the policies' documents are not its own, and are left out
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
@@ -309,12 +316,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def byte_order_mark() -> tuple[bool, str]:
         result, _ = s.gate_on(Write(s.valid.target, "\ufeff" + s.valid.text))
-        return expect(result, 0, f"governed by {s.governed_by}", "stdout")
+        return expect(result, 0, s.green, "stdout")
 
     def negated_pattern() -> tuple[bool, str]:
         """A file-level negated pattern takes the file out of the territory."""
         territory = [*s.territory, "!" + s.red.target]
-        result, _ = s.gate_on(s.red, dials_patch={s.governed_by: {"territory": territory}})
+        result, _ = s.gate_on(s.red, dials_patch=s.claim(territory))
         return expect(result, 0, "0 documents examined", "stdout")
 
     def policy_without_id_note() -> tuple[bool, str]:
@@ -380,7 +387,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ok = (
             result.code == 0
             and log.is_file()
-            and f"governed by {s.governed_by}" in log_lines(log)[-1]["text"]
+            and s.green in log_lines(log)[-1]["text"]
             and not (data / log_name()).exists()
         )
         return ok, f"exit {result.code}; the whole run logged inside the repository, nothing split off"
@@ -483,4 +490,18 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ("a document where policies live with no readable id earns a note", policy_without_id_note),
         ("an Edit with an empty old_string on an existing file is a visible skip", edit_empty_old_string),
     ]
-    return [Assertion(first + n, title, check) for n, (title, check) in enumerate(items)]
+    # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
+    # that resolves no policy leaves gaps where the items about policies stand.
+    about_policies = {
+        root_missing,
+        root_without_id,
+        root_claims_nothing,
+        root_outside_own_territory,
+        no_root_policy,
+        policy_without_id_note,
+    }
+    return [
+        Assertion(first + n, title, check)
+        for n, (title, check) in enumerate(items)
+        if s.resolves_policies or check not in about_policies
+    ]

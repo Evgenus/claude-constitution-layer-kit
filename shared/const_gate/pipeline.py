@@ -30,20 +30,20 @@ class Skip:
 
 @dataclass(frozen=True, slots=True)
 class WriteTarget:
-    """A Markdown document about to be written into a repository whose dials name a root policy."""
+    """A Markdown document about to be written into a repository that has a dials file. Whether
+    the dials name a root policy is the module's question: a gate that resolves policies skips
+    without one, a gate that reads only its own dials does not care."""
 
     root: Path
     rel: str
     text: str  # the document as it will be after the write
     dials: Dials
-    root_policy: str
 
 
 @dataclass(frozen=True, slots=True)
 class ScanTarget:
     root: Path
     dials: Dials
-    root_policy: str
 
 
 def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
@@ -65,12 +65,10 @@ def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
     if dials is None:
         return Skip(messages.g1_skip_no_dials(str(root)))
     _route_log(output, root, dials)
-    if dials.root_policy is None:
-        return Skip(messages.g1_skip_no_root())
     text = document_after_write(event, root, rel)
     if text is None:
         return Skip(messages.g1_skip_edit_unappliable(rel))
-    return WriteTarget(root, rel, text, dials, dials.root_policy)
+    return WriteTarget(root, rel, text, dials)
 
 
 def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
@@ -83,9 +81,7 @@ def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
     if dials is None:
         return Skip(messages.g1_skip_no_dials(str(root)))
     _route_log(output, root, dials)
-    if dials.root_policy is None:
-        return Skip(messages.g1_skip_no_root())
-    return ScanTarget(root, dials, dials.root_policy)
+    return ScanTarget(root, dials)
 
 
 def skip(output: Output, reason: str, notes: Sequence[str] = ()) -> int:
@@ -95,10 +91,17 @@ def skip(output: Output, reason: str, notes: Sequence[str] = ()) -> int:
     return EXIT_GREEN
 
 
-def green_hook(output: Output, policy: str, notes: Sequence[str] = ()) -> int:
+def no_root_policy(output: Output) -> int:
+    """The skip of a gate that resolves policies, in a repository whose dials name no root."""
+    return skip(output, messages.g1_skip_no_root())
+
+
+def green_hook(output: Output, what: str, notes: Sequence[str] = ()) -> int:
+    """`what` says what the examined document is: `messages.governed_by(policy)`, or the module's
+    own words where no policy is involved."""
     for note in notes:
         output.out(note)
-    output.out(messages.g1_green_hook(policy))
+    output.out(messages.g1_green_hook(what))
     return EXIT_GREEN
 
 

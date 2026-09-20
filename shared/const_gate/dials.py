@@ -10,6 +10,7 @@ anything else is another module's business."""
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
@@ -89,10 +90,16 @@ def _territory(name: str, value: object, lenient: bool) -> tuple[str, ...]:
             return ()
         raise ConfigurationFailure(messages.c5_territory_shape(name))
     patterns = tuple(str(p) for p in value)
+    refuse_unreadable_patterns(name, patterns)
+    return patterns
+
+
+def refuse_unreadable_patterns(name: str, patterns: Sequence[str]) -> None:
+    """A pattern git would read as something else — a comment, two lines — is a configuration
+    failure wherever a territory is declared: under a policy's id, or in a module's own dials."""
     for pattern in patterns:
         if pattern.startswith("#") or "\n" in pattern or "\r" in pattern:
             raise ConfigurationFailure(messages.c5_territory_pattern(name, pattern))
-    return patterns
 
 
 def _is_relative(value: str) -> bool:
