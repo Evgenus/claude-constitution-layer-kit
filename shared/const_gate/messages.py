@@ -56,8 +56,12 @@ def f9_count_scan(findings: int, tail: str) -> str:
     return f"RED: {findings} finding(s) — {tail}"
 
 
-def g1_green_hook(policy: str) -> str:
-    return f"GREEN: {_ns()}: 1 document examined, governed by {policy}"
+def g1_green_hook(what: str) -> str:
+    return f"GREEN: {_ns()}: 1 document examined, {what}"
+
+
+def governed_by(policy: str) -> str:
+    return f"governed by {policy}"
 
 
 def g1_green_scan(tail: str) -> str:

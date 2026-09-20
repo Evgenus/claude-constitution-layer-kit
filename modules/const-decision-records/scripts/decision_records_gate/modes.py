@@ -9,6 +9,7 @@ from typing import TextIO
 from const_gate import pipeline
 from const_gate.errors import ConfigurationFailure
 from const_gate.index import Index, build_index
+from const_gate.messages import governed_by
 from const_gate.model import Finding, PendingDocument
 from const_gate.output import Output
 from const_gate.pipeline import Skip
@@ -24,13 +25,16 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     target = pipeline.locate_write(output, stdin)
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
+    root_policy = target.dials.root_policy
+    if root_policy is None:
+        return pipeline.no_root_policy(output)
     own = record_dials.parse(target.dials.own)
     if not own.record_policies:
         return pipeline.skip(output, messages.g1_skip_no_record_policies())
     rel = target.rel
     with Matcher() as matcher:
         pending = PendingDocument(rel, target.text)
-        index = build_index(target.root, target.dials, target.root_policy, matcher, pending)
+        index = build_index(target.root, target.dials, root_policy, matcher, pending)
         _refuse_root_as_record_policy(index, own)
         examination = examine(index, own.record_policies, rel, target.text)
     notes = _notes(index, own)
@@ -38,20 +42,23 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         return pipeline.skip(output, messages.g1_skip_not_a_record(rel, own.record_policies), notes)
     if examination.findings:
         return pipeline.report_hook(output, examination.findings, notes, rel, target.dials.severity)
-    return pipeline.green_hook(output, examination.policy or "", notes)
+    return pipeline.green_hook(output, governed_by(examination.policy or ""), notes)
 
 
 def scan_mode(output: Output, start: Path) -> int:
     target = pipeline.locate_scan(output, start)
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
+    root_policy = target.dials.root_policy
+    if root_policy is None:
+        return pipeline.no_root_policy(output)
     own = record_dials.parse(target.dials.own)
     if not own.record_policies:
         return pipeline.skip(output, messages.g1_skip_no_record_policies())
     findings: list[Finding] = []
     examined = 0
     with Matcher() as matcher:
-        index = build_index(target.root, target.dials, target.root_policy, matcher)
+        index = build_index(target.root, target.dials, root_policy, matcher)
         _refuse_root_as_record_policy(index, own)
         for rel, text in index.documents():
             examination = examine(index, own.record_policies, rel, text)

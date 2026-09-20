@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
@@ -297,7 +298,7 @@ def dangling_record_policy() -> tuple[bool, str]:
 def rest_of_envelope_not_judged() -> tuple[bool, str]:
     """An id that is not kebab-case and a status outside the enum are another check's business."""
     result, _ = gate_on(Write(RECORD_A, record("Record_A", status="open")))
-    return expect(result, 0, shared.g1_green_hook(RECORDS_POLICY), "stdout")
+    return expect(result, 0, shared.g1_green_hook(shared.governed_by(RECORDS_POLICY)), "stdout")
 
 
 def routine_and_more() -> tuple[bool, str]:
@@ -448,6 +449,12 @@ ASSERTIONS = [
     Assertion(29, "message shape: every taught finding has what, why and fix", message_shape),
 ]
 
+
+def claim(territory: Sequence[str]) -> dict[str, object]:
+    """The dials patch that gives the records policy another territory."""
+    return {RECORDS_POLICY: {"territory": list(territory)}}
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -456,7 +463,8 @@ SUBJECT = Subject(
     red=Write(RECORD_A, NO_ENVELOPE),
     red_finding=messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.NONE),
     territory=["docs/decisions/**"],
-    governed_by=RECORDS_POLICY,
+    green=shared.governed_by(RECORDS_POLICY),
+    claim=claim,
 )
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ from pathlib import Path
 from const_gate.model import Finding
 from consumer import Consumer
 
-GREEN_MARK = "1 document examined, governed by"  # the shared green line of hook mode
+GREEN_MARK = "1 document examined, "  # the shared green line of hook mode; what follows is the module's
 
 
 @dataclass(frozen=True)
@@ -141,7 +141,7 @@ class Harness:
                 f"got:\n{red.stderr.strip()}",
             )
         green = self.run_gate(event_json(self.fresh_consumer(case.setup).root, case.green))
-        if green.code != 0 or GREEN_MARK not in green.stdout:
+        if green.code != 0 or f"GREEN: {self.namespace}: {GREEN_MARK}" not in green.stdout:
             return False, f"green half did not pass (exit {green.code}): {green.stdout}{green.stderr}".strip()
         return True, f"red → {case.expect.key}: {case.expect.headline}"
 

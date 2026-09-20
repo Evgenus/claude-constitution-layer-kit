@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import sys
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
@@ -339,6 +340,12 @@ ASSERTIONS = [
     Assertion(27, "message shape: every taught finding has what, why and fix", message_shape),
 ]
 
+
+def claim(territory: Sequence[str]) -> dict[str, object]:
+    """The dials patch that gives the notes policy another territory."""
+    return {"notes-policy": {"territory": list(territory)}}
+
+
 SUBJECT = Subject(
     harness=H,
     gate_on=gate_on,
@@ -347,7 +354,8 @@ SUBJECT = Subject(
     red=Write(NOTE_A, NO_ENVELOPE),
     red_finding=messages.f1_no_envelope(NOTE_A),
     territory=["docs/notes/**"],
-    governed_by="notes-policy",
+    green=shared.governed_by("notes-policy"),
+    claim=claim,
 )
 
 if __name__ == "__main__":

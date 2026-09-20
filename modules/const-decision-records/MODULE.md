@@ -155,7 +155,7 @@ The field checks are deterministic and need no examples; the fixtures of [§10](
 | skill `record-decision` with its template | `advisory` |
 | skill `promote-recurring-notes` | `advisory` |
 
-**Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time when both gates block — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–12, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
+**Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time when both gates block, a negated pattern under an excluded directory — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–13, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
 
 1. **Off until named.** With `record_policies` empty the gate examines nothing. Backstop: every run prints `0 documents examined` with the line to write; a profile can prewrite the dial.
 2. **A record outside record territory is invisible.** A document with `stakes` and `decider` in another policy's territory, or outside every territory, is not a record to this gate. Backstop: review; the friction signal of [§12](#t12), item 1.
@@ -208,7 +208,7 @@ Of the territory semantics, a negated pattern is a shared item and so is proven 
 **Optional enhancements:**
 
 1. When module `const-meta-types` is installed, the rest of the envelope and the resolution defects are guarded there, and a record is fully valid per the kernel's record schema only with both.
-2. When module `const-catalogs` is installed and the record policy declares a numbered kind, the skill takes the record's number from that module's allocation; this module reads no `catalog` key.
+2. When module `const-catalogs` is installed and lists a catalog whose territory holds the records, the skill takes the record's number from that module's allocation; this module reads nothing of that module's dial.
 3. When module `const-questions` is installed, a recorded-stakes answer reached in its dialog is written through this module's skill.
 4. When module `const-task-close` is installed, setting a record `inactive` at task close is its moment.
 

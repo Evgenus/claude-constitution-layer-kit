@@ -24,16 +24,6 @@
         "type": "array",
         "items": { "type": "string", "minLength": 1 },
         "description": "Path patterns this policy claims, in the file's dialect. Meaningful only in a policy's namespace; elsewhere it claims nothing."
-      },
-      "catalog": {
-        "type": "object",
-        "required": ["prefix"],
-        "properties": {
-          "prefix": { "type": "string", "pattern": "^[a-z0-9]+$" },
-          "width": { "type": "integer", "minimum": 1, "default": 4 }
-        },
-        "additionalProperties": false,
-        "description": "Declares the policy's kind as numbered: ids and stems are <prefix>-<nnnn>-<slug>. One prefix is declared once."
       }
     },
     "additionalProperties": true

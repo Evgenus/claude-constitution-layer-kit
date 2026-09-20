@@ -134,7 +134,7 @@ The resolution and envelope boundaries are deterministic and need no examples; t
 | `check-governed-document.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
 | skill `choose-meta-type` | `advisory` |
 
-**Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–12, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
+**Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time, a negated pattern under an excluded directory — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–13, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
 
 1. **The declaration's condition is not checked.** Whether "an active task-record covers the move" holds is judgment; the gate accepts any declaration that names a matching or existing policy. Backstop: review.
 2. **Duplicate ids across history** ("never reused") are not checked; only the present tree is. Backstop: review; the friction signal of [§12](#t12), item 4.
@@ -174,7 +174,7 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries).
 
 **Kernel alone:** on a bare repository with no `constitution.yaml`, every write passes with a visible zero count; with a dials file naming a root policy, every Markdown write into claimed territory is checked and the scan runs. Policies are the consumer's documents; the module ships none.
 
-**Optional enhancements:** when module `const-locations` is installed, documents are born in their canonical home from the policy's template, so this gate sees fewer findings — it stays the guard either way. When module `const-catalogs` is installed, the `catalog` key of a numbered kind (`<prefix>-<nnnn>-<slug>` ids and stems) is read and checked there; this module does not read it. When module `const-decision-records` is installed, the body shape of a decision record is its concern; this module checks the envelope only.
+**Optional enhancements:** when module `const-locations` is installed, documents are born in their canonical home from the policy's template, so this gate sees fewer findings — it stays the guard either way. When module `const-catalogs` is installed, the name and id form of a numbered kind (`<prefix>-<nnnn>-<slug>`) is checked there, from that module's own dial; this module reads nothing of it. When module `const-decision-records` is installed, the body shape of a decision record is its concern; this module checks the envelope only.
 
 <a id="t12"></a>
 ## 12. Deferred
