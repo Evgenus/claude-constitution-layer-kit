@@ -16,8 +16,7 @@ kit-intent-page:
   territory: ["/INTENT.md"]              # leading slash: a slash-less gitignore pattern matches at any depth
 
 kit-decision-records:
-  territory: ["docs/decisions/**"]
-  catalog: {prefix: dec, width: 4}    # a numbered kind (requirement A13.7): id and stem dec-<nnnn>-<slug>
+  territory: &decisions ["docs/decisions/**"]   # anchored: the catalog below numbers exactly this territory
 
 kit-research:
   territory: ["docs/research/**"]
@@ -36,3 +35,7 @@ kit-rollout-plan:
 
 const-decision-records:               # a module's namespace (kernel §6): its own dials
   record_policies: [kit-decision-records]   # the policies whose territory holds decision records
+
+const-catalogs:                       # numbered kinds are declared here, independent of policies (requirement A13.7)
+  catalogs:
+    - {prefix: dec, width: 4, territory: *decisions}   # id and stem dec-<nnnn>-<slug>

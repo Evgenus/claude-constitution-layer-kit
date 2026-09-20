@@ -208,7 +208,7 @@ Of the territory semantics, a negated pattern is a shared item and so is proven 
 **Optional enhancements:**
 
 1. When module `const-meta-types` is installed, the rest of the envelope and the resolution defects are guarded there, and a record is fully valid per the kernel's record schema only with both.
-2. When module `const-catalogs` is installed and the record policy declares a numbered kind, the skill takes the record's number from that module's allocation; this module reads no `catalog` key.
+2. When module `const-catalogs` is installed and lists a catalog whose territory holds the records, the skill takes the record's number from that module's allocation; this module reads nothing of that module's dial.
 3. When module `const-questions` is installed, a recorded-stakes answer reached in its dialog is written through this module's skill.
 4. When module `const-task-close` is installed, setting a record `inactive` at task close is its moment.
 

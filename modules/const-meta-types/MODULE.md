@@ -174,7 +174,7 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries).
 
 **Kernel alone:** on a bare repository with no `constitution.yaml`, every write passes with a visible zero count; with a dials file naming a root policy, every Markdown write into claimed territory is checked and the scan runs. Policies are the consumer's documents; the module ships none.
 
-**Optional enhancements:** when module `const-locations` is installed, documents are born in their canonical home from the policy's template, so this gate sees fewer findings — it stays the guard either way. When module `const-catalogs` is installed, the `catalog` key of a numbered kind (`<prefix>-<nnnn>-<slug>` ids and stems) is read and checked there; this module does not read it. When module `const-decision-records` is installed, the body shape of a decision record is its concern; this module checks the envelope only.
+**Optional enhancements:** when module `const-locations` is installed, documents are born in their canonical home from the policy's template, so this gate sees fewer findings — it stays the guard either way. When module `const-catalogs` is installed, the name and id form of a numbered kind (`<prefix>-<nnnn>-<slug>`) is checked there, from that module's own dial; this module reads nothing of it. When module `const-decision-records` is installed, the body shape of a decision record is its concern; this module checks the envelope only.
 
 <a id="t12"></a>
 ## 12. Deferred

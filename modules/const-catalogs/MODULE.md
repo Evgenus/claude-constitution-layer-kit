@@ -1,147 +1,217 @@
 ---
 id: module-const-catalogs
 type: current-state
-title: const-catalogs
+title: const-catalogs — numbered kinds — one name per item, one item per number, a number never issued twice
 status: active
 ---
 
-# MODULE.md — `const-<aspect>`
+# MODULE.md — `const-catalogs`
 
-*Template. Every constitution module is a Claude Code plugin with this document at its root, and this document is the module's **description** from the first draft on — there is no separate specification kind (decision [dec-0003-module-spec-kind](../../docs/decisions/dec-0003-module-spec-kind.md)). A draft module carries manifest version `0.0.x`; it is published at `0.1.0` or higher, once every gate has its fixture and no open marker is left. Open slots in a draft are written inline as `[decide: <slot> — default <X> — stakes <level> — decider <who>]`; an authoring session derives its questions from these markers in document order, and a published module carries none.*
-
-*Fill every section; a section that does not apply says "none" with one line of reasoning. The module depends on the kernel (`CONVENTIONS.md` + schemas) and on nothing else — if it seems to need a sibling module, the shared concept belongs in the kernel; raise that instead of coupling. **No file in the module references a project directly** (paths, names, values): project specifics arrive only through the dials namespace, and the module must install and operate on an empty repository using its defaults ([kernel §6](../../kernel/CONVENTIONS.md#k6), portability rule). References to sibling modules are permitted **only as optional enhancements** ("when module `const-x` is installed, ..."); every rule must be executable with the kernel alone — the test: **kernel + this module on an empty repository is a functioning installation.** Every list and table row carries a handle so one item can be cited without quoting it.*
+*Draft at manifest version `0.0.1`, no open slots; published at `0.1.0` in rollout Phase D. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
 
-One paragraph: the failure pattern this module prevents, stated concretely — in terms someone has observed, not a category name. If the failure pattern cannot be named, the module is not ready to exist.
+People cite decisions, tasks and escalations by number — "see D41" — and the numbers live wherever they were first typed: a flat register file, a heading, a chat. When the register is migrated, or an entry is renumbered, split or deleted, every citation of the old number points at nothing, or worse, at something else, and nobody can tell which; the failure was observed as 74 dangling `D<n>` references left by one migration of one register. It compounds: every citation written under a loose numbering scheme is one more to repair when the scheme finally breaks. This module makes a number mean one document for good: the number stands in the file's name, the name is the document's `id`, no two items of a catalog share a number, and a number once held is not handed out again — with no register file to keep in step, because the catalog is the set of files.
 
 <a id="t2"></a>
 ## 2. Failure class
 
-`accumulating` or `self-limiting`, with one line of reasoning; a module may be split honestly — name the accumulating slice and the self-limiting remainder. Then the **entry trigger**: accumulating modules belong in every project's day-one install set; a self-limiting module names the observed friction signal that earns its installation, stated so a consumer can recognize it.
+**Accumulating.** Every item created outside the form, and every citation of it, is retrofit debt: numbering a kind later means renaming each document once, with every link to it — the kit paid that for sixteen records. **Entry trigger:** the first numbered kind — typically the first decision record, so the module enters beside `const-decision-records`, on day one of any project that will cite documents by number.
 
 <a id="t3"></a>
 ## 3. Rows
 
-The requirement set, and nothing else ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)): every matrix row homed in this module, by handle. The row's one-line text lives in the matrix and is not repeated; the table carries the *reading* the row needs beyond its line — interpretation, boundary rulings, the part of a shared row this module owns. A row under a boundary test (marked † in the matrix) states which of the three tests is open — *one invariant? one enforcement moment? one lifecycle trigger?* — and which sibling takes the row if the boundary moves.
-
 | row | this module's reading |
 |---|---|
-| A<n>.<m> | … |
+| [A13.1](../../docs/requirements.md#a13-1) | **What an item is:** a Markdown document whose path lies in the territory of an entry of the dial `catalogs` — by path alone; no policy is resolved, and the envelope's `policy` declaration plays no part. Where two entries' territories hold one file, the catalog whose prefix the file name carries judges it, else the first listed. **One name:** the stem is `<prefix>-<number of exactly width digits>-<kebab-slug>`, and `id` equals the stem; an `id` that merely has the form but differs is red, since a reference by id and a glob by name must find one document. A missing `id` and an unreadable envelope are reported here too, because the module must work with no sibling installed. Lowercase only on disk; the uppercase prefix is prose's. The rest of the envelope is not judged. |
+| [A13.2](../../docs/requirements.md#a13-2) | Advisory. No listing script: the catalog is the set of files carrying its prefix, so the listing is one git pathspec glob on the prefix, with one `grep` for titles — commands the skill names. It lists by prefix, not by territory; the difference is limit 4 of [§9](#t9). |
+| [A13.3](../../docs/requirements.md#a13-3) | Advisory, with a deterministic assist: the scan's count line names each catalog's highest number in the working tree and, where history went further, the highest a name of the catalog's form ever carried in the branch's history; the next number is one more than the highest named. The write-time fix text of K1 and K4 names the same number. History moves advice only — no verdict reads it — so the gate answers alike in every clone. "Provisional until main" is skill prose: nothing in a working tree says whether a number has landed. |
+| [A13.4](../../docs/requirements.md#a13-4) | Two moments. **The scan** (K3) — the check for CI on a pull request, where the checkout is the merge of both branches — reports every number that stands on two items, naming all files. **At write time** (K4) a file that does not exist yet is blocked under a number another item in the working tree carries. An item that exists is never judged on its number at write time: of two that collide the hook cannot tell which is frozen on main, and blocking the frozen one's edits would punish the wrong file. Who renumbers is the skill's procedure. |
+| [A13.5](../../docs/requirements.md#a13-5) | Definitional: no continuity check exists, a free number below the highest passes the gate, and the advice never suggests one. Stated as limit 3 of [§9](#t9). |
+| [A13.6](../../docs/requirements.md#a13-6) | Advisory text in the skill: the full name on machine surfaces, the bare form in prose, either resolved by `git ls-files` with a case-insensitive glob. No lint here. |
+| [A13.7](../../docs/requirements.md#a13-7) | The dial `catalogs` is the one place a numbered kind is declared, independent of policies: the module reads its own namespace and nothing else of the dials file beyond what every gate validates. A malformed entry, a territory pattern git would misread, and one prefix listed twice are configuration failures — exit 1, never a finding — since the checker cannot know what to check. |
 
 <a id="t4"></a>
 ## 4. Decisions
 
-Provenance of this module's rules: the records whose rulings it applies, each cited by its record id while the record exists. When a record is deleted its entry goes with it and nothing replaces it; a ruling below recorded stakes has no entry. The rule itself is stated in the section where it acts ([§5](#t5)–[§9](#t9)); a record is cited for where and why it was decided, never in place of the rule ([kernel §5](../../kernel/CONVENTIONS.md#k5)). The record holds the options and reasoning, which are not restated here.
-
-1. `<record-id>` — one line naming what it fixes here.
+1. [dec-0029-catalogs-module-rulings](../../docs/decisions/dec-0029-catalogs-module-rulings.md) — the rulings of this module's authoring: catalogs declared in the module's own dial, independent of policies; a new item's number refused at write time when taken; the listing a named command and the next number the scan's; history read for advice only.
+2. [dec-0004-catalogs-module](../../docs/decisions/dec-0004-catalogs-module.md) — the module itself: a virtual catalog, the number inside the id, free minting with a uniqueness gate, gaps legitimate. Its item 5, where a kind is declared, is reversed by the record above.
+3. [dec-0017-records-numbered-now](../../docs/decisions/dec-0017-records-numbered-now.md) — the kit's records entered the form before this module existed, so it was authored against a real catalog of twenty-eight items.
+4. [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) — the runtime (Python 3 with PyYAML, a POSIX entry point, a missing runtime exits 1 with the install command), the `severity` dial, and the order of the two proofs.
+5. [dec-0014-territory-dialect](../../docs/decisions/dec-0014-territory-dialect.md) and [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — an entry's territory is gitignore syntax like every territory, and every read of the dials file validates the keys read.
+6. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md) and [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) — the gate-script rules and the linked shared code; this module is its third consumer and the first that resolves no policy.
+7. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 
 <a id="t5"></a>
 ## 5. Invariant
 
-The one rule the module guarantees, stated in a single testable sentence built only from kernel vocabulary and this module's own definitions. An advisory-only module claims no invariant; in its place stands the numbered rule list, each rule labeled `advisory` in its own text.
+**Every Markdown document in the territory of a listed catalog carries, at the moment it is written through the platform's file tools, one name — its file name without `.md` is `<prefix>-<number of exactly width digits>-<kebab-slug>` and its `id` is that name — a document that does not exist yet takes a number no other item of its catalog carries in the working tree, and in a scanned tree no two items of one catalog share a number.** Territory, `id` and the dials file are the kernel's ([§1](../../kernel/CONVENTIONS.md#k1), [§6](../../kernel/CONVENTIONS.md#k6), [§7](../../kernel/CONVENTIONS.md#k7)); "listed" is the dial `catalogs` of [§7](#t7); "written through the platform's file tools" and "a scanned tree" are the honest boundaries of [§9](#t9).
+
+The advisory rules beside it, each `advisory` in its own text: (C-a) a new item takes one more than the highest number its catalog has held, deleted items included; (C-b) a number is provisional until its branch lands on the main branch and frozen from then, and an item is cited outside its branch only after it has landed; (C-c) at a collision the item on the main branch keeps its number, the other renumbers its file, its `id` and the references made on its own branch; (C-d) a catalog is listed on demand and never into a file; (C-e) a gap is never filled and never explained by a placeholder; (C-f) the full name on machine surfaces, the bare form in prose.
 
 <a id="t6"></a>
 ## 6. Artifacts (rule-to-artifact mapping)
 
-What this plugin ships and what each part carries — only components the module actually uses exist. Native-first: platform component > repo script > third-party tool > new infrastructure; every step down from a platform component names, in one clause, what the native option cannot do.
-
 | component | path | carries |
 |---|---|---|
-| skill | `skills/<name>/SKILL.md` | the procedure, loaded when the activity occurs |
-| hook | `hooks/hooks.json` + `scripts/` | deterministic enforcement of the invariant; or, as a `SessionStart` hook printing rules to stdout, the always-on carrier for advisory content — declared `advisory`, never `gate` |
-| command | `commands/<name>.md` | only for acts a human deliberately initiates — name the scenario where a human actually types it, or delete this row |
-| agent | `agents/<name>.md` | only for a genuine delegation boundary |
-| script | `scripts/<name>` | checks and generators; all paths via `${CLAUDE_PLUGIN_ROOT}`; Python 3 with PyYAML when the script reads YAML, POSIX shell otherwise; a missing runtime or library is a configuration failure ([§9](#t9)); Python scripts follow the gate-script rules below |
-| install note | `INSTALL.md` | at most one pointer line for the project's own `CLAUDE.md`, for discoverability only. Always-on rules ship via a `SessionStart` hook (see hook row), never via a pointer or a plugin-root `CLAUDE.md` (not loaded); a copy-into-CLAUDE.md fallback may be offered, labeled as manual and version-drifting |
+| hook | `hooks/hooks.json` | `PreToolUse`, matcher `Write\|Edit` (an exact-string list on the platform), exec form: `command` `sh`, `args` `["${CLAUDE_PLUGIN_ROOT}/scripts/check-catalog-item.sh"]`, timeout 30 s. The gate. |
+| script (sh) | `scripts/check-catalog-item.sh` | POSIX entry point: finds `python3`, exits 1 with the fix when it is missing, otherwise hands stdin and arguments to the Python entry point. Reads no YAML. |
+| script (py) | `scripts/check-catalog-item.py` | Thin Python entry point, parseable by any Python 3: checks the interpreter floor (3.12) and that the shared package is there, then runs the module's `start`. Its docstring is the contract: events, modes, input read, exit codes, output channels, dials read. One entry point for both of the row's moments: the hook is the write-time gate, `--scan [DIR]` the check for CI. |
+| package | `scripts/catalogs_gate/` | The module's own code, beside its entry point, imported with no path manipulation: `model` (a catalog, the numbers taken, a catalog's reach, an item, the finding keys), `messages` (its own texts), `dials` (the `catalogs` dial parsed), `checks` (the name's form, the id, a taken number, shared numbers), `history` (every Markdown name the branch ever added, for advice), `modes` (hook, scan), `start` (which gate this is). Step down from a platform component: no platform component reads a prefix and a width from a project's calibration, compares an envelope field with a file name, or knows which other files exist. Step down from an existing tool: no filename linter or decision-record tool surveyed reads a declared prefix, width and territory, and the two that validate names at all run at commit or in CI, never at the write. `mypy --strict` clean. |
+| shared code | `scripts/const_gate` → the kit's `shared/const_gate/` | A relative symbolic link to what every gate shares, described in [kit-shared-gate-code](../../shared/GATE.md). This gate resolves no policy: it builds no index and matches its own territories with the shared matcher. The platform copies what the link points at into an installed plugin; the entry file turns a missing package into the designed failure C15. |
+| dependencies | `requirements.txt` | The declared libraries (PyYAML); the preflight imports each on every invocation, and the configuration-failure message prints the one install command for this file. |
+| skill | `skills/catalog-item/SKILL.md` | Rules C-a to C-f: find the catalog, take the number from the scan's line, write the item, renumber after a collision, list and resolve by git-native commands, explain a gap, cite. Model-invocable: a numbered document is created mid-dialog. No `paths`: a territory is a runtime dial, which a static glob cannot carry. Advisory. |
+| install note | `INSTALL.md` | Requirements, the one dial that switches the check on, the YAML alias for a territory shared with a policy, the negated pattern for a file that is no item, adoption through `severity: warn`, the scan command for CI, where the output log goes, what the module does not check, no CLAUDE.md pointer. |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10): this module's numbered case records and assertions, and the shared acceptance items that apply to a gate resolving no policy, all driving the real entry point with real hook events. |
+| listing script | none | the catalog is the set of files carrying its prefix, which one git pathspec glob lists; a script would add a command-line mode to the shared code for an assist. |
+| allocation script | none | the scan already holds every item's number, so its count line names the highest; a separate mode would compute the same number twice. |
+| command | none | no act here is one a human deliberately types: numbers are taken while a document is being written. |
+| agent | none | taking a number and naming a file is one step of the dialog that writes the document, not a delegation. |
 
-Two fixed sub-slots follow the table:
+- **Always-on content:** the skill's description in the skill listing, 647 characters. No `SessionStart` hook: the rules are needed when a numbered document is written, and the gate's messages teach them at that moment.
+- **Platform facts relied on** (all verified 2026-09-20 against the official documentation; sources in the research comparison, section 7):
+  1. A `PreToolUse` command hook exiting 2 blocks the tool call and Claude sees stderr as the reason; exit 2 blocks whether or not JSON is printed. Breaks: the gate stops blocking.
+  2. `Write` input is `file_path` + `content`; `Edit` input is `file_path`, `old_string`, `new_string`, `replace_all`; `file_path` is absolute for the file tools; `Write|Edit` is an exact-string list. Breaks: locating or reconstructing the document; a Markdown write through an unmatched tool.
+  3. On exit 0, JSON on stdout is parsed: `hookSpecificOutput.additionalContext` reaches Claude, top-level `systemMessage` reaches the user; stdout that looks like JSON and fails to parse is an error notice on every exit code other than 2, so the `warn` channel prints exactly one valid object and stdout stays free of JSON otherwise. Without valid JSON, exit 1 is a non-blocking error and the action proceeds. Breaks: the `warn` channel; the visibility of a configuration failure.
+  4. All matching hooks run in parallel and every one runs to completion; the most restrictive answer applies. With the two sibling gates installed this module is a third process per matched write — observed 2026-09-20 on Claude Code 2.1.251: a record under a malformed name was blocked by this gate alone while both siblings logged green, and the corrected write was green in all three. Cost on a clone of this repository, medians of nine (macOS, Python 3.12.4): a new item 279 ms, an existing item 199 ms, a Markdown write outside every catalog 175 ms, any other write 117 ms; the scan of 28 items 259 ms. Breaks: the both-installed behaviour of [§11](#t11).
+  5. A timed-out command hook does not block the tool call, and neither does one that cannot start; the default timeout is 600 s and `timeout` is in seconds. Breaks: nothing at 30 s short of a history or a tree far past what was measured — it is item 2 of [kit-shared-gate-code §4](../../shared/GATE.md#g4).
+  6. Hook output strings are capped at 10,000 characters each; a value echoed from a document is cut at 80 characters and K3 names file paths only, so one verdict stays far below it short of hundreds of items under one number. Breaks: a `warn` payload past the cap.
+  7. Hook input carries `cwd`, `tool_name`, `tool_input`, `session_id`, and fields this gate does not read; `cwd` follows the session, so the repository root is derived from the written file's path. Breaks: root discovery.
+  8. `${CLAUDE_PLUGIN_ROOT}` is substituted in hook commands and arguments and in a plugin skill's Markdown, and exported to hook processes — but it is not in the environment of commands Claude runs through the Bash tool, which is why the skill writes the placeholder into the scan command's text. `${CLAUDE_PLUGIN_DATA}` is a persistent per-plugin directory. Only `plugin.json` lives in `.claude-plugin/`, and `name` is its only required field; skills are `/<plugin>:<skill>`. Breaks: plugin load; the skill's scan command; the default log location.
+  9. `description` plus `when_to_use` of a skill are capped at 1,536 characters in the listing. Breaks: the always-on budget.
+  10. A plugin ships nothing a forge executes: the scan reaches CI as one line of the consumer's own workflow. On GitHub the `pull_request` event checks out the merge commit, so both colliding items are in the scanned tree, and only a single commit is fetched by default — hence the shallow-clone wording of the count line. Breaks: where K3 can fire; whether history is there to read.
+  11. `git check-ignore --no-index -v -n -z --stdin` against a fresh null repository evaluates paths that do not exist yet, so a badly named new file is seen inside its catalog's territory. `git log --diff-filter=A --no-renames --name-only` lists every name ever added, a rename counting as an addition only with `--no-renames`; `git ls-files ':(icase,glob)…'` resolves a prefix in either case where the shell's and Python's globs do not. Breaks: territory verdicts; the advice about a deleted top number; the skill's resolver.
+  12. A symbolic link inside a plugin that leads elsewhere within the same marketplace is dereferenced at install; the documentation says that for a plugin loaded with `--plugin-dir` or from a local path such a link is skipped, while on Claude Code 2.1.251 a plugin loaded with `--plugin-dir` runs in place and the link resolves (observed again 2026-09-20, in both live proofs). Breaks: the shared code is missing from the install — C15, loud, exit 1.
+- **Research:** [docs/research/const-catalogs.md](../../docs/research/const-catalogs.md) (2026-09-20). Per row: [A13.1](../../docs/requirements.md#a13-1) gate at `PreToolUse` plus scan, id equal to the stem — **confirmed**. [A13.3](../../docs/requirements.md#a13-3) advisory — **confirmed**, with its finding taken up: the advice reads history so that a deleted top number is not issued again; the comparison's `--next` mode is **overturned** for the scan's count line. [A13.4](../../docs/requirements.md#a13-4) the scan in CI — **confirmed**, and extended by the write-time refusal the comparison recommended; its `--base` option is not built, since the skill's rule — the item on main keeps its number — needs no code. [A13.2](../../docs/requirements.md#a13-2) the matrix's listing script and the comparison's `--list` mode — **overturned** for a named git command: once a catalog is identified by its prefix, the comparison's objection that a command cannot read the declarations no longer holds. [A13.6](../../docs/requirements.md#a13-6) advisory — **confirmed**. [A13.7](../../docs/requirements.md#a13-7) the comparison confirmed the policy-side declaration with the dial as fallback; the decider chose the dial alone, because the policy-side key had one reader — against the kernel's own admission rule — and a gate that reads only its own namespace needs no index, no root policy, and a third of the time per write. The entries are validated by the module's own parser; no kernel schema describes a module's namespace.
 
-- **Always-on content:** the exact lines the `SessionStart` hook prints and their size in characters; or "none". This is the module's whole always-on budget.
-- **Platform facts relied on:** each fact, the date it was verified against the official documentation, and what breaks if it changes. Nothing in this slot comes from memory.
-- **Research:** a link to this module's own dated comparison in `docs/research/` — written at authoring, in kit vocabulary, from a survey of the official documentation, community harnesses, and applicable tools for exactly this module's rows — and, per row, whether the matrix's recommended enforcement was confirmed or overturned by it (decision [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md)). Nothing from earlier design work enters unverified.
+**Error messages.** Each row is one function of this module's `messages.py`, under the same key; `{…}` are its parameters and `{path}` is the document's repository-relative path. Findings are `RED`, three lines each (what failed / why the rule exists / the exact fix), followed by the shared count line. The texts every gate shares — the green and skip lines and their other reasons, the hook's count line, `W1`, the field-level parts `… missing` and `… must be a quoted string`, and the configuration failures `C1`–`C15` — are written out once, in [kit-shared-gate-code §3](../../shared/GATE.md#g3), with `{module}` standing for `const-catalogs`; this gate resolves no policy, so `G1.5`, `N1`, and `C6`–`C9` are never its lines.
 
-**Gate-script rules** (decision [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md)) — every Python script a module ships follows all sixteen; the fresh-context validation checks them:
+| key | first line | why | fix |
+|---|---|---|---|
+| K1 | `RED: {path}: file name '{stem}' is not {prefix}-<{width} digits>-<kebab-slug>, the form of catalog '{prefix}', whose territory holds this file` | an item of a numbered kind is cited by its number, and a citation resolves only when the number stands in the file's name, in one form for the whole catalog | the name to take. For a file that does not exist yet: `name the file {prefix}-{next}-<slug>.md: {prefix}-{next} is the catalog's next number, one more than the highest it has held, deleted items included; the slug is lowercase words and digits joined by '-'; then set id to that name without .md`. For a file that exists, in a scan, or once the width cannot write the next number: `name the file {prefix}-<number>-<slug>.md: the number is the catalog's highest plus one, written with exactly {width} digits, zero-padded; the slug is …; then set id to that name without .md` |
+| K2 | `RED: {path}: id {detail}` — detail one of `'{id}' differs from the file name '{stem}'`, `missing`, `must be a quoted string (YAML read it as {type})`, `cannot be read: the file does not start with a '---' line`, `cannot be read: the file's YAML block is opened with '---' but never closed`, `cannot be read: the block between the '---' lines is not readable YAML: {what YAML reported}` | a catalogued document has one identifier: its id is its file name without .md, so a reference by id and a search by file name find the same document | `set id: {stem} in the YAML block between the two '---' lines that open the file; if other documents already cite the id as it stands, rename the file to match the id instead` |
+| K3 | scan only: `RED: catalog '{prefix}': {n} items carry number {prefix}-{nnnn}: {paths}` | a number cites one item; two items under one number make every reference to it ambiguous | `an item already on the main branch keeps its number; the other takes the catalog's highest number plus one: rename its file, set its id to the new name, and rewrite the references to it made on its own branch` |
+| K4 | hook only, a file that does not exist yet: `RED: {path}: number {prefix}-{nnnn} is already carried by {holder}` | the same as K3 | `{holder} keeps its number;` then the name to take, as in K1 |
+| G1 | the green line's words for an examined document: `an item of catalog '{prefix}'`. This module's reasons of the shared skip line: `const-catalogs.catalogs lists no catalog, so no document is known to be numbered — to declare one, write const-catalogs: {catalogs: [{prefix: <lowercase letters and digits>, territory: [<patterns of the paths where the numbered documents live>], width: 4}]} in constitution.yaml`; `{path} lies in no catalog's territory ({prefixes})`. Its count tail, in the scan's green and red lines: `{i} catalogued item(s) examined, {m} Markdown file(s) scanned, {c} catalog(s): ` then per catalog `{prefix} up to {prefix}-{nnnn}` or `{prefix} none yet`, followed by `, {prefix}-{nnnn} in history` where history went further; and at the end, in a shallow clone, `; history not available in a shallow clone` | — | — |
+| C5 | this module's dial failures, `BROKEN: constitution.yaml: {detail} — fix: {fix}`: `const-catalogs.catalogs must be a list of catalogs` — `write it as const-catalogs: {catalogs: [{…}]}, or remove the key`; `entry {n} of const-catalogs.catalogs must be a mapping of prefix, lowercase letters and digits; territory, a non-empty list of path patterns; and an optional width, a whole number of at least 1 — with no other key` — `write the entry as {…}`; `const-catalogs.catalogs lists prefix '{prefix}' twice` — `one prefix names one catalog, or a number would cite two kinds: join the two entries' territories in one entry, or give one of them another prefix — before it has items, since an id never changes`. A pattern git would misread is the shared `C5.7`, under the name `const-catalogs.catalogs[{prefix}]` | — | — |
 
-1. **Shape.** The entry point is a thin file. Past about 300 lines of logic, or with a second entry point, the code is a package directory beside it, imported with no path manipulation — Python puts the script's directory on the import path. What every gate shares is not written again: `scripts/const_gate` is a relative symbolic link to the kit's one source, the module fills the interface of [kit-shared-gate-code §2](../../shared/GATE.md#g2), and the entry file turns a missing shared package into its designed configuration failure (decision [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md)). Never a sibling-script import and never a `sys.path` edit in gate code; the fixture runner alone puts the module's `scripts/` directory on the path, and says so. Package and module names are snake_case because the language requires identifiers; entry-point files stay kebab-case.
-2. **Messages.** One messages module per package: the shared package's, and the module's own for its findings, skip reasons, notes and dial failures. Each message is a function with typed parameters returning its three parts — what failed, why the rule exists, the exact fix — under the key it carries in this section's error-message table.
-3. **One exit.** `main(argv) -> int`, a single `sys.exit`, and one guard that maps the configuration exception to exit 1. The entry file's exits before any package can be imported — the interpreter floor, the missing shared package — are the only others, each printing its designed line and the count line.
-4. **Exit codes.** Named constants: 0 green, 2 finding, 1 configuration failure. Parameters are parsed with `argparse`, whose exit-2 default on bad usage is overridden to 1.
-5. **Separation.** Parsing, checking, and reporting are separate functions; a check is a function of typed inputs.
-6. **Runtime.** Plain `python3` through the POSIX entry point, never `uv run`. Floor: Python 3.12. The interpreter version and every declared library are preflighted on each invocation, before any verdict is printed.
-7. **Dependencies.** Unrestricted, but declared in `requirements.txt` at the plugin root; the configuration-failure message prints the one install command for that file. `yaml.safe_load` only.
-8. **No fail-open.** An unexpected exception exits 1 with its traceback; unparseable hook input is a configuration failure; nothing exits 0 on error. An advisory script may fail open and says so in its docstring.
-9. **Types.** Every parameter and return is annotated. Untyped data — JSON, YAML — is parsed once into dataclasses; no bare `dict`, `list` or `Any` crosses a function boundary; closed vocabularies are enums. `mypy --strict` is clean.
-10. **Docstring contract.** The entry point's docstring states the hook events, the modes, the input fields read, the exit codes, the output channels, and the dial keys read.
-11. **Hook wiring.** `hooks.json` uses the exec form (`command` plus `args`) wherever a path placeholder appears, with an explicit `timeout`.
-12. **Output log.** Every line a gate prints is also appended to a log as one JSON line: timestamp, module, gate, mode, session, stream, text. Location: the fixed dial `log_dir` ([§7](#t7)) when set — repository-relative and verified git-ignored, otherwise a configuration failure; else `${CLAUDE_PLUGIN_DATA}`; else nowhere, and stdout is the record. The log rotates at a fixed size, holds only what was printed, and a logging failure never changes the verdict — the one error a gate swallows, and the code says so. It is built on the standard library's `logging`, not a hand-made tee (decision [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md)): a `RotatingFileHandler` behind a `MemoryHandler` that holds records until the location is known, with three cautions — the logger is named and does not propagate, so no other library's line reaches stdout or stderr, which in hook mode are a protocol; the stream is the caller's choice and the level only carries it; `logging.raiseExceptions` is switched off, because its default prints a traceback to stderr, whose first line is what the user sees.
-13. **Paths.** The target path comes from the tool input, resolved against the event's `cwd`; a path escaping the repository is a visible skip.
-14. **Fixtures.** Case records — number, title, red, green, the message red must teach — numbered as in [§10](#t10), the module's own from 1 and the shared acceptance items, linked into `tests/` and run through the module's own entry point, from 101. The runner drives the real entry point with real hook events and fails a case when red does not fire, when red does not teach the expected message, or when green still fails. A property with no failing half is a separate assertion item. YAML fixture documents are rendered by the dumper, never typed as strings, unless malformed text is the point.
-15. **Absence fixtures.** Every external tool or library the gate needs has a fixture simulating its absence; the shared items cover the interpreter, git, PyYAML and the shared package itself, and a module adds one for anything more it needs.
-16. **Imports at the top.** Every import stands at the top of its module, where a reader, the type checker and the preflight see the dependency; none inside a function or a method, unless it is explicitly necessary — and then the reason is written at the import, beside the marker that silences the check. Today there is one such case: a module's two modes are imported after the preflight, because only then does a missing library become its designed message instead of a traceback. The kit's tooling holds the rule: `ruff` rule `PLC0415` (decision [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md)).
-
-Every check's **error message** is written here as part of the design — the module's own; the shared texts are written out once, in [kit-shared-gate-code §3](../../shared/GATE.md#g3), and the module's table links there — it is the highest-bandwidth channel for teaching an agent mid-session: state what failed, why the rule exists (one clause), and the exact fix. Reviewed like code; copied verbatim into the script.
-
-**Installed components reference nothing in the kit.** A skill, hook, script, command, agent, error text, or install note never cites the requirements document, the rollout plan, a matrix row, a decision record, a research comparison, or this document: consumers install the module without the kit, so every such reference dangles there. Rules are stated in those components in plain words; the reasoning lives here and in [§4](#t4).
+**Installed components reference nothing in the kit.** The skill, hook, scripts, error text, fixtures, and install note name no kit document and no policy; where the skill needs the project's own rules for a kind it says "the project's own rules for that kind". The reasoning lives here and in [§4](#t4).
 
 <a id="t7"></a>
 ## 7. Dials
 
-The module's calibration surface. Namespace = plugin name in the project's `constitution.yaml`; every dial has a default; the module works with zero configuration. A module with a write-time gate carries the fixed dial `severity` — `block` (default) or `warn` — as its first row; its repository-scan mode ignores the dial and always reports. Every gate also carries the fixed dial `log_dir` — absent by default — naming a repository-relative, git-ignored directory for its output log ([§6](#t6), gate-script rule 12).
+| dial | default | read by | meaning |
+|---|---|---|---|
+| `severity` | `block` | gate | `block`: a finding exits 2 and the write is blocked. `warn`: the finding is reported to Claude and to the user and the write proceeds — the adoption path onto a kind that already has documents. The scan ignores it. |
+| `log_dir` | absent | gate | A repository-relative directory for the output log. The gate verifies with git that the directory is ignored and reports a configuration failure otherwise. Absent: the log goes to the platform's per-plugin data directory; where that is absent too (CI), nowhere, and stdout is the record. |
+| `catalogs` | `[]` | gate, skill | The numbered kinds: a list of `{prefix, territory, width}`. `prefix` lowercase letters and digits, unique in the list; `territory` a non-empty list of path patterns in the dials file's dialect; `width` a whole number of at least 1, default 4. Empty: nothing is examined and every run says so. |
 
-| dial | default | meaning |
-|---|---|---|
-| `<dial>` | `<value>` | one line |
+The gate validates every key it reads at each read. Nothing else of the dials file is this module's: it reads no policy's namespace and needs no `root_policy` — though the file as a whole is still validated as every gate validates it ([kernel §6](../../kernel/CONVENTIONS.md#k6)), so a malformed territory under a policy's id is a configuration failure here too.
 
 <a id="t8"></a>
 ## 8. Boundary examples
 
-For every judgment-based boundary the module introduces (including its slice of the routine/product stakes line, if any): 3–4 contrastive pairs (violates / complies), numbered. The examples are the definition; no abstract criteria. The project's own pairs arrive through dials.
+The name, the id and uniqueness are deterministic and need no examples; the fixtures of [§10](#t10) are their contrastive pairs. The judgment the module introduces is the skill's.
+
+**Which number (C-a):**
+
+1. The scan says `dec up to dec-0028` → the new item is 29 / *not* 12, though 12 is free: a gap is somebody's deleted or renumbered item.
+2. The scan says `dec up to dec-0028, dec-0031 in history` → 32 / *not* 29: 29 to 31 were held once, and somebody may still cite them.
+
+**Provisional or frozen (C-b):**
+
+3. An item written on a branch an hour ago, cited in the same branch's other documents → fine / cited in a message to another team, or in another repository → *not yet*: the number may still change at the pull request.
+4. An item that landed on the main branch last week → its number is frozen; a collision is the other item's to repair / *not* "mine is older by commit date, so the one on main moves".
+
+**Who renumbers, and what is rewritten (C-c):**
+
+5. The scan at a pull request reports two items under one number, one of them already on the main branch → the branch's own item takes the next number, its file, its `id` and the references made on that branch change / *not* a search-and-replace across the repository: a reference outside the branch means the other item.
+
+**Listing (C-d) and gaps (C-e):**
+
+6. "What decisions do we have?" → the listing command, read and answered in the dialog / *not* an `INDEX.md` written into the territory: it drifts from the files on the next write, and the gate would block its name anyway.
+7. Number 14 is missing → `git log` says what it was / *not* a placeholder `dec-0014-deleted.md`, and not a new item under 14.
+
+**Citing (C-f):**
+
+8. A link target or an envelope field → the full name, `<prefix>-0007-<slug>` / a sentence in a review comment → the bare `<PREFIX>-0007` is fine.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
 
-For each artifact: `gate` (deterministic — hook or script, red means fix) or `advisory` (judgment-shaping — skill prose, suggestions in review). Nothing advisory is dressed as a gate. A deterministic check whose blocking is a dial is a `gate` with its severity dial named — the check is still deterministic. For a write-time gate that dial is `severity` ([§7](#t7)): `warn` reports the finding and lets the write through, the adoption path onto a repository with legacy documents; the default `block` keeps the gate a gate. Then the **honest limits**: every path the gate does not see (a tool that bypasses the hook's event, a moment outside its trigger), each with its backstop.
+| artifact | kind |
+|---|---|
+| hook + `check-catalog-item.sh` + `check-catalog-item.py` (hook mode): K1, K2, K4 | `gate`, severity dial `severity` (`block` default; `warn` reports and lets the write through) |
+| `check-catalog-item.py --scan`: K1, K2, K3 | `gate`, always blocking (exit 2), ignores `severity` |
+| the next number named in K1's and K4's fix and in the scan's count line | `advisory` — deterministic arithmetic over the working tree and the history at hand, carried inside a gate's message; no verdict depends on it, and a number other than the one named passes when it is free |
+| skill `catalog-item` | `advisory` |
 
-**Exit-code contract** for every check: a finding (the repository is wrong) and a configuration failure (the checker is broken, a pinned tool is missing, the invocation is malformed) are distinct exit codes with distinct messages, so a reader never mistakes one for the other. A missing tool is loud, never a silent pass; a check that could not run reports that it could not run.
+**Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time when several gates block — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–12, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
+
+1. **Off until listed.** With `catalogs` empty the gate examines nothing. Backstop: every run prints `0 documents examined` with the entry to write; a profile can prewrite the dial.
+2. **A rename is not a write.** `git mv` and a rename through the shell never reach the hook, so an item can lose its form, or take a carried number, unseen. Backstop: the scan; the skill's last step.
+3. **A silently deleted item is not detected, and a gap may be filled.** Gaps are legitimate ([kernel §1](../../kernel/CONVENTIONS.md#k1): a document nothing should reference is deleted), so no continuity is checked, and the gate lets a free number below the highest through — it cannot tell a deleted item's number from one renumbered away before it landed. Backstop: the advice never names such a number; branch review and `git log`.
+4. **A file carrying a prefix outside its catalog's territory is invisible to the gate** and is listed by the skill's prefix glob; an item whose name lacks the form is in the territory and not in that listing. Backstop: the scan reports the second; review catches the first.
+5. **Collisions across branches are seen only where both branches meet:** in the scan of a merged tree. Two pull requests that are each green apart can both land where the forge does not require a branch to be up to date. Backstop: the scan on the main branch after every merge; a protected branch that requires up-to-date checks.
+6. **A reference to a provisional number from another branch breaks at renumbering.** Backstop: rule C-b; K3 names every file of the collision, so the renumbered name is one `git log` away.
+7. **History is read where it exists.** A shallow clone, a repository with no commit yet, and a history rewritten or squashed give the working tree's answer; a name of the catalog's form added anywhere in the repository counts, which can only skip a number. Backstop: the count line says when a clone is shallow; skipping is harmless, since gaps are legitimate.
+8. **The width is a ceiling.** Past the last number `width` digits can write, the fix falls back to words and names no file; widening a catalog renames every item. Backstop: width 4 holds 9,999 items; the choice is made once, with the prefix.
+9. **An existing item is never judged on its number at write time,** so two items that already collide can both be edited until the scan is run. Backstop: K3.
+10. **The rest of the envelope, and which policy governs an item, are not judged.** Backstop: module `const-meta-types`; alone, this module lets them through, and the install note says so.
+11. **Everything in a territory is an item:** a README there is blocked for its name. Backstop: a negated pattern takes the file out, and the install note says how.
+
+**Exit-code contract** (both modes): `0` green or nothing examined (the count line says which); `2` finding — the repository is wrong; `1` configuration failure — the checker could not run (missing or too-old interpreter, missing library, malformed dials file, a malformed `catalogs` entry or a prefix listed twice, the shared code missing from the install, git absent, a log directory git does not ignore, unparseable hook input, a bad argument, or an unexpected exception, whose traceback is printed). Nothing exits 0 on error. A git that cannot list history is none of these: history is advice, and its absence is the working tree's answer.
 
 <a id="t10"></a>
 ## 10. Acceptance
 
-For each gate: the red→green fixture proving it (a fixture that fails without the check, passes with it) and its path under `tests/` ([law 7 of CLAUDE.md](../../CLAUDE.md#law-7)), plus one fixture showing the exit-code split of [§9](#t9) (a missing tool or malformed invocation exits differently from a finding). For each advisory rule: the boundary examples above stand as its acceptance. Each item labeled by verification kind: `fixture` (bare temp repo), `live` (a consumer project, plugin loaded from this repo), `review` (the human, at the one yes).
+Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries). It builds the shared three-policy consumer in a temporary git repository, fresh for every half of every case, lists one catalog over a territory no policy claims, and drives the real entry point — POSIX wrapper, stdin, exit code — with real `PreToolUse` events. A red→green case fails when its red half does not exit 2, when red does not teach the expected message — all three lines, compared with what the `messages` function returns — or when its green half does not pass. A configuration-failure assertion requires exit 1 and the `BROKEN` line as the first stderr line. Items T1–T56 and the shared items carry the numbers the runner prints; item documents are rendered through the YAML dumper, malformed ones typed on purpose.
 
-**Examined count.** Every check reports how many items it examined in its green and red output alike. Zero is a visible count, never a failure and never a silent green: a check that inspected nothing must say so, because a vacuous green read as permission is the failure this rule exists for.
+| item | kind | what it proves |
+|---|---|---|
+| T1–T5, T13 | fixture, red→green | K1: no number, a wrong width, an uppercase prefix, no slug, a slug that is not kebab-case; the width an entry declares is the width required. Each red half is a new file, so each teaches the next number by name |
+| T6–T12 | fixture, red→green | K2: an id that differs, a missing id, an id YAML reads as a number, no envelope, an unclosed one, one that is not YAML; an `Edit` that moves the id away from the name is blocked on the reconstructed result, one in the body passes |
+| T42 | fixture, red→green | K4: a new item under a carried number is blocked, the holder and the next number named; the next number passes |
+| T14–T16 | fixture, assertion | what is and is not an item: no catalog listed (hook and scan) prints the teaching zero; a document in no catalog's territory is a visible skip |
+| T17–T21 | fixture, assertion | independence of policies: a dials file with no `root_policy` and no policy at all, red and green halves; a root policy named and missing; a catalog inside a policy's territory; one territory written once and used by a policy and a catalog through a YAML alias |
+| T22–T23 | fixture, assertion | the rest of the envelope is not judged; `width` defaults to four |
+| T24–T28 | fixture, assertion | this module's dial failures, each exit 1, never 2, never 0: `catalogs` not a list; an entry malformed thirteen ways, named by its position; a pattern git would read as a comment; one prefix listed twice, in the hook and in the scan |
+| T29–T31 | fixture, assertion | two catalogs keep one sequence each; where two territories hold one file the prefix carried decides, else the first listed |
+| T32, T36 | fixture, assertion | `severity: warn` carries the finding in one JSON object and lets the write through; the scan ignores it |
+| T33–T35, T37–T39, T49 | fixture, assertion | the scan — K3's red and green halves, two items under one number and the renumbered pair; a gap is green; a malformed name is one finding and no part of a collision; a tracked file deleted from the working tree is left out; 300 items in seconds; a listed catalog with no item is named `none yet` |
+| T43–T48 | fixture, assertion | the write-time number: an existing item is never judged on it; an untracked item holds its number; an `Edit` that creates a file is a new item; a free number below the highest passes; the next number is named after a gap (10 after 1 and 9); the width exhausted falls back to words |
+| T50–T56 | fixture, assertion | history as advice: a deleted top number is not named again, in K1 and in K4; the deleted number itself still passes; the scan's line names history where it went further; a name an item was renamed to counts as added — seen to fail without `--no-renames`; a shallow clone says so; a repository with no commit fails nothing |
+| T40–T41 | fixture, assertion | a value a page long is echoed cut; every taught finding carries what, why, fix |
+| S101–S150 less six | fixture, assertion | the shared acceptance items of [kit-shared-gate-code §5](../../shared/GATE.md#g5), run through this module's entry point; S107–S110, S129 and S149 are about the root policy and the policies' documents, which this gate does not read, and are left out — T17–T19 prove the opposite property in their place |
+| T60 | live | the scan over this repository (consumer zero), its catalog listed in the kit's own dials with the records policy's territory by alias: every kit decision record green, the counts and the catalog's reach printed (`… 1 catalog(s): dec up to dec-0029` on 2026-09-20) |
+| T61 | live | the plugin loaded in a headless session in this repository via `--plugin-dir`: a new record under the carried number 28 blocked with K4 and the file not created; the corrected write landed as number 29; the log written; the skill reachable under the plugin's name |
+| T62 | live | all three modules loaded together: a record named without the form is blocked by this gate alone, K1 naming number 29, while both siblings log green; the corrected write is green in all three |
+| T63 | review | the pairs of [§8](#t8), the skill, the install note and the error texts of [§6](#t6), at the one yes; the listing command's output on a three-item catalog |
+| T64 | live, deferred to the consumer's bootstrap | the consumer-live proof: the consumer's first numbered document is written through the skill, under the gate, from an install that carries the shared code; the scan wired into its CI |
+
+**Examined count.** Every exit prints it: hook mode `1 document examined, an item of catalog '…'` or `0 documents examined — <reason>`; scan mode catalogued items, Markdown files scanned, catalogs and each one's reach; `BROKEN` prints `0 documents examined`.
 
 <a id="t11"></a>
 ## 11. Siblings
 
-**Depends on:** the kernel sections used — nothing else. Then the kernel-alone statement: what the module does on a bare repository with the kernel only. Then each optional enhancement as "when module `const-<x>` is installed, …". A concept this module needs from a sibling is a kernel candidate, raised as a `process` decision, never coupled.
+**Depends on:** [kernel §1](../../kernel/CONVENTIONS.md#k1) (the envelope's `id`, never reused, and the deletion rule that makes gaps legitimate), [§6](../../kernel/CONVENTIONS.md#k6) (the dials file, the module's own namespace, the territory dialect, portability), [§7](../../kernel/CONVENTIONS.md#k7) (naming: kebab-case ids and file names). Nothing else — not [§3](../../kernel/CONVENTIONS.md#k3): a catalog's territory says where numbering applies and binds no document to a policy.
+
+**Kernel alone:** on a bare repository with no `constitution.yaml` every write passes with a visible zero count, and the skill explains how a kind becomes numbered; with a dials file that lists a catalog — and nothing else in it — every Markdown write into that territory is checked for its name, its id and its number, and the scan runs.
+
+**Optional enhancements:**
+
+1. When module `const-meta-types` is installed, the rest of an item's envelope and its governing policy are guarded there; this gate and that one both report an envelope that cannot be read, each for its own field.
+2. When module `const-decision-records` is installed and a catalog's territory holds the records, its skill takes a record's number from this module's procedure.
+3. When module `const-locations` is installed, its creation command hands the kind's home and template to the writing step of this module's skill.
+4. When module `const-referencing` is installed, the reference forms of rule C-f become lint rules there.
 
 <a id="t12"></a>
 ## 12. Deferred
 
-What this module deliberately does not ship yet, each with the friction signal that would earn it. Nothing here is a hidden requirement: a deferred item has no matrix row, or its row is marked deferred there.
-
----
-
-# Plugin skeleton
-
-```
-const-<aspect-name>/
-├── .claude-plugin/
-│   └── plugin.json          # manifest — the ONLY file inside .claude-plugin/; version 0.0.x while draft
-├── MODULE.md                # this document, filled in
-├── INSTALL.md               # install/uninstall notes; the one CLAUDE.md pointer line if any
-├── skills/
-│   └── <name>/SKILL.md      # optional
-├── commands/<name>.md       # optional
-├── agents/<name>.md         # optional
-├── hooks/hooks.json         # optional
-├── scripts/                 # optional; reference via ${CLAUDE_PLUGIN_ROOT}
-│   ├── const_gate -> ../../../shared/const_gate   # a gate only: the shared code, by relative link
-│   └── <module>_gate/       # the module's own package: model, messages, checks, modes, start
-└── tests/                   # harness.py, consumer.py, shared_items.py linked from shared/tests/; one red→green fixture per gate ([law 7 of CLAUDE.md](../../CLAUDE.md#law-7))
-```
-
-Kebab-case everywhere. Only plugin.json lives inside `.claude-plugin/`; every component directory sits at plugin root. Verify the manifest fields against the current plugin reference at authoring time.
+1. **A catalog declared by naming a policy** — an entry with `policy: <id>` in place of `territory`, the territory then being the policy's. Signal: a consumer commit note about a catalog's territory that drifted from its kind's policy despite the YAML alias.
+2. **`--list` and `--next` modes of the script.** Signal: consumers report the prefix glob as too loose — stray files listed, malformed items missed — or the count line as too awkward to read a number from; it needs module-defined modes in the shared command line.
+3. **Refusing, at write time, a number that history held.** It would make one write red in a full clone and green in a shallow one. Signal: re-issued numbers landing despite the advice.
+4. **A `--base <ref>` option naming which item of a collision is frozen.** Signal: renumbering disputes the skill's rule does not settle.
+5. **Non-Markdown items, and a continuity report.** The first needs an id outside an envelope; the second contradicts the deletion rule. Signal: a consumer numbering files of another type; none foreseen for the second.
+6. **Windows without a POSIX shell or without symlink support; performance past the 30 s timeout; other Markdown extensions** — deferred for every gate alike; the signal is a consumer on Windows, the timeout hit, a governed document with another extension.
