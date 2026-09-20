@@ -389,7 +389,14 @@ def two_catalogs() -> tuple[bool, str]:
     """Two kinds, two prefixes, one sequence each: the same number in both is no collision."""
     patch = catalogs(entry(), entry("note", ["docs/notes/**"]))
     files = {ITEM_A: item(), "docs/notes/note-0001-first.md": item("note-0001-first")}
-    return expect(scan_of(files, patch), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, 2)), "stdout")
+    return expect(
+        scan_of(files, patch),
+        0,
+        shared.g1_green_scan(
+            messages.f9_scan_tail(2, 5, [(CATALOG, 1), (Catalog("note", 4, ("docs/notes/**",)), 1)])
+        ),
+        "stdout",
+    )
 
 
 def overlap_takes_the_prefix_carried() -> tuple[bool, str]:
@@ -427,7 +434,7 @@ K3 = messages.k3_number_shared(CATALOG, 1, [ITEM_A, at("itm-0001-second")])
 def scan_collision() -> tuple[bool, str]:
     """The red half of the uniqueness gate: two items under one number."""
     result = scan_of(COLLIDING)
-    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 6, 1))
+    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 6, [(CATALOG, 2)]))
     ok = result.code == 2 and K3.render() in result.stdout and count in result.stdout
     return (
         ok,
@@ -442,12 +449,23 @@ def scan_renumbered() -> tuple[bool, str]:
         at("itm-0003-second"): item("itm-0003-second"),
         at("itm-0002-third"): item("itm-0002-third"),
     }
-    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(3, 6, 1)), "stdout")
+    return expect(
+        scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(3, 6, [(CATALOG, 3)])), "stdout"
+    )
 
 
 def scan_gap_is_legitimate() -> tuple[bool, str]:
     files = {ITEM_A: item(), at("itm-0009-ninth"): item("itm-0009-ninth")}
-    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, 1)), "stdout")
+    return expect(
+        scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, [(CATALOG, 9)])), "stdout"
+    )
+
+
+def scan_empty_catalog() -> tuple[bool, str]:
+    """A listed catalog with no item yet is named as such: a visible zero, and the first number is 1."""
+    return expect(
+        scan_of({}), 0, shared.g1_green_scan(messages.f9_scan_tail(0, 3, [(CATALOG, None)])), "stdout"
+    )
 
 
 def scan_ignores_warn() -> tuple[bool, str]:
@@ -458,7 +476,7 @@ def scan_ignores_warn() -> tuple[bool, str]:
 def scan_name_and_number() -> tuple[bool, str]:
     """An item whose name carries no number is one finding and takes no part in the collision check."""
     result = scan_of({**COLLIDING, at("first"): item("first")})
-    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 7, 1))
+    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 7, [(CATALOG, 2)]))
     taught = (k1("first", free=None).render(), K3.render(), count)
     ok = result.code == 2 and all(text in result.stdout for text in taught)
     return ok, f"exit {result.code}: two findings, four items"
@@ -469,7 +487,7 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     consumer = H.fresh_consumer((*SETUP, VALID, Write(at("itm-0002-second"), item("itm-0002-second"))))
     (consumer.root / ITEM_A).unlink()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, 1)), "stdout")
+    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [(CATALOG, 2)])), "stdout")
 
 
 def scan_scales() -> tuple[bool, str]:
@@ -620,6 +638,7 @@ ASSERTIONS = [
         47, "K1 for a new file names the next free number: 10 after 1 and 9", next_free_number_is_named
     ),
     Assertion(48, "the width exhausted: the fix is in words, no name is invented", width_exhausted),
+    Assertion(49, "scan: a listed catalog with no item yet is named, with a zero count", scan_empty_catalog),
 ]
 
 

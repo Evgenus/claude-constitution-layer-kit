@@ -126,8 +126,19 @@ def g1_item_of(catalog: Catalog) -> str:
     return f"an item of catalog '{catalog.prefix}'"
 
 
-def f9_scan_tail(items: int, scanned: int, catalogs: int) -> str:
-    return f"{items} catalogued item(s) examined, {scanned} Markdown file(s) scanned, {catalogs} catalog(s)"
+def f9_scan_tail(items: int, scanned: int, highest: Sequence[tuple[Catalog, int | None]]) -> str:
+    """`highest` pairs every listed catalog with the highest number its items carry in the
+    working tree, None while it has none: the number a new item's is one more than."""
+    reached = ", ".join(
+        f"{catalog.prefix} up to {catalog.written(number)}"
+        if number is not None
+        else f"{catalog.prefix} none yet"
+        for catalog, number in highest
+    )
+    return (
+        f"{items} catalogued item(s) examined, {scanned} Markdown file(s) scanned,"
+        f" {len(highest)} catalog(s): {reached}"
+    )
 
 
 def g1_skip_no_catalog() -> str:

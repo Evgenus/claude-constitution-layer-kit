@@ -56,7 +56,14 @@ def scan_mode(output: Output, start: Path) -> int:
         by_path = _catalogs_by_path(matcher, catalogs, paths)
     items = [examine(catalog, rel, _text(target.root, rel)) for rel, catalog in sorted(by_path.items())]
     findings = [finding for item in items for finding in item.findings] + shared_numbers(items)
-    tail = messages.f9_scan_tail(len(items), len(paths), len(catalogs))
+    highest = [
+        (
+            catalog,
+            max((i.number for i in items if i.catalog == catalog and i.number is not None), default=None),
+        )
+        for catalog in catalogs
+    ]
+    tail = messages.f9_scan_tail(len(items), len(paths), highest)
     return pipeline.report_scan(output, findings, (), tail)
 
 
