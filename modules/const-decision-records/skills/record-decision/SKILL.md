@@ -98,7 +98,9 @@ blocker.
 Write a **new** record that names the old one and says what replaces it. Never edit the old
 record's ruling, stakes or decider in place: the old record is evidence of its moment. The
 only in-place edit of a closed record is mechanical — a typo, or rewriting how it cites
-other documents — with the commit message saying so.
+other documents — with the commit message saying so. A record is closed by the yes or the
+review its stakes ask for: until then the findings of that review may still amend it — an
+item tightened, added or withdrawn — and the commit message says so.
 
 ## 5. Before you finish
 

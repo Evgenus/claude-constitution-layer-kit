@@ -56,7 +56,7 @@ C, by Eugene Chernyshov in chat on 2026-09-20, with both proposed defaults accep
 14. **R14.** This reverses two words of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md): its items 5 and 6 called the carry list and the carry check advisory. The list's shape is now gated and the audit mandatory; what that record called judgment stays judgment. It also widens its item 5: beside carried and "history only" there is "pending".
 15. **R15.** Built on the day: the script and the skill in commit `5ae8c34`; the "pending" form and the kit skills as a home were added when this record's own item R11 could not otherwise be listed; the audit of this change, pinned to `b3db68c`, then found the rest — among it a fix text that could never turn the gate green, a receipt that accepted a pin older than the record, and a rule 5 that contradicted the kernel; a confirming reader pinned to `bb6c324` found nine more defects in those fixes, among them a kernel term stretched to cover the rewriting of a pending entry, which is why R6 now says the entry is never rewritten.
 
-16. **R16.** Until its yes a record is a proposal: the fixes of its audit may amend it in place, and the commit says so. From its yes on it is edited only as the kernel allows. This record was so amended by each round of its audit.
+16. **R16.** Until its yes the fixes of its audit may amend a record in place, and the commit says so. The third round of this record's audit found that no text allowed it; the decider made it the kernel's rule in [dec-0031-record-amended-until-its-yes](dec-0031-record-amended-until-its-yes.md). This record was so amended by each round of its audit.
 17. **R17.** A finding is fixed, or justified in a commit message of the change. When fixes follow an audit, a confirming reader is pinned to the commit that holds them and asked only what the fixes broke, repeated while a pass finds a defect; the receipt names the last pin and counts the findings of every round.
 
 ## Carry list
@@ -70,5 +70,6 @@ C, by Eugene Chernyshov in chat on 2026-09-20, with both proposed defaults accep
 7. R11, R13 — pending: [the rollout plan](../rollout-plan.md), step 10.
 8. R14 — history only: what it says of the earlier record is a fact of this day; the rules themselves are R1, R4, R6 and R10.
 9. R15 — history only: what was built on the day.
-10. R12, R16 — [kit-decision-records](../policies/kit-decision-records.md), rule 5.
+10. R12 — [kit-decision-records](../policies/kit-decision-records.md), rule 5.
+12. R16 — [kernel §5](../../kernel/CONVENTIONS.md#k5); [kit-decision-records](../policies/kit-decision-records.md), rule 5.
 11. R17 — [kit-decision-records](../policies/kit-decision-records.md), rules 2 and 5; steps 6 to 8 and prompt D of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
