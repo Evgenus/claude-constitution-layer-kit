@@ -1,7 +1,7 @@
 ---
 id: dec-0031-record-amended-until-its-yes
 type: task-record
-title: Kernel §5 — until the yes or the review its stakes ask for, a record may be amended in place by the findings of that review
+title: Kernel §5 — until the yes or the review its stakes ask for, whatever examines a record may still correct it in place
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
@@ -43,14 +43,14 @@ B, by Eugene Chernyshov in chat on 2026-09-21.
 4. **R4.** The other case, at any time, is the mechanical edit, which leaves every ruling untouched: a typo, or a reference-form migration. The typo is new to the kernel's text and old in practice — the consumers' procedure has allowed it since [dec-0024-decision-records-module-rulings](dec-0024-decision-records-module-rulings.md), which believed the kernel already did.
 5. **R5.** Past the window, reversing or changing a ruling is a new record, never an in-place edit. This narrows two earlier rulings without reversing them: "records are never edited in place" of [dec-0002-status-encodes-lifecycle](dec-0002-status-encodes-lifecycle.md), and the single in-place edit of [dec-0005-reference-forms](dec-0005-reference-forms.md), sub-decision 3.
 6. **R6.** The kernel gives no reason clause and no second clock: the first wording said a decision "is not whole" before its yes and that the record is "evidence of its moment" from then on, which read against "operative when committed" and against the lifecycle rule of [kernel §1](../../kernel/CONVENTIONS.md#k1). Both clauses are gone.
-7. **R7.** What follows in the kit: the comment on `status` in the kernel's frontmatter schema no longer says records are never edited in place; [requirement A5.6](../requirements.md#a5-6) no longer limits a reference-form migration to an inactive record; rule 4 of the decision-record policy speaks of a ruling past its yes, and rule 5 points at the kernel, names the validation and the carry audit as what may correct a kit record, and says records below `0030` are accepted; item R16 of [dec-0030-carry-audit-mandatory](dec-0030-carry-audit-mandatory.md) says where the rule lives.
-8. **R8.** The consumers' procedure says the same: in module `const-decision-records`, section 4 of the skill `record-decision` tells an author what may be corrected before a record is accepted and what after; the module's document states it as advisory rule R-e, as boundary pair 11, and defines "closed record" once, as an accepted one. The module is unpublished at `0.0.1`, so no version changes.
+7. **R7.** What follows in the kit: the comment on `status` in the kernel's frontmatter schema no longer says records are never edited in place; [requirement A5.6](../requirements.md#a5-6) no longer limits a reference-form migration to an inactive record; rule 4 of the decision-record policy speaks of a ruling past its yes, and rule 5 points at the kernel, names the validation and the carry audit as what may correct a kit record, and says records below `0030` are accepted; step 7 of the carry-audit skill points at the kernel; item R16 of [dec-0030-carry-audit-mandatory](dec-0030-carry-audit-mandatory.md) says where the rule lives.
+8. **R8.** The consumers' procedure says the same: in module `const-decision-records`, section 4 of the skill `record-decision` tells an author what may be corrected before a record is accepted and what after; the module's document states it as advisory rule R-e, as boundary pair 11, and says "accepted record" where it had said "closed", a word the kernel keeps for a task set `inactive`. The module is unpublished at `0.0.1`, so no version changes.
 9. **R9.** A change to the kernel: the carry audit was run in full over every record before this record's yes, and its findings rewrote items R1 to R8.
 
 ## Carry list
 
 1. R1, R2, R3, R4, R5 — [kernel §5](../../kernel/CONVENTIONS.md#k5), read with the ceremony table of [kernel §4](../../kernel/CONVENTIONS.md#k4).
 2. R6 — history only: what the kernel no longer says.
-3. R7 — [the frontmatter schema](../../kernel/schemas/document-frontmatter.schema.json); [requirement A5.6](../requirements.md#a5-6); [kit-decision-records](../policies/kit-decision-records.md), rules 4 and 5.
+3. R7 — [the frontmatter schema](../../kernel/schemas/document-frontmatter.schema.json); [requirement A5.6](../requirements.md#a5-6); [kit-decision-records](../policies/kit-decision-records.md), rules 4 and 5; step 7 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
 4. R8 — [the record-decision skill](../../modules/const-decision-records/skills/record-decision/SKILL.md), section 4; [the module's document](../../modules/const-decision-records/MODULE.md), sections 5 and 8.
 5. R9 — history only: the audit of this change; the rule that asks for it is rule 2 of [kit-decision-records](../policies/kit-decision-records.md).

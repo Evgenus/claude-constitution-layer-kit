@@ -104,8 +104,8 @@ neither and is accepted when committed.
   withdrawn. Correct the documents it changed in the same commit, and say so in the commit
   message.
 - **Once it is accepted,** write a **new** record that names the old one and says what
-  replaces it. Never edit the old record's ruling, stakes or decider in place: the old record
-  is evidence of its moment. The only in-place edit left is mechanical — a typo, or rewriting
+  replaces it. Never edit the old record's ruling, stakes or decider in place. The only
+  in-place edit left is mechanical — a typo, or rewriting
   how it cites other documents — with the commit message saying so.
 
 ## 5. Before you finish

@@ -42,7 +42,7 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
    commit message of the change — in the pull request once the kit has one.
 7. **Read the fixes again.** Fixes made in a hurry break things. Commit them,
    pin a confirming reader to that commit — prompt D — and repeat while a pass finds a defect. Until
-   its yes the fixes may amend the record in place, and the commit says so
+   its yes the fixes may correct the record in place, and the commit says so
    ([kernel §5](../../../kernel/CONVENTIONS.md#k5)).
 8. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
    beside the attribution line:
