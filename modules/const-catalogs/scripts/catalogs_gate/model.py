@@ -32,7 +32,17 @@ class Advice(StrEnum):
     NEXT = "next"  # a new file: the catalog's next number
     KEEP = "keep"  # a file that exists and whose name shows its number: that number, in the form
     FULL = "full"  # a new file, and the width cannot write the next number
+    WIDE = "wide"  # a file that exists and shows a number the width cannot write
+    CONTESTED = "contested"  # a file that exists and shows a number another file shows too
     WORDS = "words"  # a file that exists and shows no number: the rule, in words
+
+
+class Read(StrEnum):
+    """How much of history was read."""
+
+    ALL = "all"  # every commit of the branch — or there is no commit yet, and nothing was ever added
+    SHALLOW = "shallow"  # what a shallow clone holds: a part
+    NOT = "not"  # nothing: the clock ran out, or git failed or gave an answer nobody expects
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,13 +60,15 @@ class Catalog:
         found = _form(self.prefix, self.width).fullmatch(stem)
         return int(found.group(1)) if found else None
 
-    def number_hinted(self, stem: str) -> int | None:
+    def number_shown(self, stem: str) -> int | None:
         """The number a name shows though it may lack the form — another case, another width, no
-        slug — as long as the width can write it. Advice rests on this, never a verdict: a legacy
-        item keeps the number it is cited by, and the next number goes above every number shown."""
+        slug. Advice rests on this, never a verdict: a legacy item keeps the number it is cited
+        by, and the next number goes above every number shown."""
         found = _hint(self.prefix).match(stem)
-        number = int(found.group(1)) if found else None
-        return number if number is not None and number < 10**self.width else None
+        return int(found.group(1)) if found else None
+
+    def can_write(self, number: int) -> bool:
+        return len(str(number)) <= self.width
 
     def written(self, number: int) -> str:
         return f"{self.prefix}-{number:0{self.width}d}"
@@ -88,7 +100,7 @@ class Taken:
         """The number to name to a new item: one more than the highest the catalog has held, in
         the working tree or in history; None once the width cannot write it."""
         number = max(self.shown or 0, self.in_history or 0) + 1
-        return number if number < 10**self.catalog.width else None
+        return number if self.catalog.can_write(number) else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +110,7 @@ class NameToTake:
     advice: Advice
     number: int | None = None
     history_read: bool = True
+    other: str = ""  # CONTESTED: the other file that shows the number
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +120,11 @@ class Reach:
     catalog: Catalog
     in_tree: int | None
     in_history: int | None
+
+    @property
+    def full(self) -> bool:
+        highest = max(self.in_tree or 0, self.in_history or 0)
+        return not self.catalog.can_write(highest + 1)
 
 
 @dataclass(frozen=True, slots=True)

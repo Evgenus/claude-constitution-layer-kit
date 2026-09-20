@@ -28,7 +28,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
 
 from catalogs_gate import messages, start  # noqa: E402
-from catalogs_gate.model import Advice, Catalog, NameToTake, Reach  # noqa: E402
+from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read  # noqa: E402
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
 from const_gate.envelope import yaml_error_line  # noqa: E402
@@ -624,17 +624,17 @@ def shallow_clone_says_so() -> tuple[bool, str]:
         ["git", "clone", "-q", "--depth", "1", source, str(clone)], check=True, capture_output=True
     )
     result = H.run_gate("", args=["--scan", str(clone)])
-    tail = messages.f9_scan_tail(1, 4, [reach(1)], shallow=True)
+    tail = messages.f9_scan_tail(1, 4, [reach(1)], Read.SHALLOW)
     return expect(result, 0, shared.g1_green_scan(tail), "stdout")
 
 
 def repository_without_a_commit() -> tuple[bool, str]:
-    """No commit yet, so no history to read: the advice is the working tree's and says so; nothing fails."""
+    """No commit yet: nothing was ever added, so the history is complete, and nothing fails."""
     consumer = Consumer(H.scratch_dir())
     consumer.write("constitution.yaml", dials_text())
     consumer.git("init", "-q")
     result = H.run_gate(event_json(consumer.root, Write(at("first"), item("first"))))
-    return expect(result, 2, k1("first", take=take_next(1, history_read=False)).render(), "stderr")
+    return expect(result, 2, k1("first").render(), "stderr")
 
 
 def shallow_clone_hook_says_so() -> tuple[bool, str]:
@@ -648,31 +648,116 @@ def shallow_clone_hook_says_so() -> tuple[bool, str]:
     return expect(result, 2, k1("third", take=take_next(2, history_read=False)).render(), "stderr")
 
 
+def fake_git(on_log: str = ":", on_verify: str = ":") -> tuple[dict[str, str], Path]:
+    """A PATH that holds python3, dirname and a git that notes every `log` call in a file, does
+    `on_log` then, does `on_verify` when asked whether HEAD exists, and is the real git otherwise.
+    Returns the environment and the file of calls — a file, because the gate captures what its
+    git prints, so nothing a fake writes to stderr would ever reach this runner."""
+    directory = H.scratch_dir()
+    calls = directory / "calls"
+    for tool in ("python3", "dirname"):
+        source = os.path.realpath(sys.executable) if tool == "python3" else shutil.which(tool)
+        assert source, tool
+        os.symlink(source, directory / tool)
+    script = (
+        "#!/bin/sh\n"
+        'for a in "$@"; do\n'
+        f'  if [ "$a" = log ]; then echo log >> "{calls}"; {on_log}; fi\n'
+        f'  if [ "$a" = --verify ]; then {on_verify}; fi\n'
+        "done\n"
+        f'exec "{shutil.which("git")}" "$@"\n'
+    )
+    (directory / "git").write_text(script)
+    (directory / "git").chmod(0o755)
+    return {"PATH": str(directory)}, calls
+
+
+NOT_READ = take_next(1, history_read=False)
+BLOCKED = Write(at("first"), item("first"))
+
+
 def history_is_read_only_for_a_fix() -> tuple[bool, str]:
-    """A green write never reads history: with a git that fails on `log`, a valid new item still passes."""
+    """A green write never reads history; a blocked one reads it once, and says so when git fails."""
     consumer = H.fresh_consumer(SETUP)
-    wrapper = H.scratch_dir()
-    real = shutil.which("git") or "git"
-    refuse_log = 'for a in "$@"; do [ "$a" = log ] && { echo "log was called" >&2; exit 97; }; done'
-    script = f'#!/bin/sh\n{refuse_log}\nexec "{real}" "$@"\n'
-    (wrapper / "git").write_text(script)
-    (wrapper / "git").chmod(0o755)
-    env = {"PATH": f"{wrapper}{os.pathsep}{os.environ['PATH']}"}
+    env, calls = fake_git(on_log="exit 97")
     green = H.run_gate(event_json(consumer.root, VALID), env=env)
-    red = H.run_gate(event_json(consumer.root, Write(at("first"), item("first"))), env=env)
-    unread = k1("first", take=take_next(1, history_read=False)).render()
-    ok = green.code == 0 and "log was called" not in green.stderr and red.code == 2 and unread in red.stderr
-    return ok, f"green exit {green.code} without a log call; red exit {red.code}, saying history was not read"
+    called_for_green = calls.exists()
+    red = H.run_gate(event_json(consumer.root, BLOCKED), env=env)
+    ok = (
+        green.code == 0
+        and not called_for_green
+        and red.code == 2
+        and calls.read_text().count("log") == 1
+        and k1("first", take=NOT_READ).render() in red.stderr
+    )
+    return (
+        ok,
+        f"green exit {green.code}, log called: {called_for_green}; red exit {red.code}, log called once",
+    )
+
+
+def slow_history_costs_no_verdict() -> tuple[bool, str]:
+    """A history that takes twenty seconds to list: the block still comes, within the hook's patience."""
+    consumer = H.fresh_consumer(SETUP)
+    env, _ = fake_git(on_log="exec /bin/sleep 20")
+    started = time.monotonic()
+    red = H.run_gate(event_json(consumer.root, BLOCKED), env=env)
+    elapsed = time.monotonic() - started
+    ok = red.code == 2 and k1("first", take=NOT_READ).render() in red.stderr and elapsed < 9
+    return ok, f"exit {red.code} in {elapsed:.1f} s (bound 9 s), saying history was not read"
+
+
+def vanished_git_costs_no_verdict() -> tuple[bool, str]:
+    """Git gone after the verdict stood — removed between two of history's questions: still a block."""
+    consumer = H.fresh_consumer(SETUP)
+    env, _ = fake_git(on_verify='/bin/rm -f "$0"')
+    red = H.run_gate(event_json(consumer.root, BLOCKED), env=env)
+    ok = red.code == 2 and k1("first", take=NOT_READ).render() in red.stderr
+    return ok, f"exit {red.code}: {red.stderr.splitlines()[0] if red.stderr else red.stdout}"
+
+
+def unread_history_in_the_scan() -> tuple[bool, str]:
+    consumer = H.fresh_consumer((*SETUP, VALID))
+    env, _ = fake_git(on_log="exit 97")
+    result = H.run_gate("", args=["--scan", str(consumer.root)], env=env)
+    return expect(
+        result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [reach(1)], Read.NOT)), "stdout"
+    )
 
 
 LEGACY = at("ITM-06-upper")
 
 
 def legacy_item_keeps_its_number() -> tuple[bool, str]:
-    """An item that exists under a malformed name is told to keep the number it is cited by."""
-    result = scan_of({LEGACY: item("ITM-06-upper")})
-    taught = k1("ITM-06-upper", take=NameToTake(Advice.KEEP, 6))
-    return expect(result, 2, taught.render(), "stdout")
+    """An item that exists under a malformed name is told to keep the number it is cited by — by
+    the scan, and by the hook when the file is written again."""
+    taught = k1("ITM-06-upper", take=NameToTake(Advice.KEEP, 6)).render()
+    scanned = scan_of({LEGACY: item("ITM-06-upper")})
+    written, _ = gate_on(Write(LEGACY, item("ITM-06-upper")), files={LEGACY: item("ITM-06-upper")})
+    ok = scanned.code == 2 and taught in scanned.stdout and written.code == 2 and taught in written.stderr
+    return ok, f"scan exit {scanned.code}, hook exit {written.code}: both teach itm-0006"
+
+
+def contested_number_is_not_kept_twice() -> tuple[bool, str]:
+    """Two names show one number: neither is told it keeps it, each is told of the other."""
+    formed = at("itm-0006-new")
+    result = scan_of({LEGACY: item("ITM-06-upper"), formed: item("itm-0006-new")})
+    taught = k1("ITM-06-upper", take=NameToTake(Advice.CONTESTED, 6, other=formed)).render()
+    return expect(result, 2, taught, "stdout")
+
+
+def number_the_width_cannot_write() -> tuple[bool, str]:
+    stem = "itm-123456-big"
+    result = scan_of({at(stem): item(stem)})
+    return expect(result, 2, k1(stem, take=NameToTake(Advice.WIDE, 123456)).render(), "stdout")
+
+
+def full_catalog_is_named() -> tuple[bool, str]:
+    files = {at("itm-9-ninth"): item("itm-9-ninth")}
+    result = scan_of(files, catalogs(entry(width=1)))
+    tail = messages.f9_scan_tail(1, 4, [reach(9, catalog=Catalog("itm", 1, tuple(TERRITORY)))])
+    ok = result.code == 0 and tail in result.stdout and "(full:" in tail
+    return ok, f"exit {result.code}: {tail}"
 
 
 def legacy_number_is_not_given_away() -> tuple[bool, str]:
@@ -729,6 +814,13 @@ GOLDEN = {
     "K2 differs": f"RED: {ITEM_A}: id 'itm-0001-other' differs from the file name '{STEM_A}'",
     "K2 no envelope": f"RED: {ITEM_A}: id cannot be read: the file does not start with a '---' line",
     "K4": f"RED: {SECOND_TAKEN}: number itm-0001 is already carried by {ITEM_A}",
+    "keep": "  fix: rename the file with git mv to itm-0006-<slug>.md: it keeps its number,",
+    "contested": f"  fix: the name shows number 6, and so does {at('itm-0006-new')}: only one of the two",
+    "words": "  fix: rename the file to itm-<number>-<slug>.md: the number it is already cited by,",
+    "full": "  fix: no name can be given: catalog 'itm' has used every number 1 digit(s) can write.",
+    "wide": "  fix: no name can be given: the name shows number 123456, which 4 digit(s) cannot write.",
+    "not read": "itm-0001 is one more than the highest number seen — this clone's history is incomplete or"
+    " could not be read",
 }
 
 
@@ -743,6 +835,20 @@ def golden_lines() -> tuple[bool, str]:
         "K4": gate_on(Write(SECOND_TAKEN, item("itm-0001-second")), files={ITEM_A: item()})[0],
     }
     runs["K1 fix"] = runs["K1"]
+    legacy = {LEGACY: item("ITM-06-upper")}
+    runs["keep"] = gate_on(Write(LEGACY, item("ITM-06-upper")), files=legacy)[0]
+    both = {**legacy, at("itm-0006-new"): item("itm-0006-new")}
+    runs["contested"] = gate_on(Write(LEGACY, item("ITM-06-upper")), files=both)[0]
+    runs["words"] = gate_on(Write(at("old"), item("old")), files={at("old"): item("old")})[0]
+    nine = {at("itm-9-ninth"): item("itm-9-ninth")}
+    runs["full"] = gate_on(
+        Write(at("tenth"), item("tenth")), dials_patch=catalogs(entry(width=1)), files=nine
+    )[0]
+    big = {at("itm-123456-big"): item("itm-123456-big")}
+    runs["wide"] = gate_on(Write(at("itm-123456-big"), item("itm-123456-big")), files=big)[0]
+    runs["not read"] = H.run_gate(
+        event_json(H.fresh_consumer(SETUP).root, BLOCKED), env=fake_git(on_log="exit 97")[0]
+    )
     missing = [key for key, line in GOLDEN.items() if line not in runs[key].stderr]
     k3 = scan_of(COLLIDING).stdout
     if f"RED: catalog 'itm': 2 items carry number itm-0001: {ITEM_A}, {SECOND_TAKEN}" not in k3:
@@ -786,7 +892,7 @@ ASSERTIONS = [
     ),
     Assertion(23, "width defaults to four", width_defaults_to_four),
     Assertion(24, "C5: catalogs that is not a list", catalogs_not_a_list),
-    Assertion(25, "C5: an entry of the wrong shape, thirteen ways, named by its position", entry_shapes),
+    Assertion(25, "C5: an entry of the wrong shape, fifteen ways, named by position and field", entry_shapes),
     Assertion(
         26,
         "C5: a territory pattern git would read as a comment, in an entry",
@@ -886,6 +992,26 @@ ASSERTIONS = [
     Assertion(
         65, "golden lines: the taught texts as literals, not as the functions return them", golden_lines
     ),
+    Assertion(
+        66,
+        "a history twenty seconds slow costs no verdict: the block comes in time",
+        slow_history_costs_no_verdict,
+    ),
+    Assertion(
+        67,
+        "git gone after the verdict stood: still a block, saying history was not read",
+        vanished_git_costs_no_verdict,
+    ),
+    Assertion(
+        68, "scan: a history git would not list is named in the count line", unread_history_in_the_scan
+    ),
+    Assertion(
+        69, "adoption: a number two names show is kept by neither unseen", contested_number_is_not_kept_twice
+    ),
+    Assertion(
+        70, "adoption: a number the width cannot write is named as such", number_the_width_cannot_write
+    ),
+    Assertion(71, "scan: a catalog whose width is used up is named full", full_catalog_is_named),
 ]
 
 

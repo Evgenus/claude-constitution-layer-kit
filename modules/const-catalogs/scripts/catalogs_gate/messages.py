@@ -16,7 +16,7 @@ from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey
 
-from .model import DEFAULT_WIDTH, MAX_WIDTH, Advice, Catalog, Key, NameToTake, Reach
+from .model import DEFAULT_WIDTH, MAX_WIDTH, Advice, Catalog, Key, NameToTake, Reach, Read
 
 _ENTRY = (
     "{prefix: <lowercase letters and digits>, territory: [<patterns of the paths where the numbered"
@@ -51,17 +51,31 @@ def _name_to_take(catalog: Catalog, take: NameToTake) -> str:
                 f"{name} is the catalog's next number, one more than the highest it has held, deleted"
                 " items included"
                 if take.history_read
-                else f"{name} is one more than the highest number in the working tree — this clone's"
-                " history could not be read (no commit yet, a shallow clone, or a history too long to"
-                " read in time), so check that no deleted item went higher"
+                else f"{name} is one more than the highest number seen — this clone's history is"
+                " incomplete or could not be read (a shallow clone, a history too long to read in time,"
+                " or a git that gave no list), so check that no deleted item went higher"
             )
             return f"name the file {name}-<slug>.md: {reason}; {_SLUG}; {_THEN_ID}"
         case Advice.KEEP:
             name = catalog.written(take.number or 0)
             return (
-                f"rename the file to {name}-<slug>.md: it keeps its number, which others may already"
-                f" cite, written in lowercase with exactly {catalog.width} digit(s), zero-padded; {_SLUG};"
-                f" {_THEN_ID}, and rewrite the links to the old name"
+                f"rename the file with git mv to {name}-<slug>.md: it keeps its number, which others may"
+                f" already cite, written in lowercase with exactly {catalog.width} digit(s), zero-padded;"
+                f" {_SLUG}; {_THEN_ID}, and rewrite the links to the old name"
+            )
+        case Advice.CONTESTED:
+            name = catalog.written(take.number or 0)
+            return (
+                f"the name shows number {take.number}, and so does {take.other}: only one of the two can"
+                f" be {name}. The one that others already cite by that number keeps it — rename it with"
+                f" git mv to {name}-<slug>.md; the other takes one more than the highest the catalog has"
+                f" held, which the scan's last line names; {_SLUG}; {_THEN_ID}"
+            )
+        case Advice.WIDE:
+            return (
+                f"no name can be given: the name shows number {take.number}, which {catalog.width}"
+                " digit(s) cannot write. A wider width renames every item and every link to one — settle"
+                " that with the project, or give this document a number the width can write"
             )
         case Advice.FULL:
             return (
@@ -157,23 +171,30 @@ def g1_item_of(catalog: Catalog) -> str:
     return f"an item of catalog '{catalog.prefix}'"
 
 
-def f9_scan_tail(items: int, scanned: int, reach: Sequence[Reach], shallow: bool = False) -> str:
-    """Names, for every listed catalog, the highest number it carries in the working tree, and
+def f9_scan_tail(items: int, scanned: int, reach: Sequence[Reach], read: Read = Read.ALL) -> str:
+    """Names, for every listed catalog, the highest number a name in its territory shows, and
     the highest in history where history went further: a new item's number is one more than the
-    highest named. A shallow clone has no history to read, and the line says so."""
+    highest named. Where history was read in part or not at all, the line says so."""
     tail = (
         f"{items} catalogued item(s) examined, {scanned} Markdown file(s) scanned,"
         f" {len(reach)} catalog(s): {', '.join(_reach(r) for r in reach)}"
     )
-    return tail + "; history not available in a shallow clone" if shallow else tail
+    match read:
+        case Read.SHALLOW:
+            return tail + "; history incomplete in a shallow clone"
+        case Read.NOT:
+            return tail + "; history could not be read"
+        case _:
+            return tail
 
 
 def _reach(reach: Reach) -> str:
     catalog = reach.catalog
     in_tree = f"up to {catalog.written(reach.in_tree)}" if reach.in_tree is not None else "none yet"
+    full = " (full: the width can write no higher number)" if reach.full else ""
     if reach.in_history is None or reach.in_history <= (reach.in_tree or 0):
-        return f"{catalog.prefix} {in_tree}"
-    return f"{catalog.prefix} {in_tree}, {catalog.written(reach.in_history)} in history"
+        return f"{catalog.prefix} {in_tree}{full}"
+    return f"{catalog.prefix} {in_tree}, {catalog.written(reach.in_history)} in history{full}"
 
 
 def g1_skip_no_catalog() -> str:
