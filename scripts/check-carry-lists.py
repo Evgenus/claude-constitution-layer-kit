@@ -8,11 +8,13 @@ and a reader decides it — the carry audit. This check holds the two parts of t
 script can hold:
 
   the list     the record's last section is "Carry list"; every ruling item carries a handle,
-               **R1.**, **R2.**, …; the list pairs each handle, once, with "history only" or with
-               links; every link leads to a document that may hold a rule — a governed document of
-               type current-state, CLAUDE.md, a module's or the template's own file, or a file
-               that is not markdown. The rollout plan, a research comparison, another record and
-               the README may not: those are where rulings were found hiding.
+               **R1.**, **R2.**, …; the list pairs each handle, once, with links, with "history
+               only", or with "pending" and links. A link leads where a rule can live — a governed
+               document of type current-state, CLAUDE.md, a skill of the kit, a module's or the
+               template's own file, a file that is not markdown. The rollout plan, a research
+               comparison, another record and the README cannot: those are where rulings were
+               found hiding. "pending" is for intent that is not yet real, and its links lead to
+               an active task-record, where the kernel says such intent rides.
   the receipt  the commit that accepts a record — trailer "Accepted: <record id>" — also carries
                "Carry-Audit: at <commit>; <n> records; <f> findings, <x> fixed, <j> justified";
                the commit named is an ancestor, n is above zero, x + j = f. A record no commit
@@ -59,9 +61,10 @@ STEM = re.compile(r"^dec-(\d{4})-[a-z0-9-]+$")
 LAST_SECTION = "Carry list"
 UNGOVERNED_HOMES = (
     "CLAUDE.md",
+    ".claude/skills/",
     "modules/",
     "module-template/",
-)  # markdown with no envelope that may hold a rule
+)  # markdown with no `type` that may hold a rule
 
 HEADING = re.compile(r"^## +(.+?)\s*$", re.MULTILINE)
 HANDLE = re.compile(r"\*\*R(\d+)\.\*\*")
@@ -120,8 +123,8 @@ def split_frontmatter(text: str) -> tuple[dict[str, object], str]:
 # ---------------------------------------------------------------------------------------------
 
 
-def home_problem(kit: Path, record: Path, target: str) -> str | None:
-    """Why this link may not be the home of a rule, or None when it may."""
+def home_problem(kit: Path, record: Path, target: str, pending: bool = False) -> str | None:
+    """Why this link may not be the home of a rule — of pending intent — or None when it may."""
     if re.match(r"^[a-z][a-z0-9+.-]*:", target):
         return f"{target} is outside the repository"
     path = (record.parent / target.split("#", 1)[0]).resolve()
@@ -132,9 +135,13 @@ def home_problem(kit: Path, record: Path, target: str) -> str | None:
     if not path.exists():
         return f"{shown} does not exist"
     if path.suffix != ".md":
-        return None
+        return "pending intent rides in an active task-record, and this is none" if pending else None
     envelope, _ = split_frontmatter(path.read_text(encoding="utf-8"))
     kind = envelope.get("type")
+    if pending:
+        if kind == "task-record" and envelope.get("status") == "active":
+            return None
+        return f"{shown} is not an active task-record, and intent that is not yet real rides only there"
     if kind is None:
         if shown == UNGOVERNED_HOMES[0] or shown.startswith(UNGOVERNED_HOMES[1:]):
             return None
@@ -209,6 +216,7 @@ def check_list(kit: Path, record: Path) -> list[Finding]:
         home = parsed.group(2).strip()
         if home.lower().startswith("history only"):
             continue
+        pending = home.lower().startswith("pending")
         targets = LINK.findall(home)
         if not targets:
             findings.append(
@@ -220,14 +228,24 @@ def check_list(kit: Path, record: Path) -> list[Finding]:
                 )
             )
         for target in targets:
-            problem = home_problem(kit, record, target)
-            if problem:
+            problem = home_problem(kit, record, target, pending)
+            if problem and pending:
+                findings.append(
+                    Finding(
+                        f"{shown}: {parsed.group(1)} is pending nowhere — {problem}",
+                        WHY_LIST,
+                        "link the step of the active task-record that holds the intent; once it is real, "
+                        "carry it and drop the word pending",
+                    )
+                )
+            elif problem:
                 findings.append(
                     Finding(
                         f"{shown}: {parsed.group(1)} is carried nowhere that binds — {problem}",
                         WHY_LIST,
                         "write the rule into a current-state document and link that; a plan, a comparison, "
-                        "another record and the README state no rule",
+                        "another record and the README state no rule — intent that is not yet real is "
+                        '"pending" with a link to the active task-record',
                     )
                 )
     for handle in dict.fromkeys(handles):
@@ -461,11 +479,13 @@ decider: someone
 
 1. **R1.** A rule that binds.
 2. **R2.** A one-time act.
+3. **R3.** Something to be done in a later phase.
 
 ## Carry list
 
 1. R1 — [policy](../policies/p.md), rule 1.
 2. R2 — history only: done on the day.
+3. R3 — pending: [the plan](../plan.md), step 4.
 """
 
 
@@ -473,7 +493,12 @@ def sample_kit(root: Path, record: str = GOOD_RECORD) -> Path:
     for folder in (DECISIONS, "docs/policies", "docs/research"):
         (root / folder).mkdir(parents=True, exist_ok=True)
     (root / "docs/policies/p.md").write_text("---\nid: p\ntype: current-state\n---\n", encoding="utf-8")
-    (root / "docs/plan.md").write_text("---\nid: plan\ntype: task-record\n---\n", encoding="utf-8")
+    (root / "docs/plan.md").write_text(
+        "---\nid: plan\ntype: task-record\nstatus: active\n---\n", encoding="utf-8"
+    )
+    (root / "docs/done.md").write_text(
+        "---\nid: done\ntype: task-record\nstatus: inactive\n---\n", encoding="utf-8"
+    )
     (root / "docs/research/r.md").write_text("---\nid: r\ntype: non-authoritative\n---\n", encoding="utf-8")
     (root / "README.md").write_text("# readme\n", encoding="utf-8")
     path = root / DECISIONS / f"{SAMPLE}.md"
@@ -503,24 +528,26 @@ def self_test() -> int:
     wrong_lists: dict[str, Callable[[str], str]] = {
         "no carry list": lambda t: t[: t.index("## Carry list")],
         "a carry list that is not the last section": lambda t: t + "\n## After\n\ntext\n",
-        "no handles": lambda t: (
-            t.replace("**R1.** ", "").replace("**R2.** ", "").replace("R1 — ", "").replace("R2 — ", "")
-        ),
+        "no handles": lambda t: re.sub(r"\*\*R\d\.\*\* |(?<=\d\. )R\d — ", "", t),
         "a handle missing from the list": lambda t: t.replace("2. R2 — history only: done on the day.\n", ""),
-        "a handle listed twice": lambda t: t + "3. R1 — history only.\n",
-        "an unknown handle in the list": lambda t: t + "3. R9 — history only.\n",
+        "a handle listed twice": lambda t: t + "4. R1 — history only.\n",
+        "an unknown handle in the list": lambda t: t + "4. R9 — history only.\n",
         "a handle opening two items": lambda t: t.replace("**R2.**", "**R1.**").replace(
             "2. R2 — history only: done on the day.\n", ""
         ),
         "an entry with no home": lambda t: t.replace(
             "[policy](../policies/p.md), rule 1.", "the policy, rule 1."
         ),
-        "a home in a task-record": lambda t: t.replace("../policies/p.md", "../plan.md"),
         "a home in a research comparison": lambda t: t.replace("../policies/p.md", "../research/r.md"),
         "a home in another record": lambda t: t.replace("../policies/p.md", f"{SAMPLE}.md"),
         "a home in the README": lambda t: t.replace("../policies/p.md", "../../README.md"),
         "a home that does not exist": lambda t: t.replace("../policies/p.md", "../policies/none.md"),
         "a home outside the repository": lambda t: t.replace("../policies/p.md", "https://example.invalid/p"),
+        "pending intent in a closed task-record": lambda t: t.replace("(../plan.md)", "(../done.md)"),
+        "pending intent in a current-state document": lambda t: t.replace(
+            "(../plan.md)", "(../policies/p.md)"
+        ),
+        "a rule carried into the active plan": lambda t: t.replace("../policies/p.md", "../plan.md"),
     }
     failed = 0
     for name, damage in wrong_lists.items():
