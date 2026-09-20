@@ -1,0 +1,102 @@
+---
+name: carry-audit
+description: The kit's closing audit before a human yes — fresh readers check that every ruling of the decision records in scope is stated in a current-state document, that no document relies on a record, and that the change did not un-carry an older ruling. Use at the end of a module's development, before accepting any decision record, on a kernel change, and before publication. Kit development tooling; never shipped in a module.
+---
+
+# Carry audit
+
+**Advisory procedure, mandatory step.** Whether a sentence states a rule is judgment, so the audit is
+run by readers and is no gate. What a script can hold — that every ruling item names a home, and
+that an acceptance names its audit — is `scripts/check-carry-lists.py`, and this procedure ends by
+running it. The rule this serves: an applied ruling lives in the current-state documents it changed,
+and a record is provenance, never authority ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); the
+kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/policies/kit-decision-records.md).
+
+## When
+
+1. At the end of a module's development, as the second pass of the fresh-context validation — step 6
+   of "Developing a module" in [CLAUDE.md](../../../CLAUDE.md).
+2. Before the yes on any decision record landed outside a module's development.
+3. In full — every record — on any change to the kernel, and once before publication.
+
+## Steps
+
+1. **Commit first, then pin.** The tree is clean; the pin is `git rev-parse --short HEAD`. Every
+   reader is told the pin and reports the commit it started and ended on. A reader whose commit moved
+   reports which of its files changed.
+2. **Compute the scope, never choose it.** `python3 scripts/check-carry-lists.py --scope <base> [<module>]`,
+   where `<base>` is the commit the change started from. It prints two lists:
+   - `full` — the records the change lands, and those the module's decisions section cites;
+   - `regression` — every other record that cites a file the change touched. Editing such a file is
+     how an older ruling gets un-carried.
+   A full audit skips this step and takes every record as `full`.
+3. **Partition.** At most five `full` records to a reader, at most ten `regression` records to a
+   reader. Readers are fresh subagents, started together, holding nothing of the authoring reasoning.
+4. **Give each reader its prompt**, below, with its record list filled in — check that it is filled
+   in before sending: a prompt has gone out with its list still a placeholder.
+5. **Run the blind pass** on each record the change lands: one more reader, prompt C.
+6. **Consolidate, and verify before acting.** A reader can be wrong: check every finding you mean to
+   act on against the tree yourself. Give every finding a handle. Each is fixed, or justified in the
+   commit message — in the pull request once the kit has one.
+7. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
+   beside the attribution line:
+   `Accepted: <record id>` — one per record, or several ids separated by commas;
+   `Carry-Audit: at <pin>; <n> records; <f> findings, <x> fixed, <j> justified` — where `n` counts
+   `full` and `regression` records together, and `x + j = f`.
+8. **Run the gate:** `python3 scripts/check-carry-lists.py`. Red is fixed before the turn ends.
+
+## Prompt A — a reader of `full` records
+
+> STRICTLY READ-ONLY. Create, edit, move or delete no file; run no git command that changes state and
+> no script that writes. The audit is pinned to commit `<pin>`: report `git rev-parse --short HEAD` and
+> `git status --short` at the start and at the end.
+>
+> Read sections 1, 2 and 5 of `kernel/CONVENTIONS.md`, and rules 1, 2 and 7 of
+> `docs/policies/kit-decision-records.md`. The question: could each record below be deleted without
+> anyone losing a rule they must follow? Records: `<list>`.
+>
+> For each record: (1) read it whole and split what it rules into items — every rule, definition,
+> step, dial, exception, obligation, measurement, fallback and deferred trigger. Hunt outside the
+> ruling section too: a binding sentence under Reasoning, Options or Context is an item, and it is the
+> kind most often left out of a carry list. (2) For each item find where it is stated today in
+> current-state text or code: `kernel/`, `CLAUDE.md`, `INTENT.md`, `constitution.yaml`,
+> `docs/policies/`, `docs/requirements.md`, `module-template/`, `shared/`, `modules/`, `scripts/`,
+> `pyproject.toml`. Not current-state: `docs/rollout-plan.md` — though intent that is not yet real
+> lives there legitimately, say so — `docs/research/`, `README.md`, commit messages, other records.
+> Judge each item CARRIED (file and line, verified), PARTIAL (what exactly is missing), MISSING,
+> SUPERSEDED (by which record; does the text match the later ruling?) or CONTRADICTED. Rationale and
+> one-time acts living only in the record are history, not a gap. (3) If the record has a carry list,
+> verify every entry: does the linked text state the item in full; is anything marked "history only"
+> that binds someone in future? (4) Find every mention of the record's id outside `docs/decisions/` —
+> scripts, error texts, tests, schemas, comments — and classify each PROVENANCE (the sentence is
+> complete without it) or RELIANCE (quote it; say what text would have to be inlined). (5) Does
+> `status` match reality? Verdict per record: REMOVABLE-NOW, REMOVABLE-AFTER-FIXES (the exact fixes),
+> or NOT-REMOVABLE.
+>
+> Trust no record's claim that something was applied — verify it in the target file. Report tersely,
+> every item and link with a handle such as `0031-R2` or `0031-L1`, then the fixes, then the two git
+> readings.
+
+## Prompt B — a reader of `regression` records
+
+> STRICTLY READ-ONLY, pinned to `<pin>`, as in prompt A. The change under audit touched these files:
+> `<touched files>`. For each record below, find the ruling items whose home is in one of those files
+> and check that the file still states each of them in full, at the pin. Report only what is no longer
+> stated, weakened or contradicted, with the record's id, the item, and the file and line where it
+> used to stand or should. Records, each with the touched files it cites: `<list>`.
+
+## Prompt C — the blind pass on a landed record
+
+> STRICTLY READ-ONLY. You may not open anything under `docs/decisions/`. Holding only the
+> current-state documents, answer each question with the file and line that states the answer, and a
+> verdict ANSWERABLE, PARTLY or NOT-ANSWERABLE; say where two texts disagree or a sentence reads two
+> ways. Questions: `<one question per ruling item, written by the author from the carry list>`.
+
+## What this audit cannot do
+
+1. It is as good as its readers: a reader can miss an item or assert a false one. Step 6 exists for
+   the second; only a second reader helps with the first.
+2. The receipt records that an audit was declared, at a real commit, with its findings accounted
+   for. It cannot show that the readers were run. That stays a matter of honesty and review.
+3. The `regression` list is wide when a change touches a document most records cite. It is kept
+   affordable by the narrow question of prompt B, never by dropping records from the list.
