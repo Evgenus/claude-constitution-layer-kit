@@ -54,12 +54,23 @@ class Taken:
 
     catalog: Catalog
     holders: Mapping[int, str]
+    in_history: int | None  # the highest number the branch's history ever added; advice only
 
     @property
-    def free(self) -> int | None:
-        """The next free number, the highest plus one; None once the width cannot write it."""
-        number = max(self.holders, default=0) + 1
+    def next(self) -> int | None:
+        """The number to name to a new item: one more than the highest the catalog has held, in
+        the working tree or in history; None once the width cannot write it."""
+        number = max(max(self.holders, default=0), self.in_history or 0) + 1
         return number if number < 10**self.catalog.width else None
+
+
+@dataclass(frozen=True, slots=True)
+class Reach:
+    """How far a catalog's numbers go: in the working tree, and in history where it went further."""
+
+    catalog: Catalog
+    in_tree: int | None
+    in_history: int | None
 
 
 @dataclass(frozen=True, slots=True)

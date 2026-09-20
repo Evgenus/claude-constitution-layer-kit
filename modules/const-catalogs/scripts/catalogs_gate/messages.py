@@ -16,7 +16,7 @@ from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey
 
-from .model import DEFAULT_WIDTH, Catalog, Key
+from .model import DEFAULT_WIDTH, Catalog, Key, Reach
 
 _ENTRY = (
     "{prefix: <lowercase letters and digits>, territory: [<patterns of the paths where the numbered"
@@ -40,8 +40,8 @@ def _form(catalog: Catalog) -> str:
 
 
 def _name_to_take(catalog: Catalog, free: int | None) -> str:
-    """The fix both findings about a name end in. `free` is the catalog's next free number,
-    known when the file is new and the width can still write it."""
+    """The fix both findings about a name end in. `free` is the catalog's next number, known
+    when the file is new and the width can still write it."""
     if free is None:
         return (
             f"name the file {catalog.prefix}-<number>-<slug>.md: the number is the catalog's highest"
@@ -50,8 +50,8 @@ def _name_to_take(catalog: Catalog, free: int | None) -> str:
         )
     return (
         f"name the file {catalog.written(free)}-<slug>.md: {catalog.written(free)} is the catalog's next"
-        " free number, its highest plus one; the slug is lowercase words and digits joined by '-';"
-        " then set id to that name without .md"
+        " number, one more than the highest it has held, deleted items included; the slug is lowercase"
+        " words and digits joined by '-'; then set id to that name without .md"
     )
 
 
@@ -126,19 +126,23 @@ def g1_item_of(catalog: Catalog) -> str:
     return f"an item of catalog '{catalog.prefix}'"
 
 
-def f9_scan_tail(items: int, scanned: int, highest: Sequence[tuple[Catalog, int | None]]) -> str:
-    """`highest` pairs every listed catalog with the highest number its items carry in the
-    working tree, None while it has none: the number a new item's is one more than."""
-    reached = ", ".join(
-        f"{catalog.prefix} up to {catalog.written(number)}"
-        if number is not None
-        else f"{catalog.prefix} none yet"
-        for catalog, number in highest
-    )
-    return (
+def f9_scan_tail(items: int, scanned: int, reach: Sequence[Reach], shallow: bool = False) -> str:
+    """Names, for every listed catalog, the highest number it carries in the working tree, and
+    the highest in history where history went further: a new item's number is one more than the
+    highest named. A shallow clone has no history to read, and the line says so."""
+    tail = (
         f"{items} catalogued item(s) examined, {scanned} Markdown file(s) scanned,"
-        f" {len(highest)} catalog(s): {reached}"
+        f" {len(reach)} catalog(s): {', '.join(_reach(r) for r in reach)}"
     )
+    return tail + "; history not available in a shallow clone" if shallow else tail
+
+
+def _reach(reach: Reach) -> str:
+    catalog = reach.catalog
+    in_tree = f"up to {catalog.written(reach.in_tree)}" if reach.in_tree is not None else "none yet"
+    if reach.in_history is None or reach.in_history <= (reach.in_tree or 0):
+        return f"{catalog.prefix} {in_tree}"
+    return f"{catalog.prefix} {in_tree}, {catalog.written(reach.in_history)} in history"
 
 
 def g1_skip_no_catalog() -> str:

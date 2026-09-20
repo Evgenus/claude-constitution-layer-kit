@@ -14,6 +14,7 @@ not this gate's, and are left out; their numbers stay free.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import time
 from collections.abc import Sequence
@@ -25,7 +26,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
 
 from catalogs_gate import messages, start  # noqa: E402
-from catalogs_gate.model import Catalog  # noqa: E402
+from catalogs_gate.model import Catalog, Reach  # noqa: E402
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
 from const_gate.envelope import yaml_error_line  # noqa: E402
@@ -77,6 +78,13 @@ def item(stem: str = STEM_A, drop: tuple[str, ...] = (), **changes: object) -> s
     fields.update(changes)
     kept = {key: value for key, value in fields.items() if key not in drop}
     return "---\n" + yaml.safe_dump(kept, sort_keys=False, allow_unicode=True) + "---\n\n# Fixture\n"
+
+
+NOTES = Catalog("note", 4, ("docs/notes/**",))
+
+
+def reach(in_tree: int | None, in_history: int | None = None, catalog: Catalog = CATALOG) -> Reach:
+    return Reach(catalog, in_tree, in_history)
 
 
 def at(stem: str) -> str:
@@ -392,9 +400,7 @@ def two_catalogs() -> tuple[bool, str]:
     return expect(
         scan_of(files, patch),
         0,
-        shared.g1_green_scan(
-            messages.f9_scan_tail(2, 5, [(CATALOG, 1), (Catalog("note", 4, ("docs/notes/**",)), 1)])
-        ),
+        shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(1), reach(1, catalog=NOTES)])),
         "stdout",
     )
 
@@ -434,7 +440,7 @@ K3 = messages.k3_number_shared(CATALOG, 1, [ITEM_A, at("itm-0001-second")])
 def scan_collision() -> tuple[bool, str]:
     """The red half of the uniqueness gate: two items under one number."""
     result = scan_of(COLLIDING)
-    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 6, [(CATALOG, 2)]))
+    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 6, [reach(2)]))
     ok = result.code == 2 and K3.render() in result.stdout and count in result.stdout
     return (
         ok,
@@ -449,23 +455,17 @@ def scan_renumbered() -> tuple[bool, str]:
         at("itm-0003-second"): item("itm-0003-second"),
         at("itm-0002-third"): item("itm-0002-third"),
     }
-    return expect(
-        scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(3, 6, [(CATALOG, 3)])), "stdout"
-    )
+    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(3, 6, [reach(3)])), "stdout")
 
 
 def scan_gap_is_legitimate() -> tuple[bool, str]:
     files = {ITEM_A: item(), at("itm-0009-ninth"): item("itm-0009-ninth")}
-    return expect(
-        scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, [(CATALOG, 9)])), "stdout"
-    )
+    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(9)])), "stdout")
 
 
 def scan_empty_catalog() -> tuple[bool, str]:
     """A listed catalog with no item yet is named as such: a visible zero, and the first number is 1."""
-    return expect(
-        scan_of({}), 0, shared.g1_green_scan(messages.f9_scan_tail(0, 3, [(CATALOG, None)])), "stdout"
-    )
+    return expect(scan_of({}), 0, shared.g1_green_scan(messages.f9_scan_tail(0, 3, [reach(None)])), "stdout")
 
 
 def scan_ignores_warn() -> tuple[bool, str]:
@@ -476,7 +476,7 @@ def scan_ignores_warn() -> tuple[bool, str]:
 def scan_name_and_number() -> tuple[bool, str]:
     """An item whose name carries no number is one finding and takes no part in the collision check."""
     result = scan_of({**COLLIDING, at("first"): item("first")})
-    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 7, [(CATALOG, 2)]))
+    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 7, [reach(2)]))
     taught = (k1("first", free=None).render(), K3.render(), count)
     ok = result.code == 2 and all(text in result.stdout for text in taught)
     return ok, f"exit {result.code}: two findings, four items"
@@ -487,7 +487,7 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     consumer = H.fresh_consumer((*SETUP, VALID, Write(at("itm-0002-second"), item("itm-0002-second"))))
     (consumer.root / ITEM_A).unlink()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [(CATALOG, 2)])), "stdout")
+    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [reach(2)])), "stdout")
 
 
 def scan_scales() -> tuple[bool, str]:
@@ -547,6 +547,70 @@ def width_exhausted() -> tuple[bool, str]:
     files = {at("itm-9-ninth"): item("itm-9-ninth")}
     result, _ = gate_on(Write(at("tenth"), item("tenth")), dials_patch=catalogs(entry(width=1)), files=files)
     return expect(result, 2, k1("tenth", Catalog("itm", 1, tuple(TERRITORY)), free=None).render(), "stderr")
+
+
+def top_deleted() -> Consumer:
+    """Items 1 and 2 committed, then item 2 deleted and the deletion committed: the tree holds 1,
+    history held 2."""
+    second = Write(at("itm-0002-second"), item("itm-0002-second"))
+    consumer = H.fresh_consumer((*SETUP, VALID, second))
+    consumer.git("rm", "-q", second.target)
+    consumer.commit()
+    return consumer
+
+
+def deleted_top_number_is_not_suggested() -> tuple[bool, str]:
+    result = H.run_gate(event_json(top_deleted().root, Write(at("third"), item("third"))))
+    return expect(result, 2, k1("third", free=3).render(), "stderr")
+
+
+def deleted_top_number_in_k4() -> tuple[bool, str]:
+    result = H.run_gate(event_json(top_deleted().root, Write(SECOND_TAKEN, item("itm-0001-second"))))
+    return expect(result, 2, messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, 3).render(), "stderr")
+
+
+def deleted_number_is_not_refused() -> tuple[bool, str]:
+    """History moves the advice only: a number free in the working tree passes in every clone."""
+    again = Write(at("itm-0002-again"), item("itm-0002-again"))
+    result = H.run_gate(event_json(top_deleted().root, again))
+    return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
+
+
+def scan_names_history() -> tuple[bool, str]:
+    result = H.run_gate("", args=["--scan", str(top_deleted().root)])
+    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [reach(1, 2)])), "stdout")
+
+
+def renamed_name_is_history() -> tuple[bool, str]:
+    """An item renamed to a higher number and then deleted: git would report the rename as such, not
+    as an addition, so rename detection is off and the new name counts as added."""
+    consumer = H.fresh_consumer((*SETUP, VALID))
+    consumer.git("mv", ITEM_A, at("itm-0007-first"))
+    consumer.commit()
+    consumer.git("rm", "-q", at("itm-0007-first"))
+    consumer.commit()
+    result = H.run_gate("", args=["--scan", str(consumer.root)])
+    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(0, 3, [reach(None, 7)])), "stdout")
+
+
+def shallow_clone_says_so() -> tuple[bool, str]:
+    clone = H.scratch_dir() / "shallow"
+    source = top_deleted().root.as_uri()
+    subprocess.run(
+        ["git", "clone", "-q", "--depth", "1", source, str(clone)], check=True, capture_output=True
+    )
+    result = H.run_gate("", args=["--scan", str(clone)])
+    tail = messages.f9_scan_tail(1, 4, [reach(1)], shallow=True)
+    return expect(result, 0, shared.g1_green_scan(tail), "stdout")
+
+
+def repository_without_a_commit() -> tuple[bool, str]:
+    """No commit yet, so no history: the advice is the working tree's, and nothing fails."""
+    consumer = Consumer(H.scratch_dir())
+    consumer.write("constitution.yaml", dials_text())
+    consumer.git("init", "-q")
+    result = H.run_gate(event_json(consumer.root, Write(at("first"), item("first"))))
+    return expect(result, 2, k1("first").render(), "stderr")
 
 
 def message_shape() -> tuple[bool, str]:
@@ -639,6 +703,23 @@ ASSERTIONS = [
     ),
     Assertion(48, "the width exhausted: the fix is in words, no name is invented", width_exhausted),
     Assertion(49, "scan: a listed catalog with no item yet is named, with a zero count", scan_empty_catalog),
+    Assertion(
+        50,
+        "a deleted top number is not suggested again: K1 names 3 after 1 and a deleted 2",
+        deleted_top_number_is_not_suggested,
+    ),
+    Assertion(51, "the same in K4's fix", deleted_top_number_in_k4),
+    Assertion(
+        52,
+        "history moves the advice, never the verdict: the deleted number itself still passes",
+        deleted_number_is_not_refused,
+    ),
+    Assertion(53, "scan: the line names history where it went further than the tree", scan_names_history),
+    Assertion(
+        54, "a name an item was renamed to counts as added: rename detection is off", renamed_name_is_history
+    ),
+    Assertion(55, "scan: a shallow clone has no history, and the line says so", shallow_clone_says_so),
+    Assertion(56, "a repository with no commit yet: no history, no failure", repository_without_a_commit),
 ]
 
 

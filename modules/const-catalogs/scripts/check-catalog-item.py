@@ -15,10 +15,13 @@ The check: each entry of the dial declares a numbered kind, and every Markdown d
           territory is an item of that catalog. An item's file name without .md is
           <prefix>-<number of exactly width digits>-<kebab-slug>, and its id is that same name.
           A file that does not exist yet must also take a number no other item in the working
-          tree carries, and the fix names the next free one; an item that exists is never
-          judged on its number at write time. The scan adds: no two items of one catalog
-          share a number. A malformed entry, and one prefix listed twice, are configuration
-          failures. With no catalog listed, nothing is examined, and the count line says so.
+          tree carries, and the fix names the next one: one more than the highest the catalog
+          has held, in the working tree or in the branch's history — history is read for that
+          advice only, never for a verdict. An item that exists is never judged on its number
+          at write time. The scan adds: no two items of one catalog share a number; its count
+          line names each catalog's highest number. A malformed entry, and one prefix listed
+          twice, are configuration failures. With no catalog listed, nothing is examined, and
+          the count line says so.
 Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — hook mode blocks the write, unless severity is warn: then exit 0
             with JSON carrying the finding to the model and the user;

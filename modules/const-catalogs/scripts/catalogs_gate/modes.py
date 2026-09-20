@@ -19,7 +19,8 @@ from const_gate.territory import Matcher
 from . import dials as catalog_dials
 from . import messages
 from .checks import catalog_of, examine, numbers_taken, shared_numbers, stem_of
-from .model import Catalog, Taken
+from .history import read_history
+from .model import Catalog, Item, Reach, Taken
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
@@ -34,8 +35,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     with Matcher() as matcher:
         catalog = _catalogs_by_path(matcher, catalogs, [rel]).get(rel)
         if catalog is not None and not (target.root / rel).exists():  # a new item: its number must be free
-            by_path = _catalogs_by_path(matcher, catalogs, list_markdown(target.root))
-            taken = numbers_taken(catalog, [other for other, its in by_path.items() if its == catalog])
+            taken = _numbers_taken(matcher, catalogs, catalog, target.root)
     if catalog is None:
         return pipeline.skip(output, messages.g1_skip_not_an_item(rel, catalogs))
     item = examine(catalog, rel, target.text, taken)
@@ -56,15 +56,23 @@ def scan_mode(output: Output, start: Path) -> int:
         by_path = _catalogs_by_path(matcher, catalogs, paths)
     items = [examine(catalog, rel, _text(target.root, rel)) for rel, catalog in sorted(by_path.items())]
     findings = [finding for item in items for finding in item.findings] + shared_numbers(items)
-    highest = [
-        (
-            catalog,
-            max((i.number for i in items if i.catalog == catalog and i.number is not None), default=None),
-        )
-        for catalog in catalogs
-    ]
-    tail = messages.f9_scan_tail(len(items), len(paths), highest)
+    history = read_history(target.root)
+    reach = [Reach(catalog, _highest(catalog, items), history.highest(catalog)) for catalog in catalogs]
+    tail = messages.f9_scan_tail(len(items), len(paths), reach, history.shallow)
     return pipeline.report_scan(output, findings, (), tail)
+
+
+def _numbers_taken(matcher: Matcher, catalogs: Sequence[Catalog], catalog: Catalog, root: Path) -> Taken:
+    """What a new item of `catalog` is judged against: the numbers its other items carry in the
+    working tree, which are refused, and the highest in history, which only moves the advice."""
+    by_path = _catalogs_by_path(matcher, catalogs, list_markdown(root))
+    others = [rel for rel, its in by_path.items() if its == catalog]
+    return numbers_taken(catalog, others, read_history(root).highest(catalog))
+
+
+def _highest(catalog: Catalog, items: Sequence[Item]) -> int | None:
+    numbers = [item.number for item in items if item.catalog == catalog and item.number is not None]
+    return max(numbers, default=None)
 
 
 def _catalogs_by_path(

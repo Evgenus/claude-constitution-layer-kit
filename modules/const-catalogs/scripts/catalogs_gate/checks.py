@@ -44,7 +44,7 @@ def examine(catalog: Catalog, rel: str, text: str, taken: Taken | None = None) -
     a question of branches, which the scan's finding answers."""
     stem = stem_of(rel)
     number = catalog.number_of(stem)
-    free = taken.free if taken is not None else None
+    free = taken.next if taken is not None else None
     if number is None:
         findings = [messages.k1_name_without_form(rel, stem, catalog, free)]
     elif taken is not None and number in taken.holders:
@@ -54,7 +54,7 @@ def examine(catalog: Catalog, rel: str, text: str, taken: Taken | None = None) -
     return Item(rel, catalog, number, tuple(findings))
 
 
-def numbers_taken(catalog: Catalog, others: Sequence[str]) -> Taken:
+def numbers_taken(catalog: Catalog, others: Sequence[str], in_history: int | None) -> Taken:
     """`others` are the paths of the catalog's other items. Of two that already share a number,
     the first by path is named as its holder."""
     holders: dict[int, str] = {}
@@ -62,7 +62,7 @@ def numbers_taken(catalog: Catalog, others: Sequence[str]) -> Taken:
         number = catalog.number_of(stem_of(rel))
         if number is not None:
             holders.setdefault(number, rel)
-    return Taken(catalog, holders)
+    return Taken(catalog, holders, in_history)
 
 
 def shared_numbers(items: Sequence[Item]) -> list[Finding]:
