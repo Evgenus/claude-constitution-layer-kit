@@ -7,6 +7,8 @@
 #   (cd modules/<name>/scripts && mypy --strict <package>)
 #   (cd modules/<name>/tests && MYPYPATH=../scripts mypy --strict *.py)
 #   python3 scripts/check-shared-links.py && python3 scripts/check-shared-links.py --self-test
+#   python3 scripts/check-carry-lists.py && python3 scripts/check-carry-lists.py --self-test
+#   (cd scripts && mypy --strict check-carry-lists.py)
 [tool.ruff]
 line-length = 110
 target-version = "py312"
