@@ -59,9 +59,11 @@ deleted or renamed, or by a file of that name elsewhere in the repository; or `<
 yet`, which may be followed by `in history` too. **The new number is one more than the highest
 number that line names for the catalog**, history included: a number once held is never given
 to another document, because somebody may still cite it. `none yet` with nothing after it
-means number 1. If the line ends in `history not available in a shallow clone`, the history
-part is missing: fetch the history first (`git fetch --unshallow`), or accept that a deleted
-top number cannot be seen.
+means number 1. If the line ends in `history incomplete in a shallow clone`, fetch the history
+first (`git fetch --unshallow`); if it ends in `history could not be read`, find out why git
+would not list it — in both cases a deleted top number may be out of sight. If the catalog is
+marked `(full: the width can write no higher number)`, stop and tell the user: a wider width
+renames every item.
 
 The number is **provisional until your branch lands on the main branch, and frozen from then
 on.** Another branch may take the same number meanwhile; whoever lands second renumbers
@@ -89,11 +91,12 @@ The scan reports it, usually at a pull request: two branches each took the next 
    if your branch is the one not yet landed.
 2. Bring your branch up to date with the main branch, then take the number again as in
    section 2.
-3. Rename the file with `git mv`, and set its `id` to the new name.
+3. Rename the file with `git mv` — which also works where the file system ignores case, as a
+   plain write to the new name does not — and set its `id` to the new name.
 4. Rewrite the references **made on your own branch**, and only those:
-   `git diff -z --name-only <main branch>...HEAD | xargs -0 -r git grep -n -i '<prefix>-<old number>' --`
-   finds both the full name and the bare form, in the files your branch touched. References
-   elsewhere mean the other item.
+   `{ git diff -z --name-only "$(git merge-base <main branch> HEAD)"; git ls-files -z --others --exclude-standard; } | xargs -0 -r git grep -n -i --untracked '<prefix>-<old number>' --`
+   finds both the full name and the bare form, in every file your branch touched — committed,
+   not yet committed, or not yet added. References elsewhere mean the other item.
 5. Run the scan again. `git mv` and shell edits are not seen by the hook.
 
 ## 5. List a catalog, find an item, explain a gap

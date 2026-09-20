@@ -38,13 +38,15 @@ file, each with the fix on the first line; nothing is silently skipped.
    ```
    Everything in a territory is an item: a README or an index there is blocked for its name.
    Take it out with a negated pattern — `"!<path of the file>"` after the pattern that holds it.
-   That works for a file directly in the territory's top directory. For a file deeper down, the
+   That works for a file directly in the top directory of a territory written `"<dir>/**"` or
+   `"<dir>/*"` — not `"<dir>/"`, which names the directory itself. For a file deeper down, the
    territory must match files, not directories — `"<dir>/**/*.md"` rather than `"<dir>/**"` —
    because git re-includes nothing under a directory a pattern has excluded.
 3. Adopting a kind that already has documents: every one of them is renamed once, with every
-   link to it. Set `severity: warn` until that is done; the scan lists what is left, and tells
-   each document whose name shows a number to keep it. New items are numbered above every
-   number a name shows, renamed yet or not.
+   link to it — with `git mv`, which also works where the file system ignores case. Set
+   `severity: warn` until that is done; the scan lists what is left, tells each document whose
+   name shows a number to keep it, and names the other file where two show the same one. New
+   items are numbered above every number a name shows, renamed yet or not.
 4. Backstop for what the hook cannot see — `git mv`, shell edits, other tools, other people,
    and two branches that took one number: run the scan on demand, and in CI on every pull
    request, where the checkout is the merge of both branches:
@@ -53,7 +55,8 @@ file, each with the fix on the first line; nothing is silently skipped.
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity`. Its last
    line names each catalog's highest number, and the highest in history where a deleted item
-   went further; a shallow checkout has no history, and the line says so.
+   went further; where history is incomplete — a shallow checkout — or could not be read, the
+   line says so.
 5. Output log: every line the gate prints is also appended, as one JSON line (timestamp,
    module, gate, mode, session, stream, text), to `const-catalogs.jsonl` — blocked writes,
    warnings and configuration failures leave no trace in git, so this is where they survive.
