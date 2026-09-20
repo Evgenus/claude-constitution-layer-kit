@@ -16,7 +16,7 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
 
 1. At the end of a module's development, as the second pass of the fresh-context validation — step 6
    of "Developing a module" in [CLAUDE.md](../../../CLAUDE.md).
-2. Before the yes on any decision record landed outside a module's development.
+2. Before the yes on any decision record written outside a module's development.
 3. In full — every record — on any change to the kernel, and once before publication.
 
 ## Steps
@@ -40,7 +40,7 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
 6. **Consolidate, and verify before acting.** A reader can be wrong: check every finding you mean to
    act on against the tree yourself. Give every finding a handle. Each is fixed, or justified in a
    commit message of the change — in the pull request once the kit has one.
-7. **Read the fixes again.** Fixes made in a hurry break things: twice running they did. Commit them,
+7. **Read the fixes again.** Fixes made in a hurry break things. Commit them,
    pin a confirming reader to that commit — prompt D — and repeat while a pass finds a defect. Until
    its yes a record is a proposal, so the fixes may amend it in place; the commit says so.
 8. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
@@ -75,8 +75,9 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
 > SUPERSEDED (by which record; does the text match the later ruling?) or CONTRADICTED. Rationale and
 > one-time acts living only in the record are history, not a gap. (3) If the record has a carry list,
 > verify every entry: does the linked text state the item in full; is anything marked "history only"
-> that binds someone in future; is anything "pending" that is already real, or that the task-record
-> it links does not hold? (4) Find every mention of the record's id outside `docs/decisions/` —
+> that binds someone in future; does the task-record a "pending" entry links hold the item — and if
+> that task-record has closed, or the item is real already, does current-state text now state it? A
+> gap there is a finding against the documents, never against the list, which is not rewritten. (4) Find every mention of the record's id outside `docs/decisions/` —
 > scripts, error texts, tests, schemas, comments — and classify each PROVENANCE (the sentence is
 > complete without it) or RELIANCE (quote it; say what text would have to be inlined). (5) Does
 > `status` match reality? Verdict per record: REMOVABLE-NOW, REMOVABLE-AFTER-FIXES (the exact fixes),
@@ -95,7 +96,7 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
 > stated, weakened or contradicted, with the record's id, the item, and the file and line where it
 > used to stand or should. Records, each with the touched files it cites: `<list>`.
 
-## Prompt C — the blind pass on a landed record
+## Prompt C — the blind pass on an added record
 
 > STRICTLY READ-ONLY, pinned to `<pin>`, with the two git readings, as in prompt A. You may not open
 > anything under `docs/decisions/`. Holding only the current-state documents — the places prompt A

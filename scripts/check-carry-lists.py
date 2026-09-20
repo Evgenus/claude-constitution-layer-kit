@@ -146,11 +146,16 @@ def home_problem(kit: Path, record: Path, target: str, pending: bool = False) ->
     except ValueError:
         return f"{target} leads outside the repository", general
     if not path.exists():
-        return f"{shown} does not exist", "correct the path, or link the file that states it now"
+        mend = (
+            "correct the path to the task-record"
+            if pending
+            else "correct the path, or link the file that states it now"
+        )
+        return f"{shown} does not exist", mend
     if not path.is_file():
         return (
             f"{shown} is a directory, and a rule is stated in a file",
-            "link the file in it that states the item",
+            PEND_IT if pending else "link the file in it that states the item",
         )
     envelope, _ = split_frontmatter(path.read_text(encoding="utf-8")) if path.suffix == ".md" else ({}, "")
     kind = envelope.get("type")
@@ -158,7 +163,7 @@ def home_problem(kit: Path, record: Path, target: str, pending: bool = False) ->
         if kind == "task-record" and not shown.startswith(DECISIONS + "/"):
             return None
         return (
-            f"{shown} is no task-record that holds work to come, and pending intent rides only there",
+            f"{shown} is no task-record outside the records' folder, and pending intent rides only in one",
             general,
         )
     if path.suffix != ".md":
@@ -272,9 +277,9 @@ def check_list(kit: Path, record: Path) -> tuple[list[Finding], list[str]]:
                 )
             elif pending and (closed := closed_task(kit, record, target)):
                 notes.append(
-                    f"NOTE: {record.stem}: {parsed.group(1)} was pending in {closed}, which has closed — "
-                    "its close carried the intent into the current-state documents, and an audit in full "
-                    "checks that"
+                    f"NOTE: {record.stem}: {parsed.group(1)} was pending in {closed}, no longer active — "
+                    "its close should have carried the intent into the current-state documents, and an "
+                    "audit in full checks that"
                 )
     for handle in dict.fromkeys(handles):
         if seen.get(handle, 0) == 0:
@@ -353,8 +358,9 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
             Finding(
                 f"{where} and names no carry audit",
                 WHY_RECEIPT,
-                f'run the audit and write both trailers, "Accepted: {record_id}" and "{RECEIPT_FORM}"'
-                + AGAIN,
+                "run the audit, then accept again in a new commit that carries both trailers — "
+                f'"Accepted: {record_id}" and "{RECEIPT_FORM}" — never by rewriting history: the newest '
+                "acceptance counts",
             )
         ]
     findings = []
@@ -719,6 +725,7 @@ def self_test() -> int:
 
     def rename_record(root: Path) -> None:
         (root / DECISIONS / f"{SAMPLE}.md").rename(root / DECISIONS / f"{moved}.md")
+        git(root, "add", "-A")  # staged, so that git sees a rename: without --no-renames the case is red
 
     def cite_record(root: Path) -> None:
         (root / "modules/m/MODULE.md").write_text(module_doc, encoding="utf-8")
