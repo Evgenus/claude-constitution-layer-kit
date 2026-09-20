@@ -44,14 +44,17 @@ C, by Eugene Chernyshov in chat on 2026-09-20, with both proposed defaults accep
 2. **R2.** The scope is computed, never chosen. Read in full: the records the change lands, and those the module's decisions section cites. Read for regression: every other record that cites a file the change touched, asked only whether that file still states what the record ruled — the narrow question is what keeps the wide list affordable. `scripts/check-carry-lists.py --scope` computes both.
 3. **R3.** The audit is run in full, over every record, on any change to the kernel and once before publication.
 4. **R4.** The shape of a record is fixed: the last section is titled "Carry list"; every ruling item opens with a bold handle; the list pairs each handle, once, with links, with "history only", or with "pending" and a link.
-5. **R5.** A link in the list may lead only where a rule can live: a `current-state` document, `CLAUDE.md`, a skill of the kit, a module's or the template's own file, a file that is not markdown. The rollout plan, a research comparison, another record and the README cannot hold a rule.
-6. **R6.** "pending" is for intent that is not yet real; its link leads to an active task-record, where [kernel §2](../../kernel/CONVENTIONS.md#k2) says such intent rides. Once real, the item is carried and the word goes.
-7. **R7.** The commit that names the yes carries two trailers: `Accepted:` with the record's id, and `Carry-Audit:` with the commit the readers were pinned to, the number of records read, and the findings, fixed and justified. The pinned commit is an ancestor, the records are above zero, fixed and justified add up to the findings.
+5. **R5.** A link in the list may lead only where a rule can live: an `active` `current-state` document, `CLAUDE.md`, a skill of the kit, a module's or the template's own file, a file that is not markdown — a file, never a folder. The rollout plan, a research comparison, another record and the README cannot hold a rule.
+6. **R6.** "pending" is for intent that is not yet real; its link leads to an active task-record, where [kernel §2](../../kernel/CONVENTIONS.md#k2) says such intent rides. Once real, the entry is rewritten to link the text that states it — a reference-form migration, the ruling untouched.
+7. **R7.** The commit that names the yes carries two trailers: `Accepted:` with the record's id, and `Carry-Audit:` with the commit the readers were pinned to, the number of records read, and the findings, fixed and justified. The pinned commit is an ancestor at which the record already existed, the records are above zero, fixed and justified add up to the findings. The newest acceptance of a record is the one that counts, so a wrong receipt is mended by accepting again, never by rewriting history.
 8. **R8.** A record that no commit accepts yet awaits its yes: the gate reports a note, never a finding — a gate is not red for waiting on a person.
 9. **R9.** The gate is `scripts/check-carry-lists.py`, with its red→green proof in `--self-test`, for records numbered `0030` and above. Records `0027` to `0029` keep the earlier form of their lists: renaming a section is no reference-form migration, so they are not edited.
 10. **R10.** Enforcement is declared, never blurred: the list's shape and the receipt are a gate; whether a ruling is carried is judgment, held by the audit's readers and by review. The gate cannot see an item that was given no handle, whether the linked text states the rule, or whether the audit a receipt names was run.
 11. **R11.** In Phase D the gate joins the kit's CI, which fetches the full history for it, and one audit in full is run before the modules are published.
-12. **R12.** Built on the day: the script and the skill in commit `5ae8c34`; the "pending" form and the kit skills as a home were added when this record's own item R11 could not otherwise be listed.
+12. **R12.** The yes is named in the message of the commit that lands the change, as [kernel §4](../../kernel/CONVENTIONS.md#k4) says — and a change lands with its last commit. For an audited record that commit comes after the audit, since readers are pinned to a commit that already holds the record; the decision-record policy had said "the commit that lands the record", which is narrower than the kernel and unreachable for a gated record.
+13. **R13.** From Phase D, when the yes is PR approval, the two trailers stand in the commit that merges the pull request.
+14. **R14.** This reverses two words of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md): its items 5 and 6 called the carry list and the carry check advisory. The list's shape is now gated and the audit mandatory; what that record called judgment stays judgment. It also widens its item 5: beside carried and "history only" there is "pending".
+15. **R15.** Built on the day: the script and the skill in commit `5ae8c34`; the "pending" form and the kit skills as a home were added when this record's own item R11 could not otherwise be listed; the audit of this change, pinned to `b3db68c`, then found the rest — among it a fix text that could never turn the gate green, a receipt that accepted a pin older than the record, and a rule 5 that contradicted the kernel.
 
 ## Carry list
 
@@ -59,7 +62,8 @@ C, by Eugene Chernyshov in chat on 2026-09-20, with both proposed defaults accep
 2. R2 — step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); steps 2 and 3 and prompt B of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md); [the script](../../scripts/check-carry-lists.py).
 3. R3 — [kit-decision-records](../policies/kit-decision-records.md), rule 2.
 4. R4, R5, R6 — [kit-decision-records](../policies/kit-decision-records.md), rule 2; [the script](../../scripts/check-carry-lists.py).
-5. R7, R8 — [kit-decision-records](../policies/kit-decision-records.md), rule 5; step 7 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
+5. R7, R8, R12 — [kit-decision-records](../policies/kit-decision-records.md), rule 5; step 7 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md); [the script](../../scripts/check-carry-lists.py).
 6. R9, R10 — [kit-decision-records](../policies/kit-decision-records.md), rule 2; the docstring of [the script](../../scripts/check-carry-lists.py).
-7. R11 — pending: [the rollout plan](../rollout-plan.md), step 10.
-8. R12 — history only: what was built on the day.
+7. R11, R13 — pending: [the rollout plan](../rollout-plan.md), step 10.
+8. R14 — history only: what it says of the earlier record is a fact of this day; the rules themselves are R1, R4 and R6.
+9. R15 — history only: what was built on the day.

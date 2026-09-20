@@ -42,7 +42,9 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
    beside the attribution line:
    `Accepted: <record id>` — one per record, or several ids separated by commas;
    `Carry-Audit: at <pin>; <n> records; <f> findings, <x> fixed, <j> justified` — where `n` counts
-   `full` and `regression` records together, and `x + j = f`.
+   `full` and `regression` records together and is above zero, `x + j = f`, and the pin is an ancestor
+   at which the record already existed. The newest acceptance of a record is the one that counts: a
+   wrong receipt is mended by accepting again, in a new commit.
 8. **Run the gate:** `python3 scripts/check-carry-lists.py`. Red is fixed before the turn ends.
 
 ## Prompt A — a reader of `full` records
@@ -51,23 +53,24 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
 > no script that writes. The audit is pinned to commit `<pin>`: report `git rev-parse --short HEAD` and
 > `git status --short` at the start and at the end.
 >
-> Read sections 1, 2 and 5 of `kernel/CONVENTIONS.md`, and rules 1, 2 and 7 of
+> Read sections 1, 2 and 5 of `kernel/CONVENTIONS.md`, and rules 1, 2, 5 and 7 of
 > `docs/policies/kit-decision-records.md`. The question: could each record below be deleted without
 > anyone losing a rule they must follow? Records: `<list>`.
 >
 > For each record: (1) read it whole and split what it rules into items — every rule, definition,
 > step, dial, exception, obligation, measurement, fallback and deferred trigger. Hunt outside the
-> ruling section too: a binding sentence under Reasoning, Options or Context is an item, and it is the
-> kind most often left out of a carry list. (2) For each item find where it is stated today in
+> ruling section too: a binding sentence under Context, Options, Recommendation, Choice or Reasoning is
+> an item, and it is the kind most often left out of a carry list. (2) For each item find where it is stated today in
 > current-state text or code: `kernel/`, `CLAUDE.md`, `INTENT.md`, `constitution.yaml`,
 > `docs/policies/`, `docs/requirements.md`, `module-template/`, `shared/`, `modules/`, `scripts/`,
-> `pyproject.toml`. Not current-state: `docs/rollout-plan.md` — though intent that is not yet real
+> `pyproject.toml`, `.claude/skills/`. Not current-state: `docs/rollout-plan.md` — though intent that is not yet real
 > lives there legitimately, say so — `docs/research/`, `README.md`, commit messages, other records.
 > Judge each item CARRIED (file and line, verified), PARTIAL (what exactly is missing), MISSING,
 > SUPERSEDED (by which record; does the text match the later ruling?) or CONTRADICTED. Rationale and
 > one-time acts living only in the record are history, not a gap. (3) If the record has a carry list,
 > verify every entry: does the linked text state the item in full; is anything marked "history only"
-> that binds someone in future? (4) Find every mention of the record's id outside `docs/decisions/` —
+> that binds someone in future; is anything "pending" that is already real, or that the task-record
+> it links does not hold? (4) Find every mention of the record's id outside `docs/decisions/` —
 > scripts, error texts, tests, schemas, comments — and classify each PROVENANCE (the sentence is
 > complete without it) or RELIANCE (quote it; say what text would have to be inlined). (5) Does
 > `status` match reality? Verdict per record: REMOVABLE-NOW, REMOVABLE-AFTER-FIXES (the exact fixes),
@@ -80,7 +83,8 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
 ## Prompt B — a reader of `regression` records
 
 > STRICTLY READ-ONLY, pinned to `<pin>`, as in prompt A. The change under audit touched these files:
-> `<touched files>`. For each record below, find the ruling items whose home is in one of those files
+> `<touched files>`; `git diff <base> <pin> -- <touched files>` shows what changed, and a sentence the
+> diff deleted or reworded is where to look first. For each record below, find the ruling items whose home is in one of those files
 > and check that the file still states each of them in full, at the pin. Report only what is no longer
 > stated, weakened or contradicted, with the record's id, the item, and the file and line where it
 > used to stand or should. Records, each with the touched files it cites: `<list>`.

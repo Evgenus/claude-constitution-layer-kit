@@ -9,16 +9,18 @@ script can hold:
 
   the list     the record's last section is "Carry list"; every ruling item carries a handle,
                **R1.**, **R2.**, …; the list pairs each handle, once, with links, with "history
-               only", or with "pending" and links. A link leads where a rule can live — a governed
+               only", or with "pending" and a link. A link leads where a rule can live — an active
                document of type current-state, CLAUDE.md, a skill of the kit, a module's or the
-               template's own file, a file that is not markdown. The rollout plan, a research
-               comparison, another record and the README cannot: those are where rulings were
-               found hiding. "pending" is for intent that is not yet real, and its links lead to
-               an active task-record, where the kernel says such intent rides.
+               template's own file, a file that is not markdown — a file, never a folder. The rollout
+               plan, a research comparison, another record and the README cannot: those are where
+               rulings were found hiding. "pending" is for intent that is not yet real, and its
+               link leads to an active task-record, where the kernel says such intent rides.
   the receipt  the commit that accepts a record — trailer "Accepted: <record id>" — also carries
                "Carry-Audit: at <commit>; <n> records; <f> findings, <x> fixed, <j> justified";
-               the commit named is an ancestor, n is above zero, x + j = f. A record no commit
-               accepts yet awaits its yes: a note, never a finding.
+               the commit named is an ancestor at which the record already existed, n is above
+               zero, x + j = f. The newest acceptance of a record is the one that counts, so a
+               wrong receipt is mended by accepting again. A record no commit accepts yet awaits
+               its yes: a note, never a finding — a gate is not red for waiting on a person.
 
 What it cannot see, and leaves to the reader of the audit: a ruling item the author never gave a
 handle; whether the linked text states the rule; whether the audit the receipt names was run.
@@ -27,7 +29,7 @@ Records numbered below the threshold were written before the rule and are not ex
 
 Modes:  no arguments            check the lists and the receipts;
         --scope BASE [MODULE]   print the records a closing audit must read for the change since
-                                BASE: in full — those the change lands and those the module's
+                                BASE: in full — those the change adds or edits and those the module's
                                 decisions section cites; for regression — those that cite a file
                                 the change touched;
         --self-test             prove each finding red and the right record green, on throwaway trees.
@@ -134,6 +136,8 @@ def home_problem(kit: Path, record: Path, target: str, pending: bool = False) ->
         return f"{target} leads outside the repository"
     if not path.exists():
         return f"{shown} does not exist"
+    if not path.is_file():
+        return f"{shown} is a directory, and a rule is stated in a file"
     if path.suffix != ".md":
         return "pending intent rides in an active task-record, and this is none" if pending else None
     envelope, _ = split_frontmatter(path.read_text(encoding="utf-8"))
@@ -148,6 +152,8 @@ def home_problem(kit: Path, record: Path, target: str, pending: bool = False) ->
         return f"{shown} is not a governed document and holds no rules"
     if kind != "current-state":
         return f"{shown} is `{kind}`, and only a `current-state` document states a rule that binds"
+    if envelope.get("status") != "active":
+        return f"{shown} is not `active`, and a document that is not in force binds nothing"
     return None
 
 
@@ -324,7 +330,8 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
             Finding(
                 f"{where} and names no carry audit",
                 WHY_RECEIPT,
-                "run the audit, then accept again in a commit with both trailers — "
+                "run the audit, then accept again in a new commit with both trailers — the newest "
+                "acceptance of a record is the one that counts — "
                 f'"Accepted: {record_id}" and '
                 f'"{RECEIPT_FORM}"',
             )
@@ -356,7 +363,8 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
                     f"{where}: {found} findings, of which {fixed} fixed and {justified} justified — "
                     f"{found - fixed - justified} unaccounted for",
                     WHY_RECEIPT,
-                    "every finding is fixed or justified before the yes; account for each and accept again",
+                    "every finding is fixed or justified before the yes; account for each and accept "
+                    "again in a new commit",
                 )
             )
         if git(kit, "merge-base", "--is-ancestor", f"{at}^{{commit}}", acceptance.commit).returncode != 0:
@@ -366,6 +374,15 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
                     WHY_RECEIPT,
                     "name the commit the readers were pinned to; it is in the history the acceptance "
                     "stands on",
+                )
+            )
+        elif git(kit, "cat-file", "-e", f"{at}:{DECISIONS}/{record_id}.md").returncode != 0:
+            findings.append(
+                Finding(
+                    f"{where} on an audit at {at}, where the record did not exist yet",
+                    WHY_RECEIPT,
+                    "an audit reads the record it accepts: commit the record, pin the readers to that commit "
+                    "or a later one, and name it",
                 )
             )
     return findings
@@ -386,11 +403,19 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
     notes = []
     accepted = acceptances(kit) if records else []
     for record in records:
-        mine = [a for a in accepted if record.stem in a.accepted]
+        mine = [a for a in accepted if record.stem in a.accepted]  # git log order: newest first
         if not mine:
             notes.append(f'NOTE: {record.stem} awaits its yes — no commit carries "Accepted: {record.stem}"')
-        for acceptance in mine:
-            findings.extend(check_receipt(kit, record.stem, acceptance))
+        else:
+            findings.extend(check_receipt(kit, record.stem, mine[0]))
+    present = {path.stem for path in (kit / DECISIONS).glob("*.md")}
+    for acceptance in accepted:
+        for stem in acceptance.accepted:
+            if stem not in present:
+                notes.append(
+                    f"NOTE: commit {acceptance.commit[:7]} accepts {stem}, which is not in {DECISIONS}/ — "
+                    "deleted since, or misspelt; a misspelt id leaves its record awaiting its yes"
+                )
     return findings, notes, len(records)
 
 
@@ -423,12 +448,12 @@ def cited_files(kit: Path, document: Path, text: str) -> set[str]:
     return cited
 
 
-def scope(kit: Path, base: str, module: str | None) -> int:
+def compute_scope(kit: Path, base: str, module: str | None) -> tuple[set[str], dict[str, list[str]]]:
     if git(kit, "rev-parse", "--verify", "-q", f"{base}^{{commit}}").returncode != 0:
         raise CouldNotRun(f"{base} names no commit — fix: pass the commit the change started from")
-    landed = set(git(kit, "diff", "--name-only", "--diff-filter=A", base, "--", DECISIONS).stdout.split())
+    landed = set(git(kit, "diff", "--name-only", "--diff-filter=AM", base, "--", DECISIONS).stdout.split())
     landed |= set(git(kit, "ls-files", "--others", "--exclude-standard", "--", DECISIONS).stdout.split())
-    touched = set(git(kit, "diff", "--name-only", base).stdout.split())
+    touched = set(git(kit, "diff", "--name-only", "--no-renames", base).stdout.split())
     touched |= set(git(kit, "ls-files", "--others", "--exclude-standard").stdout.split())
     touched = {t for t in touched if not t.startswith(DECISIONS + "/")}
     full = {Path(p).stem for p in landed if STEM.match(Path(p).stem)}
@@ -441,7 +466,11 @@ def scope(kit: Path, base: str, module: str | None) -> int:
         section = re.search(
             r"^## 4\. .*?(?=^## )", document.read_text(encoding="utf-8"), re.MULTILINE | re.DOTALL
         )
-        for cited in cited_files(kit, document, section.group(0) if section else ""):
+        if section is None:
+            raise CouldNotRun(
+                f"modules/{module}/MODULE.md has no section 4 — fix: fill the template's decisions section"
+            )
+        for cited in cited_files(kit, document, section.group(0)):
             if cited.startswith(DECISIONS + "/"):
                 full.add(Path(cited).stem)
     regression: dict[str, list[str]] = {}
@@ -451,6 +480,11 @@ def scope(kit: Path, base: str, module: str | None) -> int:
         hits = sorted(cited_files(kit, record, record.read_text(encoding="utf-8")) & touched)
         if hits:
             regression[record.stem] = hits
+    return full, regression
+
+
+def scope(kit: Path, base: str, module: str | None) -> int:
+    full, regression = compute_scope(kit, base, module)
     for stem in sorted(full):
         print(f"full        {stem}")
     for stem, hits in regression.items():
@@ -490,17 +524,20 @@ decider: someone
 
 
 def sample_kit(root: Path, record: str = GOOD_RECORD) -> Path:
-    for folder in (DECISIONS, "docs/policies", "docs/research"):
+    for folder in (DECISIONS, "docs/policies", "docs/research", ".claude/skills/s", "modules/m", "scripts"):
         (root / folder).mkdir(parents=True, exist_ok=True)
-    (root / "docs/policies/p.md").write_text("---\nid: p\ntype: current-state\n---\n", encoding="utf-8")
-    (root / "docs/plan.md").write_text(
-        "---\nid: plan\ntype: task-record\nstatus: active\n---\n", encoding="utf-8"
-    )
-    (root / "docs/done.md").write_text(
-        "---\nid: done\ntype: task-record\nstatus: inactive\n---\n", encoding="utf-8"
-    )
-    (root / "docs/research/r.md").write_text("---\nid: r\ntype: non-authoritative\n---\n", encoding="utf-8")
-    (root / "README.md").write_text("# readme\n", encoding="utf-8")
+    envelopes = {
+        "docs/policies/p.md": "id: p\ntype: current-state\nstatus: active",
+        "docs/policies/old.md": "id: old\ntype: current-state\nstatus: inactive",
+        "docs/plan.md": "id: plan\ntype: task-record\nstatus: active",
+        "docs/done.md": "id: done\ntype: task-record\nstatus: inactive",
+        "docs/research/r.md": "id: r\ntype: non-authoritative\nstatus: active",
+        ".claude/skills/s/SKILL.md": "name: s\ndescription: a skill of the kit",
+    }
+    for name, envelope in envelopes.items():
+        (root / name).write_text(f"---\n{envelope}\n---\n", encoding="utf-8")
+    for name in ("README.md", "CLAUDE.md", "modules/m/INSTALL.md", "scripts/x.py"):
+        (root / name).write_text("text\n", encoding="utf-8")
     path = root / DECISIONS / f"{SAMPLE}.md"
     path.write_text(record, encoding="utf-8")
     return path
@@ -525,6 +562,7 @@ def commit(root: Path, message: str) -> str:
 
 
 def self_test() -> int:
+    home = "../policies/p.md"
     wrong_lists: dict[str, Callable[[str], str]] = {
         "no carry list": lambda t: t[: t.index("## Carry list")],
         "a carry list that is not the last section": lambda t: t + "\n## After\n\ntext\n",
@@ -535,19 +573,23 @@ def self_test() -> int:
         "a handle opening two items": lambda t: t.replace("**R2.**", "**R1.**").replace(
             "2. R2 — history only: done on the day.\n", ""
         ),
-        "an entry with no home": lambda t: t.replace(
-            "[policy](../policies/p.md), rule 1.", "the policy, rule 1."
-        ),
-        "a home in a research comparison": lambda t: t.replace("../policies/p.md", "../research/r.md"),
-        "a home in another record": lambda t: t.replace("../policies/p.md", f"{SAMPLE}.md"),
-        "a home in the README": lambda t: t.replace("../policies/p.md", "../../README.md"),
-        "a home that does not exist": lambda t: t.replace("../policies/p.md", "../policies/none.md"),
-        "a home outside the repository": lambda t: t.replace("../policies/p.md", "https://example.invalid/p"),
+        "an entry with no home": lambda t: t.replace(f"[policy]({home}), rule 1.", "the policy, rule 1."),
+        "a home in a research comparison": lambda t: t.replace(home, "../research/r.md"),
+        "a home in another record": lambda t: t.replace(home, f"{SAMPLE}.md"),
+        "a home in the README": lambda t: t.replace(home, "../../README.md"),
+        "a home in a document that is not in force": lambda t: t.replace(home, "../policies/old.md"),
+        "a folder as a home": lambda t: t.replace(home, "../../scripts"),
+        "a home that does not exist": lambda t: t.replace(home, "../policies/none.md"),
+        "a home outside the repository": lambda t: t.replace(home, "https://example.invalid/p"),
         "pending intent in a closed task-record": lambda t: t.replace("(../plan.md)", "(../done.md)"),
-        "pending intent in a current-state document": lambda t: t.replace(
-            "(../plan.md)", "(../policies/p.md)"
-        ),
-        "a rule carried into the active plan": lambda t: t.replace("../policies/p.md", "../plan.md"),
+        "pending intent in a current-state document": lambda t: t.replace("(../plan.md)", f"({home})"),
+        "a rule carried into the active plan": lambda t: t.replace(home, "../plan.md"),
+    }
+    right_homes = {
+        "CLAUDE.md": "../../CLAUDE.md",
+        "a skill of the kit": "../../.claude/skills/s/SKILL.md",
+        "a module's own file": "../../modules/m/INSTALL.md",
+        "a file that is not markdown": "../../scripts/x.py",
     }
     failed = 0
     for name, damage in wrong_lists.items():
@@ -560,43 +602,82 @@ def self_test() -> int:
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the right list is green, {name} is red")
-
-    accept = f"Accepted: {SAMPLE}"
-    wrong_receipts: dict[str, Callable[[str], str]] = {
-        "an acceptance with no receipt": lambda at: f"yes\n\n{accept}\n",
-        "a receipt that cannot be read": lambda at: f"yes\n\n{accept}\nCarry-Audit: done, all fine\n",
-        "an audit of 0 records": lambda at: (
-            f"yes\n\n{accept}\nCarry-Audit: at {at}; 0 records; 0 findings, 0 fixed, 0 justified\n"
-        ),
-        "findings unaccounted for": lambda at: (
-            f"yes\n\n{accept}\nCarry-Audit: at {at}; 3 records; 5 findings, 2 fixed, 1 justified\n"
-        ),
-        "an audit at no commit": lambda at: (
-            f"yes\n\n{accept}\nCarry-Audit: at {'0' * 40}; 3 records; 0 findings, 0 fixed, 0 justified\n"
-        ),
-    }
-    right = "yes\n\n" + accept + "\nCarry-Audit: at {at}; 3 records; 2 findings, 1 fixed, 1 justified\n"
-    cases: dict[str, tuple[Callable[[str], str], bool]] = {
-        "the right receipt": (lambda at: right.format(at=at), False),
-        **{n: (m, True) for n, m in wrong_receipts.items()},
-    }
-    for name, (message, red_wanted) in cases.items():
+    for name, target in right_homes.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            sample_kit(root)
+            ok = not check_list(root, sample_kit(root, GOOD_RECORD.replace(home, target)))
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] a home in {name} is green")
+
+    accept = f"Accepted: {SAMPLE}"
+    stranger = f"dec-{THRESHOLD + 69:04d}-no-such-record"
+    right = "yes\n\n" + accept + "\nCarry-Audit: at {at}; 3 records; 2 findings, 1 fixed, 1 justified\n"
+    bare = f"yes\n\n{accept}\n"
+    # name -> (the commit messages after the record lands, red wanted, notes wanted)
+    receipts: dict[str, tuple[list[str], bool, int]] = {
+        "the right receipt is green": ([right], False, 0),
+        "an acceptance with no receipt is red": ([bare], True, 0),
+        "a receipt that cannot be read is red": ([bare + "Carry-Audit: done, all fine\n"], True, 0),
+        "an audit of 0 records is red": (
+            [bare + "Carry-Audit: at {at}; 0 records; 0 findings, 0 fixed, 0 justified\n"],
+            True,
+            0,
+        ),
+        "findings unaccounted for are red": (
+            [bare + "Carry-Audit: at {at}; 3 records; 5 findings, 2 fixed, 1 justified\n"],
+            True,
+            0,
+        ),
+        "an audit at no commit is red": (
+            [bare + "Carry-Audit: at " + "0" * 40 + "; 3 records; 0 findings, 0 fixed, 0 justified\n"],
+            True,
+            0,
+        ),
+        "an audit pinned before the record existed is red": (
+            [bare + "Carry-Audit: at {before}; 3 records; 0 findings, 0 fixed, 0 justified\n"],
+            True,
+            0,
+        ),
+        "a wrong receipt mended by accepting again is green": ([bare, right], False, 0),
+        "an acceptance of a record that is not there is a note": (
+            [right, f"yes\n\nAccepted: {stranger}\n"],
+            False,
+            1,
+        ),
+    }
+    for name, (messages, red_wanted, notes_wanted) in receipts.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
             git(root, "init", "-q")
+            before = commit(root, "before the record")
+            sample_kit(root)
             pinned = commit(root, "the record lands")
             awaiting = check_kit(root)
-            commit(root, message(pinned[:12]))
+            for message in messages:
+                commit(root, message.format(at=pinned[:12], before=before[:12]))
             findings, notes, _ = check_kit(root)
-        ok = (not awaiting[0] and len(awaiting[1]) == 1) and (bool(findings) == red_wanted) and not notes
+        ok = (not awaiting[0] and len(awaiting[1]) == 1) and bool(findings) == red_wanted
+        ok = ok and len(notes) == notes_wanted
         failed += 0 if ok else 1
-        print(
-            f"[{'ok' if ok else 'FAIL'}] a record awaiting its yes is a note; "
-            f"{name} is {'red' if red_wanted else 'green'}"
+        print(f"[{'ok' if ok else 'FAIL'}] a record awaiting its yes is a note; {name}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root)
+        base = commit(root, "the base: one record, which cites the policy")
+        newer = f"dec-{THRESHOLD + 2:04d}-newer"
+        (root / DECISIONS / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
+        (root / "docs/policies/p.md").write_text(
+            "---\nid: p\ntype: current-state\nstatus: active\n---\nmore\n"
         )
-    total = len(wrong_lists) + len(cases)
-    print(f"{total - failed}/{total} red→green cases green")
+        full, regression = compute_scope(root, base, None)
+    ok = full == {newer} and regression == {SAMPLE: ["docs/policies/p.md"]}
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the scope: an added record in full, a citing one for regression")
+
+    total = len(wrong_lists) + len(right_homes) + len(receipts) + 1
+    print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
 
