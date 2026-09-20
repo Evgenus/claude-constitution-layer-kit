@@ -12,7 +12,7 @@ from const_gate.envelope import parse_envelope, string_field
 from const_gate.model import Envelope, EnvelopeState, Finding
 
 from . import messages
-from .model import Catalog, Item
+from .model import Catalog, Item, Taken
 
 
 def catalog_of(claiming: Sequence[Catalog], stem: str) -> Catalog | None:
@@ -37,15 +37,32 @@ def stem_of(rel: str) -> str:
     return PurePosixPath(rel).name[: -len(".md")]  # only Markdown documents reach a check
 
 
-def examine(catalog: Catalog, rel: str, text: str) -> Item:
+def examine(catalog: Catalog, rel: str, text: str, taken: Taken | None = None) -> Item:
+    """`taken` is given for a file that does not exist yet: only then is a number that another
+    item carries refused, and only then can the fix name the next free one. An item that
+    exists is judged on its name and its id; which of two that collide keeps its number is
+    a question of branches, which the scan's finding answers."""
     stem = stem_of(rel)
     number = catalog.number_of(stem)
-    findings = (
-        [messages.k1_name_without_form(rel, stem, catalog)]
-        if number is None
-        else check_id(rel, stem, parse_envelope(text))
-    )
+    free = taken.free if taken is not None else None
+    if number is None:
+        findings = [messages.k1_name_without_form(rel, stem, catalog, free)]
+    elif taken is not None and number in taken.holders:
+        findings = [messages.k4_number_taken(rel, catalog, number, taken.holders[number], free)]
+    else:
+        findings = check_id(rel, stem, parse_envelope(text))
     return Item(rel, catalog, number, tuple(findings))
+
+
+def numbers_taken(catalog: Catalog, others: Sequence[str]) -> Taken:
+    """`others` are the paths of the catalog's other items. Of two that already share a number,
+    the first by path is named as its holder."""
+    holders: dict[int, str] = {}
+    for rel in sorted(others):
+        number = catalog.number_of(stem_of(rel))
+        if number is not None:
+            holders.setdefault(number, rel)
+    return Taken(catalog, holders)
 
 
 def shared_numbers(items: Sequence[Item]) -> list[Finding]:

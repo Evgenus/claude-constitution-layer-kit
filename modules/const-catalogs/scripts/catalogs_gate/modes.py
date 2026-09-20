@@ -18,8 +18,8 @@ from const_gate.territory import Matcher
 
 from . import dials as catalog_dials
 from . import messages
-from .checks import catalog_of, examine, shared_numbers, stem_of
-from .model import Catalog
+from .checks import catalog_of, examine, numbers_taken, shared_numbers, stem_of
+from .model import Catalog, Taken
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
@@ -30,11 +30,15 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     if not catalogs:
         return pipeline.skip(output, messages.g1_skip_no_catalog())
     rel = target.rel
+    taken: Taken | None = None
     with Matcher() as matcher:
         catalog = _catalogs_by_path(matcher, catalogs, [rel]).get(rel)
+        if catalog is not None and not (target.root / rel).exists():  # a new item: its number must be free
+            by_path = _catalogs_by_path(matcher, catalogs, list_markdown(target.root))
+            taken = numbers_taken(catalog, [other for other, its in by_path.items() if its == catalog])
     if catalog is None:
         return pipeline.skip(output, messages.g1_skip_not_an_item(rel, catalogs))
-    item = examine(catalog, rel, target.text)
+    item = examine(catalog, rel, target.text, taken)
     if item.findings:
         return pipeline.report_hook(output, item.findings, (), rel, target.dials.severity)
     return pipeline.green_hook(output, messages.g1_item_of(catalog))

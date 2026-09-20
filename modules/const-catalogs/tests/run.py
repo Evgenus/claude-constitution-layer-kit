@@ -99,10 +99,12 @@ def dials_text(patch: dict[str, object] | None = None) -> str:
 
 SETUP = (Write("constitution.yaml", dials_text()),)
 VALID = Write(ITEM_A, item())
+SECOND_TAKEN = at("itm-0001-second")
 
 
-def k1(stem: str, catalog: Catalog = CATALOG) -> Finding:
-    return messages.k1_name_without_form(at(stem), stem, catalog)
+def k1(stem: str, catalog: Catalog = CATALOG, free: int | None = 1) -> Finding:
+    """`free` is the next free number a new file is taught; None for a file that exists, as in a scan."""
+    return messages.k1_name_without_form(at(stem), stem, catalog, free)
 
 
 def k2(detail: str, stem: str = STEM_A) -> Finding:
@@ -216,6 +218,14 @@ CASES = [
         k1("itm-0001-first", Catalog("itm", 6, tuple(TERRITORY))),
         (Write("constitution.yaml", dials_text(catalogs(entry(width=6)))),),
     ),
+    Case(
+        42,
+        "K4: a new item under a number another item carries is blocked; the next free number passes",
+        Write(SECOND_TAKEN, item("itm-0001-second")),
+        Write(at("itm-0002-second"), item("itm-0002-second")),
+        messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, 2),
+        (*SETUP, VALID),
+    ),
 ]
 
 
@@ -304,7 +314,7 @@ def inside_a_policys_territory() -> tuple[bool, str]:
     """A catalog's territory may lie inside a policy's: numbering and governance do not meet."""
     patch = catalogs(entry("note", ["docs/notes/**"]))
     result, _ = gate_on(Write("docs/notes/a.md", item("a")), dials_patch=patch)
-    taught = messages.k1_name_without_form("docs/notes/a.md", "a", Catalog("note", 4, ("docs/notes/**",)))
+    taught = messages.k1_name_without_form("docs/notes/a.md", "a", Catalog("note", 4, ("docs/notes/**",)), 1)
     return expect(result, 2, taught.render(), "stderr")
 
 
@@ -396,7 +406,7 @@ def overlap_without_a_prefix() -> tuple[bool, str]:
     """A name that carries neither prefix is judged by the first catalog listed."""
     patch = catalogs(entry(), entry("shr", ["docs/items/shared/**"]))
     result, _ = gate_on(Write("docs/items/shared/first.md", item("first")), dials_patch=patch)
-    taught = messages.k1_name_without_form("docs/items/shared/first.md", "first", CATALOG)
+    taught = messages.k1_name_without_form("docs/items/shared/first.md", "first", CATALOG, 1)
     return expect(result, 2, taught.render(), "stderr")
 
 
@@ -442,16 +452,15 @@ def scan_gap_is_legitimate() -> tuple[bool, str]:
 
 def scan_ignores_warn() -> tuple[bool, str]:
     result = scan_of({at("first"): item("first")}, own(severity="warn"))
-    return expect(result, 2, k1("first").render(), "stdout")
+    return expect(result, 2, k1("first", free=None).render(), "stdout")
 
 
 def scan_name_and_number() -> tuple[bool, str]:
     """An item whose name carries no number is one finding and takes no part in the collision check."""
     result = scan_of({**COLLIDING, at("first"): item("first")})
     count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 7, 1))
-    ok = result.code == 2 and all(
-        text in result.stdout for text in (k1("first").render(), K3.render(), count)
-    )
+    taught = (k1("first", free=None).render(), K3.render(), count)
+    ok = result.code == 2 and all(text in result.stdout for text in taught)
     return ok, f"exit {result.code}: two findings, four items"
 
 
@@ -481,8 +490,49 @@ def long_value_is_cut() -> tuple[bool, str]:
     return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
 
 
+ONE_AND_NINE = {ITEM_A: item(), at("itm-0009-ninth"): item("itm-0009-ninth")}
+K4 = messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, 2)
+
+
+def existing_item_is_not_judged_on_its_number() -> tuple[bool, str]:
+    """Of two items that already collide, either may still be written: which one renumbers is a
+    question of branches, answered by the scan's finding, not by blocking the frozen one's edits."""
+    files = {ITEM_A: item(), SECOND_TAKEN: item("itm-0001-second")}
+    result, _ = gate_on(Write(SECOND_TAKEN, item("itm-0001-second")), files=files)
+    return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
+
+
+def untracked_item_holds_its_number() -> tuple[bool, str]:
+    """An item nobody committed yet is in the working tree all the same, and its number is taken."""
+    result, _ = gate_on(Write(SECOND_TAKEN, item("itm-0001-second")), files={ITEM_A: item()})
+    return expect(result, 2, K4.render(), "stderr")
+
+
+def edit_that_creates_is_new() -> tuple[bool, str]:
+    result, _ = gate_on(Edit(SECOND_TAKEN, "", item("itm-0001-second")), files={ITEM_A: item()})
+    return expect(result, 2, K4.render(), "stderr")
+
+
+def free_number_below_the_highest() -> tuple[bool, str]:
+    """The gate asks for a free number, not for the next one: allocation is advice, a gap is legitimate."""
+    result, _ = gate_on(Write(at("itm-0005-fifth"), item("itm-0005-fifth")), files=ONE_AND_NINE)
+    return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
+
+
+def next_free_number_is_named() -> tuple[bool, str]:
+    result, _ = gate_on(Write(at("tenth"), item("tenth")), files=ONE_AND_NINE)
+    return expect(result, 2, k1("tenth", free=10).render(), "stderr")
+
+
+def width_exhausted() -> tuple[bool, str]:
+    """Past the last number the width can write, the fix falls back to words: no name is invented."""
+    files = {at("itm-9-ninth"): item("itm-9-ninth")}
+    result, _ = gate_on(Write(at("tenth"), item("tenth")), dials_patch=catalogs(entry(width=1)), files=files)
+    return expect(result, 2, k1("tenth", Catalog("itm", 1, tuple(TERRITORY)), free=None).render(), "stderr")
+
+
 def message_shape() -> tuple[bool, str]:
-    built = [*(case.expect for case in CASES), K3]
+    built = [*(case.expect for case in CASES), K3, K4]
     ok = all(isinstance(f, Finding) and f.key and f.headline and f.why and f.fix for f in built)
     return ok, f"{len(built)} findings examined, each with what / why / fix"
 
@@ -554,6 +604,22 @@ ASSERTIONS = [
     Assertion(39, "scan: 300 items in seconds (each item read once)", scan_scales),
     Assertion(40, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(41, "message shape: every taught finding has what, why and fix", message_shape),
+    Assertion(
+        43,
+        "an item that exists is never judged on its number: of two that collide, either can be edited",
+        existing_item_is_not_judged_on_its_number,
+    ),
+    Assertion(44, "K4: an untracked item, not ignored, holds its number", untracked_item_holds_its_number),
+    Assertion(45, "K4: an Edit that creates a file is a new item", edit_that_creates_is_new),
+    Assertion(
+        46,
+        "a free number below the highest passes: the gate asks for free, not for next",
+        free_number_below_the_highest,
+    ),
+    Assertion(
+        47, "K1 for a new file names the next free number: 10 after 1 and 9", next_free_number_is_named
+    ),
+    Assertion(48, "the width exhausted: the fix is in words, no name is invented", width_exhausted),
 ]
 
 

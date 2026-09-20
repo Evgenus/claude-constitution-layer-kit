@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache
@@ -20,6 +21,7 @@ class Key(StrEnum):
     K1 = "K1"
     K2 = "K2"
     K3 = "K3"
+    K4 = "K4"
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +45,21 @@ class Catalog:
 @cache
 def _form(prefix: str, width: int) -> re.Pattern[str]:
     return re.compile(rf"^{re.escape(prefix)}-(\d{{{width}}})-{SLUG}$")
+
+
+@dataclass(frozen=True, slots=True)
+class Taken:
+    """The numbers the other items of one catalog carry in the working tree, each with the
+    file that carries it: what a file that does not exist yet is judged against."""
+
+    catalog: Catalog
+    holders: Mapping[int, str]
+
+    @property
+    def free(self) -> int | None:
+        """The next free number, the highest plus one; None once the width cannot write it."""
+        number = max(self.holders, default=0) + 1
+        return number if number < 10**self.catalog.width else None
 
 
 @dataclass(frozen=True, slots=True)

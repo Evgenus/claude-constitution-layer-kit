@@ -39,16 +39,39 @@ def _form(catalog: Catalog) -> str:
 # ---------------------------------------------------------------- findings: one item
 
 
-def k1_name_without_form(rel: str, stem: str, catalog: Catalog) -> Finding:
+def _name_to_take(catalog: Catalog, free: int | None) -> str:
+    """The fix both findings about a name end in. `free` is the catalog's next free number,
+    known when the file is new and the width can still write it."""
+    if free is None:
+        return (
+            f"name the file {catalog.prefix}-<number>-<slug>.md: the number is the catalog's highest"
+            f" plus one, written with exactly {catalog.width} digits, zero-padded; the slug is lowercase"
+            " words and digits joined by '-'; then set id to that name without .md"
+        )
+    return (
+        f"name the file {catalog.written(free)}-<slug>.md: {catalog.written(free)} is the catalog's next"
+        " free number, its highest plus one; the slug is lowercase words and digits joined by '-';"
+        " then set id to that name without .md"
+    )
+
+
+def k1_name_without_form(rel: str, stem: str, catalog: Catalog, free: int | None = None) -> Finding:
     return Finding(
         Key.K1,
         f"{rel}: file name '{shown(stem)}' is not {_form(catalog)}, the form of catalog"
         f" '{catalog.prefix}', whose territory holds this file",
         "an item of a numbered kind is cited by its number, and a citation resolves only when the"
         " number stands in the file's name, in one form for the whole catalog",
-        f"name the file {catalog.prefix}-<number>-<slug>.md: the number is the catalog's highest plus"
-        f" one, written with exactly {catalog.width} digits, zero-padded; the slug is lowercase words"
-        " and digits joined by '-'; then set id to that name without .md",
+        _name_to_take(catalog, free),
+    )
+
+
+def k4_number_taken(rel: str, catalog: Catalog, number: int, holder: str, free: int | None) -> Finding:
+    return Finding(
+        Key.K4,
+        f"{rel}: number {catalog.written(number)} is already carried by {holder}",
+        "a number cites one item; two items under one number make every reference to it ambiguous",
+        f"{holder} keeps its number; {_name_to_take(catalog, free)}",
     )
 
 
