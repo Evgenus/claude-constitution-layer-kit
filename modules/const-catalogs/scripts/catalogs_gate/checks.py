@@ -1,6 +1,7 @@
 """The checks, as functions of typed inputs: has an item's file name the catalog's form, is
-its id that name — and, over a whole catalog, does any number stand on two items. Which
-catalog a document is an item of is decided by the modes, who hold the territory matcher."""
+its id that name, is a new item's number free — and, over a whole catalog, does any number
+stand on two items. Which catalog a document is an item of is decided by the modes, who hold
+the territory matcher."""
 
 from __future__ import annotations
 
@@ -12,7 +13,7 @@ from const_gate.envelope import parse_envelope, string_field
 from const_gate.model import Envelope, EnvelopeState, Finding
 
 from . import messages
-from .model import Catalog, Item, Taken
+from .model import EXTENSION, Advice, Catalog, Item, NameToTake, Taken
 
 
 def catalog_of(claiming: Sequence[Catalog], stem: str) -> Catalog | None:
@@ -24,8 +25,7 @@ def catalog_of(claiming: Sequence[Catalog], stem: str) -> Catalog | None:
 
 def check_id(rel: str, stem: str, envelope: Envelope) -> list[Finding]:
     if envelope.state is not EnvelopeState.OK:
-        detail = messages.k2_no_envelope(envelope.state, envelope.detail)
-        return [messages.k2_id_is_not_the_name(rel, stem, detail)]
+        return [messages.k2_no_envelope(rel, stem, envelope.state, envelope.detail)]
     errors: list[str] = []
     doc_id = string_field(envelope, "id", errors)
     if doc_id is not None and doc_id != stem:
@@ -34,35 +34,51 @@ def check_id(rel: str, stem: str, envelope: Envelope) -> list[Finding]:
 
 
 def stem_of(rel: str) -> str:
-    return PurePosixPath(rel).name[: -len(".md")]  # only Markdown documents reach a check
+    """The file name without `.md`. An extension in another case is no part of the form, so it
+    stays in the stem, where the form refuses it."""
+    name = PurePosixPath(rel).name
+    return name[: -len(EXTENSION)] if name.endswith(EXTENSION) else name
+
+
+def name_to_take(catalog: Catalog, stem: str, taken: Taken | None) -> NameToTake:
+    """`taken` is given for a file that does not exist yet, which takes the catalog's next
+    number. A file that exists keeps the number its name shows — it may be cited by it."""
+    if taken is not None:
+        free = taken.next
+        return NameToTake(Advice.NEXT if free is not None else Advice.FULL, free, taken.history_read)
+    shown = catalog.number_hinted(stem)
+    return NameToTake(Advice.KEEP if shown is not None else Advice.WORDS, shown)
 
 
 def examine(catalog: Catalog, rel: str, text: str, taken: Taken | None = None) -> Item:
     """`taken` is given for a file that does not exist yet: only then is a number that another
-    item carries refused, and only then can the fix name the next free one. An item that
-    exists is judged on its name and its id; which of two that collide keeps its number is
-    a question of branches, which the scan's finding answers."""
+    item carries refused. An item that exists is judged on its name and its id; which of two
+    that collide keeps its number is a question of branches, which the scan's finding answers."""
     stem = stem_of(rel)
     number = catalog.number_of(stem)
-    free = taken.next if taken is not None else None
     if number is None:
-        findings = [messages.k1_name_without_form(rel, stem, catalog, free)]
+        findings = [messages.k1_name_without_form(rel, stem, catalog, name_to_take(catalog, stem, taken))]
     elif taken is not None and number in taken.holders:
-        findings = [messages.k4_number_taken(rel, catalog, number, taken.holders[number], free)]
+        advice = name_to_take(catalog, stem, taken)
+        findings = [messages.k4_number_taken(rel, catalog, number, taken.holders[number], advice)]
     else:
         findings = check_id(rel, stem, parse_envelope(text))
     return Item(rel, catalog, number, tuple(findings))
 
 
-def numbers_taken(catalog: Catalog, others: Sequence[str], in_history: int | None) -> Taken:
+def numbers_taken(catalog: Catalog, others: Sequence[str]) -> Taken:
     """`others` are the paths of the catalog's other items. Of two that already share a number,
     the first by path is named as its holder."""
     holders: dict[int, str] = {}
+    shown: list[int] = []
     for rel in sorted(others):
         number = catalog.number_of(stem_of(rel))
         if number is not None:
             holders.setdefault(number, rel)
-    return Taken(catalog, holders, in_history)
+        hinted = catalog.number_hinted(stem_of(rel))
+        if hinted is not None:
+            shown.append(hinted)
+    return Taken(catalog, holders, max(shown, default=None))
 
 
 def shared_numbers(items: Sequence[Item]) -> list[Finding]:

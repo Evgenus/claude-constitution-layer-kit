@@ -5,6 +5,7 @@ are the Markdown documents in the territory its dial entry declares."""
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import TextIO
 
@@ -19,8 +20,10 @@ from const_gate.territory import Matcher
 from . import dials as catalog_dials
 from . import messages
 from .checks import catalog_of, examine, numbers_taken, shared_numbers, stem_of
-from .history import read_history
-from .model import Catalog, Item, Reach, Taken
+from .history import HOOK_SECONDS, read_history
+from .model import Catalog, Item, Key, Reach, Taken
+
+NAMES_A_NUMBER = (Key.K1, Key.K4)  # the findings whose fix names the catalog's next number
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
@@ -39,6 +42,9 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     if catalog is None:
         return pipeline.skip(output, messages.g1_skip_not_an_item(rel, catalogs))
     item = examine(catalog, rel, target.text, taken)
+    if taken is not None and any(finding.key in NAMES_A_NUMBER for finding in item.findings):
+        # Only now is history worth reading: the verdict stands, and its fix is about to name a number.
+        item = examine(catalog, rel, target.text, _with_history(taken, target.root))
     if item.findings:
         return pipeline.report_hook(output, item.findings, (), rel, target.dials.severity)
     return pipeline.green_hook(output, messages.g1_item_of(catalog))
@@ -57,22 +63,28 @@ def scan_mode(output: Output, start: Path) -> int:
     items = [examine(catalog, rel, _text(target.root, rel)) for rel, catalog in sorted(by_path.items())]
     findings = [finding for item in items for finding in item.findings] + shared_numbers(items)
     history = read_history(target.root)
-    reach = [Reach(catalog, _highest(catalog, items), history.highest(catalog)) for catalog in catalogs]
+    reach = [Reach(catalog, _shown(catalog, items), history.highest(catalog)) for catalog in catalogs]
     tail = messages.f9_scan_tail(len(items), len(paths), reach, history.shallow)
     return pipeline.report_scan(output, findings, (), tail)
 
 
 def _numbers_taken(matcher: Matcher, catalogs: Sequence[Catalog], catalog: Catalog, root: Path) -> Taken:
     """What a new item of `catalog` is judged against: the numbers its other items carry in the
-    working tree, which are refused, and the highest in history, which only moves the advice."""
+    working tree."""
     by_path = _catalogs_by_path(matcher, catalogs, list_markdown(root))
-    others = [rel for rel, its in by_path.items() if its == catalog]
-    return numbers_taken(catalog, others, read_history(root).highest(catalog))
+    return numbers_taken(catalog, [rel for rel, its in by_path.items() if its == catalog])
 
 
-def _highest(catalog: Catalog, items: Sequence[Item]) -> int | None:
-    numbers = [item.number for item in items if item.catalog == catalog and item.number is not None]
-    return max(numbers, default=None)
+def _with_history(taken: Taken, root: Path) -> Taken:
+    history = read_history(root, HOOK_SECONDS)
+    return replace(taken, in_history=history.highest(taken.catalog), history_read=history.complete)
+
+
+def _shown(catalog: Catalog, items: Sequence[Item]) -> int | None:
+    """The highest number any of the catalog's items shows, a malformed name's included: the next
+    number goes above it, so that a legacy item's number is not given away before it is renamed."""
+    numbers = [catalog.number_hinted(stem_of(item.rel)) for item in items if item.catalog == catalog]
+    return max((number for number in numbers if number is not None), default=None)
 
 
 def _catalogs_by_path(

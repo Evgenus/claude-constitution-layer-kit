@@ -14,6 +14,8 @@ not this gate's, and are left out; their numbers stay free.
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 import sys
 import time
@@ -26,7 +28,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
 
 from catalogs_gate import messages, start  # noqa: E402
-from catalogs_gate.model import Catalog, Reach  # noqa: E402
+from catalogs_gate.model import Advice, Catalog, NameToTake, Reach  # noqa: E402
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
 from const_gate.envelope import yaml_error_line  # noqa: E402
@@ -110,9 +112,17 @@ VALID = Write(ITEM_A, item())
 SECOND_TAKEN = at("itm-0001-second")
 
 
-def k1(stem: str, catalog: Catalog = CATALOG, free: int | None = 1) -> Finding:
-    """`free` is the next free number a new file is taught; None for a file that exists, as in a scan."""
-    return messages.k1_name_without_form(at(stem), stem, catalog, free)
+def take_next(number: int, history_read: bool = True) -> NameToTake:
+    """What a new file is taught: the catalog's next number."""
+    return NameToTake(Advice.NEXT, number, history_read)
+
+
+IN_WORDS = NameToTake(Advice.WORDS)  # what a file that exists, and shows no number, is taught
+
+
+def k1(stem: str, catalog: Catalog = CATALOG, take: NameToTake | None = None) -> Finding:
+    """By default the finding a new file earns in a catalog with no item yet: number 1 is named."""
+    return messages.k1_name_without_form(at(stem), stem, catalog, take or take_next(1))
 
 
 def k2(detail: str, stem: str = STEM_A) -> Finding:
@@ -191,7 +201,7 @@ CASES = [
         "K2: an item with no envelope is blocked",
         Write(ITEM_A, NO_ENVELOPE),
         VALID,
-        k2(messages.k2_no_envelope(EnvelopeState.NONE)),
+        messages.k2_no_envelope(ITEM_A, STEM_A, EnvelopeState.NONE),
         SETUP,
     ),
     Case(
@@ -199,7 +209,7 @@ CASES = [
         "K2: an envelope opened and never closed is blocked",
         Write(ITEM_A, f"---\nid: {STEM_A}\n\n# Item\n"),
         VALID,
-        k2(messages.k2_no_envelope(EnvelopeState.UNTERMINATED)),
+        messages.k2_no_envelope(ITEM_A, STEM_A, EnvelopeState.UNTERMINATED),
         SETUP,
     ),
     Case(
@@ -207,7 +217,7 @@ CASES = [
         "K2: an envelope that is not valid YAML is blocked",
         Write(ITEM_A, "---\nid: [unclosed\n---\n"),
         VALID,
-        k2(messages.k2_no_envelope(EnvelopeState.INVALID, yaml_error("id: [unclosed"))),
+        messages.k2_no_envelope(ITEM_A, STEM_A, EnvelopeState.INVALID, yaml_error("id: [unclosed")),
         SETUP,
     ),
     Case(
@@ -231,7 +241,7 @@ CASES = [
         "K4: a new item under a number another item carries is blocked; the next free number passes",
         Write(SECOND_TAKEN, item("itm-0001-second")),
         Write(at("itm-0002-second"), item("itm-0002-second")),
-        messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, 2),
+        messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, take_next(2)),
         (*SETUP, VALID),
     ),
 ]
@@ -322,7 +332,7 @@ def inside_a_policys_territory() -> tuple[bool, str]:
     """A catalog's territory may lie inside a policy's: numbering and governance do not meet."""
     patch = catalogs(entry("note", ["docs/notes/**"]))
     result, _ = gate_on(Write("docs/notes/a.md", item("a")), dials_patch=patch)
-    taught = messages.k1_name_without_form("docs/notes/a.md", "a", Catalog("note", 4, ("docs/notes/**",)), 1)
+    taught = messages.k1_name_without_form("docs/notes/a.md", "a", NOTES, take_next(1))
     return expect(result, 2, taught.render(), "stderr")
 
 
@@ -355,26 +365,33 @@ def catalogs_not_a_list() -> tuple[bool, str]:
 
 
 def entry_shapes() -> tuple[bool, str]:
-    shapes: list[object] = [
-        "itm",
-        {"territory": TERRITORY},
-        {"prefix": "itm"},
-        entry("ITM"),
-        entry("it-m"),
-        entry(7),  # type: ignore[arg-type]  # the fixture is the wrong type on purpose
-        entry(territory=[]),
-        entry(territory=[""]),
-        {"prefix": "itm", "territory": "docs/items/**"},
-        entry(width=0),
-        entry(width="4"),
-        entry(width=True),
-        entry(start=1),
+    """Each malformed entry is named by its position and by what is wrong with it."""
+    shapes: list[tuple[object, str]] = [
+        ("itm", messages.entry_not_a_mapping()),
+        (entry(start=1), messages.entry_unknown_key("start")),
+        ({"territory": TERRITORY}, messages.entry_prefix()),
+        (entry("ITM"), messages.entry_prefix()),
+        (entry("it-m"), messages.entry_prefix()),
+        (entry("itm\n"), messages.entry_prefix()),
+        ({"prefix": 7, "territory": TERRITORY}, messages.entry_prefix()),
+        ({"prefix": "itm"}, messages.entry_territory()),
+        (entry(territory=[]), messages.entry_territory()),
+        (entry(territory=[""]), messages.entry_territory()),
+        ({"prefix": "itm", "territory": "docs/items/**"}, messages.entry_territory()),
+        (entry(width=0), messages.entry_width()),
+        (entry(width=10), messages.entry_width()),
+        (entry(width="4"), messages.entry_width()),
+        (entry(width=True), messages.entry_width()),
     ]
     results = [
-        broken(gate_on(VALID, dials_patch=catalogs(entry("ok"), shape))[0], messages.c5_catalog_entry(2))
-        for shape in shapes
+        broken(
+            gate_on(VALID, dials_patch=catalogs(entry("ok"), shape))[0], messages.c5_catalog_entry(2, what)
+        )
+        for shape, what in shapes
     ]
-    return all_of(results, f"{len(shapes)} malformed entries, each exit 1 with C5 naming entry 2")
+    return all_of(
+        results, f"{len(shapes)} malformed entries, each exit 1 with C5 naming entry 2 and the field"
+    )
 
 
 def entry_pattern_git_would_misread() -> tuple[bool, str]:
@@ -419,7 +436,7 @@ def overlap_without_a_prefix() -> tuple[bool, str]:
     """A name that carries neither prefix is judged by the first catalog listed."""
     patch = catalogs(entry(), entry("shr", ["docs/items/shared/**"]))
     result, _ = gate_on(Write("docs/items/shared/first.md", item("first")), dials_patch=patch)
-    taught = messages.k1_name_without_form("docs/items/shared/first.md", "first", CATALOG, 1)
+    taught = messages.k1_name_without_form("docs/items/shared/first.md", "first", CATALOG, take_next(1))
     return expect(result, 2, taught.render(), "stderr")
 
 
@@ -470,14 +487,14 @@ def scan_empty_catalog() -> tuple[bool, str]:
 
 def scan_ignores_warn() -> tuple[bool, str]:
     result = scan_of({at("first"): item("first")}, own(severity="warn"))
-    return expect(result, 2, k1("first", free=None).render(), "stdout")
+    return expect(result, 2, k1("first", take=IN_WORDS).render(), "stdout")
 
 
 def scan_name_and_number() -> tuple[bool, str]:
     """An item whose name carries no number is one finding and takes no part in the collision check."""
     result = scan_of({**COLLIDING, at("first"): item("first")})
     count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 7, [reach(2)]))
-    taught = (k1("first", free=None).render(), K3.render(), count)
+    taught = (k1("first", take=IN_WORDS).render(), K3.render(), count)
     ok = result.code == 2 and all(text in result.stdout for text in taught)
     return ok, f"exit {result.code}: two findings, four items"
 
@@ -509,7 +526,7 @@ def long_value_is_cut() -> tuple[bool, str]:
 
 
 ONE_AND_NINE = {ITEM_A: item(), at("itm-0009-ninth"): item("itm-0009-ninth")}
-K4 = messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, 2)
+K4 = messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, take_next(2))
 
 
 def existing_item_is_not_judged_on_its_number() -> tuple[bool, str]:
@@ -539,14 +556,19 @@ def free_number_below_the_highest() -> tuple[bool, str]:
 
 def next_free_number_is_named() -> tuple[bool, str]:
     result, _ = gate_on(Write(at("tenth"), item("tenth")), files=ONE_AND_NINE)
-    return expect(result, 2, k1("tenth", free=10).render(), "stderr")
+    return expect(result, 2, k1("tenth", take=take_next(10)).render(), "stderr")
 
 
 def width_exhausted() -> tuple[bool, str]:
     """Past the last number the width can write, the fix falls back to words: no name is invented."""
     files = {at("itm-9-ninth"): item("itm-9-ninth")}
     result, _ = gate_on(Write(at("tenth"), item("tenth")), dials_patch=catalogs(entry(width=1)), files=files)
-    return expect(result, 2, k1("tenth", Catalog("itm", 1, tuple(TERRITORY)), free=None).render(), "stderr")
+    return expect(
+        result,
+        2,
+        k1("tenth", Catalog("itm", 1, tuple(TERRITORY)), NameToTake(Advice.FULL)).render(),
+        "stderr",
+    )
 
 
 def top_deleted() -> Consumer:
@@ -561,12 +583,14 @@ def top_deleted() -> Consumer:
 
 def deleted_top_number_is_not_suggested() -> tuple[bool, str]:
     result = H.run_gate(event_json(top_deleted().root, Write(at("third"), item("third"))))
-    return expect(result, 2, k1("third", free=3).render(), "stderr")
+    return expect(result, 2, k1("third", take=take_next(3)).render(), "stderr")
 
 
 def deleted_top_number_in_k4() -> tuple[bool, str]:
     result = H.run_gate(event_json(top_deleted().root, Write(SECOND_TAKEN, item("itm-0001-second"))))
-    return expect(result, 2, messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, 3).render(), "stderr")
+    return expect(
+        result, 2, messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, take_next(3)).render(), "stderr"
+    )
 
 
 def deleted_number_is_not_refused() -> tuple[bool, str]:
@@ -605,12 +629,125 @@ def shallow_clone_says_so() -> tuple[bool, str]:
 
 
 def repository_without_a_commit() -> tuple[bool, str]:
-    """No commit yet, so no history: the advice is the working tree's, and nothing fails."""
+    """No commit yet, so no history to read: the advice is the working tree's and says so; nothing fails."""
     consumer = Consumer(H.scratch_dir())
     consumer.write("constitution.yaml", dials_text())
     consumer.git("init", "-q")
     result = H.run_gate(event_json(consumer.root, Write(at("first"), item("first"))))
-    return expect(result, 2, k1("first").render(), "stderr")
+    return expect(result, 2, k1("first", take=take_next(1, history_read=False)).render(), "stderr")
+
+
+def shallow_clone_hook_says_so() -> tuple[bool, str]:
+    """In a shallow clone the fix does not claim what it cannot know: deleted items are out of sight."""
+    clone = H.scratch_dir() / "shallow"
+    source = top_deleted().root.as_uri()
+    subprocess.run(
+        ["git", "clone", "-q", "--depth", "1", source, str(clone)], check=True, capture_output=True
+    )
+    result = H.run_gate(event_json(clone, Write(at("third"), item("third"))))
+    return expect(result, 2, k1("third", take=take_next(2, history_read=False)).render(), "stderr")
+
+
+def history_is_read_only_for_a_fix() -> tuple[bool, str]:
+    """A green write never reads history: with a git that fails on `log`, a valid new item still passes."""
+    consumer = H.fresh_consumer(SETUP)
+    wrapper = H.scratch_dir()
+    real = shutil.which("git") or "git"
+    refuse_log = 'for a in "$@"; do [ "$a" = log ] && { echo "log was called" >&2; exit 97; }; done'
+    script = f'#!/bin/sh\n{refuse_log}\nexec "{real}" "$@"\n'
+    (wrapper / "git").write_text(script)
+    (wrapper / "git").chmod(0o755)
+    env = {"PATH": f"{wrapper}{os.pathsep}{os.environ['PATH']}"}
+    green = H.run_gate(event_json(consumer.root, VALID), env=env)
+    red = H.run_gate(event_json(consumer.root, Write(at("first"), item("first"))), env=env)
+    unread = k1("first", take=take_next(1, history_read=False)).render()
+    ok = green.code == 0 and "log was called" not in green.stderr and red.code == 2 and unread in red.stderr
+    return ok, f"green exit {green.code} without a log call; red exit {red.code}, saying history was not read"
+
+
+LEGACY = at("ITM-06-upper")
+
+
+def legacy_item_keeps_its_number() -> tuple[bool, str]:
+    """An item that exists under a malformed name is told to keep the number it is cited by."""
+    result = scan_of({LEGACY: item("ITM-06-upper")})
+    taught = k1("ITM-06-upper", take=NameToTake(Advice.KEEP, 6))
+    return expect(result, 2, taught.render(), "stdout")
+
+
+def legacy_number_is_not_given_away() -> tuple[bool, str]:
+    """During adoption the next number goes above every number a name shows, formed or not."""
+    result, _ = gate_on(Write(at("third"), item("third")), files={LEGACY: item("ITM-06-upper")})
+    return expect(result, 2, k1("third", take=take_next(7)).render(), "stderr")
+
+
+def other_scripts_digits() -> tuple[bool, str]:
+    """Digits are ASCII: a number the listing's glob cannot see is no number."""
+    stem = "itm-\u0966\u0966\u0966\u0967-first"
+    result, _ = gate_on(Write(at(stem), item(stem)))
+    return expect(result, 2, k1(stem).render(), "stderr")
+
+
+def uppercase_extension() -> tuple[bool, str]:
+    """`.MD` is no part of the form: the listing's glob would not find the file."""
+    target = "docs/items/itm-0001-first.MD"
+    result, _ = gate_on(Write(target, item()))
+    taught = messages.k1_name_without_form(target, "itm-0001-first.MD", CATALOG, take_next(1))
+    return expect(result, 2, taught.render(), "stderr")
+
+
+NESTED_README = "docs/items/sub/README.md"
+
+
+def nested_file_taken_out() -> tuple[bool, str]:
+    """A file below the territory's top directory leaves it only when the patterns match files,
+    not directories: git re-includes nothing under a directory a pattern excluded."""
+    by_files = catalogs(entry(territory=["docs/items/**/*.md", "!" + NESTED_README]))
+    by_directory = catalogs(entry(territory=["docs/items/**", "!" + NESTED_README]))
+    out, _ = gate_on(Write(NESTED_README, NO_ENVELOPE), dials_patch=by_files)
+    still_in, _ = gate_on(Write(NESTED_README, NO_ENVELOPE), dials_patch=by_directory)
+    ok = out.code == 0 and "0 documents examined" in out.stdout and still_in.code == 2
+    return (
+        ok,
+        f"file patterns: exit {out.code}, out of the territory; a directory pattern: exit {still_in.code}",
+    )
+
+
+def holder_is_the_first_by_path() -> tuple[bool, str]:
+    files = {at("itm-0001-b"): item("itm-0001-b"), at("itm-0001-a"): item("itm-0001-a")}
+    result, _ = gate_on(Write(at("itm-0001-c"), item("itm-0001-c")), files=files)
+    taught = messages.k4_number_taken(at("itm-0001-c"), CATALOG, 1, at("itm-0001-a"), take_next(2))
+    return expect(result, 2, taught.render(), "stderr")
+
+
+GOLDEN = {
+    "K1": "RED: docs/items/first.md: file name 'first' is not itm-<4 digits>-<kebab-slug>, the form of"
+    " catalog 'itm', whose territory holds this file",
+    "K1 fix": "  fix: name the file itm-0001-<slug>.md: itm-0001 is the catalog's next number, one more"
+    " than the highest it has held, deleted items included;",
+    "K2 missing": f"RED: {ITEM_A}: id missing",
+    "K2 differs": f"RED: {ITEM_A}: id 'itm-0001-other' differs from the file name '{STEM_A}'",
+    "K2 no envelope": f"RED: {ITEM_A}: id cannot be read: the file does not start with a '---' line",
+    "K4": f"RED: {SECOND_TAKEN}: number itm-0001 is already carried by {ITEM_A}",
+}
+
+
+def golden_lines() -> tuple[bool, str]:
+    """The texts as literals, typed here by hand: the cases above compare with what the message
+    functions return, so a slip inside a function would pass them all."""
+    runs = {
+        "K1": gate_on(Write(at("first"), item("first")))[0],
+        "K2 missing": gate_on(Write(ITEM_A, item(drop=("id",))))[0],
+        "K2 differs": gate_on(Write(ITEM_A, item(id="itm-0001-other")))[0],
+        "K2 no envelope": gate_on(Write(ITEM_A, NO_ENVELOPE))[0],
+        "K4": gate_on(Write(SECOND_TAKEN, item("itm-0001-second")), files={ITEM_A: item()})[0],
+    }
+    runs["K1 fix"] = runs["K1"]
+    missing = [key for key, line in GOLDEN.items() if line not in runs[key].stderr]
+    k3 = scan_of(COLLIDING).stdout
+    if f"RED: catalog 'itm': 2 items carry number itm-0001: {ITEM_A}, {SECOND_TAKEN}" not in k3:
+        missing.append("K3")
+    return not missing, f"{len(GOLDEN) + 1} literal lines found" if not missing else f"not found: {missing}"
 
 
 def message_shape() -> tuple[bool, str]:
@@ -720,6 +857,35 @@ ASSERTIONS = [
     ),
     Assertion(55, "scan: a shallow clone has no history, and the line says so", shallow_clone_says_so),
     Assertion(56, "a repository with no commit yet: no history, no failure", repository_without_a_commit),
+    Assertion(
+        57, "a shallow clone, hook: the fix does not claim to know deleted items", shallow_clone_hook_says_so
+    ),
+    Assertion(
+        58,
+        "history is read only once a fix will name a number: a green write never calls it",
+        history_is_read_only_for_a_fix,
+    ),
+    Assertion(
+        59,
+        "adoption: an item that exists under a malformed name keeps the number it shows",
+        legacy_item_keeps_its_number,
+    ),
+    Assertion(
+        60,
+        "adoption: the next number goes above a number a malformed name shows",
+        legacy_number_is_not_given_away,
+    ),
+    Assertion(61, "K1: digits of another script are no number", other_scripts_digits),
+    Assertion(62, "K1: an uppercase .MD is not the form", uppercase_extension),
+    Assertion(
+        63,
+        "a nested file leaves a territory of file patterns, not one of directory patterns",
+        nested_file_taken_out,
+    ),
+    Assertion(64, "K4: of two holders the first by path is named", holder_is_the_first_by_path),
+    Assertion(
+        65, "golden lines: the taught texts as literals, not as the functions return them", golden_lines
+    ),
 ]
 
 

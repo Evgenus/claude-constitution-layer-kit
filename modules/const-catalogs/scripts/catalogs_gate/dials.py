@@ -10,7 +10,7 @@ from const_gate.dials import refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
-from .model import DEFAULT_WIDTH, PREFIX_RE, Catalog, CatalogDials
+from .model import DEFAULT_WIDTH, MAX_WIDTH, PREFIX_RE, Catalog, CatalogDials
 
 KEYS = {"prefix", "territory", "width"}
 
@@ -32,19 +32,28 @@ def parse(own: Mapping[str, object]) -> CatalogDials:
 
 
 def _entry(position: int, entry: object) -> Catalog:
-    if not isinstance(entry, dict) or not set(entry) <= KEYS:
-        raise ConfigurationFailure(messages.c5_catalog_entry(position))
+    if not isinstance(entry, dict):
+        raise ConfigurationFailure(messages.c5_catalog_entry(position, messages.entry_not_a_mapping()))
+    unknown = sorted(str(key) for key in entry if key not in KEYS)
+    if unknown:
+        raise ConfigurationFailure(
+            messages.c5_catalog_entry(position, messages.entry_unknown_key(unknown[0]))
+        )
     prefix = _prefix(entry.get("prefix"))
+    if prefix is None:
+        raise ConfigurationFailure(messages.c5_catalog_entry(position, messages.entry_prefix()))
     territory = _territory(entry.get("territory"))
+    if territory is None:
+        raise ConfigurationFailure(messages.c5_catalog_entry(position, messages.entry_territory()))
     width = _width(entry.get("width", DEFAULT_WIDTH))
-    if prefix is None or territory is None or width is None:
-        raise ConfigurationFailure(messages.c5_catalog_entry(position))
+    if width is None:
+        raise ConfigurationFailure(messages.c5_catalog_entry(position, messages.entry_width()))
     refuse_unreadable_patterns(f"{identity.current().namespace}.catalogs[{prefix}]", territory)
     return Catalog(prefix, width, territory)
 
 
 def _prefix(value: object) -> str | None:
-    return value if isinstance(value, str) and PREFIX_RE.match(value) else None
+    return value if isinstance(value, str) and PREFIX_RE.fullmatch(value) else None
 
 
 def _territory(value: object) -> tuple[str, ...] | None:
@@ -58,4 +67,4 @@ def _territory(value: object) -> tuple[str, ...] | None:
 def _width(value: object) -> int | None:
     if isinstance(value, bool) or not isinstance(value, int):  # YAML's true is an int to Python
         return None
-    return value if value >= 1 else None
+    return value if 1 <= value <= MAX_WIDTH else None
