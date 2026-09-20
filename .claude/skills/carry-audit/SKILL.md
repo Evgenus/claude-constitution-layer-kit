@@ -26,7 +26,8 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
    reports which of its files changed.
 2. **Compute the scope, never choose it.** `python3 scripts/check-carry-lists.py --scope <base> [<module>]`,
    where `<base>` is the commit the change started from. It prints two lists:
-   - `full` — the records the change lands, and those the module's decisions section cites;
+   - `full` — the records the change adds or edits, and those the module's decisions section cites,
+     each printed with its reason: added, edited or cited;
    - `regression` — every other record that cites a file the change touched. Editing such a file is
      how an older ruling gets un-carried.
    A full audit skips this step and takes every record as `full`.
@@ -34,18 +35,23 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
    reader. Readers are fresh subagents, started together, holding nothing of the authoring reasoning.
 4. **Give each reader its prompt**, below, with its record list filled in — check that it is filled
    in before sending: a prompt has gone out with its list still a placeholder.
-5. **Run the blind pass** on each record the change lands: one more reader, prompt C.
+5. **Run the blind pass** on each record the change adds: one more reader, prompt C, with one
+   question per carried item — a "pending" or "history only" item has nothing to answer from.
 6. **Consolidate, and verify before acting.** A reader can be wrong: check every finding you mean to
-   act on against the tree yourself. Give every finding a handle. Each is fixed, or justified in the
-   commit message — in the pull request once the kit has one.
-7. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
+   act on against the tree yourself. Give every finding a handle. Each is fixed, or justified in a
+   commit message of the change — in the pull request once the kit has one.
+7. **Read the fixes again.** Fixes made in a hurry break things: twice running they did. Commit them,
+   pin a confirming reader to that commit — prompt D — and repeat while a pass finds a defect. Until
+   its yes a record is a proposal, so the fixes may amend it in place; the commit says so.
+8. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
    beside the attribution line:
    `Accepted: <record id>` — one per record, or several ids separated by commas;
-   `Carry-Audit: at <pin>; <n> records; <f> findings, <x> fixed, <j> justified` — where `n` counts
-   `full` and `regression` records together and is above zero, `x + j = f`, and the pin is an ancestor
-   at which the record already existed. The newest acceptance of a record is the one that counts: a
+   `Carry-Audit: at <pin>; <n> records; <f> findings, <x> fixed, <j> justified` — where the pin is
+   the last round's, an ancestor at which the record already existed; `n` counts `full` and
+   `regression` records together and is above zero; `f` counts the findings of every round, and
+   `x + j = f`. The newest acceptance of a record is the one that counts: a
    wrong receipt is mended by accepting again, in a new commit.
-8. **Run the gate:** `python3 scripts/check-carry-lists.py`. Red is fixed before the turn ends.
+9. **Run the gate:** `python3 scripts/check-carry-lists.py`. Red is fixed before the turn ends.
 
 ## Prompt A — a reader of `full` records
 
@@ -91,15 +97,28 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
 
 ## Prompt C — the blind pass on a landed record
 
-> STRICTLY READ-ONLY. You may not open anything under `docs/decisions/`. Holding only the
-> current-state documents, answer each question with the file and line that states the answer, and a
+> STRICTLY READ-ONLY, pinned to `<pin>`, with the two git readings, as in prompt A. You may not open
+> anything under `docs/decisions/`. Holding only the current-state documents — the places prompt A
+> lists — answer each question with the file and line that states the answer, and a
 > verdict ANSWERABLE, PARTLY or NOT-ANSWERABLE; say where two texts disagree or a sentence reads two
-> ways. Questions: `<one question per ruling item, written by the author from the carry list>`.
+> ways. An item you cannot answer is a finding. Questions: `<one question per carried item, written
+> by the author from the carry list>`.
+
+## Prompt D — a confirming reader, after fixes
+
+> STRICTLY READ-ONLY, pinned to `<pin of the fixes>`, with the two git readings, as in prompt A. A
+> first audit produced the fixes in `git diff <earlier pin> <pin>`. Fixes made in a hurry introduce
+> defects; find those, and do not audit the rest again. Check that the texts the diff touched still
+> agree with each other and with the kernel — quote both sides where they do not; that every ruling
+> item of the record still appears once in its carry list and that the linked text states it; that
+> every code path the diff changed does what its message says, and that every fix a message teaches
+> would turn the check green. Say of each finding whether it is a defect to fix before the yes, or a
+> nicety.
 
 ## What this audit cannot do
 
 1. It is as good as its readers: a reader can miss an item or assert a false one. Step 6 exists for
-   the second; only a second reader helps with the first.
+   the second; only a second reader helps with the first, and step 7 is one.
 2. The receipt records that an audit was declared, at a real commit, with its findings accounted
    for. It cannot show that the readers were run. That stays a matter of honesty and review.
 3. The `regression` list is wide when a change touches a document most records cite. It is kept

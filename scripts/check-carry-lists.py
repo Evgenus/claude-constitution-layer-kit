@@ -14,13 +14,16 @@ script can hold:
                template's own file, a file that is not markdown — a file, never a folder. The rollout
                plan, a research comparison, another record and the README cannot: those are where
                rulings were found hiding. "pending" is for intent that is not yet real, and its
-               link leads to an active task-record, where the kernel says such intent rides.
+               link leads to the task-record that holds the work to come — a plan, never a
+               decision record — where the kernel says such intent rides. The entry is never
+               rewritten: once that task-record closes, the check says so in a note.
   the receipt  the commit that accepts a record — trailer "Accepted: <record id>" — also carries
                "Carry-Audit: at <commit>; <n> records; <f> findings, <x> fixed, <j> justified";
                the commit named is an ancestor at which the record already existed, n is above
                zero, x + j = f. The newest acceptance of a record is the one that counts, so a
                wrong receipt is mended by accepting again. A record no commit accepts yet awaits
-               its yes: a note, never a finding — a gate is not red for waiting on a person.
+               its yes: a note, never a finding — a gate is not red for waiting on a person. An
+               "Accepted:" id that names no record is a note too: deleted since, or misspelt.
 
 What it cannot see, and leaves to the reader of the audit: a ruling item the author never gave a
 handle; whether the linked text states the rule; whether the audit the receipt names was run.
@@ -125,36 +128,60 @@ def split_frontmatter(text: str) -> tuple[dict[str, object], str]:
 # ---------------------------------------------------------------------------------------------
 
 
-def home_problem(kit: Path, record: Path, target: str, pending: bool = False) -> str | None:
-    """Why this link may not be the home of a rule — of pending intent — or None when it may."""
+CARRY_IT = (
+    "write the rule into a current-state document and link that; a plan, a comparison, another record and "
+    'the README state no rule — intent that is not yet real is "pending" with a link to its task-record'
+)
+PEND_IT = "link the step of the task-record that holds the intent — the plan, never a decision record"
+
+
+def home_problem(kit: Path, record: Path, target: str, pending: bool = False) -> tuple[str, str] | None:
+    """Why this link may not be the home of a rule — of pending intent — and the fix; None when it may."""
+    general = PEND_IT if pending else CARRY_IT
     if re.match(r"^[a-z][a-z0-9+.-]*:", target):
-        return f"{target} is outside the repository"
+        return f"{target} is outside the repository", general
     path = (record.parent / target.split("#", 1)[0]).resolve()
     try:
         shown = path.relative_to(kit).as_posix()
     except ValueError:
-        return f"{target} leads outside the repository"
+        return f"{target} leads outside the repository", general
     if not path.exists():
-        return f"{shown} does not exist"
+        return f"{shown} does not exist", "correct the path, or link the file that states it now"
     if not path.is_file():
-        return f"{shown} is a directory, and a rule is stated in a file"
-    if path.suffix != ".md":
-        return "pending intent rides in an active task-record, and this is none" if pending else None
-    envelope, _ = split_frontmatter(path.read_text(encoding="utf-8"))
+        return (
+            f"{shown} is a directory, and a rule is stated in a file",
+            "link the file in it that states the item",
+        )
+    envelope, _ = split_frontmatter(path.read_text(encoding="utf-8")) if path.suffix == ".md" else ({}, "")
     kind = envelope.get("type")
     if pending:
-        if kind == "task-record" and envelope.get("status") == "active":
+        if kind == "task-record" and not shown.startswith(DECISIONS + "/"):
             return None
-        return f"{shown} is not an active task-record, and intent that is not yet real rides only there"
+        return (
+            f"{shown} is no task-record that holds work to come, and pending intent rides only there",
+            general,
+        )
+    if path.suffix != ".md":
+        return None
     if kind is None:
         if shown == UNGOVERNED_HOMES[0] or shown.startswith(UNGOVERNED_HOMES[1:]):
             return None
-        return f"{shown} is not a governed document and holds no rules"
+        return f"{shown} is not a governed document and holds no rules", general
     if kind != "current-state":
-        return f"{shown} is `{kind}`, and only a `current-state` document states a rule that binds"
+        return f"{shown} is `{kind}`, and only a `current-state` document states a rule that binds", general
     if envelope.get("status") != "active":
-        return f"{shown} is not `active`, and a document that is not in force binds nothing"
+        return (
+            f"{shown} is not `active`, and a document that is not in force binds nothing",
+            "link the document now in force that states the item",
+        )
     return None
+
+
+def closed_task(kit: Path, record: Path, target: str) -> str | None:
+    """The task-record a pending link leads to, when it has closed since."""
+    path = (record.parent / target.split("#", 1)[0]).resolve()
+    envelope, _ = split_frontmatter(path.read_text(encoding="utf-8"))
+    return None if envelope.get("status") == "active" else path.relative_to(kit).as_posix()
 
 
 def carry_entries(body: str) -> list[str]:
@@ -168,7 +195,7 @@ def carry_entries(body: str) -> list[str]:
     return entries
 
 
-def check_list(kit: Path, record: Path) -> list[Finding]:
+def check_list(kit: Path, record: Path) -> tuple[list[Finding], list[str]]:
     shown = record.relative_to(kit).as_posix()
     _, text = split_frontmatter(record.read_text(encoding="utf-8"))
     headings = list(HEADING.finditer(text))
@@ -180,10 +207,11 @@ def check_list(kit: Path, record: Path) -> list[Finding]:
                 f'close the record with "## {LAST_SECTION}": one entry per ruling item, '
                 '"R1 — [document](path#anchor), rule 2" or "R3 — history only: a one-time act"',
             )
-        ]
+        ], []
     ruled, listed = text[: headings[-1].start()], text[headings[-1].end() :]
     handles = [f"R{n}" for n in HANDLE.findall(ruled)]
     findings: list[Finding] = []
+    notes: list[str] = []
     if not handles:
         findings.append(
             Finding(
@@ -229,30 +257,24 @@ def check_list(kit: Path, record: Path) -> list[Finding]:
                 Finding(
                     f"{shown}: {parsed.group(1)} names no home",
                     WHY_LIST,
-                    'link the current-state text that states it, or write "history only" when the item '
+                    PEND_IT
+                    if pending
+                    else 'link the current-state text that states it, or write "history only" when the item '
                     "binds nothing",
                 )
             )
         for target in targets:
             problem = home_problem(kit, record, target, pending)
-            if problem and pending:
+            if problem:
+                where = "is pending nowhere" if pending else "is carried nowhere that binds"
                 findings.append(
-                    Finding(
-                        f"{shown}: {parsed.group(1)} is pending nowhere — {problem}",
-                        WHY_LIST,
-                        "link the step of the active task-record that holds the intent; once it is real, "
-                        "carry it and drop the word pending",
-                    )
+                    Finding(f"{shown}: {parsed.group(1)} {where} — {problem[0]}", WHY_LIST, problem[1])
                 )
-            elif problem:
-                findings.append(
-                    Finding(
-                        f"{shown}: {parsed.group(1)} is carried nowhere that binds — {problem}",
-                        WHY_LIST,
-                        "write the rule into a current-state document and link that; a plan, a comparison, "
-                        "another record and the README state no rule — intent that is not yet real is "
-                        '"pending" with a link to the active task-record',
-                    )
+            elif pending and (closed := closed_task(kit, record, target)):
+                notes.append(
+                    f"NOTE: {record.stem}: {parsed.group(1)} was pending in {closed}, which has closed — "
+                    "its close carried the intent into the current-state documents, and an audit in full "
+                    "checks that"
                 )
     for handle in dict.fromkeys(handles):
         if seen.get(handle, 0) == 0:
@@ -269,7 +291,7 @@ def check_list(kit: Path, record: Path) -> list[Finding]:
                     f"{shown}: {handle} is listed {seen[handle]} times", WHY_LIST, "keep one entry for it"
                 )
             )
-    return findings
+    return findings, notes
 
 
 # ---------------------------------------------------------------------------------------------
@@ -304,7 +326,7 @@ def acceptances(kit: Path) -> list[Acceptance]:
         "%H%x00%(trailers:key=Accepted,valueonly,separator=%x1f)"
         "%x00%(trailers:key=Carry-Audit,valueonly,separator=%x1f)%x01"
     )
-    log = git(kit, "log", f"--format={form}")
+    log = git(kit, "log", "--topo-order", f"--format={form}")
     if log.returncode != 0:
         raise CouldNotRun(
             f"git log failed: {log.stderr.strip()} — fix: run the script from a checkout of the kit"
@@ -321,6 +343,7 @@ def acceptances(kit: Path) -> list[Acceptance]:
 
 
 RECEIPT_FORM = "Carry-Audit: at <commit>; <n> records; <f> findings, <x> fixed, <j> justified"
+AGAIN = " — then accept again in a new commit, never by rewriting history: the newest acceptance counts"
 
 
 def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Finding]:
@@ -330,10 +353,8 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
             Finding(
                 f"{where} and names no carry audit",
                 WHY_RECEIPT,
-                "run the audit, then accept again in a new commit with both trailers — the newest "
-                "acceptance of a record is the one that counts — "
-                f'"Accepted: {record_id}" and '
-                f'"{RECEIPT_FORM}"',
+                f'run the audit and write both trailers, "Accepted: {record_id}" and "{RECEIPT_FORM}"'
+                + AGAIN,
             )
         ]
     findings = []
@@ -344,7 +365,7 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
                 Finding(
                     f'{where} with a receipt that cannot be read: "{receipt}"',
                     WHY_RECEIPT,
-                    f'write it as "{RECEIPT_FORM}"',
+                    f'write it as "{RECEIPT_FORM}"' + AGAIN,
                 )
             )
             continue
@@ -354,7 +375,7 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
                 Finding(
                     f"{where} on an audit that read 0 records",
                     WHY_RECEIPT,
-                    "an audit reads at least the record it accepts; run it",
+                    "an audit reads at least the record it accepts; run it" + AGAIN,
                 )
             )
         if fixed + justified != found:
@@ -363,8 +384,7 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
                     f"{where}: {found} findings, of which {fixed} fixed and {justified} justified — "
                     f"{found - fixed - justified} unaccounted for",
                     WHY_RECEIPT,
-                    "every finding is fixed or justified before the yes; account for each and accept "
-                    "again in a new commit",
+                    "every finding is fixed or justified before the yes; account for each" + AGAIN,
                 )
             )
         if git(kit, "merge-base", "--is-ancestor", f"{at}^{{commit}}", acceptance.commit).returncode != 0:
@@ -373,7 +393,7 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
                     f"{where} on an audit at {at}, which is not a commit before it",
                     WHY_RECEIPT,
                     "name the commit the readers were pinned to; it is in the history the acceptance "
-                    "stands on",
+                    "stands on" + AGAIN,
                 )
             )
         elif git(kit, "cat-file", "-e", f"{at}:{DECISIONS}/{record_id}.md").returncode != 0:
@@ -382,7 +402,7 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
                     f"{where} on an audit at {at}, where the record did not exist yet",
                     WHY_RECEIPT,
                     "an audit reads the record it accepts: commit the record, pin the readers to that commit "
-                    "or a later one, and name it",
+                    "or a later one, and name it" + AGAIN,
                 )
             )
     return findings
@@ -399,11 +419,17 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
             f"{kit} has no {DECISIONS}/ directory — fix: run the script from a checkout of the kit"
         )
     records = gated_records(kit)
-    findings = [finding for record in records for finding in check_list(kit, record)]
-    notes = []
+    findings: list[Finding] = []
+    notes: list[str] = []
+    for record in records:
+        found, noted = check_list(kit, record)
+        findings.extend(found)
+        notes.extend(noted)
     accepted = acceptances(kit) if records else []
     for record in records:
-        mine = [a for a in accepted if record.stem in a.accepted]  # git log order: newest first
+        mine = [
+            a for a in accepted if record.stem in a.accepted
+        ]  # --topo-order: a commit comes before its ancestors
         if not mine:
             notes.append(f'NOTE: {record.stem} awaits its yes — no commit carries "Accepted: {record.stem}"')
         else:
@@ -413,8 +439,9 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
         for stem in acceptance.accepted:
             if stem not in present:
                 notes.append(
-                    f"NOTE: commit {acceptance.commit[:7]} accepts {stem}, which is not in {DECISIONS}/ — "
-                    "deleted since, or misspelt; a misspelt id leaves its record awaiting its yes"
+                    f"NOTE: commit {acceptance.commit[:7]} accepts {stem}, which is no record here — "
+                    "deleted since, or misspelt; when misspelt, accept again in a new commit, the id "
+                    "spelt right"
                 )
     return findings, notes, len(records)
 
@@ -448,31 +475,42 @@ def cited_files(kit: Path, document: Path, text: str) -> set[str]:
     return cited
 
 
-def compute_scope(kit: Path, base: str, module: str | None) -> tuple[set[str], dict[str, list[str]]]:
+def compute_scope(kit: Path, base: str, module: str | None) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """The records a closing audit reads in full, each with the reason, and those it reads for regression."""
     if git(kit, "rev-parse", "--verify", "-q", f"{base}^{{commit}}").returncode != 0:
         raise CouldNotRun(f"{base} names no commit — fix: pass the commit the change started from")
-    landed = set(git(kit, "diff", "--name-only", "--diff-filter=AM", base, "--", DECISIONS).stdout.split())
-    landed |= set(git(kit, "ls-files", "--others", "--exclude-standard", "--", DECISIONS).stdout.split())
-    touched = set(git(kit, "diff", "--name-only", "--no-renames", base).stdout.split())
-    touched |= set(git(kit, "ls-files", "--others", "--exclude-standard").stdout.split())
+
+    def names(*args: str) -> set[str]:
+        return set(git(kit, *args).stdout.split())
+
+    in_records = ("--", DECISIONS)
+    added = names("diff", "--name-only", "--diff-filter=A", "--no-renames", base, *in_records)
+    added |= names("ls-files", "--others", "--exclude-standard", *in_records)
+    edited = names("diff", "--name-only", "--diff-filter=M", "--no-renames", base, *in_records)
+    touched = names("diff", "--name-only", "--no-renames", base) | names(
+        "ls-files", "--others", "--exclude-standard"
+    )
     touched = {t for t in touched if not t.startswith(DECISIONS + "/")}
-    full = {Path(p).stem for p in landed if STEM.match(Path(p).stem)}
+    full = {Path(p).stem: "edited" for p in edited if STEM.match(Path(p).stem)}
+    full |= {Path(p).stem: "added" for p in added if STEM.match(Path(p).stem)}
     if module:
         document = kit / "modules" / module / "MODULE.md"
         if not document.is_file():
             raise CouldNotRun(
-                f"modules/{module}/MODULE.md does not exist — fix: name a module under modules/"
+                f"modules/{module}/MODULE.md does not exist, so the records it cites cannot be read — "
+                "fix: name a module under modules/"
             )
         section = re.search(
-            r"^## 4\. .*?(?=^## )", document.read_text(encoding="utf-8"), re.MULTILINE | re.DOTALL
+            r"^## 4\. .*?(?=^## |\Z)", document.read_text(encoding="utf-8"), re.MULTILINE | re.DOTALL
         )
         if section is None:
             raise CouldNotRun(
-                f"modules/{module}/MODULE.md has no section 4 — fix: fill the template's decisions section"
+                f"modules/{module}/MODULE.md has no section 4, and a scope that silently leaves out the "
+                "records a module cites is too narrow — fix: fill the template's decisions section"
             )
         for cited in cited_files(kit, document, section.group(0)):
             if cited.startswith(DECISIONS + "/"):
-                full.add(Path(cited).stem)
+                full.setdefault(Path(cited).stem, "cited")
     regression: dict[str, list[str]] = {}
     for record in sorted((kit / DECISIONS).glob("*.md")):
         if record.stem in full or not STEM.match(record.stem):
@@ -486,7 +524,7 @@ def compute_scope(kit: Path, base: str, module: str | None) -> tuple[set[str], d
 def scope(kit: Path, base: str, module: str | None) -> int:
     full, regression = compute_scope(kit, base, module)
     for stem in sorted(full):
-        print(f"full        {stem}")
+        print(f"full        {stem}  — {full[stem]}")
     for stem, hits in regression.items():
         print(f"regression  {stem}  — cites {', '.join(hits)}")
     print(f"SCOPE: {len(full)} record(s) in full, {len(regression)} for regression, since {base}")
@@ -581,7 +619,7 @@ def self_test() -> int:
         "a folder as a home": lambda t: t.replace(home, "../../scripts"),
         "a home that does not exist": lambda t: t.replace(home, "../policies/none.md"),
         "a home outside the repository": lambda t: t.replace(home, "https://example.invalid/p"),
-        "pending intent in a closed task-record": lambda t: t.replace("(../plan.md)", "(../done.md)"),
+        "pending intent in another record": lambda t: t.replace("(../plan.md)", f"({SAMPLE}.md)"),
         "pending intent in a current-state document": lambda t: t.replace("(../plan.md)", f"({home})"),
         "a rule carried into the active plan": lambda t: t.replace(home, "../plan.md"),
     }
@@ -596,16 +634,22 @@ def self_test() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             record = sample_kit(root)
-            green_before = not check_list(root, record)
+            green_before = not check_list(root, record)[0]
             record.write_text(damage(GOOD_RECORD), encoding="utf-8")
-            red_after = bool(check_list(root, record))
+            red_after = bool(check_list(root, record)[0])
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the right list is green, {name} is red")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        found, noted = check_list(root, sample_kit(root, GOOD_RECORD.replace("(../plan.md)", "(../done.md)")))
+    ok = not found and len(noted) == 1
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] pending intent in a task-record that has closed is green, with a note")
     for name, target in right_homes.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            ok = not check_list(root, sample_kit(root, GOOD_RECORD.replace(home, target)))
+            ok = not check_list(root, sample_kit(root, GOOD_RECORD.replace(home, target)))[0]
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a home in {name} is green")
 
@@ -661,22 +705,63 @@ def self_test() -> int:
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a record awaiting its yes is a note; {name}")
 
+    newer = f"dec-{THRESHOLD + 2:04d}-newer"
+    moved = f"dec-{THRESHOLD + 3:04d}-moved"
+    policy = "---\nid: p\ntype: current-state\nstatus: active\n---\nmore\n"
+    module_doc = f"## 4. Decisions\n\n1. [x](../../{DECISIONS}/{SAMPLE}.md)\n"
+
+    def add_record(root: Path) -> None:
+        (root / DECISIONS / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
+        (root / "docs/policies/p.md").write_text(policy, encoding="utf-8")
+
+    def edit_record(root: Path) -> None:
+        (root / DECISIONS / f"{SAMPLE}.md").write_text(GOOD_RECORD + "\n", encoding="utf-8")
+
+    def rename_record(root: Path) -> None:
+        (root / DECISIONS / f"{SAMPLE}.md").rename(root / DECISIONS / f"{moved}.md")
+
+    def cite_record(root: Path) -> None:
+        (root / "modules/m/MODULE.md").write_text(module_doc, encoding="utf-8")
+
+    # name -> (the change, the module, full wanted, regression wanted)
+    scopes: dict[str, tuple[Callable[[Path], None], str | None, dict[str, str], dict[str, list[str]]]] = {
+        "an added record in full, a record citing a touched file for regression": (
+            add_record,
+            None,
+            {newer: "added"},
+            {SAMPLE: ["docs/policies/p.md"]},
+        ),
+        "an edited record in full": (edit_record, None, {SAMPLE: "edited"}, {}),
+        "a renamed record in full, under its new name": (rename_record, None, {moved: "added"}, {}),
+        "a record the module cites in full": (cite_record, "m", {SAMPLE: "cited"}, {}),
+    }
+    for name, (change, module, full_wanted, regression_wanted) in scopes.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            git(root, "init", "-q")
+            sample_kit(root)
+            base = commit(root, "the base: one record, which cites the policy")
+            change(root)
+            ok = compute_scope(root, base, module) == (full_wanted, regression_wanted)
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] the scope: {name}")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         git(root, "init", "-q")
         sample_kit(root)
-        base = commit(root, "the base: one record, which cites the policy")
-        newer = f"dec-{THRESHOLD + 2:04d}-newer"
-        (root / DECISIONS / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
-        (root / "docs/policies/p.md").write_text(
-            "---\nid: p\ntype: current-state\nstatus: active\n---\nmore\n"
-        )
-        full, regression = compute_scope(root, base, None)
-    ok = full == {newer} and regression == {SAMPLE: ["docs/policies/p.md"]}
+        base = commit(root, "the base")
+        (root / "modules/m/MODULE.md").write_text("## 3. Rows\n", encoding="utf-8")
+        try:
+            compute_scope(root, base, "m")
+            ok = False
+        except CouldNotRun:
+            ok = True
     failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] the scope: an added record in full, a citing one for regression")
+    print(
+        f"[{'ok' if ok else 'FAIL'}] the scope: a module document with no decisions section cannot be scoped"
+    )
 
-    total = len(wrong_lists) + len(right_homes) + len(receipts) + 1
+    total = len(wrong_lists) + 1 + len(right_homes) + len(receipts) + len(scopes) + 1
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
