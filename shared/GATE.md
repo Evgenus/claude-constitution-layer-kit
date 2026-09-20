@@ -115,6 +115,7 @@ Every module that links this code has these limits and states its own beside the
 10. **The output log is best-effort evidence, not a gate.** A logging failure never changes a verdict; `C1`, `C14` and `C15` are printed and not logged, since no shared code runs to log them. Backstop: stdout and stderr remain the record.
 11. **No `--help`,** and no abbreviated flags: `argparse`'s own help exits past the guard and the log. Backstop: any unknown argument is a misinvocation whose fix line is the usage.
 12. **With two gates installed, the model sees one block message at a time** when both exit 2 (observed on Claude Code 2.1.251, 2026-09-19; the documentation is silent). Backstop: the next write is judged again; both findings are in the output logs.
+13. **A negated pattern takes a file out of a territory only where git can re-include it:** not under a directory an earlier pattern excluded. `<dir>/**` followed by `!<dir>/README.md` works, since the file lies directly in the named directory; `!<dir>/sub/README.md` does not, and the file stays inside. Backstop: a territory of file patterns — `<dir>/**/*.md` — from which any file can be taken out; the shared item S148 shows the half that works, and the third module's own fixture shows both.
 
 <a id="g5"></a>
 ## 5. Shared acceptance items

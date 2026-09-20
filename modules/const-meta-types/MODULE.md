@@ -134,7 +134,7 @@ The resolution and envelope boundaries are deterministic and need no examples; t
 | `check-governed-document.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
 | skill `choose-meta-type` | `advisory` |
 
-**Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–12, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
+**Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time, a negated pattern under an excluded directory — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–13, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
 
 1. **The declaration's condition is not checked.** Whether "an active task-record covers the move" holds is judgment; the gate accepts any declaration that names a matching or existing policy. Backstop: review.
 2. **Duplicate ids across history** ("never reused") are not checked; only the present tree is. Backstop: review; the friction signal of [§12](#t12), item 4.

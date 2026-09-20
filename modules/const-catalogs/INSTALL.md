@@ -1,8 +1,9 @@
 # Install — const-catalogs
 
 Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirements.txt`
-(`python3 -m pip install -r <plugin root>/requirements.txt`). A missing one is reported on the
-first `Write` or `Edit` of any file, with the fix on the first line; nothing is silently skipped.
+(`python3 -m pip install -r <plugin root>/requirements.txt`). A missing `python3` or library is
+reported on the first `Write` or `Edit` of any file, a missing git on the first one of a Markdown
+file, each with the fix on the first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
    session). The hook fires on every `Write` and `Edit`; it examines Markdown files in a
@@ -21,7 +22,7 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
      catalogs:
        - prefix: <short, lowercase letters and digits>   # sticky: an id never changes
          territory: ["<pattern of the paths where the kind lives>"]   # gitignore syntax
-         width: 4         # digits in a number; 4 when absent
+         width: 4         # digits in a number, 1 to 9; 4 when absent
      severity: block      # block (default) | warn — warn reports the finding and lets the write through
      # log_dir: .gate-logs   # optional, and the directory must be git-ignored; see step 5
    ```
@@ -37,8 +38,13 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    ```
    Everything in a territory is an item: a README or an index there is blocked for its name.
    Take it out with a negated pattern — `"!<path of the file>"` after the pattern that holds it.
+   That works for a file directly in the territory's top directory. For a file deeper down, the
+   territory must match files, not directories — `"<dir>/**/*.md"` rather than `"<dir>/**"` —
+   because git re-includes nothing under a directory a pattern has excluded.
 3. Adopting a kind that already has documents: every one of them is renamed once, with every
-   link to it. Set `severity: warn` until that is done; the scan lists what is left.
+   link to it. Set `severity: warn` until that is done; the scan lists what is left, and tells
+   each document whose name shows a number to keep it. New items are numbered above every
+   number a name shows, renamed yet or not.
 4. Backstop for what the hook cannot see — `git mv`, shell edits, other tools, other people,
    and two branches that took one number: run the scan on demand, and in CI on every pull
    request, where the checkout is the merge of both branches:

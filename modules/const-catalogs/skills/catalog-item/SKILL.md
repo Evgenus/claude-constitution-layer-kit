@@ -53,13 +53,15 @@ Run the scan and read its last line:
 sh "${CLAUDE_PLUGIN_ROOT}/scripts/check-catalog-item.sh" --scan
 ```
 
-It names every catalog's reach — `dec up to dec-0028`, or `dec up to dec-0028, dec-0031 in
-history` when a higher item existed once and was deleted, or `dec none yet`. **The new number
-is one more than the highest number that line names for the catalog**, history included: the
-number of a deleted item is never given to another document, because somebody may still cite
-it. `none yet` means number 1. If the line ends in `history not available in a shallow
-clone`, the history part is missing: fetch the history first (`git fetch --unshallow`), or
-accept that a deleted top number cannot be seen.
+It names every catalog's reach: `<prefix> up to <prefix>-0028`; or `<prefix> up to
+<prefix>-0028, <prefix>-0031 in history` when a higher number was held once — by an item since
+deleted or renamed, or by a file of that name elsewhere in the repository; or `<prefix> none
+yet`, which may be followed by `in history` too. **The new number is one more than the highest
+number that line names for the catalog**, history included: a number once held is never given
+to another document, because somebody may still cite it. `none yet` with nothing after it
+means number 1. If the line ends in `history not available in a shallow clone`, the history
+part is missing: fetch the history first (`git fetch --unshallow`), or accept that a deleted
+top number cannot be seen.
 
 The number is **provisional until your branch lands on the main branch, and frozen from then
 on.** Another branch may take the same number meanwhile; whoever lands second renumbers
@@ -89,17 +91,21 @@ The scan reports it, usually at a pull request: two branches each took the next 
    section 2.
 3. Rename the file with `git mv`, and set its `id` to the new name.
 4. Rewrite the references **made on your own branch**, and only those:
-   `git grep -n -i '<prefix>-<old number>' -- $(git diff --name-only <main branch>...HEAD)`
-   finds both the full name and the bare form. References elsewhere mean the other item.
+   `git diff -z --name-only <main branch>...HEAD | xargs -0 -r git grep -n -i '<prefix>-<old number>' --`
+   finds both the full name and the bare form, in the files your branch touched. References
+   elsewhere mean the other item.
 5. Run the scan again. `git mv` and shell edits are not seen by the hook.
 
 ## 5. List a catalog, find an item, explain a gap
 
 - List, on demand, never into a file:
-  `git ls-files --cached --others --exclude-standard -- ':(glob)**/<prefix>-[0-9]*-*.md'`
-  and, for the titles, the same list through `xargs grep -m1 -H '^title:'`.
-- Find an item by its number, however the prefix was capitalized:
-  `git ls-files -- ':(icase,glob)**/<prefix>-<number>-*'`
+  `git ls-files --cached --others --exclude-standard -- ':(glob)**/<prefix>-[0-9]*-*.md' | sort`
+  and, with the titles:
+  `git ls-files --cached --others --exclude-standard -z -- ':(glob)**/<prefix>-[0-9]*-*.md' | sort -z | xargs -0 -r grep -m1 -H '^title:'`
+  The list goes by the prefix, wherever a file lies; an item whose name lacks the form is not
+  in it — the scan reports those.
+- Find an item by its number, however the prefix was capitalized, committed or not:
+  `git ls-files --cached --others --exclude-standard -- ':(icase,glob)**/<prefix>-<number>-*'`
 - A missing number is legitimate: an item deleted, or renumbered before it landed. Never
   fill a gap with a placeholder, and never reuse the number. What it was:
   `git log --diff-filter=D --name-only --format='%h %s' -- ':(glob)**/<prefix>-<number>-*'`
