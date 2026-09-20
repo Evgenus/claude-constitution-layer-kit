@@ -71,5 +71,5 @@ C, by Eugene Chernyshov in chat on 2026-09-20, with both proposed defaults accep
 8. R14 — history only: what it says of the earlier record is a fact of this day; the rules themselves are R1, R4, R6 and R10.
 9. R15 — history only: what was built on the day.
 10. R12 — [kit-decision-records](../policies/kit-decision-records.md), rule 5.
-12. R16 — [kernel §5](../../kernel/CONVENTIONS.md#k5); [kit-decision-records](../policies/kit-decision-records.md), rule 5.
 11. R17 — [kit-decision-records](../policies/kit-decision-records.md), rules 2 and 5; steps 6 to 8 and prompt D of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
+12. R16 — [kernel §5](../../kernel/CONVENTIONS.md#k5); [kit-decision-records](../policies/kit-decision-records.md), rule 5.

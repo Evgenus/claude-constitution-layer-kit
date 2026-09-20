@@ -33,7 +33,7 @@
         "active",
         "inactive"
       ],
-      "$comment": "Lifecycle: active = in force or current (binding current-state; task-record being applied; non-authoritative document that is the current account of its subject); inactive = historical evidence, no authority, kept only while referenced (non-authoritative: superseded). Supersession of current-state is an in-place edit (git holds prior versions); records are never edited in place; unreferenced documents are deleted."
+      "$comment": "Lifecycle: active = in force or current (binding current-state; task-record being applied; non-authoritative document that is the current account of its subject); inactive = historical evidence, no authority, kept only while referenced (non-authoritative: superseded). Supersession of current-state is an in-place edit (git holds prior versions); a record's body is edited in place only in the two cases §5 names; a document nothing should reference is deleted."
     }
   },
   "additionalProperties": true,
