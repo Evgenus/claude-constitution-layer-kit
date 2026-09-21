@@ -9,18 +9,20 @@ renders.
 
 from __future__ import annotations
 
+import bisect
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 _FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
+_FENCE_IN_LIST = re.compile(r"[ \t]*(`{3,}|~{3,})")  # a list item's content is indented with it
 _LIST_ITEM = re.compile(r" {0,3}(?:[-*+]|\d{1,9}[.)])(?: |$)")
 _INDENTED = re.compile(r"(?: {4}|\t)")
-_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _TICKS = re.compile(r"`+")
 _BLANK_LINE = re.compile(r"\n[ \t]*\n")
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, order=True)
 class Span:
     start: int
     end: int
@@ -47,9 +49,29 @@ def mask(document: str) -> Masked:
     opens_with_envelope = document.lstrip("\ufeff").startswith("---")
     body = _blank(document, regions[:1] if opens_with_envelope and regions and regions[0].start == 0 else [])
     blocks = _blank(document, regions)
-    blocks = _blank(blocks, [Span(m.start(), m.end()) for m in _COMMENT.finditer(blocks)])
+    blocks = _blank(blocks, _comments(blocks))
     spans = tuple(_code_spans(blocks))
     return Masked(body, blocks, _blank(blocks, spans), spans)
+
+
+def holder(spans: Sequence[Span], position: int) -> Span | None:
+    """The span that holds the position, of spans in reading order that do not overlap."""
+    index = bisect.bisect_right(spans, position, key=lambda span: span.start) - 1
+    return spans[index] if index >= 0 and spans[index].holds(position) else None
+
+
+def _comments(text: str) -> list[Span]:
+    """HTML comments, found by plain search: an opener that is never closed costs one look to the
+    end of the text, not one per opener."""
+    found: list[Span] = []
+    start = text.find("<!--")
+    while start != -1:
+        end = text.find("-->", start + 4)
+        if end == -1:
+            break
+        found.append(Span(start, end + 3))
+        start = text.find("<!--", end + 3)
+    return found
 
 
 def content(document: str, span: Span) -> str:
@@ -89,7 +111,7 @@ def _block_regions(document: str) -> list[Span]:
                 regions.append(Span(0, end))
                 in_envelope = False
         elif fence is not None:
-            closing = _FENCE.match(bare)
+            closing = _FENCE_IN_LIST.match(bare)
             if (
                 closing
                 and closing[1][0] == fence[0]
@@ -98,7 +120,7 @@ def _block_regions(document: str) -> list[Span]:
             ):
                 regions.append(Span(block_start, end))
                 fence = None
-        elif opening := _FENCE.match(bare):
+        elif opening := (_FENCE_IN_LIST if in_list else _FENCE).match(bare):
             fence, block_start, in_indented = opening[1], offset, False
         elif not bare.strip():
             after_blank = True

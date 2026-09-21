@@ -17,7 +17,8 @@ from const_gate.repository import first_line, git, list_markdown, read_text, rep
 from const_gate.territory import Matcher
 
 from . import dials as own_dials
-from . import messages, modes, repair
+from . import lychee, messages, modes, repair
+from .closing import Closing
 from .mentions import other_files
 from .model import Ids
 from .repair import Rewritten
@@ -34,7 +35,10 @@ class Request:
     new: str
 
 
-def act(output: Output, request: Request) -> int:
+def act(output: Output, request: Request, closing: Closing) -> int:
+    """Everything that can refuse is asked first — the repository, the dials, what is covered,
+    the link checker the closing scan needs, the two paths — so that a refusal finds the tree as
+    it was. Only then is anything moved or written."""
     root = repo_root(Path.cwd())
     if root is None:
         raise ConfigurationFailure(messages.v5_outside(str(Path.cwd())))
@@ -42,32 +46,65 @@ def act(output: Output, request: Request) -> int:
     if shared_dials is None:
         raise ConfigurationFailure(messages.v5_no_dials(str(root)))
     dials = own_dials.parse(shared_dials.own)
-    if request.ids:
-        old = new = ""
-    else:
+    lychee.require()
+    with Matcher() as matcher:  # the documents the gate covers are the documents a move repairs
+        target = ScanTarget(root, shared_dials)
+        before = modes.covered_documents(matcher, dials, target, list_markdown(root))
+    if before is None:
+        raise ConfigurationFailure(messages.v5_no_root_policy())
+    old = new = ""
+    if not request.ids:
         old, new = _within(root, request.old), _within(root, request.new)
         _refuse_what_cannot_move(root, old, new, request.by_hand)
         if not request.by_hand:
-            (root / new).parent.mkdir(parents=True, exist_ok=True)
-            moved = git(["mv", "--", old, new], cwd=root)
-            if moved.returncode != 0:
-                raise ConfigurationFailure(messages.v5_git_mv(first_line(moved.stderr)))
+            _move(root, old, new, closing)
         output.out(messages.v1_moved(old, new))
-    with Matcher() as matcher:  # the documents the gate covers are the documents a move repairs
-        target = ScanTarget(root, shared_dials)
+    with Matcher() as matcher:  # asked again: the moved document lies elsewhere now
         covered = modes.covered_documents(matcher, dials, target, list_markdown(root)) or []
-    texts = {rel: text for rel in covered if (text := read_text(root, rel)) is not None}
+    texts = {rel: text for rel in covered if (text := _read(root, rel, output)) is not None}
     files = links = 0
     ids = modes.ids_of(texts) if request.ids else None
     for rel, text in texts.items():
         done = _repair(rel, text, old, new, ids)
         if done.links:
-            (root / rel).write_text(done.text, encoding="utf-8")
+            closing.changed = True
+            with (root / rel).open("w", encoding="utf-8", newline="") as handle:  # line endings as they were
+                handle.write(done.text)
             output.out(messages.v2_rewrote(rel, done.links))
             files, links = files + 1, links + done.links
     listed = 0 if request.ids else _list_mentions(output, root, covered, old, new)
     output.out(messages.v4_count(files, links, listed))
     return modes.scan_mode(output, root)
+
+
+def _move(root: Path, old: str, new: str, closing: Closing) -> None:
+    """git mv, into a directory made for it where none exists — and unmade again when git refuses."""
+    made: list[Path] = []
+    parent = (root / new).parent
+    while not parent.exists():
+        made.append(parent)
+        parent = parent.parent
+    for directory in reversed(made):
+        directory.mkdir()
+    moved = git(["mv", "--", old, new], cwd=root)
+    if moved.returncode != 0:
+        for directory in made:
+            directory.rmdir()
+        raise ConfigurationFailure(messages.v5_git_mv(first_line(moved.stderr)))
+    closing.changed = True
+
+
+def _read(root: Path, rel: str, output: Output) -> str | None:
+    """A document exactly as it is on disk: line endings kept, and no character replaced — a
+    file that is not UTF-8 is left alone and said to be, since writing it back would damage it."""
+    try:
+        with (root / rel).open(encoding="utf-8", newline="") as handle:
+            return handle.read()
+    except UnicodeDecodeError:
+        output.out(messages.v2_left_alone(rel))
+    except OSError:
+        pass
+    return None
 
 
 def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritten:
@@ -113,3 +150,10 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
         raise ConfigurationFailure(messages.v5_not_listed(old))
     if (root / new).exists():
         raise ConfigurationFailure(messages.v5_target_exists(new))
+    for ancestor in (root / new).parents:
+        if ancestor.exists():
+            if not ancestor.is_dir():
+                raise ConfigurationFailure(
+                    messages.v5_parent_is_a_file(ancestor.relative_to(root).as_posix())
+                )
+            break

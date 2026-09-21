@@ -18,6 +18,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -1082,6 +1083,393 @@ def install_note_example_is_accepted() -> tuple[bool, str]:
     )
 
 
+# ------------------------------------------------------------------ found by the first validation
+
+
+def porcelain(consumer: Consumer) -> str:
+    return tree_state(consumer)
+
+
+def mover_asks_before_it_moves() -> tuple[bool, str]:
+    """Whatever the closing scan would fail on is asked before the file moves: no lychee, and
+    governed_only with no root policy, are refusals that find the tree as it was."""
+    no_lychee = moving_consumer()
+    before = porcelain(no_lychee)
+    merged = {**{k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}, **path_with(None)}
+    done = subprocess.run(
+        [H.sh, str(MOVER), OLD, NEW],
+        cwd=no_lychee.root,
+        capture_output=True,
+        text=True,
+        env=merged,
+        check=False,
+    )
+    first = broken_first_line(
+        Result(done.returncode, done.stdout, done.stderr), messages.x1_no_lychee("0.24.2").render()
+    )
+    rootless = H.fresh_consumer((Write(OLD, ONE), Write("docs/notes/two.md", TWO)))
+    rootless.write("constitution.yaml", yaml.safe_dump({NAMESPACE: {"governed_only": True}}))
+    rootless.commit()
+    state = porcelain(rootless)
+    refused = mover(rootless, OLD, NEW)
+    return all_of(
+        [
+            first,
+            (
+                messages.v4_nothing_changed() in done.stderr and porcelain(no_lychee) == before,
+                "no lychee: the tree changed",
+            ),
+            broken_first_line(refused, messages.v5_no_root_policy().render()),
+            (
+                porcelain(rootless) == state and (rootless.root / OLD).exists(),
+                "no root policy: the tree changed",
+            ),
+        ],
+        "no lychee, and governed_only with no root policy: refused before the move, the tree as it was",
+    )
+
+
+def mover_says_when_it_stopped_midway() -> tuple[bool, str]:
+    """A failure after the move must not claim that nothing was changed."""
+    consumer = moving_consumer()
+    dying = 'case "$1" in --version) echo "lychee 0.24.2";; *) echo "error: gone wrong" >&2; exit 3;; esac\n'
+    merged = {**{k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}, **path_with(dying)}
+    done = subprocess.run(
+        [H.sh, str(MOVER), OLD, NEW],
+        cwd=consumer.root,
+        capture_output=True,
+        text=True,
+        env=merged,
+        check=False,
+    )
+    ok = (
+        done.returncode == 1
+        and messages.v4_stopped_midway() in done.stderr
+        and messages.v4_nothing_changed() not in done.stderr
+        and (consumer.root / NEW).exists()
+    )
+    return ok, "exit 1, the closing line says the act stopped midway" if ok else done.stdout + done.stderr
+
+
+def mover_keeps_every_other_character() -> tuple[bool, str]:
+    """CRLF line endings and a byte order mark survive a rewrite; a file that is not UTF-8 is
+    left alone, and the mover says so."""
+    consumer = H.fresh_consumer((Write(OLD, ONE),))
+    crlf = "\ufeff# Two\r\n\r\nSee [one](one.md).\r\n"
+    (consumer.root / "docs/notes/crlf.md").write_bytes(crlf.encode("utf-8"))
+    (consumer.root / "docs/notes/latin.md").write_bytes("# Caf\xe9\n\nSee [one](one.md).\n".encode("latin-1"))
+    consumer.commit()
+    done = mover(consumer, OLD, NEW)
+    after = (consumer.root / "docs/notes/crlf.md").read_bytes().decode("utf-8")
+    latin = (consumer.root / "docs/notes/latin.md").read_bytes()
+    return all_of(
+        [
+            (after == crlf.replace("one.md", "../moved/deep/first.md"), f"CRLF document: {after!r}"),
+            (b"Caf\xe9" in latin and b"(one.md)" in latin, "the latin-1 file was rewritten"),
+            (messages.v2_left_alone("docs/notes/latin.md") in done.stdout, done.stdout),
+        ],
+        "one link rewritten, line endings and the byte order mark kept; the latin-1 file left alone, named",
+    )
+
+
+def mover_refuses_cleanly() -> tuple[bool, str]:
+    consumer = moving_consumer()
+    before = porcelain(consumer)
+    under_a_file = mover(consumer, OLD, "docs/notes/two.md/inside.md")
+    (consumer.root / ".git" / "index.lock").write_text("")
+    locked = mover(consumer, OLD, "brand/new/dir/first.md")
+    (consumer.root / ".git" / "index.lock").unlink()
+    return all_of(
+        [
+            broken_first_line(under_a_file, messages.v5_parent_is_a_file("docs/notes/two.md").render()),
+            (locked.code == 1 and "BROKEN: git mv refused: " in locked.stderr, locked.stderr),
+            (messages.v4_nothing_changed() in locked.stderr, "no closing line"),
+            (
+                not (consumer.root / "brand").exists(),
+                "directories made for a move git refused were left behind",
+            ),
+            (porcelain(consumer) == before, "the tree changed"),
+        ],
+        "a new path under a file, and a git mv git refuses: exit 1, no directory left, the tree as it was",
+    )
+
+
+def mover_quotes_and_bounds() -> tuple[bool, str]:
+    """A new name with a space is escaped in the link, so it stays a link; a longer name that ends
+    in the old one is no mention of it."""
+    consumer = H.fresh_consumer(
+        (
+            Write("docs/notes/a.md", note("# A\n", "note-a")),
+            Write("docs/notes/b.md", note(body("See [a](a.md). The file data.md is another."), "note-b")),
+            Write("docs/notes/data.md", note("# D\n", "note-d")),
+        )
+    )
+    done = mover(consumer, "docs/notes/a.md", "docs/notes/new name.md")
+    b = (consumer.root / "docs/notes/b.md").read_text()
+    return all_of(
+        [
+            ("See [a](new%20name.md)." in b, f"the link: {b}"),
+            expect(done, 0, messages.v4_count(1, 1, 0), "stdout"),
+            expect(scan(consumer), 0, "and 1 link(s) examined", "stdout"),
+        ],
+        "the space is escaped and the link still counted as one; data.md is not a mention of a.md",
+    )
+
+
+def reference_style_links() -> tuple[bool, str]:
+    definitions = f"\n\n[o]: {TO_OWNER}\n[r]: ../policies/root-policy.md\n"
+    astray = messages.r3_id_link_astray(DOC, LINE, OWNER_ID, "../policies/root-policy.md", OWNER, TO_OWNER)
+    return all_of(
+        [
+            passes(f"# Fixture\nSee [`{OWNER_ID}`][o], [{OWNER_ID}][O] and [o].{definitions}"),
+            blocks(f"# Fixture\nSee [{OWNER_ID}][r].{definitions}", astray),
+            passes(f"# Fixture\nSee [REQ-7][r].{definitions}"),
+        ],
+        "an id in ticks used through a label is a link; a label that opens another document is R3",
+    )
+
+
+def a_fence_under_a_list_item() -> tuple[bool, str]:
+    shown = "# F\n\n1. Configure:\n\n    ```yaml\n    # implements REQ-7\n\n    key: value\n    ```\n"
+    deeper = "# F\n\n- a\n  - b\n\n      ~~~\n      REQ-7\n\n      more\n      ~~~\n"
+    return all_of(
+        [passes(shown), passes(deeper)],
+        "a fence indented with its list item is code, a blank line inside it or not",
+    )
+
+
+def what_is_no_path_on_one_machine() -> tuple[bool, str]:
+    lines = [
+        "The route `/home/feed` and the page https://example.invalid/home/ann/page are no machines.",
+        "Neither is ~/Users/x, nor docs/home/ann/x.md, nor a bare /home/ or /Users/.",
+    ]
+    return passes("# F\n\n" + "\n".join(lines) + "\n")
+
+
+def owned_invocation_from_inside() -> tuple[bool, str]:
+    """The gate started with the repository as its working directory — as a hook is — still takes
+    nothing from the repository's own lychee files."""
+    consumer = H.fresh_consumer()
+    consumer.write(SOURCE, source("See [x](gone.md)."))
+    consumer.write(".lycheeignore", "gone.md\n")
+    consumer.write("lychee.toml", 'exclude_path = ["docs"]\n')
+    merged = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
+    done = subprocess.run(
+        [H.sh, str(SCRIPTS / "check-references.sh"), "--scan"],
+        cwd=consumer.root,
+        capture_output=True,
+        text=True,
+        env=merged,
+        check=False,
+    )
+    finding = messages.r5_no_target(SOURCE, LINE, "gone.md")
+    return expect(Result(done.returncode, done.stdout, done.stderr), 2, finding.render(), "stdout")
+
+
+def one_large_document() -> tuple[bool, str]:
+    """A table of 4,000 rows and 8,000 links, and two openers that are never closed, repeated:
+    each judged in seconds, far inside the hook's timeout."""
+    table = "".join(f"| [r{n}](t.md#k1) | `code{n}` | [s{n}](t.md) |\n" for n in range(4000))
+    timings: list[str] = []
+    for name, text in {"table": table, "<a": "<a " * 20000, "<!--": "<!-- " * 20000}.items():
+        began = time.monotonic()
+        result, _ = gate_on(Write(SOURCE, source("x") + text), files={TARGET: TARGET_TEXT})
+        took = time.monotonic() - began
+        timings.append(f"{name} {took:.1f} s")
+        if result.code != 0 or took > 10:
+            return False, f"{name}: exit {result.code} after {took:.1f} s: {result.stderr[:200]}"
+    return True, ", ".join(timings)
+
+
+def uncovered_write_that_breaks_a_covered_link() -> tuple[bool, str]:
+    only_source = own(territories=["*.md", "!" + TARGET])
+    broken_target = TARGET_TEXT.replace('<a id="k1"></a>\n', "")
+    files = {TARGET: broken_target, SOURCE: source("See [x](t.md#k1).")}
+    finding = messages.r6_no_anchor(SOURCE, LINE, "t.md#k1", "k1", TARGET, None)
+    harmless = {TARGET: TARGET_TEXT, SOURCE: source("See [x](t.md#k1).")}
+    return all_of(
+        [
+            expect(after_write(TARGET, files, only_source), 2, finding.render(), "stderr"),
+            expect(
+                after_write(TARGET, harmless, only_source),
+                0,
+                shared.g1_green_skip(messages.g1_skip_not_covered(TARGET)),
+                "stdout",
+            ),
+        ],
+        "an uncovered document written without a cited anchor is reported; a harmless write is a skip",
+    )
+
+
+def a_misspelt_dial() -> tuple[bool, str]:
+    known = sorted(
+        [
+            "severity",
+            "log_dir",
+            "territories",
+            "governed_only",
+            "heading_anchors",
+            "bare_ids",
+            "lanes",
+            "mentions",
+        ]
+    )
+    result, _ = gate_on(VALID, dials_patch=own(heading_anchor="allow"))
+    return broken(result, messages.c5_unknown_key("heading_anchor", known))
+
+
+def one_break_one_finding() -> tuple[bool, str]:
+    """A missing anchor is R6 and not R7 as well; two links alike on one line are one finding."""
+    out = tree_scan("See [a](t.md#nope) and [b](t.md#nope).")
+    ok = out.code == 2 and "1 finding(s)" in out.stdout and "resolves only through" not in out.stdout
+    return ok, "one R6, no R7, said once" if ok else out.stdout
+
+
+def anchors_by_name_and_encoded_paths() -> tuple[bool, str]:
+    named = note('# N\n\n<a name="old-style"></a>\n## Section Here\n', "note-n")
+    spaced = "docs/notes/my dir/t.md"
+    finding = messages.r7_heading_anchor(SOURCE, LINE, "my%20dir/t.md#first-section", spaced)
+    return all_of(
+        [
+            expect(
+                scan_of({"docs/notes/n.md": named, SOURCE: source("See [x](n.md#old-style).")}),
+                0,
+                "GREEN: ",
+                "stdout",
+            ),
+            expect(
+                scan_of({spaced: TARGET_TEXT, SOURCE: source("See [x](my%20dir/t.md#first-section).")}),
+                2,
+                finding.render(),
+                "stdout",
+            ),
+        ],
+        "an `a name` is an anchor somebody wrote; a path with an escaped space is still read for R7",
+    )
+
+
+def byte_order_mark_before_the_block() -> tuple[bool, str]:
+    text = "\ufeff" + document(
+        "# F\n", id="note-a", type="non-authoritative", title="In /Users/ann/x.md", status="active"
+    )
+    return expect(gate_on(Write(DOC, text))[0], 0, messages.g1_covered(), "stdout")
+
+
+def scan_findings_in_line_order() -> tuple[bool, str]:
+    out = scan_of(
+        {TARGET: TARGET_TEXT, SOURCE: note("# S\nSee [x](gone.md).\nThen `note-t` bare.\n", "note-s")}
+    ).stdout
+    order = [out.find("link target gone.md"), out.find("document id 'note-t'")]
+    return -1 not in order and order == sorted(
+        order
+    ), "line 9 before line 10, whichever check found it" if order == sorted(order) else out
+
+
+def a_break_in_words_of_lychee() -> tuple[bool, str]:
+    """A kind of break this module has no text of its own for is reported in the checker's words."""
+    report = json.dumps(
+        {
+            "error_map": {
+                "SRC": [
+                    {
+                        "url": "file:///nowhere/x.md",
+                        "status": {"text": "Some new failure"},
+                        "span": {"line": 9, "column": 5},
+                    }
+                ]
+            }
+        }
+    )
+    # the fake's PATH holds no cat: the shell's own read and printf do
+    script = (
+        'case "$1" in --version) echo "lychee 0.24.2";; *) while read -r _; do :; done;'
+        ' while IFS= read -r line; do printf "%s\\n" "$line"; done < "$0.json"; exit 2;; esac\n'
+    )
+    env = path_with(script)
+    consumer = H.fresh_consumer()
+    consumer.write(SOURCE, source("See [x](gone.md)."))
+    Path(env["PATH"], "lychee.json").write_text(
+        report.replace("SRC", str(consumer.root / SOURCE)) + "\n"
+    )  # read needs the line closed
+    result = H.run_gate("", args=["--scan", str(consumer.root)], env=env)
+    finding = messages.r5_unresolved(SOURCE, LINE, "/nowhere/x.md", "Some new failure")
+    return expect(result, 2, finding.render(), "stdout")
+
+
+def mover_entry_absences() -> tuple[bool, str]:
+    """The mover's own exits before the guard: no python3, and an install without the shared code."""
+    consumer = moving_consumer()
+    env = {
+        **{k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"},
+        "PATH": path_with(None)["PATH"],
+    }
+    bare = H.scratch_dir()
+    os.symlink(shutil.which("dirname") or "/usr/bin/dirname", bare / "dirname")
+    no_python = subprocess.run(
+        [H.sh, str(MOVER), OLD, NEW],
+        cwd=consumer.root,
+        capture_output=True,
+        text=True,
+        env={**env, "PATH": str(bare)},
+        check=False,
+    )
+    plugin = H.scratch_dir() / "plugin"
+    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True)
+    (plugin / "scripts" / "const_gate").unlink()
+    no_shared = subprocess.run(
+        [H.sh, str(plugin / "scripts" / "move-document.sh"), OLD, NEW],
+        cwd=consumer.root,
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    closing = "BROKEN: the move could not run — nothing was changed"
+    return all_of(
+        [
+            (
+                no_python.returncode == 1
+                and "BROKEN: const-referencing needs python3" in no_python.stderr
+                and closing in no_python.stderr,
+                no_python.stderr,
+            ),
+            (
+                no_shared.returncode == 1
+                and "is installed without its shared code" in no_shared.stderr
+                and closing in no_shared.stderr,
+                no_shared.stderr,
+            ),
+            ((consumer.root / OLD).exists(), "the file moved"),
+        ],
+        "each exit 1 with its designed line and the mover's closing line; nothing moved",
+    )
+
+
+WHYS = {
+    "R2": "  why: an id names a document that can move: only a link lets a reader reach it and lets a move"
+    " repair it",
+    "R3": "  why: a link that shows one document's id and opens another misleads every reader who trusts"
+    " the text",
+    "R4": "  why: it resolves on the machine it was written on and nowhere else",
+    "R5": "  why: a reference that does not resolve fails the reader exactly when they need it, and nobody"
+    " else sees it",
+    "R7": "  why: a generated name changes when the heading is reworded, and every link through it breaks"
+    " unseen",
+    "R8": "  why: outside Markdown no link checker follows a name, so it dangles unseen once the document"
+    " is renamed or deleted",
+}
+
+
+def golden_why_lines() -> tuple[bool, str]:
+    """The reason of every finding, typed by hand: R1's is in the first golden item."""
+    lint_runs = {str(case.expect.key): gate_on(case.red, dials_patch=LANES)[0].stderr for case in CASES[:4]}
+    tree_out = tree_scan("See [a](gone.md) and [d](t.md#first-section).").stdout
+    named = scan_of({SOURCE: source("x"), "tools/x.sh": "# note-gone\n"}, own(mentions=[MENTION])).stdout
+    outputs = {**lint_runs, "R5": tree_out, "R7": tree_out, "R8": named}
+    missing = [key for key, line in WHYS.items() if line not in outputs[key]]
+    return not missing, f"{len(WHYS)} reasons found as typed" if not missing else f"not found: {missing}"
+
+
 GOLDEN_TREE = {
     "R5": f"RED: {SOURCE}:9: link target gone.md does not exist",
     "R5 fix": '  fix: correct the path; if the target was moved by hand, repair every link to it by: sh "',
@@ -1232,7 +1620,7 @@ ASSERTIONS = [
         mention_dial_failures,
     ),
     Assertion(
-        60, "A5.8 red→green: git mv alone leaves the scan red, the act leaves it green", move_red_green
+        60, "the move's red→green: git mv alone leaves the scan red, the act leaves it green", move_red_green
     ),
     Assertion(
         61, "the mover lists what names the old path and changes none of it", mentions_are_listed_not_changed
@@ -1269,6 +1657,75 @@ ASSERTIONS = [
         "R4 reads code and comments too; only the YAML block that opens the file is not read",
         a_path_on_one_machine_is_read_in_code_too,
     ),
+    Assertion(
+        80,
+        "the mover asks everything that can refuse before it moves: no lychee, no root policy",
+        mover_asks_before_it_moves,
+    ),
+    Assertion(
+        81,
+        "a failure after the move says the act stopped midway, never that nothing changed",
+        mover_says_when_it_stopped_midway,
+    ),
+    Assertion(
+        82,
+        "the mover keeps CRLF and a byte order mark, and leaves a file that is not UTF-8 alone",
+        mover_keeps_every_other_character,
+    ),
+    Assertion(
+        83,
+        "a new path under a file, and a git mv that git refuses: refused, no directory left behind",
+        mover_refuses_cleanly,
+    ),
+    Assertion(
+        84,
+        "the mover escapes a space in a link; a longer name is no mention of a shorter one",
+        mover_quotes_and_bounds,
+    ),
+    Assertion(
+        85,
+        "reference-style links: a usage is a link, and is judged by what its label opens",
+        reference_style_links,
+    ),
+    Assertion(86, "a fence indented under a list item is code", a_fence_under_a_list_item),
+    Assertion(
+        87,
+        "R4 leaves alone a route, an address, a tilde path and a bare home directory",
+        what_is_no_path_on_one_machine,
+    ),
+    Assertion(
+        88,
+        "started inside the repository, the gate still takes nothing from its lychee files",
+        owned_invocation_from_inside,
+    ),
+    Assertion(89, "one large document, and openers never closed, are judged in seconds", one_large_document),
+    Assertion(
+        90,
+        "after the write of an uncovered document, the covered links it broke are reported",
+        uncovered_write_that_breaks_a_covered_link,
+    ),
+    Assertion(
+        91, "a misspelt dial is a configuration failure, never a setting ignored in silence", a_misspelt_dial
+    ),
+    Assertion(
+        92,
+        "one break is one finding: R6 without R7, and said once for links alike on a line",
+        one_break_one_finding,
+    ),
+    Assertion(
+        93,
+        "an `a name` is an explicit anchor; an escaped path is read for R7",
+        anchors_by_name_and_encoded_paths,
+    ),
+    Assertion(94, "a byte order mark does not open the YAML block to R4", byte_order_mark_before_the_block),
+    Assertion(95, "the scan's findings inside one document come in line order", scan_findings_in_line_order),
+    Assertion(
+        96,
+        "a break of a kind the module has no text for is reported in the checker's words",
+        a_break_in_words_of_lychee,
+    ),
+    Assertion(97, "the mover's exits before the guard: no python3, no shared code", mover_entry_absences),
+    Assertion(98, "golden reasons: the why-line of every finding, typed by hand", golden_why_lines),
 ]
 
 SUBJECT = Subject(

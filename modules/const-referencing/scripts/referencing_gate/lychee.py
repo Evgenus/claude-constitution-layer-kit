@@ -16,7 +16,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -28,7 +28,9 @@ from . import messages
 
 TOOL = "lychee"
 FLOOR = (0, 24, 2)
-SECONDS = 25  # below the hook's timeout: a checker that hangs is a failure with a message, not a silent pass
+SECONDS = 20  # with the version probe below the hook's timeout: a checker that hangs is a failure
+# with a message, never a hook the platform gives up on and lets through
+VERSION_SECONDS = 5
 CONFIG = Path(__file__).resolve().parent.parent / "lychee.toml"
 _VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 _NO_FRAGMENT = "Cannot find fragment"
@@ -85,11 +87,17 @@ def find_breaks(root: Path, inputs: Sequence[str]) -> list[Break]:
             )
         except subprocess.TimeoutExpired as late:
             raise ConfigurationFailure(messages.x3_no_report(f"no answer in {SECONDS} s", "")) from late
-    report = _report(done.stdout)
-    if done.returncode not in (0, 2) or report is None:
+    breaks = _parse(root, done.stdout)
+    if done.returncode not in (0, 2) or breaks is None:
         first = (done.stderr.strip().splitlines() or [""])[0]
         raise ConfigurationFailure(messages.x3_no_report(f"exit {done.returncode}", first))
-    return _breaks(root, report)
+    return breaks
+
+
+def require() -> str:
+    """The checker's path, or the configuration failure that says what is missing. Public so
+    that an act that changes files can ask before it changes any."""
+    return _binary()
 
 
 def _binary() -> str:
@@ -98,7 +106,7 @@ def _binary() -> str:
         raise ConfigurationFailure(messages.x1_no_lychee(_floor()))
     try:
         said = subprocess.run(
-            [binary, "--version"], capture_output=True, text=True, timeout=SECONDS, check=False
+            [binary, "--version"], capture_output=True, text=True, timeout=VERSION_SECONDS, check=False
         ).stdout
     except (OSError, subprocess.TimeoutExpired):
         said = ""
@@ -112,47 +120,42 @@ def _floor() -> str:
     return ".".join(str(part) for part in FLOOR)
 
 
-def _report(stdout: str) -> dict[str, object] | None:
+def _parse(root: Path, stdout: str) -> list[Break] | None:
+    """The report, parsed once into typed breaks; None when stdout holds no report."""
     try:
         loaded: object = json.loads(stdout)
     except ValueError:
         return None
-    return loaded if isinstance(loaded, dict) and isinstance(loaded.get("error_map"), dict) else None
-
-
-def _breaks(root: Path, report: dict[str, object]) -> list[Break]:
+    error_map = loaded.get("error_map") if isinstance(loaded, dict) else None
+    if not isinstance(error_map, dict):
+        return None
     real_root = Path(os.path.realpath(root))
     found: list[Break] = []
-    error_map = report["error_map"]
-    assert isinstance(error_map, dict)  # _report checked it
     for source, entries in error_map.items():
         for entry in entries if isinstance(entries, list) else []:
-            if not isinstance(entry, dict):
-                continue
-            status, span = entry.get("status"), entry.get("span")
-            words = str(status.get("text", "")) if isinstance(status, dict) else ""
-            line = span.get("line") if isinstance(span, dict) else None
-            address = urlsplit(str(entry.get("url", "")))
-            kind = (
-                BreakKind.NO_FRAGMENT
-                if words.startswith(_NO_FRAGMENT)
-                else BreakKind.NO_FILE
-                if words.startswith(_NO_FILE)
-                else BreakKind.OTHER
-            )
-            found.append(
-                Break(
-                    _within(real_root, str(source)),
-                    line if isinstance(line, int) else 0,
-                    _within(real_root, unquote(address.path))
-                    if address.scheme == "file"
-                    else str(entry.get("url", "")),
-                    unquote(address.fragment) or None,
-                    kind,
-                    words,
-                )
-            )
+            if isinstance(entry, dict):
+                found.append(_break(real_root, str(source), entry))
     return sorted(found, key=lambda b: (b.source, b.line, b.target, b.fragment or ""))
+
+
+def _break(real_root: Path, source: str, entry: Mapping[object, object]) -> Break:
+    status, span = entry.get("status"), entry.get("span")
+    words = str(status.get("text", "")) if isinstance(status, dict) else ""
+    line = span.get("line") if isinstance(span, dict) else None
+    url = str(entry.get("url", ""))
+    address = urlsplit(url)
+    kind = (
+        BreakKind.NO_FRAGMENT
+        if words.startswith(_NO_FRAGMENT)
+        else BreakKind.NO_FILE
+        if words.startswith(_NO_FILE)
+        else BreakKind.OTHER
+    )
+    target = _within(real_root, unquote(address.path)) if address.scheme == "file" else url
+    fragment = unquote(address.fragment) or None
+    return Break(
+        _within(real_root, source), line if isinstance(line, int) else 0, target, fragment, kind, words
+    )
 
 
 def _within(real_root: Path, path: str) -> str:

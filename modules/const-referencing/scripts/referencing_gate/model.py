@@ -76,6 +76,7 @@ class LinkKind(StrEnum):
     INLINE = "inline"  # [text](destination), an image included
     DEFINITION = "definition"  # [label]: destination
     HREF = "href"  # <a href="destination">
+    USAGE = "usage"  # [text][label], opening what the definition of the label names; nothing to rewrite
 
 
 @dataclass(frozen=True, slots=True)

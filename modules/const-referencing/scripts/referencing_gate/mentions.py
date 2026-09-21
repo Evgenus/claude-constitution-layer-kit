@@ -33,10 +33,13 @@ def other_files(root: Path) -> list[str]:
 
 def examine(
     root: Path, files: Sequence[str], mentions: Sequence[Mention], ids: Ids, matcher: Matcher
-) -> list[Finding]:
+) -> tuple[list[Finding], int]:
+    """The findings, and how many files were read for them."""
     found: list[Finding] = []
+    read_at_all: set[str] = set()
     for mention in mentions:
         read = sorted(matcher.match(mention.files, files)) if mention.files else list(files)
+        read_at_all.update(read)
         for rel in read:
             text = (root / rel).read_text(encoding="utf-8", errors="replace")
             for number, line in enumerate(text.splitlines(), start=1):
@@ -45,7 +48,7 @@ def examine(
                     for m in mention.pattern.finditer(line)
                     if m[0] and not ids.owners_of(m[0])
                 ]
-    return found
+    return found, len(read_at_all)
 
 
 def _binary(path: Path) -> bool:

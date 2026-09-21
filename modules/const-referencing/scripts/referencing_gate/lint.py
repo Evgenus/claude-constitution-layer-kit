@@ -13,12 +13,15 @@ from const_gate.model import Finding
 
 from . import messages
 from .links import find_links, without_links
-from .masking import Masked, content, line_of, mask
+from .masking import Masked, Span, content, holder, line_of, mask
 from .model import Ids, Lane, Link, LinkKind
 
 # A home directory is an operating system's fact, not a project's.
+# A user's directory and something inside it: /home/feed is a route, /home/ann/notes.md a machine.
 _ONE_MACHINE = re.compile(
-    r"file:/+[^\s)>\"']*|(?<![\w.:/-])(?:/Users/|/home/)[^\s)>\"'`]+|\b[A-Za-z]:\\Users\\[^\s)>\"'`]+"
+    r"file:/+[^\s)>\"']*"
+    r"|(?<![\w.:/~-])(?:/Users/|/home/)[^\s/)>\"'`]+/[^\s)>\"'`]+"
+    r"|\b[A-Za-z]:\\Users\\[^\s)>\"'`]+"
 )
 _CLOSES_A_SENTENCE = ".,;:!?"  # punctuation after a path is the sentence's, not the path's
 _SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
@@ -26,9 +29,10 @@ _SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
 
 def examine(
     rel: str, document: str, own_id: str | None, ids: Ids, lanes: Sequence[Lane], bare_ids: bool
-) -> tuple[list[Finding], int]:
-    """The findings of one document, by position, and the number of links it holds. `lanes` are
-    those not at home in this document; `bare_ids` says whether an id in backticks is judged."""
+) -> tuple[list[tuple[int, Finding]], int]:
+    """The findings of one document, each with its line, in reading order, and the number of links
+    it holds. `lanes` are those not at home in this document; `bare_ids` says whether an id in
+    backticks is judged."""
     masked = mask(document)
     links = find_links(document, masked)
     found: list[tuple[int, Finding]] = [
@@ -37,7 +41,8 @@ def examine(
         *_id_links_astray(rel, document, links, ids),
         *_one_machine(rel, document, masked),
     ]
-    return [finding for _, finding in sorted(found, key=lambda pair: pair[0])], len(links)
+    in_order = sorted(found, key=lambda pair: pair[0])
+    return [(line_of(document, position), finding) for position, finding in in_order], len(links)
 
 
 def target_of(rel: str, destination: str) -> str | None:
@@ -71,10 +76,11 @@ def _bare_ids(
     rel: str, document: str, masked: Masked, links: Sequence[Link], own_id: str | None, ids: Ids
 ) -> list[tuple[int, Finding]]:
     found: list[tuple[int, Finding]] = []
+    extents = _extents(links)
     for span in masked.spans:
         doc_id = content(document, span)
         owners = ids.owners_of(doc_id)
-        if not owners or doc_id == own_id or any(link.start <= span.start < link.end for link in links):
+        if not owners or doc_id == own_id or holder(extents, span.start) is not None:
             continue
         line = line_of(document, span.start)
         found.append(
@@ -83,10 +89,19 @@ def _bare_ids(
     return found
 
 
+def _extents(links: Sequence[Link]) -> list[Span]:
+    """Where links stand, outermost only, in reading order: what a position is looked up in."""
+    outer: list[Span] = []
+    for link in links:
+        if not outer or link.start >= outer[-1].end:
+            outer.append(Span(link.start, link.end))
+    return outer
+
+
 def _id_links_astray(rel: str, document: str, links: Sequence[Link], ids: Ids) -> list[tuple[int, Finding]]:
     found: list[tuple[int, Finding]] = []
     for link in links:
-        if link.kind is not LinkKind.INLINE:
+        if link.kind not in (LinkKind.INLINE, LinkKind.USAGE):
             continue
         doc_id = link.text.strip().strip("`").strip()
         owners = ids.owners_of(doc_id)

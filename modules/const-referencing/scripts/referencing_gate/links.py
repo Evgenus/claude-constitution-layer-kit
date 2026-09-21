@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from .masking import Masked
+from .masking import Masked, Span, holder
 from .model import Link, LinkKind
 
 # text: no unescaped bracket but balanced pairs one level deep; destination: <in angle brackets>
@@ -20,14 +20,20 @@ _INLINE = re.compile(
     r"(?:\s+(?:\"[^\"]*\"|'[^']*'))?\s*\)"
 )
 _DEFINITION = re.compile(r"^ {0,3}\[(?P<text>[^\]\n]+)\]:[ \t]*(?P<dest><[^<>\n]*>|\S+)", re.MULTILINE)
+# [text][label], [label][] and [label] — told from an inline link by what follows the bracket
+_USAGE = re.compile(
+    r"\[(?P<text>(?:[^\[\]\\]|\\.|\[(?:[^\[\]\\]|\\.)*\])+)\](?:\[(?P<label>[^\[\]\n]*)\])?(?![\[(:])"
+)
+# bounded on purpose: an `<a` that never closes must not be searched to the end of the file each time
 _HREF = re.compile(
-    r"<a\b[^>]*?\bhref\s*=\s*(?P<quote>[\"'])(?P<dest>.*?)(?P=quote)", re.IGNORECASE | re.DOTALL
+    r"<a\b[^<>]{0,2000}?\bhref\s*=\s*(?P<quote>[\"'])(?P<dest>[^\"'<>\n]{0,2000})(?P=quote)", re.IGNORECASE
 )
 
 
 def find_links(document: str, masked: Masked) -> list[Link]:
     """Links are looked for where code spans are still readable — a link's text may hold one —
-    and one that starts inside a code span is no link."""
+    and one that starts inside a code span is no link. A usage of a reference definition is a
+    link too: it opens what its definition names, and has no destination of its own to rewrite."""
     found: list[Link] = []
     for kind, pattern in (
         (LinkKind.INLINE, _INLINE),
@@ -35,14 +41,26 @@ def find_links(document: str, masked: Masked) -> list[Link]:
         (LinkKind.HREF, _HREF),
     ):
         for match in pattern.finditer(masked.blocks):
-            if any(span.holds(match.start()) for span in masked.spans):
+            if holder(masked.spans, match.start()) is not None:
                 continue
             at, until = match.span("dest")
             if document[at:until].startswith("<"):
                 at, until = at + 1, until - 1
             text = match["text"] if kind is not LinkKind.HREF else ""
             found.append(Link(kind, text, document[at:until], match.start(), match.end(), at, until))
+    defined = {_label(link.text): link.destination for link in found if link.kind is LinkKind.DEFINITION}
+    taken = sorted(Span(link.start, link.end) for link in found)
+    for match in _USAGE.finditer(masked.blocks) if defined else ():
+        destination = defined.get(_label(match["label"] or match["text"]))
+        inside = holder(masked.spans, match.start()) or holder(taken, match.start())
+        if destination is not None and inside is None:
+            found.append(Link(LinkKind.USAGE, match["text"], destination, match.start(), match.end(), 0, 0))
     return sorted(found, key=lambda link: link.start)
+
+
+def _label(text: str) -> str:
+    """Labels match without regard to case, and with runs of white space as one space."""
+    return " ".join(text.split()).casefold()
 
 
 def without_links(masked: Masked, links: list[Link]) -> str:

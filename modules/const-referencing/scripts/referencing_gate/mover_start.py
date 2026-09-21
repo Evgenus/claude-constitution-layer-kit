@@ -15,6 +15,7 @@ from const_gate.model import Mode
 from const_gate.output import Output
 
 from . import messages
+from .closing import Closing
 
 MOVER = Identity(
     namespace="const-referencing",
@@ -36,7 +37,7 @@ def make_parser() -> Parser:
     return parser
 
 
-def _body(argv: Sequence[str], output: Output) -> int:
+def _body(argv: Sequence[str], output: Output, closing: Closing) -> int:
     args = make_parser().parse_args(list(argv))
     wanted = 0 if args.ids else 2
     if len(args.paths) != wanted or (args.ids and args.moved):
@@ -47,8 +48,9 @@ def _body(argv: Sequence[str], output: Output) -> int:
     from . import moving  # noqa: PLC0415
 
     old, new = args.paths if args.paths else ("", "")
-    return moving.act(output, moving.Request(args.ids, args.moved, old, new))
+    return moving.act(output, moving.Request(args.ids, args.moved, old, new), closing)
 
 
 def main(argv: Sequence[str]) -> int:
-    return cli.guarded(MOVER, Mode.ACT, lambda output: _body(argv, output), messages.v4_nothing_changed)
+    closing = Closing()  # knows, when a failure is closed, whether anything had been changed by then
+    return cli.guarded(MOVER, Mode.ACT, lambda output: _body(argv, output, closing), closing)

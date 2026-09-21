@@ -5,13 +5,14 @@ blanks — code, comments, the YAML block — are no links here, so they are nev
 from __future__ import annotations
 
 import posixpath
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import quote
 
 from .links import find_links
 from .lint import path_between, target_of
-from .masking import Span, line_of, mask
+from .masking import Span, holder, line_of, mask
 from .model import Ids, Link, LinkKind
 
 
@@ -59,15 +60,15 @@ def id_links(rel: str, document: str, ids: Ids) -> Rewritten:
 def mentions(document: str, names: tuple[str, ...]) -> list[Mentioned]:
     """Where the document names the old place outside a link's destination — in prose, in code.
     Nothing here is rewritten: a sentence may mean the old place on purpose."""
-    spans = [Span(link.at, link.until) for link in find_links(document, mask(document))]
+    links = find_links(document, mask(document))
+    spans = sorted(Span(link.at, link.until) for link in links if link.kind is not LinkKind.USAGE)
     found: dict[int, Mentioned] = {}
-    for name in names:
-        position = document.find(name)
-        while position != -1:
-            if not any(span.holds(position) for span in spans):
-                line = line_of(document, position)
-                found.setdefault(line, Mentioned(line, document.splitlines()[line - 1].strip()))
-            position = document.find(name, position + 1)
+    lines = document.splitlines()
+    for name in names:  # the name itself: `a.md` is not named by `data.md`
+        for match in re.finditer(rf"(?<![\w./-]){re.escape(name)}(?![\w-])", document):
+            if holder(spans, match.start()) is None:
+                line = line_of(document, match.start())
+                found.setdefault(line, Mentioned(line, lines[line - 1].strip()))
     return [found[line] for line in sorted(found)]
 
 
@@ -77,7 +78,7 @@ def _rewrite(rel: str, document: str, aim: Callable[[Link], str | None]) -> Rewr
     and angle brackets, inside which a space needs no escaping."""
     text, count = document, 0
     for link in reversed(find_links(document, mask(document))):
-        wanted = aim(link)
+        wanted = aim(link) if link.kind is not LinkKind.USAGE else None  # its definition is the link
         if wanted is None or target_of(rel, link.destination) in (None, wanted):
             continue
         path_end = min(

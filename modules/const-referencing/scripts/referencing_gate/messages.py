@@ -10,6 +10,8 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
@@ -218,6 +220,13 @@ def _c5(detail: str, fix: str) -> Broken:
     return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
 
 
+def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
+    return _c5(
+        f"{_ns()}.{shown(key)} is no dial of this module",
+        f"a misspelt dial would be ignored in silence, so none is: write one of {', '.join(known)}",
+    )
+
+
 def c5_territories() -> Broken:
     return _c5(
         f"{_ns()}.territories must be a non-empty list of path patterns",
@@ -338,6 +347,17 @@ def v4_nothing_changed() -> str:
     return "BROKEN: the move could not run — nothing was changed"
 
 
+def v4_stopped_midway() -> str:
+    return (
+        "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the"
+        " check of the whole tree has not run: look at git status, repair the cause, then run the scan"
+    )
+
+
+def v2_left_alone(rel: str) -> str:
+    return f"LEFT ALONE: {rel} is not UTF-8 text — its links, if any, were not repaired"
+
+
 _USAGE = (
     "<old path> <new path> to move a file and repair the links; --moved <old path> <new path> after a"
     " move made by hand; --ids to point every link whose text is a document's id at that document"
@@ -380,6 +400,21 @@ def v5_outside(path: str) -> Broken:
 def v5_git_mv(first_line: str) -> Broken:
     return v5_refused(
         f"git mv refused: {shown(first_line)}", "repair what git names, then run the move again"
+    )
+
+
+def v5_parent_is_a_file(path: str) -> Broken:
+    return v5_refused(
+        f"{path} is a file, so nothing can lie inside it",
+        "name a new path whose directories exist or can be made",
+    )
+
+
+def v5_no_root_policy() -> Broken:
+    return v5_refused(
+        f"{_ns()}.governed_only is set and {DIALS_FILE} names no root_policy, so nobody can say which"
+        " documents a move must repair",
+        "name the root policy, or remove governed_only",
     )
 
 

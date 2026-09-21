@@ -49,24 +49,27 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
             return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         lanes = _lanes_abroad(matcher, dials, [rel])[rel]
     texts = {path: target.text if path == rel else _text(target.root, path) for path in covered}
-    findings, _ = _examine(rel, texts, ids_of(texts), lanes, dials)
+    placed, _ = _examine(rel, texts, ids_of(texts), lanes, dials)
+    findings = [finding for _, finding in placed]
     if findings:
         return pipeline.report_hook(output, findings, (), rel, target.dials.severity)
     return pipeline.green_hook(output, messages.g1_covered())
 
 
 def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -> int:
+    """The written document need not be covered itself: covered documents may link into it, and
+    a write that takes an anchor away breaks them all the same."""
     rel = target.rel
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, list_markdown(target.root))
     if covered is None:
         return pipeline.no_root_policy(output)
-    if rel not in covered:
-        return pipeline.skip(output, messages.g1_skip_not_covered(rel))
     texts = {path: _text(target.root, path) for path in covered}
     found = tree.examine(target.root, texts, dials.heading_anchors, about=rel)
-    findings = [finding for path in sorted(found) for finding in found[path]]
+    findings = [finding for path in sorted(found) for _, finding in found[path]]
     if not findings:
+        if rel not in covered:
+            return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         return pipeline.green_hook(output, messages.g1_covered())
     links = sum(len(find_links(text, mask(text))) for text in texts.values())
     cut = SHOWN_AFTER_WRITE if len(findings) > SHOWN_AFTER_WRITE else None
@@ -89,23 +92,22 @@ def scan_mode(output: Output, start: Path) -> int:
         texts = {path: _text(target.root, path) for path in covered}
         ids = ids_of(texts)
         others = mentions.other_files(target.root) if dials.mentions else []
-        named = mentions.examine(target.root, others, dials.mentions, ids, matcher)
+        named, read = mentions.examine(target.root, others, dials.mentions, ids, matcher)
     in_tree = tree.examine(target.root, texts, dials.heading_anchors)
     findings: list[Finding] = []
     links = 0
     for rel in covered:
         found, count = _examine(rel, texts, ids, lanes[rel], dials)
-        findings += [*found, *in_tree.get(rel, [])]
+        in_order = sorted([*found, *in_tree.get(rel, [])], key=lambda pair: pair[0])  # stable: by line
+        findings += [finding for _, finding in in_order]
         links += count
-    tail = messages.f9_scan_tail(
-        len(covered), links, len(paths), len(dials.lanes), len(dials.mentions), len(others)
-    )
+    tail = messages.f9_scan_tail(len(covered), links, len(paths), len(dials.lanes), len(dials.mentions), read)
     return pipeline.report_scan(output, [*findings, *named], (), tail)
 
 
 def _examine(
     rel: str, texts: dict[str, str], ids: Ids, lanes: Sequence[Lane], dials: ReferencingDials
-) -> tuple[list[Finding], int]:
+) -> tuple[list[tuple[int, Finding]], int]:
     text = texts[rel]
     return lint.examine(rel, text, id_of_text(text), ids, lanes, dials.bare_ids is Switch.REFUSE)
 

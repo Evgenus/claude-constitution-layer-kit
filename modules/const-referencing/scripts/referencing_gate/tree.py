@@ -19,12 +19,12 @@ from .links import find_links
 from .lint import target_of
 from .lychee import Break, BreakKind
 from .masking import line_of, mask
-from .model import Link, Switch
+from .model import Link, LinkKind, Switch
 
 
 def examine(
     root: Path, texts: Mapping[str, str], heading_anchors: Switch, about: str | None = None
-) -> dict[str, list[Finding]]:
+) -> dict[str, list[tuple[int, Finding]]]:
     """The findings of each covered document, in reading order. `texts` holds the covered
     documents as they stand on disk. With `about`, only the findings that involve that document:
     its own links, and other documents' links into it."""
@@ -39,6 +39,8 @@ def examine(
         found.setdefault(b.source, []).append((b.line, _of_break(b, links.get(b.source, []), texts)))
     for rel, text in texts.items():
         for link in links[rel]:
+            if link.kind is LinkKind.USAGE:
+                continue  # its definition is the link that is resolved
             target, fragment = target_of(rel, link.destination), _fragment(link)
             if target is None or not fragment or target not in anchors or fragment in anchors[target]:
                 continue
@@ -54,8 +56,9 @@ def examine(
                 )
             elif heading_anchors is Switch.REFUSE:
                 found[rel].append((line, messages.r7_heading_anchor(rel, line, link.destination, target)))
+    # two links alike on one line make one finding: said twice it teaches nothing more
     return {
-        rel: [f for _, f in sorted(pairs, key=lambda pair: pair[0])] for rel, pairs in found.items() if pairs
+        rel: sorted(dict.fromkeys(pairs), key=lambda pair: pair[0]) for rel, pairs in found.items() if pairs
     }
 
 
