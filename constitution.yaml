@@ -39,3 +39,24 @@ const-decision-records:               # a module's namespace (kernel §6): its o
 const-catalogs:                       # numbered kinds are declared here, independent of policies (requirement A13.7)
   catalogs:
     - {prefix: dec, width: 4, territory: *decisions}   # id and stem dec-<nnnn>-<slug>
+
+const-referencing:                    # the kit's own reference forms (requirements A5.5–A5.7); the module knows none of them
+  lanes:                              # a bare form is the local alias inside its home document, a link everywhere else
+    - pattern: '\bM[0-9]+\b'
+      names: a module by its number
+      fix: '[`const-<name>`](<path to>/docs/requirements.md#const-<name>) — a module number resolves only inside the requirements document'
+      home: ["/docs/requirements.md"]
+    - pattern: '\bA[0-9]+\.[0-9]+'
+      names: a requirement row
+      fix: '[requirement A5.3](<path to>/docs/requirements.md#a5-3)'
+      home: ["/docs/requirements.md"]
+    - pattern: '§ ?[0-9]'
+      names: a kernel section
+      fix: '[kernel §4](<path to>/kernel/CONVENTIONS.md#k4)'
+      home: ["/kernel/CONVENTIONS.md"]
+    - pattern: '(?i)\blaws? [0-9]'
+      names: a law
+      fix: '[law 4 of CLAUDE.md](<path to>/CLAUDE.md#law-4)'
+      home: ["/CLAUDE.md"]
+  mentions:                           # a record named in a script or a configuration file must exist: no link checker reads those
+    - pattern: '\bdec-[0-9]{4}-[a-z0-9-]+'

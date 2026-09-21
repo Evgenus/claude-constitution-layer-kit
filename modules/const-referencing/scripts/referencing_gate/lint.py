@@ -20,6 +20,7 @@ from .model import Ids, Lane, Link, LinkKind
 _ONE_MACHINE = re.compile(
     r"file:/+[^\s)>\"']*|(?<![\w.:/-])(?:/Users/|/home/)[^\s)>\"'`]+|\b[A-Za-z]:\\Users\\[^\s)>\"'`]+"
 )
+_CLOSES_A_SENTENCE = ".,;:!?"  # punctuation after a path is the sentence's, not the path's
 _SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
 
 
@@ -106,6 +107,9 @@ def _id_links_astray(rel: str, document: str, links: Sequence[Link], ids: Ids) -
 
 def _one_machine(rel: str, document: str, masked: Masked) -> list[tuple[int, Finding]]:
     return [
-        (m.start(), messages.r4_one_machine(rel, line_of(document, m.start()), m[0]))
+        (
+            m.start(),
+            messages.r4_one_machine(rel, line_of(document, m.start()), m[0].rstrip(_CLOSES_A_SENTENCE)),
+        )
         for m in _ONE_MACHINE.finditer(masked.text)
     ]

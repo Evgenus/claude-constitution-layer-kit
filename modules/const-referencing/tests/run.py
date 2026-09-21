@@ -296,6 +296,10 @@ def findings_in_reading_order() -> tuple[bool, str]:
     return ok, "three findings, by position" if ok else f"exit {result.code}, {keys}: {result.stderr}"
 
 
+def a_path_ends_before_the_sentence_does() -> tuple[bool, str]:
+    return blocks(body("Notes are in /Users/someone/notes.md."), R4_PATH)
+
+
 def not_covered() -> tuple[bool, str]:
     result, _ = gate_on(
         wrote(body("See REQ-7.")),
@@ -1240,6 +1244,7 @@ ASSERTIONS = [
         "the install note's calibration example is accepted by the gate as it stands",
         install_note_example_is_accepted,
     ),
+    Assertion(29, "R4 names the path, not the full stop after it", a_path_ends_before_the_sentence_does),
 ]
 
 SUBJECT = Subject(
