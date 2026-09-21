@@ -6,15 +6,16 @@ from __future__ import annotations
 
 import re
 
-from .masking import mask
+from .masking import Masked
 
 _TAG = re.compile(r"<(?P<tag>[A-Za-z][\w-]*)\b(?P<attributes>[^<>]*)>")
 _ATTRIBUTE = re.compile(r"\b(?P<name>id|name)\s*=\s*(?P<quote>[\"'])(?P<value>.*?)(?P=quote)", re.IGNORECASE)
 
 
-def explicit_anchors(document: str) -> frozenset[str]:
+def explicit_anchors(masked: Masked) -> frozenset[str]:
+    """Read from the masked text: an anchor shown inside code is an example, not an anchor."""
     found: set[str] = set()
-    for tag in _TAG.finditer(mask(document).text):
+    for tag in _TAG.finditer(masked.text):
         for attribute in _ATTRIBUTE.finditer(tag["attributes"]):
             if attribute["name"].lower() == "id" or tag["tag"].lower() == "a":
                 found.add(attribute["value"])

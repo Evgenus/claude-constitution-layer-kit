@@ -14,17 +14,19 @@ from .model import Link, LinkKind
 
 # text: no unescaped bracket but balanced pairs one level deep; destination: <in angle brackets>
 # or a run without spaces, balanced parentheses one level deep; an optional title.
+# Every run is bounded: an opener that never closes must not be searched to the end of the file
+# each time. A footnote — [^1] — is no link and its definition names no destination.
+_TEXT = r"(?:[^\[\]\\]|\\.|\[(?:[^\[\]\\]|\\.){0,500}\])"
 _INLINE = re.compile(
-    r"\[(?P<text>(?:[^\[\]\\]|\\.|\[(?:[^\[\]\\]|\\.)*\])*)\]"
-    r"\(\s*(?P<dest><[^<>\n]*>|(?:[^\s()\\]|\\.|\((?:[^\s()\\]|\\.)*\))*)"
-    r"(?:\s+(?:\"[^\"]*\"|'[^']*'))?\s*\)"
+    rf"\[(?!\^)(?P<text>{_TEXT}{{0,1000}})\]"
+    r"\(\s*(?P<dest><[^<>\n]{0,2000}>|(?:[^\s()\\]|\\.|\((?:[^\s()\\]|\\.){0,500}\)){0,2000})"
+    r"(?:\s+(?:\"[^\"]{0,1000}\"|'[^']{0,1000}'))?\s*\)"
 )
-_DEFINITION = re.compile(r"^ {0,3}\[(?P<text>[^\]\n]+)\]:[ \t]*(?P<dest><[^<>\n]*>|\S+)", re.MULTILINE)
+_DEFINITION = re.compile(
+    r"^ {0,3}\[(?!\^)(?P<text>[^\]\n]{1,1000})\]:[ \t]*(?P<dest><[^<>\n]{0,2000}>|\S{1,2000})", re.MULTILINE
+)
 # [text][label], [label][] and [label] — told from an inline link by what follows the bracket
-_USAGE = re.compile(
-    r"\[(?P<text>(?:[^\[\]\\]|\\.|\[(?:[^\[\]\\]|\\.)*\])+)\](?:\[(?P<label>[^\[\]\n]*)\])?(?![\[(:])"
-)
-# bounded on purpose: an `<a` that never closes must not be searched to the end of the file each time
+_USAGE = re.compile(rf"\[(?!\^)(?P<text>{_TEXT}{{1,1000}})\](?:\[(?P<label>[^\[\]\n]{{0,1000}})\])?(?![\[(])")
 _HREF = re.compile(
     r"<a\b[^<>]{0,2000}?\bhref\s*=\s*(?P<quote>[\"'])(?P<dest>[^\"'<>\n]{0,2000})(?P=quote)", re.IGNORECASE
 )

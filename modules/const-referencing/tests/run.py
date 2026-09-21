@@ -766,14 +766,26 @@ def lint_is_not_run_after_write() -> tuple[bool, str]:
 
 
 def many_findings_are_cut() -> tuple[bool, str]:
-    lines = " ".join(f"[x{n}](gone-{n}.md)" for n in range(25))
-    result = after_write(SOURCE, {SOURCE: source(lines)})
-    ok = (
-        result.code == 2
-        and result.stderr.count("RED: docs/") == 20
-        and after_count(SOURCE, 25, 25, 20) in result.stderr
+    """Two caps: twenty findings, and no more characters than leave the count line inside what the
+    platform passes on. Short findings meet the first, long ones the second."""
+    short = " ".join(f"[x{n}](t.md#nope-{n})" for n in range(25))
+    by_count = after_write(SOURCE, {TARGET: TARGET_TEXT, SOURCE: source(short)})
+    long_ones = " ".join(f"[x{n}](gone-{n}-{'y' * 150}.md)" for n in range(25))
+    by_size = after_write(SOURCE, {SOURCE: source(long_ones)})
+    printed = by_size.stderr.count("RED: docs/")
+    checks = [
+        (
+            by_count.code == 2 and by_count.stderr.count("RED: docs/") == 20,
+            "short findings: not twenty printed",
+        ),
+        (after_count(SOURCE, 25, 25, 20) in by_count.stderr, "short findings: the count line"),
+        (by_size.code == 2 and 0 < printed < 20, f"long findings: {printed} printed"),
+        (after_count(SOURCE, 25, 25, printed) in by_size.stderr, "long findings: the count line"),
+        (len(by_size.stderr) < 10000, f"long findings: {len(by_size.stderr)} characters"),
+    ]
+    return all_of(
+        checks, f"25 findings: 20 short ones printed, {printed} long ones, all inside 10,000 characters"
     )
-    return ok, "25 findings, 20 printed, the count line says both" if ok else result.stderr[-400:]
 
 
 def file_gone_after_write() -> tuple[bool, str]:
@@ -1271,12 +1283,19 @@ def one_large_document() -> tuple[bool, str]:
     each judged in seconds, far inside the hook's timeout."""
     table = "".join(f"| [r{n}](t.md#k1) | `code{n}` | [s{n}](t.md) |\n" for n in range(4000))
     timings: list[str] = []
-    for name, text in {"table": table, "<a": "<a " * 20000, "<!--": "<!-- " * 20000}.items():
+    shapes = {
+        "table": table,
+        "<a": "<a " * 20000,
+        "<!--": "<!-- " * 20000,
+        "[": "[" * 20000,
+        "ticks": "`x` " * 30000,
+    }
+    for name, text in shapes.items():
         began = time.monotonic()
         result, _ = gate_on(Write(SOURCE, source("x") + text), files={TARGET: TARGET_TEXT})
         took = time.monotonic() - began
         timings.append(f"{name} {took:.1f} s")
-        if result.code != 0 or took > 10:
+        if result.code != 0 or took > 5:
             return False, f"{name}: exit {result.code} after {took:.1f} s: {result.stderr[:200]}"
     return True, ", ".join(timings)
 
@@ -1321,7 +1340,7 @@ def a_misspelt_dial() -> tuple[bool, str]:
 def one_break_one_finding() -> tuple[bool, str]:
     """A missing anchor is R6 and not R7 as well; two links alike on one line are one finding."""
     out = tree_scan("See [a](t.md#nope) and [b](t.md#nope).")
-    ok = out.code == 2 and "1 finding(s)" in out.stdout and "resolves only through" not in out.stdout
+    ok = out.code == 2 and "RED: 1 finding(s)" in out.stdout and "resolves only through" not in out.stdout
     return ok, "one R6, no R7, said once" if ok else out.stdout
 
 
@@ -1415,7 +1434,8 @@ def mover_entry_absences() -> tuple[bool, str]:
     )
     plugin = H.scratch_dir() / "plugin"
     shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True)
-    (plugin / "scripts" / "const_gate").unlink()
+    shared_code = plugin / "scripts" / "const_gate"  # a link in a checkout, a directory in an install
+    shared_code.unlink() if shared_code.is_symlink() else shutil.rmtree(shared_code)
     no_shared = subprocess.run(
         [H.sh, str(plugin / "scripts" / "move-document.sh"), OLD, NEW],
         cwd=consumer.root,
@@ -1453,6 +1473,8 @@ WHYS = {
     "R4": "  why: it resolves on the machine it was written on and nowhere else",
     "R5": "  why: a reference that does not resolve fails the reader exactly when they need it, and nobody"
     " else sees it",
+    "R6": "  why: a reference that does not resolve fails the reader exactly when they need it, and nobody"
+    " else sees it",
     "R7": "  why: a generated name changes when the heading is reworded, and every link through it breaks"
     " unseen",
     "R8": "  why: outside Markdown no link checker follows a name, so it dangles unseen once the document"
@@ -1463,11 +1485,230 @@ WHYS = {
 def golden_why_lines() -> tuple[bool, str]:
     """The reason of every finding, typed by hand: R1's is in the first golden item."""
     lint_runs = {str(case.expect.key): gate_on(case.red, dials_patch=LANES)[0].stderr for case in CASES[:4]}
-    tree_out = tree_scan("See [a](gone.md) and [d](t.md#first-section).").stdout
+    tree_out = tree_scan("See [a](gone.md), [b](t.md#nope) and [d](t.md#first-section).").stdout
     named = scan_of({SOURCE: source("x"), "tools/x.sh": "# note-gone\n"}, own(mentions=[MENTION])).stdout
-    outputs = {**lint_runs, "R5": tree_out, "R7": tree_out, "R8": named}
+    outputs = {**lint_runs, "R5": tree_out, "R6": tree_out, "R7": tree_out, "R8": named}
     missing = [key for key, line in WHYS.items() if line not in outputs[key]]
     return not missing, f"{len(WHYS)} reasons found as typed" if not missing else f"not found: {missing}"
+
+
+# ------------------------------------------------------------------ found by the second validation
+
+DYING = 'case "$1" in --version) echo "lychee 0.24.2";; *) echo "error: gone wrong" >&2; exit 3;; esac\n'
+
+
+def mover_with(consumer: Consumer, lychee_script: str | None, *arguments: str) -> Result:
+    merged = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
+    merged.update(path_with(lychee_script))
+    done = subprocess.run(
+        [H.sh, str(MOVER), *arguments],
+        cwd=consumer.root,
+        capture_output=True,
+        text=True,
+        env=merged,
+        check=False,
+    )
+    return Result(done.returncode, done.stdout, done.stderr)
+
+
+def midway_after_the_move_alone() -> tuple[bool, str]:
+    """A lone document, nothing to rewrite: the move alone is a change, and the closing line
+    must say so when the check dies after it."""
+    alone = H.fresh_consumer((Write(OLD, note("# One\n", "note-one")),))
+    done = mover_with(alone, DYING, OLD, NEW)
+    by_hand = moving_consumer()
+    (by_hand.root / NEW).parent.mkdir(parents=True)
+    by_hand.git("mv", OLD, NEW)
+    repaired = mover_with(by_hand, DYING, "--moved", OLD, NEW)
+    return all_of(
+        [
+            (done.code == 1 and messages.v4_stopped_midway() in done.stderr, f"move alone: {done.stderr}"),
+            (
+                repaired.code == 1 and messages.v4_stopped_midway() in repaired.stderr,
+                f"--moved: {repaired.stderr}",
+            ),
+            ("REWROTE: docs/notes/two.md" in repaired.stdout, "--moved rewrote nothing"),
+        ],
+        "after the move alone, and after a rewrite with no move: the act stopped midway",
+    )
+
+
+def fences_close_at_their_depth() -> tuple[bool, str]:
+    """A fence closes at its opener's depth: a deeper fence shown inside it is content, not its
+    end; a fence under a list item closes when indented like it, a tab counting."""
+    inner = "1. Configure:\n\n    ```yaml\n    key: v\n    ```\n"
+    shows_a_fence = "# F\n\nHow to:\n\n```\n" + inner + "```\n\nAfter it, REQ-7 is bare.\n"
+    tabbed = "# F\n\n- item\n\n\t```\n\tcode REQ-9\n\t```\n\nAfter REQ-7.\n"
+    unclosed_in_list = "# F\n\n- item\n\n    ```\n    REQ-9\n\nAfter REQ-7.\n"
+    return all_of(
+        [
+            blocks(shows_a_fence, r1(line=20)),
+            blocks(tabbed, r1(line=16)),
+            passes(unclosed_in_list),
+        ],
+        "red after a fence that shows a fence, red after a tab-indented fence, green inside one never closed",
+    )
+
+
+def footnotes_are_no_links() -> tuple[bool, str]:
+    named = messages.r1_bare_form(DOC, 12, "REQ-9", str(LANE["names"]), str(LANE["fix"]))
+    with_footnote = "# F\n\nA claim.[^1]\n\n[^1]: REQ-9 says so, see [x](../policies/root-policy.md).\n"
+    consumer = H.fresh_consumer(
+        (
+            Write("docs/notes/a.md", note("# A\n", "note-a")),
+            Write(
+                "docs/notes/b.md", note("# B\n\nA claim.[^1]\n\n[^1]: a.md was the first note.\n", "note-b")
+            ),
+        )
+    )
+    moved = mover(consumer, "docs/notes/a.md", "docs/notes/h/a.md")
+    prose = (consumer.root / "docs/notes/b.md").read_text()
+    return all_of(
+        [
+            blocks(with_footnote, named),
+            expect(
+                tree_scan("A claim.[^note]\n\n[^note]: t.md#first-section is named."), 0, "GREEN: ", "stdout"
+            ),
+            (
+                "[^1]: a.md was the first note." in prose and messages.v4_count(0, 0, 1) in moved.stdout,
+                f"footnote prose rewritten: {prose}",
+            ),
+        ],
+        "a bare form in a footnote is red; a path in one is neither resolved nor rewritten, only listed",
+    )
+
+
+def labels_fold_case_and_nest() -> tuple[bool, str]:
+    folded = passes(f"# Fixture\nSee [`{OWNER_ID}`][O].\n\n[o]: {TO_OWNER}\n")
+    nested = expect(tree_scan("See [x [o] y](t.md#k1).\n\n[o]: t.md\n"), 0, "and 2 link(s)", "stdout")
+    colon = passes("# Fixture\nSee [REQ-7]: and more.\n\n[REQ-7]: ../policies/root-policy.md\n")
+    via_label = messages.r7_heading_anchor(SOURCE, 11, "t.md#first-section", TARGET)
+    once = tree_scan("See [via][h] and [again][h].\n\n[h]: t.md#first-section\n")
+    return all_of(
+        [
+            folded,
+            nested,
+            colon,
+            expect(once, 2, via_label.render(), "stdout"),
+            expect(once, 2, "1 finding(s)", "stdout"),
+        ],
+        "a label matches in any case; a usage inside a link's text is none; a colon after one is prose;"
+        " one R7 per definition",
+    )
+
+
+def r4_more_shapes() -> tuple[bool, str]:
+    reds = [
+        ("PATH: `PATH=/usr/bin:/home/ann/bin`", "/home/ann/bin"),
+        ("Windows: `C:/Users/ann/x`", "C:/Users/ann/x"),
+    ]
+    results = [blocks(body(text), messages.r4_one_machine(DOC, LINE, path)) for text, path in reds]
+    return all_of(
+        [*results, passes(body("Mine: ~/Users/x/y and ~/home/ann/z."))],
+        "a PATH entry and C:/Users are red; tilde paths of any depth are not",
+    )
+
+
+def a_mention_ends_where_the_name_does() -> tuple[bool, str]:
+    consumer = H.fresh_consumer(
+        (
+            Write("docs/notes/a.md", note("# A\n", "note-a")),
+            Write(
+                "docs/notes/b.md", note('# B\n\nThe a.mdx-notes tool, and <a href="a.md">it</a>.\n', "note-b")
+            ),
+        )
+    )
+    done = mover(consumer, "docs/notes/a.md", "docs/notes/h/a.md")
+    b = (consumer.root / "docs/notes/b.md").read_text()
+    return all_of(
+        [
+            (messages.v4_count(1, 1, 0) in done.stdout, done.stdout),
+            ('<a href="h/a.md">' in b, f"the href: {b}"),
+        ],
+        "a.mdx-notes is no mention of a.md; an href is a link, rewritten and not listed",
+    )
+
+
+def older_heading_link_not_repeated() -> tuple[bool, str]:
+    files = {
+        TARGET: TARGET_TEXT,
+        SOURCE: source("See [x](t.md#first-section)."),
+        "docs/notes/u.md": note("# U\n", "note-u"),
+    }
+    return expect(after_write("docs/notes/u.md", files), 0, messages.g1_covered(), "stdout")
+
+
+def a_link_checker_that_hangs() -> tuple[bool, str]:
+    """A checker that never answers is a configuration failure inside the hook's timeout, never
+    a hook the platform gives up on: the version probe and the run have a budget each."""
+    sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
+    slow_version = f'case "$1" in --version) {sleep} 8; echo "lychee 0.24.2";; *) exit 0;; esac\n'
+    consumer = H.fresh_consumer()
+    consumer.write(SOURCE, source("See [x](gone.md)."))
+    began = time.monotonic()
+    result = H.run_gate("", args=["--scan", str(consumer.root)], env=path_with(slow_version))
+    took = time.monotonic() - began
+    ok = result.code == 1 and "BROKEN: " in result.stderr and 4 < took < 8
+    return ok, f"exit {result.code} after {took:.1f} s: {result.stderr[:160]}"
+
+
+def mover_refuses_what_would_leave_coverage() -> tuple[bool, str]:
+    consumer = moving_consumer()
+    (consumer.root / "docs/notes/link.md").symlink_to("one.md")
+    consumer.commit()
+    before = tree_state(consumer)
+    refused = [
+        (mover(consumer, OLD, "docs/newdir/"), messages.v5_names_a_directory("docs/newdir/")),
+        (mover(consumer, OLD, "docs/notes/one.txt"), messages.v5_leaves_markdown(OLD, "docs/notes/one.txt")),
+        (mover(consumer, "docs/notes/link.md", NEW), messages.v5_is_a_link("docs/notes/link.md")),
+    ]
+    results = [broken_first_line(result, failure.render()) for result, failure in refused]
+    outside = H.scratch_dir()
+    merged = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"}
+    nowhere = subprocess.run(
+        [H.sh, str(MOVER), "a.md", "b.md"],
+        cwd=outside,
+        capture_output=True,
+        text=True,
+        env=merged,
+        check=False,
+    )
+    return all_of(
+        [
+            *results,
+            (tree_state(consumer) == before, "the tree changed"),
+            (nowhere.returncode == 1 and "is not inside a git repository" in nowhere.stderr, nowhere.stderr),
+        ],
+        "a directory, a name that is no Markdown, a link, no repository: each refused, the tree as it was",
+    )
+
+
+def case_only_rename_and_uncovered_destination() -> tuple[bool, str]:
+    """A rename in case alone is a move; a document moved out of coverage still has its own
+    links repaired, and the links to it."""
+    consumer = moving_consumer()
+    renamed = mover(consumer, OLD, "docs/notes/One.md")
+    two = (consumer.root / "docs/notes/two.md").read_text()
+    out = moving_consumer()
+    out.write("constitution.yaml", dials_text(own(territories=["docs/notes/**"])))
+    out.commit()
+    moved_out = mover(out, OLD, "docs/elsewhere/one.md")
+    own_links = (out.root / "docs/elsewhere/one.md").read_text()
+    return all_of(
+        [
+            expect(renamed, 0, messages.v1_moved(OLD, "docs/notes/One.md"), "stdout"),
+            expect(
+                moved_out, 0, messages.v2_rewrote("docs/elsewhere/one.md", 1), "stdout"
+            ),  # the others still reach
+            ("[note-one](One.md#k1)" in two, f"inbound after the case rename: {two}"),
+            ("[sib](../notes/two.md#k2)" in own_links, f"own links of the document moved out: {own_links}"),
+            (
+                "[note-one](../elsewhere/one.md#k1)" in (out.root / "docs/notes/two.md").read_text(),
+                "inbound to the document moved out",
+            ),
+        ],
+        "One.md is a move; a document moved outside the territory keeps working links both ways",
+    )
 
 
 GOLDEN_TREE = {
@@ -1726,6 +1967,50 @@ ASSERTIONS = [
     ),
     Assertion(97, "the mover's exits before the guard: no python3, no shared code", mover_entry_absences),
     Assertion(98, "golden reasons: the why-line of every finding, typed by hand", golden_why_lines),
+    Assertion(
+        99,
+        "the act stopped midway: after the move alone, and after a rewrite with no move",
+        midway_after_the_move_alone,
+    ),
+    Assertion(
+        100,
+        "a fence closes at its opener's depth; a tab counts; one never closed masks to the end",
+        fences_close_at_their_depth,
+    ),
+    Assertion(
+        74,
+        "a footnote is no link: a bare form in it is red, a path in it is left alone",
+        footnotes_are_no_links,
+    ),
+    Assertion(
+        75,
+        "labels fold case; a usage inside a link's text is none; one R7 per definition",
+        labels_fold_case_and_nest,
+    ),
+    Assertion(76, "R4: a PATH entry and C:/Users are red; tilde paths are not", r4_more_shapes),
+    Assertion(
+        77,
+        "a mention ends where the name does; an href is rewritten, not listed",
+        a_mention_ends_where_the_name_does,
+    ),
+    Assertion(
+        78, "after a write, an older heading link elsewhere is not repeated", older_heading_link_not_repeated
+    ),
+    Assertion(
+        79,
+        "a link checker that hangs is a configuration failure inside the hook's timeout",
+        a_link_checker_that_hangs,
+    ),
+    Assertion(
+        69,
+        "the mover refuses a directory, a name that is no Markdown, a link, and no repository",
+        mover_refuses_what_would_leave_coverage,
+    ),
+    Assertion(
+        47,
+        "a case-only rename is a move; a document moved out of coverage keeps its links",
+        case_only_rename_and_uncovered_destination,
+    ),
 ]
 
 SUBJECT = Subject(

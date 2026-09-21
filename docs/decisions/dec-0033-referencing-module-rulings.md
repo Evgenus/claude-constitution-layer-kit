@@ -175,7 +175,7 @@ The specification listed "lychee config" as a dial. The comparison found, and th
 
 No real choice was put to the decider on these; each is the session's derivation, open to override before the yes.
 
-**R12.** The check after a write examines the whole tree and reports only the findings that involve the written document, the first twenty printed and the total in the count line: on a repository with older breaks every write would otherwise repeat all of them. The scan reports everything.
+**R12.** The check after a write examines the whole tree and reports only the findings that involve the written document, the first twenty printed — fewer where twenty would pass the platform's cap — and the total in the count line: on a repository with older breaks every write would otherwise repeat all of them. The scan reports everything.
 
 **R13.** The lint runs before the write and nowhere else at write time; the whole-tree check runs after it and in the scan. An event the gate is not wired to is a configuration failure.
 
@@ -192,6 +192,8 @@ No real choice was put to the decider on these; each is the session's derivation
 **R22.** Two rows gain the words their checks already stood under, so that neither check is content beyond its row ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)): [requirement A5.1](../requirements.md#a5-1) now says that a reference never names a path on one machine, and [requirement A5.3](../requirements.md#a5-3) that a governed id named outside Markdown is a reference where the project declares its form. Found by the first fresh-context validation; both checks were ruled by the decider (R21, R8), the rows had not followed.
 
 **R23.** From the first fresh-context validation, pinned to 22ab5da — twenty findings, nine of fourteen mutants alive — the behaviour that changed: the mover asks everything that can refuse before it moves anything, the link checker and the root policy of `governed_only` among it, and a failure after the move closes by saying that the act stopped midway, never that nothing was changed; it keeps line endings and leaves a file that is not UTF-8 alone, saying so; a usage of a reference definition is a link, judged by what its label opens, and never rewritten, its definition being the link; a fence indented under a list item is code; a write to a document that is not covered still has the covered links it broke reported after it; a key of the module's namespace that is no dial is a configuration failure; R4 asks for a user's directory and something inside it; one document's cost is linear in its size.
+
+**R25.** From the second fresh-context validation, pinned to 822c070 — thirteen findings, twelve of thirty-one mutants alive — the behaviour that changed: a fence closes at its opener's depth, a tab counts as four columns, and a fence that shows a deeper fence is content to its own end (the first validation's fix had let any closing fence end any fence); a footnote is no link; the report after a write is cut by characters as well as by count, so the count line survives the platform's cap; the mover refuses a new path that names a directory, that drops the `.md` ending, or whose source is a symbolic link, allows a rename in case alone, and repairs a document moved out of coverage; the cost of code spans is linear.
 
 **R24.** The handler after the write is a `gate` in kind — deterministic, red means fix — at a moment that cannot block, and is declared so; it is not `advisory`, since nothing in it shapes judgment. The validation had found "deterministic feedback" to be a third kind beside the two [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) names.
 
@@ -229,8 +231,9 @@ On the branch `work/const-referencing`, in the commits before this record and th
 16. R21 — the row of [requirement A5.1](../requirements.md#a5-1) in [§3](../../modules/const-referencing/MODULE.md#t3) of the module's document; [the gate's entry file](../../modules/const-referencing/scripts/check-references.py); step 2 of [the install note](../../modules/const-referencing/INSTALL.md). That the session had stretched the mask unasked: history only.
 17. R22 — [requirement A5.1](../requirements.md#a5-1) and [requirement A5.3](../requirements.md#a5-3). That the rows had not followed: history only.
 18. R23 — the rows of [requirement A5.1](../requirements.md#a5-1), [A5.3](../requirements.md#a5-3) and [A5.8](../requirements.md#a5-8) in [§3](../../modules/const-referencing/MODULE.md#t3) of the module's document; rows V1–V5 and C5 of the error-message table and platform fact 9 in its [§6](../../modules/const-referencing/MODULE.md#t6); the closing sentence of its [§7](../../modules/const-referencing/MODULE.md#t7); limits 5, 8 and 12 of its [§9](../../modules/const-referencing/MODULE.md#t9); [the mover's entry file](../../modules/const-referencing/scripts/move-document.py). The count of findings and mutants: history only.
-19. R24 — row E3 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document.
-20. R17 — [the install note](../../modules/const-referencing/INSTALL.md), step 3. That it corrects what was said in chat: history only.
-21. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
-22. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
-23. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
+19. R25 — limits 8 and 12 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document, rows V5 and F9 of the error-message table in its [§6](../../modules/const-referencing/MODULE.md#t6), platform fact 9 there. The counts: history only.
+20. R24 — row E3 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document.
+21. R17 — [the install note](../../modules/const-referencing/INSTALL.md), step 3. That it corrects what was said in chat: history only.
+22. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
+23. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
+24. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).

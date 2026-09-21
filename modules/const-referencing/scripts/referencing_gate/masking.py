@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 _FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
 _FENCE_IN_LIST = re.compile(r"[ \t]*(`{3,}|~{3,})")  # a list item's content is indented with it
+_TAB = 4  # columns a tab counts for where indentation is compared
 _LIST_ITEM = re.compile(r" {0,3}(?:[-*+]|\d{1,9}[.)])(?: |$)")
 _INDENTED = re.compile(r"(?: {4}|\t)")
 _TICKS = re.compile(r"`+")
@@ -98,6 +99,7 @@ def _block_regions(document: str) -> list[Span]:
     lines = document.splitlines(keepends=True)
     offset = 0
     fence: str | None = None  # the run that opened the fence being read
+    fence_depth = 0  # the columns its opener was indented by
     block_start = 0
     in_envelope = bool(lines) and lines[0].lstrip("\ufeff").rstrip() == "---"  # a byte order mark may lead
     in_list = False  # the last unindented line was a list item: indented text continues it
@@ -116,12 +118,15 @@ def _block_regions(document: str) -> list[Span]:
                 closing
                 and closing[1][0] == fence[0]
                 and len(closing[1]) >= len(fence)
-                and not bare.strip(" `~")
+                and not bare.strip(" \t`~")
+                # at its opener's depth, give or take what a fence may be indented by: a deeper
+                # fence inside this one is shown, not closed
+                and _depth(bare) <= (3 if fence_depth <= 3 else fence_depth + 3)
             ):
                 regions.append(Span(block_start, end))
                 fence = None
         elif opening := (_FENCE_IN_LIST if in_list else _FENCE).match(bare):
-            fence, block_start, in_indented = opening[1], offset, False
+            fence, fence_depth, block_start, in_indented = opening[1], _depth(bare), offset, False
         elif not bare.strip():
             after_blank = True
             offset = end
@@ -140,14 +145,20 @@ def _block_regions(document: str) -> list[Span]:
     return regions
 
 
+def _depth(line: str) -> int:
+    indent = line[: len(line) - len(line.lstrip(" \t"))]
+    return len(indent.expandtabs(_TAB))
+
+
 def _code_spans(text: str) -> list[Span]:
     """A run of n ticks opens a span that the next run of exactly n ticks closes, inside one
-    paragraph."""
+    paragraph. Where paragraphs end is found once, not once per tick."""
     spans: list[Span] = []
+    ends = [match.start() for match in _BLANK_LINE.finditer(text)]
     position = 0
     while opening := _TICKS.search(text, position):
-        paragraph_end = _BLANK_LINE.search(text, opening.end())
-        limit = paragraph_end.start() if paragraph_end else len(text)
+        following = bisect.bisect_left(ends, opening.end())
+        limit = ends[following] if following < len(ends) else len(text)
         position = opening.end()
         for closing in _TICKS.finditer(text, opening.end(), limit):
             if len(closing[0]) == len(opening[0]):

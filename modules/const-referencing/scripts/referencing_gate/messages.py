@@ -192,7 +192,7 @@ def g1_skip_not_covered(rel: str) -> str:
 def f9_after_write(rel: str, links: int, findings: int, shown_first: int | None) -> str:
     """The count line of the check after a write: the whole tree is examined, and the findings
     that involve the written document are reported — all, or the first so many."""
-    cut = f" — the first {shown_first} shown" if shown_first is not None else ""
+    cut = f" — the first {shown_first} shown" if shown_first is not None else ""  # by count or by size
     return f"{links} link(s) of the whole tree examined, {findings} finding(s) involve {rel}{cut}"
 
 
@@ -400,6 +400,32 @@ def v5_outside(path: str) -> Broken:
 def v5_git_mv(first_line: str) -> Broken:
     return v5_refused(
         f"git mv refused: {shown(first_line)}", "repair what git names, then run the move again"
+    )
+
+
+def v5_no_repository(where: str) -> Broken:
+    return v5_refused(f"{where} is not inside a git repository", "run the mover from inside the repository")
+
+
+def v5_names_a_directory(new: str) -> Broken:
+    return v5_refused(
+        f"{shown(new)} names a directory, not the file's new path",
+        "give the new path in full, file name included — a document is never moved 'into' a directory",
+    )
+
+
+def v5_is_a_link(old: str) -> Broken:
+    return v5_refused(
+        f"{old} is a symbolic link, not a document",
+        "move the document it points at; move the link itself with git mv, its target being relative to it",
+    )
+
+
+def v5_leaves_markdown(old: str, new: str) -> Broken:
+    return v5_refused(
+        f"{old} is a Markdown document and {new} is not named as one",
+        "keep the .md ending: a document that loses it is no longer checked, and its own links are"
+        " never repaired",
     )
 
 

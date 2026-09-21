@@ -20,8 +20,8 @@ from .model import Ids, Lane, Link, LinkKind
 # A user's directory and something inside it: /home/feed is a route, /home/ann/notes.md a machine.
 _ONE_MACHINE = re.compile(
     r"file:/+[^\s)>\"']*"
-    r"|(?<![\w.:/~-])(?:/Users/|/home/)[^\s/)>\"'`]+/[^\s)>\"'`]+"
-    r"|\b[A-Za-z]:\\Users\\[^\s)>\"'`]+"
+    r"|\b[A-Za-z]:[\\/]Users[\\/][^\s)>\"'`]+"
+    r"|(?<![\w./~-])(?:/Users/|/home/)[^\s/:)>\"'`]+/[^\s:)>\"'`]+"
 )
 _CLOSES_A_SENTENCE = ".,;:!?"  # punctuation after a path is the sentence's, not the path's
 _SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")

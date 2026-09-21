@@ -41,7 +41,7 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     it was. Only then is anything moved or written."""
     root = repo_root(Path.cwd())
     if root is None:
-        raise ConfigurationFailure(messages.v5_outside(str(Path.cwd())))
+        raise ConfigurationFailure(messages.v5_no_repository(str(Path.cwd())))
     shared_dials = load_dials(root)
     if shared_dials is None:
         raise ConfigurationFailure(messages.v5_no_dials(str(root)))
@@ -54,6 +54,8 @@ def act(output: Output, request: Request, closing: Closing) -> int:
         raise ConfigurationFailure(messages.v5_no_root_policy())
     old = new = ""
     if not request.ids:
+        if request.new.endswith(("/", os.sep)):
+            raise ConfigurationFailure(messages.v5_names_a_directory(request.new))
         old, new = _within(root, request.old), _within(root, request.new)
         _refuse_what_cannot_move(root, old, new, request.by_hand)
         if not request.by_hand:
@@ -61,7 +63,9 @@ def act(output: Output, request: Request, closing: Closing) -> int:
         output.out(messages.v1_moved(old, new))
     with Matcher() as matcher:  # asked again: the moved document lies elsewhere now
         covered = modes.covered_documents(matcher, dials, target, list_markdown(root)) or []
-    texts = {rel: text for rel in covered if (text := _read(root, rel, output)) is not None}
+    # the moved document's own links are repaired wherever it went, covered there or not
+    repaired = [*covered, *([new] if _is_markdown(new) and new not in covered else [])]
+    texts = {rel: text for rel in repaired if (text := _read(root, rel, output)) is not None}
     files = links = 0
     ids = modes.ids_of(texts) if request.ids else None
     for rel, text in texts.items():
@@ -127,6 +131,10 @@ def _list_mentions(output: Output, root: Path, covered: Sequence[str], old: str,
     return listed
 
 
+def _is_markdown(rel: str) -> bool:
+    return rel.lower().endswith(".md")
+
+
 def _within(root: Path, given: str) -> str:
     path = Path(os.path.abspath(given))
     parent = (
@@ -148,7 +156,15 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
     listed = git(["ls-files", "--error-unmatch", "--", old], cwd=root)
     if listed.returncode != 0 or not (root / old).is_file():
         raise ConfigurationFailure(messages.v5_not_listed(old))
-    if (root / new).exists():
+    if (root / old).is_symlink():
+        raise ConfigurationFailure(messages.v5_is_a_link(old))
+    if _is_markdown(old) and not _is_markdown(new):
+        raise ConfigurationFailure(messages.v5_leaves_markdown(old, new))
+    # where the file system ignores case, a new name in another case "exists": it is the file itself
+    renamed_in_case = (
+        old.lower() == new.lower() and (root / new).exists() and (root / new).samefile(root / old)
+    )
+    if (root / new).exists() and not renamed_in_case:
         raise ConfigurationFailure(messages.v5_target_exists(new))
     for ancestor in (root / new).parents:
         if ancestor.exists():

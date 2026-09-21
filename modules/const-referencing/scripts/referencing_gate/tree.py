@@ -24,12 +24,13 @@ from .model import Link, LinkKind, Switch
 
 def examine(
     root: Path, texts: Mapping[str, str], heading_anchors: Switch, about: str | None = None
-) -> dict[str, list[tuple[int, Finding]]]:
-    """The findings of each covered document, in reading order. `texts` holds the covered
-    documents as they stand on disk. With `about`, only the findings that involve that document:
-    its own links, and other documents' links into it."""
-    links = {rel: find_links(text, mask(text)) for rel, text in texts.items()}
-    anchors = {rel: explicit_anchors(text) for rel, text in texts.items()}
+) -> tuple[dict[str, list[tuple[int, Finding]]], int]:
+    """The findings of each covered document, in reading order, and the links examined. `texts`
+    holds the covered documents as they stand on disk. With `about`, only the findings that involve
+    that document: its own links, and other documents' links into it."""
+    masked = {rel: mask(text) for rel, text in texts.items()}  # once per document: it is the costly step
+    links = {rel: find_links(text, masked[rel]) for rel, text in texts.items()}
+    anchors = {rel: explicit_anchors(masked[rel]) for rel in texts}
     found: dict[str, list[tuple[int, Finding]]] = {rel: [] for rel in texts}
     broken: set[tuple[str, str, str | None]] = set()
     for b in lychee.find_breaks(root, sorted(texts)):
@@ -57,9 +58,10 @@ def examine(
             elif heading_anchors is Switch.REFUSE:
                 found[rel].append((line, messages.r7_heading_anchor(rel, line, link.destination, target)))
     # two links alike on one line make one finding: said twice it teaches nothing more
-    return {
+    in_order = {
         rel: sorted(dict.fromkeys(pairs), key=lambda pair: pair[0]) for rel, pairs in found.items() if pairs
     }
+    return in_order, sum(len(found_links) for found_links in links.values())
 
 
 def _fragment(link: Link) -> str:

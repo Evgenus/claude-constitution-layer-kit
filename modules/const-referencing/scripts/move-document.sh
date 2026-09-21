@@ -6,7 +6,7 @@
 # preflighted by the Python side, from the plugin's requirements file.)
 here=$(dirname "$0")
 if ! command -v python3 >/dev/null 2>&1; then
-  echo "BROKEN: const-referencing needs python3 — fix: install Python 3.12 or newer (https://www.python.org/downloads/) — nothing was changed" >&2
+  echo "BROKEN: const-referencing needs python3 — fix: install Python 3.12 or newer (https://www.python.org/downloads/)" >&2
   echo "BROKEN: the move could not run — nothing was changed" >&2
   exit 1
 fi

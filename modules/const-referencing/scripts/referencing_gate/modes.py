@@ -21,11 +21,10 @@ from const_gate.territory import Matcher
 
 from . import dials as own_dials
 from . import lint, mentions, messages, tree
-from .links import find_links
-from .masking import mask
 from .model import Ids, Lane, ReferencingDials, Switch
 
 SHOWN_AFTER_WRITE = 20  # findings printed after one write; the count line carries the total
+SHOWN_CHARACTERS = 8000  # and their characters: the platform cuts a hook's text at 10,000
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
@@ -65,17 +64,30 @@ def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -
     if covered is None:
         return pipeline.no_root_policy(output)
     texts = {path: _text(target.root, path) for path in covered}
-    found = tree.examine(target.root, texts, dials.heading_anchors, about=rel)
+    found, links = tree.examine(target.root, texts, dials.heading_anchors, about=rel)
     findings = [finding for path in sorted(found) for _, finding in found[path]]
     if not findings:
         if rel not in covered:
             return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         return pipeline.green_hook(output, messages.g1_covered())
-    links = sum(len(find_links(text, mask(text))) for text in texts.values())
-    cut = SHOWN_AFTER_WRITE if len(findings) > SHOWN_AFTER_WRITE else None
+    shown = _within_the_cap(findings)
+    cut = len(shown) if len(shown) < len(findings) else None
     count = "RED: " + messages.f9_after_write(rel, links, len(findings), cut)
-    shown = findings[:SHOWN_AFTER_WRITE]
     return pipeline.report_hook(output, shown, (), rel, target.dials.severity, POST_WRITE, count)
+
+
+def _within_the_cap(findings: Sequence[Finding]) -> Sequence[Finding]:
+    """The first findings that fit: at most twenty, and no more characters than leave the count
+    line and the closing note inside what the platform passes on — it cuts a hook's text at
+    10,000 characters, from the end, where the count stands."""
+    shown: list[Finding] = []
+    size = 0
+    for finding in findings[:SHOWN_AFTER_WRITE]:
+        size += len(finding.render()) + 1
+        if size > SHOWN_CHARACTERS and shown:
+            break
+        shown.append(finding)
+    return shown
 
 
 def scan_mode(output: Output, start: Path) -> int:
@@ -93,7 +105,7 @@ def scan_mode(output: Output, start: Path) -> int:
         ids = ids_of(texts)
         others = mentions.other_files(target.root) if dials.mentions else []
         named, read = mentions.examine(target.root, others, dials.mentions, ids, matcher)
-    in_tree = tree.examine(target.root, texts, dials.heading_anchors)
+    in_tree, _ = tree.examine(target.root, texts, dials.heading_anchors)
     findings: list[Finding] = []
     links = 0
     for rel in covered:
