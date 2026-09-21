@@ -1,0 +1,34 @@
+#!/bin/sh
+# Kit gate: no commit is made on main; work starts on a branch and reaches main by a merge.
+# Enabled per clone by scripts/setup-clone.sh. Deterministic: red = switch to a branch.
+# It is this hook and not pre-commit because git runs this one for a commit, an amend, a
+# cherry-pick and a revert alike, and does not skip it on --no-verify; pre-commit is skipped by a
+# cherry-pick, a revert and --no-verify (each tried on git 2.54).
+# What it cannot see — whatever moves main without passing here: git am, a rebase of main, a
+# fast-forward asked for on the command line (--ff, --ff-only), a push into main, git reset,
+# git update-ref, git branch -f. And a merge passes whole: one concluded by hand can carry any content.
+# Exit: 0 the commit may proceed; 1 refused.
+
+protected=main
+branch=$(git symbolic-ref --quiet --short HEAD) || exit 0   # detached HEAD: not main
+[ "$branch" = "$protected" ] || exit 0
+git rev-parse --quiet --verify MERGE_HEAD >/dev/null && exit 0   # a merge into main
+
+if git rev-parse --quiet --verify CHERRY_PICK_HEAD >/dev/null; then
+    # git will not switch branches in the middle of a cherry-pick
+    fix="git cherry-pick --abort   — then git switch -c work/<name> and repeat the cherry-pick there"
+elif git rev-parse --quiet --verify REVERT_HEAD >/dev/null || [ -d "$(git rev-parse --git-path sequencer)" ]; then
+    # a revert of several commits, or one being concluded after a conflict: git will not switch in the middle of it
+    fix="git revert --abort   — then git switch -c work/<name> and repeat the revert there"
+else
+    # a plain commit and a refused revert of one commit both leave their changes staged, and the switch takes them along
+    fix="git switch -c work/<name>   — the staged changes come along; commit there. If this was an amend: the commit is on $protected already — leave it, and make the correction a new commit on the branch"
+fi
+
+cat >&2 <<MSG
+RED: this commit would land on $protected
+  why: every change, one commit or many, is made on its own branch and reaches $protected as one merge commit, so the history reads one line per work
+  fix: $fix
+  then, after the yes where one is needed: git switch $protected && git merge --no-ff work/<name> -m "Work: <name>"
+MSG
+exit 1
