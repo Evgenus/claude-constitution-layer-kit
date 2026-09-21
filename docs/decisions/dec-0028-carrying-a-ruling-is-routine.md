@@ -19,7 +19,7 @@ The session made the repairs as routine on a stated assumption, named in chat be
 
 1. Carrying an already-ruled item into a policy or into `CLAUDE.md`, its ruling unchanged, is a repair and routine. The ruling's own record and yes cover it; the commit note names that record.
 2. A matrix row is not covered: amending one stays `process` stakes under rule 2 of [kit-requirements](../policies/kit-requirements.md).
-3. Commits `d719ff5`, `30de3d5` and `7e59767` were made on this reading and stand under it.
+3. Commits `cd04c14`, `053a0f6` and `138d142` were made on this reading and stand under it.
 
 ## Reasoning
 
