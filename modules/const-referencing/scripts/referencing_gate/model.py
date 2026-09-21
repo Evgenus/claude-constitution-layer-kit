@@ -30,6 +30,12 @@ class ToolKey(StrEnum):
     X3 = "X3"  # gave no report
 
 
+class ActKey(StrEnum):
+    """The mover's refusals, under one key: each changes nothing."""
+
+    V5 = "V5"
+
+
 class Switch(StrEnum):
     """A check that a project may switch off."""
 

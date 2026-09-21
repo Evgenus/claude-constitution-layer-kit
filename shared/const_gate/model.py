@@ -44,6 +44,7 @@ POST_WRITE = "PostToolUse"
 class Mode(StrEnum):
     HOOK = "hook"
     SCAN = "scan"
+    ACT = "act"  # a second entry point that changes files: a generator, never a gate
 
 
 class Stream(StrEnum):

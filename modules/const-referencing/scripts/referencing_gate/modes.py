@@ -42,14 +42,14 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     rel = target.rel
     paths = sorted({*list_markdown(target.root), rel})
     with Matcher() as matcher:
-        covered = _covered(matcher, dials, target, paths, PendingDocument(rel, target.text))
+        covered = covered_documents(matcher, dials, target, paths, PendingDocument(rel, target.text))
         if covered is None:
             return pipeline.no_root_policy(output)
         if rel not in covered:
             return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         lanes = _lanes_abroad(matcher, dials, [rel])[rel]
     texts = {path: target.text if path == rel else _text(target.root, path) for path in covered}
-    findings, _ = _examine(rel, texts, _ids(texts), lanes, dials)
+    findings, _ = _examine(rel, texts, ids_of(texts), lanes, dials)
     if findings:
         return pipeline.report_hook(output, findings, (), rel, target.dials.severity)
     return pipeline.green_hook(output, messages.g1_covered())
@@ -58,7 +58,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
 def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -> int:
     rel = target.rel
     with Matcher() as matcher:
-        covered = _covered(matcher, dials, target, list_markdown(target.root))
+        covered = covered_documents(matcher, dials, target, list_markdown(target.root))
     if covered is None:
         return pipeline.no_root_policy(output)
     if rel not in covered:
@@ -82,12 +82,12 @@ def scan_mode(output: Output, start: Path) -> int:
     dials = own_dials.parse(target.dials.own)
     paths = list_markdown(target.root)
     with Matcher() as matcher:
-        covered = _covered(matcher, dials, target, paths)
+        covered = covered_documents(matcher, dials, target, paths)
         if covered is None:
             return pipeline.no_root_policy(output)
         lanes = _lanes_abroad(matcher, dials, covered)
         texts = {path: _text(target.root, path) for path in covered}
-        ids = _ids(texts)
+        ids = ids_of(texts)
         others = mentions.other_files(target.root) if dials.mentions else []
         named = mentions.examine(target.root, others, dials.mentions, ids, matcher)
     in_tree = tree.examine(target.root, texts, dials.heading_anchors)
@@ -110,7 +110,7 @@ def _examine(
     return lint.examine(rel, text, id_of_text(text), ids, lanes, dials.bare_ids is Switch.REFUSE)
 
 
-def _covered(
+def covered_documents(
     matcher: Matcher,
     dials: ReferencingDials,
     target: WriteTarget | ScanTarget,
@@ -141,7 +141,7 @@ def _lanes_abroad(matcher: Matcher, dials: ReferencingDials, paths: Sequence[str
     return abroad
 
 
-def _ids(texts: dict[str, str]) -> Ids:
+def ids_of(texts: dict[str, str]) -> Ids:
     """A document whose envelope cannot be read carries no id here; saying so is another gate's."""
     owners: dict[str, list[str]] = {}
     for path, text in sorted(texts.items()):

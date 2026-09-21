@@ -14,7 +14,7 @@ from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import Key, ToolKey
+from .model import ActKey, Key, ToolKey
 
 _MENTION = "{pattern: <regular expression whose whole match is a document's id>}"
 _LANE = "{pattern: <regular expression>, names: <what the form cites>, fix: <the link form to write>}"
@@ -59,7 +59,8 @@ def r3_id_link_astray(
         f"{rel}:{line}: the link's text is document id '{doc_id}', and its target {shown(target)} is not"
         f" that document ({owner})",
         "a link that shows one document's id and opens another misleads every reader who trusts the text",
-        f"point it at {path_to_owner}",
+        f"point it at {path_to_owner}; after a move, every such link is repaired at once by:"
+        f" {mover_command('--ids')}",
     )
 
 
@@ -85,7 +86,9 @@ def r5_no_target(rel: str, line: int, destination: str) -> Finding:
         Key.R5,
         f"{rel}:{line}: link target {shown(destination)} does not exist",
         _WHY_BROKEN,
-        "correct the path; if the target was deleted, remove the link and state here what it was cited for",
+        "correct the path; if the target was moved by hand, repair every link to it by:"
+        f" {mover_command('--moved', '<old path>', '<new path>')}; if it was deleted, remove the link and"
+        " state here what it was cited for",
     )
 
 
@@ -297,4 +300,91 @@ def lane_pattern(error: str) -> str:
     return (
         f"has a pattern that is no regular expression ({shown(error)}) — in YAML write it in single"
         " quotes, where a backslash stands for itself"
+    )
+
+
+# ---------------------------------------------------------------- the mover: a generator, never a gate
+
+
+def mover_command(*arguments: str) -> str:
+    """The mover as a command a reader can paste: the plugin's own path, resolved."""
+    script = identity.current().plugin_root / "scripts" / "move-document.sh"
+    return " ".join(["sh", f'"{script}"', *arguments])
+
+
+def v1_moved(old: str, new: str) -> str:
+    return f"MOVED: {old} → {new}"
+
+
+def v2_rewrote(rel: str, links: int) -> str:
+    return f"REWROTE: {rel}: {links} link(s)"
+
+
+def v3_mention(rel: str, line: int, text: str) -> str:
+    return (
+        f"MENTION: {rel}:{line}: '{shown(text)}' names the old path outside a link — read it and decide;"
+        " nothing was changed"
+    )
+
+
+def v4_count(files: int, links: int, mentions: int) -> str:
+    return (
+        f"{files} file(s) rewritten, {links} link(s), {mentions} mention(s) listed; the whole tree is"
+        " checked next"
+    )
+
+
+def v4_nothing_changed() -> str:
+    return "BROKEN: the move could not run — nothing was changed"
+
+
+_USAGE = (
+    "<old path> <new path> to move a file and repair the links; --moved <old path> <new path> after a"
+    " move made by hand; --ids to point every link whose text is a document's id at that document"
+)
+
+
+def v5_usage(detail: str) -> Broken:
+    return Broken(ActKey.V5, f"misinvocation: {detail}", f"run it with {_USAGE}")
+
+
+def v5_refused(what: str, fix: str) -> Broken:
+    return Broken(ActKey.V5, what, fix)
+
+
+def v5_not_listed(old: str) -> Broken:
+    return v5_refused(
+        f"{old} is not a file git lists", "name a file of this repository, by its path from where you stand"
+    )
+
+
+def v5_target_exists(new: str) -> Broken:
+    return v5_refused(f"{new} already exists", "choose a path that is free, or move what lies there first")
+
+
+def v5_same(old: str) -> Broken:
+    return v5_refused(f"{old} would move onto itself", "name two different paths")
+
+
+def v5_not_moved(old: str, new: str) -> Broken:
+    return v5_refused(
+        f"--moved says the move was made by hand, yet {old} still exists or {new} does not",
+        "to make the move and repair the links in one act, run it without --moved",
+    )
+
+
+def v5_outside(path: str) -> Broken:
+    return v5_refused(f"{shown(path)} lies outside the repository", "name a path inside it")
+
+
+def v5_git_mv(first_line: str) -> Broken:
+    return v5_refused(
+        f"git mv refused: {shown(first_line)}", "repair what git names, then run the move again"
+    )
+
+
+def v5_no_dials(root: str) -> Broken:
+    return v5_refused(
+        f"no {DIALS_FILE} in {root}: the check that proves a move cannot run",
+        f"create {DIALS_FILE} at the repository's top — an empty mapping, {{}}, is enough",
     )

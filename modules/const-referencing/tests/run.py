@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -756,10 +757,228 @@ def lychee_absent_after_write() -> tuple[bool, str]:
     return broken(H.run_gate(event, env=path_with(None)), messages.x1_no_lychee("0.24.2"))
 
 
+# ------------------------------------------------------------------ the mover
+
+MOVER = SCRIPTS / "move-document.sh"
+OLD, NEW = "docs/notes/one.md", "docs/moved/deep/first.md"
+ONE = note(
+    '# One\n\n<a id="k1"></a>\n'
+    "See [sib](two.md#k2), [self](one.md#k1), [here](#k1) and [up](../../constitution.yaml).\n",
+    "note-one",
+)
+TWO = note(
+    '# Two\n\n<a id="k2"></a>\n'
+    "Back to [note-one](one.md#k1), [r] and `[shown](one.md)`. Once docs/notes/one.md.\n\n[r]: one.md\n",
+    "note-two",
+)
+ONE_MOVED = (
+    "See [sib](../../notes/two.md#k2), [self](first.md#k1), [here](#k1) and [up](../../../constitution.yaml)."
+)
+TWO_REPAIRED = (
+    "Back to [note-one](../moved/deep/first.md#k1), [r] and `[shown](one.md)`. Once docs/notes/one.md."
+)
+
+
+def moving_consumer() -> Consumer:
+    consumer = H.fresh_consumer(
+        (Write(OLD, ONE), Write("docs/notes/two.md", TWO), Write("tools/x.sh", f"# see {OLD}\n"))
+    )
+    return consumer
+
+
+def mover(consumer: Consumer, *arguments: str, cwd: str = "") -> Result:
+    merged = {key: value for key, value in os.environ.items() if key != "CLAUDE_PLUGIN_DATA"}
+    done = subprocess.run(
+        [H.sh, str(MOVER), *arguments],
+        cwd=consumer.root / cwd,
+        capture_output=True,
+        text=True,
+        env=merged,
+        check=False,
+    )
+    return Result(done.returncode, done.stdout, done.stderr)
+
+
+def scan(consumer: Consumer) -> Result:
+    return H.run_gate("", args=["--scan", str(consumer.root)])
+
+
+def tree_state(consumer: Consumer) -> str:
+    done = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=consumer.root, capture_output=True, text=True, check=True
+    )
+    return done.stdout
+
+
+def move_red_green() -> tuple[bool, str]:
+    """Red is the tree after git mv alone; green is the tree after the act."""
+    by_git = moving_consumer()
+    (by_git.root / NEW).parent.mkdir(parents=True)
+    by_git.git("mv", OLD, NEW)
+    red = scan(by_git)
+    acted = moving_consumer()
+    done = mover(acted, "notes/one.md", "moved/deep/first.md", cwd="docs")
+    first, two = (acted.root / NEW).read_text(), (acted.root / "docs/notes/two.md").read_text()
+    checks = [
+        expect(red, 2, messages.r5_no_target("docs/notes/two.md", 11, "one.md#k1").headline, "stdout"),
+        expect(done, 0, messages.v1_moved(OLD, NEW), "stdout"),
+        expect(done, 0, messages.v2_rewrote("docs/notes/two.md", 2), "stdout"),
+        expect(done, 0, messages.v2_rewrote(NEW, 3), "stdout"),
+        expect(done, 0, messages.v4_count(2, 5, 2), "stdout"),
+        expect(done, 0, "GREEN: const-referencing: ", "stdout"),
+        (ONE_MOVED in first, f"the moved document's own links: {first}"),
+        (TWO_REPAIRED in two and "[r]: ../moved/deep/first.md" in two, f"inbound links: {two}"),
+        expect(scan(acted), 0, "GREEN: ", "stdout"),
+    ]
+    return all_of(
+        checks, "git mv alone leaves the scan red; the act leaves it green, fragments and code untouched"
+    )
+
+
+def mentions_are_listed_not_changed() -> tuple[bool, str]:
+    acted = moving_consumer()
+    done = mover(acted, OLD, NEW)
+    script = (acted.root / "tools/x.sh").read_text()
+    return all_of(
+        [
+            expect(done, 0, "MENTION: docs/notes/two.md:11: ", "stdout"),
+            expect(
+                done, 0, f"MENTION: tools/x.sh:1: '# see {OLD}' names the old path outside a link", "stdout"
+            ),
+            (script == f"# see {OLD}\n", "the script was not rewritten"),
+        ],
+        "a sentence, a code span and a script naming the old path are listed; none is changed",
+    )
+
+
+def repair_after_a_hand_move() -> tuple[bool, str]:
+    """The fix R5 teaches is followed as printed, with the two paths filled in."""
+    consumer = moving_consumer()
+    (consumer.root / NEW).parent.mkdir(parents=True)
+    consumer.git("mv", OLD, NEW)
+    taught = scan(consumer).stdout
+    command = messages.mover_command("--moved", "<old path>", "<new path>")
+    if command not in taught:
+        return False, f"the scan did not teach {command!r}: {taught}"
+    typed = command.replace("<old path>", OLD).replace("<new path>", NEW)
+    done = subprocess.run(typed, shell=True, cwd=consumer.root, capture_output=True, text=True, check=False)  # noqa: S602 — the point is to run the line as a reader would paste it
+    return all_of(
+        [
+            (
+                done.returncode == 0 and "GREEN: " in done.stdout,
+                f"exit {done.returncode}: {done.stdout}{done.stderr}",
+            ),
+            expect(scan(consumer), 0, "GREEN: ", "stdout"),
+        ],
+        "the command the finding prints, pasted with the two paths, leaves the scan green",
+    )
+
+
+def repair_by_ids() -> tuple[bool, str]:
+    """The fix R3 teaches is followed as printed: no path is given, the envelopes say where."""
+    consumer = moving_consumer()
+    (consumer.root / NEW).parent.mkdir(parents=True)
+    consumer.git("mv", OLD, NEW)
+    consumer.write("docs/notes/two.md", TWO.replace(", [r]", "").replace("[r]: one.md\n", ""))
+    blocked, _ = gate_on(Write(DOC, note(body(f"See [{OWNER_ID}](../policies/root-policy.md)."))))
+    command = messages.mover_command("--ids")
+    if command not in blocked.stderr:
+        return False, f"R3 did not teach {command!r}: {blocked.stderr}"
+    done = subprocess.run(command, shell=True, cwd=consumer.root, capture_output=True, text=True, check=False)  # noqa: S602 — as above
+    two = (consumer.root / "docs/notes/two.md").read_text()
+    return all_of(
+        [
+            ("[note-one](../moved/deep/first.md#k1)" in two, f"the id link: {two}"),
+            (messages.v2_rewrote("docs/notes/two.md", 1) in done.stdout, done.stdout + done.stderr),
+        ],
+        "an id link follows its document with no path given; the fragment is kept",
+    )
+
+
+def id_repair_leaves_an_ambiguous_id_alone() -> tuple[bool, str]:
+    """Two documents under one id: the envelopes do not say which is meant, so nothing is guessed."""
+    consumer = H.fresh_consumer(
+        (
+            Write("docs/notes/p.md", note("# P\n", "note-twin")),
+            Write("docs/notes/q.md", note("# Q\n", "note-twin")),
+            Write(SOURCE, source("See [note-twin](t.md).")),
+            Write(TARGET, TARGET_TEXT),
+        )
+    )
+    done = mover(consumer, "--ids")
+    kept = "See [note-twin](t.md)." in (consumer.root / SOURCE).read_text()
+    return kept and messages.v4_count(0, 0, 0) in done.stdout, done.stdout + done.stderr
+
+
+def refusals_change_nothing() -> tuple[bool, str]:
+    consumer = moving_consumer()
+    before = tree_state(consumer)
+    refused = [
+        (mover(consumer, "docs/notes/none.md", NEW), messages.v5_not_listed("docs/notes/none.md")),
+        (mover(consumer, OLD, "docs/notes/two.md"), messages.v5_target_exists("docs/notes/two.md")),
+        (mover(consumer, OLD, OLD), messages.v5_same(OLD)),
+        (mover(consumer, "--moved", OLD, NEW), messages.v5_not_moved(OLD, NEW)),
+        (mover(consumer, OLD, "../outside.md"), messages.v5_outside("../outside.md")),
+        (mover(consumer, OLD), messages.v5_usage("1 path(s) given")),
+        (mover(consumer, "--ids", OLD, NEW), messages.v5_usage("2 path(s) given")),
+        (mover(consumer, "--help"), messages.v5_usage("unrecognized arguments: --help")),
+    ]
+    results = [broken_first_line(result, failure.render()) for result, failure in refused]
+    closing = [(messages.v4_nothing_changed() in result.stderr, "no closing line") for result, _ in refused]
+    unchanged = (tree_state(consumer) == before, "a refusal changed the tree")
+    return all_of(
+        [*results, *closing, unchanged], f"{len(refused)} refusals, each exit 1, the tree as it was"
+    )
+
+
+def mover_without_dials() -> tuple[bool, str]:
+    consumer = moving_consumer()
+    (consumer.root / "constitution.yaml").unlink()
+    result = mover(consumer, OLD, NEW)
+    ok, evidence = broken_first_line(result, messages.v5_no_dials(str(consumer.root)).render())
+    return ok and (consumer.root / OLD).exists(), evidence
+
+
+def mover_ends_red_when_the_tree_is() -> tuple[bool, str]:
+    consumer = moving_consumer()
+    consumer.write("docs/notes/three.md", note(body("See [x](gone.md)."), "note-three"))
+    return expect(
+        mover(consumer, OLD, NEW),
+        2,
+        messages.r5_no_target("docs/notes/three.md", LINE, "gone.md").headline,
+        "stdout",
+    )
+
+
+GOLDEN_MOVER = [
+    f"MOVED: {OLD} → {NEW}",
+    "REWROTE: docs/notes/two.md: 2 link(s)",
+    "names the old path outside a link — read it and decide; nothing was changed",
+    "2 file(s) rewritten, 5 link(s), 2 mention(s) listed; the whole tree is checked next",
+]
+
+
+def golden_mover_lines() -> tuple[bool, str]:
+    out = mover(moving_consumer(), OLD, NEW).stdout
+    refused = mover(moving_consumer(), OLD, "docs/notes/two.md").stderr
+    missing = [line for line in GOLDEN_MOVER if line not in out]
+    wanted = (
+        "BROKEN: docs/notes/two.md already exists — fix: choose a path that is free, or move what lies"
+        " there first\nBROKEN: the move could not run — nothing was changed"
+    )
+    if wanted not in refused:
+        missing.append(wanted)
+    return (
+        not missing,
+        f"{len(GOLDEN_MOVER) + 2} literal lines found" if not missing else f"not found: {missing}",
+    )
+
+
 GOLDEN_TREE = {
     "R5": f"RED: {SOURCE}:9: link target gone.md does not exist",
-    "R5 fix": "  fix: correct the path; if the target was deleted, remove the link and state here what it"
-    " was cited for",
+    "R5 fix": '  fix: correct the path; if the target was moved by hand, repair every link to it by: sh "',
+    "R5 fix, the rest": 'scripts/move-document.sh" --moved <old path> <new path>; if it was deleted,'
+    " remove the link and state here what it was cited for",
     "R6": f"RED: {SOURCE}:9: t.md#nope has no anchor 'nope'",
     "R6 fix": f'  fix: cite an anchor the target carries, or add <a id="nope"></a> on its own line before the'
     f" cited place in {TARGET}",
@@ -903,6 +1122,25 @@ ASSERTIONS = [
         44,
         "the dial failures of governed_only, heading_anchors and mentions are exit 1",
         mention_dial_failures,
+    ),
+    Assertion(
+        60, "A5.8 red→green: git mv alone leaves the scan red, the act leaves it green", move_red_green
+    ),
+    Assertion(
+        61, "the mover lists what names the old path and changes none of it", mentions_are_listed_not_changed
+    ),
+    Assertion(
+        62, "the fix R5 teaches, pasted as printed, repairs a move made by hand", repair_after_a_hand_move
+    ),
+    Assertion(
+        63, "the fix R3 teaches, pasted as printed, repairs id links from the envelopes", repair_by_ids
+    ),
+    Assertion(64, "every refusal of the mover is exit 1 and changes nothing", refusals_change_nothing),
+    Assertion(65, "with no dials file the mover refuses before it moves", mover_without_dials),
+    Assertion(66, "the mover exits with the scan's verdict", mover_ends_red_when_the_tree_is),
+    Assertion(67, "golden lines of the mover, typed by hand", golden_mover_lines),
+    Assertion(
+        68, "the id repair leaves alone an id two documents carry", id_repair_leaves_an_ambiguous_id_alone
     ),
 ]
 
