@@ -135,12 +135,7 @@ Description moved into the module's document: [`modules/const-decision-records/M
 <a id="const-referencing"></a>
 ## M5 `const-referencing` — accumulating once documents multiply; enters with the first cross-references
 
-**Failure pattern:** broken and silently-drifted references; knowledge that can't be cited granularly — the precondition for spec↔test↔code traceability later.
-**Invariant:** one canonical syntax per reference kind — by document `id` (preferred wherever an id exists), by path+anchor, by code location (a symbol name, file-qualified; a line range only as a transient pointer); anchors are explicit stable IDs surviving edits (never heading-derived); no merge introduces a broken reference.
-**Ships:** reference-syntax section for the kernel's companion policy; `lychee` ≥0.24.2 as the gate (settled research: the only offline checker covering file links and all anchor forms with GitHub-slug parity); anchor-authoring skill. Synergy note carried forward: in-place supersession keeps id/path references resolving to current rulings — this module is why that property holds under edits.
-**Reference forms (A5.5–A5.7, decision [dec-0005-reference-forms](decisions/dec-0005-reference-forms.md)):** every citable unit carries an HTML anchor with a short fixed key; cross-document cites are links with the handle as text; id cites are `[id](current path)`, repaired by the module's move and repair modes ([A5.8](#a5-8)); laws, dials, requirements, aspects, and modules use their verbose handles; `M<n>` lives only in this document. In chat every reference to a file is clickable and local handles are scoped to the message, decision, or session. Until this module ships its lint, the kit's own `scripts/check-references.sh` is the gate: it greps for retired bare forms, runs `lychee --offline --include-fragments`, and turns red when a file that is not markdown — a script, a configuration file — names a decision record that does not exist, since lychee reads markdown only.
-**Dials:** lychee config; which territories the gate covers.
-**Acceptance:** red→green with a deliberately broken reference and a deliberately moved anchor.
+Description moved into the module's document: [`modules/const-referencing/MODULE.md`](../modules/const-referencing/MODULE.md) (rows [A5.1](#a5-1)–[A5.3](#a5-3) and [A5.5](#a5-5)–[A5.8](#a5-8)); this anchor stays the module's handle. Until the module is proven live in this repository, the kit's own `scripts/check-references.sh` remains the gate of [A5.6](#a5-6).
 
 <a id="const-questions"></a>
 ## M6 `const-questions` — self-limiting; enters on the friction signal (expect it in Phase A's authoring sessions)
