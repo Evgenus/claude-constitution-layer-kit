@@ -137,7 +137,7 @@ The kit's bare forms — a module's number, a requirement row, a kernel section,
 
 **R8.** A. The dial `mentions` — a list of `{pattern, files}` — declares how a document's id looks outside Markdown; in the scan every match in a file git lists that is no Markdown, no link and not binary must be a covered document's id. The module reads [requirement A5.3](../requirements.md#a5-3) so: a governed id named outside Markdown is a reference where the project declares its form.
 
-**R9.** The interim script stays the gate of [requirement A5.6](../requirements.md#a5-6), and the baseline the module's scan is compared with, until the module is proven live in this repository. It is then deleted on the decider's spoken yes, given for that act, and the texts that name it are amended in the same change.
+**R9.** The interim script stays the gate of [requirement A5.6](../requirements.md#a5-6), and the baseline the module's scan is compared with, until the module is proven live in this repository. It is then deleted on the decider's spoken yes, given for that act, and the texts that name it are amended in the same change. The proof was made on 2026-09-22 — the scan and the script agreeing on every kind of break they share, and on the one gap the decider's question found, closed by R21 — and the yes was given in chat the same day: "yes, delete it and amend the texts".
 
 ## 9. What carries the rule about references in chat
 
@@ -201,7 +201,7 @@ Each seam was fixed at the source with the fixtures of all four modules green.
 
 ## Applied
 
-On the branch `work/const-referencing`, in the commits before this record and the one that creates it: the module's [MODULE.md](../../modules/const-referencing/MODULE.md), its scripts, hooks, skill, install note and fixtures; [requirement A5.8](../requirements.md#a5-8) added, the enforcement cells of [A5.2](../requirements.md#a5-2), [A5.3](../requirements.md#a5-3) and [A5.7](../requirements.md#a5-7) amended, the module's specification replaced by its stub; the shared gate code and [its document](../../shared/GATE.md); the research comparison. The interim script is untouched.
+On the branch `work/const-referencing`, in the commits before this record and the one that creates it: the module's [MODULE.md](../../modules/const-referencing/MODULE.md), its scripts, hooks, skill, install note and fixtures; [requirement A5.8](../requirements.md#a5-8) added, the enforcement cells of [A5.2](../requirements.md#a5-2), [A5.3](../requirements.md#a5-3) and [A5.7](../requirements.md#a5-7) amended, the module's specification replaced by its stub; the shared gate code and [its document](../../shared/GATE.md); the research comparison. The interim script was deleted after the live proof, on the yes of R9, and the texts that named it as the gate were amended in that commit.
 
 ## Carry list
 
@@ -213,7 +213,7 @@ On the branch `work/const-referencing`, in the commits before this record and th
 6. R6 — the rows of [requirement A5.1](../requirements.md#a5-1) and [requirement A5.6](../requirements.md#a5-6) in [§3](../../modules/const-referencing/MODULE.md#t3); the rows `lanes` and `bare_ids` of [§7](../../modules/const-referencing/MODULE.md#t7); row R1 of the error-message table in [§6](../../modules/const-referencing/MODULE.md#t6).
 7. R7 — the row `severity` of [§7](../../modules/const-referencing/MODULE.md#t7); row E3 and limit 1 of [§9](../../modules/const-referencing/MODULE.md#t9).
 8. R8 — the row of [requirement A5.3](../requirements.md#a5-3) in [§3](../../modules/const-referencing/MODULE.md#t3); the row `mentions` of [§7](../../modules/const-referencing/MODULE.md#t7); row R8 of the error-message table in [§6](../../modules/const-referencing/MODULE.md#t6).
-9. R9 — the cell of [requirement A5.6](../requirements.md#a5-6); the stub under [`const-referencing`](../requirements.md#const-referencing).
+9. R9 — the script is gone, and its absence is the carried state; what the gate is now: the cell of [requirement A5.6](../requirements.md#a5-6) and the rule "References are clickable" in [CLAUDE.md](../../CLAUDE.md). The proof and the yes of the day: history only.
 10. R10 — [requirement A5.7](../requirements.md#a5-7); its row in [§3](../../modules/const-referencing/MODULE.md#t3), the hook row and the always-on slot of [§6](../../modules/const-referencing/MODULE.md#t6); item 1 of [§12](../../modules/const-referencing/MODULE.md#t12).
 11. R11 — platform fact 8, the `configuration` row and rows X1 to X3 of [§6](../../modules/const-referencing/MODULE.md#t6); the closing sentence of [§7](../../modules/const-referencing/MODULE.md#t7); item 3 of [§12](../../modules/const-referencing/MODULE.md#t12).
 12. R12, R13 — the row of [requirement A5.3](../requirements.md#a5-3) in [§3](../../modules/const-referencing/MODULE.md#t3); row F9 of the error-message table in [§6](../../modules/const-referencing/MODULE.md#t6); limit 4 of [§9](../../modules/const-referencing/MODULE.md#t9); [the gate's entry file](../../modules/const-referencing/scripts/check-references.py).
