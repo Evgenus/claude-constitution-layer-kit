@@ -1,0 +1,18 @@
+#!/bin/sh
+# Kit gate: no commit is made on main; work starts on a branch and reaches main by a merge.
+# Enabled per clone by scripts/setup-clone.sh. Deterministic: red = switch to a branch.
+# It is this hook and not pre-commit because git runs this one for every way a commit is made —
+# commit, amend, cherry-pick, revert — and does not skip it on --no-verify (tried on git 2.54).
+# Exit: 0 the commit may proceed; 1 refused.
+
+protected=main
+branch=$(git symbolic-ref --quiet --short HEAD) || exit 0   # detached HEAD: not main
+[ "$branch" = "$protected" ] || exit 0
+git rev-parse --quiet --verify MERGE_HEAD >/dev/null && exit 0   # concluding a merge into main
+
+cat >&2 <<MSG
+RED: this commit would land on $protected
+  why: every change, one commit or many, is made on its own branch and reaches $protected as one merge commit, so the history reads one line per work
+  fix: git switch -c work/<name>   — the staged changes come along; commit there, and after the yes: git switch $protected && git merge --no-ff work/<name> -m "Work: <name>"
+MSG
+exit 1

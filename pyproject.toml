@@ -9,6 +9,7 @@
 #   python3 scripts/check-shared-links.py && python3 scripts/check-shared-links.py --self-test
 #   python3 scripts/check-carry-lists.py && python3 scripts/check-carry-lists.py --self-test
 #   (cd scripts && mypy --strict check-carry-lists.py)
+#   sh scripts/setup-clone.sh --check && sh scripts/git-hooks/tests/run.sh
 [tool.ruff]
 line-length = 110
 target-version = "py312"
