@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The fourth module, [`const-referencing`](../requirements.md#const-referencing), was authored on 2026-09-21 and 2026-09-22 from its research comparison ([research-const-referencing](../research/const-referencing.md)) and the rows of [aspect A5](../requirements.md#a5) homed in it. Ten questions were put to the decider in chat, one per message, each with lettered options; the rest was derived by the authoring session and is listed in section 11 for the decider to override before the yes. One answer went against the session's recommendation (section 4), four overturn what the matrix or the module's specification said (sections 2, 5, 9, 10), and one adds a row (section 1). The module is the first gate of the kit wired to two tool events, the first that calls a third-party binary, and the first with a second entry point.
+The fourth module, [`const-referencing`](../requirements.md#const-referencing), was authored on 2026-09-21 and 2026-09-22 from its research comparison ([research-const-referencing](../research/const-referencing.md)) and the rows of [aspect A5](../requirements.md#a5) homed in it. Ten questions were put to the decider in chat, one per message, each with lettered options; the rest was derived by the authoring session, or found by its validations, and is listed in section 11 for the decider to override before the yes. One answer went against the session's recommendation (section 4), four overturn what the matrix or the module's specification said (sections 2, 5, 9, 10), and one adds a row (section 1). The module is the first gate of the kit wired to two tool events, the first that calls a third-party binary, and the first with a second entry point.
 
 ## 1. Whether "repaired by tooling on a move" becomes a row
 
@@ -189,6 +189,12 @@ No real choice was put to the decider on these; each is the session's derivation
 
 **R21.** A path on one machine is read in code and comments too; only the YAML block that opens the file is left out. Put to the decider on 2026-09-22, when he asked whether the module covers all the interim script gave: it did not — the session had stretched the masking accepted under section 6 from bare forms to this check without asking, and a probe showed the script red and the scan green on a home-directory path inside a code span. Options: A, the check reads code; B, the mask stays, and the kit's rule against local paths is held by review inside backticks; C, a dial. The decider chose A: a bare form in code is an illustration, a local path leaks a machine's layout however it is set.
 
+**R22.** Two rows gain the words their checks already stood under, so that neither check is content beyond its row ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)): [requirement A5.1](../requirements.md#a5-1) now says that a reference never names a path on one machine, and [requirement A5.3](../requirements.md#a5-3) that a governed id named outside Markdown is a reference where the project declares its form. Found by the first fresh-context validation; both checks were ruled by the decider (R21, R8), the rows had not followed.
+
+**R23.** From the first fresh-context validation, pinned to 22ab5da — twenty findings, nine of fourteen mutants alive — the behaviour that changed: the mover asks everything that can refuse before it moves anything, the link checker and the root policy of `governed_only` among it, and a failure after the move closes by saying that the act stopped midway, never that nothing was changed; it keeps line endings and leaves a file that is not UTF-8 alone, saying so; a usage of a reference definition is a link, judged by what its label opens, and never rewritten, its definition being the link; a fence indented under a list item is code; a write to a document that is not covered still has the covered links it broke reported after it; a key of the module's namespace that is no dial is a configuration failure; R4 asks for a user's directory and something inside it; one document's cost is linear in its size.
+
+**R24.** The handler after the write is a `gate` in kind — deterministic, red means fix — at a moment that cannot block, and is declared so; it is not `advisory`, since nothing in it shapes judgment. The validation had found "deterministic feedback" to be a third kind beside the two [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) names.
+
 ## 12. The shared gate code, met by a fourth consumer
 
 Each seam was fixed at the source with the fixtures of all four modules green.
@@ -221,7 +227,10 @@ On the branch `work/const-referencing`, in the commits before this record and th
 14. R15 — limits 11 and 12 of [§9](../../modules/const-referencing/MODULE.md#t9) and row V5 of the error-message table in [§6](../../modules/const-referencing/MODULE.md#t6); [the mover's entry file](../../modules/const-referencing/scripts/move-document.py).
 15. R16 — the `command` and `agent` rows of [§6](../../modules/const-referencing/MODULE.md#t6). The reason for the keys' letter: history only.
 16. R21 — the row of [requirement A5.1](../requirements.md#a5-1) in [§3](../../modules/const-referencing/MODULE.md#t3) of the module's document; [the gate's entry file](../../modules/const-referencing/scripts/check-references.py); step 2 of [the install note](../../modules/const-referencing/INSTALL.md). That the session had stretched the mask unasked: history only.
-17. R17 — [the install note](../../modules/const-referencing/INSTALL.md), step 3. That it corrects what was said in chat: history only.
-18. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
-19. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
-20. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
+17. R22 — [requirement A5.1](../requirements.md#a5-1) and [requirement A5.3](../requirements.md#a5-3). That the rows had not followed: history only.
+18. R23 — the rows of [requirement A5.1](../requirements.md#a5-1), [A5.3](../requirements.md#a5-3) and [A5.8](../requirements.md#a5-8) in [§3](../../modules/const-referencing/MODULE.md#t3) of the module's document; rows V1–V5 and C5 of the error-message table and platform fact 9 in its [§6](../../modules/const-referencing/MODULE.md#t6); the closing sentence of its [§7](../../modules/const-referencing/MODULE.md#t7); limits 5, 8 and 12 of its [§9](../../modules/const-referencing/MODULE.md#t9); [the mover's entry file](../../modules/const-referencing/scripts/move-document.py). The count of findings and mutants: history only.
+19. R24 — row E3 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document.
+20. R17 — [the install note](../../modules/const-referencing/INSTALL.md), step 3. That it corrects what was said in chat: history only.
+21. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
+22. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
+23. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).

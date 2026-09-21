@@ -23,7 +23,8 @@ not, and every write says so until it is installed.
    says: every Markdown file git lists is covered. Without that file every run is a visible
    skip naming it; an empty mapping, `{}`, is enough. Covered documents are checked for: a
    covered document's id in backticks outside a link; a link whose text is such an id and
-   whose target is another file; a path on one machine (an absolute path under a home directory, a `file:` link) — read
+   whose target is another file; a path on one machine (a path into a user's home directory as macOS, Linux and Windows lay it
+   out, or a `file:` link; other absolute paths are not judged) — read
    inside code and comments too, where every other check of form leaves code alone; a
    link target that does not exist; an anchor that does not exist; and a link that resolves
    only through a heading's generated name instead of an anchor written in the target.
@@ -45,6 +46,8 @@ not, and every write says so until it is installed.
        - pattern: '\brfc-[0-9]{4}-[a-z0-9-]+'
          files: ["<patterns of the files that name documents>"]
    ```
+   A key of this namespace that is none of those above is refused with exit 1 — a misspelt dial
+   is never a setting ignored in silence.
    A negated pattern takes documents out: `"!vendor/**"` after `"*.md"` leaves a whole tree
    uncovered. `"!vendor/"` does not — it names the directory, and the files inside it still
    match `"*.md"`.

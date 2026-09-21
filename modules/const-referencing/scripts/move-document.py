@@ -16,11 +16,14 @@ Acts:     OLD NEW          move the file with git mv, then repair: every covered
           Changing a document's id is not offered.
 Proof:    every act ends with the gate's scan of the whole tree and exits with its verdict:
           the rewrite is an assist, and the proof that no reference is left broken is the scan.
-Reads:    constitution.yaml as the gate reads it — the covered documents are the documents a
-          move repairs. With no constitution.yaml the proof cannot run, and the act refuses.
+Reads:    constitution.yaml as the gate reads it: const-referencing.territories and
+          .governed_only decide the covered documents, which are the documents a move repairs;
+          the closing scan reads every dial the gate reads; .log_dir places the log.
+          With no constitution.yaml the proof cannot run, and the act refuses.
 Exit:     0 the act was made and the whole tree is green; 2 the act was made and the scan
-          reports findings; 1 the act was refused, or could not run — then nothing was changed,
-          unless the message says the move itself was made.
+          reports findings; 1 the act was refused — everything that can refuse is asked before
+          anything moves, so the closing line says that nothing was changed — or it stopped
+          midway, and the closing line says that instead and names what to do.
 Output:   MOVED, REWROTE and MENTION lines and the count on stdout, then the scan's lines;
           refusals (BROKEN) on stderr. Every printed line is also appended to the output log.
 

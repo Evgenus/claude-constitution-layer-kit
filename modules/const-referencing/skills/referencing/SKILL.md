@@ -36,7 +36,8 @@ judgment, and the rest of this page.
 ## 1. Cite by id, as a link
 
 1. A document that opens with a YAML block carrying an `id` is cited by that id as the link's
-   text: `[the-id](relative/path.md)`. Not a description as the text: the id is what the id
+   text: `[the-id](relative/path.md)` — or `[the-id][label]` with the path in a reference
+   definition, which is judged the same. Not a description as the text: the id is what the id
    repair of section 4 works from, and what a reader can search for.
 2. A file with no id — a script, a configuration file — is cited by its relative path, as a link.
 3. A place inside a document is cited by path and anchor, with the place's own handle as the
@@ -84,7 +85,10 @@ it scans the whole tree and exits with the scan's verdict: 0 means no reference 
    a script that opens the old path needs the new one.
 2. If it exits 2, the scan's findings follow the count line; fix them as they say. They may be
    older than the move.
-3. If it refuses, nothing was changed; the message says why and what to do.
+3. If it refuses, nothing was changed: it asks everything that can refuse before it moves, and
+   its last line says so. If instead its last line says the act stopped midway, the file was
+   moved and some links rewritten: look at `git status`, repair what the message names, and run
+   the scan of section 6.
 4. Its rewrites are not staged. Look at `git diff` before committing, and say in the commit
    message that the commit is a move.
 5. A document's `id` never changes with a move. The mover does not offer changing one.
