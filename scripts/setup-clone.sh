@@ -9,14 +9,15 @@
 cd "$(git rev-parse --show-toplevel)" || { echo "BROKEN: not inside a git repository" >&2; exit 1; }
 
 if [ "$1" = "--check" ]; then
-    if [ "$(git config --get core.hooksPath)" = "scripts/git-hooks" ] && [ "$(git config --get merge.ff)" = "false" ]; then
+    if [ "$(git config --get core.hooksPath)" = "scripts/git-hooks" ] && [ "$(git config --get merge.ff)" = "false" ] \
+        && [ -x scripts/git-hooks/prepare-commit-msg ]; then
         echo "GREEN: this clone runs the kit's hooks and merges without fast-forward"
         exit 0
     fi
     cat >&2 <<MSG
-RED: this clone is not set up — core.hooksPath is "$(git config --get core.hooksPath)", merge.ff is "$(git config --get merge.ff)"
+RED: this clone is not set up — core.hooksPath is "$(git config --get core.hooksPath)", merge.ff is "$(git config --get merge.ff)", the hook is $([ -x scripts/git-hooks/prepare-commit-msg ] && echo executable || echo "missing or not executable")
   why: git never versions these two settings, and without them a commit can land on main unrefused
-  fix: sh scripts/setup-clone.sh
+  fix: sh scripts/setup-clone.sh   — and chmod +x scripts/git-hooks/prepare-commit-msg if the hook is not executable
 MSG
     exit 2
 fi

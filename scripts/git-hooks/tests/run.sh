@@ -1,14 +1,19 @@
 #!/bin/sh
-# Fixture of the branch-first gate: each case in a throwaway repository, red without the rule
-# kept, green with it. Usage: sh scripts/git-hooks/tests/run.sh    Exit: 0 all as expected; 2 not.
+# Fixture of the branch-first gate, in a throwaway repository: the clone that is not set up takes a
+# commit on main, the clone that is set up refuses it and takes the same commit on a branch.
+# The user's global git configuration is kept out, so a global hooks path or signing cannot colour a case.
+# Usage: sh scripts/git-hooks/tests/run.sh    Exit: 0 all as expected; 2 not.
+
+GIT_CONFIG_GLOBAL=/dev/null; export GIT_CONFIG_GLOBAL
 
 kit=$(cd "$(dirname "$0")/../../.." && pwd)
 tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
 failed=0
+cases=0
 
 expect() {  # expect <wanted exit> <label> <command...>
-    wanted=$1; label=$2; shift 2
+    wanted=$1; label=$2; shift 2; cases=$((cases + 1))
     "$@" >"$tmp/out" 2>&1; got=$?
     if [ "$got" -eq "$wanted" ]; then echo "ok    $label"; else echo "WRONG $label — exit $got, wanted $wanted"; sed 's/^/        /' "$tmp/out"; failed=1; fi
 }
@@ -24,25 +29,31 @@ expect 0 "without the hook a commit lands on main"        git commit -q -m "ungu
 expect 0 "setup turns the clone green"                    sh scripts/setup-clone.sh
 echo a > a && git add a
 expect 1 "a commit on main is refused"                    git commit -q -m "on main"
-git commit -q -m "on main" 2>&1 | grep -q 'fix: git switch -c work/<name>' ; expect 0 "the refusal teaches the fix" test $? -eq 0
+git commit -q -m "on main" >"$tmp/msg" 2>&1
+expect 0 "the refusal teaches the fix"                     grep -q 'fix: git switch -c work/<name>' "$tmp/msg"
 expect 1 "--no-verify does not get past it"               git commit -q --no-verify -m "on main"
 expect 1 "an amend on main is refused"                    git commit -q --amend -m "reworded"
+git commit -q --amend -m "reworded" >"$tmp/msg" 2>&1
+expect 0 "and is told to leave the commit and correct it on a branch" grep -q 'If this was an amend: the commit is on main already' "$tmp/msg"
 git switch -q -c work/one
 expect 0 "the same commit passes on a branch"             git commit -q -m "on a branch"
 echo b > b && git add b && git commit -q -m "second"
 git switch -q main
 before=$(git rev-parse HEAD)
 expect 128 "a cherry-pick onto main is refused (git's own exit)" git cherry-pick work/one
-git cherry-pick --abort 2>/dev/null; git reset -q --hard
+cp "$tmp/out" "$tmp/msg"
+expect 0 "and is told to abort first"                     grep -q 'fix: git cherry-pick --abort' "$tmp/msg"
+expect 128 "for git will not switch branches in the middle of one" git switch -c work/stuck
+expect 0 "the taught fix works: abort, then the branch"   sh -c 'git cherry-pick --abort && git switch -q -c work/two && git switch -q main'
 expect 0 "and main has not moved"                         test "$(git rev-parse HEAD)" = "$before"
 expect 0 "a merge into main passes"                       git merge -q work/one -m "Work: one"
 expect 0 "and is a merge commit though it could fast-forward" test "$(git rev-list --merges --count HEAD)" -eq 1
 before=$(git rev-parse HEAD)
 expect 128 "a revert on main is refused (git's own exit)"   git revert --no-edit HEAD^2
-git revert --abort 2>/dev/null; git reset -q --hard
+expect 0 "the taught fix works: the staged revert goes to a branch" sh -c 'git switch -q -c work/three && git commit -q -m "revert, on a branch" && git switch -q main'
 expect 0 "and main has not moved"                         test "$(git rev-parse HEAD)" = "$before"
 git switch -q --detach
 expect 0 "a detached HEAD is not main"                    git commit -q --allow-empty -m "detached"
 
-[ "$failed" -eq 0 ] && echo "GREEN: 16 cases as expected" && exit 0
+[ "$failed" -eq 0 ] && echo "GREEN: $cases cases as expected" && exit 0
 echo "RED: a case went wrong — see above"; exit 2
