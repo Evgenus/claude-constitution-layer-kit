@@ -1,0 +1,5 @@
+{
+  "name": "const-referencing",
+  "version": "0.0.1",
+  "description": "Referencing: one syntax per reference kind, explicit stable anchors, and no merge introduces a broken reference. Draft: the gate and the skills are not authored yet."
+}
