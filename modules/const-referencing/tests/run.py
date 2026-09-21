@@ -13,6 +13,8 @@ stay free.
 
 from __future__ import annotations
 
+import os
+import shutil
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -139,7 +141,7 @@ R4_PATH = messages.r4_one_machine(DOC, LINE, "/Users/someone/notes.md")
 R4_FILE = messages.r4_one_machine(DOC, LINE, "file:///srv/notes.md")
 
 SETUP = (Write("constitution.yaml", dials_text(LANES)),)
-LINKED = f"See [{OWNER_ID}]({TO_OWNER}) and [REQ-7](../reqs.md#req-7).\n"
+LINKED = f"See [{OWNER_ID}]({TO_OWNER}) and [REQ-7](../policies/root-policy.md).\n"
 VALID = wrote("# Fixture\n" + LINKED)
 
 
@@ -271,7 +273,9 @@ def pending_document_carries_its_id() -> tuple[bool, str]:
 
 def edit_is_judged_as_written() -> tuple[bool, str]:
     files = {DOC: VALID.text}
-    red, _ = gate_on(Edit(DOC, "and [REQ-7](../reqs.md#req-7)", "and REQ-7"), dials_patch=LANES, files=files)
+    red, _ = gate_on(
+        Edit(DOC, "and [REQ-7](../policies/root-policy.md)", "and REQ-7"), dials_patch=LANES, files=files
+    )
     green, _ = gate_on(Edit(DOC, "# Fixture", "# Renamed"), dials_patch=LANES, files=files)
     finding = messages.r1_bare_form(DOC, LINE, "REQ-7", str(LANE["names"]), str(LANE["fix"]))
     return all_of(
@@ -396,6 +400,191 @@ def golden_lines() -> tuple[bool, str]:
     return not missing, f"{len(GOLDEN) + 1} literal lines found" if not missing else f"not found: {missing}"
 
 
+# ------------------------------------------------------------------ the whole tree, in the scan
+
+TARGET = "docs/notes/t.md"
+SOURCE = "docs/notes/s.md"
+TARGET_TEXT = note('# Target\n\n<a id="k1"></a>\n## First Section\n\n## Second {#custom}\n', "note-t")
+
+
+def source(line: str) -> str:
+    return note(body(line), "note-s")
+
+
+def tree_scan(
+    line: str, patch: dict[str, object] | None = None, more: dict[str, str] | None = None
+) -> Result:
+    return scan_of({TARGET: TARGET_TEXT, SOURCE: source(line), **(more or {})}, patch)
+
+
+def red_green(red: Result, finding: Finding, green: Result) -> tuple[bool, str]:
+    return all_of(
+        [expect(red, 2, finding.render(), "stdout"), expect(green, 0, "GREEN: ", "stdout")],
+        f"red → {finding.key}: {finding.headline}; green after the fix",
+    )
+
+
+def broken_reference() -> tuple[bool, str]:
+    finding = messages.r5_no_target(SOURCE, LINE, "gone.md")
+    return red_green(tree_scan("See [x](gone.md)."), finding, tree_scan("See [x](t.md)."))
+
+
+def moved_anchor() -> tuple[bool, str]:
+    """The anchor a link cites is taken out of the target: red; put back: green."""
+    finding = messages.r6_no_anchor(SOURCE, LINE, "t.md#k1", "k1", TARGET, None)
+    moved = {TARGET: TARGET_TEXT.replace('<a id="k1"></a>\n', ""), SOURCE: source("See [x](t.md#k1).")}
+    return red_green(scan_of(moved), finding, tree_scan("See [x](t.md#k1)."))
+
+
+def heading_anchors() -> tuple[bool, str]:
+    by_name = messages.r7_heading_anchor(SOURCE, LINE, "t.md#first-section", TARGET)
+    by_key = messages.r7_heading_anchor(SOURCE, LINE, "t.md#custom", TARGET)
+    own_heading = messages.r7_heading_anchor(SOURCE, LINE, "#fixture", SOURCE)
+    allowed = own(heading_anchors="allow")
+    return all_of(
+        [
+            red_green(tree_scan("See [x](t.md#first-section)."), by_name, tree_scan("See [x](t.md#k1).")),
+            expect(tree_scan("See [x](t.md#custom)."), 2, by_key.render(), "stdout"),
+            expect(tree_scan("See [x](#fixture)."), 2, own_heading.render(), "stdout"),
+            expect(
+                tree_scan("See [x](t.md#first-section) and [y](t.md#custom).", allowed),
+                0,
+                "GREEN: ",
+                "stdout",
+            ),
+        ],
+        "a generated name, a {#key} and the own heading are red; an explicit anchor and allow pass",
+    )
+
+
+def anchor_shown_in_code_is_none() -> tuple[bool, str]:
+    """An anchor inside a fence is an example: the link beside it still goes through the heading."""
+    shown = note('# Target\n\n## Shown\n\n```html\n<a id="shown"></a>\n```\n', "note-t")
+    finding = messages.r7_heading_anchor(SOURCE, LINE, "t.md#shown", TARGET)
+    return expect(
+        scan_of({TARGET: shown, SOURCE: source("See [x](t.md#shown).")}), 2, finding.render(), "stdout"
+    )
+
+
+def anchor_case_counts() -> tuple[bool, str]:
+    finding = messages.r6_no_anchor(SOURCE, LINE, "t.md#K1", "K1", TARGET, "k1")
+    allowed = tree_scan("See [x](t.md#K1).", own(heading_anchors="allow"))
+    return all_of(
+        [
+            expect(tree_scan("See [x](t.md#K1)."), 2, finding.render(), "stdout"),
+            expect(allowed, 2, finding.headline, "stdout"),
+        ],
+        "the link checker passes it, a forge does not: red, and not switched off by heading_anchors",
+    )
+
+
+def uncovered_targets() -> tuple[bool, str]:
+    """Coverage decides whose links are judged: a link into an uncovered file must resolve, and
+    which kind of anchor resolved it there is not this gate's to say."""
+    only_source = own(territories=["*.md", "!" + TARGET])
+    gone = messages.r5_no_target(SOURCE, LINE, "gone.md")
+    return all_of(
+        [
+            expect(
+                tree_scan("See [x](t.md#first-section).", only_source),
+                0,
+                "4 document(s) and 1 link(s) examined, 5 Markdown",
+                "stdout",
+            ),
+            expect(tree_scan("See [x](gone.md).", only_source), 2, gone.render(), "stdout"),
+        ],
+        "a heading link into an uncovered target passes; a missing target is red all the same",
+    )
+
+
+def owned_invocation() -> tuple[bool, str]:
+    """Files by which a repository steers its own lychee change nothing here."""
+    finding = messages.r5_no_target(SOURCE, LINE, "gone.md")
+    stray = {"lychee.toml": 'exclude_path = ["docs"]\n', ".lycheeignore": "gone.md\n"}
+    steered = tree_scan("See [x](gone.md).", more=stray)
+    return expect(steered, 2, finding.render(), "stdout")
+
+
+def links_in_code_are_not_checked() -> tuple[bool, str]:
+    return expect(tree_scan("Shown: `[x](gone.md)`.\n\n```md\n[y](gone.md#a)\n```"), 0, "GREEN: ", "stdout")
+
+
+def path_with(lychee_script: str | None) -> dict[str, str]:
+    """A PATH holding python3, git and dirname, and the given script as lychee — or none at all."""
+    directory = H.scratch_dir()
+    for tool in ("python3", "git", "dirname"):
+        found = os.path.realpath(sys.executable) if tool == "python3" else shutil.which(tool)
+        assert found, tool
+        os.symlink(found, directory / tool)
+    if lychee_script is not None:
+        (directory / "lychee").write_text("#!/bin/sh\n" + lychee_script)
+        (directory / "lychee").chmod(0o755)
+    return {"PATH": str(directory)}
+
+
+def scan_with(env: dict[str, str]) -> Result:
+    consumer = H.fresh_consumer()
+    consumer.write(SOURCE, source("See [x](gone.md)."))
+    return H.run_gate("", args=["--scan", str(consumer.root)], env=env)
+
+
+def link_checker_absent() -> tuple[bool, str]:
+    return broken(scan_with(path_with(None)), messages.x1_no_lychee("0.24.2"))
+
+
+def link_checker_unusable() -> tuple[bool, str]:
+    usage = (
+        'case "$1" in --version) echo "lychee 0.24.2";;'
+        ' *) echo "error: unexpected argument" >&2; exit 2;; esac\n'
+    )
+    return all_of(
+        [
+            broken(
+                scan_with(path_with('echo "lychee 0.23.0"\n')),
+                messages.x2_lychee_too_old("0.24.2", "lychee 0.23.0"),
+            ),
+            broken(scan_with(path_with("exit 0\n")), messages.x2_lychee_too_old("0.24.2", "")),
+            broken(
+                scan_with(path_with(usage)), messages.x3_no_report("exit 2", "error: unexpected argument")
+            ),
+        ],
+        "below the floor, a version nobody can read, and exit 2 with no report: each exit 1, never a finding",
+    )
+
+
+GOLDEN_TREE = {
+    "R5": f"RED: {SOURCE}:9: link target gone.md does not exist",
+    "R5 fix": "  fix: correct the path; if the target was deleted, remove the link and state here what it"
+    " was cited for",
+    "R6": f"RED: {SOURCE}:9: t.md#nope has no anchor 'nope'",
+    "R6 fix": f'  fix: cite an anchor the target carries, or add <a id="nope"></a> on its own line before the'
+    f" cited place in {TARGET}",
+    "R6 case": f"RED: {SOURCE}:9: t.md#K1 has no anchor 'K1' (it has 'k1': an anchor's case counts)",
+    "R6 case fix": "  fix: cite 'k1' as it is written",
+    "R7": f"RED: {SOURCE}:9: t.md#first-section resolves only through a heading — its generated name, or a"
+    f" {{#key}} written after it — not through an anchor written in {TARGET}",
+    "R7 fix": '  fix: add <a id="<short fixed key>"></a> on its own line before that heading in'
+    f" {TARGET} and cite the key; a repository whose links go through headings sets const-referencing:"
+    " {heading_anchors: allow} in constitution.yaml until they are converted",
+}
+
+
+def golden_tree_lines() -> tuple[bool, str]:
+    out = tree_scan("See [a](gone.md), [b](t.md#nope), [c](t.md#K1) and [d](t.md#first-section).").stdout
+    missing = [key for key, line in GOLDEN_TREE.items() if line not in out]
+    absent = scan_with(path_with(None)).stderr
+    x1 = (
+        "BROKEN: const-referencing needs lychee 0.24.2 or newer and found none on PATH — fix: install it"
+        " (https://lychee.cli.rs/installation/), then run the scan"
+    )
+    if x1 not in absent:
+        missing.append("X1")
+    return (
+        not missing,
+        f"{len(GOLDEN_TREE) + 1} literal lines found" if not missing else f"not found: {missing}",
+    )
+
+
 ASSERTIONS = [
     Assertion(
         10,
@@ -448,6 +637,33 @@ ASSERTIONS = [
     Assertion(
         27, "golden lines: the taught texts as literals, not as the functions return them", golden_lines
     ),
+    Assertion(
+        30, "R5, the specification's first: a broken reference is red, repaired it is green", broken_reference
+    ),
+    Assertion(
+        31, "R6, the specification's second: a moved anchor is red, put back it is green", moved_anchor
+    ),
+    Assertion(
+        32, "R7: a generated name, a {#key}, the own heading; an explicit anchor; allow", heading_anchors
+    ),
+    Assertion(
+        33, "R6: an anchor cited in another case is red, whatever heading_anchors says", anchor_case_counts
+    ),
+    Assertion(34, "coverage decides whose links are judged, not which targets must exist", uncovered_targets),
+    Assertion(35, "a lychee.toml and a .lycheeignore in the repository change nothing", owned_invocation),
+    Assertion(36, "links inside code are not checked", links_in_code_are_not_checked),
+    Assertion(
+        37,
+        "absence: no lychee on PATH is a configuration failure with the install address",
+        link_checker_absent,
+    ),
+    Assertion(
+        38,
+        "a lychee below the floor, one with no version, one that exits 2 with no report",
+        link_checker_unusable,
+    ),
+    Assertion(39, "golden lines of the whole-tree findings, typed by hand", golden_tree_lines),
+    Assertion(40, "an anchor shown inside code is no anchor", anchor_shown_in_code_is_none),
 ]
 
 SUBJECT = Subject(

@@ -16,6 +16,17 @@ class Key(StrEnum):
     R2 = "R2"  # a governed id in backticks that is no link
     R3 = "R3"  # a link whose text is a governed id and whose target is another file
     R4 = "R4"  # a path on one machine
+    R5 = "R5"  # a link whose target does not exist
+    R6 = "R6"  # a link whose target carries no such anchor
+    R7 = "R7"  # a link that resolves only through a heading's generated name
+
+
+class ToolKey(StrEnum):
+    """Stable handles of this module's own configuration failures: the link checker."""
+
+    X1 = "X1"  # not installed
+    X2 = "X2"  # below the floor
+    X3 = "X3"  # gave no report
 
 
 class Switch(StrEnum):
@@ -40,6 +51,7 @@ class Lane:
 class ReferencingDials:
     territories: tuple[str, ...]
     bare_ids: Switch
+    heading_anchors: Switch
     lanes: tuple[Lane, ...]
 
 

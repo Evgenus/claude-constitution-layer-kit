@@ -14,7 +14,7 @@ from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import Key
+from .model import Key, ToolKey
 
 _LANE = "{pattern: <regular expression>, names: <what the form cites>, fix: <the link form to write>}"
 
@@ -69,6 +69,96 @@ def r4_one_machine(rel: str, line: int, match: str) -> Finding:
         "it resolves on the machine it was written on and nowhere else",
         "link a file of this repository by its relative path, or cite the public address the fact was"
         " verified at, or drop the reference",
+    )
+
+
+# ---------------------------------------------------------------- findings: the whole tree
+
+_WHY_BROKEN = (
+    "a reference that does not resolve fails the reader exactly when they need it, and nobody else sees it"
+)
+
+
+def r5_no_target(rel: str, line: int, destination: str) -> Finding:
+    return Finding(
+        Key.R5,
+        f"{rel}:{line}: link target {shown(destination)} does not exist",
+        _WHY_BROKEN,
+        "correct the path; if the target was deleted, remove the link and state here what it was cited for",
+    )
+
+
+def r5_unresolved(rel: str, line: int, destination: str, words: str) -> Finding:
+    """A break the link checker reports in words this module has no text of its own for."""
+    return Finding(
+        Key.R5,
+        f"{rel}:{line}: link target {shown(destination)} does not resolve: {shown(words)}",
+        _WHY_BROKEN,
+        "correct the link so that it names a file of this repository by its relative path",
+    )
+
+
+def r6_no_anchor(
+    rel: str, line: int, destination: str, fragment: str, target: str, other_case: str | None
+) -> Finding:
+    hint = f" (it has '{other_case}': an anchor's case counts)" if other_case is not None else ""
+    fix = (
+        f"cite '{other_case}' as it is written"
+        if other_case is not None
+        else f'cite an anchor the target carries, or add <a id="{shown(fragment)}"></a> on its own line'
+        f" before the cited place in {target}"
+    )
+    return Finding(
+        Key.R6,
+        f"{rel}:{line}: {shown(destination)} has no anchor '{shown(fragment)}'{hint}",
+        _WHY_BROKEN,
+        fix,
+    )
+
+
+def r7_heading_anchor(rel: str, line: int, destination: str, target: str) -> Finding:
+    return Finding(
+        Key.R7,
+        f"{rel}:{line}: {shown(destination)} resolves only through a heading — its generated name, or a"
+        f" {{#key}} written after it — not through an anchor written in {target}",
+        "a generated name changes when the heading is reworded, and every link through it breaks unseen",
+        f'add <a id="<short fixed key>"></a> on its own line before that heading in {target} and cite the'
+        f" key; a repository whose links go through headings sets {_ns()}: {{heading_anchors: allow}} in"
+        f" {DIALS_FILE} until they are converted",
+    )
+
+
+# ---------------------------------------------------------------- the link checker cannot be used
+
+_INSTALL = "https://lychee.cli.rs/installation/"
+
+
+def x1_no_lychee(floor: str) -> Broken:
+    return Broken(
+        ToolKey.X1,
+        f"{_ns()} needs lychee {floor} or newer and found none on PATH",
+        f"install it ({_INSTALL}), then run the scan — until then no reference is checked for resolving",
+    )
+
+
+def x2_lychee_too_old(floor: str, said: str) -> Broken:
+    found = f"found '{shown(said)}'" if said else "its version could not be read"
+    return Broken(
+        ToolKey.X2,
+        f"{_ns()} needs lychee {floor} or newer, {found}",
+        f"install a current one ({_INSTALL}), then run the scan — until then no reference is checked for"
+        " resolving",
+    )
+
+
+def x3_no_report(what: str, first_line: str) -> Broken:
+    said = f" ({shown(first_line)})" if first_line else ""
+    return Broken(
+        ToolKey.X3,
+        f"lychee gave no report: {what}{said}",
+        "this is a defect of the gate's invocation or of the installed lychee, not of the repository; run"
+        " lychee --version and report both to whoever maintains the plugin — until then no reference is"
+        " checked for resolving",
     )
 
 

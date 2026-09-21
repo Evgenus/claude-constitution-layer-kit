@@ -19,7 +19,7 @@ from const_gate.repository import list_markdown, read_text
 from const_gate.territory import Matcher
 
 from . import dials as own_dials
-from . import lint, messages
+from . import lint, messages, tree
 from .model import Ids, Lane, ReferencingDials, Switch
 
 
@@ -53,11 +53,12 @@ def scan_mode(output: Output, start: Path) -> int:
         lanes = _lanes_abroad(matcher, dials, covered)
     texts = {path: _text(target.root, path) for path in covered}
     ids = _ids(texts)
+    in_tree = tree.examine(target.root, texts, dials.heading_anchors)
     findings: list[Finding] = []
     links = 0
     for rel in covered:
         found, count = _examine(rel, texts, ids, lanes[rel], dials)
-        findings += found
+        findings += [*found, *in_tree.get(rel, [])]
         links += count
     tail = messages.f9_scan_tail(len(covered), links, len(paths), len(dials.lanes))
     return pipeline.report_scan(output, findings, (), tail)

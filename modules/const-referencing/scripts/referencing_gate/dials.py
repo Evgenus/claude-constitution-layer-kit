@@ -20,7 +20,9 @@ def parse(own: Mapping[str, object]) -> ReferencingDials:
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
     refuse_unreadable_patterns(f"{identity.current().namespace}.territories", territories)
-    return ReferencingDials(territories, _switch(own, "bare_ids"), _lanes(own.get("lanes")))
+    return ReferencingDials(
+        territories, _switch(own, "bare_ids"), _switch(own, "heading_anchors"), _lanes(own.get("lanes"))
+    )
 
 
 def _switch(own: Mapping[str, object], dial: str) -> Switch:

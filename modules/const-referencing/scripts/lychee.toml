@@ -1,0 +1,3 @@
+# const-referencing: the configuration handed to lychee by the gate, empty on purpose.
+# The gate names every option on its command line; this file exists so that a configuration
+# file in the checked repository is never loaded in its place.
