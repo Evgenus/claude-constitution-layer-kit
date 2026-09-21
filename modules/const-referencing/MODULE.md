@@ -208,7 +208,7 @@ The lint, resolution and R7 are deterministic; the fixtures are their pairs. The
 <a id="t11"></a>
 ## 11. Siblings
 
-**Depends on:** [kernel §1](../../kernel/CONVENTIONS.md#k1) (the envelope's `id`), [§3](../../kernel/CONVENTIONS.md#k3) (territories; policies only under `governed_only`), [§6](../../kernel/CONVENTIONS.md#k6) (the dials file). **Kernel alone:** on a bare repository with no dials file every Markdown file is covered, R2–R7 run, and the move acts work; a repository with no envelopes has no ids, so R2 and R3 find nothing, and say nothing.
+**Depends on:** [kernel §1](../../kernel/CONVENTIONS.md#k1) (the envelope's `id`), [§3](../../kernel/CONVENTIONS.md#k3) (territories; policies only under `governed_only`), [§6](../../kernel/CONVENTIONS.md#k6) (the dials file). **Kernel alone:** in a repository whose dials file says nothing about this module every Markdown file is covered, R2–R7 run, and the move acts work — with no dials file at all the run is the visible skip every gate makes, naming the file to create; a repository with no envelopes has no ids, so R2 and R3 find nothing, and say nothing.
 
 - When module `const-catalogs` is installed, renumbering an item is a move: its skill's rename step is this module's move act.
 - When module `const-decision-records` is installed, the links to a record about to be deleted are what the scan reports after the deletion.

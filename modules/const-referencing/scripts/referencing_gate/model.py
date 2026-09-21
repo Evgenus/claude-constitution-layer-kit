@@ -1,0 +1,74 @@
+"""This module's own structures: its dials, a lane, a link, the keys of its findings."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from enum import StrEnum
+
+DEFAULT_TERRITORIES = ("*.md",)
+
+
+class Key(StrEnum):
+    """Stable handles of this module's findings."""
+
+    R1 = "R1"  # a project's bare form, declared as a lane
+    R2 = "R2"  # a governed id in backticks that is no link
+    R3 = "R3"  # a link whose text is a governed id and whose target is another file
+    R4 = "R4"  # a path on one machine
+
+
+class Switch(StrEnum):
+    """A check that a project may switch off."""
+
+    REFUSE = "refuse"
+    ALLOW = "allow"
+
+
+@dataclass(frozen=True, slots=True)
+class Lane:
+    """A bare form of the project's own: how it looks, what it cites, what to write instead,
+    and the documents where it is the local alias."""
+
+    pattern: re.Pattern[str]
+    names: str
+    fix: str
+    home: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ReferencingDials:
+    territories: tuple[str, ...]
+    bare_ids: Switch
+    lanes: tuple[Lane, ...]
+
+
+class LinkKind(StrEnum):
+    INLINE = "inline"  # [text](destination), an image included
+    DEFINITION = "definition"  # [label]: destination
+    HREF = "href"  # <a href="destination">
+
+
+@dataclass(frozen=True, slots=True)
+class Link:
+    """One link of a document. `start` and `end` bound the whole link in the text, `at` and
+    `until` its destination alone — what a repair rewrites."""
+
+    kind: LinkKind
+    text: str
+    destination: str
+    start: int
+    end: int
+    at: int
+    until: int
+
+
+@dataclass(frozen=True, slots=True)
+class Ids:
+    """The ids the covered documents carry, each with the paths of the documents carrying it —
+    one, unless the repository is wrong in a way another gate reports."""
+
+    owners: dict[str, tuple[str, ...]]
+
+    def owners_of(self, doc_id: str) -> tuple[str, ...]:
+        return self.owners.get(doc_id, ())
