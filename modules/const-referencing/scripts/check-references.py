@@ -15,9 +15,11 @@ Modes:    no arguments  read one event on stdin. Before the write: reconstruct t
 Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
           .new_string, .replace_all, cwd, session_id. From constitution.yaml: this module's
           dials const-referencing.territories (path patterns; default every Markdown file),
+          .governed_only (true | false; true reads the policies too, and needs root_policy),
+          .mentions (a list of {pattern, files}; scan only),
           .bare_ids and .heading_anchors (refuse | allow), .lanes (a list of {pattern, names, fix, home}),
           .severity (block | warn) and .log_dir; the file as a whole is validated as every
-          gate does. No policy is read.
+          gate does. No policy is read unless governed_only asks for it.
 The check: outside the YAML block that opens the file, code, HTML comments and links, a
           covered document cites nothing by a bare form a lane declares; a covered document's
           id does not stand in backticks outside a link; a link whose text is a covered
@@ -27,7 +29,9 @@ The check: outside the YAML block that opens the file, code, HTML comments and l
           generated name, unless heading_anchors allows it. Resolution is asked of lychee,
           0.24.2 or newer, which the gate finds on PATH and starts outside the repository
           with its own configuration; a missing, older or silent lychee is exit 1. The ids
-          are those of the covered documents' envelopes, read at each run.
+          are those of the covered documents' envelopes, read at each run. In the scan, where
+          mentions declares how an id looks outside Markdown, every such name in a file git
+          lists — no Markdown, no link, not binary — is the id of a covered document.
 Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — before the write this blocks it; after the write nothing can be
             blocked, and exit 2 carries the finding to the model as an error. With severity

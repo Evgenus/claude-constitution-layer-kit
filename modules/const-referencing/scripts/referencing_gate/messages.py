@@ -16,6 +16,7 @@ from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import Key, ToolKey
 
+_MENTION = "{pattern: <regular expression whose whole match is a document's id>}"
 _LANE = "{pattern: <regular expression>, names: <what the form cites>, fix: <the link form to write>}"
 
 
@@ -128,6 +129,16 @@ def r7_heading_anchor(rel: str, line: int, destination: str, target: str) -> Fin
     )
 
 
+def r8_unknown_mention(rel: str, line: int, match: str) -> Finding:
+    return Finding(
+        Key.R8,
+        f"{rel}:{line}: '{shown(match)}' names a document no covered document carries as its id",
+        "outside Markdown no link checker follows a name, so it dangles unseen once the document is"
+        " renamed or deleted",
+        "correct the name, or drop the mention and state the rule in words",
+    )
+
+
 # ---------------------------------------------------------------- the link checker cannot be used
 
 _INSTALL = "https://lychee.cli.rs/installation/"
@@ -189,11 +200,12 @@ def c12_event(name: str) -> Broken:
     )
 
 
-def f9_scan_tail(documents: int, links: int, scanned: int, lanes: int) -> str:
-    return (
+def f9_scan_tail(documents: int, links: int, scanned: int, lanes: int, mentions: int, files: int) -> str:
+    tail = (
         f"{documents} document(s) and {links} link(s) examined, {scanned} Markdown file(s) scanned,"
         f" {lanes} lane(s)"
     )
+    return tail + (f", {mentions} mention pattern(s) over {files} other file(s)" if mentions else "")
 
 
 # ---------------------------------------------------------------- this module's dial failures
@@ -216,6 +228,39 @@ def c5_switch(dial: str) -> Broken:
         f"{_ns()}.{dial} must be refuse or allow",
         f"write {dial}: allow, or remove the key: refuse is the default",
     )
+
+
+def c5_governed_only() -> Broken:
+    return _c5(
+        f"{_ns()}.governed_only must be true or false",
+        "write governed_only: true to cover only documents a policy governs, or remove the key",
+    )
+
+
+def c5_mentions_not_a_list() -> Broken:
+    return _c5(
+        f"{_ns()}.mentions must be a list of mention patterns",
+        f"write it as {_ns()}: {{mentions: [{_MENTION}]}}, or remove the key",
+    )
+
+
+def c5_mention(position: int, what: str) -> Broken:
+    return _c5(
+        f"entry {position} of {_ns()}.mentions {what}",
+        f"write the entry as {_MENTION}; files: [<patterns>] is optional",
+    )
+
+
+def mention_not_a_mapping() -> str:
+    return "is not a mapping of pattern and files"
+
+
+def mention_unknown_key(key: str) -> str:
+    return f"carries the key '{shown(key)}'; a mention holds pattern and files, and nothing else"
+
+
+def mention_files() -> str:
+    return "has files that is not a list of path patterns"
 
 
 def c5_lanes_not_a_list() -> Broken:

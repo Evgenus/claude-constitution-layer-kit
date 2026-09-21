@@ -19,6 +19,7 @@ class Key(StrEnum):
     R5 = "R5"  # a link whose target does not exist
     R6 = "R6"  # a link whose target carries no such anchor
     R7 = "R7"  # a link that resolves only through a heading's generated name
+    R8 = "R8"  # outside Markdown, a name of the form of an id that no covered document carries
 
 
 class ToolKey(StrEnum):
@@ -48,11 +49,21 @@ class Lane:
 
 
 @dataclass(frozen=True, slots=True)
+class Mention:
+    """How a document's id looks where it is named outside Markdown, and in which files."""
+
+    pattern: re.Pattern[str]
+    files: tuple[str, ...]  # empty: every file git lists that is no Markdown
+
+
+@dataclass(frozen=True, slots=True)
 class ReferencingDials:
     territories: tuple[str, ...]
+    governed_only: bool
     bare_ids: Switch
     heading_anchors: Switch
     lanes: tuple[Lane, ...]
+    mentions: tuple[Mention, ...]
 
 
 class LinkKind(StrEnum):

@@ -307,14 +307,14 @@ def scan_reports_all() -> tuple[bool, str]:
     files = {DOC: note(body("See REQ-7.")), "docs/notes/b.md": note(body(f"See `{OWNER_ID}`."), "note-b")}
     red = scan_of(files, LANES)
     second = messages.r2_bare_id("docs/notes/b.md", LINE, OWNER_ID, OWNER, "../policies/notes-policy.md")
-    tail = messages.f9_scan_tail(5, 0, 5, 1)
+    tail = messages.f9_scan_tail(5, 0, 5, 1, 0, 0)
     green = scan_of({DOC: VALID.text}, LANES)
     return all_of(
         [
             expect(red, 2, r1().render(), "stdout"),
             expect(red, 2, second.render(), "stdout"),
             expect(red, 2, shared.f9_count_scan(2, tail), "stdout"),
-            expect(green, 0, shared.g1_green_scan(messages.f9_scan_tail(4, 2, 4, 1)), "stdout"),
+            expect(green, 0, shared.g1_green_scan(messages.f9_scan_tail(4, 2, 4, 1, 0, 0)), "stdout"),
         ],
         "two documents red with the count tail; green names documents, links and lanes",
     )
@@ -551,6 +551,84 @@ def link_checker_unusable() -> tuple[bool, str]:
         ],
         "below the floor, a version nobody can read, and exit 2 with no report: each exit 1, never a finding",
     )
+
+
+# ------------------------------------------------------------------ coverage, and names outside Markdown
+
+MENTION = {"pattern": r"\bnote-[a-z]+\b"}
+LOOSE = "docs/loose/l.md"  # no policy of the shared consumer governs docs/loose/
+
+
+def governed_only() -> tuple[bool, str]:
+    """Under governed_only a document no policy governs is not covered."""
+    files = {LOOSE: note(body("See [x](gone.md)."), "note-l"), SOURCE: source("See [x](gone.md).")}
+    only = own(governed_only=True)
+    governed = scan_of(files, only)
+    loose_write = gate_on(Write(LOOSE, note(body(f"See `{OWNER_ID}`."), "note-l")), only)[0]
+    skipped = shared.g1_green_skip(messages.g1_skip_not_covered(LOOSE))
+    return all_of(
+        [
+            expect(governed, 2, messages.r5_no_target(SOURCE, LINE, "gone.md").headline, "stdout"),
+            expect(governed, 2, "1 finding(s)", "stdout"),
+            expect(scan_of(files), 2, "2 finding(s)", "stdout"),
+            expect(loose_write, 0, skipped, "stdout"),
+            expect(gate_on(wrote(body(f"See `{OWNER_ID}`.")), only)[0], 2, R2.render(), "stderr"),
+        ],
+        "the ungoverned document is left out of the scan and skipped at the write; the governed is judged",
+    )
+
+
+def governed_only_without_root() -> tuple[bool, str]:
+    result, _ = gate_on(VALID, raw_dials=yaml.safe_dump({NAMESPACE: {"governed_only": True}}))
+    default, _ = gate_on(VALID, raw_dials="{}\n")
+    return all_of(
+        [
+            expect(result, 0, shared.g1_green_skip(shared.g1_skip_no_root()), "stdout"),
+            expect(default, 0, messages.g1_covered(), "stdout"),
+        ],
+        "governed_only with no root policy is the shared visible skip; by default none is needed",
+    )
+
+
+def mentions_outside_markdown() -> tuple[bool, str]:
+    files = {
+        SOURCE: source("x"),
+        "tools/check.sh": "# see note-s and note-gone\necho note-s\n",
+        "tools/blob.bin": "note-zz\0",
+    }
+    finding = messages.r8_unknown_mention("tools/check.sh", 1, "note-gone")
+    red = scan_of(files, own(mentions=[MENTION]))
+    fixed = scan_of({**files, "tools/check.sh": "# see note-s\n"}, own(mentions=[MENTION]))
+    elsewhere = scan_of(files, own(mentions=[{**MENTION, "files": ["src/**"]}]))
+    return all_of(
+        [
+            expect(red, 2, finding.render(), "stdout"),
+            expect(red, 2, "1 finding(s)", "stdout"),
+            expect(fixed, 0, "1 mention pattern(s) over ", "stdout"),
+            expect(scan_of(files), 0, "GREEN: ", "stdout"),
+            expect(elsewhere, 0, "GREEN: ", "stdout"),
+        ],
+        "an unknown name is red, a known one and a binary file pass; off by default; files narrows it",
+    )
+
+
+def mention_dial_failures() -> tuple[bool, str]:
+    unclosed = messages.lane_pattern("missing ), unterminated subpattern at position 5")
+    wrong: list[tuple[dict[str, object], Broken]] = [
+        (own(governed_only="yes"), messages.c5_governed_only()),
+        (own(heading_anchors="sometimes"), messages.c5_switch("heading_anchors")),
+        (own(mentions={"pattern": "x"}), messages.c5_mentions_not_a_list()),
+        (own(mentions=["note"]), messages.c5_mention(1, messages.mention_not_a_mapping())),
+        (
+            own(mentions=[{**MENTION, "names": "x"}]),
+            messages.c5_mention(1, messages.mention_unknown_key("names")),
+        ),
+        (own(mentions=[{"files": ["src/**"]}]), messages.c5_mention(1, messages.lane_needs("pattern"))),
+        (own(mentions=[{**MENTION, "files": "src"}]), messages.c5_mention(1, messages.mention_files())),
+        (own(mentions=[{"pattern": "note-("}]), messages.c5_mention(1, unclosed)),
+    ]
+    results = [broken(gate_on(VALID, dials_patch=patch)[0], failure) for patch, failure in wrong]
+    return all_of(results, f"{len(wrong)} malformed dials, each exit 1")
 
 
 # ------------------------------------------------------------------ after the write
@@ -813,6 +891,18 @@ ASSERTIONS = [
     Assertion(58, "an event the gate is not wired to is a configuration failure", unknown_event),
     Assertion(
         59, "absence after the write: no lychee is exit 1 with the install address", lychee_absent_after_write
+    ),
+    Assertion(41, "governed_only: a document no policy governs is not covered", governed_only),
+    Assertion(42, "governed_only needs a root policy; the default needs none", governed_only_without_root),
+    Assertion(
+        43,
+        "R8: a name outside Markdown no covered document carries; off by default",
+        mentions_outside_markdown,
+    ),
+    Assertion(
+        44,
+        "the dial failures of governed_only, heading_anchors and mentions are exit 1",
+        mention_dial_failures,
     ),
 ]
 
