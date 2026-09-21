@@ -52,6 +52,13 @@ before=$(git rev-parse HEAD)
 expect 128 "a revert on main is refused (git's own exit)"   git revert --no-edit HEAD^2
 expect 0 "the taught fix works: the staged revert goes to a branch" sh -c 'git switch -q -c work/three && git commit -q -m "revert, on a branch" && git switch -q main'
 expect 0 "and main has not moved"                         test "$(git rev-parse HEAD)" = "$before"
+expect 128 "a revert of several commits on main is refused"  git revert --no-edit work/one work/one~1
+cp "$tmp/out" "$tmp/msg"
+expect 0 "and is told to abort first"                     grep -q 'fix: git revert --abort' "$tmp/msg"
+expect 0 "the taught fix works: abort, then the branch"   sh -c 'git revert --abort && git switch -q -c work/four && git switch -q main'
+chmod -x scripts/git-hooks/prepare-commit-msg
+expect 2 "a hook that is not executable makes the clone red" sh scripts/setup-clone.sh --check
+chmod +x scripts/git-hooks/prepare-commit-msg
 git switch -q --detach
 expect 0 "a detached HEAD is not main"                    git commit -q --allow-empty -m "detached"
 

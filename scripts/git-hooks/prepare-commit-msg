@@ -17,8 +17,11 @@ git rev-parse --quiet --verify MERGE_HEAD >/dev/null && exit 0   # a merge into 
 if git rev-parse --quiet --verify CHERRY_PICK_HEAD >/dev/null; then
     # git will not switch branches in the middle of a cherry-pick
     fix="git cherry-pick --abort   — then git switch -c work/<name> and repeat the cherry-pick there"
+elif git rev-parse --quiet --verify REVERT_HEAD >/dev/null || [ -d "$(git rev-parse --git-path sequencer)" ]; then
+    # a revert of several commits, or one being concluded after a conflict: git will not switch in the middle of it
+    fix="git revert --abort   — then git switch -c work/<name> and repeat the revert there"
 else
-    # a plain commit and a refused revert both leave their changes staged, and the switch takes them along
+    # a plain commit and a refused revert of one commit both leave their changes staged, and the switch takes them along
     fix="git switch -c work/<name>   — the staged changes come along; commit there. If this was an amend: the commit is on $protected already — leave it, and make the correction a new commit on the branch"
 fi
 
