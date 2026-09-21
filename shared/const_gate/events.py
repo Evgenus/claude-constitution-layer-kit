@@ -1,7 +1,8 @@
 """The hook payload, parsed once into a typed event, and the document a write would produce.
 
 A pre-write gate judges the document that will exist, not the one that does: for a Write
-that is the content field; for an Edit it is the edit applied to the file on disk.
+that is the content field; for an Edit it is the edit applied to the file on disk. After the
+write the document is the file on disk, and nothing is reconstructed.
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ def read_event(stream: TextIO) -> ToolEvent:
             if not isinstance(fields.get(name), str) or (name == "file_path" and not fields.get(name)):
                 raise ConfigurationFailure(messages.c12_input(messages.detail_tool_input(tool.value, name)))
     return ToolEvent(
+        event_name=_text(loaded.get("hook_event_name")) or "",
         tool=tool,
         tool_name=tool_name,
         file_path=_text(fields.get("file_path")) or "",

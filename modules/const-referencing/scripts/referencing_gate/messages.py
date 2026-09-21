@@ -173,6 +173,22 @@ def g1_skip_not_covered(rel: str) -> str:
     return f"{rel} is not covered ({_ns()}.territories)"
 
 
+def f9_after_write(rel: str, links: int, findings: int, shown_first: int | None) -> str:
+    """The count line of the check after a write: the whole tree is examined, and the findings
+    that involve the written document are reported — all, or the first so many."""
+    cut = f" — the first {shown_first} shown" if shown_first is not None else ""
+    return f"{links} link(s) of the whole tree examined, {findings} finding(s) involve {rel}{cut}"
+
+
+def c12_event(name: str) -> Broken:
+    return Broken(
+        SharedKey.C12,
+        f"hook input names the event '{shown(name)}', which this gate is not wired to",
+        "wire the gate to PreToolUse and PostToolUse on Write|Edit, as the plugin's hooks file does; to"
+        " check a repository by hand run it with --scan [<dir>]",
+    )
+
+
 def f9_scan_tail(documents: int, links: int, scanned: int, lanes: int) -> str:
     return (
         f"{documents} document(s) and {links} link(s) examined, {scanned} Markdown file(s) scanned,"

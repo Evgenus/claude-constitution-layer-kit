@@ -67,7 +67,9 @@ class Assertion:
     check: Callable[[], tuple[bool, str]]
 
 
-def event_json(repo: Path, action: Write | Edit, session: str = "fixture-session") -> str:
+def event_json(
+    repo: Path, action: Write | Edit, session: str = "fixture-session", event: str = "PreToolUse"
+) -> str:
     tool_input: dict[str, object] = {"file_path": str(repo / action.target)}
     if isinstance(action, Write):
         tool_input["content"] = action.text
@@ -77,7 +79,7 @@ def event_json(repo: Path, action: Write | Edit, session: str = "fixture-session
         )
     return json.dumps(
         {
-            "hook_event_name": "PreToolUse",
+            "hook_event_name": event,
             "session_id": session,
             "cwd": str(repo),
             "tool_name": type(action).__name__,

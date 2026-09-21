@@ -185,7 +185,7 @@ The lint, resolution and R7 are deterministic; the fixtures are their pairs. The
 <a id="t10"></a>
 ## 10. Acceptance
 
-**Draft: the runner exists — `python3 tests/run.py`, 78 items green — for the lint (cases 1–5, items 10–28) and for the whole-tree check in the scan (items 30–40), with the shared items from 101; the post-write handler, `mentions`, `governed_only` and the mover have none yet.** Each group was probed with mutants on a copy made with links followed, and each mutant was seen to be caught by a named item; one that survived — anchors read inside code — earned item 40. The plan for the rest, and the shape all follow — golden literal lines for every finding's first line and every fix variant, never text built by the message functions; a fake `lychee` and a fake `git` that note their calls in a file; every taught fix *followed* in the fixture, not only matched:
+**Draft: the runner exists — `python3 tests/run.py`, 88 items green — for the lint (cases 1–5, items 10–28), the whole-tree check in the scan (items 30–40) and the handler after the write, driven by real `PostToolUse` events against files on disk (items 50–59), with the shared items from 101; `mentions`, `governed_only` and the mover have none yet.** Each group was probed with mutants on a copy made with links followed, and each mutant was seen to be caught by a named item; one that survived — anchors read inside code — earned item 40. The plan for the rest, and the shape all follow — golden literal lines for every finding's first line and every fix variant, never text built by the message functions; a fake `lychee` and a fake `git` that note their calls in a file; every taught fix *followed* in the fixture, not only matched:
 
 | item | kind | what it proves |
 |---|---|---|

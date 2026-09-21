@@ -22,15 +22,20 @@ from .masking import line_of, mask
 from .model import Link, Switch
 
 
-def examine(root: Path, texts: Mapping[str, str], heading_anchors: Switch) -> dict[str, list[Finding]]:
+def examine(
+    root: Path, texts: Mapping[str, str], heading_anchors: Switch, about: str | None = None
+) -> dict[str, list[Finding]]:
     """The findings of each covered document, in reading order. `texts` holds the covered
-    documents as they stand on disk."""
+    documents as they stand on disk. With `about`, only the findings that involve that document:
+    its own links, and other documents' links into it."""
     links = {rel: find_links(text, mask(text)) for rel, text in texts.items()}
     anchors = {rel: explicit_anchors(text) for rel, text in texts.items()}
     found: dict[str, list[tuple[int, Finding]]] = {rel: [] for rel in texts}
     broken: set[tuple[str, str, str | None]] = set()
     for b in lychee.find_breaks(root, sorted(texts)):
         broken.add((b.source, b.target, b.fragment))
+        if about is not None and about not in (b.source, b.target):
+            continue
         found.setdefault(b.source, []).append((b.line, _of_break(b, links.get(b.source, []), texts)))
     for rel, text in texts.items():
         for link in links[rel]:
@@ -39,6 +44,8 @@ def examine(root: Path, texts: Mapping[str, str], heading_anchors: Switch) -> di
                 continue
             if (rel, target, fragment) in broken:
                 continue  # already reported as it is: no such anchor of any kind
+            if about is not None and about not in (rel, target):
+                continue
             line = line_of(text, link.start)
             other_case = next((a for a in sorted(anchors[target]) if a.lower() == fragment.lower()), None)
             if other_case is not None:

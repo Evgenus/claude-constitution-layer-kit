@@ -12,22 +12,32 @@ from const_gate import messages as shared
 from const_gate import pipeline
 from const_gate.envelope import id_of_text
 from const_gate.errors import ConfigurationFailure
-from const_gate.model import Finding
+from const_gate.model import POST_WRITE, PRE_WRITE, Finding
 from const_gate.output import Output
-from const_gate.pipeline import Skip
+from const_gate.pipeline import Skip, WriteTarget
 from const_gate.repository import list_markdown, read_text
 from const_gate.territory import Matcher
 
 from . import dials as own_dials
 from . import lint, messages, tree
+from .links import find_links
+from .masking import mask
 from .model import Ids, Lane, ReferencingDials, Switch
+
+SHOWN_AFTER_WRITE = 20  # findings printed after one write; the count line carries the total
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
+    """Before the write: the forms of the document's references, which can block. After it: the
+    whole tree, which cannot — the findings that involve the written document are feedback."""
     target = pipeline.locate_write(output, stdin)
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
+    if target.event_name not in (PRE_WRITE, POST_WRITE):
+        raise ConfigurationFailure(messages.c12_event(target.event_name))
     dials = own_dials.parse(target.dials.own)
+    if target.event_name == POST_WRITE:
+        return _after_write(output, target, dials)
     rel = target.rel
     paths = sorted({*list_markdown(target.root), rel})
     with Matcher() as matcher:
@@ -40,6 +50,24 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     if findings:
         return pipeline.report_hook(output, findings, (), rel, target.dials.severity)
     return pipeline.green_hook(output, messages.g1_covered())
+
+
+def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -> int:
+    rel = target.rel
+    with Matcher() as matcher:
+        covered = _covered(matcher, dials, list_markdown(target.root))
+    if rel not in covered:
+        return pipeline.skip(output, messages.g1_skip_not_covered(rel))
+    texts = {path: _text(target.root, path) for path in covered}
+    found = tree.examine(target.root, texts, dials.heading_anchors, about=rel)
+    findings = [finding for path in sorted(found) for finding in found[path]]
+    if not findings:
+        return pipeline.green_hook(output, messages.g1_covered())
+    links = sum(len(find_links(text, mask(text))) for text in texts.values())
+    cut = SHOWN_AFTER_WRITE if len(findings) > SHOWN_AFTER_WRITE else None
+    count = "RED: " + messages.f9_after_write(rel, links, len(findings), cut)
+    shown = findings[:SHOWN_AFTER_WRITE]
+    return pipeline.report_hook(output, shown, (), rel, target.dials.severity, POST_WRITE, count)
 
 
 def scan_mode(output: Output, start: Path) -> int:

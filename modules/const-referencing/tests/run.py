@@ -13,6 +13,7 @@ stay free.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import sys
@@ -552,6 +553,131 @@ def link_checker_unusable() -> tuple[bool, str]:
     )
 
 
+# ------------------------------------------------------------------ after the write
+
+AFTER = "PostToolUse"
+
+
+def after_write(
+    written: str, files: dict[str, str], patch: dict[str, object] | None = None, event: str = AFTER
+) -> Result:
+    """The files are on disk, `written` among them, and the event says it was just written."""
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", dials_text(patch))
+    for rel, text in files.items():
+        consumer.write(rel, text)
+    return H.run_gate(event_json(consumer.root, Write(written, files[written]), event=event))
+
+
+def after_count(rel: str, links: int, findings: int, cut: int | None = None) -> str:
+    return "RED: " + messages.f9_after_write(rel, links, findings, cut)
+
+
+def own_links_after_write() -> tuple[bool, str]:
+    files = {TARGET: TARGET_TEXT, SOURCE: source("See [x](gone.md).")}
+    finding = messages.r5_no_target(SOURCE, LINE, "gone.md")
+    fixed = {TARGET: TARGET_TEXT, SOURCE: source("See [x](t.md#k1).")}
+    return all_of(
+        [
+            expect(after_write(SOURCE, files), 2, finding.render(), "stderr"),
+            expect(after_write(SOURCE, files), 2, after_count(SOURCE, 1, 1), "stderr"),
+            expect(after_write(SOURCE, fixed), 0, messages.g1_covered(), "stdout"),
+        ],
+        "the written document's broken link is reported on stderr with exit 2; repaired, green",
+    )
+
+
+def inbound_break_after_write() -> tuple[bool, str]:
+    """The target is written without the anchor another document cites: the break is in the
+    other file, and it is reported in the turn that causes it."""
+    files = {TARGET: TARGET_TEXT.replace('<a id="k1"></a>\n', ""), SOURCE: source("See [x](t.md#k1).")}
+    finding = messages.r6_no_anchor(SOURCE, LINE, "t.md#k1", "k1", TARGET, None)
+    return expect(after_write(TARGET, files), 2, finding.render(), "stderr")
+
+
+def older_break_elsewhere_is_not_repeated() -> tuple[bool, str]:
+    files = {
+        TARGET: TARGET_TEXT,
+        SOURCE: source("See [x](gone.md)."),
+        "docs/notes/u.md": note("# U\n", "note-u"),
+    }
+    return all_of(
+        [
+            expect(after_write("docs/notes/u.md", files), 0, messages.g1_covered(), "stdout"),
+            expect(scan_of(files), 2, messages.r5_no_target(SOURCE, LINE, "gone.md").headline, "stdout"),
+        ],
+        "a write that touches neither end of an older break is green; the scan still reports it",
+    )
+
+
+def heading_anchor_after_write() -> tuple[bool, str]:
+    files = {TARGET: TARGET_TEXT, SOURCE: source("See [x](t.md#first-section).")}
+    finding = messages.r7_heading_anchor(SOURCE, LINE, "t.md#first-section", TARGET)
+    return expect(after_write(SOURCE, files), 2, finding.render(), "stderr")
+
+
+def warn_after_write() -> tuple[bool, str]:
+    files = {TARGET: TARGET_TEXT, SOURCE: source("See [x](gone.md).")}
+    result = after_write(SOURCE, files, own(severity="warn"))
+    try:
+        loaded = json.loads(result.stdout)
+    except ValueError:
+        return False, f"stdout is not one JSON object: {result.stdout!r}"
+    specific = loaded.get("hookSpecificOutput", {})
+    ok = (
+        result.code == 0
+        and result.stderr == ""
+        and specific.get("hookEventName") == AFTER
+        and messages.r5_no_target(SOURCE, LINE, "gone.md").render() in specific.get("additionalContext", "")
+        and after_count(SOURCE, 1, 1) in specific.get("additionalContext", "")
+    )
+    return ok, "exit 0, one JSON object naming PostToolUse, the finding and the count inside" if ok else str(
+        result
+    )
+
+
+def lint_is_not_run_after_write() -> tuple[bool, str]:
+    """A bare form is the pre-write handler's to block; after the write only the tree is read."""
+    files = {SOURCE: source("See REQ-7.")}
+    before = H.run_gate(event_json(H.fresh_consumer(SETUP).root, Write(SOURCE, files[SOURCE])))
+    return all_of(
+        [
+            expect(after_write(SOURCE, files, LANES), 0, messages.g1_covered(), "stdout"),
+            expect(before, 2, "REQ-7", "stderr"),
+        ],
+        "green after the write, blocked before it",
+    )
+
+
+def many_findings_are_cut() -> tuple[bool, str]:
+    lines = " ".join(f"[x{n}](gone-{n}.md)" for n in range(25))
+    result = after_write(SOURCE, {SOURCE: source(lines)})
+    ok = (
+        result.code == 2
+        and result.stderr.count("RED: docs/") == 20
+        and after_count(SOURCE, 25, 25, 20) in result.stderr
+    )
+    return ok, "25 findings, 20 printed, the count line says both" if ok else result.stderr[-400:]
+
+
+def file_gone_after_write() -> tuple[bool, str]:
+    consumer = H.fresh_consumer()
+    result = H.run_gate(event_json(consumer.root, Write(SOURCE, source("x")), event=AFTER))
+    return expect(result, 0, shared.g1_green_skip(shared.g1_skip_gone(SOURCE)), "stdout")
+
+
+def unknown_event() -> tuple[bool, str]:
+    files = {SOURCE: source("See [x](gone.md).")}
+    return broken(after_write(SOURCE, files, event="Notification"), messages.c12_event("Notification"))
+
+
+def lychee_absent_after_write() -> tuple[bool, str]:
+    consumer = H.fresh_consumer()
+    consumer.write(SOURCE, source("See [x](gone.md)."))
+    event = event_json(consumer.root, Write(SOURCE, source("See [x](gone.md).")), event=AFTER)
+    return broken(H.run_gate(event, env=path_with(None)), messages.x1_no_lychee("0.24.2"))
+
+
 GOLDEN_TREE = {
     "R5": f"RED: {SOURCE}:9: link target gone.md does not exist",
     "R5 fix": "  fix: correct the path; if the target was deleted, remove the link and state here what it"
@@ -664,6 +790,30 @@ ASSERTIONS = [
     ),
     Assertion(39, "golden lines of the whole-tree findings, typed by hand", golden_tree_lines),
     Assertion(40, "an anchor shown inside code is no anchor", anchor_shown_in_code_is_none),
+    Assertion(
+        50,
+        "after the write: the written document's own broken link, exit 2 on stderr; repaired, green",
+        own_links_after_write,
+    ),
+    Assertion(
+        51,
+        "after the write: a break the write causes in another document is reported",
+        inbound_break_after_write,
+    ),
+    Assertion(
+        52,
+        "after the write: an older break elsewhere is not repeated; the scan reports it",
+        older_break_elsewhere_is_not_repeated,
+    ),
+    Assertion(53, "after the write: a heading-derived anchor is reported", heading_anchor_after_write),
+    Assertion(54, "after the write, severity warn: one JSON object naming the event", warn_after_write),
+    Assertion(55, "the lint is the pre-write handler's alone", lint_is_not_run_after_write),
+    Assertion(56, "after the write: findings past the cap are counted, not printed", many_findings_are_cut),
+    Assertion(57, "after the write: a file that is not there is a visible skip", file_gone_after_write),
+    Assertion(58, "an event the gate is not wired to is a configuration failure", unknown_event),
+    Assertion(
+        59, "absence after the write: no lychee is exit 1 with the install address", lychee_absent_after_write
+    ),
 ]
 
 SUBJECT = Subject(

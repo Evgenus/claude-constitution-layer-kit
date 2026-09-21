@@ -1,25 +1,37 @@
 #!/usr/bin/env python3
 """const-referencing: the gate on references. Entry point.
 
-Events:   PreToolUse on Write and Edit (hook mode); none (scan mode).
-Modes:    no arguments  read one PreToolUse event on stdin, reconstruct the document as it
-                        will be after the write, and judge the forms of its references;
+Events:   PreToolUse and PostToolUse on Write and Edit (hook mode), told apart by the event's
+          hook_event_name; none (scan mode).
+Modes:    no arguments  read one event on stdin. Before the write: reconstruct the document as
+                        it will be and judge the forms of its references — this can block.
+                        After the write: check the whole tree and report the findings that
+                        involve the written document — its own links, and other documents'
+                        links into it. This cannot block: it is feedback, in the turn that
+                        breaks a reference;
           --scan [DIR]  judge every covered document of the repository containing DIR
-                        (default: the current directory) — the check for CI on a pull request.
-Reads:    from the event: tool_name, tool_input.file_path, .content, .old_string,
+                        (default: the current directory), forms and resolution alike — the
+                        check for CI on a pull request, and the gate for resolution.
+Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
           .new_string, .replace_all, cwd, session_id. From constitution.yaml: this module's
           dials const-referencing.territories (path patterns; default every Markdown file),
-          .bare_ids (refuse | allow), .lanes (a list of {pattern, names, fix, home}),
+          .bare_ids and .heading_anchors (refuse | allow), .lanes (a list of {pattern, names, fix, home}),
           .severity (block | warn) and .log_dir; the file as a whole is validated as every
           gate does. No policy is read.
 The check: outside the YAML block that opens the file, code, HTML comments and links, a
           covered document cites nothing by a bare form a lane declares; a covered document's
           id does not stand in backticks outside a link; a link whose text is a covered
-          document's id opens that document; and nothing names a path on one machine. The
-          ids are those of the covered documents' envelopes, read at each run.
+          document's id opens that document; and nothing names a path on one machine. In the
+          whole tree every link of a covered document names a file that exists and, where it
+          cites a place inside a covered document, an anchor written there — not a heading's
+          generated name, unless heading_anchors allows it. Resolution is asked of lychee,
+          0.24.2 or newer, which the gate finds on PATH and starts outside the repository
+          with its own configuration; a missing, older or silent lychee is exit 1. The ids
+          are those of the covered documents' envelopes, read at each run.
 Exit:     0 green, or nothing to examine (the count line says which);
-          2 finding — hook mode blocks the write, unless severity is warn: then exit 0
-            with JSON carrying the finding to the model and the user;
+          2 finding — before the write this blocks it; after the write nothing can be
+            blocked, and exit 2 carries the finding to the model as an error. With severity
+            warn both are exit 0 with JSON carrying the finding to the model and the user;
           1 configuration failure — the checker could not run. Never a silent pass.
 Output:   hook, block: findings on stderr; hook, warn: one JSON object on stdout and nothing
           else; scan: everything on stdout. Green and skip lines on stdout. Configuration
