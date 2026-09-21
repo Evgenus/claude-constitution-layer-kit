@@ -111,5 +111,5 @@ def _one_machine(rel: str, document: str, masked: Masked) -> list[tuple[int, Fin
             m.start(),
             messages.r4_one_machine(rel, line_of(document, m.start()), m[0].rstrip(_CLOSES_A_SENTENCE)),
         )
-        for m in _ONE_MACHINE.finditer(masked.text)
+        for m in _ONE_MACHINE.finditer(masked.body)  # code too: a path leaks a machine however it is set
     ]

@@ -187,6 +187,8 @@ No real choice was put to the decider on these; each is the session's derivation
 
 **R17.** A negated pattern takes a tree out of `territories` as `!dir/**`; `!dir/` names the directory alone, and the files inside still match. Found by experiment while the install note was written, against what the session had told the decider under section 4.
 
+**R21.** A path on one machine is read in code and comments too; only the YAML block that opens the file is left out. Put to the decider on 2026-09-22, when he asked whether the module covers all the interim script gave: it did not — the session had stretched the masking accepted under section 6 from bare forms to this check without asking, and a probe showed the script red and the scan green on a home-directory path inside a code span. Options: A, the check reads code; B, the mask stays, and the kit's rule against local paths is held by review inside backticks; C, a dial. The decider chose A: a bare form in code is an illustration, a local path leaks a machine's layout however it is set.
+
 ## 12. The shared gate code, met by a fourth consumer
 
 Each seam was fixed at the source with the fixtures of all four modules green.
@@ -218,7 +220,8 @@ On the branch `work/const-referencing`, in the commits before this record and th
 13. R14 — the last item of [§11](../../modules/const-referencing/MODULE.md#t11).
 14. R15 — limits 11 and 12 of [§9](../../modules/const-referencing/MODULE.md#t9) and row V5 of the error-message table in [§6](../../modules/const-referencing/MODULE.md#t6); [the mover's entry file](../../modules/const-referencing/scripts/move-document.py).
 15. R16 — the `command` and `agent` rows of [§6](../../modules/const-referencing/MODULE.md#t6). The reason for the keys' letter: history only.
-16. R17 — [the install note](../../modules/const-referencing/INSTALL.md), step 3. That it corrects what was said in chat: history only.
-17. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
-18. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
-19. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
+16. R21 — the row of [requirement A5.1](../requirements.md#a5-1) in [§3](../../modules/const-referencing/MODULE.md#t3) of the module's document; [the gate's entry file](../../modules/const-referencing/scripts/check-references.py); step 2 of [the install note](../../modules/const-referencing/INSTALL.md). That the session had stretched the mask unasked: history only.
+17. R17 — [the install note](../../modules/const-referencing/INSTALL.md), step 3. That it corrects what was said in chat: history only.
+18. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
+19. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
+20. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).

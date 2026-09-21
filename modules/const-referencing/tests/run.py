@@ -200,19 +200,38 @@ CASES = [
 
 
 def masked_regions() -> tuple[bool, str]:
-    """Every region no check reads, each holding all four forms."""
-    forms = f"REQ-7 `{OWNER_ID}` /Users/someone/x.md"
+    """Every region the checks of form do not read, each holding a bare form and an id. A path
+    on one machine is another matter: item 46."""
+    forms = f"REQ-7 `{OWNER_ID}`"
     bodies = {
         "a fence": f"# F\n\n```text\n{forms}\n```\n",
         "a tilde fence left open": f"# F\n\n~~~\n{forms}\n",
         "an indented block": f"# F\n\npara\n\n    {forms}\n",
         "a comment": f"# F\n\n<!-- {forms} -->\n",
-        "a code span": "# F\n\nThe form ``REQ-7`` and `/Users/someone/x.md` are shown, not used.\n",
+        "a code span": "# F\n\nThe form ``REQ-7`` is shown, not used.\n",
         "a link's text": "# F\n\n[REQ-7](../reqs.md#req-7)\n",
     }
     return all_of(
         [passes(text) for text in bodies.values()], f"{len(bodies)} masked regions pass: {', '.join(bodies)}"
     )
+
+
+def a_path_on_one_machine_is_read_in_code_too() -> tuple[bool, str]:
+    """A bare form inside code is an illustration; a local path inside code still leaks a machine
+    and resolves nowhere else. Only the YAML block that opens the file is not read."""
+    path = "/Users/someone/x.md"
+    reds = {
+        "a code span": (f"# F\n\nIt lies in `{path}`.\n", 10),
+        "a fence": (f"# F\n\n```sh\ncat {path}\n```\n", 11),
+        "an indented block": (f"# F\n\npara\n\n    cat {path}\n", 12),
+        "a comment": (f"# F\n\n<!-- {path} -->\n", 10),
+    }
+    results = [blocks(text, messages.r4_one_machine(DOC, line, path)) for text, line in reds.values()]
+    in_envelope = document(
+        "# F\n", id="note-a", type="non-authoritative", title=f"About {path}", status="active"
+    )
+    green = expect(gate_on(Write(DOC, in_envelope))[0], 0, messages.g1_covered(), "stdout")
+    return all_of([*results, green], f"red in {', '.join(reds)}; not read in the YAML block")
 
 
 def envelope_is_masked() -> tuple[bool, str]:
@@ -1245,6 +1264,11 @@ ASSERTIONS = [
         install_note_example_is_accepted,
     ),
     Assertion(29, "R4 names the path, not the full stop after it", a_path_ends_before_the_sentence_does),
+    Assertion(
+        46,
+        "R4 reads code and comments too; only the YAML block that opens the file is not read",
+        a_path_on_one_machine_is_read_in_code_too,
+    ),
 ]
 
 SUBJECT = Subject(

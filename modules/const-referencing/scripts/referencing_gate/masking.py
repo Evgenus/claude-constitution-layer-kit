@@ -31,19 +31,25 @@ class Span:
 
 @dataclass(frozen=True, slots=True)
 class Masked:
-    """`blocks`: the text with the block-level regions blanked, code spans still readable.
-    `text`: code spans blanked too. `spans`: where the code spans are, ticks included."""
+    """`body`: the text with only the YAML block that opens the file blanked — what a check
+    reads that judges code too. `blocks`: the block-level regions blanked as well, code spans
+    still readable. `text`: code spans blanked too. `spans`: where the code spans are, ticks
+    included."""
 
+    body: str
     blocks: str
     text: str
     spans: tuple[Span, ...]
 
 
 def mask(document: str) -> Masked:
-    blocks = _blank(document, [*_block_regions(document)])
+    regions = _block_regions(document)
+    opens_with_envelope = document.lstrip("\ufeff").startswith("---")
+    body = _blank(document, regions[:1] if opens_with_envelope and regions and regions[0].start == 0 else [])
+    blocks = _blank(document, regions)
     blocks = _blank(blocks, [Span(m.start(), m.end()) for m in _COMMENT.finditer(blocks)])
     spans = tuple(_code_spans(blocks))
-    return Masked(blocks, _blank(blocks, spans), spans)
+    return Masked(body, blocks, _blank(blocks, spans), spans)
 
 
 def content(document: str, span: Span) -> str:

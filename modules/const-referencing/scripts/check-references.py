@@ -23,7 +23,8 @@ Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .con
 The check: outside the YAML block that opens the file, code, HTML comments and links, a
           covered document cites nothing by a bare form a lane declares; a covered document's
           id does not stand in backticks outside a link; a link whose text is a covered
-          document's id opens that document; and nothing names a path on one machine. In the
+          document's id opens that document; and nothing names a path on one machine — that one
+          read in code and comments too, the YAML block alone left out. In the
           whole tree every link of a covered document names a file that exists and, where it
           cites a place inside a covered document, an anchor written there — not a heading's
           generated name, unless heading_anchors allows it. Resolution is asked of lychee,

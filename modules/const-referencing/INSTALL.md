@@ -23,7 +23,8 @@ not, and every write says so until it is installed.
    says: every Markdown file git lists is covered. Without that file every run is a visible
    skip naming it; an empty mapping, `{}`, is enough. Covered documents are checked for: a
    covered document's id in backticks outside a link; a link whose text is such an id and
-   whose target is another file; a path on one machine (an absolute path under a home directory, a `file:` link); a
+   whose target is another file; a path on one machine (an absolute path under a home directory, a `file:` link) — read
+   inside code and comments too, where every other check of form leaves code alone; a
    link target that does not exist; an anchor that does not exist; and a link that resolves
    only through a heading's generated name instead of an anchor written in the target.
 3. Calibration, all optional, in the project's `constitution.yaml`:
