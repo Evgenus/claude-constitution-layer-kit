@@ -579,6 +579,19 @@ def governed_only() -> tuple[bool, str]:
     )
 
 
+def a_tree_taken_out() -> tuple[bool, str]:
+    """`!dir/**` after `*.md` leaves a tree uncovered; `!dir/` names the directory alone, and
+    the files inside it still match — as the install note says."""
+    files = {"vendor/deep/v.md": "[x](gone.md)\n", SOURCE: source("See [x](gone.md).")}
+    return all_of(
+        [
+            expect(scan_of(files, claim(["*.md", "!vendor/**"])), 2, "1 finding(s)", "stdout"),
+            expect(scan_of(files, claim(["*.md", "!vendor/"])), 2, "2 finding(s)", "stdout"),
+        ],
+        "one finding with the tree taken out, two with the directory alone negated",
+    )
+
+
 def governed_only_without_root() -> tuple[bool, str]:
     result, _ = gate_on(VALID, raw_dials=yaml.safe_dump({NAMESPACE: {"governed_only": True}}))
     default, _ = gate_on(VALID, raw_dials="{}\n")
@@ -974,6 +987,78 @@ def golden_mover_lines() -> tuple[bool, str]:
     )
 
 
+# ------------------------------------------------------------------ the plugin's other parts
+
+PLUGIN = SCRIPTS.parent
+CHAT_RULE = (
+    "const-referencing (advisory): in chat, write every reference to a file, a section or a document as a"
+    " markdown link wherever the file exists. A number, letter or key is a handle local to its message,"
+    " decision or session: when a cite crosses that boundary, name the message or decision it came from.\n"
+)
+
+
+def hooks_file() -> tuple[bool, str]:
+    """Three handlers, each in the exec form with an explicit timeout; both tool events run the
+    gate's one entry point, which tells them apart by the event's name."""
+    hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())["hooks"]
+    gate = ["${CLAUDE_PLUGIN_ROOT}/scripts/check-references.sh"]
+    wanted = {
+        "PreToolUse": ("Write|Edit", gate),
+        "PostToolUse": ("Write|Edit", gate),
+        "SessionStart": (None, ["${CLAUDE_PLUGIN_ROOT}/scripts/print-chat-rule.sh"]),
+    }
+    problems = [name for name in wanted if name not in hooks] + [name for name in hooks if name not in wanted]
+    for name, (matcher, args) in wanted.items():
+        for group in hooks.get(name, []):
+            handler = group["hooks"][0]
+            right = (
+                group.get("matcher") == matcher
+                and handler.get("type") == "command"
+                and handler.get("command") == "sh"
+                and handler.get("args") == args
+                and isinstance(handler.get("timeout"), int)
+                and all((SCRIPTS / Path(arg).name).is_file() for arg in args)
+            )
+            if not right:
+                problems.append(f"{name}: {group}")
+    return not problems, "three handlers, exec form, timeouts, scripts present" if not problems else str(
+        problems
+    )
+
+
+def chat_rule() -> tuple[bool, str]:
+    done = subprocess.run(
+        [H.sh, str(SCRIPTS / "print-chat-rule.sh")], input="{}", capture_output=True, text=True, check=False
+    )
+    ok = done.returncode == 0 and done.stdout == CHAT_RULE and done.stderr == ""
+    return ok, f"exit 0, the rule as typed here, {len(CHAT_RULE) - 1} characters" if ok else repr(done)
+
+
+def skill_description_fits() -> tuple[bool, str]:
+    text = (PLUGIN / "skills" / "referencing" / "SKILL.md").read_text()
+    front = yaml.safe_load(text.split("---\n")[1])
+    size = len(front["description"])
+    ok = front["name"] == "referencing" and size <= 1536
+    return ok, f"description of {size} characters, under the listing's 1,536"
+
+
+def install_note_example_is_accepted() -> tuple[bool, str]:
+    """The calibration block of the install note, handed to the gate as it stands: it parses, its
+    lane fires on the form it declares, and its single-quoted pattern is what the note says."""
+    note_text = (PLUGIN / "INSTALL.md").read_text()
+    block = note_text.split("```yaml\n")[1].split("```")[0]
+    dials = yaml.safe_load("\n".join(line[3:] for line in block.splitlines()))
+    lane = dials[NAMESPACE]["lanes"][0]
+    finding = messages.r1_bare_form(DOC, LINE, "REQ-7", lane["names"], lane["fix"])
+    raw = yaml.safe_dump({**Consumer(Path()).dials, **dials}, sort_keys=False)
+    result, _ = gate_on(wrote(body("See REQ-7.")), raw_dials=raw)
+    doubled = yaml.safe_load('p: "\\bREQ"')["p"]
+    return all_of(
+        [expect(result, 2, finding.render(), "stderr"), (doubled == "\x08REQ", f"YAML read {doubled!r}")],
+        "the note's example is accepted and its lane fires; in double quotes YAML makes \\b a backspace",
+    )
+
+
 GOLDEN_TREE = {
     "R5": f"RED: {SOURCE}:9: link target gone.md does not exist",
     "R5 fix": '  fix: correct the path; if the target was moved by hand, repair every link to it by: sh "',
@@ -1141,6 +1226,19 @@ ASSERTIONS = [
     Assertion(67, "golden lines of the mover, typed by hand", golden_mover_lines),
     Assertion(
         68, "the id repair leaves alone an id two documents carry", id_repair_leaves_an_ambiguous_id_alone
+    ),
+    Assertion(
+        45, "a negated pattern takes a tree out of the territory: !dir/**, not !dir/", a_tree_taken_out
+    ),
+    Assertion(
+        70, "hooks.json: three handlers in the exec form, explicit timeouts, scripts present", hooks_file
+    ),
+    Assertion(71, "the always-on rule is printed as typed here, and nothing else", chat_rule),
+    Assertion(72, "the skill's description fits the listing", skill_description_fits),
+    Assertion(
+        73,
+        "the install note's calibration example is accepted by the gate as it stands",
+        install_note_example_is_accepted,
     ),
 ]
 
