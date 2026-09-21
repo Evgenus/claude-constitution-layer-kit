@@ -71,7 +71,7 @@ def _block_regions(document: str) -> list[Span]:
     offset = 0
     fence: str | None = None  # the run that opened the fence being read
     block_start = 0
-    in_envelope = bool(lines) and lines[0].rstrip() == "---"
+    in_envelope = bool(lines) and lines[0].lstrip("\ufeff").rstrip() == "---"  # a byte order mark may lead
     in_list = False  # the last unindented line was a list item: indented text continues it
     after_blank = True
     in_indented = False
