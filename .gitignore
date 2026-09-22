@@ -3,3 +3,6 @@
 # Local working files, never part of the kit (law 2).
 local/
 __pycache__/
+
+# Output logs of the kit's own gates (constitution.yaml, log_dir).
+.gate-logs/
