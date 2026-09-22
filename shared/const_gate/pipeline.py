@@ -16,9 +16,9 @@ from . import messages
 from .dials import load_dials
 from .errors import ConfigurationFailure
 from .events import document_after_write, read_event
-from .model import EXIT_GREEN, EXIT_RED, Dials, Finding, Severity
+from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, Dials, Finding, Severity
 from .output import Output, log_name
-from .repository import is_ignored, repo_root
+from .repository import is_ignored, read_text, repo_root
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,8 +36,9 @@ class WriteTarget:
 
     root: Path
     rel: str
-    text: str  # the document as it will be after the write
+    text: str  # the document as it will be after the write — or as it is, for an event after it
     dials: Dials
+    event_name: str = PRE_WRITE
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,11 +65,16 @@ def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
     dials = load_dials(root)
     if dials is None:
         return Skip(messages.g1_skip_no_dials(str(root)))
-    _route_log(output, root, dials)
-    text = document_after_write(event, root, rel)
-    if text is None:
-        return Skip(messages.g1_skip_edit_unappliable(rel))
-    return WriteTarget(root, rel, text, dials)
+    route_log(output, root, dials)
+    if event.event_name == POST_WRITE:  # the document is the file on disk: nothing to reconstruct
+        text = read_text(root, rel)
+        if text is None:
+            return Skip(messages.g1_skip_gone(rel))
+    else:
+        text = document_after_write(event, root, rel)
+        if text is None:
+            return Skip(messages.g1_skip_edit_unappliable(rel))
+    return WriteTarget(root, rel, text, dials, event.event_name or PRE_WRITE)
 
 
 def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
@@ -80,7 +86,7 @@ def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
     dials = load_dials(root)
     if dials is None:
         return Skip(messages.g1_skip_no_dials(str(root)))
-    _route_log(output, root, dials)
+    route_log(output, root, dials)
     return ScanTarget(root, dials)
 
 
@@ -106,18 +112,25 @@ def green_hook(output: Output, what: str, notes: Sequence[str] = ()) -> int:
 
 
 def report_hook(
-    output: Output, findings: Sequence[Finding], notes: Sequence[str], rel: str, severity: Severity
+    output: Output,
+    findings: Sequence[Finding],
+    notes: Sequence[str],
+    rel: str,
+    severity: Severity,
+    event_name: str = PRE_WRITE,
+    count: str | None = None,
 ) -> int:
     """Hook verdict on findings. Block: exit 2, stderr reaches the model. Warn: exit 0 with
     nothing on stdout but one JSON object — additionalContext reaches the model,
     systemMessage the user — so the notes travel inside it, never before it."""
-    body = "\n".join([*notes, *(f.render() for f in findings), messages.f9_count_hook(len(findings), rel)])
+    count = messages.f9_count_hook(len(findings), rel) if count is None else count
+    body = "\n".join([*notes, *(f.render() for f in findings), count])
     if severity is Severity.WARN:
         output.out(
             json.dumps(
                 {
                     "hookSpecificOutput": {
-                        "hookEventName": "PreToolUse",
+                        "hookEventName": event_name,
                         "additionalContext": body + "\n" + messages.w1_warn_note(),
                     },
                     "systemMessage": messages.w1_warn_system(findings[0].headline),
@@ -142,8 +155,10 @@ def report_scan(output: Output, findings: Sequence[Finding], notes: Sequence[str
     return EXIT_GREEN
 
 
-def _route_log(output: Output, root: Path, dials: Dials) -> None:
-    """Send the log to the dial's directory, once git confirms the directory is ignored."""
+def route_log(output: Output, root: Path, dials: Dials) -> None:
+    """Send the log to the dial's directory, once git confirms the directory is ignored. Public
+    for a second entry point, which locates nothing through this module and routes its own log
+    as soon as it has read the dials."""
     if dials.log_dir is None:
         return
     if not is_ignored(root, f"{dials.log_dir}/{log_name()}"):

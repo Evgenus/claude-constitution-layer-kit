@@ -110,6 +110,10 @@ def g1_skip_edit_unappliable(rel: str) -> str:
     return f"the Edit cannot be applied to {rel}; the tool will report it"
 
 
+def g1_skip_gone(rel: str) -> str:
+    return f"{rel} is not there after the write"
+
+
 # ---------------------------------------------------------------- notes (N1)
 
 
@@ -291,8 +295,8 @@ def c12_input(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
         f"hook input cannot be used ({detail})",
-        "as a hook this script reads one PreToolUse event, a JSON object, on stdin; to check a"
-        " repository by hand run it with --scan [<dir>]",
+        "as a hook this script reads one tool event, a JSON object, on stdin; to check a repository by"
+        " hand run it with --scan [<dir>]",
     )
 
 

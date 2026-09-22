@@ -57,19 +57,33 @@ def main(argv: Sequence[str], output: Output, load_modes: Callable[[], Modes]) -
 
 
 def run(argv: Sequence[str], gate: Identity, load_modes: Callable[[], Modes]) -> int:
-    """The guard: the one place exit codes are decided for failures. The entry point says
-    which gate this is and how to load its two modes."""
+    """A gate's entry: the entry point says which gate this is and how to load its two modes."""
+    mode = Mode.SCAN if any(a.startswith(SCAN_FLAG) for a in argv) else Mode.HOOK
+    return guarded(gate, mode, lambda output: main(argv, output, load_modes))
+
+
+def guarded(
+    gate: Identity,
+    mode: Mode,
+    body: Callable[[Output], int],
+    could_not_run: Callable[[], str] = messages.c11_broken_count,
+) -> int:
+    """The guard: the one place exit codes are decided for failures. A gate reaches it through
+    `run`; a second entry point — a generator with a command line of its own — calls it with its
+    own body, which parses its arguments with `Parser`'s kind, runs `preflight.check`, and only
+    then imports what needs the declared libraries. `could_not_run` is the line that closes a
+    failure: a gate's says that nothing was examined, a generator's that nothing was changed."""
     identity.declare(gate)  # first: every text, and the log's name, ask which gate this is
-    output = Output(Mode.SCAN if any(a.startswith(SCAN_FLAG) for a in argv) else Mode.HOOK)
+    output = Output(mode)
     try:
-        return main(argv, output, load_modes)
+        return body(output)
     except ConfigurationFailure as failure:
         output.err(failure.broken.render())
-        output.err(messages.c11_broken_count())
+        output.err(could_not_run())
     except Exception as exc:  # not fail-open: an unexpected failure exits 1, never 0
         # the BROKEN line first: in hook mode only the first stderr line reaches the user
         output.err(messages.c12_unexpected(f"{type(exc).__name__}: {exc}").render())
-        output.err(messages.c11_broken_count())
+        output.err(could_not_run())
         output.err(traceback.format_exc().rstrip())
     finally:
         output.flush()

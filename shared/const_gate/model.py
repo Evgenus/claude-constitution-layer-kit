@@ -35,9 +35,16 @@ class EnvelopeState(StrEnum):
     OK = "ok"
 
 
+# The two tool events a gate may be wired to, as the platform names them. An event that names
+# neither is read as the first: the three gates that handle one event never asked.
+PRE_WRITE = "PreToolUse"
+POST_WRITE = "PostToolUse"
+
+
 class Mode(StrEnum):
     HOOK = "hook"
     SCAN = "scan"
+    ACT = "act"  # a second entry point that changes files: a generator, never a gate
 
 
 class Stream(StrEnum):
@@ -97,8 +104,9 @@ class Broken:
 
 @dataclass(frozen=True, slots=True)
 class ToolEvent:
-    """A PreToolUse event, reduced to the fields this gate reads."""
+    """A tool event — before the write or after it — reduced to the fields a gate reads."""
 
+    event_name: str  # as the platform names it; a gate that handles one event need not ask
     tool: FileTool | None  # None: a tool this gate does not judge
     tool_name: str
     file_path: str

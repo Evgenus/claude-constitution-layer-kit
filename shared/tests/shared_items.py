@@ -61,6 +61,11 @@ class Subject:
     claim: Claim  # the dials patch that declares that territory with other patterns
     resolves_policies: bool = True  # False: the gate reads only its own dials, so the items about
     # the root policy and the policies' documents are not its own, and are left out
+    bare_readme: str = "0 documents examined"  # what the count line says of a README with no envelope
+    # at the repository's top: outside every territory for most gates, examined by one that covers
+    # every Markdown file
+    judges_envelopes: bool = True  # False: an envelope nobody can read is no finding of this gate,
+    # so the item about one is left out, and the module proves in its own items that it is no crash
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
@@ -203,7 +208,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             event_json(h.fresh_consumer().root, Write("README.md", NO_ENVELOPE)),
             command=[h.sh, str(plugin / "scripts" / h.wrapper.name)],
         )
-        return expect(result, 0, "0 documents examined", "stdout")
+        return expect(result, 0, s.bare_readme, "stdout")
 
     def unexpected_failure() -> tuple[bool, str]:
         """Not fail-open: an exception nobody planned for exits 1, its BROKEN line first, the
@@ -249,7 +254,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     def stdout_cannot_encode() -> tuple[bool, str]:
         """The count line carries a dash; a stream that cannot encode it must not swallow the line."""
         result, _ = s.gate_on(Write("README.md", NO_ENVELOPE), env={"PYTHONIOENCODING": "ascii"})
-        return expect(result, 0, "0 documents examined", "stdout")
+        return expect(result, 0, s.bare_readme, "stdout")
 
     def deeply_nested_envelope() -> tuple[bool, str]:
         """Brackets nested past the parser's depth are an unreadable envelope, never a crash that
@@ -503,5 +508,6 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     return [
         Assertion(first + n, title, check)
         for n, (title, check) in enumerate(items)
-        if s.resolves_policies or check not in about_policies
+        if (s.resolves_policies or check not in about_policies)
+        and (s.judges_envelopes or check is not deeply_nested_envelope)
     ]
