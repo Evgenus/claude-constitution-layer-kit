@@ -21,6 +21,7 @@ import argparse
 import os
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -162,24 +163,27 @@ def self_test() -> int:
         for each in LINKS:  # every link gone: only the import can make the module owe them
             (module / each).unlink()
 
-    wrong = {
-        "a missing link": as_missing,
-        "a copied harness in tests/": harness_as_copy,
-        "a hookless module importing the shared code, its link missing": hookless_without_links,
-        "a copy": as_copy,
-        "a text file": as_text_file,
-        "a dangling link": as_dangling,
-        "a link leading elsewhere": as_elsewhere,
-        "an absolute link": as_absolute,
+    wrong: dict[str, tuple[Callable[[Path], None], int]] = {  # the damage, and the findings it earns
+        "a missing link": (as_missing, 1),
+        "a copied harness in tests/": (harness_as_copy, 1),
+        "a hookless module importing the shared code, its links missing": (
+            hookless_without_links,
+            len(LINKS),
+        ),
+        "a copy": (as_copy, 1),
+        "a text file": (as_text_file, 1),
+        "a dangling link": (as_dangling, 1),
+        "a link leading elsewhere": (as_elsewhere, 1),
+        "an absolute link": (as_absolute, 1),
     }
     failed = 0
-    for name, damage in wrong.items():
+    for name, (damage, findings) in wrong.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             link = fresh(root)
             green_before = not check_kit(root)[0]
             damage(link)
-            red_after = len(check_kit(root)[0]) == 1
+            red_after = len(check_kit(root)[0]) == findings
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the right link is green, {name} is red")
