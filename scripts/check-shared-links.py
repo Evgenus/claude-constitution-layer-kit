@@ -155,7 +155,7 @@ def self_test() -> int:
         harness.write_text("", encoding="utf-8")
 
     def hookless_without_links(link: Path) -> None:
-        """A generator alone: no hook, a script importing the shared code, and the link gone."""
+        """A generator alone: no hook, a script importing the shared code, and every link gone."""
         module = link.parent.parent
         (module / "hooks" / "hooks.json").unlink()
         (module / "hooks").rmdir()
