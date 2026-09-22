@@ -1,0 +1,7 @@
+{
+  "name": "const-locations",
+  "version": "0.0.1",
+  "description": "Documents are born in their canonical home, from their policy's template, with a valid envelope; a new document kind gets its policy first.",
+  "author": { "name": "Eugene Chernyshov" },
+  "license": "MIT"
+}
