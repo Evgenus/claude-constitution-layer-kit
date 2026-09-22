@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from const_gate import pipeline
 from const_gate.dials import load_dials
 from const_gate.errors import ConfigurationFailure
 from const_gate.output import Output
@@ -45,6 +46,7 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     shared_dials = load_dials(root)
     if shared_dials is None:
         raise ConfigurationFailure(messages.v5_no_dials(str(root)))
+    pipeline.route_log(output, root, shared_dials)  # before any refusal: a refusal belongs in the log too
     dials = own_dials.parse(shared_dials.own)
     lychee.require()
     with Matcher() as matcher:  # the documents the gate covers are the documents a move repairs

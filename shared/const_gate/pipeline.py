@@ -65,7 +65,7 @@ def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
     dials = load_dials(root)
     if dials is None:
         return Skip(messages.g1_skip_no_dials(str(root)))
-    _route_log(output, root, dials)
+    route_log(output, root, dials)
     if event.event_name == POST_WRITE:  # the document is the file on disk: nothing to reconstruct
         text = read_text(root, rel)
         if text is None:
@@ -86,7 +86,7 @@ def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
     dials = load_dials(root)
     if dials is None:
         return Skip(messages.g1_skip_no_dials(str(root)))
-    _route_log(output, root, dials)
+    route_log(output, root, dials)
     return ScanTarget(root, dials)
 
 
@@ -155,8 +155,10 @@ def report_scan(output: Output, findings: Sequence[Finding], notes: Sequence[str
     return EXIT_GREEN
 
 
-def _route_log(output: Output, root: Path, dials: Dials) -> None:
-    """Send the log to the dial's directory, once git confirms the directory is ignored."""
+def route_log(output: Output, root: Path, dials: Dials) -> None:
+    """Send the log to the dial's directory, once git confirms the directory is ignored. Public
+    for a second entry point, which locates nothing through this module and routes its own log
+    as soon as it has read the dials."""
     if dials.log_dir is None:
         return
     if not is_ignored(root, f"{dials.log_dir}/{log_name()}"):

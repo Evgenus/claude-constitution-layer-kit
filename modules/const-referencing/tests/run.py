@@ -1715,6 +1715,24 @@ def case_only_rename_and_uncovered_destination() -> tuple[bool, str]:
     )
 
 
+def mover_routes_its_log() -> tuple[bool, str]:
+    """A refusal before the move lands in the log the dial names, and so does an act."""
+    consumer = moving_consumer()
+    consumer.write("constitution.yaml", dials_text(own(log_dir=".gate-logs")))
+    consumer.write(".gitignore", ".gate-logs/\n")
+    consumer.commit()
+    refused = mover(consumer, OLD, "docs/notes/two.md")
+    log = consumer.root / ".gate-logs" / "const-referencing.jsonl"
+    lines = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+    ok = refused.code == 1 and any(
+        "already exists" in entry.get("text", "") and entry.get("gate") == "move-document" for entry in lines
+    )
+    return (
+        ok,
+        f"{len(lines)} log line(s) under log_dir, the refusal among them" if ok else f"log: {lines[-2:]}",
+    )
+
+
 GOLDEN_TREE = {
     "R5": f"RED: {SOURCE}:9: link target gone.md does not exist",
     "R5 fix": '  fix: correct the path; if the target was moved by hand, repair every link to it by: sh "',
@@ -2016,6 +2034,7 @@ ASSERTIONS = [
         case_only_rename_and_uncovered_destination,
     ),
     Assertion(48, "local_paths: allow switches R4 off", local_paths_allowed),
+    Assertion(49, "the mover routes its log to log_dir before any refusal", mover_routes_its_log),
 ]
 
 SUBJECT = Subject(
