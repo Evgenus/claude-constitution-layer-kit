@@ -121,7 +121,7 @@ The advisory rules beside it, each `advisory` in its own text: (F-a) cite a gove
 | `bare_ids` | `refuse` | gate | `allow` switches R2 off — for a project whose ids are everyday words. |
 | `local_paths` | `refuse` | gate | `allow` switches R4 off — for a project whose documents must show a container's or a build machine's home directory, in a fence or elsewhere. |
 | `lanes` | `[]` | gate | The project's bare forms: a list of `{pattern, names, fix, home}` — a regular expression; what the form cites, in the project's words; the link form to write instead, printed as written; `home`, optional, patterns of the documents where the form is the local alias and the lane is silent. The reason is the module's and no lane can replace it. |
-| `mentions` | `[]` | scan | Governed ids named outside Markdown: a list of `{pattern, files}` — a regular expression whose whole match must be a covered document's id; `files`, optional, patterns of the files read, default every file git lists that is no Markdown, no link and not binary. |
+| `mentions` | `[]` | scan | Governed ids named outside Markdown: a list of `{pattern, files}` — a regular expression whose whole match must be a covered document's id; `files`, optional, patterns of the files read; absent or `[]`: every file git lists that is no Markdown, no link and not binary. |
 
 Nothing of `lychee`'s configuration is a dial: the module owns the invocation. The gate validates every key it reads at each read, and a key of this namespace that is none of the nine above is a configuration failure: a misspelt `heading_anchor: allow` would otherwise be a setting ignored in silence.
 

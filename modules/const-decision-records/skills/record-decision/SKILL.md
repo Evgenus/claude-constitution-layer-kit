@@ -42,7 +42,7 @@ Ask one question: **is the call cheap to revert?**
 
 The line between routine and recorded is drawn by examples, not by criteria. The project's
 own pairs come first: read `boundary_examples` under `const-decision-records` in
-`constitution.yaml`. When the project has none, use these:
+`constitution.yaml`. When the project has none — the key absent or an empty list — use these:
 
 1. Where a worktree or a scratch directory lives → routine. / Which kinds of document exist
    and what authority each carries → recorded (`process`).
@@ -61,7 +61,7 @@ unrecorded structural call costs the next session its reasoning.
 `decider` is the person or role who made the choice — not who typed the commit; git already
 knows that, and it is often not the same. If the project says who may decide at each level
 (`deciders` under `const-decision-records` in `constitution.yaml`, a list per stakes level),
-the decider comes from that list; if the project names nobody, ask who decides. If the person who should decide is absent, do not decide
+the decider comes from that list; if the project names nobody — the key absent or empty, as a whole or at that level — ask who decides. If the person who should decide is absent, do not decide
 for them at recorded stakes: stop, put the question with its options, and name them as the
 blocker.
 

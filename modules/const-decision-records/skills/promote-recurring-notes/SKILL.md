@@ -25,8 +25,8 @@ git log --since="3 months ago" --format="%h %s%n%b" --no-merges
 ```
 
 If the project marks routine notes with a trailer — `note_trailer` under
-`const-decision-records` in `constitution.yaml` names the key — let git count the themes
-first:
+`const-decision-records` in `constitution.yaml` names the key; absent or empty, there is
+none — let git count the themes first:
 
 ```bash
 git shortlog -ns --group=trailer:<the key> HEAD
