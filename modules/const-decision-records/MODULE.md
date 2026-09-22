@@ -107,9 +107,9 @@ The advisory rules beside it, each `advisory` in its own text: (R-a) price a dec
 | `severity` | `block` | gate | `block`: a finding exits 2 and the write is blocked. `warn`: the finding is reported to Claude and to the user and the write proceeds — the adoption path onto a repository with legacy records. The scan ignores it. |
 | `log_dir` | absent | gate | A repository-relative directory for the output log. The gate verifies with git that the directory is ignored and reports a configuration failure otherwise. Absent: the log goes to the platform's per-plugin data directory; where that is absent too (CI), nowhere, and stdout is the record. |
 | `record_policies` | `[]` | gate | The ids of the policies that govern decision records. Empty: nothing is examined and every run says so. An id with no policy behind it claims nothing and earns a note. |
-| `boundary_examples` | absent | skill | The project's own routine / recorded pairs ([A3.5](../../docs/requirements.md#a3-5)): a list of `{routine: …, recorded: …}`. Absent: the skill uses the seed pairs of [§8](#t8). |
-| `deciders` | absent | skill | Who may decide at each stakes level ([A3.7](../../docs/requirements.md#a3-7)): `{process: […], product: […], architecture: […]}`. Absent: the skill has the agent ask who decides. |
-| `note_trailer` | absent | skill | The commit-message trailer key under which routine notes carry a theme, if the project uses one. Absent: the promotion skill reads the log only. |
+| `boundary_examples` | `[]` | skill | The project's own routine / recorded pairs ([A3.5](../../docs/requirements.md#a3-5)): a list of `{routine: …, recorded: …}`. Absent or empty: the skill uses the seed pairs of [§8](#t8). |
+| `deciders` | `{}` | skill | Who may decide at each stakes level ([A3.7](../../docs/requirements.md#a3-7)): `{process: […], product: […], architecture: […]}`. Absent or empty, as a whole or at one level: the skill has the agent ask who decides. |
+| `note_trailer` | `""` | skill | The commit-message trailer key under which routine notes carry a theme, if the project uses one. Absent or empty: the promotion skill reads the log only. |
 
 The gate validates the three dials it reads at each read. The three skill-read dials are read by the agent as written; nothing validates their shape ([§9](#t9), limit 7). Territory, the root policy, and the dialect are the kernel-owned keys and the policy namespaces of [kernel §6](../../kernel/CONVENTIONS.md#k6), not dials of this module.
 

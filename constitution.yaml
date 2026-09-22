@@ -5,9 +5,7 @@
 #
 # Every dial the kernel and the installed modules know is written here, at its
 # default where the kit has not calibrated it, so the file doubles as the inventory
-# of what can be set. A dial whose default is "absent" — the module behaves one way
-# with no value and another with any value — is written as a commented line showing
-# its shape. Each module's MODULE.md §7 is authoritative for the meaning.
+# of what can be set. Each module's MODULE.md §7 is authoritative for the meaning.
 
 # --- kernel-owned keys (kernel §6) -------------------------------------------------
 
@@ -60,13 +58,12 @@ const-decision-records:
   severity: block                     # values: block | warn
   log_dir: local/gate-logs
   record_policies: [kit-decision-records]   # gate: the policies whose territory holds decision records; [] examines nothing
-  # boundary_examples:                # skill: the project's own routine / recorded pairs; absent: the seed pairs of MODULE.md §8
-  #   - {routine: "…", recorded: "…"}
-  # deciders:                         # skill: who may decide at each stakes level; absent: the agent asks who decides
-  #   process: []
-  #   product: []
-  #   architecture: []
-  # note_trailer: Note                # skill: the commit trailer key carrying a routine note's theme; absent: the log is read only
+  boundary_examples: []             # skill: the project's own routine / recorded pairs, {routine: …, recorded: …}; empty: the seed pairs of MODULE.md §8
+  deciders:                         # skill: who may decide at each stakes level, a list of people or roles; empty: the agent asks who decides
+    process: []
+    product: []
+    architecture: []
+  note_trailer: ""                  # skill: the commit trailer key carrying a routine note's theme; empty: the log is read only
 
 const-catalogs:                       # numbered kinds are declared here, independent of policies (requirement A13.7)
   severity: block                     # values: block | warn
@@ -101,4 +98,4 @@ const-referencing:                    # the kit's own reference forms (requireme
       home: ["/CLAUDE.md"]
   mentions:                           # a record named in a script or a configuration file must exist: no link checker reads those
     - pattern: '\bdec-[0-9]{4}-[a-z0-9-]+'
-    # - {pattern: '…', files: ["…"]}  # files, optional: patterns of the files read; default every non-Markdown, non-binary file git lists
+      files: []                     # patterns of the files read; empty: every file git lists that is no Markdown, no link and not binary
