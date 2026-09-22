@@ -159,7 +159,8 @@ def self_test() -> int:
         (module / "hooks" / "hooks.json").unlink()
         (module / "hooks").rmdir()
         (module / "scripts" / "generate.py").write_text("from const_gate import cli\n", encoding="utf-8")
-        link.unlink()
+        for each in LINKS:  # every link gone: only the import can make the module owe them
+            (module / each).unlink()
 
     wrong = {
         "a missing link": as_missing,

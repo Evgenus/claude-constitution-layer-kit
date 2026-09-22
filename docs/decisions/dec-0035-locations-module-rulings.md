@@ -63,7 +63,7 @@ The shared fixture items are written for a gate: they feed a `Write` event, expe
 
 ## 4. Where the module is authored
 
-Not a choice put in chat: the decider asked to start with [`const-locations`](../requirements.md#const-locations) "in the kit", and the session read it as the routine reorder its context describes. The carry audit found that [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md) names exactly four modules for authoring in the kit, so the extension is a ruling with a handle.
+No options were put: the decider asked to start with [`const-locations`](../requirements.md#const-locations) "in the kit", and the session read it as the routine reorder its context describes. The carry audit found that [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md) names exactly four modules for authoring in the kit, so the extension is a ruling with a handle.
 
 **R4.** [`const-locations`](../requirements.md#const-locations) is authored in the kit as consumer zero, like the four accumulating modules of Phase A, ahead of its Phase C slot; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. Chosen by the decider in chat on 2026-09-22.
 
@@ -72,4 +72,4 @@ Not a choice put in chat: the decider asked to start with [`const-locations`](..
 1. R1 — the row of [requirement A2.4](../requirements.md#a2-4) in [§3](../../modules/const-locations/MODULE.md#t3) of the module's document, rule L-a of its [§5](../../modules/const-locations/MODULE.md#t5), the two `script` rows and the `skill` row of `new-document` in its [§6](../../modules/const-locations/MODULE.md#t6). That the choice was "as recommended": history only.
 2. R2 — the row `templates` of [§7](../../modules/const-locations/MODULE.md#t7) of the module's document, rule L-e of its [§5](../../modules/const-locations/MODULE.md#t5), rows L5.13 and L5.14 of the error-message table in its [§6](../../modules/const-locations/MODULE.md#t6), and the "Depends on" and enhancements of its [§11](../../modules/const-locations/MODULE.md#t11).
 3. R3 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2) and the closing paragraph of its [§5](../../shared/GATE.md#g5); the opening paragraph and the shared-items row of [§10](../../modules/const-locations/MODULE.md#t10) of the module's document; [the shared items](../../shared/tests/shared_items.py) and [the harness](../../shared/tests/harness.py).
-4. R4 — pending: Phase B step 5 of [the rollout plan](../rollout-plan.md), until the consumer's bootstrap closes.
+4. R4 — the authoring in the kit, a one-time act: history only; the consumer-live proof: pending: Phase B step 5 of [the rollout plan](../rollout-plan.md), until the consumer's bootstrap closes.
