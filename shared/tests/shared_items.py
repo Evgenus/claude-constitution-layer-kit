@@ -66,6 +66,14 @@ class Subject:
     # every Markdown file
     judges_envelopes: bool = True  # False: an envelope nobody can read is no finding of this gate,
     # so the item about one is left out, and the module proves in its own items that it is no crash
+    event_driven: bool = True  # False: the module is only a generator — no hook event, no verdict,
+    # no scan — so the items about hook input, paths and skips, the warn channel and the scan are
+    # not its own and are left out; `gate_on` then turns the Write it is handed into the generator's
+    # command line, `red` being a run it refuses and `valid` one it completes
+    closing: str = messages.c11_broken_count()  # the line that closes a failure: a gate's count
+    # line, or a generator's own ("nothing was written")
+    act_args: Sequence[str] = ()  # a generator only: the arguments of a run that completes on a fresh
+    # consumer, from inside it — for the item that runs the scripts copied with links followed
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
@@ -73,7 +81,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def broken(result: Result, failure: Broken) -> tuple[bool, str]:
         ok, evidence = broken_first_line(result, failure.render())
-        counted = messages.c11_broken_count() in result.stderr  # a run that examined nothing says so
+        counted = s.closing in result.stderr  # a run that examined, or changed, nothing says so
         return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
     def bin_with(*tools: str) -> str:
@@ -204,10 +212,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         plugin = h.scratch_dir() / "plugin"
         shutil.copytree(h.scripts, plugin / "scripts", symlinks=False)
         shutil.copy(preflight.requirements_file(), plugin / "requirements.txt")
-        result = h.run_gate(
-            event_json(h.fresh_consumer().root, Write("README.md", NO_ENVELOPE)),
-            command=[h.sh, str(plugin / "scripts" / h.wrapper.name)],
-        )
+        copied = [h.sh, str(plugin / "scripts" / h.wrapper.name)]
+        consumer = h.fresh_consumer()
+        if not s.event_driven:  # a generator: a run that completes, from inside the consumer
+            result = h.run_gate("", args=s.act_args, command=copied, cwd=consumer.root)
+            return expect(result, 0, s.green, "stdout")
+        result = h.run_gate(event_json(consumer.root, Write("README.md", NO_ENVELOPE)), command=copied)
         return expect(result, 0, s.bare_readme, "stdout")
 
     def unexpected_failure() -> tuple[bool, str]:
@@ -371,12 +381,13 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         s.gate_on(s.red, env={"CLAUDE_PLUGIN_DATA": str(data)})
         lines = log_lines(data / log_name())
         line = lines[0]
+        first = ("RED: " if s.event_driven else "BROKEN: ") + s.red_finding.headline
         ok = (
             set(line) == {"ts", "module", "gate", "mode", "session", "stream", "text"}
-            and line["text"] == "RED: " + s.red_finding.headline
+            and line["text"].startswith(first)
             and line["module"] == ns
             and line["stream"] == "stderr"
-            and line["session"] == "fixture-session"
+            and line["session"] == ("fixture-session" if s.event_driven else "")
         )
         return ok, f"{len(lines)} log lines; first: {line}"
 
@@ -406,14 +417,18 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         (data / log_name()).write_text("x" * (ROTATE_AT + 1), encoding="utf-8")
         s.gate_on(s.valid, env={"CLAUDE_PLUGIN_DATA": str(data)})
         kept = (data / (log_name() + ".1")).stat().st_size > ROTATE_AT
-        return kept and len(log_lines(data / log_name())) == 1, "the old log kept as .1, a new one started"
+        started = log_lines(data / log_name())  # only this run's lines: a gate's one, a generator's few
+        return kept and bool(started) and all(line["module"] == ns for line in started), (
+            "the old log kept as .1, a new one started"
+        )
 
     def log_failure_keeps_verdict() -> tuple[bool, str]:
         blocker = h.scratch_dir() / "a-file-not-a-directory"
         blocker.write_text("", encoding="utf-8")
         red, _ = s.gate_on(s.red, env={"CLAUDE_PLUGIN_DATA": str(blocker)})
         green, _ = s.gate_on(s.valid, env={"CLAUDE_PLUGIN_DATA": str(blocker)})
-        ok = red.code == 2 and green.code == 0
+        refused = 2 if s.event_driven else 1  # a gate's finding; a generator's refusal
+        ok = red.code == refused and green.code == 0
         return ok, f"log location unwritable: red still exits {red.code}, green still exits {green.code}"
 
     def declared_libraries() -> tuple[bool, str]:
@@ -505,9 +520,33 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         no_root_policy,
         policy_without_id_note,
     }
+    # A generator has no event, no verdict and no scan: these items are a gate's alone.
+    about_events = {
+        unparseable_input,
+        input_not_an_object,
+        malformed_event,
+        edit_without_fields,
+        other_tool,
+        scan_missing_path,
+        scan_outside_repository,
+        scan_forms,
+        not_markdown,
+        relative_path,
+        outside_any_repository,
+        no_dials_file,
+        no_root_policy,
+        edit_unappliable,
+        edit_empty_old_string,
+        severity_warn,
+        stdout_cannot_encode,
+        deeply_nested_envelope,
+        byte_order_mark,
+        negated_pattern,
+    }
     return [
         Assertion(first + n, title, check)
         for n, (title, check) in enumerate(items)
         if (s.resolves_policies or check not in about_policies)
         and (s.judges_envelopes or check is not deeply_nested_envelope)
+        and (s.event_driven or check not in about_events)
     ]

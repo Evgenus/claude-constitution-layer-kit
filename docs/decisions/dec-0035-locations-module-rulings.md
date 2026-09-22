@@ -45,7 +45,24 @@ The generator needs two things per kind: the template file and the meta-type. Th
 
 **R2.** A, with the principle the decider stated in choosing it: the module stays independent of every other module — it reads its own namespace and the kernel-owned keys, and a sibling enters only as an optional enhancement whose handoff is a stem given to the command and a `HOME:` line read from it. Chosen by the decider in chat on 2026-09-22.
 
+## 3. How a module that is only a generator gets the shared acceptance items
+
+The shared fixture items are written for a gate: they feed a `Write` event, expect a gate's count line after every configuration failure, and cover hook input, paths, the warn channel and the scan. This module has no event, no verdict and a closing line of its own, but reads the dials file, builds the index, needs git, Python and the shared code, and writes the log.
+
+- **A. Widen the shared `Subject` for a generator.** Optional fields with defaults the four gates satisfy: `event_driven` (false leaves out the items that need an event, a verdict or a scan, their numbers kept free), `closing` (the generator's own line) and `act_args` (a run that completes, for the install-copy item); the harness gains a `cwd` for a run inside a consumer.
+  - **Pros:** what every gate shares is not written again; the shared-code policy names this widening — one fixture subject for a gate shaped differently — and every other module changes nothing.
+  - **Cons:** a shared file changes for one module; the `Write` the items feed is a fiction the module's `gate_on` translates.
+- **B. The module writes its own copies of the applicable items.**
+  - **Pros:** no shared change.
+  - **Cons:** about twenty items duplicated against the rule that shared items are written once; a shared fix later does not reach them.
+- **C. No shared items; the module's own items cover what it needs.**
+  - **Pros:** smallest.
+  - **Cons:** the absence and log items are exactly the ones a module forgets.
+
+**R3.** A. Chosen by the decider in chat on 2026-09-22. Applied: `Subject.event_driven`, `Subject.closing`, `Subject.act_args` and `Harness.run_gate(cwd=…)` in the shared tests, defaulting to what the four gates pass — their fixtures unchanged and green; the twenty items left out and the thirty run are named in [kit-shared-gate-code §5](../../shared/GATE.md#g5); the rotation item now asks that the new log hold only this run's lines, since a generator's completed run prints more than a gate's one green line.
+
 ## Carry list
 
 1. R1 — the row of [requirement A2.4](../requirements.md#a2-4) in [§3](../../modules/const-locations/MODULE.md#t3) of the module's document, rule L-a of its [§5](../../modules/const-locations/MODULE.md#t5), the two `script` rows and the `skill` row of `new-document` in its [§6](../../modules/const-locations/MODULE.md#t6). That the choice was "as recommended": history only.
 2. R2 — the row `templates` of [§7](../../modules/const-locations/MODULE.md#t7) of the module's document, rule L-e of its [§5](../../modules/const-locations/MODULE.md#t5), rows L5.13 and L5.14 of the error-message table in its [§6](../../modules/const-locations/MODULE.md#t6), and the "Depends on" and enhancements of its [§11](../../modules/const-locations/MODULE.md#t11).
+3. R3 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2) and the closing paragraph of its [§5](../../shared/GATE.md#g5); the opening paragraph and the shared-items row of [§10](../../modules/const-locations/MODULE.md#t10) of the module's document; [the shared items](../../shared/tests/shared_items.py) and [the harness](../../shared/tests/harness.py).

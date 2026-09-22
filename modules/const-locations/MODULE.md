@@ -159,7 +159,7 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 <a id="t10"></a>
 ## 10. Acceptance
 
-Numbered items in `tests/run.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the widened `Subject` — a module that is only a generator hands the harness no event, so the items about hook input, paths, the warn channel and the scan are not its own and are left out with their numbers kept free; the items about the dials file, the root policy, absence, misinvocation, the log and the install copy run through the real entry point. Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
+Numbered items in `tests/run.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the `Subject` widened for a module that is only a generator ([§4](#t4), R3). Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
 
 | item | kind | what it proves |
 |---|---|---|
@@ -177,7 +177,8 @@ Numbered items in `tests/run.py`: the module's own from 1, the shared items of [
 | T12 | fixture, assertion | every refusal leaves the tree as it was: `git status` empty after each of T4, T6, T7, T9–T11, and no directory made |
 | T13 | fixture, assertion | golden lines: every L and C5 text of [§6](#t6) is what the command printed, character for character |
 | T14 | fixture, assertion | the closing line of a failure is the generator's own, not a gate's count; the entry files' `C1`, `C14`, `C15` variants drop the clause about unchecked writes |
-| S101–S110, S111–S116, S117–S119, S132–S140, S141 | fixture, shared | the dials file and the root policy; absence; misinvocation, `--help`, an abbreviated flag; the log; the install copy; not fail-open — each through the real entry point with the generator's closing line |
+| T15 | fixture, assertion | a note of the policy index — a policy document without a readable id — is printed before the lines |
+| S101–S119, S132–S141, S149 | fixture, shared | the dials file and the root policy; absence; misinvocation, `--help`, an abbreviated flag; the log; the declared libraries; the install copy; not fail-open; the note of a policy without an id — each through the real entry point, every configuration failure closed by the generator's own line; the twenty items that need an event, a verdict or a scan are left out, their numbers free ([kit-shared-gate-code §5](../../shared/GATE.md#g5)) |
 | L1 | live | in this repository, a dry run for each of its nine kinds reproduces the comparison's table — four homes, one with a segment, four refusals — and creates nothing |
 | L2 | live | the plugin loaded in a headless session in a temporary worktree of this repository via `--plugin-dir`: asked for a policy, the model invokes the skill, runs the command, and the policy lands where policies live with a valid envelope and its catalog number; the log is written; both skills are reachable under the plugin's name |
 | R1 | review | the boundary examples of [§8](#t8), the skills and the error texts of [§6](#t6), at the one yes |

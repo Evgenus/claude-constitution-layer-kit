@@ -106,7 +106,10 @@ class Harness:
         args: Sequence[str] = (),
         env: Mapping[str, str] | None = None,
         command: Sequence[str] | None = None,
+        cwd: Path | None = None,
     ) -> Result:
+        """`cwd` is where the entry point runs — a generator that locates the repository from where it
+        stands is run inside a consumer; a gate, which reads the path from its event, runs anywhere."""
         merged = dict(os.environ)
         merged.pop("CLAUDE_PLUGIN_DATA", None)
         merged.update(env or {})
@@ -117,6 +120,7 @@ class Harness:
             capture_output=True,
             env=merged,
             check=False,
+            cwd=cwd,
         )
         return Result(done.returncode, done.stdout, done.stderr)
 
