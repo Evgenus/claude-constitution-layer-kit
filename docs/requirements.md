@@ -112,11 +112,7 @@ Description moved into the module's document: [`modules/const-meta-types/MODULE.
 <a id="const-locations"></a>
 ## M2 `const-locations` — accumulating; enters with the second territory
 
-**Failure pattern:** documents created in arbitrary places; kinds without homes; governance resolution ambiguity — every misplaced document is retrofit debt.
-**Rules (advisory — skill prose, honestly labeled):** a new document is born in its canonical home with a valid envelope, from its policy's template; a new kind gets its policy first. The resolution gate that catches a misplaced document is [`const-meta-types`](#const-meta-types)' (A2.3, moved there — decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)); this module claims no gate and works with the kernel alone.
-**Ships:** creation skill: new documents are created **by command/skill from the policy's template, landing in the canonical home with valid envelope** — templates are outputs of commands, never exemplars to imitate. Procedure for a new document kind: routine if a policy covers it; otherwise a `process`-stakes decision creates the policy first (escalation, stakes-triaged).
-**Dials:** none of its own beyond the kernel's territory declarations (the project's core calibration); default policy for otherwise-unclaimed governed roots (optional).
-**Acceptance:** a clean creation via the command lands in the canonical home with a valid envelope (review); the three defect classes are [`const-meta-types`](#const-meta-types)' fixtures.
+Description moved into the module's document: [`modules/const-locations/MODULE.md`](../modules/const-locations/MODULE.md) (rows [A2.4](#a2-4), [A2.5](#a2-5)); this anchor stays the module's handle.
 
 <a id="const-decision-records"></a>
 ## M3 `const-decision-records` — accumulating; enters at the first real decision

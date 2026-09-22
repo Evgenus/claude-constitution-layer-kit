@@ -213,6 +213,7 @@ Of the territory semantics, a negated pattern is a shared item and so is proven 
 2. When module `const-catalogs` is installed and lists a catalog whose territory holds the records, the skill takes the record's number from that module's allocation; this module reads nothing of that module's dial.
 3. When module `const-questions` is installed, a recorded-stakes answer reached in its dialog is written through this module's skill.
 4. When module `const-task-close` is installed, setting a record `inactive` at task close is its moment.
+5. When module `const-locations` is installed, the skill takes a record's home from that module's command in its dry run — a kind and a stem in, a `HOME:` line out — and still writes the record from its own template; this module reads nothing of that module's dial.
 
 <a id="t12"></a>
 ## 12. Deferred

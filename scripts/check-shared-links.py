@@ -21,6 +21,7 @@ import argparse
 import os
 import sys
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,8 +48,19 @@ class Finding:
 
 
 def uses_shared_code(module: Path) -> bool:
-    """A module with a gate: it wires a hook. A module of skills alone owes no link."""
-    return (module / "hooks" / "hooks.json").is_file() or any((module / link).is_symlink() for link in LINKS)
+    """A module whose scripts import the shared code — a hook's gate, or a generator alone — owes the
+    links. A module of skills alone owes none."""
+    scripts = module / "scripts"
+    imports = any(
+        "const_gate" in path.read_text(encoding="utf-8", errors="replace")
+        for path in scripts.glob("*.py")
+        if path.is_file()
+    )
+    return (
+        (module / "hooks" / "hooks.json").is_file()
+        or imports
+        or any((module / link).is_symlink() for link in LINKS)
+    )
 
 
 def check_link(kit: Path, module: Path, link: str, source: str) -> Finding | None:
@@ -142,23 +154,36 @@ def self_test() -> int:
         harness.unlink()
         harness.write_text("", encoding="utf-8")
 
-    wrong = {
-        "a missing link": as_missing,
-        "a copied harness in tests/": harness_as_copy,
-        "a copy": as_copy,
-        "a text file": as_text_file,
-        "a dangling link": as_dangling,
-        "a link leading elsewhere": as_elsewhere,
-        "an absolute link": as_absolute,
+    def hookless_without_links(link: Path) -> None:
+        """A generator alone: no hook, a script importing the shared code, and every link gone."""
+        module = link.parent.parent
+        (module / "hooks" / "hooks.json").unlink()
+        (module / "hooks").rmdir()
+        (module / "scripts" / "generate.py").write_text("from const_gate import cli\n", encoding="utf-8")
+        for each in LINKS:  # every link gone: only the import can make the module owe them
+            (module / each).unlink()
+
+    wrong: dict[str, tuple[Callable[[Path], None], int]] = {  # the damage, and the findings it earns
+        "a missing link": (as_missing, 1),
+        "a copied harness in tests/": (harness_as_copy, 1),
+        "a hookless module importing the shared code, its links missing": (
+            hookless_without_links,
+            len(LINKS),
+        ),
+        "a copy": (as_copy, 1),
+        "a text file": (as_text_file, 1),
+        "a dangling link": (as_dangling, 1),
+        "a link leading elsewhere": (as_elsewhere, 1),
+        "an absolute link": (as_absolute, 1),
     }
     failed = 0
-    for name, damage in wrong.items():
+    for name, (damage, findings) in wrong.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             link = fresh(root)
             green_before = not check_kit(root)[0]
             damage(link)
-            red_after = len(check_kit(root)[0]) == 1
+            red_after = len(check_kit(root)[0]) == findings
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the right link is green, {name} is red")
