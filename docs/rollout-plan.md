@@ -33,7 +33,7 @@ status: active
 
 ## Phase C — The consumer's first week: the remaining accumulating modules
 
-8. [`const-locations`](requirements.md#const-locations) before the second territory is claimed; [`const-task-close`](requirements.md#const-task-close) before the first task closes against code. Authored in the kit, proven on fixtures and live in the project — against ten documents, not a thousand. Their dials (territory map, coverage map) grow with the project; the modules never wait for calibration.
+8. [`const-locations`](requirements.md#const-locations) — authoring started 2026-09-22 in the kit, ahead of this slot: the kit is consumer zero for the kinds it creates and passed its entry trigger long ago; record [dec-0035-locations-module-rulings](decisions/dec-0035-locations-module-rulings.md), the yes pending; its consumer-live proof is Phase B step 5. [`const-task-close`](requirements.md#const-task-close) before the first task closes against code. Authored in the kit, proven on fixtures and live in the project — against ten documents, not a thousand. Their dials (territory map, coverage map) grow with the project; the modules never wait for calibration.
 9. Self-limiting modules ([`const-questions`](requirements.md#const-questions) through [`const-doc-budgets`](requirements.md#const-doc-budgets)) wait for their friction signal. Until [`const-interaction`](requirements.md#const-interaction) ships, the project's `CLAUDE.md` carries a copy of the kit's session-conduct block, labeled manual and version-drifting — the fallback that module's spec names.
 
 ## Phase D — Publish (~1 hour, only after the six are green)
