@@ -126,7 +126,8 @@ def l5_no_home(kind: str, patterns: Sequence[str]) -> Broken:
 
 def l5_segment_needed(kind: str, pattern: str) -> Broken:
     return _refused(
-        f"{kind}'s territory '{pattern}' has a free segment, and --segment was not given",
+        f"{kind}'s territory '{pattern}' has a free segment, and --segment was not given: the pattern fixes"
+        " the file name and leaves that one segment to be named",
         "run it with --segment <the segment>; the file name is the pattern's, so --stem is not taken",
     )
 
@@ -135,6 +136,14 @@ def l5_stem_not_taken(kind: str, pattern: str, name: str) -> Broken:
     return _refused(
         f"--stem was given, but {kind}'s territory '{pattern}' fixes the file name '{name}'",
         "drop --stem and give --segment",
+    )
+
+
+def l5_segment_not_taken(kind: str, pattern: str) -> Broken:
+    return _refused(
+        f"--segment was given, but {kind}'s territory '{pattern}' has no free segment: the home is the"
+        " directory and the stem",
+        "drop --segment and give --stem",
     )
 
 
@@ -147,7 +156,10 @@ def l5_not_kebab(value: str, what: str) -> Broken:
 
 
 def l5_exists(home: str) -> Broken:
-    return _refused(f"{home} already exists", "choose another stem, or edit the document that is there")
+    return _refused(
+        f"{home} already exists: creating never overwrites, so the document that is there stays as it is",
+        "choose another stem, or edit the document that is there",
+    )
 
 
 def l5_two_policies(home: str, other: str, pattern: str) -> Broken:
@@ -159,14 +171,16 @@ def l5_two_policies(home: str, other: str, pattern: str) -> Broken:
 
 def l5_type_needed(kind: str, policy_path: str) -> Broken:
     return _refused(
-        f"{kind} has no template, and --type was not given",
+        f"{kind} has no template, and --type was not given: without a template nothing but the policy's"
+        " prose says which meta-type the kind is",
         f"run it with --type {TYPES_OR} — {policy_path} says which its kind is",
     )
 
 
 def l5_type_conflict(given: str, path: str, fixed: str) -> Broken:
     return _refused(
-        f"--type {given} was given, but the template {path} fixes type: {fixed}",
+        f"--type {given} was given, but the template {path} fixes type: {fixed}, and a kind has one"
+        " meta-type",
         "drop --type; the template decides",
     )
 
@@ -202,7 +216,8 @@ def l5_template_bad_type(path: str, value: str) -> Broken:
 
 def l5_title_needed() -> Broken:
     return _refused(
-        "--title was not given", "run it with --title '<the document's title>'; a dry run needs none"
+        "--title was not given, and the envelope is written with the title as a value",
+        "run it with --title '<the document's title>'; a dry run needs none",
     )
 
 
@@ -215,7 +230,8 @@ def l5_id_in_use(doc_id: str, path: str) -> Broken:
 
 def l5_could_not_write(home: str, error: str) -> Broken:
     return _refused(
-        f"{home} could not be written ({error})",
+        f"{home} could not be written ({error}): the write is the last act, so the refusal leaves nothing"
+        " behind",
         "check the directory's permissions; nothing else was changed",
     )
 
@@ -229,23 +245,32 @@ def _c5(detail: str, fix: str) -> Broken:
 
 def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
     return _c5(
-        f"{_ns()}.{key} is not a dial of this module (known: {', '.join(known)})", "remove or rename the key"
+        f"{_ns()}.{key} is not a dial of this module (known: {', '.join(known)}); a misspelt dial is never"
+        " a setting ignored in silence",
+        "remove or rename the key",
     )
 
 
 def c5_severity_here() -> Broken:
-    return _c5(f"{_ns()}.severity has no meaning: this module blocks nothing", "remove the line")
+    return _c5(
+        f"{_ns()}.severity has no meaning: this module blocks nothing, and a line that sets nothing misleads"
+        " the next reader",
+        "remove the line",
+    )
 
 
 def c5_templates_shape() -> Broken:
     return _c5(
-        f"{_ns()}.templates must be a list of {_ENTRY}",
+        f"{_ns()}.templates must be a list of {_ENTRY}: one entry names one kind's template",
         "write it as templates: [{policy: <id>, template: <path>}, ...], or remove the key",
     )
 
 
 def c5_template_entry(position: int, what: str) -> Broken:
-    return _c5(f"{_ns()}.templates[{position}] {what}", f"write the entry as {_ENTRY}")
+    return _c5(
+        f"{_ns()}.templates[{position}] {what}; an entry the command cannot read names no template",
+        f"write the entry as {_ENTRY}",
+    )
 
 
 def entry_not_a_mapping() -> str:

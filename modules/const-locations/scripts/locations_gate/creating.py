@@ -12,6 +12,7 @@ from const_gate.dials import load_dials
 from const_gate.envelope import id_of_text
 from const_gate.errors import ConfigurationFailure
 from const_gate.index import Index, build_index
+from const_gate.model import EXIT_GREEN
 from const_gate.output import Output
 from const_gate.repository import repo_root
 from const_gate.territory import Matcher
@@ -65,11 +66,11 @@ def act(output: Output, request: Request) -> int:
     )
     if request.dry_run:
         output.out(messages.l4_dry_run())
-        return 0
+        return EXIT_GREEN
     _write(root, plan)
     output.out(messages.l3_created(plan.home))
     output.out(messages.l4_count(plan.home))
-    return 0
+    return EXIT_GREEN
 
 
 def _home_of(request: Request, territory: tuple[str, ...]) -> tuple[str, str, str]:
@@ -88,6 +89,8 @@ def _home_of(request: Request, territory: tuple[str, ...]) -> tuple[str, str, st
         home = homes.segment_home(rule, request.segment)
         doc_id = request.doc_id or f"{rule.fixed_name.lower()}-{request.segment}"
     else:
+        if request.segment is not None:
+            raise ConfigurationFailure(messages.l5_segment_not_taken(kind, rule.pattern))
         if request.stem is None:
             raise ConfigurationFailure(messages.l5_usage("--stem was not given"))
         home = homes.directory_home(rule, request.stem)

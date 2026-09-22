@@ -185,40 +185,39 @@ def prefix_forms() -> tuple[bool, str]:
 
 
 def free_segment() -> tuple[bool, str]:
-    patch = claim(["modules/*/MODULE.md"])
+    pattern = "packages/*/README.md"
+    patch = claim([pattern])
     consumer = prepared(patch)
     result = run(
         consumer,
         "--kind",
         "notes-policy",
         "--segment",
-        "const-x",
+        "alpha",
         "--title",
-        "const-x",
+        "Alpha",
         "--type",
         "current-state",
     )
-    expected = document(
-        "# const-x\n", id="module-const-x", type="current-state", title="const-x", status="active"
-    )
-    made = created(
-        consumer,
-        "modules/const-x/MODULE.md",
-        expected,
-        result,
-        [messages.l1_home("modules/const-x/MODULE.md", "notes-policy", "modules/*/MODULE.md")],
-    )
+    expected = document("# Alpha\n", id="readme-alpha", type="current-state", title="Alpha", status="active")
+    home = "packages/alpha/README.md"
+    made = created(consumer, home, expected, result, [messages.l1_home(home, "notes-policy", pattern)])
     stem = broken(
         run(prepared(patch), "--kind", "notes-policy", "--stem", "z", "--title", "T"),
-        messages.l5_stem_not_taken("notes-policy", "modules/*/MODULE.md", "MODULE"),
+        messages.l5_stem_not_taken("notes-policy", pattern, "README"),
     )
     none = broken(
         run(prepared(patch), "--kind", "notes-policy", "--title", "T"),
-        messages.l5_segment_needed("notes-policy", "modules/*/MODULE.md"),
+        messages.l5_segment_needed("notes-policy", pattern),
+    )
+    mirror = broken(
+        run(prepared(), "--kind", "notes-policy", "--stem", "a", "--segment", "x", "--title", "T"),
+        messages.l5_segment_not_taken("notes-policy", "docs/notes/**"),
     )
     return all_of(
-        [made, stem, none],
-        "the segment fills the home, the id is MODULE-<segment> lowered, --stem refused, --segment required",
+        [made, stem, none, mirror],
+        "the segment fills the home, the id is NAME-<segment> lowered, --stem refused there, --segment"
+        " refused on a directory kind, --segment required",
     )
 
 
@@ -394,6 +393,18 @@ def argument_refusals() -> tuple[bool, str]:
             messages.l5_not_kebab("x--y", "the id"),
         ),
         (
+            run(
+                prepared(claim(["packages/*/README.md"])),
+                "--kind",
+                "notes-policy",
+                "--segment",
+                "Bad_Name",
+                "--title",
+                "T",
+            ),
+            messages.l5_not_kebab("Bad_Name", "the segment"),
+        ),
+        (
             run(prepared(), "--kind", "notes-policy", "--stem", "a", "--type", "non-authoritative"),
             messages.l5_title_needed(),
         ),
@@ -402,7 +413,10 @@ def argument_refusals() -> tuple[bool, str]:
             messages.l5_usage("--stem was not given"),
         ),
     ]
-    return all_of([broken(r, f) for r, f in pairs], "a bad stem, a bad id, no title, no stem: each refused")
+    return all_of(
+        [broken(r, f) for r, f in pairs],
+        "a bad stem, a bad id, a bad segment, no title, no stem: each refused",
+    )
 
 
 def dial_failures() -> tuple[bool, str]:
@@ -454,8 +468,8 @@ def golden_lines() -> tuple[bool, str]:
     refused = run(consumer, *NOTE_ARGS).stderr
     expected_out = "\n".join(NOTE_LINES) + "\n"
     expected_err = (
-        "BROKEN: docs/notes/a.md already exists — fix: choose another stem, or edit the document that is"
-        " there\n"
+        "BROKEN: docs/notes/a.md already exists: creating never overwrites, so the document that is there"
+        " stays as it is — fix: choose another stem, or edit the document that is there\n"
         "BROKEN: the document could not be created — nothing was written\n"
     )
     ok = out == expected_out and refused == expected_err
@@ -492,14 +506,17 @@ OWN: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         directory_prefix,
     ),
     ("<dir>/**/*.md and a leading slash are prefixes too", prefix_forms),
-    ("one free segment: the home filled, the id derived, --stem refused, --segment required", free_segment),
+    (
+        "one free segment: the home filled, the id derived, --stem and --segment refused where not taken",
+        free_segment,
+    ),
     ("a single path and every fourth-class territory: no home, refused and taught", no_home),
     ("a template: the command's id, title and status, the template's type, the rest verbatim", from_template),
     ("no type, a conflicting type, a bad type, no envelope, a missing template", template_refusals),
     ("an overlap, an existing file, an id in use", proof_refusals),
     ("--dry-run prints the home and the template and writes nothing", dry_run),
     ("not a policy, no dials file, no root policy, outside any repository", repository_refusals),
-    ("a stem, an id, a title, a missing stem", argument_refusals),
+    ("a stem, an id, a segment, a title, a missing stem", argument_refusals),
     ("the dials: an unknown key, severity, and every shape of a bad templates entry", dial_failures),
     ("every refusal leaves the tree as it was", refusals_leave_the_tree),
     ("golden lines: stdout and stderr character for character", golden_lines),

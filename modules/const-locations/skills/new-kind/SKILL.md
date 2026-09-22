@@ -7,6 +7,7 @@ description: >
   as "not a policy", when a new directory of documents is about to be started, and when a
   repository has no constitution.yaml yet and its first governed document is due. Advisory:
   nothing here blocks a write; the order is the rule.
+allowed-tools: Bash(sh ${CLAUDE_PLUGIN_ROOT}/scripts/new-document.sh *)
 ---
 
 # New kind
@@ -73,7 +74,7 @@ so the first document is written from it.
 
 A repository with no `constitution.yaml` governs nothing, and the command refuses until it
 exists. Bootstrap by hand, once — this is the only time a governed document is written
-without the command:
+without the command; the paths below are an example, any layout inside the repository works:
 
 1. `constitution.yaml` at the repository root:
    ```yaml

@@ -6,7 +6,7 @@ is reported by the command with the fix on its first line and nothing is written
 silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
-   session). No hooks: the plugin ships two skills and one command, and nothing here blocks a
+   session). No hooks: the plugin ships two skills and one script, and nothing here blocks a
    write. A copy of this plugin's folder made outside the repository it comes from must follow
    links (`cp -RL`): `scripts/const_gate`, and `harness.py`, `consumer.py` and
    `shared_items.py` in `tests/`, are links to code the plugin shares with its siblings, and an
