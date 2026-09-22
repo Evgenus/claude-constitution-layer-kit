@@ -127,3 +127,4 @@ claude plugin uninstall const-<aspect>@constitution-kit --scope project
 - `docs/requirements.md` — traceability matrix and module specifications.
 - `docs/rollout-plan.md` — phases.
 - `module-template/` — how a module is shaped, if you intend to author one.
+- `templates/` — the templates of the kit's own document kinds that live in no territory; the `templates` dial of `const-locations` in `constitution.yaml` names which kind each serves.
