@@ -43,6 +43,6 @@ E, chosen by the decider in chat on 2026-09-18.
 
 - [Kernel §4](../../kernel/CONVENTIONS.md#k4): the `process` row.
 - [CLAUDE.md](../../CLAUDE.md): [law 9 of CLAUDE.md](../../CLAUDE.md#law-9) and step 6 of the module routine.
-- [kit-decision-records](../policies/kit-decision-records.md): rule 4, the kit's regime and its sunset at Phase D.
+- [kit-decision-records](../policies/plc-0004-decision-records.md): rule 4, the kit's regime and its sunset at Phase D.
 - Rollout plan Phase D: the remote, protected main, and PR flow become its first step.
 - [Requirement A3.3](../requirements.md#a3-3): immutability by convention until a PR flow exists.

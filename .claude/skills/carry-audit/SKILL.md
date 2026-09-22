@@ -10,7 +10,7 @@ run by readers and is no gate. What a script can hold — that every ruling item
 that an acceptance names its audit — is `scripts/check-carry-lists.py`, and this procedure ends by
 running it. The rule this serves: an applied ruling lives in the current-state documents it changed,
 and a record is provenance, never authority ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); the
-kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/policies/kit-decision-records.md).
+kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/policies/plc-0004-decision-records.md).
 
 ## When
 

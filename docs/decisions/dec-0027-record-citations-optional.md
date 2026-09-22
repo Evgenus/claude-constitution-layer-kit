@@ -17,7 +17,7 @@ What the audit found:
 
 1. No current-state document relies on a record. Every citation reads as provenance: the sentence is complete without its link.
 2. Eleven ruling items lived only in a record. Most were of one shape: a deferred trigger, a fallback, an exception — items that change no file on the day they are ruled, so the record's list of applied files never shows them missing. They are carried now, in commits `83d5c2f`, `cd04c14`, `251df8b`, `053a0f6`, `138d142` and `11a8593`.
-3. Three places made citing a record mandatory, so no record could go even when fully carried: [template §4](../../module-template/MODULE.md#t4) defined a module's decisions list as record ids; [kit-requirements](../policies/kit-requirements.md) rule 2 said "the row cites its record", which the matrix had never followed; and six error texts of `scripts/check-references.sh` named records by path, where no link checker reads.
+3. Three places made citing a record mandatory, so no record could go even when fully carried: [template §4](../../module-template/MODULE.md#t4) defined a module's decisions list as record ids; [kit-requirements](../policies/plc-0007-requirements.md) rule 2 said "the row cites its record", which the matrix had never followed; and six error texts of `scripts/check-references.sh` named records by path, where no link checker reads.
 4. Most records are linked from other records, and the kernel lets a record be edited in place only as a reference-form migration. Whether unlinking a deleted record is one was not said anywhere.
 
 A choice was needed on what the records are for once everything is carried.
@@ -57,8 +57,8 @@ A, by Eugene Chernyshov in chat on 2026-09-20; then, the same day, "lift read-on
 ## Carry list
 
 1. Item 1 — [template §4](../../module-template/MODULE.md#t4), first paragraph.
-2. Item 2 — [kit-requirements](../policies/kit-requirements.md), rule 2.
-3. Items 3 and 4 — [kit-decision-records](../policies/kit-decision-records.md), rule 7.
-4. Item 5 — [kit-decision-records](../policies/kit-decision-records.md), rule 2.
-5. Item 6 — [kit-decision-records](../policies/kit-decision-records.md), rule 2, and step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md).
+2. Item 2 — [kit-requirements](../policies/plc-0007-requirements.md), rule 2.
+3. Items 3 and 4 — [kit-decision-records](../policies/plc-0004-decision-records.md), rule 7.
+4. Item 5 — [kit-decision-records](../policies/plc-0004-decision-records.md), rule 2.
+5. Item 6 — [kit-decision-records](../policies/plc-0004-decision-records.md), rule 2, and step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md).
 6. Item 7 — history only: the rows state their rules; that they were amended under this record is provenance.

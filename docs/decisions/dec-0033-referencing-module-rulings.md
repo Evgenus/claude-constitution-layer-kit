@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The fourth module, [`const-referencing`](../requirements.md#const-referencing), was authored on 2026-09-21 and 2026-09-22 from its research comparison ([research-const-referencing](../research/const-referencing.md)) and the rows of [aspect A5](../requirements.md#a5) homed in it. Ten questions were put to the decider in chat, one per message, each with lettered options; the rest was derived by the authoring session, or found by its validations, and is listed in section 11 for the decider to override before the yes. One answer went against the session's recommendation (section 4), four overturn what the matrix or the module's specification said (sections 2, 5, 9, 10), and one adds a row (section 1). The module is the first gate of the kit wired to two tool events, the first that calls a third-party binary, and the first with a second entry point.
+The fourth module, [`const-referencing`](../requirements.md#const-referencing), was authored on 2026-09-21 and 2026-09-22 from its research comparison ([research-const-referencing](../research/res-0004-const-referencing.md)) and the rows of [aspect A5](../requirements.md#a5) homed in it. Ten questions were put to the decider in chat, one per message, each with lettered options; the rest was derived by the authoring session, or found by its validations, and is listed in section 11 for the decider to override before the yes. One answer went against the session's recommendation (section 4), four overturn what the matrix or the module's specification said (sections 2, 5, 9, 10), and one adds a row (section 1). The module is the first gate of the kit wired to two tool events, the first that calls a third-party binary, and the first with a second entry point.
 
 ## 1. Whether "repaired by tooling on a move" becomes a row
 
@@ -239,7 +239,7 @@ On the branch `work/const-referencing`, in the commits before this record and th
 20. R25 — limits 8 and 12 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document, rows V5 and F9 of the error-message table in its [§6](../../modules/const-referencing/MODULE.md#t6), platform fact 9 there. The counts: history only.
 21. R24 — row E3 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document.
 22. R17 — [the install note](../../modules/const-referencing/INSTALL.md), step 3. That it corrects what was said in chat: history only.
-23. R27 — rule 2 of [kit-shared-code](../policies/kit-shared-code.md); step 4 of [CLAUDE.md](../../CLAUDE.md); the admission paragraph of [kit-shared-gate-code §1](../../shared/GATE.md#g1). That the clause first stood in the document alone: history only.
+23. R27 — rule 2 of [kit-shared-code](../policies/plc-0009-shared-code.md); step 4 of [CLAUDE.md](../../CLAUDE.md); the admission paragraph of [kit-shared-gate-code §1](../../shared/GATE.md#g1). That the clause first stood in the document alone: history only.
 24. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
 25. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
 26. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
