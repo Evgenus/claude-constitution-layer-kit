@@ -7,19 +7,17 @@ status: active
 
 # MODULE.md — `const-locations`
 
-*Template. Every constitution module is a Claude Code plugin with this document at its root, and this document is the module's **description** from the first draft on — there is no separate specification kind (decision [dec-0003-module-spec-kind](../../docs/decisions/dec-0003-module-spec-kind.md)). A draft module carries manifest version `0.0.x`; it is published at `0.1.0` or higher, once every gate has its fixture and no open marker is left. Open slots in a draft are written inline as `[decide: <slot> — default <X> — stakes <level> — decider <who>]`; an authoring session derives its questions from these markers in document order, and a published module carries none.*
-
-*Fill every section; a section that does not apply says "none" with one line of reasoning. The module depends on the kernel (`CONVENTIONS.md` + schemas) and on nothing else — if it seems to need a sibling module, the shared concept belongs in the kernel; raise that instead of coupling. **No file in the module references a project directly** (paths, names, values): project specifics arrive only through the dials namespace, and the module must install and operate on an empty repository using its defaults ([kernel §6](../../kernel/CONVENTIONS.md#k6), portability rule). References to sibling modules are permitted **only as optional enhancements** ("when module `const-x` is installed, ..."); every rule must be executable with the kernel alone — the test: **kernel + this module on an empty repository is a functioning installation.** Every list and table row carries a handle so one item can be cited without quoting it.*
+*Draft at manifest version `0.0.1`; open slots are marked inline; published at `0.1.0` in rollout Phase D. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose
 
-One paragraph: the failure pattern this module prevents, stated concretely — in terms someone has observed, not a category name. If the failure pattern cannot be named, the module is not ready to exist.
+A session is asked for a policy, a note, a record, and writes it where the conversation happens to be looking: a new directory, the repository root, beside the file it was reading. The document opens with whatever frontmatter the model last saw — a `date` field, an `id` that is not the file's stem, no `status` — or with none. Nothing resolves it to a policy, so nothing governs it; its shape matches no sibling, so the next document of its kind imitates it instead of the policy; and every one of them is retrofit debt: a move, an envelope repair and a link repair, each paid later by someone who did not write it. The kit observed the whole pattern on itself: every policy and module document it holds was written by hand from a neighbour's shape, and in the module's own live runs six documents out of six were born through a shell heredoc with the same three envelope defects. This module makes creation an act with a known outcome: a new document is born at the home its policy's territory implies, from that policy's template, with its envelope already valid — and a document of a kind no policy covers is not created until the policy exists.
 
 <a id="t2"></a>
 ## 2. Failure class
 
-`accumulating` or `self-limiting`, with one line of reasoning; a module may be split honestly — name the accumulating slice and the self-limiting remainder. Then the **entry trigger**: accumulating modules belong in every project's day-one install set; a self-limiting module names the observed friction signal that earns its installation, stated so a consumer can recognize it.
+**Accumulating.** Every document born outside its home or without its envelope is one more to move and repair when the kind is first governed, and one more exemplar for the next document to imitate wrongly. **Entry trigger:** the second territory — the first moment a session must choose between two homes; in practice day one of any project with more than one document kind, so the module belongs in the day-one install set.
 
 <a id="t3"></a>
 ## 3. Rows
