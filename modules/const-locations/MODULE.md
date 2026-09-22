@@ -69,7 +69,7 @@ None: an advisory module claims no invariant. In its place, the rules, each `adv
 | command | none | a command file is the legacy form of a skill and cannot carry the named arguments or the pre-approval. |
 | agent | none | creating a document is one step of the dialog that asked for it, not a delegation. |
 
-- **Always-on content:** none. The carrier is the description of `new-document` in the skill listing, 512 characters; the comparison's four live runs show the model reaching the skill from the listing before writing.
+- **Always-on content:** none. The carrier is the description of `new-document` in the skill listing, 552 characters; the comparison's four live runs show the model reaching the skill from the listing before writing.
 - **Platform facts relied on** (all verified 2026-09-22 against the official documentation; sources in the research comparison, section 9):
   1. A skill's `arguments` list names positional arguments; `$kind` and `$stem` expand in the skill's content, an unfilled one to the empty string. Breaks: the arguments the skill hands to the command.
   2. `${CLAUDE_PLUGIN_ROOT}` is substituted in a plugin skill's content and in Bash rules of its `allowed-tools`, and is not set in the Bash tool's environment; the skill writes the placeholder, never the variable. Breaks: the command line and its pre-approval.

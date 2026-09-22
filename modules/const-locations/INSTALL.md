@@ -1,8 +1,66 @@
 # Install — const-locations
 
-1. Install the plugin (marketplace or `--plugin-dir`).
-2. Optional calibration: add a `const-locations:` namespace to the project's `constitution.yaml`. Defaults apply otherwise — the module works with zero configuration.
-3. CLAUDE.md pointer (only if MODULE.md declares one, max one line):
-   `<the line, or delete this section>`
+Requires: git; Python 3.12 or newer as `python3`, with the libraries in `requirements.txt`
+(`python3 -m pip install -r <plugin root>/requirements.txt`). A missing `python3`, library or git
+is reported by the command with the fix on its first line and nothing is written; nothing is
+silently skipped.
 
-Uninstall: remove the plugin; remove the namespace from `constitution.yaml`; remove the pointer line.
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+   session). No hooks: the plugin ships two skills and one command, and nothing here blocks a
+   write. A copy of this plugin's folder made outside the repository it comes from must follow
+   links (`cp -RL`): `scripts/const_gate`, and `harness.py`, `consumer.py` and
+   `shared_items.py` in `tests/`, are links to code the plugin shares with its siblings, and an
+   install from the marketplace copies what they point at. A checkout made without symlink
+   support leaves one-line text files in their place (`git config core.symlinks true`, then
+   check out again).
+2. **Zero configuration works** in a repository whose `constitution.yaml` names a `root_policy`
+   and the policies' territories: every kind whose territory is `<dir>/**`, `<dir>/**/*.md` or
+   `<dir>/*/NAME.md` gets its documents created at the home that follows, with the four-field
+   envelope and the title's heading as the body. Without a `constitution.yaml`, or without a
+   `root_policy`, the command refuses and says what to declare first; the `new-kind` skill
+   carries the procedure from zero.
+3. The command, from inside the repository:
+   ```bash
+   sh <plugin root>/scripts/new-document.sh --kind <policy id> --stem <stem> --title '<title>' [--type <meta-type>] [--segment <segment>] [--id <id>] [--dry-run]
+   ```
+   `--kind` is a policy's id; `--stem` the file name without `.md`, kebab-case, also the id
+   unless `--id` is given; `--type` the meta-type when the kind has no template; `--segment`
+   in place of `--stem` for a territory with one free segment (`<dir>/*/NAME.md`);
+   `--dry-run` prints the home and the template and writes nothing. Exit 0 created or dry run;
+   1 refused before anything was written, or the command could not run. It never exits 2:
+   a generator has no findings. The skill `/const-locations:new-document <kind> <stem>` carries
+   the procedure and pre-approves exactly this command line.
+4. Calibration, optional, in the project's `constitution.yaml`:
+   ```yaml
+   const-locations:
+     templates:                # the kinds that have a template; none by default
+       - {policy: <policy id>, template: <repository-relative path of the template>}
+     # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 6
+   ```
+   A template is a Markdown file that opens with the envelope a document of the kind carries —
+   `id`, `type`, `title`, `status`, and any field the kind adds — with placeholders where the
+   writer fills; its `type` decides the created document's type. The command writes `id`,
+   `title` and `status` as values, keeps every other envelope line and the whole body as they
+   stand, and says on its `TEMPLATE:` line which file it used. A key of this namespace that is
+   none of those above is refused with exit 1, `severity` among them: this plugin blocks
+   nothing, so the key has no meaning here.
+5. Introducing a kind: the skill `/const-locations:new-kind` — the policy first, its territory
+   line by hand at the end of `constitution.yaml`, then the first document. The command creates
+   the policy itself when given the root policy's id as the kind.
+6. Output log: every line the command prints is also appended, as one JSON line (timestamp,
+   module, gate, mode, session, stream, text), to `const-locations.jsonl` — refusals leave no
+   trace in git. By default it lives in the platform's per-plugin data directory. Set `log_dir`
+   to keep it inside the repository; the directory must be git-ignored, and the command refuses
+   to run otherwise.
+7. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+8. CLAUDE.md pointer: none. The skill's description is in the session's skill listing, and the
+   skill loads on its own when a document is about to be created.
+
+What this plugin does not do: see a document written without the command — a heredoc, a
+`Write`, an editor — which the write-time gate of module `const-meta-types` catches when
+installed; derive a home from a territory of two patterns, a negation or a `*` inside a file
+name — the command refuses and names the shapes that work; check or fill the body; edit
+`constitution.yaml`; allocate a number for a numbered kind.
+
+Uninstall: remove the plugin; remove the `const-locations:` namespace from
+`constitution.yaml`. Documents keep their homes.
