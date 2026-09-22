@@ -1,10 +1,21 @@
 # Dials file of the constitution kit itself: the kit is consumer zero of the
 # document-shaped modules (decision dec-0006-accumulating-set-first). Calibration of
-# this repository, never of any project. Territory patterns use the default
-# dialect, gitignore (kernel §6); no territory_dialect key is needed.
-# Shape per kernel §3 and §6 (decision dec-0008-policies-by-location).
+# this repository, never of any project. Shape per kernel §3 and §6 (decision
+# dec-0008-policies-by-location).
+#
+# Every dial the kernel and the installed modules know is written here, at its
+# default where the kit has not calibrated it, so the file doubles as the inventory
+# of what can be set. A dial whose default is "absent" — the module behaves one way
+# with no value and another with any value — is written as a commented line showing
+# its shape. Each module's MODULE.md §7 is authoritative for the meaning.
 
-root_policy: docs/policies/kit-root-policy.md
+# --- kernel-owned keys (kernel §6) -------------------------------------------------
+
+root_policy: docs/policies/kit-root-policy.md   # where the root policy is; absent: no territory is claimed
+territory_dialect: gitignore                    # the pattern dialect of every territory; default gitignore, the only one supported
+
+# --- policy namespaces (kernel §3): one per document kind, keyed by the policy's id ---
+# The only kernel-defined key is `territory`; a policy's other calibration is its own.
 
 kit-root-policy:                      # the policy for policies; its territory is where policies live
   territory: ["docs/policies/**"]
@@ -33,19 +44,44 @@ kit-requirements:
 kit-rollout-plan:
   territory: ["docs/rollout-plan.md"]
 
-const-meta-types:                     # a module's namespace (kernel §6): its own dials
+# --- module namespaces (kernel §6): a module reads only its own -------------------
+# Two dials are every gate's, read by the shared code (shared/GATE.md):
+#   severity  block | warn — block: a finding exits 2 and the write is blocked;
+#                            warn: reported, the write proceeds (the adoption path).
+#                            The --scan mode ignores it and always blocks.
+#   log_dir   a repository-relative, git-ignored directory for the output log;
+#             absent: the platform's per-plugin data directory, or nowhere in CI.
+
+const-meta-types:
+  severity: block
   log_dir: local/gate-logs            # every gate's output log, one file per module, in a git-ignored directory
 
 const-decision-records:
-  record_policies: [kit-decision-records]   # the policies whose territory holds decision records
+  severity: block
   log_dir: local/gate-logs
+  record_policies: [kit-decision-records]   # gate: the policies whose territory holds decision records; [] examines nothing
+  # boundary_examples:                # skill: the project's own routine / recorded pairs; absent: the seed pairs of MODULE.md §8
+  #   - {routine: "…", recorded: "…"}
+  # deciders:                         # skill: who may decide at each stakes level; absent: the agent asks who decides
+  #   process: []
+  #   product: []
+  #   architecture: []
+  # note_trailer: Note                # skill: the commit trailer key carrying a routine note's theme; absent: the log is read only
 
 const-catalogs:                       # numbered kinds are declared here, independent of policies (requirement A13.7)
-  catalogs:
-    - {prefix: dec, width: 4, territory: *decisions}   # id and stem dec-<nnnn>-<slug>
+  severity: block
   log_dir: local/gate-logs
+  catalogs:                           # gate, skill: the numbered kinds; [] examines nothing
+    - {prefix: dec, width: 4, territory: *decisions}   # id and stem dec-<nnnn>-<slug>; width 1–9, default 4
 
 const-referencing:                    # the kit's own reference forms (requirements A5.5–A5.7); the module knows none of them
+  severity: block
+  log_dir: local/gate-logs
+  territories: ["*.md"]               # the covered documents among the Markdown files git lists; a negated pattern takes files out
+  governed_only: false                # true narrows coverage to documents in a policy's territory; needs root_policy
+  heading_anchors: refuse             # allow switches R7 off
+  bare_ids: refuse                    # allow switches R2 off — for a project whose ids are everyday words
+  local_paths: refuse                 # allow switches R4 off — for a project whose documents must show a machine's home directory
   lanes:                              # a bare form is the local alias inside its home document, a link everywhere else
     - pattern: '\bM[0-9]+\b'
       names: a module by its number
@@ -65,4 +101,4 @@ const-referencing:                    # the kit's own reference forms (requireme
       home: ["/CLAUDE.md"]
   mentions:                           # a record named in a script or a configuration file must exist: no link checker reads those
     - pattern: '\bdec-[0-9]{4}-[a-z0-9-]+'
-  log_dir: local/gate-logs
+    # - {pattern: '…', files: ["…"]}  # files, optional: patterns of the files read; default every non-Markdown, non-binary file git lists
