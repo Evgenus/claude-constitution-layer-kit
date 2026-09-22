@@ -17,7 +17,8 @@ Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .con
           dials const-referencing.territories (path patterns; default every Markdown file),
           .governed_only (true | false; true reads the policies too, and needs root_policy),
           .mentions (a list of {pattern, files}; scan only),
-          .bare_ids and .heading_anchors (refuse | allow), .lanes (a list of {pattern, names, fix, home}),
+          .bare_ids, .local_paths and .heading_anchors (refuse | allow), .lanes (a list of
+          {pattern, names, fix, home}),
           .severity (block | warn) and .log_dir; the file as a whole is validated as every
           gate does. No policy is read unless governed_only asks for it.
 The check: outside the YAML block that opens the file, code, HTML comments and links, a

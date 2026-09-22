@@ -28,18 +28,24 @@ _SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
 
 
 def examine(
-    rel: str, document: str, own_id: str | None, ids: Ids, lanes: Sequence[Lane], bare_ids: bool
+    rel: str,
+    document: str,
+    own_id: str | None,
+    ids: Ids,
+    lanes: Sequence[Lane],
+    bare_ids: bool,
+    local_paths: bool,
 ) -> tuple[list[tuple[int, Finding]], int]:
     """The findings of one document, each with its line, in reading order, and the number of links
     it holds. `lanes` are those not at home in this document; `bare_ids` says whether an id in
-    backticks is judged."""
+    backticks is judged, `local_paths` whether a path on one machine is."""
     masked = mask(document)
     links = find_links(document, masked)
     found: list[tuple[int, Finding]] = [
         *_bare_forms(rel, document, without_links(masked, links), lanes),
         *(_bare_ids(rel, document, masked, links, own_id, ids) if bare_ids else []),
         *_id_links_astray(rel, document, links, ids),
-        *_one_machine(rel, document, masked),
+        *(_one_machine(rel, document, masked) if local_paths else []),
     ]
     in_order = sorted(found, key=lambda pair: pair[0])
     return [(line_of(document, position), finding) for position, finding in in_order], len(links)

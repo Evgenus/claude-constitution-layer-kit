@@ -35,6 +35,7 @@ not, and every write says so until it is installed.
      governed_only: false      # true: only documents a policy governs; needs root_policy
      heading_anchors: refuse   # refuse (default) | allow — see adoption, step 4
      bare_ids: refuse          # refuse (default) | allow — for ids that are everyday words
+     local_paths: refuse       # refuse (default) | allow — for documents that must show a home directory
      severity: block           # block (default) | warn
      # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 7
      lanes:                    # the project's own bare forms; none by default

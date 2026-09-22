@@ -25,7 +25,7 @@ What is checked and what is not. This plugin's hook blocks a Markdown document t
 bare form the project declared (`const-referencing.lanes` in `constitution.yaml`), that shows a
 covered document's id in backticks outside a link, that holds a link whose text is a document's
 id and whose target is another file, or that names a path on one machine — a home-directory
-path or a `file:` link, inside code as well. After every write it
+path or a `file:` link, inside code as well, unless the project set `local_paths: allow`. After every write it
 checks the whole tree and reports what the write broke — in the written document and in every
 document that links to it. That report cannot undo the write: fix what it names in your next
 step. The scan checks all of it for every covered document and is what a pull request runs.

@@ -43,6 +43,7 @@ from harness import (  # noqa: E402
     expect,
 )
 from referencing_gate import messages, start  # noqa: E402
+from referencing_gate.dials import KEYS  # noqa: E402
 from shared_items import Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -265,6 +266,19 @@ def bare_ids_allowed() -> tuple[bool, str]:
     )
 
 
+def local_paths_allowed() -> tuple[bool, str]:
+    """The switch for a document that must show a container's home directory."""
+    fence = body("```dockerfile\nWORKDIR /home/node/app\n```")
+    return all_of(
+        [
+            blocks(fence, messages.r4_one_machine(DOC, 10, "/home/node/app"), patch=None),
+            passes(fence, patch=own(local_paths="allow")),
+            passes(body("Notes: /Users/someone/notes.md"), patch=own(local_paths="allow")),
+        ],
+        "a Dockerfile fence is red by default and passes under allow; so does prose",
+    )
+
+
 def own_id_and_unknown_ids_pass() -> tuple[bool, str]:
     return passes(body("This is `note-a`; `not-a-document` is no id of a covered document."))
 
@@ -361,6 +375,7 @@ def dial_failures() -> tuple[bool, str]:
         (own(territories=["*.md", 3]), messages.c5_territories()),
         (own(bare_ids="maybe"), messages.c5_switch("bare_ids")),
         (own(bare_ids=True), messages.c5_switch("bare_ids")),
+        (own(local_paths="off"), messages.c5_switch("local_paths")),
         (own(lanes={"pattern": "x"}), messages.c5_lanes_not_a_list()),
         (own(lanes=["REQ"]), messages.c5_lane(1, messages.lane_not_a_mapping())),
         (own(lanes=[LANE, {**LANE, "why": "mine"}]), messages.c5_lane(2, messages.lane_unknown_key("why"))),
@@ -1321,18 +1336,7 @@ def uncovered_write_that_breaks_a_covered_link() -> tuple[bool, str]:
 
 
 def a_misspelt_dial() -> tuple[bool, str]:
-    known = sorted(
-        [
-            "severity",
-            "log_dir",
-            "territories",
-            "governed_only",
-            "heading_anchors",
-            "bare_ids",
-            "lanes",
-            "mentions",
-        ]
-    )
+    known = sorted(KEYS)
     result, _ = gate_on(VALID, dials_patch=own(heading_anchor="allow"))
     return broken(result, messages.c5_unknown_key("heading_anchor", known))
 
@@ -2011,6 +2015,7 @@ ASSERTIONS = [
         "a case-only rename is a move; a document moved out of coverage keeps its links",
         case_only_rename_and_uncovered_destination,
     ),
+    Assertion(48, "local_paths: allow switches R4 off", local_paths_allowed),
 ]
 
 SUBJECT = Subject(

@@ -19,6 +19,7 @@ KEYS = {
     "governed_only",
     "heading_anchors",
     "bare_ids",
+    "local_paths",
     "lanes",
     "mentions",
 }  # the first two are every gate's, read by the shared code
@@ -41,6 +42,7 @@ def parse(own: Mapping[str, object]) -> ReferencingDials:
         territories,
         governed_only,
         _switch(own, "bare_ids"),
+        _switch(own, "local_paths"),
         _switch(own, "heading_anchors"),
         _lanes(own.get("lanes")),
         _mentions(own.get("mentions")),

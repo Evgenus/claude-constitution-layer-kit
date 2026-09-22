@@ -121,7 +121,15 @@ def _examine(
     rel: str, texts: dict[str, str], ids: Ids, lanes: Sequence[Lane], dials: ReferencingDials
 ) -> tuple[list[tuple[int, Finding]], int]:
     text = texts[rel]
-    return lint.examine(rel, text, id_of_text(text), ids, lanes, dials.bare_ids is Switch.REFUSE)
+    return lint.examine(
+        rel,
+        text,
+        id_of_text(text),
+        ids,
+        lanes,
+        dials.bare_ids is Switch.REFUSE,
+        dials.local_paths is Switch.REFUSE,
+    )
 
 
 def covered_documents(

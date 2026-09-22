@@ -67,6 +67,7 @@ class ReferencingDials:
     territories: tuple[str, ...]
     governed_only: bool
     bare_ids: Switch
+    local_paths: Switch
     heading_anchors: Switch
     lanes: tuple[Lane, ...]
     mentions: tuple[Mention, ...]
