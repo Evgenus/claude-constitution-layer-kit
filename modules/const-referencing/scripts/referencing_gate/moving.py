@@ -37,9 +37,9 @@ class Request:
 
 
 def act(output: Output, request: Request, closing: Closing) -> int:
-    """Everything that can refuse is asked first — the repository, the dials, what is covered,
-    the link checker the closing scan needs, the two paths — so that a refusal finds the tree as
-    it was. Only then is anything moved or written."""
+    """Everything that can refuse is asked first — the repository, the dials and where the log
+    goes, what is covered, the link checker the closing scan needs, the two paths — so that a
+    refusal finds the tree as it was. Only then is anything moved or written."""
     root = repo_root(Path.cwd())
     if root is None:
         raise ConfigurationFailure(messages.v5_no_repository(str(Path.cwd())))

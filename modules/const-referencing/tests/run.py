@@ -1716,16 +1716,17 @@ def case_only_rename_and_uncovered_destination() -> tuple[bool, str]:
 
 
 def mover_routes_its_log() -> tuple[bool, str]:
-    """A refusal before the move lands in the log the dial names, and so does an act."""
+    """The earliest refusal after the dials are read — a malformed namespace — lands in the log the
+    dial names: the routing stands before every refusal that follows it."""
     consumer = moving_consumer()
-    consumer.write("constitution.yaml", dials_text(own(log_dir=".gate-logs")))
+    consumer.write("constitution.yaml", dials_text(own(log_dir=".gate-logs", bare_ids="maybe")))
     consumer.write(".gitignore", ".gate-logs/\n")
     consumer.commit()
     refused = mover(consumer, OLD, "docs/notes/two.md")
     log = consumer.root / ".gate-logs" / "const-referencing.jsonl"
     lines = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
     ok = refused.code == 1 and any(
-        "already exists" in entry.get("text", "") and entry.get("gate") == "move-document" for entry in lines
+        "bare_ids must be refuse or allow" in entry.get("text", "") for entry in lines
     )
     return (
         ok,

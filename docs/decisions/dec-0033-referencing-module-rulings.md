@@ -199,6 +199,8 @@ No real choice was put to the decider on these; each is the session's derivation
 
 **R24.** The handler after the write is a `gate` in kind — deterministic, red means fix — at a moment that cannot block, and is declared so; it is not `advisory`, since nothing in it shapes judgment. The validation had found "deterministic feedback" to be a third kind beside the two [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) names.
 
+**R27.** The admission rule of the shared gate code gains a clause: a part already shared may be widened for one module where the widening keeps a rule the part carries for all — one guard, one pipeline, one fixture subject — and defaults to what the other modules pass, so they change nothing. That is what R18–R20 did, and the carry audit's confirming reader found the clause stated in the shared-code document alone, which its own policy governs and which cannot widen that policy: the clause now stands in rule 2 of the policy and in CLAUDE.md, and the document echoes it.
+
 ## 12. The shared gate code, met by a fourth consumer
 
 Each seam was fixed at the source with the fixtures of all four modules green.
@@ -237,6 +239,7 @@ On the branch `work/const-referencing`, in the commits before this record and th
 20. R25 — limits 8 and 12 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document, rows V5 and F9 of the error-message table in its [§6](../../modules/const-referencing/MODULE.md#t6), platform fact 9 there. The counts: history only.
 21. R24 — row E3 of [§9](../../modules/const-referencing/MODULE.md#t9) of the module's document.
 22. R17 — [the install note](../../modules/const-referencing/INSTALL.md), step 3. That it corrects what was said in chat: history only.
-23. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
-24. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
-25. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
+23. R27 — rule 2 of [kit-shared-code](../policies/kit-shared-code.md); step 4 of [CLAUDE.md](../../CLAUDE.md); the admission paragraph of [kit-shared-code §1](../../shared/GATE.md#g1). That the clause first stood in the document alone: history only.
+24. R18 — the `events` and `pipeline` rows of [kit-shared-gate-code §1](../../shared/GATE.md#g1), item 3 of [its §2](../../shared/GATE.md#g2), rows G1.7 and C12.4 of [its §3](../../shared/GATE.md#g3).
+25. R19 — item 1 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
+26. R20 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2).
