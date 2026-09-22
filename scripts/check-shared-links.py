@@ -47,8 +47,19 @@ class Finding:
 
 
 def uses_shared_code(module: Path) -> bool:
-    """A module with a gate: it wires a hook. A module of skills alone owes no link."""
-    return (module / "hooks" / "hooks.json").is_file() or any((module / link).is_symlink() for link in LINKS)
+    """A module whose scripts import the shared code — a hook's gate, or a generator alone — owes the
+    links. A module of skills alone owes none."""
+    scripts = module / "scripts"
+    imports = any(
+        "const_gate" in path.read_text(encoding="utf-8", errors="replace")
+        for path in scripts.glob("*.py")
+        if path.is_file()
+    )
+    return (
+        (module / "hooks" / "hooks.json").is_file()
+        or imports
+        or any((module / link).is_symlink() for link in LINKS)
+    )
 
 
 def check_link(kit: Path, module: Path, link: str, source: str) -> Finding | None:
@@ -142,9 +153,18 @@ def self_test() -> int:
         harness.unlink()
         harness.write_text("", encoding="utf-8")
 
+    def hookless_without_links(link: Path) -> None:
+        """A generator alone: no hook, a script importing the shared code, and the link gone."""
+        module = link.parent.parent
+        (module / "hooks" / "hooks.json").unlink()
+        (module / "hooks").rmdir()
+        (module / "scripts" / "generate.py").write_text("from const_gate import cli\n", encoding="utf-8")
+        link.unlink()
+
     wrong = {
         "a missing link": as_missing,
         "a copied harness in tests/": harness_as_copy,
+        "a hookless module importing the shared code, its link missing": hookless_without_links,
         "a copy": as_copy,
         "a text file": as_text_file,
         "a dangling link": as_dangling,

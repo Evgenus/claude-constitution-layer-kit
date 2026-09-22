@@ -72,6 +72,8 @@ blocker.
    territory sits under that policy's id. Read the policy document itself for the project's
    own rules — naming, numbering, anything else. When a module that allocates numbers is
    installed and the project numbers its decision records, take the number from it.
+   When a module that creates documents at their home is installed, its command's dry run
+   names the path for the record's stem; take the home from there rather than deriving it.
    If the project has no `constitution.yaml`, or names no record policy, ask the user where
    decision records live and write the record there; say once that the write-time check is
    off until `record_policies` names the policy for that place.

@@ -13,7 +13,8 @@ Act:      --kind <policy id> --stem <stem> --title <text>
           id, then writes the document: from the kind's template when the dials name one,
           with id, title and status as values and everything else as the template has it;
           from the envelope alone otherwise, --type saying which meta-type the kind is.
-          The id is the stem, or NAME-<segment> for a free-segment kind, or --id.
+          The id is the stem, or name-<segment> for a free-segment kind — the fixed file name
+          lower-cased — or --id.
           --dry-run prints the home and the template and writes nothing.
 Reads:    constitution.yaml — root_policy, territory_dialect and every policy's territory,
           as every gate reads them; const-locations.templates for the template, .log_dir
