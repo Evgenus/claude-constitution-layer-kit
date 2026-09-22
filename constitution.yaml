@@ -34,16 +34,16 @@ kit-rollout-plan:
   territory: ["docs/rollout-plan.md"]
 
 const-meta-types:                     # a module's namespace (kernel §6): its own dials
-  log_dir: .gate-logs                 # every gate's output log, one file per module, in a git-ignored directory
+  log_dir: local/gate-logs            # every gate's output log, one file per module, in a git-ignored directory
 
 const-decision-records:
   record_policies: [kit-decision-records]   # the policies whose territory holds decision records
-  log_dir: .gate-logs
+  log_dir: local/gate-logs
 
 const-catalogs:                       # numbered kinds are declared here, independent of policies (requirement A13.7)
   catalogs:
     - {prefix: dec, width: 4, territory: *decisions}   # id and stem dec-<nnnn>-<slug>
-  log_dir: .gate-logs
+  log_dir: local/gate-logs
 
 const-referencing:                    # the kit's own reference forms (requirements A5.5–A5.7); the module knows none of them
   lanes:                              # a bare form is the local alias inside its home document, a link everywhere else
@@ -65,4 +65,4 @@ const-referencing:                    # the kit's own reference forms (requireme
       home: ["/CLAUDE.md"]
   mentions:                           # a record named in a script or a configuration file must exist: no link checker reads those
     - pattern: '\bdec-[0-9]{4}-[a-z0-9-]+'
-  log_dir: .gate-logs
+  log_dir: local/gate-logs
