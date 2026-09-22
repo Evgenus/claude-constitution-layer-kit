@@ -1716,7 +1716,7 @@ def case_only_rename_and_uncovered_destination() -> tuple[bool, str]:
 
 
 def mover_routes_its_log() -> tuple[bool, str]:
-    """The earliest refusal after the dials are read — a malformed namespace — lands in the log the
+    """The earliest refusal after the log is routed — a malformed namespace — lands in the log the
     dial names: the routing stands before every refusal that follows it."""
     consumer = moving_consumer()
     consumer.write("constitution.yaml", dials_text(own(log_dir=".gate-logs", bare_ids="maybe")))
