@@ -7,7 +7,7 @@ status: active
 
 # MODULE.md — `const-locations`
 
-*Draft at manifest version `0.0.1`; open slots are marked inline; published at `0.1.0` in rollout Phase D. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+*Draft at manifest version `0.0.1`, no open slots; published at `0.1.0` in rollout Phase D. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
 
 <a id="t1"></a>
 ## 1. Purpose

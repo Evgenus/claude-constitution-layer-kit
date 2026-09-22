@@ -2,7 +2,7 @@
 id: dec-0035-locations-module-rulings
 type: task-record
 title: Rulings of the const-locations authoring — a generator with a dry run creates a document at the home its territory implies, from a template the module's own dial names
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
