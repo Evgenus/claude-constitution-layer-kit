@@ -29,6 +29,23 @@ The fifth module, [`const-locations`](../requirements.md#const-locations), is au
 
 **R1.** A, with C kept as the `--dry-run` mode of the same script. Chosen by the decider in chat on 2026-09-22, "as recommended". The generator is `new-document`, a second entry point on the pattern of the fourth module's mover, under the shared guard with a closing line of its own; the skill `new-document` names it and carries the procedure; the dry run prints the home and the template and writes nothing, and is what another kind's procedure calls when it writes the file itself.
 
+## 2. Where a kind's template is declared, and where its `type` comes from
+
+The generator needs two things per kind: the template file and the meta-type. The kernel gives a policy no internal format and lets a module read a policy's namespace only for its territory ([kernel §6](../../kernel/CONVENTIONS.md#k6)).
+
+- **A. A `templates` list in this module's own namespace; `type` from the template's envelope, or from a `--type` argument where the kind has no template.** Entries `{policy: <id>, template: <path>}`.
+  - **Pros:** reads only its own namespace, absent by default, so the kernel-alone test holds with zero configuration; one source for the type where a template exists; the kit's three templates are three lines.
+  - **Cons:** a kind without a template makes the caller name the type, and a wrong `--type` is caught only by the meta-types gate where installed.
+- **B. The same list, each entry also carrying `type`.**
+  - **Pros:** the command never needs `--type`; a kind with no template is still fully declared.
+  - **Cons:** the type is stated twice where a template exists and the two can disagree; the dial grows for a case the kit does not have.
+- **C. A `template` key in each policy's namespace.**
+  - **Pros:** the natural reading — a policy declares its template; no list to maintain.
+  - **Cons:** a module would read a policy-namespace key beyond `territory`: a kernel change to its section 6 and the dials schema, recorded and audited.
+
+**R2.** A, with the principle the decider stated in choosing it: the module stays independent of every other module — it reads its own namespace and the kernel-owned keys, and a sibling enters only as an optional enhancement whose handoff is a stem given to the command and a `HOME:` line read from it. Chosen by the decider in chat on 2026-09-22.
+
 ## Carry list
 
 1. R1 — the row of [requirement A2.4](../requirements.md#a2-4) in [§3](../../modules/const-locations/MODULE.md#t3) of the module's document, rule L-a of its [§5](../../modules/const-locations/MODULE.md#t5), the two `script` rows and the `skill` row of `new-document` in its [§6](../../modules/const-locations/MODULE.md#t6). That the choice was "as recommended": history only.
+2. R2 — the row `templates` of [§7](../../modules/const-locations/MODULE.md#t7) of the module's document, rule L-e of its [§5](../../modules/const-locations/MODULE.md#t5), rows L5.13 and L5.14 of the error-message table in its [§6](../../modules/const-locations/MODULE.md#t6), and the "Depends on" and enhancements of its [§11](../../modules/const-locations/MODULE.md#t11).
