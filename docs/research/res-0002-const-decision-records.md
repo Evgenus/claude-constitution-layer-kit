@@ -1,5 +1,5 @@
 ---
-id: research-const-decision-records
+id: res-0002-const-decision-records
 type: non-authoritative
 title: Research comparison — const-decision-records (2026-09-18)
 status: active

@@ -51,6 +51,6 @@ B, by Eugene Chernyshov in chat on 2026-09-21.
 
 1. R1, R2, R3, R4, R5 — [kernel §5](../../kernel/CONVENTIONS.md#k5), read with the ceremony table of [kernel §4](../../kernel/CONVENTIONS.md#k4).
 2. R6 — history only: what the kernel no longer says.
-3. R7 — [the frontmatter schema](../../kernel/schemas/document-frontmatter.schema.json); [requirement A5.6](../requirements.md#a5-6); [kit-decision-records](../policies/plc-0004-decision-records.md), rules 4 and 5; step 7 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
+3. R7 — [the frontmatter schema](../../kernel/schemas/document-frontmatter.schema.json); [requirement A5.6](../requirements.md#a5-6); [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rules 4 and 5; step 7 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
 4. R8 — [the record-decision skill](../../modules/const-decision-records/skills/record-decision/SKILL.md), section 4; [the module's document](../../modules/const-decision-records/MODULE.md), sections 5 and 8.
-5. R9 — history only: the audit of this change; the rule that asks for it is rule 2 of [kit-decision-records](../policies/plc-0004-decision-records.md).
+5. R9 — history only: the audit of this change; the rule that asks for it is rule 2 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md).

@@ -9,38 +9,38 @@
 
 # --- kernel-owned keys (kernel §6) -------------------------------------------------
 
-root_policy: docs/policies/kit-root-policy.md   # where the root policy is; absent: no territory is claimed
+root_policy: docs/policies/plc-0001-root-policy.md   # where the root policy is; absent: no territory is claimed
 territory_dialect: gitignore                    # values: gitignore — the only dialect the readers support; default gitignore
 
 # --- policy namespaces (kernel §3): one per document kind, keyed by the policy's id ---
 # The only kernel-defined key is `territory`; a policy's other calibration is its own.
 
-kit-root-policy:                      # the policy for policies; its territory is where policies live
-  territory: ["docs/policies/**"]
+plc-0001-root-policy:                 # the policy for policies; its territory is where policies live
+  territory: &policies ["docs/policies/**"]   # anchored: the plc catalog below numbers exactly this territory
 
-kit-kernel:                           # one policy per document kind (decision dec-0011-one-policy-per-kind)
+plc-0002-kernel:                      # one policy per document kind (decision dec-0011-one-policy-per-kind)
   territory: ["kernel/**"]
 
-kit-intent-page:
+plc-0003-intent-page:
   territory: ["/INTENT.md"]              # leading slash: a slash-less gitignore pattern matches at any depth
 
-kit-decision-records:
+plc-0004-decision-records:
   territory: &decisions ["docs/decisions/**"]   # anchored: the catalog below numbers exactly this territory
 
-kit-research:
-  territory: ["docs/research/**"]
+plc-0005-research:
+  territory: &research ["docs/research/**"]   # anchored: the res catalog below numbers exactly this territory
 
-kit-module-documents:
+plc-0006-module-documents:
   territory: ["modules/*/MODULE.md"]
 
-kit-shared-code:
-  territory: ["shared/GATE.md"]
-
-kit-requirements:
+plc-0007-requirements:
   territory: ["docs/requirements.md"]
 
-kit-rollout-plan:
+plc-0008-rollout-plan:
   territory: ["docs/rollout-plan.md"]
+
+plc-0009-shared-code:
+  territory: ["shared/GATE.md"]
 
 # --- module namespaces (kernel §6): a module reads only its own -------------------
 # Two dials are every gate's, read by the shared code (shared/GATE.md):
@@ -57,7 +57,7 @@ const-meta-types:
 const-decision-records:
   severity: block                     # values: block | warn
   log_dir: local/gate-logs
-  record_policies: [kit-decision-records]   # gate: the policies whose territory holds decision records; [] examines nothing
+  record_policies: [plc-0004-decision-records]   # gate: the policies whose territory holds decision records; [] examines nothing
   boundary_examples: []             # skill: the project's own routine / recorded pairs, {routine: …, recorded: …}; empty: the seed pairs of MODULE.md §8
   deciders:                         # skill: who may decide at each stakes level, a list of people or roles; empty: the agent asks who decides
     process: []
@@ -70,6 +70,8 @@ const-catalogs:                       # numbered kinds are declared here, indepe
   log_dir: local/gate-logs
   catalogs:                           # gate, skill: the numbered kinds; [] examines nothing
     - {prefix: dec, width: 4, territory: *decisions}   # id and stem dec-<nnnn>-<slug>; width 1–9, default 4
+    - {prefix: plc, width: 4, territory: *policies}    # the kit's policies, plc-<nnnn>-<slug> (decision dec-0034-research-and-policies-numbered)
+    - {prefix: res, width: 4, territory: *research}    # the research comparisons, res-<nnnn>-<slug> (the same decision)
 
 const-referencing:                    # the kit's own reference forms (requirements A5.5–A5.7); the module knows none of them
   severity: block                     # values: block | warn
@@ -96,6 +98,10 @@ const-referencing:                    # the kit's own reference forms (requireme
       names: a law
       fix: '[law 4 of CLAUDE.md](<path to>/CLAUDE.md#law-4)'
       home: ["/CLAUDE.md"]
-  mentions:                           # a record named in a script or a configuration file must exist: no link checker reads those
+  mentions:                           # a catalogued item named in a script or a configuration file must exist: no link checker reads those
     - pattern: '\bdec-[0-9]{4}-[a-z0-9-]+'
       files: []                     # patterns of the files read; empty: every file git lists that is no Markdown, no link and not binary
+    - pattern: '\bplc-[0-9]{4}-[a-z0-9-]+'   # a policy's id is also its namespace key in this file, so a misspelt key is a finding
+      files: []
+    - pattern: '\bres-[0-9]{4}-[a-z0-9-]+'
+      files: []

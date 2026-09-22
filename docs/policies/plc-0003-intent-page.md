@@ -1,5 +1,5 @@
 ---
-id: kit-intent-page
+id: plc-0003-intent-page
 type: current-state
 title: Intent policy — the frame of the kit
 status: active

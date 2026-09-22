@@ -38,7 +38,7 @@ C, chosen by the decider in chat on 2026-09-18; prefix `dec`, width 4, accepted 
 
 ## Rulings carried
 
-1. The kit's decision records are a numbered kind: prefix `dec`, width 4, declared as `catalog: {prefix: dec, width: 4}` under the policy's id in `constitution.yaml`, in the form [A13.7](../requirements.md#a13-7) states. The policy [kit-decision-records](../policies/plc-0004-decision-records.md) carries the numbering rule.
+1. The kit's decision records are a numbered kind: prefix `dec`, width 4, declared as `catalog: {prefix: dec, width: 4}` under the policy's id in `constitution.yaml`, in the form [A13.7](../requirements.md#a13-7) states. The policy [plc-0004-decision-records](../policies/plc-0004-decision-records.md) carries the numbering rule.
 2. Numbers 1 to 16 were allocated by first-commit order of the existing records. Their ids changed once, in this migration, which is the one deliberate breach of the kernel's "never changes" rule: entering the regime the kernel already requires, before any consumer references exist. Nothing outside this repository referenced the old ids.
 3. Link targets and link texts were rewritten to the new stems across records, policies, `CLAUDE.md`, `INTENT.md`, `README.md`, the template, and `scripts/check-references.sh`, a reference-form migration under [kernel §5](../../kernel/CONVENTIONS.md#k5). Prose mentions of a record by its old slug are left as written.
 4. From this record on, a new record takes the highest number on the branch plus one, provisional until it lands on main ([A13.3](../requirements.md#a13-3)); this record is `dec-0017`.

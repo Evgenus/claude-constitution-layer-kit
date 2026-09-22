@@ -10,7 +10,7 @@ run by readers and is no gate. What a script can hold — that every ruling item
 that an acceptance names its audit — is `scripts/check-carry-lists.py`, and this procedure ends by
 running it. The rule this serves: an applied ruling lives in the current-state documents it changed,
 and a record is provenance, never authority ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); the
-kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/policies/plc-0004-decision-records.md).
+kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md).
 
 ## When
 
@@ -61,7 +61,7 @@ kit's own reading of it is rule 2 of [kit-decision-records](../../../docs/polici
 > `git status --short` at the start and at the end.
 >
 > Read sections 1, 2 and 5 of `kernel/CONVENTIONS.md`, and rules 1, 2, 5 and 7 of
-> `docs/policies/kit-decision-records.md`. The question: could each record below be deleted without
+> `docs/policies/plc-0004-decision-records.md`. The question: could each record below be deleted without
 > anyone losing a rule they must follow? Records: `<list>`.
 >
 > For each record: (1) read it whole and split what it rules into items — every rule, definition,

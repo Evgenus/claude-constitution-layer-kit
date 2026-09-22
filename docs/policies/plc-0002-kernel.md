@@ -1,5 +1,5 @@
 ---
-id: kit-kernel
+id: plc-0002-kernel
 type: current-state
 title: Kernel policy — the semantic kernel of the kit
 status: active

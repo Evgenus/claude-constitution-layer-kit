@@ -1,5 +1,5 @@
 ---
-id: research-const-referencing
+id: res-0004-const-referencing
 type: non-authoritative
 title: Research comparison — const-referencing (2026-09-21)
 status: active

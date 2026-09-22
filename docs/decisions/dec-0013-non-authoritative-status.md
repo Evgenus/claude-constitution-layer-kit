@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The lifecycle rule of [kernel §1](../../kernel/CONVENTIONS.md#k1) claimed one meaning of `status` for every meta-type but spelled it out for two: `active` for a binding current-state document or a task-record being applied, `inactive` for historical evidence. A `non-authoritative` document binds nothing and is never applied, so neither reading fit. The gap was found in the pre-module audit of 2026-09-18: the module routine's first artifact, the research comparison under `docs/research/`, lands in claimed territory and must carry a status on day one. [kit-research](../policies/plc-0005-research.md) was silent; the reversed ruling 1 of [dec-0009-module-routine-validation-and-inputs](dec-0009-module-routine-validation-and-inputs.md) had said `inactive`.
+The lifecycle rule of [kernel §1](../../kernel/CONVENTIONS.md#k1) claimed one meaning of `status` for every meta-type but spelled it out for two: `active` for a binding current-state document or a task-record being applied, `inactive` for historical evidence. A `non-authoritative` document binds nothing and is never applied, so neither reading fit. The gap was found in the pre-module audit of 2026-09-18: the module routine's first artifact, the research comparison under `docs/research/`, lands in claimed territory and must carry a status on day one. [plc-0005-research](../policies/plc-0005-research.md) was silent; the reversed ruling 1 of [dec-0009-module-routine-validation-and-inputs](dec-0009-module-routine-validation-and-inputs.md) had said `inactive`.
 
 ## Options
 
@@ -40,4 +40,4 @@ A, chosen by the decider in chat on 2026-09-18.
 
 - [Kernel §1](../../kernel/CONVENTIONS.md#k1): the lifecycle rule names the non-authoritative reading of both values.
 - `kernel/schemas/document-frontmatter.schema.json`: the `status` comment says the same.
-- [kit-research](../policies/plc-0005-research.md): rule 2, status of a comparison; later rules renumbered.
+- [plc-0005-research](../policies/plc-0005-research.md): rule 2, status of a comparison; later rules renumbered.

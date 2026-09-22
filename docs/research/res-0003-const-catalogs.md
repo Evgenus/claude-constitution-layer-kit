@@ -1,5 +1,5 @@
 ---
-id: research-const-catalogs
+id: res-0003-const-catalogs
 type: non-authoritative
 title: Research comparison — const-catalogs (2026-09-20)
 status: active

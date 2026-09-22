@@ -1,5 +1,5 @@
 ---
-id: research-const-meta-types
+id: res-0001-const-meta-types
 type: non-authoritative
 title: Research comparison — const-meta-types (2026-09-18)
 status: active
