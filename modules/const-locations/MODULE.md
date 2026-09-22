@@ -22,124 +22,209 @@ A session is asked for a policy, a note, a record, and writes it where the conve
 <a id="t3"></a>
 ## 3. Rows
 
-The requirement set, and nothing else ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)): every matrix row homed in this module, by handle. The row's one-line text lives in the matrix and is not repeated; the table carries the *reading* the row needs beyond its line — interpretation, boundary rulings, the part of a shared row this module owns. A row under a boundary test (marked † in the matrix) states which of the three tests is open — *one invariant? one enforcement moment? one lifecycle trigger?* — and which sibling takes the row if the boundary moves.
-
 | row | this module's reading |
 |---|---|
-| A<n>.<m> | … |
+| [A2.4](../../docs/requirements.md#a2-4) | "By command" is the generator `new-document`: a script the model runs through the skill, or a human types, that derives the home from the policy's territory, proves before anything is written that the home resolves to exactly that policy, and writes the document from the kind's template with its envelope already valid. "The policy's template" is the entry for that policy in this module's own `templates` dial; a kind with no entry is born with the envelope alone, and the closing line says so. "The canonical home" is what the territory implies, in three classes ([§5](#t5), rule L-c): a directory prefix, one free segment, a single file — the third has no home and the command says why. The row's "caught by" [A1.4](../../docs/requirements.md#a1-4) and [A2.3](../../docs/requirements.md#a2-3) holds when module `const-meta-types` is installed; the command's own check is the proof either way. A numbered kind's stem, number included, and a record's own fields belong to their modules' skills ([§11](#t11)); this module supplies the place and the template, or writes the file and hands it over. |
+| [A2.5](../../docs/requirements.md#a2-5) | Four acts in order, skill prose: the `process`-stakes decision; the policy document — itself created by the command of [A2.4](../../docs/requirements.md#a2-4), the root policy being its kind, since a policy is a document in the root's territory ([kernel §3](../../kernel/CONVENTIONS.md#k3)); the namespace with one `territory` line in `constitution.yaml`, written by hand at the end of the file; the first document. The dials file is never edited by a script ([§12](#t12), item 2). |
+
+The specification's optional dial, "default policy for otherwise-unclaimed governed roots", is not implemented: after [dec-0008-policies-by-location](../../docs/decisions/dec-0008-policies-by-location.md) a claim lives only in a policy's namespace and the constitution is silent outside claimed territory, so the dial would claim from outside the kernel's one place for claims. A document of a kind no policy covers is [A2.5](../../docs/requirements.md#a2-5)'s case. [A2.1](../../docs/requirements.md#a2-1), [A2.2](../../docs/requirements.md#a2-2) and [A2.6](../../docs/requirements.md#a2-6) are the kernel's and the binding's; [A2.3](../../docs/requirements.md#a2-3) is `const-meta-types`' ([dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md)).
 
 <a id="t4"></a>
 ## 4. Decisions
 
-Provenance of this module's rules: the records whose rulings it applies, each cited by its record id while the record exists. When a record is deleted its entry goes with it and nothing replaces it; a ruling below recorded stakes has no entry. The rule itself is stated in the section where it acts ([§5](#t5)–[§9](#t9)); a record is cited for where and why it was decided, never in place of the rule ([kernel §5](../../kernel/CONVENTIONS.md#k5)). The record holds the options and reasoning, which are not restated here.
-
-1. `<record-id>` — one line naming what it fixes here.
+1. [dec-0035-locations-module-rulings](../../docs/decisions/dec-0035-locations-module-rulings.md) — the rulings of this module's authoring: a generator with a dry run rather than prose alone; the home derived from the territory in three classes, no `home` dial; the `templates` dial in this module's own namespace; the dials file edited by hand; no hook and no always-on line; the shared fixture subject widened for a module that is only a generator.
+2. [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) — this module claims no gate: [A2.3](../../docs/requirements.md#a2-3) is `const-meta-types`'; a script that reads YAML is Python 3 with PyYAML; the order of the two live proofs.
+3. [dec-0008-policies-by-location](../../docs/decisions/dec-0008-policies-by-location.md) and [dec-0011-one-policy-per-kind](../../docs/decisions/dec-0011-one-policy-per-kind.md) — a policy is a document in the root's territory, one per kind, which is why the optional dial is dropped and why a new policy is created with the root policy as its kind.
+4. [dec-0014-territory-dialect](../../docs/decisions/dec-0014-territory-dialect.md) and [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — the home is derived from gitignore patterns and proved by `git check-ignore`; every read of the dials file validates the keys read.
+5. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) and [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md) — the script rules the generator follows and the shared code it links, on the pattern of the fourth module's second entry point.
+6. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 
 <a id="t5"></a>
 ## 5. Invariant
 
-The one rule the module guarantees, stated in a single testable sentence built only from kernel vocabulary and this module's own definitions. An advisory-only module claims no invariant; in its place stands the numbered rule list, each rule labeled `advisory` in its own text.
+None: an advisory module claims no invariant. In its place, the rules, each `advisory` in its own text:
+
+- **L-a.** A governed document is created through the command, never written blind: the command derives the home, proves it, and writes the envelope; the writer fills the body. *Advisory.*
+- **L-b.** A document of a kind no policy covers is not created until the kind has its policy: the decision, the policy, the territory line, then the document — in that order. *Advisory.*
+- **L-c.** The home follows from the territory and from nothing else: `<dir>/**` or `<dir>/**/*.md` gives `<dir>/<stem>.md`; a pattern with one free segment, `<dir>/*/NAME.md`, gives the path with the segment filled and the file name the pattern fixes; a single-path territory has no home, because nothing new is born in it. Any other territory has no home and the command says so. *Advisory in the skill; the command refuses what it cannot derive.*
+- **L-d.** A template is the command's input, never an exemplar: the envelope's `id`, `title` and `status` are the command's values, `type` is the template's, every other field and the whole body are copied as they stand for the writer to fill. *Advisory.*
+- **L-e.** What another kind's procedure owns stays there: a numbered kind's stem comes from the catalog's allocation, a record's `stakes`, `decider` and body from the record's procedure; this command takes the stem and gives the place. *Advisory.*
+- **L-f.** The dials file is edited by hand: one namespace, keyed by the policy's id, with one `territory` line, at the end of the file; the readers validate it at the next write. *Advisory.*
 
 <a id="t6"></a>
 ## 6. Artifacts (rule-to-artifact mapping)
 
-What this plugin ships and what each part carries — only components the module actually uses exist. Native-first: platform component > repo script > third-party tool > new infrastructure; every step down from a platform component names, in one clause, what the native option cannot do.
-
 | component | path | carries |
 |---|---|---|
-| skill | `skills/<name>/SKILL.md` | the procedure, loaded when the activity occurs |
-| hook | `hooks/hooks.json` + `scripts/` | deterministic enforcement of the invariant; or, as a `SessionStart` hook printing rules to stdout, the always-on carrier for advisory content — declared `advisory`, never `gate` |
-| command | `commands/<name>.md` | only for acts a human deliberately initiates — name the scenario where a human actually types it, or delete this row |
-| agent | `agents/<name>.md` | only for a genuine delegation boundary |
-| script | `scripts/<name>` | checks and generators; all paths via `${CLAUDE_PLUGIN_ROOT}`; Python 3 with PyYAML when the script reads YAML, POSIX shell otherwise; a missing runtime or library is a configuration failure ([§9](#t9)); Python scripts follow the gate-script rules below |
-| install note | `INSTALL.md` | at most one pointer line for the project's own `CLAUDE.md`, for discoverability only. Always-on rules ship via a `SessionStart` hook (see hook row), never via a pointer or a plugin-root `CLAUDE.md` (not loaded); a copy-into-CLAUDE.md fallback may be offered, labeled as manual and version-drifting |
+| skill | `skills/new-document/SKILL.md` | Rules L-a, L-c, L-d, L-e: name the kind, take the stem from where it is owned, run the command — dry run first when another procedure writes — and fill the body from the placeholders. Named arguments `kind` and `stem`, so `/const-locations:new-document <kind> <stem>` is what a human types and what the model invokes. `allowed-tools` pre-approves exactly the command's line through `${CLAUDE_PLUGIN_ROOT}`. Model-invocable and user-invocable, the default: the description is the carrier ([§6](#t6), always-on). Advisory. |
+| skill | `skills/new-kind/SKILL.md` | Rules L-b and L-f: the four acts of [A2.5](../../docs/requirements.md#a2-5) with the exact namespace lines, the policy created through the command with the root policy as its kind, and what to do on a bare repository with no dials file — the procedure from zero. Model-invocable. Advisory. |
+| script (sh) | `scripts/new-document.sh` | POSIX entry point: finds `python3`, exits 1 with the fix when it is missing, otherwise hands the arguments on. Reads no YAML. |
+| script (py) | `scripts/new-document.py` | Thin entry point of the generator, parseable by any Python 3: the interpreter floor, the shared package, then the module's `start`. One act, `--kind <policy id> --stem <stem> --title <text> [--type <meta-type>] [--segment <segment>] [--id <id>] [--dry-run]`, run from inside the repository. Its docstring is the contract. Steps down from a platform component because none reads YAML or evaluates a gitignore pattern. |
+| package | `scripts/locations_gate/` | The module's own code: `model`, `messages`, `dials` (the `templates` list), `homes` (the three classes and the derivation), `filling` (the envelope written from a template or alone), `creating` (the act: everything that can refuse is asked first, then one file is written), `closing`, `start`. Named as the skeleton names every module's package, though it holds a generator and no gate. |
+| shared code | `scripts/const_gate` → the kit's `shared/const_gate/` | A relative symbolic link to what every gate shares ([kit-shared-gate-code](../../shared/GATE.md)): the dials, the index of policies, the `Matcher`, the envelope reader, the guard, the log. Used by the generator as the fourth module's mover uses it: `cli.guarded` under `Mode.ACT`, a closing line of its own. |
+| dependencies | `requirements.txt` | PyYAML. |
+| install note | `INSTALL.md` | Requirements, zero-configuration behaviour, the `templates` dial with a worked example, the command line, the dry run, the log, verification. No `CLAUDE.md` pointer. |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10). |
+| hook | none | nothing here blocks, and a handler that only teaches is advisory content on a gate's channel; the comparison's live runs also show the model creating files through the shell, where no handler fires. |
+| command | none | a command file is the legacy form of a skill and cannot carry the named arguments or the pre-approval. |
+| agent | none | creating a document is one step of the dialog that asked for it, not a delegation. |
 
-Two fixed sub-slots follow the table:
+- **Always-on content:** none. The carrier is the description of `new-document` in the skill listing, 512 characters; the comparison's four live runs show the model reaching the skill from the listing before writing.
+- **Platform facts relied on** (all verified 2026-09-22 against the official documentation; sources in the research comparison, section 9):
+  1. A skill's `arguments` list names positional arguments; `$kind` and `$stem` expand in the skill's content, an unfilled one to the empty string. Breaks: the arguments the skill hands to the command.
+  2. `${CLAUDE_PLUGIN_ROOT}` is substituted in a plugin skill's content and in Bash rules of its `allowed-tools`, and is not set in the Bash tool's environment; the skill writes the placeholder, never the variable. Breaks: the command line and its pre-approval.
+  3. The default invocation control — no `disable-model-invocation`, no `user-invocable: false` — keeps the description always in context and lets both the model and a human invoke the skill. Breaks: the carrier of the rules.
+  4. `!`-injection aborts the whole skill invocation on a non-zero exit; the skills do not use it, since a bare repository would abort them. Breaks: nothing shipped.
+  5. `commands/` in a plugin is the flat legacy form of `skills/`; components sit at the plugin root; only `plugin.json` lives in `.claude-plugin/`. Breaks: plugin load.
+  6. A plugin loaded with `--plugin-dir` keeps a symbolic link only when it resolves inside the plugin's own directory; a marketplace install copies what a link points at. Breaks: the `scripts/const_gate` link, held by shared limit 3.
+- **Research:** [res-0005-const-locations](../../docs/research/res-0005-const-locations.md) (2026-09-22). Per row: [A2.4](../../docs/requirements.md#a2-4) advisory — **confirmed**, the carrier a skill, the act a generator the skill names; a hook-side assist — **rejected** by the live runs; [A2.5](../../docs/requirements.md#a2-5) advisory — **confirmed**, the dials file edited by hand; the specification's optional default-policy dial — **overturned** as meaningless after [dec-0008-policies-by-location](../../docs/decisions/dec-0008-policies-by-location.md); an always-on line — **not needed**, the listing reaches the model.
 
-- **Always-on content:** the exact lines the `SessionStart` hook prints and their size in characters; or "none". This is the module's whole always-on budget.
-- **Platform facts relied on:** each fact, the date it was verified against the official documentation, and what breaks if it changes. Nothing in this slot comes from memory.
-- **Research:** a link to this module's own dated comparison in `docs/research/` — written at authoring, in kit vocabulary, from a survey of the official documentation, community harnesses, and applicable tools for exactly this module's rows — and, per row, whether the matrix's recommended enforcement was confirmed or overturned by it (decision [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md)). Nothing from earlier design work enters unverified.
+**Error messages.** Each row is one function of this module's `messages.py`, under the same key; `{home}` is the derived repository-relative path, `{kind}` the policy id given. The command's lines are `L1`–`L4` on stdout; a refusal is `BROKEN: {what} — fix: {fix}` on stderr, then the closing line `BROKEN: the document could not be created — nothing was written`, exit 1, the tree as it was. The texts every gate shares — the dials file and the root policy (`C4`–`C9`), git and the interpreter (`C1`–`C3`, `C12`, `C14`, `C15`) — are written out once in [kit-shared-gate-code §3](../../shared/GATE.md#g3); here `C1`, `C14` and `C15` drop the clause about unchecked writes, as the mover's do.
 
-**Gate-script rules** (decision [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md)) — every Python script a module ships follows all sixteen; the fresh-context validation checks them:
+| key | text |
+|---|---|
+| L1 | `HOME: {home} — governed by {kind} (territory '{pattern}')` |
+| L2 | `TEMPLATE: {path}` / `TEMPLATE: none — {kind} names no template in const-locations.templates; the envelope alone is written, and the body is the title's heading` |
+| L3 | `CREATED: {home}` |
+| L4 | count: `1 document created ({home}) — fill the body where the template says, then commit` / dry run: `0 documents created — dry run: the lines above are what a write would use` |
+| L5.1 | `misinvocation: {detail}` — `run it with --kind <policy id> --stem <stem> --title <text> [--type <meta-type>] [--segment <segment>] [--id <id>] [--dry-run]` |
+| L5.2 | `{directory} is not inside a git repository` — `run it from inside the repository the document belongs to` |
+| L5.3 | `no constitution.yaml in {root}: no kind is declared` — `a document is created into a policy's territory; declare the root policy and the kind's policy first — the new-kind procedure` |
+| L5.4 | `constitution.yaml names no root_policy: no policy claims anything` — `set root_policy: <path of the policy for policies>` |
+| L5.5 | `'{kind}' is not a policy: no document in the root policy's territory carries that id` — `name one of: {ids}; for a new kind, create its policy first — the new-kind procedure` |
+| L5.6 | `{kind}'s territory is the single path '{pattern}': nothing new is born there` — `that document is created by hand at exactly that path, once; a kind that holds many documents claims a directory: <dir>/**` |
+| L5.7 | `no home follows from {kind}'s territory {patterns}` — `a home follows from one pattern <dir>/** or <dir>/**/*.md, or from one with a single free segment, <dir>/*/NAME.md; write the document by hand inside the territory, or simplify the territory` |
+| L5.8 | `{kind}'s territory '{pattern}' has a free segment, and --segment was not given` — `run it with --segment <the segment>; the file name is the pattern's, so --stem is not taken` |
+| L5.9 | `--stem was given, but {kind}'s territory '{pattern}' fixes the file name '{name}'` — `drop --stem and give --segment` |
+| L5.10 | `'{value}' is not a kebab-case name for {what}` — `lower-case letters, digits and single hyphens between them: a-z, 0-9, no leading, trailing or double hyphen` |
+| L5.11 | `{home} already exists` — `choose another stem, or edit the document that is there` |
+| L5.12 | `{home} would also lie in {other}'s territory ('{pattern}'): two policies would govern it` — `territories never overlap; narrow one of them in constitution.yaml before creating documents there` |
+| L5.13 | `{kind} has no template, and --type was not given` — `run it with --type current-state, task-record or non-authoritative — {policy path} says which its kind is` |
+| L5.14 | `--type {given} was given, but the template {path} fixes type: {fixed}` — `drop --type; the template decides` |
+| L5.15 | `the template of {kind}, {path}, does not exist` / `… cannot be read ({error})` — `point const-locations.templates at a Markdown file of this repository, or remove the entry` |
+| L5.16 | `the template {path} opens with no readable envelope ({detail})` — `a template opens with the YAML block a document of its kind carries — id, type, title, status — with placeholders where the writer fills` |
+| L5.17 | `the template {path} carries type '{value}', which is no meta-type` — `set type: current-state, task-record or non-authoritative in the template` |
+| L5.18 | `--title was not given` — `run it with --title '<the document's title>'; a dry run needs none` |
+| L5.19 | `id '{id}' is already carried by {path}` — `ids are unique in the tree: choose another stem, or give --id` |
+| L5.20 | `{home} could not be written ({error})` — `check the directory's permissions; nothing else was changed` |
+| C5.a | `constitution.yaml: const-locations.{key} is not a dial of this module (known: log_dir, templates)` — `remove or rename the key` |
+| C5.b | `constitution.yaml: const-locations.severity has no meaning: this module blocks nothing` — `remove the line` |
+| C5.c | `constitution.yaml: const-locations.templates must be a list of {policy: <id>, template: <repository-relative path>}` — `write it as templates: [{policy: <id>, template: <path>}, ...], or remove the key` |
+| C5.d | `constitution.yaml: const-locations.templates[{n}] {what}` — `write the entry as {policy: <id>, template: <repository-relative path>}` — `what` one of `is not a mapping`, `has no policy`, `has no template`, `carries an unknown key '{key}'`, `names policy '{id}' a second time`, `names a template outside the repository` |
 
-1. **Shape.** The entry point is a thin file. Past about 300 lines of logic, or with a second entry point, the code is a package directory beside it, imported with no path manipulation — Python puts the script's directory on the import path. What every gate shares is not written again: `scripts/const_gate` is a relative symbolic link to the kit's one source, the module fills the interface of [kit-shared-gate-code §2](../../shared/GATE.md#g2), and the entry file turns a missing shared package into its designed configuration failure (decision [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md)). Never a sibling-script import and never a `sys.path` edit in gate code; the fixture runner alone puts the module's `scripts/` directory on the path, and says so. Package and module names are snake_case because the language requires identifiers; entry-point files stay kebab-case.
-2. **Messages.** One messages module per package: the shared package's, and the module's own for its findings, skip reasons, notes and dial failures. Each message is a function with typed parameters returning its three parts — what failed, why the rule exists, the exact fix — under the key it carries in this section's error-message table.
-3. **One exit.** `main(argv) -> int`, a single `sys.exit`, and one guard that maps the configuration exception to exit 1. The entry file's exits before any package can be imported — the interpreter floor, the missing shared package — are the only others, each printing its designed line and the count line; a generator's entry file prints its own closing line in the count line's place, and its variants of those lines drop the clause about unchecked writes.
-4. **Exit codes.** Named constants: 0 green, 2 finding, 1 configuration failure. Parameters are parsed with `argparse`, whose exit-2 default on bad usage is overridden to 1.
-5. **Separation.** Parsing, checking, and reporting are separate functions; a check is a function of typed inputs.
-6. **Runtime.** Plain `python3` through the POSIX entry point, never `uv run`. Floor: Python 3.12. The interpreter version and every declared library are preflighted on each invocation, before any verdict is printed.
-7. **Dependencies.** Unrestricted, but declared in `requirements.txt` at the plugin root; the configuration-failure message prints the one install command for that file. `yaml.safe_load` only.
-8. **No fail-open.** An unexpected exception exits 1 with its traceback; unparseable hook input is a configuration failure; nothing exits 0 on error. An advisory script may fail open and says so in its docstring.
-9. **Types.** Every parameter and return is annotated. Untyped data — JSON, YAML — is parsed once into dataclasses; no bare `dict`, `list` or `Any` crosses a function boundary; closed vocabularies are enums. `mypy --strict` is clean.
-10. **Docstring contract.** The entry point's docstring states the hook events, the modes, the input fields read, the exit codes, the output channels, and the dial keys read.
-11. **Hook wiring.** `hooks.json` uses the exec form (`command` plus `args`) wherever a path placeholder appears, with an explicit `timeout`.
-12. **Output log.** Every line a gate prints is also appended to a log as one JSON line: timestamp, module, gate, mode, session, stream, text. Location: the fixed dial `log_dir` ([§7](#t7)) when set — repository-relative and verified git-ignored, otherwise a configuration failure; else `${CLAUDE_PLUGIN_DATA}`; else nowhere, and stdout is the record. The log rotates at a fixed size, holds only what was printed, and a logging failure never changes the verdict — the one error a gate swallows, and the code says so. It is built on the standard library's `logging`, not a hand-made tee (decision [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md)): a `RotatingFileHandler` behind a `MemoryHandler` that holds records until the location is known, with three cautions — the logger is named and does not propagate, so no other library's line reaches stdout or stderr, which in hook mode are a protocol; the stream is the caller's choice and the level only carries it; `logging.raiseExceptions` is switched off, because its default prints a traceback to stderr, whose first line is what the user sees.
-13. **Paths.** The target path comes from the tool input, resolved against the event's `cwd`; a path escaping the repository is a visible skip.
-14. **Fixtures.** Case records — number, title, red, green, the message red must teach — numbered as in [§10](#t10), the module's own from 1 and the shared acceptance items, linked into `tests/` and run through the module's own entry point, from 101. The runner drives the real entry point with real hook events and fails a case when red does not fire, when red does not teach the expected message, or when green still fails. A property with no failing half is a separate assertion item. YAML fixture documents are rendered by the dumper, never typed as strings, unless malformed text is the point.
-15. **Absence fixtures.** Every external tool or library the gate needs has a fixture simulating its absence; the shared items cover the interpreter, git, PyYAML and the shared package itself, and a module adds one for anything more it needs.
-16. **Imports at the top.** Every import stands at the top of its module, where a reader, the type checker and the preflight see the dependency; none inside a function or a method, unless it is explicitly necessary — and then the reason is written at the import, beside the marker that silences the check. Today there are two such cases, of one kind: a module's two modes, and a generator's acts, are imported after the preflight, because only then does a missing library become its designed message instead of a traceback. A call of `importlib.import_module` made on purpose — the preflight's own — is one the tool does not see; review holds it. The kit's tooling holds the rule: `ruff` rule `PLC0415` (decision [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md)).
-
-Every check's **error message** is written here as part of the design — the module's own; the shared texts are written out once, in [kit-shared-gate-code §3](../../shared/GATE.md#g3), and the module's table links there — it is the highest-bandwidth channel for teaching an agent mid-session: state what failed, why the rule exists (one clause), and the exact fix. Reviewed like code; copied verbatim into the script.
-
-**Installed components reference nothing in the kit.** A skill, hook, script, command, agent, error text, or install note never cites the requirements document, the rollout plan, a matrix row, a decision record, a research comparison, or this document: consumers install the module without the kit, so every such reference dangles there. Rules are stated in those components in plain words; the reasoning lives here and in [§4](#t4).
+**Installed components reference nothing in the kit.** The skills, scripts, error texts, fixtures and install note name no kit document; where the skills need the kernel's definitions they point at "the constitution's conventions page the project adopted". The reasoning lives here and in [§4](#t4).
 
 <a id="t7"></a>
 ## 7. Dials
 
-The module's calibration surface. Namespace = plugin name in the project's `constitution.yaml`; every dial has a default; the module works with zero configuration. A module with a write-time gate carries the fixed dial `severity` — `block` (default) or `warn` — as its first row; its repository-scan mode ignores the dial and always reports. Every gate also carries the fixed dial `log_dir` — absent by default — naming a repository-relative, git-ignored directory for its output log ([§6](#t6), gate-script rule 12).
+Namespace `const-locations`. No `severity`: this module blocks nothing, and the key is refused under this namespace (C5.b) so that a line with no meaning is never a setting kept in silence.
 
 | dial | default | meaning |
 |---|---|---|
-| `<dial>` | `<value>` | one line |
+| `templates` | absent | the kinds that have a template: a list of `{policy: <policy id>, template: <repository-relative path>}`; a kind with no entry is created with the envelope alone; a policy listed twice is a configuration failure |
+| `log_dir` | absent | a repository-relative, git-ignored directory for the output log; absent: the platform's per-plugin data directory, else nowhere |
 
 <a id="t8"></a>
 ## 8. Boundary examples
 
-For every judgment-based boundary the module introduces (including its slice of the routine/product stakes line, if any): 3–4 contrastive pairs (violates / complies), numbered. The examples are the definition; no abstract criteria. The project's own pairs arrive through dials.
+1. *Violates:* asked for a policy on test naming, the session writes `docs/test-naming.md` with the frontmatter it last saw. *Complies:* it runs `new-document --kind <root policy id> --stem <stem> --title …`, which lands the policy where policies live with `type: current-state` from the root's template, then fills the body.
+2. *Violates:* asked for a working note, the session invents `docs/notes/` and writes there, no policy claiming it. *Complies:* it names the missing kind, and the notes policy is created first — a `process` decision, the policy through the command, a `notes-policy: {territory: ["docs/notes/**"]}` line by hand — then the note.
+3. *Violates:* to create a research comparison, the session copies the previous comparison and edits the copy. *Complies:* it runs the command; where the kind has no template the envelope alone is written and the body is the title's heading, and the previous comparison is read for its shape, not copied.
+4. *Violates:* a decision record is created through the command alone and left with `stakes` and `decider` unfilled. *Complies:* the record's procedure creates it — with this command's dry run for the home, or with the command writing the record template the dial names — and fills its own fields.
+5. *Violates:* the new kind's namespace is added by a script that rewrites `constitution.yaml`, losing its comments and renaming its anchors. *Complies:* three lines are appended by hand, and the next write of any gate validates them.
+6. *Violates:* asked for a second intent page, the session creates `INTENT-2.md`. *Complies:* the command refuses — the territory is a single path, nothing new is born in it — and the session says so.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
 
-For each artifact: `gate` (deterministic — hook or script, red means fix) or `advisory` (judgment-shaping — skill prose, suggestions in review). Nothing advisory is dressed as a gate. A deterministic check whose blocking is a dial is a `gate` with its severity dial named — the check is still deterministic. For a write-time gate that dial is `severity` ([§7](#t7)): `warn` reports the finding and lets the write through, the adoption path onto a repository with legacy documents; the default `block` keeps the gate a gate. Then the **honest limits**: every path the gate does not see (a tool that bypasses the hook's event, a moment outside its trigger), each with its backstop.
+| artifact | class |
+|---|---|
+| skill `new-document` | `advisory` |
+| skill `new-kind` | `advisory` |
+| generator `new-document` | `advisory` — a generator; its refusals are deterministic and teach, but they judge the act, never the repository: no finding, no exit 2 |
 
-**Exit-code contract** for every check: a finding (the repository is wrong) and a configuration failure (the checker is broken, a pinned tool is missing, the invocation is malformed) are distinct exit codes with distinct messages, so a reader never mistakes one for the other. A missing tool is loud, never a silent pass; a check that could not run reports that it could not run.
+**Honest limits** — the shared ones of [kit-shared-gate-code §4](../../shared/GATE.md#g4) that concern a generator (3, 5, 9, 10, 11), and the module's own:
+
+1. **A document written without the command is not seen.** A heredoc, a `Write`, an editor: nothing here fires. Backstop: the gate of module `const-meta-types` at write time and in the scan, when installed; the skill's description, which the comparison shows reaching the model.
+2. **A home follows from three shapes of territory only.** Two patterns, a negation, a `*` inside a file name: no home, an honest refusal (L5.7). Backstop: the document written by hand inside the territory; the refusal names the shapes that work.
+3. **The body is not checked.** The template's placeholders are copied, never filled or verified. Backstop: the kind's own procedure and review.
+4. **The proof is before the write, and the write is one file.** Between the proof and the write nothing else runs; after it, another actor may move or edit the document. Backstop: the gates of the other modules, when installed.
+5. **Id uniqueness is checked against the files git lists** — tracked, and untracked but not ignored — by reading every Markdown envelope. A git-ignored document with the same id is not seen. Backstop: the same rule in `const-meta-types`.
+6. **`severity` under this namespace is read by the shared dials reader before this module refuses it**, so a bad value gets the shared text (C5.8) about a dial this module has not, and a good one is refused here (C5.b). Backstop: both exit 1 and name the line.
+7. **A template's relative links are copied as they stand.** A template that lies at another depth than the home yields links that resolve from the template's place and not from the document's. Backstop: the scan of module `const-referencing`, when installed; the fix is a template at the home's depth, or links from the repository's top.
+8. **The dials file is not edited.** The new-kind procedure's third act is by hand. Backstop: every gate validates the file at its next read.
+
+**Exit-code contract:** `0` the document was created, or a dry run printed what a write would use; `1` refused — every refusal is asked before anything is written, so the closing line says nothing was written — or the command could not run: the shared failures and C5. Never `2`: a generator has no findings. A missing `python3`, library or git is loud, never a silent pass.
 
 <a id="t10"></a>
 ## 10. Acceptance
 
-For each gate: the red→green fixture proving it (a fixture that fails without the check, passes with it) and its path under `tests/` ([law 7 of CLAUDE.md](../../CLAUDE.md#law-7)), plus one fixture showing the exit-code split of [§9](#t9) (a missing tool or malformed invocation exits differently from a finding). For each advisory rule: the boundary examples above stand as its acceptance. Each item labeled by verification kind: `fixture` (bare temp repo), `live` (a consumer project, plugin loaded from this repo), `review` (the human, at the one yes).
+Numbered items in `tests/run.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the widened `Subject` — a module that is only a generator hands the harness no event, so the items about hook input, paths, the warn channel and the scan are not its own and are left out with their numbers kept free; the items about the dials file, the root policy, absence, misinvocation, the log and the install copy run through the real entry point. Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
 
-**Examined count.** Every check reports how many items it examined in its green and red output alike. Zero is a visible count, never a failure and never a silent green: a check that inspected nothing must say so, because a vacuous green read as permission is the failure this rule exists for.
+| item | kind | what it proves |
+|---|---|---|
+| T1 | fixture, assertion | a directory-prefix territory: `--kind notes-policy --stem a --title 'A note' --type non-authoritative` creates `docs/notes/a.md` with exactly the four-field envelope, the heading body, and prints L1, L2 (none), L3, L4 word for word |
+| T2 | fixture, assertion | `<dir>/**/*.md` is a directory prefix too; a leading `/` on the pattern is not part of the home |
+| T3 | fixture, assertion | one free segment: `modules/*/MODULE.md` with `--segment const-x` creates `modules/const-x/MODULE.md` with id `module-const-x`; `--stem` given is L5.9; `--segment` missing is L5.8 |
+| T4 | fixture, assertion | a single-path territory is L5.6; two patterns, a negated pattern, and a `*` inside a file name are each L5.7 |
+| T5 | fixture, assertion | a template: the created document carries the command's `id`, `title` and `status`, the template's `type` and every other envelope field verbatim, and the template's body byte for byte after the block |
+| T6 | fixture, assertion | no template and no `--type` is L5.13; a template and `--type` is L5.14; a template whose `type` is no meta-type is L5.17; a template without an envelope is L5.16; a missing template is L5.15 |
+| T7 | fixture, assertion | a home another policy also claims is L5.12 — the shared consumer's overlap; a home that exists is L5.11; an id another document carries is L5.19 |
+| T8 | fixture, assertion | `--dry-run` writes nothing, prints L1, L2 and the dry-run L4; git status unchanged |
+| T9 | fixture, assertion | a namespace with no policy document is L5.5 naming the policy ids; no dials file is L5.3; no `root_policy` is L5.4; a working directory outside any repository is L5.2 |
+| T10 | fixture, assertion | a stem, segment or id that is no kebab-case name is L5.10; no `--title` is L5.18 |
+| T11 | fixture, assertion | the dials: an unknown key is C5.a; `severity` present is C5.b; `templates` not a list is C5.c; an entry that is no mapping, lacks a key, carries an unknown key, repeats a policy, or leaves the repository is C5.d with that clause |
+| T12 | fixture, assertion | every refusal leaves the tree as it was: `git status` empty after each of T4, T6, T7, T9–T11, and no directory made |
+| T13 | fixture, assertion | golden lines: every L and C5 text of [§6](#t6) is what the command printed, character for character |
+| T14 | fixture, assertion | the closing line of a failure is the generator's own, not a gate's count; the entry files' `C1`, `C14`, `C15` variants drop the clause about unchecked writes |
+| S101–S110, S111–S116, S117–S119, S132–S140, S141 | fixture, shared | the dials file and the root policy; absence; misinvocation, `--help`, an abbreviated flag; the log; the install copy; not fail-open — each through the real entry point with the generator's closing line |
+| L1 | live | in this repository, a dry run for each of its nine kinds reproduces the comparison's table — four homes, one with a segment, four refusals — and creates nothing |
+| L2 | live | the plugin loaded in a headless session in a temporary worktree of this repository via `--plugin-dir`: asked for a policy, the model invokes the skill, runs the command, and the policy lands where policies live with a valid envelope and its catalog number; the log is written; both skills are reachable under the plugin's name |
+| R1 | review | the boundary examples of [§8](#t8), the skills and the error texts of [§6](#t6), at the one yes |
+
+**Examined count.** L4 in every completed run: one document created, or zero in a dry run, said as such.
 
 <a id="t11"></a>
 ## 11. Siblings
 
-**Depends on:** the kernel sections used — nothing else. Then the kernel-alone statement: what the module does on a bare repository with the kernel only. Then each optional enhancement as "when module `const-<x>` is installed, …". A concept this module needs from a sibling is a kernel candidate, raised as a `process` decision, never coupled.
+**Depends on:** [kernel §1](../../kernel/CONVENTIONS.md#k1) (the envelope), [§3](../../kernel/CONVENTIONS.md#k3) (territory, policy, kind, resolution — the home is where the path binds the document to exactly one policy), [§6](../../kernel/CONVENTIONS.md#k6) (the dials file, the module's own namespace, the dialect, portability), [§7](../../kernel/CONVENTIONS.md#k7) (naming). Nothing else.
+
+**Kernel alone:** on a bare repository with no `constitution.yaml` the command refuses with L5.3 and the `new-kind` skill carries the procedure from zero — the dials file, the root policy, the first kind; with a dials file naming a root policy and one policy, every document of that kind is created at its home with the envelope alone, and the `templates` dial is the first calibration worth writing.
+
+**Optional enhancements:**
+
+1. When module `const-meta-types` is installed, a document born outside the command is caught at write time and in the scan; the command's own check is the proof either way.
+2. When module `const-decision-records` is installed, its skill creates records: it takes the home from this command's dry run, or has the command write the file from the record template the dial names, and fills `stakes`, `decider` and the body; this module reads nothing of that module's dial.
+3. When module `const-catalogs` is installed, the stem of a numbered kind — prefix, number, slug — comes from that module's procedure and is given as `--stem`; this module reads nothing of that module's dial.
+4. When module `const-referencing` is installed, its scan shows what a template's relative links break at the home's depth ([§9](#t9), limit 7).
 
 <a id="t12"></a>
 ## 12. Deferred
 
-What this module deliberately does not ship yet, each with the friction signal that would earn it. Nothing here is a hidden requirement: a deferred item has no matrix row, or its row is marked deferred there.
+1. **A `home` override for a territory of the fourth class.** Not shipped: it restates the territory in a second place, and the kit has no such territory. Signal: a consumer whose kind is enumerated by two patterns or a negation asks the command for a home.
+2. **The dials file edited by the command.** Not shipped: PyYAML loses the comments and renames the anchors, and a second YAML library is a preflighted dependency for an act that happens once per kind inside a procedure a human already reads. Signal: a consumer's commit notes reporting the manual step done wrong. Path: `ruamel.yaml` tuned to the file's layout, shown byte-identical on the kit's file in the comparison's first experiment.
+3. **A hook-side assist.** Not shipped: `additionalContext` at `PreToolUse` taught the model to repair an envelope in the comparison's live run, but six of six free-choice runs created the file through the shell, where no handler fires, and `const-meta-types` holds the event. Signal: a consumer reporting documents born through `Write` with a wrong envelope while the skill was installed.
+4. **Placeholder substitution in the body.** Not shipped: the kit's placeholders are `<…>` prose without a vocabulary, and every tool surveyed carries a template language for this. Signal: a consumer's template that needs the date, the title or the id inside the body.
+5. **Relative-link repair when a template is copied to another depth.** Not shipped here: it is the referencing module's move repair applied to a copy. Signal: the kit's own module template, whose links gain one level in every copy ([CLAUDE.md](../../CLAUDE.md), step 1 of developing a module).
 
 ---
 
 # Plugin skeleton
 
 ```
-const-<aspect-name>/
+const-locations/
 ├── .claude-plugin/
-│   └── plugin.json          # manifest — the ONLY file inside .claude-plugin/; version 0.0.x while draft
-├── MODULE.md                # this document, filled in
-├── INSTALL.md               # install/uninstall notes; the one CLAUDE.md pointer line if any
+│   └── plugin.json          # manifest — the only file inside .claude-plugin/; version 0.0.x while draft
+├── MODULE.md                # this document
+├── INSTALL.md
+├── requirements.txt         # PyYAML
 ├── skills/
-│   └── <name>/SKILL.md      # optional
-├── commands/<name>.md       # optional
-├── agents/<name>.md         # optional
-├── hooks/hooks.json         # optional
-├── scripts/                 # optional; reference via ${CLAUDE_PLUGIN_ROOT}
-│   ├── const_gate -> ../../../shared/const_gate   # a gate only: the shared code, by relative link
-│   └── <module>_gate/       # the module's own package: model, messages, checks, modes, start
-└── tests/                   # harness.py, consumer.py, shared_items.py linked from shared/tests/; one red→green fixture per gate ([law 7 of CLAUDE.md](../../CLAUDE.md#law-7))
+│   ├── new-document/SKILL.md
+│   └── new-kind/SKILL.md
+├── scripts/
+│   ├── new-document.sh      # POSIX entry point
+│   ├── new-document.py      # thin Python entry point
+│   ├── const_gate -> ../../../shared/const_gate   # the shared code, by relative link
+│   └── locations_gate/      # the module's own package
+└── tests/                   # run.py; harness.py, consumer.py, shared_items.py linked from shared/tests/
 ```
-
-Kebab-case everywhere. Only plugin.json lives inside `.claude-plugin/`; every component directory sits at plugin root. Verify the manifest fields against the current plugin reference at authoring time.
