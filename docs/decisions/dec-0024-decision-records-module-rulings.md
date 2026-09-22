@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The second module, [`const-decision-records`](../requirements.md#const-decision-records), was authored on 2026-09-18 and 2026-09-19 from its research comparison ([research-const-decision-records](../research/res-0002-const-decision-records.md)) and its rows [A3.4](../requirements.md#a3-4) and [A3.6](../requirements.md#a3-6). The row says "record validity enforced" and leaves three things open: how a gate knows that a document is a decision record at all, how much of the kernel's record schema "valid" covers when the first module already guards the envelope and both hooks fire on one write, and which of the lifecycle rules of [kernel §5](../../kernel/CONVENTIONS.md#k5) have a deterministic slice worth a gate.
+The second module, [`const-decision-records`](../requirements.md#const-decision-records), was authored on 2026-09-18 and 2026-09-19 from its research comparison ([res-0002-const-decision-records](../research/res-0002-const-decision-records.md)) and its rows [A3.4](../requirements.md#a3-4) and [A3.6](../requirements.md#a3-6). The row says "record validity enforced" and leaves three things open: how a gate knows that a document is a decision record at all, how much of the kernel's record schema "valid" covers when the first module already guards the envelope and both hooks fire on one write, and which of the lifecycle rules of [kernel §5](../../kernel/CONVENTIONS.md#k5) have a deterministic slice worth a gate.
 
 ## 1. How the gate knows a document is a decision record
 

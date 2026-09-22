@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The third module, [`const-catalogs`](../requirements.md#const-catalogs), was authored on 2026-09-20 from its research comparison ([research-const-catalogs](../research/res-0003-const-catalogs.md)) and the rows of [aspect A13](../requirements.md#a13). It is the first real test of the shared gate code with a third consumer, and the first gate of the kit that resolves no policy. Four questions were put to the decider in chat, each with lettered options; the rest was derived by the authoring session and is listed in section 5 for the decider to override before the yes. Two of the four answers overturn the comparison's recommendation, and the first reverses an earlier ruling of the decider's own.
+The third module, [`const-catalogs`](../requirements.md#const-catalogs), was authored on 2026-09-20 from its research comparison ([res-0003-const-catalogs](../research/res-0003-const-catalogs.md)) and the rows of [aspect A13](../requirements.md#a13). It is the first real test of the shared gate code with a third consumer, and the first gate of the kit that resolves no policy. Four questions were put to the decider in chat, each with lettered options; the rest was derived by the authoring session and is listed in section 5 for the decider to override before the yes. Two of the four answers overturn the comparison's recommendation, and the first reverses an earlier ruling of the decider's own.
 
 ## 1. Where a numbered kind is declared
 

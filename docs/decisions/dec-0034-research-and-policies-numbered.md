@@ -53,9 +53,9 @@ The session recommended A: the cost for policies is real but one-time, and the k
 | P8 | `docs/policies/kit-rollout-plan.md`, id `kit-rollout-plan` | `docs/policies/plc-0008-rollout-plan.md` |
 | P9 | `docs/policies/kit-shared-code.md`, id `kit-shared-code` | `docs/policies/plc-0009-shared-code.md` |
 
-The twenty-three research surveys deleted on 2026-09-18 and the two policy names renamed before this day had never carried the form, so they hold no numbers: both catalogs start at 1.
+The nineteen files deleted from `docs/research/` on 2026-09-18 — eighteen surveys and their index — and the policy renamed and the one replaced before this day had never carried the form, so they hold no numbers: both catalogs start at 1.
 
-**R4.** The files were moved by the move act of module `const-referencing`, one command per file, which repaired every inbound link and each moved file's own relative links and closed each move with a green scan of the whole tree; the mover listed six mentions it does not rewrite, which were done by hand in the same work: the link texts that showed an old id or path, rewritten to the new ids across records, policies, `CLAUDE.md`, `shared/GATE.md`, the rollout plan, the module documents and the carry-audit skill; the envelope ids; the eleven lines of the dials file; one backticked path in the carry-audit skill. No prose mention of an old id outside a link was found, so nothing was left as written. A reference-form migration under [kernel §5](../../kernel/CONVENTIONS.md#k5).
+**R4.** The files were moved by the move act of module `const-referencing`, one command per file, which repaired every inbound link and each moved file's own relative links and closed each move with a green scan of the whole tree; the mover listed six mentions it does not rewrite, which were done by hand in the same work: the link texts that showed an old id or path, rewritten to the new ids across records, policies, `CLAUDE.md`, `shared/GATE.md`, the rollout plan, the module documents and the carry-audit skill — four of them, a comparison's old `research-` id in the context of four accepted records, missed by the first pass and found by the carry audit; the path form in step 2 of `CLAUDE.md`, found the same way; the envelope ids; the eleven lines of the dials file; one backticked path in the carry-audit skill. No prose mention of an old id outside a link was found, so nothing was left as written. A reference-form migration under [kernel §5](../../kernel/CONVENTIONS.md#k5).
 
 **R5.** From this record on, a new comparison and a new policy take the highest number their catalog has held plus one, provisional until the branch lands on main ([requirement A13.3](../requirements.md#a13-3)); this record is `dec-0034`.
 
@@ -66,7 +66,7 @@ In the commits of the work `catalogs-research-policies`: the thirteen moves and 
 ## Carry list
 
 1. R1 — rule 6 of [plc-0005-research](../policies/plc-0005-research.md); [the dials file](../../constitution.yaml).
-2. R2 — rule 6 of [plc-0001-root-policy](../policies/plc-0001-root-policy.md); [the dials file](../../constitution.yaml).
+2. R2 — rule 6 of [plc-0001-root-policy](../policies/plc-0001-root-policy.md) and, for the `res-` names, rule 6 of [plc-0005-research](../policies/plc-0005-research.md); [the dials file](../../constitution.yaml); step 2 and the reading list of [CLAUDE.md](../../CLAUDE.md) for the research path's form.
 3. R3 — history only: the allocation and the one-time change of ids on the day.
 4. R4 — history only: what was moved and rewritten on the day.
 5. R5 — rule 6 of [plc-0005-research](../policies/plc-0005-research.md) and rule 6 of [plc-0001-root-policy](../policies/plc-0001-root-policy.md); the record's own number: history only.
