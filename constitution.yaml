@@ -109,5 +109,6 @@ const-referencing:                    # the kit's own reference forms (requireme
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs
   templates:                          # the kinds that have a template; a kind without one is born with the envelope alone
+    - {policy: plc-0001-root-policy, template: templates/policy.md}
     - {policy: plc-0006-module-documents, template: module-template/MODULE.md}
     - {policy: plc-0004-decision-records, template: modules/const-decision-records/skills/record-decision/record-template.md}
