@@ -1,5 +1,5 @@
 ---
-id: kit-requirements
+id: plc-0007-requirements
 type: current-state
 title: Requirements policy — the traceability matrix and module specifications of the kit
 status: active

@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The first module, [`const-meta-types`](../requirements.md#const-meta-types), was authored on 2026-09-18 from its research comparison ([research-const-meta-types](../research/const-meta-types.md)) and its rows [A1.4](../requirements.md#a1-4), [A1.5](../requirements.md#a1-5), [A2.3](../requirements.md#a2-3). Three slots could not be settled from the kernel or earlier rulings and were left as markers in the module document; the fresh-context validation of the draft argued against two of them. Each was decided in chat, one per message. The record is born `inactive`: every ruling is applied in the commit that creates it ([kernel §5](../../kernel/CONVENTIONS.md#k5)).
+The first module, [`const-meta-types`](../requirements.md#const-meta-types), was authored on 2026-09-18 from its research comparison ([res-0001-const-meta-types](../research/res-0001-const-meta-types.md)) and its rows [A1.4](../requirements.md#a1-4), [A1.5](../requirements.md#a1-5), [A2.3](../requirements.md#a2-3). Three slots could not be settled from the kernel or earlier rulings and were left as markers in the module document; the fresh-context validation of the draft argued against two of them. Each was decided in chat, one per message. The record is born `inactive`: every ruling is applied in the commit that creates it ([kernel §5](../../kernel/CONVENTIONS.md#k5)).
 
 ## 1. Duplicate-id check at write time
 

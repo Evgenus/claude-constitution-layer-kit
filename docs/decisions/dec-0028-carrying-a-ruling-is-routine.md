@@ -18,7 +18,7 @@ The session made the repairs as routine on a stated assumption, named in chat be
 ## Ruling
 
 1. Carrying an already-ruled item into a policy or into `CLAUDE.md`, its ruling unchanged, is a repair and routine. The ruling's own record and yes cover it; the commit note names that record.
-2. A matrix row is not covered: amending one stays `process` stakes under rule 2 of [kit-requirements](../policies/kit-requirements.md).
+2. A matrix row is not covered: amending one stays `process` stakes under rule 2 of [plc-0007-requirements](../policies/plc-0007-requirements.md).
 3. Commits `cd04c14`, `053a0f6` and `138d142` were made on this reading and stand under it.
 
 ## Reasoning
@@ -27,5 +27,5 @@ A ruling that is recorded and approved but missing from the text is doc rot in t
 
 ## Carry list
 
-1. Items 1 and 2 — [kit-decision-records](../policies/kit-decision-records.md), rule 1.
+1. Items 1 and 2 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 1.
 2. Item 3 — history only: a one-time act.

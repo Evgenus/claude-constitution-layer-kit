@@ -1,5 +1,5 @@
 ---
-id: kit-rollout-plan
+id: plc-0008-rollout-plan
 type: current-state
 title: Rollout-plan policy — the kit's own write-head
 status: active

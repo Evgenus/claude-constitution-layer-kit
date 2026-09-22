@@ -1,5 +1,5 @@
 ---
-id: kit-module-documents
+id: plc-0006-module-documents
 type: current-state
 title: Module-document policy — the description at the root of every module
 status: active

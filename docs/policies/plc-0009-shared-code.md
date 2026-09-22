@@ -1,5 +1,5 @@
 ---
-id: kit-shared-code
+id: plc-0009-shared-code
 type: current-state
 title: Shared-code policy — the description of the code every gate shares
 status: active

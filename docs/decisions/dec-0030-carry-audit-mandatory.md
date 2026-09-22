@@ -61,15 +61,15 @@ C, by Eugene Chernyshov in chat on 2026-09-20, with both proposed defaults accep
 
 ## Carry list
 
-1. R1 — [kit-decision-records](../policies/kit-decision-records.md), rule 2; step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); the procedure in [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
+1. R1 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2; step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); the procedure in [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
 2. R2 — step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); steps 2 and 3 and prompt B of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md); [the script](../../scripts/check-carry-lists.py).
-3. R3 — [kit-decision-records](../policies/kit-decision-records.md), rule 2.
-4. R4, R5, R6 — [kit-decision-records](../policies/kit-decision-records.md), rule 2; [the script](../../scripts/check-carry-lists.py).
-5. R7, R8 — [kit-decision-records](../policies/kit-decision-records.md), rule 5; step 8 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md); [the script](../../scripts/check-carry-lists.py).
-6. R9, R10 — [kit-decision-records](../policies/kit-decision-records.md), rule 2; the docstring of [the script](../../scripts/check-carry-lists.py).
+3. R3 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2.
+4. R4, R5, R6 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2; [the script](../../scripts/check-carry-lists.py).
+5. R7, R8 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 5; step 8 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md); [the script](../../scripts/check-carry-lists.py).
+6. R9, R10 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 2; the docstring of [the script](../../scripts/check-carry-lists.py).
 7. R11, R13 — pending: [the rollout plan](../rollout-plan.md), step 10.
-8. R12 — [kit-decision-records](../policies/kit-decision-records.md), rule 5.
+8. R12 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 5.
 9. R14 — history only: what it says of the earlier record is a fact of this day; the rules themselves are R1, R4, R6 and R10.
 10. R15 — history only: what was built on the day.
-11. R16 — [kernel §5](../../kernel/CONVENTIONS.md#k5); [kit-decision-records](../policies/kit-decision-records.md), rule 5.
-12. R17 — [kit-decision-records](../policies/kit-decision-records.md), rules 2 and 5; steps 6 to 8 and prompt D of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
+11. R16 — [kernel §5](../../kernel/CONVENTIONS.md#k5); [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rule 5.
+12. R17 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md), rules 2 and 5; steps 6 to 8 and prompt D of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
