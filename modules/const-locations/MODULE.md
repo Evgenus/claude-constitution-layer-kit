@@ -155,6 +155,7 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 7. **A template's relative links are copied as they stand.** A template that lies at another depth than the home yields links that resolve from the template's place and not from the document's. Backstop: the scan of module `const-referencing`, when installed; the fix is a template at the home's depth, or links from the repository's top.
 8. **The dials file is not edited.** The new-kind procedure's third act is by hand. Backstop: every gate validates the file at its next read.
 9. **A `--type` given for a kind without a template is not checked against the kind.** The policy's prose says which meta-type its documents are, and the command cannot read prose. Backstop: the gate of module `const-meta-types`, when installed, holds the envelope; the `templates` dial, which makes the template decide.
+10. **The command's own write is no tool event.** The file is written by the script, so no write-time hook judges it — the gate of module `const-meta-types`, when installed, sees it in its scan and at the next `Edit` or `Write` of the file, never at creation. Backstop: the command's own proof before the write — the home, the id, the envelope's four fields from the template or the type given — and that scan.
 
 **Exit-code contract:** `0` the document was created, or a dry run printed what a write would use; `1` refused — every refusal is asked before anything is written, so the closing line says nothing was written — or the command could not run: the shared failures and C5. Never `2`: a generator has no findings. A missing `python3`, library or git is loud, never a silent pass.
 
@@ -197,7 +198,7 @@ Numbered items in `tests/run.py`: the module's own from 1, the shared items of [
 
 **Optional enhancements:**
 
-1. When module `const-meta-types` is installed, a document born outside the command is caught at write time and in the scan; the command's own check is the proof either way.
+1. When module `const-meta-types` is installed, a document born outside the command is caught at write time and in the scan; the command's own check is the proof either way; a document born by the command is judged by that gate only in its scan or at its next edit ([§9](#t9), limit 10).
 2. When module `const-decision-records` is installed, its skill creates records, and this command offers it the place: the dry run names the home, or the command writes the file from the record template the dial names, and that skill fills `stakes`, `decider` and the body; this module reads nothing of that module's dial.
 3. When module `const-catalogs` is installed, the stem of a numbered kind — prefix, number, slug — comes from that module's procedure and is given as `--stem`; this module reads nothing of that module's dial.
 4. When module `const-referencing` is installed, its scan shows what a template's relative links break at the home's depth ([§9](#t9), limit 7).
