@@ -1,18 +1,20 @@
-"""The texts of this module's own findings, skips and notes, as functions with typed
-parameters; the texts every gate shares live in the shared package's messages module.
+"""The texts of this module's own findings, skips, notes and dial failure, as functions with
+typed parameters; the texts every gate shares live in the shared package's messages module.
 
 Error messages are a teaching surface: a finding states what failed, why the rule exists
-(one clause), and the exact fix. Every function name starts with the stable key of its text
-(f1_, g1_, n1_, ...), so a text can be cited, reviewed and asserted by key. A reader must be
-able to act on a message without holding any other document: no text here cites one.
+(one clause), and the exact fix; a configuration failure is one self-sufficient line. Every
+function name starts with the stable key of its text (f1_, g1_, n1_, c5_, ...), so a text can
+be cited, reviewed and asserted by key. A reader must be able to act on a message without
+holding any other document: no text here cites one.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 
+from const_gate import identity
 from const_gate.messages import patterns, shown
-from const_gate.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, Status
+from const_gate.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, SharedKey, Status
 
 from .model import Key
 
@@ -28,6 +30,11 @@ _FIELD_FIX = (
 
 _TYPES = " | ".join(t.value for t in MetaType)
 _STATUSES = " | ".join(s.value for s in Status)
+DIALS = "severity, log_dir"
+
+
+def _ns() -> str:
+    return identity.current().namespace
 
 
 def _matches(matches: Sequence[Match]) -> str:
@@ -219,6 +226,17 @@ def n1_note_void_namespace(name: str) -> str:
     return (
         f"note: namespace '{name}' declares a territory but no policy with id '{name}' lies in the root"
         " policy's territory; it claims nothing until that policy exists"
+    )
+
+
+# ---------------------------------------------------------------- this module's dial failure
+
+
+def c5_unknown_dial(key: str) -> Broken:
+    return Broken(
+        SharedKey.C5,
+        f"{DIALS_FILE}: {_ns()}.{shown(key)} is no dial of this module",
+        f"a misspelt dial would be ignored in silence, so none is: write one of {DIALS}",
     )
 
 
