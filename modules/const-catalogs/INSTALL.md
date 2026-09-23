@@ -48,8 +48,7 @@ file, each with the fix on the first line; nothing is silently skipped.
    name shows a number to keep it, and names the other file where two show the same one. New
    items are numbered above every number a name shows, renamed yet or not. A dated legacy name
    under width 4 — `<prefix>-2026-09-22-<slug>` — already has the form and is an item numbered
-   by its year; once committed, its year stays in the advice (limit 15 of
-   [MODULE.md](MODULE.md#t9)).
+   by its year; once committed, its year stays in the advice.
 4. Backstop for what the hook cannot see — `git mv`, shell edits, other tools, other people,
    and two branches that took one number: run the scan on demand, and in CI on every pull
    request, where the checkout is the merge of both branches:
