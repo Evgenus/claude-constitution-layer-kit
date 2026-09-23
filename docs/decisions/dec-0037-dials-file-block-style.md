@@ -2,7 +2,7 @@
 id: dec-0037-dials-file-block-style
 type: task-record
 title: The dials file is written in block style, flow style only where a list or a mapping is empty; a kit gate holds it and rewrites it
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -15,7 +15,7 @@ At the yes on the sixth module the decider read the kit's `constitution.yaml` an
 
 ## Options
 
-- **A. A kit gate.** `scripts/check-yaml-style.py`, Python with PyYAML: red with file and line on any non-empty flow collection, the fix naming the block form; wired into the routine list of `pyproject.toml` and the gate list of `CLAUDE.md`, run before commits until the kit's CI runs it, with a self-test as its fixture.
+- **A. A kit gate.** `scripts/check-yaml-style.py`, Python with PyYAML: red with file and line on any non-empty flow collection, the fix naming the block form; wired into the routine list of `pyproject.toml` and the reading-list line of `CLAUDE.md`, run before commits until the kit's CI runs it, with a self-test as its fixture.
   - **Pros:** deterministic and teaching; no third-party tool; the shape of the kit's other gates; the rule and its gate land together.
   - **Cons:** one more script to run by hand until CI; it judges the file, not YAML examples inside Markdown fences.
 - **B. A formatter that rewrites the file.**

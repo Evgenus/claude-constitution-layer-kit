@@ -9,8 +9,9 @@ gate holds does not drift; one a comment asks for does.
 
 Modes:  [PATH]              check the file (default: the kit's constitution.yaml);
         --fix [PATH]        rewrite every non-empty flow collection into block style, keeping every
-                            comment, anchor, alias and quote as written, then check the result —
-                            a flow collection spanning several lines is left to the hand, and said;
+                            comment, anchor, alias and quote as written, then check the result;
+                            a flow collection spanning several lines is refused, nothing is
+                            written, and the line is named;
         --self-test         prove each finding red, the empty forms green, the rewrite equal in data
                             and whole in comments, and idempotent, on throwaway files.
 Exit:   0 green; 2 a finding; 1 the check could not run.
@@ -24,6 +25,7 @@ the same line moves to the end of that line's first part.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -193,10 +195,13 @@ def key_text(key: Node) -> str:
 
 def rewrite(text: str, spans: list[Span]) -> str:
     """The text with each span replaced by its block form, last span first so indices hold."""
+    newline = "\r\n" if "\r\n" in text else "\n"  # the file's own line ending, kept
     for span in reversed(spans):
         line_start = text.rfind("\n", 0, span.start) + 1
         line_end = text.find("\n", span.end)
         line_end = len(text) if line_end == -1 else line_end
+        if line_end > 0 and text[line_end - 1] == "\r":
+            line_end -= 1
         before = text[line_start : span.start]
         after = text[span.end : line_end]  # a trailing comment, or nothing
         if "\n" in text[span.start : span.end]:
@@ -207,13 +212,18 @@ def rewrite(text: str, spans: list[Span]) -> str:
             block = value_block(span.node, before, after)
         else:
             raise ValueError(span.line)
-        text = text[:line_start] + block + text[line_end:]
+        text = text[:line_start] + newline.join(block.split("\n")) + text[line_end:]
     return text
 
 
+KEY_PREFIX = re.compile(r"^\s*(?:-\s+)*")  # what stands before a key on its line: indent and dashes
+
+
 def value_block(node: Node, before: str, after: str) -> str:
-    """`key: [..]` — the items go under the key, indented one step past it."""
-    key_indent = len(before) - len(before.lstrip(" "))
+    """`key: [..]` — the items go under the key, indented one step past the key's own column, which
+    on a `- key: [..]` line is past the dash."""
+    prefix = KEY_PREFIX.match(before)
+    key_indent = prefix.end() if prefix is not None else 0
     head = inline(node)
     first = before.rstrip() + (" " + head if head else "")
     if after.strip():
@@ -262,7 +272,8 @@ def load(path: Path) -> tuple[str, list[yaml.Event]]:
             f"BROKEN: {path} does not exist — fix: run the check on the kit's constitution.yaml, or name"
             " a file"
         )
-    text = path.read_text(encoding="utf-8")
+    with path.open(encoding="utf-8", newline="") as handle:  # line endings kept as they are
+        text = handle.read()
     try:
         return text, parse_events(text)
     except yaml.YAMLError as exc:
@@ -303,14 +314,19 @@ def fix(path: Path) -> int:
             file=sys.stderr,
         )
         return EXIT_BROKEN
-    if yaml.safe_load(rewritten) != yaml.safe_load(text):
+    try:
+        same = yaml.safe_load(rewritten) == yaml.safe_load(text)
+    except yaml.YAMLError:
+        same = False
+    if not same:
         print(
-            f"BROKEN: the rewrite of {path.name} would change what the file says; nothing was written"
-            " — fix: this is a defect of the script; rewrite by hand and report it",
+            f"BROKEN: the rewrite of {path.name} would change what the file says, or would not parse;"
+            " nothing was written — fix: this is a defect of the script; rewrite by hand and report it",
             file=sys.stderr,
         )
         return EXIT_BROKEN
-    path.write_text(rewritten, encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(rewritten)
     print(f"REWROTE: {path.name}: {len(spans)} collection(s) to block style")
     return check(path)
 
@@ -403,6 +419,24 @@ def self_test() -> int:
             "an anchored list keeps its anchor on the key's line",
             expected in rewritten,
             expected.splitlines()[0].strip(),
+        )
+        dashed = "items:\n  - k: [1, 2]\n    j: {a: b}\n"
+        dashed_out = rewrite(dashed, flow_spans(dashed, parse_events(dashed)))
+        case(
+            "a key on a dash's line indents its items past the key, not past the line",
+            dashed_out == "items:\n  - k:\n      - 1\n      - 2\n    j:\n      a: b\n",
+            repr(dashed_out),
+        )
+        crlf = directory / "crlf.yaml"
+        with crlf.open("w", encoding="utf-8", newline="") as handle:
+            handle.write("a: [1]\r\nb: 2\r\n")
+        fix(crlf)
+        with crlf.open(encoding="utf-8", newline="") as handle:
+            ending = handle.read()
+        case(
+            "the file's line ending is kept, inside and outside the spans",
+            ending == "a:\r\n  - 1\r\nb: 2\r\n",
+            repr(ending),
         )
         multi = directory / "multi.yaml"
         multi.write_text("a: [1,\n  2]\n", encoding="utf-8")
