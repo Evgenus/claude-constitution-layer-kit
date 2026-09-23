@@ -42,8 +42,9 @@ def f1_no_envelope(rel: str) -> Finding:
         Key.F1,
         f"{rel}: no frontmatter envelope",
         "a governed document declares its authority in its envelope, or sessions guess it",
-        "start the file with a YAML block between two '---' lines carrying id: <kebab-id>,"
-        f" type: {_TYPES}, title: <one line>, status: {_STATUSES}",
+        "start the file with a YAML block between two '---' lines carrying at least id: <kebab-id>,"
+        f" type: {_TYPES}, title: <one line>, status: {_STATUSES} — the fields every governed"
+        " document carries; its kind may add fields of its own",
     )
 
 
@@ -61,7 +62,7 @@ def f3_invalid_yaml(rel: str, detail: str) -> Finding:
         Key.F3,
         f"{rel}: frontmatter is not valid YAML ({detail})",
         "the envelope is read by machines, so it must parse",
-        "repair the YAML between the '---' lines; keep the four fields id, type, title, status",
+        "repair the YAML between the '---' lines; keep at least the four fields id, type, title, status",
     )
 
 
