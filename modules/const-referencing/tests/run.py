@@ -1458,7 +1458,8 @@ def a_break_in_words_of_lychee() -> tuple[bool, str]:
 
 
 def mover_entry_absences() -> tuple[bool, str]:
-    """The mover's own exits before the guard: no python3, and an install without the shared code."""
+    """The mover's own exits before the guard — no python3, an install without the shared code — and
+    the shared C2 inside it, closed by the mover's clause."""
     consumer = moving_consumer()
     env = {
         **{k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"},
@@ -2053,7 +2054,11 @@ ASSERTIONS = [
         "a break of a kind the module has no text for is reported in the checker's words",
         a_break_in_words_of_lychee,
     ),
-    Assertion(97, "the mover's exits before the guard: no python3, no shared code", mover_entry_absences),
+    Assertion(
+        97,
+        "the mover's absences: no python3 and no shared code before the guard, no PyYAML inside it",
+        mover_entry_absences,
+    ),
     Assertion(98, "golden reasons: the why-line of every finding, typed by hand", golden_why_lines),
     Assertion(
         99,
