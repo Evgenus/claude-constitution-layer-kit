@@ -15,6 +15,7 @@ from . import messages
 from .model import BODY, Declaration, Range
 
 # `<pair> — <reason>`: an em or en dash, spaced or not, or one or two hyphens spaced on both sides
+NO_COMMON_ANCESTOR = "the two histories share no commit"
 DASH = re.compile(r"^(.*?)(?:\s*[—–]\s*|\s+--?\s+)(.*)$", re.DOTALL)
 
 
@@ -37,15 +38,28 @@ def resolve(root: Path, flag: str, ref: str) -> str:
 
 
 def head(root: Path) -> str | None:
-    """HEAD's commit; None on an unborn branch — no commit yet. A HEAD git cannot read for any
-    other reason is a configuration failure, never a green that examined nothing."""
+    """HEAD's commit; None on an unborn branch — no commit yet on it, in an empty repository or
+    after an orphan checkout. A HEAD git cannot read for any other reason — a ref holding zeros or a
+    missing object, a detached HEAD gone — is a configuration failure with git's own line, never a
+    green that examined nothing."""
     done = git(["rev-parse", "--verify", "--quiet", "HEAD^{commit}"], cwd=root)
     if done.returncode == 0:
         return os.fsdecode(done.stdout).strip()
-    probe = git(["show-ref", "--head"], cwd=root)  # exit 1 and silent when unborn; 128 and loud otherwise
-    if probe.returncode == 1 and not probe.stderr.strip():
-        return None
-    raise ConfigurationFailure(messages.c12_range("HEAD", "HEAD", str(root), first_line(probe.stderr)))
+    symbolic = git(["symbolic-ref", "--quiet", "HEAD"], cwd=root)
+    if symbolic.returncode == 0:
+        ref = os.fsdecode(symbolic.stdout).strip()
+        probe = git(["show-ref", "--verify", "--quiet", ref], cwd=root)
+        if probe.returncode == 1 and not probe.stderr.strip():  # the branch exists in name only: unborn
+            return None
+        detail = first_line(probe.stderr) if probe.stderr.strip() else _loud_head(root)
+    else:
+        detail = _loud_head(root)
+    raise ConfigurationFailure(messages.c12_range("HEAD", "HEAD", str(root), detail))
+
+
+def _loud_head(root: Path) -> str:
+    """git's own words for a HEAD it cannot resolve, asked without --quiet."""
+    return first_line(git(["rev-parse", "--verify", "HEAD^{commit}"], cwd=root).stderr)
 
 
 def current_branch(root: Path) -> str | None:
@@ -63,11 +77,11 @@ def trunk_tip(root: Path, trunk: str) -> str | None:
 
 
 def merge_base(root: Path, a: str, b: str) -> str:
+    """Two histories with no common ancestor make git exit 1 in silence; that is said in words."""
     done = git(["merge-base", a, b], cwd=root)
     if done.returncode != 0:
-        raise ConfigurationFailure(
-            messages.c12_range(short(root, a), short(root, b), str(root), first_line(done.stderr))
-        )
+        detail = first_line(done.stderr) if done.stderr.strip() else NO_COMMON_ANCESTOR
+        raise ConfigurationFailure(messages.c12_range(short(root, a), short(root, b), str(root), detail))
     return os.fsdecode(done.stdout).strip()
 
 

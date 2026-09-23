@@ -659,6 +659,7 @@ def golden_lines() -> tuple[bool, str]:
     r = repo(with_map())
     r.write("scratch.txt", "x\n")
     tree = hook(r.root).stderr
+    second = hook(r.root, active=True).stdout
     (r.root / "scratch.txt").unlink()
     branch(r.root)
     where = "commit " + commit(
@@ -677,6 +678,10 @@ def golden_lines() -> tuple[bool, str]:
             tree,
         ),
         ("RED: 1 finding — the working tree examined (1 path(s) dirty)", tree),
+        (
+            "GREEN: const-task-close: the working tree examined — 1 path(s) dirty; a stop hook already continued this turn once, so it is not asked again and the turn ends",  # noqa: E501 — a golden line is typed whole
+            second,
+        ),
         (
             "RED: core: the change touches 1 path(s) this pair describes (src/a.py) and none of its document(s): docs/core.md",  # noqa: E501 — a golden line is typed whole
             out,
@@ -754,17 +759,32 @@ def skills_and_install_note() -> tuple[bool, str]:
 
 
 def broken_head() -> tuple[bool, str]:
-    """A HEAD git cannot read is a configuration failure, never 'nothing landed'."""
+    """A HEAD git cannot read is a configuration failure, never 'nothing landed'; an orphan branch
+    in a repository with commits is unborn, and nothing landed on it."""
     r = repo(with_map())
+    git(r.root, "checkout", "-q", "--orphan", "fresh")
+    orphan = green_scan(scan(r.root), messages.f9_scan_tail(1, 0, "HEAD", "HEAD", True))
+    git(r.root, "checkout", "-q", "main")
     (r.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
     result = scan(r.root)
     ok = result.code == 1 and result.stderr.startswith("BROKEN: git could not read the range HEAD..HEAD in ")
-    return (
+    zeroed = (
         ok,
-        "exit 1, the range failure with git's own line"
-        if ok
-        else f"exit {result.code}: {result.stdout}{result.stderr}",
+        "exit 1, the range failure with git's own line" if ok else f"{result.code}: {result.stderr}",
     )
+    return all_of([orphan, zeroed], "an orphan branch is unborn; a zeroed ref is a configuration failure")
+
+
+def unrelated_histories() -> tuple[bool, str]:
+    """git merge-base exits 1 in silence for two histories with no common commit; the failure says so."""
+    r = repo(with_map())
+    git(r.root, "checkout", "-q", "--orphan", "other")
+    commit(r.root, "another root", {"z.txt": "z\n"})
+    other = short(r.root)
+    checkout(r.root, "main")
+    result = scan(r.root, "--since", "other")
+    expected = messages.c12_range(other, short(r.root), str(r.root), "the two histories share no commit")
+    return broken(result, expected)
 
 
 def gate_on(
@@ -874,7 +894,8 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         skills_and_install_note,
     ),
     (35, "the hook validates the dials too", hook_validates_dials),
-    (36, "a HEAD git cannot read is a configuration failure, never 'nothing landed'", broken_head),
+    (36, "an orphan branch is unborn; a HEAD git cannot read is a configuration failure", broken_head),
+    (37, "two histories with no common commit: the range failure says so in words", unrelated_histories),
 ]
 
 ASSERTIONS = [Assertion(number, title, check) for number, title, check in ITEMS]

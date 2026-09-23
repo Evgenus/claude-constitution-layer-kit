@@ -61,7 +61,7 @@ silently skipped.
    ```
    The reason is required and never judged by the check; a line naming no pair, or carrying no
    reason, is a finding, and so is a wildcard: one line per pair. The dash is an em or en dash,
-   spaced or not, or a hyphen spaced on both sides. Every declaration the check accepts is printed as a note, for the reviewer.
+   spaced or not, or one or two hyphens spaced on both sides. Every declaration the check accepts is printed as a note, for the reviewer.
    A squash merge keeps a commit's trailer only when that message lands last; a project that
    squashes puts the line in the description.
 6. **In CI, on a pull request**, with the whole history fetched (`fetch-depth: 0`), the base from
