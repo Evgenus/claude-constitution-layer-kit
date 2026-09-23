@@ -331,6 +331,18 @@ def long_value_is_cut() -> tuple[bool, str]:
     return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
 
 
+def golden_f1_fix() -> tuple[bool, str]:
+    """The F1 fix as a literal, typed here by hand: case 1 compares with what the message function
+    returns, so a slip inside the function would pass it."""
+    result, _ = gate_on(Write(NOTE_A, NO_ENVELOPE))
+    literal = (
+        "  fix: start the file with a YAML block between two '---' lines carrying at least id: <kebab-id>,"
+        " type: current-state | task-record | non-authoritative, title: <one line>, status: active |"
+        " inactive — the fields every governed document carries; its kind may add fields of its own"
+    )
+    return expect(result, 2, literal, "stderr")
+
+
 def message_shape() -> tuple[bool, str]:
     built = [case.expect for case in CASES]
     ok = all(isinstance(f, Finding) and f.key and f.headline and f.why and f.fix for f in built)
@@ -354,8 +366,9 @@ ASSERTIONS = [
         scan_with_deleted_file,
     ),
     Assertion(28, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
+    Assertion(29, "golden line: the F1 fix as a literal, not as the function returns it", golden_f1_fix),
     Assertion(27, "message shape: every taught finding has what, why and fix", message_shape),
-    Assertion(29, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
+    Assertion(30, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
 ]
 
 
