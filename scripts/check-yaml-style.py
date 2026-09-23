@@ -398,7 +398,7 @@ def self_test() -> int:
             expected in rewritten,
             expected.strip().splitlines()[0],
         )
-        expected = "  territory: &pol   # anchored: the catalog numbers exactly this\n    - \"docs/**\"\n    - 'x y'\n"
+        expected = "  territory: &pol   # anchored: the catalog numbers exactly this\n    - \"docs/**\"\n    - 'x y'\n"  # noqa: E501 — a golden line is typed whole
         case(
             "an anchored list keeps its anchor on the key's line",
             expected in rewritten,
