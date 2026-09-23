@@ -77,6 +77,17 @@ def _refuse_root_as_record_policy(index: Index, own: RecordDials) -> None:
 
 
 def _notes(index: Index, own: RecordDials) -> list[str]:
-    """The index's notes, then one per record policy the dial names that is no policy."""
+    """The index's notes, then one per record policy the dial names that is no policy, then one
+    per record policy that exists and whose namespace declares no territory: either governs no
+    document, and a gate that examines nothing says why."""
     dangling = [policy for policy in own.record_policies if policy not in index.policies]
-    return [*index.notes, *(messages.n2_note_dangling_record_policy(policy) for policy in dangling)]
+    claiming_nothing = [
+        index.policies[policy]
+        for policy in own.record_policies
+        if policy in index.policies and not index.policies[policy].territory
+    ]
+    return [
+        *index.notes,
+        *(messages.n2_note_dangling_record_policy(policy) for policy in dangling),
+        *(messages.n3_note_record_policy_claims_nothing(p.id, p.path) for p in claiming_nothing),
+    ]

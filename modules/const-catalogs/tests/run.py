@@ -359,6 +359,13 @@ def width_defaults_to_four() -> tuple[bool, str]:
     return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
 
 
+def a_misspelt_dial() -> tuple[bool, str]:
+    """A key of the namespace that is none of the three is refused, never a setting ignored in
+    silence — `catalog:` for `catalogs:` would otherwise read as no catalog listed."""
+    result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"catalog": [entry()]}})
+    return broken(result, messages.c5_unknown_dial("catalog"))
+
+
 def catalogs_not_a_list() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"catalogs": entry()}})
     return broken(result, messages.c5_catalogs_not_a_list())
@@ -748,7 +755,7 @@ def contested_number_is_not_kept_twice() -> tuple[bool, str]:
 
 def dated_name_is_an_item() -> tuple[bool, str]:
     """Under width 4 a date-shaped legacy name has the form — number 2026, slug the rest — so the
-    scan's line counts it, and a formed item beside it passes (limit 15)."""
+    scan's line counts it, and a formed item beside it passes (limit 14)."""
     dated = "itm-2026-09-22-x"
     result = scan_of({at(dated): item(dated), ITEM_A: item()})
     return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(2026)])), "stdout")
@@ -1025,6 +1032,7 @@ ASSERTIONS = [
         "adoption: under width 4 a date-shaped name is an item numbered by its year",
         dated_name_is_an_item,
     ),
+    Assertion(73, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
 ]
 
 

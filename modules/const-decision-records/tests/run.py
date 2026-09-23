@@ -295,6 +295,22 @@ def dangling_record_policy() -> tuple[bool, str]:
     return ok and "0 documents examined" in result.stdout, evidence
 
 
+def record_policy_claims_nothing() -> tuple[bool, str]:
+    """A record policy that exists, whose namespace declares no territory: a note naming the line
+    to write, never a failure, and nothing examined."""
+    result, _ = gate_on(VALID, dials_patch={RECORDS_POLICY: {"territory": []}})
+    note = messages.n3_note_record_policy_claims_nothing(RECORDS_POLICY, POLICY_DOCUMENT.target)
+    ok, evidence = expect(result, 0, note, "stdout")
+    return ok and "0 documents examined" in result.stdout, evidence
+
+
+def a_misspelt_dial() -> tuple[bool, str]:
+    """A key of the namespace that is none of the six is refused, never a setting ignored in
+    silence — `record_policy:` for `record_policies:` would otherwise read as the dial unset."""
+    result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policy": [RECORDS_POLICY]}})
+    return broken_first_line(result, messages.c5_unknown_dial("record_policy").render())
+
+
 def rest_of_envelope_not_judged() -> tuple[bool, str]:
     """An id that is not kebab-case and a status outside the enum are another check's business."""
     result, _ = gate_on(Write(RECORD_A, record("Record_A", status="open")))
@@ -447,6 +463,12 @@ ASSERTIONS = [
     ),
     Assertion(34, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(29, "message shape: every taught finding has what, why and fix", message_shape),
+    Assertion(
+        35,
+        "a record policy whose namespace declares no territory claims nothing: a note, never a failure",
+        record_policy_claims_nothing,
+    ),
+    Assertion(36, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
 ]
 
 
