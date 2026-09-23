@@ -247,6 +247,13 @@ def negation() -> tuple[bool, str]:
     return expect(result, 0, messages.g1_skip_outside_territory("docs/notes/secret.md"), "stdout")
 
 
+def ungoverned_twin_is_not_seen() -> tuple[bool, str]:
+    """A file outside every territory that declares no policy is never consulted: the governed
+    document's id standing in it is no duplicate (limit 4)."""
+    result, _ = gate_on(VALID, files={"README.md": envelope("note-a")})
+    return expect(result, 0, shared.g1_green_hook(shared.governed_by("notes-policy")), "stdout")
+
+
 def _warn(files: dict[str, str] | None = None) -> tuple[Result, str]:
     result, _ = gate_on(Write(NOTE_A, NO_ENVELOPE), dials_patch=own(severity="warn"), files=files)
     return result, messages.f1_no_envelope(NOTE_A).headline
@@ -351,6 +358,9 @@ ASSERTIONS = [
     Assertion(28, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(29, "golden line: the F1 fix as a literal, not as the function returns it", golden_f1_fix),
     Assertion(27, "message shape: every taught finding has what, why and fix", message_shape),
+    Assertion(
+        30, "an ungoverned twin id is not seen: the governed write is green", ungoverned_twin_is_not_seen
+    ),
 ]
 
 
