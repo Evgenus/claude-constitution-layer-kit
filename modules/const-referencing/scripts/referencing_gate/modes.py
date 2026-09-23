@@ -43,7 +43,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, paths, PendingDocument(rel, target.text))
         if covered is None:
-            return pipeline.no_root_policy(output)
+            raise ConfigurationFailure(messages.c5_governed_only_without_root())
         if rel not in covered:
             return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         lanes = _lanes_abroad(matcher, dials, [rel])[rel]
@@ -62,7 +62,7 @@ def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, list_markdown(target.root))
     if covered is None:
-        return pipeline.no_root_policy(output)
+        raise ConfigurationFailure(messages.c5_governed_only_without_root())
     texts = {path: _text(target.root, path) for path in covered}
     found, links = tree.examine(target.root, texts, dials.heading_anchors, about=rel)
     findings = [finding for path in sorted(found) for _, finding in found[path]]
@@ -99,7 +99,7 @@ def scan_mode(output: Output, start: Path) -> int:
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, paths)
         if covered is None:
-            return pipeline.no_root_policy(output)
+            raise ConfigurationFailure(messages.c5_governed_only_without_root())
         lanes = _lanes_abroad(matcher, dials, covered)
         texts = {path: _text(target.root, path) for path in covered}
         ids = ids_of(texts)
@@ -141,7 +141,9 @@ def covered_documents(
 ) -> list[str] | None:
     """The covered documents: those the module's territories hold — and, under governed_only,
     that a policy governs too, the policies themselves included. None: governed_only is set and
-    the dials name no root policy, so nobody can say what is governed."""
+    the dials name no root policy, so nobody can say what is governed — a configuration failure
+    for the gate and a refusal for the mover, each in its own words, never a skip that lets a
+    write through with nothing examined."""
     in_territory = sorted(matcher.match(dials.territories, paths))
     if not dials.governed_only:
         return in_territory

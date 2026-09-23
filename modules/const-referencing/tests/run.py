@@ -632,14 +632,26 @@ def a_tree_taken_out() -> tuple[bool, str]:
 
 
 def governed_only_without_root() -> tuple[bool, str]:
-    result, _ = gate_on(VALID, raw_dials=yaml.safe_dump({NAMESPACE: {"governed_only": True}}))
+    """governed_only with no root policy is a configuration failure in every mode — as the mover
+    refuses — never a skip that lets a write through with nothing examined; by default none is needed."""
+    rootless = yaml.safe_dump({NAMESPACE: {"governed_only": True}})
+    failure = messages.c5_governed_only_without_root()
+    before, root = gate_on(VALID, raw_dials=rootless)
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", rootless)
+    consumer.write(VALID.target, VALID.text)
+    after = H.run_gate(event_json(consumer.root, VALID, event=AFTER))
+    scan = H.run_gate("", args=["--scan", str(root)])
     default, _ = gate_on(VALID, raw_dials="{}\n")
     return all_of(
         [
-            expect(result, 0, shared.g1_green_skip(shared.g1_skip_no_root()), "stdout"),
+            broken(before, failure),
+            broken(after, failure),
+            broken(scan, failure),
             expect(default, 0, messages.g1_covered(), "stdout"),
         ],
-        "governed_only with no root policy is the shared visible skip; by default none is needed",
+        "governed_only with no root policy is C5, exit 1, before the write, after it and in the scan; by"
+        " default none is needed",
     )
 
 
@@ -1890,7 +1902,11 @@ ASSERTIONS = [
         59, "absence after the write: no lychee is exit 1 with the install address", lychee_absent_after_write
     ),
     Assertion(41, "governed_only: a document no policy governs is not covered", governed_only),
-    Assertion(42, "governed_only needs a root policy; the default needs none", governed_only_without_root),
+    Assertion(
+        42,
+        "governed_only without a root policy is C5 in every mode; the default needs none",
+        governed_only_without_root,
+    ),
     Assertion(
         43,
         "R8: a name outside Markdown no covered document carries; off by default",
