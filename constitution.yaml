@@ -6,6 +6,10 @@
 # Every dial the kernel and the installed modules know is written here, at its
 # default where the kit has not calibrated it, so the file doubles as the inventory
 # of what can be set. Each module's MODULE.md §7 is authoritative for the meaning.
+#
+# Written in block style: one key or one "- " item per line; flow style, [] or {},
+# only where a list or a mapping is empty. The gate is scripts/check-yaml-style.py,
+# run before every commit that touches this file; its --fix rewrites the file.
 
 # --- kernel-owned keys (kernel §6) -------------------------------------------------
 
@@ -16,31 +20,40 @@ territory_dialect: gitignore                    # values: gitignore — the only
 # The only kernel-defined key is `territory`; a policy's other calibration is its own.
 
 plc-0001-root-policy:                 # the policy for policies; its territory is where policies live
-  territory: &policies ["docs/policies/**"]   # anchored: the plc catalog below numbers exactly this territory
+  territory: &policies   # anchored: the plc catalog below numbers exactly this territory
+    - "docs/policies/**"
 
 plc-0002-kernel:                      # one policy per document kind (decision dec-0011-one-policy-per-kind)
-  territory: ["kernel/**"]
+  territory:
+    - "kernel/**"
 
 plc-0003-intent-page:
-  territory: ["/INTENT.md"]              # leading slash: a slash-less gitignore pattern matches at any depth
+  territory:   # leading slash: a slash-less gitignore pattern matches at any depth
+    - "/INTENT.md"
 
 plc-0004-decision-records:
-  territory: &decisions ["docs/decisions/**"]   # anchored: the catalog below numbers exactly this territory
+  territory: &decisions   # anchored: the catalog below numbers exactly this territory
+    - "docs/decisions/**"
 
 plc-0005-research:
-  territory: &research ["docs/research/**"]   # anchored: the res catalog below numbers exactly this territory
+  territory: &research   # anchored: the res catalog below numbers exactly this territory
+    - "docs/research/**"
 
 plc-0006-module-documents:
-  territory: ["modules/*/MODULE.md"]
+  territory:
+    - "modules/*/MODULE.md"
 
 plc-0007-requirements:
-  territory: ["docs/requirements.md"]
+  territory:
+    - "docs/requirements.md"
 
 plc-0008-rollout-plan:
-  territory: ["docs/rollout-plan.md"]
+  territory:
+    - "docs/rollout-plan.md"
 
 plc-0009-shared-code:
-  territory: ["shared/GATE.md"]
+  territory:
+    - "shared/GATE.md"
 
 # --- module namespaces (kernel §6): a module reads only its own -------------------
 # Two dials are every gate's, read by the shared code (shared/GATE.md):
@@ -57,7 +70,8 @@ const-meta-types:
 const-decision-records:
   severity: block                     # values: block | warn
   log_dir: local/gate-logs
-  record_policies: [plc-0004-decision-records]   # gate: the policies whose territory holds decision records; [] examines nothing
+  record_policies:   # gate: the policies whose territory holds decision records; [] examines nothing
+    - plc-0004-decision-records
   boundary_examples: []             # skill: the project's own routine / recorded pairs, {routine: …, recorded: …}; empty: the seed pairs of MODULE.md §8
   deciders:                         # skill: who may decide at each stakes level, a list of people or roles; empty: the agent asks who decides
     process: []
@@ -69,14 +83,21 @@ const-catalogs:                       # numbered kinds are declared here, indepe
   severity: block                     # values: block | warn
   log_dir: local/gate-logs
   catalogs:                           # gate, skill: the numbered kinds; [] examines nothing
-    - {prefix: dec, width: 4, territory: *decisions}   # id and stem dec-<nnnn>-<slug>; width 1–9, default 4
-    - {prefix: plc, width: 4, territory: *policies}    # the kit's policies, plc-<nnnn>-<slug> (decision dec-0034-research-and-policies-numbered)
-    - {prefix: res, width: 4, territory: *research}    # the research comparisons, res-<nnnn>-<slug> (the same decision)
+    - prefix: dec   # id and stem dec-<nnnn>-<slug>; width 1–9, default 4
+      width: 4
+      territory: *decisions
+    - prefix: plc   # the kit's policies, plc-<nnnn>-<slug> (decision dec-0034-research-and-policies-numbered)
+      width: 4
+      territory: *policies
+    - prefix: res   # the research comparisons, res-<nnnn>-<slug> (the same decision)
+      width: 4
+      territory: *research
 
 const-referencing:                    # the kit's own reference forms (requirements A5.5–A5.7); the module knows none of them
   severity: block                     # values: block | warn
   log_dir: local/gate-logs
-  territories: ["*.md"]               # the covered documents among the Markdown files git lists; a negated pattern takes files out
+  territories:   # the covered documents among the Markdown files git lists; a negated pattern takes files out
+    - "*.md"
   governed_only: false                # values: true | false — true narrows coverage to documents in a policy's territory; needs root_policy
   heading_anchors: refuse             # values: refuse | allow — allow switches R7 off
   bare_ids: refuse                    # values: refuse | allow — allow switches R2 off — for a project whose ids are everyday words
@@ -85,19 +106,23 @@ const-referencing:                    # the kit's own reference forms (requireme
     - pattern: '\bM[0-9]+\b'
       names: a module by its number
       fix: '[`const-<name>`](<path to>/docs/requirements.md#const-<name>) — a module number resolves only inside the requirements document'
-      home: ["/docs/requirements.md"]
+      home:
+        - "/docs/requirements.md"
     - pattern: '\bA[0-9]+\.[0-9]+'
       names: a requirement row
       fix: '[requirement A5.3](<path to>/docs/requirements.md#a5-3)'
-      home: ["/docs/requirements.md"]
+      home:
+        - "/docs/requirements.md"
     - pattern: '§ ?[0-9]'
       names: a kernel section
       fix: '[kernel §4](<path to>/kernel/CONVENTIONS.md#k4)'
-      home: ["/kernel/CONVENTIONS.md"]
+      home:
+        - "/kernel/CONVENTIONS.md"
     - pattern: '(?i)\blaws? [0-9]'
       names: a law
       fix: '[law 4 of CLAUDE.md](<path to>/CLAUDE.md#law-4)'
-      home: ["/CLAUDE.md"]
+      home:
+        - "/CLAUDE.md"
   mentions:                           # a catalogued item named in a script or a configuration file must exist: no link checker reads those
     - pattern: '\bdec-[0-9]{4}-[a-z0-9-]+'
       files: []                     # patterns of the files read; empty: every file git lists that is no Markdown, no link and not binary
@@ -113,20 +138,79 @@ const-task-close:                     # task close as one act: a change that tou
   declaration_key: No-Doc-Impact      # the trailer key: "No-Doc-Impact: <pair name> — <reason>" on a commit of the change, or the same line in a pull request's description
   working_files: []                   # the kit tracks no working files: local/ is git-ignored and scratch work lives outside the repository
   coverage:                           # the code territories the kit's current-state documents describe; a change touching one updates the document or declares no impact
-    - {name: shared-gate-code, code: ["shared/const_gate/**", "shared/tests/**"], docs: ["shared/GATE.md"]}
-    - {name: const-meta-types, code: ["modules/const-meta-types/scripts/**", "modules/const-meta-types/hooks/**", "modules/const-meta-types/skills/**", "modules/const-meta-types/tests/**"], docs: ["modules/const-meta-types/MODULE.md"]}
-    - {name: const-decision-records, code: ["modules/const-decision-records/scripts/**", "modules/const-decision-records/hooks/**", "modules/const-decision-records/skills/**", "modules/const-decision-records/tests/**"], docs: ["modules/const-decision-records/MODULE.md"]}
-    - {name: const-catalogs, code: ["modules/const-catalogs/scripts/**", "modules/const-catalogs/hooks/**", "modules/const-catalogs/skills/**", "modules/const-catalogs/tests/**"], docs: ["modules/const-catalogs/MODULE.md"]}
-    - {name: const-referencing, code: ["modules/const-referencing/scripts/**", "modules/const-referencing/hooks/**", "modules/const-referencing/skills/**", "modules/const-referencing/tests/**"], docs: ["modules/const-referencing/MODULE.md"]}
-    - {name: const-locations, code: ["modules/const-locations/scripts/**", "modules/const-locations/skills/**", "modules/const-locations/tests/**"], docs: ["modules/const-locations/MODULE.md"]}
-    - {name: const-task-close, code: ["modules/const-task-close/scripts/**", "modules/const-task-close/hooks/**", "modules/const-task-close/skills/**", "modules/const-task-close/tests/**"], docs: ["modules/const-task-close/MODULE.md"]}
-    - {name: kit-scripts, code: ["scripts/**", "/pyproject.toml"], docs: ["CLAUDE.md"]}   # the git hooks, the clone setup, the kit gates and the development routine
-    - {name: kernel-schemas, code: ["kernel/schemas/**"], docs: ["kernel/CONVENTIONS.md"]}
+    - name: shared-gate-code
+      code:
+        - "shared/const_gate/**"
+        - "shared/tests/**"
+      docs:
+        - "shared/GATE.md"
+    - name: const-meta-types
+      code:
+        - "modules/const-meta-types/scripts/**"
+        - "modules/const-meta-types/hooks/**"
+        - "modules/const-meta-types/skills/**"
+        - "modules/const-meta-types/tests/**"
+      docs:
+        - "modules/const-meta-types/MODULE.md"
+    - name: const-decision-records
+      code:
+        - "modules/const-decision-records/scripts/**"
+        - "modules/const-decision-records/hooks/**"
+        - "modules/const-decision-records/skills/**"
+        - "modules/const-decision-records/tests/**"
+      docs:
+        - "modules/const-decision-records/MODULE.md"
+    - name: const-catalogs
+      code:
+        - "modules/const-catalogs/scripts/**"
+        - "modules/const-catalogs/hooks/**"
+        - "modules/const-catalogs/skills/**"
+        - "modules/const-catalogs/tests/**"
+      docs:
+        - "modules/const-catalogs/MODULE.md"
+    - name: const-referencing
+      code:
+        - "modules/const-referencing/scripts/**"
+        - "modules/const-referencing/hooks/**"
+        - "modules/const-referencing/skills/**"
+        - "modules/const-referencing/tests/**"
+      docs:
+        - "modules/const-referencing/MODULE.md"
+    - name: const-locations
+      code:
+        - "modules/const-locations/scripts/**"
+        - "modules/const-locations/skills/**"
+        - "modules/const-locations/tests/**"
+      docs:
+        - "modules/const-locations/MODULE.md"
+    - name: const-task-close
+      code:
+        - "modules/const-task-close/scripts/**"
+        - "modules/const-task-close/hooks/**"
+        - "modules/const-task-close/skills/**"
+        - "modules/const-task-close/tests/**"
+      docs:
+        - "modules/const-task-close/MODULE.md"
+    - name: kit-scripts   # the git hooks, the clone setup, the kit gates and the development routine
+      code:
+        - "scripts/**"
+        - "/pyproject.toml"
+      docs:
+        - "CLAUDE.md"
+    - name: kernel-schemas
+      code:
+        - "kernel/schemas/**"
+      docs:
+        - "kernel/CONVENTIONS.md"
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs
   templates:                          # the kinds that have a template; a kind without one is born with the envelope alone
-    - {policy: plc-0001-root-policy, template: templates/policy.md}
-    - {policy: plc-0005-research, template: templates/research-comparison.md}
-    - {policy: plc-0006-module-documents, template: module-template/MODULE.md}
-    - {policy: plc-0004-decision-records, template: modules/const-decision-records/skills/record-decision/record-template.md}
+    - policy: plc-0001-root-policy
+      template: templates/policy.md
+    - policy: plc-0005-research
+      template: templates/research-comparison.md
+    - policy: plc-0006-module-documents
+      template: module-template/MODULE.md
+    - policy: plc-0004-decision-records
+      template: modules/const-decision-records/skills/record-decision/record-template.md
