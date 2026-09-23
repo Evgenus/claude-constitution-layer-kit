@@ -235,8 +235,14 @@ def no_home() -> tuple[bool, str]:
     ):
         result = run(prepared(claim(territory)), *NOTE_ARGS)
         results.append(broken(result, messages.l5_no_home("notes-policy", territory)))
+    namespaces: list[dict[str, object]] = [{"notes-policy": {}}, claim([])]  # no territory line; an empty one
+    for namespace in namespaces:
+        result = run(prepared(namespace), *NOTE_ARGS)
+        results.append(broken(result, messages.l5_no_territory("notes-policy")))
     return all_of(
-        results, "a single path, two patterns, a negation, a glob in the name, a bare directory: each refused"
+        results,
+        "a single path, two patterns, a negation, a glob in the name, a bare directory, no territory: each"
+        " refused",
     )
 
 
@@ -413,9 +419,23 @@ def argument_refusals() -> tuple[bool, str]:
             messages.l5_usage("--stem was not given"),
         ),
     ]
+    titles = prepared()  # an empty title, one of whitespace — in a dry run too — and one of two lines
+    for title, failure in (
+        ("", messages.l5_title_empty()),
+        ("  ", messages.l5_title_empty()),
+        ("a\nb", messages.l5_title_multiline()),
+    ):
+        pairs.append((run(titles, "--kind", "notes-policy", "--stem", "a", "--title", title), failure))
+    pairs.append(
+        (
+            run(titles, "--kind", "notes-policy", "--stem", "a", "--title", "", "--dry-run"),
+            messages.l5_title_empty(),
+        )
+    )
     return all_of(
-        [broken(r, f) for r, f in pairs],
-        "a bad stem, a bad id, a bad segment, no title, no stem: each refused",
+        [*(broken(r, f) for r, f in pairs), (tree_state(titles) == "", "a refused title changed the tree")],
+        "a bad stem, a bad id, a bad segment, no title, an empty, a blank and a two-line title, no stem: each"
+        " refused",
     )
 
 

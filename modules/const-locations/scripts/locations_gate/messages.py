@@ -124,6 +124,14 @@ def l5_no_home(kind: str, patterns: Sequence[str]) -> Broken:
     )
 
 
+def l5_no_territory(kind: str) -> Broken:
+    return _refused(
+        f"{kind} claims no territory: its namespace in {DIALS_FILE} has no territory, so no home follows",
+        f"under {kind}: in {DIALS_FILE} write territory: ['<dir>/**'], <dir> being the directory its"
+        " documents live in",
+    )
+
+
 def l5_segment_needed(kind: str, pattern: str) -> Broken:
     return _refused(
         f"{kind}'s territory '{pattern}' has a free segment, and --segment was not given: the pattern fixes"
@@ -219,6 +227,17 @@ def l5_title_needed() -> Broken:
         "--title was not given, and the envelope is written with the title as a value",
         "run it with --title '<the document's title>'; a dry run needs none",
     )
+
+
+def l5_title_empty() -> Broken:
+    return _refused(
+        "--title is empty (or only whitespace), and the title is the envelope's one non-empty line",
+        "run it with --title '<the document's title>'",
+    )
+
+
+def l5_title_multiline() -> Broken:
+    return _refused("--title holds a line break, and a title is one line", "give the title on one line")
 
 
 def l5_id_in_use(doc_id: str, path: str) -> Broken:
