@@ -20,6 +20,7 @@ from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedK
 from .model import Key, Stakes
 
 _STATUSES = " | ".join(s.value for s in Status)
+DIALS = "severity, log_dir, record_policies, boundary_examples, deciders, note_trailer"
 
 
 def _ns() -> str:
@@ -123,7 +124,23 @@ def n2_note_dangling_record_policy(policy_id: str) -> str:
     )
 
 
+def n3_note_record_policy_claims_nothing(policy_id: str, path: str) -> str:
+    return (
+        f"note: {_ns()}.record_policies names '{policy_id}' ({path}), whose namespace declares no"
+        f" territory — it governs no document until {DIALS_FILE} holds {policy_id}: {{territory:"
+        " [<patterns of the paths where decision records live>]}"
+    )
+
+
 # ---------------------------------------------------------------- this module's dial failures
+
+
+def c5_unknown_dial(key: str) -> Broken:
+    return Broken(
+        SharedKey.C5,
+        f"{DIALS_FILE}: {_ns()}.{shown(key)} is no dial of this module",
+        f"a misspelt dial would be ignored in silence, so none is: write one of {DIALS}",
+    )
 
 
 def c5_record_policies() -> Broken:
