@@ -1448,6 +1448,17 @@ def mover_entry_absences() -> tuple[bool, str]:
         env=env,
         check=False,
     )
+    shadow = H.scratch_dir()  # the shared C2, printed by the preflight, closes with the mover's own clause
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    no_library = subprocess.run(
+        [H.sh, str(MOVER), OLD, NEW],
+        cwd=consumer.root,
+        capture_output=True,
+        text=True,
+        env={**env, "PYTHONPATH": str(shadow)},
+        check=False,
+    )
+    library_first = no_library.stderr.splitlines()[0] if no_library.stderr else ""
     closing = "BROKEN: the move could not run — nothing was changed"
     return all_of(
         [
@@ -1462,6 +1473,13 @@ def mover_entry_absences() -> tuple[bool, str]:
                 and "is installed without its shared code" in no_shared.stderr
                 and closing in no_shared.stderr,
                 no_shared.stderr,
+            ),
+            (
+                no_library.returncode == 1
+                and library_first.endswith(" — until then nothing is moved")
+                and "pass unchecked" not in no_library.stderr
+                and closing in no_library.stderr,
+                no_library.stderr,
             ),
             ((consumer.root / OLD).exists(), "the file moved"),
         ],

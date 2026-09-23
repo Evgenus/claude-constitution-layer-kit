@@ -478,7 +478,8 @@ def golden_lines() -> tuple[bool, str]:
 
 def closing_is_the_generators() -> tuple[bool, str]:
     """A failure closes with the generator's line, never a gate's count; the entry files' variants
-    of C1, C14 and C15 drop the clause about unchecked writes."""
+    of C1, C14 and C15 drop the clause about unchecked writes; and the shared C2, printed when a
+    library is missing, closes with the generator's own clause, since no write passes here."""
     result = run(prepared(), "--kind", "nobody", "--stem", "a", "--title", "T")
     own_line = (
         messages.l4_nothing_written() in result.stderr and shared.c11_broken_count() not in result.stderr
@@ -486,9 +487,18 @@ def closing_is_the_generators() -> tuple[bool, str]:
     sources = "".join(
         (SCRIPTS / name).read_text(encoding="utf-8") for name in ("new-document.sh", "new-document.py")
     )
+    shadow = H.scratch_dir()
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    no_library = run(prepared(), *NOTE_ARGS, env={"PYTHONPATH": str(shadow)})
+    first = no_library.stderr.splitlines()[0] if no_library.stderr else ""
+    library_clause = (
+        no_library.code == 1
+        and first.endswith(" — until then nothing is created")
+        and "pass unchecked" not in no_library.stderr
+    )
     return (
-        own_line and "pass unchecked" not in sources,
-        "closing line the generator's; entry files without the gate's clause",
+        own_line and "pass unchecked" not in sources and library_clause,
+        "closing line the generator's; entry files without the gate's clause; C2 closed by the generator's",
     )
 
 

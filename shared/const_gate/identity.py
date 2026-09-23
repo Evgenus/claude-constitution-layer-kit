@@ -21,6 +21,11 @@ class Identity:
     libraries: Mapping[str, str] = field(
         default_factory=dict
     )  # distribution -> module, beyond the shared ones
+    # The clause that closes the two shared failures whose consequence is the entry point's own — a
+    # library missing (C2), an unexpected exception (C12.11). A gate's, by default: writes pass; a
+    # generator says what it leaves undone.
+    until_installed: str = "until then Markdown writes pass unchecked"
+    until_fixed: str = "until it is fixed this check does not run"
 
 
 _declared: Identity | None = None
