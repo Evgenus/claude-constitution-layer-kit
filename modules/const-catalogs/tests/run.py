@@ -753,6 +753,14 @@ def contested_number_is_not_kept_twice() -> tuple[bool, str]:
     return expect(result, 2, taught, "stdout")
 
 
+def dated_name_is_an_item() -> tuple[bool, str]:
+    """Under width 4 a date-shaped legacy name has the form — number 2026, slug the rest — so the
+    scan's line counts it, and a formed item beside it passes (limit 14)."""
+    dated = "itm-2026-09-22-x"
+    result = scan_of({at(dated): item(dated), ITEM_A: item()})
+    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(2026)])), "stdout")
+
+
 def number_the_width_cannot_write() -> tuple[bool, str]:
     stem = "itm-123456-big"
     result = scan_of({at(stem): item(stem)})
@@ -1019,7 +1027,12 @@ ASSERTIONS = [
         70, "adoption: a number the width cannot write is named as such", number_the_width_cannot_write
     ),
     Assertion(71, "scan: a catalog whose width is used up is named full", full_catalog_is_named),
-    Assertion(72, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
+    Assertion(
+        72,
+        "adoption: under width 4 a date-shaped name is an item numbered by its year",
+        dated_name_is_an_item,
+    ),
+    Assertion(73, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
 ]
 
 

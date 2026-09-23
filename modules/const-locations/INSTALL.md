@@ -66,7 +66,9 @@ silently skipped.
 
 What this plugin does not do: see a document written without the command — a heredoc, a
 `Write`, an editor — which the write-time gate of module `const-meta-types` catches when
-installed; derive a home from a territory of two patterns, a negation or a `*` inside a file
+installed, while a document the command writes is no tool event, so that gate judges it in
+its scan or at the document's next edit, never at creation; derive a home from a territory of
+two patterns, a negation or a `*` inside a file
 name — the command refuses and names the shapes that work; check or fill the body; edit
 `constitution.yaml`; allocate a number for a numbered kind.
 
