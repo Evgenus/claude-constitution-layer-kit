@@ -68,6 +68,11 @@ def g1_green_scan(tail: str) -> str:
     return f"GREEN: {_ns()}: {tail}"
 
 
+def g1_green_event(line: str) -> str:
+    """The green of a hook wired to an event that names no document: the module's whole line."""
+    return f"GREEN: {_ns()}: {line}"
+
+
 def g1_green_skip(reason: str) -> str:
     return f"GREEN: {_ns()}: 0 documents examined — {reason}"
 
@@ -81,6 +86,12 @@ def w1_warn_note() -> str:
 
 def w1_warn_system(headline: str) -> str:
     return f"{_ns()} (warn): {headline}"
+
+
+def w1_warn_stop(body: str) -> str:
+    """On Stop the user's notice is the whole verdict: nothing else reaches anyone, since context
+    handed to the model there would continue the turn."""
+    return f"{_ns()} (warn):\n{body}"
 
 
 # skip reasons (the {reason} of G1)
@@ -308,8 +319,11 @@ def c12_no_repo(path: str) -> Broken:
     )
 
 
-def c12_invocation(detail: str) -> Broken:
-    return Broken(SharedKey.C12, f"misinvocation: {detail}", "run with no arguments (hook) or --scan [<dir>]")
+USAGE = "run with no arguments (hook) or --scan [<dir>]"
+
+
+def c12_invocation(detail: str, usage: str = USAGE) -> Broken:
+    return Broken(SharedKey.C12, f"misinvocation: {detail}", usage)
 
 
 def c12_unreadable(rel: str) -> Broken:

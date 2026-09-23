@@ -16,7 +16,7 @@ from . import messages
 from .dials import load_dials
 from .errors import ConfigurationFailure
 from .events import document_after_write, read_event
-from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, Dials, Finding, Severity
+from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, STOP, Dials, Finding, Severity
 from .output import Output, log_name
 from .repository import is_ignored, read_text, repo_root
 
@@ -47,6 +47,17 @@ class ScanTarget:
     dials: Dials
 
 
+@dataclass(frozen=True, slots=True)
+class EventTarget:
+    """An event that names no file — a Stop — in a repository that has a dials file: the
+    repository is the one the event's cwd lies in, and what the module examines there is its own."""
+
+    root: Path
+    dials: Dials
+    event_name: str
+    stop_hook_active: bool | None
+
+
 def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
     event = read_event(stdin)
     output.session = event.session_id
@@ -75,6 +86,22 @@ def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
         if text is None:
             return Skip(messages.g1_skip_edit_unappliable(rel))
     return WriteTarget(root, rel, text, dials, event.event_name or PRE_WRITE)
+
+
+def locate_event(output: Output, stdin: TextIO) -> EventTarget | Skip:
+    """For a gate wired to an event without a file. The event is read by the one reader, so a
+    tool event's fields are still validated; a cwd outside any repository is a visible skip."""
+    event = read_event(stdin)
+    output.session = event.session_id
+    cwd = Path(os.path.realpath(event.cwd or os.getcwd()))
+    root = repo_root(cwd)
+    if root is None:
+        return Skip(messages.g1_skip_no_repo(str(cwd)))
+    dials = load_dials(root)
+    if dials is None:
+        return Skip(messages.g1_skip_no_dials(str(root)))
+    route_log(output, root, dials)
+    return EventTarget(root, dials, event.event_name, event.stop_hook_active)
 
 
 def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
@@ -111,6 +138,15 @@ def green_hook(output: Output, what: str, notes: Sequence[str] = ()) -> int:
     return EXIT_GREEN
 
 
+def green_event(output: Output, line: str, notes: Sequence[str] = ()) -> int:
+    """The green of a hook wired to an event that names no document: `line` is the module's whole
+    account of what it examined."""
+    for note in notes:
+        output.out(note)
+    output.out(messages.g1_green_event(line))
+    return EXIT_GREEN
+
+
 def report_hook(
     output: Output,
     findings: Sequence[Finding],
@@ -122,9 +158,14 @@ def report_hook(
 ) -> int:
     """Hook verdict on findings. Block: exit 2, stderr reaches the model. Warn: exit 0 with
     nothing on stdout but one JSON object — additionalContext reaches the model,
-    systemMessage the user — so the notes travel inside it, never before it."""
+    systemMessage the user — so the notes travel inside it, never before it. On Stop the warn
+    is the systemMessage alone, carrying the whole body: context handed to the model at a
+    turn's end continues the turn, up to the platform's cap, and that is a block, not a warning."""
     count = messages.f9_count_hook(len(findings), rel) if count is None else count
     body = "\n".join([*notes, *(f.render() for f in findings), count])
+    if severity is Severity.WARN and event_name == STOP:
+        output.out(json.dumps({"systemMessage": messages.w1_warn_stop(body)}))
+        return EXIT_GREEN
     if severity is Severity.WARN:
         output.out(
             json.dumps(

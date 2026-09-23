@@ -23,7 +23,7 @@ from const_gate import messages, preflight
 from const_gate.model import Broken, Finding
 from const_gate.output import ROTATE_AT, log_name
 from consumer import ROOT_POLICY
-from harness import Assertion, Edit, Harness, Result, Write, broken_first_line, event_json, expect
+from harness import Assertion, Edit, Harness, Result, Write, broken_first_line, event_json, expect, stop_json
 
 NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
 
@@ -74,10 +74,19 @@ class Subject:
     # line, or a generator's own ("nothing was written")
     act_args: Sequence[str] = ()  # a generator only: the arguments of a run that completes on a fresh
     # consumer, from inside it — for the item that runs the scripts copied with links followed
+    event: str = "PreToolUse"  # the hook event the gate is wired to. "Stop": the gate examines the
+    # repository the event's cwd lies in and no written file, so the items about one are left out;
+    # `gate_on` is still handed `valid` and `red`, and turns each into the tree the gate passes or
+    # blocks; where an item builds a payload itself it builds a Stop one
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
     h, ns = s.harness, s.harness.namespace
+    stop = s.event == "Stop"
+
+    def payload(root: Path, action: Write | Edit) -> str:
+        """The event an item sends itself: the write, or, for a Stop gate, a Stop in that repository."""
+        return stop_json(root) if stop else event_json(root, action)
 
     def broken(result: Result, failure: Broken) -> tuple[bool, str]:
         ok, evidence = broken_first_line(result, failure.render())
@@ -197,12 +206,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         shared.unlink() if shared.is_symlink() else shutil.rmtree(shared)
         consumer = h.fresh_consumer()
         result = h.run_gate(
-            event_json(consumer.root, s.valid), command=[h.sh, str(plugin / "scripts" / h.wrapper.name)]
+            payload(consumer.root, s.valid), command=[h.sh, str(plugin / "scripts" / h.wrapper.name)]
         )
         first = expect(result, 1, f"BROKEN: {ns} is installed without its shared code", "stderr")
         shared.mkdir()  # an install that left an empty directory behind: importable, and still no code
         result = h.run_gate(
-            event_json(consumer.root, s.valid), command=[h.sh, str(plugin / "scripts" / h.wrapper.name)]
+            payload(consumer.root, s.valid), command=[h.sh, str(plugin / "scripts" / h.wrapper.name)]
         )
         second = expect(result, 1, f"BROKEN: {ns} is installed without its shared code", "stderr")
         return first[0] and second[0], f"link removed: {first[1][:60]}…; empty directory: {second[1][:60]}…"
@@ -216,6 +225,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         consumer = h.fresh_consumer()
         if not s.event_driven:  # a generator: a run that completes, from inside the consumer
             result = h.run_gate("", args=s.act_args, command=copied, cwd=consumer.root)
+            return expect(result, 0, s.green, "stdout")
+        if stop:  # a clean consumer at a turn's end: the gate's green
+            result = h.run_gate(stop_json(consumer.root), command=copied)
             return expect(result, 0, s.green, "stdout")
         result = h.run_gate(event_json(consumer.root, Write("README.md", NO_ENVELOPE)), command=copied)
         return expect(result, 0, s.bare_readme, "stdout")
@@ -263,6 +275,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def stdout_cannot_encode() -> tuple[bool, str]:
         """The count line carries a dash; a stream that cannot encode it must not swallow the line."""
+        if stop:
+            result, _ = s.gate_on(s.valid, env={"PYTHONIOENCODING": "ascii"})
+            return expect(result, 0, s.green, "stdout")
         result, _ = s.gate_on(Write("README.md", NO_ENVELOPE), env={"PYTHONIOENCODING": "ascii"})
         return expect(result, 0, s.bare_readme, "stdout")
 
@@ -313,15 +328,16 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def outside_any_repository() -> tuple[bool, str]:
         directory = h.scratch_dir()
-        event = event_json(directory, Write("loose.md", NO_ENVELOPE))
+        event = payload(directory, Write("loose.md", NO_ENVELOPE))
         result = h.run_gate(event, env={"GIT_CEILING_DIRECTORIES": str(directory.parent)})
-        skip = messages.g1_green_skip(messages.g1_skip_no_repo(str(directory / "loose.md")))
+        where = directory if stop else directory / "loose.md"  # a Stop names no file: its cwd is the place
+        skip = messages.g1_green_skip(messages.g1_skip_no_repo(str(where)))
         return expect(result, 0, skip, "stdout")
 
     def no_dials_file() -> tuple[bool, str]:
         consumer = h.fresh_consumer()
         (consumer.root / "constitution.yaml").unlink()
-        result = h.run_gate(event_json(consumer.root, s.red))
+        result = h.run_gate(payload(consumer.root, s.red))
         skip = messages.g1_green_skip(messages.g1_skip_no_dials(str(consumer.root)))
         return expect(result, 0, skip, "stdout")
 
@@ -362,14 +378,24 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         result, _ = s.gate_on(s.red, dials_patch=s.own(severity="warn"))
         if result.code != 0:
             return False, f"warn must let the write through; exit {result.code}: {result.stderr}"
-        payload = json.loads(result.stdout)
-        context = payload["hookSpecificOutput"]["additionalContext"]
+        answer = json.loads(result.stdout)
+        if stop:  # the user's notice alone: context handed to the model at a turn's end continues it
+            ok = (
+                set(answer) == {"systemMessage"}
+                and s.red_finding.render() in answer["systemMessage"]
+                and answer["systemMessage"].startswith(messages.w1_warn_stop("").rstrip())
+            )
+            return (
+                ok,
+                "exit 0, the whole finding in systemMessage and nothing else" if ok else f"bad: {answer}",
+            )
+        context = answer["hookSpecificOutput"]["additionalContext"]
         ok = (
             s.red_finding.render() in context
             and messages.w1_warn_note() in context
-            and payload["systemMessage"] == messages.w1_warn_system(s.red_finding.headline)
+            and answer["systemMessage"] == messages.w1_warn_system(s.red_finding.headline)
         )
-        return ok, "exit 0, finding in additionalContext and systemMessage" if ok else f"bad: {payload}"
+        return ok, "exit 0, finding in additionalContext and systemMessage" if ok else f"bad: {answer}"
 
     # ---------------------------------------------------------------- the output log
 
@@ -543,10 +569,22 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         byte_order_mark,
         negated_pattern,
     }
+    # A gate wired to Stop examines a repository, never a written file: these items are a tool gate's.
+    about_files = {
+        other_tool,
+        not_markdown,
+        relative_path,
+        edit_unappliable,
+        edit_empty_old_string,
+        byte_order_mark,
+        negated_pattern,
+        deeply_nested_envelope,
+    }
     return [
         Assertion(first + n, title, check)
         for n, (title, check) in enumerate(items)
         if (s.resolves_policies or check not in about_policies)
         and (s.judges_envelopes or check is not deeply_nested_envelope)
         and (s.event_driven or check not in about_events)
+        and (not stop or check not in about_files)
     ]

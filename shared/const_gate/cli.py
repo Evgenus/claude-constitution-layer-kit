@@ -14,7 +14,7 @@ from __future__ import annotations
 import argparse
 import sys
 import traceback
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn, TextIO
@@ -29,37 +29,81 @@ SCAN_FLAG = "--scan"
 
 
 @dataclass(frozen=True, slots=True)
+class Argument:
+    """A module's own flag on the one parser, scan mode only, one value each: `--since <ref>`."""
+
+    flag: str
+    metavar: str
+
+
+Values = Mapping[str, str | None]  # a module's flags by flag, None where not given
+
+
+@dataclass(frozen=True, slots=True)
 class Modes:
-    """The module's two modes. Each returns an exit code."""
+    """The module's two modes. Each returns an exit code. A module with flags of its own gives
+    `scan_with`, which receives their values, and `scan` is then not called."""
 
     hook: Callable[[Output, TextIO], int]
     scan: Callable[[Output, Path], int]
+    scan_with: Callable[[Output, Path, Values], int] | None = None
 
 
 class Parser(argparse.ArgumentParser):
+    def __init__(self, usage: str, prog: str) -> None:
+        super().__init__(prog=prog, add_help=False, allow_abbrev=False)  # --sc is not --scan
+        self.usage_line = usage
+
     def error(self, message: str) -> NoReturn:
-        raise ConfigurationFailure(messages.c12_invocation(message))
+        raise ConfigurationFailure(messages.c12_invocation(message, self.usage_line))
 
 
-def make_parser() -> Parser:
-    parser = Parser(prog=identity.current().gate, add_help=False, allow_abbrev=False)  # --sc is not --scan
+def usage(arguments: Sequence[Argument]) -> str:
+    return messages.USAGE + "".join(f" [{a.flag} <{a.metavar}>]" for a in arguments)
+
+
+def make_parser(arguments: Sequence[Argument] = ()) -> Parser:
+    parser = Parser(usage(arguments), identity.current().gate)
     parser.add_argument(SCAN_FLAG, nargs="?", const=".", default=None, metavar="DIR")
+    for argument in arguments:
+        parser.add_argument(argument.flag, dest=argument.flag, default=None, metavar=argument.metavar)
     return parser
 
 
-def main(argv: Sequence[str], output: Output, load_modes: Callable[[], Modes]) -> int:
-    args = make_parser().parse_args(list(argv))
+def main(
+    argv: Sequence[str],
+    output: Output,
+    load_modes: Callable[[], Modes],
+    arguments: Sequence[Argument] = (),
+) -> int:
+    parser = make_parser(arguments)
+    args = parser.parse_args(list(argv))
+    values: dict[str, str | None] = {a.flag: getattr(args, a.flag) for a in arguments}
+    if args.scan is None:
+        given = [flag for flag, value in values.items() if value is not None]
+        if given:
+            raise ConfigurationFailure(
+                messages.c12_invocation(f"{given[0]} applies to --scan", parser.usage_line)
+            )
     preflight.check()
     modes = load_modes()  # the module's code is imported after the preflight: it needs the libraries
     if args.scan is not None:
+        if modes.scan_with is not None:
+            return modes.scan_with(output, Path(args.scan), values)
         return modes.scan(output, Path(args.scan))
     return modes.hook(output, sys.stdin)
 
 
-def run(argv: Sequence[str], gate: Identity, load_modes: Callable[[], Modes]) -> int:
-    """A gate's entry: the entry point says which gate this is and how to load its two modes."""
+def run(
+    argv: Sequence[str],
+    gate: Identity,
+    load_modes: Callable[[], Modes],
+    arguments: Sequence[Argument] = (),
+) -> int:
+    """A gate's entry: the entry point says which gate this is, how to load its two modes, and
+    which flags of its own the scan takes — none for a gate that takes only --scan."""
     mode = Mode.SCAN if any(a.startswith(SCAN_FLAG) for a in argv) else Mode.HOOK
-    return guarded(gate, mode, lambda output: main(argv, output, load_modes))
+    return guarded(gate, mode, lambda output: main(argv, output, load_modes, arguments))
 
 
 def guarded(

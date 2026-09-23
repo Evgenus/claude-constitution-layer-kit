@@ -88,6 +88,14 @@ def event_json(
     )
 
 
+def stop_json(root: Path, active: bool = False, session: str = "fixture-session") -> str:
+    """A Stop payload as the platform sends it, reduced to what a gate reads: the session's
+    directory and the loop guard."""
+    return json.dumps(
+        {"hook_event_name": "Stop", "session_id": session, "cwd": str(root), "stop_hook_active": active}
+    )
+
+
 class Harness:
     """One module's entry point under test."""
 
