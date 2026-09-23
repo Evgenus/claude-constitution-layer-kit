@@ -122,11 +122,7 @@ Description moved into the module's document: [`modules/const-decision-records/M
 <a id="const-task-close"></a>
 ## M4 `const-task-close` — accumulating; enters at the first real task
 
-**Failure pattern:** migrations left open — transactions that neither committed back nor rolled back, leaving the halfway state as silent de-facto truth; doc↔code drift with no owner.
-**Invariant:** task close is a **single act**: a change touching code in territory covered by current-state documents also updates those documents *or* explicitly declares no impact; the task's working files are then deleted and its record set `inactive` (git remembers); an active task-record with no commits in its scope is stalled drift, to be committed back or rolled back.
-**Ships:** PR-level check reading the diff's territories against current-state coverage — update present, or a no-impact declaration (mechanism: PR body marker or commit trailer — a design decision at authoring, decider: you); close skill executing the sequence: merge deltas into current-state docs → delete working files → set the record `inactive`. The kernel's **defect rule** made executable: doc↔code divergence outside any active task's scope is flagged, never tolerated. Carries the handoff residue: durable work products exist only as artifacts of defined kinds; work not committed did not happen. **Commit-before-edit (A4.7):** the session-level form of the same rule — git, not chat rewind, is the rollback layer (rewind does not track Bash, script, or subagent edits); a dirty tree is committed before a batch of edits and after each coherent change, never left dirty at turn end; a `Stop` hook warns on a dirty tree, blocking per dial.
-**Dials:** current-state coverage map (which docs guard which code territories); no-impact declaration format; active-task age alarm (optional); dirty-tree-at-turn-end: warn or block.
-**Acceptance:** red→green — code-touching PR without doc update or declaration blocked; with either, passes; close skill leaves no working files behind and the record `inactive`; dirty tree at turn end warned, clean tree silent.
+Description moved into the module's document: [`modules/const-task-close/MODULE.md`](../modules/const-task-close/MODULE.md) (rows [A4.1](#a4-1)–[A4.7](#a4-7)); this anchor stays the module's handle.
 
 <a id="const-referencing"></a>
 ## M5 `const-referencing` — accumulating once documents multiply; enters with the first cross-references

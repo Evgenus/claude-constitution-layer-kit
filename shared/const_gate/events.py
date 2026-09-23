@@ -2,7 +2,8 @@
 
 A pre-write gate judges the document that will exist, not the one that does: for a Write
 that is the content field; for an Edit it is the edit applied to the file on disk. After the
-write the document is the file on disk, and nothing is reconstructed.
+write the document is the file on disk, and nothing is reconstructed. An event that names no
+file — a Stop — is parsed by the same reader: its tool is None, and its loop guard is kept.
 """
 
 from __future__ import annotations
@@ -49,7 +50,12 @@ def read_event(stream: TextIO) -> ToolEvent:
         old_string=_text(fields.get("old_string")),
         new_string=_text(fields.get("new_string")),
         replace_all=fields.get("replace_all") is True,
+        stop_hook_active=_flag(loaded.get("stop_hook_active")),
     )
+
+
+def _flag(value: object) -> bool | None:
+    return value if isinstance(value, bool) else None
 
 
 def _text(value: object) -> str | None:

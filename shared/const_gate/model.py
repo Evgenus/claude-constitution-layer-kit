@@ -39,6 +39,8 @@ class EnvelopeState(StrEnum):
 # neither is read as the first: the three gates that handle one event never asked.
 PRE_WRITE = "PreToolUse"
 POST_WRITE = "PostToolUse"
+# The one event without a file a gate may be wired to: the end of a turn.
+STOP = "Stop"
 
 
 class Mode(StrEnum):
@@ -116,6 +118,7 @@ class ToolEvent:
     old_string: str | None
     new_string: str | None
     replace_all: bool
+    stop_hook_active: bool | None = None  # a Stop payload's loop guard; None for every tool event
 
 
 @dataclass(frozen=True, slots=True)
