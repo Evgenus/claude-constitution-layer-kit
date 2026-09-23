@@ -105,16 +105,24 @@ def _locate_range(
 
 
 def _documents_exist(root: Path, dials: TaskCloseDials, rng: Range) -> None:
-    """A document the map names must exist in the repository's HEAD — the map describes the tree
-    as it is, and an older change is judged by today's map — unless the range itself touched it:
-    deleted or renamed it, which the diff names."""
+    """A document the map names must be a file in the repository's HEAD — the map describes the
+    tree as it is, and an older change is judged by today's map — unless the range itself touched
+    it: deleted or renamed it, which the diff names. A path that is a directory there can never be
+    among a change's paths, so a pair naming one could never be updated: refused, not examined."""
     head = history.head(root) or rng.tip
     for pair in dials.coverage:
         for doc in pair.docs:
-            if doc in rng.paths or history.exists_at(root, head, doc):
+            if doc in rng.paths:
                 continue
+            kind = history.kind_at(root, head, doc)
+            if kind == "blob":
+                continue
+            if kind is None:
+                raise ConfigurationFailure(
+                    messages.x1_document_missing(pair.name, doc, history.short(root, head))
+                )
             raise ConfigurationFailure(
-                messages.x1_document_missing(pair.name, doc, history.short(root, head))
+                messages.x2_document_is_directory(pair.name, doc, history.short(root, head))
             )
 
 

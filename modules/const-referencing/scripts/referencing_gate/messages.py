@@ -324,6 +324,16 @@ def lane_pattern(error: str) -> str:
     )
 
 
+def lane_pattern_control(char: str) -> str:
+    """A lane's or a mention's pattern holding a control character — what YAML's double quotes make
+    of `\\b` — is refused before it is compiled, since it would match nothing and pass in silence."""
+    return (
+        f"has a pattern holding the control character {char!r} — YAML's double quotes turn a backslash"
+        " escape into one, so the pattern would match nothing and pass in silence; write it in single"
+        " quotes, where a backslash stands for itself"
+    )
+
+
 # ---------------------------------------------------------------- the mover: a generator, never a gate
 
 

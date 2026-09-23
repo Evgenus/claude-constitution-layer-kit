@@ -83,6 +83,9 @@ def _lane(position: int, entry: object) -> Lane:
     if home is None:
         raise refuse(messages.lane_home())
     refuse_unreadable_patterns(f"{identity.current().namespace}.lanes[{position}].home", home)
+    control = _control_character(texts["pattern"])
+    if control is not None:
+        raise refuse(messages.lane_pattern_control(control))
     try:
         pattern = re.compile(texts["pattern"])
     except re.error as error:
@@ -114,10 +117,20 @@ def _mention(position: int, entry: object) -> Mention:
     if files is None:
         raise refuse(messages.mention_files())
     refuse_unreadable_patterns(f"{identity.current().namespace}.mentions[{position}].files", files)
+    control = _control_character(text)
+    if control is not None:
+        raise refuse(messages.lane_pattern_control(control))
     try:
         return Mention(re.compile(text), files)
     except re.error as error:
         raise refuse(messages.lane_pattern(str(error))) from error
+
+
+def _control_character(pattern: str) -> str | None:
+    """The first control character of a pattern, or None. YAML's double quotes turn `\\b` into a
+    backspace: the pattern then compiles, matches nothing and passes in silence, so it is refused
+    before it is compiled."""
+    return next((c for c in pattern if ord(c) < 0x20 or ord(c) == 0x7F), None)
 
 
 def _patterns(value: object) -> tuple[str, ...] | None:

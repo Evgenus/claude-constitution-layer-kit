@@ -396,6 +396,32 @@ def dial_failures() -> tuple[bool, str]:
     )
 
 
+def control_character_in_a_pattern() -> tuple[bool, str]:
+    """Red→green of the dials file itself: a pattern in YAML's double quotes, where `\\b` is a
+    backspace, is refused before it is compiled — it would match nothing and pass in silence; the
+    same pattern in single quotes finds the bare form. The golden line is typed by hand."""
+    quoted = dials_text(own(lanes=[{**LANE, "pattern": "<P>"}]))
+    red, _ = gate_on(wrote(body("See REQ-7.")), raw_dials=quoted.replace("<P>", '"\\bREQ-[0-9]+\\b"'))
+    green, _ = gate_on(wrote(body("See REQ-7.")), raw_dials=quoted.replace("<P>", "'\\bREQ-[0-9]+\\b'"))
+    mention, _ = gate_on(VALID, dials_patch=own(mentions=[{"pattern": "\x08note-[a-z]+"}]))
+    literal = (
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes has a pattern holding the control"
+        " character '\\x08' — YAML's double quotes turn a backslash escape into one, so the pattern would"
+        " match nothing and pass in silence; write it in single quotes, where a backslash stands for"
+        " itself — fix: write the entry as {pattern: <regular expression>, names: <what the form cites>,"
+        " fix: <the link form to write>}; home: [<patterns>] is optional"
+    )
+    return all_of(
+        [
+            broken(red, messages.c5_lane(1, messages.lane_pattern_control("\x08"))),
+            (literal in red.stderr, f"the golden line is not in: {red.stderr.strip()}"),
+            expect(green, 2, r1().render(), "stderr"),
+            broken(mention, messages.c5_mention(1, messages.lane_pattern_control("\x08"))),
+        ],
+        "double-quoted: exit 1 with the golden line; single-quoted: the form is found; a mention too",
+    )
+
+
 def lane_home_pattern_git_would_misread() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch=own(lanes=[{**LANE, "home": ["#docs"]}]))
     return broken(result, shared.c5_territory_pattern(f"{NAMESPACE}.lanes[1].home", "#docs"))
@@ -1837,6 +1863,11 @@ ASSERTIONS = [
     ),
     Assertion(24, "the scan ignores severity", scan_ignores_severity),
     Assertion(25, "this module's dial failures are exit 1, never 2, never 0", dial_failures),
+    Assertion(
+        6,
+        "a pattern holding a control character — YAML's double-quoted \\b — is exit 1, never a silent pass",
+        control_character_in_a_pattern,
+    ),
     Assertion(
         26,
         "a lane's home pattern git would misread is the shared configuration failure",

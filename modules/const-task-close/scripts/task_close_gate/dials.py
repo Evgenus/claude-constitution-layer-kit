@@ -63,6 +63,9 @@ def _pair(position: int, entry: object) -> Pair:
     docs = _paths(entry.get("docs"))
     if not docs:
         raise ConfigurationFailure(messages.c5_pair(position, messages.pair_docs()))
+    for path in docs:  # a trailing slash names a directory, and a directory is no document
+        if path.endswith("/"):
+            raise ConfigurationFailure(messages.c5_pair(position, messages.pair_docs_directory(path)))
     refuse_unreadable_patterns(f"{identity.current().namespace}.coverage[{name}].code", code)
     return Pair(name, code, docs)
 
@@ -77,7 +80,8 @@ def _patterns(value: object) -> tuple[str, ...] | None:
 
 
 def _paths(value: object) -> tuple[str, ...] | None:
-    """Repository-relative paths, normalised to forward slashes with no leading './'."""
+    """Repository-relative paths, normalised to forward slashes with no leading './'. A trailing
+    slash is kept as written, so that the caller can refuse it as a directory."""
     patterns = _patterns(value)
     if patterns is None:
         return None
@@ -88,7 +92,7 @@ def _paths(value: object) -> tuple[str, ...] | None:
             clean = clean[2:]
         if clean.startswith("/") or ".." in clean.split("/") or not clean:
             return None
-        paths.append(clean.rstrip("/"))
+        paths.append(clean)
     return tuple(paths)
 
 

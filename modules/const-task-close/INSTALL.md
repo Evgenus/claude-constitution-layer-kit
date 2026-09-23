@@ -10,12 +10,17 @@ silently skipped.
    examined, and a dirty tree — any tracked change or untracked file git does not ignore — is
    reported once: under the default `severity: block` the model receives the finding and the
    turn continues once, for the commit; under `warn` the user is shown the finding as a notice
-   and the model sees nothing. The second stop of a turn always lets it end. A copy of this
-   plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/const_gate`, and `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
-   links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at. A checkout made without symlink support leaves one-line text files in
-   their place (`git config core.symlinks true`, then check out again).
+   and the model sees nothing. The second stop of a turn always lets it end. In a session that
+   cannot ask — `claude -p`, `dontAsk`, `--permission-prompts none` — a block costs that one
+   continuation and leaves the tree dirty unless the commit the finding teaches is allowed: it
+   is the compound `git add -A && git commit …`, and a rule must match each part on its own, so
+   both `Bash(git add *)` and `Bash(git commit *)` go in `permissions.allow` or `--allowedTools`;
+   or set `severity: warn`. A copy of this plugin's folder made outside the repository it comes
+   from must follow links (`cp -RL`): `scripts/const_gate`, and `harness.py`, `consumer.py` and
+   `shared_items.py` in `tests/`, are links to code the plugin shares with its siblings, and an
+   install from the marketplace copies what they point at. A checkout made without symlink
+   support leaves one-line text files in their place (`git config core.symlinks true`, then check
+   out again).
 2. **Zero configuration works** in a repository that has a `constitution.yaml`, whatever it
    says: the turn-end hook judges the tree, and the range check examines zero pairs and says so.
    Without that file every run is a visible skip naming it; an empty mapping, `{}`, is enough.
@@ -27,7 +32,7 @@ silently skipped.
      coverage:
        - name: api                         # kebab-case, unique: what a declaration names
          code: ["src/api/**"]              # gitignore patterns of the code the documents describe
-         docs: ["docs/design/api.md"]      # repository-relative paths; each must exist
+         docs: ["docs/design/api.md"]      # repository-relative paths; each an existing file
        - name: build
          code: ["Makefile", "scripts/**"]
          docs: ["docs/design/build.md"]
@@ -42,7 +47,8 @@ silently skipped.
    and both pairs then apply. A negated pattern takes a path out only where git can: `src/*` then
    `!src/vendor/` works, `src/**` then `!src/vendor/**` does not — git re-includes nothing under a
    directory an earlier pattern excluded. A document listed under `docs` that also matches the pair's `code` is
-   not its own trigger. A document that does not exist is a configuration failure, not a finding.
+   not its own trigger. Each document is an existing file at HEAD: a path that does not exist, or
+   that names a directory, is a configuration failure, not a finding.
 4. **Run the range check before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-task-close.sh --scan

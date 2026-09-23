@@ -18,6 +18,7 @@ from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedK
 
 from .model import DEFAULT_WIDTH, MAX_WIDTH, Advice, Catalog, Key, NameToTake, Reach, Read
 
+DIALS = "severity, log_dir, catalogs"
 _ENTRY = (
     "{prefix: <lowercase letters and digits>, territory: [<patterns of the paths where the numbered"
     f" documents live>], width: {DEFAULT_WIDTH}}}"
@@ -145,7 +146,7 @@ def k2_no_envelope(rel: str, stem: str, state: EnvelopeState, yaml_detail: str =
             fix = f"repair the YAML between the '---' lines; the block carries id: {stem}"
         case _:
             detail = "the file does not start with a '---' line"
-            fix = f"start the file with a YAML block between two '---' lines carrying id: {stem}"
+            fix = f"start the file with a YAML block between two '---' lines carrying at least id: {stem}"
     return Finding(Key.K2, f"{rel}: id cannot be read: {detail}", _K2_WHY, fix)
 
 
@@ -209,6 +210,14 @@ def g1_skip_not_an_item(rel: str, catalogs: Sequence[Catalog]) -> str:
 
 
 # ---------------------------------------------------------------- this module's dial failures
+
+
+def c5_unknown_dial(key: str) -> Broken:
+    return Broken(
+        SharedKey.C5,
+        f"{DIALS_FILE}: {_ns()}.{shown(key)} is no dial of this module",
+        f"a misspelt dial would be ignored in silence, so none is: write one of {DIALS}",
+    )
 
 
 def c5_catalogs_not_a_list() -> Broken:

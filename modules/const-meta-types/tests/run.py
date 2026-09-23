@@ -24,7 +24,17 @@ from const_gate import messages as shared  # noqa: E402
 from const_gate.envelope import yaml_error_line  # noqa: E402
 from const_gate.model import Finding, Match  # noqa: E402
 from consumer import ROOT_POLICY, document, envelope  # noqa: E402
-from harness import Assertion, Case, Edit, Harness, Result, Write, event_json, expect  # noqa: E402
+from harness import (  # noqa: E402
+    Assertion,
+    Case,
+    Edit,
+    Harness,
+    Result,
+    Write,
+    broken_first_line,
+    event_json,
+    expect,
+)
 from meta_types_gate import messages, start  # noqa: E402
 from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
 
@@ -217,6 +227,13 @@ def own(**dials: object) -> dict[str, object]:
 VALID = Write(NOTE_A, envelope("note-a"))
 
 
+def a_misspelt_dial() -> tuple[bool, str]:
+    """A key of the namespace that is neither of the two is refused, never a setting ignored in
+    silence — `severty:` for `severity:` would otherwise leave the default in force unseen."""
+    result, _ = gate_on(VALID, dials_patch=own(severty="warn"))
+    return broken_first_line(result, messages.c5_unknown_dial("severty").render())
+
+
 def outside_territory() -> tuple[bool, str]:
     result, _ = gate_on(Write("README.md", NO_ENVELOPE))
     return expect(result, 0, shared.g1_green_skip(messages.g1_skip_outside_territory("README.md")), "stdout")
@@ -245,6 +262,13 @@ def negation() -> tuple[bool, str]:
         dials_patch={"notes-policy": {"territory": ["docs/notes/**", "!docs/notes/secret.md"]}},
     )
     return expect(result, 0, messages.g1_skip_outside_territory("docs/notes/secret.md"), "stdout")
+
+
+def ungoverned_twin_is_not_seen() -> tuple[bool, str]:
+    """A file outside every territory that declares no policy is never consulted: the governed
+    document's id standing in it is no duplicate (limit 4)."""
+    result, _ = gate_on(VALID, files={"README.md": envelope("note-a")})
+    return expect(result, 0, shared.g1_green_hook(shared.governed_by("notes-policy")), "stdout")
 
 
 def _warn(files: dict[str, str] | None = None) -> tuple[Result, str]:
@@ -341,6 +365,18 @@ def fix_names_the_failing_field() -> tuple[bool, str]:
     )
 
 
+def golden_f1_fix() -> tuple[bool, str]:
+    """The F1 fix as a literal, typed here by hand: case 1 compares with what the message function
+    returns, so a slip inside the function would pass it."""
+    result, _ = gate_on(Write(NOTE_A, NO_ENVELOPE))
+    literal = (
+        "  fix: start the file with a YAML block between two '---' lines carrying at least id: <kebab-id>,"
+        " type: current-state | task-record | non-authoritative, title: <one line>, status: active |"
+        " inactive — the fields every governed document carries; its kind may add fields of its own"
+    )
+    return expect(result, 2, literal, "stderr")
+
+
 def message_shape() -> tuple[bool, str]:
     built = [case.expect for case in CASES]
     ok = all(isinstance(f, Finding) and f.key and f.headline and f.why and f.fix for f in built)
@@ -364,8 +400,13 @@ ASSERTIONS = [
         scan_with_deleted_file,
     ),
     Assertion(28, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
+    Assertion(29, "golden line: the F1 fix as a literal, not as the function returns it", golden_f1_fix),
     Assertion(27, "message shape: every taught finding has what, why and fix", message_shape),
-    Assertion(29, "the fix of F4 names only the field that failed", fix_names_the_failing_field),
+    Assertion(
+        30, "an ungoverned twin id is not seen: the governed write is green", ungoverned_twin_is_not_seen
+    ),
+    Assertion(31, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
+    Assertion(32, "the fix of F4 names only the field that failed", fix_names_the_failing_field),
 ]
 
 

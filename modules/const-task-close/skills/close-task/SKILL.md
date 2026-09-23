@@ -34,8 +34,9 @@ sh "${CLAUDE_PLUGIN_ROOT}/scripts/check-task-close.sh" --scan
 On a branch it examines the commits since the trunk (`trunk` under `const-task-close`, `main` by
 default); `--since <ref>` names another base; `--change <commit>` examines one landed change, a
 merge by its first-parent diff. Read the verdict: each `RED` line names a pair, the code paths the
-change touched, and the documents that did not move. Exit 0 with a count of pairs is green; exit 1
-is a configuration failure to repair first — the message says what.
+change touched, and the documents that did not move. Exit 0 with a count of pairs is green; exit 2
+is a finding — fix the pair each `RED` names, or declare no impact for it; exit 1 is a
+configuration failure to repair first — the message says what.
 
 ## 2. Merge the deltas
 
@@ -61,9 +62,13 @@ would have fixed. The key is `declaration_key` under `const-task-close` when the
 ## 4. Delete the working files
 
 Scratch scripts, notes that became the record's reasoning, trial outputs: delete them. Git
-remembers. The project may name their patterns in `working_files` under `const-task-close`; the
-check then lists tracked files that match as a note. A file kept is kept with a reason in the commit
-message. A fixture the check runs, a template, a script the project keeps: code, not working files.
+remembers. A deleted file leaves its links dangling: find each one and remove it, or redirect it
+to where the content went — the record, the document — in the same change; when a module that
+checks references is installed, its scan lists every link left dangling after the deletion, so
+run it before the commit of step 6. The project may name their patterns in `working_files` under
+`const-task-close`; the check then lists tracked files that match as a note. A file kept is kept
+with a reason in the commit message. A fixture the check runs, a template, a script the project
+keeps: code, not working files.
 
 ## 5. Set the record inactive
 

@@ -15,6 +15,7 @@ from const_gate.output import Output
 from const_gate.pipeline import Skip
 from const_gate.territory import Matcher
 
+from . import dials as own_dials
 from . import messages
 from .checks import check_root_policy, examine, id_owners, void_claims
 
@@ -26,6 +27,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     target = pipeline.locate_write(output, stdin)
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
+    own_dials.parse(target.dials.own)
     rel, dials, root_policy = target.rel, target.dials, target.dials.root_policy
     if root_policy is None:
         return pipeline.no_root_policy(output)
@@ -62,6 +64,7 @@ def scan_mode(output: Output, start: Path) -> int:
     target = pipeline.locate_scan(output, start)
     if isinstance(target, Skip):
         return pipeline.skip(output, target.reason)
+    own_dials.parse(target.dials.own)
     root_policy = target.dials.root_policy
     if root_policy is None:
         return pipeline.no_root_policy(output)
