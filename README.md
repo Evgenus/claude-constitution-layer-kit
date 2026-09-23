@@ -105,7 +105,7 @@ Only if the module's `MODULE.md` declares one: add the single line given in `mod
 
 1. `/plugin list` shows `const-<aspect>` enabled (`/plugin` → Errors tab if not).
 2. Skills appear as `/const-<aspect>:<skill>` under `/help`.
-3. Run the module's scan against the project from the project root, as its `INSTALL.md` names it — `sh <plugin root>/scripts/check-<check>.sh --scan`, exit 0 green — and, for a module with a gate, its fixtures: `python3 <plugin root>/tests/run.py`, every item green. The fixtures run on throwaway repositories of their own, never on the project; `const-locations` has no scan and no gate, so only its fixtures run.
+3. Run the module's scan against the project from the project root, as its `INSTALL.md` names it — `sh <plugin root>/scripts/check-<check>.sh --scan`, exit 0 green — and its fixtures: `python3 <plugin root>/tests/run.py`, every item green. The fixtures run on throwaway repositories of their own, never on the project; `const-locations` has no scan and no gate, so only its fixtures run.
 
 ### 5. Commit
 
