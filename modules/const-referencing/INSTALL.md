@@ -57,8 +57,9 @@ not, and every write says so until it is installed.
    a file; `names` and `fix` fill the finding (`'REQ-7' cites a requirement by a bare handle` …
    `write it as a link: [REQ-7](…)`); the reason the finding gives is the plugin's own and
    cannot be replaced. **Write a pattern in single quotes**: there a backslash stands for
-   itself, while in double quotes YAML reads `\b` as a backspace and the pattern matches
-   nothing. A pattern that is no regular expression is a configuration failure that quotes the
+   itself, while in double quotes YAML reads `\b` as a backspace — a pattern holding such a
+   character is a configuration failure, since compiled it would match nothing and pass in
+   silence. A pattern that is no regular expression is a configuration failure that quotes the
    compiler. A mention's `pattern` says how a document's id looks where a script or a
    configuration file names it; its whole match must be the id of a covered document. Without
    `files` every file git lists that is no Markdown, no link and not binary is read —
