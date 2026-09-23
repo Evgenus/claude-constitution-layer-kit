@@ -2,7 +2,7 @@
 id: dec-0036-task-close-module-rulings
 type: task-record
 title: Rulings of the const-task-close authoring — a change that touches described code updates its documents or declares no impact; the Stop hook blocks once on a dirty tree
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
