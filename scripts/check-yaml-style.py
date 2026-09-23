@@ -25,6 +25,8 @@ the same line moves to the end of that line's first part.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import re
 import sys
 import tempfile
@@ -321,7 +323,8 @@ def fix(path: Path) -> int:
     if not same:
         print(
             f"BROKEN: the rewrite of {path.name} would change what the file says, or would not parse;"
-            " nothing was written — fix: this is a defect of the script; rewrite by hand and report it",
+            " nothing was written — fix: the file holds something the rewrite cannot carry, such as a"
+            " tag, or this is a defect of the script; rewrite by hand, and report the second",
             file=sys.stderr,
         )
         return EXIT_BROKEN
@@ -430,7 +433,8 @@ def self_test() -> int:
         crlf = directory / "crlf.yaml"
         with crlf.open("w", encoding="utf-8", newline="") as handle:
             handle.write("a: [1]\r\nb: 2\r\n")
-        fix(crlf)
+        with contextlib.redirect_stdout(io.StringIO()):  # the rewrite's own lines are not the self-test's
+            fix(crlf)
         with crlf.open(encoding="utf-8", newline="") as handle:
             ending = handle.read()
         case(
