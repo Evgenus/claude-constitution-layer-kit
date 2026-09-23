@@ -113,8 +113,8 @@ def g1_clean() -> str:
 
 def g1_second_stop(dirty: int) -> str:
     return (
-        f"the working tree examined — {dirty} path(s) dirty, reported at this turn's first stop; the"
-        " turn ends"
+        f"the working tree examined — {dirty} path(s) dirty; a stop hook already continued this turn"
+        " once, so it is not asked again and the turn ends"
     )
 
 

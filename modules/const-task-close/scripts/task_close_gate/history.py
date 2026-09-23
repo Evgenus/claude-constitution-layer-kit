@@ -14,8 +14,8 @@ from const_gate.repository import first_line, git
 from . import messages
 from .model import BODY, Declaration, Range
 
-# `<pair> — <reason>`: the dash may be an em dash, an en dash, or one or two hyphens, spaced
-DASH = re.compile(r"^(.*?)\s+(?:—|–|--|-)\s+(.*)$", re.DOTALL)
+# `<pair> — <reason>`: an em or en dash, spaced or not, or one or two hyphens spaced on both sides
+DASH = re.compile(r"^(.*?)(?:\s*[—–]\s*|\s+--?\s+)(.*)$", re.DOTALL)
 
 
 def status_lines(root: Path) -> list[str]:
@@ -37,8 +37,15 @@ def resolve(root: Path, flag: str, ref: str) -> str:
 
 
 def head(root: Path) -> str | None:
+    """HEAD's commit; None on an unborn branch — no commit yet. A HEAD git cannot read for any
+    other reason is a configuration failure, never a green that examined nothing."""
     done = git(["rev-parse", "--verify", "--quiet", "HEAD^{commit}"], cwd=root)
-    return os.fsdecode(done.stdout).strip() if done.returncode == 0 else None
+    if done.returncode == 0:
+        return os.fsdecode(done.stdout).strip()
+    probe = git(["show-ref", "--head"], cwd=root)  # exit 1 and silent when unborn; 128 and loud otherwise
+    if probe.returncode == 1 and not probe.stderr.strip():
+        return None
+    raise ConfigurationFailure(messages.c12_range("HEAD", "HEAD", str(root), first_line(probe.stderr)))
 
 
 def current_branch(root: Path) -> str | None:

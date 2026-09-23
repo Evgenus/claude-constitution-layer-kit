@@ -39,13 +39,16 @@ silently skipped.
    ```
    A key of this namespace that is none of those above is refused with exit 1 — a misspelt dial is
    never a setting ignored in silence. Pairs may overlap: one file may be described in two places,
-   and both pairs then apply. A document listed under `docs` that also matches the pair's `code` is
+   and both pairs then apply. A negated pattern takes a path out only where git can: `src/*` then
+   `!src/vendor/` works, `src/**` then `!src/vendor/**` does not — git re-includes nothing under a
+   directory an earlier pattern excluded. A document listed under `docs` that also matches the pair's `code` is
    not its own trigger. A document that does not exist is a configuration failure, not a finding.
 4. **Run the range check before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-task-close.sh --scan
    ```
-   On a branch it examines the commits since `trunk`; on the trunk itself, the last landed change.
+   On a branch it examines the commits since `trunk`; on the trunk itself, the last landed change —
+   a merge, or the last commit where the trunk fast-forwards.
    `--since <ref>` names the base; `--change <commit>` examines one landed change — a merge by its
    first-parent diff. Exit 0 green, 2 findings, 1 the checker could not run. The check compares
    commits: an update still sitting in the working tree does not count until it is committed.
@@ -57,7 +60,8 @@ silently skipped.
    No-Doc-Impact: api — comments reworded, no rule or message changed
    ```
    The reason is required and never judged by the check; a line naming no pair, or carrying no
-   reason, is a finding. Every declaration the check accepts is printed as a note, for the reviewer.
+   reason, is a finding, and so is a wildcard: one line per pair. The dash is an em or en dash,
+   spaced or not, or a hyphen spaced on both sides. Every declaration the check accepts is printed as a note, for the reviewer.
    A squash merge keeps a commit's trailer only when that message lands last; a project that
    squashes puts the line in the description.
 6. **In CI, on a pull request**, with the whole history fetched (`fetch-depth: 0`), the base from
@@ -66,7 +70,8 @@ silently skipped.
    sh <plugin root>/scripts/check-task-close.sh --scan --since "$BASE_SHA" --body body.txt
    ```
    where `$BASE_SHA` is the pull request's base commit from the event payload and `body.txt` holds
-   its description. A shallow clone cannot see the range and says so.
+   its description. A shallow clone whose history stops before the base cannot see the range, and
+   the check relays git's refusal with the fix.
 7. Output log: every line the hook and the scan print is also appended, as one JSON line
    (timestamp, module, gate, mode, session, stream, text), to `const-task-close.jsonl` —
    blocked turn ends and warnings leave no trace in git. By default it lives in the platform's

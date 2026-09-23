@@ -82,3 +82,5 @@ CI on a pull request, with the base from the event:
 ```bash
 sh <plugin root>/scripts/check-task-close.sh --scan --since <base commit> --body <description file>
 ```
+
+where `<plugin root>` is the plugin's path on the runner: the placeholder above is filled only in a session.

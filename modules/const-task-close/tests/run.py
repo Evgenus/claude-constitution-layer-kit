@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -330,16 +331,27 @@ def since_ref() -> tuple[bool, str]:
 
 
 def change_merge_and_commit() -> tuple[bool, str]:
+    """The kit's own form: the declaration on a branch commit, a later commit of the range without
+    it, the range examined by the trailer-less merge."""
     r = repo(with_map())
     branch(r.root)
-    commit(r.root, "code", {"src/a.py": "x = 2\n"})
-    commit(r.root, "the page", {"docs/core.md": "# core 2\n"})
+    where = "commit " + commit(r.root, "code\n\n" + trailer(), {"src/a.py": "x = 2\n"})
+    commit(r.root, "more code", {"src/b.py": "y\n"})
     merged = merge(r.root)
-    whole = green_scan(  # the branch's two commits and the merge itself
-        scan(r.root, "--change", merged), messages.f9_scan_tail(1, 3, short(r.root, "main^1"), merged, False)
+    result = scan(r.root, "--change", merged)
+    note = messages.n1_declared(
+        declared(where, "core", "a helper only, the page describes the interface"), True
     )
-    plain = red_scan(scan(r.root, "--change", "main^2^"), t2())
-    return all_of([whole, plain], "--change: a merge by its first-parent diff, a plain commit alone")
+    whole = green_scan(result, messages.f9_scan_tail(1, 3, short(r.root, "main^1"), merged, False))
+    noted = (
+        note in result.stdout,
+        "the branch commit's trailer read through the merge" if note in result.stdout else result.stdout,
+    )
+    plain = red_scan(scan(r.root, "--change", "main^2"), t2(["src/b.py"]))
+    return all_of(
+        [whole, noted, plain],
+        "--change: a merge by its first-parent diff, every commit read; a plain commit alone",
+    )
 
 
 def head_on_trunk() -> tuple[bool, str]:
@@ -510,14 +522,20 @@ def overlapping_pairs() -> tuple[bool, str]:
 
 
 def document_is_no_trigger() -> tuple[bool, str]:
+    docs = Pair("docs", ("docs/**",), ("docs/core.md",))
     r = repo(with_map({"name": "docs", "code": ["docs/**"], "docs": ["docs/core.md"]}))
     branch(r.root)
-    commit(r.root, "the page alone", {"docs/core.md": "# 2\n"})
-    silent = expect(scan(r.root), 0, "1 pair(s) examined", "stdout")
+    where = "commit " + commit(
+        r.root, "the page alone\n\n" + trailer("docs", "nothing"), {"docs/core.md": "# 2\n"}
+    )
+    result = scan(r.root)
+    note = messages.n1_declared(
+        declared(where, "docs", "nothing"), False
+    )  # the pair is not covered by its own page
+    silent = expect(result, 0, note, "stdout")
     commit(r.root, "another page", {"docs/other.md": "x\n"})
     covered = red_scan(  # since the last commit: the range no longer holds the page's own update
-        scan(r.root, "--since", "HEAD~1"),
-        messages.t2_not_updated(Pair("docs", ("docs/**",), ("docs/core.md",)), ["docs/other.md"], KEY),
+        scan(r.root, "--since", "HEAD~1"), messages.t2_not_updated(docs, ["docs/other.md"], KEY)
     )
     return all_of([silent, covered], "a document inside its own pair's code is not its own trigger")
 
@@ -711,24 +729,42 @@ def hooks_file_shape() -> tuple[bool, str]:
 
 def skills_and_install_note() -> tuple[bool, str]:
     root = SCRIPTS.parent
-    sizes: list[str] = []
+    sizes: dict[str, int] = {}
     for name in ("close-task", "commit-before-edit"):
         text = (root / "skills" / name / "SKILL.md").read_text(encoding="utf-8")
         front = yaml.safe_load(text.split("---")[1])
         if front["name"] != name or not (0 < len(front["description"]) <= 1536):
             return False, f"{name}: name or description size"
-        sizes.append(f"{name} {len(front['description'])}")
+        sizes[name] = len(front["description"])
+    stated = re.search(
+        r"skill listing, (\d+) and (\d+) characters", (root / "MODULE.md").read_text(encoding="utf-8")
+    )
+    if not stated or (int(stated.group(1)), int(stated.group(2))) != tuple(sizes.values()):
+        return False, f"the module document states other sizes than {sizes}"
     install = (root / "INSTALL.md").read_text(encoding="utf-8")
     block = install.split("```yaml", 1)[1].split("```", 1)[0]
     example = yaml.safe_load(block)
     r = repo(example, files={"docs/design/api.md": "# api\n", "docs/design/build.md": "# build\n"})
     accepted = expect(scan(r.root), 0, "2 pair(s) examined", "stdout")
-    return accepted[0], "; ".join(sizes) + "; the install note's example accepted as it stands" if accepted[
-        0
-    ] else accepted[1]
+    return accepted[0], (
+        f"{sizes}, as the module document states; the install note's example accepted as it stands"
+        if accepted[0]
+        else accepted[1]
+    )
 
 
-# ------------------------------------------------------------------ the shared subject
+def broken_head() -> tuple[bool, str]:
+    """A HEAD git cannot read is a configuration failure, never 'nothing landed'."""
+    r = repo(with_map())
+    (r.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
+    result = scan(r.root)
+    ok = result.code == 1 and result.stderr.startswith("BROKEN: git could not read the range HEAD..HEAD in ")
+    return (
+        ok,
+        "exit 1, the range failure with git's own line"
+        if ok
+        else f"exit {result.code}: {result.stdout}{result.stderr}",
+    )
 
 
 def gate_on(
@@ -838,6 +874,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         skills_and_install_note,
     ),
     (35, "the hook validates the dials too", hook_validates_dials),
+    (36, "a HEAD git cannot read is a configuration failure, never 'nothing landed'", broken_head),
 ]
 
 ASSERTIONS = [Assertion(number, title, check) for number, title, check in ITEMS]
