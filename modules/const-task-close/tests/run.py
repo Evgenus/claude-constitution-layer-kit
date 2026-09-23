@@ -561,6 +561,8 @@ def deleted_and_renamed_are_touched() -> tuple[bool, str]:
 def missing_document() -> tuple[bool, str]:
     r = repo(with_map({"name": "core", "code": ["src/**"], "docs": ["docs/none.md"]}))
     missing = broken(scan(r.root), messages.x1_document_missing("core", "docs/none.md", short(r.root)))
+    tree = repo(with_map({"name": "core", "code": ["src/**"], "docs": ["docs"]}))  # docs/ holds core.md
+    directory = broken(scan(tree.root), messages.x2_document_is_directory("core", "docs", short(tree.root)))
     r2 = repo(with_map())
     branch(r2.root)
     commit(r2.root, "drop the page", remove=["docs/core.md"])
@@ -578,9 +580,9 @@ def missing_document() -> tuple[bool, str]:
     later = Pair("core", ("src/**",), ("docs/later.md",))
     older = red_scan(scan(r3.root, "--change", first), messages.t2_not_updated(later, ["src/a.py"], KEY))
     return all_of(
-        [missing, deleted, older],
-        "X1 for a document that never was; not for one the range deleted; an older change judged by"
-        " today's map is a finding, never X1",
+        [missing, directory, deleted, older],
+        "X1 for a document that never was; X2 for a directory at HEAD; not for one the range deleted;"
+        " an older change judged by today's map is a finding, never X1",
     )
 
 
@@ -617,6 +619,10 @@ def dial_failures() -> tuple[bool, str]:
         (
             own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["/abs.md"]}]),
             messages.c5_pair(1, messages.pair_docs()),
+        ),
+        (
+            own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["docs/"]}]),
+            messages.c5_pair(1, messages.pair_docs_directory("docs/")),
         ),
         (own(trunk=""), messages.c5_trunk()),
         (own(trunk=3), messages.c5_trunk()),
@@ -667,6 +673,8 @@ def golden_lines() -> tuple[bool, str]:
     )
     out = scan(r.root).stdout
     x1 = scan(repo(with_map({**CORE, "docs": ["docs/none.md"]})).root).stderr
+    x2 = scan(repo(with_map({**CORE, "docs": ["docs"]})).root).stderr
+    slash = scan(repo(with_map({**CORE, "docs": ["docs/"]})).root).stderr
     literals = [
         ("RED: the working tree is dirty at turn end — 1 path(s): ?? scratch.txt", tree),
         (
@@ -711,6 +719,18 @@ def golden_lines() -> tuple[bool, str]:
         (
             " — fix: correct the path, or create the document; a pair whose document is gone describes nothing",  # noqa: E501 — a golden line is typed whole
             x1,
+        ),
+        (
+            "BROKEN: constitution.yaml: const-task-close.coverage[core] names docs, which is a directory at HEAD (",  # noqa: E501 — a golden line is typed whole
+            x2,
+        ),
+        (
+            " — fix: name the document file; a change names files, so a directory can never count as updated",  # noqa: E501 — a golden line is typed whole
+            x2,
+        ),
+        (
+            "BROKEN: constitution.yaml: const-task-close.coverage[1] names 'docs/', a directory — a pair's documents are files — fix: write the pair as ",  # noqa: E501 — a golden line is typed whole
+            slash,
         ),
     ]
     missing = [text for text, haystack in literals if text not in haystack]
@@ -773,6 +793,23 @@ def broken_head() -> tuple[bool, str]:
         "exit 1, the range failure with git's own line" if ok else f"{result.code}: {result.stderr}",
     )
     return all_of([orphan, zeroed], "an orphan branch is unborn; a zeroed ref is a configuration failure")
+
+
+def directory_named_as_document() -> tuple[bool, str]:
+    """A pair naming a directory could never be updated — a change names files — so it is refused
+    before any range is judged: a trailing slash at the read, a tree at HEAD by the scan. The file
+    named, the same change is examined."""
+    r = repo(with_map({**CORE, "docs": ["docs/"]}))
+    branch(r.root)
+    commit(r.root, "code", {"src/a.py": "2\n"})
+    slash = broken(scan(r.root), messages.c5_pair(1, messages.pair_docs_directory("docs/")))
+    commit(r.root, "the tree", {"constitution.yaml": dials_text(with_map({**CORE, "docs": ["docs"]}))})
+    tree = broken(scan(r.root), messages.x2_document_is_directory("core", "docs", short(r.root)))
+    commit(r.root, "the file", {"constitution.yaml": dials_text(with_map()), "docs/core.md": "# 2\n"})
+    green = green_scan(scan(r.root), messages.f9_scan_tail(1, 3, short(r.root, "main"), short(r.root), False))
+    return all_of(
+        [slash, tree, green], "red→green: C5 for docs/, X2 for the tree, green once the file is named"
+    )
 
 
 def unrelated_histories() -> tuple[bool, str]:
@@ -878,15 +915,20 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (25, "a deleted or renamed path counts as touched, on both sides", deleted_and_renamed_are_touched),
     (
         26,
-        "X1 for a document that never was; not for a deleted one; an older change under today's map",
+        "X1 for a document that never was, X2 for a directory; not for a deleted one; an older change"
+        " under today's map",
         missing_document,
     ),
     (27, "an empty map examines zero pairs and says so", empty_map),
-    (28, "dial failures: each C5 text, exit 1", dial_failures),
+    (28, "dial failures: each C5 text, a docs path with a trailing slash among them, exit 1", dial_failures),
     (29, "a pattern git would misread, in code and in working_files", unreadable_patterns),
     (30, "working_files: tracked matches are a note, untracked ones are not", working_files_note),
     (31, "a misspelt dial is a configuration failure", misspelt_dial),
-    (32, "golden lines of T1–T4, X1 and the count forms, typed by hand", golden_lines),
+    (
+        32,
+        "golden lines of T1–T4, X1, X2, the trailing-slash C5 and the count forms, typed by hand",
+        golden_lines,
+    ),
     (33, "the hooks file's shape", hooks_file_shape),
     (
         34,
@@ -896,6 +938,12 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (35, "the hook validates the dials too", hook_validates_dials),
     (36, "an orphan branch is unborn; a HEAD git cannot read is a configuration failure", broken_head),
     (37, "two histories with no common commit: the range failure says so in words", unrelated_histories),
+    (
+        38,
+        "red→green: a docs path naming a directory is refused, a trailing slash at the read and a tree at"
+        " HEAD by the scan; the file named, the change is examined",
+        directory_named_as_document,
+    ),
 ]
 
 ASSERTIONS = [Assertion(number, title, check) for number, title, check in ITEMS]

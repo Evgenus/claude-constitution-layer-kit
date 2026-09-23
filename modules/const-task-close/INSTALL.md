@@ -10,7 +10,10 @@ silently skipped.
    examined, and a dirty tree — any tracked change or untracked file git does not ignore — is
    reported once: under the default `severity: block` the model receives the finding and the
    turn continues once, for the commit; under `warn` the user is shown the finding as a notice
-   and the model sees nothing. The second stop of a turn always lets it end. A copy of this
+   and the model sees nothing. The second stop of a turn always lets it end. Under a permission
+   mode that forbids `git commit`, a block costs that one continuation and leaves the tree dirty:
+   allow the commit in the session's permission rules — the rule `Bash(git commit *)` — or set
+   `severity: warn`. A copy of this
    plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
    `scripts/const_gate`, and `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
@@ -27,7 +30,7 @@ silently skipped.
      coverage:
        - name: api                         # kebab-case, unique: what a declaration names
          code: ["src/api/**"]              # gitignore patterns of the code the documents describe
-         docs: ["docs/design/api.md"]      # repository-relative paths; each must exist
+         docs: ["docs/design/api.md"]      # repository-relative paths; each an existing file
        - name: build
          code: ["Makefile", "scripts/**"]
          docs: ["docs/design/build.md"]
@@ -42,7 +45,8 @@ silently skipped.
    and both pairs then apply. A negated pattern takes a path out only where git can: `src/*` then
    `!src/vendor/` works, `src/**` then `!src/vendor/**` does not — git re-includes nothing under a
    directory an earlier pattern excluded. A document listed under `docs` that also matches the pair's `code` is
-   not its own trigger. A document that does not exist is a configuration failure, not a finding.
+   not its own trigger. Each document is an existing file at HEAD: a path that does not exist, or
+   that names a directory, is a configuration failure, not a finding.
 4. **Run the range check before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-task-close.sh --scan
