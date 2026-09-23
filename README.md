@@ -31,9 +31,19 @@ Run from the consumer project root. Commit after each step. Install the accumula
      territory: ["docs/constitution/**"]
    decision-records:
      territory: ["docs/decisions/**"]
+   const-decision-records:
+     record_policies: [decision-records]   # the gate examines nothing until this names the record policy
+   const-catalogs:
+     catalogs:                             # the gate examines nothing until a catalog is listed
+       - prefix: dec                       # a record is dec-<nnnn>-<slug>, its id the file name without .md
+         width: 4
+         territory: ["docs/decisions/**"]
+   const-task-close:
+     severity: block                       # a dirty tree at turn end is reported once per turn: block asks the model to commit, warn notifies the user
+     coverage: []                          # code territories paired with the documents that describe them; zero pairs examined until written
    ```
-   Claim nothing else yet: a territory is claimed once its kind has a policy, before the first document rather than after, and never without a policy behind it.
-5. **Write decision record #1** — "Adopt constitution kernel", `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). Validate against `docs/constitution/schemas/decision-record.schema.json`.
+   The three module namespaces are read only once the module is loaded (Part 2) and are harmless before. Claim nothing else yet: a territory is claimed once its kind has a policy, before the first document rather than after, and never without a policy behind it.
+5. **Write decision record #1** at `docs/decisions/dec-0001-adopt-constitution-kernel.md` — "Adopt constitution kernel", `id` equal to the file name without `.md`, `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). Validate against `docs/constitution/schemas/decision-record.schema.json`.
 6. **Commit and merge** with one human yes. The kernel is installed.
 
 ## Part 2 — Install a module
@@ -89,7 +99,7 @@ Add the module's namespace to `constitution.yaml`. The namespace equals the plug
 const-<aspect>:
   some_dial: value
 ```
-Profiles are prewritten `constitution.yaml` files under `profiles/`; copy one instead of writing dials by hand.
+Profiles are prewritten `constitution.yaml` files under `profiles/`; copy one instead of writing dials by hand. Three dials switch a check on: `record_policies` of `const-decision-records`, `catalogs` of `const-catalogs`, and `coverage` for the range check of `const-task-close`; the example of Part 1 step 4 writes the first two and leaves the third empty, and each gate says so on every run until then.
 
 ### 3. CLAUDE.md pointer (optional)
 
@@ -103,7 +113,7 @@ Only if the module's `MODULE.md` declares one: add the single line given in `mod
 
 ### 5. Commit
 
-Commit `constitution.yaml`, `.claude/settings.json`, and any CLAUDE.md line. Note the install in the commit message; routine stakes, no record needed.
+Commit `constitution.yaml`, `.claude/settings.json`, and any CLAUDE.md line. Note the install in the commit message; routine stakes, no record needed. With `const-task-close` loaded, a turn that ends with uncommitted changes is reported once and the model is asked to commit; a change that touches code named in `coverage` updates the paired document or carries a `No-Doc-Impact: <pair> — <reason>` trailer on one of its commits.
 
 ## Update and uninstall
 
