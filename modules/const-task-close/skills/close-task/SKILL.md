@@ -62,9 +62,13 @@ would have fixed. The key is `declaration_key` under `const-task-close` when the
 ## 4. Delete the working files
 
 Scratch scripts, notes that became the record's reasoning, trial outputs: delete them. Git
-remembers. The project may name their patterns in `working_files` under `const-task-close`; the
-check then lists tracked files that match as a note. A file kept is kept with a reason in the commit
-message. A fixture the check runs, a template, a script the project keeps: code, not working files.
+remembers. A deleted file leaves its links dangling: find each one and remove it, or redirect it
+to where the content went — the record, the document — in the same change; when a module that
+checks references is installed, its scan lists every link left dangling after the deletion, so
+run it before the commit of step 6. The project may name their patterns in `working_files` under
+`const-task-close`; the check then lists tracked files that match as a note. A file kept is kept
+with a reason in the commit message. A fixture the check runs, a template, a script the project
+keeps: code, not working files.
 
 ## 5. Set the record inactive
 

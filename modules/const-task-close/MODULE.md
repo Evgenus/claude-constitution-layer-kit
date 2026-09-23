@@ -202,7 +202,7 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12 and the declared library)
 
 - When module `const-decision-records` is installed, its record skill defines when a record is `inactive` and this module's close skill performs it at close; neither reads the other's dial.
 - When module `const-locations` is installed, a document a pair names that does not exist yet is created through its command, at the home its policy implies.
-- When module `const-referencing` is installed, its scan runs beside this one before a merge, and the two verdicts are read together.
+- When module `const-referencing` is installed, its scan runs beside this one before a merge, and the two verdicts are read together; and the close skill says to repair the links a deletion leaves — remove each, or redirect it to where the content went — before the closing commit, that scan listing the ones left dangling.
 - When module `const-meta-types` is installed, the documents the map names carry valid envelopes; this module never reads one.
 
 <a id="t12"></a>
