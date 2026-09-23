@@ -43,7 +43,7 @@ Run from the consumer project root. Commit after each step. Install the accumula
      coverage: []                          # code territories paired with the documents that describe them; zero pairs examined until written
    ```
    The three module namespaces are read only once the module is loaded (Part 2) and are harmless before. Claim nothing else yet: a territory is claimed once its kind has a policy, before the first document rather than after, and never without a policy behind it.
-5. **Write decision record #1** at `docs/decisions/dec-0001-adopt-constitution-kernel.md` — "Adopt constitution kernel", `id` equal to the file name without `.md`, `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). Validate against `docs/constitution/schemas/decision-record.schema.json`.
+5. **Write decision record #1** at `docs/decisions/dec-0001-adopt-constitution-kernel.md` — "Adopt constitution kernel", `id` equal to the file name without `.md`, `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). The kit ships no validator for `docs/constitution/schemas/decision-record.schema.json`; the record's fields are checked at write time by the gates of `const-meta-types` and `const-decision-records` once installed (Part 2) — the second only once `record_policies` names the records policy (step 4) — and by their scans afterwards.
 6. **Commit and merge** with one human yes. The kernel is installed.
 
 ## Part 2 — Install a module
@@ -58,11 +58,7 @@ Each module is one plugin named `const-<aspect>`. Repeat these steps per module.
 claude --plugin-dir ~/dev/constitution-kit/modules/const-<aspect>
 ```
 
-Pass the flag once per module, or point it at the whole `modules/` folder to load every module that has a manifest (Claude Code v2.1.265+):
-
-```bash
-claude --plugin-dir ~/dev/constitution-kit/modules
-```
+Pass the flag once per module. Do not point `--plugin-dir` at the `modules/` folder: on Claude Code below 2.1.265 that loads nothing and prints nothing (check with `claude --version`); the kit will offer the folder form once its CI verifies it on a pinned version.
 
 After editing module source, run `/reload-plugins` inside the session.
 
@@ -109,7 +105,7 @@ Only if the module's `MODULE.md` declares one: add the single line given in `mod
 
 1. `/plugin list` shows `const-<aspect>` enabled (`/plugin` → Errors tab if not).
 2. Skills appear as `/const-<aspect>:<skill>` under `/help`.
-3. Run the module's red→green fixture from `modules/const-<aspect>/tests/` against the project: the failing input must be blocked with a teaching error, the passing input must go through.
+3. Run the module's scan against the project from the project root, as its `INSTALL.md` names it — `sh <plugin root>/scripts/check-<check>.sh --scan`, exit 0 green — and, for a module with a gate, its fixtures: `python3 <plugin root>/tests/run.py`, every item green. The fixtures run on throwaway repositories of their own, never on the project; `const-locations` has no scan and no gate, so only its fixtures run.
 
 ### 5. Commit
 
