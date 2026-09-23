@@ -29,7 +29,14 @@ silently skipped.
    `--dry-run` prints the home and the template and writes nothing. Exit 0 created or dry run;
    1 refused before anything was written, or the command could not run. It never exits 2:
    a generator has no findings. The skill `/const-locations:new-document <kind> <stem>` carries
-   the procedure and pre-approves exactly this command line.
+   the procedure. In a session that cannot ask — `claude -p`, `dontAsk`, `--permission-prompts
+   none` — the model's own invocation of the skill and the command it runs each need an allow
+   rule: `Skill(const-locations:new-document)`, `Skill(const-locations:new-kind)` and
+   `Bash(sh <plugin root>/scripts/new-document.sh *)`, in `permissions.allow` or
+   `--allowedTools` — never a bare `Skill`, which allows every skill; `acceptEdits` alone denies
+   both and the model writes the file by hand, blind. A human typing
+   `/const-locations:new-document <kind> <stem>` needs neither: the skill's own `allowed-tools`
+   covers the command then.
 4. Calibration, optional, in the project's `constitution.yaml`:
    ```yaml
    const-locations:
@@ -54,7 +61,8 @@ silently skipped.
    to run otherwise.
 7. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
 8. CLAUDE.md pointer: none. The skill's description is in the session's skill listing, and the
-   skill loads on its own when a document is about to be created.
+   skill loads on its own when a document is about to be created — in a session that cannot
+   ask, under the allow rules of step 3.
 
 What this plugin does not do: see a document written without the command — a heredoc, a
 `Write`, an editor — which the write-time gate of module `const-meta-types` catches when
