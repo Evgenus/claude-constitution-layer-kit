@@ -314,6 +314,33 @@ def long_value_is_cut() -> tuple[bool, str]:
     return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
 
 
+def fix_names_the_failing_field() -> tuple[bool, str]:
+    """The fix of F4 names the field that failed and no other; the line is typed as printed."""
+    result, _ = gate_on(
+        Write(NOTE_A, document(id="note-a", type="non-authoritative", title="A", status="open"))
+    )
+    status_only = (
+        "RED: docs/notes/a.md: envelope field(s) invalid: status 'open' not one of active | inactive\n"
+        "  why: the envelope is the one place a document's authority is declared, and it is read by"
+        " machines\n"
+        "  fix: set the named field: status = active | inactive\n"
+    )
+    declared, _ = gate_on(Write(NOTE_A, envelope("note-a", policy="Not_Kebab")))
+    policy_only = (
+        "  fix: set the named field: policy = the kebab-case id of the governing policy, or no such line\n"
+    )
+    ok = (
+        result.code == 2
+        and status_only in result.stderr
+        and "id = " not in result.stderr
+        and declared.code == 2
+        and policy_only in declared.stderr
+    )
+    return ok, "status alone: the status fragment; policy alone: the policy fragment" if ok else (
+        f"{result.stderr}\n{declared.stderr}"
+    )
+
+
 def message_shape() -> tuple[bool, str]:
     built = [case.expect for case in CASES]
     ok = all(isinstance(f, Finding) and f.key and f.headline and f.why and f.fix for f in built)
@@ -338,6 +365,7 @@ ASSERTIONS = [
     ),
     Assertion(28, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(27, "message shape: every taught finding has what, why and fix", message_shape),
+    Assertion(29, "the fix of F4 names only the field that failed", fix_names_the_failing_field),
 ]
 
 

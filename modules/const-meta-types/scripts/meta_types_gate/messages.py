@@ -20,14 +20,21 @@ _ENVELOPE_WHY = "the envelope is the one place a document's authority is declare
 _DECLARATION_WHY = (
     "the path mapping is primary; a declaration may resolve an absent or ambiguous mapping, never override it"
 )
-_FIELD_FIX = (
-    "set each named field: id = stable kebab-case (never changed, never reused);"
-    " type = current-state (reconciled truth) | task-record (change delta) | non-authoritative (explanation);"
-    " title = one line; status = active | inactive"
-)
-
 _TYPES = " | ".join(t.value for t in MetaType)
 _STATUSES = " | ".join(s.value for s in Status)
+
+# The fix of F4 names only the fields its list names: each fragment under the key that opens
+# every field-level part below and in the shared messages, in the envelope's reading order.
+_FIELD_FIXES = {
+    "id": "id = stable kebab-case (never changed, never reused)",
+    "type": (
+        "type = current-state (reconciled truth) | task-record (change delta) | non-authoritative"
+        " (explanation)"
+    ),
+    "title": "title = one line",
+    "status": f"status = {_STATUSES}",
+    DECLARATION: f"{DECLARATION} = the kebab-case id of the governing policy, or no such line",
+}
 
 
 def _matches(matches: Sequence[Match]) -> str:
@@ -66,8 +73,14 @@ def f3_invalid_yaml(rel: str, detail: str) -> Finding:
 
 
 def f4_invalid_fields(rel: str, errors: Sequence[str]) -> Finding:
+    """Each error opens with its field's key; the fix names those fields and no other."""
+    named = {error.split(" ", 1)[0] for error in errors}
+    fragments = [fix for key, fix in _FIELD_FIXES.items() if key in named] or list(_FIELD_FIXES.values())
     return Finding(
-        Key.F4, f"{rel}: envelope field(s) invalid: {'; '.join(errors)}", _ENVELOPE_WHY, _FIELD_FIX
+        Key.F4,
+        f"{rel}: envelope field(s) invalid: {'; '.join(errors)}",
+        _ENVELOPE_WHY,
+        f"set {'each named field' if len(fragments) > 1 else 'the named field'}: {'; '.join(fragments)}",
     )
 
 
