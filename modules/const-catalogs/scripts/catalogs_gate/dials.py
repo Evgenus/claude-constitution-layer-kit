@@ -1,5 +1,6 @@
 """This module's own dials, parsed once from its namespace as the shared reader hands it over:
-`catalogs`, a list of `{prefix, territory, width}`."""
+`catalogs`, a list of `{prefix, territory, width}`. A key that is none of the three this module
+reads is a configuration failure, never a setting ignored."""
 
 from __future__ import annotations
 
@@ -12,11 +13,16 @@ from const_gate.errors import ConfigurationFailure
 from . import messages
 from .model import DEFAULT_WIDTH, MAX_WIDTH, PREFIX_RE, Catalog, CatalogDials
 
+NAMESPACE_KEYS = {"severity", "log_dir", "catalogs"}
 KEYS = {"prefix", "territory", "width"}
 
 
 def parse(own: Mapping[str, object]) -> CatalogDials:
-    """An entry of the wrong shape, and one prefix listed twice, are configuration failures."""
+    """A key the module does not know, an entry of the wrong shape, and one prefix listed twice
+    are configuration failures."""
+    for key in own:
+        if key not in NAMESPACE_KEYS:
+            raise ConfigurationFailure(messages.c5_unknown_dial(key))
     value = own.get("catalogs")
     if value is None:
         return CatalogDials(())

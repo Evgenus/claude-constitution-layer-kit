@@ -359,6 +359,13 @@ def width_defaults_to_four() -> tuple[bool, str]:
     return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
 
 
+def a_misspelt_dial() -> tuple[bool, str]:
+    """A key of the namespace that is none of the three is refused, never a setting ignored in
+    silence — `catalog:` for `catalogs:` would otherwise read as no catalog listed."""
+    result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"catalog": [entry()]}})
+    return broken(result, messages.c5_unknown_dial("catalog"))
+
+
 def catalogs_not_a_list() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"catalogs": entry()}})
     return broken(result, messages.c5_catalogs_not_a_list())
@@ -1012,6 +1019,7 @@ ASSERTIONS = [
         70, "adoption: a number the width cannot write is named as such", number_the_width_cannot_write
     ),
     Assertion(71, "scan: a catalog whose width is used up is named full", full_catalog_is_named),
+    Assertion(72, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
 ]
 
 
