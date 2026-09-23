@@ -144,6 +144,14 @@ def x1_document_missing(pair: str, path: str, head_short: str) -> Broken:
     )
 
 
+def x2_document_is_directory(pair: str, path: str, head_short: str) -> Broken:
+    return Broken(
+        Key.X2,
+        f"{DIALS_FILE}: {_ns()}.coverage[{pair}] names {path}, which is a directory at HEAD ({head_short})",
+        "name the document file; a change names files, so a directory can never count as updated",
+    )
+
+
 def c5_unknown_dial(key: str) -> Broken:
     return Broken(
         SharedKey.C5,
@@ -193,6 +201,10 @@ def pair_code() -> str:
 
 def pair_docs() -> str:
     return "has no docs, or docs is not a non-empty list of repository-relative paths"
+
+
+def pair_docs_directory(path: str) -> str:
+    return f"names '{shown(path)}', a directory — a pair's documents are files"
 
 
 def c5_trunk() -> Broken:

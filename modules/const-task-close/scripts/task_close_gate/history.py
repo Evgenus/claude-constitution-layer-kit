@@ -169,8 +169,11 @@ def declaration(where: str, value: str) -> Declaration:
     return Declaration(where, value, value.strip(), "")
 
 
-def exists_at(root: Path, tip: str, path: str) -> bool:
-    return git(["cat-file", "-e", f"{tip}:{path}"], cwd=root).returncode == 0
+def kind_at(root: Path, tip: str, path: str) -> str | None:
+    """What the path is in that commit, as git types it — `blob` for a file, `tree` for a
+    directory, `commit` for a submodule — or None when the commit holds no such path."""
+    done = git(["cat-file", "-t", f"{tip}:{path}"], cwd=root)
+    return os.fsdecode(done.stdout).strip() if done.returncode == 0 else None
 
 
 def tracked(root: Path) -> list[str]:
