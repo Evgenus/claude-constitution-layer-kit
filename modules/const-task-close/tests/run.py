@@ -174,16 +174,36 @@ def all_of(results: list[tuple[bool, str]], summary: str) -> tuple[bool, str]:
     return not failed, failed[0] if failed else summary
 
 
-def green_scan(result: Result, tail: str) -> tuple[bool, str]:
-    return expect(result, 0, shared.g1_green_scan(tail), "stdout")
+# the scan's count tails, typed by hand: built by the message functions, a wrong word would pass
+
+
+def tail(pairs: int, commits: int, base: str, tip: str) -> str:
+    return f"{pairs} pair(s) examined over {commits} commit(s), {base}..{tip}"
+
+
+def rooted(pairs: int, tip: str) -> str:
+    return f"{pairs} pair(s) examined over 0 commit(s) — nothing landed before {tip}"
+
+
+EMPTY = "0 pair(s) examined — coverage is empty"
+
+
+def green_scan(result: Result, line: str) -> tuple[bool, str]:
+    return expect(result, 0, "GREEN: const-task-close: " + line, "stdout")
 
 
 def red_scan(result: Result, *findings: Finding) -> tuple[bool, str]:
+    """Every expected finding whole, and nothing else red: no other finding, no other count."""
     missing = [f.key for f in findings if f.render() not in result.stdout]
-    ok = result.code == 2 and not missing
+    count = f"RED: {len(findings)} finding(s) — "
+    expected = {"RED: " + f.headline for f in findings}
+    reds = [line for line in result.stdout.splitlines() if line.startswith("RED: ")]
+    stray = [line for line in reds if line not in expected and not line.startswith(count)]
+    counted = any(line.startswith(count) for line in reds)
+    ok = result.code == 2 and not missing and not stray and counted
     return ok, f"exit 2 teaching {[f.key.value for f in findings]}" if ok else (
-        f"wanted exit 2 with {missing or 'the findings'}; got exit {result.code}:"
-        f" {result.stdout}{result.stderr}"
+        f"wanted exit 2 with {missing or 'the findings'}, nothing else red, and the line {count!r}"
+        f"; got exit {result.code}: {result.stdout}{result.stderr}"
     )
 
 
@@ -198,7 +218,7 @@ def spec_update() -> tuple[bool, str]:
     commit(r.root, "code only", {"src/a.py": "x = 2\n"})
     red = red_scan(scan(r.root), t2())
     commit(r.root, "the page", {"docs/core.md": "# core, updated\n"})
-    green = green_scan(scan(r.root), messages.f9_scan_tail(1, 2, short(r.root, "main"), short(r.root), False))
+    green = green_scan(scan(r.root), tail(1, 2, short(r.root, "main"), short(r.root)))
     return all_of([red, green], "red→green: T2, then the document updated")
 
 
@@ -212,7 +232,7 @@ def spec_trailer() -> tuple[bool, str]:
     note = messages.n1_declared(
         declared(where, "core", "a helper only, the page describes the interface"), True
     )
-    green = green_scan(result, messages.f9_scan_tail(1, 2, short(r.root, "main"), short(r.root), False))
+    green = green_scan(result, tail(1, 2, short(r.root, "main"), short(r.root)))
     noted = (note in result.stdout, f"the note: {note}" if note in result.stdout else result.stdout)
     return all_of([red, green, noted], "red→green: T2, then a trailer on a later commit of the range")
 
@@ -228,7 +248,7 @@ def spec_body() -> tuple[bool, str]:
     )
     result = scan(r.root, "--body", str(body))
     note = messages.n1_declared(declared(BODY, "core", "via the description"), True)
-    green = green_scan(result, messages.f9_scan_tail(1, 1, short(r.root, "main"), short(r.root), False))
+    green = green_scan(result, tail(1, 1, short(r.root, "main"), short(r.root)))
     noted = (note in result.stdout, f"the note: {note}" if note in result.stdout else result.stdout)
     return all_of([red, green, noted], "red→green: T2, then the same line in the body given as a file")
 
@@ -324,7 +344,7 @@ def since_ref() -> tuple[bool, str]:
     commit(r.root, "code", {"src/a.py": "x = 2\n"})
     since_tag = green_scan(
         scan(r.root, "--since", "start"),
-        messages.f9_scan_tail(1, 2, short(r.root, "start"), short(r.root), False),
+        tail(1, 2, short(r.root, "start"), short(r.root)),
     )
     since_last = red_scan(scan(r.root, "--since", "HEAD~1"), t2())
     return all_of([since_tag, since_last], "--since names the base: a tag, a relative ref")
@@ -342,7 +362,7 @@ def change_merge_and_commit() -> tuple[bool, str]:
     note = messages.n1_declared(
         declared(where, "core", "a helper only, the page describes the interface"), True
     )
-    whole = green_scan(result, messages.f9_scan_tail(1, 3, short(r.root, "main^1"), merged, False))
+    whole = green_scan(result, tail(1, 3, short(r.root, "main^1"), merged))
     noted = (
         note in result.stdout,
         "the branch commit's trailer read through the merge" if note in result.stdout else result.stdout,
@@ -364,7 +384,7 @@ def head_on_trunk() -> tuple[bool, str]:
     same = bare.code == 2 and bare.stdout == explicit.stdout
     checkout(r.root, "work/x")
     on_branch = green_scan(  # the merge-base is the branch's own tip
-        scan(r.root), messages.f9_scan_tail(1, 0, short(r.root), short(r.root), False)
+        scan(r.root), tail(1, 0, short(r.root), short(r.root))
     )
     return all_of(
         [(same, "on the trunk the bare scan is --change HEAD" if same else f"{bare}\n{explicit}"), on_branch],
@@ -379,12 +399,12 @@ def nothing_landed_before() -> tuple[bool, str]:
     r.write("docs/core.md", "# core\n")
     git(r.root, "add", "-A")
     git(r.root, "commit", "-q", "--amend", "--no-edit")  # one commit, the root, holding the map
-    rooted = green_scan(scan(r.root), messages.f9_scan_tail(1, 0, "", short(r.root), True))
+    root_commit = green_scan(scan(r.root), rooted(1, short(r.root)))
     empty = H.scratch_dir()
     git(empty, "init", "-q")
     (empty / "constitution.yaml").write_text(dials_text(with_map()), encoding="utf-8")
-    none = green_scan(scan(empty), messages.f9_scan_tail(1, 0, "HEAD", "HEAD", True))
-    return all_of([rooted, none], "a root commit on the trunk, and a repository with no commit yet")
+    none = green_scan(scan(empty), rooted(1, "HEAD"))
+    return all_of([root_commit, none], "a root commit on the trunk, and a repository with no commit yet")
 
 
 def since_and_change() -> tuple[bool, str]:
@@ -454,7 +474,7 @@ def body_forms() -> tuple[bool, str]:
     lower.write_text("  no-doc-impact: core - lower case, a hyphen\n", encoding="utf-8")
     read = green_scan(
         scan(r.root, "--body", str(lower)),
-        messages.f9_scan_tail(1, 1, short(r.root, "main"), short(r.root), False),
+        tail(1, 1, short(r.root, "main"), short(r.root)),
     )
     gone = H.scratch_dir() / "gone.txt"
     result = scan(r.root, "--body", str(gone))
@@ -517,7 +537,7 @@ def overlapping_pairs() -> tuple[bool, str]:
         "one updated, one declared\n\n" + trailer("guide", "the guide is about usage"),
         {"docs/core.md": "# 2\n"},
     )
-    green = expect(scan(r.root), 0, "2 pair(s) examined", "stdout")
+    green = expect(scan(r.root), 0, "GREEN: const-task-close: 2 pair(s) examined over ", "stdout")
     return all_of([both, green], "two pairs over one path both apply; each satisfied its own way")
 
 
@@ -554,7 +574,7 @@ def deleted_and_renamed_are_touched() -> tuple[bool, str]:
     branch(r3.root)
     git(r3.root, "mv", "docs/core.md", "docs/core-2.md")
     commit(r3.root, "rename the page", {"src/a.py": "2\n"})
-    doc_moved = expect(scan(r3.root), 0, "1 pair(s) examined", "stdout")
+    doc_moved = expect(scan(r3.root), 0, "GREEN: const-task-close: 1 pair(s) examined over ", "stdout")
     return all_of([deleted, renamed, doc_moved], "a deleted or renamed path counts as touched, on both sides")
 
 
@@ -566,7 +586,7 @@ def missing_document() -> tuple[bool, str]:
     r2 = repo(with_map())
     branch(r2.root)
     commit(r2.root, "drop the page", remove=["docs/core.md"])
-    deleted = expect(scan(r2.root), 0, "1 pair(s) examined", "stdout")
+    deleted = expect(scan(r2.root), 0, "GREEN: const-task-close: 1 pair(s) examined over ", "stdout")
     r3 = repo(with_map())
     first = short(r3.root)
     branch(r3.root)
@@ -590,7 +610,7 @@ def empty_map() -> tuple[bool, str]:
     r = repo(own())
     branch(r.root)
     commit(r.root, "code", {"src/a.py": "2\n"})
-    return green_scan(scan(r.root), messages.f9_scan_tail_empty())
+    return green_scan(scan(r.root), EMPTY)
 
 
 # ------------------------------------------------------------------ dials
@@ -770,7 +790,7 @@ def skills_and_install_note() -> tuple[bool, str]:
     block = install.split("```yaml", 1)[1].split("```", 1)[0]
     example = yaml.safe_load(block)
     r = repo(example, files={"docs/design/api.md": "# api\n", "docs/design/build.md": "# build\n"})
-    accepted = expect(scan(r.root), 0, "2 pair(s) examined", "stdout")
+    accepted = expect(scan(r.root), 0, "GREEN: const-task-close: 2 pair(s) examined over ", "stdout")
     return accepted[0], (
         f"{sizes}, as the module document states; the install note's example accepted as it stands"
         if accepted[0]
@@ -783,7 +803,7 @@ def broken_head() -> tuple[bool, str]:
     in a repository with commits is unborn, and nothing landed on it."""
     r = repo(with_map())
     git(r.root, "checkout", "-q", "--orphan", "fresh")
-    orphan = green_scan(scan(r.root), messages.f9_scan_tail(1, 0, "HEAD", "HEAD", True))
+    orphan = green_scan(scan(r.root), rooted(1, "HEAD"))
     git(r.root, "checkout", "-q", "main")
     (r.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
     result = scan(r.root)
@@ -806,7 +826,7 @@ def directory_named_as_document() -> tuple[bool, str]:
     commit(r.root, "the tree", {"constitution.yaml": dials_text(with_map({**CORE, "docs": ["docs"]}))})
     tree = broken(scan(r.root), messages.x2_document_is_directory("core", "docs", short(r.root)))
     commit(r.root, "the file", {"constitution.yaml": dials_text(with_map()), "docs/core.md": "# 2\n"})
-    green = green_scan(scan(r.root), messages.f9_scan_tail(1, 3, short(r.root, "main"), short(r.root), False))
+    green = green_scan(scan(r.root), tail(1, 3, short(r.root, "main"), short(r.root)))
     return all_of(
         [slash, tree, green], "red→green: C5 for docs/, X2 for the tree, green once the file is named"
     )
