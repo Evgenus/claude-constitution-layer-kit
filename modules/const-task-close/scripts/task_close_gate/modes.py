@@ -105,13 +105,17 @@ def _locate_range(
 
 
 def _documents_exist(root: Path, dials: TaskCloseDials, rng: Range) -> None:
-    """A document the map names must exist at the range's tip, unless the range itself touched
-    it — deleted or renamed it — which the diff names."""
+    """A document the map names must exist in the repository's HEAD — the map describes the tree
+    as it is, and an older change is judged by today's map — unless the range itself touched it:
+    deleted or renamed it, which the diff names."""
+    head = history.head(root) or rng.tip
     for pair in dials.coverage:
         for doc in pair.docs:
-            if doc in rng.paths or history.exists_at(root, rng.tip, doc):
+            if doc in rng.paths or history.exists_at(root, head, doc):
                 continue
-            raise ConfigurationFailure(messages.x1_document_missing(pair.name, doc, rng.tip_short))
+            raise ConfigurationFailure(
+                messages.x1_document_missing(pair.name, doc, history.short(root, head))
+            )
 
 
 def _read_body(path: str) -> str:

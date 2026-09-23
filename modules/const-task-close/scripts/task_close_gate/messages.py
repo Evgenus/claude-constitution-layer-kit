@@ -135,11 +135,11 @@ def f9_scan_tail_empty() -> str:
 # ---------------------------------------------------------------- this module's own failures
 
 
-def x1_document_missing(pair: str, path: str, tip_short: str) -> Broken:
+def x1_document_missing(pair: str, path: str, head_short: str) -> Broken:
     return Broken(
         Key.X1,
         f"{DIALS_FILE}: {_ns()}.coverage[{pair}] names the document {path}, which does not exist at"
-        f" {tip_short}",
+        f" HEAD ({head_short})",
         "correct the path, or create the document; a pair whose document is gone describes nothing",
     )
 

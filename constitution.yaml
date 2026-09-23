@@ -106,6 +106,23 @@ const-referencing:                    # the kit's own reference forms (requireme
     - pattern: '\bres-[0-9]{4}-[a-z0-9-]+'
       files: []
 
+const-task-close:                     # task close as one act: a change that touches described code updates its documents or declares no impact
+  severity: block                     # values: block | warn — the turn-end hook: block asks the model to commit once; the kit's rule is never to end a turn dirty
+  log_dir: local/gate-logs
+  trunk: main                         # the branch changes land on: the base of a bare scan on a work/* branch; on main, the last landed change
+  declaration_key: No-Doc-Impact      # the trailer key: "No-Doc-Impact: <pair name> — <reason>" on a commit of the change, or the same line in a pull request's description
+  working_files: []                   # the kit tracks no working files: local/ is git-ignored and scratch work lives outside the repository
+  coverage:                           # the code territories the kit's current-state documents describe; a change touching one updates the document or declares no impact
+    - {name: shared-gate-code, code: ["shared/const_gate/**", "shared/tests/**"], docs: ["shared/GATE.md"]}
+    - {name: const-meta-types, code: ["modules/const-meta-types/scripts/**", "modules/const-meta-types/hooks/**", "modules/const-meta-types/skills/**", "modules/const-meta-types/tests/**"], docs: ["modules/const-meta-types/MODULE.md"]}
+    - {name: const-decision-records, code: ["modules/const-decision-records/scripts/**", "modules/const-decision-records/hooks/**", "modules/const-decision-records/skills/**", "modules/const-decision-records/tests/**"], docs: ["modules/const-decision-records/MODULE.md"]}
+    - {name: const-catalogs, code: ["modules/const-catalogs/scripts/**", "modules/const-catalogs/hooks/**", "modules/const-catalogs/skills/**", "modules/const-catalogs/tests/**"], docs: ["modules/const-catalogs/MODULE.md"]}
+    - {name: const-referencing, code: ["modules/const-referencing/scripts/**", "modules/const-referencing/hooks/**", "modules/const-referencing/skills/**", "modules/const-referencing/tests/**"], docs: ["modules/const-referencing/MODULE.md"]}
+    - {name: const-locations, code: ["modules/const-locations/scripts/**", "modules/const-locations/skills/**", "modules/const-locations/tests/**"], docs: ["modules/const-locations/MODULE.md"]}
+    - {name: const-task-close, code: ["modules/const-task-close/scripts/**", "modules/const-task-close/hooks/**", "modules/const-task-close/skills/**", "modules/const-task-close/tests/**"], docs: ["modules/const-task-close/MODULE.md"]}
+    - {name: kit-scripts, code: ["scripts/**", "/pyproject.toml"], docs: ["CLAUDE.md"]}   # the git hooks, the clone setup, the kit gates and the development routine
+    - {name: kernel-schemas, code: ["kernel/schemas/**"], docs: ["kernel/CONVENTIONS.md"]}
+
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs
   templates:                          # the kinds that have a template; a kind without one is born with the envelope alone
