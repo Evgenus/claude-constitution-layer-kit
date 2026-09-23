@@ -145,7 +145,7 @@ def k2_no_envelope(rel: str, stem: str, state: EnvelopeState, yaml_detail: str =
             fix = f"repair the YAML between the '---' lines; the block carries id: {stem}"
         case _:
             detail = "the file does not start with a '---' line"
-            fix = f"start the file with a YAML block between two '---' lines carrying id: {stem}"
+            fix = f"start the file with a YAML block between two '---' lines carrying at least id: {stem}"
     return Finding(Key.K2, f"{rel}: id cannot be read: {detail}", _K2_WHY, fix)
 
 
