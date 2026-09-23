@@ -658,14 +658,26 @@ def a_tree_taken_out() -> tuple[bool, str]:
 
 
 def governed_only_without_root() -> tuple[bool, str]:
-    result, _ = gate_on(VALID, raw_dials=yaml.safe_dump({NAMESPACE: {"governed_only": True}}))
+    """governed_only with no root policy is a configuration failure in every mode — as the mover
+    refuses — never a skip that lets a write through with nothing examined; by default none is needed."""
+    rootless = yaml.safe_dump({NAMESPACE: {"governed_only": True}})
+    failure = messages.c5_governed_only_without_root()
+    before, root = gate_on(VALID, raw_dials=rootless)
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", rootless)
+    consumer.write(VALID.target, VALID.text)
+    after = H.run_gate(event_json(consumer.root, VALID, event=AFTER))
+    scan = H.run_gate("", args=["--scan", str(root)])
     default, _ = gate_on(VALID, raw_dials="{}\n")
     return all_of(
         [
-            expect(result, 0, shared.g1_green_skip(shared.g1_skip_no_root()), "stdout"),
+            broken(before, failure),
+            broken(after, failure),
+            broken(scan, failure),
             expect(default, 0, messages.g1_covered(), "stdout"),
         ],
-        "governed_only with no root policy is the shared visible skip; by default none is needed",
+        "governed_only with no root policy is C5, exit 1, before the write, after it and in the scan; by"
+        " default none is needed",
     )
 
 
@@ -1446,7 +1458,8 @@ def a_break_in_words_of_lychee() -> tuple[bool, str]:
 
 
 def mover_entry_absences() -> tuple[bool, str]:
-    """The mover's own exits before the guard: no python3, and an install without the shared code."""
+    """The mover's own exits before the guard — no python3, an install without the shared code — and
+    the shared C2 inside it, closed by the mover's clause."""
     consumer = moving_consumer()
     env = {
         **{k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_DATA"},
@@ -1474,6 +1487,17 @@ def mover_entry_absences() -> tuple[bool, str]:
         env=env,
         check=False,
     )
+    shadow = H.scratch_dir()  # the shared C2, printed by the preflight, closes with the mover's own clause
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    no_library = subprocess.run(
+        [H.sh, str(MOVER), OLD, NEW],
+        cwd=consumer.root,
+        capture_output=True,
+        text=True,
+        env={**env, "PYTHONPATH": str(shadow)},
+        check=False,
+    )
+    library_first = no_library.stderr.splitlines()[0] if no_library.stderr else ""
     closing = "BROKEN: the move could not run — nothing was changed"
     return all_of(
         [
@@ -1488,6 +1512,13 @@ def mover_entry_absences() -> tuple[bool, str]:
                 and "is installed without its shared code" in no_shared.stderr
                 and closing in no_shared.stderr,
                 no_shared.stderr,
+            ),
+            (
+                no_library.returncode == 1
+                and library_first.endswith(" — until then nothing is moved")
+                and "pass unchecked" not in no_library.stderr
+                and closing in no_library.stderr,
+                no_library.stderr,
             ),
             ((consumer.root / OLD).exists(), "the file moved"),
         ],
@@ -1903,7 +1934,11 @@ ASSERTIONS = [
         59, "absence after the write: no lychee is exit 1 with the install address", lychee_absent_after_write
     ),
     Assertion(41, "governed_only: a document no policy governs is not covered", governed_only),
-    Assertion(42, "governed_only needs a root policy; the default needs none", governed_only_without_root),
+    Assertion(
+        42,
+        "governed_only without a root policy is C5 in every mode; the default needs none",
+        governed_only_without_root,
+    ),
     Assertion(
         43,
         "R8: a name outside Markdown no covered document carries; off by default",
@@ -2019,7 +2054,11 @@ ASSERTIONS = [
         "a break of a kind the module has no text for is reported in the checker's words",
         a_break_in_words_of_lychee,
     ),
-    Assertion(97, "the mover's exits before the guard: no python3, no shared code", mover_entry_absences),
+    Assertion(
+        97,
+        "the mover's absences: no python3 and no shared code before the guard, no PyYAML inside it",
+        mover_entry_absences,
+    ),
     Assertion(98, "golden reasons: the why-line of every finding, typed by hand", golden_why_lines),
     Assertion(
         99,

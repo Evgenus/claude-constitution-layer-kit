@@ -25,6 +25,10 @@ from .model import HomeClass, Plan, Request
 def act(output: Output, request: Request) -> int:
     if request.title is None and not request.dry_run:
         raise ConfigurationFailure(messages.l5_title_needed())
+    if request.title is not None and not request.title.strip():  # a dry run too: the title is a value
+        raise ConfigurationFailure(messages.l5_title_empty())
+    if request.title is not None and ("\n" in request.title or "\r" in request.title):
+        raise ConfigurationFailure(messages.l5_title_multiline())
     for value, what in (
         (request.stem, "the stem"),
         (request.segment, "the segment"),
@@ -49,6 +53,8 @@ def act(output: Output, request: Request) -> int:
         policy = index.policies.get(request.kind)
         if policy is None:
             raise ConfigurationFailure(messages.l5_not_a_policy(request.kind, sorted(index.policies)))
+        if not policy.territory:  # a policy with no territory line: the fix is the line, not a simpler one
+            raise ConfigurationFailure(messages.l5_no_territory(request.kind))
         home, doc_id, pattern = _home_of(request, policy.territory)
         for other in index.policies.values():
             claimed = matcher.match(other.territory, [home])

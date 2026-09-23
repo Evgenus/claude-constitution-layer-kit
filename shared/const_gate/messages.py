@@ -102,7 +102,7 @@ def g1_skip_no_file(tool: str) -> str:
 
 
 def g1_skip_not_markdown(path: str) -> str:
-    return f"{path} is not a Markdown document"
+    return f"{path} is not a .md file"
 
 
 def g1_skip_no_repo(path: str) -> str:
@@ -148,7 +148,7 @@ def c2_library_missing(distribution: str, requirements_file: str) -> Broken:
     return Broken(
         SharedKey.C2,
         f"{_ns()} needs {distribution}",
-        f"run: python3 -m pip install -r '{requirements_file}' — until then Markdown writes pass unchecked",
+        f"run: python3 -m pip install -r '{requirements_file}' — {identity.current().until_installed}",
     )
 
 
@@ -339,7 +339,7 @@ def c12_unexpected(detail: str) -> Broken:
         SharedKey.C12,
         f"unexpected failure inside the checker: {detail}",
         "this is a defect of the gate, not of the repository; report it, with the traceback below, to"
-        " whoever maintains the plugin — until it is fixed this check does not run",
+        f" whoever maintains the plugin — {identity.current().until_fixed}",
     )
 
 

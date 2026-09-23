@@ -316,8 +316,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     # ---------------------------------------------------------------- paths and skips
 
     def not_markdown() -> tuple[bool, str]:
-        target = str(Path(s.valid.target).with_suffix(".txt"))
-        return expect(s.gate_on(Write(target, "x"))[0], 0, "0 documents examined", "stdout")
+        """Markdown means `.md`: a `.markdown` file is skipped, and the reason names the ending, not
+        the format, since the file may well be Markdown."""
+        target = str(Path(s.valid.target).with_suffix(".markdown"))
+        result, root = s.gate_on(Write(target, "x"))
+        skip = messages.g1_green_skip(messages.g1_skip_not_markdown(str(root / target)))
+        return expect(result, 0, skip, "stdout")
 
     def relative_path() -> tuple[bool, str]:
         """A relative file_path is resolved against the event's cwd."""

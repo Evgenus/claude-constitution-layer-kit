@@ -235,8 +235,14 @@ def no_home() -> tuple[bool, str]:
     ):
         result = run(prepared(claim(territory)), *NOTE_ARGS)
         results.append(broken(result, messages.l5_no_home("notes-policy", territory)))
+    namespaces: list[dict[str, object]] = [{"notes-policy": {}}, claim([])]  # no territory line; an empty one
+    for namespace in namespaces:
+        result = run(prepared(namespace), *NOTE_ARGS)
+        results.append(broken(result, messages.l5_no_territory("notes-policy")))
     return all_of(
-        results, "a single path, two patterns, a negation, a glob in the name, a bare directory: each refused"
+        results,
+        "a single path, two patterns, a negation, a glob in the name, a bare directory, no territory: each"
+        " refused",
     )
 
 
@@ -413,9 +419,23 @@ def argument_refusals() -> tuple[bool, str]:
             messages.l5_usage("--stem was not given"),
         ),
     ]
+    titles = prepared()  # an empty title, one of whitespace — in a dry run too — and one of two lines
+    for title, failure in (
+        ("", messages.l5_title_empty()),
+        ("  ", messages.l5_title_empty()),
+        ("a\nb", messages.l5_title_multiline()),
+    ):
+        pairs.append((run(titles, "--kind", "notes-policy", "--stem", "a", "--title", title), failure))
+    pairs.append(
+        (
+            run(titles, "--kind", "notes-policy", "--stem", "a", "--title", "", "--dry-run"),
+            messages.l5_title_empty(),
+        )
+    )
     return all_of(
-        [broken(r, f) for r, f in pairs],
-        "a bad stem, a bad id, a bad segment, no title, no stem: each refused",
+        [*(broken(r, f) for r, f in pairs), (tree_state(titles) == "", "a refused title changed the tree")],
+        "a bad stem, a bad id, a bad segment, no title, an empty, a blank and a two-line title, no stem: each"
+        " refused",
     )
 
 
@@ -478,7 +498,8 @@ def golden_lines() -> tuple[bool, str]:
 
 def closing_is_the_generators() -> tuple[bool, str]:
     """A failure closes with the generator's line, never a gate's count; the entry files' variants
-    of C1, C14 and C15 drop the clause about unchecked writes."""
+    of C1, C14 and C15 drop the clause about unchecked writes; and the shared C2, printed when a
+    library is missing, closes with the generator's own clause, since no write passes here."""
     result = run(prepared(), "--kind", "nobody", "--stem", "a", "--title", "T")
     own_line = (
         messages.l4_nothing_written() in result.stderr and shared.c11_broken_count() not in result.stderr
@@ -486,9 +507,18 @@ def closing_is_the_generators() -> tuple[bool, str]:
     sources = "".join(
         (SCRIPTS / name).read_text(encoding="utf-8") for name in ("new-document.sh", "new-document.py")
     )
+    shadow = H.scratch_dir()
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    no_library = run(prepared(), *NOTE_ARGS, env={"PYTHONPATH": str(shadow)})
+    first = no_library.stderr.splitlines()[0] if no_library.stderr else ""
+    library_clause = (
+        no_library.code == 1
+        and first.endswith(" — until then nothing is created")
+        and "pass unchecked" not in no_library.stderr
+    )
     return (
-        own_line and "pass unchecked" not in sources,
-        "closing line the generator's; entry files without the gate's clause",
+        own_line and "pass unchecked" not in sources and library_clause,
+        "closing line the generator's; entry files without the gate's clause; C2 closed by the generator's",
     )
 
 

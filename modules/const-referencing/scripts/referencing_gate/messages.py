@@ -249,6 +249,18 @@ def c5_governed_only() -> Broken:
     )
 
 
+_GOVERNED_ONLY_NEEDS_ROOT = "name the root policy, or remove governed_only"
+
+
+def c5_governed_only_without_root() -> Broken:
+    """The gate's twin of the mover's V5: a skip would let a write through with nothing examined."""
+    return _c5(
+        f"{_ns()}.governed_only is set and no root_policy is named, so nobody can say which documents a"
+        " policy governs",
+        _GOVERNED_ONLY_NEEDS_ROOT,
+    )
+
+
 def c5_mentions_not_a_list() -> Broken:
     return _c5(
         f"{_ns()}.mentions must be a list of mention patterns",
@@ -450,7 +462,7 @@ def v5_no_root_policy() -> Broken:
     return v5_refused(
         f"{_ns()}.governed_only is set and {DIALS_FILE} names no root_policy, so nobody can say which"
         " documents a move must repair",
-        "name the root policy, or remove governed_only",
+        _GOVERNED_ONLY_NEEDS_ROOT,
     )
 
 

@@ -21,6 +21,8 @@ GENERATOR = Identity(
     namespace="const-locations",
     gate="new-document",
     plugin_root=Path(__file__).resolve().parents[2],
+    until_installed="until then nothing is created",  # a generator: no write passes, none is made
+    until_fixed="until it is fixed nothing is created",
 )
 
 
