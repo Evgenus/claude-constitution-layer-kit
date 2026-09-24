@@ -45,7 +45,7 @@ from harness import (  # noqa: E402
 )
 from referencing_gate import messages, start  # noqa: E402
 from referencing_gate.dials import KEYS  # noqa: E402
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-references.sh", "check-references.py", start.GATE.namespace)
@@ -650,6 +650,33 @@ def governed_only() -> tuple[bool, str]:
         ],
         "the ungoverned document is left out of the scan and skipped at the write; the governed is judged",
     )
+
+
+def governed_only_policy_unreadable() -> tuple[bool, str]:
+    """Under governed_only the gate reads the policies: a file where they live that nobody can read
+    is C12.10 at the write, never a policy with no id and a verdict computed without it."""
+    if os.geteuid() == 0:
+        return (
+            True,
+            "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 files examined",
+        )
+    policy = "docs/policies/zz-unreadable.md"
+    # a document no readable policy governs: the one verdict a policy with no id would leave standing
+    loose = Write(LOOSE, note(body("No links."), "note-l"))
+    _, root = gate_on(loose, own(governed_only=True), files={policy: NO_ENVELOPE})
+    mode = (root / policy).stat().st_mode
+    (root / policy).chmod(0o000)
+    try:
+        result = H.run_gate(event_json(root, loose))
+    finally:
+        (root / policy).chmod(mode)
+    line = (
+        f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read: its"
+        " permissions, or a link that leads nowhere"
+    )
+    ok, evidence = broken_first_line(result, line)
+    counted = shared.c11_broken_count() in result.stderr
+    return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
 
 def a_tree_taken_out() -> tuple[bool, str]:
@@ -1962,6 +1989,11 @@ ASSERTIONS = [
         59, "absence after the write: no lychee is exit 1 with the install address", lychee_absent_after_write
     ),
     Assertion(41, "governed_only: a document no policy governs is not covered", governed_only),
+    Assertion(
+        7,
+        "governed_only: a policy nobody can read is C12.10 at the write, never a policy with no id",
+        governed_only_policy_unreadable,
+    ),
     Assertion(
         42,
         "governed_only without a root policy is C5 in every mode; the default needs none",

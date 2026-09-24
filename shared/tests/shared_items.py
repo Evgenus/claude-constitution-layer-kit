@@ -630,18 +630,26 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             return True, as_root
         policy = "docs/policies/zz-unreadable.md"
         _, root = s.gate_on(s.valid, files={policy: NO_ENVELOPE})
+        runs: list[Result] = []
 
         def again() -> Result:
             if s.event_driven:
-                return h.run_gate(payload(root, s.valid))
-            (root / s.valid.target).unlink(missing_ok=True)  # the first run wrote it
-            return h.run_gate("", args=list(s.act_args), cwd=root)
+                runs.append(h.run_gate(payload(root, s.valid)))
+            else:
+                (root / s.valid.target).unlink(missing_ok=True)  # the first run wrote it
+                runs.append(h.run_gate("", args=list(s.act_args), cwd=root))
+            return runs[-1]
 
         line = (
             f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read:"
             " its permissions, or a link that leads nowhere"
         )
-        return unreadable(root / policy, again, line)
+        ok, evidence = unreadable(root / policy, again, line)
+        said = (runs[-1].stdout + runs[-1].stderr).splitlines()
+        noted = [each for each in said if "carries no readable id" in each]
+        if noted:  # note N1.1, its fragment typed by hand: the file taken for a policy with no id
+            return False, f"note N1.1 printed for a file nobody can read: {noted[0]}"
+        return ok, evidence
 
     def dials_not_utf8() -> tuple[bool, str]:
         """A byte that is not UTF-8 is the file's content: C4 with the decoder's message, never C12.11."""
