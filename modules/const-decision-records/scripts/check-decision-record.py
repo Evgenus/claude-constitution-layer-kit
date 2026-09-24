@@ -24,7 +24,7 @@ Exit:     0 green, or nothing to examine (the count line says which);
 Output:   hook, block: findings, with any notes above them, on stderr; hook, warn: one JSON
           object on stdout and nothing else, the notes inside it; scan: everything on stdout.
           Green and skip lines, and the notes above them, on stdout. Configuration failures
-          (BROKEN) on stderr in both modes. Every printed line is also appended to the
+          (BROKEN) on stderr in both modes. Every print is also appended, as one record, to the
           output log — under log_dir when set, else under the directory the platform names
           in the environment variable CLAUDE_PLUGIN_DATA, else nowhere.
 

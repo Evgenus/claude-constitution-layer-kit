@@ -39,10 +39,13 @@ A, chosen by the decider in chat on 2026-09-24.
 
 **R2.** The shared item S132 holds R1: its records rebuild both streams of a red run, and a gate's block verdict is one record of several lines.
 
-**R3.** Pre-publication, every module still at `0.0.1`: no version bump (step 7 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md)).
+**R3.** A configuration failure stays two records — its BROKEN line and the closing line — and an unexpected one three, the traceback last, because the guard prints each apart; should that trouble a reader, the remedy is a guard that prints once, never another unit of record.
+
+**R4.** Pre-publication, every module still at `0.0.1`: no version bump (step 7 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md)).
 
 ## Carry list
 
-1. R1 — rule 12 of [template §6](../../module-template/MODULE.md); the docstring and `_emit` of [the shared output](../../shared/const_gate/output.py); the `output` row of [kit-shared-gate-code](../../shared/GATE.md).
+1. R1 — rule 12 of [template §6](../../module-template/MODULE.md); the docstring and `_emit` of [the shared output](../../shared/const_gate/output.py); the `output` row and the S132–S136 row of [kit-shared-gate-code](../../shared/GATE.md).
 2. R2 — the S132–S136 row of [kit-shared-gate-code](../../shared/GATE.md) and the item itself in [the shared items](../../shared/tests/shared_items.py).
-3. R3 — history only.
+3. R3 — limit 10 of [kit-shared-gate-code](../../shared/GATE.md).
+4. R4 — history only.
