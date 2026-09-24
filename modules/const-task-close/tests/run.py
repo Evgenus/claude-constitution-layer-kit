@@ -18,6 +18,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -30,7 +32,7 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
-from const_gate.model import Broken, Finding  # noqa: E402
+from const_gate.model import Finding  # noqa: E402
 from consumer import Consumer  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
@@ -46,7 +48,7 @@ from shared_items import Subject, shared_assertions  # noqa: E402
 from task_close_gate import messages, start  # noqa: E402
 from task_close_gate.model import BODY, Declaration, Pair  # noqa: E402
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+identity.declare(start.GATE)  # the messages not typed by hand are built by the functions the gate uses
 H = Harness(SCRIPTS, "check-task-close.sh", "check-task-close.py", start.GATE.namespace)
 NS = start.GATE.namespace
 KEY = "No-Doc-Impact"
@@ -163,8 +165,8 @@ def declared(where: str, pair: str, reason: str) -> Declaration:
     return Declaration(where, f"{pair} — {reason}", pair, reason)
 
 
-def broken(result: Result, failure: Broken) -> tuple[bool, str]:
-    ok, evidence = broken_first_line(result, failure.render())
+def broken(result: Result, line: str) -> tuple[bool, str]:
+    ok, evidence = broken_first_line(result, line)
     counted = shared.c11_broken_count() in result.stderr
     return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
@@ -174,16 +176,54 @@ def all_of(results: list[tuple[bool, str]], summary: str) -> tuple[bool, str]:
     return not failed, failed[0] if failed else summary
 
 
-def green_scan(result: Result, tail: str) -> tuple[bool, str]:
-    return expect(result, 0, shared.g1_green_scan(tail), "stdout")
+# the module's own configuration failures, typed by hand: the dials' C5 lines, one pair's fix whole
+
+DIAL = "BROKEN: constitution.yaml: const-task-close."
+PAIR_FIX = (
+    " — fix: write the pair as {name: <kebab>, code: [<gitignore patterns of the code it describes>],"
+    " docs: [<paths of the documents that describe it>]}"
+)
+UNKNOWN_DIAL_FIX = (
+    " is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write"
+    " one of severity, log_dir, coverage, trunk, declaration_key, working_files"
+)
+SHALLOW = "a shallow clone may need its history fetched (git fetch --unshallow)"
+
+
+def pair_line(position: int, detail: str) -> str:
+    return f"{DIAL}coverage[{position}] {detail}{PAIR_FIX}"
+
+
+# the scan's count tails, typed by hand: built by the message functions, a wrong word would pass
+
+
+def tail(pairs: int, commits: int, base: str, tip: str) -> str:
+    return f"{pairs} pair(s) examined over {commits} commit(s), {base}..{tip}"
+
+
+def rooted(pairs: int, tip: str) -> str:
+    return f"{pairs} pair(s) examined over 0 commit(s) — nothing landed before {tip}"
+
+
+EMPTY = "0 pair(s) examined — coverage is empty"
+
+
+def green_scan(result: Result, line: str) -> tuple[bool, str]:
+    return expect(result, 0, "GREEN: const-task-close: " + line, "stdout")
 
 
 def red_scan(result: Result, *findings: Finding) -> tuple[bool, str]:
+    """Every expected finding whole, and nothing else red: no other finding, no other count."""
     missing = [f.key for f in findings if f.render() not in result.stdout]
-    ok = result.code == 2 and not missing
+    count = f"RED: {len(findings)} finding(s) — "
+    expected = {"RED: " + f.headline for f in findings}
+    reds = [line for line in result.stdout.splitlines() if line.startswith("RED: ")]
+    stray = [line for line in reds if line not in expected and not line.startswith(count)]
+    counted = sum(line.startswith(count) for line in reds) == 1
+    ok = result.code == 2 and not missing and not stray and counted
     return ok, f"exit 2 teaching {[f.key.value for f in findings]}" if ok else (
-        f"wanted exit 2 with {missing or 'the findings'}; got exit {result.code}:"
-        f" {result.stdout}{result.stderr}"
+        f"wanted exit 2 with {missing or 'the findings'}, nothing else red, and the line {count!r} once"
+        f"; got exit {result.code}: {result.stdout}{result.stderr}"
     )
 
 
@@ -198,7 +238,7 @@ def spec_update() -> tuple[bool, str]:
     commit(r.root, "code only", {"src/a.py": "x = 2\n"})
     red = red_scan(scan(r.root), t2())
     commit(r.root, "the page", {"docs/core.md": "# core, updated\n"})
-    green = green_scan(scan(r.root), messages.f9_scan_tail(1, 2, short(r.root, "main"), short(r.root), False))
+    green = green_scan(scan(r.root), tail(1, 2, short(r.root, "main"), short(r.root)))
     return all_of([red, green], "red→green: T2, then the document updated")
 
 
@@ -212,7 +252,7 @@ def spec_trailer() -> tuple[bool, str]:
     note = messages.n1_declared(
         declared(where, "core", "a helper only, the page describes the interface"), True
     )
-    green = green_scan(result, messages.f9_scan_tail(1, 2, short(r.root, "main"), short(r.root), False))
+    green = green_scan(result, tail(1, 2, short(r.root, "main"), short(r.root)))
     noted = (note in result.stdout, f"the note: {note}" if note in result.stdout else result.stdout)
     return all_of([red, green, noted], "red→green: T2, then a trailer on a later commit of the range")
 
@@ -228,7 +268,7 @@ def spec_body() -> tuple[bool, str]:
     )
     result = scan(r.root, "--body", str(body))
     note = messages.n1_declared(declared(BODY, "core", "via the description"), True)
-    green = green_scan(result, messages.f9_scan_tail(1, 1, short(r.root, "main"), short(r.root), False))
+    green = green_scan(result, tail(1, 1, short(r.root, "main"), short(r.root)))
     noted = (note in result.stdout, f"the note: {note}" if note in result.stdout else result.stdout)
     return all_of([red, green, noted], "red→green: T2, then the same line in the body given as a file")
 
@@ -292,12 +332,17 @@ def tool_event_is_not_wired() -> tuple[bool, str]:
             "cwd": str(r.root),
         }
     )
-    return broken(H.run_gate(event), messages.c12_not_wired("PreToolUse"))
+    return broken(
+        H.run_gate(event),
+        "BROKEN: hook input names the event 'PreToolUse', which this gate is not wired to — fix: wire"
+        " the gate to Stop, as the plugin's hooks file does; to check a change by hand run it with"
+        " --scan [<dir>] [--since <ref> | --change <commit>] [--body <file>]",
+    )
 
 
 def hook_validates_dials() -> tuple[bool, str]:
     r = repo(own(coverag=[]))
-    return broken(hook(r.root), messages.c5_unknown_dial("coverag"))
+    return broken(hook(r.root), DIAL + "coverag" + UNKNOWN_DIAL_FIX)
 
 
 # ------------------------------------------------------------------ the scan's range
@@ -311,7 +356,11 @@ def trunk_dial() -> tuple[bool, str]:
     named = red_scan(scan(r.root), t2())
     r2 = repo(with_map(trunk="nowhere"))
     branch(r2.root)
-    missing = broken(scan(r2.root), messages.c12_no_trunk("nowhere", str(r2.root)))
+    missing = broken(
+        scan(r2.root),
+        f"BROKEN: the trunk 'nowhere' is neither a local branch nor origin/nowhere in {r2.root} — fix:"
+        " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
+    )
     return all_of(
         [named, missing], "the trunk dial names the base; an unknown trunk is a configuration failure"
     )
@@ -324,7 +373,7 @@ def since_ref() -> tuple[bool, str]:
     commit(r.root, "code", {"src/a.py": "x = 2\n"})
     since_tag = green_scan(
         scan(r.root, "--since", "start"),
-        messages.f9_scan_tail(1, 2, short(r.root, "start"), short(r.root), False),
+        tail(1, 2, short(r.root, "start"), short(r.root)),
     )
     since_last = red_scan(scan(r.root, "--since", "HEAD~1"), t2())
     return all_of([since_tag, since_last], "--since names the base: a tag, a relative ref")
@@ -342,7 +391,7 @@ def change_merge_and_commit() -> tuple[bool, str]:
     note = messages.n1_declared(
         declared(where, "core", "a helper only, the page describes the interface"), True
     )
-    whole = green_scan(result, messages.f9_scan_tail(1, 3, short(r.root, "main^1"), merged, False))
+    whole = green_scan(result, tail(1, 3, short(r.root, "main^1"), merged))
     noted = (
         note in result.stdout,
         "the branch commit's trailer read through the merge" if note in result.stdout else result.stdout,
@@ -364,7 +413,7 @@ def head_on_trunk() -> tuple[bool, str]:
     same = bare.code == 2 and bare.stdout == explicit.stdout
     checkout(r.root, "work/x")
     on_branch = green_scan(  # the merge-base is the branch's own tip
-        scan(r.root), messages.f9_scan_tail(1, 0, short(r.root), short(r.root), False)
+        scan(r.root), tail(1, 0, short(r.root), short(r.root))
     )
     return all_of(
         [(same, "on the trunk the bare scan is --change HEAD" if same else f"{bare}\n{explicit}"), on_branch],
@@ -379,29 +428,31 @@ def nothing_landed_before() -> tuple[bool, str]:
     r.write("docs/core.md", "# core\n")
     git(r.root, "add", "-A")
     git(r.root, "commit", "-q", "--amend", "--no-edit")  # one commit, the root, holding the map
-    rooted = green_scan(scan(r.root), messages.f9_scan_tail(1, 0, "", short(r.root), True))
+    root_commit = green_scan(scan(r.root), rooted(1, short(r.root)))
     empty = H.scratch_dir()
     git(empty, "init", "-q")
     (empty / "constitution.yaml").write_text(dials_text(with_map()), encoding="utf-8")
-    none = green_scan(scan(empty), messages.f9_scan_tail(1, 0, "HEAD", "HEAD", True))
-    return all_of([rooted, none], "a root commit on the trunk, and a repository with no commit yet")
+    none = green_scan(scan(empty), rooted(1, "HEAD"))
+    return all_of([root_commit, none], "a root commit on the trunk, and a repository with no commit yet")
 
 
 def since_and_change() -> tuple[bool, str]:
     r = repo(with_map())
-    return broken(scan(r.root, "--since", "main", "--change", "HEAD"), messages.c12_since_and_change())
+    return broken(
+        scan(r.root, "--since", "main", "--change", "HEAD"),
+        "BROKEN: --since and --change exclude each other — fix: give one: --since <ref> examines the"
+        " changes since that base, --change <commit> examines one landed change",
+    )
 
 
 def unknown_ref() -> tuple[bool, str]:
     r = repo(with_map())
-    since = broken(
-        scan(r.root, "--since", "nope"),
-        messages.c12_unknown_ref("--since", "nope", str(r.root), "no such ref"),
+    unknown = (
+        f"'nope', which git cannot resolve in {r.root}: no such ref — fix: name a commit, branch or tag"
+        f" this repository has; {SHALLOW}"
     )
-    change = broken(
-        scan(r.root, "--change", "nope"),
-        messages.c12_unknown_ref("--change", "nope", str(r.root), "no such ref"),
-    )
+    since = broken(scan(r.root, "--since", "nope"), f"BROKEN: --since names {unknown}")
+    change = broken(scan(r.root, "--change", "nope"), f"BROKEN: --change names {unknown}")
     return all_of([since, change], "an unknown ref is a configuration failure for both flags")
 
 
@@ -454,20 +505,15 @@ def body_forms() -> tuple[bool, str]:
     lower.write_text("  no-doc-impact: core - lower case, a hyphen\n", encoding="utf-8")
     read = green_scan(
         scan(r.root, "--body", str(lower)),
-        messages.f9_scan_tail(1, 1, short(r.root, "main"), short(r.root), False),
+        tail(1, 1, short(r.root, "main"), short(r.root)),
     )
     gone = H.scratch_dir() / "gone.txt"
-    result = scan(r.root, "--body", str(gone))
-    unreadable = result.code == 1 and result.stderr.startswith(
-        f"BROKEN: --body names {gone}, which cannot be read ("
+    unreadable = broken(
+        scan(r.root, "--body", str(gone)),
+        f"BROKEN: --body names {gone}, which cannot be read ([Errno 2] No such file or directory: '{gone}')"
+        " — fix: give the pull request's description as a readable file",
     )
-    return all_of(
-        [
-            read,
-            (unreadable, "an unreadable body is a configuration failure" if unreadable else result.stderr),
-        ],
-        "the body's line, any case, any dash; an unreadable body",
-    )
+    return all_of([read, unreadable], "the body's line, any case, any dash; an unreadable body")
 
 
 def t3_and_t4() -> tuple[bool, str]:
@@ -517,7 +563,7 @@ def overlapping_pairs() -> tuple[bool, str]:
         "one updated, one declared\n\n" + trailer("guide", "the guide is about usage"),
         {"docs/core.md": "# 2\n"},
     )
-    green = expect(scan(r.root), 0, "2 pair(s) examined", "stdout")
+    green = expect(scan(r.root), 0, "GREEN: const-task-close: 2 pair(s) examined over ", "stdout")
     return all_of([both, green], "two pairs over one path both apply; each satisfied its own way")
 
 
@@ -554,19 +600,23 @@ def deleted_and_renamed_are_touched() -> tuple[bool, str]:
     branch(r3.root)
     git(r3.root, "mv", "docs/core.md", "docs/core-2.md")
     commit(r3.root, "rename the page", {"src/a.py": "2\n"})
-    doc_moved = expect(scan(r3.root), 0, "1 pair(s) examined", "stdout")
+    doc_moved = expect(scan(r3.root), 0, "GREEN: const-task-close: 1 pair(s) examined over ", "stdout")
     return all_of([deleted, renamed, doc_moved], "a deleted or renamed path counts as touched, on both sides")
 
 
 def missing_document() -> tuple[bool, str]:
     r = repo(with_map({"name": "core", "code": ["src/**"], "docs": ["docs/none.md"]}))
-    missing = broken(scan(r.root), messages.x1_document_missing("core", "docs/none.md", short(r.root)))
+    missing = broken(
+        scan(r.root), messages.x1_document_missing("core", "docs/none.md", short(r.root)).render()
+    )
     tree = repo(with_map({"name": "core", "code": ["src/**"], "docs": ["docs"]}))  # docs/ holds core.md
-    directory = broken(scan(tree.root), messages.x2_document_is_directory("core", "docs", short(tree.root)))
+    directory = broken(
+        scan(tree.root), messages.x2_document_is_directory("core", "docs", short(tree.root)).render()
+    )
     r2 = repo(with_map())
     branch(r2.root)
     commit(r2.root, "drop the page", remove=["docs/core.md"])
-    deleted = expect(scan(r2.root), 0, "1 pair(s) examined", "stdout")
+    deleted = expect(scan(r2.root), 0, "GREEN: const-task-close: 1 pair(s) examined over ", "stdout")
     r3 = repo(with_map())
     first = short(r3.root)
     branch(r3.root)
@@ -590,44 +640,71 @@ def empty_map() -> tuple[bool, str]:
     r = repo(own())
     branch(r.root)
     commit(r.root, "code", {"src/a.py": "2\n"})
-    return green_scan(scan(r.root), messages.f9_scan_tail_empty())
+    return green_scan(scan(r.root), EMPTY)
 
 
 # ------------------------------------------------------------------ dials
 
 
+TRUNK = (
+    DIAL + "trunk must be a non-empty string — fix: set trunk: <the branch changes land on>, or remove the"
+    " line for main"
+)
+
+
 def dial_failures() -> tuple[bool, str]:
-    cases: list[tuple[dict[str, object], Broken]] = [
-        (own(coverage="x"), messages.c5_coverage_not_a_list()),
-        (own(coverage=["x"]), messages.c5_pair(1, messages.pair_not_a_mapping())),
-        (own(coverage=[{**CORE, "extra": 1}]), messages.c5_pair(1, messages.pair_unknown_key("extra"))),
+    cases: list[tuple[dict[str, object], str]] = [
+        (
+            own(coverage="x"),
+            DIAL + "coverage must be a list of pairs — fix: write it as coverage: [{name: <kebab>, code:"
+            " [<patterns>], docs: [<paths>]}]",
+        ),
+        (own(coverage=["x"]), pair_line(1, "is not a mapping")),
+        (
+            own(coverage=[{**CORE, "extra": 1}]),
+            pair_line(1, "carries the key 'extra', which no pair has (name, code, docs)"),
+        ),
         (
             own(coverage=[{"code": ["src/**"], "docs": ["docs/core.md"]}]),
-            messages.c5_pair(1, messages.pair_name()),
+            pair_line(1, "has no name, or one that is not kebab-case"),
         ),
-        (own(coverage=[{**CORE, "name": "Core Bad"}]), messages.c5_pair(1, messages.pair_name())),
-        (own(coverage=[CORE, CORE]), messages.c5_pair(2, messages.pair_name_repeated("core"))),
+        (
+            own(coverage=[{**CORE, "name": "Core Bad"}]),
+            pair_line(1, "has no name, or one that is not kebab-case"),
+        ),
+        (own(coverage=[CORE, CORE]), pair_line(2, "repeats the name 'core'")),
         (
             own(coverage=[{"name": "core", "docs": ["docs/core.md"]}]),
-            messages.c5_pair(1, messages.pair_code()),
+            pair_line(1, "has no code, or code is not a non-empty list of patterns"),
         ),
         (
             own(coverage=[{"name": "core", "code": [], "docs": ["docs/core.md"]}]),
-            messages.c5_pair(1, messages.pair_code()),
+            pair_line(1, "has no code, or code is not a non-empty list of patterns"),
         ),
-        (own(coverage=[{"name": "core", "code": ["src/**"]}]), messages.c5_pair(1, messages.pair_docs())),
+        (
+            own(coverage=[{"name": "core", "code": ["src/**"]}]),
+            pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
+        ),
         (
             own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["/abs.md"]}]),
-            messages.c5_pair(1, messages.pair_docs()),
+            pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
         ),
         (
             own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["docs/"]}]),
-            messages.c5_pair(1, messages.pair_docs_directory("docs/")),
+            pair_line(1, "names 'docs/', a directory — a pair's documents are files"),
         ),
-        (own(trunk=""), messages.c5_trunk()),
-        (own(trunk=3), messages.c5_trunk()),
-        (own(declaration_key="No Doc"), messages.c5_declaration_key()),
-        (own(working_files="x"), messages.c5_working_files()),
+        (own(trunk=""), TRUNK),
+        (own(trunk=3), TRUNK),
+        (
+            own(declaration_key="No Doc"),
+            DIAL + "declaration_key must be a trailer key: letters, digits and hyphens — fix: set"
+            " declaration_key: No-Doc-Impact, or remove the line",
+        ),
+        (
+            own(working_files="x"),
+            DIAL + "working_files must be a list of patterns — fix: write it as working_files:"
+            " [<gitignore patterns>], or remove the line",
+        ),
     ]
     results = [broken(scan(repo(patch).root), failure) for patch, failure in cases]
     return all_of(results, f"{len(cases)} dial failures, each exit 1 with its own line")
@@ -636,10 +713,11 @@ def dial_failures() -> tuple[bool, str]:
 def unreadable_patterns() -> tuple[bool, str]:
     code = broken(
         scan(repo(with_map({**CORE, "code": ["#src/**"]})).root),
-        shared.c5_territory_pattern(f"{NS}.coverage[core].code", "#src/**"),
+        shared.c5_territory_pattern(f"{NS}.coverage[core].code", "#src/**").render(),
     )
     working = broken(
-        scan(repo(own(working_files=["#x"])).root), shared.c5_territory_pattern(f"{NS}.working_files", "#x")
+        scan(repo(own(working_files=["#x"])).root),
+        shared.c5_territory_pattern(f"{NS}.working_files", "#x").render(),
     )
     return all_of([code, working], "a pattern git would misread, in a pair's code and in working_files")
 
@@ -653,7 +731,7 @@ def working_files_note() -> tuple[bool, str]:
 
 
 def misspelt_dial() -> tuple[bool, str]:
-    return broken(scan(repo(own(covrage=[])).root), messages.c5_unknown_dial("covrage"))
+    return broken(scan(repo(own(covrage=[])).root), DIAL + "covrage" + UNKNOWN_DIAL_FIX)
 
 
 # ------------------------------------------------------------------ texts and shape
@@ -675,6 +753,14 @@ def golden_lines() -> tuple[bool, str]:
     x1 = scan(repo(with_map({**CORE, "docs": ["docs/none.md"]})).root).stderr
     x2 = scan(repo(with_map({**CORE, "docs": ["docs"]})).root).stderr
     slash = scan(repo(with_map({**CORE, "docs": ["docs/"]})).root).stderr
+    many = repo(own())
+    for n in range(1, 7):
+        many.write(f"s{n}.txt", "x\n")
+    six = hook(many.root).stderr  # one more path than T1 lists
+    wide = repo(with_map())
+    branch(wide.root)
+    commit(wide.root, "four", {"src/a.py": "2\n", "src/b.py": "b\n", "src/c.py": "c\n", "src/d.py": "d\n"})
+    four = scan(wide.root).stdout  # one more path than T2 lists
     literals = [
         ("RED: the working tree is dirty at turn end — 1 path(s): ?? scratch.txt", tree),
         (
@@ -732,6 +818,14 @@ def golden_lines() -> tuple[bool, str]:
             "BROKEN: constitution.yaml: const-task-close.coverage[1] names 'docs/', a directory — a pair's documents are files — fix: write the pair as ",  # noqa: E501 — a golden line is typed whole
             slash,
         ),
+        (
+            "RED: the working tree is dirty at turn end — 6 path(s): ?? s1.txt, ?? s2.txt, ?? s3.txt, ?? s4.txt, ?? s5.txt, …",  # noqa: E501 — a golden line is typed whole
+            six,
+        ),
+        (
+            "RED: core: the change touches 4 path(s) this pair describes (src/a.py, src/b.py, src/c.py, …) and none of its document(s): docs/core.md",  # noqa: E501 — a golden line is typed whole
+            four,
+        ),
     ]
     missing = [text for text, haystack in literals if text not in haystack]
     return not missing, f"{len(literals)} literal lines found" if not missing else f"missing: {missing[0]!r}"
@@ -760,6 +854,8 @@ def skills_and_install_note() -> tuple[bool, str]:
         front = yaml.safe_load(text.split("---")[1])
         if front["name"] != name or not (0 < len(front["description"]) <= 1536):
             return False, f"{name}: name or description size"
+        if "Use when " not in front["description"] or "Advisory:" not in front["description"]:
+            return False, f"{name}: the description carries no 'Use when ' trigger or no 'Advisory:' line"
         sizes[name] = len(front["description"])
     stated = re.search(
         r"skill listing, (\d+) and (\d+) characters", (root / "MODULE.md").read_text(encoding="utf-8")
@@ -770,7 +866,7 @@ def skills_and_install_note() -> tuple[bool, str]:
     block = install.split("```yaml", 1)[1].split("```", 1)[0]
     example = yaml.safe_load(block)
     r = repo(example, files={"docs/design/api.md": "# api\n", "docs/design/build.md": "# build\n"})
-    accepted = expect(scan(r.root), 0, "2 pair(s) examined", "stdout")
+    accepted = expect(scan(r.root), 0, "GREEN: const-task-close: 2 pair(s) examined over ", "stdout")
     return accepted[0], (
         f"{sizes}, as the module document states; the install note's example accepted as it stands"
         if accepted[0]
@@ -783,7 +879,7 @@ def broken_head() -> tuple[bool, str]:
     in a repository with commits is unborn, and nothing landed on it."""
     r = repo(with_map())
     git(r.root, "checkout", "-q", "--orphan", "fresh")
-    orphan = green_scan(scan(r.root), messages.f9_scan_tail(1, 0, "HEAD", "HEAD", True))
+    orphan = green_scan(scan(r.root), rooted(1, "HEAD"))
     git(r.root, "checkout", "-q", "main")
     (r.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
     result = scan(r.root)
@@ -802,11 +898,11 @@ def directory_named_as_document() -> tuple[bool, str]:
     r = repo(with_map({**CORE, "docs": ["docs/"]}))
     branch(r.root)
     commit(r.root, "code", {"src/a.py": "2\n"})
-    slash = broken(scan(r.root), messages.c5_pair(1, messages.pair_docs_directory("docs/")))
+    slash = broken(scan(r.root), pair_line(1, "names 'docs/', a directory — a pair's documents are files"))
     commit(r.root, "the tree", {"constitution.yaml": dials_text(with_map({**CORE, "docs": ["docs"]}))})
-    tree = broken(scan(r.root), messages.x2_document_is_directory("core", "docs", short(r.root)))
+    tree = broken(scan(r.root), messages.x2_document_is_directory("core", "docs", short(r.root)).render())
     commit(r.root, "the file", {"constitution.yaml": dials_text(with_map()), "docs/core.md": "# 2\n"})
-    green = green_scan(scan(r.root), messages.f9_scan_tail(1, 3, short(r.root, "main"), short(r.root), False))
+    green = green_scan(scan(r.root), tail(1, 3, short(r.root, "main"), short(r.root)))
     return all_of(
         [slash, tree, green], "red→green: C5 for docs/, X2 for the tree, green once the file is named"
     )
@@ -820,8 +916,47 @@ def unrelated_histories() -> tuple[bool, str]:
     other = short(r.root)
     checkout(r.root, "main")
     result = scan(r.root, "--since", "other")
-    expected = messages.c12_range(other, short(r.root), str(r.root), "the two histories share no commit")
-    return broken(result, expected)
+    return broken(
+        result,
+        f"BROKEN: git could not read the range {other}..{short(r.root)} in {r.root}: the two histories"
+        f" share no commit — fix: repair what git names in the message; {SHALLOW}",
+    )
+
+
+def fake_git(real: str, failing: str) -> dict[str, str]:
+    """A git first on PATH that fails one subcommand as git does and hands every other to the real one."""
+    script = H.scratch_dir() / "git"
+    script.write_text(
+        f'#!/bin/sh\nif [ "$1" = "{failing}" ]; then\n'
+        f'  echo "fatal: planted {failing} failure" >&2; exit 128\nfi\nexec {shlex.quote(real)} "$@"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return {"PATH": f"{script.parent}{os.pathsep}{os.environ['PATH']}"}
+
+
+def unreadable_tree() -> tuple[bool, str]:
+    """git failing on the working tree is a configuration failure in both modes, never a clean tree:
+    the hook's git status, the scan's git ls-files."""
+    real = shutil.which("git")
+    if real is None:
+        return False, "no git on PATH for the fake git to hand its other calls to"
+    r = repo(own())
+    r.write("scratch.txt", "x\n")
+    hooked = broken(
+        hook(r.root, env=fake_git(real, "status")),
+        f"BROKEN: git could not read the working tree in {r.root}: fatal: planted status failure — fix:"
+        " repair what git names in the message, then check by hand: git -C <that directory> status",
+    )
+    r2 = repo(with_map())
+    branch(r2.root)
+    commit(r2.root, "code", {"src/a.py": "2\n"})
+    scanned = broken(
+        scan(r2.root, env=fake_git(real, "ls-files")),
+        f"BROKEN: git could not read the working tree in {r2.root}: fatal: planted ls-files failure — fix:"
+        " repair what git names in the message, then check by hand: git -C <that directory> status",
+    )
+    return all_of([hooked, scanned], "git status failing in the hook, git ls-files in the scan: exit 1 each")
 
 
 def gate_on(
@@ -926,13 +1061,15 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (31, "a misspelt dial is a configuration failure", misspelt_dial),
     (
         32,
-        "golden lines of T1–T4, X1, X2, the trailing-slash C5 and the count forms, typed by hand",
+        "golden lines of T1–T4, X1, X2, the trailing-slash C5, the count forms and the ellipsis of T1 and"
+        " T2, typed by hand",
         golden_lines,
     ),
     (33, "the hooks file's shape", hooks_file_shape),
     (
         34,
-        "the skill descriptions' sizes; the install note's example accepted as it stands",
+        "the skill descriptions' sizes, each with its trigger and its advisory line; the install note's"
+        " example accepted as it stands",
         skills_and_install_note,
     ),
     (35, "the hook validates the dials too", hook_validates_dials),
@@ -943,6 +1080,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         "red→green: a docs path naming a directory is refused, a trailing slash at the read and a tree at"
         " HEAD by the scan; the file named, the change is examined",
         directory_named_as_document,
+    ),
+    (
+        39,
+        "git failing on the working tree is a configuration failure, in the hook and in the scan",
+        unreadable_tree,
     ),
 ]
 
