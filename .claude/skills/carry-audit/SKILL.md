@@ -45,7 +45,7 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    pin a confirming reader to that commit — prompt D — and repeat while a pass finds a defect. Until
    its yes the fixes may correct the record in place, and the commit says so
    ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); a `product` record has no such window and is not
-   edited beyond the mechanical edits of kernel §5 — its findings go into the documents or a further record
+   edited beyond the mechanical edits of [kernel §5](../../../kernel/CONVENTIONS.md#k5) — its findings go into the documents or a further record
    ([rule 15 of plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r15)).
 8. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
    beside the attribution line:
