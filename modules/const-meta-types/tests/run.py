@@ -354,7 +354,7 @@ def scan_green() -> tuple[bool, str]:
 
 
 def scan_scales() -> tuple[bool, str]:
-    """The scan reads each document once: a few hundred documents take seconds, not minutes."""
+    """A few hundred documents take seconds, not minutes: the bound is the wall time, 15 s."""
     consumer = H.fresh_consumer()
     for n in range(300):
         consumer.write(f"docs/notes/n{n}.md", envelope(f"note-{n}"))
@@ -579,7 +579,7 @@ ASSERTIONS = [
     Assertion(22, "severity warn with a note: stdout stays one JSON object", severity_warn_with_note),
     Assertion(23, "scan: the finding with counts, exit 2, ignoring severity warn", scan_red),
     Assertion(24, "scan: green with counts, and a note per void namespace", scan_green),
-    Assertion(25, "scan: 300 documents in seconds (each document read once)", scan_scales),
+    Assertion(25, "scan: 300 documents in under 15 s, the green line whole", scan_scales),
     Assertion(
         26,
         "scan: a tracked file deleted from the working tree is left out, not a failure",
@@ -593,7 +593,10 @@ ASSERTIONS = [
     Assertion(32, "the fix of F4 names only the field that failed", fix_names_the_failing_field),
     Assertion(33, "golden lines: each finding's headline, why and fix as literals", golden_lines),
     Assertion(
-        36, "hook: a governed document nobody can read is C12.10, never a green", unreadable_twin_is_broken
+        36,
+        "hook: a listed Markdown file nobody can read is C12.10 for a governed write, never a green;"
+        " a write outside every territory is still skipped",
+        unreadable_twin_is_broken,
     ),
 ]
 
