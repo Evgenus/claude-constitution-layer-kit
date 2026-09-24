@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -218,10 +219,10 @@ def red_scan(result: Result, *findings: Finding) -> tuple[bool, str]:
     expected = {"RED: " + f.headline for f in findings}
     reds = [line for line in result.stdout.splitlines() if line.startswith("RED: ")]
     stray = [line for line in reds if line not in expected and not line.startswith(count)]
-    counted = any(line.startswith(count) for line in reds)
+    counted = sum(line.startswith(count) for line in reds) == 1
     ok = result.code == 2 and not missing and not stray and counted
     return ok, f"exit 2 teaching {[f.key.value for f in findings]}" if ok else (
-        f"wanted exit 2 with {missing or 'the findings'}, nothing else red, and the line {count!r}"
+        f"wanted exit 2 with {missing or 'the findings'}, nothing else red, and the line {count!r} once"
         f"; got exit {result.code}: {result.stdout}{result.stderr}"
     )
 
@@ -922,14 +923,12 @@ def unrelated_histories() -> tuple[bool, str]:
     )
 
 
-def fake_git(failing: str) -> dict[str, str]:
+def fake_git(real: str, failing: str) -> dict[str, str]:
     """A git first on PATH that fails one subcommand as git does and hands every other to the real one."""
-    real = shutil.which("git")
-    assert real is not None
     script = H.scratch_dir() / "git"
     script.write_text(
         f'#!/bin/sh\nif [ "$1" = "{failing}" ]; then\n'
-        f'  echo "fatal: planted {failing} failure" >&2; exit 128\nfi\nexec "{real}" "$@"\n',
+        f'  echo "fatal: planted {failing} failure" >&2; exit 128\nfi\nexec {shlex.quote(real)} "$@"\n',
         encoding="utf-8",
     )
     script.chmod(0o755)
@@ -939,10 +938,13 @@ def fake_git(failing: str) -> dict[str, str]:
 def unreadable_tree() -> tuple[bool, str]:
     """git failing on the working tree is a configuration failure in both modes, never a clean tree:
     the hook's git status, the scan's git ls-files."""
+    real = shutil.which("git")
+    if real is None:
+        return False, "no git on PATH for the fake git to hand its other calls to"
     r = repo(own())
     r.write("scratch.txt", "x\n")
     hooked = broken(
-        hook(r.root, env=fake_git("status")),
+        hook(r.root, env=fake_git(real, "status")),
         f"BROKEN: git could not read the working tree in {r.root}: fatal: planted status failure — fix:"
         " repair what git names in the message, then check by hand: git -C <that directory> status",
     )
@@ -950,7 +952,7 @@ def unreadable_tree() -> tuple[bool, str]:
     branch(r2.root)
     commit(r2.root, "code", {"src/a.py": "2\n"})
     scanned = broken(
-        scan(r2.root, env=fake_git("ls-files")),
+        scan(r2.root, env=fake_git(real, "ls-files")),
         f"BROKEN: git could not read the working tree in {r2.root}: fatal: planted ls-files failure — fix:"
         " repair what git names in the message, then check by hand: git -C <that directory> status",
     )
