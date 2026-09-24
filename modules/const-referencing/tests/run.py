@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1131,11 +1132,26 @@ def chat_rule() -> tuple[bool, str]:
 
 
 def skill_description_fits() -> tuple[bool, str]:
+    """The description as the listing loads it — the folded scalar's final line break counted, as
+    MODULE.md counts it — under the listing's 1,536 characters, of the size MODULE.md states, and
+    carrying when to use the skill and that it is advisory."""
     text = (PLUGIN / "skills" / "referencing" / "SKILL.md").read_text()
     front = yaml.safe_load(text.split("---\n")[1])
-    size = len(front["description"])
-    ok = front["name"] == "referencing" and size <= 1536
-    return ok, f"description of {size} characters, under the listing's 1,536"
+    description = str(front["description"])
+    size = len(description)
+    found = re.search(r"skill listing, ([\d,]+) characters", (PLUGIN / "MODULE.md").read_text())
+    stated = int(found.group(1).replace(",", "")) if found else None
+    problems = [
+        *([] if front["name"] == "referencing" else [f"name {front['name']!r}"]),
+        *([] if size <= 1536 else [f"{size} characters, over the listing's 1,536"]),
+        *([] if stated == size else [f"MODULE.md states {stated}, the description holds {size}"]),
+        *([] if "Use when " in description else ["no 'Use when ' clause"]),
+        *([] if "Advisory:" in description else ["no 'Advisory:' line"]),
+    ]
+    return not problems, "; ".join(problems) or (
+        f"description of {size} characters, as MODULE.md states, under the listing's 1,536; its trigger"
+        " and its advisory line present"
+    )
 
 
 def install_note_example_is_accepted() -> tuple[bool, str]:
@@ -1981,7 +1997,12 @@ ASSERTIONS = [
         70, "hooks.json: three handlers in the exec form, explicit timeouts, scripts present", hooks_file
     ),
     Assertion(71, "the always-on rule is printed as typed here, and nothing else", chat_rule),
-    Assertion(72, "the skill's description fits the listing", skill_description_fits),
+    Assertion(
+        72,
+        "the skill's description fits the listing, matches the size MODULE.md states, and carries its"
+        " trigger and its advisory line",
+        skill_description_fits,
+    ),
     Assertion(
         73,
         "the install note's calibration example is accepted by the gate as it stands",
