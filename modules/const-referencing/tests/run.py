@@ -1144,7 +1144,13 @@ def skill_description_fits() -> tuple[bool, str]:
     problems = [
         *([] if front["name"] == "referencing" else [f"name {front['name']!r}"]),
         *([] if size <= 1536 else [f"{size} characters, over the listing's 1,536"]),
-        *([] if stated == size else [f"MODULE.md states {stated}, the description holds {size}"]),
+        *(
+            []
+            if stated == size
+            else ["no 'skill listing, N characters' line in MODULE.md"]
+            if stated is None
+            else [f"MODULE.md states {stated}, the description holds {size}"]
+        ),
         *([] if "Use when " in description else ["no 'Use when ' clause"]),
         *([] if "Advisory:" in description else ["no 'Advisory:' line"]),
     ]

@@ -87,7 +87,9 @@ class Subject:
     act_args: Sequence[str] = ()  # a generator only: the arguments of a run that completes on a fresh
     # consumer, from inside it — for the item that runs the scripts copied with links followed
     event: str = "PreToolUse"  # the hook event the gate is wired to. "Stop": the gate examines the
-    # repository the event's cwd lies in and no written file, so the items about one are left out;
+    # repository the event's cwd lies in and no written file, so the items about one are left out,
+    # and so are those about git's file list, the territory's scratch repository and a document a
+    # scan reads (`about_listing`), which such a gate never reaches;
     # `gate_on` is still handed `valid` and `red`, and turns each into the tree the gate passes or
     # blocks; where an item builds a payload itself it builds a Stop one
     outside: str | None = None  # the module's skip reason for `red.target` once a negated pattern takes
@@ -581,11 +583,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     def unreadable(path: Path, run: Callable[[], Result], line: str) -> tuple[bool, str]:
         """`run` with `path` made unreadable, its mode restored whatever happens: the runner's cleanup
         must be able to remove it."""
+        mode = path.stat().st_mode
         path.chmod(0o000)
         try:
             result = run()
         finally:
-            path.chmod(0o644)
+            path.chmod(mode)
         return broken_as_typed(result, line)
 
     as_root = (
