@@ -79,7 +79,10 @@ def _locate_root(index: Index, dials: Dials, root_policy: str, matcher: Matcher)
 
 def _discover_policies(index: Index, dials: Dials, matcher: Matcher) -> None:
     for path in sorted(index.in_root):
-        policy_id = id_of_text(index.text(path))
+        text = index.text(path)
+        if text is None:  # a policy by the kernel's rule whose territory nobody can know
+            raise ConfigurationFailure(messages.c12_unreadable(path))
+        policy_id = id_of_text(text)
         if policy_id is None:
             index.notes.append(messages.n1_note_policy_without_id(path))
         elif policy_id in index.policies:
