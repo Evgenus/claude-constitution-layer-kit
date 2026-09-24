@@ -14,6 +14,7 @@ Write the shared items hand it into the generator's command line, run from insid
 
 from __future__ import annotations
 
+import errno
 import os
 import subprocess
 import sys
@@ -200,8 +201,13 @@ GOLDEN: dict[str, str] = {
     "L5.19": "BROKEN: id 'a' is already carried by docs/notes/other.md — fix: ids are unique in the tree:"
     " choose another stem, or give --id",
     "L5.20": "BROKEN: docs/notes/a.md could not be written ([Errno 13] Permission denied:"
-    f" '{AT}/docs/notes'): the write is the last act, so the refusal leaves nothing behind — fix: check"
-    " the directory's permissions; nothing else was changed",
+    f" '{AT}/docs/notes'): the write is the last act, so the refusal leaves nothing behind — fix:"
+    " clear what the system's error names — a permission, or a file or link standing at that path — and"
+    " run it again; nothing else was changed",
+    "L5.20 link": "BROKEN: docs/notes/a.md could not be written ([Errno 17] File exists:"
+    f" '{AT}/docs/notes/a.md'): the write is the last act, so the refusal leaves nothing behind — fix:"
+    " clear what the system's error names — a permission, or a file or link standing at that path — and"
+    " run it again; nothing else was changed",
     "L5.21": "BROKEN: --segment was given, but notes-policy's territory 'docs/notes/**' has no free segment:"
     " the home is the directory and the stem — fix: drop --segment and give --stem",
     "L5.22": "BROKEN: --title is empty (or only whitespace), and the title is the envelope's one non-empty"
@@ -662,7 +668,7 @@ def every_golden_line_compared() -> tuple[bool, str]:
     """No line of GOLDEN typed and left unused: each was compared by an item before this one."""
     unused = sorted(set(GOLDEN) - COMPARED)
     return not unused, (
-        f"{len(GOLDEN)} refusal lines, each compared by items 3, 4, 6, 7, 9–11 and 16"
+        f"{len(GOLDEN)} refusal lines, each compared by items 3, 4, 6, 7, 9–11, 16 and 17"
         if not unused
         else f"typed in GOLDEN, compared by no item: {unused}"
     )
@@ -719,6 +725,30 @@ def write_refused() -> tuple[bool, str]:
     return not problems, "; ".join(problems) or f"{evidence}; git status empty, no directory made"
 
 
+def write_refused_by_a_link() -> tuple[bool, str]:
+    """A link that points nowhere, standing at the home, passes the existence proof and meets the
+    write: L5.20 with the system's own error, the link left as it was."""
+    consumer = prepared()
+    notes = consumer.root / "docs" / "notes"
+    notes.mkdir(parents=True)
+    os.symlink("nowhere.md", notes / "a.md")
+    before = tree_state(consumer)
+    result = run(consumer, *NOTE_ARGS)
+    error = f"[Errno {errno.EEXIST}] {os.strerror(errno.EEXIST)}: '{notes}/a.md'"
+    ok, evidence = broken(
+        result, messages.l5_could_not_write(NOTE, error), "L5.20 link", at=str(consumer.root)
+    )
+    link = notes / "a.md"
+    kept = link.is_symlink() and os.readlink(link) == "nowhere.md"
+    after = tree_state(consumer)
+    problems = [
+        *([] if ok else [evidence]),
+        *([] if after == before else [f"tree: {before!r} became {after!r}"]),
+        *([] if kept else ["the link was not left as it was"]),
+    ]
+    return not problems, "; ".join(problems) or f"{evidence}; git status as before, the link kept"
+
+
 def notes_are_printed() -> tuple[bool, str]:
     """A policy document without a readable id earns the shared note, on stdout, before the lines."""
     consumer = prepared(files={"docs/policies/zz-no-id.md": "# no envelope\n"})
@@ -756,6 +786,10 @@ OWN: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
     ),
     ("a note of the policy index is printed before the lines", notes_are_printed),
     ("a write the system refuses is refused in turn, and leaves nothing behind", write_refused),
+    (
+        "a link that points nowhere at the home is refused at the write, and is left as it was",
+        write_refused_by_a_link,
+    ),
     # stays the last entry: it reads what every item before it compared; new items go above it
     (
         "golden lines: every refusal line typed here was compared by an earlier item",
