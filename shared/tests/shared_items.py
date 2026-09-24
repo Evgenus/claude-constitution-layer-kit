@@ -23,7 +23,18 @@ from const_gate import messages, preflight
 from const_gate.model import Broken, Finding
 from const_gate.output import ROTATE_AT, log_name
 from consumer import ROOT_POLICY
-from harness import Assertion, Edit, Harness, Result, Write, broken_first_line, event_json, expect, stop_json
+from harness import (
+    Assertion,
+    Edit,
+    Harness,
+    Result,
+    Write,
+    broken_first_line,
+    event_json,
+    expect,
+    red_lines,
+    stop_json,
+)
 
 NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
 
@@ -486,10 +497,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     def long_value_is_cut() -> tuple[bool, str]:
         """A value a page long is echoed cut, so the whole verdict stays under the platform's cap —
         and the cut is said, not silent."""
-        assert s.long_value is not None  # the item is left out otherwise
+        if s.long_value is None:  # the item is left out then; a direct call must not pass vacuously
+            return False, "Subject.long_value not given"
         result, _ = s.gate_on(s.long_value)
         ok = (
             result.code == 2
+            and len(red_lines(result.stderr)) == 2  # the one finding and the count line
             and "… [12000 characters]" in result.stderr  # the marker, typed by hand
             and "x" * 81 not in result.stderr
             and len(result.stderr) < 2_000
