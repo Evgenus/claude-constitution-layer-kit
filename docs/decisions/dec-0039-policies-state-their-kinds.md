@@ -33,7 +33,7 @@ A, by the session: the proposals are one theme — the written-down shape of nin
 
 ## Choice
 
-A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the proposal and put to the decider one per message before the yes: how a reversal treats the reversed record (R14), and what completes an `architecture` review in the kit (R16).
+A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the proposal and put to the decider one per message before the yes, each answered A on 2026-09-24: how a reversal treats the reversed record (R14), and what completes an `architecture` review in the kit (R16).
 
 ## Ruling
 
@@ -75,7 +75,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 **R15.** Every record of the kit so far is `process`; a `product` record is complete when committed.
 
-**R16.** An `architecture` record's review is the two passes of step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md) — a fresh-context reader of the record and the carry audit — with every finding fixed or justified, and its yes named as a `process` record's is. *Open until the decider's pick.*
+**R16.** An `architecture` record's review is the two passes of step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md) — a fresh-context reader of the record and the carry audit — with every finding fixed or justified, and its yes named as a `process` record's is. Chosen A by the decider in chat on 2026-09-24, over a second human reviewer, whom the kit does not have, and over leaving the slot open, which would make the first such record improvise a recorded-stakes procedure; a second reviewer replaces this by a routine amendment once one exists.
 
 ### 5. The research policy, [plc-0005-research](../policies/plc-0005-research.md)
 
