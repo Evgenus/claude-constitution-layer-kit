@@ -45,12 +45,13 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    pin a confirming reader to that commit — prompt D — and repeat while a pass finds a defect. Until
    its yes the fixes may correct the record in place, and the commit says so
    ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); a `product` record has no such window and is not
-   edited — its findings go into the documents or a further record
+   edited beyond the mechanical edits of kernel §5 — its findings go into the documents or a further record
    ([rule 15 of plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r15)).
 8. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
    beside the attribution line:
    `Accepted: <record id>` — one per record, or several ids separated by commas;
-   `Carry-Audit: at <pin>; <n> records; <f> findings, <x> fixed, <j> justified` — where the pin is
+   `Carry-Audit: at <pin>; <n> records; <f> findings, <x> fixed, <j> justified` — for a `product`
+   record, which has no yes, this trailer alone on the commit that holds the fixes — where the pin is
    the last round's, an ancestor at which the record already existed; `n` counts `full` and
    `regression` records together and is above zero; `f` counts the findings of every round, and
    `x + j = f`. The newest acceptance of a record is the one that counts: a
