@@ -130,7 +130,7 @@ def gate_on(
     return run(consumer, *args_for(action), env=env), consumer.root
 
 
-AT = "{at}"  # the run's temporary directory, in the two lines that name one: `broken` fills it in
+AT = "{at}"  # the run's temporary directory, in the three lines that name one: `broken` fills it in
 KEBAB = (
     " — fix: lower-case letters, digits and single hyphens between them: a-z, 0-9, no leading, trailing"
     " or double hyphen"
@@ -145,8 +145,7 @@ ENTRY = (
 )
 # Every refusal and dial failure the runner reaches, keyed by its handle in the table of §6, the
 # whole first line typed here by hand: the items compare with what the message functions return
-# too, so a slip inside a function is red only here. L5.20 names the run's directory and is reached
-# only by item 16, after item 13 has counted what the items compared: item 16 types its line itself.
+# too, so a slip inside a function is red only here.
 GOLDEN: dict[str, str] = {
     "L5.1": "BROKEN: misinvocation: --stem was not given — fix: run it with --kind <policy id> --stem <stem>"
     " --title <text> [--type <meta-type>] [--segment <segment>] [--id <id>] [--dry-run]",
@@ -200,6 +199,9 @@ GOLDEN: dict[str, str] = {
     " run it with --title '<the document's title>'; a dry run needs none",
     "L5.19": "BROKEN: id 'a' is already carried by docs/notes/other.md — fix: ids are unique in the tree:"
     " choose another stem, or give --id",
+    "L5.20": "BROKEN: docs/notes/a.md could not be written ([Errno 13] Permission denied:"
+    f" '{AT}/docs/notes'): the write is the last act, so the refusal leaves nothing behind — fix: check"
+    " the directory's permissions; nothing else was changed",
     "L5.21": "BROKEN: --segment was given, but notes-policy's territory 'docs/notes/**' has no free segment:"
     " the home is the directory and the stem — fix: drop --segment and give --stem",
     "L5.22": "BROKEN: --title is empty (or only whitespace), and the title is the envelope's one non-empty"
@@ -660,7 +662,7 @@ def every_golden_line_compared() -> tuple[bool, str]:
     """No line of GOLDEN typed and left unused: each was compared by an item before this one."""
     unused = sorted(set(GOLDEN) - COMPARED)
     return not unused, (
-        f"{len(GOLDEN)} refusal lines, each compared by items 3, 4, 6, 7 and 9–11"
+        f"{len(GOLDEN)} refusal lines, each compared by items 3, 4, 6, 7, 9–11 and 16"
         if not unused
         else f"typed in GOLDEN, compared by no item: {unused}"
     )
@@ -706,16 +708,11 @@ def write_refused() -> tuple[bool, str]:
         result = run(consumer, *NOTE_ARGS)
     finally:
         os.chmod(docs, 0o755)  # the runner's cleanup cannot remove what it may not write into
-    line = (
-        f"BROKEN: docs/notes/a.md could not be written ([Errno 13] Permission denied: '{docs}/notes'): the"
-        " write is the last act, so the refusal leaves nothing behind — fix: check the directory's"
-        " permissions; nothing else was changed"
-    )
-    ok, evidence = broken_first_line(result, line)
+    error = f"[Errno 13] Permission denied: '{docs}/notes'"
+    ok, evidence = broken(result, messages.l5_could_not_write(NOTE, error), "L5.20", at=str(consumer.root))
     state = tree_state(consumer)
     problems = [
         *([] if ok else [evidence]),
-        *([] if messages.l4_nothing_written() in result.stderr else ["no closing line"]),
         *([] if state == "" else [f"tree: {state!r}"]),
         *(["docs/notes was left behind"] if (docs / "notes").exists() else []),
     ]
