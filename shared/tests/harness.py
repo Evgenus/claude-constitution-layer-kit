@@ -167,9 +167,11 @@ class Harness:
         ]
         if red_lines(red.stderr) != wanted:  # exactly the one finding and the count line, nothing more
             return False, f"red taught more or less than {wanted}:\n{red.stderr.strip()}"
+        if red_lines(red.stdout):  # and nothing RED on the other stream
+            return False, f"red printed RED on stdout: {red.stdout.strip()}"
         green = self.run_gate(event_json(self.fresh_consumer(case.setup).root, case.green))
         line = f"GREEN: {self.namespace}: 1 document examined, {case.green_what}"
-        if green.code != 0 or line not in green.stdout.splitlines():
+        if green.code != 0 or line not in green.stdout.splitlines() or red_lines(green.stdout + green.stderr):
             return (
                 False,
                 f"green half did not print {line!r} (exit {green.code}): {green.stdout}{green.stderr}",
