@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -93,7 +94,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return stop_json(root) if stop else event_json(root, action)
 
     def broken(result: Result, failure: Broken) -> tuple[bool, str]:
-        ok, evidence = broken_first_line(result, failure.render())
+        return broken_as_typed(result, failure.render())
+
+    def broken_as_typed(result: Result, line: str) -> tuple[bool, str]:
+        """The failure's line first — typed by hand where the item types it — then the closing line."""
+        ok, evidence = broken_first_line(result, line)
         counted = s.closing in result.stderr  # a run that examined, or changed, nothing says so
         return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
@@ -500,6 +505,108 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             else f"exit {result.code}; {len(result.stderr)} characters on stderr: {result.stderr[:400]}"
         )
 
+    # ---------------------------------------------------------------- git failing in one way; a file unread
+
+    def git_failing_at(trigger: str, code: int, line: Callable[[Path], str]) -> tuple[bool, str]:
+        """A git first on PATH that exits `code` when one of its arguments is `trigger`, and hands every
+        other call to the real git — so the gate gets as far as that one call."""
+        real = shutil.which("git")
+        if real is None:
+            return False, "no git on PATH: the failing git hands every other call to the real one"
+        directory = h.scratch_dir()
+        fake = directory / "git"
+        fake.write_text(
+            "#!/bin/sh\n"
+            'for a in "$@"; do\n'
+            f'  if [ "$a" = {shlex.quote(trigger)} ]; then\n'
+            f"    echo {shlex.quote(f'fatal: simulated {trigger} failure')} >&2\n"
+            f"    exit {code}\n"
+            "  fi\n"
+            "done\n"
+            f'exec {shlex.quote(real)} "$@"\n',
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        result, root = s.gate_on(
+            s.valid, env={"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
+        )
+        return broken_as_typed(result, line(root))
+
+    def ls_files_fails() -> tuple[bool, str]:
+        return git_failing_at(
+            "ls-files",
+            1,
+            lambda root: (
+                f"BROKEN: git could not list the files of {root}: fatal: simulated ls-files failure"
+                " — fix: repair what git names in the message, then check by hand: git -C <that directory>"
+                " ls-files"
+            ),
+        )
+
+    def init_fails() -> tuple[bool, str]:
+        return git_failing_at(
+            "init",
+            128,
+            lambda _: (
+                "BROKEN: git init of the scratch repository failed: fatal: simulated init failure — fix:"
+                " repair what git names in the message; the scratch repository lives in the system's"
+                " temporary directory"
+            ),
+        )
+
+    def check_ignore_fails() -> tuple[bool, str]:
+        """Exit 128: check-ignore's exit 1 means no path matched, which is no failure."""
+        return git_failing_at(
+            "--no-index",
+            128,
+            lambda _: (
+                "BROKEN: git check-ignore failed: fatal: simulated --no-index failure — fix: territory"
+                " patterns must be gitignore syntax; check constitution.yaml"
+            ),
+        )
+
+    def unreadable(path: Path, run: Callable[[], Result], line: str) -> tuple[bool, str]:
+        """`run` with `path` made unreadable, its mode restored whatever happens: the runner's cleanup
+        must be able to remove it."""
+        path.chmod(0o000)
+        try:
+            result = run()
+        finally:
+            path.chmod(0o644)
+        return broken_as_typed(result, line)
+
+    as_root = (
+        "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 unreadable files examined"
+    )
+
+    def dials_unreadable() -> tuple[bool, str]:
+        if os.geteuid() == 0:
+            return True, as_root
+        _, root = s.gate_on(s.valid)
+        dials = root / "constitution.yaml"
+
+        def again() -> Result:
+            if s.event_driven:
+                return h.run_gate(payload(root, s.valid))
+            return h.run_gate("", args=list(s.act_args), cwd=root)  # refused before the home is looked at
+
+        line = (
+            f"BROKEN: constitution.yaml cannot be read ([Errno 13] Permission denied: '{dials}') — fix: check"
+            " the file's permissions"
+        )
+        return unreadable(dials, again, line)
+
+    def document_unreadable() -> tuple[bool, str]:
+        if os.geteuid() == 0:
+            return True, as_root
+        sibling = str(Path(s.valid.target).with_name("unreadable.md"))
+        _, root = s.gate_on(s.valid, files={sibling: s.valid.text})
+        line = (
+            f"BROKEN: {sibling} is listed by git but cannot be read — fix: check that the file can be read:"
+            " its permissions, or a link that leads nowhere"
+        )
+        return unreadable(root / sibling, lambda: h.run_gate("", args=["--scan", str(root)]), line)
+
     items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
         ("C4b: a dials file that is not a mapping", dials_not_mapping),
@@ -573,6 +680,17 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "an echoed value a page long is cut, and the cut is said: the verdict stays a message",
             long_value_is_cut,
         ),
+        ("C12.1: git failing to list the files is a configuration failure", ls_files_fails),
+        ("C12.2: git failing to make the scratch repository is a configuration failure", init_fails),
+        (
+            "C12.3: git check-ignore failing, not merely matching nothing, is a configuration failure",
+            check_ignore_fails,
+        ),
+        ("C12.7: a dials file the process cannot read is a configuration failure", dials_unreadable),
+        (
+            "C12.10: a document git lists and the scan cannot read is a configuration failure",
+            document_unreadable,
+        ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
     # that resolves no policy leaves gaps where the items about policies stand.
@@ -606,6 +724,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         deeply_nested_envelope,
         byte_order_mark,
         negated_pattern,
+        document_unreadable,
     }
     # A gate wired to Stop examines a repository, never a written file: these items are a tool gate's.
     about_files = {
@@ -618,6 +737,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         negated_pattern,
         deeply_nested_envelope,
     }
+    # A gate wired to Stop never reaches git's file list, the territory's scratch repository or its
+    # check-ignore, nor reads a document the scan lists: these items are a tool gate's.
+    about_listing = {ls_files_fails, init_fails, check_ignore_fails, document_unreadable}
     return [
         Assertion(first + n, title, check)
         for n, (title, check) in enumerate(items)
@@ -625,5 +747,6 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         and (s.judges_envelopes or check is not deeply_nested_envelope)
         and (s.event_driven or check not in about_events)
         and (not stop or check not in about_files)
+        and (not stop or check not in about_listing)
         and (s.long_value is not None or check is not long_value_is_cut)
     ]
