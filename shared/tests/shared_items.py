@@ -623,6 +623,22 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return unreadable(root / sibling, lambda: h.run_gate("", args=["--scan", str(root)]), line)
 
+    def dials_not_utf8() -> tuple[bool, str]:
+        """A byte that is not UTF-8 is the file's content: C4 with the decoder's message, never C12.11."""
+        _, root = s.gate_on(s.valid)
+        dials = root / "constitution.yaml"
+        dials.write_bytes(b"# \xff\n" + dials.read_bytes())
+        if s.event_driven:
+            result = h.run_gate(payload(root, s.valid))
+        else:
+            result = h.run_gate("", args=list(s.act_args), cwd=root)  # refused before the home is looked at
+        line = (
+            "BROKEN: constitution.yaml is not valid YAML ('utf-8' codec can't decode byte 0xff in position 2:"
+            " invalid start byte) — fix: repair the YAML at the place the message names; nothing is checked"
+            " until the file parses"
+        )
+        return broken_as_typed(result, line)
+
     items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
         ("C4b: a dials file that is not a mapping", dials_not_mapping),
@@ -706,6 +722,10 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         (
             "C12.10: a document git lists and the scan cannot read is a configuration failure",
             document_unreadable,
+        ),
+        (
+            "C4: a dials file that is not UTF-8 is not valid YAML, never a defect of the gate",
+            dials_not_utf8,
         ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
