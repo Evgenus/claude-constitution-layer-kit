@@ -536,20 +536,23 @@ def golden_lines() -> tuple[bool, str]:
 
 
 def unreadable_twin_is_broken() -> tuple[bool, str]:
-    """A governed document nobody can read may carry the written id: the uniqueness check cannot
-    be made, so the write is the shared configuration failure, never a green that compared the id
-    with nothing. Both lines typed by hand."""
+    """Any Markdown file git lists and nobody can read may carry the written id — its declaration
+    cannot be known — so a governed write is the shared configuration failure, never a green that
+    compared the id with nothing. A write outside every territory, with the same file unreadable,
+    is still the plain skip: the others are read only for a governed document. Lines typed by hand."""
+    as_root = (
+        "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 unreadable files examined"
+    )
     if os.geteuid() == 0:
-        return True, (
-            "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 documents examined"
-        )
+        return True, as_root
     twin = "docs/notes/twin.md"
     consumer = H.fresh_consumer([Write(twin, envelope("note-a"))])
     path = consumer.root / twin
     mode = path.stat().st_mode
     path.chmod(0o000)
     try:
-        result = H.run_gate(event_json(consumer.root, VALID))
+        governed = H.run_gate(event_json(consumer.root, VALID))
+        outside = H.run_gate(event_json(consumer.root, Write("README.md", NO_ENVELOPE)))
     finally:
         path.chmod(mode)
     first = (
@@ -557,10 +560,14 @@ def unreadable_twin_is_broken() -> tuple[bool, str]:
         " read: its permissions, or a link that leads nowhere"
     )
     count = "BROKEN: the check could not run — 0 documents examined"
-    ok, detail = broken_first_line(result, first)
-    if ok and count not in result.stderr.splitlines():
-        return False, f"no count line in stderr: {result.stderr}"
-    return ok, detail
+    ok, detail = broken_first_line(governed, first)
+    if ok and count not in governed.stderr.splitlines():
+        return False, f"no count line in stderr: {governed.stderr}"
+    if not ok:
+        return ok, detail
+    skip = "GREEN: const-meta-types: 0 documents examined — README.md is outside claimed territory"
+    skipped, skip_detail = expect(outside, 0, skip, "stdout")
+    return skipped, f"{detail}; README.md: {skip_detail}"
 
 
 ASSERTIONS = [
