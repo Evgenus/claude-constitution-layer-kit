@@ -30,7 +30,7 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
-from const_gate.model import Broken, Finding  # noqa: E402
+from const_gate.model import Finding  # noqa: E402
 from consumer import Consumer  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
@@ -46,7 +46,7 @@ from shared_items import Subject, shared_assertions  # noqa: E402
 from task_close_gate import messages, start  # noqa: E402
 from task_close_gate.model import BODY, Declaration, Pair  # noqa: E402
 
-identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+identity.declare(start.GATE)  # the messages not typed by hand are built by the functions the gate uses
 H = Harness(SCRIPTS, "check-task-close.sh", "check-task-close.py", start.GATE.namespace)
 NS = start.GATE.namespace
 KEY = "No-Doc-Impact"
@@ -163,8 +163,8 @@ def declared(where: str, pair: str, reason: str) -> Declaration:
     return Declaration(where, f"{pair} — {reason}", pair, reason)
 
 
-def broken(result: Result, failure: Broken) -> tuple[bool, str]:
-    ok, evidence = broken_first_line(result, failure.render())
+def broken(result: Result, line: str) -> tuple[bool, str]:
+    ok, evidence = broken_first_line(result, line)
     counted = shared.c11_broken_count() in result.stderr
     return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
@@ -172,6 +172,24 @@ def broken(result: Result, failure: Broken) -> tuple[bool, str]:
 def all_of(results: list[tuple[bool, str]], summary: str) -> tuple[bool, str]:
     failed = [evidence for ok, evidence in results if not ok]
     return not failed, failed[0] if failed else summary
+
+
+# the module's own configuration failures, typed by hand: the dials' C5 lines, one pair's fix whole
+
+DIAL = "BROKEN: constitution.yaml: const-task-close."
+PAIR_FIX = (
+    " — fix: write the pair as {name: <kebab>, code: [<gitignore patterns of the code it describes>],"
+    " docs: [<paths of the documents that describe it>]}"
+)
+UNKNOWN_DIAL_FIX = (
+    " is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write"
+    " one of severity, log_dir, coverage, trunk, declaration_key, working_files"
+)
+SHALLOW = "a shallow clone may need its history fetched (git fetch --unshallow)"
+
+
+def pair_line(position: int, detail: str) -> str:
+    return f"{DIAL}coverage[{position}] {detail}{PAIR_FIX}"
 
 
 # the scan's count tails, typed by hand: built by the message functions, a wrong word would pass
@@ -312,12 +330,17 @@ def tool_event_is_not_wired() -> tuple[bool, str]:
             "cwd": str(r.root),
         }
     )
-    return broken(H.run_gate(event), messages.c12_not_wired("PreToolUse"))
+    return broken(
+        H.run_gate(event),
+        "BROKEN: hook input names the event 'PreToolUse', which this gate is not wired to — fix: wire"
+        " the gate to Stop, as the plugin's hooks file does; to check a change by hand run it with"
+        " --scan [<dir>] [--since <ref> | --change <commit>] [--body <file>]",
+    )
 
 
 def hook_validates_dials() -> tuple[bool, str]:
     r = repo(own(coverag=[]))
-    return broken(hook(r.root), messages.c5_unknown_dial("coverag"))
+    return broken(hook(r.root), DIAL + "coverag" + UNKNOWN_DIAL_FIX)
 
 
 # ------------------------------------------------------------------ the scan's range
@@ -331,7 +354,11 @@ def trunk_dial() -> tuple[bool, str]:
     named = red_scan(scan(r.root), t2())
     r2 = repo(with_map(trunk="nowhere"))
     branch(r2.root)
-    missing = broken(scan(r2.root), messages.c12_no_trunk("nowhere", str(r2.root)))
+    missing = broken(
+        scan(r2.root),
+        f"BROKEN: the trunk 'nowhere' is neither a local branch nor origin/nowhere in {r2.root} — fix:"
+        " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
+    )
     return all_of(
         [named, missing], "the trunk dial names the base; an unknown trunk is a configuration failure"
     )
@@ -409,19 +436,21 @@ def nothing_landed_before() -> tuple[bool, str]:
 
 def since_and_change() -> tuple[bool, str]:
     r = repo(with_map())
-    return broken(scan(r.root, "--since", "main", "--change", "HEAD"), messages.c12_since_and_change())
+    return broken(
+        scan(r.root, "--since", "main", "--change", "HEAD"),
+        "BROKEN: --since and --change exclude each other — fix: give one: --since <ref> examines the"
+        " changes since that base, --change <commit> examines one landed change",
+    )
 
 
 def unknown_ref() -> tuple[bool, str]:
     r = repo(with_map())
-    since = broken(
-        scan(r.root, "--since", "nope"),
-        messages.c12_unknown_ref("--since", "nope", str(r.root), "no such ref"),
+    unknown = (
+        f"'nope', which git cannot resolve in {r.root}: no such ref — fix: name a commit, branch or tag"
+        f" this repository has; {SHALLOW}"
     )
-    change = broken(
-        scan(r.root, "--change", "nope"),
-        messages.c12_unknown_ref("--change", "nope", str(r.root), "no such ref"),
-    )
+    since = broken(scan(r.root, "--since", "nope"), f"BROKEN: --since names {unknown}")
+    change = broken(scan(r.root, "--change", "nope"), f"BROKEN: --change names {unknown}")
     return all_of([since, change], "an unknown ref is a configuration failure for both flags")
 
 
@@ -477,17 +506,12 @@ def body_forms() -> tuple[bool, str]:
         tail(1, 1, short(r.root, "main"), short(r.root)),
     )
     gone = H.scratch_dir() / "gone.txt"
-    result = scan(r.root, "--body", str(gone))
-    unreadable = result.code == 1 and result.stderr.startswith(
-        f"BROKEN: --body names {gone}, which cannot be read ("
+    unreadable = broken(
+        scan(r.root, "--body", str(gone)),
+        f"BROKEN: --body names {gone}, which cannot be read ([Errno 2] No such file or directory: '{gone}')"
+        " — fix: give the pull request's description as a readable file",
     )
-    return all_of(
-        [
-            read,
-            (unreadable, "an unreadable body is a configuration failure" if unreadable else result.stderr),
-        ],
-        "the body's line, any case, any dash; an unreadable body",
-    )
+    return all_of([read, unreadable], "the body's line, any case, any dash; an unreadable body")
 
 
 def t3_and_t4() -> tuple[bool, str]:
@@ -580,9 +604,13 @@ def deleted_and_renamed_are_touched() -> tuple[bool, str]:
 
 def missing_document() -> tuple[bool, str]:
     r = repo(with_map({"name": "core", "code": ["src/**"], "docs": ["docs/none.md"]}))
-    missing = broken(scan(r.root), messages.x1_document_missing("core", "docs/none.md", short(r.root)))
+    missing = broken(
+        scan(r.root), messages.x1_document_missing("core", "docs/none.md", short(r.root)).render()
+    )
     tree = repo(with_map({"name": "core", "code": ["src/**"], "docs": ["docs"]}))  # docs/ holds core.md
-    directory = broken(scan(tree.root), messages.x2_document_is_directory("core", "docs", short(tree.root)))
+    directory = broken(
+        scan(tree.root), messages.x2_document_is_directory("core", "docs", short(tree.root)).render()
+    )
     r2 = repo(with_map())
     branch(r2.root)
     commit(r2.root, "drop the page", remove=["docs/core.md"])
@@ -616,38 +644,65 @@ def empty_map() -> tuple[bool, str]:
 # ------------------------------------------------------------------ dials
 
 
+TRUNK = (
+    DIAL + "trunk must be a non-empty string — fix: set trunk: <the branch changes land on>, or remove the"
+    " line for main"
+)
+
+
 def dial_failures() -> tuple[bool, str]:
-    cases: list[tuple[dict[str, object], Broken]] = [
-        (own(coverage="x"), messages.c5_coverage_not_a_list()),
-        (own(coverage=["x"]), messages.c5_pair(1, messages.pair_not_a_mapping())),
-        (own(coverage=[{**CORE, "extra": 1}]), messages.c5_pair(1, messages.pair_unknown_key("extra"))),
+    cases: list[tuple[dict[str, object], str]] = [
+        (
+            own(coverage="x"),
+            DIAL + "coverage must be a list of pairs — fix: write it as coverage: [{name: <kebab>, code:"
+            " [<patterns>], docs: [<paths>]}]",
+        ),
+        (own(coverage=["x"]), pair_line(1, "is not a mapping")),
+        (
+            own(coverage=[{**CORE, "extra": 1}]),
+            pair_line(1, "carries the key 'extra', which no pair has (name, code, docs)"),
+        ),
         (
             own(coverage=[{"code": ["src/**"], "docs": ["docs/core.md"]}]),
-            messages.c5_pair(1, messages.pair_name()),
+            pair_line(1, "has no name, or one that is not kebab-case"),
         ),
-        (own(coverage=[{**CORE, "name": "Core Bad"}]), messages.c5_pair(1, messages.pair_name())),
-        (own(coverage=[CORE, CORE]), messages.c5_pair(2, messages.pair_name_repeated("core"))),
+        (
+            own(coverage=[{**CORE, "name": "Core Bad"}]),
+            pair_line(1, "has no name, or one that is not kebab-case"),
+        ),
+        (own(coverage=[CORE, CORE]), pair_line(2, "repeats the name 'core'")),
         (
             own(coverage=[{"name": "core", "docs": ["docs/core.md"]}]),
-            messages.c5_pair(1, messages.pair_code()),
+            pair_line(1, "has no code, or code is not a non-empty list of patterns"),
         ),
         (
             own(coverage=[{"name": "core", "code": [], "docs": ["docs/core.md"]}]),
-            messages.c5_pair(1, messages.pair_code()),
+            pair_line(1, "has no code, or code is not a non-empty list of patterns"),
         ),
-        (own(coverage=[{"name": "core", "code": ["src/**"]}]), messages.c5_pair(1, messages.pair_docs())),
+        (
+            own(coverage=[{"name": "core", "code": ["src/**"]}]),
+            pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
+        ),
         (
             own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["/abs.md"]}]),
-            messages.c5_pair(1, messages.pair_docs()),
+            pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
         ),
         (
             own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["docs/"]}]),
-            messages.c5_pair(1, messages.pair_docs_directory("docs/")),
+            pair_line(1, "names 'docs/', a directory — a pair's documents are files"),
         ),
-        (own(trunk=""), messages.c5_trunk()),
-        (own(trunk=3), messages.c5_trunk()),
-        (own(declaration_key="No Doc"), messages.c5_declaration_key()),
-        (own(working_files="x"), messages.c5_working_files()),
+        (own(trunk=""), TRUNK),
+        (own(trunk=3), TRUNK),
+        (
+            own(declaration_key="No Doc"),
+            DIAL + "declaration_key must be a trailer key: letters, digits and hyphens — fix: set"
+            " declaration_key: No-Doc-Impact, or remove the line",
+        ),
+        (
+            own(working_files="x"),
+            DIAL + "working_files must be a list of patterns — fix: write it as working_files:"
+            " [<gitignore patterns>], or remove the line",
+        ),
     ]
     results = [broken(scan(repo(patch).root), failure) for patch, failure in cases]
     return all_of(results, f"{len(cases)} dial failures, each exit 1 with its own line")
@@ -656,10 +711,11 @@ def dial_failures() -> tuple[bool, str]:
 def unreadable_patterns() -> tuple[bool, str]:
     code = broken(
         scan(repo(with_map({**CORE, "code": ["#src/**"]})).root),
-        shared.c5_territory_pattern(f"{NS}.coverage[core].code", "#src/**"),
+        shared.c5_territory_pattern(f"{NS}.coverage[core].code", "#src/**").render(),
     )
     working = broken(
-        scan(repo(own(working_files=["#x"])).root), shared.c5_territory_pattern(f"{NS}.working_files", "#x")
+        scan(repo(own(working_files=["#x"])).root),
+        shared.c5_territory_pattern(f"{NS}.working_files", "#x").render(),
     )
     return all_of([code, working], "a pattern git would misread, in a pair's code and in working_files")
 
@@ -673,7 +729,7 @@ def working_files_note() -> tuple[bool, str]:
 
 
 def misspelt_dial() -> tuple[bool, str]:
-    return broken(scan(repo(own(covrage=[])).root), messages.c5_unknown_dial("covrage"))
+    return broken(scan(repo(own(covrage=[])).root), DIAL + "covrage" + UNKNOWN_DIAL_FIX)
 
 
 # ------------------------------------------------------------------ texts and shape
@@ -695,6 +751,14 @@ def golden_lines() -> tuple[bool, str]:
     x1 = scan(repo(with_map({**CORE, "docs": ["docs/none.md"]})).root).stderr
     x2 = scan(repo(with_map({**CORE, "docs": ["docs"]})).root).stderr
     slash = scan(repo(with_map({**CORE, "docs": ["docs/"]})).root).stderr
+    many = repo(own())
+    for n in range(1, 7):
+        many.write(f"s{n}.txt", "x\n")
+    six = hook(many.root).stderr  # one more path than T1 lists
+    wide = repo(with_map())
+    branch(wide.root)
+    commit(wide.root, "four", {"src/a.py": "2\n", "src/b.py": "b\n", "src/c.py": "c\n", "src/d.py": "d\n"})
+    four = scan(wide.root).stdout  # one more path than T2 lists
     literals = [
         ("RED: the working tree is dirty at turn end — 1 path(s): ?? scratch.txt", tree),
         (
@@ -751,6 +815,14 @@ def golden_lines() -> tuple[bool, str]:
         (
             "BROKEN: constitution.yaml: const-task-close.coverage[1] names 'docs/', a directory — a pair's documents are files — fix: write the pair as ",  # noqa: E501 — a golden line is typed whole
             slash,
+        ),
+        (
+            "RED: the working tree is dirty at turn end — 6 path(s): ?? s1.txt, ?? s2.txt, ?? s3.txt, ?? s4.txt, ?? s5.txt, …",  # noqa: E501 — a golden line is typed whole
+            six,
+        ),
+        (
+            "RED: core: the change touches 4 path(s) this pair describes (src/a.py, src/b.py, src/c.py, …) and none of its document(s): docs/core.md",  # noqa: E501 — a golden line is typed whole
+            four,
         ),
     ]
     missing = [text for text, haystack in literals if text not in haystack]
@@ -822,9 +894,9 @@ def directory_named_as_document() -> tuple[bool, str]:
     r = repo(with_map({**CORE, "docs": ["docs/"]}))
     branch(r.root)
     commit(r.root, "code", {"src/a.py": "2\n"})
-    slash = broken(scan(r.root), messages.c5_pair(1, messages.pair_docs_directory("docs/")))
+    slash = broken(scan(r.root), pair_line(1, "names 'docs/', a directory — a pair's documents are files"))
     commit(r.root, "the tree", {"constitution.yaml": dials_text(with_map({**CORE, "docs": ["docs"]}))})
-    tree = broken(scan(r.root), messages.x2_document_is_directory("core", "docs", short(r.root)))
+    tree = broken(scan(r.root), messages.x2_document_is_directory("core", "docs", short(r.root)).render())
     commit(r.root, "the file", {"constitution.yaml": dials_text(with_map()), "docs/core.md": "# 2\n"})
     green = green_scan(scan(r.root), tail(1, 3, short(r.root, "main"), short(r.root)))
     return all_of(
@@ -840,8 +912,11 @@ def unrelated_histories() -> tuple[bool, str]:
     other = short(r.root)
     checkout(r.root, "main")
     result = scan(r.root, "--since", "other")
-    expected = messages.c12_range(other, short(r.root), str(r.root), "the two histories share no commit")
-    return broken(result, expected)
+    return broken(
+        result,
+        f"BROKEN: git could not read the range {other}..{short(r.root)} in {r.root}: the two histories"
+        f" share no commit — fix: repair what git names in the message; {SHALLOW}",
+    )
 
 
 def gate_on(
@@ -946,7 +1021,8 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (31, "a misspelt dial is a configuration failure", misspelt_dial),
     (
         32,
-        "golden lines of T1–T4, X1, X2, the trailing-slash C5 and the count forms, typed by hand",
+        "golden lines of T1–T4, X1, X2, the trailing-slash C5, the count forms and the ellipsis of T1 and"
+        " T2, typed by hand",
         golden_lines,
     ),
     (33, "the hooks file's shape", hooks_file_shape),
