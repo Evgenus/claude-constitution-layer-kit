@@ -84,7 +84,7 @@ not, and every write says so until it is installed.
    not change — what names the old path elsewhere, and ends with the scan. After a move made
    by hand: `--moved <old> <new>`. To point every link whose text is a document's id at that
    document: `--ids`. The skill `/const-referencing:referencing` carries the procedure.
-7. Output log: every line the gate and the mover print is also appended, as one JSON line
+7. Output log: everything the gate and the mover print is also appended, one JSON line per print
    (timestamp, module, gate, mode, session, stream, text), to `const-referencing.jsonl` —
    blocked writes and reports after a write leave no trace in git. By default it lives
    in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository;

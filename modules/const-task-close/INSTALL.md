@@ -78,7 +78,7 @@ silently skipped.
    where `$BASE_SHA` is the pull request's base commit from the event payload and `body.txt` holds
    its description. A shallow clone whose history stops before the base cannot see the range, and
    the check relays git's refusal with the fix.
-7. Output log: every line the hook and the scan print is also appended, as one JSON line
+7. Output log: everything the hook and the scan print is also appended, one JSON line per print
    (timestamp, module, gate, mode, session, stream, text), to `const-task-close.jsonl` —
    blocked turn ends and warnings leave no trace in git. By default it lives in the platform's
    per-plugin data directory. Set `log_dir` to keep it inside the repository; the directory must

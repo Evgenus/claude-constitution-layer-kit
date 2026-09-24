@@ -46,7 +46,7 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    sh <plugin root>/scripts/check-decision-record.sh --scan
    ```
    Exit 0 green, 2 findings, 1 the checker could not run. The scan ignores `severity`.
-5. Output log: every line the gate prints is also appended, as one JSON line (timestamp,
+5. Output log: everything the gate prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-decision-records.jsonl` — blocked
    writes, warnings and configuration failures leave no trace in git, so this is where they
    survive. By default it lives in the platform's per-plugin data directory, outside the

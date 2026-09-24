@@ -23,7 +23,7 @@ Exit:     0 the document was created, or the dry run printed what a write would 
           1 refused — every refusal is asked before anything is written — or it could
           not run. Never 2: a generator has no findings.
 Output:   HOME, TEMPLATE, CREATED and the count on stdout; refusals (BROKEN) on stderr.
-          Every printed line is also appended to the output log.
+          Every print is also appended, as one record, to the output log.
 
 This file stays parseable by any Python 3 so that an interpreter below the floor gets the
 teaching message rather than a syntax error; the code lives in the package beside it.

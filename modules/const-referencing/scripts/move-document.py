@@ -25,7 +25,8 @@ Exit:     0 the act was made and the whole tree is green; 2 the act was made and
           anything moves, so the closing line says that nothing was changed — or it stopped
           midway, and the closing line says that instead and names what to do.
 Output:   MOVED, REWROTE and MENTION lines and the count on stdout, then the scan's lines;
-          refusals (BROKEN) on stderr. Every printed line is also appended to the output log.
+          refusals (BROKEN) on stderr. Every print is also appended, as one record, to the
+          output log.
 
 This file stays parseable by any Python 3 so that an interpreter below the floor gets the
 teaching message rather than a syntax error; the code lives in the package beside it.

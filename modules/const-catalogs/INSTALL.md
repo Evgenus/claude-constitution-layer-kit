@@ -59,7 +59,7 @@ file, each with the fix on the first line; nothing is silently skipped.
    line names each catalog's highest number, and the highest in history where a deleted item
    went further; where history is incomplete — a shallow checkout — or could not be read, the
    line says so.
-5. Output log: every line the gate prints is also appended, as one JSON line (timestamp,
+5. Output log: everything the gate prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-catalogs.jsonl` — blocked writes,
    warnings and configuration failures leave no trace in git, so this is where they survive.
    By default it lives in the platform's per-plugin data directory, outside the repository.

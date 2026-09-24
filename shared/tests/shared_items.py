@@ -439,16 +439,25 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def log_in_plugin_data() -> tuple[bool, str]:
         data = h.scratch_dir()
-        s.gate_on(s.red, env={"CLAUDE_PLUGIN_DATA": str(data)})
+        result, _ = s.gate_on(s.red, env={"CLAUDE_PLUGIN_DATA": str(data)})
         lines = log_lines(data / log_name())
         line = lines[0]
         first = ("RED: " if s.event_driven else "BROKEN: ") + s.red_finding.headline
+        said = {
+            stream: [each["text"] for each in lines if each["stream"] == stream]
+            for stream in ("stdout", "stderr")
+        }
         ok = (
             set(line) == {"ts", "module", "gate", "mode", "session", "stream", "text"}
             and line["text"].startswith(first)
             and line["module"] == ns
             and line["stream"] == "stderr"
             and line["session"] == ("fixture-session" if s.event_driven else "")
+            # one record per print: the records rebuild both streams exactly, and a block verdict,
+            # printed at once, is one record of several lines
+            and "".join(text + "\n" for text in said["stdout"]) == result.stdout
+            and "".join(text + "\n" for text in said["stderr"]) == result.stderr
+            and (not s.event_driven or (len(said["stderr"]) == 1 and "\n" in line["text"]))
         )
         return ok, f"{len(lines)} log lines; first: {line}"
 
@@ -706,7 +715,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ("a dials file with no root_policy: a visible skip", no_root_policy),
         ("an Edit whose old_string is absent is a visible skip; the tool reports it", edit_unappliable),
         ("severity warn: exit 0 with the whole finding as JSON for the model and the user", severity_warn),
-        ("output log: every printed line lands in the plugin data directory", log_in_plugin_data),
+        ("output log: each print is one record, in the plugin data directory", log_in_plugin_data),
         ("output log: the log_dir dial routes the whole run to a git-ignored directory", log_in_ignored_dir),
         ("output log: a log_dir that git does not ignore is a configuration failure", log_dir_not_ignored),
         ("output log: rotation past the size limit", log_rotates),
