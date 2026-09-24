@@ -383,7 +383,8 @@ def detail_not_utf8(exc: UnicodeDecodeError) -> str:
     """Where the first byte that is not UTF-8 stands, as a person finds it: line and column, from 1."""
     data = bytes(exc.object)  # bytes or bytearray, as the decoder was handed it
     line = data.count(b"\n", 0, exc.start) + 1
-    column = exc.start - data.rfind(b"\n", 0, exc.start)
+    start = data.rfind(b"\n", 0, exc.start) + 1
+    column = len(data[start : exc.start].decode("utf-8")) + 1  # characters, as an editor counts; all valid
     where = f"line {line}, column {column}"
     return f"byte 0x{data[exc.start]:02x} at {where} is not UTF-8; save the file as UTF-8"
 
