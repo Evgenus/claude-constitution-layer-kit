@@ -43,7 +43,7 @@ status: active
 | <a id="a3-7"></a>A3.7 | Who may decide per stakes level | binding | review judgment (human check in PR) |
 | <a id="a4"></a>**A4 — Handoff & task lifecycle** | | | |
 | <a id="a4-1"></a>A4.1 | Task close is a single act: code + current-state docs together; then task files deleted | [kernel §2](../kernel/CONVENTIONS.md#k2) | definitional — enforced through A4.4 + A4.5 |
-| <a id="a4-2"></a>A4.2 | Defect rule: doc↔code divergence outside any active task's scope is a defect | [kernel §2](../kernel/CONVENTIONS.md#k2) | detected by M4 scan — **gate as flag**; blocking is a dial |
+| <a id="a4-2"></a>A4.2 | Defect rule: doc↔code divergence outside any active task's scope is a defect | [kernel §2](../kernel/CONVENTIONS.md#k2) | detected by M4 scan — **gate-lite**; blocking is a dial |
 | <a id="a4-3"></a>A4.3 | Lifecycle doctrine: `active` = in force, `inactive` = historical evidence kept while referenced, unreferenced → deleted; stalled = active record with no commits in scope | [kernel §1](../kernel/CONVENTIONS.md#k1) | advisory + optional active-age assist script |
 | <a id="a4-4"></a>A4.4 | Close enforcement: code-touching change updates covered docs or carries a no-impact declaration | M4 check | **gate**: PR check, red = fix |
 | <a id="a4-5"></a>A4.5 | Close skill: merge deltas → delete working files → set record `inactive`; active-without-progress flagged | M4 skill | advisory procedure; leftover-files check scriptable (**gate-lite** at close) |
@@ -101,14 +101,14 @@ status: active
 | <a id="a13-4"></a>A13.4 | Uniqueness: no two items of one catalog share a number; a collision at PR is repaired by the branch that has not landed renumbering its own item and its same-branch references — the item already on main keeps its number | M11 gate+skill | **gate**: the scan, run in CI on PR, red = fix; at write time a new item under a number the working tree already carries is blocked; renumber procedure advisory |
 | <a id="a13-5"></a>A13.5 | Gaps are legitimate: a missing number is a deleted or renumbered item, git holds what it was; no continuity check, no placeholder records ([kernel §1](../kernel/CONVENTIONS.md#k1) deletion rule) | M11 | definitional — stated as an honest limit; backstop = branch review + git log |
 | <a id="a13-6"></a>A13.6 | Reference forms: the full stem is canonical on machine surfaces (frontmatter, links); bare `PREFIX-NNNN` tolerated in prose; either resolves by one glob | M11 skill | advisory; syntax lint when [`const-referencing`](#const-referencing) is installed |
-| <a id="a13-7"></a>A13.7 | Catalog declarations: a numbered kind is an entry of the module's dials — prefix, territory, width — independent of policies ([kernel §6](../kernel/CONVENTIONS.md#k6)); the same prefix listed twice is a defect | M11 script | the entries validated at each read (**gate**, configuration failure); double-declaration defect (**gate**, configuration failure) |
+| <a id="a13-7"></a>A13.7 | Catalog declarations: a numbered kind is an entry of the module's dials — prefix, territory, width — independent of policies ([kernel §6](../kernel/CONVENTIONS.md#k6)); the same prefix listed twice is a defect | M11 script | the entries validated at each read (**config**, a configuration failure); double-declaration defect (**config**, a configuration failure) |
 
 ## Module specifications — in order of introduction
 
 *A description below is the module's draft until authoring begins; then it moves into the module's `MODULE.md` and this heading keeps its anchor with a one-line stub linking there. The anchor is the module's stable handle in the kit for its whole life, authored or not (decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)).*
 
 <a id="const-meta-types"></a>
-### M1 `const-meta-types` — accumulating; authored first, in Phase A
+### M1 `const-meta-types` — accumulating; authored first
 
 Description moved into the module's document: [`modules/const-meta-types/MODULE.md`](../modules/const-meta-types/MODULE.md) (rows [A1.4](#a1-4), [A1.5](#a1-5), [A2.3](#a2-3)); this anchor stays the module's handle.
 
@@ -133,7 +133,7 @@ Description moved into the module's document: [`modules/const-task-close/MODULE.
 Description moved into the module's document: [`modules/const-referencing/MODULE.md`](../modules/const-referencing/MODULE.md) (rows [A5.1](#a5-1)–[A5.3](#a5-3) and [A5.5](#a5-5)–[A5.8](#a5-8)); this anchor stays the module's handle.
 
 <a id="const-questions"></a>
-### M6 `const-questions` — self-limiting; enters on the friction signal (expect it in Phase A's authoring sessions)
+### M6 `const-questions` — self-limiting; enters on the friction signal
 
 **Failure pattern:** both poles observed in the field — questions bundled, improvised, or asked without options and a recommendation; questions asked below the threshold (the agent should have decided and noted); open questions deferred into delivered documents; and the inverse ritualization: every small uncertainty escalated as a fixed-price ceremony.
 **Rules (advisory — skill prose, honestly labeled):**
