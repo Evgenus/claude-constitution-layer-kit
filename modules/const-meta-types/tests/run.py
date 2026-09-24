@@ -355,15 +355,6 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(3, 3, 3)), "stdout")
 
 
-def long_value_is_cut() -> tuple[bool, str]:
-    """A value a page long is echoed cut, so the whole verdict stays under the platform's cap."""
-    text = document(id="note-a", type="x" * 12_000, title="Note A", status="active")
-    result, _ = gate_on(Write(NOTE_A, text))
-    taught = messages.f4_invalid_fields(NOTE_A, [messages.f4_type_not_allowed("x" * 12_000)]).render()
-    ok = result.code == 2 and taught in result.stderr and len(result.stderr) < 2_000
-    return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
-
-
 def fix_names_the_failing_field() -> tuple[bool, str]:
     """The fix of F4 names the field that failed and no other; the line is typed as printed."""
     result, _ = gate_on(
@@ -424,7 +415,6 @@ ASSERTIONS = [
         "scan: a tracked file deleted from the working tree is left out, not a failure",
         scan_with_deleted_file,
     ),
-    Assertion(28, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(29, "golden line: the F1 fix as a literal, not as the function returns it", golden_f1_fix),
     Assertion(27, "message shape: every taught finding has what, why and fix", message_shape),
     Assertion(
@@ -450,6 +440,7 @@ SUBJECT = Subject(
     territory=["docs/notes/**"],
     green=shared.governed_by("notes-policy"),
     claim=claim,
+    long_value=Write(NOTE_A, document(id="note-a", type="x" * 12_000, title="Note A", status="active")),
     # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
     outside="docs/notes/a.md is outside claimed territory",
 )

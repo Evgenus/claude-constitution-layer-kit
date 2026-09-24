@@ -544,14 +544,6 @@ def scan_scales() -> tuple[bool, str]:
     return ok, f"300 items examined in {elapsed:.1f} s (bound 15 s); exit {result.code}"
 
 
-def long_value_is_cut() -> tuple[bool, str]:
-    """A value a page long is echoed cut, so the whole verdict stays under the platform's cap."""
-    result, _ = gate_on(Write(ITEM_A, item(id="x" * 12_000)))
-    taught = k2(messages.k2_differs("x" * 12_000, STEM_A)).render()
-    ok = result.code == 2 and taught in result.stderr and len(result.stderr) < 2_000
-    return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
-
-
 ONE_AND_NINE = {ITEM_A: item(), at("itm-0009-ninth"): item("itm-0009-ninth")}
 K4 = messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, take_next(2))
 
@@ -962,7 +954,6 @@ ASSERTIONS = [
         scan_with_deleted_file,
     ),
     Assertion(39, "scan: 300 items in seconds (each item read once)", scan_scales),
-    Assertion(40, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(41, "message shape: every taught finding has what, why and fix", message_shape),
     Assertion(
         43,
@@ -1071,6 +1062,7 @@ SUBJECT = Subject(
     green=messages.g1_item_of(CATALOG),
     territory=TERRITORY,
     claim=claim,
+    long_value=Write(ITEM_A, item(id="x" * 12_000)),
     # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
     outside="docs/items/first.md lies in no catalog's territory (itm)",
     resolves_policies=False,

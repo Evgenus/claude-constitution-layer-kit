@@ -80,6 +80,8 @@ class Subject:
     # blocks; where an item builds a payload itself it builds a Stop one
     outside: str | None = None  # the module's skip reason for `red.target` once a negated pattern takes
     # it out of the territory, typed by hand; required by the item about negation wherever it runs
+    long_value: Write | None = None  # a write the gate blocks with one finding that echoes a value of
+    # 12,000 characters "x"; None leaves the item about a value cut short out
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
@@ -481,6 +483,23 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ok = declared == set(preflight.declared())
         return ok, f"requirements.txt {sorted(declared)} == preflight table {sorted(preflight.declared())}"
 
+    def long_value_is_cut() -> tuple[bool, str]:
+        """A value a page long is echoed cut, so the whole verdict stays under the platform's cap —
+        and the cut is said, not silent."""
+        assert s.long_value is not None  # the item is left out otherwise
+        result, _ = s.gate_on(s.long_value)
+        ok = (
+            result.code == 2
+            and "… [12000 characters]" in result.stderr  # the marker, typed by hand
+            and "x" * 81 not in result.stderr
+            and len(result.stderr) < 2_000
+        )
+        return ok, (
+            f"exit 2; {len(result.stderr)} characters on stderr for a 12,000-character value, cut and said"
+            if ok
+            else f"exit {result.code}; {len(result.stderr)} characters on stderr: {result.stderr[:400]}"
+        )
+
     items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
         ("C4b: a dials file that is not a mapping", dials_not_mapping),
@@ -550,6 +569,10 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ("a file-level negated pattern takes the file out, and the skip names why", negated_pattern),
         ("a document where policies live with no readable id earns a note", policy_without_id_note),
         ("an Edit with an empty old_string on an existing file is a visible skip", edit_empty_old_string),
+        (
+            "an echoed value a page long is cut, and the cut is said: the verdict stays a message",
+            long_value_is_cut,
+        ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
     # that resolves no policy leaves gaps where the items about policies stand.
@@ -602,4 +625,5 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         and (s.judges_envelopes or check is not deeply_nested_envelope)
         and (s.event_driven or check not in about_events)
         and (not stop or check not in about_files)
+        and (s.long_value is not None or check is not long_value_is_cut)
     ]
