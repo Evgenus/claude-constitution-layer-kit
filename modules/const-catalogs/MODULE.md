@@ -69,7 +69,7 @@ The advisory rules beside it, each `advisory` in its own text: (C-a) a new item 
 | command | none | no act here is one a human deliberately types: numbers are taken while a document is being written. |
 | agent | none | taking a number and naming a file is one step of the dialog that writes the document, not a delegation. |
 
-- **Always-on content:** the skill's description in the skill listing, 647 characters of text; the folded scalar adds a final line break. No `SessionStart` hook: the rules are needed when a numbered document is written, and the gate's messages teach them at that moment.
+- **Always-on content:** the skill's description in the skill listing, 648 characters, counted as YAML loads it, its final line break included. No `SessionStart` hook: the rules are needed when a numbered document is written, and the gate's messages teach them at that moment.
 - **Platform facts relied on** (all verified 2026-09-20 against the official documentation; sources in the research comparison, section 7):
   1. A `PreToolUse` command hook exiting 2 blocks the tool call and Claude sees stderr as the reason; exit 2 blocks whether or not JSON is printed. Breaks: the gate stops blocking.
   2. `Write` input is `file_path` + `content`; `Edit` input is `file_path`, `old_string`, `new_string`, `replace_all`; `file_path` is absolute for the file tools; `Write|Edit` is an exact-string list. Breaks: locating or reconstructing the document; a Markdown write through an unmatched tool.

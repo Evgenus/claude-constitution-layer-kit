@@ -67,7 +67,7 @@ The advisory rules beside it, each `advisory` in its own text: (R-a) price a dec
 | agent | none | a record is the residue of a dialog — options argued, the decider's pick — that a subagent in its own context never saw. |
 | script for the promotion loop | none | git counts trailer values natively; a script would add nothing to one command. |
 
-- **Always-on content:** the two skill descriptions in the skill listing, 620 and 414 characters. No `SessionStart` hook: the triage is needed when a ruling is made, not in every session.
+- **Always-on content:** the two skill descriptions in the skill listing, 621 and 415 characters. No `SessionStart` hook: the triage is needed when a ruling is made, not in every session.
 - **Platform facts relied on** (all verified 2026-09-18 against the official documentation; sources in the research comparison):
   1. A `PreToolUse` command hook exiting 2 blocks the tool call and Claude sees stderr as the reason. Breaks: the gate stops blocking.
   2. `Write` input is `file_path` + `content`; `Edit` input is `file_path`, `old_string`, `new_string`, `replace_all`; `file_path` is absolute for the file tools. `Edit` requires `old_string` to match exactly and exactly once unless `replace_all` is set, and it can create a new file — so an `Edit` of a missing file with an empty `old_string` is judged on its `new_string`. Breaks: locating or reconstructing the document.
