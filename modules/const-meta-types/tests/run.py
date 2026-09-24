@@ -9,6 +9,7 @@ Exit 0 when every item is green, 2 otherwise.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from collections.abc import Sequence
@@ -534,6 +535,34 @@ def golden_lines() -> tuple[bool, str]:
     return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 
 
+def unreadable_twin_is_broken() -> tuple[bool, str]:
+    """A governed document nobody can read may carry the written id: the uniqueness check cannot
+    be made, so the write is the shared configuration failure, never a green that compared the id
+    with nothing. Both lines typed by hand."""
+    if os.geteuid() == 0:
+        return True, (
+            "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 documents examined"
+        )
+    twin = "docs/notes/twin.md"
+    consumer = H.fresh_consumer([Write(twin, envelope("note-a"))])
+    path = consumer.root / twin
+    mode = path.stat().st_mode
+    path.chmod(0o000)
+    try:
+        result = H.run_gate(event_json(consumer.root, VALID))
+    finally:
+        path.chmod(mode)
+    first = (
+        "BROKEN: docs/notes/twin.md is listed by git but cannot be read — fix: check that the file can be"
+        " read: its permissions, or a link that leads nowhere"
+    )
+    count = "BROKEN: the check could not run — 0 documents examined"
+    ok, detail = broken_first_line(result, first)
+    if ok and count not in result.stderr.splitlines():
+        return False, f"no count line in stderr: {result.stderr}"
+    return ok, detail
+
+
 ASSERTIONS = [
     Assertion(18, "examined count: outside claimed territory prints 0 and exits 0", outside_territory),
     Assertion(19, "a territory with no policy behind it claims nothing: a visible skip", void_territory),
@@ -556,6 +585,9 @@ ASSERTIONS = [
     Assertion(31, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
     Assertion(32, "the fix of F4 names only the field that failed", fix_names_the_failing_field),
     Assertion(33, "golden lines: each finding's headline, why and fix as literals", golden_lines),
+    Assertion(
+        36, "hook: a governed document nobody can read is C12.10, never a green", unreadable_twin_is_broken
+    ),
 ]
 
 

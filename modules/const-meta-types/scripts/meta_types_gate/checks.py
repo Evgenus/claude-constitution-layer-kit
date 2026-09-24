@@ -71,11 +71,13 @@ def envelope_errors(envelope: Envelope) -> list[str]:
 
 def id_owners(index: Index) -> dict[str, list[str]]:
     """id -> the governed documents carrying it (claimed by path, or bound by a declaration
-    naming a policy). Built once per run: every Markdown file is read a single time."""
+    naming a policy). Built once per run: every Markdown file is read a single time, and one
+    nobody can read is the shared configuration failure, in a write as in a scan: an id not read
+    is a uniqueness not checked, and a green line would claim it was."""
     claimed = {rel for policy in index.policies.values() for rel in policy.claims}
     owners: dict[str, list[str]] = {}
-    for rel in index.paths:
-        envelope = parse_envelope(index.text(rel) or "")
+    for rel, text in index.documents():
+        envelope = parse_envelope(text)
         doc_id = document_id(envelope)
         if doc_id is not None and (rel in claimed or declared_policy(envelope) in index.policies):
             owners.setdefault(doc_id, []).append(rel)
