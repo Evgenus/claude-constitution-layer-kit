@@ -129,7 +129,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 **R36.** Twenty-five Markdown files lie in no territory, the kit's record template now among them — `CLAUDE.md`, the README, the templates, the skills, the install notes. The constitution is silent there, so this is no defect, and no policy is written for them by this record; a session-guide kind and a templates kind are the next policies the kit will want, when friction says so.
 
-**R37.** Found by the audit and ruled here: the link to a deleted record becomes its title in plain words inside a frozen research comparison, an edit the freeze allows by name beside a dated annotation, a later survey's `inactive` and a link repaired by the mover after a move, made by it or by hand, and in a done line of the plan, a routine edit — not only inside another record; this widens items 3 and 4 of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md) without reversing them.
+**R37.** Found by the audit and ruled here: the link to a deleted record becomes its title in plain words inside a frozen research comparison, an edit the freeze allows by name beside a dated annotation, a later survey's `inactive` and a link repaired by the mover after a move, made by it or by hand; and in a done line of the plan, a routine edit — not only inside another record; this widens items 3 and 4 of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md) without reversing them.
 
 ## Carry list
 
