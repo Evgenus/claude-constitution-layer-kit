@@ -251,7 +251,9 @@ def l5_could_not_write(home: str, error: str) -> Broken:
     return _refused(
         f"{home} could not be written ({error}): the write is the last act, so the refusal leaves nothing"
         " behind",
-        "check the directory's permissions; nothing else was changed",
+        "remove what the system's error names — a denied permission, a file or link in the way at the"
+        " home or a directory above it, a full or read-only disk — and run it again; nothing else was"
+        " changed",
     )
 
 
