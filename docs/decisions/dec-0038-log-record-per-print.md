@@ -17,7 +17,7 @@ Rule 12 of [template §6](../../module-template/MODULE.md#t6) said that every li
 
 - **A. One record per print call.** Each call of `out` or `err` is one record, its newlines kept inside `text`.
   - **Pros:** the unit the caller meant is the unit logged; a one-line change to `_emit`; the log still holds only what was printed, in the order printed, and the seven fields stay as they are.
-  - **Cons:** a configuration failure is still three records — the BROKEN line, the count line and a traceback — because the guard prints three times; a plain `grep` no longer matches a whole record by a line of a verdict.
+  - **Cons:** a configuration failure is still two records — the BROKEN line and the count line — and an unexpected one three, a traceback last, because the guard prints each apart; a plain `grep` no longer matches a whole record by a line of a verdict.
 - **B. One record per run.** The whole run is one JSON line.
   - **Pros:** one event is always one record.
   - **Cons:** stdout and stderr mix in one record or the shape grows a second text field; the held-records design of [dec-0022-output-log-through-logging](dec-0022-output-log-through-logging.md) loses its point.
@@ -27,7 +27,7 @@ Rule 12 of [template §6](../../module-template/MODULE.md#t6) said that every li
 
 ## Recommendation
 
-A, by the session: the unit a caller prints is the unit of meaning, and it keeps the mechanism and the fields of the log. Should the three records of a configuration failure trouble a reader, the remedy is a guard that prints once, not another unit.
+A, by the session: the unit a caller prints is the unit of meaning, and it keeps the mechanism and the fields of the log. Should the several records of a configuration failure trouble a reader, the remedy is a guard that prints once, not another unit.
 
 ## Choice
 
@@ -35,7 +35,7 @@ A, chosen by the decider in chat on 2026-09-24.
 
 ## Ruling
 
-**R1.** One call that prints — `out` or `err` of the shared `output` — is one record of the output log, one JSON line; a text of several lines stays one record, its newlines escaped by JSON. The records of a run, their texts each followed by a newline, rebuild what the run printed on each stream exactly.
+**R1.** One call that prints — `out` or `err` of the shared `output` — is one record of the output log, one JSON line; a text of several lines stays one record, its newlines escaped by JSON. The records of a run, their texts each followed by a newline, rebuild what the run printed on each stream exactly, save a character the stream could not encode, which the stream shows escaped and the record keeps.
 
 **R2.** The shared item S132 holds R1: its records rebuild both streams of a red run, and a gate's block verdict is one record of several lines.
 
