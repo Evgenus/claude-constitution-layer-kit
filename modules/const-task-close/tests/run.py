@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -919,6 +920,41 @@ def unrelated_histories() -> tuple[bool, str]:
     )
 
 
+def fake_git(failing: str) -> dict[str, str]:
+    """A git first on PATH that fails one subcommand as git does and hands every other to the real one."""
+    real = shutil.which("git")
+    assert real is not None
+    script = H.scratch_dir() / "git"
+    script.write_text(
+        f'#!/bin/sh\nif [ "$1" = "{failing}" ]; then\n'
+        f'  echo "fatal: planted {failing} failure" >&2; exit 128\nfi\nexec "{real}" "$@"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return {"PATH": f"{script.parent}{os.pathsep}{os.environ['PATH']}"}
+
+
+def unreadable_tree() -> tuple[bool, str]:
+    """git failing on the working tree is a configuration failure in both modes, never a clean tree:
+    the hook's git status, the scan's git ls-files."""
+    r = repo(own())
+    r.write("scratch.txt", "x\n")
+    hooked = broken(
+        hook(r.root, env=fake_git("status")),
+        f"BROKEN: git could not read the working tree in {r.root}: fatal: planted status failure — fix:"
+        " repair what git names in the message, then check by hand: git -C <that directory> status",
+    )
+    r2 = repo(with_map())
+    branch(r2.root)
+    commit(r2.root, "code", {"src/a.py": "2\n"})
+    scanned = broken(
+        scan(r2.root, env=fake_git("ls-files")),
+        f"BROKEN: git could not read the working tree in {r2.root}: fatal: planted ls-files failure — fix:"
+        " repair what git names in the message, then check by hand: git -C <that directory> status",
+    )
+    return all_of([hooked, scanned], "git status failing in the hook, git ls-files in the scan: exit 1 each")
+
+
 def gate_on(
     action: Write | Edit,
     dials_patch: dict[str, object] | None = None,
@@ -1039,6 +1075,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         "red→green: a docs path naming a directory is refused, a trailing slash at the read and a tree at"
         " HEAD by the scan; the file named, the change is examined",
         directory_named_as_document,
+    ),
+    (
+        39,
+        "git failing on the working tree is a configuration failure, in the hook and in the scan",
+        unreadable_tree,
     ),
 ]
 
