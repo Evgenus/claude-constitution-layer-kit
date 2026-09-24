@@ -167,7 +167,7 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 <a id="t10"></a>
 ## 10. Acceptance
 
-Numbered items in `tests/run.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the `Subject` widened for a module that is only a generator ([§4](#t4), R3). Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
+Numbered items in `tests/run.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the `Subject` widened for a module that is only a generator (ruling R3 of the record in [§4](#t4)). Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
 
 | item | kind | what it proves |
 |---|---|---|
@@ -194,7 +194,7 @@ Numbered items in `tests/run.py`: the module's own from 1, the shared items of [
 | V1 | live | done 2026-09-22: in this repository, with the namespace of `constitution.yaml` calibrated, a dry run for each of its nine kinds reproduced the comparison's table — four homes, one with a segment, four refusals — created nothing, and wrote the log to `log_dir` |
 | V2 | live | done 2026-09-22: the plugin loaded with `--plugin-dir`, beside `const-catalogs`, in a headless session on a detached worktree of this repository, asked for a policy: the model invoked `new-document` first, took the number from the catalog procedure's scan, ran the command as a dry run and then for real, and the policy landed where policies live with a valid envelope and its number, every gate green on the result. It filled the body by rewriting the whole file through a shell heredoc, the envelope repeated unchanged — the limit 1 path, here harmless, recorded |
 | V3 | live, deferred | the consumer-live proof, a named step of the consumer's bootstrap ([rollout plan](../../docs/rollout-plan.md), Phase B step 5): this runner against the project, a document of each of its kinds created through the command, and the install shown to carry the linked `const_gate` (platform fact 6, shared limit 3); a finding there is a fix with a version bump |
-| R1 | review | the boundary examples of [§8](#t8), the skills and the error texts of [§6](#t6), at the one yes |
+| V4 | review | the boundary examples of [§8](#t8), the skills and the error texts of [§6](#t6), at the one yes |
 
 **Examined count.** L4 in every completed run: one document created, or zero in a dry run, said as such.
 

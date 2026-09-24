@@ -15,8 +15,8 @@ decider: <the person or role who made the choice>
 who was not in the dialog must understand why a choice was needed.>
 
 <!-- SHAPE ONE — a real choice existed. Delete shape two. A record answering several
-questions repeats Options, Recommendation and Choice under one numbered section per
-question, the ruling of each opening with its handle. -->
+questions has one numbered section per question — its context, its lettered options, one
+recommendation with its reasoning, the choice, and the ruling opening with its handle. -->
 
 ## Options
 
