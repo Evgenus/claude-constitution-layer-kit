@@ -627,13 +627,14 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         """A byte that is not UTF-8 is the file's content: C4 naming its line and column, never C12.11."""
         _, root = s.gate_on(s.valid)
         dials = root / "constitution.yaml"
-        dials.write_bytes(b"# \xff\n" + dials.read_bytes())
+        # "# é", then the byte: two bytes, one character, so the column counts characters, not bytes
+        dials.write_bytes(b"# \xc3\xa9\xff\n" + dials.read_bytes())
         if s.event_driven:
             result = h.run_gate(payload(root, s.valid))
         else:
             result = h.run_gate("", args=list(s.act_args), cwd=root)  # refused before the home is looked at
         line = (
-            "BROKEN: constitution.yaml is not valid YAML (byte 0xff at line 1, column 3 is not UTF-8; save"
+            "BROKEN: constitution.yaml is not valid YAML (byte 0xff at line 1, column 4 is not UTF-8; save"
             " the file as UTF-8) — fix: repair the YAML at the place the message names; nothing is checked"
             " until the file parses"
         )
