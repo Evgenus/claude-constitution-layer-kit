@@ -2,7 +2,7 @@
 id: dec-0039-policies-state-their-kinds
 type: task-record
 title: Every policy states the shape of its kind — an enforcement rule, anchored rules that keep their numbers, a change rule, and the conventions its documents already keep
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
