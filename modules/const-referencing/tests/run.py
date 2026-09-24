@@ -155,6 +155,8 @@ def body(line: str) -> str:
 
 # ------------------------------------------------------------------ red → green cases
 
+GREEN_WHAT = "a covered document"  # what every green half's line says its document is, typed by hand
+
 CASES = [
     Case(
         1,
@@ -162,6 +164,7 @@ CASES = [
         wrote(body("See REQ-7.")),
         VALID,
         r1(),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -170,6 +173,7 @@ CASES = [
         wrote(body(f"See `{OWNER_ID}`.")),
         VALID,
         R2,
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -178,6 +182,7 @@ CASES = [
         wrote(body(f"See [{OWNER_ID}](../policies/root-policy.md).")),
         VALID,
         R3,
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -186,6 +191,7 @@ CASES = [
         wrote(body("Notes: /Users/someone/notes.md")),
         VALID,
         R4_PATH,
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -194,6 +200,7 @@ CASES = [
         wrote(body("Notes: [n](file:///srv/notes.md)")),
         VALID,
         R4_FILE,
+        GREEN_WHAT,
         SETUP,
     ),
 ]
@@ -2118,6 +2125,8 @@ SUBJECT = Subject(
     green=messages.g1_covered(),
     territory=["*.md"],
     claim=claim,
+    # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
+    outside="docs/notes/a.md is not covered (const-referencing.territories)",
     resolves_policies=False,
     bare_readme="1 document examined",
     judges_envelopes=False,

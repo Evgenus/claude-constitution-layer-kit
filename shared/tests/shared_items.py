@@ -23,7 +23,18 @@ from const_gate import messages, preflight
 from const_gate.model import Broken, Finding
 from const_gate.output import ROTATE_AT, log_name
 from consumer import ROOT_POLICY
-from harness import Assertion, Edit, Harness, Result, Write, broken_first_line, event_json, expect, stop_json
+from harness import (
+    Assertion,
+    Edit,
+    Harness,
+    Result,
+    Write,
+    broken_first_line,
+    event_json,
+    expect,
+    red_lines,
+    stop_json,
+)
 
 NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
 
@@ -78,6 +89,10 @@ class Subject:
     # repository the event's cwd lies in and no written file, so the items about one are left out;
     # `gate_on` is still handed `valid` and `red`, and turns each into the tree the gate passes or
     # blocks; where an item builds a payload itself it builds a Stop one
+    outside: str | None = None  # the module's skip reason for `red.target` once a negated pattern takes
+    # it out of the territory, typed by hand; required by the item about negation wherever it runs
+    long_value: Write | None = None  # a write the gate blocks with one finding that echoes a value of
+    # 12,000 characters "x"; None leaves the item about a value cut short out
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
@@ -354,10 +369,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return expect(result, 0, s.green, "stdout")
 
     def negated_pattern() -> tuple[bool, str]:
-        """A file-level negated pattern takes the file out of the territory."""
+        """A file-level negated pattern takes the file out of the territory, and the skip says why."""
+        if s.outside is None:  # an empty default would make the item pass on any skip at all
+            return False, "Subject.outside not given"
         territory = [*s.territory, "!" + s.red.target]
         result, _ = s.gate_on(s.red, dials_patch=s.claim(territory))
-        return expect(result, 0, "0 documents examined", "stdout")
+        line = f"GREEN: {ns}: 0 documents examined — {s.outside}"
+        ok = result.code == 0 and line in result.stdout.splitlines()
+        return (
+            ok,
+            f"exit 0: {line}"
+            if ok
+            else f"wanted exit 0 printing {line!r}; got exit {result.code}: {result.stdout}",
+        )
 
     def policy_without_id_note() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, files={"docs/policies/zz-no-id.md": NO_ENVELOPE})
@@ -470,6 +494,25 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ok = declared == set(preflight.declared())
         return ok, f"requirements.txt {sorted(declared)} == preflight table {sorted(preflight.declared())}"
 
+    def long_value_is_cut() -> tuple[bool, str]:
+        """A value a page long is echoed cut, so the whole verdict stays under the platform's cap —
+        and the cut is said, not silent."""
+        if s.long_value is None:  # the item is left out then; a direct call must not pass vacuously
+            return False, "Subject.long_value not given"
+        result, _ = s.gate_on(s.long_value)
+        ok = (
+            result.code == 2
+            and len(red_lines(result.stderr)) == 2  # the one finding and the count line
+            and "… [12000 characters]" in result.stderr  # the marker, typed by hand
+            and "x" * 81 not in result.stderr
+            and len(result.stderr) < 2_000
+        )
+        return ok, (
+            f"exit 2; {len(result.stderr)} characters on stderr for a 12,000-character value, cut and said"
+            if ok
+            else f"exit {result.code}; {len(result.stderr)} characters on stderr: {result.stderr[:400]}"
+        )
+
     items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
         ("C4b: a dials file that is not a mapping", dials_not_mapping),
@@ -536,9 +579,13 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ("--scan outside any repository is a configuration failure", scan_outside_repository),
         ("--scan=DIR and a scan from a subdirectory examine the same repository", scan_forms),
         ("a byte-order mark before the envelope is not part of it", byte_order_mark),
-        ("a file-level negated pattern takes the file out of the territory", negated_pattern),
+        ("a file-level negated pattern takes the file out, and the skip names why", negated_pattern),
         ("a document where policies live with no readable id earns a note", policy_without_id_note),
         ("an Edit with an empty old_string on an existing file is a visible skip", edit_empty_old_string),
+        (
+            "an echoed value a page long is cut, and the cut is said: the verdict stays a message",
+            long_value_is_cut,
+        ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
     # that resolves no policy leaves gaps where the items about policies stand.
@@ -591,4 +638,5 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         and (s.judges_envelopes or check is not deeply_nested_envelope)
         and (s.event_driven or check not in about_events)
         and (not stop or check not in about_files)
+        and (s.long_value is not None or check is not long_value_is_cut)
     ]

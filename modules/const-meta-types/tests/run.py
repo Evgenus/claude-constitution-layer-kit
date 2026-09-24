@@ -34,6 +34,7 @@ from harness import (  # noqa: E402
     broken_first_line,
     event_json,
     expect,
+    red_lines,
 )
 from meta_types_gate import messages, start  # noqa: E402
 from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
@@ -47,6 +48,7 @@ SHARED = "docs/notes/shared/x.md"
 ROOT_TERRITORY = ["docs/policies/**"]
 NOTES = Match("notes-policy", "docs/notes/**")
 SHARED_POLICY = Match("shared-policy", "docs/notes/shared/**")
+F1_HEADLINE = "RED: docs/notes/a.md: no frontmatter envelope"  # typed by hand, as the gate prints it
 
 
 def yaml_error(block: str) -> str:
@@ -67,6 +69,7 @@ CASES = [
         Write(NOTE_A, NO_ENVELOPE),
         Write(NOTE_A, envelope("note-a")),
         messages.f1_no_envelope(NOTE_A),
+        "governed by notes-policy",
     ),
     Case(
         2,
@@ -74,6 +77,7 @@ CASES = [
         Write(NOTE_A, "---\nid: note-a\n\n# Note A\n"),
         Write(NOTE_A, envelope("note-a")),
         messages.f2_unterminated(NOTE_A),
+        "governed by notes-policy",
     ),
     Case(
         3,
@@ -81,6 +85,7 @@ CASES = [
         Write(NOTE_A, "---\nid: [unclosed\n---\n"),
         Write(NOTE_A, envelope("note-a")),
         messages.f3_invalid_yaml(NOTE_A, yaml_error("id: [unclosed")),
+        "governed by notes-policy",
     ),
     Case(
         4,
@@ -95,6 +100,7 @@ CASES = [
                 messages.f4_status_not_allowed("open"),
             ],
         ),
+        "governed by notes-policy",
     ),
     Case(
         5,
@@ -102,6 +108,7 @@ CASES = [
         Write("docs/notes/b.md", envelope("notes-policy")),
         Write("docs/notes/b.md", envelope("note-b")),
         messages.f5_duplicate_id("docs/notes/b.md", "notes-policy", "docs/policies/notes-policy.md"),
+        "governed by notes-policy",
     ),
     Case(
         6,
@@ -109,6 +116,7 @@ CASES = [
         Write("loose.md", envelope("loose", policy="ghost-policy")),
         Write("loose.md", envelope("loose", policy="notes-policy")),
         messages.f6_no_such_policy("loose.md", "ghost-policy", ROOT_TERRITORY),
+        "governed by notes-policy",
     ),
     Case(
         7,
@@ -116,6 +124,7 @@ CASES = [
         Write(SHARED, envelope("shared-x")),
         Write(SHARED, envelope("shared-x", policy="shared-policy")),
         messages.f7_multi_policy(SHARED, [NOTES, SHARED_POLICY]),
+        "governed by shared-policy",
     ),
     Case(
         8,
@@ -123,6 +132,7 @@ CASES = [
         Write(NOTE_A, envelope("note-a", policy="root-policy")),
         Write(NOTE_A, envelope("note-a")),
         messages.f8_contradiction(NOTE_A, "root-policy", NOTES, ROOT_TERRITORY),
+        "governed by notes-policy",
     ),
     Case(
         9,
@@ -130,6 +140,7 @@ CASES = [
         Write(NOTE_A, envelope("note-a", policy="ghost-policy")),
         Write(NOTE_A, envelope("note-a")),
         messages.f8_contradiction(NOTE_A, "ghost-policy", NOTES, None),
+        "governed by notes-policy",
     ),
     Case(
         10,
@@ -137,6 +148,7 @@ CASES = [
         Write(SHARED, envelope("shared-x", policy="root-policy")),
         Write(SHARED, envelope("shared-x", policy="notes-policy")),
         messages.f8b_contradiction_in_overlap(SHARED, "root-policy", [NOTES, SHARED_POLICY]),
+        "governed by notes-policy",
     ),
     Case(
         11,
@@ -144,6 +156,7 @@ CASES = [
         Write("docs/policies/drafts-policy.md", envelope("drafts-policy", "task-record")),
         Write("docs/policies/drafts-policy.md", envelope("drafts-policy", "current-state")),
         messages.f10_policy_type("docs/policies/drafts-policy.md", "task-record", ROOT_TERRITORY),
+        "governed by root-policy",
     ),
     Case(
         12,
@@ -151,6 +164,7 @@ CASES = [
         Write(ROOT_POLICY, NO_ENVELOPE),
         Write(ROOT_POLICY, envelope("root-policy", "current-state")),
         messages.f11_root_unreadable(ROOT_POLICY, messages.f11_detail_no_envelope()),
+        "governed by root-policy",
     ),
     Case(
         13,
@@ -158,6 +172,7 @@ CASES = [
         Write(ROOT_POLICY, envelope("root-policy", "task-record")),
         Write(ROOT_POLICY, envelope("root-policy", "current-state")),
         messages.f12_root_type(ROOT_POLICY, "task-record"),
+        "governed by root-policy",
     ),
     Case(
         14,
@@ -165,6 +180,7 @@ CASES = [
         Write(ROOT_POLICY, envelope("renamed-root", "current-state")),
         Write(ROOT_POLICY, envelope("root-policy", "current-state")),
         messages.f13_root_id_orphaned(ROOT_POLICY, "renamed-root"),
+        "governed by root-policy",
     ),
     Case(
         15,
@@ -175,6 +191,7 @@ CASES = [
             ROOT_POLICY,
             shared.c9_root_outside_own_territory(ROOT_POLICY, ["docs/notes/**"], "notes-policy"),
         ),
+        "governed by root-policy",
     ),
     Case(
         16,
@@ -182,6 +199,7 @@ CASES = [
         Edit(NOTE_A, "type: non-authoritative\n", ""),
         Edit(NOTE_A, "# Fixture", "# Fixture, edited"),
         messages.f4_invalid_fields(NOTE_A, [shared.field_missing("type")]),
+        "governed by notes-policy",
         setup=[Write(NOTE_A, envelope("note-a"))],
     ),
     Case(
@@ -190,6 +208,7 @@ CASES = [
         Edit(NOTE_A, "", NO_ENVELOPE),
         Edit(NOTE_A, "", envelope("note-a")),
         messages.f1_no_envelope(NOTE_A),
+        "governed by notes-policy",
     ),
 ]
 
@@ -256,14 +275,6 @@ def module_named_policy() -> tuple[bool, str]:
     return expect(result, 2, messages.f1_no_envelope("style/s.md").render(), "stderr")
 
 
-def negation() -> tuple[bool, str]:
-    result, _ = gate_on(
-        Write("docs/notes/secret.md", NO_ENVELOPE),
-        dials_patch={"notes-policy": {"territory": ["docs/notes/**", "!docs/notes/secret.md"]}},
-    )
-    return expect(result, 0, messages.g1_skip_outside_territory("docs/notes/secret.md"), "stdout")
-
-
 def ungoverned_twin_is_not_seen() -> tuple[bool, str]:
     """A file outside every territory that declares no policy is never consulted: the governed
     document's id standing in it is no duplicate (limit 4)."""
@@ -297,8 +308,20 @@ def _scan(bad: bool) -> Result:
 
 
 def scan_red() -> tuple[bool, str]:
-    tail = messages.f9_scan_tail(examined=4, scanned=4, policies=3)
-    return expect(_scan(bad=True), 2, shared.f9_count_scan(1, tail), "stdout")
+    """Exactly the one finding and the count line, typed by hand: a finding of another kind, or one
+    more, is red."""
+    result = _scan(bad=True)
+    wanted = [
+        F1_HEADLINE,
+        "RED: 1 finding(s) — 4 governed document(s) examined, 4 Markdown file(s) scanned, 3 policies",
+    ]
+    ok = result.code == 2 and red_lines(result.stdout) == wanted
+    return (
+        ok,
+        f"exit 2: {wanted[1]}"
+        if ok
+        else f"wanted exit 2 and {wanted}; got exit {result.code}: {result.stdout}",
+    )
 
 
 def scan_green() -> tuple[bool, str]:
@@ -317,7 +340,10 @@ def scan_scales() -> tuple[bool, str]:
     started = time.monotonic()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
     elapsed = time.monotonic() - started
-    ok = result.code == 0 and "303 governed document(s) examined" in result.stdout and elapsed < 15
+    line = (
+        "GREEN: const-meta-types: 303 governed document(s) examined, 303 Markdown file(s) scanned, 3 policies"
+    )
+    ok = result.code == 0 and line in result.stdout.splitlines() and elapsed < 15
     return ok, f"303 documents examined in {elapsed:.1f} s (bound 15 s); exit {result.code}"
 
 
@@ -327,15 +353,6 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     (consumer.root / NOTE_A).unlink()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
     return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(3, 3, 3)), "stdout")
-
-
-def long_value_is_cut() -> tuple[bool, str]:
-    """A value a page long is echoed cut, so the whole verdict stays under the platform's cap."""
-    text = document(id="note-a", type="x" * 12_000, title="Note A", status="active")
-    result, _ = gate_on(Write(NOTE_A, text))
-    taught = messages.f4_invalid_fields(NOTE_A, [messages.f4_type_not_allowed("x" * 12_000)]).render()
-    ok = result.code == 2 and taught in result.stderr and len(result.stderr) < 2_000
-    return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
 
 
 def fix_names_the_failing_field() -> tuple[bool, str]:
@@ -389,7 +406,6 @@ ASSERTIONS = [
     Assertion(
         20, "a policy whose id looks like a module's name still governs its territory", module_named_policy
     ),
-    Assertion(21, "a file-level negated pattern excludes the file from the territory", negation),
     Assertion(22, "severity warn with a note: stdout stays one JSON object", severity_warn_with_note),
     Assertion(23, "scan: the finding with counts, exit 2, ignoring severity warn", scan_red),
     Assertion(24, "scan: green with counts, and a note per void namespace", scan_green),
@@ -399,7 +415,6 @@ ASSERTIONS = [
         "scan: a tracked file deleted from the working tree is left out, not a failure",
         scan_with_deleted_file,
     ),
-    Assertion(28, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(29, "golden line: the F1 fix as a literal, not as the function returns it", golden_f1_fix),
     Assertion(27, "message shape: every taught finding has what, why and fix", message_shape),
     Assertion(
@@ -425,6 +440,9 @@ SUBJECT = Subject(
     territory=["docs/notes/**"],
     green=shared.governed_by("notes-policy"),
     claim=claim,
+    long_value=Write(NOTE_A, document(id="note-a", type="x" * 12_000, title="Note A", status="active")),
+    # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
+    outside="docs/notes/a.md is outside claimed territory",
 )
 
 if __name__ == "__main__":

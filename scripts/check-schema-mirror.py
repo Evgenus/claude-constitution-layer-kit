@@ -9,7 +9,13 @@ a mirror of the rules instead. This check runs the real schemas (through the jso
 library, a development dependency of the kit only) and the mirror over one corpus and
 compares verdicts. Run from anywhere: python3 scripts/check-schema-mirror.py
 
-Exit: 0 green; 2 the mirror and a schema disagree; 1 the check could not run.
+An exemption is held too: a case listed as another reader's must still be one the mirror
+accepts and the schema rejects, and a case listed as stricter on purpose one the schema
+accepts and the mirror rejects — an exemption that stops holding is itself red, with the fix
+that removes it or restores the rule it covered.
+
+Exit: 0 green; 2 the mirror and a schema disagree, or an exemption no longer holds; 1 the
+check could not run.
 """
 
 from __future__ import annotations
@@ -42,6 +48,19 @@ from meta_types_gate import start  # noqa: E402
 from meta_types_gate.checks import envelope_errors  # noqa: E402
 
 GOOD = {"id": "note-a", "type": "non-authoritative", "title": "Note A", "status": "active"}
+THIS_FILE = "scripts/check-schema-mirror.py"
+WHY_MIRROR = "the module's mirror is the only copy of the kernel schema a consumer has"
+WHY_EXEMPTION = "an exemption that no longer holds would hide the next real disagreement on its case"
+ALIGN = (
+    "align with kernel/schemas/ — dials.py of shared/const_gate/, or checks.py of the module the line names"
+)
+
+
+@dataclass(frozen=True)
+class Disagreement:
+    what: str
+    why: str
+    fix: str
 
 
 @dataclass(frozen=True)
@@ -150,46 +169,112 @@ def record_validator(
     return jsonschema.Draft202012Validator(record_schema, registry=registry)
 
 
+def dials_disagreement(name: str, mirror: bool, schema: bool) -> Disagreement | None:
+    """Stricter is fine, looser is not; a case listed as another reader's must stay one the
+    mirror accepts and the schema rejects."""
+    if name not in NOT_THIS_READERS:
+        if mirror and not schema:
+            return Disagreement(
+                f"dials '{name}': the schema rejects it but the mirror accepts it", WHY_MIRROR, ALIGN
+            )
+        return None
+    if mirror and not schema:
+        return None
+    remove = f"remove '{name}' from NOT_THIS_READERS in {THIS_FILE}"
+    if mirror:
+        return Disagreement(
+            f"dials '{name}': listed as another reader's, but the schema accepts it too",
+            WHY_EXEMPTION,
+            remove,
+        )
+    return Disagreement(
+        f"dials '{name}': listed as another reader's, but the mirror rejects it",
+        WHY_EXEMPTION,
+        f"{remove}, or, where kernel §6 keeps the key another reader's, stop dials.py of shared/const_gate/"
+        " from judging it",
+    )
+
+
+def record_disagreement(name: str, mirror: bool, schema: bool) -> Disagreement | None:
+    """Equality; a case listed as stricter on purpose must stay one the schema accepts and the
+    mirror rejects."""
+    listed = name in STRICTER_ON_PURPOSE
+    if listed and schema and not mirror:
+        return None
+    if mirror != schema:
+        return Disagreement(
+            f"record '{name}': schema accepts={schema}, mirror accepts={mirror}", WHY_MIRROR, ALIGN
+        )
+    if not listed:
+        return None
+    if not schema:
+        return Disagreement(
+            f"record '{name}': listed as stricter on purpose, but the schema rejects it too: the schema"
+            " caught up",
+            WHY_EXEMPTION,
+            f"remove '{name}' from STRICTER_ON_PURPOSE in {THIS_FILE}",
+        )
+    return Disagreement(
+        f"record '{name}': listed as stricter on purpose, but the mirror accepts it:"
+        " the stricter rule is gone",
+        "the rule was kept stricter than the schema on purpose, and its loss lets the case through unseen",
+        "restore the rule in checks.py of const-decision-records, or, where its end is decided, remove"
+        f" '{name}' from STRICTER_ON_PURPOSE in {THIS_FILE}",
+    )
+
+
 def main() -> int:
     identity.declare(start.GATE)  # the shared reader asks which gate it serves
     schemas = KIT / "kernel" / "schemas"
     envelope_schema = json.loads((schemas / "document-frontmatter.schema.json").read_text(encoding="utf-8"))
     record_schema = json.loads((schemas / "decision-record.schema.json").read_text(encoding="utf-8"))
     dials_schema = json.loads((schemas / "constitution.schema.json").read_text(encoding="utf-8"))
-    disagreements: list[str] = []
+    disagreements: list[Disagreement] = []
     corpus = envelope_corpus()
     for case in corpus:
         text = "---\n" + yaml.safe_dump(case.fields, sort_keys=False) + "---\n"
         mirror = not envelope_errors(parse_envelope(text))
         schema = schema_accepts(envelope_schema, case.fields)
         if mirror != schema:
-            disagreements.append(f"envelope '{case.name}': schema accepts={schema}, mirror accepts={mirror}")
+            disagreements.append(
+                Disagreement(
+                    f"envelope '{case.name}': schema accepts={schema}, mirror accepts={mirror}",
+                    WHY_MIRROR,
+                    ALIGN,
+                )
+            )
     for name, instance in DIALS_CORPUS:
         mirror, schema = mirror_accepts_dials(instance), schema_accepts(dials_schema, instance)
-        if mirror and not schema and name not in NOT_THIS_READERS:  # stricter is fine, looser is not
-            disagreements.append(f"dials '{name}': the schema rejects it but the mirror accepts it")
+        found = dials_disagreement(name, mirror, schema)
+        disagreements += [found] if found else []
     records = record_corpus()
     validator = record_validator(record_schema, envelope_schema)
     for case in records:
         text = "---\n" + yaml.safe_dump(case.fields, sort_keys=False) + "---\n"
         mirror = not check_record("record.md", parse_envelope(text))
         schema = not list(validator.iter_errors(case.fields))
-        stricter = case.name in STRICTER_ON_PURPOSE and schema and not mirror
-        if mirror != schema and not stricter:
-            disagreements.append(f"record '{case.name}': schema accepts={schema}, mirror accepts={mirror}")
+        found = record_disagreement(case.name, mirror, schema)
+        disagreements += [found] if found else []
+    for listed, names, corpus_names in (
+        ("NOT_THIS_READERS", NOT_THIS_READERS, {name for name, _ in DIALS_CORPUS}),
+        ("STRICTER_ON_PURPOSE", STRICTER_ON_PURPOSE, {case.name for case in records}),
+    ):
+        for name in sorted(names - corpus_names):
+            disagreements.append(
+                Disagreement(
+                    f"{listed} lists '{name}', but no corpus case carries it",
+                    WHY_EXEMPTION,
+                    f"remove '{name}' from {listed} in {THIS_FILE}",
+                )
+            )
     counts = (
         f"{len(corpus)} envelope cases (equality), {len(DIALS_CORPUS)} dials cases (never more lenient on"
         f" the keys a gate reads; {len(NOT_THIS_READERS)} are another reader's),"
         f" {len(records)} record cases (equality but {len(STRICTER_ON_PURPOSE)} stricter on purpose) examined"
     )
     if disagreements:
-        for line in disagreements:
-            print(
-                f"RED: {line}\n"
-                "  why: the module's mirror is the only copy of the kernel schema a consumer has\n"
-                "  fix: align with kernel/schemas/ — dials.py of shared/const_gate/, or checks.py of"
-                " the module the line names"
-            )
+        for found in disagreements:
+            print(f"RED: {found.what}\n  why: {found.why}\n  fix: {found.fix}")
         print(f"RED: {len(disagreements)} disagreement(s) — {counts}")
         return 2
     print(f"GREEN: the mirrors agree with the kernel schemas — {counts}")

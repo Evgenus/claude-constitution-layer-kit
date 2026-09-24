@@ -39,6 +39,7 @@ from harness import (  # noqa: E402
     broken_first_line,
     event_json,
     expect,
+    red_lines,
 )
 from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
 
@@ -93,8 +94,12 @@ OVERLAP = (
     POLICY_DOCUMENT,
 )
 VALID = Write(RECORD_A, record())
+# typed by hand, as the gate prints it for a free-form record at RECORD_A
+R2_HEADLINE = "RED: docs/decisions/a.md: decision-record field(s) invalid: stakes missing; decider missing"
 
 # ------------------------------------------------------------------ red → green cases
+
+GREEN_WHAT = "governed by records-policy"  # what every green half's line says its document is, typed by hand
 
 CASES = [
     Case(
@@ -103,6 +108,7 @@ CASES = [
         Write(RECORD_A, NO_ENVELOPE),
         VALID,
         messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.NONE),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -111,6 +117,7 @@ CASES = [
         Write(RECORD_A, "---\nid: record-a\nstakes: process\n\n# Record A\n"),
         VALID,
         messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.UNTERMINATED),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -119,6 +126,7 @@ CASES = [
         Write(RECORD_A, "---\nstakes: [unclosed\n---\n"),
         VALID,
         messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.INVALID, yaml_error("stakes: [unclosed")),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -134,6 +142,7 @@ CASES = [
                 shared.field_missing("decider"),
             ],
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -144,6 +153,7 @@ CASES = [
         messages.r2_invalid_fields(
             RECORD_A, [shared.field_missing("stakes"), shared.field_missing("decider")]
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -152,6 +162,7 @@ CASES = [
         Write(RECORD_A, record(decider=42)),
         VALID,
         messages.r2_invalid_fields(RECORD_A, [shared.field_not_string("decider", "int")]),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -160,6 +171,7 @@ CASES = [
         Write(RECORD_A, record(decider="  ")),
         VALID,
         messages.r2_invalid_fields(RECORD_A, [messages.r2_decider_empty()]),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -168,6 +180,7 @@ CASES = [
         Write(RECORD_A, record(stakes="routine")),
         VALID,
         messages.r3_routine_record(RECORD_A),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -176,6 +189,7 @@ CASES = [
         Edit(RECORD_A, "decider: the maintainer\n", ""),
         Edit(RECORD_A, "# Fixture", "# Fixture, edited"),
         messages.r2_invalid_fields(RECORD_A, [shared.field_missing("decider")]),
+        GREEN_WHAT,
         (*SETUP, VALID),
     ),
     Case(
@@ -186,6 +200,7 @@ CASES = [
         messages.r2_invalid_fields(
             "loose.md", [shared.field_missing("stakes"), shared.field_missing("decider")]
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -194,6 +209,7 @@ CASES = [
         Write("docs/decisions/shared/s.md", record("record-s", stakes="high")),
         Write("docs/decisions/shared/s.md", record("record-s")),
         messages.r2_invalid_fields("docs/decisions/shared/s.md", [messages.r2_stakes_not_allowed("high")]),
+        GREEN_WHAT,
         OVERLAP,
     ),
     Case(
@@ -204,6 +220,7 @@ CASES = [
         messages.r2_invalid_fields(
             RECORD_A, [shared.field_missing("type"), shared.field_not_string("stakes", "int")]
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -212,6 +229,7 @@ CASES = [
         Write(RECORD_A, "---\n- stakes\n- decider\n---\n"),
         VALID,
         messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.INVALID, shared.detail_not_a_mapping()),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -222,6 +240,7 @@ CASES = [
         messages.r2_invalid_fields(
             RECORD_A, [shared.field_missing("stakes"), shared.field_missing("decider")]
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -230,6 +249,7 @@ CASES = [
         Edit(RECORD_A, "process", "high", replace_all=True),
         Edit(RECORD_A, "process", "product", replace_all=True),
         messages.r2_invalid_fields(RECORD_A, [messages.r2_stakes_not_allowed("high")]),
+        GREEN_WHAT,
         (*SETUP, VALID),
     ),
 ]
@@ -386,8 +406,20 @@ def _scan(bad: bool) -> Result:
 
 
 def scan_red() -> tuple[bool, str]:
-    tail = messages.f9_scan_tail(records=2, scanned=7, record_policies=1)
-    return expect(_scan(bad=True), 2, shared.f9_count_scan(1, tail), "stdout")
+    """Exactly the one finding and the count line, typed by hand: a finding of another kind, or one
+    more, is red."""
+    result = _scan(bad=True)
+    wanted = [
+        R2_HEADLINE,
+        "RED: 1 finding(s) — 2 decision record(s) examined, 7 Markdown file(s) scanned, 1 record policy(ies)",
+    ]
+    ok = result.code == 2 and red_lines(result.stdout) == wanted
+    return (
+        ok,
+        f"exit 2: {wanted[1]}"
+        if ok
+        else f"wanted exit 2 and {wanted}; got exit {result.code}: {result.stdout}",
+    )
 
 
 def scan_green() -> tuple[bool, str]:
@@ -405,7 +437,11 @@ def scan_scales() -> tuple[bool, str]:
     started = time.monotonic()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
     elapsed = time.monotonic() - started
-    ok = result.code == 0 and "300 decision record(s) examined" in result.stdout and elapsed < 15
+    line = (
+        "GREEN: const-decision-records: 300 decision record(s) examined, 304 Markdown file(s) scanned,"
+        " 1 record policy(ies)"
+    )
+    ok = result.code == 0 and line in result.stdout.splitlines() and elapsed < 15
     return ok, f"300 records examined in {elapsed:.1f} s (bound 15 s); exit {result.code}"
 
 
@@ -415,14 +451,6 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     (consumer.root / RECORD_A).unlink()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
     return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 5, 1)), "stdout")
-
-
-def long_value_is_cut() -> tuple[bool, str]:
-    """A value a page long is echoed cut, so the whole verdict stays under the platform's cap."""
-    result, _ = gate_on(Write(RECORD_A, record(stakes="x" * 12_000)))
-    taught = messages.r2_invalid_fields(RECORD_A, [messages.r2_stakes_not_allowed("x" * 12_000)]).render()
-    ok = result.code == 2 and taught in result.stderr and len(result.stderr) < 2_000
-    return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
 
 
 def message_shape() -> tuple[bool, str]:
@@ -461,7 +489,6 @@ ASSERTIONS = [
         "scan: a tracked file deleted from the working tree is left out, not a failure",
         scan_with_deleted_file,
     ),
-    Assertion(34, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(29, "message shape: every taught finding has what, why and fix", message_shape),
     Assertion(
         35,
@@ -487,6 +514,9 @@ SUBJECT = Subject(
     territory=["docs/decisions/**"],
     green=shared.governed_by(RECORDS_POLICY),
     claim=claim,
+    long_value=Write(RECORD_A, record(stakes="x" * 12_000)),
+    # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
+    outside="docs/decisions/a.md is not governed by a record policy (records-policy)",
 )
 
 if __name__ == "__main__":

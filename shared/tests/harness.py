@@ -2,10 +2,12 @@
 code — with real PreToolUse events, exactly as the platform does.
 
 A Case is one acceptance item with both halves: the red half must exit 2 AND teach the
-expected message; the green half must pass. A fixture that proves only one half cannot
-tell a working check from one that always answers the same. An Assertion is an acceptance
-item with no failing half (an exit-code property, a count, a log line); the two kinds are
-reported separately so they are never mistaken for each other.
+expected message, its RED lines exactly that finding's headline and the count line, so a
+second finding or a stray line fails it; the green half must pass, printing the whole green
+line the case names. A fixture that proves only one half cannot tell a working check from
+one that always answers the same. An Assertion is an acceptance item with no failing half
+(an exit-code property, a count, a log line); the two kinds are reported separately so they
+are never mistaken for each other.
 
 The runner that imports this file has already put the module's scripts directory on the
 import path — the runner only: no gate code ever edits the path.
@@ -25,8 +27,6 @@ from pathlib import Path
 
 from const_gate.model import Finding
 from consumer import Consumer
-
-GREEN_MARK = "1 document examined, "  # the shared green line of hook mode; what follows is the module's
 
 
 @dataclass(frozen=True)
@@ -57,6 +57,7 @@ class Case:
     red: Write | Edit
     green: Write | Edit
     expect: Finding
+    green_what: str  # what the green line says the green half's document is, typed by hand
     setup: Sequence[Write] = ()
 
 
@@ -86,6 +87,12 @@ def event_json(
             "tool_input": tool_input,
         }
     )
+
+
+def red_lines(text: str) -> list[str]:
+    """The RED lines of an output, in order: what an item compares whole, so that a finding too
+    many, or a stray line, is seen."""
+    return [line for line in text.splitlines() if line.startswith("RED:")]
 
 
 def stop_json(root: Path, active: bool = False, session: str = "fixture-session") -> str:
@@ -154,9 +161,21 @@ class Harness:
                 f"red fired but did not teach {case.expect.key}:\n{case.expect.render()}\n"
                 f"got:\n{red.stderr.strip()}",
             )
+        wanted = [
+            f"RED: {case.expect.headline}",
+            f"RED: 1 finding(s) — 1 document examined ({case.red.target})",
+        ]
+        if red_lines(red.stderr) != wanted:  # exactly the one finding and the count line, nothing more
+            return False, f"red taught more or less than {wanted}:\n{red.stderr.strip()}"
+        if red_lines(red.stdout):  # and nothing RED on the other stream
+            return False, f"red printed RED on stdout: {red.stdout.strip()}"
         green = self.run_gate(event_json(self.fresh_consumer(case.setup).root, case.green))
-        if green.code != 0 or f"GREEN: {self.namespace}: {GREEN_MARK}" not in green.stdout:
-            return False, f"green half did not pass (exit {green.code}): {green.stdout}{green.stderr}".strip()
+        line = f"GREEN: {self.namespace}: 1 document examined, {case.green_what}"
+        if green.code != 0 or line not in green.stdout.splitlines() or red_lines(green.stdout + green.stderr):
+            return (
+                False,
+                f"green half did not print {line!r} (exit {green.code}): {green.stdout}{green.stderr}",
+            )
         return True, f"red → {case.expect.key}: {case.expect.headline}"
 
     def run_all(self, cases: Sequence[Case], assertions: Sequence[Assertion]) -> int:

@@ -131,6 +131,8 @@ def k2(detail: str, stem: str = STEM_A) -> Finding:
 
 # ------------------------------------------------------------------ red → green cases
 
+GREEN_WHAT = "an item of catalog 'itm'"  # what every green half's line says its document is, typed by hand
+
 CASES = [
     Case(
         1,
@@ -138,6 +140,7 @@ CASES = [
         Write(at("first"), item("first")),
         VALID,
         k1("first"),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -146,6 +149,7 @@ CASES = [
         Write(at("itm-001-first"), item("itm-001-first")),
         VALID,
         k1("itm-001-first"),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -154,6 +158,7 @@ CASES = [
         Write(at("ITM-0001-first"), item("ITM-0001-first")),
         VALID,
         k1("ITM-0001-first"),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -162,6 +167,7 @@ CASES = [
         Write(at("itm-0001"), item("itm-0001")),
         VALID,
         k1("itm-0001"),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -170,6 +176,7 @@ CASES = [
         Write(at("itm-0001-First_item"), item("itm-0001-First_item")),
         VALID,
         k1("itm-0001-First_item"),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -178,6 +185,7 @@ CASES = [
         Write(ITEM_A, item(id="itm-0001-other")),
         VALID,
         k2(messages.k2_differs("itm-0001-other", STEM_A)),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -186,6 +194,7 @@ CASES = [
         Write(ITEM_A, item(drop=("id",))),
         VALID,
         k2(shared.field_missing("id")),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -194,6 +203,7 @@ CASES = [
         Write(ITEM_A, item(id=7)),
         VALID,
         k2(shared.field_not_string("id", "int")),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -202,6 +212,7 @@ CASES = [
         Write(ITEM_A, NO_ENVELOPE),
         VALID,
         messages.k2_no_envelope(ITEM_A, STEM_A, EnvelopeState.NONE),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -210,6 +221,7 @@ CASES = [
         Write(ITEM_A, f"---\nid: {STEM_A}\n\n# Item\n"),
         VALID,
         messages.k2_no_envelope(ITEM_A, STEM_A, EnvelopeState.UNTERMINATED),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -218,6 +230,7 @@ CASES = [
         Write(ITEM_A, "---\nid: [unclosed\n---\n"),
         VALID,
         messages.k2_no_envelope(ITEM_A, STEM_A, EnvelopeState.INVALID, yaml_error("id: [unclosed")),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -226,6 +239,7 @@ CASES = [
         Edit(ITEM_A, f"id: {STEM_A}", "id: itm-0001-renamed"),
         Edit(ITEM_A, "# Fixture", "# Fixture, edited"),
         k2(messages.k2_differs("itm-0001-renamed", STEM_A)),
+        GREEN_WHAT,
         (*SETUP, VALID),
     ),
     Case(
@@ -234,6 +248,7 @@ CASES = [
         Write(at("itm-0001-first"), item()),
         Write(at("itm-000001-first"), item("itm-000001-first")),
         k1("itm-0001-first", Catalog("itm", 6, tuple(TERRITORY))),
+        GREEN_WHAT,
         (Write("constitution.yaml", dials_text(catalogs(entry(width=6)))),),
     ),
     Case(
@@ -242,6 +257,7 @@ CASES = [
         Write(SECOND_TAKEN, item("itm-0001-second")),
         Write(at("itm-0002-second"), item("itm-0002-second")),
         messages.k4_number_taken(SECOND_TAKEN, CATALOG, 1, ITEM_A, take_next(2)),
+        GREEN_WHAT,
         (*SETUP, VALID),
     ),
 ]
@@ -520,16 +536,12 @@ def scan_scales() -> tuple[bool, str]:
     started = time.monotonic()
     result = scan_of(files)
     elapsed = time.monotonic() - started
-    ok = result.code == 0 and "300 catalogued item(s) examined" in result.stdout and elapsed < 15
+    line = (
+        "GREEN: const-catalogs: 300 catalogued item(s) examined, 303 Markdown file(s) scanned,"
+        " 1 catalog(s): itm up to itm-0300"
+    )
+    ok = result.code == 0 and line in result.stdout.splitlines() and elapsed < 15
     return ok, f"300 items examined in {elapsed:.1f} s (bound 15 s); exit {result.code}"
-
-
-def long_value_is_cut() -> tuple[bool, str]:
-    """A value a page long is echoed cut, so the whole verdict stays under the platform's cap."""
-    result, _ = gate_on(Write(ITEM_A, item(id="x" * 12_000)))
-    taught = k2(messages.k2_differs("x" * 12_000, STEM_A)).render()
-    ok = result.code == 2 and taught in result.stderr and len(result.stderr) < 2_000
-    return ok, f"exit {result.code}; {len(result.stderr)} characters on stderr for a 12,000-character value"
 
 
 ONE_AND_NINE = {ITEM_A: item(), at("itm-0009-ninth"): item("itm-0009-ninth")}
@@ -942,7 +954,6 @@ ASSERTIONS = [
         scan_with_deleted_file,
     ),
     Assertion(39, "scan: 300 items in seconds (each item read once)", scan_scales),
-    Assertion(40, "an echoed value a page long is cut: the verdict stays a message", long_value_is_cut),
     Assertion(41, "message shape: every taught finding has what, why and fix", message_shape),
     Assertion(
         43,
@@ -1051,6 +1062,9 @@ SUBJECT = Subject(
     green=messages.g1_item_of(CATALOG),
     territory=TERRITORY,
     claim=claim,
+    long_value=Write(ITEM_A, item(id="x" * 12_000)),
+    # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
+    outside="docs/items/first.md lies in no catalog's territory (itm)",
     resolves_policies=False,
 )
 
