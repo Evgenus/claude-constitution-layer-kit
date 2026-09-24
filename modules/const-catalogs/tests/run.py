@@ -837,10 +837,21 @@ GOLDEN = {
     " catalog 'itm', whose territory holds this file",
     "K1 fix": "  fix: name the file itm-0001-<slug>.md: itm-0001 is the catalog's next number, one more"
     " than the highest it has held, deleted items included;",
+    "K1 why": "  why: an item of a numbered kind is cited by its number, and a citation resolves only when"
+    " the number stands in the file's name, in one form for the whole catalog",
+    "K2 why": "  why: a catalogued document has one identifier: its id is its file name without .md, so a"
+    " reference by id and a search by file name find the same document",
+    "K2 fix": f"  fix: set id: {STEM_A} in the YAML block between the two '---' lines that open the file;"
+    " if other documents already cite the id as it stands, rename the file to match the id instead",
+    "K2 no envelope fix": "  fix: start the file with a YAML block between two '---' lines carrying at least"
+    f" id: {STEM_A}",
     "K2 missing": f"RED: {ITEM_A}: id missing",
     "K2 differs": f"RED: {ITEM_A}: id 'itm-0001-other' differs from the file name '{STEM_A}'",
     "K2 no envelope": f"RED: {ITEM_A}: id cannot be read: the file does not start with a '---' line",
     "K4": f"RED: {SECOND_TAKEN}: number itm-0001 is already carried by {ITEM_A}",
+    "K4 why": "  why: a number cites one item; two items under one number make every reference to it"
+    " ambiguous",
+    "K4 fix": f"  fix: {ITEM_A} keeps its number; name the file itm-0002-<slug>.md:",
     "keep": "  fix: rename the file with git mv to itm-0006-<slug>.md: it keeps its number,",
     "contested": f"  fix: the name shows number 6, and so does {at('itm-0006-new')}: only one of the two",
     "words": "  fix: rename the file to itm-<number>-<slug>.md: the number it is already cited by,",
@@ -849,6 +860,15 @@ GOLDEN = {
     "not read": "itm-0001 is one more than the highest number seen — this clone's history is incomplete or"
     " could not be read",
 }
+
+# K3 is the scan's, on stdout
+K3_GOLDEN = [
+    f"RED: catalog 'itm': 2 items carry number itm-0001: {ITEM_A}, {SECOND_TAKEN}",
+    "  why: a number cites one item; two items under one number make every reference to it ambiguous",
+    "  fix: the item already on the main branch keeps its number; every other one takes a number of its"
+    " own, one more than the highest the catalog has held: rename its file, set its id to the new name,"
+    " and rewrite the references to it made on its own branch",
+]
 
 
 def golden_lines() -> tuple[bool, str]:
@@ -861,7 +881,10 @@ def golden_lines() -> tuple[bool, str]:
         "K2 no envelope": gate_on(Write(ITEM_A, NO_ENVELOPE))[0],
         "K4": gate_on(Write(SECOND_TAKEN, item("itm-0001-second")), files={ITEM_A: item()})[0],
     }
-    runs["K1 fix"] = runs["K1"]
+    runs["K1 fix"] = runs["K1 why"] = runs["K1"]
+    runs["K2 why"] = runs["K2 fix"] = runs["K2 missing"]
+    runs["K2 no envelope fix"] = runs["K2 no envelope"]
+    runs["K4 why"] = runs["K4 fix"] = runs["K4"]
     legacy = {LEGACY: item("ITM-06-upper")}
     runs["keep"] = gate_on(Write(LEGACY, item("ITM-06-upper")), files=legacy)[0]
     both = {**legacy, at("itm-0006-new"): item("itm-0006-new")}
@@ -878,15 +901,9 @@ def golden_lines() -> tuple[bool, str]:
     )
     missing = [key for key, line in GOLDEN.items() if line not in runs[key].stderr]
     k3 = scan_of(COLLIDING).stdout
-    if f"RED: catalog 'itm': 2 items carry number itm-0001: {ITEM_A}, {SECOND_TAKEN}" not in k3:
-        missing.append("K3")
-    return not missing, f"{len(GOLDEN) + 1} literal lines found" if not missing else f"not found: {missing}"
-
-
-def message_shape() -> tuple[bool, str]:
-    built = [*(case.expect for case in CASES), K3, K4]
-    ok = all(isinstance(f, Finding) and f.key and f.headline and f.why and f.fix for f in built)
-    return ok, f"{len(built)} findings examined, each with what / why / fix"
+    missing += [line for line in K3_GOLDEN if line not in k3]
+    found = len(GOLDEN) + len(K3_GOLDEN)
+    return not missing, f"{found} literal lines found" if not missing else f"not found: {missing}"
 
 
 ASSERTIONS = [
@@ -954,7 +971,6 @@ ASSERTIONS = [
         scan_with_deleted_file,
     ),
     Assertion(39, "scan: 300 items in seconds (each item read once)", scan_scales),
-    Assertion(41, "message shape: every taught finding has what, why and fix", message_shape),
     Assertion(
         43,
         "an item that exists is never judged on its number: of two that collide, either can be edited",

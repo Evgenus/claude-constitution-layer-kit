@@ -26,7 +26,7 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
 from const_gate.envelope import yaml_error_line  # noqa: E402
-from const_gate.model import EnvelopeState, Finding  # noqa: E402
+from const_gate.model import EnvelopeState  # noqa: E402
 from consumer import Consumer, envelope  # noqa: E402
 from decision_records_gate import messages, start  # noqa: E402
 from harness import (  # noqa: E402
@@ -453,10 +453,63 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 5, 1)), "stdout")
 
 
-def message_shape() -> tuple[bool, str]:
-    built = [case.expect for case in CASES]
-    ok = all(isinstance(f, Finding) and f.key and f.headline and f.why and f.fix for f in built)
-    return ok, f"{len(built)} findings examined, each with what / why / fix"
+# What every R1 fix says the block carries, typed by hand once for its three shapes.
+CARRIES = (
+    "id: <kebab-id>, type: task-record, title: <one line>, status: active | inactive, stakes: process |"
+    " product | architecture, decider: <person or role>"
+)
+# The lines each case's red half prints, keyed by the case's number, typed here by hand: the cases
+# compare with what the message functions return, so a slip inside a function — a why emptied, a
+# word lost from a fix — would pass them all. R1's INVALID headline stops where the parser's own
+# words begin; case 5's headline is the scan's R2_HEADLINE.
+GOLDEN: dict[int, Sequence[str]] = {
+    1: [
+        "RED: docs/decisions/a.md: a decision record with no readable envelope (the file does not start"
+        " with a '---' line)",
+        "  why: a record declares its stakes and its decider in the envelope: without them the ruling has"
+        " no price and nobody accountable",
+        f"  fix: start the file with a YAML block between two '---' lines carrying {CARRIES}",
+    ],
+    2: [
+        "RED: docs/decisions/a.md: a decision record with no readable envelope (opened with '---' but"
+        " never closed)",
+        f"  fix: close the YAML block with a line holding only '---'; the block carries {CARRIES}",
+    ],
+    3: [
+        "RED: docs/decisions/a.md: a decision record with no readable envelope (the block between the"
+        " '---' lines cannot be read: ",
+        f"  fix: repair the YAML between the '---' lines; the block carries {CARRIES}",
+    ],
+    4: [
+        "RED: docs/decisions/a.md: decision-record field(s) invalid: type 'current-state' is not"
+        " task-record; stakes 'high' not one of process | product | architecture; decider missing",
+        "  why: a decision record is a task-record whose envelope adds the stakes, which set the ceremony"
+        " the ruling gets, and the decider, who is accountable for it; git can derive neither",
+        "  fix: set each named field: type = task-record (a record is a change delta); stakes = process"
+        " (harness, policy or procedure) | product (user-visible behaviour) | architecture (structural,"
+        " hard to reverse); decider = the person or role who made the choice, a non-empty string",
+    ],
+    5: [R2_HEADLINE],
+    8: [
+        "RED: docs/decisions/a.md: stakes 'routine' — a routine call never produces a record",
+        "  why: ceremony scales with stakes: a call that is cheap to revert is noted in the commit message,"
+        " and a record for it is ritual",
+        "  fix: write no record: put the note in the commit message, and delete this file if it already"
+        " exists; or, if the ruling is not cheap to revert, set stakes: process | product | architecture",
+    ],
+}
+
+
+def golden_lines() -> tuple[bool, str]:
+    """Each case's red input run afresh on its setup; every literal of GOLDEN must stand in its stderr."""
+    cases = {case.number: case for case in CASES}
+    missing: list[str] = []
+    for number, lines in GOLDEN.items():
+        case = cases[number]
+        stderr = H.run_gate(event_json(H.fresh_consumer(case.setup).root, case.red)).stderr
+        missing += [f"case {number}: {line}" for line in lines if line not in stderr]
+    found = sum(len(lines) for lines in GOLDEN.values())
+    return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 
 
 ASSERTIONS = [
@@ -489,13 +542,13 @@ ASSERTIONS = [
         "scan: a tracked file deleted from the working tree is left out, not a failure",
         scan_with_deleted_file,
     ),
-    Assertion(29, "message shape: every taught finding has what, why and fix", message_shape),
     Assertion(
         35,
         "a record policy whose namespace declares no territory claims nothing: a note, never a failure",
         record_policy_claims_nothing,
     ),
     Assertion(36, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
+    Assertion(37, "golden lines: each finding's headline, why and fix as literals", golden_lines),
 ]
 
 

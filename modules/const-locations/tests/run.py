@@ -129,8 +129,112 @@ def gate_on(
     return run(consumer, *args_for(action), env=env), consumer.root
 
 
-def broken(result: Result, failure: Broken) -> tuple[bool, str]:
+AT = "{at}"  # the run's temporary directory, in the two lines that name one: `broken` fills it in
+KEBAB = (
+    " — fix: lower-case letters, digits and single hyphens between them: a-z, 0-9, no leading, trailing"
+    " or double hyphen"
+)
+NO_HOME = (
+    " — fix: a home follows from one pattern <dir>/** or <dir>/**/*.md, or from one with a single free"
+    " segment, <dir>/*/NAME.md; write the document by hand inside the territory, or simplify the territory"
+)
+ENTRY = (
+    "; an entry the command cannot read names no template — fix: write the entry as {policy: <id>,"
+    " template: <repository-relative path>}"
+)
+# Every refusal and dial failure the runner reaches, keyed by its handle in the table of §6, the
+# whole first line typed here by hand: the items compare with what the message functions return
+# too, so a slip inside a function is red only here. Not reached: L5.15's unreadable shape, L5.20.
+GOLDEN: dict[str, str] = {
+    "L5.1": "BROKEN: misinvocation: --stem was not given — fix: run it with --kind <policy id> --stem <stem>"
+    " --title <text> [--type <meta-type>] [--segment <segment>] [--id <id>] [--dry-run]",
+    "L5.2": f"BROKEN: {AT} is not inside a git repository — fix: run it from inside the repository the"
+    " document belongs to",
+    "L5.3": f"BROKEN: no constitution.yaml in {AT}: no kind is declared — fix: a document is created into a"
+    " policy's territory; declare the root policy and the kind's policy first — the new-kind procedure",
+    "L5.4": "BROKEN: constitution.yaml names no root_policy: no policy claims anything — fix: set"
+    " root_policy: <path of the policy for policies>",
+    "L5.5": "BROKEN: 'const-locations' is not a policy: no document in the root policy's territory carries"
+    " that id — fix: name one of: notes-policy, root-policy, shared-policy; for a new kind, create its"
+    " policy first — the new-kind procedure",
+    "L5.6": "BROKEN: notes-policy's territory is the single path 'docs/one.md': nothing new is born there —"
+    " fix: that document is created by hand at exactly that path, once; a kind that holds many documents"
+    " claims a directory: <dir>/**",
+    "L5.7 two": "BROKEN: no home follows from notes-policy's territory ['docs/notes/**', 'docs/more/**']"
+    + NO_HOME,
+    "L5.7 negation": "BROKEN: no home follows from notes-policy's territory ['docs/notes/**',"
+    " '!docs/notes/x.md']" + NO_HOME,
+    "L5.7 glob": "BROKEN: no home follows from notes-policy's territory ['docs/notes/*-note.md']" + NO_HOME,
+    "L5.7 directory": "BROKEN: no home follows from notes-policy's territory ['docs/notes/']" + NO_HOME,
+    "L5.8": "BROKEN: notes-policy's territory 'packages/*/README.md' has a free segment, and --segment was"
+    " not given: the pattern fixes the file name and leaves that one segment to be named — fix: run it"
+    " with --segment <the segment>; the file name is the pattern's, so --stem is not taken",
+    "L5.9": "BROKEN: --stem was given, but notes-policy's territory 'packages/*/README.md' fixes the file"
+    " name 'README' — fix: drop --stem and give --segment",
+    "L5.10 stem": "BROKEN: 'Bad_Stem' is not a kebab-case name for the stem" + KEBAB,
+    "L5.10 id": "BROKEN: 'x--y' is not a kebab-case name for the id" + KEBAB,
+    "L5.10 segment": "BROKEN: 'Bad_Name' is not a kebab-case name for the segment" + KEBAB,
+    "L5.11": "BROKEN: docs/notes/a.md already exists: creating never overwrites, so the document that is"
+    " there stays as it is — fix: choose another stem, or edit the document that is there",
+    "L5.12": "BROKEN: docs/notes/shared/b.md would also lie in notes-policy's territory ('docs/notes/**'):"
+    " two policies would govern it — fix: territories never overlap; narrow one of them in"
+    " constitution.yaml before creating documents there",
+    "L5.13": "BROKEN: notes-policy has no template, and --type was not given: without a template nothing but"
+    " the policy's prose says which meta-type the kind is — fix: run it with --type current-state,"
+    " task-record or non-authoritative — docs/policies/notes-policy.md says which its kind is",
+    "L5.14": "BROKEN: --type current-state was given, but the template tpl/record.md fixes type:"
+    " task-record, and a kind has one meta-type — fix: drop --type; the template decides",
+    "L5.15 missing": "BROKEN: the template of notes-policy, tpl/record.md, does not exist — fix: point"
+    " const-locations.templates at a Markdown file of this repository, or remove the entry",
+    "L5.16": "BROKEN: the template tpl/record.md opens with no readable envelope (none) — fix: a template"
+    " opens with the YAML block a document of its kind carries — id, type, title, status — with"
+    " placeholders where the writer fills",
+    "L5.17": "BROKEN: the template tpl/record.md carries type 'ruling', which is no meta-type — fix: set"
+    " type: current-state, task-record or non-authoritative in the template",
+    "L5.18": "BROKEN: --title was not given, and the envelope is written with the title as a value — fix:"
+    " run it with --title '<the document's title>'; a dry run needs none",
+    "L5.19": "BROKEN: id 'a' is already carried by docs/notes/other.md — fix: ids are unique in the tree:"
+    " choose another stem, or give --id",
+    "L5.21": "BROKEN: --segment was given, but notes-policy's territory 'docs/notes/**' has no free segment:"
+    " the home is the directory and the stem — fix: drop --segment and give --stem",
+    "L5.22": "BROKEN: --title is empty (or only whitespace), and the title is the envelope's one non-empty"
+    " line — fix: run it with --title '<the document's title>'",
+    "L5.23": "BROKEN: --title holds a line break, and a title is one line — fix: give the title on one line",
+    "L5.24": "BROKEN: notes-policy claims no territory: its namespace in constitution.yaml has no territory,"
+    " so no home follows — fix: under notes-policy: in constitution.yaml write territory: ['<dir>/**'],"
+    " <dir> being the directory its documents live in",
+    "C5.a": "BROKEN: constitution.yaml: const-locations.bogus is not a dial of this module (known: log_dir,"
+    " templates); a misspelt dial is never a setting ignored in silence — fix: remove or rename the key",
+    "C5.b": "BROKEN: constitution.yaml: const-locations.severity has no meaning: this module blocks"
+    " nothing, and a line that sets nothing misleads the next reader — fix: remove the line",
+    "C5.c": "BROKEN: constitution.yaml: const-locations.templates must be a list of {policy: <id>, template:"
+    " <repository-relative path>}: one entry names one kind's template — fix: write it as templates:"
+    " [{policy: <id>, template: <path>}, ...], or remove the key",
+    "C5.d not a mapping": "BROKEN: constitution.yaml: const-locations.templates[0] is not a mapping" + ENTRY,
+    "C5.d no policy": "BROKEN: constitution.yaml: const-locations.templates[0] has no policy" + ENTRY,
+    "C5.d no template": "BROKEN: constitution.yaml: const-locations.templates[0] has no template" + ENTRY,
+    "C5.d unknown key": "BROKEN: constitution.yaml: const-locations.templates[0] carries an unknown key"
+    " 'type'" + ENTRY,
+    "C5.d repeated": "BROKEN: constitution.yaml: const-locations.templates[1] names policy 'notes-policy' a"
+    " second time" + ENTRY,
+    "C5.d outside": "BROKEN: constitution.yaml: const-locations.templates[0] names a template outside the"
+    " repository" + ENTRY,
+}
+COMPARED: set[str] = set()  # the handles the items passed to `broken`; the last item compares it with GOLDEN
+
+
+def broken(result: Result, failure: Broken, handle: str, at: str = "") -> tuple[bool, str]:
+    """The refusal's line first, as the function builds it and as GOLDEN types it — `at` filling the
+    directory a line names — then the closing line."""
+    COMPARED.add(handle)
+    typed = GOLDEN.get(handle)
+    if typed is None:
+        return False, f"{handle}: no line typed in GOLDEN"
     ok, evidence = broken_first_line(result, failure.render())
+    golden = typed.replace(AT, at)
+    first = result.stderr.splitlines()[0] if result.stderr else ""
+    if ok and first != golden:
+        ok, evidence = False, f"{handle}: the first line is not the one typed here, {golden!r}: {first}"
     closed = messages.l4_nothing_written() in result.stderr
     return ok and closed, evidence if closed else f"no closing line after: {evidence}"
 
@@ -205,14 +309,17 @@ def free_segment() -> tuple[bool, str]:
     stem = broken(
         run(prepared(patch), "--kind", "notes-policy", "--stem", "z", "--title", "T"),
         messages.l5_stem_not_taken("notes-policy", pattern, "README"),
+        "L5.9",
     )
     none = broken(
         run(prepared(patch), "--kind", "notes-policy", "--title", "T"),
         messages.l5_segment_needed("notes-policy", pattern),
+        "L5.8",
     )
     mirror = broken(
         run(prepared(), "--kind", "notes-policy", "--stem", "a", "--segment", "x", "--title", "T"),
         messages.l5_segment_not_taken("notes-policy", "docs/notes/**"),
+        "L5.21",
     )
     return all_of(
         [made, stem, none, mirror],
@@ -225,20 +332,21 @@ def no_home() -> tuple[bool, str]:
     single = broken(
         run(prepared(claim(["docs/one.md"])), *NOTE_ARGS),
         messages.l5_single_path("notes-policy", "docs/one.md"),
+        "L5.6",
     )
     results = [single]
-    for territory in (
-        ["docs/notes/**", "docs/more/**"],
-        ["docs/notes/**", "!docs/notes/x.md"],
-        ["docs/notes/*-note.md"],
-        ["docs/notes/"],
+    for territory, handle in (
+        (["docs/notes/**", "docs/more/**"], "L5.7 two"),
+        (["docs/notes/**", "!docs/notes/x.md"], "L5.7 negation"),
+        (["docs/notes/*-note.md"], "L5.7 glob"),
+        (["docs/notes/"], "L5.7 directory"),
     ):
         result = run(prepared(claim(territory)), *NOTE_ARGS)
-        results.append(broken(result, messages.l5_no_home("notes-policy", territory)))
+        results.append(broken(result, messages.l5_no_home("notes-policy", territory), handle))
     namespaces: list[dict[str, object]] = [{"notes-policy": {}}, claim([])]  # no territory line; an empty one
     for namespace in namespaces:
         result = run(prepared(namespace), *NOTE_ARGS)
-        results.append(broken(result, messages.l5_no_territory("notes-policy")))
+        results.append(broken(result, messages.l5_no_territory("notes-policy"), "L5.24"))
     return all_of(
         results,
         "a single path, two patterns, a negation, a glob in the name, a bare directory, no territory: each"
@@ -277,6 +385,7 @@ def template_refusals() -> tuple[bool, str]:
         (
             run(prepared(), "--kind", "notes-policy", "--stem", "a", "--title", "T"),
             messages.l5_type_needed("notes-policy", "docs/policies/notes-policy.md"),
+            "L5.13",
         ),
         (
             run(
@@ -291,6 +400,7 @@ def template_refusals() -> tuple[bool, str]:
                 "current-state",
             ),
             messages.l5_type_conflict("current-state", TEMPLATE, "task-record"),
+            "L5.14",
         ),
         (
             run(
@@ -303,6 +413,7 @@ def template_refusals() -> tuple[bool, str]:
                 "T",
             ),
             messages.l5_template_bad_type(TEMPLATE, "ruling"),
+            "L5.17",
         ),
         (
             run(
@@ -315,14 +426,16 @@ def template_refusals() -> tuple[bool, str]:
                 "T",
             ),
             messages.l5_template_no_envelope(TEMPLATE, "none"),
+            "L5.16",
         ),
         (
             run(prepared(with_template), "--kind", "notes-policy", "--stem", "a", "--title", "T"),
             messages.l5_template_missing("notes-policy", TEMPLATE),
+            "L5.15 missing",
         ),
     ]
     return all_of(
-        [broken(r, f) for r, f in pairs],
+        [broken(r, f, h) for r, f, h in pairs],
         "no type, a conflicting type, a bad type, no envelope, a missing template: each refused",
     )
 
@@ -337,10 +450,12 @@ def proof_refusals() -> tuple[bool, str]:
     return all_of(
         [
             broken(
-                overlap, messages.l5_two_policies("docs/notes/shared/b.md", "notes-policy", "docs/notes/**")
+                overlap,
+                messages.l5_two_policies("docs/notes/shared/b.md", "notes-policy", "docs/notes/**"),
+                "L5.12",
             ),
-            broken(exists, messages.l5_exists(NOTE)),
-            broken(in_use, messages.l5_id_in_use("a", "docs/notes/other.md")),
+            broken(exists, messages.l5_exists(NOTE), "L5.11"),
+            broken(in_use, messages.l5_id_in_use("a", "docs/notes/other.md"), "L5.19"),
         ],
         "an overlap, an existing file and an id in use: each refused",
     )
@@ -379,10 +494,11 @@ def repository_refusals() -> tuple[bool, str]:
             broken(
                 not_policy,
                 messages.l5_not_a_policy("const-locations", ["notes-policy", "root-policy", "shared-policy"]),
+                "L5.5",
             ),
-            broken(no_dials, messages.l5_no_dials(str(consumer.root))),
-            broken(no_root, messages.l5_no_root_policy()),
-            broken(loose, messages.l5_no_repository(str(outside))),
+            broken(no_dials, messages.l5_no_dials(str(consumer.root)), "L5.3", at=str(consumer.root)),
+            broken(no_root, messages.l5_no_root_policy(), "L5.4"),
+            broken(loose, messages.l5_no_repository(str(outside)), "L5.2", at=str(outside)),
         ],
         "not a policy, no dials file, no root policy, outside any repository: each refused",
     )
@@ -393,10 +509,12 @@ def argument_refusals() -> tuple[bool, str]:
         (
             run(prepared(), "--kind", "notes-policy", "--stem", "Bad_Stem", "--title", "T"),
             messages.l5_not_kebab("Bad_Stem", "the stem"),
+            "L5.10 stem",
         ),
         (
             run(prepared(), "--kind", "notes-policy", "--stem", "a", "--title", "T", "--id", "x--y"),
             messages.l5_not_kebab("x--y", "the id"),
+            "L5.10 id",
         ),
         (
             run(
@@ -409,60 +527,84 @@ def argument_refusals() -> tuple[bool, str]:
                 "T",
             ),
             messages.l5_not_kebab("Bad_Name", "the segment"),
+            "L5.10 segment",
         ),
         (
             run(prepared(), "--kind", "notes-policy", "--stem", "a", "--type", "non-authoritative"),
             messages.l5_title_needed(),
+            "L5.18",
         ),
         (
             run(prepared(), "--kind", "notes-policy", "--title", "T"),
             messages.l5_usage("--stem was not given"),
+            "L5.1",
         ),
     ]
     titles = prepared()  # an empty title, one of whitespace — in a dry run too — and one of two lines
-    for title, failure in (
-        ("", messages.l5_title_empty()),
-        ("  ", messages.l5_title_empty()),
-        ("a\nb", messages.l5_title_multiline()),
+    for title, failure, handle in (
+        ("", messages.l5_title_empty(), "L5.22"),
+        ("  ", messages.l5_title_empty(), "L5.22"),
+        ("a\nb", messages.l5_title_multiline(), "L5.23"),
     ):
-        pairs.append((run(titles, "--kind", "notes-policy", "--stem", "a", "--title", title), failure))
+        pairs.append(
+            (run(titles, "--kind", "notes-policy", "--stem", "a", "--title", title), failure, handle)
+        )
     pairs.append(
         (
             run(titles, "--kind", "notes-policy", "--stem", "a", "--title", "", "--dry-run"),
             messages.l5_title_empty(),
+            "L5.22",
         )
     )
     return all_of(
-        [*(broken(r, f) for r, f in pairs), (tree_state(titles) == "", "a refused title changed the tree")],
+        [
+            *(broken(r, f, h) for r, f, h in pairs),
+            (tree_state(titles) == "", "a refused title changed the tree"),
+        ],
         "a bad stem, a bad id, a bad segment, no title, an empty, a blank and a two-line title, no stem: each"
         " refused",
     )
 
 
 def dial_failures() -> tuple[bool, str]:
-    entries: list[tuple[object, Broken]] = [
-        ("x", messages.c5_templates_shape()),
-        (["x"], messages.c5_template_entry(0, messages.entry_not_a_mapping())),
-        ([{"template": "t.md"}], messages.c5_template_entry(0, messages.entry_missing("policy"))),
-        ([{"policy": "notes-policy"}], messages.c5_template_entry(0, messages.entry_missing("template"))),
+    entries: list[tuple[object, Broken, str]] = [
+        ("x", messages.c5_templates_shape(), "C5.c"),
+        (["x"], messages.c5_template_entry(0, messages.entry_not_a_mapping()), "C5.d not a mapping"),
+        (
+            [{"template": "t.md"}],
+            messages.c5_template_entry(0, messages.entry_missing("policy")),
+            "C5.d no policy",
+        ),
+        (
+            [{"policy": "notes-policy"}],
+            messages.c5_template_entry(0, messages.entry_missing("template")),
+            "C5.d no template",
+        ),
         (
             [{"policy": "notes-policy", "template": "t.md", "type": "x"}],
             messages.c5_template_entry(0, messages.entry_unknown_key("type")),
+            "C5.d unknown key",
         ),
         (
             [{"policy": "notes-policy", "template": "t.md"}, {"policy": "notes-policy", "template": "u.md"}],
             messages.c5_template_entry(1, messages.entry_repeated("notes-policy")),
+            "C5.d repeated",
         ),
         (
             [{"policy": "notes-policy", "template": "../t.md"}],
             messages.c5_template_entry(0, messages.entry_outside()),
+            "C5.d outside",
         ),
     ]
-    pairs = [(run(prepared(own(templates=value)), *NOTE_ARGS), failure) for value, failure in entries]
-    pairs.append((run(prepared(own(bogus=1)), *NOTE_ARGS), messages.c5_unknown_key("bogus", KEYS)))
-    pairs.append((run(prepared(own(severity="block")), *NOTE_ARGS), messages.c5_severity_here()))
+    triples = [
+        (run(prepared(own(templates=value)), *NOTE_ARGS), failure, handle)
+        for value, failure, handle in entries
+    ]
+    triples.append((run(prepared(own(bogus=1)), *NOTE_ARGS), messages.c5_unknown_key("bogus", KEYS), "C5.a"))
+    triples.append((run(prepared(own(severity="block")), *NOTE_ARGS), messages.c5_severity_here(), "C5.b"))
     return all_of(
-        [broken(r, f) for r, f in pairs], f"{len(pairs)} dial failures, each exit 1 with its own line"
+        [broken(r, f, h) for r, f, h in triples],
+        f"{len(triples)} dial failures, each exit 1 with its own line",
     )
 
 
@@ -487,13 +629,19 @@ def golden_lines() -> tuple[bool, str]:
     out = run(consumer, *NOTE_ARGS).stdout
     refused = run(consumer, *NOTE_ARGS).stderr
     expected_out = "\n".join(NOTE_LINES) + "\n"
-    expected_err = (
-        "BROKEN: docs/notes/a.md already exists: creating never overwrites, so the document that is there"
-        " stays as it is — fix: choose another stem, or edit the document that is there\n"
-        "BROKEN: the document could not be created — nothing was written\n"
-    )
+    expected_err = GOLDEN["L5.11"] + "\nBROKEN: the document could not be created — nothing was written\n"
     ok = out == expected_out and refused == expected_err
     return ok, "stdout and stderr as designed" if ok else f"stdout:\n{out}\nstderr:\n{refused}"
+
+
+def every_golden_line_compared() -> tuple[bool, str]:
+    """No line of GOLDEN typed and left unused: each was compared by an item before this one."""
+    unused = sorted(set(GOLDEN) - COMPARED)
+    return not unused, (
+        f"{len(GOLDEN)} refusal lines, each compared by items 3, 4, 6, 7 and 9–11"
+        if not unused
+        else f"typed in GOLDEN, compared by no item: {unused}"
+    )
 
 
 def closing_is_the_generators() -> tuple[bool, str]:
@@ -555,6 +703,11 @@ OWN: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         closing_is_the_generators,
     ),
     ("a note of the policy index is printed before the lines", notes_are_printed),
+    # stays the last entry: it reads what every item before it compared; new items go above it
+    (
+        "golden lines: every refusal line typed here was compared by an earlier item",
+        every_golden_line_compared,
+    ),
 ]
 
 SUBJECT = Subject(

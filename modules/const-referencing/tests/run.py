@@ -1139,8 +1139,9 @@ def skill_description_fits() -> tuple[bool, str]:
 
 
 def install_note_example_is_accepted() -> tuple[bool, str]:
-    """The calibration block of the install note, handed to the gate as it stands: it parses, its
-    lane fires on the form it declares, and its single-quoted pattern is what the note says."""
+    """The calibration block of the install note, handed to the gate as it stands: it parses, and its
+    lane fires on the form it declares. That double quotes make a backslash escape a control
+    character is item 6's, run through the gate."""
     note_text = (PLUGIN / "INSTALL.md").read_text()
     block = note_text.split("```yaml\n")[1].split("```")[0]
     dials = yaml.safe_load("\n".join(line[3:] for line in block.splitlines()))
@@ -1148,10 +1149,8 @@ def install_note_example_is_accepted() -> tuple[bool, str]:
     finding = messages.r1_bare_form(DOC, LINE, "REQ-7", lane["names"], lane["fix"])
     raw = yaml.safe_dump({**Consumer(Path()).dials, **dials}, sort_keys=False)
     result, _ = gate_on(wrote(body("See REQ-7.")), raw_dials=raw)
-    doubled = yaml.safe_load('p: "\\bREQ"')["p"]
     return all_of(
-        [expect(result, 2, finding.render(), "stderr"), (doubled == "\x08REQ", f"YAML read {doubled!r}")],
-        "the note's example is accepted and its lane fires; in double quotes YAML makes \\b a backspace",
+        [expect(result, 2, finding.render(), "stderr")], "the note's example is accepted and its lane fires"
     )
 
 
