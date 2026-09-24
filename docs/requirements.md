@@ -9,17 +9,16 @@ status: active
 
 *What every module must implement, and nothing about when: the phases and sequence live in the rollout plan [constitution-rollout-plan](rollout-plan.md), the kit's write-head. A module implements exactly its rows here ([law 4 of CLAUDE.md](../CLAUDE.md#law-4)).*
 
-# Module Specifications — in order of introduction
-
-*A description below is the module's draft until authoring begins; then it moves into the module's `MODULE.md` and this heading keeps its anchor with a one-line stub linking there. The anchor is the module's stable handle in the kit for its whole life, authored or not (decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)).*
 
 **Traceability matrix** — every aspect decomposed into requirement parts, each with exactly one primary destination. Destination classes: **kernel §n** (shared semantics), **Mx** (module, with artifact kind), **binding** (per-project `constitution.yaml` — never module content), **template** (authoring law). An authoring session for module X takes exactly its rows as the requirement set; coverage check = every part homed, every module = exactly its rows.
+
+**Enforcement classes** — the closed set a row's last column is written in: **gate** (deterministic, red means fix, a blocking exit), **gate-lite** (a script that flags and never blocks, or checks presence alone), **advisory** (skill prose, judgment shaped and never gated), **definitional** (a kernel definition, enforced through another row's check), **config** (a binding validated at each read, malformed being a configuration failure), **git-native** (held by the repository itself), **review** (human judgment at review). A row whose enforcement waits for another module says so in words.
 
 **"Enters when" has two meanings** (decision [dec-0006-accumulating-set-first](decisions/dec-0006-accumulating-set-first.md)). For an accumulating module it names the first moment an object for the module exists; the module is authored *before* that moment, and for a greenfield consumer the whole accumulating set is the day-one install set. For a self-limiting module it names the friction signal that earns authoring. Dials follow the consumer; modules never wait for calibration.
 
 **Module boundaries remain provisional until authoring** — settled by three tests: *one invariant? one enforcement moment? one lifecycle trigger?* Flagged rows (†) sit on boundaries under test: M7 may dissolve (A8.x → M6, A10.2 → M9). Settled: the M1/M2 boundary — [A2.3](#a2-3) is M1's, so one write-time script guards claimed territory and M2 is advisory creation (decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)).
 
-| Part | Requirement (one line) | Destination | Recommended enforcement |
+| Part | Requirement (the rule in full) | Destination | Recommended enforcement |
 |---|---|---|---|
 | <a id="a1"></a>**A1 — Document meta-types** | | | |
 | <a id="a1-1"></a>A1.1 | Vocabulary: current-state / task-record / non-authoritative, with definitions | [kernel §2](../kernel/CONVENTIONS.md#k2) | definitional — enforced through A1.4's enum check |
@@ -62,13 +61,13 @@ status: active
 | <a id="a6"></a>**A6 — Question asking** | | | |
 | <a id="a6-1"></a>A6.1 | Threshold: ask only at recorded stakes or genuine blockers; below → decide + commit note | M6 skill | advisory — honestly ungateable |
 | <a id="a6-2"></a>A6.2 | One decision per message, in a fixed chat shape: options lettered A, B, C… (letters never collide with numbered items), each a bullet with a one-sentence description and separate **Pros:** / **Cons:** sub-bullets (one prose line each, several points joined by semicolons — never inline, never a table); exactly one recommendation with reasoning; named decider. Fewer than five options: the platform's question tool follows, carrying only letter + short label, never the argument. Complex trade-offs: a weighted-analysis policy, added at first concrete need | M6 skill | advisory |
-| <a id="a6-9"></a>A6.9 | The argument must reach the user: chat text between tool calls in one turn is not always rendered; once the user reports an argument missing, every later decision in that session ends the turn on the chat message and the pick is collected by letter, without the tool | M6 skill | advisory |
 | <a id="a6-3"></a>A6.3 | Derive-don't-improvise: questions from the artifact's open slots, in order | M6 skill | advisory |
 | <a id="a6-4"></a>A6.4 | Enum-first: closed vocabularies offered as the option set | M6 skill | advisory |
 | <a id="a6-5"></a>A6.5 | Defaults-with-override; overrides carry a one-line reason | M6 skill | advisory |
 | <a id="a6-6"></a>A6.6 | Vague or context-foreign input: open the reply by restating it as understood; where several readings are plausible, name them and the one chosen; ask only above the A6.1 threshold, otherwise proceed on the stated reading — never guess silently | M6 skill | advisory |
 | <a id="a6-7"></a>A6.7 | No deferred questions in deliverables; absent decider → explicit named blocker | M6 skill | advisory + optional **gate-lite**: script scanning deliverables for open-question markers |
 | <a id="a6-8"></a>A6.8 | Per-decider asking preferences | binding | advisory |
+| <a id="a6-9"></a>A6.9 | The argument must reach the user: chat text between tool calls in one turn is not always rendered; once the user reports an argument missing, every later decision in that session ends the turn on the chat message and the pick is collected by letter, without the tool | M6 skill | advisory |
 | <a id="a7"></a>**A7 — Answer shape** | | | |
 | <a id="a7-1"></a>A7.1 | Classify expected answer shape and match; yes/no answered with the word first | M7 skill | advisory — honestly ungateable |
 | <a id="a7-2"></a>A7.2 | Every assumption made while interpreting or doing the work is listed explicitly, one line each, so the user can correct it; none listed when none were made; an assumption that would change the work materially is a question under A6.1, not an assumption | M7 skill | advisory |
@@ -104,33 +103,37 @@ status: active
 | <a id="a13-6"></a>A13.6 | Reference forms: the full stem is canonical on machine surfaces (frontmatter, links); bare `PREFIX-NNNN` tolerated in prose; either resolves by one glob | M11 skill | advisory; syntax lint when [`const-referencing`](#const-referencing) is installed |
 | <a id="a13-7"></a>A13.7 | Catalog declarations: a numbered kind is an entry of the module's dials — prefix, territory, width — independent of policies ([kernel §6](../kernel/CONVENTIONS.md#k6)); the same prefix listed twice is a defect | M11 script | the entries validated at each read (**gate**, configuration failure); double-declaration defect (**gate**, configuration failure) |
 
+## Module specifications — in order of introduction
+
+*A description below is the module's draft until authoring begins; then it moves into the module's `MODULE.md` and this heading keeps its anchor with a one-line stub linking there. The anchor is the module's stable handle in the kit for its whole life, authored or not (decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)).*
+
 <a id="const-meta-types"></a>
-## M1 `const-meta-types` — accumulating; authored first, in Phase A
+### M1 `const-meta-types` — accumulating; authored first, in Phase A
 
 Description moved into the module's document: [`modules/const-meta-types/MODULE.md`](../modules/const-meta-types/MODULE.md) (rows [A1.4](#a1-4), [A1.5](#a1-5), [A2.3](#a2-3)); this anchor stays the module's handle.
 
 <a id="const-locations"></a>
-## M2 `const-locations` — accumulating; enters with the second territory
+### M2 `const-locations` — accumulating; enters with the second territory
 
 Description moved into the module's document: [`modules/const-locations/MODULE.md`](../modules/const-locations/MODULE.md) (rows [A2.4](#a2-4), [A2.5](#a2-5)); this anchor stays the module's handle.
 
 <a id="const-decision-records"></a>
-## M3 `const-decision-records` — accumulating; enters at the first real decision
+### M3 `const-decision-records` — accumulating; enters at the first real decision
 
 Description moved into the module's document: [`modules/const-decision-records/MODULE.md`](../modules/const-decision-records/MODULE.md) (rows [A3.4](#a3-4), [A3.6](#a3-6)); this anchor stays the module's handle.
 
 <a id="const-task-close"></a>
-## M4 `const-task-close` — accumulating; enters at the first real task
+### M4 `const-task-close` — accumulating; enters at the first real task
 
 Description moved into the module's document: [`modules/const-task-close/MODULE.md`](../modules/const-task-close/MODULE.md) (rows [A4.1](#a4-1)–[A4.7](#a4-7)); this anchor stays the module's handle.
 
 <a id="const-referencing"></a>
-## M5 `const-referencing` — accumulating once documents multiply; enters with the first cross-references
+### M5 `const-referencing` — accumulating once documents multiply; enters with the first cross-references
 
 Description moved into the module's document: [`modules/const-referencing/MODULE.md`](../modules/const-referencing/MODULE.md) (rows [A5.1](#a5-1)–[A5.3](#a5-3) and [A5.5](#a5-5)–[A5.8](#a5-8)); this anchor stays the module's handle.
 
 <a id="const-questions"></a>
-## M6 `const-questions` — self-limiting; enters on the friction signal (expect it in Phase A's authoring sessions)
+### M6 `const-questions` — self-limiting; enters on the friction signal (expect it in Phase A's authoring sessions)
 
 **Failure pattern:** both poles observed in the field — questions bundled, improvised, or asked without options and a recommendation; questions asked below the threshold (the agent should have decided and noted); open questions deferred into delivered documents; and the inverse ritualization: every small uncertainty escalated as a fixed-price ceremony.
 **Rules (advisory — skill prose, honestly labeled):**
@@ -147,7 +150,7 @@ Description moved into the module's document: [`modules/const-referencing/MODULE
 **Acceptance:** the contrastive pairs; no gate claimed.
 
 <a id="const-interaction"></a>
-## M7 `const-interaction` — self-limiting; enters on its own friction signal
+### M7 `const-interaction` — self-limiting; enters on its own friction signal
 
 **Failure pattern:** short vague requests answered by 500-word essays; answers buried under preamble; assumptions silently made.
 **Rules (advisory — skill prose, honestly labeled):** classify the expected answer shape (yes/no, value, short list, explanation) and match it — yes/no answered with the word first, qualifications after; lead with the answer, elaborate only on request; every assumption made while interpreting or doing the work listed explicitly, one line each, none when none were made — a material assumption is a question, not an assumption. **Honesty over agreement (A7.4):** say plainly when a request is wrong, unreasonable, or conflicts with governing rules, even after the user has decided; never soften findings, hide failures, or report unverified work as done. **Addressable lists (A7.5):** every list, table, or option set carries a per-item handle so one item can be cited without quoting it. **Irreversibility escalation (A8.3):** a second escalation trigger beside stakes — before any hard-to-reverse action, state the consequence and the reversible alternative and wait for an explicit yes; one approval, one action; a repeated request after the warning is the user's decision, executed with the objection noted in the commit; a `PreToolUse` hook on Bash blocks the enumerated destructive command patterns (dial) as a genuine gate — everything outside the list stays advisory, said so. Escalation, stakes-triaged: a procedural gap at routine stakes → reasonable call + commit note; at recorded stakes → stop, ask per the kernel's decision format, write the record per [kernel §5](../kernel/CONVENTIONS.md#k5) — never improvise a recorded-stakes procedure. (Richer when [`const-questions`](#const-questions) and [`const-decision-records`](#const-decision-records) are installed; functional with the kernel alone.) Plain chat language for non-native readers (the chat half of the old language aspect; the document half is M9).
@@ -156,14 +159,14 @@ Description moved into the module's document: [`modules/const-referencing/MODULE
 **Acceptance:** the contrastive pairs; red→green for the destructive-command hook only (blocked without confirmation, passes with); everything else advisory, no gate claimed.
 
 <a id="const-styling"></a>
-## M8 `const-styling` — self-limiting; enters at the first formatting friction
+### M8 `const-styling` — self-limiting; enters at the first formatting friction
 
 **Invariant/shape:** one **style-defaults policy** all templates inherit; templates state only deviations, each with a one-line reason. Founding entries exactly three: Mermaid by default, PlantUML only where Mermaid cannot express the diagram (one line naming the missing capability); ASCII art only for trivial cases (defined by contrastive examples); pseudocode over formulas. Defaults added **lazily at first need** — each born with a concrete consumer, via the normal decision path; mechanically checkable defaults may graduate into Vale rules when [`const-language`](#const-language) is installed — an optional enhancement, not a dependency.
 **Ships:** the defaults policy document + inheritance wording for M2's templates.
 **Dials:** none at founding.
 
 <a id="const-language"></a>
-## M9 `const-language` — self-limiting; enters on prose-complexity complaints
+### M9 `const-language` — self-limiting; enters on prose-complexity complaints
 
 **Invariant:** governed documents pass Vale with the project ruleset — readability-grade ceiling, sentence-length limit, forbidden constructions — plain English for non-native readers.
 **Ships:** Vale config (org renamed to `vale-cli`; pin packages by release URL — settled research) + CI/hook wiring. Known limitation carried forward: Vale cannot detect *missing* frontmatter fields (its scopes match only present content) — that is M1's script, never Vale.
@@ -171,7 +174,7 @@ Description moved into the module's document: [`modules/const-referencing/MODULE
 **Acceptance:** red→green on an over-complex fixture.
 
 <a id="const-doc-budgets"></a>
-## M10 `const-doc-budgets` — self-limiting; enters when bloat is observed, with data
+### M10 `const-doc-budgets` — self-limiting; enters when bloat is observed, with data
 
 **Invariant:** governed documents respect character ceilings per document kind — **characters, never tokens** (tokenizer changes silently redefine token ceilings; character counts are vendor-stable and offline) — measured post-hoc by script; budgets are ceilings, not targets.
 **Ships:** length-check script + wiring; a month of observed length data informs the ceilings before any becomes blocking.
@@ -179,10 +182,6 @@ Description moved into the module's document: [`modules/const-referencing/MODULE
 **Acceptance:** red→green on an over-limit fixture.
 
 <a id="const-catalogs"></a>
-## M11 `const-catalogs` — accumulating; enters with the first numbered kind (typically the first decision record, beside M3)
+### M11 `const-catalogs` — accumulating; enters with the first numbered kind (typically the first decision record, beside M3)
 
 Description moved into the module's document: [`modules/const-catalogs/MODULE.md`](../modules/const-catalogs/MODULE.md) (rows [A13.1](#a13-1)–[A13.7](#a13-7)); this anchor stays the module's handle.
-
----
-
-**Horizon — the knowledge layer (separate layer, builds on M1–M5 once lived-in):** `know-subject-units` (subject-shaped living documents — declared code paths, invariants + rationale only, merge-first rule, granularity by contrastive examples), `know-distillation` (story-close distillation into units, then deletion of exhaust), `know-pointers` (nested `CLAUDE.md` / path-scoped rules *generated from* `subject` declarations — no taxonomy, cross-cutting units surface everywhere they touch), `know-staleness` (subject+commit drift flagging — a flag means "re-verify the invariant," not "rewrite a mirror"). Entry gate: the constitution being lived-in, and the archaeology of the code worth trusting having a governed place to land.

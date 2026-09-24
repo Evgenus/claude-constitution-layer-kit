@@ -127,7 +127,7 @@ In the commit that creates this record: the module's [MODULE.md](../../modules/c
 
 ## Rulings carried
 
-1. Catalogs are declared in the module's own dial, independent of policies — [requirement A13.7](../requirements.md#a13-7); [§3](../../modules/const-catalogs/MODULE.md#t3) and [§7](../../modules/const-catalogs/MODULE.md#t7) of the module's document; rule 3 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md). The kernel schema no longer holds the key: its absence is the carried state.
+1. Catalogs are declared in the module's own dial, independent of policies — [requirement A13.7](../requirements.md#a13-7); [§3](../../modules/const-catalogs/MODULE.md#t3) and [§7](../../modules/const-catalogs/MODULE.md#t7) of the module's document; rule 3 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r3). The kernel schema no longer holds the key: its absence is the carried state.
 2. The YAML alias as the answer to a territory declared twice — the module's install note, and the kit's own `constitution.yaml`.
 3. A new item's number is refused when taken; an existing item is never judged on its number at write time — [requirement A13.4](../requirements.md#a13-4); [§3](../../modules/const-catalogs/MODULE.md#t3), [§5](../../modules/const-catalogs/MODULE.md#t5) and limit 9 of [§9](../../modules/const-catalogs/MODULE.md#t9).
 4. No listing script and no allocation mode; the count line names each catalog's reach — [requirement A13.2](../requirements.md#a13-2) and [A13.3](../requirements.md#a13-3); the artifacts table and the G1 row of [§6](../../modules/const-catalogs/MODULE.md#t6).

@@ -151,12 +151,12 @@ The field checks are deterministic and need no examples; the fixtures of [§10](
 <a id="t9"></a>
 ## 9. Enforcement honesty
 
-| artifact | kind |
-|---|---|
-| hook + `check-decision-record.sh` + `check-decision-record.py` (hook mode) | `gate`, severity dial `severity` (`block` default; `warn` reports and lets the write through) |
-| `check-decision-record.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
-| skill `record-decision` with its template | `advisory` |
-| skill `promote-recurring-notes` | `advisory` |
+| # | artifact | kind |
+|---|---|---|
+| E1 | hook + `check-decision-record.sh` + `check-decision-record.py` (hook mode) | `gate`, severity dial `severity` (`block` default; `warn` reports and lets the write through) |
+| E2 | `check-decision-record.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
+| E3 | skill `record-decision` with its template | `advisory` |
+| E4 | skill `promote-recurring-notes` | `advisory` |
 
 **Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time when both gates block, a negated pattern under an excluded directory — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–13, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
 

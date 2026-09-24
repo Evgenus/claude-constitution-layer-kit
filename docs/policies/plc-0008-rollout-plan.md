@@ -11,6 +11,11 @@ Governs the document kind *rollout plan*: the phases of the kit's rollout and th
 
 ## Rules
 
-1. **Type.** `task-record`, `active` while a phase remains, `inactive` when the last phase is reached ([kernel §2](../../kernel/CONVENTIONS.md#k2)); a stretch with no commits in its scope is stalled drift.
-2. **Content.** Phases, steps, and sequence only. A requirement belongs to the requirements document, a ruling to a decision record; neither is stated here.
-3. **Change.** Reordering or rewriting phases is a `process`-stakes decision ([law 9 of CLAUDE.md](../../CLAUDE.md#law-9)); ticking a step done is routine.
+1. <a id="r1"></a>**Type.** `task-record`, `active` while a phase remains, `inactive` when the last phase is reached ([kernel §2](../../kernel/CONVENTIONS.md#k2)); a stretch with no commits in its scope is stalled drift.
+2. <a id="r2"></a>**Content.** Phases, steps, and sequence only. A requirement belongs to the requirements document, a ruling to a decision record; neither is stated here.
+3. <a id="r3"></a>**Change.** Reordering or rewriting phases is a `process`-stakes decision ([law 9 of CLAUDE.md](../../CLAUDE.md#law-9)); ticking a step done is routine.
+4. <a id="r4"></a>**Anchors and numbers.** Every phase carries an explicit anchor `phase-<letter>` and every step `s<n>`. Steps are numbered once across the phases and keep their number; a step added later stands after the one it follows as `<n>a`, `<n>b`, with the anchor to match.
+5. <a id="r5"></a>**Done.** A step done is marked in its own line with the date, the record and "the yes given", in one sentence; the evidence lives in the record and the module document, never here.
+6. <a id="r6"></a>**Pending home.** This is the document a carry list's "pending" entry points at ([rule 2 of plc-0004-decision-records](plc-0004-decision-records.md#r2)): a step so named closes only with its intent carried into the current-state documents, in the same change, and the note the carry-lists gate prints for it is answered by the next audit in full.
+7. <a id="r7"></a>**Close.** The plan is `inactive` when step 11 is done. The last phase describes the steady state and holds no rule: what it points at lives in the intent page and the policies.
+8. <a id="r8"></a>**Enforcement.** The envelope by module `const-meta-types`; links and anchors by module `const-referencing`; `scripts/check-carry-lists.py` refuses this document as a home, so a ruling stated only here is found by the carry audit. Content is review.

@@ -213,4 +213,4 @@ const-locations:                      # creates documents; blocks nothing, so no
     - policy: plc-0006-module-documents
       template: module-template/MODULE.md
     - policy: plc-0004-decision-records
-      template: modules/const-decision-records/skills/record-decision/record-template.md
+      template: templates/decision-record.md   # the kit's own: the module's template plus the carry list of plc-0004

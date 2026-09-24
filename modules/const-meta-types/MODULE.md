@@ -129,11 +129,11 @@ The resolution and envelope boundaries are deterministic and need no examples; t
 <a id="t9"></a>
 ## 9. Enforcement honesty
 
-| artifact | kind |
-|---|---|
-| hook + `check-governed-document.sh` + `check-governed-document.py` (hook mode) | `gate`, severity dial `severity` (`block` default; `warn` reports and lets the write through) |
-| `check-governed-document.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
-| skill `choose-meta-type` | `advisory` |
+| # | artifact | kind |
+|---|---|---|
+| E1 | hook + `check-governed-document.sh` + `check-governed-document.py` (hook mode) | `gate`, severity dial `severity` (`block` default; `warn` reports and lets the write through) |
+| E2 | `check-governed-document.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
+| E3 | skill `choose-meta-type` | `advisory` |
 
 **Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time, a negated pattern under an excluded directory — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–13, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
 
