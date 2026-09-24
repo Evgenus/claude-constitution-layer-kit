@@ -14,6 +14,7 @@ Write the shared items hand it into the generator's command line, run from insid
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
@@ -144,7 +145,8 @@ ENTRY = (
 )
 # Every refusal and dial failure the runner reaches, keyed by its handle in the table of §6, the
 # whole first line typed here by hand: the items compare with what the message functions return
-# too, so a slip inside a function is red only here. Not reached: L5.15's unreadable shape, L5.20.
+# too, so a slip inside a function is red only here. L5.20 names the run's directory and is reached
+# only by item 16, after item 13 has counted what the items compared: item 16 types its line itself.
 GOLDEN: dict[str, str] = {
     "L5.1": "BROKEN: misinvocation: --stem was not given — fix: run it with --kind <policy id> --stem <stem>"
     " --title <text> [--type <meta-type>] [--segment <segment>] [--id <id>] [--dry-run]",
@@ -186,6 +188,9 @@ GOLDEN: dict[str, str] = {
     " task-record, and a kind has one meta-type — fix: drop --type; the template decides",
     "L5.15 missing": "BROKEN: the template of notes-policy, tpl/record.md, does not exist — fix: point"
     " const-locations.templates at a Markdown file of this repository, or remove the entry",
+    "L5.15 unreadable": "BROKEN: the template of notes-policy, tpl/record.md, cannot be read ('utf-8' codec"
+    " can't decode byte 0xff in position 222: invalid start byte) — fix: point const-locations.templates"
+    " at a Markdown file of this repository, or remove the entry",
     "L5.16": "BROKEN: the template tpl/record.md opens with no readable envelope (none) — fix: a template"
     " opens with the YAML block a document of its kind carries — id, type, title, status — with"
     " placeholders where the writer fills",
@@ -378,6 +383,9 @@ def from_template() -> tuple[bool, str]:
 def template_refusals() -> tuple[bool, str]:
     with_template = own(templates=[{"policy": "notes-policy", "template": TEMPLATE}])
     bad_type = TEMPLATE_TEXT.replace("type: task-record", "type: ruling")
+    not_utf8 = prepared(with_template, files={TEMPLATE: TEMPLATE_TEXT})
+    (not_utf8.root / TEMPLATE).write_bytes(TEMPLATE_TEXT.encode() + b"\xff\n")  # a byte UTF-8 never opens
+    commit_if_changed(not_utf8)
     pairs = [
         (
             run(prepared(), "--kind", "notes-policy", "--stem", "a", "--title", "T"),
@@ -430,10 +438,24 @@ def template_refusals() -> tuple[bool, str]:
             messages.l5_template_missing("notes-policy", TEMPLATE),
             "L5.15 missing",
         ),
+        (
+            run(not_utf8, "--kind", "notes-policy", "--stem", "a", "--title", "T"),
+            messages.l5_template_unreadable(
+                "notes-policy",
+                TEMPLATE,
+                f"'utf-8' codec can't decode byte 0xff in position {len(TEMPLATE_TEXT.encode())}: invalid"
+                " start byte",
+            ),
+            "L5.15 unreadable",
+        ),
     ]
     return all_of(
-        [broken(r, f, h) for r, f, h in pairs],
-        "no type, a conflicting type, a bad type, no envelope, a missing template: each refused",
+        [
+            *(broken(r, f, h) for r, f, h in pairs),
+            (tree_state(not_utf8) == "", "a template that is not UTF-8 changed the tree"),
+        ],
+        "no type, a conflicting type, a bad type, no envelope, a missing template, a template that is not"
+        " UTF-8: each refused",
     )
 
 
@@ -663,6 +685,36 @@ def closing_is_the_generators() -> tuple[bool, str]:
     )
 
 
+def write_refused() -> tuple[bool, str]:
+    """A write the system refuses is L5.20, and leaves nothing: no file, no directory made for it."""
+    if os.geteuid() == 0:
+        return (
+            True,
+            "NOT EXERCISED: running as root, where a mode bit does not deny a write — 0 writes examined",
+        )
+    consumer = prepared()
+    docs = consumer.root / "docs"
+    os.chmod(docs, 0o500)  # docs/notes cannot be made
+    try:
+        result = run(consumer, *NOTE_ARGS)
+    finally:
+        os.chmod(docs, 0o755)  # the runner's cleanup cannot remove what it may not write into
+    line = (
+        f"BROKEN: docs/notes/a.md could not be written ([Errno 13] Permission denied: '{docs}/notes'): the"
+        " write is the last act, so the refusal leaves nothing behind — fix: check the directory's"
+        " permissions; nothing else was changed"
+    )
+    ok, evidence = broken_first_line(result, line)
+    state = tree_state(consumer)
+    problems = [
+        *([] if ok else [evidence]),
+        *([] if messages.l4_nothing_written() in result.stderr else ["no closing line"]),
+        *([] if state == "" else [f"tree: {state!r}"]),
+        *(["docs/notes was left behind"] if (docs / "notes").exists() else []),
+    ]
+    return not problems, "; ".join(problems) or f"{evidence}; git status empty, no directory made"
+
+
 def notes_are_printed() -> tuple[bool, str]:
     """A policy document without a readable id earns the shared note, on stdout, before the lines."""
     consumer = prepared(files={"docs/policies/zz-no-id.md": "# no envelope\n"})
@@ -683,7 +735,10 @@ OWN: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
     ),
     ("a single path and every fourth-class territory: no home, refused and taught", no_home),
     ("a template: the command's id, title and status, the template's type, the rest verbatim", from_template),
-    ("no type, a conflicting type, a bad type, no envelope, a missing template", template_refusals),
+    (
+        "no type, a conflicting type, a bad type, no envelope, a missing template, one not UTF-8",
+        template_refusals,
+    ),
     ("an overlap, an existing file, an id in use", proof_refusals),
     ("--dry-run prints the home and the template and writes nothing", dry_run),
     ("not a policy, no dials file, no root policy, outside any repository", repository_refusals),
@@ -696,6 +751,7 @@ OWN: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         closing_is_the_generators,
     ),
     ("a note of the policy index is printed before the lines", notes_are_printed),
+    ("a write the system refuses is refused in turn, and leaves nothing behind", write_refused),
 ]
 
 SUBJECT = Subject(
