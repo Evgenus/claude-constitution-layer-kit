@@ -67,6 +67,7 @@ CASES = [
         Write(NOTE_A, NO_ENVELOPE),
         Write(NOTE_A, envelope("note-a")),
         messages.f1_no_envelope(NOTE_A),
+        "governed by notes-policy",
     ),
     Case(
         2,
@@ -74,6 +75,7 @@ CASES = [
         Write(NOTE_A, "---\nid: note-a\n\n# Note A\n"),
         Write(NOTE_A, envelope("note-a")),
         messages.f2_unterminated(NOTE_A),
+        "governed by notes-policy",
     ),
     Case(
         3,
@@ -81,6 +83,7 @@ CASES = [
         Write(NOTE_A, "---\nid: [unclosed\n---\n"),
         Write(NOTE_A, envelope("note-a")),
         messages.f3_invalid_yaml(NOTE_A, yaml_error("id: [unclosed")),
+        "governed by notes-policy",
     ),
     Case(
         4,
@@ -95,6 +98,7 @@ CASES = [
                 messages.f4_status_not_allowed("open"),
             ],
         ),
+        "governed by notes-policy",
     ),
     Case(
         5,
@@ -102,6 +106,7 @@ CASES = [
         Write("docs/notes/b.md", envelope("notes-policy")),
         Write("docs/notes/b.md", envelope("note-b")),
         messages.f5_duplicate_id("docs/notes/b.md", "notes-policy", "docs/policies/notes-policy.md"),
+        "governed by notes-policy",
     ),
     Case(
         6,
@@ -109,6 +114,7 @@ CASES = [
         Write("loose.md", envelope("loose", policy="ghost-policy")),
         Write("loose.md", envelope("loose", policy="notes-policy")),
         messages.f6_no_such_policy("loose.md", "ghost-policy", ROOT_TERRITORY),
+        "governed by notes-policy",
     ),
     Case(
         7,
@@ -116,6 +122,7 @@ CASES = [
         Write(SHARED, envelope("shared-x")),
         Write(SHARED, envelope("shared-x", policy="shared-policy")),
         messages.f7_multi_policy(SHARED, [NOTES, SHARED_POLICY]),
+        "governed by shared-policy",
     ),
     Case(
         8,
@@ -123,6 +130,7 @@ CASES = [
         Write(NOTE_A, envelope("note-a", policy="root-policy")),
         Write(NOTE_A, envelope("note-a")),
         messages.f8_contradiction(NOTE_A, "root-policy", NOTES, ROOT_TERRITORY),
+        "governed by notes-policy",
     ),
     Case(
         9,
@@ -130,6 +138,7 @@ CASES = [
         Write(NOTE_A, envelope("note-a", policy="ghost-policy")),
         Write(NOTE_A, envelope("note-a")),
         messages.f8_contradiction(NOTE_A, "ghost-policy", NOTES, None),
+        "governed by notes-policy",
     ),
     Case(
         10,
@@ -137,6 +146,7 @@ CASES = [
         Write(SHARED, envelope("shared-x", policy="root-policy")),
         Write(SHARED, envelope("shared-x", policy="notes-policy")),
         messages.f8b_contradiction_in_overlap(SHARED, "root-policy", [NOTES, SHARED_POLICY]),
+        "governed by notes-policy",
     ),
     Case(
         11,
@@ -144,6 +154,7 @@ CASES = [
         Write("docs/policies/drafts-policy.md", envelope("drafts-policy", "task-record")),
         Write("docs/policies/drafts-policy.md", envelope("drafts-policy", "current-state")),
         messages.f10_policy_type("docs/policies/drafts-policy.md", "task-record", ROOT_TERRITORY),
+        "governed by root-policy",
     ),
     Case(
         12,
@@ -151,6 +162,7 @@ CASES = [
         Write(ROOT_POLICY, NO_ENVELOPE),
         Write(ROOT_POLICY, envelope("root-policy", "current-state")),
         messages.f11_root_unreadable(ROOT_POLICY, messages.f11_detail_no_envelope()),
+        "governed by root-policy",
     ),
     Case(
         13,
@@ -158,6 +170,7 @@ CASES = [
         Write(ROOT_POLICY, envelope("root-policy", "task-record")),
         Write(ROOT_POLICY, envelope("root-policy", "current-state")),
         messages.f12_root_type(ROOT_POLICY, "task-record"),
+        "governed by root-policy",
     ),
     Case(
         14,
@@ -165,6 +178,7 @@ CASES = [
         Write(ROOT_POLICY, envelope("renamed-root", "current-state")),
         Write(ROOT_POLICY, envelope("root-policy", "current-state")),
         messages.f13_root_id_orphaned(ROOT_POLICY, "renamed-root"),
+        "governed by root-policy",
     ),
     Case(
         15,
@@ -175,6 +189,7 @@ CASES = [
             ROOT_POLICY,
             shared.c9_root_outside_own_territory(ROOT_POLICY, ["docs/notes/**"], "notes-policy"),
         ),
+        "governed by root-policy",
     ),
     Case(
         16,
@@ -182,6 +197,7 @@ CASES = [
         Edit(NOTE_A, "type: non-authoritative\n", ""),
         Edit(NOTE_A, "# Fixture", "# Fixture, edited"),
         messages.f4_invalid_fields(NOTE_A, [shared.field_missing("type")]),
+        "governed by notes-policy",
         setup=[Write(NOTE_A, envelope("note-a"))],
     ),
     Case(
@@ -190,6 +206,7 @@ CASES = [
         Edit(NOTE_A, "", NO_ENVELOPE),
         Edit(NOTE_A, "", envelope("note-a")),
         messages.f1_no_envelope(NOTE_A),
+        "governed by notes-policy",
     ),
 ]
 

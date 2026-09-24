@@ -96,6 +96,8 @@ VALID = Write(RECORD_A, record())
 
 # ------------------------------------------------------------------ red → green cases
 
+GREEN_WHAT = "governed by records-policy"  # what every green half's line says its document is, typed by hand
+
 CASES = [
     Case(
         1,
@@ -103,6 +105,7 @@ CASES = [
         Write(RECORD_A, NO_ENVELOPE),
         VALID,
         messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.NONE),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -111,6 +114,7 @@ CASES = [
         Write(RECORD_A, "---\nid: record-a\nstakes: process\n\n# Record A\n"),
         VALID,
         messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.UNTERMINATED),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -119,6 +123,7 @@ CASES = [
         Write(RECORD_A, "---\nstakes: [unclosed\n---\n"),
         VALID,
         messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.INVALID, yaml_error("stakes: [unclosed")),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -134,6 +139,7 @@ CASES = [
                 shared.field_missing("decider"),
             ],
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -144,6 +150,7 @@ CASES = [
         messages.r2_invalid_fields(
             RECORD_A, [shared.field_missing("stakes"), shared.field_missing("decider")]
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -152,6 +159,7 @@ CASES = [
         Write(RECORD_A, record(decider=42)),
         VALID,
         messages.r2_invalid_fields(RECORD_A, [shared.field_not_string("decider", "int")]),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -160,6 +168,7 @@ CASES = [
         Write(RECORD_A, record(decider="  ")),
         VALID,
         messages.r2_invalid_fields(RECORD_A, [messages.r2_decider_empty()]),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -168,6 +177,7 @@ CASES = [
         Write(RECORD_A, record(stakes="routine")),
         VALID,
         messages.r3_routine_record(RECORD_A),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -176,6 +186,7 @@ CASES = [
         Edit(RECORD_A, "decider: the maintainer\n", ""),
         Edit(RECORD_A, "# Fixture", "# Fixture, edited"),
         messages.r2_invalid_fields(RECORD_A, [shared.field_missing("decider")]),
+        GREEN_WHAT,
         (*SETUP, VALID),
     ),
     Case(
@@ -186,6 +197,7 @@ CASES = [
         messages.r2_invalid_fields(
             "loose.md", [shared.field_missing("stakes"), shared.field_missing("decider")]
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -194,6 +206,7 @@ CASES = [
         Write("docs/decisions/shared/s.md", record("record-s", stakes="high")),
         Write("docs/decisions/shared/s.md", record("record-s")),
         messages.r2_invalid_fields("docs/decisions/shared/s.md", [messages.r2_stakes_not_allowed("high")]),
+        GREEN_WHAT,
         OVERLAP,
     ),
     Case(
@@ -204,6 +217,7 @@ CASES = [
         messages.r2_invalid_fields(
             RECORD_A, [shared.field_missing("type"), shared.field_not_string("stakes", "int")]
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -212,6 +226,7 @@ CASES = [
         Write(RECORD_A, "---\n- stakes\n- decider\n---\n"),
         VALID,
         messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.INVALID, shared.detail_not_a_mapping()),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -222,6 +237,7 @@ CASES = [
         messages.r2_invalid_fields(
             RECORD_A, [shared.field_missing("stakes"), shared.field_missing("decider")]
         ),
+        GREEN_WHAT,
         SETUP,
     ),
     Case(
@@ -230,6 +246,7 @@ CASES = [
         Edit(RECORD_A, "process", "high", replace_all=True),
         Edit(RECORD_A, "process", "product", replace_all=True),
         messages.r2_invalid_fields(RECORD_A, [messages.r2_stakes_not_allowed("high")]),
+        GREEN_WHAT,
         (*SETUP, VALID),
     ),
 ]
