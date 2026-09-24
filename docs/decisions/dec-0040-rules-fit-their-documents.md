@@ -17,7 +17,7 @@ On the day [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-k
 
 - **A. Widen the rules to what the documents keep, and give a comparison its change stakes, in one record.** With it, the two rows and two headings the readers flagged, and two sentences of the plan that restate rules carried elsewhere.
   - **Pros:** the readers never confused the prefixes or the titles; the rules were the audit's own drafting error; one small record and audit.
-  - **Cons:** a second record on the day of the first.
+  - **Cons:** a record following dec-0039 the same day.
 - **B. Repairs only; the rules wait for friction.**
   - **Pros:** no record.
   - **Cons:** six module documents and four policies in breach of rules accepted the same day, and the rows untouchable without a record anyway.
@@ -39,7 +39,7 @@ A, chosen by the decider in chat on 2026-09-24.
 
 **R2.** A policy's title names its kind in full or by its short name — "Intent policy" for the intent page — and the root's is "Root policy — <clause>".
 
-**R3.** A policy's Enforcement rule says which module guards which field, at write time, in its scan, or both; the split is named where the two differ — the mentions outside Markdown and a number's uniqueness across the tree, which only a scan reads, and the code pairing, which the range check alone holds, run before the merge.
+**R3.** A policy's Enforcement rule says which module guards which field, at write time, in its scan, or both; the split is named where the two differ — the mentions outside Markdown and a collision between items that exist, which only a scan reads, while a new item's number is checked at write time too; and the code pairing, which the range check alone holds, run before a merge and on the trunk after it.
 
 **R4.** The requirements document's enforcement classes may carry a qualifier before or after the class — "advisory procedure", "review judgment", an assist named — and a row may name the template as its destination or beside another; a row's cell is amended under rule 2 of the policy when its rule or its vocabulary changes; a module's entry trigger and a condition inside a rule name no phase. Row [A4.2](../requirements.md#a4-2) reads `gate-lite` for what it called "gate as flag"; row [A13.7](../requirements.md#a13-7) reads `config` for a check validated at each read; the headings of `const-meta-types` and `const-questions` drop their phase, and the first reads "enters with the first governed document" for "authored first", which was sequence.
 
