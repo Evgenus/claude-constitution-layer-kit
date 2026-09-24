@@ -45,7 +45,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 **R3.** Amending a rule of a policy is a `process` decision; carrying an already-ruled item is routine; a mechanical edit is routine. The policy template, `templates/policy.md`, is the shape, and a rule that changes the shape changes the template in the same change.
 
-**R4.** A policy's body opens with the sentence the template writes, its title is "<Kind> policy — <clause>", and every rule opens with a bold name; the root policy and the decision-record policy, which broke the form, were brought into it in this change.
+**R4.** A policy's body opens with the sentence the template writes, its title is "<Kind> policy — <clause>" — the root's, whose kind is *policy*, "Root policy — <clause>" — and every rule opens with a bold name; the root policy and the decision-record policy, which broke the form, were brought into it in this change.
 
 ### 2. The kernel policy, [plc-0002-kernel](../policies/plc-0002-kernel.md)
 
@@ -63,7 +63,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 **R9.** A ruling item is any sentence that binds after the yes, wherever it stands, a default left open to override included — the test being the blind reader; handles run in order, contiguous and unique in the record, tables included, a key of another document written qualified; one kind of home per handle, with the split or the after-link history for a mixed item.
 
-**R10.** A record is `inactive` once every item has its home in the sense of rule 2 — current-state text, "history only", or "pending" in the plan, the write-head that holds unreal intent, which is how the kit reads the kernel's "applied" — and `active` only while an item has none; a record that grows while its change is made is born `active` and set `inactive` in the commit that names its yes. This settles the two readings the records took, in favour of the newer, and this record, grown through its two slots, follows it.
+**R10.** A record is `inactive` once every item has its home in the sense of rule 2 — current-state text, "history only", or "pending" in the plan, the write-head that holds unreal intent, which is how the kit reads the kernel's "applied" — and `active` only while an item has none; a record not applied in its creating commit because it grows while its change is made is born `active` and set `inactive` in the commit that names its yes or ends its review. This settles the two readings the records took, in favour of the newer, and this record, grown through its two slots, follows it.
 
 **R11.** The body says "the decider"; the Choice names where and when; a commit hash appears for a pin or for a deleted file that is no record only.
 
@@ -75,7 +75,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 **R15.** Every record of the kit so far is `process`.
 
-**R16.** An `architecture` record's review is the two passes of step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), every finding fixed or justified: a fresh reader holding the record, the current-state documents it changes and the policy, never the authoring reasoning, then the carry audit; the review is complete when the decider says so in chat, the commit that names it carrying the trailers of [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5) as the receipt, so the correction window closes at the review's end as the kernel has it; a reviewer other than the decider replaces the first pass once the kit has a second human, by an amendment under [rule 3 of plc-0001-root-policy](../policies/plc-0001-root-policy.md#r3). A `product` record, which the kernel gives neither a yes nor a review, is complete when committed, the carry audit run before that commit, and carries no `Accepted:` trailer; the gate's note that it awaits a yes is the honest limit of a gate that does not read stakes. The slot was put to the decider with three options — A, the two passes plus the yes; B, a second human reviewer; C, the slot left open — the session recommending A, since it is the kit's existing review made mandatory at the higher stakes, B naming a blocker no record could pass today and C a deferred question inside a policy; A chosen by the decider in chat on 2026-09-24. Two audit rounds corrected the draft before the yes: its "routine amendment" against rule 3 of the root policy, its ceremony for a `product` record against the kernel's, and the first pass without inputs for a record that is no module's.
+**R16.** An `architecture` record's review is the two passes of step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), every finding fixed or justified: a fresh reader holding the record, the current-state documents it changes and the policy, never the authoring reasoning, then the carry audit; the review is complete when the decider says so, in chat or from rollout Phase D in the pull request, the commit that names it carrying the trailers of [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5) as the receipt, so the correction window closes at the review's end as the kernel has it; a reviewer other than the decider replaces the first pass once the kit has a second human, by an amendment under [rule 3 of plc-0001-root-policy](../policies/plc-0001-root-policy.md#r3). A `product` record, which the kernel gives neither a yes nor a review, is complete when committed and has no window: the audit runs on the commit that holds it, a finding is fixed in the documents or by a further record and never by editing it, the commit with the fixes carries the `Carry-Audit:` trailer alone, and the gate's note that it awaits a yes is the honest limit of a gate that does not read stakes. The slot was put to the decider with three options — A, the two passes plus the yes; B, a second human reviewer; C, the slot left open — the session recommending A, since it is the kit's existing review made mandatory at the higher stakes, B naming a blocker no record could pass today and C a deferred question inside a policy; A chosen by the decider in chat on 2026-09-24. Three audit rounds corrected the draft before the yes: its "routine amendment" against rule 3 of the root policy, its ceremony for a `product` record against the kernel's, and the first pass without inputs for a record that is no module's.
 
 ### 5. The research policy, [plc-0005-research](../policies/plc-0005-research.md)
 
@@ -129,7 +129,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 **R36.** Twenty-five Markdown files lie in no territory, the kit's record template now among them — `CLAUDE.md`, the README, the templates, the skills, the install notes. The constitution is silent there, so this is no defect, and no policy is written for them by this record; a session-guide kind and a templates kind are the next policies the kit will want, when friction says so.
 
-**R37.** Found by the audit and ruled here: the link to a deleted record becomes its title in plain words inside a frozen research comparison and in a done line of the plan too, not only inside another record — a routine edit the freeze allows, which widens items 3 and 4 of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md) without reversing them; and a done line of the plan names a deleted record that way.
+**R37.** Found by the audit and ruled here: the link to a deleted record becomes its title in plain words inside a frozen research comparison, the one edit besides a dated annotation that the freeze allows, and in a done line of the plan, a routine edit — not only inside another record; this widens items 3 and 4 of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md) without reversing them.
 
 ## Carry list
 
@@ -139,7 +139,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 4. R4 — [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r4), rule 4; the two policies brought into the form is history.
 5. R5 — [plc-0002-kernel](../policies/plc-0002-kernel.md#r3), rules 3 to 7.
 6. R6 — [plc-0003-intent-page](../policies/plc-0003-intent-page.md#r3), rules 3 to 6, and [INTENT.md](../../INTENT.md#i5), the sentence on the A12 gates; the rewriting of that sentence is history.
-7. R7 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r8), rule 8, and the `templates` dial of [constitution.yaml](../../constitution.yaml); the audit's findings on the draft are history.
+7. R7 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r8), rule 8, and the `templates` dial of [constitution.yaml](../../constitution.yaml).
 8. R8 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r9), rule 9.
 9. R9 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r10), rule 10.
 10. R10 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r11), rule 11; which reading the older records took is history.
@@ -155,7 +155,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 20. R21 — [plc-0005-research](../policies/plc-0005-research.md#r10), rule 10.
 21. R22 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r5), rule 5; the three titles given their clause is history.
 22. R23 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r6), rules 6 and 7.
-23. R24 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8), rule 8, and the handles paragraph of [template §10](../../module-template/MODULE.md#t10); the columns, numbers and renamed items of the day are history.
+23. R24 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8), rule 8, and the handles paragraph of [template §10](../../module-template/MODULE.md#t10); the columns, numbers and renamed items of the day, and the audit's finding that widened the rule, are history.
 24. R25 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r9), rule 9.
 25. R26 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r10), rule 10, and rule 3.
 26. R27 — [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r11), rule 11; the two removals are history.
@@ -168,4 +168,4 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 33. R34 — [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r4), rules 4 to 8.
 34. R35 — [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r3), rules 3 and 9.
 35. R36 — history only: an observation of the day; the next policies wait for friction.
-36. R37 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7), rule 7, and [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md#r5), rule 5.
+36. R37 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7), rule 7, [plc-0005-research](../policies/plc-0005-research.md#r7), rule 7, and [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md#r5), rule 5; what it widens of an older record is history.

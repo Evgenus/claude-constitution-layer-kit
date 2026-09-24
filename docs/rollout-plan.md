@@ -22,8 +22,8 @@ status: active
    - [`const-meta-types`](requirements.md#const-meta-types) — done 2026-09-18, records [dec-0019-meta-types-module-rulings](decisions/dec-0019-meta-types-module-rulings.md) and [dec-0020-gate-script-rules](decisions/dec-0020-gate-script-rules.md), the yes given; its consumer-live proof is step 5.
    - [`const-decision-records`](requirements.md#const-decision-records) — done 2026-09-20, record [dec-0024-decision-records-module-rulings](decisions/dec-0024-decision-records-module-rulings.md), the yes given; its consumer-live proof is step 5.
    - [`const-catalogs`](requirements.md#const-catalogs) — done 2026-09-20, record [dec-0029-catalogs-module-rulings](decisions/dec-0029-catalogs-module-rulings.md), the yes given; its consumer-live proof is step 5.
-   - [`const-referencing`](requirements.md#const-referencing) — done 2026-09-22, record [dec-0033-referencing-module-rulings](decisions/dec-0033-referencing-module-rulings.md), the yes given; its consumer-live proof is step 5. Phase A step 3 is complete.
-   - Shared gate code — done 2026-09-20, records [dec-0023-shared-gate-code-at-module-two](decisions/dec-0023-shared-gate-code-at-module-two.md) and [dec-0025-shared-gate-code-linked](decisions/dec-0025-shared-gate-code-linked.md), the yes given; step 5 also proves that an install carries the linked code.
+   - [`const-referencing`](requirements.md#const-referencing) — done 2026-09-22, record [dec-0033-referencing-module-rulings](decisions/dec-0033-referencing-module-rulings.md), the yes given; its consumer-live proof is step 5.
+   - Shared gate code — done 2026-09-20, records [dec-0023-shared-gate-code-at-module-two](decisions/dec-0023-shared-gate-code-at-module-two.md) and [dec-0025-shared-gate-code-linked](decisions/dec-0025-shared-gate-code-linked.md), the yes given; step 5 also proves that an install carries the linked code. Phase A step 3 is complete.
 4. <a id="s4"></a>Review each against the template; fix the template where it failed you. Log every session annoyance as a commit note — the friction signal that earns [`const-questions`](requirements.md#const-questions) and [`const-interaction`](requirements.md#const-interaction).
 
 <a id="phase-b"></a>
@@ -48,4 +48,4 @@ status: active
 <a id="phase-e"></a>
 ## Phase E — Steady state
 
-Friction in a project → commit note → recurring notes on one theme → module authored or amended in the kit (`process` stakes, one human yes) → version bump → projects update — the principle [p2 of the intent page](../INTENT.md#p2), and [rule 5 of plc-0001-root-policy](policies/plc-0001-root-policy.md#r5). Onboarding = clone, install, read one page of `CONVENTIONS.md`.
+Friction in a project → commit note → recurring notes on one theme → module authored or amended in the kit (`process` stakes, one human yes) → version bump → projects update — the principle [p2 of the intent page](../INTENT.md#p2), and, for a document of a kind no policy governs yet, [rule 5 of plc-0001-root-policy](policies/plc-0001-root-policy.md#r5). Onboarding = clone, install, read one page of `CONVENTIONS.md`.

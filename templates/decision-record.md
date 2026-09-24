@@ -2,7 +2,7 @@
 id: <dec-nnnn-slug — the next number of the dec catalog; never changed afterwards>
 type: task-record
 title: <one line stating the ruling, not the topic>
-status: <inactive once every item has its home — current-state text, history only, or pending in the plan — or when applied in the creating commit; active while one has none, and for a record that grows while its change is made, until the commit that names its yes>
+status: <inactive when applied in the creating commit, or once every item has its home — current-state text, history only, or pending in the plan; active while an item has none, which for a record that grows while its change is made lasts until the commit that names its yes or ends its review>
 stakes: <process | product | architecture>
 decider: <the person or role who made the choice>
 ---
