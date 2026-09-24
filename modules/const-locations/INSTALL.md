@@ -54,7 +54,7 @@ silently skipped.
 5. Introducing a kind: the skill `/const-locations:new-kind` — the policy first, its territory
    line by hand at the end of `constitution.yaml`, then the first document. The command creates
    the policy itself when given the root policy's id as the kind.
-6. Output log: every line the command prints is also appended, as one JSON line (timestamp,
+6. Output log: everything the command prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-locations.jsonl` — refusals leave no
    trace in git. By default it lives in the platform's per-plugin data directory. Set `log_dir`
    to keep it inside the repository; the directory must be git-ignored, and the command refuses

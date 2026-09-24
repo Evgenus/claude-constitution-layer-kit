@@ -2,9 +2,10 @@
 standard library's ``logging``, not a hand-made tee.
 
 A blocked write leaves no trace in git, and neither does a warn-level finding or a
-configuration failure; the log is where those events survive. Each printed line becomes
-one JSON line: timestamp, module, gate, mode, session, stream, text. The log holds what
-was printed and nothing more.
+configuration failure; the log is where those events survive. Each call of ``out`` or
+``err`` becomes one JSON line: timestamp, module, gate, mode, session, stream, text — a
+text of several lines, a verdict or a traceback, stays one record, its newlines escaped
+by JSON. The log holds what was printed and nothing more.
 
 How ``logging`` is wired:
 
@@ -133,8 +134,7 @@ class Output:
         self._emit(Stream.STDERR, text)
 
     def _emit(self, stream: Stream, text: str) -> None:
-        for line in text.splitlines() or [""]:  # one record, and so one log line, per printed line
-            self._logger.log(_LEVEL[stream], line)
+        self._logger.log(_LEVEL[stream], text)  # one record, and so one log line, per call
 
     def flush(self) -> None:
         """Write what was printed. Called once, by the guard, however the run ended."""
