@@ -71,7 +71,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 **R13.** The defects of the day are not repaired in the records: [dec-0037-dials-file-block-style](dec-0037-dials-file-block-style.md) keeps its history of a wrong birth status, and the sentence added to [dec-0009-module-routine-validation-and-inputs](dec-0009-module-routine-validation-and-inputs.md) stays — an accepted record is not edited, and both are provenance only.
 
-**R14.** A reversing record names the reversed item by record and handle, the reversal itself is carried "history only", and the reversed record is not touched: a pointer added to an accepted record is new content, not the mechanical edit of [kernel §5](../../kernel/CONVENTIONS.md#k5). *Open until the decider's pick: the alternative is a kernel change admitting a supersession pointer as a mechanical edit.*
+**R14.** A reversing record names the reversed item by record and handle, the reversal itself is carried "history only", and the reversed record is not touched: a pointer added to an accepted record is new content, not the mechanical edit of [kernel §5](../../kernel/CONVENTIONS.md#k5). Chosen A over a kernel change admitting a supersession pointer as a third mechanical edit, by the decider in chat on 2026-09-24: the reversal is found through the reversing record and the audit's provenance sort, and the kernel stays as it is.
 
 **R15.** Every record of the kit so far is `process`; a `product` record is complete when committed.
 
