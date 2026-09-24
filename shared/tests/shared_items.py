@@ -624,7 +624,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return unreadable(root / sibling, lambda: h.run_gate("", args=["--scan", str(root)]), line)
 
     def dials_not_utf8() -> tuple[bool, str]:
-        """A byte that is not UTF-8 is the file's content: C4 with the decoder's message, never C12.11."""
+        """A byte that is not UTF-8 is the file's content: C4 naming its line and column, never C12.11."""
         _, root = s.gate_on(s.valid)
         dials = root / "constitution.yaml"
         dials.write_bytes(b"# \xff\n" + dials.read_bytes())
@@ -633,8 +633,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         else:
             result = h.run_gate("", args=list(s.act_args), cwd=root)  # refused before the home is looked at
         line = (
-            "BROKEN: constitution.yaml is not valid YAML ('utf-8' codec can't decode byte 0xff in position 2:"
-            " invalid start byte) — fix: repair the YAML at the place the message names; nothing is checked"
+            "BROKEN: constitution.yaml is not valid YAML (byte 0xff at line 1, column 3 is not UTF-8; save"
+            " the file as UTF-8) — fix: repair the YAML at the place the message names; nothing is checked"
             " until the file parses"
         )
         return broken_as_typed(result, line)
@@ -724,7 +724,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             document_unreadable,
         ),
         (
-            "C4: a dials file that is not UTF-8 is not valid YAML, never a defect of the gate",
+            "C4: a dials file that is not UTF-8 is C4, its line and column named, never a defect of the gate",
             dials_not_utf8,
         ),
     ]
