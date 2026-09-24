@@ -210,6 +210,26 @@ CASES = [
         messages.f1_no_envelope(NOTE_A),
         "governed by notes-policy",
     ),
+    Case(
+        34,
+        "F11: the root policy with an envelope opened and never closed is a blocked write",
+        Write(ROOT_POLICY, "---\nid: root-policy\ntype: current-state\n\n# Root\n"),
+        Write(ROOT_POLICY, envelope("root-policy", "current-state")),
+        messages.f11_root_unreadable(ROOT_POLICY, messages.f11_detail_unterminated()),
+        "governed by root-policy",
+    ),
+    Case(
+        35,
+        "F4 carrying two errors: an id YAML reads as a bool and an empty title, in one finding",
+        Write(
+            NOTE_A, "---\nid: true\ntype: non-authoritative\ntitle: ''\nstatus: active\n---\n\n# Fixture\n"
+        ),
+        Write(NOTE_A, envelope("note-a")),
+        messages.f4_invalid_fields(
+            NOTE_A, [shared.field_not_string("id", "bool"), messages.f4_title_empty()]
+        ),
+        "governed by notes-policy",
+    ),
 ]
 
 # ------------------------------------------------------------------ assertions
@@ -397,7 +417,8 @@ def golden_f1_fix() -> tuple[bool, str]:
 # The lines each case's red half prints, keyed by the case's number, typed here by hand: the cases
 # compare with what the message functions return, so a slip inside a function — a why emptied, a
 # word lost from a fix — would pass them all. F1's fix is item 29's, F4's why and one-field fix
-# item 32's; F3's headline stops where the parser's own words begin.
+# item 32's; F3's headline stops where the parser's own words begin; case 34's why and fix are
+# case 12's, typed once.
 GOLDEN: dict[int, Sequence[str]] = {
     1: [
         F1_HEADLINE,
@@ -488,6 +509,15 @@ GOLDEN: dict[int, Sequence[str]] = {
         "  why: every chain of governance ends at the root policy; a write that breaks it ungoverns the"
         " repository",
         "  fix: every chain of governance ends at the root; widen notes-policy.territory to include it",
+    ],
+    34: [
+        "RED: docs/policies/root-policy.md: the root policy has no readable envelope (opened with '---' but"
+        " never closed)",
+    ],
+    35: [
+        "RED: docs/notes/a.md: envelope field(s) invalid: id must be a quoted string (YAML read it as bool);"
+        " title empty",
+        "  fix: set each named field: id = stable kebab-case (never changed, never reused); title = one line",
     ],
 }
 
