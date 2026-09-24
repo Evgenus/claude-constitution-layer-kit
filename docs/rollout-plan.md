@@ -7,7 +7,7 @@ status: active
 
 # Constitution Rollout — Actionable Plan
 
-*The kit's own write-head ([kernel §2](../kernel/CONVENTIONS.md#k2)): the phases and their sequence, `active` while a phase remains, `inactive` when Phase E is reached. What a module must implement lives in [constitution-requirements](requirements.md), the traceability matrix and module specifications; nothing here is a requirement or a ruling.*
+*The kit's own write-head ([kernel §2](../kernel/CONVENTIONS.md#k2)): the phases and their sequence, its lifecycle as [rule 1 of plc-0008-rollout-plan](policies/plc-0008-rollout-plan.md#r1) has it. What a module must implement lives in [constitution-requirements](requirements.md), the traceability matrix and module specifications; nothing here is a requirement or a ruling.*
 
 *Working rule throughout: author against real files, extract when proven, install everywhere else. No module is designed against imagined content.*
 

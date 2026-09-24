@@ -1,7 +1,7 @@
 ---
 id: <plc-nnnn-slug — the next number of the plc catalog, the slug naming the kind governed and never the kit>
 type: current-state
-title: <Kind> policy — <one clause saying what the kind is>
+title: <Kind> policy — <one clause saying what the kind is; the kind in full or by its short name>
 status: active
 ---
 
@@ -15,5 +15,5 @@ Governs the document kind *<kind>*: <one sentence saying what a document of this
 
 1. <a id="r1"></a>**<Name>.** <The rule. Every rule carries its anchor `r<n>` inside the item, before the bold name, and keeps its number for life (rule 7 of plc-0001-root-policy — from this folder, `plc-0001-root-policy.md#r7`).>
 2. <a id="r2"></a>**Change.** <When a document of this kind is created and changed, and at what stakes: what is routine, what is a `process` decision, what is a mechanical edit.>
-3. <a id="r3"></a>**Enforcement.** <Which module guards which field of this kind at write time and in its scan — the envelope by module const-meta-types, a number by module const-catalogs, a record's fields by module const-decision-records — and what stays judgment, held by review. Say it plainly: nothing judgment-based is dressed as a check.>
+3. <a id="r3"></a>**Enforcement.** <Which module guards which field of this kind — at write time, in its scan, or both, the split named where the two differ — the envelope by module const-meta-types, a number by module const-catalogs, a record's fields by module const-decision-records — and what stays judgment, held by review. Say it plainly: nothing judgment-based is dressed as a check.>
 4. <a id="r4"></a>**Number.** <For a numbered kind: id and filename stem are one name, <prefix>-<nnnn>-<slug>; prefix, width and territory are an entry of const-catalogs.catalogs in constitution.yaml, its territory this policy's own by a YAML alias; a new document takes one more than the highest number the catalog has held, deleted ones included, provisional until it lands on main. For a kind that is not numbered, delete this rule.>

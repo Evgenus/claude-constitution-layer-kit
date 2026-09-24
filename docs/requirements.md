@@ -108,7 +108,7 @@ status: active
 *A description below is the module's draft until authoring begins; then it moves into the module's `MODULE.md` and this heading keeps its anchor with a one-line stub linking there. The anchor is the module's stable handle in the kit for its whole life, authored or not (decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)).*
 
 <a id="const-meta-types"></a>
-### M1 `const-meta-types` — accumulating; authored first
+### M1 `const-meta-types` — accumulating; enters with the first governed document
 
 Description moved into the module's document: [`modules/const-meta-types/MODULE.md`](../modules/const-meta-types/MODULE.md) (rows [A1.4](#a1-4), [A1.5](#a1-5), [A2.3](#a2-3)); this anchor stays the module's handle.
 
