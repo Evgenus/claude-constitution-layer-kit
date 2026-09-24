@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-On 2026-09-22 the kit numbered one kind, its decision records, under `const-catalogs.catalogs` in `constitution.yaml` ([dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) made the migration; [dec-0029-catalogs-module-rulings](dec-0029-catalogs-module-rulings.md) moved the declaration into the module's own dial). Two other kinds the kit holds under `docs/` were named by slug alone. The research comparisons, four files named after their modules, had a gap in their naming rule: rule 2 of [plc-0005-research](../policies/plc-0005-research.md) keeps a superseded comparison while it is cited, so a second survey of one module needed a name the rule did not give. The policies, nine files, were cited by name without ambiguity — but a policy's id is also its namespace key in the dials file, the `root_policy` path and the value of `record_policies`, so any later numbering would rewrite the dials file as well as every link. The decider asked for both kinds to enter the catalog form. The cost stood at thirteen ids changed once, the deliberate breach of [kernel §1](../../kernel/CONVENTIONS.md#k1) that the records' migration had made, and about fifty link sites.
+On 2026-09-22 the kit numbered one kind, its decision records, under `const-catalogs.catalogs` in `constitution.yaml` ([dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) made the migration; [dec-0029-catalogs-module-rulings](dec-0029-catalogs-module-rulings.md) moved the declaration into the module's own dial). Two other kinds the kit holds under `docs/` were named by slug alone. The research comparisons, four files named after their modules, had a gap in their naming rule: rule 2 of [plc-0005-research](../policies/plc-0005-research.md#r2) keeps a superseded comparison while it is cited, so a second survey of one module needed a name the rule did not give. The policies, nine files, were cited by name without ambiguity — but a policy's id is also its namespace key in the dials file, the `root_policy` path and the value of `record_policies`, so any later numbering would rewrite the dials file as well as every link. The decider asked for both kinds to enter the catalog form. The cost stood at thirteen ids changed once, the deliberate breach of [kernel §1](../../kernel/CONVENTIONS.md#k1) that the records' migration had made, and about fifty link sites.
 
 ## Options
 
@@ -65,8 +65,8 @@ In the commits of the work `catalogs-research-policies`: the thirteen moves and 
 
 ## Carry list
 
-1. R1 — rule 6 of [plc-0005-research](../policies/plc-0005-research.md); [the dials file](../../constitution.yaml); step 2 of [CLAUDE.md](../../CLAUDE.md) for the research path's form and its reading list for the superseded comparison kept beside the current one.
-2. R2 — rule 6 of [plc-0001-root-policy](../policies/plc-0001-root-policy.md) and, for the `res-` names, rule 6 of [plc-0005-research](../policies/plc-0005-research.md); [the dials file](../../constitution.yaml).
+1. R1 — rule 6 of [plc-0005-research](../policies/plc-0005-research.md#r6); [the dials file](../../constitution.yaml); step 2 of [CLAUDE.md](../../CLAUDE.md) for the research path's form and its reading list for the superseded comparison kept beside the current one.
+2. R2 — rule 6 of [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r6) and, for the `res-` names, rule 6 of [plc-0005-research](../policies/plc-0005-research.md#r6); [the dials file](../../constitution.yaml).
 3. R3 — history only: the allocation and the one-time change of ids on the day.
 4. R4 — history only: what was moved and rewritten on the day.
-5. R5 — rule 6 of [plc-0005-research](../policies/plc-0005-research.md) and rule 6 of [plc-0001-root-policy](../policies/plc-0001-root-policy.md); the record's own number: history only.
+5. R5 — rule 6 of [plc-0005-research](../policies/plc-0005-research.md#r6) and rule 6 of [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r6); the record's own number: history only.

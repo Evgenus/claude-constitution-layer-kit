@@ -1,7 +1,7 @@
 ---
 id: module-const-locations
 type: current-state
-title: const-locations
+title: const-locations — a document is born in its canonical home, from its policy's template
 status: active
 ---
 
@@ -142,11 +142,11 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 <a id="t9"></a>
 ## 9. Enforcement honesty
 
-| artifact | class |
-|---|---|
-| skill `new-document` | `advisory` |
-| skill `new-kind` | `advisory` |
-| generator `new-document` | `advisory` — a generator; its refusals are deterministic and teach, but they judge the act, never the repository: no finding, no exit 2 |
+| # | artifact | class |
+|---|---|---|
+| E1 | skill `new-document` | `advisory` |
+| E2 | skill `new-kind` | `advisory` |
+| E3 | generator `new-document` | `advisory` — a generator; its refusals are deterministic and teach, but they judge the act, never the repository: no finding, no exit 2 |
 
 **Honest limits** — the shared ones of [kit-shared-gate-code §4](../../shared/GATE.md#g4) that concern a generator (3, 5, 9, 10, 11), and the module's own:
 
@@ -167,7 +167,7 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 <a id="t10"></a>
 ## 10. Acceptance
 
-Numbered items in `tests/run.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the `Subject` widened for a module that is only a generator ([§4](#t4), R3). Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
+Numbered items in `tests/run.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the `Subject` widened for a module that is only a generator (ruling R3 of [dec-0035-locations-module-rulings](../../docs/decisions/dec-0035-locations-module-rulings.md)). Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
 
 | item | kind | what it proves |
 |---|---|---|
@@ -183,7 +183,7 @@ Numbered items in `tests/run.py`: the module's own from 1, the shared items of [
 | T10 | fixture, assertion | a stem, a segment and an id that are no kebab-case names are each L5.10; no `--title` is L5.18; an empty title and one of whitespace are L5.22, in a dry run too, and one holding a line break is L5.23, each leaving the tree as it was; no `--stem` on a directory-prefix kind is L5.1 |
 | T11 | fixture, assertion | the dials: an unknown key is C5.a; `severity` present is C5.b; `templates` not a list is C5.c; an entry that is no mapping, lacks a key, carries an unknown key, repeats a policy, or leaves the repository is C5.d with that clause |
 | T12 | fixture, assertion | a refusal leaves the tree as it was: after four refusals of different classes — an overlap, a missing template, an unknown kind, a bad stem — `git status` is empty and no directory was made |
-| T13 | fixture, assertion | golden lines: L1–L4, the refusal L5.11 and the closing line as literals, character for character against what the command printed. Every L5 and C5 line the runner reaches is typed as a literal keyed by its handle — the three that name the run's directory, L5.2, L5.3 and L5.20, with that directory filled in — and T3, T4, T6, T7, T9–T11 and T16–T18 require the first stderr line to be that literal as well as what the message function returns — a handle with no literal is red, never a crash of the runner. Seen to fail with one word of the L5.9 fix changed. The table of [§6](#t6) and the code agree where review compared them (R1 of [§10](#t10)) |
+| T13 | fixture, assertion | golden lines: L1–L4, the refusal L5.11 and the closing line as literals, character for character against what the command printed. Every L5 and C5 line the runner reaches is typed as a literal keyed by its handle — the three that name the run's directory, L5.2, L5.3 and L5.20, with that directory filled in — and T3, T4, T6, T7, T9–T11 and T16–T18 require the first stderr line to be that literal as well as what the message function returns — a handle with no literal is red, never a crash of the runner. Seen to fail with one word of the L5.9 fix changed. The table of [§6](#t6) and the code agree where review compared them (V4 of [§10](#t10)) |
 | T14 | fixture, assertion | the closing line of a failure is the generator's own, not a gate's count; the entry files' `C1`, `C14`, `C15` variants drop the clause about unchecked writes; and, under a shadowed PyYAML, the shared `C2` closes with the generator's clause and never with a gate's |
 | T15 | fixture, assertion | a note of the policy index — a policy document without a readable id — is printed before the lines |
 | T16 | fixture, assertion | a write the system refuses — `docs` made read-only, so `docs/notes` cannot be made — is L5.20, its line the literal of T13 with the system's error naming the directory, the closing line after it, `git status` empty and no directory left; reported as not exercised, with a zero count, when the runner runs as root, where a mode bit denies no write |
@@ -191,10 +191,10 @@ Numbered items in `tests/run.py`: the module's own from 1, the shared items of [
 | T18 | fixture, assertion | a write that fails part-way — the generator run under a limit on the size of a file it may write, below the length of the document, so the file is opened and the write meets `File too large` — is L5.20 with the system's error, the closing line after it, the file and the directory made for it removed and `git status` as before |
 | T19 | fixture, assertion | every refusal line typed as a literal was compared by an earlier item, none typed and left unused; the last of the module's own items, since it reads what every item before it compared |
 | S101–S119, S132–S141, S149, S152–S155, S157, S158 | fixture, shared | the dials file and the root policy; absence; misinvocation, `--help`, an abbreviated flag; the log; the declared libraries; the install copy; not fail-open; the note of a policy without an id; git failing in one particular way; a dials file it cannot read, or one that is not UTF-8; a policy it cannot read — each through the real entry point, every configuration failure closed by the generator's own line; the twenty-one items that need an event, a verdict or a scan are left out, their numbers free ([kit-shared-gate-code §5](../../shared/GATE.md#g5)) |
-| L1 | live | done 2026-09-22: in this repository, with the namespace of `constitution.yaml` calibrated, a dry run for each of its nine kinds reproduced the comparison's table — four homes, one with a segment, four refusals — created nothing, and wrote the log to `log_dir` |
-| L2 | live | done 2026-09-22: the plugin loaded with `--plugin-dir`, beside `const-catalogs`, in a headless session on a detached worktree of this repository, asked for a policy: the model invoked `new-document` first, took the number from the catalog procedure's scan, ran the command as a dry run and then for real, and the policy landed where policies live with a valid envelope and its number, every gate green on the result. It filled the body by rewriting the whole file through a shell heredoc, the envelope repeated unchanged — the limit 1 path, here harmless, recorded |
-| L3 | live, deferred | the consumer-live proof, a named step of the consumer's bootstrap ([rollout plan](../../docs/rollout-plan.md), Phase B step 5): this runner against the project, a document of each of its kinds created through the command, and the install shown to carry the linked `const_gate` (platform fact 6, shared limit 3); a finding there is a fix with a version bump |
-| R1 | review | the boundary examples of [§8](#t8), the skills and the error texts of [§6](#t6), at the one yes |
+| V1 | live | done 2026-09-22: in this repository, with the namespace of `constitution.yaml` calibrated, a dry run for each of its nine kinds reproduced the comparison's table — four homes, one with a segment, four refusals — created nothing, and wrote the log to `log_dir` |
+| V2 | live | done 2026-09-22: the plugin loaded with `--plugin-dir`, beside `const-catalogs`, in a headless session on a detached worktree of this repository, asked for a policy: the model invoked `new-document` first, took the number from the catalog procedure's scan, ran the command as a dry run and then for real, and the policy landed where policies live with a valid envelope and its number, every gate green on the result. It filled the body by rewriting the whole file through a shell heredoc, the envelope repeated unchanged — the limit 1 path, here harmless, recorded |
+| V3 | live, deferred | the consumer-live proof, a named step of the consumer's bootstrap ([step 5 of the rollout plan](../../docs/rollout-plan.md#s5)): this runner against the project, a document of each of its kinds created through the command, and the install shown to carry the linked `const_gate` (platform fact 6, shared limit 3); a finding there is a fix with a version bump |
+| V4 | review | the boundary examples of [§8](#t8), the skills and the error texts of [§6](#t6), at the one yes |
 
 **Examined count.** L4 in every completed run: one document created, or zero in a dry run, said as such.
 
@@ -220,25 +220,3 @@ Numbered items in `tests/run.py`: the module's own from 1, the shared items of [
 3. **A hook-side assist.** Not shipped: `additionalContext` at `PreToolUse` taught the model to repair an envelope in the comparison's live run, but six of six free-choice runs created the file through the shell, where no handler fires, and `const-meta-types` holds the event. Signal: a consumer reporting documents born through `Write` with a wrong envelope while the skill was installed.
 4. **Placeholder substitution in the body.** Not shipped: the kit's placeholders are `<…>` prose without a vocabulary, and every tool surveyed carries a template language for this. Signal: a consumer's template that needs the date, the title or the id inside the body.
 5. **Relative-link repair when a template is copied to another depth.** Not shipped here: it is the referencing module's move repair applied to a copy. Signal: the kit's own module template, whose links gain one level in every copy ([CLAUDE.md](../../CLAUDE.md), step 1 of developing a module).
-
----
-
-# Plugin skeleton
-
-```
-const-locations/
-├── .claude-plugin/
-│   └── plugin.json          # manifest — the only file inside .claude-plugin/; version 0.0.x while draft
-├── MODULE.md                # this document
-├── INSTALL.md
-├── requirements.txt         # PyYAML
-├── skills/
-│   ├── new-document/SKILL.md
-│   └── new-kind/SKILL.md
-├── scripts/
-│   ├── new-document.sh      # POSIX entry point
-│   ├── new-document.py      # thin Python entry point
-│   ├── const_gate -> ../../../shared/const_gate   # the shared code, by relative link
-│   └── locations_gate/      # the module's own package
-└── tests/                   # run.py; harness.py, consumer.py, shared_items.py linked from shared/tests/
-```

@@ -1,7 +1,7 @@
 ---
 id: module-const-<aspect>
 type: current-state
-title: const-<aspect>
+title: const-<aspect> — <one clause saying what the module guards or does>
 status: active
 ---
 
@@ -24,7 +24,7 @@ One paragraph: the failure pattern this module prevents, stated concretely — i
 <a id="t3"></a>
 ## 3. Rows
 
-The requirement set, and nothing else ([law 4 of CLAUDE.md](../CLAUDE.md#law-4)): every matrix row homed in this module, by handle. The row's one-line text lives in the matrix and is not repeated; the table carries the *reading* the row needs beyond its line — interpretation, boundary rulings, the part of a shared row this module owns. A row under a boundary test (marked † in the matrix) states which of the three tests is open — *one invariant? one enforcement moment? one lifecycle trigger?* — and which sibling takes the row if the boundary moves.
+The requirement set, and nothing else ([law 4 of CLAUDE.md](../CLAUDE.md#law-4)): every matrix row homed in this module, by handle. The row's text lives in the matrix and is not repeated; the table carries the *reading* the row needs beyond its text — interpretation, boundary rulings, the part of a shared row this module owns. A row under a boundary test (marked † in the matrix) states which of the three tests is open — *one invariant? one enforcement moment? one lifecycle trigger?* — and which sibling takes the row if the boundary moves.
 
 | row | this module's reading |
 |---|---|
@@ -56,7 +56,7 @@ What this plugin ships and what each part carries — only components the module
 | script | `scripts/<name>` | checks and generators; all paths via `${CLAUDE_PLUGIN_ROOT}`; Python 3 with PyYAML when the script reads YAML, POSIX shell otherwise; a missing runtime or library is a configuration failure ([§9](#t9)); Python scripts follow the gate-script rules below |
 | install note | `INSTALL.md` | at most one pointer line for the project's own `CLAUDE.md`, for discoverability only. Always-on rules ship via a `SessionStart` hook (see hook row), never via a pointer or a plugin-root `CLAUDE.md` (not loaded); a copy-into-CLAUDE.md fallback may be offered, labeled as manual and version-drifting |
 
-Two fixed sub-slots follow the table:
+Three fixed sub-slots follow the table:
 
 - **Always-on content:** the exact lines the `SessionStart` hook prints and their size in characters; or "none". This is the module's whole always-on budget.
 - **Platform facts relied on:** each fact, the date it was verified against the official documentation, and what breaks if it changes. Nothing in this slot comes from memory.
@@ -109,7 +109,9 @@ For each artifact: `gate` (deterministic — hook or script, red means fix) or `
 <a id="t10"></a>
 ## 10. Acceptance
 
-For each gate: the red→green fixture proving it (a fixture that fails without the check, passes with it) and its path under `tests/` ([law 7 of CLAUDE.md](../CLAUDE.md#law-7)), plus one fixture showing the exit-code split of [§9](#t9) (a missing tool or malformed invocation exits differently from a finding). For each advisory rule: the boundary examples above stand as its acceptance. Each item labeled by verification kind: `fixture` (bare temp repo), `live` (a consumer project, plugin loaded from this repo), `review` (the human, at the one yes).
+For each gate: the red→green fixture proving it (a fixture that fails without the check, passes with it) and its path under `tests/` ([law 7 of CLAUDE.md](../CLAUDE.md#law-7)), plus one fixture showing the exit-code split of [§9](#t9) (a missing tool or malformed invocation exits differently from a finding). For each advisory rule: the boundary examples above stand as its acceptance. Each item labeled by verification kind: `fixture` (bare temp repo), `live` (the kit as consumer zero, or a consumer project, the plugin loaded from this repository), `review` (the human, at the one yes), `kit check` (a check the kit runs on the module from outside it, never shipped).
+
+**Handles.** One prefix per kind of handle in this document, never reused for another kind: the message keys as the module's `messages.py` names them; `E<n>` for the enforcement rows of [§9](#t9); the acceptance items numbered from 1 for the module's own and from 101 for the shared items, bare or under `T<n>` and `S<n>`; the live, review and kit-check items continuing the module's own numbering or under `L<n>` — `V<n>` where `L` is the module's message prefix; a key of another document is written qualified ([rule 8 of plc-0006-module-documents](../docs/policies/plc-0006-module-documents.md#r8)).
 
 **Examined count.** Every check reports how many items it examined in its green and red output alike. Zero is a visible count, never a failure and never a silent green: a check that inspected nothing must say so, because a vacuous green read as permission is the failure this rule exists for.
 

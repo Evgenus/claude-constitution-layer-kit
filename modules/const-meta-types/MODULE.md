@@ -129,11 +129,11 @@ The resolution and envelope boundaries are deterministic and need no examples; t
 <a id="t9"></a>
 ## 9. Enforcement honesty
 
-| artifact | kind |
-|---|---|
-| hook + `check-governed-document.sh` + `check-governed-document.py` (hook mode) | `gate`, severity dial `severity` (`block` default; `warn` reports and lets the write through) |
-| `check-governed-document.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
-| skill `choose-meta-type` | `advisory` |
+| # | artifact | kind |
+|---|---|---|
+| E1 | hook + `check-governed-document.sh` + `check-governed-document.py` (hook mode) | `gate`, severity dial `severity` (`block` default; `warn` reports and lets the write through) |
+| E2 | `check-governed-document.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
+| E3 | skill `choose-meta-type` | `advisory` |
 
 **Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time, a negated pattern under an excluded directory — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–13, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
 
@@ -168,8 +168,8 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries).
 | T36 | fixture, assertion | hook mode: any Markdown file git lists and nobody can read — its declaration cannot be known, so it may carry the written id — is C12.10 on a governed write, never a green that compared the id with nothing; a `README.md` write outside every territory, with the same file unreadable, is still the outside-territory skip, exit 0; the lines typed by hand; not exercised as root |
 | S101–S158 | fixture, assertion | the shared acceptance items of [kit-shared-gate-code §5](../../shared/GATE.md#g5), run through this module's entry point: the exit-code split, absence of each tool and of the shared code, invocation and input, paths and skips — S148 the file-level negation, its skip line typed here — `warn`, the output log, declared dependencies, git failing in one particular way, a file listed and not read |
 | T50 | kit check | `scripts/check-schema-mirror.py` in the kit: the mirror gives the kernel envelope schema's verdict on every case and is never more lenient than the dials schema; a case exempted as another reader's is red once the exemption stops holding |
-| T51 | live | the scan over this repository (consumer zero): every governed kit document green, counts printed |
-| T52 | live | the plugin loaded in a headless session in this repository via `--plugin-dir`: a frontmatter-less write into claimed territory blocked with F1 and the file not created; the corrected write landed; the log written to the plugin data directory; the skill reachable as `/const-meta-types:choose-meta-type`; repeated after the shared code was linked, with both modules loaded |
+| T51 | live | done 2026-09-18: the scan over this repository (consumer zero): every governed kit document green, counts printed |
+| T52 | live | done 2026-09-18: the plugin loaded in a headless session in this repository via `--plugin-dir`: a frontmatter-less write into claimed territory blocked with F1 and the file not created; the corrected write landed; the log written to the plugin data directory; the skill reachable as `/const-meta-types:choose-meta-type`; repeated after the shared code was linked, with both modules loaded |
 | T53 | review | the pairs of [§8](#t8) and the error texts of [§6](#t6), at the one yes |
 | T54 | live, deferred to the consumer's bootstrap | the consumer-live proof (decision [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) section 3), which also proves that the install carries the shared code |
 

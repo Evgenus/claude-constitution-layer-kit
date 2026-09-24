@@ -151,12 +151,12 @@ The field checks are deterministic and need no examples; the fixtures of [§10](
 <a id="t9"></a>
 ## 9. Enforcement honesty
 
-| artifact | kind |
-|---|---|
-| hook + `check-decision-record.sh` + `check-decision-record.py` (hook mode) | `gate`, severity dial `severity` (`block` default; `warn` reports and lets the write through) |
-| `check-decision-record.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
-| skill `record-decision` with its template | `advisory` |
-| skill `promote-recurring-notes` | `advisory` |
+| # | artifact | kind |
+|---|---|---|
+| E1 | hook + `check-decision-record.sh` + `check-decision-record.py` (hook mode) | `gate`, severity dial `severity` (`block` default; `warn` reports and lets the write through) |
+| E2 | `check-decision-record.py --scan` | `gate`, always blocking (exit 2), ignores `severity` |
+| E3 | skill `record-decision` with its template | `advisory` |
+| E4 | skill `promote-recurring-notes` | `advisory` |
 
 **Honest limits**, each with its backstop. The limits of the shared code — shell writes and other actors, non-blocking configuration failures and timeouts, a dropped link to the shared code, the reconstructed `Edit`, symbolic links, a key given twice, `.md` only and git-ignored files, where the envelope ends, case-sensitive patterns, the best-effort log, no `--help`, one block message at a time when both gates block, a negated pattern under an excluded directory — are [kit-shared-gate-code §4](../../shared/GATE.md#g4), items 1–13, and apply here; the skill tells the agent to run the scan after a shell edit. This module's own:
 
@@ -192,9 +192,9 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries).
 | T37 | fixture, assertion | golden lines: the headline, why and fix of R1–R3 as literals typed by hand, checked against a fresh run of each case's red half — R1's three headlines, the unreadable one up to the parser's own words, and its three fixes; R2's headline for cases 4 and 5, case 5's being the scan's `R2_HEADLINE`; R3 whole — so a why emptied or a word lost inside a message function is red; seen to fail with one word of the R3 why changed. A value a page long echoed cut, the cut said, is the shared item S151 |
 | S101–S158 | fixture, assertion | the shared acceptance items of [kit-shared-gate-code §5](../../shared/GATE.md#g5), run through this module's entry point: the exit-code split, absence of each tool and of the shared code, invocation and input, paths and skips, `warn`, the output log, declared dependencies |
 | T50 | kit check | `scripts/check-schema-mirror.py` in the kit: the mirror gives the kernel record schema's verdict on the record fields of every case, stricter in one place on purpose — a decider of blanks; red when that exemption stops holding, the rule lost or the schema caught up |
-| T51 | live | the scan over this repository (consumer zero): every kit decision record green, counts printed |
-| T52 | live | the plugin loaded in a headless session in this repository via `--plugin-dir`: a record without `stakes` and `decider` blocked with R2 and the file not created, by `Write` and by an `Edit` that creates the file; the corrected write landed; the log written; both skills reachable under the plugin's name |
-| T53 | live | both modules loaded together, before and after the shared code was linked: a record with no envelope is blocked by both gates (each logs its finding; the model is shown one); a record with a bad `id` and `status` and valid record fields is blocked by the first module alone, and this gate logs green |
+| T51 | live | done 2026-09-19: the scan over this repository (consumer zero): every kit decision record green, counts printed |
+| T52 | live | done 2026-09-19: the plugin loaded in a headless session in this repository via `--plugin-dir`: a record without `stakes` and `decider` blocked with R2 and the file not created, by `Write` and by an `Edit` that creates the file; the corrected write landed; the log written; both skills reachable under the plugin's name |
+| T53 | live | done 2026-09-19: both modules loaded together, before and after the shared code was linked: a record with no envelope is blocked by both gates (each logs its finding; the model is shown one); a record with a bad `id` and `status` and valid record fields is blocked by the first module alone, and this gate logs green |
 | T54 | review | the pairs of [§8](#t8), the skills, the template and the error texts of [§6](#t6), at the one yes; a walked example of each stakes level |
 | T55 | live, deferred to the consumer's bootstrap | the consumer-live proof (decision [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) section 3): decision record number one of the consumer is written through the skill, under the gate, from an install that carries the shared code |
 

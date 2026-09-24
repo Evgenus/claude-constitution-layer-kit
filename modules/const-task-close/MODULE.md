@@ -1,7 +1,7 @@
 ---
 id: module-const-task-close
 type: current-state
-title: const-task-close
+title: const-task-close — a change that touches described code updates its documents or declares no impact
 status: active
 ---
 
@@ -201,10 +201,10 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12 and the declared library)
 
 **Depends on:** [kernel §1](../../kernel/CONVENTIONS.md#k1) (the lifecycle rule; `status`), [§2](../../kernel/CONVENTIONS.md#k2) (task close as a single act, the defect rule, stalled drift), [§6](../../kernel/CONVENTIONS.md#k6) (the dials file, the dialect, portability). Nothing else. **Kernel alone:** on a bare repository with no `constitution.yaml` the hook is a visible skip and the scan too; with an empty dials file the hook judges the tree and the scan examines zero pairs and says so; with a map, the scan judges every change. No policy is read, no envelope is judged: a task-record's `status` is set by the skill, in words.
 
-- When module `const-decision-records` is installed, its record skill defines when a record is `inactive` and this module's close skill performs it at close; neither reads the other's dial.
-- When module `const-locations` is installed, a document a pair names that does not exist yet is created through its command, at the home its policy implies.
-- When module `const-referencing` is installed, its scan runs beside this one before a merge, and the two verdicts are read together; and the close skill says to repair the links a deletion leaves — remove each, or redirect it to where the content went — before the closing commit, that scan listing the ones left dangling.
-- When module `const-meta-types` is installed, the documents the map names carry valid envelopes; this module never reads one.
+1. When module `const-decision-records` is installed, its record skill defines when a record is `inactive` and this module's close skill performs it at close; neither reads the other's dial.
+2. When module `const-locations` is installed, a document a pair names that does not exist yet is created through its command, at the home its policy implies.
+3. When module `const-referencing` is installed, its scan runs beside this one before a merge, and the two verdicts are read together; and the close skill says to repair the links a deletion leaves — remove each, or redirect it to where the content went — before the closing commit, that scan listing the ones left dangling.
+4. When module `const-meta-types` is installed, the documents the map names carry valid envelopes; this module never reads one.
 
 <a id="t12"></a>
 ## 12. Deferred
@@ -216,26 +216,3 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12 and the declared library)
 5. **A pair with no documents,** meaning "this code is described nowhere and every change to it is a finding". Signal: a consumer asking for the sharper form.
 6. **`SubagentStop`.** Signal: subagents leaving dirty trees the main agent's turn end does not reach.
 7. **Per-commit strictness as a dial.** The kit's history rejected it; a consumer with one-commit changes may want it. Signal: that consumer.
-
----
-
-# Plugin skeleton
-
-```
-const-task-close/
-├── .claude-plugin/
-│   └── plugin.json
-├── MODULE.md
-├── INSTALL.md
-├── requirements.txt
-├── hooks/hooks.json                 # Stop
-├── skills/
-│   ├── close-task/SKILL.md
-│   └── commit-before-edit/SKILL.md
-├── scripts/
-│   ├── check-task-close.sh
-│   ├── check-task-close.py
-│   ├── const_gate -> ../../../shared/const_gate
-│   └── task_close_gate/             # model, messages, dials, history, checks, modes, start
-└── tests/                           # run.py; harness.py, consumer.py, shared_items.py linked from shared/tests/
-```

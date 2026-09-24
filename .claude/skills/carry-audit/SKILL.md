@@ -10,13 +10,14 @@ run by readers and is no gate. What a script can hold — that every ruling item
 that an acceptance names its audit — is `scripts/check-carry-lists.py`, and this procedure ends by
 running it. The rule this serves: an applied ruling lives in the current-state documents it changed,
 and a record is provenance, never authority ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); the
-kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md).
+kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r2).
 
 ## When
 
 1. At the end of a module's development, as the second pass of the fresh-context validation — step 6
    of "Developing a module" in [CLAUDE.md](../../../CLAUDE.md).
-2. Before the yes on any decision record written outside a module's development.
+2. Before the yes on any decision record written outside a module's development; for a `product`
+   record, which has no yes, on the commit that holds it.
 3. In full — every record — on any change to the kernel, and once before publication.
 
 ## Steps
@@ -43,14 +44,18 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
 7. **Read the fixes again.** Fixes made in a hurry break things. Commit them,
    pin a confirming reader to that commit — prompt D — and repeat while a pass finds a defect. Until
    its yes the fixes may correct the record in place, and the commit says so
-   ([kernel §5](../../../kernel/CONVENTIONS.md#k5)).
+   ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); a `product` record has no such window and is not
+   edited beyond the same section's mechanical edits — its findings go into the documents or a
+   further record
+   ([rule 15 of plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r15)).
 8. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
    beside the attribution line:
    `Accepted: <record id>` — one per record, or several ids separated by commas;
    `Carry-Audit: at <pin>; <n> records; <f> findings, <x> fixed, <j> justified` — where the pin is
    the last round's, an ancestor at which the record already existed; `n` counts `full` and
    `regression` records together and is above zero; `f` counts the findings of every round, and
-   `x + j = f`. The newest acceptance of a record is the one that counts: a
+   `x + j = f`. For a `product` record, which has no yes, the `Carry-Audit:` trailer stands alone on the commit
+   that holds the fixes. The newest acceptance of a record is the one that counts: a
    wrong receipt is mended by accepting again, in a new commit.
 9. **Run the gate:** `python3 scripts/check-carry-lists.py`. Red is fixed before the turn ends.
 
