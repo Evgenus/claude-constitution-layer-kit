@@ -523,11 +523,12 @@ GOLDEN: dict[int, Sequence[str]] = {
 
 
 def golden_lines() -> tuple[bool, str]:
-    """Each case's red input run afresh; every literal of GOLDEN must stand in its stderr."""
-    reds = {case.number: case.red for case in CASES}
+    """Each case's red input run afresh on its setup; every literal of GOLDEN must stand in its stderr."""
+    cases = {case.number: case for case in CASES}
     missing: list[str] = []
     for number, lines in GOLDEN.items():
-        stderr = gate_on(reds[number])[0].stderr
+        case = cases[number]
+        stderr = H.run_gate(event_json(H.fresh_consumer(case.setup).root, case.red)).stderr
         missing += [f"case {number}: {line}" for line in lines if line not in stderr]
     found = sum(len(lines) for lines in GOLDEN.values())
     return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)

@@ -255,6 +255,18 @@ def main() -> int:
         schema = not list(validator.iter_errors(case.fields))
         found = record_disagreement(case.name, mirror, schema)
         disagreements += [found] if found else []
+    for listed, names, corpus_names in (
+        ("NOT_THIS_READERS", NOT_THIS_READERS, {name for name, _ in DIALS_CORPUS}),
+        ("STRICTER_ON_PURPOSE", STRICTER_ON_PURPOSE, {case.name for case in records}),
+    ):
+        for name in sorted(names - corpus_names):
+            disagreements.append(
+                Disagreement(
+                    f"{listed} lists '{name}', but no corpus case carries it",
+                    WHY_EXEMPTION,
+                    f"remove '{name}' from {listed} in {THIS_FILE}",
+                )
+            )
     counts = (
         f"{len(corpus)} envelope cases (equality), {len(DIALS_CORPUS)} dials cases (never more lenient on"
         f" the keys a gate reads; {len(NOT_THIS_READERS)} are another reader's),"

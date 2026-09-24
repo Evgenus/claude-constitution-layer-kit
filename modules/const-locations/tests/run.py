@@ -225,15 +225,18 @@ GOLDEN: dict[str, str] = {
     "C5.d outside": "BROKEN: constitution.yaml: const-locations.templates[0] names a template outside the"
     " repository" + ENTRY,
 }
-COMPARED: set[str] = set()  # the handles the items passed to `broken`, which item 13 compares with GOLDEN
+COMPARED: set[str] = set()  # the handles the items passed to `broken`; the last item compares it with GOLDEN
 
 
 def broken(result: Result, failure: Broken, handle: str, at: str = "") -> tuple[bool, str]:
     """The refusal's line first, as the function builds it and as GOLDEN types it — `at` filling the
     directory a line names — then the closing line."""
     COMPARED.add(handle)
+    typed = GOLDEN.get(handle)
+    if typed is None:
+        return False, f"{handle}: no line typed in GOLDEN"
     ok, evidence = broken_first_line(result, failure.render())
-    golden = GOLDEN[handle].replace(AT, at)
+    golden = typed.replace(AT, at)
     first = result.stderr.splitlines()[0] if result.stderr else ""
     if ok and first != golden:
         ok, evidence = False, f"{handle}: the first line is not the one typed here, {golden!r}: {first}"
@@ -643,19 +646,23 @@ def refusals_leave_the_tree() -> tuple[bool, str]:
 
 
 def golden_lines() -> tuple[bool, str]:
-    """The texts of the module's document, character for character, against what was printed; and
-    every line of GOLDEN compared by the items before this one, none typed and left unused."""
+    """The texts of the module's document, character for character, against what was printed."""
     consumer = prepared()
     out = run(consumer, *NOTE_ARGS).stdout
     refused = run(consumer, *NOTE_ARGS).stderr
     expected_out = "\n".join(NOTE_LINES) + "\n"
     expected_err = GOLDEN["L5.11"] + "\nBROKEN: the document could not be created — nothing was written\n"
+    ok = out == expected_out and refused == expected_err
+    return ok, "stdout and stderr as designed" if ok else f"stdout:\n{out}\nstderr:\n{refused}"
+
+
+def every_golden_line_compared() -> tuple[bool, str]:
+    """No line of GOLDEN typed and left unused: each was compared by an item before this one."""
     unused = sorted(set(GOLDEN) - COMPARED)
-    ok = out == expected_out and refused == expected_err and not unused
-    return ok, (
-        f"stdout and stderr as designed; {len(GOLDEN)} refusal lines compared by items 3–11"
-        if ok
-        else f"stdout:\n{out}\nstderr:\n{refused}\nunused: {unused}"
+    return not unused, (
+        f"{len(GOLDEN)} refusal lines, each compared by items 3, 4, 6, 7 and 9–11"
+        if not unused
+        else f"typed in GOLDEN, compared by no item: {unused}"
     )
 
 
@@ -752,6 +759,11 @@ OWN: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
     ),
     ("a note of the policy index is printed before the lines", notes_are_printed),
     ("a write the system refuses is refused in turn, and leaves nothing behind", write_refused),
+    # stays the last entry: it reads what every item before it compared; new items go above it
+    (
+        "golden lines: every refusal line typed here was compared by an earlier item",
+        every_golden_line_compared,
+    ),
 ]
 
 SUBJECT = Subject(
