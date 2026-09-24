@@ -31,6 +31,8 @@ def load_dials(root: Path) -> Dials | None:
         return None
     try:
         text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:  # a byte that is not UTF-8: the file's content, not the gate
+        raise ConfigurationFailure(messages.c4_dials_invalid_yaml(messages.detail_not_utf8(exc))) from exc
     except OSError as exc:
         raise ConfigurationFailure(messages.c12_dials_unreadable(str(exc))) from exc
     try:
