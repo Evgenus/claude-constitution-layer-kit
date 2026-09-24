@@ -39,6 +39,7 @@ from harness import (  # noqa: E402
     broken_first_line,
     event_json,
     expect,
+    red_lines,
 )
 from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
 
@@ -93,6 +94,8 @@ OVERLAP = (
     POLICY_DOCUMENT,
 )
 VALID = Write(RECORD_A, record())
+# typed by hand, as the gate prints it for a free-form record at RECORD_A
+R2_HEADLINE = "RED: docs/decisions/a.md: decision-record field(s) invalid: stakes missing; decider missing"
 
 # ------------------------------------------------------------------ red → green cases
 
@@ -403,8 +406,20 @@ def _scan(bad: bool) -> Result:
 
 
 def scan_red() -> tuple[bool, str]:
-    tail = messages.f9_scan_tail(records=2, scanned=7, record_policies=1)
-    return expect(_scan(bad=True), 2, shared.f9_count_scan(1, tail), "stdout")
+    """Exactly the one finding and the count line, typed by hand: a finding of another kind, or one
+    more, is red."""
+    result = _scan(bad=True)
+    wanted = [
+        R2_HEADLINE,
+        "RED: 1 finding(s) — 2 decision record(s) examined, 7 Markdown file(s) scanned, 1 record policy(ies)",
+    ]
+    ok = result.code == 2 and red_lines(result.stdout) == wanted
+    return (
+        ok,
+        f"exit 2: {wanted[1]}"
+        if ok
+        else f"wanted exit 2 and {wanted}; got exit {result.code}: {result.stdout}",
+    )
 
 
 def scan_green() -> tuple[bool, str]:
@@ -422,7 +437,11 @@ def scan_scales() -> tuple[bool, str]:
     started = time.monotonic()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
     elapsed = time.monotonic() - started
-    ok = result.code == 0 and "300 decision record(s) examined" in result.stdout and elapsed < 15
+    line = (
+        "GREEN: const-decision-records: 300 decision record(s) examined, 304 Markdown file(s) scanned,"
+        " 1 record policy(ies)"
+    )
+    ok = result.code == 0 and line in result.stdout.splitlines() and elapsed < 15
     return ok, f"300 records examined in {elapsed:.1f} s (bound 15 s); exit {result.code}"
 
 

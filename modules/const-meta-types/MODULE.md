@@ -158,7 +158,7 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries).
 | T16–T17 | fixture, red→green | an `Edit` removing `type` is blocked on the reconstructed result, an `Edit` in the body passes; an `Edit` that creates a file is judged on what it creates |
 | T18–T20 | fixture, assertion | territory: outside territory prints `0 documents examined`; a territory with no policy behind it is a visible skip; a policy whose id looks like a module's name still governs. A file-level negation excluding the file, the skip line whole, is the shared item S148 |
 | T22 | fixture, assertion | `severity: warn` with a note present: stdout is still one JSON object |
-| T23–T26 | fixture, assertion | scan: finding with counts and exit 2 under `warn`; green with counts and a note per void namespace; 300 documents in seconds (each read once); a tracked file deleted from the working tree is left out, not a failure |
+| T23–T26 | fixture, assertion | scan: exactly the finding and the count line, typed by hand, and exit 2 under `warn`; green with counts and a note per void namespace; 300 documents in seconds (each read once), the green line typed whole; a tracked file deleted from the working tree is left out, not a failure |
 | T27–T28 | fixture, assertion | every taught finding carries what, why, fix; a value a page long is echoed cut, so the verdict stays a message |
 | T29 | fixture, assertion | the F1 fix line as a literal typed by hand, since every other item compares with what the message function returns; seen to fail with the text broken |
 | T30 | fixture, assertion | an ungoverned twin id is green: a file outside every territory, declaring no policy, carries a governed document's id, and the governed write passes ([§9](#t9), limit 4) |

@@ -536,7 +536,11 @@ def scan_scales() -> tuple[bool, str]:
     started = time.monotonic()
     result = scan_of(files)
     elapsed = time.monotonic() - started
-    ok = result.code == 0 and "300 catalogued item(s) examined" in result.stdout and elapsed < 15
+    line = (
+        "GREEN: const-catalogs: 300 catalogued item(s) examined, 303 Markdown file(s) scanned,"
+        " 1 catalog(s): itm up to itm-0300"
+    )
+    ok = result.code == 0 and line in result.stdout.splitlines() and elapsed < 15
     return ok, f"300 items examined in {elapsed:.1f} s (bound 15 s); exit {result.code}"
 
 

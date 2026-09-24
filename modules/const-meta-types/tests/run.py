@@ -34,6 +34,7 @@ from harness import (  # noqa: E402
     broken_first_line,
     event_json,
     expect,
+    red_lines,
 )
 from meta_types_gate import messages, start  # noqa: E402
 from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
@@ -47,6 +48,7 @@ SHARED = "docs/notes/shared/x.md"
 ROOT_TERRITORY = ["docs/policies/**"]
 NOTES = Match("notes-policy", "docs/notes/**")
 SHARED_POLICY = Match("shared-policy", "docs/notes/shared/**")
+F1_HEADLINE = "RED: docs/notes/a.md: no frontmatter envelope"  # typed by hand, as the gate prints it
 
 
 def yaml_error(block: str) -> str:
@@ -306,8 +308,20 @@ def _scan(bad: bool) -> Result:
 
 
 def scan_red() -> tuple[bool, str]:
-    tail = messages.f9_scan_tail(examined=4, scanned=4, policies=3)
-    return expect(_scan(bad=True), 2, shared.f9_count_scan(1, tail), "stdout")
+    """Exactly the one finding and the count line, typed by hand: a finding of another kind, or one
+    more, is red."""
+    result = _scan(bad=True)
+    wanted = [
+        F1_HEADLINE,
+        "RED: 1 finding(s) — 4 governed document(s) examined, 4 Markdown file(s) scanned, 3 policies",
+    ]
+    ok = result.code == 2 and red_lines(result.stdout) == wanted
+    return (
+        ok,
+        f"exit 2: {wanted[1]}"
+        if ok
+        else f"wanted exit 2 and {wanted}; got exit {result.code}: {result.stdout}",
+    )
 
 
 def scan_green() -> tuple[bool, str]:
@@ -326,7 +340,10 @@ def scan_scales() -> tuple[bool, str]:
     started = time.monotonic()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
     elapsed = time.monotonic() - started
-    ok = result.code == 0 and "303 governed document(s) examined" in result.stdout and elapsed < 15
+    line = (
+        "GREEN: const-meta-types: 303 governed document(s) examined, 303 Markdown file(s) scanned, 3 policies"
+    )
+    ok = result.code == 0 and line in result.stdout.splitlines() and elapsed < 15
     return ok, f"303 documents examined in {elapsed:.1f} s (bound 15 s); exit {result.code}"
 
 

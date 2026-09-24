@@ -186,7 +186,7 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries).
 | T18–T21 | fixture, assertion | `stakes: routine` with a missing decider teaches both findings and counts two; a document where policies live is never a record; the root policy named as a record policy is a configuration failure; a policy named twice counts once |
 | T22–T23, T36 | fixture, assertion | this module's dial failures: `record_policies` not a list, an id not kebab-case, a key of the namespace that is no dial — each exits 1, never 2, never 0 |
 | T24 | fixture, assertion | `severity: warn` with a note present: stdout is still one JSON object |
-| T25–T28 | fixture, assertion | scan: finding with counts and exit 2 under `warn`; green with counts, a governed non-record never examined; 300 records in seconds; a tracked file deleted from the working tree is left out |
+| T25–T28 | fixture, assertion | scan: exactly the finding and the count line, typed by hand, and exit 2 under `warn`; green with counts, a governed non-record never examined; 300 records in seconds, the green line typed whole; a tracked file deleted from the working tree is left out |
 | T29, T34 | fixture, assertion | every taught finding carries what, why, fix; a value a page long is echoed cut, so the verdict stays a message |
 | T35 | fixture, assertion | a record policy that exists and whose namespace declares no territory: the note naming the line to write, exit 0, nothing examined |
 | T30–T33 | fixture, red→green | R2's remaining parts — a missing `type`, stakes YAML reads as a number; R1 for an envelope that is YAML but no mapping; an `Edit` with `replace_all` judged on the whole result; an `Edit` that creates a file judged on what it creates |
