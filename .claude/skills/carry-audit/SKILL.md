@@ -16,7 +16,8 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
 
 1. At the end of a module's development, as the second pass of the fresh-context validation — step 6
    of "Developing a module" in [CLAUDE.md](../../../CLAUDE.md).
-2. Before the yes on any decision record written outside a module's development.
+2. Before the yes on any decision record written outside a module's development; for a `product`
+   record, which has no yes, on the commit that holds it.
 3. In full — every record — on any change to the kernel, and once before publication.
 
 ## Steps
@@ -43,7 +44,9 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
 7. **Read the fixes again.** Fixes made in a hurry break things. Commit them,
    pin a confirming reader to that commit — prompt D — and repeat while a pass finds a defect. Until
    its yes the fixes may correct the record in place, and the commit says so
-   ([kernel §5](../../../kernel/CONVENTIONS.md#k5)).
+   ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); a `product` record has no such window and is not
+   edited — its findings go into the documents or a further record
+   ([rule 15 of plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r15)).
 8. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
    beside the attribution line:
    `Accepted: <record id>` — one per record, or several ids separated by commas;
