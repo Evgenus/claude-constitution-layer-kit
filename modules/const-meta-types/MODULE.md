@@ -62,7 +62,7 @@ A session opens a research note, a stale structure description, or a half-migrat
 | command | none | no act here is one a human deliberately initiates; the scan is a shell command, documented in the install note. |
 | agent | none | no delegation boundary. |
 
-- **Always-on content:** the skill's `description`, 449 characters, in the skill listing. No `SessionStart` hook: the pairs are needed at creation time, not in every session.
+- **Always-on content:** the skill's `description`, 450 characters, in the skill listing. No `SessionStart` hook: the pairs are needed at creation time, not in every session.
 - **Platform facts relied on** (all verified 2026-09-18 against the official documentation; sources in the research comparison):
   1. A `PreToolUse` command hook exiting 2 blocks the tool call and Claude sees stderr as the reason. Breaks: the gate stops blocking.
   2. `Write` input is `file_path` + `content`; `Edit` input is `file_path`, `old_string`, `new_string`, `replace_all`; `file_path` is absolute for the file tools. `Edit` can create a new file, so an `Edit` of a missing file with an empty `old_string` is judged on its `new_string` (re-verified 2026-09-19). Breaks: locating or reconstructing the document.
