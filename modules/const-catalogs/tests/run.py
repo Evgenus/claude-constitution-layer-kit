@@ -1067,6 +1067,8 @@ SUBJECT = Subject(
     green=messages.g1_item_of(CATALOG),
     territory=TERRITORY,
     claim=claim,
+    # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
+    outside="docs/items/first.md lies in no catalog's territory (itm)",
     resolves_policies=False,
 )
 

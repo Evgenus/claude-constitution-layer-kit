@@ -2125,6 +2125,8 @@ SUBJECT = Subject(
     green=messages.g1_covered(),
     territory=["*.md"],
     claim=claim,
+    # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
+    outside="docs/notes/a.md is not covered (const-referencing.territories)",
     resolves_policies=False,
     bare_readme="1 document examined",
     judges_envelopes=False,

@@ -273,14 +273,6 @@ def module_named_policy() -> tuple[bool, str]:
     return expect(result, 2, messages.f1_no_envelope("style/s.md").render(), "stderr")
 
 
-def negation() -> tuple[bool, str]:
-    result, _ = gate_on(
-        Write("docs/notes/secret.md", NO_ENVELOPE),
-        dials_patch={"notes-policy": {"territory": ["docs/notes/**", "!docs/notes/secret.md"]}},
-    )
-    return expect(result, 0, messages.g1_skip_outside_territory("docs/notes/secret.md"), "stdout")
-
-
 def ungoverned_twin_is_not_seen() -> tuple[bool, str]:
     """A file outside every territory that declares no policy is never consulted: the governed
     document's id standing in it is no duplicate (limit 4)."""
@@ -406,7 +398,6 @@ ASSERTIONS = [
     Assertion(
         20, "a policy whose id looks like a module's name still governs its territory", module_named_policy
     ),
-    Assertion(21, "a file-level negated pattern excludes the file from the territory", negation),
     Assertion(22, "severity warn with a note: stdout stays one JSON object", severity_warn_with_note),
     Assertion(23, "scan: the finding with counts, exit 2, ignoring severity warn", scan_red),
     Assertion(24, "scan: green with counts, and a note per void namespace", scan_green),
@@ -442,6 +433,8 @@ SUBJECT = Subject(
     territory=["docs/notes/**"],
     green=shared.governed_by("notes-policy"),
     claim=claim,
+    # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
+    outside="docs/notes/a.md is outside claimed territory",
 )
 
 if __name__ == "__main__":

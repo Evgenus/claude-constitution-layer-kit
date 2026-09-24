@@ -78,6 +78,8 @@ class Subject:
     # repository the event's cwd lies in and no written file, so the items about one are left out;
     # `gate_on` is still handed `valid` and `red`, and turns each into the tree the gate passes or
     # blocks; where an item builds a payload itself it builds a Stop one
+    outside: str | None = None  # the module's skip reason for `red.target` once a negated pattern takes
+    # it out of the territory, typed by hand; required by the item about negation wherever it runs
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
@@ -354,10 +356,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return expect(result, 0, s.green, "stdout")
 
     def negated_pattern() -> tuple[bool, str]:
-        """A file-level negated pattern takes the file out of the territory."""
+        """A file-level negated pattern takes the file out of the territory, and the skip says why."""
+        if s.outside is None:  # an empty default would make the item pass on any skip at all
+            return False, "Subject.outside not given"
         territory = [*s.territory, "!" + s.red.target]
         result, _ = s.gate_on(s.red, dials_patch=s.claim(territory))
-        return expect(result, 0, "0 documents examined", "stdout")
+        line = f"GREEN: {ns}: 0 documents examined — {s.outside}"
+        ok = result.code == 0 and line in result.stdout.splitlines()
+        return (
+            ok,
+            f"exit 0: {line}"
+            if ok
+            else f"wanted exit 0 printing {line!r}; got exit {result.code}: {result.stdout}",
+        )
 
     def policy_without_id_note() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, files={"docs/policies/zz-no-id.md": NO_ENVELOPE})
@@ -536,7 +547,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ("--scan outside any repository is a configuration failure", scan_outside_repository),
         ("--scan=DIR and a scan from a subdirectory examine the same repository", scan_forms),
         ("a byte-order mark before the envelope is not part of it", byte_order_mark),
-        ("a file-level negated pattern takes the file out of the territory", negated_pattern),
+        ("a file-level negated pattern takes the file out, and the skip names why", negated_pattern),
         ("a document where policies live with no readable id earns a note", policy_without_id_note),
         ("an Edit with an empty old_string on an existing file is a visible skip", edit_empty_old_string),
     ]

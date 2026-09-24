@@ -504,6 +504,8 @@ SUBJECT = Subject(
     territory=["docs/decisions/**"],
     green=shared.governed_by(RECORDS_POLICY),
     claim=claim,
+    # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
+    outside="docs/decisions/a.md is not governed by a record policy (records-policy)",
 )
 
 if __name__ == "__main__":
