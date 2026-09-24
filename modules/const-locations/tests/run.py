@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import errno
 import os
+import resource
 import subprocess
 import sys
 from collections.abc import Callable, Sequence
@@ -202,12 +203,16 @@ GOLDEN: dict[str, str] = {
     " choose another stem, or give --id",
     "L5.20": "BROKEN: docs/notes/a.md could not be written ([Errno 13] Permission denied:"
     f" '{AT}/docs/notes'): the write is the last act, so the refusal leaves nothing behind — fix:"
-    " clear what the system's error names — a permission, or a file or link standing at that path — and"
-    " run it again; nothing else was changed",
+    " remove what the system's error names — a denied permission, a file or link in the way at the home"
+    " or a directory above it, a full or read-only disk — and run it again; nothing else was changed",
     "L5.20 link": "BROKEN: docs/notes/a.md could not be written ([Errno 17] File exists:"
     f" '{AT}/docs/notes/a.md'): the write is the last act, so the refusal leaves nothing behind — fix:"
-    " clear what the system's error names — a permission, or a file or link standing at that path — and"
-    " run it again; nothing else was changed",
+    " remove what the system's error names — a denied permission, a file or link in the way at the home"
+    " or a directory above it, a full or read-only disk — and run it again; nothing else was changed",
+    "L5.20 part-way": "BROKEN: docs/notes/a.md could not be written ([Errno 27] File too large): the write"
+    " is the last act, so the refusal leaves nothing behind — fix: remove what the system's error names — a"
+    " denied permission, a file or link in the way at the home or a directory above it, a full or read-only"
+    " disk — and run it again; nothing else was changed",
     "L5.21": "BROKEN: --segment was given, but notes-policy's territory 'docs/notes/**' has no free segment:"
     " the home is the directory and the stem — fix: drop --segment and give --stem",
     "L5.22": "BROKEN: --title is empty (or only whitespace), and the title is the envelope's one non-empty"
@@ -259,7 +264,11 @@ def all_of(results: list[tuple[bool, str]], summary: str) -> tuple[bool, str]:
 
 def tree_state(consumer: Consumer) -> str:
     done = subprocess.run(
-        ["git", "status", "--porcelain"], cwd=consumer.root, capture_output=True, text=True, check=True
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=consumer.root,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     return done.stdout
 
@@ -668,7 +677,7 @@ def every_golden_line_compared() -> tuple[bool, str]:
     """No line of GOLDEN typed and left unused: each was compared by an item before this one."""
     unused = sorted(set(GOLDEN) - COMPARED)
     return not unused, (
-        f"{len(GOLDEN)} refusal lines, each compared by items 3, 4, 6, 7, 9–11, 16 and 17"
+        f"{len(GOLDEN)} refusal lines, each compared by items 3, 4, 6, 7, 9–11 and 16–18"
         if not unused
         else f"typed in GOLDEN, compared by no item: {unused}"
     )
@@ -749,6 +758,49 @@ def write_refused_by_a_link() -> tuple[bool, str]:
     return not problems, "; ".join(problems) or f"{evidence}; git status as before, the link kept"
 
 
+FILE_LIMIT = 8192  # bytes: room for what git writes on the way, not for the note with LONG_TITLE
+LONG_TITLE = "A note " * 2000  # one line of 14000 characters, the envelope and the heading both carry it
+LONG_ARGS = ["--kind", "notes-policy", "--stem", "a", "--title", LONG_TITLE, "--type", "non-authoritative"]
+
+
+def limited_to_file_size() -> None:
+    """Run in the child before the generator starts: a file past FILE_LIMIT bytes cannot grow, and
+    Python, which ignores SIGXFSZ, sees the write fail with EFBIG."""
+    resource.setrlimit(resource.RLIMIT_FSIZE, (FILE_LIMIT, FILE_LIMIT))
+
+
+def write_fails_part_way() -> tuple[bool, str]:
+    """A write that fails once the file is open — part of the text written, the rest refused —
+    is L5.20, and the file and the directory made for it are removed: the tree as it was."""
+    consumer = prepared()
+    before = tree_state(consumer)
+    env = dict(os.environ)
+    env.pop("CLAUDE_PLUGIN_DATA", None)
+    done = subprocess.run(
+        [H.sh, str(H.wrapper), *LONG_ARGS],
+        text=True,
+        capture_output=True,
+        env=env,
+        check=False,
+        cwd=consumer.root,
+        preexec_fn=limited_to_file_size,  # the harness's run takes none: the limit is this item's alone
+    )
+    result = Result(done.returncode, done.stdout, done.stderr)
+    error = f"[Errno {errno.EFBIG}] {os.strerror(errno.EFBIG)}"
+    ok, evidence = broken(result, messages.l5_could_not_write(NOTE, error), "L5.20 part-way")
+    after = tree_state(consumer)
+    notes = consumer.root / "docs" / "notes"
+    problems = [
+        *([] if len(LONG_TITLE) > FILE_LIMIT else ["the note fits under the limit"]),
+        *([] if result.code == 1 else [f"exit {result.code}, not 1"]),
+        *([] if ok else [evidence]),
+        *([] if after == before else [f"tree: {before!r} became {after!r}"]),
+        *([f"{NOTE} was left behind"] if (notes / "a.md").exists() else []),
+        *(["docs/notes was left behind"] if notes.exists() else []),
+    ]
+    return not problems, "; ".join(problems) or f"{evidence}; git status as before, no file, no directory"
+
+
 def notes_are_printed() -> tuple[bool, str]:
     """A policy document without a readable id earns the shared note, on stdout, before the lines."""
     consumer = prepared(files={"docs/policies/zz-no-id.md": "# no envelope\n"})
@@ -789,6 +841,10 @@ OWN: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
     (
         "a link that points nowhere at the home is refused at the write, and is left as it was",
         write_refused_by_a_link,
+    ),
+    (
+        "a write that fails part-way leaves neither the file nor the directory made for it",
+        write_fails_part_way,
     ),
     # stays the last entry: it reads what every item before it compared; new items go above it
     (

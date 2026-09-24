@@ -134,18 +134,24 @@ def _plan(
 
 
 def _write(root: Path, plan: Plan) -> None:
-    """One new file, into a directory made for it where none exists — and unmade when the write fails."""
+    """One new file, into a directory made for it where none exists — the file and the directories
+    unmade when the write fails, part-way too."""
     made: list[Path] = []
-    parent = (root / plan.home).parent
+    home = root / plan.home
+    parent = home.parent
     while not parent.exists():
         made.append(parent)
         parent = parent.parent
+    opened = False  # "x" creates the file or fails: once it opens, the file is this run's to remove
     try:
         for directory in reversed(made):
             directory.mkdir()
-        with (root / plan.home).open("x", encoding="utf-8", newline="") as handle:
+        with home.open("x", encoding="utf-8", newline="") as handle:
+            opened = True
             handle.write(plan.text)
     except OSError as exc:
+        if opened:  # a write that failed part-way leaves no truncated file
+            home.unlink(missing_ok=True)
         for directory in made:
             if directory.is_dir() and not os.listdir(directory):
                 directory.rmdir()
