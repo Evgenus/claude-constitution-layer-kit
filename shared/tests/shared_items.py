@@ -623,6 +623,34 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return unreadable(root / sibling, lambda: h.run_gate("", args=["--scan", str(root)]), line)
 
+    def policy_unreadable() -> tuple[bool, str]:
+        """A file where policies live is a policy by the kernel's rule: one nobody can read is C12.10
+        in a hook run too, never a policy with no id and the green skip that would follow."""
+        if os.geteuid() == 0:
+            return True, as_root
+        policy = "docs/policies/zz-unreadable.md"
+        _, root = s.gate_on(s.valid, files={policy: NO_ENVELOPE})
+        runs: list[Result] = []
+
+        def again() -> Result:
+            if s.event_driven:
+                runs.append(h.run_gate(payload(root, s.valid)))
+            else:
+                (root / s.valid.target).unlink(missing_ok=True)  # the first run wrote it
+                runs.append(h.run_gate("", args=list(s.act_args), cwd=root))
+            return runs[-1]
+
+        line = (
+            f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read:"
+            " its permissions, or a link that leads nowhere"
+        )
+        ok, evidence = unreadable(root / policy, again, line)
+        said = (runs[-1].stdout + runs[-1].stderr).splitlines()
+        noted = [each for each in said if "carries no readable id" in each]
+        if noted:  # note N1.1, its fragment typed by hand: the file taken for a policy with no id
+            return False, f"note N1.1 printed for a file nobody can read: {noted[0]}"
+        return ok, evidence
+
     def dials_not_utf8() -> tuple[bool, str]:
         """A byte that is not UTF-8 is the file's content: C4 naming its line and column, never C12.11."""
         _, root = s.gate_on(s.valid)
@@ -728,6 +756,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "C4: a dials file that is not UTF-8 is C4, its line and column named, never a defect of the gate",
             dials_not_utf8,
         ),
+        (
+            "C12.10: a file where policies live that nobody can read is a configuration failure, never a"
+            " policy with no id",
+            policy_unreadable,
+        ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
     # that resolves no policy leaves gaps where the items about policies stand.
@@ -738,6 +771,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         root_outside_own_territory,
         no_root_policy,
         policy_without_id_note,
+        policy_unreadable,
     }
     # A generator has no event, no verdict and no scan: these items are a gate's alone.
     about_events = {
