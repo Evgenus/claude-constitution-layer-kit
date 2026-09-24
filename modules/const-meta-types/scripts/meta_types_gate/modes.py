@@ -41,7 +41,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
             pending = PendingDocument(rel, target.text)
             index = build_index(target.root, dials, root_policy, matcher, pending)
             void = void_claims(index, dials, matcher)
-            examination = examine(index, id_owners(index), rel, target.text)
+            examination = examine(index, lambda: id_owners(index), rel, target.text)
     except ConfigurationFailure as failure:
         if writes_root and failure.broken.key in ROOT_KEYS:  # this write would break governance
             finding = messages.f14_root_breaks_governance(rel, failure.broken)
@@ -75,7 +75,7 @@ def scan_mode(output: Output, start: Path) -> int:
         void = void_claims(index, target.dials, matcher)
         owners = id_owners(index)
         for rel, text in index.documents():
-            examination = examine(index, owners, rel, text)
+            examination = examine(index, lambda: owners, rel, text)
             if examination.outside:
                 continue
             examined += 1

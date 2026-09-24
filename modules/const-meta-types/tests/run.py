@@ -9,6 +9,7 @@ Exit 0 when every item is green, 2 otherwise.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
 from collections.abc import Sequence
@@ -353,7 +354,7 @@ def scan_green() -> tuple[bool, str]:
 
 
 def scan_scales() -> tuple[bool, str]:
-    """The scan reads each document once: a few hundred documents take seconds, not minutes."""
+    """A few hundred documents take seconds, not minutes: the bound is the wall time, 15 s."""
     consumer = H.fresh_consumer()
     for n in range(300):
         consumer.write(f"docs/notes/n{n}.md", envelope(f"note-{n}"))
@@ -534,6 +535,41 @@ def golden_lines() -> tuple[bool, str]:
     return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 
 
+def unreadable_twin_is_broken() -> tuple[bool, str]:
+    """Any Markdown file git lists and nobody can read may carry the written id — its declaration
+    cannot be known — so a governed write is the shared configuration failure, never a green that
+    compared the id with nothing. A write outside every territory, with the same file unreadable,
+    is still the plain skip: the others are read only for a governed document. Lines typed by hand."""
+    as_root = (
+        "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 unreadable files examined"
+    )
+    if os.geteuid() == 0:
+        return True, as_root
+    twin = "docs/notes/twin.md"
+    consumer = H.fresh_consumer([Write(twin, envelope("note-a"))])
+    path = consumer.root / twin
+    mode = path.stat().st_mode
+    path.chmod(0o000)
+    try:
+        governed = H.run_gate(event_json(consumer.root, VALID))
+        outside = H.run_gate(event_json(consumer.root, Write("README.md", NO_ENVELOPE)))
+    finally:
+        path.chmod(mode)
+    first = (
+        "BROKEN: docs/notes/twin.md is listed by git but cannot be read — fix: check that the file can be"
+        " read: its permissions, or a link that leads nowhere"
+    )
+    count = "BROKEN: the check could not run — 0 documents examined"
+    ok, detail = broken_first_line(governed, first)
+    if ok and count not in governed.stderr.splitlines():
+        return False, f"no count line in stderr: {governed.stderr}"
+    if not ok:
+        return ok, detail
+    skip = "GREEN: const-meta-types: 0 documents examined — README.md is outside claimed territory"
+    skipped, skip_detail = expect(outside, 0, skip, "stdout")
+    return skipped, f"{detail}; README.md: {skip_detail}"
+
+
 ASSERTIONS = [
     Assertion(18, "examined count: outside claimed territory prints 0 and exits 0", outside_territory),
     Assertion(19, "a territory with no policy behind it claims nothing: a visible skip", void_territory),
@@ -543,7 +579,7 @@ ASSERTIONS = [
     Assertion(22, "severity warn with a note: stdout stays one JSON object", severity_warn_with_note),
     Assertion(23, "scan: the finding with counts, exit 2, ignoring severity warn", scan_red),
     Assertion(24, "scan: green with counts, and a note per void namespace", scan_green),
-    Assertion(25, "scan: 300 documents in seconds (each document read once)", scan_scales),
+    Assertion(25, "scan: 300 documents in under 15 s, the green line whole", scan_scales),
     Assertion(
         26,
         "scan: a tracked file deleted from the working tree is left out, not a failure",
@@ -556,6 +592,12 @@ ASSERTIONS = [
     Assertion(31, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
     Assertion(32, "the fix of F4 names only the field that failed", fix_names_the_failing_field),
     Assertion(33, "golden lines: each finding's headline, why and fix as literals", golden_lines),
+    Assertion(
+        36,
+        "hook: a listed Markdown file nobody can read is C12.10 for a governed write, never a green;"
+        " a write outside every territory is still skipped",
+        unreadable_twin_is_broken,
+    ),
 ]
 
 

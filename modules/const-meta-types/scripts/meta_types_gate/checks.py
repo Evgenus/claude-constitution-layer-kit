@@ -3,6 +3,8 @@ and the envelope (is the document governable)."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from const_gate.dials import MODULE_PREFIX
 from const_gate.envelope import ID_RE, declared_policy, document_id, parse_envelope, string_field
 from const_gate.index import Index
@@ -71,11 +73,14 @@ def envelope_errors(envelope: Envelope) -> list[str]:
 
 def id_owners(index: Index) -> dict[str, list[str]]:
     """id -> the governed documents carrying it (claimed by path, or bound by a declaration
-    naming a policy). Built once per run: every Markdown file is read a single time."""
+    naming a policy). Built at most once per run, in one pass that reads each Markdown file once,
+    and one nobody can read is the shared configuration failure, in a scan or in a write some
+    policy governs: an id not read is a uniqueness not checked, and a green line would claim it
+    was."""
     claimed = {rel for policy in index.policies.values() for rel in policy.claims}
     owners: dict[str, list[str]] = {}
-    for rel in index.paths:
-        envelope = parse_envelope(index.text(rel) or "")
+    for rel, text in index.documents():
+        envelope = parse_envelope(text)
         doc_id = document_id(envelope)
         if doc_id is not None and (rel in claimed or declared_policy(envelope) in index.policies):
             owners.setdefault(doc_id, []).append(rel)
@@ -116,12 +121,14 @@ def check_envelope(index: Index, owners: dict[str, list[str]], rel: str, envelop
     return findings
 
 
-def examine(index: Index, owners: dict[str, list[str]], rel: str, text: str) -> Examination:
+def examine(index: Index, owners: Callable[[], dict[str, list[str]]], rel: str, text: str) -> Examination:
+    """``owners`` is called only for a document some policy governs, so a write outside every
+    territory is skipped without reading the others."""
     envelope = parse_envelope(text)
     resolution = resolve(index, rel, envelope)
     if resolution.outside:
         return Examination((), None)
-    findings = resolution_findings(index, rel, resolution) + check_envelope(index, owners, rel, envelope)
+    findings = resolution_findings(index, rel, resolution) + check_envelope(index, owners(), rel, envelope)
     return Examination(tuple(findings), resolution.policy)
 
 
