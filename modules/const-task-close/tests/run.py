@@ -853,6 +853,8 @@ def skills_and_install_note() -> tuple[bool, str]:
         front = yaml.safe_load(text.split("---")[1])
         if front["name"] != name or not (0 < len(front["description"]) <= 1536):
             return False, f"{name}: name or description size"
+        if "Use when " not in front["description"] or "Advisory:" not in front["description"]:
+            return False, f"{name}: the description carries no 'Use when ' trigger or no 'Advisory:' line"
         sizes[name] = len(front["description"])
     stated = re.search(
         r"skill listing, (\d+) and (\d+) characters", (root / "MODULE.md").read_text(encoding="utf-8")
@@ -1064,7 +1066,8 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (33, "the hooks file's shape", hooks_file_shape),
     (
         34,
-        "the skill descriptions' sizes; the install note's example accepted as it stands",
+        "the skill descriptions' sizes, each with its trigger and its advisory line; the install note's"
+        " example accepted as it stands",
         skills_and_install_note,
     ),
     (35, "the hook validates the dials too", hook_validates_dials),
