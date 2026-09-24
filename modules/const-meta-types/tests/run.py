@@ -22,7 +22,7 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
 from const_gate.envelope import yaml_error_line  # noqa: E402
-from const_gate.model import Finding, Match  # noqa: E402
+from const_gate.model import Match  # noqa: E402
 from consumer import ROOT_POLICY, document, envelope  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
@@ -394,10 +394,113 @@ def golden_f1_fix() -> tuple[bool, str]:
     return expect(result, 2, literal, "stderr")
 
 
-def message_shape() -> tuple[bool, str]:
-    built = [case.expect for case in CASES]
-    ok = all(isinstance(f, Finding) and f.key and f.headline and f.why and f.fix for f in built)
-    return ok, f"{len(built)} findings examined, each with what / why / fix"
+# The lines each case's red half prints, keyed by the case's number, typed here by hand: the cases
+# compare with what the message functions return, so a slip inside a function — a why emptied, a
+# word lost from a fix — would pass them all. F1's fix is item 29's, F4's why and one-field fix
+# item 32's; F3's headline stops where the parser's own words begin.
+GOLDEN: dict[int, Sequence[str]] = {
+    1: [
+        F1_HEADLINE,
+        "  why: a governed document declares its authority in its envelope, or sessions guess it",
+    ],
+    2: [
+        "RED: docs/notes/a.md: frontmatter opened with '---' but never closed",
+        "  why: an unclosed envelope is unreadable by machines and by the next session",
+        "  fix: close the YAML block with a line holding only '---'",
+    ],
+    3: [
+        "RED: docs/notes/a.md: frontmatter is not valid YAML (",
+        "  why: the envelope is read by machines, so it must parse",
+        "  fix: repair the YAML between the '---' lines; keep at least the four fields id, type, title,"
+        " status",
+    ],
+    4: [
+        "RED: docs/notes/a.md: envelope field(s) invalid: id 'Note_A' is not kebab-case; type 'spec' not one"
+        " of current-state | task-record | non-authoritative; status 'open' not one of active | inactive",
+        "  fix: set each named field: id = stable kebab-case (never changed, never reused); type ="
+        " current-state (reconciled truth) | task-record (change delta) | non-authoritative (explanation);"
+        " status = active | inactive",
+    ],
+    5: [
+        "RED: docs/notes/b.md: id 'notes-policy' is already carried by docs/policies/notes-policy.md",
+        "  why: an id is a stable identifier: two documents sharing one break every reference to it",
+        "  fix: give this document its own id, never a retired one; if this is a move, delete or git mv the"
+        " old file first, then write",
+    ],
+    6: [
+        "RED: loose.md: declares policy 'ghost-policy' but no policy with that id lies in the root policy's"
+        " territory ['docs/policies/**']",
+        "  why: a governed document resolves to exactly one governing policy, or its rules are undefined",
+        "  fix: declare the id of a policy that exists there, or drop the declaration and place the file in"
+        " a claimed territory",
+    ],
+    7: [
+        "RED: docs/notes/shared/x.md: matched by 2 policy territories: notes-policy (docs/notes/**),"
+        " shared-policy (docs/notes/shared/**)",
+        "  why: a document resolves to exactly one governing policy, or two rule sets compete",
+        "  fix: narrow one territory in constitution.yaml so the patterns no longer overlap; during a move,"
+        " declare the intended one with 'policy: <id>' in the envelope while an active task-record covers it",
+    ],
+    8: [
+        "RED: docs/notes/a.md: declares policy 'root-policy' but its path is claimed by 'notes-policy'"
+        " (docs/notes/**)",
+        "  why: the path mapping is primary; a declaration may resolve an absent or ambiguous mapping, never"
+        " override it",
+        "  fix: remove 'policy: root-policy' from the envelope, or move the file into the territory of"
+        " 'root-policy': ['docs/policies/**']",
+    ],
+    9: ["  fix: remove 'policy: ghost-policy' from the envelope — no policy with that id exists"],
+    10: [
+        "RED: docs/notes/shared/x.md: declares policy 'root-policy' but its path is claimed by notes-policy"
+        " (docs/notes/**), shared-policy (docs/notes/shared/**)",
+        "  why: the path mapping is primary; a declaration may resolve an absent or ambiguous mapping, never"
+        " override it",
+        "  fix: declare one of the policies that claim the path, or remove the declaration and narrow the"
+        " territories in constitution.yaml",
+    ],
+    11: [
+        "RED: docs/policies/drafts-policy.md: lies in the root policy's territory but has type 'task-record'",
+        "  why: a policy is a current-state document, and only policies lie where policies live",
+        "  fix: set type: current-state, or move the file out of ['docs/policies/**']",
+    ],
+    12: [
+        "RED: docs/policies/root-policy.md: the root policy has no readable envelope (the file does not"
+        " start with a '---' line)",
+        "  why: the root policy's id names the namespace where policies live; without it nothing is governed",
+        "  fix: keep the YAML block between two '---' lines with id, type: current-state, title, status:"
+        " active",
+    ],
+    13: [
+        "RED: docs/policies/root-policy.md: the root policy has type 'task-record'",
+        "  why: a policy is a current-state document, and the root is the policy for policies",
+        "  fix: set type: current-state",
+    ],
+    14: [
+        "RED: docs/policies/root-policy.md: the root policy's id 'renamed-root' has no territory under that"
+        " id in constitution.yaml",
+        "  why: the root's namespace is where policies live; changing the id orphans every policy",
+        "  fix: keep the id that has the namespace, or rename the namespace in constitution.yaml in the same"
+        " change",
+    ],
+    15: [
+        "RED: docs/policies/root-policy.md: as written, root policy 'docs/policies/root-policy.md' lies"
+        " outside its own territory ['docs/notes/**']",
+        "  why: every chain of governance ends at the root policy; a write that breaks it ungoverns the"
+        " repository",
+        "  fix: every chain of governance ends at the root; widen notes-policy.territory to include it",
+    ],
+}
+
+
+def golden_lines() -> tuple[bool, str]:
+    """Each case's red input run afresh; every literal of GOLDEN must stand in its stderr."""
+    reds = {case.number: case.red for case in CASES}
+    missing: list[str] = []
+    for number, lines in GOLDEN.items():
+        stderr = gate_on(reds[number])[0].stderr
+        missing += [f"case {number}: {line}" for line in lines if line not in stderr]
+    found = sum(len(lines) for lines in GOLDEN.values())
+    return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 
 
 ASSERTIONS = [
@@ -416,12 +519,12 @@ ASSERTIONS = [
         scan_with_deleted_file,
     ),
     Assertion(29, "golden line: the F1 fix as a literal, not as the function returns it", golden_f1_fix),
-    Assertion(27, "message shape: every taught finding has what, why and fix", message_shape),
     Assertion(
         30, "an ungoverned twin id is not seen: the governed write is green", ungoverned_twin_is_not_seen
     ),
     Assertion(31, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
     Assertion(32, "the fix of F4 names only the field that failed", fix_names_the_failing_field),
+    Assertion(33, "golden lines: each finding's headline, why and fix as literals", golden_lines),
 ]
 
 
