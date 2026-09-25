@@ -21,9 +21,14 @@ WRAPPERS: dict[str, frozenset[str]] = {
     "command": frozenset(),
     "builtin": frozenset(),
     "noglob": frozenset(),
-    "xargs": frozenset({"-I", "-d", "-P", "-s", "-n", "-L", "-a", "-E", "--max-args", "--max-procs"}),
-    "sudo": frozenset({"-u", "-g", "-C", "-p", "-h", "-U", "-r", "-t", "-D", "--user", "--group"}),
-    "doas": frozenset({"-u", "-C"}),
+    # from the man pages of macOS 26 and GNU coreutils, read 2026-09-25
+    "xargs": frozenset(
+        {"-I", "-J", "-d", "-P", "-s", "-n", "-L", "-a", "-E", "-R", "-S", "--max-args", "--max-procs"}
+    ),
+    "sudo": frozenset(
+        {"-u", "-g", "-C", "-p", "-h", "-U", "-r", "-t", "-D", "-R", "-T", "--user", "--group"}
+    ),
+    "doas": frozenset({"-u", "-C", "-a"}),
     "env": frozenset({"-C", "-u", "-S", "-P", "-L", "-U", "--chdir", "--unset", "--split-string"}),
     "nice": frozenset({"-n", "--adjustment"}),
     "stdbuf": frozenset({"-i", "-o", "-e"}),
