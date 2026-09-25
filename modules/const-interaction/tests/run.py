@@ -357,7 +357,8 @@ def t10() -> tuple[bool, str]:
             own(boundary_examples=[{"violates": "x"}]),
             prefix
             + "const-interaction.boundary_examples must be a list of pairs {violates: <text>, complies:"
-            ' <text>} — fix: write one pair per "- " item with exactly those two fields, or leave the key out',
+            ' <text>} — fix: write one pair per "- " item with exactly those two fields, or leave the key'
+            " out",
         ),
     ]
     checks = []
@@ -544,7 +545,10 @@ def t30() -> tuple[bool, str]:
     plain_ok = plain.code == 0 and plain.stdout == RULES and plain.stderr == ""
     empty_root = prepared(own(destructive=[]))
     empty = SESSION.run_gate(session_json(empty_root))
-    zero = "const-interaction: no command is gated — const-interaction.destructive is an empty list in constitution.yaml"
+    zero = (
+        "const-interaction: no command is gated — const-interaction.destructive is an empty list in"
+        " constitution.yaml"
+    )
     empty_ok = empty.code == 0 and empty.stdout == RULES + zero + "\n"
     pairs_root = prepared(own(boundary_examples=[{"violates": "an essay", "complies": "the word"}]))
     pairs = SESSION.run_gate(session_json(pairs_root))
@@ -576,7 +580,10 @@ def t31() -> tuple[bool, str]:
     no_dials_ok = no_dials.code == 0 and no_dials.stdout == RULES + no_dials_line + "\n"
     loose = H.scratch_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
-    no_repo_line = f"const-interaction: {loose} is not inside a git repository — the destructive-command gate examines nothing there"
+    no_repo_line = (
+        f"const-interaction: {loose} is not inside a git repository — the destructive-command gate examines"
+        " nothing there"
+    )
     no_repo_ok = no_repo.code == 0 and no_repo.stdout == RULES + no_repo_line + "\n"
     bad_root = prepared(raw_dials="root-policy: [\n")
     bad = SESSION.run_gate(session_json(bad_root))
@@ -684,7 +691,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (5, "wrappers, assignments, a program path and git's global options hide nothing", t5),
     (
         6,
-        "outside the list passes: heredoc body, checkout -- ., amend, plain push, a flag after --, rm of a file",
+        "outside the list passes: a heredoc body, checkout -- ., an amend, a plain push, a flag after --",
         t6,
     ),
     (7, "the dial: empty gates nothing and says so; an own entry; a cluster; a long flag by equality", t7),
