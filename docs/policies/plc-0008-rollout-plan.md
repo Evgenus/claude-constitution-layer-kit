@@ -12,7 +12,7 @@ Governs the document kind *rollout plan*: the phases of the kit's rollout and th
 ## Rules
 
 1. <a id="r1"></a>**Type.** `task-record`, `active` while a phase remains, `inactive` when the last phase is reached — step 11 done, rule 7 ([kernel §2](../../kernel/CONVENTIONS.md#k2)); a stretch with no commits in its scope is stalled drift.
-2. <a id="r2"></a>**Content.** Phases, steps, and sequence only. A requirement belongs to the requirements document, a ruling to a decision record; neither is stated here.
+2. <a id="r2"></a>**Content.** Phases, steps, and sequence only. A requirement belongs to the requirements document, a ruling already made to its record and to the current-state text that carries it; neither is stated here. Intent not yet real that a "pending" carry entry points at is stated in its step until the step closes (rule 6).
 3. <a id="r3"></a>**Change.** Reordering or rewriting phases is a `process`-stakes decision ([law 9 of CLAUDE.md](../../CLAUDE.md#law-9)); ticking a step done is routine.
 4. <a id="r4"></a>**Anchors and numbers.** Every phase carries an explicit anchor `phase-<letter>` and every step `s<n>`. Steps are numbered once across the phases and keep their number; a step added later stands after the one it follows as `<n>a`, `<n>b`, with the anchor to match.
 5. <a id="r5"></a>**Done.** A step done is marked in its own line with the date, the record — its title in plain words once the record is deleted ([rule 7 of plc-0004-decision-records](plc-0004-decision-records.md#r7)) — and "the yes given", in one sentence; the evidence lives in the record and the module document, never here.

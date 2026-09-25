@@ -1,7 +1,7 @@
 ---
 id: module-const-catalogs
 type: current-state
-title: const-catalogs — numbered kinds — one name per item, one item per number, a number never issued twice
+title: const-catalogs — numbered kinds, one name per item and one item per number, a number never issued twice
 status: active
 ---
 
@@ -63,6 +63,7 @@ The advisory rules beside it, each `advisory` in its own text: (C-a) a new item 
 | dependencies | `requirements.txt` | The declared libraries (PyYAML); the preflight imports each on every invocation, and the configuration-failure message prints the one install command for this file. |
 | skill | `skills/catalog-item/SKILL.md` | Rules C-a to C-f: find the catalog, take the number from the scan's line, write the item, renumber after a collision, list and resolve by git-native commands, explain a gap, cite. Model-invocable: a numbered document is created mid-dialog. No `paths`: a territory is a runtime dial, which a static glob cannot carry. Advisory. |
 | install note | `INSTALL.md` | Requirements, the one dial that switches the check on, the YAML alias for a territory shared with a policy, the negated pattern for a file that is no item, adoption through `severity: warn`, the scan command for CI, where the output log goes, what the module does not check, no CLAUDE.md pointer. |
+| manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10): this module's numbered case records and assertions, and the shared acceptance items that apply to a gate resolving no policy, all driving the real entry point with real hook events. |
 | listing script | none | the catalog is the set of files carrying its prefix, which one git pathspec glob lists; a script would add a command-line mode to the shared code for an assist. |
 | allocation script | none | the scan already holds every item's number, so its count line names the highest; a separate mode would compute the same number twice. |
@@ -204,11 +205,11 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries).
 | T69–T71 | fixture, assertion | adoption: a number two names show is kept by neither unseen — the other file is named; a number the width cannot write is named as such; a catalog whose width is used up is marked full in the scan's line |
 | T72 | fixture, assertion | under width 4 a date-shaped name is an item: the scan counts `itm-2026-09-22-x.md` as number 2026 in its line, and a formed item beside it passes ([§9](#t9), limit 14) |
 | S101–S158 less seven | fixture, assertion | the shared acceptance items of [kit-shared-gate-code §5](../../shared/GATE.md#g5), run through this module's entry point; S107–S110, S129, S149 and S158 are about the root policy and the policies' documents, which this gate does not read, and are left out — T17–T19 prove the opposite property in their place |
-| L1 | live | the scan over this repository (consumer zero), its catalog listed in the kit's own dials with the records policy's territory by alias: every kit decision record green, the counts and the catalog's reach printed (`… 1 catalog(s): dec up to dec-0029` on 2026-09-20) |
-| L2 | live | the plugin loaded in a headless session in this repository via `--plugin-dir`: a new record under the carried number 28 blocked with K4 and the file not created; the corrected write landed as number 29; the log written; the skill reachable under the plugin's name |
-| L3 | live | all three modules loaded together: a record named without the form is blocked by this gate alone, K1 naming number 29, while both siblings log green; the corrected write is green in all three |
+| L1 | live | done 2026-09-20, Claude Code 2.1.251: the scan over this repository (consumer zero), its catalog listed in the kit's own dials with the records policy's territory by alias: every kit decision record green, the counts and the catalog's reach printed (`… 1 catalog(s): dec up to dec-0029` on 2026-09-20) |
+| L2 | live | done 2026-09-20, Claude Code 2.1.251: the plugin loaded in a headless session in this repository via `--plugin-dir`: a new record under the carried number 28 blocked with K4 and the file not created; the corrected write landed as number 29; the log written; the skill reachable under the plugin's name |
+| L3 | live | done 2026-09-20, Claude Code 2.1.251: all three modules loaded together: a record named without the form is blocked by this gate alone, K1 naming number 29, while both siblings log green; the corrected write is green in all three |
 | L4 | review | the pairs of [§8](#t8), the skill, the install note and the error texts of [§6](#t6), at the one yes; the listing command's output on a three-item catalog |
-| L5 | live, deferred to the consumer's bootstrap | the consumer-live proof: the consumer's first numbered document is written through the skill, under the gate, from an install that carries the shared code; the scan wired into its CI |
+| L5 | live, deferred | the consumer-live proof, [step 5 of the rollout plan](../../docs/rollout-plan.md#s5): the consumer's first numbered document is written through the skill, under the gate, from an install that carries the shared code; the scan wired into its CI |
 
 **Examined count.** Every exit prints it: hook mode `1 document examined, an item of catalog '…'` or `0 documents examined — <reason>`; scan mode catalogued items, Markdown files scanned, catalogs and each one's reach; `BROKEN` prints `0 documents examined`.
 
