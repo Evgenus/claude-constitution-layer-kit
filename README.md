@@ -2,7 +2,7 @@
 
 A portable governance layer for Claude Code projects: a one-page semantic kernel plus modules shipped as plugins. This page is the install procedure only. For purpose read `INTENT.md`; for vocabulary read `kernel/CONVENTIONS.md`.
 
-**Status today.** The kit ships the kernel and the module template; the first modules are being authored under `modules/` in rollout Phase A (`docs/rollout-plan.md`), each a draft at manifest version `0.0.x` until published. `profiles/` and `.claude-plugin/marketplace.json` arrive in Phase D. Part 1 works now; Part 2 describes both the development path that works now and the marketplace path that applies once the catalog exists.
+**Status today.** The kit ships the kernel and the module template; the first modules are being authored under `modules/` in rollout Phase A (`docs/rollout-plan.md`), each a draft at manifest version `0.0.x` until published. `profiles/` arrives in Phase D; `.claude-plugin/marketplace.json` exists at the kit root, one relative entry per module, and the kit's own sessions load the modules from it. Part 1 works now; Part 2 describes the development path and the marketplace path, both of which work from a clone.
 
 ## Prerequisites
 
@@ -62,7 +62,7 @@ Pass the flag once per module. Do not point `--plugin-dir` at the `modules/` fol
 
 After editing module source, run `/reload-plugins` inside the session.
 
-**B. Marketplace path (once `marketplace.json` exists).** Register the kit as a marketplace, then install at project scope so every collaborator gets it via `.claude/settings.json`:
+**B. Marketplace path.** Register the kit as a marketplace, then install at project scope so every collaborator gets it via `.claude/settings.json`:
 
 ```bash
 claude plugin marketplace add ~/dev/constitution-kit
@@ -76,7 +76,7 @@ claude plugin install const-<aspect>@constitution-kit --scope project
 
 The same two commands work as `/plugin marketplace add …` and `/plugin install …` inside a session.
 
-**C. Team auto-registration.** Commit the marketplace to the project's `.claude/settings.json` so the catalog is added automatically when a teammate trusts the folder. Plugins from an external source still need one `claude plugin install` per person.
+**C. Team auto-registration.** Commit the marketplace to the project's `.claude/settings.json` so the catalog is added automatically when a teammate trusts the folder. Plugins from an external source, such as a GitHub-hosted kit, still need one `claude plugin install` per person. A repository that holds the marketplace itself — the kit is its own consumer zero — declares it with `{ "source": "directory", "path": "." }` instead and lists each plugin under `enabledPlugins` as `"<name>@constitution-kit": true`; its relative-path plugins then load with no install at all, once the folder is trusted.
 
 ```json
 {

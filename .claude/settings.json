@@ -1,0 +1,20 @@
+{
+  "extraKnownMarketplaces": {
+    "constitution-kit": {
+      "source": {
+        "source": "directory",
+        "path": "."
+      }
+    }
+  },
+  "enabledPlugins": {
+    "const-catalogs@constitution-kit": true,
+    "const-decision-records@constitution-kit": true,
+    "const-interaction@constitution-kit": true,
+    "const-locations@constitution-kit": true,
+    "const-meta-types@constitution-kit": true,
+    "const-questions@constitution-kit": true,
+    "const-referencing@constitution-kit": true,
+    "const-task-close@constitution-kit": true
+  }
+}
