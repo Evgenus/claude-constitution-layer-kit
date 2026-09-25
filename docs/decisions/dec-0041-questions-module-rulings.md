@@ -2,7 +2,7 @@
 id: dec-0041-questions-module-rulings
 type: task-record
 title: Rulings of the const-questions authoring — ask at recorded stakes or a blocker, one decision per message in the fixed shape, no open question in a deliverable
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
