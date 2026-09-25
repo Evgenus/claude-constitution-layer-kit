@@ -103,6 +103,38 @@ def stop_json(root: Path, active: bool = False, session: str = "fixture-session"
     )
 
 
+def bash_json(root: Path, command: str, session: str = "fixture-session") -> str:
+    """A PreToolUse payload of the shell tool as the platform sends it, reduced to what a gate
+    reads: the session's directory and the command."""
+    return json.dumps(
+        {
+            "hook_event_name": "PreToolUse",
+            "session_id": session,
+            "cwd": str(root),
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+        }
+    )
+
+
+def ask_reason(result: Result) -> str | None:
+    """The reason of an `ask` verdict — exit 0, one JSON object on stdout asking the platform to
+    prompt — or None when the output is not that."""
+    if result.code != 0:
+        return None
+    try:
+        answer = json.loads(result.stdout)
+    except ValueError:
+        return None
+    if not isinstance(answer, dict):
+        return None
+    specific = answer.get("hookSpecificOutput")
+    if not isinstance(specific, dict) or specific.get("permissionDecision") != "ask":
+        return None
+    reason = specific.get("permissionDecisionReason")
+    return reason if isinstance(reason, str) else None
+
+
 class Harness:
     """One module's entry point under test."""
 

@@ -34,6 +34,8 @@ from harness import (
     event_json,
     expect,
     red_lines,
+    ask_reason,
+    bash_json,
     stop_json,
 )
 
@@ -96,15 +98,35 @@ class Subject:
     # it out of the territory, typed by hand; required by the item about negation wherever it runs
     long_value: Write | None = None  # a write the gate blocks with one finding that echoes a value of
     # 12,000 characters "x"; None leaves the item about a value cut short out
+    # `event` may also be "Bash": a PreToolUse gate on the shell tool, which examines the command the
+    # event carries and no written file — the items left out are those a Stop gate leaves out; `valid`
+    # and `red` are then Writes whose `text` is the command, `target` unused, and a payload an item
+    # builds itself is the shell tool's
+    ask: bool = False  # True: the gate's block is an `ask` verdict — exit 0, one JSON object on stdout
+    # asking the platform to prompt, the finding in its reason — so the items about a red run read
+    # that reason where they would read stderr, and expect exit 0 where they would expect 2
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
     h, ns = s.harness, s.harness.namespace
     stop = s.event == "Stop"
+    shell = s.event == "Bash"
+    no_file = stop or shell  # the gate examines no written file: the items about one are not its own
 
     def payload(root: Path, action: Write | Edit) -> str:
-        """The event an item sends itself: the write, or, for a Stop gate, a Stop in that repository."""
-        return stop_json(root) if stop else event_json(root, action)
+        """The event an item sends itself: the write, or, for a Stop gate, a Stop in that repository,
+        or, for a shell gate, the shell tool with the action's text as its command."""
+        if stop:
+            return stop_json(root)
+        if shell:
+            return bash_json(root, action.text if isinstance(action, Write) else action.new)
+        return event_json(root, action)
+
+    def red_said(result: Result) -> str:
+        """What a red run said: stderr for a block, the reason of the ask verdict for an asking gate."""
+        return (ask_reason(result) or "") if s.ask else result.stderr
+
+    red_code = 0 if s.ask else 2
 
     def broken(result: Result, failure: Broken) -> tuple[bool, str]:
         return broken_as_typed(result, failure.render())
@@ -248,8 +270,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         if not s.event_driven:  # a generator: a run that completes, from inside the consumer
             result = h.run_gate("", args=s.act_args, command=copied, cwd=consumer.root)
             return expect(result, 0, s.green, "stdout")
-        if stop:  # a clean consumer at a turn's end: the gate's green
-            result = h.run_gate(stop_json(consumer.root), command=copied)
+        if no_file:  # a clean consumer at a turn's end, or a command the gate passes: the gate's green
+            result = h.run_gate(payload(consumer.root, s.valid), command=copied)
             return expect(result, 0, s.green, "stdout")
         result = h.run_gate(event_json(consumer.root, Write("README.md", NO_ENVELOPE)), command=copied)
         return expect(result, 0, s.bare_readme, "stdout")
@@ -297,7 +319,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def stdout_cannot_encode() -> tuple[bool, str]:
         """The count line carries a dash; a stream that cannot encode it must not swallow the line."""
-        if stop:
+        if no_file:
             result, _ = s.gate_on(s.valid, env={"PYTHONIOENCODING": "ascii"})
             return expect(result, 0, s.green, "stdout")
         result, _ = s.gate_on(Write("README.md", NO_ENVELOPE), env={"PYTHONIOENCODING": "ascii"})
@@ -356,7 +378,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         directory = h.scratch_dir()
         event = payload(directory, Write("loose.md", NO_ENVELOPE))
         result = h.run_gate(event, env={"GIT_CEILING_DIRECTORIES": str(directory.parent)})
-        where = directory if stop else directory / "loose.md"  # a Stop names no file: its cwd is the place
+        where = directory if no_file else directory / "loose.md"  # no file named: its cwd is the place
         skip = messages.g1_green_skip(messages.g1_skip_no_repo(str(where)))
         return expect(result, 0, skip, "stdout")
 
@@ -447,17 +469,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             stream: [each["text"] for each in lines if each["stream"] == stream]
             for stream in ("stdout", "stderr")
         }
+        # an asking gate prints its verdict as one JSON object on stdout, the finding inside it
+        verdict_stream = "stdout" if s.ask else "stderr"
         ok = (
             set(line) == {"ts", "module", "gate", "mode", "session", "stream", "text"}
-            and line["text"].startswith(first)
+            and (first in line["text"] if s.ask else line["text"].startswith(first))
             and line["module"] == ns
-            and line["stream"] == "stderr"
+            and line["stream"] == verdict_stream
             and line["session"] == ("fixture-session" if s.event_driven else "")
             # one record per print: the records rebuild both streams exactly, and a block verdict,
             # printed at once, is one record of several lines
             and "".join(text + "\n" for text in said["stdout"]) == result.stdout
             and "".join(text + "\n" for text in said["stderr"]) == result.stderr
-            and (not s.event_driven or (len(said["stderr"]) == 1 and "\n" in line["text"]))
+            and (not s.event_driven or (len(said[verdict_stream]) == 1 and (s.ask or "\n" in line["text"])))
         )
         return ok, f"{len(lines)} log lines; first: {line}"
 
@@ -497,8 +521,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         blocker.write_text("", encoding="utf-8")
         red, _ = s.gate_on(s.red, env={"CLAUDE_PLUGIN_DATA": str(blocker)})
         green, _ = s.gate_on(s.valid, env={"CLAUDE_PLUGIN_DATA": str(blocker)})
-        refused = 2 if s.event_driven else 1  # a gate's finding; a generator's refusal
-        ok = red.code == refused and green.code == 0
+        refused = red_code if s.event_driven else 1  # a gate's finding; a generator's refusal
+        ok = red.code == refused and green.code == 0 and (not s.ask or ask_reason(red) is not None)
         return ok, f"log location unwritable: red still exits {red.code}, green still exits {green.code}"
 
     def declared_libraries() -> tuple[bool, str]:
@@ -516,17 +540,18 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         if s.long_value is None:  # the item is left out then; a direct call must not pass vacuously
             return False, "Subject.long_value not given"
         result, _ = s.gate_on(s.long_value)
+        said = red_said(result)
         ok = (
-            result.code == 2
-            and len(red_lines(result.stderr)) == 2  # the one finding and the count line
-            and "… [12000 characters]" in result.stderr  # the marker, typed by hand
-            and "x" * 81 not in result.stderr
-            and len(result.stderr) < 2_000
+            result.code == red_code
+            and len(red_lines(said)) == 2  # the one finding and the count line
+            and "… [12000 characters]" in said  # the marker, typed by hand
+            and "x" * 81 not in said
+            and len(said) < 2_000
         )
         return ok, (
-            f"exit 2; {len(result.stderr)} characters on stderr for a 12,000-character value, cut and said"
+            f"exit {red_code}; {len(said)} characters of verdict for a 12,000-character value, cut and said"
             if ok
-            else f"exit {result.code}; {len(result.stderr)} characters on stderr: {result.stderr[:400]}"
+            else f"exit {result.code}; {len(said)} characters of verdict: {said[:400]}"
         )
 
     # ---------------------------------------------------------------- git failing in one way; a file unread
@@ -826,7 +851,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         if (s.resolves_policies or check not in about_policies)
         and (s.judges_envelopes or check is not deeply_nested_envelope)
         and (s.event_driven or check not in about_events)
-        and (not stop or check not in about_files)
-        and (not stop or check not in about_listing)
+        and (not no_file or check not in about_files)
+        and (not no_file or check not in about_listing)
         and (s.long_value is not None or check is not long_value_is_cut)
     ]

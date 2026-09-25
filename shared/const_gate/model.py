@@ -41,6 +41,9 @@ PRE_WRITE = "PreToolUse"
 POST_WRITE = "PostToolUse"
 # The one event without a file a gate may be wired to: the end of a turn.
 STOP = "Stop"
+# The one tool without a file a gate may be wired to: the shell. Its event is a PreToolUse whose
+# tool_input carries the command; a gate on it reads the command and no document.
+SHELL = "Bash"
 
 
 class Mode(StrEnum):
@@ -119,6 +122,7 @@ class ToolEvent:
     new_string: str | None
     replace_all: bool
     stop_hook_active: bool | None = None  # a Stop payload's loop guard; None for every tool event
+    command: str | None = None  # the shell tool's command; None for every other event
 
 
 @dataclass(frozen=True, slots=True)

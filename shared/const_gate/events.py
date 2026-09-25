@@ -14,7 +14,7 @@ from typing import TextIO
 
 from . import messages
 from .errors import ConfigurationFailure
-from .model import FileTool, ToolEvent
+from .model import SHELL, FileTool, ToolEvent
 from .repository import read_text
 
 
@@ -32,6 +32,12 @@ def read_event(stream: TextIO) -> ToolEvent:
     tool = FileTool(tool_name) if tool_name in {t.value for t in FileTool} else None
     tool_input = loaded.get("tool_input")
     fields: dict[object, object] = tool_input if isinstance(tool_input, dict) else {}
+    command: str | None = None
+    if tool_name == SHELL:  # the shell tool: its command is the field a gate on it reads
+        raw_command = fields.get("command")
+        if not isinstance(raw_command, str):
+            raise ConfigurationFailure(messages.c12_input(messages.detail_tool_input(SHELL, "command")))
+        command = raw_command
     if tool is not None:
         required = (
             ("file_path", "content") if tool is FileTool.WRITE else ("file_path", "old_string", "new_string")
@@ -51,6 +57,7 @@ def read_event(stream: TextIO) -> ToolEvent:
         new_string=_text(fields.get("new_string")),
         replace_all=fields.get("replace_all") is True,
         stop_hook_active=_flag(loaded.get("stop_hook_active")),
+        command=command,
     )
 
 
