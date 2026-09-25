@@ -101,7 +101,8 @@ decide <what>" — never an open question, a `TBD` or a "to be agreed" inside th
 deliverable. A draft whose own convention marks open slots inline is the one exception, while it
 is a draft. The marker half of this rule is held by the plugin's hook: a Markdown write carrying
 an open-question marker (`[decide:`, `TODO`, `TBD`, `FIXME` by default, outside code) is blocked
-with the fix in the message; the prose half is judgment.
+with the fix in the message — or reported and let through where the project set the hook to warn;
+the prose half is judgment.
 
 ## 6. What the answer leaves behind
 

@@ -220,7 +220,11 @@ def open_fence_masks_to_the_end() -> tuple[bool, str]:
     if not ok:
         return False, evidence
     action = wrote("````\nTODO\n```\nTBD\n````\nFIXME here\n")
-    return blocked(action, q1(action, "FIXME", "FIXME here"))
+    ok, evidence = blocked(action, q1(action, "FIXME", "FIXME here"))
+    if not ok:
+        return False, evidence
+    spans = wrote("```foo`bar\nTODO after a span line, not a fence\n")  # a backtick in the info string
+    return blocked(spans, q1(spans, "TODO", "TODO after a span line, not a fence"))
 
 
 def one_hit_per_line_in_order() -> tuple[bool, str]:
@@ -452,10 +456,10 @@ def other_event_refused() -> tuple[bool, str]:
 def deep_envelope_is_no_crash() -> tuple[bool, str]:
     """An envelope nested past the parser's depth is judged for markers like any text and is no
     crash: this gate reads no envelope, so the shared item about one is not its own."""
-    ok, evidence = passes(wrote("---\nid: " + "[" * 5000 + "]" * 5000 + "\n---\n\nFine.\n"))
+    ok, evidence = passes(Write(DOC, "---\nid: " + "[" * 5000 + "]" * 5000 + "\n---\n\nFine.\n"))
     if not ok:
         return False, evidence
-    deep = wrote("---\nid: " + "[" * 5000 + "\n---\n\nTBD here\n")
+    deep = Write(DOC, "---\nid: " + "[" * 5000 + "\n---\n\nTBD here\n")
     return blocked(deep, q1(deep, "TBD", "TBD here"))
 
 
