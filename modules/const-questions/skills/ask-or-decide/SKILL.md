@@ -38,11 +38,14 @@ pair reads *decide and note / ask*:
    first / two readings that lead to materially different work → ask: a material assumption is a
    question, not an assumption.
 
-The project's own line comes first: read `asking_preferences` under `const-questions` in
-`constitution.yaml` — a list of entries, each naming a decider and the topics they want to be
-asked about and the topics they want decided and noted. An entry for the person you are working
-with overrides the pairs above on its topics; with the key absent or empty, the pairs alone
-apply. Read it as written; nothing validates it.
+The project's own line comes first: read `boundary_examples` under `const-questions` in
+`constitution.yaml` — the project's own pairs, `{ask: …, decide: …}`; absent or empty, the pairs
+above apply — and `preferences` beside it: a list of entries, each naming a `decider` and the
+topics they want to be asked about (`ask`) even below the line, the topics they want decided and
+noted (`decide`) even above it, and how they take a pick (`pick`: `tool`, the default, or
+`letter`). The entry of the person you are working with overrides the pairs on its topics; absent
+or empty, the pairs alone apply, and at the first choice at recorded stakes ask who decides. Read
+both as written; nothing validates them.
 
 ## 2. Derive the question; never improvise it
 
@@ -77,10 +80,11 @@ message:
   **Cons:**, one prose line each, several points joined by semicolons — never inline in the
   description, never a table, never a third level.
 - Then exactly **one recommendation** with its reasoning, and the **named decider**.
-- Fewer than five options: the platform's question tool follows the message and collects the
-  pick only — a one-line question, each option its letter plus a short label, at most one clause
-  of description; the pros, cons and recommendation never go inside the tool. Five or more:
-  chat only, the user answers with a letter.
+- Fewer than five options, and the decider's `pick` is `tool`: the platform's question tool
+  follows the message and collects the pick only — a one-line question, each option its letter plus a short label, at most one clause
+  of description; the pros, cons and recommendation never go inside the tool. Five or more,
+  a `pick` of `letter`, or a session where the tool is not offered: chat only, the user answers
+  with a letter.
 - The pick is read back before acting when the answer is compound ("A, but with B's default").
 - A trade-off too complex for this shape — options that need a scored table — is reported as
   such; do not force it into the shape and do not improvise a scoring method.
@@ -94,7 +98,7 @@ tool.
 
 A delivered plan or document holds resolved decisions only. Where a decision is open and the
 decider is absent, the affected part halts behind an explicit blocker — "blocked: <who> must
-decide <what>" — never an open question, a "TBD" or a "to be agreed" inside the finished
+decide <what>" — never an open question, a `TBD` or a "to be agreed" inside the finished
 deliverable. A draft whose own convention marks open slots inline is the one exception, while it
 is a draft.
 
