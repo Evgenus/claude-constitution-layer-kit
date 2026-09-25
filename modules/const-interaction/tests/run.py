@@ -267,8 +267,11 @@ def t8() -> tuple[bool, str]:
     result, _ = gate_on(command(FORCE_PUSH), dials_patch=own(severity="warn"))
     if result.code != 0:
         return False, f"warn must let the command through; exit {result.code}: {result.stderr}"
-    answer = json.loads(result.stdout)
-    context = answer["hookSpecificOutput"]["additionalContext"]
+    try:
+        answer = json.loads(result.stdout)
+        context = answer["hookSpecificOutput"]["additionalContext"]
+    except (ValueError, KeyError, TypeError):
+        return False, f"warn must answer with one JSON object; got: {result.stdout[:300]}"
     finding = d1(FORCE_PUSH, 0, "--force")
     ok = (
         "permissionDecision" not in answer["hookSpecificOutput"]
