@@ -31,8 +31,8 @@ def parse(own: Mapping[str, object]) -> QuestionsDials:
         raise ConfigurationFailure(messages.c5_territories())
     refuse_unreadable_patterns(f"{identity.current().namespace}.territories", territories)
     markers = _texts(own.get("markers", list(DEFAULT_MARKERS)))
-    if not markers:
-        raise ConfigurationFailure(messages.c5_markers())
+    if not markers or any("\n" in marker or "\r" in marker for marker in markers):
+        raise ConfigurationFailure(messages.c5_markers())  # a marker with a line break could never match
     return QuestionsDials(territories, markers)
 
 

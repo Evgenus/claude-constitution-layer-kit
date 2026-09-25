@@ -6,15 +6,16 @@ description: >
   recommendation, the decider named. Use when about to ask the user anything, when a request has
   more than one plausible reading, when a slot of a template, a dial or a plan is open, when a
   delivered plan or document would otherwise carry an open question, and when the user says an
-  argument never reached them. Advisory: judgment shaped in prose; nothing here is checked by a
-  gate.
+  argument never reached them. Advisory: judgment shaped in prose; the plugin's hook holds only
+  the marker half of the no-deferred-question rule, the rest is yours.
 ---
 
 # Ask or decide
 
 A question asked below its price costs the person asked a turn for nothing; a call made above
 its price costs the next session the reasoning. This procedure prices the question first, then
-shapes it. It is judgment from start to finish, and it is yours.
+shapes it. It is judgment from start to finish, and it is yours — except the one deterministic
+slice named in step 5, which the plugin's hook holds.
 
 ## 1. Price it: is this the user's to decide?
 
@@ -65,8 +66,7 @@ the signal that would reopen it, and move on.
 When a request shows any sign of ambiguity, or does not obviously fit the current context, open
 the reply with the reading taken — "I read this as: …". Where several readings are plausible,
 name them and the one chosen. Ask only above the line of step 1; otherwise proceed on the stated
-reading. Never guess silently and never elaborate in an unrequested direction. Every assumption
-made on the way is listed in the reply, one line each, so the user can correct one by its number.
+reading. Never guess silently and never elaborate in an unrequested direction.
 
 ## 4. One decision per message, in this shape
 
@@ -85,7 +85,6 @@ message:
   of description; the pros, cons and recommendation never go inside the tool. Five or more,
   a `pick` of `letter`, or a session where the tool is not offered: chat only, the user answers
   with a letter.
-- The pick is read back before acting when the answer is compound ("A, but with B's default").
 - A trade-off too complex for this shape — options that need a scored table — is reported as
   such; do not force it into the shape and do not improvise a scoring method.
 
@@ -100,12 +99,13 @@ A delivered plan or document holds resolved decisions only. Where a decision is 
 decider is absent, the affected part halts behind an explicit blocker — "blocked: <who> must
 decide <what>" — never an open question, a `TBD` or a "to be agreed" inside the finished
 deliverable. A draft whose own convention marks open slots inline is the one exception, while it
-is a draft.
+is a draft. The marker half of this rule is held by the plugin's hook: a Markdown write carrying
+an open-question marker (`[decide:`, `TODO`, `TBD`, `FIXME` by default, outside code) is blocked
+with the fix in the message; the prose half is judgment.
 
-## 6. A recorded answer becomes a record
+## 6. What the answer leaves behind
 
-When the answer is at recorded stakes, it is written down as it was argued — options, pros and
-cons, the recommendation, the choice and who made it — in a decision record with `stakes` and
-`decider` in its envelope, after the constitution's conventions page. When a module that writes
-decision records is installed, use its skill; otherwise write the record at the place the user
-names, free-form after that page's shape. A routine answer is one line in the commit message.
+A routine answer is one line in the commit message saying what was chosen and why. A recorded
+answer is the conventions page's to record; when a module that writes decision records is
+installed, its skill writes the answer down as it was argued — options, pros and cons, the
+recommendation, the choice and who made it.

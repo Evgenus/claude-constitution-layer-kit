@@ -27,7 +27,7 @@ def _ns() -> str:
 
 _WHY = (
     "a delivered document holds resolved decisions only: a marker left in it defers the question to a"
-    " reader who may never see it, and a deferred question is the first thing a deliverable must not carry"
+    " reader who may never see it"
 )
 
 
@@ -82,7 +82,7 @@ def c5_territories() -> Broken:
 
 def c5_markers() -> Broken:
     return _c5(
-        f"{_ns()}.markers must be a non-empty list of non-empty texts",
+        f"{_ns()}.markers must be a non-empty list of non-empty one-line texts",
         'write the marker texts to look for, one per line under "- ", in single quotes, or leave the key'
         " out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would examine nothing in"
         " silence",

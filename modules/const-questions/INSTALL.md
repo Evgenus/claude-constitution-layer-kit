@@ -17,7 +17,7 @@ file, each with the fix on the first line; nothing is silently skipped.
    every Markdown file git lists is covered, and the markers looked for are `[decide:`, `TODO`,
    `TBD` and `FIXME`. Without that file every run is a visible skip naming it; an empty mapping,
    `{}`, is enough. A marker inside a code span or a fenced code block is a quotation and is never
-   reported; a marker that begins or ends with a letter or a digit counts only as a whole word,
+   reported; a marker that begins or ends with a letter, a digit or an underscore counts only as a whole word,
    so `TODOs` and `TODO_LIST` pass; the match is case-sensitive. A deferred question written in
    prose carries no marker and is not seen: the skill's rule, not the gate's.
 3. Calibration, all optional, in the project's `constitution.yaml`:
@@ -31,7 +31,7 @@ file, each with the fix on the first line; nothing is silently skipped.
      # log_dir: .gate-logs   # optional, and the directory must be git-ignored; see step 6
    ```
    `territories` and `markers` are the gate's; an empty list for either is refused, since it would
-   examine nothing in silence. A draft whose own convention keeps markers until it is delivered —
+   examine nothing in silence, and so is a marker holding a line break, which could never match. A draft whose own convention keeps markers until it is delivered —
    a template, a working document with inline `[decide: …]` slots — is taken out by a negated
    pattern (`!dir/**`, not `!dir/`) until it is delivered. `boundary_examples` and `preferences`
    are read by the skill as written and validated by nobody; a key of this namespace that is none

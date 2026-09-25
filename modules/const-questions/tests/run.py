@@ -133,7 +133,7 @@ def blocked(action: Write | Edit, finding: Finding, **kwargs: object) -> tuple[b
 
 VALID = wrote("Nothing is open here.\n")
 TBD = wrote("Owner: TBD: who owns this\n")
-DECIDE = wrote("Shape: [decide: the dial's shape — default a list of `{a: [b]}` entries — decider Eugene]\n")
+DECIDE = wrote("Shape: [decide: the dial's shape — default a list of `{a: [b]}` entries — decider <name>]\n")
 FIXME = wrote("The count line is wrong, FIXME before the merge.\n")
 TITLED = Write(DOC, note("Body.\n", title="TBD"))
 
@@ -148,7 +148,7 @@ CASES = [
             DECIDE,
             "[decide:",
             "[decide:",
-            "[decide: the dial's shape — default a list of `{a: [b]}` entries — decider Eugene]",
+            "[decide: the dial's shape — default a list of `{a: [b]}` entries — decider <name>]",
         ),
         messages.g1_covered(),
     ),
@@ -291,24 +291,35 @@ def dial_failures() -> tuple[bool, str]:
         ),
         (
             own(markers=[]),
-            "BROKEN: constitution.yaml: const-questions.markers must be a non-empty list of non-empty texts"
-            ' — fix: write the marker texts to look for, one per line under "- ", in single quotes, or leave'
-            " the key out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would examine"
-            " nothing in silence",
+            "BROKEN: constitution.yaml: const-questions.markers must be a non-empty list of non-empty"
+            " one-line texts"
+            ' — fix: write the marker texts to look for, one per line under "- ", in single quotes, or'
+            " leave the key out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would"
+            " examine nothing in silence",
         ),
         (
             own(markers=["TODO", ""]),
-            "BROKEN: constitution.yaml: const-questions.markers must be a non-empty list of non-empty texts"
-            ' — fix: write the marker texts to look for, one per line under "- ", in single quotes, or leave'
-            " the key out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would examine"
-            " nothing in silence",
+            "BROKEN: constitution.yaml: const-questions.markers must be a non-empty list of non-empty"
+            " one-line texts"
+            ' — fix: write the marker texts to look for, one per line under "- ", in single quotes, or'
+            " leave the key out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would"
+            " examine nothing in silence",
+        ),
+        (
+            own(markers=["TO\nDO"]),
+            "BROKEN: constitution.yaml: const-questions.markers must be a non-empty list of non-empty"
+            " one-line texts"
+            ' — fix: write the marker texts to look for, one per line under "- ", in single quotes, or'
+            " leave the key out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would"
+            " examine nothing in silence",
         ),
         (
             own(markers=[1]),
-            "BROKEN: constitution.yaml: const-questions.markers must be a non-empty list of non-empty texts"
-            ' — fix: write the marker texts to look for, one per line under "- ", in single quotes, or leave'
-            " the key out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would examine"
-            " nothing in silence",
+            "BROKEN: constitution.yaml: const-questions.markers must be a non-empty list of non-empty"
+            " one-line texts"
+            ' — fix: write the marker texts to look for, one per line under "- ", in single quotes, or'
+            " leave the key out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would"
+            " examine nothing in silence",
         ),
     ]
     for patch, line in pairs:
@@ -319,7 +330,7 @@ def dial_failures() -> tuple[bool, str]:
     ok, evidence = passes(
         VALID, dials_patch=own(preferences=[{"decider": "x"}], boundary_examples=[{"ask": "a"}])
     )
-    return ok, "six refusals exit 1 with their lines; the skill's two dials pass unread" if ok else evidence
+    return ok, "seven refusals exit 1 with their lines; the skill's two dials pass unread" if ok else evidence
 
 
 def scan_reports_in_order() -> tuple[bool, str]:
@@ -355,8 +366,7 @@ def golden_lines() -> tuple[bool, str]:
     lines = [
         f"RED: {DOC}:{line_of(TBD.text, 'Owner')}: open question marker 'TBD' — TBD: who owns this",
         "  why: a delivered document holds resolved decisions only: a marker left in it defers the question"
-        " to a reader who may never see it, and a deferred question is the first thing a deliverable must"
-        " not carry",
+        " to a reader who may never see it",
         "  fix: resolve the question in the text; if the decider is absent, replace the marker by a named"
         " blocker — 'blocked: <who> must decide <what>' — and halt that part; a draft whose own convention"
         " keeps markers until delivery is taken out of const-questions.territories by a negated pattern in"
@@ -439,6 +449,16 @@ def other_event_refused() -> tuple[bool, str]:
     return broken_first_line(result, line)
 
 
+def deep_envelope_is_no_crash() -> tuple[bool, str]:
+    """An envelope nested past the parser's depth is judged for markers like any text and is no
+    crash: this gate reads no envelope, so the shared item about one is not its own."""
+    ok, evidence = passes(wrote("---\nid: " + "[" * 5000 + "]" * 5000 + "\n---\n\nFine.\n"))
+    if not ok:
+        return False, evidence
+    deep = wrote("---\nid: " + "[" * 5000 + "\n---\n\nTBD here\n")
+    return blocked(deep, q1(deep, "TBD", "TBD here"))
+
+
 def edit_removing_a_marker_passes() -> tuple[bool, str]:
     """The document judged is the one after the write: an Edit that takes the marker out passes,
     and one that leaves another marker in place is blocked on that one."""
@@ -470,6 +490,9 @@ ASSERTIONS = [
     ),
     Assertion(17, "an event the gate is not wired to is C12", other_event_refused),
     Assertion(18, "an Edit is judged on the result", edit_removing_a_marker_passes),
+    Assertion(
+        19, "an envelope nested past the parser's depth is no crash, and is judged", deep_envelope_is_no_crash
+    ),
 ]
 
 SUBJECT = Subject(
