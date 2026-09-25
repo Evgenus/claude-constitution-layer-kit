@@ -112,6 +112,22 @@ The comparison bypassed the hook's `if` field live with `git -C . push --force`,
 
 The session recommended A. **R6.** A, chosen by the decider in chat on 2026-09-25: the dial `destructive` is a list of entries `{command: [<words>], flags: [<flags>], teach: <why>, alternative: <the reversible way>}`, matched on the tokens of every subcommand of the `Bash` command after the platform's own split — separators, `$()` and backticks, the string after `bash -c` or `sh -c`, a leading assignment and the wrappers stripped, a program path reduced to its base name, git's global options before the verb skipped; a short flag matched inside a cluster, a long flag by equality; an entry with no `flags` matched on its words alone; an argument-value form deferred with its signal; the scan mode explains a command given as `--scan --command <text>`.
 
+## 7. The confirmation mechanism
+
+The live runs (d4 to d6, E4, E5, E11 of [res-0008-const-interaction](../research/res-0008-const-interaction.md)): a hook answering `permissionDecision: "ask"` makes the platform prompt the user with the reason, labelled with the plugin, forced even in auto mode since 2.1.211; headless, the same answer is a denial whose reason the model sees, and the model reported the block and waited, under every permission mode tried. A hook exiting 2 is a denial the model sees as an error, and the model rerouted to the alternative on its own.
+
+- **A. `ask`, with the three-part teaching text as the reason.** The human's yes is the platform's own prompt; unattended, a denial the model reports and waits on; exit 0 with the JSON, exit 0 plainly for an unlisted command.
+  - **Pros:** the only option that puts the yes in a human hand; one yes covers one act by construction; the prompt is the platform's, labelled with the plugin.
+  - **Cons:** headless, the ask is a block; the prompt itself is proven live only; the shared report path needs an `ask` verdict beside block and warn.
+- **B. Exit 2 with the teaching text, the user re-runs by hand.**
+  - **Pros:** the block every kit gate uses; the usual red→green fixture.
+  - **Cons:** the model re-runs, as the live run showed, and the second run is blocked again unless the hook remembers, which needs a marker file.
+- **C. A confirmation word or an environment marker.**
+  - **Pros:** works headless.
+  - **Cons:** the model can add it alone; the yes is not in a human hand.
+
+The session recommended A. **R7.** A, chosen by the decider in chat on 2026-09-25: a `Bash` command matching an entry is answered with `permissionDecision: "ask"` and the entry's three-part teaching text as the reason — what matched, why the act is hard to reverse, the reversible alternative — at exit 0; an unlisted command passes at exit 0 with nothing printed but the green line; under `severity: warn` the match is reported in the JSON form the sibling gates use and the command runs, the adoption path; no `updatedInput` at this version, a rewrite deferred with its signal; the shared report path gains the `ask` verdict as a widening that defaults to what the other modules pass.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-interaction/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands; the sentence on the parked consumer item is history only, a scheduling call of the day.
@@ -120,3 +136,4 @@ The session recommended A. **R6.** A, chosen by the decider in chat on 2026-09-2
 4. R4 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10).
 5. R5 — the row of [requirement A7.5](../requirements.md#a7-5) in [§3](../../modules/const-interaction/MODULE.md#t3) of the module's document, the rows `territories` and `handles` of its [§7](../../modules/const-interaction/MODULE.md#t7), and its scan row in [§9](../../modules/const-interaction/MODULE.md#t9); the session's objection, history only.
 6. R6 — the row `destructive` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, its [§5](../../modules/const-interaction/MODULE.md#t5), which states the reading of a command, and its [§12](../../modules/const-interaction/MODULE.md#t12) for the deferred argument form.
+7. R7 — the row `severity` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, the row E1 of its [§9](../../modules/const-interaction/MODULE.md#t9), its [§12](../../modules/const-interaction/MODULE.md#t12) for the deferred rewrite, and the verdicts of [kit-shared-gate-code §3](../../shared/GATE.md#g3) for the widening.
