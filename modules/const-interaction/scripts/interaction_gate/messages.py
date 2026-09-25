@@ -28,7 +28,8 @@ def _ns() -> str:
 
 
 def d1_destructive(entry: Entry, subcommand: Subcommand, matched: str) -> Finding:
-    what = f"'{shown(subcommand.text)}' matches the entry {' '.join(entry.command)}"
+    text = subcommand.text.replace("\n", "\\n")  # a continuation line stays one headline
+    what = f"'{shown(text)}' matches the entry {' '.join(entry.command)}"
     if matched:
         what += f" with {matched}"
     return Finding(
@@ -66,10 +67,6 @@ def g1_nothing_gated() -> str:
 
 def g1_skip_no_command() -> str:
     return f"no command given: run the scan with {COMMAND_FLAG} '<text>' to see what the dial does to it"
-
-
-def g1_skip_not_covered(rel: str) -> str:
-    return f"{rel} is not covered ({_ns()}.territories)"
 
 
 def f9_count_command(findings: int, subcommands: int) -> str:

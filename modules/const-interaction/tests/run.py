@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -203,6 +204,14 @@ def t5() -> tuple[bool, str]:
         asked("FOO=1 timeout 5 git stash drop", d1("", 6, "", "FOO=1 timeout 5 git stash drop")),
         asked("nohup git filter-repo --path x", d1("", 10, "", "nohup git filter-repo --path x")),
         asked("git gc --prune=now", d1("git gc --prune=now", 12, "--prune=now")),
+        asked("env -i git push -f", d1("", 0, "-f", "env -i git push -f")),
+        asked("sudo -k git push -f", d1("", 0, "-f", "sudo -k git push -f")),
+        asked("sudo --user root git push -f", d1("", 0, "-f", "sudo --user root git push -f")),
+        asked("/usr/bin/env git push -f", d1("", 0, "-f", "/usr/bin/env git push -f")),
+        asked('bash -lc "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
+        asked("exec git push -f", d1("", 0, "-f", "exec git push -f")),
+        asked("if true; then git push -f; fi", d1("", 0, "-f", "then git push -f"), subcommands=2),
+        asked("git push -f 2>&1", d1("", 0, "-f", "git push -f 2>&1")),
     )
 
 
@@ -217,6 +226,8 @@ def t6() -> tuple[bool, str]:
         passed("git push -- --force"),
         passed("rm build.log"),
         passed("git branch -d old"),
+        asked('echo "a<<EOF"\ngit push -f', d1("", 0, "-f", "git push -f"), subcommands=2),
+        asked("cat <<EOF\ngit push -f", d1("", 0, "-f", "git push -f"), subcommands=2),
     )
 
 
@@ -237,7 +248,18 @@ def t7() -> tuple[bool, str]:
     own_miss = passed(FORCE_PUSH, entries=1, dials_patch=with_own)
     cluster = asked("git clean -xdf", d1("", 4, "-f", "git clean -xdf"))
     equality = passed("git push --force-with-lease=main origin main")
-    return all_of(empty, own_hit, own_miss, cluster, equality)
+    two = own(
+        destructive=[
+            {"command": ["dropdb"], "teach": "first", "alternative": "a"},
+            {"command": ["dropdb"], "teach": "second", "alternative": "b"},
+        ]
+    )
+    first_only = asked(
+        "dropdb prod",
+        messages.d1_destructive(Entry(("dropdb",), (), "first", "a"), Subcommand((), "dropdb prod"), ""),
+        dials_patch=two,
+    )
+    return all_of(empty, own_hit, own_miss, cluster, equality, first_only)
 
 
 def t8() -> tuple[bool, str]:
@@ -427,6 +449,10 @@ def t13() -> tuple[bool, str]:
         "echo 'unbalanced && rm -r x": [("echo", "'unbalanced", "&&", "rm", "-r", "x")],
         "(cd x && rm -r y)": [("cd", "x"), ("rm", "-r", "y")],
         "sudo -u root rm -r x": [("rm", "-r", "x")],
+        "git push \\\n -f": [("git", "push", "-f")],
+        "ls &> /dev/null; rm -r x": [("ls", "&>", "/dev/null"), ("rm", "-r", "x")],
+        "{ git push -f; }": [("git", "push", "-f")],
+        "FOO=1": [],
     }
     wrong = {
         text: [s.words for s in tokens.split(text)]
@@ -478,7 +504,8 @@ def t20() -> tuple[bool, str]:
 
 def t21() -> tuple[bool, str]:
     """What is not a finding: a list in a fence, a one-item list, a nested list under a handled
-    item, an anchor before the handle, a numbered list; and what is: the first item only."""
+    item, an anchor before the handle, a numbered list, a fence closed by a shorter one; and what
+    is: the first item only, and a loose list — blank lines between items — as one list."""
     text = (
         "# T\n\n```\n- x\n- y\n```\n\n- only one\n\nA paragraph ends the list.\n\n"
         "- 1. a\n  - nested\n  - nested\n- 2. b\n\n"
@@ -492,7 +519,15 @@ def t21() -> tuple[bool, str]:
         and red_lines(result.stdout)[0] == ("RED: docs/notes/a.md:23: list item without a handle — plain one")
         and len(red_lines(result.stdout)) == 2
     )
-    return ok, "one finding, the first plain item" if ok else f"exit {result.code}: {result.stdout}"
+    loose = lists_scan({"docs/notes/b.md": "# T\n\n- loose one\n\n- loose two\n"})
+    loose_ok = expect(loose, 2, "RED: docs/notes/b.md:3: list item without a handle — loose one", "stdout")
+    fence = lists_scan({"docs/notes/c.md": "# T\n\n````\n- x\n- y\n```\n- z\n- w\n````\n"})
+    fence_ok = expect(fence, 0, "GREEN: const-interaction: 4 document(s) examined", "stdout")
+    return all_of(
+        (ok, "one finding, the first plain item" if ok else f"exit {result.code}: {result.stdout}"),
+        loose_ok,
+        fence_ok,
+    )
 
 
 def t22() -> tuple[bool, str]:
@@ -549,7 +584,10 @@ def t30() -> tuple[bool, str]:
         "const-interaction: no command is gated — const-interaction.destructive is an empty list in"
         " constitution.yaml"
     )
-    empty_ok = empty.code == 0 and empty.stdout == RULES + zero + "\n"
+    module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
+    match = re.search(r"one line of ([0-9,]+) characters", module_doc)
+    stated = int(match.group(1).replace(",", "")) if match else -1
+    empty_ok = empty.code == 0 and empty.stdout == RULES + zero + "\n" and stated == len(zero)
     pairs_root = prepared(own(boundary_examples=[{"violates": "an essay", "complies": "the word"}]))
     pairs = SESSION.run_gate(session_json(pairs_root))
     pairs_ok = pairs.stdout == RULES + (
@@ -616,6 +654,33 @@ def t32() -> tuple[bool, str]:
         if ok
         else f"{len(RULES)} characters, document states {stated}; letters {letters}"
     )
+
+
+def t33() -> tuple[bool, str]:
+    """The printer's absence paths: PyYAML missing is C2 first on stderr with the printer's closing
+    line, the rules still on stdout; python3 missing is C1, the rules still printed first."""
+    shadow = H.scratch_dir()
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    root = prepared()
+    no_yaml = SESSION.run_gate(session_json(root), env={"PYTHONPATH": str(shadow)})
+    c2 = (
+        "BROKEN: const-interaction needs PyYAML — fix: run: python3 -m pip install -r"
+        f" '{MODULE_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
+    )
+    yaml_ok, yaml_said = broken_first_line(no_yaml, c2)
+    yaml_ok = yaml_ok and messages.s1_could_not_run() in no_yaml.stderr and no_yaml.stdout == RULES
+    bin_dir = H.scratch_dir()
+    (bin_dir / "sh").symlink_to(H.sh)
+    for tool in ("cat", "dirname"):
+        (bin_dir / tool).symlink_to(shutil.which(tool) or tool)
+    no_python = SESSION.run_gate(session_json(root), env={"PATH": str(bin_dir)})
+    c1 = (
+        "BROKEN: const-interaction needs python3 — fix: install Python 3.12 or newer"
+        " (https://www.python.org/downloads/) — until then the gate's state is not said at session start"
+    )
+    py_ok, py_said = broken_first_line(no_python, c1)
+    py_ok = py_ok and no_python.stdout == RULES
+    return all_of((yaml_ok, yaml_said), (py_ok, py_said))
 
 
 # ---------------------------------------------------------------- the plugin's files
@@ -694,7 +759,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         "outside the list passes: a heredoc body, checkout -- ., an amend, a plain push, a flag after --",
         t6,
     ),
-    (7, "the dial: empty gates nothing and says so; an own entry; a cluster; a long flag by equality", t7),
+    (
+        7,
+        "the dial: empty gates nothing and says so; an own entry; a cluster; equality; one hit per piece",
+        t7,
+    ),
     (8, "severity warn: the finding as context, the command let through", t8),
     (9, "the scan explains a command; no command is a visible skip; --command needs --scan", t9),
     (10, "this module's C5 lines typed by hand, each exit 1", t10),
@@ -702,12 +771,17 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (12, "golden lines: D1 typed whole", t12),
     (13, "the tokeniser's readings typed by hand", t13),
     (20, "red→green: a plain list is red with L1 typed whole; handled lists are green", t20),
-    (21, "not a finding: fence, one item, nested, anchor, numbered list; the first plain item only", t21),
+    (
+        21,
+        "not a finding: fence, one item, nested, anchor, numbered list; the first plain item; a loose list",
+        t21,
+    ),
     (22, "territories: a negated pattern takes a document out; a README at the top is covered", t22),
     (23, "the list scan as a hook is its own C12; a misinvocation exits 1", t23),
     (30, "session start: the rules first, the zero line, the pairs numbered", t30),
     (31, "session start: no dials file, no repository, malformed dials, an argument", t31),
     (32, "the rules text: under the cap, of the stated size, lettered a–i", t32),
+    (33, "the printer's absence paths: PyYAML missing is C2, python3 missing is C1, the rules kept", t33),
     (40, "the hooks file's shape", t40),
     (41, "the install note names no kit document; the manifest; the example accepted", t41),
 ]

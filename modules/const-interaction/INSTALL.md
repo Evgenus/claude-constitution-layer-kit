@@ -6,8 +6,8 @@ reported on the first shell command of a session and at session start, each with
 first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
-   session). Two hooks. At every session start — startup, resume, clear, compaction — the plugin
-   prints its rules for every reply into the model's context (about 2,100 characters; the
+   session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the plugin
+   prints its rules for every reply into the model's context (about 2,200 characters; the
    transcript does not show them), followed by one line when the destructive-command gate examines
    nothing in the session's repository. Before every `Bash` command the gate reads the command and,
    where a subcommand matches a listed destructive pattern, asks the platform to prompt you with the
@@ -21,15 +21,17 @@ first line; nothing is silently skipped.
    place (`git config core.symlinks true`, then check out again).
 2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
    namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,
-   `git clean -f`, `git branch -D`, `git stash drop` and `clear`, `git rebase`, `git filter-branch`,
+   `git clean -f`, `git branch -D` and `-f`, `git stash drop` and `clear`, `git rebase`, `git filter-branch`,
    `git filter-repo`, `git reflog expire`, `git gc --prune=now` and a recursive `rm`; the list scan
    covers every Markdown file git lists with the default handle forms. Without that file every run
    is a visible skip naming it, and the session-start line says so; an empty mapping, `{}`, is
    enough. The command is read as the platform reads it for its own rules: split on `&&`, `||`,
    `;`, `|`, `&` and newlines outside quotes, the contents of `$(…)` and backticks and the string
-   after `bash -c` examined too, `sudo`, `env`, `nohup`, `timeout`, `nice` and the like stripped, a
-   program path reduced to its name, git's global options before the verb skipped — so
-   `git -C . push --force` is a forced push. A flag matches anywhere after the words: a short one
+   after `bash -c` examined too, `sudo`, `env`, `nohup`, `timeout`, `nice` and the like stripped with
+   their own flags, `exec` and a shell keyword stripped, a program path reduced to its name, git's
+   global options before the verb skipped — so `git -C . push --force` is a forced push, and so is
+   `sudo -k /usr/bin/env git push -f`. A command built from a variable, an `eval`, a here-string or
+   an interpreter's `-c` string hides its verb; the explain (step 5) shows any reading. A flag matches anywhere after the words: a short one
    inside a cluster (`rm -rf`), a long one as the whole token (`--force`, never
    `--force-with-lease`).
 3. Calibration, all optional, in the project's `constitution.yaml`:

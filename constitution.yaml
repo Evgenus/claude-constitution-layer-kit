@@ -227,7 +227,6 @@ const-questions:                      # ask at recorded stakes or a blocker; no 
     - "!templates/**"                 # a template is no deliverable
     - "!module-template/**"
     # a draft module document is taken out here by its own path while it carries [decide: slots, never by a wildcard
-    - "!modules/const-interaction/MODULE.md"
   markers:                            # gate: the texts that mark an open question, matched outside code
     - '[decide:'
     - 'TODO'

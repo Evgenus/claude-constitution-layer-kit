@@ -125,8 +125,9 @@ DEFAULT_DESTRUCTIVE: tuple[Entry, ...] = (
     ),
     _entry(
         "git branch",
-        ("-D",),
-        "-D deletes a branch whether or not it is merged: its commits become unreachable",
+        ("-D", "-f", "--force"),
+        "-D deletes a branch whether or not it is merged, and -f moves one to another commit: the"
+        " commits left behind become unreachable",
         "delete with -d, which refuses an unmerged branch, or tag the tip first (git tag keep/<name>)",
     ),
     _entry(

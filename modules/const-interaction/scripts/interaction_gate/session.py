@@ -8,13 +8,12 @@ from __future__ import annotations
 import sys
 from collections.abc import Sequence
 
-from const_gate import cli, pipeline, preflight
+from const_gate import cli, preflight
 from const_gate import messages as shared
 from const_gate.errors import ConfigurationFailure
 from const_gate.identity import Identity
 from const_gate.model import Mode
 from const_gate.output import Output
-from const_gate.pipeline import Skip
 
 from . import messages
 
@@ -25,7 +24,12 @@ def body(output: Output, argv: Sequence[str]) -> int:
     if argv:
         raise ConfigurationFailure(shared.c12_invocation(f"unexpected argument {argv[0]}", USAGE))
     preflight.check()
-    from . import dials as own_dials  # noqa: PLC0415 — after the preflight: the dials need the library
+    # Necessary here, not at the top: the pipeline and the dials import the declared library, and
+    # only after the preflight does a missing one become its designed message instead of a traceback.
+    from const_gate import pipeline  # noqa: PLC0415
+    from const_gate.pipeline import Skip  # noqa: PLC0415
+
+    from . import dials as own_dials  # noqa: PLC0415
 
     target = pipeline.locate_event(output, sys.stdin)
     if isinstance(target, Skip):

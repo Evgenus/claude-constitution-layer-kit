@@ -1,7 +1,7 @@
 ---
 id: dec-0042-interaction-module-rulings
 type: task-record
-title: Rulings of the const-interaction authoring — answer in the shape of the question, assumptions and lists addressable, one gate on destructive commands
+title: Rulings of the const-interaction authoring — answer in the shape of the question, assumptions and lists addressable, a gate on destructive commands and a scan of list handles
 status: active
 stakes: process
 decider: Eugene Chernyshov
@@ -142,13 +142,13 @@ The comparison proposed a list (d13 of [res-0008-const-interaction](../research/
   - **Pros:** prompts only on the acts nearly everyone calls destructive.
   - **Cons:** a rebase and a discarded working tree pass in silence, the two acts the kit's own guide names first.
 
-The session recommended B. **R8.** B, chosen by the decider in chat on 2026-09-25: the default of the dial `destructive` is the ten entries of B, each with its teaching text and its reversible alternative written in the module's document; what the list leaves out is named there and in the gate's own words; SQL is no shell gate's default.
+The session recommended B. **R8.** B, chosen by the decider in chat on 2026-09-25: the default of the dial `destructive` is the entries of B — fourteen, listed there in ten groups — each with its teaching text and its reversible alternative written in the module's document; what the list leaves out is named there and in the gate's own words; SQL is no shell gate's default.
 
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-interaction/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands; the sentence on the parked consumer item is history only, a scheduling call of the day.
-2. R2 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, its [§12](../../modules/const-interaction/MODULE.md#t12) item 1 for the deferred style, and the fallback step of its install note.
-3. R3 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, which states the line; the two siblings' lines are work to come, held by step 9 of the rollout plan until each lands.
+2. R2 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, its [§12](../../modules/const-interaction/MODULE.md#t12) item 1 for the deferred style, and step 6 of [its install note](../../modules/const-interaction/INSTALL.md), the fallback.
+3. R3 — the hook row of [template §6](../../module-template/MODULE.md#t6), which states the rule for every module, and the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, which states this module's line; the two siblings' lines are work to come, held by step 9 of the rollout plan until each lands.
 4. R4 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10).
 5. R5 — the row of [requirement A7.5](../requirements.md#a7-5) in [§3](../../modules/const-interaction/MODULE.md#t3) of the module's document, the rows `territories` and `handles` of its [§7](../../modules/const-interaction/MODULE.md#t7), and its scan row in [§9](../../modules/const-interaction/MODULE.md#t9); the session's objection, history only.
 6. R6 — the row `destructive` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, its [§5](../../modules/const-interaction/MODULE.md#t5), which states the reading of a command, and its [§12](../../modules/const-interaction/MODULE.md#t12) for the deferred argument form.

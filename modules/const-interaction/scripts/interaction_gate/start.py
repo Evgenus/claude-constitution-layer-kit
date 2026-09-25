@@ -11,6 +11,7 @@ from pathlib import Path
 from const_gate import cli
 from const_gate.identity import Identity
 
+from . import session
 from .model import COMMAND_FLAG
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
@@ -61,6 +62,4 @@ def main_lists(argv: Sequence[str]) -> int:
 
 
 def main_session(argv: Sequence[str]) -> int:
-    from . import session  # noqa: PLC0415 — the same reason
-
     return session.run(argv, SESSION)

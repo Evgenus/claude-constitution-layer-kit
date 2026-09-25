@@ -13,16 +13,33 @@ from .model import Subcommand
 # The operators that separate simple commands, longest first so `||` is not read as two pipes.
 OPERATORS = ("&&", "||", "|&", ";", "|", "&", "\n")
 # Programs that run another program: stripped with their own options, the rest is the command.
-WRAPPERS = frozenset(
-    {"time", "nohup", "command", "builtin", "noglob", "xargs", "sudo", "doas", "env", "nice", "stdbuf"}
-)
+# Per wrapper, the flags that take a value of their own: `nice -n 5`, `sudo -u root`, `xargs -I {}`;
+# a `--flag=value` is one token and needs no entry.
+WRAPPERS: dict[str, frozenset[str]] = {
+    "time": frozenset(),
+    "nohup": frozenset(),
+    "command": frozenset(),
+    "builtin": frozenset(),
+    "noglob": frozenset(),
+    "xargs": frozenset({"-I", "-d", "-P", "-s", "-n", "-L", "-a", "-E", "--max-args", "--max-procs"}),
+    "sudo": frozenset({"-u", "-g", "-C", "-p", "-h", "-U", "-r", "-t", "-D", "--user", "--group"}),
+    "doas": frozenset({"-u", "-C"}),
+    "env": frozenset({"-C", "-u", "-S", "--chdir", "--unset", "--split-string"}),
+    "nice": frozenset({"-n", "--adjustment"}),
+    "stdbuf": frozenset({"-i", "-o", "-e"}),
+    "timeout": frozenset({"-s", "-k", "--signal", "--kill-after"}),
+}
 WRAPPERS_WITH_VALUE = {"timeout": 1}  # `timeout <n> <command>`: one positional value before the command
-# A wrapper's flags that take a value of their own: `nice -n 5`, `sudo -u root`, `xargs -I {}`.
-VALUED_FLAGS = frozenset({"-n", "-u", "-g", "-I", "-d", "-P", "-s", "-k", "-C", "-i", "-o", "-e"})
+# Shell words that precede a command without being a program: stripped so the verb is read.
+SHELL_WORDS = frozenset(
+    {"exec", "{", "}", "!", "if", "then", "else", "elif", "while", "until", "do", "fi", "done"}
+)
 SHELLS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
 GIT_GLOBAL_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"})
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
+# `>&`, `&>` and `<&` redirect; they are no separators.
+REDIRECT_BEFORE = frozenset({">", "<"})
 
 
 def split(command: str) -> list[Subcommand]:
@@ -45,25 +62,51 @@ def _collect(text: str, found: list[Subcommand]) -> None:
         if not words:
             continue
         words, inner_command = _normalise(words)
+        if not words:  # nothing but shell words or assignments: no program to examine
+            continue
         found.append(Subcommand(tuple(words), stripped))
         if inner_command is not None:
             _collect(inner_command, found)
 
 
 def _drop_heredocs(text: str) -> str:
+    """A heredoc's body is data: the lines after an operator `<<WORD` that stands outside quotes,
+    up to the line that is exactly WORD, are dropped — only when that line exists; an operator
+    with no terminator drops nothing, so nothing is hidden by a marker inside a string."""
     lines = text.split("\n")
     kept: list[str] = []
     skip_until: str | None = None
-    for line in lines:
+    for index, line in enumerate(lines):
         if skip_until is not None:
             if line.strip() == skip_until:
                 skip_until = None
             continue
         kept.append(line)
-        match = HEREDOC.search(line)
-        if match:
-            skip_until = match.group(2)
+        for match in HEREDOC.finditer(line):
+            word = match.group(2)
+            terminated = any(later.strip() == word for later in lines[index + 1 :])
+            if terminated and not _inside_quotes(line, match.start()):
+                skip_until = word
+                break
     return "\n".join(kept)
+
+
+def _inside_quotes(line: str, position: int) -> bool:
+    quote: str | None = None
+    i = 0
+    while i < position:
+        ch = line[i]
+        if quote:
+            if ch == "\\" and quote == '"':
+                i += 1
+            elif ch == quote:
+                quote = None
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == "\\":
+            i += 1
+        i += 1
+    return quote is not None
 
 
 def _separate(text: str) -> list[str]:
@@ -111,6 +154,8 @@ def _separate(text: str) -> list[str]:
             continue
         if depth == 0:
             operator = next((op for op in OPERATORS if text.startswith(op, i)), None)
+            if operator == "&" and ((i > 0 and text[i - 1] in REDIRECT_BEFORE) or text.startswith("&>", i)):
+                operator = None  # a redirection, not a background operator
             if operator is not None:
                 pieces.append("".join(current))
                 current = []
@@ -150,31 +195,37 @@ def _substitutions(text: str) -> list[str]:
 
 
 def _words(text: str) -> list[str]:
+    text = text.replace("\\\n", " ")  # a backslash-newline continues the line
     try:
         return shlex.split(text, posix=True)
     except ValueError:  # an unbalanced quote: examined as its whitespace-separated words, never dropped
         return text.split()
 
 
-def _drop_flags(rest: list[str]) -> None:
+def _drop_flags(rest: list[str], valued: frozenset[str]) -> None:
     """A wrapper's own flags, with the value of one that takes a value: `nice -n 5`, `env -i`."""
     while rest and rest[0].startswith("-"):
         flag = rest.pop(0)
-        if flag in VALUED_FLAGS and rest:
+        if flag in valued and rest:
             rest.pop(0)
+
+
+def _is_shell_c(word: str) -> bool:
+    """`-c`, or a short cluster ending in it: `bash -lc "…"`."""
+    return word.startswith("-") and not word.startswith("--") and word.endswith("c")
 
 
 def _normalise(words: list[str]) -> tuple[list[str], str | None]:
-    """Strip assignments and wrappers, reduce the program to its base name, skip git's global
-    options; a shell told to run a string hands that string back for its own split."""
+    """Strip assignments, shell words and wrappers, reduce the program to its base name, skip
+    git's global options; a shell told to run a string hands that string back for its own split."""
     rest = list(words)
     while rest:
-        head = rest[0]
-        if ASSIGNMENT.match(head):
+        head = rest[0].rsplit("/", 1)[-1]  # `/usr/bin/env` is `env`
+        if ASSIGNMENT.match(rest[0]) or head in SHELL_WORDS:
             rest.pop(0)
-        elif head in WRAPPERS or head in WRAPPERS_WITH_VALUE:
+        elif head in WRAPPERS:
             rest.pop(0)
-            _drop_flags(rest)
+            _drop_flags(rest, WRAPPERS[head])
             for _ in range(WRAPPERS_WITH_VALUE.get(head, 0)):
                 if rest:
                     rest.pop(0)
@@ -187,7 +238,7 @@ def _normalise(words: list[str]) -> tuple[list[str], str | None]:
     rest[0] = rest[0].rsplit("/", 1)[-1]
     if rest[0] in SHELLS:
         for index, word in enumerate(rest[1:], 1):
-            if word == "-c" and index + 1 < len(rest):
+            if _is_shell_c(word) and index + 1 < len(rest):
                 return rest, rest[index + 1]
             if not word.startswith("-"):
                 break

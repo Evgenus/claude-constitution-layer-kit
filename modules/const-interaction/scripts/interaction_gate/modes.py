@@ -14,7 +14,7 @@ from const_gate.pipeline import Skip
 
 from . import checks, messages, tokens
 from . import dials as own_dials
-from .model import COMMAND_FLAG, InteractionDials
+from .model import COMMAND_FLAG, InteractionDials, Subcommand
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
@@ -27,7 +27,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     subcommands = tokens.split(target.command)
     if not dials.destructive:
         return pipeline.green_event(output, messages.g1_nothing_gated())
-    findings = _findings(dials, target.command)
+    findings = _findings(dials, subcommands)
     if not findings:
         return pipeline.green_event(
             output, messages.g1_command_passed(len(dials.destructive), len(subcommands))
@@ -58,11 +58,11 @@ def scan_with(output: Output, start: Path, values: cli.Values) -> int:
         return pipeline.skip(output, messages.g1_skip_no_command())
     subcommands = tokens.split(command)
     tail = messages.f9_command_tail(len(dials.destructive), len(subcommands))
-    return pipeline.report_scan(output, _findings(dials, command), (), tail)
+    return pipeline.report_scan(output, _findings(dials, subcommands), (), tail)
 
 
-def _findings(dials: InteractionDials, command: str) -> list[Finding]:
+def _findings(dials: InteractionDials, subcommands: list[Subcommand]) -> list[Finding]:
     return [
         messages.d1_destructive(hit.entry, hit.subcommand, hit.matched)
-        for hit in checks.match(dials.destructive, tokens.split(command))
+        for hit in checks.match(dials.destructive, subcommands)
     ]
