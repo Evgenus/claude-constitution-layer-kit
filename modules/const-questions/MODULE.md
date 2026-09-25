@@ -122,32 +122,16 @@ For each gate: the red→green fixture proving it (a fixture that fails without 
 <a id="t11"></a>
 ## 11. Siblings
 
-**Depends on:** the kernel sections used — nothing else. Then the kernel-alone statement: what the module does on a bare repository with the kernel only. Then each optional enhancement as "when module `const-<x>` is installed, …". A concept this module needs from a sibling is a kernel candidate, raised as a `process` decision, never coupled.
+**Depends on:** [kernel §4](../../kernel/CONVENTIONS.md#k4) — the stakes enum, which is the threshold's vocabulary, and the standing signal of recurring commit notes; [kernel §5](../../kernel/CONVENTIONS.md#k5) — the body shape of a record, which the decision message mirrors so that a recorded answer can be written down as argued; [kernel §6](../../kernel/CONVENTIONS.md#k6) — the dials file, where the project's own pairs and preferences arrive. Nothing else.
+
+**Kernel alone:** on a bare repository with no `constitution.yaml`, the skill carries the threshold, the message shape, the derivation order and the no-deferred-questions rule with its seed pairs; a recorded-stakes answer is written free-form after the kernel's record shape, with `stakes` and `decider` in its envelope, at the place the user names. [decide: what the scan does with no dials file — default a visible skip naming the file, as every gate of the kit — stakes process — decider Eugene; withdrawn with the scan if it does not ship]
+
+**When module `const-decision-records` is installed,** a recorded-stakes answer is written through its record skill, which prices the stakes with the same triage and knows where records live; the two modules share the routine/recorded line, this one asking the question and that one writing the answer. **When module `const-locations` is installed,** a document the answer creates is born at its home through the command. **When module `const-catalogs` is installed,** the record's number comes from its allocation. Each is an optional enhancement; every rule here runs with the kernel alone.
 
 <a id="t12"></a>
 ## 12. Deferred
 
-What this module deliberately does not ship yet, each with the friction signal that would earn it. Nothing here is a hidden requirement: a deferred item has no matrix row, or its row is marked deferred there.
-
----
-
-# Plugin skeleton
-
-```
-const-<aspect-name>/
-├── .claude-plugin/
-│   └── plugin.json          # manifest — the ONLY file inside .claude-plugin/; version 0.0.x while draft
-├── MODULE.md                # this document, filled in
-├── INSTALL.md               # install/uninstall notes; the one CLAUDE.md pointer line if any
-├── skills/
-│   └── <name>/SKILL.md      # optional
-├── commands/<name>.md       # optional
-├── agents/<name>.md         # optional
-├── hooks/hooks.json         # optional
-├── scripts/                 # optional; reference via ${CLAUDE_PLUGIN_ROOT}
-│   ├── const_gate -> ../../../shared/const_gate   # a gate only: the shared code, by relative link
-│   └── <module>_gate/       # the module's own package: model, messages, checks, modes, start
-└── tests/                   # harness.py, consumer.py, shared_items.py linked from shared/tests/; one red→green fixture per gate ([law 7 of CLAUDE.md](../../CLAUDE.md#law-7))
-```
-
-Kebab-case everywhere. Only plugin.json lives inside `.claude-plugin/`; every component directory sits at plugin root. Verify the manifest fields against the current plugin reference at authoring time.
+1. **The weighted-analysis policy** for trade-offs too complex for the lettered shape — the matrix names it "added at first concrete need" ([A6.2](../../docs/requirements.md#a6-2)). Signal: a decision message in a consumer whose options need a scored table to be compared, reported twice.
+2. **Validation of the preferences dial's shape.** The skill reads it as prose; nothing checks its shape ([§9](#t9)). Signal: a malformed entry read wrongly by the skill, reported once.
+3. **A deferred question written as prose.** The scan, where it ships, sees markers; "to be agreed with the team" in a sentence is invisible to it. Signal: a delivered document found to carry such a sentence past review, twice.
+4. **An always-on carrier.** The rules load with the skill when a question is about to be asked; no `SessionStart` hook prints them in every session. Signal: a session that asked in the wrong shape without ever loading the skill, observed in a consumer twice.
