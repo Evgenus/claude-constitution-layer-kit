@@ -13,8 +13,8 @@ file, each with the fix on the first line; nothing is silently skipped.
    links to code the plugin shares with its siblings, and an install from the marketplace copies
    what they point at. A checkout made without symlink support leaves one-line text files in their
    place (`git config core.symlinks true`, then check out again).
-2. **Zero configuration works** in a repository that has a `constitution.yaml`, whatever it says:
-   every Markdown file git lists is covered, and the markers looked for are `[decide:`, `TODO`,
+2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
+   namespace: every Markdown file git lists is covered, and the markers looked for are `[decide:`, `TODO`,
    `TBD` and `FIXME`. Without that file every run is a visible skip naming it; an empty mapping,
    `{}`, is enough. A marker inside a code span or a fenced code block is a quotation and is never
    reported; a marker that begins or ends with a letter, a digit or an underscore counts only as a whole word,

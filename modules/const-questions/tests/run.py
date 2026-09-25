@@ -215,7 +215,8 @@ def boundaries_hold() -> tuple[bool, str]:
 
 def open_fence_masks_to_the_end() -> tuple[bool, str]:
     """An unclosed fence hides everything after it (a limit the module document states); a closer
-    of the other character, or a shorter one, does not close it."""
+    of the other character, or a shorter one, does not close it; a backtick opener whose info
+    string holds a backtick is no opener; a closer with any text after it closes."""
     ok, evidence = passes(wrote("```\nTODO\n~~~\nTBD\n``\nFIXME\n"))
     if not ok:
         return False, evidence
