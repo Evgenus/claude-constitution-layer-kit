@@ -101,7 +101,31 @@ The module's calibration surface. Namespace = plugin name in the project's `cons
 <a id="t8"></a>
 ## 8. Boundary examples
 
-For every judgment-based boundary the module introduces (including its slice of the routine/product stakes line, if any): 3–4 contrastive pairs (violates / complies), numbered. The examples are the definition; no abstract criteria. The project's own pairs arrive through dials.
+**Ask or decide** (this module's slice of the routine/recorded line of [kernel §4](../../kernel/CONVENTIONS.md#k4), aligned with the pairs of module `const-decision-records` where installed: the two modules share the triage, this one asking the question and that one writing the answer). The test behind every pair: is the call the user's to make — recorded stakes, or a fact only the user holds that the work cannot proceed without? The pairs are the definition and are carried by the skill; the project's own arrive through the preferences dial ([§7](#t7)). Each pair reads *decide and note / ask*.
+
+1. Which of two directory names holds a scratch file → decide, one line in the commit / where the project's decision records live and how they are numbered → ask (`process`).
+2. The wording of a commit message, the name of a helper nobody else calls → decide / the name of a dial, a trailer key or a command-line flag that others will type → ask.
+3. A fact the session can find by reading the tree, the documents or the history → find it, never ask / a fact only the user holds — who decides, which consumer, a date — without which the work cannot proceed → ask, and if the user is absent, halt that part behind a named blocker.
+4. A request with two readings that lead to the same work → proceed on the stated reading, restated first / two readings that lead to materially different work → ask: a material assumption is a question, not an assumption.
+
+**The full shape or a plain question** ([A6.2](../../docs/requirements.md#a6-2), the exemption):
+
+5. "The pasted file or the one in the repository?" — one fact, answered in a word → a plain question, one line / three mechanisms compared, one to be chosen → the full shape: lettered options, pros and cons, one recommendation, the decider named.
+6. Every uncertainty put as a lettered ceremony — the spelling of a variable, the order of two paragraphs → *not* the shape, and not a question: decide and note / a choice that binds a policy, a procedure or a contract → the shape, every time.
+
+**One decision per message:**
+
+7. Two open slots, both at recorded stakes → two messages, the second put after the first is answered / two facts of one slot — a value and its unit → one message.
+
+**Derived, not improvised** ([A6.3](../../docs/requirements.md#a6-3)–[A6.5](../../docs/requirements.md#a6-5)):
+
+8. The next unfilled template section, the next `[decide: …]` marker, the next missing dial → the next question, in that order / "while we are at it, should we also…" → not asked; noted as a deferred item with its signal.
+9. A slot whose values are a kernel enum or a dial's listed values → those values are the options, nothing beside them / a genuinely open value — a title, a path the project owns → free text, with the default proposed.
+10. A slot with a sensible default → "default is X — accept or override?", the override carrying its one-line reason / a slot with no defensible default → options with one recommendation.
+
+**Resolved, not deferred** ([A6.7](../../docs/requirements.md#a6-7)):
+
+11. "TBD: who owns this" inside a delivered plan → *not* delivered; the part halts behind "blocked: <who> must name the owner" / a draft module document at manifest `0.0.x` carrying `[decide: …]` markers → the draft's own open slots, legitimate until publication.
 
 <a id="t9"></a>
 ## 9. Enforcement honesty
