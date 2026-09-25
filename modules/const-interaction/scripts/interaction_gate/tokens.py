@@ -45,7 +45,8 @@ REDIRECT_BEFORE = frozenset({">", "<"})
 def split(command: str) -> list[Subcommand]:
     """Every simple command of the text, in order of appearance: the top-level ones, then the
     contents of each `$(…)` and backtick substitution, then the string a shell is told to run
-    with -c, each split in turn. A heredoc's body is data and is dropped."""
+    with -c or that `env -S` names with the words after it, each split in turn. A heredoc's body
+    is data and is dropped."""
     found: list[Subcommand] = []
     _collect(_drop_heredocs(command), found)
     return found
@@ -213,16 +214,22 @@ def _words(text: str) -> list[str]:
 
 
 def _env_split_string(rest: list[str]) -> str | None:
-    """The command `env -S` names, wherever the flag stands among env's flags, with the words env
-    would append after it; None when env is not told to split a string."""
+    """The command `env -S` names — the flag as a token, attached (`-S'…'`), inside a cluster
+    (`-iS`) or long (`--split-string`, `--split-string=`) — with the words env would append after
+    it; None when env is not told to split a string."""
     i = 0
     while i < len(rest) and rest[i].startswith("-"):
         flag = rest[i]
         if flag in ("-S", "--split-string") and i + 1 < len(rest):
-            return shlex.join([*shlex.split(rest[i + 1], posix=True), *rest[i + 2 :]])
+            return shlex.join([*_words(rest[i + 1]), *rest[i + 2 :]])
         if flag.startswith("--split-string="):
-            value = flag.split("=", 1)[1]
-            return shlex.join([*shlex.split(value, posix=True), *rest[i + 1 :]])
+            return shlex.join([*_words(flag.split("=", 1)[1]), *rest[i + 1 :]])
+        if not flag.startswith("--") and "S" in flag[1:]:
+            attached = flag[flag.index("S", 1) + 1 :]
+            if attached:  # `-S'git push'`, `-iS'git push'`: the value is the rest of the token
+                return shlex.join([*_words(attached), *rest[i + 1 :]])
+            if i + 1 < len(rest):  # `-iS 'git push'`: the value is the next token
+                return shlex.join([*_words(rest[i + 1]), *rest[i + 2 :]])
         i += 2 if flag in WRAPPERS["env"] else 1
     return None
 
@@ -273,10 +280,11 @@ def _normalise(words: list[str]) -> tuple[list[str], str | None]:
             word = rest[index]
             if _is_shell_c(word) and index + 1 < len(rest):
                 return rest, rest[index + 1]
-            if not word.startswith("-"):
+            if not word.startswith(("-", "+")):
                 break
-            takes_value = word in ("-o", "+o") or (not word.startswith("--") and word.endswith("o"))
-            index += 2 if takes_value else 1  # `bash -o pipefail -c …`, `-eo pipefail`: the option's value
+            # `bash -o pipefail -c …`, `-eo pipefail`, `+o posix`, `-O extglob`: the option's value
+            takes_value = not word.startswith("--") and word.endswith(("o", "O"))
+            index += 2 if takes_value else 1
     if rest[0] == "git":
         i = 1
         while i < len(rest) and rest[i].startswith("-"):
