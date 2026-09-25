@@ -80,9 +80,26 @@ Item D7 of the audit of 2026-09-22: the kit's sessions load no plugin unless sta
 
 The session recommended A, with C tried during the implementation. **R4.** A, chosen by the decider in chat on 2026-09-25: the kit loads its own plugins per clone through a marketplace file at its root, relative entries, one per module; the project's settings file enables each; the clone setup script registers the marketplace and installs the plugins once per clone; the work is a routine change on its own branch after this module lands, held by step 10 of the rollout plan, and the local-settings form of C replaces the user-settings write there if one headless run proves it loads in place; the marketplace is named `constitution-kit`.
 
+## 5. Whether the addressable-lists scan ships
+
+The row's optional gate-lite, "a script flagging unnumbered multi-item lists in governed documents". The comparison measured the kit's tree (section 2 of [res-0008-const-interaction](../research/res-0008-const-interaction.md)): of 215 bullet lists, 150 open every item with a handle of the kit's forms, 65 do not, and of those 13 are plain — the rest open with a bold label, a link or a code span that is the item's key, or are pro/con pairs under a lettered option; the kit's own session-conduct block, the rule's home, is among the hits. A scan can decide that an item opens with a token of a handle grammar, not that a bold label or a file name is a stable key, which the rule allows.
+
+- **A. Not shipped; the rule stays on the carrier,** the scan's shape recorded with its signal.
+  - **Pros:** no false-positive rate to tune; the module stays one hook and one gate; no consumer has cited an item it could not name.
+  - **Cons:** the row's optional half unbuilt.
+- **B. Ship a scan-only check** on the shared code, over an own `territories` dial and a `handles` dial of regular expressions defaulting to the six forms measured, one finding per list, fences never counted.
+  - **Pros:** the module's second deterministic slice from day one; the grammar is the consumer's to widen.
+  - **Cons:** red on 13 to 65 of the kit's own lists depending on what counts as a key; the claim "every item has a handle" is not what the scan can prove.
+- **C. Ship it as a hook and a scan,** the standard shape, on `Write` and `Edit` of a Markdown file.
+  - **Pros:** catches the list at the keystroke.
+  - **Cons:** blocks every draft list mid-work on a heuristic.
+
+The session recommended A. **R5.** B, chosen by the decider in chat on 2026-09-25: the check ships in this version as a `gate` with a scan mode only — a second entry point of the module beside the shell gate, its hook mode never wired and answering that it is not, so the shared code is not widened — over the dials `territories` and `handles` of the module's own namespace, a finding per list naming the first item without a handle, a list inside a fenced block never counted, the message claiming no more than that an item opens with no token of the grammar; the kit's own exemptions are ruled after the first scan on the kit's tree, never before, as [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) R4 learned. The session's objection stands: the measurement found no consumer friction, and the rule allows keys the grammar cannot see, so the scan is red on prose the rule permits until the grammar or the territory is tuned.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-interaction/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands; the sentence on the parked consumer item is history only, a scheduling call of the day.
 2. R2 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, its [§12](../../modules/const-interaction/MODULE.md#t12) item 1 for the deferred style, and the fallback step of its install note.
 3. R3 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, which states the line; the two siblings' lines are work to come, held by step 9 of the rollout plan until each lands.
 4. R4 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10).
+5. R5 — the row of [requirement A7.5](../requirements.md#a7-5) in [§3](../../modules/const-interaction/MODULE.md#t3) of the module's document, the rows `territories` and `handles` of its [§7](../../modules/const-interaction/MODULE.md#t7), and its scan row in [§9](../../modules/const-interaction/MODULE.md#t9); the session's objection, history only.
