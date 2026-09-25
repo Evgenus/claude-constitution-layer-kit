@@ -280,6 +280,7 @@ def t6() -> tuple[bool, str]:
         asked('echo "$(echo ")"; git push -f)"', d1("", 0, "-f", "git push -f"), subcommands=3),
         asked('echo "$(echo "$(echo ")")"; git push -f)"', d1("", 0, "-f", "git push -f"), subcommands=4),
         asked('bash --init-file /dev/null -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
+        asked("echo $(echo $(date)) $(git push -f)", d1("", 0, "-f", "git push -f"), subcommands=4),
         asked("sudo -c staff git push -f", d1("", 0, "-f", "sudo -c staff git push -f")),
         asked("sudo -a pam git push -f", d1("", 0, "-f", "sudo -a pam git push -f")),
         asked('env -S "git push -f \'x"', d1("", 0, "-f", "git push -f ''\"'\"'x'")),

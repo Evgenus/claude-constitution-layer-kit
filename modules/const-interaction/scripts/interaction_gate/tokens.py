@@ -277,7 +277,12 @@ def _substitutions(text: str) -> list[str]:
                         quote = None
                 elif ch in ("'", '"'):
                     quote = ch
-                elif text.startswith("$(", j) or ch == "(":
+                elif text.startswith("$(", j):  # a nested substitution, counted once
+                    depth += 1
+                    opened.append(None)
+                    j += 2
+                    continue
+                elif ch == "(":
                     depth += 1
                     opened.append(None)
                 elif ch == ")":
