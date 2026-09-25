@@ -2,12 +2,14 @@
 
 Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirements.txt`
 (`python3 -m pip install -r <plugin root>/requirements.txt`). A missing `python3` or library is
-reported on the first `Write` or `Edit` of any file, a missing git on the first one of a Markdown
-file, each with the fix on the first line; nothing is silently skipped.
+reported at session start and on the first `Write` or `Edit` of any file, a missing git on the first
+one of a Markdown file, each with the fix on the first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
-   session). The hook fires on every `Write` and `Edit`; it examines Markdown files in a
-   listed catalog's territory and nothing else.
+   session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the
+   plugin prints one line into the model's context while `catalogs` lists nothing, saying so (the
+   transcript does not show it), and nothing once a catalog is listed. The write-time hook fires on
+   every `Write` and `Edit`; it examines Markdown files in a listed catalog's territory and nothing else.
    A copy of this plugin's folder made outside the repository it comes from must follow links
    (`cp -RL`): `scripts/const_gate`, and `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
