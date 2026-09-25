@@ -36,6 +36,7 @@ def body(output: Output, argv: Sequence[str]) -> int:
         output.out(_zero_line(target.reason))
         return 0
     dials = own_dials.parse(target.dials.own)
+    output.out(messages.s1_verbosity(dials.verbosity))
     if not dials.destructive:
         output.out(messages.s1_empty())
     if dials.boundary_examples:

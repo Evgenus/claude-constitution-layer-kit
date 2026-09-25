@@ -144,6 +144,22 @@ The comparison proposed a list (d13 of [res-0008-const-interaction](../research/
 
 The session recommended B. **R8.** B, chosen by the decider in chat on 2026-09-25: the default of the dial `destructive` is the entries of B — fourteen, listed there in ten groups — each with its teaching text and its reversible alternative written in the module's document; what the list leaves out is named there and in the gate's own words; SQL is no shell gate's default.
 
+## 9. The verbosity dial of dec-0001
+
+The carry audit's regression reader found that [dec-0001-session-conduct-rows](dec-0001-session-conduct-rows.md) R4 rules "the verbosity dial in `const-interaction` carries this as its first concrete value" — this being: no assumption line when no assumption was made — and that the module as built carried the rule as fixed text with no dial.
+
+- **A. Rule the dial away: the rule is fixed text, no dial.**
+  - **Pros:** nothing to build; the rule is on the carrier and pinned by the fixtures.
+  - **Cons:** an accepted item reversed rather than fulfilled; no knob until a signal earns one.
+- **B. Ship a `verbosity` dial now** with one value, `triggered`, printed by the session-start hook beside the rules.
+  - **Pros:** fulfils the earlier ruling as written; the knob exists for a second value later.
+  - **Cons:** a dial with one value; the printer, the validation, the fixtures and the document grow for a setting nobody can set differently.
+- **C. Rule it away and defer the dial** with a signal.
+  - **Pros:** the reversal recorded, the trigger named.
+  - **Cons:** one more deferred item; otherwise as A.
+
+The session recommended C. **R9.** B, chosen by the decider in chat on 2026-09-25: the module carries the dial `verbosity` in its own namespace, one value today, `triggered` — the assumption block and the restatement appear only when triggered, never as an empty ritual — its default, validated at each read and refused outside its values, and printed by the session-start hook after the rules; a second value is deferred with its signal. The session's objection stands: a dial with one value is ceremony until a consumer asks for a second.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-interaction/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands; the sentence on the parked consumer item is history only, a scheduling call of the day.
@@ -154,3 +170,4 @@ The session recommended B. **R8.** B, chosen by the decider in chat on 2026-09-2
 6. R6 — the row `destructive` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, its [§5](../../modules/const-interaction/MODULE.md#t5), which states the reading of a command, and its [§12](../../modules/const-interaction/MODULE.md#t12) for the deferred argument form.
 7. R7 — the row `severity` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, the row E1 of its [§9](../../modules/const-interaction/MODULE.md#t9), its [§12](../../modules/const-interaction/MODULE.md#t12) for the deferred rewrite, and the verdicts of [kit-shared-gate-code §3](../../shared/GATE.md#g3) for the widening.
 8. R8 — the row `destructive` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, which lists the default entries, and the honest limits of its [§9](../../modules/const-interaction/MODULE.md#t9), which name what the list leaves out.
+9. R9 — the row `verbosity` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, the row of [requirement A7.2](../requirements.md#a7-2) in its [§3](../../modules/const-interaction/MODULE.md#t3), its [§12](../../modules/const-interaction/MODULE.md#t12) item 4 for the deferred second value, and the `const-interaction` namespace of the kit's `constitution.yaml`; the session's objection, history only.

@@ -10,7 +10,15 @@ from const_gate.dials import refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
-from .model import DEFAULT_DESTRUCTIVE, DEFAULT_HANDLES, DEFAULT_TERRITORIES, Entry, InteractionDials, Pair
+from .model import (
+    DEFAULT_DESTRUCTIVE,
+    DEFAULT_HANDLES,
+    DEFAULT_TERRITORIES,
+    Entry,
+    InteractionDials,
+    Pair,
+    Verbosity,
+)
 
 KEYS = (
     "severity",
@@ -19,6 +27,7 @@ KEYS = (
     "territories",
     "handles",
     "boundary_examples",
+    "verbosity",
 )  # the first two are every gate's, read by the shared code
 ENTRY_KEYS = ("command", "flags", "teach", "alternative")
 PAIR_KEYS = ("violates", "complies")
@@ -45,6 +54,7 @@ def parse(own: Mapping[str, object]) -> InteractionDials:
         territories=territories,
         handles=handles,
         boundary_examples=_pairs(own.get("boundary_examples")),
+        verbosity=_verbosity(own.get("verbosity")),
     )
 
 
@@ -78,6 +88,14 @@ def _entries(value: object) -> tuple[Entry, ...]:
             raise ConfigurationFailure(messages.c5_entry(index, "alternative must be a non-empty text"))
         entries.append(Entry(command, flags, teach.strip(), alternative.strip()))
     return tuple(entries)
+
+
+def _verbosity(value: object) -> Verbosity:
+    if value is None:
+        return Verbosity.TRIGGERED
+    if not isinstance(value, str) or value not in {v.value for v in Verbosity}:
+        raise ConfigurationFailure(messages.c5_verbosity())
+    return Verbosity(value)
 
 
 def _pairs(value: object) -> tuple[Pair, ...]:

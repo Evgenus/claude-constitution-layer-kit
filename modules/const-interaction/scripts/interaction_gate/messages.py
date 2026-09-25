@@ -17,7 +17,7 @@ from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import COMMAND_FLAG, Entry, Key, Subcommand
+from .model import COMMAND_FLAG, Entry, Key, Subcommand, Verbosity
 
 
 def _ns() -> str:
@@ -112,6 +112,13 @@ def s1_could_not_run() -> str:
     return "BROKEN: the session-start line could not be printed — the gate's state is unknown"
 
 
+def s1_verbosity(value: Verbosity) -> str:
+    return (
+        f"{_ns()}: verbosity is {value.value} — the assumption block and the restatement appear only when"
+        " triggered, never as an empty ritual"
+    )
+
+
 def s1_pairs_heading() -> str:
     return f"Boundary examples of this project ({_ns()}.boundary_examples), each violates / complies:"
 
@@ -167,6 +174,14 @@ def c5_entry(index: int, detail: str) -> Broken:
         f"{_ns()}.destructive entry {index}: {detail}",
         "write the entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard to"
         " reverse>, alternative: <the reversible way>",
+    )
+
+
+def c5_verbosity() -> Broken:
+    return _c5(
+        f"{_ns()}.verbosity must be one of: triggered",
+        "write verbosity: triggered — the one value today: assumption and restatement lines appear only"
+        " when triggered — or leave the key out for it",
     )
 
 

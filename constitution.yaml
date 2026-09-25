@@ -260,6 +260,7 @@ const-interaction:                    # answer shape, assumptions and addressabl
     - '\[[^\]]+\]\('                   # a link is the key of a reading list or a carry list
     - '`[^`]+`'                        # a code span likewise: a file name, a flag
   boundary_examples: []               # session start: the kit's own violates / complies pairs, {violates: …, complies: …}; empty: the seed pairs of MODULE.md §8
+  verbosity: triggered                # values: triggered — assumption and restatement lines appear only when triggered, never as ritual
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs

@@ -8,8 +8,8 @@ first line; nothing is silently skipped.
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the plugin
    prints its rules for every reply into the model's context (about 2,200 characters; the
-   transcript does not show them), followed by one line when the destructive-command gate examines
-   nothing in the session's repository. Before every `Bash` command the gate reads the command and,
+   transcript does not show them), followed by the value of `verbosity` and by one line when the
+   destructive-command gate examines nothing in the session's repository. Before every `Bash` command the gate reads the command and,
    where a subcommand matches a listed destructive pattern, asks the platform to prompt you with the
    reason — what matched, why the act is hard to reverse, the reversible alternative — labelled with
    the plugin's name; you confirm at the prompt, once per command. Where no prompt can be shown, in a
@@ -45,6 +45,7 @@ first line; nothing is silently skipped.
      territories: ["*.md", "!docs/archive/**"]   # gitignore syntax; the list scan's documents; default ["*.md"]
      handles: ['[0-9]+\.', '[A-Z]\.', '[a-z]\.', '[a-z][0-9]+\.', '[A-Z]+[0-9]+[a-z]?\b', '[A-Z]-[a-z]\b', '\*\*[^*]+\*\*']
      boundary_examples: []     # the project's own pairs, printed at session start: [{violates: "…", complies: "…"}]
+     verbosity: triggered      # the one value: assumption and restatement lines only when triggered
      severity: block           # block (default) | warn
      # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 7
    ```
@@ -55,7 +56,7 @@ first line; nothing is silently skipped.
    forms (`'\*\*[^*]+\*\*'`, `'\[[^\]]+\]\('`, `` '`[^`]+`' ``); `territories` takes a negated
    pattern to leave out a document a later rule may not edit. An empty `territories` or `handles`
    is refused, since it would examine nothing or find everything red in silence; a key of this
-   namespace that is none of the six above is refused with exit 1 — a misspelt dial is never a
+   namespace that is none of the seven above is refused with exit 1 — a misspelt dial is never a
    setting ignored in silence.
 4. **Adoption** onto a repository whose scripts the list would stop at every turn: set
    `severity: warn` meanwhile — the match is then reported to the model and the user and the

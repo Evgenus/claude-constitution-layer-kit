@@ -320,7 +320,7 @@ def t10() -> tuple[bool, str]:
             own(marker="x"),
             prefix + "const-interaction.marker is no dial of this module — fix: a misspelt dial would be"
             " ignored in silence, so none is: write one of severity, log_dir, destructive, territories,"
-            " handles, boundary_examples",
+            " handles, boundary_examples, verbosity",
         ),
         (
             own(destructive="rm"),
@@ -377,6 +377,13 @@ def t10() -> tuple[bool, str]:
             prefix + "const-interaction.territories must be a non-empty list of path patterns — fix: write"
             ' the patterns of the documents to scan for lists, one per line under "- ", or leave the key out'
             " to cover every Markdown file; an empty list would examine nothing in silence",
+        ),
+        (
+            own(verbosity="terse"),
+            prefix
+            + "const-interaction.verbosity must be one of: triggered — fix: write verbosity: triggered — the"
+            " one value today: assumption and restatement lines appear only when triggered — or leave the key"
+            " out for it",
         ),
         (
             own(boundary_examples=[{"violates": "x"}]),
@@ -580,7 +587,11 @@ def t30() -> tuple[bool, str]:
     dial is empty; the project's pairs numbered."""
     root = prepared()
     plain = SESSION.run_gate(session_json(root))
-    plain_ok = plain.code == 0 and plain.stdout == RULES and plain.stderr == ""
+    verbosity = (
+        "const-interaction: verbosity is triggered — the assumption block and the restatement appear only"
+        " when triggered, never as an empty ritual\n"
+    )
+    plain_ok = plain.code == 0 and plain.stdout == RULES + verbosity and plain.stderr == ""
     empty_root = prepared(own(destructive=[]))
     empty = SESSION.run_gate(session_json(empty_root))
     zero = (
@@ -590,17 +601,17 @@ def t30() -> tuple[bool, str]:
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     match = re.search(r"one line of ([0-9,]+) characters", module_doc)
     stated = int(match.group(1).replace(",", "")) if match else -1
-    empty_ok = empty.code == 0 and empty.stdout == RULES + zero + "\n" and stated == len(zero)
+    empty_ok = empty.code == 0 and empty.stdout == RULES + verbosity + zero + "\n" and stated == len(zero)
     pairs_root = prepared(own(boundary_examples=[{"violates": "an essay", "complies": "the word"}]))
     pairs = SESSION.run_gate(session_json(pairs_root))
-    pairs_ok = pairs.stdout == RULES + (
+    pairs_ok = pairs.stdout == RULES + verbosity + (
         "Boundary examples of this project (const-interaction.boundary_examples), each violates / complies:\n"
         "1. an essay / the word\n"
     )
     return all_of(
         (
             plain_ok,
-            f"rules alone, {len(RULES)} characters"
+            f"rules and the verbosity line, {len(RULES)} rule characters"
             if plain_ok
             else f"got: {plain.stdout[-200:]}{plain.stderr}",
         ),
@@ -781,7 +792,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     ),
     (22, "territories: a negated pattern takes a document out; a README at the top is covered", t22),
     (23, "the list scan as a hook is its own C12; a misinvocation exits 1", t23),
-    (30, "session start: the rules first, the zero line, the pairs numbered", t30),
+    (30, "session start: the rules first, the verbosity line, the zero line, the pairs numbered", t30),
     (31, "session start: no dials file, no repository, malformed dials, an argument", t31),
     (32, "the rules text: under the cap, of the stated size, lettered a–i", t32),
     (33, "the printer's absence paths: PyYAML missing is C2, python3 missing is C1, the rules kept", t33),

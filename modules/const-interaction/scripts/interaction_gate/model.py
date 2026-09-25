@@ -20,6 +20,13 @@ DEFAULT_HANDLES = (
 COMMAND_FLAG = "--command"
 
 
+class Verbosity(StrEnum):
+    """The one value the verbosity dial takes today: the assumption block and the restatement
+    appear only when triggered, never as an empty ritual."""
+
+    TRIGGERED = "triggered"
+
+
 class Key(StrEnum):
     """Stable handles of this module's findings."""
 
@@ -57,6 +64,7 @@ class InteractionDials:
     territories: tuple[str, ...]
     handles: tuple[str, ...]
     boundary_examples: tuple[Pair, ...]
+    verbosity: Verbosity
 
 
 @dataclass(frozen=True, slots=True)
