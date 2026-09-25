@@ -31,7 +31,7 @@ A, by the session: a rule stricter than its documents' practice, with no reader 
 
 ## Choice
 
-A, chosen by the decider in chat on 2026-09-24; R8, found by the decider before the yes, chosen A over a routine fix of the citation alone and over leaving it, in chat on 2026-09-25.
+A, chosen by the decider in chat on 2026-09-24; R8, found by the decider before the yes: the rule was chosen over a routine fix of the citation alone and over leaving it, in chat on 2026-09-25; two audit rounds then reworded it, from "relies on no rule of a policy it governs", which caught the root's own rules, to what stands.
 
 ## Ruling
 
@@ -49,7 +49,7 @@ A, chosen by the decider in chat on 2026-09-24; R8, found by the decider before 
 
 **R7.** The document repairs made under dec-0039 in the repair commit, two before this record's — dates and the platform's version on every live item, the `live, deferred` label and the plan's step on every deferred one, dates and breaks on five platform statements, the manifest row, the count tail under F9, two shared keys qualified, one title made one clause, rule 6 of the decision-record policy completed, six facts of the shared page sourced, their dates the audit's later fix, the plan's step 3 given its done line and its Phase E its stakes clause dropped — are routine under the rules dec-0039 accepted.
 
-**R8.** A policy states its own rules itself and cites another policy only for a rule that is the other's own — a rule about the other's kind, stated there and nowhere else; the root policy cites no rule of any other policy. Rule 3 of the root policy states the repair rule in its own words and cites the record that made it as provenance.
+**R8.** A policy states its own rules itself; a citation of another policy points at where a rule about the other's kind lives, and a clause the citing policy also states is its own, the link being provenance; the root policy, which governs every policy including itself, relies on no rule of any other policy and cites none. Rule 3 of the root policy states the repair rule in its own words and cites the record that made it as provenance.
 
 ## Applied
 
@@ -64,4 +64,4 @@ In the commit before the one that creates this record, which holds only this fil
 5. R5 — [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md#r2), rule 2; the two sentences removed and the preamble's link are history.
 6. R6 — [plc-0005-research](../policies/plc-0005-research.md#r9), rule 9.
 7. R7 — history only: repairs of the day under rules already accepted.
-8. R8 — [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r4), rule 4, and [rule 3](../policies/plc-0001-root-policy.md#r3); that rule 3 once cited the child is history.
+8. R8 — [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r4), rule 4, and [rule 3](../policies/plc-0001-root-policy.md#r3); that rule 3 once cited the decision-record policy is history.
