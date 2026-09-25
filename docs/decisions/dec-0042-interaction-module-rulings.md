@@ -26,6 +26,26 @@ The handoff of the previous session left the next work unchosen: the module, or 
 
 The session recommended A. **R1.** A, chosen by the decider in chat on 2026-09-25: [`const-interaction`](../requirements.md#const-interaction) is authored in the kit as consumer zero, like the seven modules before it, ahead of its Phase C slot — the kit having passed the module's entry trigger with five guide bullets on one theme; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. The consumer's name stays a parked item, put to the decider in one message at any point.
 
+## 2. The always-on carrier of the advisory rules
+
+Nine rules that govern every reply, with no trigger — unlike the sibling's asking rules, which a decision triggers. The comparison ran a control and three carriers headless (section 1 of [res-0008-const-interaction](../research/res-0008-const-interaction.md)): the control led with the word but listed no assumption and used unhandled bullets; the hook and the forced style each produced the assumption block and the handles.
+
+- **A. A `SessionStart` hook, no matcher, printing the rules** in about 1,200 characters, declared advisory; the output style not shipped.
+  - **Pros:** reaches the model on startup, resume, clear and compaction; stacks with a sibling's line and overrides nothing; the platform's documented always-on carrier for a plugin; measured live under the 10,000-character cap.
+  - **Cons:** the rules cost their characters every session; the text is invisible in the transcript, so the user never sees it.
+- **B. A plugin output style with `force-for-plugin: true`,** the same rules in the system prompt.
+  - **Pros:** a cached system-prompt slot; the same live shape as A.
+  - **Cons:** one slot for the whole session: it overrides the user's own style and the first forced plugin wins silently.
+- **C. A plus an unforced output style** shipped beside it, selectable under the plugin's name.
+  - **Pros:** costs nothing while unselected.
+  - **Cons:** two copies of the rules kept in step on every bump; nothing measured says a consumer needs it.
+- **D. No carrier: the install note instructs copying the rules into the consumer's guide.**
+  - **Pros:** zero runtime; the user sees the rules.
+  - **Cons:** the manual, version-drifting path the specification names only as the fallback; what the kit does today, the friction the module absorbs.
+
+The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-25: the module's advisory rules ride on one `SessionStart` hook with no matcher, printed to stdout as plain text, declared advisory, sized in characters in the module document; the install note offers the copy-into-guide fallback labelled manual and version-drifting; an unforced output style is deferred with its signal.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-interaction/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands; the sentence on the parked consumer item is history only, a scheduling call of the day.
+2. R2 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, its [§12](../../modules/const-interaction/MODULE.md#t12) item 1 for the deferred style, and the fallback step of its install note.
