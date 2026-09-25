@@ -47,7 +47,19 @@ Provenance of this module's rules: the records whose rulings it applies, each ci
 <a id="t5"></a>
 ## 5. Invariant
 
-The one rule the module guarantees, stated in a single testable sentence built only from kernel vocabulary and this module's own definitions. An advisory-only module claims no invariant; in its place stands the numbered rule list, each rule labeled `advisory` in its own text.
+**No `Bash` command run through the platform's shell tool matches a pattern of the `destructive` dial without the user having confirmed that command.** [decide: the exact wording of "matches" and "confirmed" follows the pattern-language and confirmation decisions of §3 — default the comparison's recommendation — stakes process — decider Eugene Chernyshov]
+
+The advisory rules beside it, each `advisory` in its own text and carried always-on:
+
+- **I-a.** The expected shape of the answer is classified from the question — yes/no, a value, a short list, an explanation, a deliverable — and the reply matches it: a yes/no question is answered with the word first, the qualification after; a value with the value; a "why" with the reason; a deliverable with the thing itself. *Advisory.*
+- **I-b.** The answer stands first. Elaboration follows only when asked for, or when the answer cannot be trusted without one clause of it. *Advisory.*
+- **I-c.** Every assumption made while reading the request or doing the work is listed in the reply that delivers the work, one line each, under a heading of its own; when none was made, no such block appears. An assumption that would change the work materially is a question, priced by the stakes triage of the constitution's conventions page the project adopted. *Advisory.*
+- **I-d.** A request that is wrong, unreasonable or in conflict with the governing rules is said to be so, with the reason, even after the user has decided and the work proceeds. A finding is never softened, a failure never hidden, and work that was not verified is never reported as done: the reply says what was run and what was not. *Advisory.*
+- **I-e.** Every list, table and option set carries a stable per-item handle — a number, a letter or a short key — so that one item can be cited without quoting it; table rows carry a key column or numbers; a handle is scoped to its message, decision or document, and is named with that scope across the boundary. *Advisory.*
+- **I-f.** A procedural gap met at routine stakes is closed by a reasonable call and one line in the commit note; one met at recorded stakes stops the work and is put to the decider, and the answer is recorded as the conventions page asks. *Advisory.*
+- **I-g.** A procedure at recorded stakes that the project has not written — a numbering scheme, a review flow, a merge rule — is never invented on the spot: the gap is named and the procedure proposed as a decision. *Advisory.*
+- **I-h.** Before any hard-to-reverse act — a deletion, a history rewrite, a force push, dropping a definition others rely on, breaking a published contract — the consequence and the reversible alternative are stated and an explicit yes in chat is waited for; one yes covers one act; a request repeated after the warning is the user's decision, done with the objection noted in the commit. The gate holds the enumerated command patterns; everything else in the class is this rule. *Advisory.*
+- **I-i.** Chat is written in plain language for a reader whose first language is not English: short sentences, common words, no idiom, a term defined at its first use. *Advisory.*
 
 <a id="t6"></a>
 ## 6. Artifacts (rule-to-artifact mapping)
