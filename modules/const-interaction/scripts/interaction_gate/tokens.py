@@ -24,12 +24,15 @@ WRAPPERS: dict[str, frozenset[str]] = {
     "xargs": frozenset({"-I", "-d", "-P", "-s", "-n", "-L", "-a", "-E", "--max-args", "--max-procs"}),
     "sudo": frozenset({"-u", "-g", "-C", "-p", "-h", "-U", "-r", "-t", "-D", "--user", "--group"}),
     "doas": frozenset({"-u", "-C"}),
-    "env": frozenset({"-C", "-u", "-S", "--chdir", "--unset", "--split-string"}),
+    "env": frozenset({"-C", "-u", "-S", "-P", "-L", "-U", "--chdir", "--unset", "--split-string"}),
     "nice": frozenset({"-n", "--adjustment"}),
     "stdbuf": frozenset({"-i", "-o", "-e"}),
     "timeout": frozenset({"-s", "-k", "--signal", "--kill-after"}),
 }
 WRAPPERS_WITH_VALUE = {"timeout": 1}  # `timeout <n> <command>`: one positional value before the command
+# env's short flags that take a value, the rest of the token or the next; `-S` is among them, its value
+# the command, and is read apart.
+ENV_VALUE_LETTERS = frozenset(flag[1] for flag in WRAPPERS["env"] if len(flag) == 2 and flag != "-S")
 # Shell words that precede a command without being a program: stripped so the verb is read.
 SHELL_WORDS = frozenset(
     {"exec", "{", "}", "!", "if", "then", "else", "elif", "while", "until", "do", "fi", "done"}
@@ -232,13 +235,8 @@ def _env_split_string(rest: list[str]) -> str | None:
                     return shlex.join([*_words(attached), *rest[i + 1 :]])
                 if i + 1 < len(rest):  # `-iS 'git push'`: the value is the next token
                     return shlex.join([*_words(rest[i + 1]), *rest[i + 2 :]])
-        i += 2 if flag in WRAPPERS["env"] else 1
+        i += 2 if _takes_next(flag, WRAPPERS["env"]) else 1
     return None
-
-
-ENV_VALUE_LETTERS = frozenset(
-    "uCPLU"
-)  # env's short flags that take a value, the rest of the token or the next
 
 
 def _split_letter(flag: str) -> int | None:
@@ -254,11 +252,26 @@ def _split_letter(flag: str) -> int | None:
 
 
 def _drop_flags(rest: list[str], valued: frozenset[str]) -> None:
-    """A wrapper's own flags, with the value of one that takes a value: `nice -n 5`, `env -i`."""
+    """A wrapper's own flags, with the value of one that takes a value: `nice -n 5`, `env -i`,
+    `sudo -iu root` — a cluster whose last letter takes a value takes the next word."""
     while rest and rest[0].startswith("-"):
         flag = rest.pop(0)
-        if flag in valued and rest:
+        if _takes_next(flag, valued) and rest:
             rest.pop(0)
+
+
+def _takes_next(flag: str, valued: frozenset[str]) -> bool:
+    """Whether the flag's value is the next word: a valued flag as a token, or a short cluster
+    whose letters, read in order, reach a valued one last — `-iu` does, `-uSHELL` does not, its
+    value being the rest of the token."""
+    if flag in valued:
+        return True
+    if flag.startswith("--") or len(flag) < 3:
+        return False
+    for index, letter in enumerate(flag[1:], 1):
+        if "-" + letter in valued:
+            return index == len(flag) - 1
+    return False
 
 
 def _is_shell_c(word: str) -> bool:
