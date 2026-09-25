@@ -45,7 +45,38 @@ The block carries today, by hand, the rules this module ships as a skill. The ki
 
 The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-25, with the decider's addition: the kit's harness — the session-conduct block and the rest of what [CLAUDE.md](../../CLAUDE.md) carries by hand — is replaced by the made modules later, once the kit loads its own plugins per clone; until then the block stays whole and carries the rules itself, and what a module carries leaves the block at that replacement, as a routine edit that names this record.
 
+## 3. Whether the open-question scan ships
+
+The row's optional gate-lite, "a script scanning deliverables for open-question markers". The comparison measured the kit's tree: zero code markers on 94 Markdown files, and of eight `[decide:` hits three are the draft module's own legitimate markers and five the documents that define the marker's syntax (section 5 of [res-0007-const-questions](../research/res-0007-const-questions.md)).
+
+- **A. Record and wait.** The rule advisory in the skill; the scan's shape recorded, its signal a consumer's commit note about a marker in a delivered document.
+  - **Pros:** no consumer has hit it and the kit's own hits are false positives; no script, no fixture wave; the module stays the pure prose the live runs proved.
+  - **Cons:** the row's optional half unbuilt; a marker in a delivered document is caught by its reader alone until the signal.
+- **B. Ship the scan now.** A deterministic check on the shared code, own territory and marker dials, reporting file and line and claiming only "no marker left".
+  - **Pros:** the module's one deterministic slice exists from day one; the kit runs it as consumer zero.
+  - **Cons:** on the kit it is green by construction after the exemptions; the message must disclaim in every run that a prose deferral is invisible.
+- **C. A named command in the skill, no script.** The skill's delivery step names one git-native command over the deliverable's files with the marker set.
+  - **Pros:** a self-check at the cost of one line; nothing claimed as a gate.
+  - **Cons:** the model may skip the command and nothing shows it did; the marker set fixed in prose.
+
+The session recommended C. **R3.** B, chosen by the decider in chat on 2026-09-25: the check ships in this version, a `gate` with its territory and its marker set as dials of the module's own namespace, its message claiming no more than that no marker was left. The session's objection stands: the measurement found no consumer friction, and the kit's own corpus turns the check red only in its fixtures.
+
+## 4. The shape of the check
+
+Whether the check is a hook and a scan, the standard shape of every kit gate, or a scan alone, which the comparison recommended and which needs the shared code widened for a gate with no event.
+
+- **A. Hook and scan, the standard shape.** A `PreToolUse` hook on `Write` and `Edit` judges the written document when it lies in the `territories` dial; `--scan` walks the tree; `severity` as every hook gate; the kit exempts its drafts and the documents that quote the syntax by negated patterns.
+  - **Pros:** no shared change, every shared item runs as for the six modules; the marker is caught at the keystroke, where the model writes "TBD" instead of asking; `warn` is the adoption path; the red→green fixture is the natural one.
+  - **Cons:** the kit exempts `modules/*/MODULE.md` while any module is a draft, so its module documents are unseen until publication; a working draft inside the territory is blocked mid-work unless the consumer sets `warn` or excludes it.
+- **B. Scan only, the shared code widened.** The hook mode optional in the shared command line, a run without `--scan` a misinvocation, the fixture subject widened for a gate with no event, no `severity`.
+  - **Pros:** matches the row's words and the comparison's recommendation; no write is ever blocked.
+  - **Cons:** widens four shared parts and the shared page for one module; a red arrives only when the scan is run; the drafts need the same exemptions, since the scan sees them too.
+
+The session recommended A. **R4.** A, chosen by the decider in chat on 2026-09-25, with the session's defaults accepted: the marker set is `[decide:`, `TODO`, `TBD` and `FIXME`, matched as whole words and case-sensitively, `???` and `[open]` left out for having matched nothing but a quoted glob; exemptions are negated patterns inside the `territories` dial and no second dial, the shape of `const-referencing`; the kit's own territory is every Markdown file git lists, minus `templates/**`, `module-template/**`, `modules/*/MODULE.md` while a draft module exists, and the documents that quote the marker's syntax. A document with no dials file, in either mode, is the shared visible skip naming the file.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-questions/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands.
 2. R2 — the opening sentence of the "Session conduct" block of [CLAUDE.md](../../CLAUDE.md), which states that the block carries the rules itself until the made modules replace the kit's harness.
+3. R3 — the row of [requirement A6.7](../requirements.md#a6-7) in [§3](../../modules/const-questions/MODULE.md#t3) of the module's document, and the rows E1 and E2 of its [§9](../../modules/const-questions/MODULE.md#t9); the session's objection, history only.
+4. R4 — the rows `territories`, `markers` and `severity` of [§7](../../modules/const-questions/MODULE.md#t7) of the module's document, and the `const-questions` namespace of the kit's `constitution.yaml`, which carries the kit's territory.
