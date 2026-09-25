@@ -1,5 +1,6 @@
-"""Says which gate this is and hands over to the shared command line. The modes are loaded
-by the shared guard only after its preflight, because they need the declared libraries."""
+"""Says which gate each entry point is and hands over to the shared command line. The modes are
+loaded by the shared guard only after its preflight, because they need the declared libraries. Two
+entry points, one process each: the gate, the session-start printer."""
 
 from __future__ import annotations
 
@@ -9,10 +10,21 @@ from pathlib import Path
 from const_gate import cli
 from const_gate.identity import Identity
 
+from . import session
+
+PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+NAMESPACE = "const-decision-records"
+
 GATE = Identity(
-    namespace="const-decision-records",
+    namespace=NAMESPACE,
     gate="check-decision-record",
-    plugin_root=Path(__file__).resolve().parents[2],
+    plugin_root=PLUGIN_ROOT,
+)
+SESSION = Identity(
+    namespace=NAMESPACE,
+    gate="session-start",
+    plugin_root=PLUGIN_ROOT,
+    until_installed="until then the gate's state is not said at session start",
 )
 
 
@@ -26,3 +38,7 @@ def load_modes() -> cli.Modes:
 
 def main(argv: Sequence[str]) -> int:
     return cli.run(argv, GATE, load_modes)
+
+
+def main_session(argv: Sequence[str]) -> int:
+    return session.run(argv, SESSION)
