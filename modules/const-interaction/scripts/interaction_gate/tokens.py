@@ -224,13 +224,32 @@ def _env_split_string(rest: list[str]) -> str | None:
             return shlex.join([*_words(rest[i + 1]), *rest[i + 2 :]])
         if flag.startswith("--split-string="):
             return shlex.join([*_words(flag.split("=", 1)[1]), *rest[i + 1 :]])
-        if not flag.startswith("--") and "S" in flag[1:]:
-            attached = flag[flag.index("S", 1) + 1 :]
-            if attached:  # `-S'git push'`, `-iS'git push'`: the value is the rest of the token
-                return shlex.join([*_words(attached), *rest[i + 1 :]])
-            if i + 1 < len(rest):  # `-iS 'git push'`: the value is the next token
-                return shlex.join([*_words(rest[i + 1]), *rest[i + 2 :]])
+        if not flag.startswith("--"):
+            split_at = _split_letter(flag)
+            if split_at is not None:
+                attached = flag[split_at + 1 :]
+                if attached:  # `-S'git push'`, `-iS'git push'`: the value is the rest of the token
+                    return shlex.join([*_words(attached), *rest[i + 1 :]])
+                if i + 1 < len(rest):  # `-iS 'git push'`: the value is the next token
+                    return shlex.join([*_words(rest[i + 1]), *rest[i + 2 :]])
         i += 2 if flag in WRAPPERS["env"] else 1
+    return None
+
+
+ENV_VALUE_LETTERS = frozenset(
+    "uCPLU"
+)  # env's short flags that take a value, the rest of the token or the next
+
+
+def _split_letter(flag: str) -> int | None:
+    """The index of the `S` in a short cluster that is the split flag: the letters are read in
+    order, and the first that takes a value — `-uSHELL` names a variable, not a split — ends the
+    reading with the rest of the token as its value."""
+    for index, letter in enumerate(flag[1:], 1):
+        if letter == "S":
+            return index
+        if letter in ENV_VALUE_LETTERS:
+            return None
     return None
 
 

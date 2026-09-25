@@ -115,8 +115,9 @@ def guarded(
     """The guard: the one place exit codes are decided for failures. A gate reaches it through
     `run`; a second entry point — a generator with a command line of its own — calls it with its
     own body, which parses its arguments with `Parser`'s kind, runs `preflight.check`, and only
-    then imports what needs the declared libraries; a third — a session-start printer — the same,
-    in hook mode, with no arguments to parse. `could_not_run` is the line that closes a
+    then imports what needs the declared libraries; a session-start printer does the same, in hook
+    mode, with no arguments to parse and a closing line saying the gate's state is not said.
+    `could_not_run` is the line that closes a
     failure: a gate's says that nothing was examined, a generator's that nothing was changed."""
     identity.declare(gate)  # first: every text, and the log's name, ask which gate this is
     output = Output(mode)
