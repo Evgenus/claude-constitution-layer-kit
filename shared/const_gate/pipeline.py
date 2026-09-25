@@ -56,6 +56,8 @@ class EventTarget:
     dials: Dials
     event_name: str
     stop_hook_active: bool | None
+    tool_name: str = ""  # the tool of a tool event without a file — the shell — or empty for a Stop
+    command: str | None = None  # the shell tool's command; None for every other event
 
 
 def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
@@ -101,7 +103,7 @@ def locate_event(output: Output, stdin: TextIO) -> EventTarget | Skip:
     if dials is None:
         return Skip(messages.g1_skip_no_dials(str(root)))
     route_log(output, root, dials)
-    return EventTarget(root, dials, event.event_name, event.stop_hook_active)
+    return EventTarget(root, dials, event.event_name, event.stop_hook_active, event.tool_name, event.command)
 
 
 def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
@@ -155,14 +157,32 @@ def report_hook(
     severity: Severity,
     event_name: str = PRE_WRITE,
     count: str | None = None,
+    ask: bool = False,
 ) -> int:
     """Hook verdict on findings. Block: exit 2, stderr reaches the model. Warn: exit 0 with
     nothing on stdout but one JSON object — additionalContext reaches the model,
     systemMessage the user — so the notes travel inside it, never before it. On Stop the warn
     is the systemMessage alone, carrying the whole body: context handed to the model at a
-    turn's end continues the turn, up to the platform's cap, and that is a block, not a warning."""
+    turn's end continues the turn, up to the platform's cap, and that is a block, not a warning.
+    `ask`: a gate whose block is the user's yes — the shell gate — answers, at block severity,
+    with exit 0 and one JSON object asking the platform to prompt the user, the body its reason:
+    where a prompt cannot be shown the platform denies the call with that reason, and the exit
+    code is 0 because the verdict is the platform's prompt, not this process's; warn is unchanged."""
     count = messages.f9_count_hook(len(findings), rel) if count is None else count
     body = "\n".join([*notes, *(f.render() for f in findings), count])
+    if ask and severity is Severity.BLOCK:
+        output.out(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": event_name,
+                        "permissionDecision": "ask",
+                        "permissionDecisionReason": body,
+                    }
+                }
+            )
+        )
+        return EXIT_GREEN
     if severity is Severity.WARN and event_name == STOP:
         output.out(json.dumps({"systemMessage": messages.w1_warn_stop(body)}))
         return EXIT_GREEN

@@ -71,12 +71,12 @@ on.** Another branch may take the same number meanwhile; whoever lands second re
 
 ## 3. Write the item
 
-- File: `<prefix>-<number>-<slug>.md` inside the catalog's territory. The number has exactly
+- **File.** `<prefix>-<number>-<slug>.md` inside the catalog's territory. The number has exactly
   `width` digits, zero-padded; the slug is lowercase words and digits joined by `-`, and says
   what the item is about.
-- `id`: that file name without `.md`, exactly. One identifier per document: a reference by id
+- **`id`.** That file name without `.md`, exactly. One identifier per document: a reference by id
   and a search by file name then find the same document.
-- The rest of the document — the other envelope fields, the body, the kind's template — follows
+- **The rest** of the document — the other envelope fields, the body, the kind's template — follows
   the project's own rules for that kind. If the project provides a template or a creation
   procedure for the kind, start from it and bring this number and this name to it.
 
@@ -101,25 +101,25 @@ The scan reports it, usually at a pull request: two branches each took the next 
 
 ## 5. List a catalog, find an item, explain a gap
 
-- List, on demand, never into a file:
+- **List,** on demand, never into a file:
   `git ls-files --cached --others --exclude-standard -- ':(glob)**/<prefix>-[0-9]*-*.md' | sort`
   and, with the titles:
   `git ls-files --cached --others --exclude-standard -z -- ':(glob)**/<prefix>-[0-9]*-*.md' | sort -z | xargs -0 -r grep -m1 -H '^title:'`
   The list goes by the prefix, wherever a file lies; an item whose name lacks the form is not
   in it — the scan reports those.
-- Find an item by its number, however the prefix was capitalized, committed or not:
+- **Find** an item by its number, however the prefix was capitalized, committed or not:
   `git ls-files --cached --others --exclude-standard -- ':(icase,glob)**/<prefix>-<number>-*'`
-- A missing number is legitimate: an item deleted, or renumbered before it landed. Never
+- **A missing number** is legitimate: an item deleted, or renumbered before it landed. Never
   fill a gap with a placeholder, and never reuse the number. What it was:
   `git log --diff-filter=D --name-only --format='%h %s' -- ':(glob)**/<prefix>-<number>-*'`
 
 ## 6. Cite an item
 
-- Where a machine reads the reference — an envelope field, a link target — write the **full
+- **Machine surfaces.** Where a machine reads the reference — an envelope field, a link target — write the **full
   name**: `<prefix>-<number>-<slug>`. It stays unambiguous whatever happens to the number.
-- In prose the bare form is fine, in either case: `DEC-0007`, `dec-0007`. It resolves by the
+- **In prose** the bare form is fine, in either case: `DEC-0007`, `dec-0007`. It resolves by the
   command in section 5.
-- Cite by number only what has landed on the main branch.
+- **Cite by number** only what has landed on the main branch.
 
 ## 7. Before you finish
 

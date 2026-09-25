@@ -38,12 +38,12 @@ follow the `new-kind` skill of this plugin — the policy comes first, then the 
 The stem is the file name without `.md`, kebab-case (`a-z`, `0-9`, single hyphens). It is also
 the document's `id` unless you give `--id`.
 
-- A **numbered kind** — its stem carries a number, `<prefix>-<nnnn>-<slug>` — gets its stem from
+- **A numbered kind** — its stem carries a number, `<prefix>-<nnnn>-<slug>` — gets its stem from
   the project's numbering procedure for that kind; take the whole stem from there and give it
   as `--stem`. This command allocates no number.
-- A kind whose territory has a **free segment** (`<dir>/*/NAME.md`) takes `--segment <name>`
+- **A kind with a free segment** in its territory (`<dir>/*/NAME.md`) takes `--segment <name>`
   instead of `--stem`: the pattern fixes the file name, and the id becomes `name-<segment>`.
-- A kind whose territory is a **single path** has no home: that document already exists or is
+- **A kind with a single-path territory** has no home: that document already exists or is
   created by hand at exactly that path, once. The command says so.
 
 ## 3. Run the command
@@ -54,10 +54,10 @@ From inside the repository:
 sh ${CLAUDE_PLUGIN_ROOT}/scripts/new-document.sh --kind <policy id> --stem <stem> --title '<title>'
 ```
 
-- `--type current-state | task-record | non-authoritative` when the kind has no template in
+- **`--type`** `current-state | task-record | non-authoritative` when the kind has no template in
   `const-locations.templates` of `constitution.yaml`: the policy says which its kind is. With a
   template, the template's own `type` decides and `--type` is not taken.
-- `--dry-run` prints the home and the template and writes nothing. Use it first when another
+- **`--dry-run`** prints the home and the template and writes nothing. Use it first when another
   procedure writes the file itself — a record's procedure, a numbered kind's — and hand it the
   `HOME:` line.
 - `--segment <name>` for a free-segment kind; `--id <id>` when the id must differ from the stem.

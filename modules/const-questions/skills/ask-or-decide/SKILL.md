@@ -74,18 +74,18 @@ Never bundle. A simple factual clarification — one fact, answered in a word �
 one-line question and takes none of this shape. A real choice takes all of it, in the chat
 message:
 
-- Options are lettered **A, B, C…** — capital letters, so an option is never confused with a
+- **Lettered.** Options are lettered **A, B, C…** — capital letters, so an option is never confused with a
   numbered finding, step or assumption. Each option is a bullet: the bold letter and title plus a
   one-sentence description on the first line; beneath it two indented sub-bullets, **Pros:** and
   **Cons:**, one prose line each, several points joined by semicolons — never inline in the
   description, never a table, never a third level.
-- Then exactly **one recommendation** with its reasoning, and the **named decider**.
-- Fewer than five options, and the decider's `pick` is `tool`: the platform's question tool
+- **One recommendation.** Then exactly one recommendation with its reasoning, and the **named decider**.
+- **The tool.** Fewer than five options, and the decider's `pick` is `tool`: the platform's question tool
   follows the message and collects the pick only — a one-line question, each option its letter plus a short label, at most one clause
   of description; the pros, cons and recommendation never go inside the tool. Five or more,
   a `pick` of `letter`, or a session where the tool is not offered: chat only, the user answers
   with a letter.
-- A trade-off too complex for this shape — options that need a scored table — is reported as
+- **Too complex.** A trade-off too complex for this shape — options that need a scored table — is reported as
   such; do not force it into the shape and do not improvise a scoring method.
 
 **The argument must reach the user.** Text written in the same turn as a tool call is not always

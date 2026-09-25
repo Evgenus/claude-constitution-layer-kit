@@ -50,11 +50,11 @@ in a current-state page.
 When the code change leaves a pair's documents true — comments reworded, a formatter pass, a
 helper the page never describes — say so where the check reads it, one line per pair:
 
-- as a trailer on a commit of the change, in the message's **last paragraph, where every line is
+- **As a trailer** on a commit of the change, in the message's **last paragraph, where every line is
   `Key: value`** — one line without a colon hides the whole paragraph from git:
   `No-Doc-Impact: <pair name> — <why the documents are unaffected>`
-- or the same line on its own in the pull request's description; CI hands the description to the
-  check with `--body <file>`.
+- **Or in the description:** the same line on its own in the pull request's description; CI
+  hands the description to the check with `--body <file>`.
 
 The reason is for the reviewer: write what a reviewer needs to agree. Never declare what an update
 would have fixed. The key is `declaration_key` under `const-task-close` when the project changed it.
