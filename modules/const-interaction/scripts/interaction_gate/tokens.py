@@ -1,7 +1,9 @@
 """The shell command as the gate reads it. The platform splits a command into subcommands to
 match its permission rules; this module repeats that split on the raw text so that a wrapper,
-a subshell or a global option does not hide the verb. Every step errs toward examining more:
-a text the reader cannot split cleanly is examined as one subcommand of its words."""
+a subshell or a global option does not hide the verb. Every step but two errs toward examining
+more — a text the reader cannot split cleanly is examined as one subcommand of its words; the
+two that err toward silence, a quote opened on an earlier line and a wrapper flag the lists
+below omit, are stated as limits in the module's document."""
 
 from __future__ import annotations
 
@@ -323,7 +325,7 @@ def _takes_next(flag: str, valued: frozenset[str]) -> bool:
     value being the rest of the token."""
     if flag in valued:
         return True
-    if flag.startswith("--") or len(flag) < 3:  # `--` itself ends the flags and takes no word
+    if flag.startswith("--") or len(flag) < 3:  # `--` itself takes no word
         return False
     for index, letter in enumerate(flag[1:], 1):
         if "-" + letter in valued:
