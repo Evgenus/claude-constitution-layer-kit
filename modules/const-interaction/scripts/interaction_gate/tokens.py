@@ -190,9 +190,17 @@ def _separate(text: str) -> list[str]:
     current: list[str] = []
     quote: str | None = None
     depth = 0
+    interrupted: list[str | None] = []  # the quote each open `$(` interrupted, restored at its `)`
     i = 0
     while i < len(text):
         ch = text[i]
+        if quote == '"' and text.startswith("$(", i):  # a substitution opens a new context
+            current.append("$(")
+            interrupted.append(quote)
+            quote = None
+            depth += 1
+            i += 2
+            continue
         if quote:
             current.append(ch)
             if ch == "\\" and quote == '"' and i + 1 < len(text):
@@ -215,13 +223,16 @@ def _separate(text: str) -> list[str]:
             continue
         if text.startswith("$(", i):
             depth += 1
+            interrupted.append(None)
             current.append("$(")
             i += 2
             continue
         if depth > 0 and ch == "(":
             depth += 1
+            interrupted.append(None)
         elif depth > 0 and ch == ")":
             depth -= 1
+            quote = interrupted.pop() if interrupted else None
         elif ch in "()":  # a bare subshell or group: its commands are the text's own
             pieces.append("".join(current))
             current = []
@@ -250,8 +261,15 @@ def _substitutions(text: str) -> list[str]:
         if text.startswith("$(", i):
             depth, j = 1, i + 2
             quote: str | None = None
+            opened: list[str | None] = []  # the quote each nested `$(` interrupted
             while j < len(text) and depth:
                 ch = text[j]
+                if quote == '"' and text.startswith("$(", j):  # a nested substitution in a string
+                    opened.append(quote)
+                    quote = None
+                    depth += 1
+                    j += 2
+                    continue
                 if quote:  # a quoted `)` closes nothing
                     if ch == "\\" and quote == '"':
                         j += 1
@@ -261,8 +279,11 @@ def _substitutions(text: str) -> list[str]:
                     quote = ch
                 elif text.startswith("$(", j) or ch == "(":
                     depth += 1
+                    opened.append(None)
                 elif ch == ")":
                     depth -= 1
+                    if depth:
+                        quote = opened.pop() if opened else None
                 j += 1
             inner.append(text[i + 2 : j - 1])
             i = j
