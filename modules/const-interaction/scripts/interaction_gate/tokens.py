@@ -1,9 +1,10 @@
 """The shell command as the gate reads it. The platform splits a command into subcommands to
 match its permission rules; this module repeats that split on the raw text so that a wrapper,
-a subshell or a global option does not hide the verb. Every step but two errs toward examining
-more — a text the reader cannot split cleanly is examined as one subcommand of its words; the
-two that err toward silence, a quote opened on an earlier line and a wrapper flag the lists
-below omit, are stated as limits in the module's document."""
+a subshell or a global option does not hide the verb. Where the reader cannot split a text
+cleanly it errs toward examining more — the text is one subcommand of its words; what it does
+not see at all — a verb built from a variable, an `eval`, a heredoc fed to a shell, a quote
+opened on an earlier line, a wrapper flag the lists below omit — is stated as its limit in the
+module's document."""
 
 from __future__ import annotations
 
@@ -97,6 +98,7 @@ SHELL_WORDS = frozenset(
     {"exec", "{", "}", "!", "if", "then", "else", "elif", "while", "until", "do", "fi", "done"}
 )
 SHELLS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
+SHELL_LONG_WITH_VALUE = frozenset({"--rcfile", "--init-file"})  # bash's long options that take a value
 GIT_GLOBAL_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"})
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
@@ -247,10 +249,19 @@ def _substitutions(text: str) -> list[str]:
     while i < len(text):
         if text.startswith("$(", i):
             depth, j = 1, i + 2
+            quote: str | None = None
             while j < len(text) and depth:
-                if text.startswith("$(", j) or text[j] == "(":
+                ch = text[j]
+                if quote:  # a quoted `)` closes nothing
+                    if ch == "\\" and quote == '"':
+                        j += 1
+                    elif ch == quote:
+                        quote = None
+                elif ch in ("'", '"'):
+                    quote = ch
+                elif text.startswith("$(", j) or ch == "(":
                     depth += 1
-                elif text[j] == ")":
+                elif ch == ")":
                     depth -= 1
                 j += 1
             inner.append(text[i + 2 : j - 1])
@@ -370,11 +381,14 @@ def _normalise(words: list[str]) -> tuple[list[str], str | None]:
         while index < len(rest):
             word = rest[index]
             if _is_shell_c(word) and index + 1 < len(rest):
-                return rest, rest[index + 1]
+                string_at = index + 2 if rest[index + 1] == "--" and index + 2 < len(rest) else index + 1
+                return rest, rest[string_at]  # `bash -c -- "…"`: the `--` ends the options first
             if not word.startswith(("-", "+")):
                 break
-            # `bash -o pipefail -c …`, `-eo pipefail`, `+o posix`, `-O extglob`: the option's value
-            takes_value = not word.startswith("--") and word.endswith(("o", "O"))
+            # `bash -o pipefail -c …`, `-eo pipefail`, `+o posix`, `-O extglob`, `--rcfile f`: the value
+            takes_value = word in SHELL_LONG_WITH_VALUE or (
+                not word.startswith("--") and word.endswith(("o", "O"))
+            )
             index += 2 if takes_value else 1
     if rest[0] == "git":
         i = 1
