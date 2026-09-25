@@ -62,9 +62,8 @@ def _collect(text: str, found: list[Subcommand]) -> None:
         if not words:
             continue
         words, inner_command = _normalise(words)
-        if not words:  # nothing but shell words or assignments: no program to examine
-            continue
-        found.append(Subcommand(tuple(words), stripped))
+        if words:  # empty: nothing but shell words or assignments, or a wrapper whose value is the command
+            found.append(Subcommand(tuple(words), stripped))
         if inner_command is not None:
             _collect(inner_command, found)
 
@@ -92,10 +91,19 @@ def _drop_heredocs(text: str) -> str:
 
 
 def _inside_quotes(line: str, position: int) -> bool:
+    """Whether the position stands inside a quote opened on this line. A `$(` opens a new
+    context, quoted or not — `"$(cat <<'EOF'` puts the operator outside the outer quote — and its
+    `)` restores the one it interrupted."""
     quote: str | None = None
+    stack: list[str | None] = []
     i = 0
     while i < position:
         ch = line[i]
+        if line.startswith("$(", i):
+            stack.append(quote)
+            quote = None
+            i += 2
+            continue
         if quote:
             if ch == "\\" and quote == '"':
                 i += 1
@@ -105,6 +113,8 @@ def _inside_quotes(line: str, position: int) -> bool:
             quote = ch
         elif ch == "\\":
             i += 1
+        elif ch == ")" and stack:
+            quote = stack.pop()
         i += 1
     return quote is not None
 
@@ -225,6 +235,8 @@ def _normalise(words: list[str]) -> tuple[list[str], str | None]:
             rest.pop(0)
         elif head in WRAPPERS:
             rest.pop(0)
+            if head == "env" and rest and rest[0] in ("-S", "--split-string") and len(rest) > 1:
+                return [], rest[1]  # `env -S "<command>"`: the value is the command, split in turn
             _drop_flags(rest, WRAPPERS[head])
             for _ in range(WRAPPERS_WITH_VALUE.get(head, 0)):
                 if rest:
@@ -237,11 +249,14 @@ def _normalise(words: list[str]) -> tuple[list[str], str | None]:
         return rest, None
     rest[0] = rest[0].rsplit("/", 1)[-1]
     if rest[0] in SHELLS:
-        for index, word in enumerate(rest[1:], 1):
+        index = 1
+        while index < len(rest):
+            word = rest[index]
             if _is_shell_c(word) and index + 1 < len(rest):
                 return rest, rest[index + 1]
             if not word.startswith("-"):
                 break
+            index += 2 if word in ("-o", "+o") else 1  # `bash -o pipefail -c …`: the option's value
     if rest[0] == "git":
         i = 1
         while i < len(rest) and rest[i].startswith("-"):

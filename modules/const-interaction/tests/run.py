@@ -227,7 +227,18 @@ def t6() -> tuple[bool, str]:
         passed("rm build.log"),
         passed("git branch -d old"),
         asked('echo "a<<EOF"\ngit push -f', d1("", 0, "-f", "git push -f"), subcommands=2),
+        asked('echo "a<<EOF"\ngit push -f\nEOF', d1("", 0, "-f", "git push -f"), subcommands=3),
         asked("cat <<EOF\ngit push -f", d1("", 0, "-f", "git push -f"), subcommands=2),
+        passed(
+            "git commit -q -F - <<'EOF'\nthe branch fix; git branch -f gated\nEOF",
+            subcommands=1,
+        ),
+        passed(
+            "git commit -m \"$(cat <<'EOF'\nthe branch fix; git branch -f gated\nEOF\n)\"",
+            subcommands=2,
+        ),
+        asked('env -S "git push -f"', d1("", 0, "-f", "git push -f")),
+        asked('bash -o pipefail -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
     )
 
 
@@ -587,18 +598,25 @@ def t30() -> tuple[bool, str]:
     dial is empty; the project's pairs numbered."""
     root = prepared()
     plain = SESSION.run_gate(session_json(root))
+    module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     verbosity = (
         "const-interaction: verbosity is triggered — the assumption block and the restatement appear only"
         " when triggered, never as an empty ritual\n"
     )
-    plain_ok = plain.code == 0 and plain.stdout == RULES + verbosity and plain.stderr == ""
+    stated_verbosity = re.search(r"one line of ([0-9,]+) characters naming the value", module_doc)
+    plain_ok = (
+        plain.code == 0
+        and plain.stdout == RULES + verbosity
+        and plain.stderr == ""
+        and stated_verbosity is not None
+        and int(stated_verbosity.group(1).replace(",", "")) == len(verbosity) - 1
+    )
     empty_root = prepared(own(destructive=[]))
     empty = SESSION.run_gate(session_json(empty_root))
     zero = (
         "const-interaction: no command is gated — const-interaction.destructive is an empty list in"
         " constitution.yaml"
     )
-    module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     match = re.search(r"one line of ([0-9,]+) characters saying that no command is gated", module_doc)
     stated = int(match.group(1).replace(",", "")) if match else -1
     empty_ok = empty.code == 0 and empty.stdout == RULES + verbosity + zero + "\n" and stated == len(zero)
@@ -629,14 +647,18 @@ def t31() -> tuple[bool, str]:
         f"const-interaction: no constitution.yaml in {root} — the destructive-command gate examines nothing"
         " there until the file exists (an empty mapping, {} is enough for the default list)"
     ).replace("{} is", "{}, is")
-    no_dials_ok = no_dials.code == 0 and no_dials.stdout == RULES + no_dials_line + "\n"
+    verbosity = (
+        "const-interaction: verbosity is triggered — the assumption block and the restatement appear only"
+        " when triggered, never as an empty ritual\n"
+    )
+    no_dials_ok = no_dials.code == 0 and no_dials.stdout == RULES + verbosity + no_dials_line + "\n"
     loose = H.scratch_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
     no_repo_line = (
         f"const-interaction: {loose} is not inside a git repository — the destructive-command gate examines"
         " nothing there"
     )
-    no_repo_ok = no_repo.code == 0 and no_repo.stdout == RULES + no_repo_line + "\n"
+    no_repo_ok = no_repo.code == 0 and no_repo.stdout == RULES + verbosity + no_repo_line + "\n"
     bad_root = prepared(raw_dials="root-policy: [\n")
     bad = SESSION.run_gate(session_json(bad_root))
     bad_ok = (

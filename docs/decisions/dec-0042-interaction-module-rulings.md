@@ -135,14 +135,14 @@ The comparison proposed a list (d13 of [res-0008-const-interaction](../research/
 - **A. The comparison's list whole,** SQL included, matched by a special case inside quoted arguments.
   - **Pros:** the widest net on day one.
   - **Cons:** a second matching mechanism for two entries; a database command belongs to the tool that runs it, not to the shell tokens.
-- **B. The token-expressible list, each entry with its alternative:** `git push` with `--force`/`-f`; `git reset` with `--hard`; `git checkout` with `-f`/`--force`; `git restore` whole; `git clean` with `-f`/`--force`; `git branch` with `-D`; `git stash drop` and `git stash clear`; `git rebase` whole; `git filter-branch`, `git filter-repo`, `git reflog expire`, `git gc` with `--prune=now`; `rm` with `-r`/`-R`/`--recursive`. Outside the list and said so: `git commit --amend`, a plain push, `rm` of one file, `git checkout -- .`, deletion through a file tool, SQL through any client.
+- **B. The token-expressible list, each entry with its alternative:** `git push` with `--force`/`-f`; `git reset` with `--hard`; `git checkout` with `-f`/`--force`; `git restore` whole; `git clean` with `-f`/`--force`; `git branch` with `-D`, `-f` or `--force`; `git stash drop` and `git stash clear`; `git rebase` whole; `git filter-branch`, `git filter-repo`, `git reflog expire`, `git gc` with `--prune=now`; `rm` with `-r`/`-R`/`--recursive`. Outside the list and said so: `git commit --amend`, a plain push, `rm` of one file, `git checkout -- .`, deletion through a file tool, SQL through any client.
   - **Pros:** every entry the grammar states exactly; the alternative beside each.
   - **Cons:** `git rebase` and `git restore` prompt on common, recoverable acts; a consumer who rebases work branches daily tunes the list on day one.
 - **C. A minimal list:** the force push, the hard reset, the clean, the branch delete and the recursive remove only.
   - **Pros:** prompts only on the acts nearly everyone calls destructive.
   - **Cons:** a rebase and a discarded working tree pass in silence, the two acts the kit's own guide names first.
 
-The session recommended B. **R8.** B, chosen by the decider in chat on 2026-09-25: the default of the dial `destructive` is the entries of B — fourteen, listed there in ten groups — each with its teaching text and its reversible alternative written in the module's document; what the list leaves out is named there and in the gate's own words; SQL is no shell gate's default.
+The session recommended B. **R8.** B, chosen by the decider in chat on 2026-09-25: the default of the dial `destructive` is the entries of B — fourteen, listed there in ten groups, `git branch` taking `-f` and `--force` beside `-D` since the review of the build, a branch moved by force losing its commits as one deleted does — each with its teaching text and its reversible alternative written in the module's document; what the list leaves out is named there and in the gate's own words; SQL is no shell gate's default.
 
 ## 9. The verbosity dial of dec-0001
 

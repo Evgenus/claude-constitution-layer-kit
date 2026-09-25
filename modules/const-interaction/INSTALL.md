@@ -7,7 +7,7 @@ first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the plugin
-   prints its rules for every reply into the model's context (about 2,200 characters; the
+   prints its rules for every reply into the model's context (about 2,400 characters with the verbosity line; the
    transcript does not show them), followed by the value of `verbosity` and by one line when the
    destructive-command gate examines nothing in the session's repository. Before every `Bash` command the gate reads the command and,
    where a subcommand matches a listed destructive pattern, asks the platform to prompt you with the

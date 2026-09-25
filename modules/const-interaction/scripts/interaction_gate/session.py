@@ -16,6 +16,7 @@ from const_gate.model import Mode
 from const_gate.output import Output
 
 from . import messages
+from .model import Verbosity
 
 USAGE = "session-start takes no arguments; it reads one SessionStart event on stdin"
 
@@ -32,7 +33,8 @@ def body(output: Output, argv: Sequence[str]) -> int:
     from . import dials as own_dials  # noqa: PLC0415
 
     target = pipeline.locate_event(output, sys.stdin)
-    if isinstance(target, Skip):
+    if isinstance(target, Skip):  # no dials to read: the default value, then why the gate is off
+        output.out(messages.s1_verbosity(Verbosity.TRIGGERED))
         output.out(_zero_line(target.reason))
         return 0
     dials = own_dials.parse(target.dials.own)
