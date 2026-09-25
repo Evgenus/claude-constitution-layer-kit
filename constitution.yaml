@@ -1,5 +1,7 @@
 # Dials file of the constitution kit itself: the kit is consumer zero of the
-# document-shaped modules (decision dec-0006-accumulating-set-first). Calibration of
+# document-shaped modules, of the code territories its own current-state documents
+# describe, and of its own session conduct (decisions dec-0006-accumulating-set-first,
+# dec-0036-task-close-module-rulings, dec-0041-questions-module-rulings). Calibration of
 # this repository, never of any project. Shape per kernel §3 and §6 (decision
 # dec-0008-policies-by-location).
 #
@@ -216,6 +218,7 @@ const-questions:                      # ask at recorded stakes or a blocker; no 
     - "*.md"
     - "!templates/**"                 # a template is no deliverable
     - "!module-template/**"
+    # a draft module document is taken out here by its own path while it carries [decide: slots, never by a wildcard
   markers:                            # gate: the texts that mark an open question, matched outside code
     - '[decide:'
     - 'TODO'
