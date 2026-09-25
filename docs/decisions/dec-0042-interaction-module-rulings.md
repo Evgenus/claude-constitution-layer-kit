@@ -2,7 +2,7 @@
 id: dec-0042-interaction-module-rulings
 type: task-record
 title: Rulings of the const-interaction authoring — answer in the shape of the question, assumptions and lists addressable, a gate on destructive commands and a scan of list handles
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
