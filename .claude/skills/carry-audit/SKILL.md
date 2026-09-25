@@ -34,9 +34,10 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    A full audit skips this step and takes every record as `full`.
 3. **Partition.** At most five `full` records to a reader, at most ten `regression` records to a
    reader. Readers are fresh subagents, started together, holding nothing of the authoring reasoning.
-   A regression reader is the `regression-reader` agent of `.claude/agents/`, which fixes its model
-   and its read-only tools and carries the standing part of prompt B; the full, blind and confirming
-   readers run on the session's model.
+   A regression reader is the `regression-reader` agent of `.claude/agents/`, and the confirming
+   reader of step 7 the `confirming-reader` agent there; each fixes its model and its read-only tools
+   and carries the standing part of its prompt (B, D); the full and blind readers run on the
+   session's model.
 4. **Give each reader its prompt**, below, with its record list filled in — check that it is filled
    in before sending: a prompt has gone out with its list still a placeholder.
 5. **Run the blind pass** on each record the change adds: one more reader, prompt C, with one
@@ -119,6 +120,10 @@ agent must hear them too.
 > by the author from the carry list>`.
 
 ## Prompt D — a confirming reader, after fixes
+
+Sent to the `confirming-reader` agent, whose definition already holds the read-only rule, the two
+git readings and the kernel reading; the message still states them, since a reader run on another
+agent must hear them too.
 
 > STRICTLY READ-ONLY, pinned to `<pin of the fixes>`, with the two git readings, as in prompt A. A
 > first audit produced the fixes in `git diff <earlier pin> <pin>`. Fixes made in a hurry introduce
