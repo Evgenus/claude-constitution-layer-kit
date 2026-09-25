@@ -34,7 +34,7 @@ _WHY = (
 def q1_marker(rel: str, line: int, marker: str, text: str) -> Finding:
     return Finding(
         Key.Q1,
-        f"{rel}:{line}: open question marker '{marker}' — {shown(text.strip())}",
+        f"{rel}:{line}: open question marker '{marker}' — {shown(text)}",
         _WHY,
         "resolve the question in the text; if the decider is absent, replace the marker by a named blocker"
         " — 'blocked: <who> must decide <what>' — and halt that part; a draft whose own convention keeps"

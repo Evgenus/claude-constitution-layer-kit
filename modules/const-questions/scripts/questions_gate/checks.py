@@ -12,10 +12,10 @@ _SPAN = re.compile(r"(`+)(?:.+?)\1")
 
 
 def examine(text: str, markers: Sequence[str]) -> list[Hit]:
-    """One hit per line at most: the marker that stands first on it. A fenced block, from its
-    opener to its closer or to the end of the text, and a code span on a line are not read: a
-    marker there is a quotation. The match is case-sensitive, and a marker that begins or ends
-    with a word character must stand at a word boundary on that side."""
+    """One hit per line at most: the marker that stands first on it, with the line from there on.
+    A fenced block, from its opener to its closer or to the end of the text, and a code span on a
+    line are not read: a marker there is a quotation. The match is case-sensitive, and a marker
+    that begins or ends with a word character must stand at a word boundary on that side."""
     patterns = [_pattern(marker) for marker in markers]
     hits: list[Hit] = []
     fence: str | None = None
@@ -35,7 +35,7 @@ def examine(text: str, markers: Sequence[str]) -> list[Hit]:
             if found and (first is None or found.start() < first[0]):
                 first = (found.start(), marker)
         if first is not None:
-            hits.append(Hit(number, first[1], line))
+            hits.append(Hit(number, first[1], line[first[0] :].rstrip()))
     return hits
 
 

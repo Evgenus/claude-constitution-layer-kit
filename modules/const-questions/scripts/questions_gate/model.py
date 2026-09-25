@@ -23,7 +23,7 @@ class QuestionsDials:
 
 @dataclass(frozen=True, slots=True)
 class Hit:
-    """A marker found on a line: where, which, and the line as written."""
+    """A marker found on a line: where, which, and the line from the marker on."""
 
     line: int
     marker: str
