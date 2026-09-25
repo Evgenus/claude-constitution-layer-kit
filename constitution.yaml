@@ -1,8 +1,10 @@
 # Dials file of the constitution kit itself: the kit is consumer zero of the
 # document-shaped modules, of the code territories its own current-state documents
 # describe, and of its own session conduct (decisions dec-0006-accumulating-set-first,
-# dec-0036-task-close-module-rulings, dec-0041-questions-module-rulings). Calibration of
-# this repository, never of any project. Shape per kernel §3 and §6 (decision
+# dec-0036-task-close-module-rulings, dec-0041-questions-module-rulings); its sessions
+# load the kit's own modules as plugins from .claude/settings.json (decision
+# dec-0043-kit-plugins-through-project-settings). Calibration of this repository, never of
+# any project. Shape per kernel §3 and §6 (decision
 # dec-0008-policies-by-location).
 #
 # Every dial the kernel and the installed modules know is written here, at its
