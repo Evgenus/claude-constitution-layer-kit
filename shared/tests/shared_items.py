@@ -30,12 +30,12 @@ from harness import (
     Harness,
     Result,
     Write,
+    ask_reason,
+    bash_json,
     broken_first_line,
     event_json,
     expect,
     red_lines,
-    ask_reason,
-    bash_json,
     stop_json,
 )
 

@@ -57,16 +57,16 @@ will make it, or merely explain something?**
 
 ## Envelope reminders
 
-- `status: active` at birth for a current-state document and for a task-record whose
+- **At birth:** `status: active` for a current-state document and for a task-record whose
   delta is being applied; a task-record applied in the same commit that creates it is
   born `inactive`.
-- A `non-authoritative` document that is superseded by a later account becomes
+- **Superseded:** a `non-authoritative` document that is superseded by a later account becomes
   `inactive`, or is deleted when nothing references it.
-- Put the document where its policy's territory says; the path binds it. Add a
+- **Placement.** Put the document where its policy's territory says; the path binds it. Add a
   `policy: <id>` declaration only when the path mapping is absent or ambiguous —
   typically mid-move, while an active task-record covers the move — never to
   override where the file sits.
-- If you edited a governed document through the shell (heredoc, `sed`), the hook did
+- **Shell edits.** If you edited a governed document through the shell (heredoc, `sed`), the hook did
   not see it: run the scan over the repository before you finish —
   `sh "${CLAUDE_PLUGIN_ROOT}/scripts/check-governed-document.sh" --scan` (exit 2 lists the
   findings with the same messages the hook gives).

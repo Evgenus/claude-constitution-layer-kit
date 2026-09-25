@@ -103,9 +103,7 @@ def locate_event(output: Output, stdin: TextIO) -> EventTarget | Skip:
     if dials is None:
         return Skip(messages.g1_skip_no_dials(str(root)))
     route_log(output, root, dials)
-    return EventTarget(
-        root, dials, event.event_name, event.stop_hook_active, event.tool_name, event.command
-    )
+    return EventTarget(root, dials, event.event_name, event.stop_hook_active, event.tool_name, event.command)
 
 
 def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:

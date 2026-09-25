@@ -8,10 +8,11 @@ from enum import StrEnum
 
 DEFAULT_TERRITORIES = ("*.md",)
 # The handle forms a list item may open with, after an optional anchor and an optional bold
-# marker: `1.`, `A.`, `a1.`, `R1` / `S137` / `L1b`, `Q-a`.
+# marker: `1.`, `A.`, `a.`, `a1.`, `R1` / `S137` / `L1b`, `Q-a`.
 DEFAULT_HANDLES = (
     r"[0-9]+\.",
     r"[A-Z]\.",
+    r"[a-z]\.",
     r"[a-z][0-9]+\.",
     r"[A-Z]+[0-9]+[a-z]?\b",
     r"[A-Z]-[a-z]\b",

@@ -37,7 +37,8 @@ def scan_mode(output: Output, start: Path) -> int:
         if text is None:  # a file git lists and nobody can read: a count that skipped it would lie
             raise ConfigurationFailure(shared.c12_unreadable(rel))
         findings += [
-            messages.l1_list_item(rel, hit.line, hit.text) for hit in checks.examine_lists(text, dials.handles)
+            messages.l1_list_item(rel, hit.line, hit.text)
+            for hit in checks.examine_lists(text, dials.handles)
         ]
     tail = messages.f9_lists_tail(len(covered), len(dials.handles), len(paths))
     return pipeline.report_scan(output, findings, (), tail)

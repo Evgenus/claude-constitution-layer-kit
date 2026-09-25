@@ -10,8 +10,10 @@ from .model import Entry, Hit, ListHit, Subcommand
 
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 ITEM = re.compile(r"^[-*+] (.*)$")
-# An item's text may open with an anchor and a bold marker before its handle.
-PREFIX = re.compile(r'^(?:<a id="[^"]*"></a>\s*)?(?:\*\*)?')
+# An item's text may open with an anchor, and a bold marker, before its handle; a handle form
+# that is itself bold is matched on the text with the anchor alone removed.
+ANCHOR = re.compile(r'^(?:<a id="[^"]*"></a>\s*)?')
+BOLD = re.compile(r"^\*\*")
 
 
 def match(entries: Sequence[Entry], subcommands: Sequence[Subcommand]) -> list[Hit]:
@@ -41,7 +43,9 @@ def _matches(entry: Entry, subcommand: Subcommand) -> str | None:
             if flag.startswith("--"):
                 if word == flag:
                     return flag
-            elif len(flag) == 2 and word.startswith("-") and not word.startswith("--") and flag[1] in word[1:]:
+            elif (
+                len(flag) == 2 and word.startswith("-") and not word.startswith("--") and flag[1] in word[1:]
+            ):
                 return flag
     return None
 
@@ -58,8 +62,9 @@ def examine_lists(text: str, handles: Sequence[str]) -> list[ListHit]:
     def close() -> None:
         if len(items) >= 2:
             for line, item in items:
-                rest = PREFIX.sub("", item, count=1)
-                if not any(p.match(rest) for p in patterns):
+                unanchored = ANCHOR.sub("", item, count=1)
+                candidates = (unanchored, BOLD.sub("", unanchored, count=1))
+                if not any(p.match(c) for p in patterns for c in candidates):
                     hits.append(ListHit(line, item))
                     break
         items.clear()

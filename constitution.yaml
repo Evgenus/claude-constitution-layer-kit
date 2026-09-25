@@ -240,6 +240,28 @@ const-questions:                      # ask at recorded stakes or a blocker; no 
       decide: []
       pick: letter                    # values: tool | letter — letter: the argument was lost behind the tool in this decider's sessions
 
+const-interaction:                    # answer shape, assumptions and addressable lists on a session-start carrier; a prompt before a listed destructive command
+  severity: block                     # values: block | warn — block: a listed command asks the user at the platform's prompt; warn: reported, the command runs
+  log_dir: local/gate-logs
+  # destructive: absent — the default list of entries stated in MODULE.md §7; an empty list gates nothing and says so at session start
+  territories:                        # the documents the list-handles scan reads among the Markdown files git lists; a negated pattern takes files out
+    - "*.md"
+    - "!docs/decisions/dec-00[0-3]*.md"   # an accepted record is never edited to fit a later rule (plc-0004 rule 14): the scan applies from dec-0042 on
+    - "!docs/decisions/dec-004[01]-*.md"
+    - "!docs/research/res-000[1-7]-*.md"   # a comparison is frozen at its module's yes (plc-0005 rule 7): the scan applies from res-0008 on
+  handles:                            # the forms a list item may open with, after an optional anchor and bold marker; the kit's keys beyond the defaults follow
+    - '[0-9]+\.'
+    - '[A-Z]\.'
+    - '[a-z]\.'
+    - '[a-z][0-9]+\.'
+    - '[A-Z]+[0-9]+[a-z]?\b'
+    - '[A-Z]-[a-z]\b'
+    - '\*\*[^*]+\*\*'                # a bold label is the item's key in the kit's documents: "**Always-on content:**"
+    - '\*[^*]+\*'                      # an italic lead likewise, in a skill's contrastive list
+    - '\[[^\]]+\]\('                   # a link is the key of a reading list or a carry list
+    - '`[^`]+`'                        # a code span likewise: a file name, a flag
+  boundary_examples: []               # session start: the kit's own violates / complies pairs, {violates: …, complies: …}; empty: the seed pairs of MODULE.md §8
+
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs
   templates:                          # the kinds that have a template; a kind without one is born with the envelope alone

@@ -81,7 +81,10 @@ def f9_command_tail(entries: int, subcommands: int) -> str:
 
 
 def f9_lists_tail(documents: int, handles: int, scanned: int) -> str:
-    return f"{documents} document(s) examined for lists with {handles} handle form(s), {scanned} Markdown file(s) scanned"
+    return (
+        f"{documents} document(s) examined for lists with {handles} handle form(s),"
+        f" {scanned} Markdown file(s) scanned"
+    )
 
 
 # ---------------------------------------------------------------- session start: the visible zero (S1)
@@ -99,7 +102,9 @@ def s1_no_dials(root: str) -> str:
 
 
 def s1_no_repo(cwd: str) -> str:
-    return f"{_ns()}: {cwd} is not inside a git repository — the destructive-command gate examines nothing there"
+    return (
+        f"{_ns()}: {cwd} is not inside a git repository — the destructive-command gate examines nothing there"
+    )
 
 
 def s1_prefix() -> str:
@@ -139,7 +144,7 @@ def c5_territories() -> Broken:
 def c5_handles() -> Broken:
     return _c5(
         f"{_ns()}.handles must be a non-empty list of regular expressions",
-        "write the handle forms a list item may open with, one per line under \"- \" in single quotes, or"
+        'write the handle forms a list item may open with, one per line under "- " in single quotes, or'
         " leave the key out for the defaults; an empty list would find every list red",
     )
 
