@@ -47,7 +47,7 @@ Provenance of this module's rules: the records whose rulings it applies, each ci
 <a id="t5"></a>
 ## 5. Invariant
 
-**No `Bash` command run through the platform's shell tool matches a pattern of the `destructive` dial without the user having confirmed that command.** [decide: the exact wording of "matches" and "confirmed" follows the pattern-language and confirmation decisions of §3 — default the comparison's recommendation — stakes process — decider Eugene Chernyshov]
+**No `Bash` command run through the platform's shell tool matches a pattern of the `destructive` dial without the user having confirmed that command.** [decide: the exact wording of "matches" and "confirmed" follows the pattern-language and confirmation decisions of [§3](#t3) — default the comparison's recommendation — stakes process — decider Eugene Chernyshov]
 
 The advisory rules beside it, each `advisory` in its own text and carried always-on:
 
