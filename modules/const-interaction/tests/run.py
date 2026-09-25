@@ -268,8 +268,12 @@ def t6() -> tuple[bool, str]:
             d1("", 0, "-f", "xargs --process-slot-var N git push -f"),
         ),
         asked("stdbuf --output L git push -f", d1("", 0, "-f", "stdbuf --output L git push -f")),
-        asked("stdbuf --out L git push -f", d1("", 0, "-f", "stdbuf --out L git push -f")),
-        asked("sudo --us root git push -f", d1("", 0, "-f", "sudo --us root git push -f")),
+        asked("sudo --login git push -f", d1("", 0, "-f", "sudo --login git push -f")),
+        asked("nice -- git push -f", d1("", 0, "-f", "nice -- git push -f")),
+        asked(
+            "sudo --login-class staff git push -f", d1("", 0, "-f", "sudo --login-class staff git push -f")
+        ),
+        asked("sudo --auth-type pam git push -f", d1("", 0, "-f", "sudo --auth-type pam git push -f")),
         asked("sudo -c staff git push -f", d1("", 0, "-f", "sudo -c staff git push -f")),
         asked("sudo -a pam git push -f", d1("", 0, "-f", "sudo -a pam git push -f")),
         asked('env -S "git push -f \'x"', d1("", 0, "-f", "git push -f ''\"'\"'x'")),

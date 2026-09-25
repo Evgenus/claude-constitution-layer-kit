@@ -24,10 +24,11 @@ WRAPPERS: dict[str, frozenset[str]] = {
     # Sources, read 2026-09-25: sudo's upstream man page (sudo.ws; -r, -t and their long forms are
     # SELinux-only and absent from the macOS page); the xargs pages of macOS 26 (BSD) and of GNU
     # findutils; env of macOS 26 and GNU coreutils, with FreeBSD's -L and -U; doas of OpenBSD; nice,
-    # stdbuf and timeout of GNU coreutils. A long flag whose value is the next word is listed, and an
-    # unambiguous prefix of it is read as it (GNU getopt_long accepts one); `--flag=value` is one token
-    # and needs no entry; a GNU flag whose value is optional (`--max-lines[=N]`, `--eof[=STR]`) takes
-    # it attached only and is left out on purpose, since given bare it takes no word.
+    # stdbuf and timeout of GNU coreutils. A long flag whose value is the next word is listed as the
+    # page spells it — an abbreviation of it, which GNU getopt_long accepts, is not read as it, since
+    # telling one apart needs every flag of the program; `--flag=value` is one token and needs no
+    # entry; a GNU flag whose value is optional (`--max-lines[=N]`, `--eof[=STR]`) takes it attached
+    # only and is left out on purpose, since given bare it takes no word.
     "xargs": frozenset(
         {
             "-I",
@@ -322,9 +323,7 @@ def _takes_next(flag: str, valued: frozenset[str]) -> bool:
     value being the rest of the token."""
     if flag in valued:
         return True
-    if flag.startswith("--"):  # an unambiguous prefix of a listed long flag is that flag
-        return len({v for v in valued if v.startswith(flag) and v.startswith("--")}) == 1
-    if len(flag) < 3:
+    if flag.startswith("--") or len(flag) < 3:  # `--` itself ends the flags and takes no word
         return False
     for index, letter in enumerate(flag[1:], 1):
         if "-" + letter in valued:
