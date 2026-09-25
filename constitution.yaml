@@ -191,6 +191,12 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-task-close/tests/**"
       docs:
         - "modules/const-task-close/MODULE.md"
+    - name: const-questions
+      code:
+        - "modules/const-questions/skills/**"
+        - "modules/const-questions/tests/**"
+      docs:
+        - "modules/const-questions/MODULE.md"
     - name: kit-scripts   # the git hooks, the clone setup, the kit gates and the development routine
       code:
         - "scripts/**"
