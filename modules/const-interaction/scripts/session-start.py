@@ -4,12 +4,14 @@ context and blocks nothing.
 
 Events:   SessionStart, every source (hook mode); no other mode.
 Modes:    no arguments  read one SessionStart event on stdin and print, after the rules the
-                        POSIX wrapper printed: one line when the destructive-command gate
-                        examines nothing in the session's repository — no repository, no
+                        POSIX wrapper printed: the value of the verbosity dial, the default
+                        where no dials file can be read; one line when the destructive-command
+                        gate examines nothing in the session's repository — no repository, no
                         constitution.yaml, an empty destructive dial — and the project's own
                         boundary examples, numbered.
 Reads:    from the event: cwd, session_id. From constitution.yaml: this module's dials
-          const-interaction.destructive and .boundary_examples, the whole namespace validated;
+          const-interaction.destructive, .boundary_examples and .verbosity, the whole namespace
+          validated;
           the file as a whole is validated as every gate does.
 Exit:     0 printed, or nothing to print; 1 configuration failure — the dials could not be
           read, said on stderr and in the log. Never a silent pass.

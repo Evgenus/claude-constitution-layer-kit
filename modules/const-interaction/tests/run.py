@@ -238,7 +238,13 @@ def t6() -> tuple[bool, str]:
             subcommands=2,
         ),
         asked('env -S "git push -f"', d1("", 0, "-f", "git push -f")),
+        asked('env -i -S "git push -f"', d1("", 0, "-f", "git push -f")),
+        asked('env --split-string="git push -f"', d1("", 0, "-f", "git push -f")),
+        asked('env -S "git push" -f', d1("", 0, "-f", "git push -f")),
         asked('bash -o pipefail -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
+        asked('bash -eo pipefail -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
+        asked("echo '$(<<EOF'\ngit push -f\nEOF", d1("", 0, "-f", "git push -f"), subcommands=4),
+        asked('echo "$(date) a<<EOF"\ngit push -f\nEOF', d1("", 0, "-f", "git push -f"), subcommands=4),
     )
 
 

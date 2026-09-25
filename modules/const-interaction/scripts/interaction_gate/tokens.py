@@ -92,14 +92,14 @@ def _drop_heredocs(text: str) -> str:
 
 def _inside_quotes(line: str, position: int) -> bool:
     """Whether the position stands inside a quote opened on this line. A `$(` opens a new
-    context, quoted or not — `"$(cat <<'EOF'` puts the operator outside the outer quote — and its
-    `)` restores the one it interrupted."""
+    context, unquoted or in double quotes — `"$(cat <<'EOF'` puts the operator outside the outer
+    quote — and its `)` restores the one it interrupted; inside single quotes it is text."""
     quote: str | None = None
     stack: list[str | None] = []
     i = 0
     while i < position:
         ch = line[i]
-        if line.startswith("$(", i):
+        if quote != "'" and line.startswith("$(", i):  # inside single quotes `$(` is literal text
             stack.append(quote)
             quote = None
             i += 2
@@ -212,6 +212,21 @@ def _words(text: str) -> list[str]:
         return text.split()
 
 
+def _env_split_string(rest: list[str]) -> str | None:
+    """The command `env -S` names, wherever the flag stands among env's flags, with the words env
+    would append after it; None when env is not told to split a string."""
+    i = 0
+    while i < len(rest) and rest[i].startswith("-"):
+        flag = rest[i]
+        if flag in ("-S", "--split-string") and i + 1 < len(rest):
+            return shlex.join([*shlex.split(rest[i + 1], posix=True), *rest[i + 2 :]])
+        if flag.startswith("--split-string="):
+            value = flag.split("=", 1)[1]
+            return shlex.join([*shlex.split(value, posix=True), *rest[i + 1 :]])
+        i += 2 if flag in WRAPPERS["env"] else 1
+    return None
+
+
 def _drop_flags(rest: list[str], valued: frozenset[str]) -> None:
     """A wrapper's own flags, with the value of one that takes a value: `nice -n 5`, `env -i`."""
     while rest and rest[0].startswith("-"):
@@ -235,8 +250,12 @@ def _normalise(words: list[str]) -> tuple[list[str], str | None]:
             rest.pop(0)
         elif head in WRAPPERS:
             rest.pop(0)
-            if head == "env" and rest and rest[0] in ("-S", "--split-string") and len(rest) > 1:
-                return [], rest[1]  # `env -S "<command>"`: the value is the command, split in turn
+            if head == "env":
+                split = _env_split_string(rest)
+                if (
+                    split is not None
+                ):  # `env -S "<command>" <more>`: the value and what follows are the command
+                    return [], split
             _drop_flags(rest, WRAPPERS[head])
             for _ in range(WRAPPERS_WITH_VALUE.get(head, 0)):
                 if rest:
@@ -256,7 +275,8 @@ def _normalise(words: list[str]) -> tuple[list[str], str | None]:
                 return rest, rest[index + 1]
             if not word.startswith("-"):
                 break
-            index += 2 if word in ("-o", "+o") else 1  # `bash -o pipefail -c …`: the option's value
+            takes_value = word in ("-o", "+o") or (not word.startswith("--") and word.endswith("o"))
+            index += 2 if takes_value else 1  # `bash -o pipefail -c …`, `-eo pipefail`: the option's value
     if rest[0] == "git":
         i = 1
         while i < len(rest) and rest[i].startswith("-"):

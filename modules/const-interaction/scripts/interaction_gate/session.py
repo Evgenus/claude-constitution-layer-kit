@@ -1,6 +1,7 @@
-"""The session-start printer: after the rules, one line about the state of the destructive-command
-gate where it examines nothing — no repository, no dials file, an empty list — and the project's
-own boundary examples. Advisory: it prints to the model's context and blocks nothing; a
+"""The session-start printer: after the rules, the value of the verbosity dial — the default where
+no dials file can be read — then one line about the state of the destructive-command gate where it
+examines nothing — no repository, no dials file, an empty list — and the project's own boundary
+examples. Advisory: it prints to the model's context and blocks nothing; a
 configuration failure is still exit 1 with its line first, as every script of the kit."""
 
 from __future__ import annotations
