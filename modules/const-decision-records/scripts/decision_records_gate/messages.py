@@ -132,6 +132,32 @@ def n3_note_record_policy_claims_nothing(policy_id: str, path: str) -> str:
     )
 
 
+# ---------------------------------------------------------------- session start: the visible zero (S1)
+
+
+def s1_empty() -> str:
+    return f"{_ns()}: no document is examined — {_ns()}.record_policies is an empty list in {DIALS_FILE}"
+
+
+def s1_no_dials(root: str) -> str:
+    return (
+        f"{_ns()}: no {DIALS_FILE} in {root} — the record gate examines nothing there until the file"
+        f" names a record policy in {_ns()}.record_policies"
+    )
+
+
+def s1_no_repo(cwd: str) -> str:
+    return f"{_ns()}: {cwd} is not inside a git repository — the record gate examines nothing there"
+
+
+def s1_prefix() -> str:
+    return _ns()
+
+
+def s1_could_not_run() -> str:
+    return "BROKEN: the session-start line could not be printed — the gate's state is unknown"
+
+
 # ---------------------------------------------------------------- this module's dial failures
 
 

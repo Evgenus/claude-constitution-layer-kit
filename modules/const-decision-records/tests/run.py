@@ -7,12 +7,15 @@ Exit 0 when every item is green, 2 otherwise.
 
 The fixture consumer is the shared one — three policies, none of them for records — so
 every item adds the records policy and names it in this module's dial: through the
-case's setup for the red→green cases, through `gate_on` for the assertions.
+case's setup for the red→green cases, through `gate_on` for the assertions. The session-start
+printer is the second entry point, driven through its own items (T38–T41).
 """
 
 from __future__ import annotations
 
 import json
+import re
+import shutil
 import sys
 import time
 from collections.abc import Sequence
@@ -21,6 +24,7 @@ from pathlib import Path
 import yaml
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+MODULE_ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
 
 from const_gate import identity  # noqa: E402
@@ -45,6 +49,7 @@ from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-decision-record.sh", "check-decision-record.py", start.GATE.namespace)
+SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 
 NAMESPACE = start.GATE.namespace
 RECORDS_POLICY = "records-policy"
@@ -512,6 +517,154 @@ def golden_lines() -> tuple[bool, str]:
     return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 
 
+# ---------------------------------------------------------------- the session-start printer
+
+
+def all_of(results: list[tuple[bool, str]], summary: str) -> tuple[bool, str]:
+    failed = [evidence for ok, evidence in results if not ok]
+    return not failed, failed[0] if failed else summary
+
+
+def session_json(root: Path) -> str:
+    return json.dumps(
+        {
+            "hook_event_name": "SessionStart",
+            "session_id": "fixture-session",
+            "cwd": str(root),
+            "source": "startup",
+        }
+    )
+
+
+def session_root(
+    dials_patch: dict[str, object] | None = None, raw_dials: str | None = None, remove: str | None = None
+) -> Path:
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", raw_dials if raw_dials is not None else dials_text(dials_patch))
+    consumer.write(POLICY_DOCUMENT.target, POLICY_DOCUMENT.text)
+    if remove is not None:
+        (consumer.root / remove).unlink()
+    return consumer.root
+
+
+ZERO_LINE = (
+    "const-decision-records: no document is examined — const-decision-records.record_policies is an empty"
+    " list in constitution.yaml"
+)
+
+
+def session_start_zero_line() -> tuple[bool, str]:
+    """Nothing while a record policy is named; the zero line typed by hand when the dial is an empty
+    list and when it is absent, of the size the module document states."""
+    named = SESSION.run_gate(session_json(session_root()))
+    named_ok = named.code == 0 and named.stdout == "" and named.stderr == ""
+    module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
+    match = re.search(r"one line of ([0-9,]+) characters saying that no document is examined", module_doc)
+    stated = int(match.group(1).replace(",", "")) if match else -1
+    empty = SESSION.run_gate(session_json(session_root({NAMESPACE: {"record_policies": []}})))
+    empty_ok = empty.code == 0 and empty.stdout == ZERO_LINE + "\n" and empty.stderr == ""
+    absent = SESSION.run_gate(session_json(session_root({NAMESPACE: {}})))
+    absent_ok = absent.code == 0 and absent.stdout == ZERO_LINE + "\n"
+    return all_of(
+        [
+            (named_ok, f"a named policy printed: {named.stdout!r} {named.stderr!r}"),
+            (empty_ok, f"an empty list got: {empty.stdout!r} {empty.stderr!r}"),
+            (absent_ok, f"an absent dial got: {absent.stdout!r} {absent.stderr!r}"),
+            (
+                stated == len(ZERO_LINE),
+                f"the document states {stated} characters, the line has {len(ZERO_LINE)}",
+            ),
+        ],
+        f"nothing when named; the zero line of {len(ZERO_LINE)} characters when empty or absent, as stated",
+    )
+
+
+def session_start_skips_and_failures() -> tuple[bool, str]:
+    """No dials file and no repository: the shared skips said in the module's words, typed by hand;
+    malformed dials: exit 1 with the shared C4 first on stderr and nothing on stdout; an argument: exit 1."""
+    root = session_root(remove="constitution.yaml")
+    no_dials = SESSION.run_gate(session_json(root))
+    no_dials_line = (
+        f"const-decision-records: no constitution.yaml in {root} — the record gate examines nothing there"
+        " until the file names a record policy in const-decision-records.record_policies"
+    )
+    no_dials_ok = no_dials.code == 0 and no_dials.stdout == no_dials_line + "\n"
+    loose = H.scratch_dir()
+    no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
+    no_repo_line = (
+        f"const-decision-records: {loose} is not inside a git repository — the record gate examines nothing"
+        " there"
+    )
+    no_repo_ok = no_repo.code == 0 and no_repo.stdout == no_repo_line + "\n"
+    bad = SESSION.run_gate(session_json(session_root(raw_dials="root-policy: [\n")))
+    bad_ok = (
+        bad.code == 1
+        and bad.stdout == ""
+        and bad.stderr.startswith("BROKEN: constitution.yaml is not valid YAML")
+        and messages.s1_could_not_run() in bad.stderr
+    )
+    arg = SESSION.run_gate(session_json(session_root()), args=["--scan"])
+    arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
+    return all_of(
+        [
+            (no_dials_ok, f"no dials got: {no_dials.stdout!r} {no_dials.stderr[:200]!r}"),
+            (no_repo_ok, f"no repository got: {no_repo.stdout!r} {no_repo.stderr[:200]!r}"),
+            (bad_ok, f"malformed dials got {bad.code}: {bad.stdout!r} {bad.stderr[:300]!r}"),
+            (arg_ok, f"an argument got {arg.code}: {arg.stderr[:200]!r}"),
+        ],
+        "no dials and no repository said; malformed dials exit 1 with C4; an argument is a misinvocation",
+    )
+
+
+def session_start_absence_paths() -> tuple[bool, str]:
+    """PyYAML missing is C2 first on stderr with the printer's closing line; python3 missing is C1;
+    stdout stays empty in both."""
+    shadow = H.scratch_dir()
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    no_yaml = SESSION.run_gate(session_json(session_root()), env={"PYTHONPATH": str(shadow)})
+    c2 = (
+        "BROKEN: const-decision-records needs PyYAML — fix: run: python3 -m pip install -r"
+        f" '{MODULE_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
+    )
+    yaml_ok, yaml_said = broken_first_line(no_yaml, c2)
+    yaml_ok = yaml_ok and messages.s1_could_not_run() in no_yaml.stderr and no_yaml.stdout == ""
+    bin_dir = H.scratch_dir()
+    (bin_dir / "sh").symlink_to(H.sh)
+    (bin_dir / "dirname").symlink_to(shutil.which("dirname") or "dirname")
+    no_python = SESSION.run_gate(session_json(session_root()), env={"PATH": str(bin_dir)})
+    c1 = (
+        "BROKEN: const-decision-records needs python3 — fix: install Python 3.12 or newer"
+        " (https://www.python.org/downloads/) — until then the gate's state is not said at session start"
+    )
+    py_ok, py_said = broken_first_line(no_python, c1)
+    py_ok = py_ok and messages.s1_could_not_run() in no_python.stderr and no_python.stdout == ""
+    return all_of([(yaml_ok, yaml_said), (py_ok, py_said)], f"{yaml_said}; {py_said}")
+
+
+def hooks_file_shape() -> tuple[bool, str]:
+    """A SessionStart handler with no matcher and a PreToolUse handler on Write|Edit, exec form, the
+    placeholder in args, timeouts."""
+    hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    start_hook = hooks["SessionStart"][0]
+    write_hook = hooks["PreToolUse"][0]
+    ok = (
+        "matcher" not in start_hook
+        and start_hook["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"]
+        and write_hook["matcher"] == "Write|Edit"
+        and write_hook["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/check-decision-record.sh"]
+        and all(
+            h["hooks"][0]["command"] == "sh" and isinstance(h["hooks"][0]["timeout"], int)
+            for h in (start_hook, write_hook)
+        )
+    )
+    return (
+        ok,
+        "SessionStart without matcher, PreToolUse on Write|Edit, exec form, timeouts"
+        if ok
+        else f"bad: {hooks}",
+    )
+
+
 ASSERTIONS = [
     Assertion(12, "the dial unset: nothing is examined, and the count line teaches the dial", dial_unset),
     Assertion(13, "the dial unset, scan: the same visible zero", dial_unset_scan),
@@ -549,6 +702,22 @@ ASSERTIONS = [
     ),
     Assertion(36, "C5: a key of the namespace that is no dial is refused, never ignored", a_misspelt_dial),
     Assertion(37, "golden lines: each finding's headline, why and fix as literals", golden_lines),
+    Assertion(
+        38,
+        "session start: nothing when named; the zero line when the dial is empty or absent",
+        session_start_zero_line,
+    ),
+    Assertion(
+        39,
+        "session start: no dials file, no repository, malformed dials, an argument",
+        session_start_skips_and_failures,
+    ),
+    Assertion(
+        40,
+        "the printer's absence paths: PyYAML missing is C2, python3 missing is C1",
+        session_start_absence_paths,
+    ),
+    Assertion(41, "the hooks file's shape", hooks_file_shape),
 ]
 
 
