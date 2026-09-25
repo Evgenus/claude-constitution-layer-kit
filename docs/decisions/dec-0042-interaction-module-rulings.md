@@ -96,6 +96,22 @@ The row's optional gate-lite, "a script flagging unnumbered multi-item lists in 
 
 The session recommended A. **R5.** B, chosen by the decider in chat on 2026-09-25: the check ships in this version as a `gate` with a scan mode only — a second entry point of the module beside the shell gate, its hook mode never wired and answering that it is not, so the shared code is not widened — over the dials `territories` and `handles` of the module's own namespace, a finding per list naming the first item without a handle, a list inside a fenced block never counted, the message claiming no more than that an item opens with no token of the grammar; the kit's own exemptions are ruled after the first scan on the kit's tree, never before, as [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) R4 learned. The session's objection stands: the measurement found no consumer friction, and the rule allows keys the grammar cannot see, so the scan is red on prose the rule permits until the grammar or the territory is tuned.
 
+## 6. The pattern language of the destructive-command dial
+
+The comparison bypassed the hook's `if` field live with `git -C . push --force`, so the gate runs on every `Bash` call and reads the command itself, with the platform's own split — separators, substitutions, `bash -c` strings, wrappers stripped, a program path reduced to its base name, git's global options before the verb skipped (d2, d3, d10 of [res-0008-const-interaction](../research/res-0008-const-interaction.md)); its own probe regex missed the `-C .` form.
+
+- **A. Structured entries on the tokens.** `command` words, a `flags` set, `teach` and `alternative` texts; a flag matched anywhere after the verb, inside a cluster too, a long flag by equality; an entry with no `flags` matches the words alone.
+  - **Pros:** readable and addressable in the dials file; the alternative beside the pattern; no regular expression to get wrong.
+  - **Cons:** an argument value cannot be named at this version; a second shape beside the lists scan's grammar.
+- **B. A regular expression per entry** over the normalised subcommand.
+  - **Pros:** the most expressive; what three of the four community guards use.
+  - **Cons:** opaque; the survey's probe caught the alternative it recommended; a typo silently matches nothing.
+- **C. The platform's `Bash(...)` glob.**
+  - **Pros:** one grammar a consumer knows.
+  - **Cons:** prefix-shaped; `--force-with-lease` cannot be excluded; the grammar whose blind spots the live run showed.
+
+The session recommended A. **R6.** A, chosen by the decider in chat on 2026-09-25: the dial `destructive` is a list of entries `{command: [<words>], flags: [<flags>], teach: <why>, alternative: <the reversible way>}`, matched on the tokens of every subcommand of the `Bash` command after the platform's own split — separators, `$()` and backticks, the string after `bash -c` or `sh -c`, a leading assignment and the wrappers stripped, a program path reduced to its base name, git's global options before the verb skipped; a short flag matched inside a cluster, a long flag by equality; an entry with no `flags` matched on its words alone; an argument-value form deferred with its signal; the scan mode explains a command given as `--scan --command <text>`.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-interaction/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands; the sentence on the parked consumer item is history only, a scheduling call of the day.
@@ -103,3 +119,4 @@ The session recommended A. **R5.** B, chosen by the decider in chat on 2026-09-2
 3. R3 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, which states the line; the two siblings' lines are work to come, held by step 9 of the rollout plan until each lands.
 4. R4 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10).
 5. R5 — the row of [requirement A7.5](../requirements.md#a7-5) in [§3](../../modules/const-interaction/MODULE.md#t3) of the module's document, the rows `territories` and `handles` of its [§7](../../modules/const-interaction/MODULE.md#t7), and its scan row in [§9](../../modules/const-interaction/MODULE.md#t9); the session's objection, history only.
+6. R6 — the row `destructive` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, its [§5](../../modules/const-interaction/MODULE.md#t5), which states the reading of a command, and its [§12](../../modules/const-interaction/MODULE.md#t12) for the deferred argument form.
