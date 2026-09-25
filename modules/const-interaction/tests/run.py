@@ -45,7 +45,7 @@ from harness import (  # noqa: E402
     red_lines,
 )
 from interaction_gate import messages, start, tokens  # noqa: E402
-from interaction_gate.model import DEFAULT_DESTRUCTIVE, Subcommand  # noqa: E402
+from interaction_gate.model import DEFAULT_DESTRUCTIVE, Entry, Subcommand  # noqa: E402
 from shared_items import Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -225,14 +225,12 @@ def t7() -> tuple[bool, str]:
     flag inside a cluster; a long flag by equality only."""
     result, _ = gate_on(command(FORCE_PUSH), dials_patch=own(destructive=[]))
     empty = expect(result, 0, shared.g1_green_event(messages.g1_nothing_gated()), "stdout")
-    entry = {"command": ["dropdb"], "teach": "a dropped database is gone", "alternative": "dump it first"}
-    with_own = own(destructive=[entry])
+    teach, alternative = "a dropped database is gone", "dump it first"
+    with_own = own(destructive=[{"command": ["dropdb"], "teach": teach, "alternative": alternative}])
     own_hit = asked(
         "dropdb prod",
         messages.d1_destructive(
-            messages.Entry(("dropdb",), (), entry["teach"], entry["alternative"]),
-            Subcommand((), "dropdb prod"),
-            "",
+            Entry(("dropdb",), (), teach, alternative), Subcommand((), "dropdb prod"), ""
         ),
         dials_patch=with_own,
     )
@@ -663,7 +661,7 @@ def t41() -> tuple[bool, str]:
 RED_LONG = "git push --force " + "x" * (12_000 - len("git push --force "))
 SUBJECT = Subject(
     harness=H,
-    gate_on=gate_on,  # type: ignore[arg-type]
+    gate_on=gate_on,
     own=own,
     valid=command("git status"),
     red=command("git push --force origin main"),
