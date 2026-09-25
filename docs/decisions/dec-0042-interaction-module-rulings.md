@@ -45,7 +45,27 @@ Nine rules that govern every reply, with no trigger — unlike the sibling's ask
 
 The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-25: the module's advisory rules ride on one `SessionStart` hook with no matcher, printed to stdout as plain text, declared advisory, sized in characters in the module document; the install note offers the copy-into-guide fallback labelled manual and version-drifting; an unforced output style is deferred with its signal.
 
+## 3. The visible zero of a gate whose dial leaves it examining nothing
+
+Item D3 of the audit of 2026-09-22: two shipped gates examine nothing by default — `catalogs` of module `const-catalogs` and `record_policies` of module `const-decision-records` are empty lists — and say so nowhere a session sees. This module's gate ships a non-empty default, so its zero arises only when a consumer writes an empty list to switch the gate off while keeping the carrier. The comparison verified that a `SessionStart` line reaches the model and not the transcript, the reverse of a `systemMessage`, and measured two plugins' lines stacking at about sixty characters for the zero (p1, p3 and a4 of [res-0008-const-interaction](../research/res-0008-const-interaction.md)).
+
+- **A. The rule kit-wide, applied here now, the siblings in follow-up routine changes.** A gate whose own dial leaves it examining nothing prints one line at `SessionStart` naming the dial, while it stays so; this module adds the line to its hook; the two siblings each gain a `SessionStart` hook in a routine change naming this record, held pending in the rollout plan.
+  - **Pros:** one rule for every module, stated once; no state file, no shared-code change, no manifest bump before publication.
+  - **Cons:** two follow-up changes with a fixture each; a pending item until they land.
+- **B. This module only.** The siblings wait for their own records.
+  - **Pros:** the smallest change.
+  - **Cons:** the two silent modules stay silent; the same ruling made three times.
+- **C. Refuse an empty list,** so this module never has a zero; the item stays parked for the siblings.
+  - **Pros:** nothing to print.
+  - **Cons:** a consumer who wants the carrier without the gate has no way but a pattern that matches nothing.
+- **D. A `systemMessage` on the first matched write of a session,** with a marker file, the audit's original.
+  - **Pros:** appears where the gate would have acted.
+  - **Cons:** reaches the user and never the model; needs state.
+
+The session recommended A. **R3.** A, chosen by the decider in chat on 2026-09-25: a gate whose own dial leaves it examining nothing prints one line at `SessionStart`, naming the module and the dial, for as long as the dial stays so — a line to the model, sized in characters in the module's document; this module's hook prints it while `destructive` is an empty list; the two modules that examine nothing by default each gain the line in a routine change naming this record, after this module lands.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-interaction/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands; the sentence on the parked consumer item is history only, a scheduling call of the day.
 2. R2 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, its [§12](../../modules/const-interaction/MODULE.md#t12) item 1 for the deferred style, and the fallback step of its install note.
+3. R3 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, which states the line; for the two siblings, pending: [step 9 of the rollout plan](../rollout-plan.md#s9).
