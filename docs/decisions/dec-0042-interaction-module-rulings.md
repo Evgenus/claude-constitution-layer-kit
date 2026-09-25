@@ -64,8 +64,25 @@ Item D3 of the audit of 2026-09-22: two shipped gates examine nothing by default
 
 The session recommended A. **R3.** A, chosen by the decider in chat on 2026-09-25: a gate whose own dial leaves it examining nothing prints one line at `SessionStart`, naming the module and the dial, for as long as the dial stays so — a line to the model, sized in characters in the module's document; this module's hook prints it while `destructive` is an empty list; the two modules that examine nothing by default each gain the line in a routine change naming this record, after this module lands.
 
+## 4. How the kit's own sessions load its plugins
+
+Item D7 of the audit of 2026-09-22: the kit's sessions load no plugin unless started with one `--plugin-dir` flag per module, so the kit runs ungated by its own gates. Verified on 2026-09-25 against the settings reference and the marketplace page: a marketplace's plugin entries take relative paths from the marketplace root and load in place; a `directory` marketplace source in a settings file needs an absolute path, so a committed settings file cannot point at its own clone; enabling a plugin in project settings installs it for nobody else, so each clone installs once; the comparison's experiment E8 ran the whole path offline (p13 and p14 of [res-0008-const-interaction](../research/res-0008-const-interaction.md)).
+
+- **A. A marketplace file at the kit root, project settings enabling every module, one setup step per clone.** `.claude-plugin/marketplace.json` with a relative entry per module; `.claude/settings.json` with `enabledPlugins` only; the clone setup script registers the clone as a marketplace and installs each plugin at project scope, idempotently, its `--check` reporting; implemented on its own branch after this module lands, then the session-conduct block of the kit's guide trims to what no module carries, the routine edit [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) R2 names.
+  - **Pros:** every kit session runs under its own gates without flags; plugins load in place so the links survive; verified headless; the marketplace file is what Phase D publishes.
+  - **Cons:** one more per-clone step, the registration in the user's settings; the kit's gates then fire in every kit session.
+- **B. Keep `--plugin-dir` by hand,** the guide listing the flags.
+  - **Pros:** nothing new to maintain.
+  - **Cons:** sessions run ungated unless someone types eight flags; the trim never triggers.
+- **C. A, with the registration written by the setup script into `.claude/settings.local.json`** instead of the user's settings.
+  - **Pros:** nothing of the kit touches the user's global settings.
+  - **Cons:** the `directory` source in a local settings file is documented for development only and its in-place loading is unverified by any run.
+
+The session recommended A, with C tried during the implementation. **R4.** A, chosen by the decider in chat on 2026-09-25: the kit loads its own plugins per clone through a marketplace file at its root, relative entries, one per module; the project's settings file enables each; the clone setup script registers the marketplace and installs the plugins once per clone; the work is a routine change on its own branch after this module lands, held by step 10 of the rollout plan, and the local-settings form of C replaces the user-settings write there if one headless run proves it loads in place; the marketplace is named `constitution-kit`.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-interaction/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands; the sentence on the parked consumer item is history only, a scheduling call of the day.
 2. R2 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, its [§12](../../modules/const-interaction/MODULE.md#t12) item 1 for the deferred style, and the fallback step of its install note.
 3. R3 — the hook row and the always-on slot of [§6](../../modules/const-interaction/MODULE.md#t6) of the module's document, which states the line; the two siblings' lines are work to come, held by step 9 of the rollout plan until each lands.
+4. R4 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10).
