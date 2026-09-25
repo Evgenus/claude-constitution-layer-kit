@@ -1,0 +1,49 @@
+{
+  "name": "constitution-kit",
+  "description": "The constitution kit: a portable governance layer for Claude Code projects, one plugin per module",
+  "owner": {
+    "name": "Eugene Chernyshov"
+  },
+  "plugins": [
+    {
+      "name": "const-catalogs",
+      "source": "./modules/const-catalogs",
+      "description": "Numbered kinds: a catalogued document's file name and id are one name, <prefix>-<nnnn>-<slug>; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing."
+    },
+    {
+      "name": "const-decision-records",
+      "source": "./modules/const-decision-records",
+      "description": "Write-time gate on decision records: a document governed by a record policy carries type task-record, stakes (process | product | architecture) and a decider. Plus skills for pricing and recording a decision, and for promoting recurring commit notes."
+    },
+    {
+      "name": "const-interaction",
+      "source": "./modules/const-interaction",
+      "description": "Answer in the shape the question has, the answer first; every assumption listed, every list item addressable; honesty over agreement; stop before a hard-to-reverse act and wait for a yes, with a gate on enumerated destructive commands."
+    },
+    {
+      "name": "const-locations",
+      "source": "./modules/const-locations",
+      "description": "Documents born in their canonical home: a command derives the home from the policy's territory, proves it resolves to exactly that policy, and writes the document from the kind's template with a valid envelope; a skill for creating documents through it and one for introducing a new kind — policy first, then territory, then document."
+    },
+    {
+      "name": "const-meta-types",
+      "source": "./modules/const-meta-types",
+      "description": "Write-time guard of claimed territory: every Markdown document there carries the envelope (id, type, title, status) and resolves to exactly one governing policy. Plus a skill for choosing the meta-type."
+    },
+    {
+      "name": "const-questions",
+      "source": "./modules/const-questions",
+      "description": "Ask only at recorded stakes or a genuine blocker, else decide and note; one decision per message in a fixed shape — lettered options with pros and cons, one recommendation, the decider named; questions derived from open slots, closed vocabularies as the options, defaults with override, vague input restated; no open question inside a deliverable, with a gate on open-question markers in delivered documents."
+    },
+    {
+      "name": "const-referencing",
+      "source": "./modules/const-referencing",
+      "description": "References a machine can follow and a move can repair: one written form per kind of reference, anchors that do not depend on a heading's words, a check of the whole tree after every write and in the scan, and a mover that repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat."
+    },
+    {
+      "name": "const-task-close",
+      "source": "./modules/const-task-close",
+      "description": "Task close as a single act: a change that touches code covered by current-state documents updates them or declares no impact; a close procedure that merges deltas, deletes working files and sets the record inactive; and a dirty tree at turn end warned or blocked."
+    }
+  ]
+}
