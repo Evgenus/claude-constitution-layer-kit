@@ -13,8 +13,12 @@ from .model import Subcommand
 # The operators that separate simple commands, longest first so `||` is not read as two pipes.
 OPERATORS = ("&&", "||", "|&", ";", "|", "&", "\n")
 # Programs that run another program: stripped with their own options, the rest is the command.
-WRAPPERS = frozenset({"time", "nohup", "command", "builtin", "noglob", "xargs", "sudo", "doas", "env"})
-WRAPPERS_WITH_VALUE = {"timeout": 1, "nice": 0, "stdbuf": 0}  # `timeout <n>`; nice/stdbuf take -x flags
+WRAPPERS = frozenset(
+    {"time", "nohup", "command", "builtin", "noglob", "xargs", "sudo", "doas", "env", "nice", "stdbuf"}
+)
+WRAPPERS_WITH_VALUE = {"timeout": 1}  # `timeout <n> <command>`: one positional value before the command
+# A wrapper's flags that take a value of their own: `nice -n 5`, `sudo -u root`, `xargs -I {}`.
+VALUED_FLAGS = frozenset({"-n", "-u", "-g", "-I", "-d", "-P", "-s", "-k", "-C", "-i", "-o", "-e"})
 SHELLS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
 GIT_GLOBAL_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"})
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -91,10 +95,20 @@ def _separate(text: str) -> list[str]:
             current.append(text[i + 1])
             i += 2
             continue
-        if ch == "(":
+        if text.startswith("$(", i):
             depth += 1
-        elif ch == ")" and depth > 0:
+            current.append("$(")
+            i += 2
+            continue
+        if depth > 0 and ch == "(":
+            depth += 1
+        elif depth > 0 and ch == ")":
             depth -= 1
+        elif ch in "()":  # a bare subshell or group: its commands are the text's own
+            pieces.append("".join(current))
+            current = []
+            i += 1
+            continue
         if depth == 0:
             operator = next((op for op in OPERATORS if text.startswith(op, i)), None)
             if operator is not None:
@@ -142,6 +156,14 @@ def _words(text: str) -> list[str]:
         return text.split()
 
 
+def _drop_flags(rest: list[str]) -> None:
+    """A wrapper's own flags, with the value of one that takes a value: `nice -n 5`, `env -i`."""
+    while rest and rest[0].startswith("-"):
+        flag = rest.pop(0)
+        if flag in VALUED_FLAGS and rest:
+            rest.pop(0)
+
+
 def _normalise(words: list[str]) -> tuple[list[str], str | None]:
     """Strip assignments and wrappers, reduce the program to its base name, skip git's global
     options; a shell told to run a string hands that string back for its own split."""
@@ -150,17 +172,14 @@ def _normalise(words: list[str]) -> tuple[list[str], str | None]:
         head = rest[0]
         if ASSIGNMENT.match(head):
             rest.pop(0)
-        elif head in WRAPPERS:
+        elif head in WRAPPERS or head in WRAPPERS_WITH_VALUE:
             rest.pop(0)
-            while rest and rest[0].startswith("-"):  # a wrapper's own flags: `sudo -u x`, `env -i`
-                rest.pop(0)
-        elif head in WRAPPERS_WITH_VALUE:
-            rest.pop(0)
-            while rest and rest[0].startswith("-"):
-                rest.pop(0)
-            for _ in range(WRAPPERS_WITH_VALUE[head]):
+            _drop_flags(rest)
+            for _ in range(WRAPPERS_WITH_VALUE.get(head, 0)):
                 if rest:
                     rest.pop(0)
+            while rest and ASSIGNMENT.match(rest[0]):  # `env FOO=1 cmd`
+                rest.pop(0)
         else:
             break
     if not rest:
