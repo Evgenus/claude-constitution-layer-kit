@@ -261,6 +261,13 @@ def t6() -> tuple[bool, str]:
         asked("xargs --max-chars 10 git push -f", d1("", 0, "-f", "xargs --max-chars 10 git push -f")),
         asked("xargs -R 2 git push -f", d1("", 0, "-f", "xargs -R 2 git push -f")),
         asked("xargs -S 512 git push -f", d1("", 0, "-f", "xargs -S 512 git push -f")),
+        asked("xargs --max-lines git push -f", d1("", 0, "-f", "xargs --max-lines git push -f")),
+        asked("xargs --eof git push -f", d1("", 0, "-f", "xargs --eof git push -f")),
+        asked(
+            "xargs --process-slot-var N git push -f",
+            d1("", 0, "-f", "xargs --process-slot-var N git push -f"),
+        ),
+        asked("stdbuf --output L git push -f", d1("", 0, "-f", "stdbuf --output L git push -f")),
         asked('env -S "git push -f \'x"', d1("", 0, "-f", "git push -f ''\"'\"'x'")),
         asked("bash -O extglob -c 'git push -f'", d1("", 0, "-f", "git push -f"), subcommands=2),
         asked('env -S "echo \'x" ; git push -f', d1("", 0, "-f", "git push -f"), subcommands=2),

@@ -21,10 +21,12 @@ WRAPPERS: dict[str, frozenset[str]] = {
     "command": frozenset(),
     "builtin": frozenset(),
     "noglob": frozenset(),
-    # Sources, read 2026-09-25: sudo's own man page; the xargs pages of macOS 26 (BSD) and of GNU
+    # Sources, read 2026-09-25: sudo's upstream man page (sudo.ws; -r, -t and their long forms are
+    # SELinux-only and absent from the macOS page); the xargs pages of macOS 26 (BSD) and of GNU
     # findutils; env of macOS 26, with FreeBSD's -L and -U; doas of OpenBSD; nice, stdbuf and timeout
-    # of GNU coreutils. A long flag with its value as the next word is listed; `--flag=value` is one
-    # token and needs no entry.
+    # of GNU coreutils. A long flag whose value is the next word is listed; `--flag=value` is one
+    # token and needs no entry; a GNU flag whose value is optional (`--max-lines[=N]`, `--eof[=STR]`)
+    # takes it attached only and is left out on purpose, since given bare it takes no word.
     "xargs": frozenset(
         {
             "-I",
@@ -41,10 +43,9 @@ WRAPPERS: dict[str, frozenset[str]] = {
             "--max-args",
             "--max-procs",
             "--max-chars",
-            "--max-lines",
             "--arg-file",
             "--delimiter",
-            "--eof",
+            "--process-slot-var",
         }
     ),
     "sudo": frozenset(
@@ -76,7 +77,7 @@ WRAPPERS: dict[str, frozenset[str]] = {
     "doas": frozenset({"-u", "-C", "-a"}),
     "env": frozenset({"-C", "-u", "-S", "-P", "-L", "-U", "--chdir", "--unset", "--split-string"}),
     "nice": frozenset({"-n", "--adjustment"}),
-    "stdbuf": frozenset({"-i", "-o", "-e"}),
+    "stdbuf": frozenset({"-i", "-o", "-e", "--input", "--output", "--error"}),
     "timeout": frozenset({"-s", "-k", "--signal", "--kill-after"}),
 }
 WRAPPERS_WITH_VALUE = {"timeout": 1}  # `timeout <n> <command>`: one positional value before the command
