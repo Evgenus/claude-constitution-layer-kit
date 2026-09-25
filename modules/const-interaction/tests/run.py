@@ -254,6 +254,13 @@ def t6() -> tuple[bool, str]:
         asked("xargs -J % git push -f", d1("", 0, "-f", "xargs -J % git push -f")),
         asked("env -L user git push -f", d1("", 0, "-f", "env -L user git push -f")),
         asked("env -U user git push -f", d1("", 0, "-f", "env -U user git push -f")),
+        asked(
+            "sudo --command-timeout 5 git push -f", d1("", 0, "-f", "sudo --command-timeout 5 git push -f")
+        ),
+        asked("sudo --chroot /tmp git push -f", d1("", 0, "-f", "sudo --chroot /tmp git push -f")),
+        asked("xargs --max-chars 10 git push -f", d1("", 0, "-f", "xargs --max-chars 10 git push -f")),
+        asked("xargs -R 2 git push -f", d1("", 0, "-f", "xargs -R 2 git push -f")),
+        asked("xargs -S 512 git push -f", d1("", 0, "-f", "xargs -S 512 git push -f")),
         asked('env -S "git push -f \'x"', d1("", 0, "-f", "git push -f ''\"'\"'x'")),
         asked("bash -O extglob -c 'git push -f'", d1("", 0, "-f", "git push -f"), subcommands=2),
         asked('env -S "echo \'x" ; git push -f', d1("", 0, "-f", "git push -f"), subcommands=2),

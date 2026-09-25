@@ -21,12 +21,57 @@ WRAPPERS: dict[str, frozenset[str]] = {
     "command": frozenset(),
     "builtin": frozenset(),
     "noglob": frozenset(),
-    # from the man pages of macOS 26 and GNU coreutils, read 2026-09-25
+    # Sources, read 2026-09-25: sudo's own man page; the xargs pages of macOS 26 (BSD) and of GNU
+    # findutils; env of macOS 26, with FreeBSD's -L and -U; doas of OpenBSD; nice, stdbuf and timeout
+    # of GNU coreutils. A long flag with its value as the next word is listed; `--flag=value` is one
+    # token and needs no entry.
     "xargs": frozenset(
-        {"-I", "-J", "-d", "-P", "-s", "-n", "-L", "-a", "-E", "-R", "-S", "--max-args", "--max-procs"}
+        {
+            "-I",
+            "-J",
+            "-d",
+            "-P",
+            "-s",
+            "-n",
+            "-L",
+            "-a",
+            "-E",
+            "-R",
+            "-S",
+            "--max-args",
+            "--max-procs",
+            "--max-chars",
+            "--max-lines",
+            "--arg-file",
+            "--delimiter",
+            "--eof",
+        }
     ),
     "sudo": frozenset(
-        {"-u", "-g", "-C", "-p", "-h", "-U", "-r", "-t", "-D", "-R", "-T", "--user", "--group"}
+        {
+            "-u",
+            "-g",
+            "-C",
+            "-p",
+            "-h",
+            "-U",
+            "-r",
+            "-t",
+            "-D",
+            "-R",
+            "-T",
+            "--user",
+            "--group",
+            "--close-from",
+            "--prompt",
+            "--host",
+            "--other-user",
+            "--role",
+            "--type",
+            "--chdir",
+            "--chroot",
+            "--command-timeout",
+        }
     ),
     "doas": frozenset({"-u", "-C", "-a"}),
     "env": frozenset({"-C", "-u", "-S", "-P", "-L", "-U", "--chdir", "--unset", "--split-string"}),
