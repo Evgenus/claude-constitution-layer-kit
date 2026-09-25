@@ -199,6 +199,14 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-questions/tests/**"
       docs:
         - "modules/const-questions/MODULE.md"
+    - name: const-interaction
+      code:
+        - "modules/const-interaction/scripts/**"
+        - "modules/const-interaction/hooks/**"
+        - "modules/const-interaction/skills/**"
+        - "modules/const-interaction/tests/**"
+      docs:
+        - "modules/const-interaction/MODULE.md"
     - name: kit-scripts   # the git hooks, the clone setup, the kit gates and the development routine
       code:
         - "scripts/**"
@@ -219,6 +227,7 @@ const-questions:                      # ask at recorded stakes or a blocker; no 
     - "!templates/**"                 # a template is no deliverable
     - "!module-template/**"
     # a draft module document is taken out here by its own path while it carries [decide: slots, never by a wildcard
+    - "!modules/const-interaction/MODULE.md"
   markers:                            # gate: the texts that mark an open question, matched outside code
     - '[decide:'
     - 'TODO'
