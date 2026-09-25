@@ -74,9 +74,26 @@ Whether the check is a hook and a scan, the standard shape of every kit gate, or
 
 The session recommended A. **R4.** A, chosen by the decider in chat on 2026-09-25, with the session's defaults accepted: the marker set is `[decide:`, `TODO`, `TBD` and `FIXME`, matched case-sensitively and, where a marker begins or ends with a word character, at a word boundary there; `???` and `[open]` left out for having matched nothing but a quoted glob; a marker inside a code span or a fenced block is a quotation the check never reports; exemptions are negated patterns inside the `territories` dial and no second dial, the shape of `const-referencing`; the kit's own territory is every Markdown file git lists, minus `templates/**` and `module-template/**`, which are no deliverables, and minus a draft module document by its own path while it carries open slots — the first scan on the kit found the documents that quote the marker's syntax need no exemption once the quotations stand in code, and found no reason to hide six finished module documents behind a wildcard, which corrected the session's two defaults before the yes. A document with no dials file, in either mode, is the shared visible skip naming the file.
 
+## 5. The shape of the per-decider preferences dial
+
+The row's binding, "who wants to be asked about what"; the comparison found no harness with such a setting, every one governing tool approval instead, and the sibling's two skill-read dials as the nearest kin (section 4 of [res-0007-const-questions](../research/res-0007-const-questions.md)).
+
+- **A. A list, one entry per decider.** `preferences: [{decider, ask: [<topics>], decide: [<topics>], pick: tool | letter}]`, absent by default; beside it an own `boundary_examples` list of `{ask, decide}` pairs, the seed pairs of the module document standing in.
+  - **Pros:** every item addressable; the pick preference gives the fallback of [requirement A6.9](../requirements.md#a6-9) a standing home; the shape of the sibling's dials; read as prose, refused by name only.
+  - **Cons:** free-phrase topics; two keys where the specification named one.
+- **B. A mapping, decider to one prose line.**
+  - **Pros:** the freest and shortest.
+  - **Cons:** nothing addressable inside, no place for the pick, the pairs in prose too.
+- **C. Per stakes level, the sibling's `deciders` shape.**
+  - **Pros:** one shape across the two modules.
+  - **Cons:** answers who decides, not what they want asked; reading the sibling's key crosses namespaces, copying it duplicates a binding.
+
+The session recommended A. **R5.** A, chosen by the decider in chat on 2026-09-25, with the session's defaults accepted: both keys empty by default and read by the skill as written, the gate refusing only a key of the namespace that is no dial; `pick` takes `tool` or `letter`, `tool` when the entry omits it, and a decider's `letter` makes the fallback of [requirement A6.9](../requirements.md#a6-9) the path from the first decision, which settles that row's open slot without a further ruling; the kit's own entry names the decider with `pick: letter`, the loss having been observed in the decider's sessions, and leaves `ask` and `decide` empty, the seed pairs applying.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-questions/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands.
 2. R2 — the opening sentence of the "Session conduct" block of [CLAUDE.md](../../CLAUDE.md), which states that the block carries the rules itself until the made modules replace the kit's harness.
 3. R3 — the row of [requirement A6.7](../requirements.md#a6-7) in [§3](../../modules/const-questions/MODULE.md#t3) of the module's document, and the rows E1 and E2 of its [§9](../../modules/const-questions/MODULE.md#t9); the session's objection, history only.
 4. R4 — the rows `territories`, `markers` and `severity` of [§7](../../modules/const-questions/MODULE.md#t7) of the module's document, and the `const-questions` namespace of the kit's `constitution.yaml`, which carries the kit's territory.
+5. R5 — the rows `boundary_examples` and `preferences` of [§7](../../modules/const-questions/MODULE.md#t7) of the module's document, the rows of [requirement A6.8](../requirements.md#a6-8) and [requirement A6.9](../requirements.md#a6-9) in its [§3](../../modules/const-questions/MODULE.md#t3), and the `const-questions` namespace of the kit's `constitution.yaml`, which carries the kit's entry.
