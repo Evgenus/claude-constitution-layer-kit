@@ -128,6 +128,22 @@ The live runs (d4 to d6, E4, E5, E11 of [res-0008-const-interaction](../research
 
 The session recommended A. **R7.** A, chosen by the decider in chat on 2026-09-25: a `Bash` command matching an entry is answered with `permissionDecision: "ask"` and the entry's three-part teaching text as the reason — what matched, why the act is hard to reverse, the reversible alternative — at exit 0; an unlisted command passes at exit 0 with nothing printed but the green line; under `severity: warn` the match is reported in the JSON form the sibling gates use and the command runs, the adoption path; no `updatedInput` at this version, a rewrite deferred with its signal; the shared report path gains the `ask` verdict as a widening that defaults to what the other modules pass.
 
+## 8. The default destructive-command list
+
+The comparison proposed a list (d13 of [res-0008-const-interaction](../research/res-0008-const-interaction.md)); two of its entries do not fit the token entries of R6 — a SQL statement stands inside a quoted argument, one token after the split, and `git checkout -- .` needs the argument form deferred there.
+
+- **A. The comparison's list whole,** SQL included, matched by a special case inside quoted arguments.
+  - **Pros:** the widest net on day one.
+  - **Cons:** a second matching mechanism for two entries; a database command belongs to the tool that runs it, not to the shell tokens.
+- **B. The token-expressible list, each entry with its alternative:** `git push` with `--force`/`-f`; `git reset` with `--hard`; `git checkout` with `-f`/`--force`; `git restore` whole; `git clean` with `-f`/`--force`; `git branch` with `-D`; `git stash drop` and `git stash clear`; `git rebase` whole; `git filter-branch`, `git filter-repo`, `git reflog expire`, `git gc` with `--prune=now`; `rm` with `-r`/`-R`/`--recursive`. Outside the list and said so: `git commit --amend`, a plain push, `rm` of one file, `git checkout -- .`, deletion through a file tool, SQL through any client.
+  - **Pros:** every entry the grammar states exactly; the alternative beside each.
+  - **Cons:** `git rebase` and `git restore` prompt on common, recoverable acts; a consumer who rebases work branches daily tunes the list on day one.
+- **C. A minimal list:** the force push, the hard reset, the clean, the branch delete and the recursive remove only.
+  - **Pros:** prompts only on the acts nearly everyone calls destructive.
+  - **Cons:** a rebase and a discarded working tree pass in silence, the two acts the kit's own guide names first.
+
+The session recommended B. **R8.** B, chosen by the decider in chat on 2026-09-25: the default of the dial `destructive` is the ten entries of B, each with its teaching text and its reversible alternative written in the module's document; what the list leaves out is named there and in the gate's own words; SQL is no shell gate's default.
+
 ## Carry list
 
 1. R1 — the "not a project" bullet of [INTENT.md](../../INTENT.md), which names the kit consumer zero of the session conduct its own guide states, and [§2](../../modules/const-interaction/MODULE.md#t2) of the module's document, which states the entry trigger; the done sentence of step 9 of the rollout plan is written when the module lands; the sentence on the parked consumer item is history only, a scheduling call of the day.
@@ -137,3 +153,4 @@ The session recommended A. **R7.** A, chosen by the decider in chat on 2026-09-2
 5. R5 — the row of [requirement A7.5](../requirements.md#a7-5) in [§3](../../modules/const-interaction/MODULE.md#t3) of the module's document, the rows `territories` and `handles` of its [§7](../../modules/const-interaction/MODULE.md#t7), and its scan row in [§9](../../modules/const-interaction/MODULE.md#t9); the session's objection, history only.
 6. R6 — the row `destructive` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, its [§5](../../modules/const-interaction/MODULE.md#t5), which states the reading of a command, and its [§12](../../modules/const-interaction/MODULE.md#t12) for the deferred argument form.
 7. R7 — the row `severity` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, the row E1 of its [§9](../../modules/const-interaction/MODULE.md#t9), its [§12](../../modules/const-interaction/MODULE.md#t12) for the deferred rewrite, and the verdicts of [kit-shared-gate-code §3](../../shared/GATE.md#g3) for the widening.
+8. R8 — the row `destructive` of [§7](../../modules/const-interaction/MODULE.md#t7) of the module's document, which lists the default entries, and the honest limits of its [§9](../../modules/const-interaction/MODULE.md#t9), which name what the list leaves out.
