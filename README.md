@@ -76,7 +76,7 @@ claude plugin install const-<aspect>@constitution-kit --scope project
 
 The same two commands work as `/plugin marketplace add …` and `/plugin install …` inside a session.
 
-**C. Team auto-registration.** Commit the marketplace to the project's `.claude/settings.json` so the catalog is added automatically when a teammate trusts the folder. Plugins from an external source, such as the kit's own GitHub repository, still need one `claude plugin install` per person. A repository that holds the marketplace itself — the kit is its own consumer zero — declares it with `{ "source": "directory", "path": "." }` instead, and its relative-path plugins then load with no install at all, once the folder is trusted.
+**C. Team auto-registration.** Commit the marketplace to the project's `.claude/settings.json` so the catalog is added automatically when a teammate trusts the folder. Plugins from an external source, such as a GitHub-hosted kit, still need one `claude plugin install` per person. A repository that holds the marketplace itself — the kit is its own consumer zero — declares it with `{ "source": "directory", "path": "." }` instead and lists each plugin under `enabledPlugins` as `"<name>@constitution-kit": true`; its relative-path plugins then load with no install at all, once the folder is trusted.
 
 ```json
 {

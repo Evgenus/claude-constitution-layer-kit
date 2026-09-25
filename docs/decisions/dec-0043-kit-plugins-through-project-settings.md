@@ -34,18 +34,21 @@ B, chosen by the decider in chat on 2026-09-26.
 
 ## Ruling
 
-**R1.** The kit's committed project settings file, `.claude/settings.json`, declares the marketplace `constitution-kit` with a `directory` source at the relative path `.` and enables each module as `<module>@constitution-kit`; the marketplace file `.claude-plugin/marketplace.json` at the kit root lists each module by a relative entry. Nothing is written per clone: the plugins load in place from the kit's own `modules/` in every session started in a folder the person has trusted once, and every kit session runs under the kit's own modules, gates included.
+**R1.** The kit's committed project settings file, `.claude/settings.json`, declares the marketplace `constitution-kit` with a `directory` source at the relative path `.` and enables each module as `<module>@constitution-kit`; the marketplace file `.claude-plugin/marketplace.json` at the kit root lists each module by a relative entry. Nothing is written per clone to load them (R4 names the one exception): the plugins load in place from the kit's own `modules/` in every session started in a folder the person has trusted once, and every kit session runs under the kit's own modules, gates included.
 
 **R2.** The part of R4 of [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md) that had the clone setup script register the marketplace and install the plugins per clone, in the user's settings or the project's local settings file, is reversed; the rest of R4 — the marketplace file at the kit root, its name, the relative entries, the project's settings file enabling each module — stands. The clone setup script keeps its git job alone.
 
 **R3.** A headless run in a folder the platform has not been told to trust loads no plugin through settings, so the kit's live proofs on clones and copies in the scratch directory keep passing `--plugin-dir` per module.
 
+**R4.** The exception: a gate that blocks its own fix is switched off for one clone by `"<module>@constitution-kit": false` under `enabledPlugins` in that clone's `.claude/settings.local.json`, the one per-clone write, which the kit's `.gitignore` keeps out of the tree so that the dirty-tree stop of `const-task-close` never fires on it.
+
 ## Applied
 
-The creating commit rewrites the opening sentence of the session-conduct block of [CLAUDE.md](../../CLAUDE.md) and adds the `--plugin-dir` clause to step 6 of its module routine, updates step 10 of the rollout plan, the consumer-zero bullet of [INTENT.md](../../INTENT.md) and the header of the kit's `constitution.yaml`; the marketplace file and the settings file landed in the commit before it on the same branch. The record is born `inactive`. The trim of the session-conduct block to what no module carries follows on the same branch, the routine edit R2 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) names.
+The creating commit rewrites the opening sentence of the session-conduct block of [CLAUDE.md](../../CLAUDE.md) and adds the `--plugin-dir` clause to step 6 of its module routine, updates step 10 of the rollout plan, the consumer-zero bullet of [INTENT.md](../../INTENT.md) and the header of the kit's `constitution.yaml`; the marketplace file and the settings file landed in the commit before it on the same branch. R4 was added and R1 qualified in place before the yes, after the first carry audit, as the kernel allows. The record is born `inactive`. The trim of the session-conduct block to what no module carries follows on the same branch, the routine edit R2 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) names.
 
 ## Carry list
 
 1. R1 — the opening sentence of the "Session conduct" block of [CLAUDE.md](../../CLAUDE.md), which states how the kit's sessions load its plugins and under what condition; [.claude/settings.json](../../.claude/settings.json) and [.claude-plugin/marketplace.json](../../.claude-plugin/marketplace.json), the files themselves.
 2. R2 — history only: the reversal of a part of an accepted ruling, ordered by the kernel's precedence clock.
 3. R3 — step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), which names the runners and the flag they pass.
+4. R4 — the opening sentence of the "Session conduct" block of [CLAUDE.md](../../CLAUDE.md), which names the escape and its file; [.gitignore](../../.gitignore), which ignores that file.
