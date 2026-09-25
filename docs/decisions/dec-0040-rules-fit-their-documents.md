@@ -31,7 +31,7 @@ A, by the session: a rule stricter than its documents' practice, with no reader 
 
 ## Choice
 
-A, chosen by the decider in chat on 2026-09-24.
+A, chosen by the decider in chat on 2026-09-24; R8, found by the decider before the yes, chosen A over a routine fix of the citation alone and over leaving it, in chat on 2026-09-25.
 
 ## Ruling
 
@@ -49,11 +49,11 @@ A, chosen by the decider in chat on 2026-09-24.
 
 **R7.** The document repairs made under dec-0039 in the repair commit, two before this record's — dates and the platform's version on every live item, the `live, deferred` label and the plan's step on every deferred one, dates and breaks on five platform statements, the manifest row, the count tail under F9, two shared keys qualified, one title made one clause, rule 6 of the decision-record policy completed, six facts of the shared page sourced, their dates the audit's later fix, the plan's step 3 given its done line and its Phase E its stakes clause dropped — are routine under the rules dec-0039 accepted.
 
-**R8.** A policy states its own rules itself and cites another policy only for a rule that is the other's own; the root policy relies on no rule of a policy it governs. Rule 3 of the root policy states the repair rule in its own words and cites the record that made it as provenance.
+**R8.** A policy states its own rules itself and cites another policy only for a rule that is the other's own — a rule about the other's kind, stated there and nowhere else; the root policy cites no rule of any other policy. Rule 3 of the root policy states the repair rule in its own words and cites the record that made it as provenance.
 
 ## Applied
 
-In the commit before the one that creates this record, which holds only this file: the seven rules, the two rows, the two headings, the two sentences of the plan; the repairs of R7 in the commit before that; the audit's fixes in the commits after. The record is born `inactive`.
+In the commit before the one that creates this record, which holds only this file: the seven rules of R1 to R6, the two rows, the two headings, the two sentences of the plan; the repairs of R7 in the commit before that; the audit's fixes, and R8 with the two rules of the root policy it changes, in the commits after. The record is born `inactive`.
 
 ## Carry list
 
@@ -64,4 +64,4 @@ In the commit before the one that creates this record, which holds only this fil
 5. R5 — [plc-0008-rollout-plan](../policies/plc-0008-rollout-plan.md#r2), rule 2; the two sentences removed and the preamble's link are history.
 6. R6 — [plc-0005-research](../policies/plc-0005-research.md#r9), rule 9.
 7. R7 — history only: repairs of the day under rules already accepted.
-8. R8 — [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r4), rule 4, and its rule 3; that rule 3 once cited the child is history.
+8. R8 — [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r4), rule 4, and [rule 3](../policies/plc-0001-root-policy.md#r3); that rule 3 once cited the child is history.
