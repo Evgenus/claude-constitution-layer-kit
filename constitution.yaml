@@ -1,5 +1,7 @@
 # Dials file of the constitution kit itself: the kit is consumer zero of the
-# document-shaped modules (decision dec-0006-accumulating-set-first). Calibration of
+# document-shaped modules, of the code territories its own current-state documents
+# describe, and of its own session conduct (decisions dec-0006-accumulating-set-first,
+# dec-0036-task-close-module-rulings, dec-0041-questions-module-rulings). Calibration of
 # this repository, never of any project. Shape per kernel §3 and §6 (decision
 # dec-0008-policies-by-location).
 #
@@ -191,6 +193,12 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-task-close/tests/**"
       docs:
         - "modules/const-task-close/MODULE.md"
+    - name: const-questions
+      code:
+        - "modules/const-questions/skills/**"
+        - "modules/const-questions/tests/**"
+      docs:
+        - "modules/const-questions/MODULE.md"
     - name: kit-scripts   # the git hooks, the clone setup, the kit gates and the development routine
       code:
         - "scripts/**"
@@ -202,6 +210,26 @@ const-task-close:                     # task close as one act: a change that tou
         - "kernel/schemas/**"
       docs:
         - "kernel/CONVENTIONS.md"
+
+const-questions:                      # ask at recorded stakes or a blocker; no open question inside a deliverable
+  severity: block                     # values: block | warn
+  log_dir: local/gate-logs
+  territories:                        # gate: the delivered documents among the Markdown files git lists; a negated pattern takes files out
+    - "*.md"
+    - "!templates/**"                 # a template is no deliverable
+    - "!module-template/**"
+    # a draft module document is taken out here by its own path while it carries [decide: slots, never by a wildcard
+  markers:                            # gate: the texts that mark an open question, matched outside code
+    - '[decide:'
+    - 'TODO'
+    - 'TBD'
+    - 'FIXME'
+  boundary_examples: []               # skill: the kit's own ask / decide pairs, {ask: …, decide: …}; empty: the seed pairs of MODULE.md §8
+  preferences:                        # skill: per decider, the topics to ask about, the topics to decide and note, and how a pick is taken
+    - decider: Eugene Chernyshov
+      ask: []
+      decide: []
+      pick: letter                    # values: tool | letter — letter: the argument was lost behind the tool in this decider's sessions
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs
