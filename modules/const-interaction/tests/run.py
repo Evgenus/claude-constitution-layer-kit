@@ -243,7 +243,7 @@ def t6() -> tuple[bool, str]:
         asked('env -S "git push" -f', d1("", 0, "-f", "git push -f")),
         asked("env -S'git push -f'", d1("", 0, "-f", "git push -f")),
         asked("env -iS 'git push -f'", d1("", 0, "-f", "git push -f")),
-        asked('env -S "echo \'x" ; git push -f', d1("", 0, "-f", "git push -f"), subcommands=3),
+        asked('env -S "echo \'x" ; git push -f', d1("", 0, "-f", "git push -f"), subcommands=2),
         asked("bash +o posix -c 'git push -f'", d1("", 0, "-f", "git push -f"), subcommands=2),
         asked('bash -o pipefail -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
         asked('bash -eo pipefail -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
