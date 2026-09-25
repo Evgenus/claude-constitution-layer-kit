@@ -599,7 +599,7 @@ def t30() -> tuple[bool, str]:
         " constitution.yaml"
     )
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
-    match = re.search(r"one line of ([0-9,]+) characters", module_doc)
+    match = re.search(r"one line of ([0-9,]+) characters saying that no command is gated", module_doc)
     stated = int(match.group(1).replace(",", "")) if match else -1
     empty_ok = empty.code == 0 and empty.stdout == RULES + verbosity + zero + "\n" and stated == len(zero)
     pairs_root = prepared(own(boundary_examples=[{"violates": "an essay", "complies": "the word"}]))
