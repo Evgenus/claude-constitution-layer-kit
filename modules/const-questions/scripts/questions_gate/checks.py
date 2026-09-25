@@ -21,7 +21,7 @@ def examine(text: str, markers: Sequence[str]) -> list[Hit]:
     fence: str | None = None
     for number, line in enumerate(text.splitlines(), start=1):
         opener = _FENCE.match(line)
-        if opener and opener.group(1)[0] == "`" and "`" in opener.group(2):
+        if fence is None and opener and opener.group(1)[0] == "`" and "`" in opener.group(2):
             opener = None  # a backtick fence's info string holds no backtick: this is a code span line
         if fence is None and opener:
             fence = opener.group(1)

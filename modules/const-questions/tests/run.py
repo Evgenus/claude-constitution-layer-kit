@@ -224,7 +224,11 @@ def open_fence_masks_to_the_end() -> tuple[bool, str]:
     if not ok:
         return False, evidence
     spans = wrote("```foo`bar\nTODO after a span line, not a fence\n")  # a backtick in the info string
-    return blocked(spans, q1(spans, "TODO", "TODO after a span line, not a fence"))
+    ok, evidence = blocked(spans, q1(spans, "TODO", "TODO after a span line, not a fence"))
+    if not ok:
+        return False, evidence
+    closer = wrote("```\nTODO\n``` x`y\nTBD here\n")  # a closer with any text after it closes
+    return blocked(closer, q1(closer, "TBD", "TBD here"))
 
 
 def one_hit_per_line_in_order() -> tuple[bool, str]:
