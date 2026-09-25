@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Kit check: the gates' hand-written validation is never more lenient than the kernel's
-JSON Schemas — const-meta-types for the envelope (exactly equal) and the dials file,
-const-decision-records for what a decision record adds to the envelope (equal, except
-where the mirror is stricter on purpose: a decider of blanks).
+JSON Schemas — the shared code's mirror of the dials schema (const_gate/dials.py, read by
+every gate), const-meta-types for the envelope (exactly equal), const-decision-records for
+what a decision record adds to the envelope (equal, except where the mirror is stricter on
+purpose: a decider of blanks).
 
 A module ships without the kit, so it cannot read kernel/schemas/ at run time; it carries
 a mirror of the rules instead. This check runs the real schemas (through the jsonschema
