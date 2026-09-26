@@ -23,7 +23,7 @@
     {
       "name": "const-locations",
       "source": "./modules/const-locations",
-      "description": "Documents born in their canonical home: a command derives the home from the policy's territory, proves it resolves to exactly that policy, and writes the document from the kind's template with a valid envelope; a skill for creating documents through it and one for introducing a new kind — policy first, then territory, then document."
+      "description": "Documents born in their canonical home: a command derives the home from the policy's territory, proves it resolves to exactly that policy, and writes the document from the kind's template with a valid envelope; a skill for creating documents through it and one for introducing a new kind \u2014 policy first, then territory, then document."
     },
     {
       "name": "const-meta-types",
@@ -33,12 +33,17 @@
     {
       "name": "const-questions",
       "source": "./modules/const-questions",
-      "description": "Ask only at recorded stakes or a genuine blocker, else decide and note; one decision per message in a fixed shape — lettered options with pros and cons, one recommendation, the decider named; questions derived from open slots, closed vocabularies as the options, defaults with override, vague input restated; no open question inside a deliverable, with a gate on open-question markers in delivered documents."
+      "description": "Ask only at recorded stakes or a genuine blocker, else decide and note; one decision per message in a fixed shape \u2014 lettered options with pros and cons, one recommendation, the decider named; questions derived from open slots, closed vocabularies as the options, defaults with override, vague input restated; no open question inside a deliverable, with a gate on open-question markers in delivered documents."
     },
     {
       "name": "const-referencing",
       "source": "./modules/const-referencing",
       "description": "References a machine can follow and a move can repair: one written form per kind of reference, anchors that do not depend on a heading's words, a check of the whole tree after every write and in the scan, and a mover that repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat."
+    },
+    {
+      "name": "const-styling",
+      "source": "./modules/const-styling",
+      "description": "One style guide every governed document follows \u2014 diagrams, prose against lists and tables, list and table format, headings, code blocks, emphasis, callouts \u2014 with departures declared per territory or per document in the dials file with a reason; a scan reports the traces of the defaults that no departure allows. Plus a skill that applies the defaults before a diagram, a table, a formula or a template is written."
     },
     {
       "name": "const-task-close",

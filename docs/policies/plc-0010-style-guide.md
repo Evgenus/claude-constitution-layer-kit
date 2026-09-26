@@ -1,0 +1,20 @@
+---
+id: plc-0010-style-guide
+type: current-state
+title: Style-guide policy — the defaults every governed document follows
+status: active
+---
+
+# Style-guide policy
+
+Governs the document kind *style guide*: the one document stating the defaults every governed document of the kit follows — diagrams, drawings, formulas, prose against lists against tables, list and table format, headings, code, emphasis, callouts — each defined by its examples (decision [dec-0044-styling-module-rulings](../decisions/dec-0044-styling-module-rulings.md)). Territory under this policy's id in `constitution.yaml`, one path; the guide reaches the documents of every other kind through the style rule each kind's policy carries ([rule 9 of plc-0001-root-policy](plc-0001-root-policy.md#r9)), never by resolution.
+
+## Rules
+
+1. <a id="r1"></a>**Type.** `current-state`, superseded in place ([kernel §1](../../kernel/CONVENTIONS.md#k1)); one document, at the one path the territory names, created by hand from the file module `const-styling` ships, `skills/style-defaults/style-guide.md` under the module's root, whose text is the guide's founding text.
+2. <a id="r2"></a>**Shape.** A header paragraph saying what a default is and where a departure and an addition go; a section "Defaults", a numbered list in which each entry is one default — a bold sentence opening the item, its pairs as nested items reading *departs / follows*; a closing section on departures and additions. An entry keeps its number for life, as a rule of a policy does; a withdrawn default keeps its number and its entry says so.
+3. <a id="r3"></a>**Change.** A default is added at the first concrete need, as the next numbered entry with its pairs, born with the document that needed it, through a `process`-stakes decision ([kernel §4](../../kernel/CONVENTIONS.md#k4)); amending or withdrawing one is the same; a mechanical edit — a typo, a reference-form migration — is routine. The founding entries are the ten of the decision named above. A default is never answered in one document, one template or one commit message alone.
+4. <a id="r4"></a>**One guide, no enumeration.** The guide names no document and no kind, and lists no departure: a departure is an entry of the dial `departures` of module `const-styling` in `constitution.yaml`, per kind by pattern or per document by path, with its reason, and nothing in a document marks it. A second document needing the same one-off departure is the signal that widens the entry to its kind or changes a default here.
+5. <a id="r5"></a>**Anchors.** Every default carries an explicit anchor `d<n>` inside its item, before the bold sentence, never renumbered ([requirement A5.5](../requirements.md#a5-5)).
+6. <a id="r6"></a>**Style.** The guide follows its own defaults, and departs from one only where the dial `departures` of module `const-styling` names a departure for its path, with the reason.
+7. <a id="r7"></a>**Enforcement.** The envelope by module `const-meta-types`; links and anchors by module `const-referencing`; the twelve traces of the defaults — in the guide and in every covered document — by module `const-styling` in its scan alone, which runs no hook; the content of a default, whether an example is apt, and whether prose, a list or a table was due, are review.

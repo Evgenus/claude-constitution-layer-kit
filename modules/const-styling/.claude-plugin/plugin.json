@@ -1,7 +1,7 @@
 {
-  "name": "const-aspect-name",
+  "name": "const-styling",
   "version": "0.0.1",
-  "description": "One line: the failure pattern this module prevents.",
-  "author": { "name": "your-name" },
+  "description": "One style guide every governed document follows — diagrams, prose against lists and tables, list and table format, headings, code blocks, emphasis, callouts — with departures declared per territory or per document in the dials file with a reason; a scan reports the traces of the defaults that no departure allows. Plus a skill that applies the defaults before a diagram, a table, a formula or a template is written.",
+  "author": { "name": "Eugene Chernyshov" },
   "license": "MIT"
 }

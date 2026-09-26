@@ -267,26 +267,3 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries),
 5. **An argument-value form in a `destructive` entry** — `git branch -D main` against any branch. Signal: a consumer's entry that needs a value, reported once.
 6. **A rewritten command shown in the prompt** — `updatedInput` carrying the alternative where it is a plain substitution. Signal: a consumer whose entry's alternative is one flag for another, reported twice.
 7. **A handle grammar beyond regular expressions** for the lists scan — a bold label or a link accepted as a key. Signal: a consumer tuning `handles` past what a regular expression states, reported twice.
-
----
-
-# Plugin skeleton
-
-```
-const-<aspect-name>/
-├── .claude-plugin/
-│   └── plugin.json          # manifest — the ONLY file inside .claude-plugin/; version 0.0.x while draft
-├── MODULE.md                # this document, filled in
-├── INSTALL.md               # install/uninstall notes; the one CLAUDE.md pointer line if any
-├── skills/
-│   └── <name>/SKILL.md      # optional
-├── commands/<name>.md       # optional
-├── agents/<name>.md         # optional
-├── hooks/hooks.json         # optional
-├── scripts/                 # optional; reference via ${CLAUDE_PLUGIN_ROOT}
-│   ├── const_gate -> ../../../shared/const_gate   # a gate only: the shared code, by relative link
-│   └── <module>_gate/       # the module's own package: model, messages, checks, modes, start
-└── tests/                   # harness.py, consumer.py, shared_items.py linked from shared/tests/; one red→green fixture per gate ([law 7 of CLAUDE.md](../../CLAUDE.md#law-7))
-```
-
-Kebab-case everywhere. Only plugin.json lives inside `.claude-plugin/`; every component directory sits at plugin root. Verify the manifest fields against the current plugin reference at authoring time.

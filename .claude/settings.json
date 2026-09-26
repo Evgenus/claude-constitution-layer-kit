@@ -15,6 +15,7 @@
     "const-meta-types@constitution-kit": true,
     "const-questions@constitution-kit": true,
     "const-referencing@constitution-kit": true,
+    "const-styling@constitution-kit": true,
     "const-task-close@constitution-kit": true
   }
 }

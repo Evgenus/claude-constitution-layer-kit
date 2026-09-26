@@ -105,6 +105,13 @@ class Subject:
     ask: bool = False  # True: the gate's block is an `ask` verdict — exit 0, one JSON object on stdout
     # asking the platform to prompt, the finding in its reason — so the items about a red run read
     # that reason where they would read stderr, and expect exit 0 where they would expect 2
+    scan_only: bool = False  # True: the gate has no hook mode — it scans a tree and judges no single
+    # write, and run as a hook it is its own configuration failure — so the items about hook input,
+    # a written file, the warn channel and a negated pattern's skip are not its own and are left out;
+    # `gate_on` then writes the action's file into the consumer and runs `--scan` there, `valid` and
+    # `red` being the documents the scan passes or reports, `green` the whole green line of a scan
+    # over the consumer holding `valid` alone, and the items about a red run read stdout, where a
+    # scan prints its verdict; `bare_readme` is that scan's green line with a README at the top
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
@@ -123,10 +130,17 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return event_json(root, action)
 
     def red_said(result: Result) -> str:
-        """What a red run said: stderr for a block, the reason of the ask verdict for an asking gate."""
+        """What a red run said: stderr for a block, the reason of the ask verdict for an asking gate,
+        stdout for a scan."""
+        if s.scan_only:
+            return result.stdout
         return (ask_reason(result) or "") if s.ask else result.stderr
 
     red_code = 0 if s.ask else 2
+
+    def scan_args(root: Path) -> list[str]:
+        """The scan of a gate without a hook mode, on the consumer's root."""
+        return ["--scan", str(root)]
 
     def broken(result: Result, failure: Broken) -> tuple[bool, str]:
         return broken_as_typed(result, failure.render())
@@ -270,6 +284,10 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         if not s.event_driven:  # a generator: a run that completes, from inside the consumer
             result = h.run_gate("", args=s.act_args, command=copied, cwd=consumer.root)
             return expect(result, 0, s.green, "stdout")
+        if s.scan_only:  # the consumer holding the passed document, scanned by the copy
+            consumer.write(s.valid.target, s.valid.text)
+            result = h.run_gate("", args=scan_args(consumer.root), command=copied)
+            return expect(result, 0, s.green, "stdout")
         if no_file:  # a clean consumer at a turn's end, or a command the gate passes: the gate's green
             result = h.run_gate(payload(consumer.root, s.valid), command=copied)
             return expect(result, 0, s.green, "stdout")
@@ -385,7 +403,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     def no_dials_file() -> tuple[bool, str]:
         consumer = h.fresh_consumer()
         (consumer.root / "constitution.yaml").unlink()
-        result = h.run_gate(payload(consumer.root, s.red))
+        if s.scan_only:
+            consumer.write(s.red.target, s.red.text)
+            result = h.run_gate("", args=scan_args(consumer.root))
+        else:
+            result = h.run_gate(payload(consumer.root, s.red))
         skip = messages.g1_green_skip(messages.g1_skip_no_dials(str(consumer.root)))
         return expect(result, 0, skip, "stdout")
 
@@ -469,19 +491,24 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             stream: [each["text"] for each in lines if each["stream"] == stream]
             for stream in ("stdout", "stderr")
         }
-        # an asking gate prints its verdict as one JSON object on stdout, the finding inside it
-        verdict_stream = "stdout" if s.ask else "stderr"
+        # an asking gate prints its verdict as one JSON object on stdout, the finding inside it; a scan
+        # prints its finding and its count line on stdout, one record each
+        verdict_stream = "stdout" if (s.ask or s.scan_only) else "stderr"
+        records = 2 if s.scan_only else 1
         ok = (
             set(line) == {"ts", "module", "gate", "mode", "session", "stream", "text"}
             and (first in line["text"] if s.ask else line["text"].startswith(first))
             and line["module"] == ns
             and line["stream"] == verdict_stream
-            and line["session"] == ("fixture-session" if s.event_driven else "")
+            and line["session"] == ("fixture-session" if s.event_driven and not s.scan_only else "")
             # one record per print: the records rebuild both streams exactly, and a block verdict,
             # printed at once, is one record of several lines
             and "".join(text + "\n" for text in said["stdout"]) == result.stdout
             and "".join(text + "\n" for text in said["stderr"]) == result.stderr
-            and (not s.event_driven or (len(said[verdict_stream]) == 1 and (s.ask or "\n" in line["text"])))
+            and (
+                not s.event_driven
+                or (len(said[verdict_stream]) == records and (s.ask or "\n" in line["text"]))
+            )
         )
         return ok, f"{len(lines)} log lines; first: {line}"
 
@@ -636,6 +663,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         dials = root / "constitution.yaml"
 
         def again() -> Result:
+            if s.scan_only:
+                return h.run_gate("", args=scan_args(root))
             if s.event_driven:
                 return h.run_gate(payload(root, s.valid))
             return h.run_gate("", args=list(s.act_args), cwd=root)  # refused before the home is looked at
@@ -691,7 +720,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         dials = root / "constitution.yaml"
         # "# é", then the byte: two bytes, one character, so the column counts characters, not bytes
         dials.write_bytes(b"# \xc3\xa9\xff\n" + dials.read_bytes())
-        if s.event_driven:
+        if s.scan_only:
+            result = h.run_gate("", args=scan_args(root))
+        elif s.event_driven:
             result = h.run_gate(payload(root, s.valid))
         else:
             result = h.run_gate("", args=list(s.act_args), cwd=root)  # refused before the home is looked at
@@ -845,6 +876,22 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     # A gate wired to Stop never reaches git's file list, the territory's scratch repository or its
     # check-ignore, nor reads a document the scan lists: these items are a tool gate's.
     about_listing = {ls_files_fails, init_fails, check_ignore_fails, document_unreadable}
+    # A gate without a hook mode never reads hook input, a written file or the warn channel, and
+    # takes a file out of its territory with a count, not a skip: these items are a hook gate's.
+    about_hooks = {
+        unparseable_input,
+        input_not_an_object,
+        malformed_event,
+        edit_without_fields,
+        other_tool,
+        not_markdown,
+        relative_path,
+        outside_any_repository,
+        edit_unappliable,
+        edit_empty_old_string,
+        severity_warn,
+        negated_pattern,
+    }
     return [
         Assertion(first + n, title, check)
         for n, (title, check) in enumerate(items)
@@ -853,5 +900,6 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         and (s.event_driven or check not in about_events)
         and (not no_file or check not in about_files)
         and (not no_file or check not in about_listing)
+        and (not s.scan_only or check not in about_hooks)
         and (s.long_value is not None or check is not long_value_is_cut)
     ]
