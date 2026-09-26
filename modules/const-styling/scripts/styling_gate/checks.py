@@ -69,14 +69,11 @@ def examine(text: str) -> list[Hit]:
     comment = False
     lines = text.removeprefix("﻿").split("\n")
     for number, line in enumerate(lines, 1):
-        if comment:
-            comment = "-->" not in line
-            continue
-        if "<!--" in line and "-->" not in line.split("<!--", 1)[1]:
-            comment = True
-            lists.end()
-            table = None
-            continue
+        if comment:  # inside a comment: the line is hidden up to its closing marker
+            if "-->" not in line:
+                continue
+            comment = False
+            line = _blank_to(line, line.index("-->") + 3)
         opener = FENCE.match(line)
         if fence is not None:
             if (
@@ -103,6 +100,12 @@ def examine(text: str) -> list[Hit]:
             lists.end()
             table = None
             continue
+        spanless = CODE_SPAN.sub(_blank, line)
+        if "<!--" in spanless and "-->" not in spanless.split("<!--", 1)[1]:  # a comment opens here
+            comment = True
+            line = line[: spanless.index("<!--")]
+            lists.end()
+            table = None
         table = _table_line(line, number, lines, table, hits)
         heading = HEADING.match(line)
         if heading:
@@ -146,6 +149,10 @@ def examine(text: str) -> list[Hit]:
 
 def _blank(match: re.Match[str]) -> str:
     return " " * len(match.group(0))
+
+
+def _blank_to(line: str, end: int) -> str:
+    return " " * end + line[end:]
 
 
 def _cells(line: str) -> list[str]:

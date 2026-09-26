@@ -200,6 +200,10 @@ def t1() -> tuple[bool, str]:
         {"docs/notes/d.md": "# T\n\n@startuml\nA -> B\n@enduml\n"},
         "docs/notes/d.md:3: PlantUML where Mermaid is the default — @startuml",
     )
+    puml = one_finding(
+        {"docs/notes/d.md": "# T\n\n```puml\nA -> B\n```\n"},
+        "docs/notes/d.md:3: PlantUML where Mermaid is the default — ```puml",
+    )
     mermaid = no_finding({"docs/notes/d.md": MERMAID})
     departure = [{"paths": ["/docs/notes/d.md"], "allow": ["plantuml"], "reason": "a timing diagram"}]
     allowed = scan({"docs/notes/d.md": PLANTUML_FENCE}, own(departures=departure))
@@ -208,6 +212,7 @@ def t1() -> tuple[bool, str]:
         (red_ok, "Y1 typed whole matches" if red_ok else f"differs (exit {result.code}):\n{result.stdout}"),
         bare,
         loose,
+        puml,
         mermaid,
         allowed_ok,
     )
@@ -252,7 +257,12 @@ def t4() -> tuple[bool, str]:
         "RED: docs/notes/h.md:5: a heading of level 4 where three is the deepest",
         "RED: docs/notes/h.md:5: a heading of level 4, skipping a level",
     ]
-    fine = no_finding({"docs/notes/h.md": "# T\n\n## A ##\n\n### B\n\n```text\n#### not a heading\n```\n"})
+    fine = no_finding(
+        {
+            "docs/notes/h.md": "# T\n\n## A ##\n\n### B\n\n```text\n#### not a heading\n```\n\n"
+            "    #### nor this\n"
+        }
+    )
     return all_of(deep, (both_ok, "deep and skipped on one line" if both_ok else both.stdout), fine)
 
 
@@ -267,7 +277,14 @@ def t5() -> tuple[bool, str]:
         "docs/notes/s.md:5: a second level-one heading — Another title",
     )
     up = no_finding({"docs/notes/s.md": "# T\n\n## A\n\n### B\n\n## C\n"})
-    return all_of(skipped, second, up)
+    bom = one_finding(
+        {"docs/notes/s.md": "\ufeff# T\n\n# U\n"}, "docs/notes/s.md:3: a second level-one heading — U"
+    )
+    after_fence = one_finding(
+        {"docs/notes/s.md": "# T\n\n```text\nx\n```\n# U\n"},
+        "docs/notes/s.md:6: a second level-one heading — U",
+    )
+    return all_of(skipped, second, up, bom, after_fence)
 
 
 def t6() -> tuple[bool, str]:
@@ -304,7 +321,11 @@ def t7() -> tuple[bool, str]:
         "docs/notes/l.md:4: a bullet item opening with a marker other than a dash — nested",
     )
     fine = no_finding({"docs/notes/l.md": "# T\n\n- one\n- two\n\n**bold** at the start\n\n***\n"})
-    return all_of(star, plus, fine)
+    no_fence = one_finding(
+        {"docs/notes/l.md": "# T\n\n``` x`y\n* star\n"},
+        "docs/notes/l.md:4: a bullet item opening with a marker other than a dash — star",
+    )
+    return all_of(star, plus, fine, no_fence)
 
 
 def t8() -> tuple[bool, str]:
@@ -321,7 +342,7 @@ def t8() -> tuple[bool, str]:
     fine = no_finding(
         {
             "docs/notes/n.md": "# T\n\n101. a\n102. b\n\nA paragraph.\n\n1. a\n   1. nested\n"
-            "   2. nested\n2. b\n   - bullet\n3. c\n\n1) a\n2) b\n"
+            "   2. nested\n2. b\n   - bullet\n3. c\n\n1) a\n2) b\n\n## H\n\n1. again\n"
         }
     )
     return all_of(ones, jump, fine)
@@ -341,15 +362,28 @@ def t9() -> tuple[bool, str]:
     fine = no_finding(
         {
             "docs/notes/e.md": "# T\n\nsnake_case_name, `__init__`, a_b_c and *fine* and **fine**, x_ y_z.\n"
-            "[text](https://e.com/_p_/y) and https://e.com/_p_/y and <https://e.com/_p_/> <!-- _c_ -->\n"
-            "<!--\n_hidden_\n```\n-->\n"
+            "[text](https://e.com/_p_/y) and [x](docs/_p_.md) and https://e.com/_p_/y and <https://e.com/_p_/>"
+            " <!-- _c_ -->\n<!--\n_hidden_\n```\n-->\n```markdown\n<!-- opens in a fence\n```\n\n"
+            "The opener `<!--` in a code span.\n"
         }
     )
     link = one_finding(
         {"docs/notes/e.md": "# T\n\n[_text_](https://e.com/_p_/y)\n"},
         "docs/notes/e.md:3: emphasis by underscores — text",
     )
-    return all_of(italic, bold, fine, link)
+    after_fence = one_finding(
+        {"docs/notes/e.md": "# T\n\n```markdown\n<!-- x\n```\n\n__after__\n"},
+        "docs/notes/e.md:7: emphasis by underscores — after",
+    )
+    after_span = one_finding(
+        {"docs/notes/e.md": "# T\n\nThe opener `<!--` starts a comment.\n\n__after__\n"},
+        "docs/notes/e.md:5: emphasis by underscores — after",
+    )
+    closing = one_finding(
+        {"docs/notes/e.md": "# T\n\n<!--\n_hidden_\n--> then __shown__\n"},
+        "docs/notes/e.md:5: emphasis by underscores — shown",
+    )
+    return all_of(italic, bold, fine, link, after_fence, after_span, closing)
 
 
 def t10() -> tuple[bool, str]:
@@ -371,7 +405,7 @@ def t10() -> tuple[bool, str]:
     fine = no_finding(
         {
             "docs/notes/t.md": "# T\n\n| key | value |\n|:---|---:|\n| a | x \\| y |\n| b | none |\n\n"
-            "a | b\nc | d\n"
+            "a | b\nc | d\n\ncell | text\n---\n\n| one |\n"
         }
     )
     return all_of(short, empty, delimiter, fine)
@@ -416,6 +450,18 @@ def t11() -> tuple[bool, str]:
         {"docs/notes/a.md": MERMAID},
         own(departures=[{"paths": ["docs/gone/**"], "allow": ["plantuml"], "reason": "was"}]),
     )
+    outside = scan(
+        {"docs/notes/a.md": MERMAID, "docs/other/b.md": MERMAID},
+        own(
+            territories=["*.md", "!docs/other/**"],
+            departures=[{"paths": ["docs/other/**"], "allow": ["plantuml"], "reason": "was"}],
+        ),
+    )
+    outside_note = (
+        "note: const-styling.departures entry 1 (docs/other/**) matches no covered document; the documents it"
+        " allowed were deleted or moved, or the pattern is wrong"
+    )
+    outside_ok = outside.code == 0 and outside.stdout.splitlines()[0] == outside_note
     note = (
         "note: const-styling.departures entry 1 (docs/gone/**) matches no covered document; the documents it"
         " allowed were deleted or moved, or the pattern is wrong"
@@ -426,6 +472,7 @@ def t11() -> tuple[bool, str]:
         (path_ok, "path entry" if path_ok else by_path.stdout),
         other_ok,
         (stale_ok, "stale entry noted, typed by hand" if stale_ok else f"{stale.code}: {stale.stdout}"),
+        (outside_ok, "an entry over uncovered documents is stale" if outside_ok else outside.stdout),
     )
 
 
@@ -508,16 +555,16 @@ def t13() -> tuple[bool, str]:
             own(territories=["#docs/**"]),
             "BROKEN: constitution.yaml: const-styling.territories holds '#docs/**', which git would read as a"
             " comment or as two lines — fix: patterns are gitignore syntax: a pattern cannot start with # or"
-            " contain a line break; escape or remove it",
+            " contain a line break; remove it",
         ),
         (
             own(guides=["a\nb"]),
             "BROKEN: constitution.yaml: const-styling.guides holds 'a\\nb', which git would read as a comment"
             " or as two lines — fix: patterns are gitignore syntax: a pattern cannot start with # or contain"
-            " a line break; escape or remove it",
+            " a line break; remove it",
         ),
         (
-            own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "one\ntwo"}]),
+            own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "one\rtwo"}]),
             "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
             f" saying why — fix: {entry_fix}",
         ),
@@ -714,20 +761,20 @@ CASES = [
 # ---------------------------------------------------------------- the list
 
 ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
-    (1, "red→green: PlantUML is red with Y1 typed whole, Mermaid green, a departure by path allows it", t1),
-    (2, "red→green: a math fence and a $$ line are red; pseudocode is green; $$ in code is code", t2),
-    (3, "red→green: an alert line is red; a plain blockquote is green", t3),
-    (4, "red→green: a fourth heading level is red, twice when it also skips; three levels are green", t4),
-    (5, "red→green: a skipped level and a second H1 are red; stepping back up is green", t5),
+    (1, "PlantUML is red with Y1 typed whole, Mermaid green, a departure by path allows it", t1),
+    (2, "a math fence and a $$ line are red; pseudocode is green; $$ in code is code", t2),
+    (3, "an alert line is red; a plain blockquote is green", t3),
+    (4, "a fourth heading level is red, twice when it also skips; three levels are green", t4),
+    (5, "a skipped level and a second H1 are red; stepping back up is green", t5),
     (
         6,
         "red→green: a fence without a language is red; text, nested, attributed and indented fences green",
         t6,
     ),
-    (7, "red→green: star and plus items are red; dashes, a bold line and a rule are green", t7),
-    (8, "red→green: all-ones and a jump are red; counting on from anywhere, a new list, nesting green", t8),
-    (9, "red→green: underscore emphasis is red; names, words, code spans and stars are green", t9),
-    (10, "red→green: a short row, an empty cell and a short delimiter row are red; a keyed table green", t10),
+    (7, "star and plus items are red; dashes, a bold line and a rule are green", t7),
+    (8, "all-ones and a jump are red; counting on from anywhere, a new list, nesting green", t8),
+    (9, "underscore emphasis is red; names, words, code spans and stars are green", t9),
+    (10, "a short row, an empty cell and a short delimiter row are red; a keyed table green", t10),
     (11, "departures: by territory, by path, one signature at a time; a stale entry is a note", t11),
     (12, "territories: a negated pattern drops the count; a README at the top; guides validated", t12),
     (13, "this module's C5 lines typed by hand, each exit 1", t13),

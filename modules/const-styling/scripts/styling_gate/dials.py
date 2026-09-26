@@ -89,7 +89,7 @@ def _departures(value: object) -> tuple[Departure, ...]:
                     messages.c5_departure(index, f"'{key}' is no signature this scan knows")
                 )
         reason = item.get("reason")
-        if not isinstance(reason, str) or not reason.strip() or "\n" in reason.strip():
+        if not isinstance(reason, str) or not reason.strip() or any(c in reason.strip() for c in "\r\n"):
             raise ConfigurationFailure(
                 messages.c5_departure(index, "reason must be one non-empty line saying why")
             )

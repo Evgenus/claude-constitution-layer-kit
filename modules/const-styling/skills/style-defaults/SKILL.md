@@ -23,7 +23,8 @@ The style guides are the documents the project names in `const-styling.guides` o
 `constitution.yaml`, path patterns over the repository; where the key is absent, look for a
 document titled "Style guide" in the project's documentation folder. Read the guide whole once
 per session — it is short, one numbered entry per default, each defined by its examples. The
-guide is the one statement of the defaults; this page restates none of them.
+guide is the one statement of the defaults; this page restates none of them — step 4 names the
+scan's traces, which are the mechanical halves of some, not the defaults.
 
 Where the repository has no style guide, create one from `style-guide.md` beside this file:
 fill its envelope — the `id` a stable kebab-case name — put it where the project's documents of

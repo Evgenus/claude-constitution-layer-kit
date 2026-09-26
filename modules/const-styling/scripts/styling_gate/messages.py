@@ -232,8 +232,7 @@ def one_line(pattern: str) -> str:
 def c5_pattern(dial: str, pattern: str) -> Broken:
     return _c5(
         f"{_ns()}.{dial} holds '{one_line(pattern)}', which git would read as a comment or as two lines",
-        "patterns are gitignore syntax: a pattern cannot start with # or contain a line break; escape or"
-        " remove it",
+        "patterns are gitignore syntax: a pattern cannot start with # or contain a line break; remove it",
     )
 
 
