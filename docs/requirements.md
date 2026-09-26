@@ -79,10 +79,10 @@ status: active
 | <a id="a8-2"></a>A8.2 | Never improvise a recorded-stakes procedure | M7 skill † (→M6?) | advisory |
 | <a id="a8-3"></a>A8.3 | Irreversibility-triggered escalation, orthogonal to stakes: before any hard-to-reverse action (delete, history rewrite, force push, dropping a kernel definition, breaking a published contract) state the consequence and the reversible alternative, wait for an explicit yes in chat; one approval covers one action; a repeated request after the warning is the user's decision — proceed, note the objection in the commit | M7 skill + hook † (→M6?) | advisory for the class; **gate** for the enumerated command patterns: `PreToolUse` hook on Bash blocks known destructive commands with a teaching error until confirmed; pattern list is a dial |
 | <a id="a9"></a>**A9 — Styling** | | | |
-| <a id="a9-1"></a>A9.1 | One style-defaults policy; templates inherit; deviations carry a one-line reason | M8 policy | advisory; deviation-reason *presence* scriptable (**gate-lite**) |
-| <a id="a9-2"></a>A9.2 | Founding entries: Mermaid-first; ASCII trivial-only by examples; pseudocode over formulas | M8 policy | advisory; PlantUML-without-justification detectable (**gate-lite**) |
-| <a id="a9-3"></a>A9.3 | Lazy accretion: a default added at first concrete need, via the decision path | M8 policy | review judgment (`process` stakes path) |
-| <a id="a9-4"></a>A9.4 | Checkable defaults graduate to Vale rules when [`const-language`](#const-language) installed | M8 policy | n/a until graduation — then A10.1's gate |
+| <a id="a9-1"></a>A9.1 | One style guide, a document kind of its own under its own policy; every kind's policy binds its documents to it by a style rule the root policy asks for; a departure is an entry of the module's dial — per kind by pattern, per document by path — with a one-line reason, never a mark in the document (decision [dec-0044-styling-module-rulings](decisions/dec-0044-styling-module-rulings.md)) | M8 guide | advisory; a departure without a reason scriptable (**gate-lite**) |
+| <a id="a9-2"></a>A9.2 | Founding entries, ten: Mermaid-first, PlantUML only under a departure naming the missing capability; character drawings trivial-only by examples; pseudocode over formulas; prose against lists against tables; list format; table format; heading levels; code font and fence languages; emphasis; no callouts (the same decision) | M8 guide | advisory; the traces of the entries detectable (**gate-lite**); drawings honestly ungateable |
+| <a id="a9-3"></a>A9.3 | Lazy accretion: a default added at first concrete need, via the decision path | M8 guide | review judgment (`process` stakes path) |
+| <a id="a9-4"></a>A9.4 | Checkable defaults graduate to Vale rules when [`const-language`](#const-language) installed | M8 guide | n/a until graduation — then A10.1's gate |
 | <a id="a10"></a>**A10 — Language complexity** | | | |
 | <a id="a10-1"></a>A10.1 | Governed documents pass Vale (`vale-cli`, pinned); grade/length/construction rules | M9 gate; thresholds → binding | **gate**: Vale in CI, red = fix |
 | <a id="a10-2"></a>A10.2 | Plain chat language for non-native readers | M7 skill † (→M9?) | advisory — honestly ungateable |
@@ -145,9 +145,7 @@ Description moved into the module's document: [`modules/const-interaction/MODULE
 <a id="const-styling"></a>
 ### M8 `const-styling` — self-limiting; enters at the first formatting friction
 
-**Invariant/shape:** one **style-defaults policy** all templates inherit; templates state only deviations, each with a one-line reason. Founding entries exactly three: Mermaid by default, PlantUML only where Mermaid cannot express the diagram (one line naming the missing capability); ASCII art only for trivial cases (defined by contrastive examples); pseudocode over formulas. Defaults added **lazily at first need** — each born with a concrete consumer, via the normal decision path; mechanically checkable defaults may graduate into Vale rules when [`const-language`](#const-language) is installed — an optional enhancement, not a dependency.
-**Ships:** the defaults policy document + inheritance wording for M2's templates.
-**Dials:** none at founding.
+Description moved into the module's document: [`modules/const-styling/MODULE.md`](../modules/const-styling/MODULE.md) (rows [A9.1](#a9-1)–[A9.4](#a9-4)); this anchor stays the module's handle.
 
 <a id="const-language"></a>
 ### M9 `const-language` — self-limiting; enters on prose-complexity complaints

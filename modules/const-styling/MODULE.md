@@ -1,0 +1,232 @@
+---
+id: module-const-styling
+type: current-state
+title: const-styling — one style guide every governed document follows, departures declared with a reason, a scan of the traces
+status: active
+---
+
+# MODULE.md — `const-styling`
+
+*Draft at manifest version `0.0.1`, no open slots. This document is the module's description ([template](../../module-template/MODULE.md)). Every list and table row carries a handle.*
+
+<a id="t1"></a>
+## 1. Purpose
+
+Every document decides its own style at the moment of writing, and decides it differently: one comparison sets a matrix in a table, the next in a list; one module document draws its file tree in a fence with no language, a sibling names one; a record holds an argument in a two-column table; a template acquires a second level-one heading and every document born from it inherits one. Observed in the kit's own tree on 2026-09-26, before any rule existed: five fenced blocks with no language, three second level-one headings from one template, thirty-nine empty cells in one matrix, all uniform elsewhere only because the same few hands wrote everything — and the guides the kit's comparison read agree on one judgment no linter reaches, when prose, when a list, when a table, and on a handful of format defaults every linter reaches. This module states the defaults once, in a document the project owns, puts every departure on record in the dials file with its reason instead of a mark in the document, and scans for the twelve traces the defaults leave.
+
+<a id="t2"></a>
+## 2. Failure class
+
+`self-limiting`: a wrong form is felt by the reader of that document and corrected there; nothing compounds across the repository except a template's defect, which its documents inherit until the template is fixed — one fix, not a growing debt. **Entry trigger:** the first formatting friction — a review comment or a commit note on the form of a document rather than its content, a diagram nobody can render, a table a reader could not cite, made twice. The kit did not pass it: the module was started ahead of the trigger by the decider's choice, the objection recorded, and the counts of [§1](#t1) are what the tree showed at the survey, not the trigger.
+
+<a id="t3"></a>
+## 3. Rows
+
+| row | this module's reading |
+|---|---|
+| [A9.1](../../docs/requirements.md#a9-1) | One style guide, a document kind of its own with its own policy, one document in a territory of one path — the same shape as the kit's intent page — holding the defaults every governed document follows. "Templates inherit" is read as binding by governance: the root policy asks every policy to carry a style rule, each kind's policy says its documents follow the style guides the dial `guides` of this module names — in the kit an alias of the style-guide policy's territory — and depart only where the dial `departures` names a departure for their territory, and a template complies with the guide or shows the departure its kind's entry allows; a template carries no inheritance sentence. "Deviations carry a one-line reason" is read as: a departure is an entry of the dial `departures` — per kind by pattern, one-off by path — with a `reason` that is required, and nothing is written into a document to excuse it. The one check this row recommends, the presence of a departure's reason, ships as `config`, the validation of the dial at each read inside the scan's contract: an entry with no reason, or one of two lines, is a configuration failure naming it, exit 1 with C5, never a finding, since a departure without a reason is a malformed setting and not a wrong document (decision [dec-0044-styling-module-rulings](../../docs/decisions/dec-0044-styling-module-rulings.md), sections 5 and 6). |
+| [A9.2](../../docs/requirements.md#a9-2) | The founding entries are ten, by the decider's choice against the session's recommendation of four (decision [dec-0044-styling-module-rulings](../../docs/decisions/dec-0044-styling-module-rulings.md), section 3): the three the row names — Mermaid first with PlantUML only under a departure naming the missing capability, character drawings for trivial cases only by contrastive examples, pseudocode over formulas — and seven more: prose against lists against tables; list format; table format; heading levels; code font and fence languages; emphasis; no callouts. Each is one sentence and its pairs in the shipped guide ([§8](#t8)). The traces of the entries the row recommends detecting are the twelve signatures of the scan of [§9](#t9), a `gate` and not the gate-lite the row recommends: the comparison confirmed the gate-lite, and the scan ships as a gate under R9 of the decision named above — no hook mode and no `severity`, since a scan blocks no write and a dial that would turn blocking on has nothing to turn on, so a finding always exits 2; drawings made of characters are honestly ungateable, and the scan claims nothing about them. |
+| [A9.3](../../docs/requirements.md#a9-3) | A default is added to the guide at the first concrete need, through the project's decision path, as the next numbered entry with its pairs, born with the document that needed it — never as a rule in one document, one template or one commit message. A second document needing the same one-off departure is the signal that promotes it to the kind's entry or to a default. Review judgment; nothing mechanical of the module's own, and the module says so. |
+| [A9.4](../../docs/requirements.md#a9-4) | Not applicable at this version: the twelve signatures are this module's own scan on the shared gate code, and no rule graduates to Vale until module `const-language` exists; the comparison records the graduation shape, an `existence` rule at `scope: raw` and a `script` rule, so that a later graduation copies rather than invents ([§12](#t12)). |
+
+<a id="t4"></a>
+## 4. Decisions
+
+1. [dec-0044-styling-module-rulings](../../docs/decisions/dec-0044-styling-module-rulings.md) — the rulings of this module's authoring: the module started ahead of its friction signal by the decider's choice, the objection recorded; ten founding entries instead of the matrix's three, the matrix row edited; the home of the defaults a document kind of its own with its own policy, bound to every kind by a style rule the root policy asks of every policy; the carrier a skill plus the guide's text shipped as the file the consumer's guide is born from; a departure declared in the dial per kind or per path with its reason, never marked in the document; the scan's signatures the twelve line-shaped and multi-line traces of the ten entries, the multi-line ones by the decider's choice against the session's recommendation.
+2. [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) — the runtime, the order of the two proofs, the consumer-live proof deferred to the consumer's bootstrap.
+3. [dec-0014-territory-dialect](../../docs/decisions/dec-0014-territory-dialect.md) and [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — `territories`, `guides` and a departure's `paths` are gitignore syntax; every read of the dials file validates the keys read.
+4. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md), [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) and [dec-0038-log-record-per-print](../../docs/decisions/dec-0038-log-record-per-print.md) — the gate-script rules, the linked shared code and the output log.
+5. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
+6. [dec-0011-one-policy-per-kind](../../docs/decisions/dec-0011-one-policy-per-kind.md) — the precedent of a kind of one document, which the style guide follows.
+
+<a id="t5"></a>
+## 5. Invariant
+
+**No covered document carries a trace of a signature in a territory where no entry of the `departures` dial allows that signature.** "Covered": among the Markdown files git lists, tracked and untracked, ignored ones excepted, the ones the dial `territories` names. "Trace of a signature": one of the twelve line shapes and multi-line shapes of [§7](#t7), read outside fenced blocks except where a fence is the trace, read outside code spans for emphasis. "Allows": an entry whose `paths` match the document and whose `allow` names the signature. The invariant holds at scan time; nothing here blocks a write ([§9](#t9)).
+
+The advisory rules beside it, each `advisory` in its own text, stated in the guide and reached through the skill, which restates none:
+
+- **Y-a.** A document follows the style guides of its repository; a departure is an entry of the dials file with its reason, never a mark in the document. *Advisory.*
+- **Y-b.** Diagrams are Mermaid; PlantUML only where Mermaid cannot express the diagram, the departure naming the missing capability. *Advisory.*
+- **Y-c.** Drawings made of characters are for trivial cases only, defined by the guide's pairs; a flow, a hierarchy or a state machine of three or more parts is a diagram. *Advisory.*
+- **Y-d.** Pseudocode over formulas. *Advisory.*
+- **Y-e.** Prose carries reasoning; a list carries items a reader will cite, each with a handle; a table only where every row has the same three or more fields and its first column is the key; one item is never a list; an argument is never a table. *Advisory.*
+- **Y-f.** Lists: dashes; numbers written out and counted on; one introducing sentence; items parallel in form. Tables: a header row, the key first, `none` in an empty cell. Headings: sentence case, one title, three levels at most, no skipped level. Code font for what a reader types or a machine reads; every fence names its language. Bold for a label or a handle, italic for a note about the document and a term at first use, asterisks only. No callouts. The mechanical halves of these are the scan's; the rest is the rule. *Advisory.*
+- **Y-g.** A default is added to the guide at the first concrete need through the project's decision path, as the next numbered entry with its pairs. *Advisory.*
+
+<a id="t6"></a>
+## 6. Artifacts (rule-to-artifact mapping)
+
+| component | path | carries |
+|---|---|---|
+| skill | `skills/style-defaults/SKILL.md` | The procedure: find the guides the dial `guides` names, or create one from the shipped file; at each moment of choice the guide's entry to apply, no default restated; declare a departure in the dial, never mark it; read a finding; add a default. Its description is phrased by the activities before a deviation — a diagram, prose against list against table, a formula, a fourth heading level or a callout, a template, a scan finding, a repository with no guide — so it triggers at the moment of choice and never every turn; a description of 622 characters, under the platform's listing cap of 1,536. |
+| text | `skills/style-defaults/style-guide.md` | The style guide's text, the ten founding defaults each with its pairs and the section on departures and additions, with an envelope to fill: the file the consumer's guide is born from — by hand at its one path, as in the kit, or through the command of module `const-locations` in a consumer whose guide territory is a directory. The floor on a bare repository. |
+| script (sh) | `scripts/check-style.sh` | POSIX entry point: finds `python3`, exits 1 with the fix when it is missing, otherwise hands stdin and arguments on. Reads no YAML. Its C1 closes with this gate's own clause, `until then no document is scanned for style`, since "Markdown writes pass unchecked" is a hook's. |
+| script (py) | `scripts/check-style.py` | Thin entry point, parseable by any Python 3: the interpreter floor, the shared package, then the module's `start`; `--scan [DIR]` only, and as a hook its own C12. Its docstring is its contract. Its C14 and C15 close with the same clause as the wrapper's C1, and the identity's `until_installed` gives it to C2. |
+| package | `scripts/styling_gate/` | The module's own code: `model` (the dials, the twelve signatures, a departure, a hit, the keys Y1 to Y12), `messages` (every text below), `dials` (the four keys known, three values and the entries validated, `log_dir` being the shared code's), `checks` (one document read once for every trace, the multi-line state kept as the lines go by), `modes` (the scan; the hook mode that refuses), `start` (the identity). Step down to a repository script: no platform component reads a tree for these shapes, and a third-party linter is a Node or Go dependency with rules that conflict with the kit's shape by design (e2 and e5 of the comparison). `mypy --strict` clean. |
+| shared code | `scripts/const_gate` → the kit's `shared/const_gate/` | A relative symbolic link to what every gate shares ([kit-shared-gate-code](../../shared/GATE.md)). This module resolves no policy and builds no index; it widened the shared fixture subject for a gate without a hook mode, `scan_only`, defaulting to what the other modules pass. |
+| dependencies | `requirements.txt` | PyYAML. |
+| install note | `INSTALL.md` | Requirements, the guide's creation, zero-configuration behaviour, the four dials with a worked example and the twelve keys, the scan, the departure rule, the output log, what the module does not check, no CLAUDE.md pointer. |
+| manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10). |
+| hook | none | the scan judges a tree, never one write: a hook on `Write` would block the guide that defines the signatures and the template that shows them (b5 of the comparison); no dial of this module leaves the scan examining nothing, so no `SessionStart` line is due — an empty `territories` is refused. |
+| command | none | the scan is a line of CI; the guide is created once, by hand or through a sibling's command. |
+| agent | none | a style choice is the writer's own, not a delegation. |
+
+- **Always-on content:** none — the rules ride on the skill, whose description alone is always in the listing.
+- **Platform facts relied on** (each verified 2026-09-26 against the official documentation in its Markdown form; sources in the research comparison, section 8):
+  1. A skill's description and `when_to_use` are always in the listing, truncated at 1,536 characters, and the body is loaded on invocation ([skills](https://code.claude.com/docs/en/skills)). Breaks: the carrier's trigger; the size in the table above, held by fixture T17.
+  2. A plugin ships skills under `skills/<name>/SKILL.md` and scripts run with `${CLAUDE_PLUGIN_ROOT}` substituted; only `plugin.json` lives in `.claude-plugin/`; `--plugin-dir` loads a plugin in place ([plugin components](https://code.claude.com/docs/en/plugins/components), [plugins reference](https://code.claude.com/docs/en/plugins-reference)). Breaks: plugin load; the live proofs.
+  3. GitHub renders a `mermaid` fence and MathJax math natively and lists no PlantUML; GitLab renders Mermaid and needs a server or Kroki for PlantUML; the alert syntax `> [!NOTE]` is GitHub's, rendered from a blockquote (c1 to c3, c8 and f7 of the comparison, read on the public pages named there). Breaks: the reasons of Y1, Y2 and Y3, not the checks.
+- **Research:** [res-0009-const-styling](../../docs/research/res-0009-const-styling.md) (2026-09-26). Per row: [A9.1](../../docs/requirements.md#a9-1) advisory — **confirmed**, on a skill and a shipped text, the home moved from a claims-nothing policy to a kind of its own by the decider's choice, the marker the comparison recommended dropped for a declaration in the dial (decision [dec-0044-styling-module-rulings](../../docs/decisions/dec-0044-styling-module-rulings.md), sections 5 and 6); its gate-lite **confirmed** by the comparison, and shipped as `config`, the validation of the dial [§3](#t3) describes; [A9.2](../../docs/requirements.md#a9-2) advisory — **confirmed** for the three entries, the seven the comparison priced as lazy founded by the decider's choice, its gate-lite **confirmed** by the comparison and shipped as a `gate` by R9 of that decision, the scan having no hook and no severity to dial; [A9.3](../../docs/requirements.md#a9-3) review judgment — **confirmed**; [A9.4](../../docs/requirements.md#a9-4) — **not needed** at this version, **confirmed** as not applicable until graduation.
+
+**Error messages.** Each row is one function of this module's `messages.py`, under the same key; `{path}` is a document's repository-relative path, `{line}` a line number, `{text}` the line or the value echoed, cut at 80 characters with the cut said. A finding is `RED`, three lines (what failed / why the rule exists / the exact fix), followed by the count line. Every fix ends with the same second half, written once here as `{allow}`: `or declare the departure with its reason: add to const-styling.departures in constitution.yaml an entry {paths: [<the file, or a pattern of the documents that depart>], allow: [{key}], reason: <{what the reason must say}>}`. The texts every gate shares are written out once, in [kit-shared-gate-code §3](../../shared/GATE.md#g3), and are not restated here.
+
+| key | first line | why | fix |
+|---|---|---|---|
+| Y1 | `RED: {path}:{line}: PlantUML where Mermaid is the default — {text}` | Mermaid renders on GitHub, GitLab and in editor previews with no server; PlantUML needs one | `draw the diagram in a ```mermaid fence, {allow}` — the reason: `the capability Mermaid lacks, in one line` |
+| Y2 | `RED: {path}:{line}: a formula where pseudocode is the default — {text}` | a formula renders only in a web view and is invisible to a prose reader and a linter; pseudocode reads everywhere | `write the computation as pseudocode in a fenced block, {allow}` — `why this must be a formula, in one line` |
+| Y3 | `RED: {path}:{line}: a callout where none is the default — {text}` | a callout pulls a sentence out of its argument; an aside is a clause, and a warning about an act is a sentence where the act is described | `write the sentence in the paragraph it belongs to, {allow}` — `why the reader must see this apart from the text, in one line` |
+| Y4 | `RED: {path}:{line}: a heading of level {n} where three is the deepest` | a fourth level is a section too small to stand on its own, and most renderers stop showing levels below three in a page's outline | `make it a bold run-in label at the start of a paragraph, or split the document, {allow}` — `why this document needs the level, in one line` |
+| Y5 | `RED: {path}:{line}: a heading of level {n}, skipping a level` | a skipped level makes a section look nested in one that does not exist, and an outline built from the headings mis-nests it | `use the next level down from the heading before it, {allow}` — `why the levels are read this way here, in one line` |
+| Y6 | `RED: {path}:{line}: a second level-one heading — {text}` | a document has one title; a second level-one heading is a second document or a section | `make it a level-two heading, or move what follows it into a document of its own, {allow}` — `why this document carries two titles, in one line` |
+| Y7 | `RED: {path}:{line}: a fenced block that names no language` | the language after the fence tells a renderer how to highlight the block and a reader what it is looking at; without it every viewer guesses | `name the language after the opening fence — ```bash, ```yaml, ```text for a directory tree or plain output, {allow}` — `why no language fits this block, in one line` |
+| Y8 | `RED: {path}:{line}: a bullet item opening with a marker other than a dash — {text}` | one marker for every bullet list keeps the source uniform, so a diff shows a change of content and never a change of marker | `open the item with '- ', {allow}` — `why this list keeps its marker, in one line` |
+| Y9 | `RED: {path}:{line}: an ordered item numbered {n} after {m}` | an item is cited by the number written in the source, so the numbers must be the ones a reader sees: each the one before it plus one, never all ones and never a jump | `renumber the list so that each item is the one before it plus one, or start a new list after a paragraph, {allow}` — `why this list is numbered so, in one line` |
+| Y10 | `RED: {path}:{line}: emphasis by underscores — {text}` | one emphasis marker keeps the source uniform, and an underscore inside a word or a name is text, which a second marker makes ambiguous | `use *italic* and **bold**; put a name that carries underscores in a code span, {allow}` — `why this document marks emphasis so, in one line` |
+| Y11 | `RED: {path}:{line}: a table row with {n} cell(s) under a header of {m}` | a row with more or fewer cells than the header puts values under the wrong heads, or drops them in silence, in every renderer | `give the row exactly one cell per column of the header, a backslash before a pipe that belongs inside a cell, {allow}` — `why this table's rows differ, in one line` |
+| Y12 | `RED: {path}:{line}: an empty cell in column {n}` | an empty cell does not say whether the value is none, unknown or forgotten | `write none, or the value, in the cell, {allow}` — `what an empty cell means in this table, in one line` |
+| N2 | `note: const-styling.departures entry {n} ({paths}) matches no covered document; the documents it allowed were deleted or moved, or the pattern is wrong` — printed before the findings on every scan while the entry stands, never a finding | — | — |
+| F9 | the count line: `RED: {n} finding(s) — {d} document(s) examined for 12 signature(s) under {e} departure(s), {m} Markdown file(s) scanned`; green: `GREEN: const-styling: {the same tail}` | — | — |
+| C5 | this module's dial failures, `BROKEN: constitution.yaml: {detail} — fix: {fix}`: `const-styling.{key} is no dial of this module` — `a misspelt dial would be ignored in silence, so none is: write one of log_dir, territories, guides, departures`; `const-styling.territories must be a non-empty list of path patterns` — `write the patterns of the documents to scan, one per line under "- ", or leave the key out to cover every Markdown file; an empty list would examine nothing in silence`; `const-styling.{territories, guides, or departures entry {n} paths} holds '{pattern}', which git would read as a comment or as two lines` — `patterns are gitignore syntax: escape a leading # as \# bare or in single quotes, as \\# in double quotes, and remove a line break`, a line break in the echoed pattern shown escaped; `const-styling.guides must be a list of path patterns` — `write the patterns of the style guides, one per line under "- ", or leave the key out; the scan reads nothing from them — the skill does`; `const-styling.departures must be a list of entries` — `write one entry per "- " item with the fields paths (a list of patterns), allow (a list of signature keys) and reason (one line); leave the key out, or write [], for no departure`; `const-styling.departures entry {n}: {what is wrong}` — `it is not a mapping`, `'{field}' is no field of an entry`, `paths must be a non-empty list of path patterns`, `allow must be a non-empty list of signature keys`, `'{key}' is no signature this scan knows`, `reason must be one non-empty line saying why` — `write the entry as paths: [<patterns>], allow: [<signature keys>], reason: <one line saying why these documents depart>; the keys are` the twelve of [§7](#t7) | — | — |
+| C12 | this module's own: the scan as a hook, `BROKEN: this check has no hook mode: it scans a tree and judges no single write — fix: run it with --scan [<dir>]; the plugin wires it to no event` | — | — |
+| C1, C2, C14, C15 | the shared texts, each closing with this gate's own clause in place of a hook's: `until then no document is scanned for style` | — | — |
+
+**Installed components reference nothing in the kit.** The skill, the guide's text, the scripts, the error texts, the fixtures and the install note name no kit document; where the skill needs the kernel's definitions it says "the project's decision path" and "the project's constitution". The reasoning lives here and in [§4](#t4).
+
+<a id="t7"></a>
+## 7. Dials
+
+No `severity`: the module has no hook gate, and the scan always reports ([template §7](../../module-template/MODULE.md#t7)); a `severity` key in this namespace is refused as no dial of the module.
+
+| dial | default | read by | meaning |
+|---|---|---|---|
+| `log_dir` | absent | the scan | As every gate's ([template §7](../../module-template/MODULE.md#t7)). |
+| `territories` | `["*.md"]` | the scan | The documents the scan reads: path patterns in the dials file's dialect over the Markdown files git lists, tracked and untracked, ignored ones excepted; a negated pattern takes files out. Empty: refused. |
+| `guides` | absent | the skill | The style guides: path patterns, validated as territories are; the scan reads nothing from them. Absent: the skill looks for a document titled "Style guide" and falls back to the shipped text. The kit names its guide's territory by a YAML alias of the policy's. |
+| `departures` | `[]` | the scan | What departs from a default, where, and why: entries `{paths: [<patterns>], allow: [<keys>], reason: <one line>}`. `paths` is gitignore syntax — a pattern for a kind of document, or one file by its path with a leading slash; `allow` names signatures by key from the closed set below; `reason` is required and one line. An entry matching no covered document is a note on every scan. A malformed entry, an unknown key, an empty or multi-line reason, a pattern git would misread: a configuration failure naming the entry. The kit's own: the aspect rows of its requirements matrix. |
+
+The twelve signatures, the closed vocabulary of `allow`, each the mechanical half of one default of the guide: 
+
+1. `plantuml` — a fence whose language is `plantuml` or `puml`, or a line opening with `@startuml` inside a fence of any other language or outside one.
+2. `formula` — a fence whose language is `math`, `latex` or `tex`, or a line opening with `$$` outside a fence.
+3. `callout` — a blockquote line opening with `[!`, the alert syntax, outside a fence.
+4. `deep-heading` — an ATX heading of level four or deeper, outside a fence.
+5. `skipped-level` — a heading more than one level below the heading before it in the document.
+6. `second-h1` — a level-one heading after the first.
+7. `fence-language` — a backtick or tilde fence whose info string is empty.
+8. `list-marker` — a bullet item opening with `*` or `+`, at any indentation.
+9. `list-numbering` — an ordered item, `1.` or `1)`, in a list that continues from an ordered item at the same indentation with the same delimiter, whose number is not that item's plus one; a list starts at any number and ends at a paragraph, a heading, a fence or a change of delimiter.
+10. `underscore-emphasis` — `_text_` or `__text__` outside code spans, the opening underscore not preceded by a word character or a backslash and the closing one not followed by a word character.
+11. `table-columns` — a row of a table, the delimiter row included, with more or fewer cells than the header, cells split on unescaped pipes with the outer pipes dropped; a table is a line of cells followed by a delimiter row, and ends at a blank line or a line without a pipe.
+12. `table-empty-cell` — a cell of a table row, the header and the delimiter row excepted, holding nothing but whitespace.
+
+<a id="t8"></a>
+## 8. Boundary examples
+
+Each pair reads *violates / complies*; the pairs of the ten defaults are the guide's own, in `skills/style-defaults/style-guide.md`, entries d1 to d10, and are not repeated here. The boundaries this document adds are the module's own judgment lines:
+
+**A trivial drawing** ([A9.2](../../docs/requirements.md#a9-2)):
+
+1. Five boxes joined by arrows drawn with dashes and pipes, a request's path through services → a diagram, so Mermaid / the same as a Mermaid flowchart.
+2. A directory tree in box-drawing characters in a `text` fence → complies: trivial.
+3. `A -> B` on one line naming a dependency → complies: trivial.
+4. A state machine in brackets and arrows across nine lines → a diagram / three states named in a sentence, or a Mermaid state diagram.
+
+**A departure, or a fix** ([A9.1](../../docs/requirements.md#a9-1)):
+
+5. One matrix whose group rows hold nothing on purpose, an entry by path with that reason → a departure / the same reason written as a comment in the matrix — a mark in the document, which the module rules out.
+6. A fence with no language because the author forgot → a fix, `text` / an entry allowing `fence-language` for the whole tree — a departure that hides a defect.
+7. Every comparison of a kind holding a PlantUML timing diagram → an entry by the kind's territory / one entry per document — the second document is the signal to widen.
+8. A finding fixed by taking the document out of `territories` → hides every other default there / a departure naming the one signature.
+
+**A default, or a document's own call** ([A9.3](../../docs/requirements.md#a9-3)):
+
+9. The first document that needs a rule on numbers and units → the rule answered in that document's commit note / put through the decision path and added as entry 11 of the guide, with the document named.
+10. A template that departs from the guide for its kind → the template's opening note excusing it / the kind's entry in the dial, and the template showing the form.
+11. A reviewer's preference for sentence-per-line source → an edit of one document / a proposal to change entry 5 of the guide, priced by the constitution.
+
+<a id="t9"></a>
+## 9. Enforcement honesty
+
+| # | artifact | kind |
+|---|---|---|
+| E1 | `check-style --scan`: Y1 to Y12, N2; this module's dials validated at each read, the C5 texts of [§6](#t6), and `log_dir` by the shared code | `gate`, always exit 2 on a finding, no hook mode, no severity dial; a malformed dial exits 1, never a finding — `config` in the matrix's vocabulary, inside this gate's contract |
+| E2 | the skill `style-defaults` and the guide's text: Y-a to Y-g | `advisory` |
+
+**Honest limits**, each with its backstop. The shared code's limits — [kit-shared-gate-code §4](../../shared/GATE.md#g4) — apply. This module's own:
+
+1. **The scan reads twelve shapes, not the ten defaults.** Whether prose, a list or a table was due, whether a drawing is trivial, whether a key column is first, whether a heading is in sentence case, whether bold shouts, whether an aside belongs in the paragraph: judgment, and the scan claims none of it. Backstop: the skill at the moment of choice; review.
+2. **A callout written otherwise passes.** A blockquote opening with a bold "Note:" instead of the alert syntax, a paragraph in bold, a line of warning emoji: not the shape. Backstop: rule Y-f; a consumer's signal for a wider shape.
+3. **Emphasis is read everywhere but where it is masked.** A heading is read for nothing but its level, so emphasis in it passes; a code span, a link's destination, an autolink, a bare URL and an HTML comment are masked, so underscores in a path or an address are text; a link's text and an image's alt text are read, so `[_x_](u)` is a trace; an underscore emphasis whose opening underscore follows a word character, `word_this_`, is text to the scan as to a renderer. Backstop: rule Y-f; a departure.
+4. **Indentation, setext headings and comments.** A fence is a fence at any indentation and is closed only by a bare fence of its kind, as CommonMark closes it, so a fence under a nested item hides its body; a heading indented four spaces or more is not a heading to the scan, while an item or an emphasis there is read — an indented code block, four spaces and no fence, is prose to the scan; a setext heading, a line underlined with equals signs or dashes, is not a heading to the scan and counts neither as a title nor toward a skipped level; an HTML comment hides its lines from its opener to its closing line — the closing line whole, so a construct after the closer on that line is unseen — a fence inside one included, while the text before the opener is read and a comment on one line is masked, several on one line each, and one opening after another closed hides the rest of its line and the lines to its closer; a comment reopening on a multi-line comment's closing line is unseen with that line, and the lines after it are read; an opener inside a fence or a code span opens nothing, and a closer inside a code span closes; a fence never closed hides everything after it, as the sibling scans read fences. Backstop: the fence, heading and emphasis fixtures; review.
+5. **A table is what has a delimiter row.** Lines with pipes and no delimiter row are prose; a table whose header row has fewer cells than its delimiter row is reported on the delimiter row. Cells are split on unescaped pipes, as GitHub does; a pipe inside a code span splits a cell there too. Backstop: the table fixture; rule Y-f.
+6. **A departure allows a signature in a document whole**, not on one line: an entry for `plantuml` in one file allows every PlantUML block of that file. Backstop: the reason names the one diagram; the note on a stale entry; review.
+7. **A departure by path outlives its document** until the scan's note is acted on; the note is not a finding, so a stale entry does not turn the scan red. Backstop: N2 on every scan.
+8. **The scan is not run by the platform.** Nothing runs it on a write or at a turn's end; it is a line of CI and a command before a merge. Backstop: the install note's step 5; a consumer's CI.
+
+**Exit-code contract**: `0` green, or nothing examined (the count line says which); `2` finding — a document carries a signature no departure allows; `1` configuration failure — the checker could not run: the shared failures, this module's C5 and C12. Nothing exits 0 on error.
+
+<a id="t10"></a>
+## 10. Acceptance
+
+Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries), 69 items green. It builds the shared three-policy consumer in a temporary git repository, fresh for every item, writes the documents each item names and drives the real entry point — POSIX wrapper, arguments, exit code — with `--scan` on that repository; the gate has no hook mode, so the twelve red→green cases run through the harness's scan-only shape — each half a document written and scanned, red the one finding whole and the count line typed by hand, green the whole green line — and the shared items run with the subject's `scan_only` flag, the items about hook input, a written file, the warn channel and a negated pattern's skip left out with their numbers kept free. The items T1 to T10 are assertions that hold several halves each; the cases T21 to T32 are the red→green pairs of [law 7 of CLAUDE.md](../../CLAUDE.md#law-7). Verification kinds: `fixture` (the shared consumer in a temp repository), `live` (the kit as consumer zero, or a consumer project), `review` (the human, at the one yes).
+
+| item | kind | what it proves |
+|---|---|---|
+| T1 | fixture, assertion | Y1 typed whole for a `plantuml` fence, for a `puml` fence, for `@startuml` inside a `text` fence and for `@startuml` outside any fence; a Mermaid fence green; a departure by path makes the same document green and the count says one departure |
+| T2 | fixture, assertion | Y2 for a `math` fence and for a `$$` line; a pseudocode fence green, and `$$` inside a `bash` fence is code |
+| T3 | fixture, assertion | Y3 for an alert line; a plain blockquote green |
+| T4 | fixture, assertion | Y4 for a level-four heading; one that also skips a level is Y4 and Y5 on one line; three levels in order, a closing hash sequence, a heading inside a fence and a heading indented four spaces green |
+| T5 | fixture, assertion | Y5 for a level-three heading under the title; Y6 for a second level-one heading, after a byte-order mark before the title, and right after a fence closes; stepping back up by any number green |
+| T6 | fixture, assertion | Y7 for a backtick fence and for a tilde fence with no language; `text`, a nested fence closed by a longer one, an info string with attributes, a fence indented inside a list item and under a nested item, and a fence that a fence with an info string does not close, green |
+| T7 | fixture, assertion | Y8 for a star item, a nested plus item, and a star item after a line that looks like a fence but carries a backtick in its info string; dashes, a bold line and a horizontal rule green |
+| T8 | fixture, assertion | Y9 for all-ones numbering and for a jump; a list starting at 101, a new list after a paragraph, a nested ordered list counting on its own, a bullet inside an ordered list, a change of delimiter and a list restarting under the same delimiter after a heading green |
+| T9 | fixture, assertion | Y10 for `_italic_` and `__bold__`, and inside a link's text; a snake-case name, an underscore inside a word, a code span, asterisks, a link's destination absolute or relative, a bare URL, an autolink and an HTML comment on one line or across lines green; a comment opener inside a fence or a code span hides nothing after it, a closer inside a code span closes and the comment is masked, a second opener after a closed comment opens, and a comment's closing line is hidden whole |
+| T10 | fixture, assertion | Y11 for a row with a cell too few and for a short delimiter row; Y12 for an empty cell; a keyed table with an escaped pipe and `none`, lines with pipes and no delimiter row, and a dash line without a pipe under a line with one, green |
+| T11 | fixture, assertion | departures: an entry by territory allows every document there; one by path allows that document alone; an entry allowing one signature does not allow another; a stale entry is N2, typed by hand, first on stdout, and the scan green; an entry over documents a negated pattern took out of the territory is stale too |
+| T12 | fixture, assertion | territories: a negated pattern drops the examined count and not the scanned count; a README at the top is covered by the default; a `guides` dial is validated and changes no verdict |
+| T13 | fixture, assertion | this module's C5 lines typed by hand — a key that is no dial, `severity`, `territories` empty, `guides` not a list, `departures` not a list, an entry not a mapping, an unknown field, `paths` empty, a pattern git would misread in `territories`, in `guides` with its line break shown escaped, and in `paths`, an unknown signature key, an empty reason, a reason broken by a line feed or a carriage return — each exit 1 |
+| T14 | fixture, assertion | the scan run as a hook is its own C12, typed by hand; a misinvocation exits 1 |
+| T15 | fixture, assertion | golden lines: the twelve headlines typed whole against one document carrying every signature once, in line order, the count line typed too; a document with none is green |
+| T16 | fixture, assertion | an item of 12,000 characters echoed by Y8 is cut and the cut is said; the verdict stays a message |
+| T17 | fixture, assertion | the shipped guide, placed in a consumer as its guide, passes the scan it describes; it carries entries d1 to d10; the skill's description is under the platform's cap and of the size [§6](#t6) states — the number read from this document |
+| T18 | fixture, assertion | the install note, the skill and the guide name no kit document; the manifest names the plugin at a draft version; the install note's calibration example is accepted as it stands and names the twelve keys |
+| T19 | fixture, assertion | golden lines: the why and the fix of every finding typed whole against the document of T15, since a fixture built from the message functions cannot see a changed word |
+| T21–T32 | fixture, red→green | one case per signature, in the order of [§7](#t7): a document carrying the signature once is red with the finding whole — what failed, why, the fix — and the count line typed by hand, nothing more on either stream; the same document following the default is green with the whole green line |
+| S101–S106, S111–S119, S124, S128, S132–S141, S143, S145–S147, S151–S157 | fixture, shared | the shared acceptance items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) that apply to a gate without a hook mode — resolving no policy, judging no envelope, examining no written file — run through the scan: the exit-code split, absence of each tool and of the shared code, misinvocation, the skip without a dials file, the output log with the finding and the count line as two records on stdout, declared dependencies, an echoed value cut (S151), git failing in one way, a dials file and a document nobody can read |
+| L1 | live | done 2026-09-26, Claude Code 2.1.282, in this repository (consumer zero): the scan over the kit's tree — the first run, with no dial, reported 47 findings in 109 documents: 39 empty cells in the aspect rows of the requirements matrix, five fences with no language, three second level-one headings from the module template's skeleton, one of them a copy of the skeleton a sibling document carried against its policy; the fences took `text`, the skeleton became a level-two heading and the copy was removed, and the matrix's rows entered the kit's dial as its one departure, by path, with the reason; the accepted records and the frozen comparisons left the territory by number range, as the sibling scans' do; the scan is green on the tree since — 63 documents examined of 114 scanned, one departure |
+| L2 | live | done 2026-09-26, Claude Code 2.1.282, the plugin loaded with `--plugin-dir` in three headless sessions on a clone of this repository, `--setting-sources project`, `acceptEdits`, the streams saved; the first attempt of the day failed to authenticate before a turn and was rerun after a sign-in. The skill listed at `init` as `const-styling:style-defaults` and named in the reply as the one to invoke before a diagram, with the reason quoted from its description (1 turn). Asked for a note with a diagram, the model invoked the skill first, read the style guide, and wrote the diagram as a `mermaid` sequence diagram (12 turns). On a note carrying a PlantUML block, the scan reported Y1 with its fix, the model added the departure entry to `constitution.yaml` in block style — the file by path, `plantuml`, the reason in one line — and the second scan was green under two departures; the block-style check green (10 turns). The sibling hooks fired on every write and the turn-end hook reported the dirty tree the prompts asked to leave. |
+| L3 | review | the ten entries and their pairs of the guide's text, the skill's five steps, the pairs of [§8](#t8) and the error texts of [§6](#t6), at the one yes |
+| L4 | live, deferred | the consumer-live proof, [step 5 of the rollout plan](../../docs/rollout-plan.md#s5) (decision [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) section 3): this runner against the project, the scan wired into its CI, the guide born in the project, a departure declared there; a finding there is a fix with a version bump |
+
+**Examined count.** F9 in every green and red line: `{d} document(s) examined for 12 signature(s) under {e} departure(s), {m} Markdown file(s) scanned`; zero is said as zero.
+
+<a id="t11"></a>
+## 11. Siblings
+
+**Depends on:** [kernel §3](../../kernel/CONVENTIONS.md#k3) — a policy governs one kind by territory, which is why the guide is a kind of its own and reaches the others by their policies' style rules, never by resolution; [kernel §4](../../kernel/CONVENTIONS.md#k4) — the stakes triage that prices a new default; [kernel §6](../../kernel/CONVENTIONS.md#k6) — the dials file, where the departures live. Nothing else.
+
+**Kernel alone:** on a bare repository the skill carries the ten defaults through the shipped text and creates the guide from it by hand; the scan covers every Markdown file with no departure, with a `constitution.yaml` that holds no key of this namespace, and with no `constitution.yaml` at all it is the shared visible skip naming the file.
+
+**When module `const-locations` is installed,** a guide whose territory is a directory is born through its command from the shipped text named in that module's `templates` dial. **When module `const-meta-types` is installed,** the guide's envelope is checked as any governed document's. **When module `const-decision-records` is installed,** a new default is written down through its record skill, and its note-promotion skill is the reader of the recurring departure that earns one. **When module `const-language` exists,** the checkable defaults may graduate to its rules ([§12](#t12)). Each is an optional enhancement; every rule here runs with the kernel alone.
+
+<a id="t12"></a>
+## 12. Deferred
+
+1. **Graduation to Vale** ([A9.4](../../docs/requirements.md#a9-4)) — the twelve signatures as rules of module `const-language`, in the shape the comparison recorded, an `existence` rule at `scope: raw` and a `script` rule. Signal: that module's existence, and a consumer running both.
+2. **A wider callout shape** — a blockquote opening with a bold word. Signal: a consumer's finding that the alert syntax is not how its documents write notes.
+3. **A departure on one line** rather than one document. Signal: a document holding one allowed diagram and one that should not be.
+4. **Sentence case and a key column first** as checks. Signal: a consumer's headings in title case, or a table cited by its last column; both need a reader of words, which the graduation path carries.
+5. **The defaults the comparison priced as lazy and the decider did not found** — numbers and units, link text, source line length. Signal: the first document that needs one, through the decision path, as the guide's next entry.
+6. **A hook mode.** Signal: a consumer asking to be stopped at write time, at the price of a departure entry for every document that quotes the signatures.

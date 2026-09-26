@@ -127,9 +127,9 @@ What this module deliberately does not ship yet, each with the friction signal t
 
 ---
 
-# Plugin skeleton
+## Plugin skeleton
 
-```
+```text
 const-<aspect-name>/
 ├── .claude-plugin/
 │   └── plugin.json          # manifest — the ONLY file inside .claude-plugin/; version 0.0.x while draft

@@ -57,8 +57,12 @@ class Case:
     red: Write | Edit
     green: Write | Edit
     expect: Finding
-    green_what: str  # what the green line says the green half's document is, typed by hand
+    green_what: str  # what the green line says the green half's document is, typed by hand — for a
+    # gate without a hook mode, the whole tail of the scan's green line over the consumer holding the
+    # green half's document
     setup: Sequence[Write] = ()
+    count: str | None = None  # a gate without a hook mode only: the scan's count line for the red
+    # half, typed by hand, since "1 document examined" is a hook's
 
 
 @dataclass(frozen=True)
@@ -138,11 +142,14 @@ def ask_reason(result: Result) -> str | None:
 class Harness:
     """One module's entry point under test."""
 
-    def __init__(self, scripts: Path, wrapper: str, entry: str, namespace: str) -> None:
+    def __init__(
+        self, scripts: Path, wrapper: str, entry: str, namespace: str, scan_only: bool = False
+    ) -> None:
         self.scripts = scripts
         self.wrapper = scripts / wrapper
         self.entry = scripts / entry
         self.namespace = namespace
+        self.scan_only = scan_only  # the gate has no hook mode: a case writes its document and scans
         self.sh = shutil.which("sh") or "sh"
         self.scratch = Path(tempfile.mkdtemp(prefix=namespace + "-fixtures-"))
         atexit.register(shutil.rmtree, self.scratch, ignore_errors=True)
@@ -184,6 +191,8 @@ class Harness:
         return consumer
 
     def run_case(self, case: Case) -> tuple[bool, str]:
+        if self.scan_only:
+            return self.run_scan_case(case)
         red = self.run_gate(event_json(self.fresh_consumer(case.setup).root, case.red))
         if red.code != 2:
             return False, f"red half exited {red.code}, not 2: {red.stdout}{red.stderr}".strip()
@@ -203,6 +212,39 @@ class Harness:
             return False, f"red printed RED on stdout: {red.stdout.strip()}"
         green = self.run_gate(event_json(self.fresh_consumer(case.setup).root, case.green))
         line = f"GREEN: {self.namespace}: 1 document examined, {case.green_what}"
+        if green.code != 0 or line not in green.stdout.splitlines() or red_lines(green.stdout + green.stderr):
+            return (
+                False,
+                f"green half did not print {line!r} (exit {green.code}): {green.stdout}{green.stderr}",
+            )
+        return True, f"red → {case.expect.key}: {case.expect.headline}"
+
+    def run_scan_case(self, case: Case) -> tuple[bool, str]:
+        """A gate without a hook mode: each half is a document written into a fresh consumer and the
+        scan run over it; red prints its verdict on stdout — the one finding whole and the count line
+        typed by hand, nothing more — and green prints the whole green line."""
+        if case.count is None or not isinstance(case.red, Write) or not isinstance(case.green, Write):
+            return False, "a scan-only case needs its count line and two Writes"
+        consumer = self.fresh_consumer(case.setup)
+        consumer.write(case.red.target, case.red.text)
+        red = self.run_gate("", args=["--scan", str(consumer.root)])
+        if red.code != 2:
+            return False, f"red half exited {red.code}, not 2: {red.stdout}{red.stderr}".strip()
+        if case.expect.render() not in red.stdout:  # what failed, why, and the fix: all three lines
+            return (
+                False,
+                f"red fired but did not teach {case.expect.key}:\n{case.expect.render()}\n"
+                f"got:\n{red.stdout.strip()}",
+            )
+        wanted = [f"RED: {case.expect.headline}", case.count]
+        if red_lines(red.stdout) != wanted:  # exactly the one finding and the count line, nothing more
+            return False, f"red taught more or less than {wanted}:\n{red.stdout.strip()}"
+        if red_lines(red.stderr):  # and nothing RED on the other stream
+            return False, f"red printed RED on stderr: {red.stderr.strip()}"
+        consumer = self.fresh_consumer(case.setup)
+        consumer.write(case.green.target, case.green.text)
+        green = self.run_gate("", args=["--scan", str(consumer.root)])
+        line = f"GREEN: {self.namespace}: {case.green_what}"
         if green.code != 0 or line not in green.stdout.splitlines() or red_lines(green.stdout + green.stderr):
             return (
                 False,

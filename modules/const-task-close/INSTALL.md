@@ -62,7 +62,7 @@ silently skipped.
    the change — in the message's last paragraph, where every line is `Key: value`; one line without
    a colon hides the whole paragraph from git — or on its own line in the pull request's
    description:
-   ```
+   ```text
    No-Doc-Impact: api — comments reworded, no rule or message changed
    ```
    The reason is required and never judged by the check; a line naming no pair, or carrying no

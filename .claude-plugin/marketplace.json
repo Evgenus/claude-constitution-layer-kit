@@ -41,6 +41,11 @@
       "description": "References a machine can follow and a move can repair: one written form per kind of reference, anchors that do not depend on a heading's words, a check of the whole tree after every write and in the scan, and a mover that repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat."
     },
     {
+      "name": "const-styling",
+      "source": "./modules/const-styling",
+      "description": "One style guide every governed document follows — diagrams, prose against lists and tables, list and table format, headings, code blocks, emphasis, callouts — with departures declared per territory or per document in the dials file with a reason; a scan reports the traces of the defaults that no departure allows. Plus a skill that applies the defaults before a diagram, a table, a formula or a template is written."
+    },
+    {
       "name": "const-task-close",
       "source": "./modules/const-task-close",
       "description": "Task close as a single act: a change that touches code covered by current-state documents updates them or declares no impact; a close procedure that merges deltas, deletes working files and sets the record inactive; and a dirty tree at turn end warned or blocked."

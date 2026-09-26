@@ -25,12 +25,13 @@ The list, in this order:
 3. `python3 modules/const-catalogs/scripts/check-catalog-item.py --scan`
 4. `python3 modules/const-decision-records/scripts/check-decision-record.py --scan`
 5. `sh modules/const-questions/scripts/check-open-questions.sh --scan`
-6. `python3 scripts/check-carry-lists.py`
-7. `python3 scripts/check-shared-links.py`
-8. `python3 scripts/check-yaml-style.py` — never with `--fix`
-9. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
+6. `sh modules/const-styling/scripts/check-style.sh --scan`
+7. `python3 scripts/check-carry-lists.py`
+8. `python3 scripts/check-shared-links.py`
+9. `python3 scripts/check-yaml-style.py` — never with `--fix`
+10. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
    trunk, or when the message names a landed merge, `--scan --change <merge>`
-10. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
+11. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
     `python3 scripts/check-carry-lists.py --self-test`, `python3 scripts/check-yaml-style.py --self-test`;
     `python3 modules/<module>/tests/run.py` for the module named (it writes temporary
     repositories in the system's temporary directory, never in the kit); and the lint and type

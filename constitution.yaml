@@ -59,6 +59,10 @@ plc-0009-shared-code:
   territory:
     - "shared/GATE.md"
 
+plc-0010-style-guide:                 # the kind of one document, like the intent page (decision dec-0044-styling-module-rulings)
+  territory: &style   # anchored: the styling module's guides dial names exactly this territory
+    - "/docs/style-guide.md"
+
 # --- module namespaces (kernel §6): a module reads only its own -------------------
 # Two dials are every gate's, read by the shared code (shared/GATE.md):
 #   severity  values: block | warn — block: a finding exits 2 and the write is blocked;
@@ -209,6 +213,13 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-interaction/tests/**"
       docs:
         - "modules/const-interaction/MODULE.md"
+    - name: const-styling
+      code:
+        - "modules/const-styling/scripts/**"
+        - "modules/const-styling/skills/**"
+        - "modules/const-styling/tests/**"
+      docs:
+        - "modules/const-styling/MODULE.md"
     - name: kit-scripts   # the git hooks, the clone setup, the kit gates and the development routine
       code:
         - "scripts/**"
@@ -263,6 +274,21 @@ const-interaction:                    # answer shape, assumptions and addressabl
     - '`[^`]+`'                        # a code span likewise: a file name, a flag
   boundary_examples: []               # session start: the kit's own violates / complies pairs, {violates: …, complies: …}; empty: the seed pairs of MODULE.md §8
   verbosity: triggered                # values: triggered — assumption and restatement lines appear only when triggered, never as ritual
+
+const-styling:                        # one style guide, departures declared here with a reason; a scan-only gate, so no severity (MODULE.md §7)
+  log_dir: local/gate-logs
+  territories:                        # the documents the scan reads among the Markdown files git lists; a negated pattern takes files out
+    - "*.md"
+    - "!docs/decisions/dec-00[0-3]*.md"   # an accepted record is never edited to fit a later rule (plc-0004 rule 14): the scan applies from dec-0044 on
+    - "!docs/decisions/dec-004[0-3]-*.md"
+    - "!docs/research/res-000[1-8]-*.md"   # a comparison is frozen at its module's yes (plc-0005 rule 7): the scan applies from res-0009 on
+  guides: *style                      # skill: the style guides, the territory of their policy by alias
+  departures:                         # gate: what departs from a default, where, and why — per kind by pattern, one-off by path
+    - paths:
+        - "/docs/requirements.md"
+      allow:
+        - table-empty-cell
+      reason: the aspect rows of the matrix are group headings; their three cells hold nothing on purpose
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs

@@ -29,7 +29,7 @@ never a prompt that a person must answer. A run that stalls is ended, not answer
 The message gives you the module, the branch, the scratch directory, the repository to run in,
 and the runs — each a handle, a prompt, the flags, and the observations wanted. The recipe:
 
-```
+```bash
 claude -p "<prompt>" --plugin-dir <kit>/modules/<module> --setting-sources project \
   --permission-mode acceptEdits --allowedTools "<the list given>" \
   --output-format stream-json --verbose --include-hook-events > <scratch>/<handle>.jsonl
