@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from const_gate import identity
-from const_gate.dials import refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
@@ -24,24 +22,32 @@ def parse(own: Mapping[str, object]) -> StylingDials:
     unknown = sorted(str(key) for key in own if key not in KEYS)
     if unknown:
         raise ConfigurationFailure(messages.c5_unknown_key(unknown[0], KEYS))
-    namespace = identity.current().namespace
     territories = _texts(own.get("territories", list(DEFAULT_TERRITORIES)))
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
-    refuse_unreadable_patterns(f"{namespace}.territories", territories)
+    for pattern in territories:
+        if _unreadable(pattern):
+            raise ConfigurationFailure(messages.c5_pattern("territories", pattern))
     raw_guides = own.get("guides", [])
     guides = _texts(raw_guides) if raw_guides != [] else ()
     if raw_guides != [] and not guides:
         raise ConfigurationFailure(messages.c5_guides())
-    refuse_unreadable_patterns(f"{namespace}.guides", guides)
+    for pattern in guides:
+        if _unreadable(pattern):
+            raise ConfigurationFailure(messages.c5_pattern("guides", pattern))
     return StylingDials(
         territories=territories,
         guides=guides,
-        departures=_departures(own.get("departures"), namespace),
+        departures=_departures(own.get("departures")),
     )
 
 
-def _departures(value: object, namespace: str) -> tuple[Departure, ...]:
+def _unreadable(pattern: str) -> bool:
+    """A pattern git would read as a comment, or as two lines."""
+    return pattern.startswith("#") or "\n" in pattern or "\r" in pattern
+
+
+def _departures(value: object) -> tuple[Departure, ...]:
     """Absent or an empty list: no departure. Anything else is a list of well-formed entries, or a
     configuration failure naming the first bad one."""
     if value is None or value == []:
@@ -63,10 +69,12 @@ def _departures(value: object, namespace: str) -> tuple[Departure, ...]:
                 messages.c5_departure(index, "paths must be a non-empty list of path patterns")
             )
         for pattern in paths:
-            if pattern.startswith("#") or "\n" in pattern or "\r" in pattern:
+            if _unreadable(pattern):
                 raise ConfigurationFailure(
                     messages.c5_departure(
-                        index, f"paths holds '{pattern}', which git would read as a comment or as two lines"
+                        index,
+                        f"paths holds '{messages.one_line(pattern)}', which git would read as a comment or"
+                        " as two lines",
                     )
                 )
         allow = _texts(item.get("allow"))
@@ -81,7 +89,7 @@ def _departures(value: object, namespace: str) -> tuple[Departure, ...]:
                     messages.c5_departure(index, f"'{key}' is no signature this scan knows")
                 )
         reason = item.get("reason")
-        if not isinstance(reason, str) or not reason.strip():
+        if not isinstance(reason, str) or not reason.strip() or "\n" in reason.strip():
             raise ConfigurationFailure(
                 messages.c5_departure(index, "reason must be one non-empty line saying why")
             )

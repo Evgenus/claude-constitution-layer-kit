@@ -48,7 +48,7 @@ class Finding:
 
 
 def uses_shared_code(module: Path) -> bool:
-    """A module whose scripts import the shared code — a hook's gate, or a generator alone — owes the
+    """A module whose scripts import the shared code — a hook's gate, a scan or a generator — owes the
     links. A module of skills alone owes none."""
     scripts = module / "scripts"
     imports = any(

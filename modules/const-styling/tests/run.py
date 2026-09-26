@@ -7,10 +7,11 @@ Exit 0 when every item is green, 2 otherwise.
 
 One entry point is driven, the scan, through the shared items and its own. The gate has no
 hook mode, so the shared items run with the subject's `scan_only` flag: the items about hook
-input, a written file and the warn channel are left out with their numbers kept free, and the
-rest run the scan on the prepared consumer. The fixture consumer is the shared one; this module
-resolves no policy and judges no envelope, so the shared items about the root policy and about
-an unreadable envelope are left out too.
+input, a written file, the warn channel and a negated pattern's skip are left out with their
+numbers kept free, and the rest run the scan on the prepared consumer; the twelve red→green
+cases run through the harness's scan-only shape, each half a document written and scanned. The
+fixture consumer is the shared one; this module resolves no policy and judges no envelope, so
+the shared items about the root policy and about an unreadable envelope are left out too.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from const_gate import identity  # noqa: E402
 from consumer import Consumer  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
+    Case,
     Harness,
     Result,
     Write,
@@ -42,10 +44,10 @@ from harness import (  # noqa: E402
 )
 from shared_items import Subject, shared_assertions  # noqa: E402
 from styling_gate import messages, start  # noqa: E402
-from styling_gate.model import Signature  # noqa: E402
+from styling_gate.model import Hit, Signature  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
-H = Harness(SCRIPTS, "check-style.sh", "check-style.py", start.GATE.namespace)
+H = Harness(SCRIPTS, "check-style.sh", "check-style.py", start.GATE.namespace, scan_only=True)
 NAMESPACE = start.GATE.namespace
 SIGNATURES = len(Signature)
 GUIDE = MODULE_ROOT / "skills" / "style-defaults" / "style-guide.md"
@@ -194,6 +196,10 @@ def t1() -> tuple[bool, str]:
         {"docs/notes/d.md": PLANTUML_BARE},
         "docs/notes/d.md:4: PlantUML where Mermaid is the default — @startuml",
     )
+    loose = one_finding(
+        {"docs/notes/d.md": "# T\n\n@startuml\nA -> B\n@enduml\n"},
+        "docs/notes/d.md:3: PlantUML where Mermaid is the default — @startuml",
+    )
     mermaid = no_finding({"docs/notes/d.md": MERMAID})
     departure = [{"paths": ["/docs/notes/d.md"], "allow": ["plantuml"], "reason": "a timing diagram"}]
     allowed = scan({"docs/notes/d.md": PLANTUML_FENCE}, own(departures=departure))
@@ -201,6 +207,7 @@ def t1() -> tuple[bool, str]:
     return all_of(
         (red_ok, "Y1 typed whole matches" if red_ok else f"differs (exit {result.code}):\n{result.stdout}"),
         bare,
+        loose,
         mermaid,
         allowed_ok,
     )
@@ -277,7 +284,9 @@ def t6() -> tuple[bool, str]:
     fine = no_finding(
         {
             "docs/notes/k.md": "# T\n\n```text\ntree\n```\n\n````markdown\n```\nnested\n```\n````\n\n"
-            "```python {.numberLines}\nx = 1\n```\n\n- item\n\n   ```bash\n   ls\n   ```\n"
+            "```python {.numberLines}\nx = 1\n```\n\n- item\n\n   ```bash\n   ls\n   ```\n\n"
+            "```text\n```bash\n* not an item\n```\n\n- one\n  - two\n\n      ```text\n      * nor this\n"
+            "      ```\n"
         }
     )
     return all_of(bare, tilde, fine)
@@ -330,9 +339,17 @@ def t9() -> tuple[bool, str]:
         "docs/notes/e.md:3: emphasis by underscores — loud",
     )
     fine = no_finding(
-        {"docs/notes/e.md": "# T\n\nsnake_case_name, `__init__`, a_b_c and *fine* and **fine**, x_ y_z.\n"}
+        {
+            "docs/notes/e.md": "# T\n\nsnake_case_name, `__init__`, a_b_c and *fine* and **fine**, x_ y_z.\n"
+            "[text](https://e.com/_p_/y) and https://e.com/_p_/y and <https://e.com/_p_/> <!-- _c_ -->\n"
+            "<!--\n_hidden_\n```\n-->\n"
+        }
     )
-    return all_of(italic, bold, fine)
+    link = one_finding(
+        {"docs/notes/e.md": "# T\n\n[_text_](https://e.com/_p_/y)\n"},
+        "docs/notes/e.md:3: emphasis by underscores — text",
+    )
+    return all_of(italic, bold, fine, link)
 
 
 def t10() -> tuple[bool, str]:
@@ -488,6 +505,23 @@ def t13() -> tuple[bool, str]:
             f" saying why — fix: {entry_fix}",
         ),
         (
+            own(territories=["#docs/**"]),
+            "BROKEN: constitution.yaml: const-styling.territories holds '#docs/**', which git would read as a"
+            " comment or as two lines — fix: patterns are gitignore syntax: a pattern cannot start with # or"
+            " contain a line break; escape or remove it",
+        ),
+        (
+            own(guides=["a\nb"]),
+            "BROKEN: constitution.yaml: const-styling.guides holds 'a\\nb', which git would read as a comment"
+            " or as two lines — fix: patterns are gitignore syntax: a pattern cannot start with # or contain"
+            " a line break; escape or remove it",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "one\ntwo"}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
+            f" saying why — fix: {entry_fix}",
+        ),
+        (
             own(departures=[{"paths": ["#a.md"], "allow": ["plantuml"], "reason": "r"}]),
             "BROKEN: constitution.yaml: const-styling.departures entry 1: paths holds '#a.md', which git"
             f" would read as a comment or as two lines — fix: {entry_fix}",
@@ -629,6 +663,54 @@ def t18() -> tuple[bool, str]:
     )
 
 
+# ---------------------------------------------------------------- the twelve red→green cases
+
+
+def case(number: int, signature: Signature, red_text: str, line: int, echo: str, green_text: str) -> Case:
+    """One signature: a document carrying it once is red with the finding whole and the count line
+    typed by hand; a document without it is green with the whole tail."""
+    hit = Hit(signature, line, echo)
+    return Case(
+        number,
+        f"red→green: {signature.value}",
+        Write("docs/notes/c.md", red_text),
+        Write("docs/notes/c.md", green_text),
+        messages.finding("docs/notes/c.md", hit),
+        tail(4),
+        count=f"RED: 1 finding(s) — {tail(4)}",
+    )
+
+
+CASES = [
+    case(21, Signature.PLANTUML, PLANTUML_FENCE, 3, "```plantuml", MERMAID),
+    case(22, Signature.FORMULA, "# T\n\n$$ x $$\n", 3, "$$ x $$", "# T\n\n```text\nx = y\n```\n"),
+    case(23, Signature.CALLOUT, "# T\n\n> [!NOTE]\n", 3, "> [!NOTE]", "# T\n\n> quoted\n"),
+    case(24, Signature.DEEP_HEADING, "# T\n\n## A\n\n### B\n\n#### C\n", 7, "4", "# T\n\n## A\n\n### B\n"),
+    case(25, Signature.SKIPPED_LEVEL, "# T\n\n### B\n", 3, "3", "# T\n\n## B\n"),
+    case(26, Signature.SECOND_H1, "# T\n\n# U\n", 3, "U", "# T\n\n## U\n"),
+    case(27, Signature.FENCE_LANGUAGE, "# T\n\n```\nx\n```\n", 3, "", "# T\n\n```text\nx\n```\n"),
+    case(28, Signature.LIST_MARKER, "# T\n\n* a\n", 3, "a", "# T\n\n- a\n"),
+    case(29, Signature.LIST_NUMBERING, "# T\n\n1. a\n3. b\n", 4, "3 after 1", "# T\n\n1. a\n2. b\n"),
+    case(30, Signature.UNDERSCORE_EMPHASIS, "# T\n\n_a_\n", 3, "a", "# T\n\n*a*\n"),
+    case(
+        31,
+        Signature.TABLE_COLUMNS,
+        "# T\n\n| k | v |\n|---|---|\n| a |\n",
+        5,
+        "1 cell(s) under a header of 2",
+        "# T\n\n| k | v |\n|---|---|\n| a | b |\n",
+    ),
+    case(
+        32,
+        Signature.TABLE_EMPTY_CELL,
+        "# T\n\n| k | v |\n|---|---|\n| a | |\n",
+        5,
+        "2",
+        "# T\n\n| k | v |\n|---|---|\n| a | none |\n",
+    ),
+]
+
+
 # ---------------------------------------------------------------- the list
 
 ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
@@ -676,7 +758,7 @@ SUBJECT = Subject(
 
 def main() -> int:
     assertions = [Assertion(number, title, check) for number, title, check in ITEMS]
-    return H.run_all([], [*assertions, *shared_assertions(SUBJECT, 101)])
+    return H.run_all(CASES, [*assertions, *shared_assertions(SUBJECT, 101)])
 
 
 if __name__ == "__main__":

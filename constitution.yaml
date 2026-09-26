@@ -279,6 +279,9 @@ const-styling:                        # one style guide, departures declared her
   log_dir: local/gate-logs
   territories:                        # the documents the scan reads among the Markdown files git lists; a negated pattern takes files out
     - "*.md"
+    - "!docs/decisions/dec-00[0-3]*.md"   # an accepted record is never edited to fit a later rule (plc-0004 rule 14): the scan applies from dec-0044 on
+    - "!docs/decisions/dec-004[0-3]-*.md"
+    - "!docs/research/res-000[1-8]-*.md"   # a comparison is frozen at its module's yes (plc-0005 rule 7): the scan applies from res-0009 on
   guides: *style                      # skill: the style guides, the territory of their policy by alias
   departures:                         # gate: what departs from a default, where, and why — per kind by pattern, one-off by path
     - paths:

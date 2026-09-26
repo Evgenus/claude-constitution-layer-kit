@@ -22,32 +22,32 @@ exception is on record. It is judgment from start to finish, except the scan nam
 The style guides are the documents the project names in `const-styling.guides` of
 `constitution.yaml`, path patterns over the repository; where the key is absent, look for a
 document titled "Style guide" in the project's documentation folder. Read the guide whole once
-per session — it is short, one numbered entry per default, each defined by its examples.
+per session — it is short, one numbered entry per default, each defined by its examples. The
+guide is the one statement of the defaults; this page restates none of them.
 
 Where the repository has no style guide, create one from `style-guide.md` beside this file:
 fill its envelope — the `id` a stable kebab-case name — put it where the project's documents of
-that kind live, and name its path in `const-styling.guides`. The file carries the founding
-defaults: Mermaid for diagrams, character drawings for trivial cases only, pseudocode over
-formulas, prose against lists against tables, list format, table format, heading levels, code
-font and fence languages, emphasis, no callouts. A project that governs its documents by
-policies gives the guide a policy of its own first, as its constitution asks for any new kind.
+that kind live, and name its path in `const-styling.guides`. That file carries the founding
+entries. A project that governs its documents by policies gives the guide a policy of its own
+first, as its constitution asks for any new kind.
 
 ## 2. Before the choice
 
-At each of these moments, apply the entry of the guide that rules on it:
+At each of these moments, open the guide's entry that rules on it and follow it:
 
-- **A diagram.** Mermaid in a fenced block marked `mermaid`. Boxes drawn with characters
-  only for a trivial case the guide's examples name; a PlantUML block only with a departure.
-- **Prose, a list or a table.** Prose for reasoning; a list for items a reader will cite, each
-  with a handle; a table only where every row has the same three or more fields, the key first.
-- **A formula.** Pseudocode in a fenced block, or words and a code span.
-- **A heading.** One title, sections at level two, level three at most, no skipped level.
-- **A fenced block.** Its language after the fence; `text` for a tree or plain output.
-- **Emphasis.** Bold for a label or a handle, italic for a note about the document or a term
-  at first use, asterisks only.
-- **A note, tip or warning.** A sentence in its paragraph, never a callout.
-- **A template.** A template follows the guide as any document does, and shows a departure
-  only where its kind's departure entry allows it.
+- **A diagram, or a drawing made of characters** — entries 1 and 2.
+- **Prose, a list or a table** — entry 4.
+- **A formula** — entry 3.
+- **A list's marker, numbering or introduction** — entry 5.
+- **A table's header, key column or empty cell** — entry 6.
+- **A heading's level or case** — entry 7.
+- **A fenced block or a name in prose** — entry 8.
+- **Bold or italic** — entry 9.
+- **A note, tip or warning** — entry 10.
+- **A template** — every entry: a template follows the guide as any document does, and shows a
+  departure only where its kind's departure entry allows it.
+
+A project that added entries beyond the founding ten numbers them on; the guide is the list.
 
 ## 3. Declare a departure, never mark it
 

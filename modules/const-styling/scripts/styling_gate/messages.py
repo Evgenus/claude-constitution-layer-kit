@@ -154,8 +154,8 @@ def y11_table_columns(rel: str, line: int, text: str) -> Finding:
         f"{rel}:{line}: a table row with {text}",
         "a row with more or fewer cells than the header puts values under the wrong heads, or drops them"
         " in silence, in every renderer",
-        "give the row exactly one cell per column of the header, an escaped pipe (\\|) for a pipe inside a"
-        " cell, " + _allow(Signature.TABLE_COLUMNS, "why this table's rows differ, in one line"),
+        "give the row exactly one cell per column of the header, a backslash before a pipe that belongs"
+        " inside a cell, " + _allow(Signature.TABLE_COLUMNS, "why this table's rows differ, in one line"),
     )
 
 
@@ -221,6 +221,19 @@ def c5_territories() -> Broken:
         f"{_ns()}.territories must be a non-empty list of path patterns",
         'write the patterns of the documents to scan, one per line under "- ", or leave the key out to'
         " cover every Markdown file; an empty list would examine nothing in silence",
+    )
+
+
+def one_line(pattern: str) -> str:
+    """A pattern echoed in a message stays on one line: its line breaks are shown escaped."""
+    return pattern.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
+
+
+def c5_pattern(dial: str, pattern: str) -> Broken:
+    return _c5(
+        f"{_ns()}.{dial} holds '{one_line(pattern)}', which git would read as a comment or as two lines",
+        "patterns are gitignore syntax: a pattern cannot start with # or contain a line break; escape or"
+        " remove it",
     )
 
 

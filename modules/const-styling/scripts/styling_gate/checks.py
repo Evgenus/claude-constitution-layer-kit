@@ -1,8 +1,9 @@
 """The examination of one document: every trace of a signature it carries, as a function of
-its text. Lines are read once, in order; a fenced block hides everything but a PlantUML
-opener; code spans hide emphasis; the state the multi-line signatures need — the heading
-before, the numbers of the open ordered lists, the table being read — is kept as the lines go
-by and dropped where the construct ends."""
+its text. Lines are read once, in order; a fenced block, at any indentation, hides everything
+but a PlantUML opener and is closed only by a bare fence of its kind; an HTML comment hides
+its lines; code spans, link destinations and bare URLs hide emphasis; the state the multi-line
+signatures need — the heading before, the numbers of the open ordered lists, the table being
+read — is kept as the lines go by and dropped where the construct ends."""
 
 from __future__ import annotations
 
@@ -11,12 +12,15 @@ from dataclasses import dataclass, field
 
 from .model import Hit, Signature
 
-FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
 HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]+(.*?))?[ \t]*#*[ \t]*$")
 ITEM = re.compile(r"^([ \t]*)([-*+]|[0-9]{1,9}[.)])[ \t]+(.*)$")
 ALERT = re.compile(r"^ {0,3}>[ \t]*\[!")
 BLOCK_MATH = re.compile(r"^ {0,3}\$\$")
 CODE_SPAN = re.compile(r"(`+)(?!`)(.+?)(?<!`)\1(?!`)")
+MASKED = re.compile(
+    r"\]\([^)]*\)|<[a-z]+://[^>]*>|[a-z]+://\S+|<!--.*?-->"
+)  # a link's destination, a URL, a comment
 UNDERSCORE = re.compile(r"(?<![\w\\])(__?)(?=[^\s_])(.+?)(?<=[^\s_])\1(?!\w)")
 DELIMITER_CELL = re.compile(r"^:?-+:?$")
 PLANTUML_LANGUAGES = {"plantuml", "puml"}
@@ -62,11 +66,25 @@ def examine(text: str) -> list[Hit]:
     h1_seen = False
     lists = _Lists()
     table: _Table | None = None
+    comment = False
     lines = text.removeprefix("﻿").split("\n")
     for number, line in enumerate(lines, 1):
+        if comment:
+            comment = "-->" not in line
+            continue
+        if "<!--" in line and "-->" not in line.split("<!--", 1)[1]:
+            comment = True
+            lists.end()
+            table = None
+            continue
         opener = FENCE.match(line)
         if fence is not None:
-            if opener and opener.group(1)[0] == fence[0] and len(opener.group(1)) >= len(fence):
+            if (
+                opener
+                and opener.group(1)[0] == fence[0]
+                and len(opener.group(1)) >= len(fence)
+                and not opener.group(2).strip()
+            ):
                 fence = None
             elif not fence_is_plantuml and line.lstrip().startswith("@startuml"):
                 hits.append(Hit(Signature.PLANTUML, number, line.strip()))
@@ -104,7 +122,10 @@ def examine(text: str) -> list[Hit]:
             hits.append(Hit(Signature.CALLOUT, number, line.strip()))
         if BLOCK_MATH.match(line):
             hits.append(Hit(Signature.FORMULA, number, line.strip()))
-        for found in UNDERSCORE.finditer(CODE_SPAN.sub(lambda m: " " * len(m.group(0)), line)):
+        if line.lstrip().startswith("@startuml"):
+            hits.append(Hit(Signature.PLANTUML, number, line.strip()))
+        masked = MASKED.sub(_blank, CODE_SPAN.sub(_blank, line))
+        for found in UNDERSCORE.finditer(masked):
             hits.append(Hit(Signature.UNDERSCORE_EMPHASIS, number, found.group(2)))
         item = ITEM.match(line)
         if item:
@@ -121,6 +142,10 @@ def examine(text: str) -> list[Hit]:
             continue
         lists.end()
     return hits
+
+
+def _blank(match: re.Match[str]) -> str:
+    return " " * len(match.group(0))
 
 
 def _cells(line: str) -> list[str]:
