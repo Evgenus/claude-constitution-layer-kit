@@ -70,14 +70,7 @@ def _departures(value: object) -> tuple[Departure, ...]:
             )
         for pattern in paths:
             if _unreadable(pattern):
-                raise ConfigurationFailure(
-                    messages.c5_departure(
-                        index,
-                        f"paths holds '{messages.one_line(pattern)}', which git would read as a comment or"
-                        " as two lines; escape a leading # as \\# bare or in single quotes, as \\\\# in"
-                        " double quotes, and remove a line break",
-                    )
-                )
+                raise ConfigurationFailure(messages.c5_pattern(f"departures entry {index} paths", pattern))
         allow = _texts(item.get("allow"))
         if not allow:
             raise ConfigurationFailure(

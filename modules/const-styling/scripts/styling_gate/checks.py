@@ -1,8 +1,9 @@
 """The examination of one document: every trace of a signature it carries, as a function of
 its text. Lines are read once, in order; a fenced block, at any indentation, hides everything
 but a PlantUML opener and is closed only by a bare fence of its kind; an HTML comment hides
-its lines from its opener to its closing line, the closing line whole, the text before the
-opener read, and a comment on one line is masked; code spans, link destinations and bare URLs
+its lines from its opener to its closing line, the closing line whole — a comment reopening
+there is hidden with it — the text before the opener read, and a comment on one line is
+masked, one after another closed hiding the rest; code spans, link destinations and bare URLs
 hide emphasis; the state the multi-line signatures need — the heading before, the numbers of
 the open ordered lists, the table being read — is kept as the lines go by and dropped where
 the construct ends."""

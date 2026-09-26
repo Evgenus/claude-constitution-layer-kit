@@ -583,9 +583,9 @@ def t13() -> tuple[bool, str]:
         ),
         (
             own(departures=[{"paths": ["#a.md"], "allow": ["plantuml"], "reason": "r"}]),
-            "BROKEN: constitution.yaml: const-styling.departures entry 1: paths holds '#a.md', which git"
-            " would read as a comment or as two lines; escape a leading # as \\# bare or in single quotes, as"
-            f" \\\\# in double quotes, and remove a line break — fix: {entry_fix}",
+            "BROKEN: constitution.yaml: const-styling.departures entry 1 paths holds '#a.md', which git would"
+            " read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as"
+            " \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",
         ),
     ]
     results = [broken_first_line(scan({"docs/notes/a.md": MERMAID}, patch), line) for patch, line in cases]
