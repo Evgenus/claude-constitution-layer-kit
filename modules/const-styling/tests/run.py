@@ -388,7 +388,7 @@ def t9() -> tuple[bool, str]:
         "docs/notes/e.md:4: emphasis by underscores — after",
     )
     two_openers = one_finding(
-        {"docs/notes/e.md": "# T\n\n<!-- a --> _x_ <!-- b\n_hidden_\n-->\n"},
+        {"docs/notes/e.md": "# T\n\nt <!-- a --> _x_ <!-- b\n_hidden_\n-->\n"},
         "docs/notes/e.md:3: emphasis by underscores — x",
     )
     return all_of(italic, bold, fine, link, after_fence, after_span, closing, closer_in_span, two_openers)
@@ -562,14 +562,14 @@ def t13() -> tuple[bool, str]:
         (
             own(territories=["#docs/**"]),
             "BROKEN: constitution.yaml: const-styling.territories holds '#docs/**', which git would read as a"
-            " comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# — bare"
-            " or in single quotes, since double quotes refuse it — and remove a line break",
+            " comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or"
+            " in single quotes, as \\\\# in double quotes, and remove a line break",
         ),
         (
             own(guides=["a\nb"]),
             "BROKEN: constitution.yaml: const-styling.guides holds 'a\\nb', which git would read as a comment"
-            " or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# — bare or in"
-            " single quotes, since double quotes refuse it — and remove a line break",
+            " or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in"
+            " single quotes, as \\\\# in double quotes, and remove a line break",
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "one\rtwo"}]),
@@ -584,7 +584,8 @@ def t13() -> tuple[bool, str]:
         (
             own(departures=[{"paths": ["#a.md"], "allow": ["plantuml"], "reason": "r"}]),
             "BROKEN: constitution.yaml: const-styling.departures entry 1: paths holds '#a.md', which git"
-            f" would read as a comment or as two lines — fix: {entry_fix}",
+            " would read as a comment or as two lines; escape a leading # as \\# bare or in single quotes, as"
+            f" \\\\# in double quotes, and remove a line break — fix: {entry_fix}",
         ),
     ]
     results = [broken_first_line(scan({"docs/notes/a.md": MERMAID}, patch), line) for patch, line in cases]

@@ -74,7 +74,8 @@ def _departures(value: object) -> tuple[Departure, ...]:
                     messages.c5_departure(
                         index,
                         f"paths holds '{messages.one_line(pattern)}', which git would read as a comment or"
-                        " as two lines",
+                        " as two lines; escape a leading # as \\# bare or in single quotes, as \\\\# in"
+                        " double quotes, and remove a line break",
                     )
                 )
         allow = _texts(item.get("allow"))
