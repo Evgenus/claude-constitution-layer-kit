@@ -384,10 +384,14 @@ def t9() -> tuple[bool, str]:
         "docs/notes/e.md:6: emphasis by underscores — shown",
     )
     closer_in_span = one_finding(
-        {"docs/notes/e.md": "# T\n\n<!-- a `-->` b\n__after__\n"},
+        {"docs/notes/e.md": "# T\n\n<!-- _a_ `-->` b\n__after__\n"},
         "docs/notes/e.md:4: emphasis by underscores — after",
     )
-    return all_of(italic, bold, fine, link, after_fence, after_span, closing, closer_in_span)
+    two_openers = one_finding(
+        {"docs/notes/e.md": "# T\n\n<!-- a --> _x_ <!-- b\n_hidden_\n-->\n"},
+        "docs/notes/e.md:3: emphasis by underscores — x",
+    )
+    return all_of(italic, bold, fine, link, after_fence, after_span, closing, closer_in_span, two_openers)
 
 
 def t10() -> tuple[bool, str]:
@@ -558,14 +562,14 @@ def t13() -> tuple[bool, str]:
         (
             own(territories=["#docs/**"]),
             "BROKEN: constitution.yaml: const-styling.territories holds '#docs/**', which git would read as a"
-            " comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\#, and"
-            " remove a line break",
+            " comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# — bare"
+            " or in single quotes, since double quotes refuse it — and remove a line break",
         ),
         (
             own(guides=["a\nb"]),
             "BROKEN: constitution.yaml: const-styling.guides holds 'a\\nb', which git would read as a comment"
-            " or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\#, and remove a"
-            " line break",
+            " or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# — bare or in"
+            " single quotes, since double quotes refuse it — and remove a line break",
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "one\rtwo"}]),

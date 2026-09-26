@@ -1,10 +1,11 @@
 """The examination of one document: every trace of a signature it carries, as a function of
 its text. Lines are read once, in order; a fenced block, at any indentation, hides everything
 but a PlantUML opener and is closed only by a bare fence of its kind; an HTML comment hides
-its lines from its opener to its closing line, the text before the opener read, and a comment
-on one line is masked; code spans, link destinations and bare URLs hide emphasis; the state the multi-line
-signatures need — the heading before, the numbers of the open ordered lists, the table being
-read — is kept as the lines go by and dropped where the construct ends."""
+its lines from its opener to its closing line, the closing line whole, the text before the
+opener read, and a comment on one line is masked; code spans, link destinations and bare URLs
+hide emphasis; the state the multi-line signatures need — the heading before, the numbers of
+the open ordered lists, the table being read — is kept as the lines go by and dropped where
+the construct ends."""
 
 from __future__ import annotations
 
@@ -99,12 +100,16 @@ def examine(text: str) -> list[Hit]:
             lists.end()
             table = None
             continue
-        spanless = CODE_SPAN.sub(_blank, line)
-        if "<!--" in spanless and "-->" not in line[spanless.index("<!--") :]:  # a comment opens here
-            comment = True  # its opener is no opener inside a code span; its closer closes anywhere
-            line = line[: spanless.index("<!--")]
-            lists.end()
-            table = None
+        while "<!--" in (spanless := CODE_SPAN.sub(_blank, line)):  # an opener outside a code span
+            start = spanless.index("<!--")
+            end = line.find("-->", start)  # a closer closes anywhere, a code span included
+            if end < 0:  # a comment opens here and runs on: the rest of the line is hidden
+                comment = True
+                line = line[:start]
+                lists.end()
+                table = None
+                break
+            line = line[:start] + " " * (end + 3 - start) + line[end + 3 :]  # a comment on one line
         table = _table_line(line, number, lines, table, hits)
         heading = HEADING.match(line)
         if heading:
