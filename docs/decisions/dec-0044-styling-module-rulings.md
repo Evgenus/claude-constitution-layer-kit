@@ -2,7 +2,7 @@
 id: dec-0044-styling-module-rulings
 type: task-record
 title: Rulings of the const-styling authoring — ten founding defaults in a style guide of its own kind, departures declared in the dials file, a scan of twelve signatures
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
