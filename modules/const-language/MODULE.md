@@ -1,11 +1,11 @@
 ---
-id: module-const-<aspect>
+id: module-const-language
 type: current-state
-title: const-<aspect> — <one clause saying what the module guards or does>
+title: const-language — governed documents pass a pinned prose linter, a readability-grade ceiling, a sentence-length limit and forbidden constructions
 status: active
 ---
 
-# MODULE.md — `const-<aspect>`
+# MODULE.md — `const-language`
 
 *Template. Every constitution module is a Claude Code plugin with this document at its root, and this document is the module's **description** from the first draft on — there is no separate specification kind (decision [dec-0003-module-spec-kind](../../docs/decisions/dec-0003-module-spec-kind.md)). A draft module carries manifest version `0.0.x`; it is published at `0.1.0` or higher, once every gate has its fixture and no open marker is left. Open slots in a draft are written inline as `[decide: <slot> — default <X> — stakes <level> — decider <who>]`; an authoring session derives its questions from these markers in document order, and a published module carries none.*
 
