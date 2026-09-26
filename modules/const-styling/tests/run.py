@@ -179,7 +179,7 @@ MERMAID = "# T\n\n```mermaid\nflowchart LR\n  A --> B\n```\n"
 
 
 def t1() -> tuple[bool, str]:
-    """red→green: a PlantUML fence is red with Y1 typed whole; a Mermaid fence is green; a departure
+    """red and green: a PlantUML fence is red with Y1 typed whole; a Mermaid fence is green; a departure
     entry naming the file makes the same document green and the count says one departure."""
     result = scan({"docs/notes/d.md": PLANTUML_FENCE})
     wanted = (
@@ -219,7 +219,7 @@ def t1() -> tuple[bool, str]:
 
 
 def t2() -> tuple[bool, str]:
-    """red→green: a math fence and a $$ line are red (Y2); a pseudocode fence is green; $$ inside a
+    """red and green: a math fence and a $$ line are red (Y2); a pseudocode fence is green; $$ inside a
     fence of another language is code."""
     fence = one_finding(
         {"docs/notes/f.md": "# T\n\n```math\nE = mc^2\n```\n"},
@@ -236,7 +236,7 @@ def t2() -> tuple[bool, str]:
 
 
 def t3() -> tuple[bool, str]:
-    """red→green: an alert line is red (Y3); a plain blockquote is green."""
+    """red and green: an alert line is red (Y3); a plain blockquote is green."""
     alert = one_finding(
         {"docs/notes/c.md": "# T\n\n> [!NOTE]\n> Careful.\n"},
         "docs/notes/c.md:3: a callout where none is the default — > [!NOTE]",
@@ -246,7 +246,7 @@ def t3() -> tuple[bool, str]:
 
 
 def t4() -> tuple[bool, str]:
-    """red→green: a level-four heading is red (Y4), and one that also skips a level is two findings;
+    """red and green: a level-four heading is red (Y4), and one that also skips a level is two findings;
     three levels in order are green; a closing sequence of hashes and a heading in a fence are not."""
     deep = one_finding(
         {"docs/notes/h.md": "# T\n\n## A\n\n### B\n\n#### C\n"},
@@ -267,7 +267,7 @@ def t4() -> tuple[bool, str]:
 
 
 def t5() -> tuple[bool, str]:
-    """red→green: a skipped level (Y5) and a second level-one heading (Y6) are red; a level that
+    """red and green: a skipped level (Y5) and a second level-one heading (Y6) are red; a level that
     steps back up by any number is green."""
     skipped = one_finding(
         {"docs/notes/s.md": "# T\n\n### B\n"}, "docs/notes/s.md:3: a heading of level 3, skipping a level"
@@ -288,7 +288,7 @@ def t5() -> tuple[bool, str]:
 
 
 def t6() -> tuple[bool, str]:
-    """red→green: a fence with no language is red (Y7), a tilde fence too; `text` is green; a fence
+    """red and green: a fence with no language is red (Y7), a tilde fence too; `text` is green; a fence
     closed by a longer one, an info string with attributes, and an indented fence in a list item."""
     bare = one_finding(
         {"docs/notes/k.md": "# T\n\n```\nls\n```\n"},
@@ -310,7 +310,7 @@ def t6() -> tuple[bool, str]:
 
 
 def t7() -> tuple[bool, str]:
-    """red→green: a star item and a plus item are red (Y8); dashes are green; a bold line and a
+    """red and green: a star item and a plus item are red (Y8); dashes are green; a bold line and a
     horizontal rule are no items."""
     star = one_finding(
         {"docs/notes/l.md": "# T\n\n* one\n- two\n"},
@@ -329,7 +329,7 @@ def t7() -> tuple[bool, str]:
 
 
 def t8() -> tuple[bool, str]:
-    """red→green: all-ones numbering and a jump are red (Y9); a list starting anywhere and counting
+    """red and green: all-ones numbering and a jump are red (Y9); a list starting anywhere and counting
     on is green, a paragraph ends a list so the next may start over, and a nested ordered list
     counts on its own."""
     ones = one_finding(
@@ -342,14 +342,14 @@ def t8() -> tuple[bool, str]:
     fine = no_finding(
         {
             "docs/notes/n.md": "# T\n\n101. a\n102. b\n\nA paragraph.\n\n1. a\n   1. nested\n"
-            "   2. nested\n2. b\n   - bullet\n3. c\n\n1) a\n2) b\n\n## H\n\n1. again\n"
+            "   2. nested\n2. b\n   - bullet\n3. c\n\n1) a\n2) b\n\n## H\n\n1) again\n"
         }
     )
     return all_of(ones, jump, fine)
 
 
 def t9() -> tuple[bool, str]:
-    """red→green: _italic_ and __bold__ are red (Y10); a name with underscores, an underscore inside
+    """red and green: _italic_ and __bold__ are red (Y10); a name with underscores, an underscore inside
     a word, a code span and a star are green."""
     italic = one_finding(
         {"docs/notes/e.md": "# T\n\nSome _quiet_ words.\n"},
@@ -380,14 +380,18 @@ def t9() -> tuple[bool, str]:
         "docs/notes/e.md:5: emphasis by underscores — after",
     )
     closing = one_finding(
-        {"docs/notes/e.md": "# T\n\n<!--\n_hidden_\n--> then __shown__\n"},
-        "docs/notes/e.md:5: emphasis by underscores — shown",
+        {"docs/notes/e.md": "# T\n\n<!--\n_hidden_\n--> _raw_\n__shown__\n"},
+        "docs/notes/e.md:6: emphasis by underscores — shown",
     )
-    return all_of(italic, bold, fine, link, after_fence, after_span, closing)
+    closer_in_span = one_finding(
+        {"docs/notes/e.md": "# T\n\n<!-- a `-->` b\n__after__\n"},
+        "docs/notes/e.md:4: emphasis by underscores — after",
+    )
+    return all_of(italic, bold, fine, link, after_fence, after_span, closing, closer_in_span)
 
 
 def t10() -> tuple[bool, str]:
-    """red→green: a row with a cell too few (Y11) and an empty cell (Y12) are red, the delimiter row
+    """red and green: a row with a cell too few (Y11) and an empty cell (Y12) are red, the delimiter row
     is counted too; a table with a key column and an escaped pipe is green; lines with pipes and no
     delimiter row are no table."""
     short = one_finding(
@@ -554,17 +558,22 @@ def t13() -> tuple[bool, str]:
         (
             own(territories=["#docs/**"]),
             "BROKEN: constitution.yaml: const-styling.territories holds '#docs/**', which git would read as a"
-            " comment or as two lines — fix: patterns are gitignore syntax: a pattern cannot start with # or"
-            " contain a line break; remove it",
+            " comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\#, and"
+            " remove a line break",
         ),
         (
             own(guides=["a\nb"]),
             "BROKEN: constitution.yaml: const-styling.guides holds 'a\\nb', which git would read as a comment"
-            " or as two lines — fix: patterns are gitignore syntax: a pattern cannot start with # or contain"
-            " a line break; remove it",
+            " or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\#, and remove a"
+            " line break",
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "one\rtwo"}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
+            f" saying why — fix: {entry_fix}",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "one\ntwo"}]),
             "BROKEN: constitution.yaml: const-styling.departures entry 1: reason must be one non-empty line"
             f" saying why — fix: {entry_fix}",
         ),
@@ -594,23 +603,25 @@ def t14() -> tuple[bool, str]:
     return all_of(hook_ok, expect(mis, 1, "BROKEN: misinvocation:", "stderr"))
 
 
+GOLDEN = (
+    "# T\n\n"  # 1-2
+    "```plantuml\nA -> B\n```\n\n"  # 3-6
+    "$$ x $$\n\n"  # 7-8
+    "> [!TIP]\n\n"  # 9-10
+    "#### Deep\n\n"  # 11-12: deep and skipped
+    "# Second\n\n"  # 13-14
+    "```\nbare\n```\n\n"  # 15-18
+    "* star\n\n"  # 19-20
+    "1. a\n1. b\n\n"  # 21-23
+    "_under_\n\n"  # 24-25
+    "| k | v |\n|---|---|\n| a |\n| b | |\n"  # 26-29
+)
+
+
 def t15() -> tuple[bool, str]:
     """Golden lines: the twelve headlines typed whole, one document carrying every signature once, in
     line order; and a document with none is green."""
-    text = (
-        "# T\n\n"  # 1-2
-        "```plantuml\nA -> B\n```\n\n"  # 3-6
-        "$$ x $$\n\n"  # 7-8
-        "> [!TIP]\n\n"  # 9-10
-        "#### Deep\n\n"  # 11-12: deep and skipped
-        "# Second\n\n"  # 13-14
-        "```\nbare\n```\n\n"  # 15-18
-        "* star\n\n"  # 19-20
-        "1. a\n1. b\n\n"  # 21-23
-        "_under_\n\n"  # 24-25
-        "| k | v |\n|---|---|\n| a |\n| b | |\n"  # 26-29
-    )
-    result = scan({"docs/notes/g.md": text})
+    result = scan({"docs/notes/g.md": GOLDEN})
     wanted = [
         "RED: docs/notes/g.md:3: PlantUML where Mermaid is the default — ```plantuml",
         "RED: docs/notes/g.md:7: a formula where pseudocode is the default — $$ x $$",
@@ -641,6 +652,115 @@ def t16() -> tuple[bool, str]:
         and len(result.stdout) < 2_000
     )
     return ok, f"{len(result.stdout)} characters of verdict" if ok else result.stdout[:300]
+
+
+# ---------------------------------------------------------------- golden lines
+
+
+def t19() -> tuple[bool, str]:
+    """Golden lines: the why and the fix of every finding typed by hand — a fixture built from the
+    message functions cannot see a changed word — against the document of T15."""
+    allow = (
+        "or declare the departure with its reason: add to const-styling.departures in constitution.yaml an"
+        " entry {paths: [<the file, or a pattern of the documents that depart>], allow: [{key}],"
+        " reason: <{what}>}"
+    )
+
+    def fix(head: str, key: str, what: str) -> str:
+        return "  fix: " + head + allow.replace("{key}", key).replace("{what}", what)
+
+    wanted = [
+        "  why: Mermaid renders on GitHub, GitLab and in editor previews with no server; PlantUML needs one",
+        fix(
+            "draw the diagram in a ```mermaid fence, ",
+            "plantuml",
+            "the capability Mermaid lacks, in one line",
+        ),
+        "  why: a formula renders only in a web view and is invisible to a prose reader and a linter;"
+        " pseudocode reads everywhere",
+        fix(
+            "write the computation as pseudocode in a fenced block, ",
+            "formula",
+            "why this must be a formula, in one line",
+        ),
+        "  why: a callout pulls a sentence out of its argument; an aside is a clause, and a warning about an"
+        " act is a sentence where the act is described",
+        fix(
+            "write the sentence in the paragraph it belongs to, ",
+            "callout",
+            "why the reader must see this apart from the text, in one line",
+        ),
+        "  why: a fourth level is a section too small to stand on its own, and most renderers stop showing"
+        " levels below three in a page's outline",
+        fix(
+            "make it a bold run-in label at the start of a paragraph, or split the document, ",
+            "deep-heading",
+            "why this document needs the level, in one line",
+        ),
+        "  why: a skipped level makes a section look nested in one that does not exist, and an outline built"
+        " from the headings mis-nests it",
+        fix(
+            "use the next level down from the heading before it, ",
+            "skipped-level",
+            "why the levels are read this way here, in one line",
+        ),
+        "  why: a document has one title; a second level-one heading is a second document or a section",
+        fix(
+            "make it a level-two heading, or move what follows it into a document of its own, ",
+            "second-h1",
+            "why this document carries two titles, in one line",
+        ),
+        "  why: the language after the fence tells a renderer how to highlight the block and a reader what it"
+        " is looking at; without it every viewer guesses",
+        fix(
+            "name the language after the opening fence — ```bash, ```yaml, ```text for a directory tree or"
+            " plain output, ",
+            "fence-language",
+            "why no language fits this block, in one line",
+        ),
+        "  why: one marker for every bullet list keeps the source uniform, so a diff shows a change of"
+        " content and never a change of marker",
+        fix("open the item with '- ', ", "list-marker", "why this list keeps its marker, in one line"),
+        "  why: an item is cited by the number written in the source, so the numbers must be the ones a"
+        " reader sees: each the one before it plus one, never all ones and never a jump",
+        fix(
+            "renumber the list so that each item is the one before it plus one, or start a new list after a"
+            " paragraph, ",
+            "list-numbering",
+            "why this list is numbered so, in one line",
+        ),
+        "  why: one emphasis marker keeps the source uniform, and an underscore inside a word or a name is"
+        " text, which a second marker makes ambiguous",
+        fix(
+            "use *italic* and **bold**; put a name that carries underscores in a code span, ",
+            "underscore-emphasis",
+            "why this document marks emphasis so, in one line",
+        ),
+        "  why: a row with more or fewer cells than the header puts values under the wrong heads, or drops"
+        " them in silence, in every renderer",
+        fix(
+            "give the row exactly one cell per column of the header, a backslash before a pipe that belongs"
+            " inside a cell, ",
+            "table-columns",
+            "why this table's rows differ, in one line",
+        ),
+        "  why: an empty cell does not say whether the value is none, unknown or forgotten",
+        fix(
+            "write none, or the value, in the cell, ",
+            "table-empty-cell",
+            "what an empty cell means in this table, in one line",
+        ),
+    ]
+    result = scan({"docs/notes/g.md": GOLDEN})
+    got = [
+        line
+        for line in result.stdout.splitlines()
+        if line.startswith("  why: ") or line.startswith("  fix: ")
+    ]
+    ok = result.code == 2 and got == wanted
+    return ok, "twelve why and fix lines typed whole" if ok else "\n".join(
+        f"{a}\n{b}" for a, b in zip(got, wanted, strict=False) if a != b
+    )[:1500]
 
 
 # ---------------------------------------------------------------- the shipped files
@@ -768,7 +888,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (5, "a skipped level and a second H1 are red; stepping back up is green", t5),
     (
         6,
-        "red→green: a fence without a language is red; text, nested, attributed and indented fences green",
+        "a fence without a language is red; text, nested, attributed and indented fences green",
         t6,
     ),
     (7, "star and plus items are red; dashes, a bold line and a rule are green", t7),
@@ -783,6 +903,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (16, "an echoed item of 12,000 characters is cut, and the cut is said", t16),
     (17, "the shipped guide passes its own scan with ten entries; the skill's description size", t17),
     (18, "the install note, skill and guide name no kit document; manifest; example accepted", t18),
+    (19, "golden lines: the why and the fix of every finding typed whole", t19),
 ]
 
 SUBJECT = Subject(

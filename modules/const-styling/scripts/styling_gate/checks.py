@@ -1,7 +1,8 @@
 """The examination of one document: every trace of a signature it carries, as a function of
 its text. Lines are read once, in order; a fenced block, at any indentation, hides everything
 but a PlantUML opener and is closed only by a bare fence of its kind; an HTML comment hides
-its lines; code spans, link destinations and bare URLs hide emphasis; the state the multi-line
+its lines from its opener to its closing line, the text before the opener read, and a comment
+on one line is masked; code spans, link destinations and bare URLs hide emphasis; the state the multi-line
 signatures need — the heading before, the numbers of the open ordered lists, the table being
 read — is kept as the lines go by and dropped where the construct ends."""
 
@@ -69,11 +70,9 @@ def examine(text: str) -> list[Hit]:
     comment = False
     lines = text.removeprefix("﻿").split("\n")
     for number, line in enumerate(lines, 1):
-        if comment:  # inside a comment: the line is hidden up to its closing marker
-            if "-->" not in line:
-                continue
-            comment = False
-            line = _blank_to(line, line.index("-->") + 3)
+        if comment:  # inside a comment: its lines are hidden, the closing line whole
+            comment = "-->" not in line
+            continue
         opener = FENCE.match(line)
         if fence is not None:
             if (
@@ -101,8 +100,8 @@ def examine(text: str) -> list[Hit]:
             table = None
             continue
         spanless = CODE_SPAN.sub(_blank, line)
-        if "<!--" in spanless and "-->" not in spanless.split("<!--", 1)[1]:  # a comment opens here
-            comment = True
+        if "<!--" in spanless and "-->" not in line[spanless.index("<!--") :]:  # a comment opens here
+            comment = True  # its opener is no opener inside a code span; its closer closes anywhere
             line = line[: spanless.index("<!--")]
             lists.end()
             table = None
@@ -149,10 +148,6 @@ def examine(text: str) -> list[Hit]:
 
 def _blank(match: re.Match[str]) -> str:
     return " " * len(match.group(0))
-
-
-def _blank_to(line: str, end: int) -> str:
-    return " " * end + line[end:]
 
 
 def _cells(line: str) -> list[str]:
