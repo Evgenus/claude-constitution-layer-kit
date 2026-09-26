@@ -1,13 +1,13 @@
 ---
 id: dec-0045-frozen-documents-stay-in-the-style-scan
 type: task-record
-title: Frozen documents stay in the style scan — a trace in one is declared by a departure over a range that holds it or its path, never taken out of the territory
+title: Frozen documents stay in the style scan — a trace in one is declared by a departure over a number range that holds it, or its path, never taken out of the territory
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Frozen documents stay in the style scan — a trace in one is declared by a departure over a range that holds it or its path, never taken out of the territory
+# Frozen documents stay in the style scan — a trace in one is declared by a departure over a number range that holds it, or its path, never taken out of the territory
 
 ## Context
 
@@ -18,7 +18,7 @@ Module [`const-styling`](../requirements.md#const-styling) landed on 2026-09-26 
 - **A. Keep the negated patterns.** The frozen documents stay out of the scan's territory by number range, as the sibling `const-interaction` keeps them out of its list-handles scan.
   - **Pros:** no change; consistent with the sibling; the excluded documents are immutable, so a finding in them could only ever be declared away.
   - **Cons:** 51 documents are examined for nothing, though they carry no signature today; a signature added later would go unseen in them rather than be declared with its reason; the exclusion hides twelve signatures where one would do.
-- **B. Drop the patterns; declare a departure over a range or a path when a signature bites.** The scan covers every Markdown file; a trace of a default in a document a rule of its policy freezes is declared by an entry of the `departures` dial over its number range or its path, allowing that one signature with the reason that the document stands as written.
+- **B. Drop the patterns; declare a departure over a range or a path when a signature bites.** The scan covers every Markdown file; a trace of a default in a document a rule of its policy freezes is declared by an entry of the `departures` dial over a number range that holds it, or its path, allowing that one signature with the reason that the document stands as written.
   - **Pros:** the scan examines everything it can; the hiding is one signature wide and carries its reason; the module's own mechanism serves the case it was built for.
   - **Cons:** three rules amended an hour after their yes, a record and a carry audit; a future signature that bites an old document costs one dial entry instead of nothing.
 
