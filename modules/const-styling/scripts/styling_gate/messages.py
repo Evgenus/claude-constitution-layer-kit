@@ -229,9 +229,10 @@ def one_line(pattern: str) -> str:
     return pattern.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
 
 
-def c5_pattern(dial: str, pattern: str) -> Broken:
+def c5_pattern(where: str, pattern: str) -> Broken:
+    """`where` names the dial, or the departure entry's paths, holding the pattern."""
     return _c5(
-        f"{_ns()}.{dial} holds '{one_line(pattern)}', which git would read as a comment or as two lines",
+        f"{_ns()}.{where} holds '{one_line(pattern)}', which git would read as a comment or as two lines",
         "patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in"
         " double quotes, and remove a line break",
     )
