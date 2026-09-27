@@ -116,7 +116,8 @@ def l6_vale_comment(rel: str, line: int, text: str) -> Finding:
         "a comment that switches a rule off is a mark in the document, which the gate blanks before it"
         " reads; what departs from a rule is declared in the dials file, where every reader sees it",
         "remove the comment; to change a rule for this repository set its level or threshold under"
-        f" {_ns()} in {DIALS_FILE}, or take the document out of {_ns()}.territories with a negated pattern",
+        f" {_ns()} in {DIALS_FILE}, or, for a document that must stand as written, declare the departure"
+        f" with its reason in {_ns()}.departures there",
     )
 
 

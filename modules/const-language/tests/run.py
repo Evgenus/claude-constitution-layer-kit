@@ -359,8 +359,8 @@ def t6() -> tuple[bool, str]:
         " before it reads; what departs from a rule is declared in the dials file, where every reader"
         " sees it\n"
         "  fix: remove the comment; to change a rule for this repository set its level or threshold"
-        " under const-language in constitution.yaml, or take the document out of"
-        " const-language.territories with a negated pattern"
+        " under const-language in constitution.yaml, or, for a document that must stand as written,"
+        " declare the departure with its reason in const-language.departures there"
     )
     result, _ = gate_on(Write(DOC, COMMENT_RED))
     wanted = [f"RED: {found.headline}", f"RED: {messages.l4_simpler(DOC, 4, 'prior to', 'before').headline}"]
@@ -553,6 +553,10 @@ def t10() -> tuple[bool, str]:
             "BROKEN: constitution.yaml: const-language.departures entry 1: 'tone' is no rule this gate knows — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
         ),
         (
+            own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": "a\nb"}]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: reason must be one non-empty line saying why — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
             own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": " "}]),
             "BROKEN: constitution.yaml: const-language.departures entry 1: reason must be one non-empty line saying why — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
         ),
@@ -726,7 +730,7 @@ def t15() -> tuple[bool, str]:
             f"  fix: split the long sentences and prefer short words in the prose outside headings, code and tables until the grade is at or under 10; the ceiling for this repository is const-language.grade_ceiling in constitution.yaml{ALLOW_GRADE}",  # noqa: E501 — a golden line is typed whole
             f"RED: {DOC}:3: a Vale comment in the document — <!-- vale Language.Forbidden = NO -->",  # noqa: E501 — a golden line is typed whole
             "  why: a comment that switches a rule off is a mark in the document, which the gate blanks before it reads; what departs from a rule is declared in the dials file, where every reader sees it",  # noqa: E501 — a golden line is typed whole
-            "  fix: remove the comment; to change a rule for this repository set its level or threshold under const-language in constitution.yaml, or take the document out of const-language.territories with a negated pattern",  # noqa: E501 — a golden line is typed whole
+            "  fix: remove the comment; to change a rule for this repository set its level or threshold under const-language in constitution.yaml, or, for a document that must stand as written, declare the departure with its reason in const-language.departures there",  # noqa: E501 — a golden line is typed whole
             f"RED: {DOC}:6: a sentence of 32 words, over the limit of 25 — The cat sat on the mat and the dog ran to the door and the bird flew up to the r… [130 characters]",  # noqa: E501 — a golden line is typed whole
             "  why: a sentence longer than the limit carries more than one idea, and a non-native reader loses the first before reaching the last",  # noqa: E501 — a golden line is typed whole
             f"  fix: split it at a clause into sentences of at most 25 words; the limit for this repository is const-language.sentence_words in constitution.yaml{ALLOW_SENTENCE}",  # noqa: E501 — a golden line is typed whole

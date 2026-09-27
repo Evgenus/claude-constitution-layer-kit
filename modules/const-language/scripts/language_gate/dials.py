@@ -6,6 +6,7 @@ import math
 from collections.abc import Mapping
 
 from const_gate.errors import ConfigurationFailure
+from const_gate.messages import shown
 
 from . import messages, rules
 from .model import (
@@ -94,7 +95,9 @@ def _departures(value: object) -> tuple[Departure, ...]:
         unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
         if unknown:
             raise ConfigurationFailure(
-                messages.c5_departure(index, f"'{unknown[0]}' is no field of an entry")
+                messages.c5_departure(
+                    index, f"'{messages.one_line(shown(unknown[0]))}' is no field of an entry"
+                )
             )
         paths = _texts(item.get("paths"))
         if not paths:
@@ -112,7 +115,9 @@ def _departures(value: object) -> tuple[Departure, ...]:
         for key in allow:
             if key not in known:
                 raise ConfigurationFailure(
-                    messages.c5_departure(index, f"'{key}' is no rule this gate knows")
+                    messages.c5_departure(
+                        index, f"'{messages.one_line(shown(key))}' is no rule this gate knows"
+                    )
                 )
         reason = item.get("reason")
         if not _one_line(reason):
