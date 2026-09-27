@@ -12,6 +12,18 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/print-decision-shape.sh"],
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

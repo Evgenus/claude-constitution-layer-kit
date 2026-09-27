@@ -6,8 +6,12 @@ reported on the first `Write` or `Edit` of any file, a missing git on the first 
 file, each with the fix on the first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
-   session). One hook: before every `Write` and `Edit` of a Markdown file the document as it will
-   be after the write is checked for open-question markers, and a finding blocks the write. A copy
+   session). Two hooks. At every session start — after a resume, a compaction and a clear too — the shape
+   of a decision message is printed into the session's context, 648 characters, advisory: lettered
+   options with **Pros:** and **Cons:** sub-bullets, one recommendation, the decider named, and
+   the instruction to load the skill before any choice is put. Before every `Write` and `Edit` of
+   a Markdown file the document as it will be after the write is checked for open-question
+   markers, and a finding blocks the write. A copy
    of this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
    `scripts/const_gate`, and `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
@@ -51,10 +55,11 @@ file, each with the fix on the first line; nothing is silently skipped.
    Set `log_dir` to keep it inside the repository; the directory must be git-ignored, and the gate
    refuses to run otherwise.
 7. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
-8. CLAUDE.md pointer: none. The skill `/const-questions:ask-or-decide` loads on its own when a
-   choice is about to be put to the user, when a request has more than one plausible reading, and
-   when a deliverable would otherwise carry an open question; its description in the skill
-   listing is the carrier.
+8. CLAUDE.md pointer: none. The session-start text carries the shape of a decision message in
+   every session; the skill `/const-questions:ask-or-decide` — whose description asks for it to
+   be loaded before any message that puts a choice to the user — carries the rest: whether to
+   ask at all, the tool or the letter, the project's preferences, the open slots a question comes
+   from, and the named blocker in place of a deferred question.
 
 What this module does not check: whether a question should have been asked or decided; the shape
 of a decision message; a deferred question written in prose; a document written through the shell
