@@ -71,10 +71,11 @@ reported by the scan with the fix on its first line; nothing is silently skipped
 
 What this module does not check: whether prose, a list or a table was the right form; whether a
 drawing is trivial; whether a key column is first or a heading is in sentence case; a callout
-written as a blockquote with a bold word instead of the alert syntax; an emphasis marker inside a
-link's text or a heading; a heading, an item or a fence indented four spaces or more outside a
-list; a table whose header is not followed by a delimiter row, which is not a table; a fence
-that is never closed, which hides everything after it; a document outside `territories`.
+written as a blockquote with a bold word instead of the alert syntax. Nor does the module check:
+an emphasis marker inside a link's text or a heading; a heading, an item or a fence indented four
+spaces or more outside a list; a table whose header is not followed by a delimiter row, which is
+not a table; a fence that is never closed, which hides everything after it; a document outside
+`territories`.
 
 Uninstall: remove the plugin; remove the `const-styling:` namespace from `constitution.yaml`; the
 style guide stays, since it is the project's document.
