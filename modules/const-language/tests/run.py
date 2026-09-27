@@ -274,6 +274,9 @@ def t4() -> tuple[bool, str]:
         (found.render() == typed, "L4 typed whole equals the function's text"),
         one_finding(SIMPLER_RED, found.headline),
         no_finding(SIMPLER_GREEN),
+        one_finding(
+            "# T\n\nDo it Prior To noon.\n", messages.l4_simpler(DOC, 3, "Prior To", "before").headline
+        ),
         no_finding(SIMPLER_RED, own(exceptions=["prior to"])),
         one_finding(
             "# T\n\nWe will ascertain it.\n",
@@ -301,6 +304,7 @@ def t5() -> tuple[bool, str]:
         Write(DOC, PASSIVE), raw_dials=dials_text() + "const-language:\n  levels:\n    passive: off\n"
     )
     both, _ = gate_on(Write(DOC, PASSIVE + "\nDo it prior to noon.\n"))
+    inside, _ = gate_on(Write(DOC, "# T\n\nThis used car is fine.\n"))  # "is" inside "This": no passive
     return all_of(
         (found.render() == typed, "L5 typed whole equals the function's text"),
         expect(result, 0, note, "stdout"),
@@ -317,6 +321,10 @@ def t5() -> tuple[bool, str]:
             f"a bare off, false to YAML: exit {bare.code}, no note",
         ),
         expect(both, 2, note, "stderr"),  # the note travels with the block verdict
+        (
+            inside.code == 0 and "note:" not in inside.stdout,
+            f"a form of be inside a word: exit {inside.code}, no note",
+        ),
     )
 
 
@@ -537,20 +545,23 @@ def t11() -> tuple[bool, str]:
         'case "$1" in --version) echo "vale version 3.23.0";; *) echo \'{"Line":1,"Path":"x","Text":"E201 something broke","Code":"E201","Span":1}\'; exit 2;; esac',  # noqa: E501 — a golden line is typed whole
     )
     mute = fake_vale(H.scratch_dir(), "echo hello")
+    failing_version = fake_vale(H.scratch_dir(), 'echo "vale version 3.23.0"; exit 1')
     missing = "BROKEN: const-language needs vale 3.23.0 or newer on PATH — fix: brew install vale (macOS, Linuxbrew), or the other routes at https://vale.sh/docs/install — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     too_old = "BROKEN: const-language needs vale 3.23.0 or newer, found 3.19.0 — fix: upgrade it: brew install vale (macOS, Linuxbrew), or the other routes at https://vale.sh/docs/install — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     failed = "BROKEN: vale could not run: E201 something broke — fix: repair what the message names — the binary, its permissions, the temporary directory — then run the check again"  # noqa: E501 — a golden line is typed whole
     no_version = "BROKEN: vale did not report its version (hello) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     results = [
         gate_on(Write(DOC, PLAIN), env={"PATH": str(directory)})[0]
-        for directory in (none, old, failing, mute)
+        for directory in (none, old, failing, mute, failing_version)
     ]
+    exit_one = "BROKEN: vale did not report its version (vale version 3.23.0) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     scan_old = H.run_gate("", args=["--scan", str(prepared(files={DOC: PLAIN}))], env={"PATH": str(old)})
     return all_of(
         broken(results[0], missing),
         broken(results[1], too_old),
         broken(results[2], failed),
         broken(results[3], no_version),
+        broken(results[4], exit_one),  # a version line with a failing exit is a failure, not a pass
         broken(scan_old, too_old),
         (
             set((old / "calls").read_text().split("\n")) <= {"--version", ""},
@@ -565,18 +576,34 @@ def t11() -> tuple[bool, str]:
 
 def t12() -> tuple[bool, str]:
     """The cap: sixty findings in one document show the first twenty after a write, the count line
-    typed by hand says so, and the whole verdict stays under the platform's cap; the scan lists all."""
+    typed by hand says so, and the whole verdict stays under the platform's cap; sixty findings whose
+    twenty renderings would pass 8,000 characters show fewer, the count line saying how many; the
+    scan lists all."""
     text = "# T\n\n" + "\n\n".join(["Do it prior to noon."] * 60) + "\n"
     result, root = gate_on(Write(DOC, text), files={DOC: text})
     scanned = H.run_gate("", args=["--scan", str(root)])
     count = f"RED: 60 finding(s), the first 20 shown — the scan lists them all — 1 document examined ({DOC})"
+    wide_text = "# T\n\n" + "\n\n".join(["<!-- vale off -->"] * 60) + "\n"
+    wide, _ = gate_on(Write(DOC, wide_text))
+    one = len(messages.l6_vale_comment(DOC, 3, "<!-- vale off -->").render()) + 1
+    fit = 8000 // one  # the renderings that fit under 8,000 characters
+    wide_count = (
+        f"RED: 60 finding(s), the first {fit} shown — the scan lists them all — 1 document examined ({DOC})"
+    )
+    tail_of = red_lines(result.stderr)[-1] if red_lines(result.stderr) else "no RED line"
+    wide_tail = red_lines(wide.stderr)[-1] if red_lines(wide.stderr) else "no RED line"
     return all_of(
         (
             result.code == 2 and len(headlines(result)) == 20,
             f"exit {result.code}, {len(headlines(result))} shown",
         ),
-        (red_lines(result.stderr)[-1] == count, f"count line: {red_lines(result.stderr)[-1]}"),
+        (tail_of == count, f"count line: {tail_of}"),
         (len(result.stderr) < 10_000, f"{len(result.stderr)} characters of verdict"),
+        (
+            fit < 20 and len(headlines(wide)) == fit,
+            f"wide findings: {len(headlines(wide))} shown of a fit of {fit}",
+        ),
+        (wide_tail == wide_count, f"wide count line: {wide_tail}"),
         (
             scanned.code == 2 and len(headlines(scanned, "stdout")) == 60,
             f"the scan shows {len(headlines(scanned, 'stdout'))}",
@@ -683,7 +710,7 @@ def t16() -> tuple[bool, str]:
         (
             list(hooks) == ["PostToolUse"]
             and entry["matcher"] == "Write|Edit"
-            and entry["hooks"][0]["timeout"] == 30
+            and entry["hooks"][0].get("timeout") == 30
             and entry["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/check-language.sh"],
             "PostToolUse on Write|Edit through the plugin root, timeout 30, no other event",
         ),
@@ -702,11 +729,18 @@ def t17() -> tuple[bool, str]:
     first = scan(files)
     second = scan(files)
     overlap = sorted(set(rules.FORBIDDEN) & set(rules.SIMPLER))
+    phrases = [*rules.FORBIDDEN, *rules.SIMPLER]
+    every = "# T\n\n" + "\n\n".join(f"We {phrase} today." for phrase in phrases) + "\n"
+    fired = scan({DOC: every})
     return all_of(
         (first.stdout == second.stdout and first.code == second.code == 2, "two scans, one output"),
         (
             len(set(rules.FORBIDDEN)) == len(rules.FORBIDDEN) and not overlap,
             f"lists disjoint, no duplicate: {overlap}",
+        ),
+        (
+            fired.code == 2 and len(headlines(fired, "stdout")) == len(phrases),
+            f"every founding phrase fires once: {len(headlines(fired, 'stdout'))} of {len(phrases)}",
         ),
     )
 
@@ -783,13 +817,21 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (8, "after the write the file on disk is judged; a missing file skips; a Stop event is C12", t8),
     (9, "levels: a rule at warning notes; all off refused; unknown rule and level are C5", t9),
     (10, "this module's C5 lines typed by hand, each exit 1", t10),
-    (11, "vale absent, old, failing and mute: C2 and C12 typed by hand; the fakes were asked", t11),
-    (12, "the cap after a write: the first twenty shown, the count says so; the scan lists all", t12),
+    (11, "vale absent, old, failing, mute or exiting 1: C2 and C12 typed by hand; the fakes were asked", t11),
+    (
+        12,
+        "the cap after a write: the first twenty shown, or fewer past 8,000 characters; the scan lists all",
+        t12,
+    ),
     (13, "territories: examined against scanned; a negated pattern; a README; the tail's numbers", t13),
     (14, "a value of 12,000 characters echoed by L3 is cut, and the cut is said", t14),
     (15, "golden lines: one document carrying every rule, the whole scan output typed by hand", t15),
     (16, "install note, skill and manifest name no kit document; wiring; description size", t16),
-    (17, "two runs, one verdict; the founding lists are disjoint and without duplicates", t17),
+    (
+        17,
+        "two runs, one verdict; the founding lists are disjoint, without duplicates, and every phrase fires",
+        t17,
+    ),
     (18, "an Edit is judged on what it produces; a line number survives a fence above it", t18),
 ]
 

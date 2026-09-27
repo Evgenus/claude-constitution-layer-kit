@@ -6,11 +6,11 @@ Events:   PostToolUse on Write and Edit (the plugin's wiring): the document as i
           the write. A PreToolUse payload is judged the same way on the document the write would
           produce, should a consumer wire it there. Any other event is a configuration failure.
 Modes:    (hook)          one tool event, JSON on stdin — the written document, when the dial
-                          `territories` covers it, is prepared (the envelope and every Vale comment
-                          outside a fence or a code span blanked, line numbers kept) and checked by Vale with a configuration
-                          generated from the dials; a rule at level error is a finding, at warning a
-                          note, off unwritten; a Vale comment outside a fence or a code span is a
-                          finding of its own.
+                          `territories` covers it, is prepared (the envelope, and every Vale comment
+                          outside a fence or a code span, blanked with line numbers kept) and
+                          checked by Vale with a configuration generated from the dials; a rule at
+                          level error is a finding, at warning a note, off unwritten; a Vale comment
+                          outside a fence or a code span is a finding of its own.
           --scan [DIR]    every covered Markdown file git lists in the repository containing DIR
                           (default: the current directory), the same way, one Vale run.
 Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
