@@ -483,7 +483,7 @@ def decision_shape_printed() -> tuple[bool, str]:
         return False, f"phrases not in both carriers: {missing}"
     return (
         True,
-        f"exit 0, the text as typed here, {size} characters as both documents state, eight phrases in the skill",
+        f"exit 0, the text as typed, {size} characters as both documents state, eight phrases in the skill",
     )
 
 
