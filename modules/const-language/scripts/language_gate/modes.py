@@ -85,7 +85,7 @@ def scan_mode(output: Output, start: Path) -> int:
 
 def examine(texts: dict[str, str], dials: LanguageDials) -> Verdict:
     """Every document prepared and checked in one Vale run; the findings and notes in document
-    and line order, a Vale comment a finding wherever it stands."""
+    and line order, a Vale comment outside a fence or a code span a finding wherever it stands."""
     binary = vale.preflight()
     findings: list[Finding] = []
     notes: list[str] = []

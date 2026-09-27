@@ -59,7 +59,7 @@ On the kit's tree at the survey, 38 of 109 documents read above grade 10 by Vale
   - **Pros:** the kit nearly meets it.
   - **Cons:** 12 is where the kernel and the policies read, the documents a non-native reader finds hardest; a consumer with no calibration would get a ceiling that flags almost nothing.
 
-The session recommended B. **R5.** B, chosen by the decider in chat on 2026-09-26: the module's default `grade_ceiling` is 10, exclusive as Vale computes it; the kit's own is 13, and its descent to 10 is a work item after this module, one step per change with its audit, named in the rollout plan.
+The session recommended B. **R5.** B, chosen by the decider in chat on 2026-09-26: the module's default `grade_ceiling` is 10, exclusive as Vale computes it; the kit's own is 13, and its descent — 12, then 10 — is a work item after this module, one step per change with its audit, named in the rollout plan.
 
 ## 4. The default sentence limit and the kit's own value
 
@@ -106,7 +106,7 @@ The session recommended A. **R9.** A, chosen by the decider in chat on 2026-09-2
 The comparison overturned the graduation of the twelve markup signatures of module `const-styling` — all expressible in Vale, five only as scripts, but the departures dial with its reason has no Vale form and a second home per rule crosses [law 1 of CLAUDE.md](../../CLAUDE.md#law-1) and [law 3 of CLAUDE.md](../../CLAUDE.md#law-3) — and kept the path for rules about words, sentence-case headings first.
 
 - **A. Not at founding.** The module ships the rules of its own rows; its document records the shape and the path.
-  - **Pros:** a heading-case rule is no row of the module's aspect, so shipping it is scope creep; the styling guide has not founded the default; the rule needs an exception list with no signal behind it.
+  - **Pros:** a heading-case rule is no row of the module's aspect, so shipping it is scope creep; the styling guide holds sentence case as a default already, but no consumer has asked for the rule; the rule needs an exception list with no signal behind it.
   - **Cons:** the graduation path stays a described shape with no rule proving it.
 - **B. Ship it at founding.**
   - **Pros:** one word rule proves the path end to end.
@@ -130,6 +130,6 @@ No option was put: the kit's dial follows the rulings above and the precedent of
 8. R8 — [§6](../../modules/const-language/MODULE.md#t6) of the module's document, the hook row; [§9](../../modules/const-language/MODULE.md#t9), rows E1 and E2 and limit 4; [§12](../../modules/const-language/MODULE.md#t12), item 5.
 9. R9 — [requirement A10.2](../requirements.md#a10-2), its destination, and the boundary note of the requirements document; [§3](../../modules/const-language/MODULE.md#t3) of the module's document, the row's reading; [§11](../../modules/const-language/MODULE.md#t11).
 10. R10 — [§3](../../modules/const-language/MODULE.md#t3) of the module's document, the reading of [requirement A9.4](../requirements.md#a9-4); [§12](../../modules/const-language/MODULE.md#t12), item 1.
-11. R11 — [the kit's dials file](../../constitution.yaml), its `const-language.territories` and the comment beside them; [§8](../../modules/const-language/MODULE.md#t8) of the module's document, pair 6.
+11. R11 — [the kit's dials file](../../constitution.yaml), its `const-language.territories` and the comment beside them; [§8](../../modules/const-language/MODULE.md#t8) of the module's document, pair 6; [rule 6 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6) and [rule 10 of plc-0005-research](../policies/plc-0005-research.md#r10), the clause on their frozen documents.
 12. R12 — [the kit's dials file](../../constitution.yaml), its `const-language.levels.passive` and the comment beside it.
 13. R13 — [rule 8 of plc-0001-root-policy](../policies/plc-0001-root-policy.md#r8) and the enforcement rule of every other policy under `docs/policies/`, each naming the gate.

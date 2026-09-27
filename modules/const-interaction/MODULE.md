@@ -46,6 +46,7 @@ A short, vague request is answered by a page: a yes/no question opens with three
 4. [dec-0014-territory-dialect](../../docs/decisions/dec-0014-territory-dialect.md) and [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — `territories` is gitignore syntax; every read of the dials file validates the keys read.
 5. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md), [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) and [dec-0038-log-record-per-print](../../docs/decisions/dec-0038-log-record-per-print.md) — the gate-script rules, the linked shared code and the output log.
 6. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
+7. [dec-0046-language-module-rulings](../../docs/decisions/dec-0046-language-module-rulings.md) — the plain-chat row settled as this module's, the boundary test closed.
 
 <a id="t5"></a>
 ## 5. Invariant
