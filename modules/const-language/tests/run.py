@@ -895,7 +895,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (4, "L4 typed whole with the plain word, in any case; an exception; a pair of the repository's", t4),
     (
         5,
-        "L5 a note by default, red at error, off; the note travels with a block; be inside a word is none",
+        "L5 a note by default, red at error, none at off; the note travels with a block; be in a word none",
         t5,
     ),
     (6, "L6 a Vale comment is red and the rule it names still fires; across lines; code is a mention", t6),
