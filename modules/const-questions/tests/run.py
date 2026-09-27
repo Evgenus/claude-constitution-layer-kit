@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -394,25 +395,89 @@ def golden_lines() -> tuple[bool, str]:
     return ok, "three lines and the cut as typed" if ok else result.stderr[:400]
 
 
+SHAPE = (
+    "const-questions (advisory): a choice put to the user takes one shape, in the chat message, one decision"
+    " per message. Options lettered A, B, C…, each a bullet: the bold letter and title with a one-sentence"
+    " description on the first line; beneath it two indented sub-bullets, **Pros:** and **Cons:**, one prose"
+    " line each — never inline in the description, never a table. Then exactly one recommendation with its"
+    " reasoning, and the decider named. A one-fact clarification is a plain line and takes none of this."
+    " Whether to ask at all, the tool or the letter, and the project's preferences are the skill"
+    " ask-or-decide: load it before putting any choice.\n"
+)
+
+
 def hooks_file() -> tuple[bool, str]:
-    hooks = json.loads((SCRIPTS.parent / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-    pre = hooks["hooks"]["PreToolUse"]
-    handler = pre[0]["hooks"][0]
-    ok = (
-        list(hooks["hooks"]) == ["PreToolUse"]
-        and len(pre) == 1
-        and pre[0]["matcher"] == "Write|Edit"
-        and handler["type"] == "command"
-        and handler["command"] == "sh"
-        and handler["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/check-open-questions.sh"]
-        and isinstance(handler["timeout"], int)
-    )
+    """Two handlers, each in the exec form with an explicit timeout: the gate on Write|Edit, the
+    session-start printer without a matcher; both scripts present."""
+    hooks = json.loads((SCRIPTS.parent / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    wanted = {
+        "PreToolUse": ("Write|Edit", ["${CLAUDE_PLUGIN_ROOT}/scripts/check-open-questions.sh"]),
+        "SessionStart": (None, ["${CLAUDE_PLUGIN_ROOT}/scripts/print-decision-shape.sh"]),
+    }
+    problems = [name for name in wanted if name not in hooks] + [name for name in hooks if name not in wanted]
+    for name, (matcher, args) in wanted.items():
+        groups = hooks.get(name, [])
+        if len(groups) != 1:
+            problems.append(f"{name}: {len(groups)} handler(s)")
+        for group in groups:
+            handler = group["hooks"][0]
+            right = (
+                group.get("matcher") == matcher
+                and handler.get("type") == "command"
+                and handler.get("command") == "sh"
+                and handler.get("args") == args
+                and isinstance(handler.get("timeout"), int)
+                and all((SCRIPTS / Path(arg).name).is_file() for arg in args)
+            )
+            if not right:
+                problems.append(f"{name}: {group}")
     return (
-        ok,
-        "one PreToolUse handler on Write|Edit, exec form, the placeholder in args, a timeout"
-        if ok
-        else json.dumps(hooks),
+        not problems,
+        "a PreToolUse handler on Write|Edit and a SessionStart handler without matcher, exec form, timeouts,"
+        " scripts present"
+        if not problems
+        else str(problems),
     )
+
+
+def decision_shape_printed() -> tuple[bool, str]:
+    """The session-start text: exit 0, the text as typed here character for character, nothing
+    on stderr, of the size the module document states; and every phrase it shares with the
+    skill's shape section stands in the skill too, so the two carriers cannot drift apart."""
+    done = subprocess.run(
+        [H.sh, str(SCRIPTS / "print-decision-shape.sh")],
+        input="{}",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if done.returncode != 0 or done.stdout != SHAPE or done.stderr != "":
+        return False, repr(done)
+    size = len(SHAPE) - 1
+    stated = re.search(
+        r"printed by the `SessionStart` hook, (\d+) characters",
+        (SCRIPTS.parent / "MODULE.md").read_text(encoding="utf-8"),
+    )
+    if not stated or int(stated.group(1)) != size:
+        return False, f"the module document states another size than {size}"
+    # the skill's prose is wrapped at 100 columns, so a phrase may carry a line break inside it
+    skill = " ".join(
+        (SCRIPTS.parent / "skills" / "ask-or-decide" / "SKILL.md").read_text(encoding="utf-8").split()
+    )
+    shared_phrases = (
+        "one decision per message",
+        "**Pros:**",
+        "**Cons:**",
+        "one prose line each",
+        "never inline in the description",
+        "never a table",
+        "exactly one recommendation",
+        "ask-or-decide",
+    )
+    missing = [phrase for phrase in shared_phrases if phrase not in SHAPE or phrase not in skill]
+    if missing:
+        return False, f"phrases not in both carriers: {missing}"
+    return True, f"exit 0, the text as typed here, {size} characters, eight phrases shared with the skill"
 
 
 def skill_and_install_note() -> tuple[bool, str]:
@@ -501,6 +566,11 @@ ASSERTIONS = [
     Assertion(18, "an Edit is judged on the result", edit_removing_a_marker_passes),
     Assertion(
         19, "an envelope nested past the parser's depth is no crash, and is judged", deep_envelope_is_no_crash
+    ),
+    Assertion(
+        20,
+        "the session-start text as typed, its size stated, its phrases in the skill",
+        decision_shape_printed,
     ),
 ]
 

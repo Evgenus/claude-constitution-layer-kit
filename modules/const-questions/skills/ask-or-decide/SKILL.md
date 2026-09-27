@@ -2,12 +2,15 @@
 name: ask-or-decide
 description: >
   Decide whether a choice is the user's to make or the session's, and when it is the user's,
-  put it as one decision per message in a fixed shape: lettered options with pros and cons, one
-  recommendation, the decider named. Use when about to ask the user anything, when a request has
-  more than one plausible reading, when a slot of a template, a dial or a plan is open, when a
-  delivered plan or document would otherwise carry an open question, and when the user says an
-  argument never reached them. Advisory: judgment shaped in prose; the plugin's hook holds only
-  the marker half of the no-deferred-question rule, the rest is yours.
+  put it as one decision per message in a fixed shape: lettered options, each with Pros: and
+  Cons: sub-bullets, one recommendation, the decider named. Load this skill first, before the
+  reply is written, every time a message will put options, a recommendation or a question to
+  the user — a choice of design, of mechanism, of wording that binds, of what to do next —
+  whether or not the shape seems known. Use when a request has more than one plausible reading,
+  when a slot of a template, a dial or a plan is open, when a delivered plan or document would
+  otherwise carry an open question, and when the user says an argument never reached them.
+  Advisory: judgment shaped in prose; the plugin's hook holds only the marker half of the
+  no-deferred-question rule, the rest is yours.
 ---
 
 # Ask or decide
