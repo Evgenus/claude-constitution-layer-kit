@@ -660,9 +660,16 @@ def t16() -> tuple[bool, str]:
     assert example
     patch = yaml.safe_load(example.group(1))
     accepted, _ = gate_on(Write(DOC, PLAIN), patch)
+    stated = re.search(
+        r"a description of (\d+) characters", (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
+    )
     return all_of(
         (not named, f"no kit document named: {named}"),
         (len(description) < 1536, f"description of {len(description)} characters"),
+        (
+            stated is not None and int(stated.group(1)) == len(description),
+            f"the module document states the size: {stated.group(1) if stated else 'none'}",
+        ),
         (
             list(hooks) == ["PostToolUse"]
             and entry["matcher"] == "Write|Edit"
