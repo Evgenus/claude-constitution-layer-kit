@@ -260,8 +260,8 @@ def t3() -> tuple[bool, str]:
 
 
 def t4() -> tuple[bool, str]:
-    """L4 typed whole with the plain word; an exception keeps the phrase; a pair of the repository's
-    own; the pair's plain word arrives from the rule, not from the document."""
+    """L4 typed whole with the plain word, in any case; an exception keeps the phrase; a pair of the
+    repository's own; the pair's plain word arrives from the rule, not from the document."""
     found = messages.l4_simpler(DOC, 3, "prior to", "before")
     typed = (
         f"RED: {DOC}:3: 'prior to' where the plain word is 'before'\n"
@@ -554,7 +554,7 @@ def t11() -> tuple[bool, str]:
         gate_on(Write(DOC, PLAIN), env={"PATH": str(directory)})[0]
         for directory in (none, old, failing, mute, failing_version)
     ]
-    exit_one = "BROKEN: vale did not report its version (vale version 3.23.0) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
+    exit_one = "BROKEN: vale --version failed (exit 1: vale version 3.23.0) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     scan_old = H.run_gate("", args=["--scan", str(prepared(files={DOC: PLAIN}))], env={"PATH": str(old)})
     return all_of(
         broken(results[0], missing),
@@ -585,8 +585,12 @@ def t12() -> tuple[bool, str]:
     count = f"RED: 60 finding(s), the first 20 shown — the scan lists them all — 1 document examined ({DOC})"
     wide_text = "# T\n\n" + "\n\n".join(["<!-- vale off -->"] * 60) + "\n"
     wide, _ = gate_on(Write(DOC, wide_text))
-    one = len(messages.l6_vale_comment(DOC, 3, "<!-- vale off -->").render()) + 1
-    fit = 8000 // one  # the renderings that fit under 8,000 characters
+    fit, size = 0, 0  # the renderings that fit under 8,000 characters, at their real lines
+    for line in range(3, 3 + 2 * 60, 2):
+        size += len(messages.l6_vale_comment(DOC, line, "<!-- vale off -->").render()) + 1
+        if size > 8000:
+            break
+        fit += 1
     wide_count = (
         f"RED: 60 finding(s), the first {fit} shown — the scan lists them all — 1 document examined ({DOC})"
     )
@@ -742,6 +746,18 @@ def t17() -> tuple[bool, str]:
             fired.code == 2 and len(headlines(fired, "stdout")) == len(phrases),
             f"every founding phrase fires once: {len(headlines(fired, 'stdout'))} of {len(phrases)}",
         ),
+        (
+            all(any(f"'{phrase}'" in line for line in headlines(fired, "stdout")) for phrase in phrases),
+            "each phrase is echoed by a finding of its own",
+        ),
+        (
+            len(rules.FORBIDDEN) == 30 and len(rules.SIMPLER) == 33,
+            "thirty and thirty-three entries, typed by hand",
+        ),
+        (
+            "heretofore" in rules.FORBIDDEN and rules.SIMPLER.get("prior to") == "before",
+            "two entries typed by hand",
+        ),
     )
 
 
@@ -810,8 +826,8 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (1, "L1 typed whole; a plain document green; the ceiling exclusive and a dial", t1),
     (2, "L2 typed whole with the sentence echoed; 25 words pass; the limit a dial; a heading counts", t2),
     (3, "L3 typed whole, case-insensitive; code is code; an exception; a phrase of the repository's", t3),
-    (4, "L4 typed whole with the plain word; an exception; a pair of the repository's", t4),
-    (5, "L5 a note by default, red at error, nothing at off; the note travels with a block", t5),
+    (4, "L4 typed whole with the plain word, in any case; an exception; a pair of the repository's", t4),
+    (5, "L5 a note by default, red at error, nothing at off; a form of be inside a word is none", t5),
     (6, "L6 a Vale comment is red and the rule it names still fires; across lines; code is a mention", t6),
     (7, "the envelope is blanked; a byte-order mark; no prose; an unterminated envelope is prose", t7),
     (8, "after the write the file on disk is judged; a missing file skips; a Stop event is C12", t8),

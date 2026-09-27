@@ -32,11 +32,12 @@ def preflight() -> Path:
     except OSError as exc:
         raise ConfigurationFailure(messages.c12_vale_version(str(exc))) from exc
     match = VERSION.search(done.stdout)
-    if done.returncode != 0 or match is None:
-        detail = (done.stderr or done.stdout).strip().splitlines()
-        raise ConfigurationFailure(
-            messages.c12_vale_version(detail[0] if detail else f"exit {done.returncode}")
-        )
+    detail = (done.stderr or done.stdout).strip().splitlines()
+    first = detail[0] if detail else "no output"
+    if done.returncode != 0:
+        raise ConfigurationFailure(messages.c12_vale_version_exit(done.returncode, first))
+    if match is None:
+        raise ConfigurationFailure(messages.c12_vale_version(first))
     version = Version(*(int(n) for n in match.groups()))
     if not version.at_least(VALE_FLOOR):
         raise ConfigurationFailure(messages.c2_vale_too_old(str(version)))

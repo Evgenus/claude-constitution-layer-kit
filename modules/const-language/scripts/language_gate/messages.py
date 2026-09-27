@@ -175,6 +175,14 @@ def c12_vale_version(detail: str) -> Broken:
     )
 
 
+def c12_vale_version_exit(code: int, detail: str) -> Broken:
+    return Broken(
+        SharedKey.C12,
+        f"vale --version failed (exit {code}: {detail})",
+        f"run vale --version by hand and repair the installation — {identity.current().until_installed}",
+    )
+
+
 def c12_vale_failed(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
