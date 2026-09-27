@@ -588,6 +588,14 @@ def t10() -> tuple[bool, str]:
             "BROKEN: constitution.yaml: const-language.levels.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters] is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of levels.grade, levels.sentence, levels.forbidden, levels.simpler, levels.passive",  # noqa: E501 — a golden line is typed whole
         ),
         (
+            own(levels={"grade": "x" * 70 + "\n" + "y" * 20}),
+            "BROKEN: constitution.yaml: const-language.levels.grade is 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters]', and the levels are error, warning, off — fix: set it to error (a finding, red), warning (reported, not red) or off, or remove the line; the rules are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(territories=["#" + "x" * 69 + "\n" + "y" * 20]),
+            "BROKEN: constitution.yaml: const-language.territories holds '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters]', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
             own(levels={"grade": "a\nb"}),
             "BROKEN: constitution.yaml: const-language.levels.grade is 'a\\nb', and the levels are error, warning, off — fix: set it to error (a finding, red), warning (reported, not red) or off, or remove the line; the rules are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
         ),

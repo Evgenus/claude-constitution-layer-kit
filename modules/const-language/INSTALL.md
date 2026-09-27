@@ -59,8 +59,8 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    pattern git would read as a comment or as two lines, an exception no list holds, a departure
    entry that is not a mapping, misses a field, holds an unknown one, names a rule the check does
    not know or carries an empty or multi-line reason — is refused with exit 1, and the message
-   names the key and the fix; a misspelt dial is never a setting ignored in silence. A departure whose paths match no covered document
-   is reported as a note on every scan until it is removed.
+   names the key and the fix; a misspelt dial is never a setting ignored in silence. A departure
+   whose paths match no covered document is reported as a note on every scan until it is removed.
 5. **Run the scan in CI and before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-language.sh --scan
