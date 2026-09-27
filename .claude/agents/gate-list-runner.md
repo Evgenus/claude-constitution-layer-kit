@@ -2,7 +2,7 @@
 name: gate-list-runner
 description: >
   Runs the kit's gate list from the kit root — the scans of the document modules, the
-  open-question scan, the carry-lists, shared-links and YAML-style checks, the range check of
+  open-question scan, the language scan, the carry-lists, shared-links and YAML-style checks, the range check of
   the task-close module, and on request a module's fixture runner and the lint and type
   commands — and returns one verdict line per gate with every red, broken and note line
   verbatim. Use before a commit that touches a document, before a merge, and after a merge on
@@ -26,12 +26,14 @@ The list, in this order:
 4. `python3 modules/const-decision-records/scripts/check-decision-record.py --scan`
 5. `sh modules/const-questions/scripts/check-open-questions.sh --scan`
 6. `sh modules/const-styling/scripts/check-style.sh --scan`
-7. `python3 scripts/check-carry-lists.py`
-8. `python3 scripts/check-shared-links.py`
-9. `python3 scripts/check-yaml-style.py` — never with `--fix`
-10. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
+7. `sh modules/const-language/scripts/check-language.sh --scan` — needs `vale` 3.23.0 or newer on
+   PATH; a `BROKEN` line naming it is reported as such, never skipped
+8. `python3 scripts/check-carry-lists.py`
+9. `python3 scripts/check-shared-links.py`
+10. `python3 scripts/check-yaml-style.py` — never with `--fix`
+11. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
    trunk, or when the message names a landed merge, `--scan --change <merge>`
-11. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
+12. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
     `python3 scripts/check-carry-lists.py --self-test`, `python3 scripts/check-yaml-style.py --self-test`;
     `python3 modules/<module>/tests/run.py` for the module named (it writes temporary
     repositories in the system's temporary directory, never in the kit); and the lint and type

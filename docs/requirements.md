@@ -16,7 +16,7 @@ status: active
 
 **"Enters when" has two meanings** (decision [dec-0006-accumulating-set-first](decisions/dec-0006-accumulating-set-first.md)). For an accumulating module it names the first moment an object for the module exists; the module is authored *before* that moment, and for a greenfield consumer the whole accumulating set is the day-one install set. For a self-limiting module it names the friction signal that earns authoring. Dials follow the consumer; modules never wait for calibration.
 
-**Module boundaries remain provisional until authoring** — settled by three tests: *one invariant? one enforcement moment? one lifecycle trigger?* Flagged rows (†) sit on boundaries under test: M7 may dissolve (A8.x → M6, A10.2 → M9). Settled: the M1/M2 boundary — [A2.3](#a2-3) is M1's, so one write-time script guards claimed territory and M2 is advisory creation (decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)).
+**Module boundaries remain provisional until authoring** — settled by three tests: *one invariant? one enforcement moment? one lifecycle trigger?* Flagged rows (†) sit on boundaries under test: M7 may dissolve (A8.x → M6). Settled: [A10.2](#a10-2) is M7's, the document half of the language aspect M9's (decision [dec-0046-language-module-rulings](decisions/dec-0046-language-module-rulings.md)). Settled: the M1/M2 boundary — [A2.3](#a2-3) is M1's, so one write-time script guards claimed territory and M2 is advisory creation (decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)).
 
 | Part | Requirement (the rule in full) | Destination | Recommended enforcement |
 |---|---|---|---|
@@ -85,7 +85,7 @@ status: active
 | <a id="a9-4"></a>A9.4 | Checkable defaults graduate to Vale rules when [`const-language`](#const-language) installed | M8 guide | n/a until graduation — then A10.1's gate |
 | <a id="a10"></a>**A10 — Language complexity** | | | |
 | <a id="a10-1"></a>A10.1 | Governed documents pass Vale (`vale-cli`, pinned); grade/length/construction rules | M9 gate; thresholds → binding | **gate**: Vale in CI, red = fix |
-| <a id="a10-2"></a>A10.2 | Plain chat language for non-native readers | M7 skill † (→M9?) | advisory — honestly ungateable |
+| <a id="a10-2"></a>A10.2 | Plain chat language for non-native readers | M7 skill — settled: the chat half of the language aspect stays with M7 by two of the three boundary tests, the document half is M9's (decision [dec-0046-language-module-rulings](decisions/dec-0046-language-module-rulings.md)) | advisory — honestly ungateable |
 | <a id="a11"></a>**A11 — Document budgets** | | | |
 | <a id="a11-1"></a>A11.1 | Sizes measured in characters, never tokens | [kernel §7](../kernel/CONVENTIONS.md#k7) | definitional — embodied by A11.2's script |
 | <a id="a11-2"></a>A11.2 | Post-hoc length gate per document kind; ceilings, not targets | M10 script | **gate**: script, warn → block per dial (ladder) |
@@ -150,10 +150,7 @@ Description moved into the module's document: [`modules/const-styling/MODULE.md`
 <a id="const-language"></a>
 ### M9 `const-language` — self-limiting; enters on prose-complexity complaints
 
-**Invariant:** governed documents pass Vale with the project ruleset — readability-grade ceiling, sentence-length limit, forbidden constructions — plain English for non-native readers.
-**Ships:** Vale config (org renamed to `vale-cli`; pin packages by release URL — settled research) + CI/hook wiring. Known limitation carried forward: Vale cannot detect *missing* frontmatter fields (its scopes match only present content) — that is M1's script, never Vale.
-**Dials:** the ruleset thresholds; covered territories.
-**Acceptance:** red→green on an over-complex fixture.
+Description moved into the module's document: [`modules/const-language/MODULE.md`](../modules/const-language/MODULE.md) (rows [A10.1](#a10-1), [A10.2](#a10-2), [A9.4](#a9-4)); this anchor stays the module's handle.
 
 <a id="const-doc-budgets"></a>
 ### M10 `const-doc-budgets` — self-limiting; enters when bloat is observed, with data

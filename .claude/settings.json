@@ -11,6 +11,7 @@
     "const-catalogs@constitution-kit": true,
     "const-decision-records@constitution-kit": true,
     "const-interaction@constitution-kit": true,
+    "const-language@constitution-kit": true,
     "const-locations@constitution-kit": true,
     "const-meta-types@constitution-kit": true,
     "const-questions@constitution-kit": true,

@@ -220,6 +220,14 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-styling/tests/**"
       docs:
         - "modules/const-styling/MODULE.md"
+    - name: const-language
+      code:
+        - "modules/const-language/scripts/**"
+        - "modules/const-language/hooks/**"
+        - "modules/const-language/skills/**"
+        - "modules/const-language/tests/**"
+      docs:
+        - "modules/const-language/MODULE.md"
     - name: kit-scripts   # the git hooks, the clone setup, the kit gates and the development routine
       code:
         - "scripts/**"
@@ -286,6 +294,26 @@ const-styling:                        # one style guide, departures declared her
       allow:
         - table-empty-cell
       reason: the aspect rows of the matrix are group headings; their three cells hold nothing on purpose
+
+const-language:                       # the prose of covered documents: a grade ceiling, a sentence limit, the constructions plain language avoids (MODULE.md §7)
+  severity: block                     # values: block | warn — block: the findings reach the model as a block after the write; warn: as context
+  log_dir: local/gate-logs
+  territories:                        # the documents the gate reads among the Markdown files git lists; a negated pattern takes files out
+    - "*.md"
+    - "!docs/decisions/dec-00[0-3]*.md"   # an accepted record is never edited (plc-0004 rule 14) and this gate has no per-document declaration, so the frozen ones leave its territory by number range (decision dec-0046-language-module-rulings); the range grows with each acceptance
+    - "!docs/decisions/dec-004[0-6]-*.md"
+    - "!docs/research/res-00[01]*.md"     # a comparison is frozen at its module's yes (plc-0005 rule 7): the same route
+  grade_ceiling: 13                   # the module's default is 10: the kit's own descent to it is a work item after this module, one step per change (decision dec-0046-language-module-rulings)
+  sentence_words: 100                 # the module's default is 25: the same descent, 60 then 40 then 25
+  levels:                             # per rule: error (a finding, red), warning (a note), off; the defaults, written out
+    grade: error
+    sentence: error
+    forbidden: error
+    simpler: error
+    passive: off                      # the kit's register is the passive by design — 1,224 notes on the day-one scan, every sampled one chosen — so the rule is off here, not a warning nobody reads (decision dec-0046-language-module-rulings)
+  forbidden: []                       # phrases of the kit's own beyond the founding list: none
+  simpler: {}                         # pairs of the kit's own beyond the founding list: none
+  exceptions: []                      # phrases of the lists the kit keeps on purpose: none
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs

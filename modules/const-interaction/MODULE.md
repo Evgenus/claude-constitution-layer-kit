@@ -187,7 +187,7 @@ Each pair reads *violates / complies*; the pairs are the definition and are carr
 
 **Plain language** ([A10.2](../../docs/requirements.md#a10-2)):
 
-21. "We'll circle back once the dust settles on the upstream churn" → idiom on idiom / "We return to this after the upstream changes stop."
+21. `We'll circle back once the dust settles on the upstream churn` → idiom on idiom / `We return to this after the upstream changes stop.`
 22. A term of the kit used without definition in a reply to a newcomer → undefined jargon / the term defined at its first use in that reply.
 
 <a id="t9"></a>

@@ -1,0 +1,804 @@
+#!/usr/bin/env python3
+"""Fixtures of const-language: `python3 tests/run.py` from anywhere.
+
+Needs git, Python 3.12+, the libraries in the plugin's requirements file, and vale 3.23.0 or
+newer on PATH — the runner installs nothing: without the binary the absence items pass and the
+rest fail with the install command. Every item has a stable number: this module's own items
+from 1, the items every gate shares from 101. Exit 0 when every item is green, 2 otherwise.
+
+One entry point is driven through the shared items and its own, with real hook events — the
+platform's PreToolUse payload, which the harness sends and the gate judges on the content it
+carries, and PostToolUse payloads, which the plugin wires and the gate judges on the file on
+disk — and with `--scan`. The fixture consumer is the shared one; this module resolves no
+policy and judges no envelope, so the shared items about the root policy and about an
+unreadable envelope are left out.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import stat
+import sys
+from collections.abc import Callable, Sequence
+from pathlib import Path
+
+import yaml
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+MODULE_ROOT = SCRIPTS.parent
+sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
+
+from const_gate import identity  # noqa: E402
+from const_gate import messages as shared  # noqa: E402
+from const_gate.model import Finding  # noqa: E402
+from consumer import Consumer  # noqa: E402
+from harness import (  # noqa: E402
+    Assertion,
+    Case,
+    Edit,
+    Harness,
+    Result,
+    Write,
+    broken_first_line,
+    event_json,
+    expect,
+    red_lines,
+    stop_json,
+)
+from language_gate import messages, rules, start  # noqa: E402
+from language_gate.model import Rule  # noqa: E402
+from shared_items import Subject, shared_assertions  # noqa: E402
+
+identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+H = Harness(SCRIPTS, "check-language.sh", "check-language.py", start.GATE.namespace)
+NAMESPACE = start.GATE.namespace
+SKILL = MODULE_ROOT / "skills" / "plain-language" / "SKILL.md"
+INSTALL = MODULE_ROOT / "INSTALL.md"
+MANIFEST = MODULE_ROOT / ".claude-plugin" / "plugin.json"
+HOOKS = MODULE_ROOT / "hooks" / "hooks.json"
+DOC = "docs/notes/c.md"
+
+# Documents the items share. Vale 3.23.0 counts these as the numbers below (E1 of the comparison);
+# a later Vale that counts syllables differently changes the grade and this fixture says so.
+GRADE_RED = (
+    "# T\n\nOrganizational responsibilities necessitate comprehensive documentation. Institutional"
+    " accountability presupposes systematic verification. Methodological considerations determine"
+    " implementation.\n"
+)
+GRADE_RED_VALUE = 43.54
+PLAIN = "# T\n\nThe cat sat on the mat. It was warm. We went home.\n"
+LONG_SENTENCE = (
+    "The cat sat on the mat and the dog ran to the door and the bird flew up to the roof and the fish"
+    " swam in the pond and the sun set."
+)
+SENTENCE_RED = f"# T\n\n{LONG_SENTENCE}\n"
+SENTENCE_GREEN = "# T\n\n" + " ".join(["cat"] * 24) + " sat.\n"  # exactly 25 words: at the limit, not over
+IDIOM_RED = "# T\n\nWe will hit the ground running.\n"
+IDIOM_GREEN = "# T\n\nWe will start at once.\n"
+SIMPLER_RED = "# T\n\nDo it prior to noon.\n"
+SIMPLER_GREEN = "# T\n\nDo it before noon.\n"
+PASSIVE = "# T\n\nThe report was written yesterday.\n"
+COMMENT_RED = "# T\n\n<!-- vale Language.Simpler = NO -->\nDo it prior to noon.\n"
+COMMENT_GREEN = "# T\n\nDo it before noon.\n"
+
+
+def own(**dials: object) -> dict[str, object]:
+    """A patch of this module's namespace that keeps it working."""
+    return {NAMESPACE: dict(dials)}
+
+
+def claim(territory: Sequence[str]) -> dict[str, object]:
+    return own(territories=list(territory))
+
+
+def dials_text(patch: dict[str, object] | None = None) -> str:
+    return yaml.safe_dump({**Consumer(Path()).dials, **(patch or {})}, sort_keys=False)
+
+
+def prepared(
+    dials_patch: dict[str, object] | None = None,
+    raw_dials: str | None = None,
+    files: dict[str, str] | None = None,
+    remove: str | None = None,
+) -> Path:
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", raw_dials if raw_dials is not None else dials_text(dials_patch))
+    for rel, text in (files or {}).items():
+        consumer.write(rel, text)
+    if remove is not None:
+        (consumer.root / remove).unlink()
+    return consumer.root
+
+
+def gate_on(
+    action: Write | Edit,
+    dials_patch: dict[str, object] | None = None,
+    env: dict[str, str] | None = None,
+    raw_dials: str | None = None,
+    files: dict[str, str] | None = None,
+    remove: str | None = None,
+) -> tuple[Result, Path]:
+    """The gate on a prepared consumer, driven by the platform's pre-write event for the action."""
+    root = prepared(dials_patch, raw_dials, files, remove)
+    return H.run_gate(event_json(root, action), env=env), root
+
+
+def after_write(root: Path, target: str) -> Result:
+    """The event the plugin wires: PostToolUse, the document being the file on disk."""
+    return H.run_gate(event_json(root, Write(target, "unused"), event="PostToolUse"))
+
+
+def scan(files: dict[str, str], dials_patch: dict[str, object] | None = None) -> Result:
+    root = prepared(dials_patch, files=files)
+    return H.run_gate("", args=["--scan", str(root)])
+
+
+def tail(documents: int, scanned: int | None = None, ceiling: float = 10.0, words: int = 25) -> str:
+    return messages.f9_tail(documents, ceiling, words, documents if scanned is None else scanned)
+
+
+def green_scan(documents: int, scanned: int | None = None, ceiling: float = 10.0, words: int = 25) -> str:
+    return f"GREEN: {NAMESPACE}: {tail(documents, scanned, ceiling, words)}"
+
+
+def green_hook() -> str:
+    return f"GREEN: {NAMESPACE}: 1 document examined, {messages.g1_covered()}"
+
+
+def all_of(*checks: tuple[bool, str]) -> tuple[bool, str]:
+    failed = [evidence for ok, evidence in checks if not ok]
+    return not failed, "; ".join(failed) if failed else "; ".join(evidence for _, evidence in checks)
+
+
+def headlines(result: Result, where: str = "stderr") -> list[str]:
+    """The RED lines but the count line: the findings' headlines."""
+    return red_lines(result.stderr if where == "stderr" else result.stdout)[:-1]
+
+
+def one_finding(
+    text: str, headline: str, dials_patch: dict[str, object] | None = None, target: str = DOC
+) -> tuple[bool, str]:
+    result, _ = gate_on(Write(target, text), dials_patch)
+    lines = headlines(result)
+    ok = result.code == 2 and lines == [f"RED: {headline}"]
+    return ok, headline if ok else f"exit {result.code}: {result.stderr.strip()}{result.stdout.strip()}"
+
+
+def no_finding(text: str, dials_patch: dict[str, object] | None = None) -> tuple[bool, str]:
+    result, _ = gate_on(Write(DOC, text), dials_patch)
+    return expect(result, 0, green_hook(), "stdout")
+
+
+def sentence_headline(words: int, text: str, limit: int = 25) -> str:
+    return messages.l2_sentence(DOC, 3, words, limit, text).headline
+
+
+# ---------------------------------------------------------------- this module's own items
+
+
+def t1() -> tuple[bool, str]:
+    """L1 typed whole for a document of long words; a plain document is green; the ceiling is
+    exclusive and a dial; a headline of a grade-only document at line 1."""
+    found = messages.l1_grade(DOC, GRADE_RED_VALUE, 10.0)
+    result, _ = gate_on(Write(DOC, GRADE_RED))
+    typed = (
+        f"RED: {DOC}:1: the document reads at grade 43.54 by Flesch–Kincaid, above the ceiling of 10\n"
+        "  why: a reader whose first language is not English pays for every year of schooling the prose"
+        " assumes, and the grade rises with words per sentence and syllables per word\n"
+        "  fix: split the long sentences and prefer short words in the prose outside headings, code and"
+        " tables until the grade is at or under 10; the ceiling for this repository is"
+        " const-language.grade_ceiling in constitution.yaml"
+    )
+    return all_of(
+        (found.render() == typed, "L1 typed whole equals the function's text"),
+        one_finding(GRADE_RED, found.headline),
+        no_finding(PLAIN),
+        no_finding(GRADE_RED, own(grade_ceiling=43.6)),  # over the grade: not a finding
+        one_finding(
+            GRADE_RED, messages.l1_grade(DOC, GRADE_RED_VALUE, 43.5).headline, own(grade_ceiling=43.5)
+        ),
+        expect(result, 2, f"RED: 1 finding(s) — 1 document examined ({DOC})", "stderr"),
+    )
+
+
+def t2() -> tuple[bool, str]:
+    """L2 typed whole for a sentence of 32 words, its start echoed; 25 words exactly pass; the
+    limit is a dial; a heading is a sentence to the rule."""
+    found = messages.l2_sentence(DOC, 3, 32, 25, LONG_SENTENCE)
+    typed = (
+        f"RED: {DOC}:3: a sentence of 32 words, over the limit of 25 — The cat sat on the mat and the"
+        " dog ran to the door and the bird flew up to the r… [130 characters]\n"
+        "  why: a sentence longer than the limit carries more than one idea, and a non-native reader"
+        " loses the first before reaching the last\n"
+        "  fix: split it at a clause into sentences of at most 25 words; the limit for this repository"
+        " is const-language.sentence_words in constitution.yaml"
+    )
+    heading = "# " + " ".join(["word"] * 26) + "\n\nShort.\n"
+    return all_of(
+        (found.render() == typed, "L2 typed whole equals the function's text"),
+        one_finding(SENTENCE_RED, found.headline),
+        no_finding(SENTENCE_GREEN),
+        no_finding(SENTENCE_RED, own(sentence_words=32)),
+        one_finding(SENTENCE_RED, sentence_headline(32, LONG_SENTENCE, 31), own(sentence_words=31)),
+        one_finding(heading, messages.l2_sentence(DOC, 1, 26, 25, heading.split("\n")[0][2:]).headline),
+    )
+
+
+def t3() -> tuple[bool, str]:
+    """L3 typed whole for an idiom, case-insensitive; the same phrase in a code span or a fence is
+    code; an exception takes it out; a phrase of the repository's own is added."""
+    found = messages.l3_forbidden(DOC, 3, "hit the ground running")
+    typed = (
+        f"RED: {DOC}:3: 'hit the ground running' is a construction plain language avoids\n"
+        "  why: an idiom or a formal phrase says nothing a plain sentence does not, and a non-native"
+        " reader must translate it before reading on\n"
+        "  fix: say it in plain words, or drop it; a phrase this repository keeps on purpose is named"
+        " in const-language.exceptions in constitution.yaml"
+    )
+    return all_of(
+        (found.render() == typed, "L3 typed whole equals the function's text"),
+        one_finding(IDIOM_RED, found.headline),
+        one_finding(
+            "# T\n\nWe will Hit The Ground Running.\n",
+            messages.l3_forbidden(DOC, 3, "Hit The Ground Running").headline,
+        ),
+        no_finding(IDIOM_GREEN),
+        no_finding("# T\n\nThe phrase `hit the ground running` is quoted here.\n"),
+        no_finding("# T\n\n```text\nhit the ground running\n```\n"),
+        no_finding(IDIOM_RED, own(exceptions=["hit the ground running"])),
+        one_finding(
+            "# T\n\nWe ship a synergy.\n",
+            messages.l3_forbidden(DOC, 3, "synergy").headline,
+            own(forbidden=["synergy"]),
+        ),
+    )
+
+
+def t4() -> tuple[bool, str]:
+    """L4 typed whole with the plain word; an exception keeps the phrase; a pair of the repository's
+    own; the pair's plain word arrives from the rule, not from the document."""
+    found = messages.l4_simpler(DOC, 3, "prior to", "before")
+    typed = (
+        f"RED: {DOC}:3: 'prior to' where the plain word is 'before'\n"
+        "  why: a long or formal word costs a non-native reader a dictionary where the plain one does"
+        " not\n"
+        "  fix: write 'before'; a word this repository keeps on purpose is named in"
+        " const-language.exceptions in constitution.yaml"
+    )
+    return all_of(
+        (found.render() == typed, "L4 typed whole equals the function's text"),
+        one_finding(SIMPLER_RED, found.headline),
+        no_finding(SIMPLER_GREEN),
+        no_finding(SIMPLER_RED, own(exceptions=["prior to"])),
+        one_finding(
+            "# T\n\nWe will ascertain it.\n",
+            messages.l4_simpler(DOC, 3, "ascertain", "find out").headline,
+            own(simpler={"ascertain": "find out"}),
+        ),
+    )
+
+
+def t5() -> tuple[bool, str]:
+    """L5: a note by default, green; red under levels.passive error, typed whole; nothing under off;
+    a rule at warning keeps its note on a red run too."""
+    found = messages.l5_passive(DOC, 3, "was written")
+    typed = (
+        f"RED: {DOC}:3: passive voice — 'was written'\n"
+        "  why: the passive hides who acts, and a non-native reader must supply the actor to follow the"
+        " sentence\n"
+        "  fix: name who acts and put them first; a passive kept on purpose is a register the repository"
+        " sets by const-language.levels.passive in constitution.yaml"
+    )
+    note = messages.n2_warning(DOC, Rule.PASSIVE, found)
+    result, _ = gate_on(Write(DOC, PASSIVE))
+    off, _ = gate_on(Write(DOC, PASSIVE), own(levels={"passive": "off"}))
+    bare, _ = gate_on(
+        Write(DOC, PASSIVE), raw_dials=dials_text() + "const-language:\n  levels:\n    passive: off\n"
+    )
+    both, _ = gate_on(Write(DOC, PASSIVE + "\nDo it prior to noon.\n"))
+    return all_of(
+        (found.render() == typed, "L5 typed whole equals the function's text"),
+        expect(result, 0, note, "stdout"),
+        expect(result, 0, green_hook(), "stdout"),
+        (
+            note == f"note: {DOC}:3: passive voice — 'was written' — reported, not red, while"
+            " const-language.levels.passive is warning",
+            "the note typed whole",
+        ),
+        one_finding(PASSIVE, found.headline, own(levels={"passive": "error"})),
+        (off.code == 0 and "note:" not in off.stdout, f"off: exit {off.code}, no note"),
+        (
+            bare.code == 0 and "note:" not in bare.stdout,
+            f"a bare off, false to YAML: exit {bare.code}, no note",
+        ),
+        expect(both, 2, note, "stderr"),  # the note travels with the block verdict
+    )
+
+
+def t6() -> tuple[bool, str]:
+    """L6 typed whole: a Vale comment is a finding, and the rule it would switch off still fires."""
+    comment = "<!-- vale Language.Simpler = NO -->"
+    found = messages.l6_vale_comment(DOC, 3, comment)
+    typed = (
+        f"RED: {DOC}:3: a Vale comment in the document — {comment}\n"
+        "  why: a comment that switches a rule off is a mark in the document, which the gate blanks"
+        " before it reads; what departs from a rule is declared in the dials file, where every reader"
+        " sees it\n"
+        "  fix: remove the comment; to change a rule for this repository set its level or threshold"
+        " under const-language in constitution.yaml, or take the document out of"
+        " const-language.territories with a negated pattern"
+    )
+    result, _ = gate_on(Write(DOC, COMMENT_RED))
+    wanted = [f"RED: {found.headline}", f"RED: {messages.l4_simpler(DOC, 4, 'prior to', 'before').headline}"]
+    multi = "# T\n\n<!-- vale off\n-->\nDo it prior to noon.\n"
+    mentioned = "# T\n\n```text\n<!-- vale Language.Simpler = NO -->\n```\n\nDo it prior to noon.\n"
+    in_span = "# T\n\nA `<!-- vale Language.Simpler = NO -->` span; do it prior to noon.\n"
+    across, _ = gate_on(Write(DOC, multi))
+    return all_of(
+        (found.render() == typed, "L6 typed whole equals the function's text"),
+        (headlines(result) == wanted, f"both findings, in line order: {headlines(result)}"),
+        (
+            headlines(across)
+            == [
+                f"RED: {messages.l6_vale_comment(DOC, 3, '<!-- vale off -->').headline}",
+                f"RED: {messages.l4_simpler(DOC, 5, 'prior to', 'before').headline}",
+            ],
+            f"a comment across lines is blanked with its line numbers kept: {headlines(across)}",
+        ),
+        no_finding(COMMENT_GREEN),
+        one_finding(mentioned, messages.l4_simpler(DOC, 7, "prior to", "before").headline),
+        one_finding(in_span, messages.l4_simpler(DOC, 3, "prior to", "before").headline),
+    )
+
+
+def t7() -> tuple[bool, str]:
+    """The envelope is blanked: a title holding a phrase is not prose, and a byte-order mark before
+    it changes nothing; a document of no prose is green; an unterminated envelope is prose."""
+    with_title = "---\nid: c\ntitle: Do it prior to noon\nstatus: active\n---\n\n# T\n\nShort.\n"
+    unterminated = "---\nid: c\n\nDo it prior to noon.\n"
+    return all_of(
+        no_finding(with_title),
+        no_finding("﻿" + with_title),
+        no_finding(""),
+        one_finding(unterminated, messages.l4_simpler(DOC, 4, "prior to", "before").headline),
+    )
+
+
+def t8() -> tuple[bool, str]:
+    """The event the plugin wires: after the write the file on disk is judged, a missing file is the
+    shared skip, a covered file is green; before the write the content is judged; a Stop event is
+    this module's C12, typed by hand."""
+    root = prepared(files={DOC: SIMPLER_RED, "docs/notes/ok.md": PLAIN})
+    red = after_write(root, DOC)
+    green = after_write(root, "docs/notes/ok.md")
+    gone = after_write(root, "docs/notes/gone.md")
+    stop = H.run_gate(stop_json(root))
+    other = json.loads(event_json(root, Write(DOC, "x")))
+    other["hook_event_name"] = "UserPromptSubmit"
+    elsewhere = H.run_gate(json.dumps(other))
+    c12 = "BROKEN: this check is wired to a tool event before or after a write, not to 'UserPromptSubmit' — fix: in hooks.json wire it to PostToolUse on Write|Edit, or run it with --scan [<dir>]"  # noqa: E501 — a golden line is typed whole  # noqa: E501 — a golden line is typed whole
+    return all_of(
+        expect(red, 2, messages.l4_simpler(DOC, 3, "prior to", "before").render(), "stderr"),
+        expect(red, 2, f"RED: 1 finding(s) — 1 document examined ({DOC})", "stderr"),
+        expect(green, 0, green_hook(), "stdout"),
+        expect(gone, 0, shared.g1_green_skip(shared.g1_skip_gone("docs/notes/gone.md")), "stdout"),
+        (messages.c12_event("UserPromptSubmit").render() == c12, "C12 typed whole"),
+        broken_first_line(elsewhere, c12),
+        expect(stop, 0, shared.g1_green_skip(shared.g1_skip_no_file("")), "stdout"),
+    )
+
+
+def t9() -> tuple[bool, str]:
+    """Levels: grade at warning is a note and the write is green; every rule off is refused; an
+    unknown rule, a level that is none of the three, and a mapping that is not one, each C5."""
+    found = messages.l1_grade(DOC, GRADE_RED_VALUE, 10.0)
+    warned, _ = gate_on(Write(DOC, GRADE_RED), own(levels={"grade": "warning"}))
+    all_off = own(levels={r.value: "off" for r in Rule})
+    return all_of(
+        expect(warned, 0, messages.n2_warning(DOC, Rule.GRADE, found), "stdout"),
+        expect(warned, 0, green_hook(), "stdout"),
+        broken(gate_on(Write(DOC, PLAIN), all_off)[0], messages.c5_all_off()),
+        broken(
+            gate_on(Write(DOC, PLAIN), own(levels={"tone": "error"}))[0],
+            messages.c5_unknown_key("levels.tone", [f"levels.{r.value}" for r in Rule]),
+        ),
+        broken(
+            gate_on(Write(DOC, PLAIN), own(levels={"grade": "loud"}))[0], messages.c5_level("grade", "loud")
+        ),
+        broken(gate_on(Write(DOC, PLAIN), own(levels=["grade"]))[0], messages.c5_levels()),
+    )
+
+
+def broken(result: Result, failure: object) -> tuple[bool, str]:
+    line = failure.render() if hasattr(failure, "render") else str(failure)
+    ok, evidence = broken_first_line(result, line)
+    counted = shared.c11_broken_count() in result.stderr
+    return ok and counted, evidence if counted else f"no count line after: {evidence}"
+
+
+def t10() -> tuple[bool, str]:
+    """This module's C5 lines typed by hand, each exit 1 with the count line after it."""
+    pairs: list[tuple[dict[str, object], str]] = [
+        (
+            own(tone="plain"),
+            "BROKEN: constitution.yaml: const-language.tone is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of severity, log_dir, territories, grade_ceiling, sentence_words, levels, forbidden, simpler, exceptions",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(territories=[]),
+            'BROKEN: constitution.yaml: const-language.territories must be a non-empty list of path patterns — fix: write the patterns of the documents to check, one per line under "- ", or leave the key out to cover every Markdown file; an empty list would examine nothing in silence',  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(territories=["#docs/**"]),
+            "BROKEN: constitution.yaml: const-language.territories holds '#docs/**', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(territories=["a\nb"]),
+            "BROKEN: constitution.yaml: const-language.territories holds 'a\\nb', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(grade_ceiling=-1),
+            "BROKEN: constitution.yaml: const-language.grade_ceiling must be a number of 0 or more — fix: write the Flesch–Kincaid grade a document may reach, such as 10, or leave the key out for the default",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(grade_ceiling="ten"),
+            "BROKEN: constitution.yaml: const-language.grade_ceiling must be a number of 0 or more — fix: write the Flesch–Kincaid grade a document may reach, such as 10, or leave the key out for the default",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(sentence_words=0),
+            "BROKEN: constitution.yaml: const-language.sentence_words must be a whole number of 1 or more — fix: write the words a sentence may hold, such as 25, or leave the key out for the default",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(sentence_words=25.5),
+            "BROKEN: constitution.yaml: const-language.sentence_words must be a whole number of 1 or more — fix: write the words a sentence may hold, such as 25, or leave the key out for the default",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(levels="error"),
+            "BROKEN: constitution.yaml: const-language.levels must be a mapping of rule to level — fix: write it as levels: {grade: error, sentence: error, forbidden: error, simpler: error, passive: warning}, any subset; the levels are error, warning, off",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(levels={"grade": "loud"}),
+            "BROKEN: constitution.yaml: const-language.levels.grade is 'loud', and the levels are error, warning, off — fix: set it to error (a finding, red), warning (reported, not red) or off, or remove the line; the rules are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(levels={r.value: "off" for r in Rule}),
+            "BROKEN: constitution.yaml: const-language.levels switches every rule off — fix: a gate that checks nothing would report green as if it had checked: set at least one rule to error or warning, or remove the plugin",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(forbidden="synergy"),
+            'BROKEN: constitution.yaml: const-language.forbidden must be a list of phrases, each one non-empty line — fix: write one phrase per line under "- ", or leave the key out',  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(forbidden=[""]),
+            'BROKEN: constitution.yaml: const-language.forbidden must be a list of phrases, each one non-empty line — fix: write one phrase per line under "- ", or leave the key out',  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(exceptions=[3]),
+            'BROKEN: constitution.yaml: const-language.exceptions must be a list of phrases, each one non-empty line — fix: write one phrase per line under "- ", or leave the key out',  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(simpler=["prior to"]),
+            'BROKEN: constitution.yaml: const-language.simpler must be a mapping of phrase to plain word, each one non-empty line — fix: write one line per pair, the phrase as the key and the plain word as the value, such as "prior to: before", or leave the key out',  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(simpler={"prior to": ""}),
+            'BROKEN: constitution.yaml: const-language.simpler must be a mapping of phrase to plain word, each one non-empty line — fix: write one line per pair, the phrase as the key and the plain word as the value, such as "prior to: before", or leave the key out',  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(exceptions=["hit the road"]),
+            "BROKEN: constitution.yaml: const-language.exceptions names 'hit the road', which no forbidden phrase and no simpler pair holds — fix: an exception removes a phrase the rules know; check its spelling against the rules' lists, or remove it",  # noqa: E501 — a golden line is typed whole
+        ),
+    ]
+    return all_of(*(broken(gate_on(Write(DOC, PLAIN), patch)[0], line) for patch, line in pairs))
+
+
+def fake_vale(directory: Path, script: str) -> Path:
+    """A PATH directory with the real python3, git, sh and dirname, and a `vale` that runs `script`
+    (a shell body) and logs every invocation to `calls` beside it."""
+    for tool in ("python3", "git", "sh", "dirname"):
+        source = (
+            os.path.realpath(sys.executable)
+            if tool == "python3"
+            else os.popen(f"command -v {tool}").read().strip()
+        )
+        os.symlink(source, directory / tool)
+    fake = directory / "vale"
+    fake.write_text(f'#!/bin/sh\necho "$@" >> "{directory / "calls"}"\n{script}\n', encoding="utf-8")
+    fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+    return directory
+
+
+def t11() -> tuple[bool, str]:
+    """Absence of the binary, each line typed by hand: no vale on PATH is C2 with the install
+    command; an old vale is C2 with its version; a vale that cannot run is C12 with its own first
+    line; a vale with no version line is C12 — and every fake was asked what the gate says."""
+    none = H.scratch_dir()
+    for tool in ("python3", "git", "sh", "dirname"):
+        source = (
+            os.path.realpath(sys.executable)
+            if tool == "python3"
+            else os.popen(f"command -v {tool}").read().strip()
+        )
+        os.symlink(source, none / tool)
+    old = fake_vale(H.scratch_dir(), 'echo "vale version 3.19.0"')
+    failing = fake_vale(
+        H.scratch_dir(),
+        'case "$1" in --version) echo "vale version 3.23.0";; *) echo \'{"Line":1,"Path":"x","Text":"E201 something broke","Code":"E201","Span":1}\'; exit 2;; esac',  # noqa: E501 — a golden line is typed whole
+    )
+    mute = fake_vale(H.scratch_dir(), "echo hello")
+    missing = "BROKEN: const-language needs vale 3.23.0 or newer on PATH — fix: brew install vale (macOS, Linuxbrew), or the other routes at https://vale.sh/docs/install — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
+    too_old = "BROKEN: const-language needs vale 3.23.0 or newer, found 3.19.0 — fix: upgrade it: brew install vale (macOS, Linuxbrew), or the other routes at https://vale.sh/docs/install — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
+    failed = "BROKEN: vale could not run: E201 something broke — fix: repair what the message names — the binary, its permissions, the temporary directory — then run the check again"  # noqa: E501 — a golden line is typed whole
+    no_version = "BROKEN: vale did not report its version (hello) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
+    results = [
+        gate_on(Write(DOC, PLAIN), env={"PATH": str(directory)})[0]
+        for directory in (none, old, failing, mute)
+    ]
+    scan_old = H.run_gate("", args=["--scan", str(prepared(files={DOC: PLAIN}))], env={"PATH": str(old)})
+    return all_of(
+        broken(results[0], missing),
+        broken(results[1], too_old),
+        broken(results[2], failed),
+        broken(results[3], no_version),
+        broken(scan_old, too_old),
+        (
+            set((old / "calls").read_text().split("\n")) <= {"--version", ""},
+            "the old vale was asked its version and nothing else",
+        ),
+        (
+            "--no-global" in (failing / "calls").read_text(),
+            "the failing vale was run with the generated configuration",
+        ),
+    )
+
+
+def t12() -> tuple[bool, str]:
+    """The cap: sixty findings in one document show the first twenty after a write, the count line
+    typed by hand says so, and the whole verdict stays under the platform's cap; the scan lists all."""
+    text = "# T\n\n" + "\n\n".join(["Do it prior to noon."] * 60) + "\n"
+    result, root = gate_on(Write(DOC, text), files={DOC: text})
+    scanned = H.run_gate("", args=["--scan", str(root)])
+    count = f"RED: 60 finding(s), the first 20 shown — the scan lists them all — 1 document examined ({DOC})"
+    return all_of(
+        (
+            result.code == 2 and len(headlines(result)) == 20,
+            f"exit {result.code}, {len(headlines(result))} shown",
+        ),
+        (red_lines(result.stderr)[-1] == count, f"count line: {red_lines(result.stderr)[-1]}"),
+        (len(result.stderr) < 10_000, f"{len(result.stderr)} characters of verdict"),
+        (
+            scanned.code == 2 and len(headlines(scanned, "stdout")) == 60,
+            f"the scan shows {len(headlines(scanned, 'stdout'))}",
+        ),
+    )
+
+
+def t13() -> tuple[bool, str]:
+    """Territories: the scan counts examined against scanned; a negated pattern drops a file; a
+    README at the top is covered by the default; the tail carries the dials' numbers."""
+    files = {DOC: SIMPLER_RED, "README.md": PLAIN, "docs/other/x.md": SIMPLER_RED}
+    default = scan(files)
+    narrowed = scan(files, own(territories=["docs/**/*.md", "!docs/other/**"]))
+    dialled = scan({DOC: PLAIN}, own(grade_ceiling=12.5, sentence_words=40))
+    return all_of(
+        expect(default, 2, f"RED: 2 finding(s) — {tail(6)}", "stdout"),
+        expect(narrowed, 2, f"RED: 1 finding(s) — {tail(4, 6)}", "stdout"),
+        expect(dialled, 0, green_scan(4, ceiling=12.5, words=40), "stdout"),
+        (
+            "12.5 and 40 words" in dialled.stdout,
+            f"the tail names the dials: {dialled.stdout.strip()}",
+        ),
+    )
+
+
+def t14() -> tuple[bool, str]:
+    """A value of 12,000 characters echoed by L3 is cut and the cut is said; the verdict stays a
+    message."""
+    phrase = "x" * 12000
+    result, _ = gate_on(Write(DOC, f"# T\n\nThe {phrase} word.\n"), own(forbidden=[phrase]))
+    said = result.stderr
+    ok = (
+        result.code == 2
+        and len(red_lines(said)) == 2
+        and "… [12000 characters]" in said
+        and "x" * 81 not in said
+        and len(said) < 2_000
+    )
+    return ok, f"exit {result.code}, {len(said)} characters" if ok else f"exit {result.code}: {said[:300]}"
+
+
+def t15() -> tuple[bool, str]:
+    """Golden lines: one document carrying every rule once, its whole scan output typed by hand —
+    headlines, whys, fixes, the note and the count line — since a fixture built from the message
+    functions cannot see a changed word."""
+    text = (
+        "# T\n\n<!-- vale Language.Forbidden = NO -->\n"
+        f"{GRADE_RED.split(chr(10))[2]}\n\n"
+        f"{LONG_SENTENCE}\n\nWe will hit the ground running. Do it prior to noon. The report was written.\n"
+    )
+    result = scan({DOC: text})
+    typed = "\n".join(
+        [
+            f"note: {DOC}:8: passive voice — 'was written' — reported, not red, while const-language.levels.passive is warning",  # noqa: E501 — a golden line is typed whole
+            f"RED: {DOC}:1: the document reads at grade 10.83 by Flesch–Kincaid, above the ceiling of 10",  # noqa: E501 — a golden line is typed whole
+            "  why: a reader whose first language is not English pays for every year of schooling the prose assumes, and the grade rises with words per sentence and syllables per word",  # noqa: E501 — a golden line is typed whole
+            "  fix: split the long sentences and prefer short words in the prose outside headings, code and tables until the grade is at or under 10; the ceiling for this repository is const-language.grade_ceiling in constitution.yaml",  # noqa: E501 — a golden line is typed whole
+            f"RED: {DOC}:3: a Vale comment in the document — <!-- vale Language.Forbidden = NO -->",  # noqa: E501 — a golden line is typed whole
+            "  why: a comment that switches a rule off is a mark in the document, which the gate blanks before it reads; what departs from a rule is declared in the dials file, where every reader sees it",  # noqa: E501 — a golden line is typed whole
+            "  fix: remove the comment; to change a rule for this repository set its level or threshold under const-language in constitution.yaml, or take the document out of const-language.territories with a negated pattern",  # noqa: E501 — a golden line is typed whole
+            f"RED: {DOC}:6: a sentence of 32 words, over the limit of 25 — The cat sat on the mat and the dog ran to the door and the bird flew up to the r… [130 characters]",  # noqa: E501 — a golden line is typed whole
+            "  why: a sentence longer than the limit carries more than one idea, and a non-native reader loses the first before reaching the last",  # noqa: E501 — a golden line is typed whole
+            "  fix: split it at a clause into sentences of at most 25 words; the limit for this repository is const-language.sentence_words in constitution.yaml",  # noqa: E501 — a golden line is typed whole
+            f"RED: {DOC}:8: 'hit the ground running' is a construction plain language avoids",  # noqa: E501 — a golden line is typed whole
+            "  why: an idiom or a formal phrase says nothing a plain sentence does not, and a non-native reader must translate it before reading on",  # noqa: E501 — a golden line is typed whole
+            "  fix: say it in plain words, or drop it; a phrase this repository keeps on purpose is named in const-language.exceptions in constitution.yaml",  # noqa: E501 — a golden line is typed whole
+            f"RED: {DOC}:8: 'prior to' where the plain word is 'before'",  # noqa: E501 — a golden line is typed whole
+            "  why: a long or formal word costs a non-native reader a dictionary where the plain one does not",  # noqa: E501 — a golden line is typed whole
+            "  fix: write 'before'; a word this repository keeps on purpose is named in const-language.exceptions in constitution.yaml",  # noqa: E501 — a golden line is typed whole
+            "RED: 5 finding(s) — 4 document(s) examined under a grade ceiling of 10 and 25 words per sentence, 4 Markdown file(s) scanned",  # noqa: E501 — a golden line is typed whole
+            "",
+        ]
+    )
+    ok = result.code == 2 and result.stdout == typed
+    return ok, "the whole output typed by hand" if ok else f"exit {result.code}:\n{result.stdout}"
+
+
+def t16() -> tuple[bool, str]:
+    """The install note, the skill and the manifest name no kit document; the skill's description
+    is under the platform's cap; the hook is wired after the write with a timeout; the manifest
+    names the plugin at a draft version; the install note's calibration example is accepted."""
+    kit_words = ("requirements.md", "rollout-plan", "dec-00", "res-00", "MODULE.md", "GATE.md", "kernel/")
+    texts = {p.name: p.read_text(encoding="utf-8") for p in (SKILL, INSTALL, MANIFEST)}
+    named = [f"{n}: {w}" for n, t in texts.items() for w in kit_words if w in t]
+    front = yaml.safe_load(texts["SKILL.md"].split("---")[1])
+    description = str(front["description"])
+    hooks = json.loads(HOOKS.read_text(encoding="utf-8"))["hooks"]
+    entry = hooks["PostToolUse"][0]
+    manifest = json.loads(texts["plugin.json"])
+    example = re.search(r"```yaml\n(.*?)```", texts["INSTALL.md"], re.DOTALL)
+    assert example
+    patch = yaml.safe_load(example.group(1))
+    accepted, _ = gate_on(Write(DOC, PLAIN), patch)
+    return all_of(
+        (not named, f"no kit document named: {named}"),
+        (len(description) < 1536, f"description of {len(description)} characters"),
+        (
+            list(hooks) == ["PostToolUse"]
+            and entry["matcher"] == "Write|Edit"
+            and entry["hooks"][0]["timeout"] == 30
+            and entry["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/check-language.sh"],
+            "PostToolUse on Write|Edit through the plugin root, timeout 30, no other event",
+        ),
+        (
+            manifest["name"] == NAMESPACE and manifest["version"].startswith("0.0."),
+            f"manifest {manifest['version']}",
+        ),
+        expect(accepted, 0, green_hook(), "stdout"),
+    )
+
+
+def t17() -> tuple[bool, str]:
+    """Determinism: two runs on the same input print the same verdict; the founding lists hold no
+    duplicate and no phrase that is both forbidden and simpler."""
+    files = {DOC: SIMPLER_RED + LONG_SENTENCE + "\n", "docs/notes/d.md": GRADE_RED}
+    first = scan(files)
+    second = scan(files)
+    overlap = sorted(set(rules.FORBIDDEN) & set(rules.SIMPLER))
+    return all_of(
+        (first.stdout == second.stdout and first.code == second.code == 2, "two scans, one output"),
+        (
+            len(set(rules.FORBIDDEN)) == len(rules.FORBIDDEN) and not overlap,
+            f"lists disjoint, no duplicate: {overlap}",
+        ),
+    )
+
+
+def t18() -> tuple[bool, str]:
+    """An Edit before the write is judged on the document it produces; the sentence echo comes from
+    the document's own line; a finding's line survives a fence above it."""
+    edit = Edit(DOC, "before noon", "prior to noon")
+    result, _ = gate_on(edit, files={DOC: SIMPLER_GREEN})
+    fenced = "# T\n\n```text\nprior to\n```\n\nDo it prior to noon.\n"
+    return all_of(
+        expect(result, 2, messages.l4_simpler(DOC, 3, "prior to", "before").headline, "stderr"),
+        one_finding(fenced, messages.l4_simpler(DOC, 7, "prior to", "before").headline),
+    )
+
+
+# ---------------------------------------------------------------- the red→green cases
+
+
+def case(number: int, title: str, red: str, expect_finding: Finding, green: str) -> Case:
+    return Case(
+        number,
+        f"red→green: {title}",
+        Write(DOC, red),
+        Write(DOC, green),
+        expect_finding,
+        messages.g1_covered(),
+    )
+
+
+CASES = [
+    case(21, "the grade ceiling", GRADE_RED, messages.l1_grade(DOC, GRADE_RED_VALUE, 10.0), PLAIN),
+    case(
+        22,
+        "the sentence limit",
+        SENTENCE_RED,
+        messages.l2_sentence(DOC, 3, 32, 25, LONG_SENTENCE),
+        SENTENCE_GREEN,
+    ),
+    case(
+        23,
+        "a forbidden construction",
+        IDIOM_RED,
+        messages.l3_forbidden(DOC, 3, "hit the ground running"),
+        IDIOM_GREEN,
+    ),
+    case(
+        24,
+        "a word with a plain replacement",
+        SIMPLER_RED,
+        messages.l4_simpler(DOC, 3, "prior to", "before"),
+        SIMPLER_GREEN,
+    ),
+    case(
+        25,
+        "a Vale comment",
+        "# T\n\n<!-- vale off -->\nShort.\n",
+        messages.l6_vale_comment(DOC, 3, "<!-- vale off -->"),
+        COMMENT_GREEN,
+    ),
+]
+
+
+# ---------------------------------------------------------------- the list
+
+ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
+    (1, "L1 typed whole; a plain document green; the ceiling exclusive and a dial", t1),
+    (2, "L2 typed whole with the sentence echoed; 25 words pass; the limit a dial; a heading counts", t2),
+    (3, "L3 typed whole, case-insensitive; code is code; an exception; a phrase of the repository's", t3),
+    (4, "L4 typed whole with the plain word; an exception; a pair of the repository's", t4),
+    (5, "L5 a note by default, red at error, nothing at off; the note travels with a block", t5),
+    (6, "L6 a Vale comment is red and the rule it names still fires; across lines; code is a mention", t6),
+    (7, "the envelope is blanked; a byte-order mark; no prose; an unterminated envelope is prose", t7),
+    (8, "after the write the file on disk is judged; a missing file skips; a Stop event is C12", t8),
+    (9, "levels: a rule at warning notes; all off refused; unknown rule and level are C5", t9),
+    (10, "this module's C5 lines typed by hand, each exit 1", t10),
+    (11, "vale absent, old, failing and mute: C2 and C12 typed by hand; the fakes were asked", t11),
+    (12, "the cap after a write: the first twenty shown, the count says so; the scan lists all", t12),
+    (13, "territories: examined against scanned; a negated pattern; a README; the tail's numbers", t13),
+    (14, "a value of 12,000 characters echoed by L3 is cut, and the cut is said", t14),
+    (15, "golden lines: one document carrying every rule, the whole scan output typed by hand", t15),
+    (16, "install note, skill and manifest name no kit document; wiring; description size", t16),
+    (17, "two runs, one verdict; the founding lists are disjoint and without duplicates", t17),
+    (18, "an Edit is judged on what it produces; a line number survives a fence above it", t18),
+]
+
+SUBJECT = Subject(
+    harness=H,
+    gate_on=gate_on,
+    own=own,
+    valid=Write("docs/notes/ok.md", PLAIN),
+    red=Write("docs/notes/bad.md", SIMPLER_RED),
+    red_finding=messages.l4_simpler("docs/notes/bad.md", 3, "prior to", "before"),
+    green=messages.g1_covered(),
+    territory=["docs/notes/**"],
+    claim=claim,
+    resolves_policies=False,
+    bare_readme=green_hook(),
+    judges_envelopes=False,
+    outside=messages.g1_skip_not_covered("docs/notes/bad.md"),
+    hook_lists_files=False,  # the hook matches the written file by pattern and never lists the tree
+    long_value=None,  # L3's echo is the phrase and not the sentence: the cut is proven by item 14
+)
+
+
+def main() -> int:
+    assertions = [Assertion(number, title, check) for number, title, check in ITEMS]
+    return H.run_all(CASES, [*assertions, *shared_assertions(SUBJECT, 101)])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

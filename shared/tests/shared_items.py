@@ -105,6 +105,9 @@ class Subject:
     ask: bool = False  # True: the gate's block is an `ask` verdict — exit 0, one JSON object on stdout
     # asking the platform to prompt, the finding in its reason — so the items about a red run read
     # that reason where they would read stderr, and expect exit 0 where they would expect 2
+    hook_lists_files: bool = True  # False: the gate's hook mode never asks git for the file list — it
+    # matches the written file against its territories by pattern alone — so the item about git failing
+    # to list the files runs the scan on the prepared consumer, where the gate does ask
     scan_only: bool = False  # True: the gate has no hook mode — it scans a tree and judges no single
     # write, and run as a hook it is its own configuration failure — so the items about hook input,
     # a written file, the warn channel and a negated pattern's skip are not its own and are left out;
@@ -583,9 +586,13 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     # ---------------------------------------------------------------- git failing in one way; a file unread
 
-    def git_failing_at(trigger: str, code: int, line: Callable[[Path], str]) -> tuple[bool, str]:
+    def git_failing_at(
+        trigger: str, code: int, line: Callable[[Path], str], through_scan: bool = False
+    ) -> tuple[bool, str]:
         """A git first on PATH that exits `code` when one of its arguments is `trigger`, and hands every
-        other call to the real git — so the gate gets as far as that one call."""
+        other call to the real git — so the gate gets as far as that one call. `through_scan`: the
+        failing git is met by the scan on the prepared consumer, for a gate whose hook never makes
+        the call."""
         real = shutil.which("git")
         if real is None:
             return False, "no git on PATH: the failing git hands every other call to the real one"
@@ -603,9 +610,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             encoding="utf-8",
         )
         fake.chmod(0o755)
-        result, root = s.gate_on(
-            s.valid, env={"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
-        )
+        env = {"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
+        if through_scan:
+            _, root = s.gate_on(s.valid)
+            result = h.run_gate("", args=scan_args(root), env=env)
+        else:
+            result, root = s.gate_on(s.valid, env=env)
         return broken_as_typed(result, line(root))
 
     def ls_files_fails() -> tuple[bool, str]:
@@ -617,6 +627,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 " — fix: repair what git names in the message, then check by hand: git -C <that directory>"
                 " ls-files"
             ),
+            through_scan=not s.hook_lists_files,
         )
 
     def init_fails() -> tuple[bool, str]:
