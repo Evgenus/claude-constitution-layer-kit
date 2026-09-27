@@ -17,7 +17,7 @@ from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import VALE_FLOOR, Hit, Key, Level, Rule
+from .model import VALE_FLOOR, Departure, Hit, Key, Level, Rule
 
 INSTALL = "brew install vale (macOS, Linuxbrew), or the other routes at https://vale.sh/docs/install"
 
@@ -28,6 +28,15 @@ def _ns() -> str:
 
 def _floor() -> str:
     return ".".join(str(n) for n in VALE_FLOOR)
+
+
+def _allow(rule: Rule) -> str:
+    """The closing clause of a fix: how a document that must stand as it is written is declared."""
+    return (
+        f"; for a document that must stand as written, declare the departure with its reason: add to"
+        f" {_ns()}.departures in {DIALS_FILE} an entry {{paths: [<the file, or a pattern of the documents"
+        f" that stand>], allow: [{rule.value}], reason: <why they stand, in one line>}}"
+    )
 
 
 # ---------------------------------------------------------------- the findings
@@ -54,7 +63,7 @@ def l1_grade(rel: str, grade: float, ceiling: float) -> Finding:
         " and the grade rises with words per sentence and syllables per word",
         "split the long sentences and prefer short words in the prose outside headings, code and tables"
         f" until the grade is at or under {ceiling:g}; the ceiling for this repository is"
-        f" {_ns()}.grade_ceiling in {DIALS_FILE}",
+        f" {_ns()}.grade_ceiling in {DIALS_FILE}" + _allow(Rule.GRADE),
     )
 
 
@@ -65,7 +74,7 @@ def l2_sentence(rel: str, line: int, words: int, limit: int, text: str) -> Findi
         "a sentence longer than the limit carries more than one idea, and a non-native reader loses the"
         " first before reaching the last",
         f"split it at a clause into sentences of at most {limit} words; the limit for this repository is"
-        f" {_ns()}.sentence_words in {DIALS_FILE}",
+        f" {_ns()}.sentence_words in {DIALS_FILE}" + _allow(Rule.SENTENCE),
     )
 
 
@@ -76,7 +85,7 @@ def l3_forbidden(rel: str, line: int, text: str) -> Finding:
         "an idiom or a formal phrase says nothing a plain sentence does not, and a non-native reader must"
         " translate it before reading on",
         "say it in plain words, or drop it; a phrase this repository keeps on purpose is named in"
-        f" {_ns()}.exceptions in {DIALS_FILE}",
+        f" {_ns()}.exceptions in {DIALS_FILE}" + _allow(Rule.FORBIDDEN),
     )
 
 
@@ -86,7 +95,7 @@ def l4_simpler(rel: str, line: int, text: str, plain: str) -> Finding:
         f"{rel}:{line}: '{shown(text)}' where the plain word is '{plain}'",
         "a long or formal word costs a non-native reader a dictionary where the plain one does not",
         f"write '{plain}'; a word this repository keeps on purpose is named in {_ns()}.exceptions in"
-        f" {DIALS_FILE}",
+        f" {DIALS_FILE}" + _allow(Rule.SIMPLER),
     )
 
 
@@ -96,7 +105,7 @@ def l5_passive(rel: str, line: int, text: str) -> Finding:
         f"{rel}:{line}: passive voice — '{shown(text)}'",
         "the passive hides who acts, and a non-native reader must supply the actor to follow the sentence",
         "name who acts and put them first; a passive kept on purpose is a register the repository sets by"
-        f" {_ns()}.levels.passive in {DIALS_FILE}",
+        f" {_ns()}.levels.passive in {DIALS_FILE}" + _allow(Rule.PASSIVE),
     )
 
 
@@ -122,13 +131,20 @@ def n2_warning(rel: str, rule: Rule, found: Finding) -> str:
     )
 
 
+def n3_stale_departure(index: int, departure: Departure) -> str:
+    return (
+        f"note: {_ns()}.departures entry {index} ({', '.join(departure.paths)}) matches no covered"
+        " document; the documents it allowed were deleted or moved, or the pattern is wrong"
+    )
+
+
 # ---------------------------------------------------------------- count lines and skips
 
 
-def f9_tail(documents: int, ceiling: float, words: int, scanned: int) -> str:
+def f9_tail(documents: int, ceiling: float, words: int, departures: int, scanned: int) -> str:
     return (
         f"{documents} document(s) examined under a grade ceiling of {ceiling:g} and {words} words per"
-        f" sentence, {scanned} Markdown file(s) scanned"
+        f" sentence and {departures} departure(s), {scanned} Markdown file(s) scanned"
     )
 
 
@@ -227,9 +243,10 @@ def one_line(pattern: str) -> str:
     return pattern.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
 
 
-def c5_pattern(pattern: str) -> Broken:
+def c5_pattern(where: str, pattern: str) -> Broken:
+    """`where` names the dial, or the departure entry's paths, holding the pattern."""
     return _c5(
-        f"{_ns()}.territories holds '{one_line(pattern)}', which git would read as a comment or as two lines",
+        f"{_ns()}.{where} holds '{one_line(pattern)}', which git would read as a comment or as two lines",
         "patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in"
         " double quotes, and remove a line break",
     )
@@ -286,6 +303,22 @@ def c5_simpler() -> Broken:
         f"{_ns()}.simpler must be a mapping of phrase to plain word, each one non-empty line",
         "write one line per pair, the phrase as the key and the plain word as the value, such as"
         ' "prior to: before", or leave the key out',
+    )
+
+
+def c5_departures() -> Broken:
+    return _c5(
+        f"{_ns()}.departures must be a list of entries",
+        'write one entry per "- " item with the fields paths (a list of patterns), allow (a list of rule'
+        " keys) and reason (one line); leave the key out, or write [], for no departure",
+    )
+
+
+def c5_departure(index: int, detail: str) -> Broken:
+    return _c5(
+        f"{_ns()}.departures entry {index}: {detail}",
+        "write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these"
+        " documents stand as written>; the keys are " + ", ".join(r.value for r in Rule),
     )
 
 

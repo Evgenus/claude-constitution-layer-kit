@@ -13,6 +13,7 @@ from .model import (
     DEFAULT_LEVELS,
     DEFAULT_SENTENCE_WORDS,
     DEFAULT_TERRITORIES,
+    Departure,
     LanguageDials,
     Level,
     Rule,
@@ -28,7 +29,9 @@ KEYS = (
     "forbidden",
     "simpler",
     "exceptions",
+    "departures",
 )  # the first two are every gate's, read by the shared code
+ENTRY_KEYS = ("paths", "allow", "reason")
 
 
 def parse(own: Mapping[str, object]) -> LanguageDials:
@@ -39,8 +42,8 @@ def parse(own: Mapping[str, object]) -> LanguageDials:
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
     for pattern in territories:
-        if pattern.startswith("#") or "\n" in pattern or "\r" in pattern:
-            raise ConfigurationFailure(messages.c5_pattern(pattern))
+        if _unreadable(pattern):
+            raise ConfigurationFailure(messages.c5_pattern("territories", pattern))
     grade = own.get("grade_ceiling", DEFAULT_GRADE_CEILING)
     if isinstance(grade, bool) or not isinstance(grade, int | float) or not math.isfinite(grade) or grade < 0:
         raise ConfigurationFailure(messages.c5_grade_ceiling())
@@ -61,6 +64,7 @@ def parse(own: Mapping[str, object]) -> LanguageDials:
             raise ConfigurationFailure(messages.c5_exception(phrase))
     return LanguageDials(
         territories=territories,
+        departures=_departures(own.get("departures")),
         grade_ceiling=float(grade),
         sentence_words=words,
         levels=levels,
@@ -68,6 +72,55 @@ def parse(own: Mapping[str, object]) -> LanguageDials:
         simpler={k: v for k, v in simpler.items() if k.lower() not in lowered},
         exceptions=exceptions,
     )
+
+
+def _unreadable(pattern: str) -> bool:
+    """A pattern git would read as a comment, or as two lines."""
+    return pattern.startswith("#") or "\n" in pattern or "\r" in pattern
+
+
+def _departures(value: object) -> tuple[Departure, ...]:
+    """Absent or an empty list: no departure. Anything else is a list of well-formed entries, or a
+    configuration failure naming the first bad one."""
+    if value is None or value == []:
+        return ()
+    if not isinstance(value, list):
+        raise ConfigurationFailure(messages.c5_departures())
+    entries: list[Departure] = []
+    known = {r.value for r in Rule}
+    for index, item in enumerate(value, 1):
+        if not isinstance(item, dict):
+            raise ConfigurationFailure(messages.c5_departure(index, "it is not a mapping"))
+        unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
+        if unknown:
+            raise ConfigurationFailure(
+                messages.c5_departure(index, f"'{unknown[0]}' is no field of an entry")
+            )
+        paths = _texts(item.get("paths"))
+        if not paths:
+            raise ConfigurationFailure(
+                messages.c5_departure(index, "paths must be a non-empty list of path patterns")
+            )
+        for pattern in paths:
+            if _unreadable(pattern):
+                raise ConfigurationFailure(messages.c5_pattern(f"departures entry {index} paths", pattern))
+        allow = _texts(item.get("allow"))
+        if not allow:
+            raise ConfigurationFailure(
+                messages.c5_departure(index, "allow must be a non-empty list of rule keys")
+            )
+        for key in allow:
+            if key not in known:
+                raise ConfigurationFailure(
+                    messages.c5_departure(index, f"'{key}' is no rule this gate knows")
+                )
+        reason = item.get("reason")
+        if not _one_line(reason):
+            raise ConfigurationFailure(
+                messages.c5_departure(index, "reason must be one non-empty line saying why")
+            )
+        entries.append(Departure(paths, tuple(Rule(key) for key in allow), str(reason).strip()))
+    return tuple(entries)
 
 
 def _levels(value: object) -> dict[Rule, Level]:

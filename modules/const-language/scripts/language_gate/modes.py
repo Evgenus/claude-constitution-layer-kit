@@ -26,8 +26,9 @@ from . import messages, rules, vale
 from .model import Hit, LanguageDials, Level, Rule
 from .prepare import prepare
 
-SHOWN_AFTER_WRITE = 20  # findings printed after one write; the count line carries the total
-SHOWN_CHARACTERS = 8000  # and their characters: the platform cuts a hook's text at 10,000
+SHOWN_CHARACTERS = (
+    8000  # the findings printed after one write fit in this: the platform cuts a hook's text at 10,000
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,9 +49,10 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     rel = target.rel
     with Matcher() as matcher:
         covered = rel in matcher.match(dials.territories, [rel])
+        allowed = _allowed(matcher, dials, [rel])
     if not covered:
         return pipeline.skip(output, messages.g1_skip_not_covered(rel))
-    verdict = examine({rel: target.text}, dials)
+    verdict = examine({rel: target.text}, dials, allowed)
     if not verdict.findings:
         return pipeline.green_hook(output, messages.g1_covered(), verdict.notes)
     shown = _within_the_cap(verdict.findings)
@@ -72,20 +74,39 @@ def scan_mode(output: Output, start: Path) -> int:
     paths = list_markdown(target.root)
     with Matcher() as matcher:
         covered = sorted(matcher.match(dials.territories, paths))
+        allowed = _allowed(matcher, dials, covered)
+        matched = [set(matcher.match(d.paths, covered)) for d in dials.departures]
+    notes = [
+        messages.n3_stale_departure(index, departure)
+        for index, (departure, files) in enumerate(zip(dials.departures, matched, strict=True), 1)
+        if not files
+    ]
     texts: dict[str, str] = {}
     for rel in covered:
         text = read_text(target.root, rel)
         if text is None:  # a file git lists and nobody can read: a count that skipped it would lie
             raise ConfigurationFailure(shared.c12_unreadable(rel))
         texts[rel] = text
-    verdict = examine(texts, dials)
-    tail = messages.f9_tail(len(covered), dials.grade_ceiling, dials.sentence_words, len(paths))
-    return pipeline.report_scan(output, verdict.findings, verdict.notes, tail)
+    verdict = examine(texts, dials, allowed)
+    tail = messages.f9_tail(
+        len(covered), dials.grade_ceiling, dials.sentence_words, len(dials.departures), len(paths)
+    )
+    return pipeline.report_scan(output, verdict.findings, [*notes, *verdict.notes], tail)
 
 
-def examine(texts: dict[str, str], dials: LanguageDials) -> Verdict:
+def _allowed(matcher: Matcher, dials: LanguageDials, rels: Sequence[str]) -> dict[str, set[Rule]]:
+    """The rules each document's departures allow: {rel: rules}, empty where none applies."""
+    allowed: dict[str, set[Rule]] = {rel: set() for rel in rels}
+    for departure in dials.departures:
+        for rel in matcher.match(departure.paths, rels):
+            allowed[rel].update(departure.allow)
+    return allowed
+
+
+def examine(texts: dict[str, str], dials: LanguageDials, allowed: dict[str, set[Rule]]) -> Verdict:
     """Every document prepared and checked in one Vale run; the findings and notes in document
-    and line order, a Vale comment outside a fence or a code span a finding wherever it stands."""
+    and line order, a Vale comment outside a fence or a code span a finding wherever it stands; a
+    hit of a rule that a departure allows for its document is neither."""
     binary = vale.preflight()
     findings: list[Finding] = []
     notes: list[str] = []
@@ -107,6 +128,8 @@ def examine(texts: dict[str, str], dials: LanguageDials) -> Verdict:
         for line, comment in prepared[rel].comments:
             placed.append((line, 0, messages.l6_vale_comment(rel, line, comment.replace("\n", " "))))
         for hit in hits.get(rel, []):
+            if hit.rule in allowed.get(rel, set()):
+                continue
             placed.append((hit.line, 1, _judge(rel, hit, lines, dials)))
         for _, _, item in sorted(placed, key=lambda p: (p[0], p[1])):
             if isinstance(item, Finding):
@@ -128,12 +151,12 @@ def _judge(rel: str, hit: Hit, lines: Sequence[str], dials: LanguageDials) -> Fi
 
 
 def _within_the_cap(findings: Sequence[Finding]) -> Sequence[Finding]:
-    """The first findings that fit: at most twenty, and no more characters than leave the count
-    line inside what the platform passes on — it cuts a hook's text at 10,000 characters, from
-    the end, where the count stands."""
+    """The first findings that fit: no more characters than leave the count line inside what the
+    platform passes on — it cuts a hook's text at 10,000 characters, from the end, where the count
+    stands; the first finding is always shown."""
     shown: list[Finding] = []
     size = 0
-    for finding in findings[:SHOWN_AFTER_WRITE]:
+    for finding in findings:
         size += len(finding.render()) + 1
         if size > SHOWN_CHARACTERS and shown:
             break

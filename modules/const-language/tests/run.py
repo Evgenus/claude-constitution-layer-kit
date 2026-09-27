@@ -47,8 +47,9 @@ from harness import (  # noqa: E402
     red_lines,
     stop_json,
 )
+from language_gate import dials as own_dials  # noqa: E402
 from language_gate import messages, rules, start  # noqa: E402
-from language_gate.model import Rule  # noqa: E402
+from language_gate.model import Departure, Rule  # noqa: E402
 from shared_items import Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -135,12 +136,16 @@ def scan(files: dict[str, str], dials_patch: dict[str, object] | None = None) ->
     return H.run_gate("", args=["--scan", str(root)])
 
 
-def tail(documents: int, scanned: int | None = None, ceiling: float = 10.0, words: int = 25) -> str:
-    return messages.f9_tail(documents, ceiling, words, documents if scanned is None else scanned)
+def tail(
+    documents: int, scanned: int | None = None, ceiling: float = 10.0, words: int = 25, departures: int = 0
+) -> str:
+    return messages.f9_tail(documents, ceiling, words, departures, documents if scanned is None else scanned)
 
 
-def green_scan(documents: int, scanned: int | None = None, ceiling: float = 10.0, words: int = 25) -> str:
-    return f"GREEN: {NAMESPACE}: {tail(documents, scanned, ceiling, words)}"
+def green_scan(
+    documents: int, scanned: int | None = None, ceiling: float = 10.0, words: int = 25, departures: int = 0
+) -> str:
+    return f"GREEN: {NAMESPACE}: {tail(documents, scanned, ceiling, words, departures)}"
 
 
 def green_hook() -> str:
@@ -171,6 +176,21 @@ def no_finding(text: str, dials_patch: dict[str, object] | None = None) -> tuple
     return expect(result, 0, green_hook(), "stdout")
 
 
+def allow_typed(key: str) -> str:
+    """The closing clause of every fix but L6, typed by hand once, the rule key filled in."""
+    return (
+        "; for a document that must stand as written, declare the departure with its reason: add to"
+        " const-language.departures in constitution.yaml an entry {paths: [<the file, or a pattern of the"
+        f" documents that stand>], allow: [{key}], reason: <why they stand, in one line>}}"
+    )
+
+
+ALLOW_GRADE = allow_typed("grade")
+ALLOW_SENTENCE = allow_typed("sentence")
+ALLOW_FORBIDDEN = allow_typed("forbidden")
+ALLOW_SIMPLER = allow_typed("simpler")
+
+
 def sentence_headline(words: int, text: str, limit: int = 25) -> str:
     return messages.l2_sentence(DOC, 3, words, limit, text).headline
 
@@ -189,7 +209,7 @@ def t1() -> tuple[bool, str]:
         " assumes, and the grade rises with words per sentence and syllables per word\n"
         "  fix: split the long sentences and prefer short words in the prose outside headings, code and"
         " tables until the grade is at or under 10; the ceiling for this repository is"
-        " const-language.grade_ceiling in constitution.yaml"
+        " const-language.grade_ceiling in constitution.yaml" + allow_typed("grade")
     )
     return all_of(
         (found.render() == typed, "L1 typed whole equals the function's text"),
@@ -213,7 +233,7 @@ def t2() -> tuple[bool, str]:
         "  why: a sentence longer than the limit carries more than one idea, and a non-native reader"
         " loses the first before reaching the last\n"
         "  fix: split it at a clause into sentences of at most 25 words; the limit for this repository"
-        " is const-language.sentence_words in constitution.yaml"
+        " is const-language.sentence_words in constitution.yaml" + allow_typed("sentence")
     )
     heading = "# " + " ".join(["word"] * 26) + "\n\nShort.\n"
     return all_of(
@@ -235,7 +255,7 @@ def t3() -> tuple[bool, str]:
         "  why: an idiom or a formal phrase says nothing a plain sentence does not, and a non-native"
         " reader must translate it before reading on\n"
         "  fix: say it in plain words, or drop it; a phrase this repository keeps on purpose is named"
-        " in const-language.exceptions in constitution.yaml"
+        " in const-language.exceptions in constitution.yaml" + allow_typed("forbidden")
     )
     return all_of(
         (found.render() == typed, "L3 typed whole equals the function's text"),
@@ -268,7 +288,7 @@ def t4() -> tuple[bool, str]:
         "  why: a long or formal word costs a non-native reader a dictionary where the plain one does"
         " not\n"
         "  fix: write 'before'; a word this repository keeps on purpose is named in"
-        " const-language.exceptions in constitution.yaml"
+        " const-language.exceptions in constitution.yaml" + allow_typed("simpler")
     )
     return all_of(
         (found.render() == typed, "L4 typed whole equals the function's text"),
@@ -296,7 +316,7 @@ def t5() -> tuple[bool, str]:
         "  why: the passive hides who acts, and a non-native reader must supply the actor to follow the"
         " sentence\n"
         "  fix: name who acts and put them first; a passive kept on purpose is a register the repository"
-        " sets by const-language.levels.passive in constitution.yaml"
+        " sets by const-language.levels.passive in constitution.yaml" + allow_typed("passive")
     )
     note = messages.n2_warning(DOC, Rule.PASSIVE, found)
     result, _ = gate_on(Write(DOC, PASSIVE))
@@ -438,7 +458,7 @@ def t10() -> tuple[bool, str]:
     pairs: list[tuple[dict[str, object], str]] = [
         (
             own(tone="plain"),
-            "BROKEN: constitution.yaml: const-language.tone is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of severity, log_dir, territories, grade_ceiling, sentence_words, levels, forbidden, simpler, exceptions",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.tone is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of severity, log_dir, territories, grade_ceiling, sentence_words, levels, forbidden, simpler, exceptions, departures",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(territories=[]),
@@ -503,6 +523,38 @@ def t10() -> tuple[bool, str]:
         (
             own(simpler={"prior to": ""}),
             'BROKEN: constitution.yaml: const-language.simpler must be a mapping of phrase to plain word, each one non-empty line — fix: write one line per pair, the phrase as the key and the plain word as the value, such as "prior to: before", or leave the key out',  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(departures="none"),
+            'BROKEN: constitution.yaml: const-language.departures must be a list of entries — fix: write one entry per "- " item with the fields paths (a list of patterns), allow (a list of rule keys) and reason (one line); leave the key out, or write [], for no departure',  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(departures=["x"]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: it is not a mapping — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": "r", "why": "x"}]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: 'why' is no field of an entry — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(departures=[{"paths": [], "allow": ["grade"], "reason": "r"}]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: paths must be a non-empty list of path patterns — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(departures=[{"paths": ["#a.md"], "allow": ["grade"], "reason": "r"}]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds '#a.md', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": [], "reason": "r"}]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: allow must be a non-empty list of rule keys — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["tone"], "reason": "r"}]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: 'tone' is no rule this gate knows — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": " "}]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: reason must be one non-empty line saying why — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(exceptions=["hit the road"]),
@@ -577,37 +629,42 @@ def t11() -> tuple[bool, str]:
 
 
 def t12() -> tuple[bool, str]:
-    """The cap: sixty findings in one document show the first twenty after a write, the count line
-    typed by hand says so, and the whole verdict stays under the platform's cap; sixty findings whose
-    twenty renderings would pass 8,000 characters show fewer, the count line saying how many; the
-    scan lists all."""
+    """The cap: sixty findings in one document show the first that fit in 8,000 characters after a
+    write, the count line saying how many, the verdict staying under the platform's cap; the same
+    with a finding of another length; the scan lists all sixty."""
+
+    def fit_of(render: Callable[[int], str]) -> int:
+        fit, size = 0, 0
+        for line in range(3, 3 + 2 * 60, 2):
+            size += len(render(line)) + 1
+            if size > 8000:
+                break
+            fit += 1
+        return fit
+
     text = "# T\n\n" + "\n\n".join(["Do it prior to noon."] * 60) + "\n"
     result, root = gate_on(Write(DOC, text), files={DOC: text})
     scanned = H.run_gate("", args=["--scan", str(root)])
-    count = f"RED: 60 finding(s), the first 20 shown — the scan lists them all — 1 document examined ({DOC})"
-    wide_text = "# T\n\n" + "\n\n".join(["<!-- vale off -->"] * 60) + "\n"
-    wide, _ = gate_on(Write(DOC, wide_text))
-    fit, size = 0, 0  # the renderings that fit under 8,000 characters, at their real lines
-    for line in range(3, 3 + 2 * 60, 2):
-        size += len(messages.l6_vale_comment(DOC, line, "<!-- vale off -->").render()) + 1
-        if size > 8000:
-            break
-        fit += 1
-    wide_count = (
+    fit = fit_of(lambda line: messages.l4_simpler(DOC, line, "prior to", "before").render())
+    count = (
         f"RED: 60 finding(s), the first {fit} shown — the scan lists them all — 1 document examined ({DOC})"
     )
+    wide_text = "# T\n\n" + "\n\n".join(["<!-- vale off -->"] * 60) + "\n"
+    wide, _ = gate_on(Write(DOC, wide_text))
+    wide_fit = fit_of(lambda line: messages.l6_vale_comment(DOC, line, "<!-- vale off -->").render())
+    wide_count = f"RED: 60 finding(s), the first {wide_fit} shown — the scan lists them all — 1 document examined ({DOC})"  # noqa: E501 — a golden line is typed whole
     tail_of = red_lines(result.stderr)[-1] if red_lines(result.stderr) else "no RED line"
     wide_tail = red_lines(wide.stderr)[-1] if red_lines(wide.stderr) else "no RED line"
     return all_of(
         (
-            result.code == 2 and len(headlines(result)) == 20,
-            f"exit {result.code}, {len(headlines(result))} shown",
+            result.code == 2 and 0 < fit < 60 and len(headlines(result)) == fit,
+            f"exit {result.code}, {len(headlines(result))} shown of a fit of {fit}",
         ),
         (tail_of == count, f"count line: {tail_of}"),
         (len(result.stderr) < 10_000, f"{len(result.stderr)} characters of verdict"),
         (
-            fit < 20 and len(headlines(wide)) == fit,
-            f"wide findings: {len(headlines(wide))} shown of a fit of {fit}",
+            0 < wide_fit < 60 and len(headlines(wide)) == wide_fit,
+            f"wide: {len(headlines(wide))} shown of {wide_fit}",
         ),
         (wide_tail == wide_count, f"wide count line: {wide_tail}"),
         (
@@ -666,20 +723,20 @@ def t15() -> tuple[bool, str]:
             f"note: {DOC}:8: passive voice — 'was written' — reported, not red, while const-language.levels.passive is warning",  # noqa: E501 — a golden line is typed whole
             f"RED: {DOC}:1: the document reads at grade 10.83 by Flesch–Kincaid, above the ceiling of 10",  # noqa: E501 — a golden line is typed whole
             "  why: a reader whose first language is not English pays for every year of schooling the prose assumes, and the grade rises with words per sentence and syllables per word",  # noqa: E501 — a golden line is typed whole
-            "  fix: split the long sentences and prefer short words in the prose outside headings, code and tables until the grade is at or under 10; the ceiling for this repository is const-language.grade_ceiling in constitution.yaml",  # noqa: E501 — a golden line is typed whole
+            f"  fix: split the long sentences and prefer short words in the prose outside headings, code and tables until the grade is at or under 10; the ceiling for this repository is const-language.grade_ceiling in constitution.yaml{ALLOW_GRADE}",  # noqa: E501 — a golden line is typed whole
             f"RED: {DOC}:3: a Vale comment in the document — <!-- vale Language.Forbidden = NO -->",  # noqa: E501 — a golden line is typed whole
             "  why: a comment that switches a rule off is a mark in the document, which the gate blanks before it reads; what departs from a rule is declared in the dials file, where every reader sees it",  # noqa: E501 — a golden line is typed whole
             "  fix: remove the comment; to change a rule for this repository set its level or threshold under const-language in constitution.yaml, or take the document out of const-language.territories with a negated pattern",  # noqa: E501 — a golden line is typed whole
             f"RED: {DOC}:6: a sentence of 32 words, over the limit of 25 — The cat sat on the mat and the dog ran to the door and the bird flew up to the r… [130 characters]",  # noqa: E501 — a golden line is typed whole
             "  why: a sentence longer than the limit carries more than one idea, and a non-native reader loses the first before reaching the last",  # noqa: E501 — a golden line is typed whole
-            "  fix: split it at a clause into sentences of at most 25 words; the limit for this repository is const-language.sentence_words in constitution.yaml",  # noqa: E501 — a golden line is typed whole
+            f"  fix: split it at a clause into sentences of at most 25 words; the limit for this repository is const-language.sentence_words in constitution.yaml{ALLOW_SENTENCE}",  # noqa: E501 — a golden line is typed whole
             f"RED: {DOC}:8: 'hit the ground running' is a construction plain language avoids",  # noqa: E501 — a golden line is typed whole
             "  why: an idiom or a formal phrase says nothing a plain sentence does not, and a non-native reader must translate it before reading on",  # noqa: E501 — a golden line is typed whole
-            "  fix: say it in plain words, or drop it; a phrase this repository keeps on purpose is named in const-language.exceptions in constitution.yaml",  # noqa: E501 — a golden line is typed whole
+            f"  fix: say it in plain words, or drop it; a phrase this repository keeps on purpose is named in const-language.exceptions in constitution.yaml{ALLOW_FORBIDDEN}",  # noqa: E501 — a golden line is typed whole
             f"RED: {DOC}:8: 'prior to' where the plain word is 'before'",  # noqa: E501 — a golden line is typed whole
             "  why: a long or formal word costs a non-native reader a dictionary where the plain one does not",  # noqa: E501 — a golden line is typed whole
-            "  fix: write 'before'; a word this repository keeps on purpose is named in const-language.exceptions in constitution.yaml",  # noqa: E501 — a golden line is typed whole
-            "RED: 5 finding(s) — 4 document(s) examined under a grade ceiling of 10 and 25 words per sentence, 4 Markdown file(s) scanned",  # noqa: E501 — a golden line is typed whole
+            f"  fix: write 'before'; a word this repository keeps on purpose is named in const-language.exceptions in constitution.yaml{ALLOW_SIMPLER}",  # noqa: E501 — a golden line is typed whole
+            "RED: 5 finding(s) — 4 document(s) examined under a grade ceiling of 10 and 25 words per sentence and 0 departure(s), 4 Markdown file(s) scanned",  # noqa: E501 — a golden line is typed whole
             "",
         ]
     )
@@ -839,6 +896,54 @@ def t18() -> tuple[bool, str]:
     )
 
 
+def t19() -> tuple[bool, str]:
+    """Departures: an entry by pattern allows a rule in every document it matches; one by path allows
+    that document alone; an entry allowing one rule does not allow another; a stale entry is a note,
+    typed by hand, first on stdout, and the scan green; the hook honours a departure too; the count
+    line names the departures."""
+    by_pattern = own(
+        departures=[{"paths": ["docs/notes/**"], "allow": ["simpler"], "reason": "frozen notes"}]
+    )
+    by_path = own(
+        departures=[{"paths": ["/docs/notes/c.md"], "allow": ["simpler"], "reason": "one frozen note"}]
+    )
+    stale = own(departures=[{"paths": ["docs/gone/**"], "allow": ["grade"], "reason": "gone"}])
+    two = {DOC: SIMPLER_RED, "docs/notes/d.md": SIMPLER_RED}
+    pattern_run = scan(two, by_pattern)
+    path_run = scan(two, by_path)
+    other_rule = scan({DOC: GRADE_RED + "\nDo it prior to noon.\n"}, by_pattern)
+    stale_run = scan({DOC: PLAIN}, stale)
+    note = "note: const-language.departures entry 1 (docs/gone/**) matches no covered document; the documents it allowed were deleted or moved, or the pattern is wrong"  # noqa: E501 — a golden line is typed whole
+    hooked, _ = gate_on(Write(DOC, SIMPLER_RED), by_path)
+    return all_of(
+        expect(pattern_run, 0, green_scan(5, departures=1), "stdout"),
+        expect(path_run, 2, f"RED: 1 finding(s) — {tail(5, departures=1)}", "stdout"),
+        (
+            headlines(path_run, "stdout")
+            == [f"RED: {messages.l4_simpler('docs/notes/d.md', 3, 'prior to', 'before').headline}"],
+            "the entry by path leaves the other document red",
+        ),
+        (
+            len(headlines(other_rule, "stdout")) == 1
+            and headlines(other_rule, "stdout")[0].startswith(f"RED: {DOC}:1: the document reads at grade"),
+            f"an entry allowing simpler leaves the grade red: {headlines(other_rule, 'stdout')}",
+        ),
+        (
+            stale_run.code == 0 and stale_run.stdout.splitlines()[0] == note,
+            f"a stale entry is the note first, the scan green: {stale_run.stdout.splitlines()[:1]}",
+        ),
+        (messages.n3_stale_departure(1, own_dials_entry(stale)) == note, "the note typed whole"),
+        expect(hooked, 0, green_hook(), "stdout"),
+    )
+
+
+def own_dials_entry(patch: dict[str, object]) -> Departure:
+    """The one departure of a patch, as the gate's own parser reads it."""
+    namespace = patch[NAMESPACE]
+    assert isinstance(namespace, dict)
+    return own_dials.parse(namespace).departures[0]
+
+
 # ---------------------------------------------------------------- the red→green cases
 
 
@@ -906,7 +1011,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (11, "vale absent, old, failing, mute or exiting 1: C2 and C12 typed by hand; the fakes were asked", t11),
     (
         12,
-        "the cap after a write: the first twenty shown, or fewer past 8,000 characters; the scan lists all",
+        "the cap after a write: the first findings that fit in 8,000 characters; the scan lists all",
         t12,
     ),
     (13, "territories: examined against scanned; a negated pattern; a README; the tail's numbers", t13),
@@ -919,6 +1024,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         t17,
     ),
     (18, "an Edit is judged on what it produces; a line number survives a fence above it", t18),
+    (
+        19,
+        "departures: by pattern, by path, one rule at a time; a stale entry is a note; the hook honours one",
+        t19,
+    ),
 ]
 
 SUBJECT = Subject(

@@ -69,8 +69,20 @@ KEY_OF: dict[Rule, Key] = {
 
 
 @dataclass(frozen=True, slots=True)
+class Departure:
+    """One entry of the departures dial: the documents it covers, as path patterns; the rules it
+    allows there, by key; and the one-line reason — the route for a document that must stand as it
+    is written, an accepted record among them."""
+
+    paths: tuple[str, ...]
+    allow: tuple[Rule, ...]
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class LanguageDials:
     territories: tuple[str, ...]
+    departures: tuple[Departure, ...]
     grade_ceiling: float
     sentence_words: int
     levels: dict[Rule, Level]
