@@ -287,8 +287,9 @@ def t4() -> tuple[bool, str]:
 
 
 def t5() -> tuple[bool, str]:
-    """L5: a note by default, green; red under levels.passive error, typed whole; nothing under off;
-    a rule at warning keeps its note on a red run too."""
+    """L5: a note by default, green; red under levels.passive error, typed whole; nothing under off,
+    bare or quoted; a rule at warning keeps its note on a red run too; a form of be inside a word
+    is no passive."""
     found = messages.l5_passive(DOC, 3, "was written")
     typed = (
         f"RED: {DOC}:3: passive voice — 'was written'\n"
@@ -530,7 +531,8 @@ def fake_vale(directory: Path, script: str) -> Path:
 def t11() -> tuple[bool, str]:
     """Absence of the binary, each line typed by hand: no vale on PATH is C2 with the install
     command; an old vale is C2 with its version; a vale that cannot run is C12 with its own first
-    line; a vale with no version line is C12 — and every fake was asked what the gate says."""
+    line; a vale with no version line, or one whose --version exits 1, is C12 — and every fake was
+    asked what the gate says."""
     none = H.scratch_dir()
     for tool in ("python3", "git", "sh", "dirname"):
         source = (
@@ -726,37 +728,101 @@ def t16() -> tuple[bool, str]:
     )
 
 
+# The founding lists, typed whole: a phrase deleted, respelt or given another plain word turns T17 red.
+FORBIDDEN_TYPED = (
+    "hit the ground running",
+    "low-hanging fruit",
+    "move the needle",
+    "boil the ocean",
+    "touch base",
+    "circle back",
+    "on the same page",
+    "up to speed",
+    "silver bullet",
+    "at the end of the day",
+    "needless to say",
+    "it goes without saying",
+    "as a matter of fact",
+    "in the grand scheme of things",
+    "when all is said and done",
+    "a level playing field",
+    "think outside the box",
+    "the ball is in your court",
+    "back to the drawing board",
+    "bite the bullet",
+    "cut corners",
+    "get the ball rolling",
+    "last but not least",
+    "notwithstanding",
+    "aforementioned",
+    "heretofore",
+    "hereinafter",
+    "it should be noted that",
+    "it is worth noting that",
+    "it is important to note that",
+)
+SIMPLER_TYPED = {
+    "prior to": "before",
+    "subsequent to": "after",
+    "in order to": "to",
+    "utilize": "use",
+    "utilise": "use",
+    "leverage": "use",
+    "commence": "begin",
+    "terminate": "end",
+    "endeavour": "try",
+    "endeavor": "try",
+    "facilitate": "help",
+    "in the event that": "if",
+    "with regard to": "about",
+    "with respect to": "about",
+    "in regard to": "about",
+    "a number of": "some",
+    "in excess of": "more than",
+    "in the near future": "soon",
+    "at this point in time": "now",
+    "on a daily basis": "daily",
+    "with the exception of": "except",
+    "take into consideration": "consider",
+    "in spite of the fact that": "although",
+    "due to the fact that": "because",
+    "in light of the fact that": "because",
+    "for the purpose of": "to",
+    "is able to": "can",
+    "whilst": "while",
+    "amongst": "among",
+    "numerous": "many",
+    "sufficient": "enough",
+    "approximately": "about",
+    "subsequently": "later",
+}
+
+
 def t17() -> tuple[bool, str]:
-    """Determinism: two runs on the same input print the same verdict; the founding lists hold no
-    duplicate and no phrase that is both forbidden and simpler."""
+    """Determinism: two runs on the same input print the same verdict; the founding lists equal the
+    lists typed here, hold no duplicate and no phrase that is both forbidden and simpler; a document
+    that uses every phrase once gets one finding per phrase, in order, each echoing its own phrase."""
     files = {DOC: SIMPLER_RED + LONG_SENTENCE + "\n", "docs/notes/d.md": GRADE_RED}
     first = scan(files)
     second = scan(files)
-    overlap = sorted(set(rules.FORBIDDEN) & set(rules.SIMPLER))
-    phrases = [*rules.FORBIDDEN, *rules.SIMPLER]
+    overlap = sorted(set(FORBIDDEN_TYPED) & set(SIMPLER_TYPED))
+    phrases = [*FORBIDDEN_TYPED, *SIMPLER_TYPED]
     every = "# T\n\n" + "\n\n".join(f"We {phrase} today." for phrase in phrases) + "\n"
     fired = scan({DOC: every})
+    echoed = [line.split("'")[1] if "'" in line else "" for line in headlines(fired, "stdout")]
     return all_of(
         (first.stdout == second.stdout and first.code == second.code == 2, "two scans, one output"),
         (
-            len(set(rules.FORBIDDEN)) == len(rules.FORBIDDEN) and not overlap,
+            tuple(rules.FORBIDDEN) == FORBIDDEN_TYPED and dict(rules.SIMPLER) == SIMPLER_TYPED,
+            "the founding lists equal the lists typed here",
+        ),
+        (
+            len(set(FORBIDDEN_TYPED)) == len(FORBIDDEN_TYPED) and not overlap,
             f"lists disjoint, no duplicate: {overlap}",
         ),
         (
-            fired.code == 2 and len(headlines(fired, "stdout")) == len(phrases),
-            f"every founding phrase fires once: {len(headlines(fired, 'stdout'))} of {len(phrases)}",
-        ),
-        (
-            all(any(f"'{phrase}'" in line for line in headlines(fired, "stdout")) for phrase in phrases),
-            "each phrase is echoed by a finding of its own",
-        ),
-        (
-            len(rules.FORBIDDEN) == 30 and len(rules.SIMPLER) == 33,
-            "thirty and thirty-three entries, typed by hand",
-        ),
-        (
-            "heretofore" in rules.FORBIDDEN and rules.SIMPLER.get("prior to") == "before",
-            "two entries typed by hand",
+            fired.code == 2 and echoed == phrases,
+            f"one finding per phrase, in order, each echoing its own: {len(echoed)} of {len(phrases)}",
         ),
     )
 
@@ -827,7 +893,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (2, "L2 typed whole with the sentence echoed; 25 words pass; the limit a dial; a heading counts", t2),
     (3, "L3 typed whole, case-insensitive; code is code; an exception; a phrase of the repository's", t3),
     (4, "L4 typed whole with the plain word, in any case; an exception; a pair of the repository's", t4),
-    (5, "L5 a note by default, red at error, nothing at off; a form of be inside a word is none", t5),
+    (
+        5,
+        "L5 a note by default, red at error, off; the note travels with a block; be inside a word is none",
+        t5,
+    ),
     (6, "L6 a Vale comment is red and the rule it names still fires; across lines; code is a mention", t6),
     (7, "the envelope is blanked; a byte-order mark; no prose; an unterminated envelope is prose", t7),
     (8, "after the write the file on disk is judged; a missing file skips; a Stop event is C12", t8),
@@ -845,7 +915,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (16, "install note, skill and manifest name no kit document; wiring; description size", t16),
     (
         17,
-        "two runs, one verdict; the founding lists are disjoint, without duplicates, and every phrase fires",
+        "two runs, one verdict; the founding lists typed whole, disjoint; one finding per phrase, in order",
         t17,
     ),
     (18, "an Edit is judged on what it produces; a line number survives a fence above it", t18),
