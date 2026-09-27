@@ -555,6 +555,10 @@ def t10() -> tuple[bool, str]:
             "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds '#a.md', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
         ),
         (
+            own(departures=[{"paths": ["#" + "x" * 100], "allow": ["grade"], "reason": "r"}]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
             own(departures=[{"paths": ["a.md"], "allow": [], "reason": "r"}]),
             "BROKEN: constitution.yaml: const-language.departures entry 1: allow must be a non-empty list of rule keys — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
         ),
