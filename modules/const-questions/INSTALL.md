@@ -6,7 +6,7 @@ reported on the first `Write` or `Edit` of any file, a missing git on the first 
 file, each with the fix on the first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
-   session). Two hooks. At every session start — after a compaction and a clear too — the shape
+   session). Two hooks. At every session start — after a resume, a compaction and a clear too — the shape
    of a decision message is printed into the session's context, 648 characters, advisory: lettered
    options with **Pros:** and **Cons:** sub-bullets, one recommendation, the decider named, and
    the instruction to load the skill before any choice is put. Before every `Write` and `Edit` of

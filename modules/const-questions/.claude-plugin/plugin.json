@@ -1,7 +1,7 @@
 {
   "name": "const-questions",
   "version": "0.0.2",
-  "description": "Ask only at recorded stakes or a genuine blocker, else decide and note; one decision per message in a fixed shape — lettered options with pros and cons, one recommendation, the decider named; questions derived from open slots, closed vocabularies as the options, defaults with override, vague input restated; no open question inside a deliverable, with a gate on open-question markers in delivered documents.",
+  "description": "Ask only at recorded stakes or a genuine blocker, else decide and note; one decision per message in a fixed shape — lettered options with pros and cons, one recommendation, the decider named — printed at every session start; questions derived from open slots, closed vocabularies as the options, defaults with override, vague input restated; no open question inside a deliverable, with a gate on open-question markers in delivered documents.",
   "author": { "name": "Eugene Chernyshov" },
   "license": "MIT"
 }

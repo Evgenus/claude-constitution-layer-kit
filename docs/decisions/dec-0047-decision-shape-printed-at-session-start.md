@@ -2,7 +2,7 @@
 id: dec-0047-decision-shape-printed-at-session-start
 type: task-record
 title: The shape of a decision message is printed at every session start by const-questions, and its skill asks to be loaded before any choice is put
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---

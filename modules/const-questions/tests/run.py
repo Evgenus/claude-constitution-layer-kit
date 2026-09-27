@@ -460,6 +460,8 @@ def decision_shape_printed() -> tuple[bool, str]:
     )
     if not stated or int(stated.group(1)) != size:
         return False, f"the module document states another size than {size}"
+    if f"{size} characters, advisory" not in (SCRIPTS.parent / "INSTALL.md").read_text(encoding="utf-8"):
+        return False, f"the install note states another size than {size}"
     # the skill's prose is wrapped at 100 columns, so a phrase may carry a line break inside it
     skill = " ".join(
         (SCRIPTS.parent / "skills" / "ask-or-decide" / "SKILL.md").read_text(encoding="utf-8").split()
@@ -488,6 +490,8 @@ def skill_and_install_note() -> tuple[bool, str]:
         return False, "name or description size"
     if "Use when " not in front["description"] or "Advisory:" not in front["description"]:
         return False, "the description carries no 'Use when ' trigger or no 'Advisory:' line"
+    if "Load this skill first" not in front["description"]:
+        return False, "the description does not ask to be loaded first"
     size = len(front["description"])
     stated = re.search(r"skill listing, (\d+) characters", (root / "MODULE.md").read_text(encoding="utf-8"))
     if not stated or int(stated.group(1)) != size:
