@@ -22,7 +22,9 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    sentence's words against a limit; a list of idioms and formal phrases plain language avoids;
    a list of words with one plain replacement, named in the finding; passive voice, reported as
    a note by default. A Vale comment in a document — `<!-- vale … -->` — is blanked before the
-   check reads and reported as a finding: nothing in a document switches a rule off.
+   check reads and reported as a finding: nothing in a document switches a rule off. The check
+   reads only the configuration it generates (`--config`, `--no-global`) and never a `.vale.ini`
+   or a `StylesPath` of the repository, so Vale run by hand beside it sees a second configuration.
 3. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
    namespace: every Markdown file git lists is covered, the ceiling is grade 10, the limit 25
    words, the four rules red and the passive a note. Without that file every run is a visible skip

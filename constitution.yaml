@@ -301,7 +301,7 @@ const-language:                       # the prose of covered documents: a grade 
   territories:                        # the documents the gate reads among the Markdown files git lists; a negated pattern takes files out
     - "*.md"
     - "!docs/decisions/dec-00[0-3]*.md"   # an accepted record is never edited (plc-0004 rule 14) and this gate has no per-document declaration, so the frozen ones leave its territory by number range (decision dec-0046-language-module-rulings); the range grows with each acceptance
-    - "!docs/decisions/dec-004[0-6]-*.md"
+    - "!docs/decisions/dec-004[0-5]-*.md"   # dec-0046 joins the range in the commit that names its yes
     - "!docs/research/res-00[01]*.md"     # a comparison is frozen at its module's yes (plc-0005 rule 7): the same route
   grade_ceiling: 13                   # the module's default is 10: the kit's own descent to it is a work item after this module, one step per change (decision dec-0046-language-module-rulings)
   sentence_words: 100                 # the module's default is 25: the same descent, 60 then 40 then 25
