@@ -1,13 +1,13 @@
 ---
 id: dec-0046-language-module-rulings
 type: task-record
-title: Rulings of the const-language authoring — Vale under the dials, grade 10 and 25 words by default, a hook after the write and a scan, the chat row settled, frozen documents out by territory
+title: Rulings of the const-language authoring — Vale under the dials, grade 10 and 25 words by default, a hook after the write and a scan, the chat row settled, frozen documents declared as departures
 status: active
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# Rulings of the const-language authoring — Vale under the dials, grade 10 and 25 words by default, a hook after the write and a scan, the chat row settled, frozen documents out by territory
+# Rulings of the const-language authoring — Vale under the dials, grade 10 and 25 words by default, a hook after the write and a scan, the chat row settled, frozen documents declared as departures
 
 ## Context
 
@@ -43,7 +43,7 @@ The comparison found Vale the one runnable instrument with a configurable grade 
   - **Pros:** every kit gate stays at Python and PyYAML.
   - **Cons:** the module owns Markdown stripping, where the comparison measured gaps of twenty grades between raw and stripped text; the row says "pass Vale".
 
-The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-26: the gate generates Vale's configuration and one style from the dials into a temporary directory per run, reads it with `--config` and `--no-global`, ships its two founding lists and its passive pattern in the plugin, syncs and pins nothing, and refuses a `vale` that is missing or below 3.23.0 with the install command, as the shared failure shape for a missing dependency; the specification's "pin packages by release URL" becomes the consumer's route for packages of its own, outside the module. **R3.** The rules are five, each with a level in the dial `levels` — `error` a finding, `warning` a note, `off` unwritten — and every rule off is refused, since a gate that checks nothing would report green as if it had checked; the founding lists are extended by the dials `forbidden` and `simpler` and trimmed by `exceptions`, which refuses a phrase no list holds. **R4.** The envelope is blanked before Vale reads, so a title or an id is not prose and the envelope stays the sibling gate's; a Vale comment outside code is blanked and reported as a finding, since a departure is declared in the dials file and never marked in the document, and one inside a fence or a code span is a mention Vale does not honour and is left as it stands.
+The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-26: the gate generates Vale's configuration and one style from the dials into a temporary directory per run, reads it with `--config` and `--no-global`, ships its two founding lists and its passive pattern in the plugin, syncs and pins nothing, and refuses a `vale` that is missing or below 3.23.0 with the install command, as the shared failure shape for a missing dependency; the specification's "pin packages by release URL" becomes the consumer's route for packages of its own, outside the module. **R3.** The rules are five, each with a level in the dial `levels` — `error` a finding, `warning` a note, `off` unwritten — and every rule off is refused, since a gate that checks nothing would report green as if it had checked; the founding lists are extended by the dials `forbidden` and `simpler` and trimmed by `exceptions`, which refuses a phrase no list holds. A document that must stand as it is written is declared as an entry of the dial `departures`, by path or by pattern, naming the rules it may fail there and the reason in one line, and the gate still reads it for every other rule; an entry matching no document is a note, a malformed one a configuration failure. **R4.** The envelope is blanked before Vale reads, so a title or an id is not prose and the envelope stays the sibling gate's; a Vale comment outside code is blanked and reported as a finding, since a departure is declared in the dials file and never marked in the document, and one inside a fence or a code span is a mention Vale does not honour and is left as it stands.
 
 ## 3. The default grade ceiling and the kit's own value
 
@@ -86,7 +86,7 @@ The session recommended B. **R6.** B, chosen by the decider in chat on 2026-09-2
   - **Pros:** the scan satisfies the row as written; a smaller module.
   - **Cons:** a red found at the commit gate is the slow loop; a post-write hook is the one thing Vale's own plugin ships.
 
-The session recommended A. **R8.** A, chosen by the decider in chat on 2026-09-26: the plugin wires `PostToolUse` on `Write|Edit` and ships the scan; there is no `PreToolUse` entry, since a document-wide rule before the write refuses every partial fix, and the gate judges a `PreToolUse` payload the same way only where a consumer wires it; after a write the hook shows at most twenty findings, or fewer than fill 8,000 characters, and its count line names the total and the scan.
+The session recommended A. **R8.** A, chosen by the decider in chat on 2026-09-26: the plugin wires `PostToolUse` on `Write|Edit` and ships the scan; there is no `PreToolUse` entry, since a document-wide rule before the write refuses every partial fix, and the gate judges a `PreToolUse` payload the same way only where a consumer wires it; after a write the hook shows the findings that fit in 8,000 characters, the first always, and its count line names the total and the scan.
 
 ## 6. Where the plain-chat row lives
 
@@ -114,22 +114,33 @@ The comparison overturned the graduation of the twelve markup signatures of modu
 
 The session recommended A. **R10.** A, chosen by the decider in chat on 2026-09-26: no heading-case rule at founding; the twelve signatures stay the styling scan's, and the graduation path is read as the path for rules about words, deferred in the module's document with its signal.
 
-## 8. The kit's own calibration
+## 8. The kit's own calibration and the frozen documents
 
-No option was put: the kit's dial follows the rulings above and the precedent of module `const-interaction`'s dial, and the session made the calls below as the kit-live proof showed the numbers. **R11.** The kit's accepted records and frozen comparisons leave this gate's territory by negated patterns over their number ranges, since an accepted record is never edited and this gate has no per-document declaration — the route [dec-0045-frozen-documents-stay-in-the-style-scan](dec-0045-frozen-documents-stay-in-the-style-scan.md) closed for the style scan is open here, that record ruling the style scan alone; the ranges grow with each acceptance, this record's own number among them. **R12.** The kit's passive rule is `off`, not `warning`: the day-one scan printed 1,224 passive notes over 64 documents, every sampled one a passive chosen — the register of the kit's documents — and a note nobody reads on every scan is noise, not a warning; a consumer's default stays `warning`. **R13.** Every policy's enforcement rule names this gate among the guards of its kind, after a write and in its scan, as it names the style scan; no policy carries a language rule of its own, since the thresholds live in the dials file and not in a policy.
+The kit's dial follows the rulings above, and the session made the calls of R12 and R13 as the kit-live proof showed the numbers. On the frozen documents the session first excluded them from the territory by negated patterns, the module then having no per-document declaration, and the decider asked in chat on 2026-09-27 whether the exclusions were necessary. Measured with the frozen documents inside the territory under the kit's calibration: 26 findings in documents no rule allows editing — 24 sentences of 101 to 162 words in twelve accepted records and five frozen comparisons, one record at grade 13.4, one formal word.
+
+- **A. A departures dial, as the style scan has**, entries of paths, allowed rules and a reason; the kit declares one over its frozen ranges and the negated patterns go.
+  - **Pros:** one route for both scans, the one [dec-0045-frozen-documents-stay-in-the-style-scan](dec-0045-frozen-documents-stay-in-the-style-scan.md) chose; the reason stands on record; a frozen document is still read for every rule the entry leaves in force.
+  - **Cons:** a new dial with its messages, fixtures and rows, and further audit rounds.
+- **B. Keep the exclusions.**
+  - **Pros:** nothing more to build.
+  - **Cons:** a frozen document unseen by every rule, and the asymmetry between the two scans.
+- **C. Raise the kit's thresholds until the frozen documents pass**, grade 14 and 165 words.
+  - **Cons:** the kit's calibration hollowed, and every step of the descent brings the findings back.
+
+The session recommended A. **R11.** A, chosen by the decider in chat on 2026-09-27: the kit's accepted records and frozen comparisons stay in this gate's territory and are declared as one entry of the dial `departures` over their number ranges, allowing the four content rules with the reason that they stand as written; the ranges grow with each acceptance, this record's own number and its comparison among them; the policies of both kinds say so beside their clause on the style scan. **R12.** The kit's passive rule is `off`, not `warning`: the day-one scan printed 1,224 passive notes over 64 documents, every sampled one a passive chosen — the register of the kit's documents — and a note nobody reads on every scan is noise, not a warning; a consumer's default stays `warning`. **R13.** Every policy's enforcement rule names this gate among the guards of its kind, after a write and in its scan, as it names the style scan; no policy carries a language rule of its own, since the thresholds live in the dials file and not in a policy.
 
 ## Carry list
 
 1. R1 — history only: the choice of the day, the objection noted in the commit that started the branch.
 2. R2 — [§3](../../modules/const-language/MODULE.md#t3) of the module's document, the reading of its row; [§6](../../modules/const-language/MODULE.md#t6), the package, binary and dependencies rows; [§7](../../modules/const-language/MODULE.md#t7), what the gate hands to Vale.
-3. R3 — [§7](../../modules/const-language/MODULE.md#t7) of the module's document, the dials `levels`, `forbidden`, `simpler` and `exceptions`; [§5](../../modules/const-language/MODULE.md#t5), the invariant's reading of a level.
+3. R3 — [§7](../../modules/const-language/MODULE.md#t7) of the module's document, the dials `levels`, `forbidden`, `simpler`, `exceptions` and `departures`; [§5](../../modules/const-language/MODULE.md#t5), the invariant's reading of a level and of an entry that allows.
 4. R4 — [§7](../../modules/const-language/MODULE.md#t7) of the module's document, what the gate hands to Vale; [§6](../../modules/const-language/MODULE.md#t6), the message L6; [§9](../../modules/const-language/MODULE.md#t9), limit 6.
 5. R5 — [§7](../../modules/const-language/MODULE.md#t7) of the module's document, the dial `grade_ceiling`; [the kit's dials file](../../constitution.yaml), its `const-language.grade_ceiling` and the comment beside it; the descent is planned in step 9 of the rollout plan.
 6. R6 — [§7](../../modules/const-language/MODULE.md#t7) of the module's document, the dial `sentence_words`; [the kit's dials file](../../constitution.yaml), its `const-language.sentence_words` and the comment beside it; the descent is planned in step 9 of the rollout plan.
-7. R7 — [§7](../../modules/const-language/MODULE.md#t7) of the module's document, the dials `forbidden` and `simpler`; [§12](../../modules/const-language/MODULE.md#t12), item 3.
-8. R8 — [§6](../../modules/const-language/MODULE.md#t6) of the module's document, the hook row; [§9](../../modules/const-language/MODULE.md#t9), rows E1 and E2 and limit 4; [§12](../../modules/const-language/MODULE.md#t12), item 5.
+7. R7 — [§7](../../modules/const-language/MODULE.md#t7) of the module's document, the dials `forbidden` and `simpler`; [§12](../../modules/const-language/MODULE.md#t12), item 2.
+8. R8 — [§6](../../modules/const-language/MODULE.md#t6) of the module's document, the hook row; [§9](../../modules/const-language/MODULE.md#t9), rows E1 and E2 and limit 4; [§12](../../modules/const-language/MODULE.md#t12), item 4.
 9. R9 — [requirement A10.2](../requirements.md#a10-2), its destination, and the boundary note of the requirements document; [§3](../../modules/const-language/MODULE.md#t3) of the module's document, the row's reading; [§11](../../modules/const-language/MODULE.md#t11).
 10. R10 — [§3](../../modules/const-language/MODULE.md#t3) of the module's document, the reading of [requirement A9.4](../requirements.md#a9-4); [§12](../../modules/const-language/MODULE.md#t12), item 1.
-11. R11 — [the kit's dials file](../../constitution.yaml), its `const-language.territories` and the comment beside them; [§8](../../modules/const-language/MODULE.md#t8) of the module's document, pair 6; [rule 6 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6) and [rule 10 of plc-0005-research](../policies/plc-0005-research.md#r10), the clause on their frozen documents.
+11. R11 — [the kit's dials file](../../constitution.yaml), its `const-language.departures` and the comment beside it; [§7](../../modules/const-language/MODULE.md#t7) of the module's document, the dial `departures`, and [§8](../../modules/const-language/MODULE.md#t8), pair 6; [rule 6 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6) and [rule 10 of plc-0005-research](../policies/plc-0005-research.md#r10), the clause on their frozen documents.
 12. R12 — [the kit's dials file](../../constitution.yaml), its `const-language.levels.passive` and the comment beside it.
 13. R13 — [rule 8 of plc-0001-root-policy](../policies/plc-0001-root-policy.md#r8) and the enforcement rule of every other policy under `docs/policies/`, each naming the gate.

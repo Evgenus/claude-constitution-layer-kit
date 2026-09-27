@@ -47,11 +47,17 @@ floor, is reported by the check with the fix on its first line; nothing is silen
      simpler:                                     # pairs of the project's own; default none
        ascertain: find out
      exceptions: ["leverage"]                     # phrases of the two lists the project keeps; default none
+     departures:                                  # what stands as written, where, and why; default none
+       - paths: ["docs/records/rec-00[0-3]*.md"]  # a pattern for a kind, a number range, or one file by path
+         allow: [grade, sentence]                 # the rule keys the check passes there; the rest still apply
+         reason: accepted records stand as written
      # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 8
    ```
    A key of this namespace that is none of the above, a ceiling that is not a number, a limit
-   that is not a whole number, a level that is none of the three, every rule off, or an exception
-   no list holds, is refused with exit 1 — a misspelt dial is never a setting ignored in silence.
+   that is not a whole number, a level that is none of the three, every rule off, an exception
+   no list holds, or a departure entry missing a field or naming a rule the check does not know,
+   is refused with exit 1 — a misspelt dial is never a setting ignored in silence. A departure
+   whose paths match no covered document is reported as a note on every scan until it is removed.
 5. **Run the scan in CI and before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-language.sh --scan
@@ -61,10 +67,11 @@ floor, is reported by the check with the fix on its first line; nothing is silen
 6. **Adoption onto a repository with many findings:** set `grade_ceiling` and `sentence_words` to
    what the documents bear today, the rules the project is not ready for to `warning`, rewrite
    the documents kind by kind, and lower the numbers in steps. A document that must not be edited
-   is taken out of `territories` with a negated pattern, never marked in the document.
-7. **A departure is declared, never marked.** An exception, a level, a threshold: all in the
-   dials file, where every reader sees them; a Vale comment in a document, outside a fence or a code
-   span, is a finding.
+   is declared as a departure with its reason, allowing the rules it cannot meet; the check still
+   reads it for the rest, and nothing is marked in the document.
+7. **A departure is declared, never marked.** An exception, a level, a threshold, a departure: all
+   in the dials file, where every reader sees them; a Vale comment in a document, outside a fence
+   or a code span, is a finding.
 8. Output log: everything the check prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-language.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the

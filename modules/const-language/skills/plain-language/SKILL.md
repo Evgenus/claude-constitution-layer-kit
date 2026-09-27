@@ -60,7 +60,10 @@ The check runs after every write of a covered document and in its scan, `check-l
 A phrase the project keeps on purpose — a term of art the plain word would change — is named
 in `const-language.exceptions` of `constitution.yaml`, one line per phrase, and the check stops
 reporting it everywhere. A phrase of the project's own to forbid goes in `const-language.forbidden`;
-a pair of its own in `const-language.simpler`.
+a pair of its own in `const-language.simpler`. A document that must stand as it is written — an
+accepted record, a frozen comparison — is declared in `const-language.departures`, by path or by
+a pattern over its kind, with the rules it may fail there and the reason in one line; the check
+still reads it for every other rule, and nothing is written into the document.
 
 ## 4. Adopt the check on a repository
 
@@ -69,8 +72,8 @@ thresholds the documents can bear today — `grade_ceiling`, `sentence_words` �
 project is not ready for to `warning` under `levels`, so every finding is reported and none is
 red; rewrite the documents kind by kind; lower the numbers and raise the levels in steps, each
 step a change of `constitution.yaml` with its reason in the commit. A document that must not be
-edited — a frozen record, an accepted comparison — is taken out of `const-language.territories`
-with a negated pattern, never marked.
+edited — a frozen record, an accepted comparison — is declared as a departure in
+`const-language.departures`, never marked and never taken out of the territory.
 
 ## 5. What the check does not judge
 
