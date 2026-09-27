@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 
 from const_gate.errors import ConfigurationFailure
@@ -41,7 +42,7 @@ def parse(own: Mapping[str, object]) -> LanguageDials:
         if pattern.startswith("#") or "\n" in pattern or "\r" in pattern:
             raise ConfigurationFailure(messages.c5_pattern(pattern))
     grade = own.get("grade_ceiling", DEFAULT_GRADE_CEILING)
-    if isinstance(grade, bool) or not isinstance(grade, int | float) or grade < 0:
+    if isinstance(grade, bool) or not isinstance(grade, int | float) or not math.isfinite(grade) or grade < 0:
         raise ConfigurationFailure(messages.c5_grade_ceiling())
     words = own.get("sentence_words", DEFAULT_SENTENCE_WORDS)
     if isinstance(words, bool) or not isinstance(words, int) or words < 1:
@@ -52,16 +53,19 @@ def parse(own: Mapping[str, object]) -> LanguageDials:
     exceptions = _phrases_or_none(own.get("exceptions"), "exceptions")
     forbidden = [*rules.FORBIDDEN, *(p for p in forbidden_extra if p not in rules.FORBIDDEN)]
     simpler = {**rules.SIMPLER, **simpler_extra}
+    lowered = tuple(
+        phrase.lower() for phrase in exceptions
+    )  # the lists match case-insensitively; so do exceptions
     for phrase in exceptions:
-        if phrase not in forbidden and phrase not in simpler:
+        if phrase.lower() not in forbidden and phrase.lower() not in simpler:
             raise ConfigurationFailure(messages.c5_exception(phrase))
     return LanguageDials(
         territories=territories,
         grade_ceiling=float(grade),
         sentence_words=words,
         levels=levels,
-        forbidden=tuple(p for p in forbidden if p not in exceptions),
-        simpler={k: v for k, v in simpler.items() if k not in exceptions},
+        forbidden=tuple(p for p in forbidden if p.lower() not in lowered),
+        simpler={k: v for k, v in simpler.items() if k.lower() not in lowered},
         exceptions=exceptions,
     )
 

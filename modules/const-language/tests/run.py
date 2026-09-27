@@ -248,6 +248,9 @@ def t3() -> tuple[bool, str]:
         no_finding("# T\n\nThe phrase `hit the ground running` is quoted here.\n"),
         no_finding("# T\n\n```text\nhit the ground running\n```\n"),
         no_finding(IDIOM_RED, own(exceptions=["hit the ground running"])),
+        no_finding(
+            IDIOM_RED, own(exceptions=["Hit The Ground Running"])
+        ),  # an exception, like the lists, in any case
         one_finding(
             "# T\n\nWe ship a synergy.\n",
             messages.l3_forbidden(DOC, 3, "synergy").headline,
@@ -363,6 +366,9 @@ def t7() -> tuple[bool, str]:
         no_finding("﻿" + with_title),
         no_finding(""),
         one_finding(unterminated, messages.l4_simpler(DOC, 4, "prior to", "before").headline),
+        no_finding(
+            "---\nid: " + "[" * 600 + "\n---\n\nShort.\n"
+        ),  # nested past the parser's depth: blanked, no crash
     )
 
 
@@ -439,11 +445,15 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(grade_ceiling=-1),
-            "BROKEN: constitution.yaml: const-language.grade_ceiling must be a number of 0 or more — fix: write the Flesch–Kincaid grade a document may reach, such as 10, or leave the key out for the default",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.grade_ceiling must be a finite number of 0 or more — fix: write the Flesch–Kincaid grade a document may reach, such as 10, or leave the key out for the default",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(grade_ceiling=float("nan")),
+            "BROKEN: constitution.yaml: const-language.grade_ceiling must be a finite number of 0 or more — fix: write the Flesch–Kincaid grade a document may reach, such as 10, or leave the key out for the default",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(grade_ceiling="ten"),
-            "BROKEN: constitution.yaml: const-language.grade_ceiling must be a number of 0 or more — fix: write the Flesch–Kincaid grade a document may reach, such as 10, or leave the key out for the default",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.grade_ceiling must be a finite number of 0 or more — fix: write the Flesch–Kincaid grade a document may reach, such as 10, or leave the key out for the default",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(sentence_words=0),

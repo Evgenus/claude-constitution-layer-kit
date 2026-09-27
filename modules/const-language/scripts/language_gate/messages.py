@@ -229,7 +229,7 @@ def c5_pattern(pattern: str) -> Broken:
 
 def c5_grade_ceiling() -> Broken:
     return _c5(
-        f"{_ns()}.grade_ceiling must be a number of 0 or more",
+        f"{_ns()}.grade_ceiling must be a finite number of 0 or more",
         "write the Flesch–Kincaid grade a document may reach, such as 10, or leave the key out for the"
         " default",
     )

@@ -12,10 +12,11 @@ Modes:    (hook)          one tool event, JSON on stdin — the written document
                           note, off unwritten; a Vale comment is a finding of its own.
           --scan [DIR]    every covered Markdown file git lists in the repository containing DIR
                           (default: the current directory), the same way, one Vale run.
-Reads:    from constitution.yaml: this module's dials const-language.severity, .log_dir,
-          .territories, .grade_ceiling, .sentence_words, .levels, .forbidden, .simpler and
-          .exceptions; the file as a whole is validated as every gate does. No policy is read; no
-          envelope is judged. The vale binary on PATH, 3.23.0 or newer, is required.
+Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
+          .new_string and .replace_all, cwd, session_id. From constitution.yaml: this module's dials
+          const-language.severity, .log_dir, .territories, .grade_ceiling, .sentence_words, .levels,
+          .forbidden, .simpler and .exceptions; the file as a whole is validated as every gate does.
+          No policy is read; no envelope is judged. The vale binary on PATH, 3.23.0 or newer, is required.
 Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — a document is over the ceiling or the limit, holds a construction the rules
             name at level error, or a Vale comment;
