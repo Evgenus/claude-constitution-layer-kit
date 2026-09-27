@@ -442,8 +442,9 @@ def hooks_file() -> tuple[bool, str]:
 
 def decision_shape_printed() -> tuple[bool, str]:
     """The session-start text: exit 0, the text as typed here character for character, nothing
-    on stderr, of the size the module document states; and every phrase it shares with the
-    skill's shape section stands in the skill too, so the two carriers cannot drift apart."""
+    on stderr, of the size the module document and the install note state; and every phrase it
+    shares with the skill's shape section stands in the skill too, so the two carriers cannot
+    drift apart."""
     done = subprocess.run(
         [H.sh, str(SCRIPTS / "print-decision-shape.sh")],
         input="{}",
@@ -460,7 +461,8 @@ def decision_shape_printed() -> tuple[bool, str]:
     )
     if not stated or int(stated.group(1)) != size:
         return False, f"the module document states another size than {size}"
-    if f"{size} characters, advisory" not in (SCRIPTS.parent / "INSTALL.md").read_text(encoding="utf-8"):
+    install = " ".join((SCRIPTS.parent / "INSTALL.md").read_text(encoding="utf-8").split())
+    if f"{size} characters, advisory" not in install:
         return False, f"the install note states another size than {size}"
     # the skill's prose is wrapped at 100 columns, so a phrase may carry a line break inside it
     skill = " ".join(
@@ -479,7 +481,10 @@ def decision_shape_printed() -> tuple[bool, str]:
     missing = [phrase for phrase in shared_phrases if phrase not in SHAPE or phrase not in skill]
     if missing:
         return False, f"phrases not in both carriers: {missing}"
-    return True, f"exit 0, the text as typed here, {size} characters, eight phrases shared with the skill"
+    return (
+        True,
+        f"exit 0, the text as typed here, {size} characters as both documents state, eight phrases in the skill",
+    )
 
 
 def skill_and_install_note() -> tuple[bool, str]:
