@@ -53,12 +53,13 @@ floor, is reported by the check with the fix on its first line; nothing is silen
          reason: accepted records stand as written
      # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 8
    ```
-   A key of this namespace that is none of the above, a ceiling that is not a number, a limit
-   that is not a whole number, a level that is none of the three, every rule off, an exception
-   no list holds, `departures` that is not a list, or an entry of it that is not a mapping,
-   misses a field, holds an unknown one, names a rule the check does not know, holds a pattern git
-   would misread or carries an empty or multi-line reason, is refused with exit 1 — a misspelt
-   dial is never a setting ignored in silence. A departure whose paths match no covered document
+   A key of this namespace that is none of the above, or a value that is not of its shape — a
+   ceiling below zero or not a finite number, a limit below one or not a whole number, a level
+   that is none of the three, every rule off, a list holding an empty or multi-line phrase, a
+   pattern git would read as a comment or as two lines, an exception no list holds, a departure
+   entry that is not a mapping, misses a field, holds an unknown one, names a rule the check does
+   not know or carries an empty or multi-line reason — is refused with exit 1, and the message
+   names the key and the fix; a misspelt dial is never a setting ignored in silence. A departure whose paths match no covered document
    is reported as a note on every scan until it is removed.
 5. **Run the scan in CI and before a merge**, from anywhere in the repository:
    ```bash

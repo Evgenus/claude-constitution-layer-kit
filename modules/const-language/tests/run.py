@@ -580,6 +580,30 @@ def t10() -> tuple[bool, str]:
             "BROKEN: constitution.yaml: const-language.departures entry 1: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [102 characters]' is no field of an entry — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
         ),
         (
+            {NAMESPACE: {"x" * 70 + "\n" + "y" * 20: 1}},
+            "BROKEN: constitution.yaml: const-language.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters] is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of severity, log_dir, territories, grade_ceiling, sentence_words, levels, forbidden, simpler, exceptions, departures",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(levels={"x" * 70 + "\n" + "y" * 20: "error"}),
+            "BROKEN: constitution.yaml: const-language.levels.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters] is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of levels.grade, levels.sentence, levels.forbidden, levels.simpler, levels.passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(levels={"grade": "a\nb"}),
+            "BROKEN: constitution.yaml: const-language.levels.grade is 'a\\nb', and the levels are error, warning, off — fix: set it to error (a finding, red), warning (reported, not red) or off, or remove the line; the rules are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(
+                departures=[
+                    {"paths": ["a.md"], "allow": ["grade"], "reason": "r", "x" * 70 + "\n" + "y" * 20: 1}
+                ]
+            ),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters]' is no field of an entry — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(territories=["#" + "x" * 100]),
+            "BROKEN: constitution.yaml: const-language.territories holds '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
             own(levels={"a\nb": "error"}),
             "BROKEN: constitution.yaml: const-language.levels.a\\nb is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of levels.grade, levels.sentence, levels.forbidden, levels.simpler, levels.passive",  # noqa: E501 — a golden line is typed whole
         ),
