@@ -2,7 +2,7 @@
 id: dec-0046-language-module-rulings
 type: task-record
 title: Rulings of the const-language authoring — Vale under the dials, grade 10 and 25 words by default, a hook after the write and a scan, the chat row settled, frozen documents declared as departures
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---

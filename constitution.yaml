@@ -314,8 +314,9 @@ const-language:                       # the prose of covered documents: a grade 
   departures:                         # what stands as written, where, and why — per kind by pattern, one-off by path; the ranges grow with each acceptance
     - paths:
         - "docs/decisions/dec-00[0-3]*.md"   # an accepted record is never edited (plc-0004 rule 14)
-        - "docs/decisions/dec-004[0-5]-*.md" # dec-0046 joins the range in the commit that names its yes
-        - "docs/research/res-000[1-9]-*.md"  # a comparison is frozen at its module's yes (plc-0005 rule 7); res-0010 joins the range in the same commit
+        - "docs/decisions/dec-004[0-6]-*.md" # dec-0046 accepted 2026-09-27
+        - "docs/research/res-000[1-9]-*.md"  # a comparison is frozen at its module's yes (plc-0005 rule 7)
+        - "docs/research/res-0010-*.md"       # frozen with dec-0046
       allow:
         - grade
         - sentence
