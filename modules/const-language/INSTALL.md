@@ -55,9 +55,11 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    ```
    A key of this namespace that is none of the above, a ceiling that is not a number, a limit
    that is not a whole number, a level that is none of the three, every rule off, an exception
-   no list holds, or a departure entry missing a field, holding an unknown one, naming a rule the check
-   does not know, or carrying an empty or multi-line reason, is refused with exit 1 — a misspelt dial is never a setting ignored in silence. A departure
-   whose paths match no covered document is reported as a note on every scan until it is removed.
+   no list holds, `departures` that is not a list, or an entry of it that is not a mapping,
+   misses a field, holds an unknown one, names a rule the check does not know, holds a pattern git
+   would misread or carries an empty or multi-line reason, is refused with exit 1 — a misspelt
+   dial is never a setting ignored in silence. A departure whose paths match no covered document
+   is reported as a note on every scan until it is removed.
 5. **Run the scan in CI and before a merge**, from anywhere in the repository:
    ```bash
    sh <plugin root>/scripts/check-language.sh --scan

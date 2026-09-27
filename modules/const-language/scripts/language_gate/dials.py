@@ -38,7 +38,7 @@ ENTRY_KEYS = ("paths", "allow", "reason")
 def parse(own: Mapping[str, object]) -> LanguageDials:
     unknown = sorted(str(key) for key in own if key not in KEYS)
     if unknown:
-        raise ConfigurationFailure(messages.c5_unknown_key(unknown[0], KEYS))
+        raise ConfigurationFailure(messages.c5_unknown_key(messages.one_line(shown(unknown[0])), KEYS))
     territories = _texts(own.get("territories", list(DEFAULT_TERRITORIES)))
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
@@ -139,7 +139,9 @@ def _levels(value: object) -> dict[Rule, Level]:
         rule = str(raw_rule)
         if rule not in known:
             raise ConfigurationFailure(
-                messages.c5_unknown_key(f"levels.{rule}", [f"levels.{r.value}" for r in Rule])
+                messages.c5_unknown_key(
+                    f"levels.{messages.one_line(shown(rule))}", [f"levels.{r.value}" for r in Rule]
+                )
             )
         if raw_level is False:  # a bare `off` is a boolean to YAML: read as the level it was written as
             raw_level = Level.OFF.value

@@ -300,6 +300,16 @@ def t4() -> tuple[bool, str]:
         no_finding(SIMPLER_RED, own(exceptions=["prior to"])),
         one_finding(
             "# T\n\nWe will ascertain it.\n",
+            messages.l4_simpler(DOC, 3, "ascertain", "x" * 12000).headline,
+            own(simpler={"ascertain": "x" * 12000}),
+        ),
+        (
+            "… [12000 characters]" in messages.l4_simpler(DOC, 3, "ascertain", "x" * 12000).render()
+            and "x" * 81 not in messages.l4_simpler(DOC, 3, "ascertain", "x" * 12000).render(),
+            "a plain word of 12,000 characters is echoed cut, twice",
+        ),
+        one_finding(
+            "# T\n\nWe will ascertain it.\n",
             messages.l4_simpler(DOC, 3, "ascertain", "find out").headline,
             own(simpler={"ascertain": "find out"}),
         ),
@@ -551,6 +561,27 @@ def t10() -> tuple[bool, str]:
         (
             own(departures=[{"paths": ["a.md"], "allow": ["tone"], "reason": "r"}]),
             "BROKEN: constitution.yaml: const-language.departures entry 1: 'tone' is no rule this gate knows — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": "a\rb"}]),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: reason must be one non-empty line saying why — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(
+                departures=[
+                    {
+                        "paths": ["a.md"],
+                        "allow": ["grade"],
+                        "reason": "r",
+                        "x" * 100 + "\ny": 1,
+                    }
+                ]
+            ),
+            "BROKEN: constitution.yaml: const-language.departures entry 1: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [102 characters]' is no field of an entry — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
+            own(levels={"a\nb": "error"}),
+            "BROKEN: constitution.yaml: const-language.levels.a\\nb is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of levels.grade, levels.sentence, levels.forbidden, levels.simpler, levels.passive",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": "a\nb"}]),

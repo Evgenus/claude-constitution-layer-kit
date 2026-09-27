@@ -125,7 +125,7 @@ The kit's dial follows the rulings above, and the session made the calls of R12 
   - **Pros:** nothing more to build.
   - **Cons:** a frozen document unseen by every rule, and the asymmetry between the two scans.
 - **C. Raise the kit's thresholds until the frozen documents pass**, grade 14 and 165 words.
-  - **Pros:** nothing to build, and the kit's scan green at once.
+  - **Pros:** nothing to build, and the kit's scan green at once but for the one formal word.
   - **Cons:** the kit's calibration hollowed, and every step of the descent brings the findings back.
 
 The session recommended A. **R11.** A, chosen by the decider in chat on 2026-09-27: the kit's accepted records and frozen comparisons stay in this gate's territory and are declared as one entry of the dial `departures` over their number ranges, allowing the four content rules with the reason that they stand as written; the ranges grow with each acceptance, this record's own number and its comparison among them; the policies of both kinds say so beside their clause on the style scan. **R12.** The kit's passive rule is `off`, not `warning`: the day-one scan printed 1,224 passive notes over 64 documents, every sampled one a passive chosen — the register of the kit's documents — and a note nobody reads on every scan is noise, not a warning; a consumer's default stays `warning`. **R13.** Every policy's enforcement rule names this gate among the guards of its kind, after a write and in its scan, as it names the style scan; no policy carries a language rule of its own, since the thresholds live in the dials file and not in a policy.

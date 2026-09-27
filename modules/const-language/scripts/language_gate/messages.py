@@ -92,9 +92,9 @@ def l3_forbidden(rel: str, line: int, text: str) -> Finding:
 def l4_simpler(rel: str, line: int, text: str, plain: str) -> Finding:
     return Finding(
         Key.L4,
-        f"{rel}:{line}: '{shown(text)}' where the plain word is '{plain}'",
+        f"{rel}:{line}: '{shown(text)}' where the plain word is '{shown(plain)}'",
         "a long or formal word costs a non-native reader a dictionary where the plain one does not",
-        f"write '{plain}'; a word this repository keeps on purpose is named in {_ns()}.exceptions in"
+        f"write '{shown(plain)}'; a word this repository keeps on purpose is named in {_ns()}.exceptions in"
         f" {DIALS_FILE}" + _allow(Rule.SIMPLER),
     )
 
@@ -278,7 +278,7 @@ def c5_levels() -> Broken:
 
 def c5_level(rule: str, value: str) -> Broken:
     return _c5(
-        f"{_ns()}.levels.{rule} is '{shown(value)}', and the levels are error, warning, off",
+        f"{_ns()}.levels.{rule} is '{one_line(shown(value))}', and the levels are error, warning, off",
         "set it to error (a finding, red), warning (reported, not red) or off, or remove the line; the"
         " rules are " + ", ".join(r.value for r in Rule),
     )
