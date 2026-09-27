@@ -1,6 +1,6 @@
 {
   "name": "const-language",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Plain prose in governed documents, checked by Vale after every write and in a scan: a Flesch–Kincaid grade ceiling, a words-per-sentence limit, idioms and formal phrases plain language avoids, formal words with a plain replacement, passive voice reported — every threshold and level a dial, a departure declared in the dials file and never marked in the document. Plus a skill that applies the rules while writing and reads a finding.",
   "author": { "name": "Eugene Chernyshov" },
   "license": "MIT"

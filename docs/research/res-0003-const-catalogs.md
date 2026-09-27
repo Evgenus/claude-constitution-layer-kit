@@ -135,9 +135,9 @@ How communities cite a numbered item:
 **One glob, either form — E7.** In E2's repository:
 
 - `git ls-files -- ':(icase)docs/decisions/DEC-0007-*'` → both `dec-0007-a.md` and `dec-0007-b.md`; with `DEC-0006-*` → the one file; with the full lowercase stem and a trailing `*` → the same file; `':(icase,glob)**/DEC-0006-*'` → the same file with no directory given. `icase` is pathspec magic, "Case insensitive match" ([gitglossary](https://git-scm.com/docs/gitglossary)) — a property of the command, not of the platform.
-- The same pattern without the magic → nothing, though `core.ignorecase` was `true`.
-- Python `glob.glob("docs/decisions/DEC-0007-*")` → `[]` on a case-insensitive file system; `fnmatch.fnmatchcase(name.lower(), pattern.lower())` over a directory listing → both files.
-- bash: nothing by default; both files under `shopt -s nocaseglob`.
+- **The same pattern** without the magic → nothing, though `core.ignorecase` was `true`.
+- **Python** `glob.glob("docs/decisions/DEC-0007-*")` → `[]` on a case-insensitive file system; `fnmatch.fnmatchcase(name.lower(), pattern.lower())` over a directory listing → both files.
+- **bash:** nothing by default; both files under `shopt -s nocaseglob`.
 
 So "either resolves by one glob" holds when the resolver lowercases first or uses `:(icase)`; a plain shell or Python glob does not honour it. A glob matching two files is the uniqueness defect of section 3 seen from the citing side.
 

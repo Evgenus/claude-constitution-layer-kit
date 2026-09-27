@@ -83,11 +83,11 @@ P1 (requirement-row form, R6) accepted on the condition that an aspect has exact
 
 ## Applied in the same commit
 
-- Kernel: anchors `k1`–`k7`; [kernel §5](../../kernel/CONVENTIONS.md#k5) gains the migration sentence.
-- Template MODULE.md: anchors `t1`–`t12`; sibling wording "module `const-x`"; cross-document cites linked.
-- Rollout plan: anchors on aspect headers, requirement rows, and module spec headings; requirements [A5.5](../requirements.md#a5-5)–[A5.7](../requirements.md#a5-7) added; [`const-referencing`](../requirements.md#const-referencing) spec carries the rulings and the interim check.
-- CLAUDE.md: anchors `law-1`–`law-9`; a session-conduct bullet for the chat rule; module step 1 notes the link-depth check after copying the template.
-- All four earlier records: cites migrated (sub-decision 3).
+- **Kernel:** anchors `k1`–`k7`; [kernel §5](../../kernel/CONVENTIONS.md#k5) gains the migration sentence.
+- **Template MODULE.md:** anchors `t1`–`t12`; sibling wording "module `const-x`"; cross-document cites linked.
+- **Rollout plan:** anchors on aspect headers, requirement rows, and module spec headings; requirements [A5.5](../requirements.md#a5-5)–[A5.7](../requirements.md#a5-7) added; [`const-referencing`](../requirements.md#const-referencing) spec carries the rulings and the interim check.
+- **CLAUDE.md:** anchors `law-1`–`law-9`; a session-conduct bullet for the chat rule; module step 1 notes the link-depth check after copying the template.
+- **All four earlier records:** cites migrated (sub-decision 3).
 - `scripts/check-references.sh`: the interim gate (bare retired forms, lychee with fragments), run by hand until the A12 CI exists.
 
 Deviation from a stated assumption: inside its own document a handle stays bare (a local alias, per the documents rule above) rather than being linked; the earlier assumption to link self-references was dropped as redundant.

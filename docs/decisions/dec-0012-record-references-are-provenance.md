@@ -37,4 +37,4 @@ B, chosen by the decider in chat on 2026-09-18.
 
 - [Kernel §5](../../kernel/CONVENTIONS.md#k5): the provenance sentence, after the evidence clause.
 - [Template §4](../../module-template/MODULE.md#t4): reworded from "rulings that bind this module" to provenance; the rule is stated in [template §5](../../module-template/MODULE.md#t5)–[§9](../../module-template/MODULE.md#t9), the record is cited for where and why.
-- The kit's other record cites were checked and left as they are: each states the rule in full and cites the record parenthetically.
+- **The kit's other record cites** were checked and left as they are: each states the rule in full and cites the record parenthetically.

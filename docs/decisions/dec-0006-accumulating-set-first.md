@@ -56,4 +56,4 @@ E, chosen by the decider in chat on 2026-09-17.
 - [INTENT.md](../../INTENT.md): the "not a project" bullet names the kit as consumer zero.
 - `CLAUDE.md`: module step 4 proves document-shaped modules live in this repository as well.
 - `README.md`: the kernel ships with its envelope; phase reference updated; the accumulating modules are installed before the first governed document.
-- The kit-root `constitution.yaml` is not created here: its shape depends on the territory-declaration ruling.
+- **The kit-root `constitution.yaml`** is not created here: its shape depends on the territory-declaration ruling.

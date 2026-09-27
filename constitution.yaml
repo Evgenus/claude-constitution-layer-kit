@@ -244,9 +244,7 @@ const-questions:                      # ask at recorded stakes or a blocker; no 
   severity: block                     # values: block | warn
   log_dir: local/gate-logs
   territories:                        # gate: the delivered documents among the Markdown files git lists; a negated pattern takes files out
-    - "*.md"
-    - "!templates/**"                 # a template is no deliverable
-    - "!module-template/**"
+    - "*.md"                          # every document, the templates included: they quote the marker syntax only in code (decision dec-0048-frozen-documents-take-wording-edits)
     # a draft module document is taken out here by its own path while it carries [decide: slots, never by a wildcard
   markers:                            # gate: the texts that mark an open question, matched outside code
     - '[decide:'
@@ -265,10 +263,7 @@ const-interaction:                    # answer shape, assumptions and addressabl
   log_dir: local/gate-logs
   # destructive: absent — the default list of entries stated in MODULE.md §7; an empty list gates nothing and says so at session start
   territories:                        # the documents the list-handles scan reads among the Markdown files git lists; a negated pattern takes files out
-    - "*.md"
-    - "!docs/decisions/dec-00[0-3]*.md"   # an accepted record is never edited to fit a later rule (plc-0004 rule 14): the scan applies from dec-0042 on
-    - "!docs/decisions/dec-004[01]-*.md"
-    - "!docs/research/res-000[1-7]-*.md"   # a comparison is frozen at its module's yes (plc-0005 rule 7): the scan applies from res-0008 on
+    - "*.md"                          # every document, the frozen ones included: a plain item in an accepted record or a frozen comparison takes a bold lead, a wording edit (plc-0004 rule 14, plc-0005 rule 7)
   handles:                            # the forms a list item may open with, after an optional anchor and bold marker; the kit's keys beyond the defaults follow
     - '[0-9]+\.'
     - '[A-Z]\.'
@@ -286,7 +281,7 @@ const-interaction:                    # answer shape, assumptions and addressabl
 const-styling:                        # one style guide, departures declared here with a reason; a scan-only gate, so no severity (MODULE.md §7)
   log_dir: local/gate-logs
   territories:                        # the documents the scan reads among the Markdown files git lists; a negated pattern takes files out, never a frozen document
-    - "*.md"                          # every document, the frozen ones included: a trace in an accepted record or a frozen comparison is declared by a departure over a number range that holds it, or its path, never by an edit (decision dec-0045-frozen-documents-stay-in-the-style-scan)
+    - "*.md"                          # every document, the frozen ones included: a trace in an accepted record or a frozen comparison is removed by a wording edit where one removes it, else declared by a departure over its path or a number range that holds it (decisions dec-0045-frozen-documents-stay-in-the-style-scan, dec-0048-frozen-documents-take-wording-edits)
   guides: *style                      # skill: the style guides, the territory of their policy by alias
   departures:                         # gate: what departs from a default, where, and why — per kind by pattern, one-off by path
     - paths:
@@ -299,7 +294,7 @@ const-language:                       # the prose of covered documents: a grade 
   severity: block                     # values: block | warn — block: the findings reach the model as a block after the write; warn: as context
   log_dir: local/gate-logs
   territories:                        # the documents the gate reads among the Markdown files git lists; a negated pattern takes files out, never a frozen document
-    - "*.md"                          # every document, the frozen ones included: what an accepted record or a frozen comparison cannot be edited to meet is declared below as a departure over its number range (decision dec-0046-language-module-rulings)
+    - "*.md"                          # every document, the frozen ones included: an accepted record or a frozen comparison meets the thresholds by wording edits (plc-0004 rule 14, plc-0005 rule 7; decision dec-0048-frozen-documents-take-wording-edits)
   grade_ceiling: 13                   # the module's default is 10: the kit's own descent to it is a work item after this module, 12 then 10, one step per change (decision dec-0046-language-module-rulings)
   sentence_words: 100                 # the module's default is 25: the same descent, 60 then 40 then 25
   levels:                             # per rule: error (a finding, red), warning (a note), off; the defaults, written out
@@ -311,18 +306,7 @@ const-language:                       # the prose of covered documents: a grade 
   forbidden: []                       # phrases of the kit's own beyond the founding list: none
   simpler: {}                         # pairs of the kit's own beyond the founding list: none
   exceptions: []                      # phrases of the lists the kit keeps on purpose: none
-  departures:                         # what stands as written, where, and why — per kind by pattern, one-off by path; the ranges grow with each acceptance
-    - paths:
-        - "docs/decisions/dec-00[0-3]*.md"   # an accepted record is never edited (plc-0004 rule 14)
-        - "docs/decisions/dec-004[0-6]-*.md" # dec-0046 accepted 2026-09-27
-        - "docs/research/res-000[1-9]-*.md"  # a comparison is frozen at its module's yes (plc-0005 rule 7)
-        - "docs/research/res-0010-*.md"       # frozen with dec-0046
-      allow:
-        - grade
-        - sentence
-        - forbidden
-        - simpler
-      reason: an accepted record and a frozen comparison stand as written, whatever the thresholds of the day
+  departures: []                      # what stands as written, where, and why — per kind by pattern, one-off by path; none: what a frozen document fails is met by a wording edit (decision dec-0048-frozen-documents-take-wording-edits)
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs

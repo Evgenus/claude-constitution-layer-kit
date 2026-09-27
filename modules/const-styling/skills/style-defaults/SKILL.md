@@ -67,7 +67,7 @@ const-styling:
 A departure for a whole kind of document names the kind's territory in `paths`; one for the
 documents a rule of the project freezes — records accepted before the default existed, say —
 names their number range by a character class, `docs/records/rec-00[0-3]*.md`, since a frozen
-document is never edited to fit a later default. A second document needing the same one-off
+document is not edited to fit a later default beyond the wording edits its policy allows. A second document needing the same one-off
 departure is the signal to widen the entry to the kind, or to change the default in the guide.
 
 ## 4. Read a finding

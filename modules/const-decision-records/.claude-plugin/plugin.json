@@ -1,5 +1,5 @@
 {
   "name": "const-decision-records",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Write-time gate on decision records: a document governed by a record policy carries type task-record, stakes (process | product | architecture) and a decider. Plus skills for pricing and recording a decision, and for promoting recurring commit notes."
 }
