@@ -7,9 +7,10 @@ Events:   PostToolUse on Write and Edit (the plugin's wiring): the document as i
           produce, should a consumer wire it there. Any other event is a configuration failure.
 Modes:    (hook)          one tool event, JSON on stdin — the written document, when the dial
                           `territories` covers it, is prepared (the envelope and every Vale comment
-                          blanked, line numbers kept) and checked by Vale with a configuration
+                          outside a fence or a code span blanked, line numbers kept) and checked by Vale with a configuration
                           generated from the dials; a rule at level error is a finding, at warning a
-                          note, off unwritten; a Vale comment is a finding of its own.
+                          note, off unwritten; a Vale comment outside a fence or a code span is a
+                          finding of its own.
           --scan [DIR]    every covered Markdown file git lists in the repository containing DIR
                           (default: the current directory), the same way, one Vale run.
 Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .content, .old_string,
@@ -19,7 +20,7 @@ Reads:    from the event: hook_event_name, tool_name, tool_input.file_path, .con
           No policy is read; no envelope is judged. The vale binary on PATH, 3.23.0 or newer, is required.
 Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — a document is over the ceiling or the limit, holds a construction the rules
-            name at level error, or a Vale comment;
+            name at level error, or a Vale comment outside a fence or a code span;
           1 configuration failure — the checker could not run: a missing or old vale among them.
           Never a silent pass.
 Output:   stdout for green and notes; a block verdict on stderr; warn as one JSON object on

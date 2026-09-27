@@ -22,8 +22,8 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    sentence's words against a limit; a list of idioms and formal phrases plain language avoids;
    a list of words with one plain replacement, named in the finding; passive voice, reported as
    a note by default. A Vale comment in a document — `<!-- vale … -->` — outside a fence or a code
-   span is blanked before the check reads and reported as a finding: nothing in a document switches a rule off. The check
-   reads only the configuration it generates (`--config`, `--no-global`) and never a `.vale.ini`
+   span is blanked before the check reads and reported as a finding: nothing in a document
+   switches a rule off. The check reads only the configuration it generates (`--config`, `--no-global`) and never a `.vale.ini`
    or a `StylesPath` of the repository, so Vale run by hand beside it sees a second configuration.
 3. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
    namespace: every Markdown file git lists is covered, the ceiling is grade 10, the limit 25
@@ -62,7 +62,8 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    the documents kind by kind, and lower the numbers in steps. A document that must not be edited
    is taken out of `territories` with a negated pattern, never marked in the document.
 7. **A departure is declared, never marked.** An exception, a level, a threshold: all in the
-   dials file, where every reader sees them; a Vale comment in a document, outside code, is a finding.
+   dials file, where every reader sees them; a Vale comment in a document, outside a fence or a code
+   span, is a finding.
 8. Output log: everything the check prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-language.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the

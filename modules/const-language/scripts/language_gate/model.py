@@ -94,8 +94,8 @@ class Hit:
 
 @dataclass(frozen=True, slots=True)
 class Prepared:
-    """A document as Vale reads it: the envelope and every Vale comment blanked, line numbers kept;
-    and where the comments were, each a finding of its own."""
+    """A document as Vale reads it: the envelope and every Vale comment outside a fence or a code
+    span blanked, line numbers kept; and where those comments were, each a finding of its own."""
 
     text: str
     comments: tuple[tuple[int, str], ...]  # (line, the comment's text)

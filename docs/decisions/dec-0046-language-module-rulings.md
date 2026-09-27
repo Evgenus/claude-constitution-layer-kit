@@ -47,7 +47,7 @@ The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-2
 
 ## 3. The default grade ceiling and the kit's own value
 
-On the kit's tree at the survey, 38 of 109 documents read above grade 10 by Vale's Flesch–Kincaid, 12 above 12, 3 above 13; 13 of the 38 are frozen records and comparisons that no rule allows editing.
+On the kit's tree at the survey, 38 of 109 documents read above grade 10 by Vale's Flesch–Kincaid, 12 above 12, 4 above 13; 13 of the 38 are frozen records and comparisons that no rule allows editing.
 
 - **A. Module default 10; the kit's own dial 10.**
   - **Pros:** one number everywhere; the kit lives under the rule it ships from day one.
