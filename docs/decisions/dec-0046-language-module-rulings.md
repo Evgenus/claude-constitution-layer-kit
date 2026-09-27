@@ -86,7 +86,7 @@ The session recommended B. **R6.** B, chosen by the decider in chat on 2026-09-2
   - **Pros:** the scan satisfies the row as written; a smaller module.
   - **Cons:** a red found at the commit gate is the slow loop; a post-write hook is the one thing Vale's own plugin ships.
 
-The session recommended A. **R8.** A, chosen by the decider in chat on 2026-09-26: the plugin wires `PostToolUse` on `Write|Edit` and ships the scan; there is no `PreToolUse` entry, since a document-wide rule before the write refuses every partial fix, and the gate judges a `PreToolUse` payload the same way only where a consumer wires it; after a write the hook shows the findings that fit in 8,000 characters, the first always, and its count line names the total and the scan.
+The session recommended A. **R8.** A, chosen by the decider in chat on 2026-09-26: the plugin wires `PostToolUse` on `Write|Edit` and ships the scan; there is no `PreToolUse` entry, since a document-wide rule before the write refuses every partial fix, and the gate judges a `PreToolUse` payload the same way only where a consumer wires it; after a write the hook shows the findings that fit in 8,000 characters, and its count line names the total and the scan.
 
 ## 6. Where the plain-chat row lives
 

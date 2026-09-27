@@ -936,16 +936,21 @@ def t19() -> tuple[bool, str]:
             stale_run.code == 0 and stale_run.stdout.splitlines()[0] == note,
             f"a stale entry is the note first, the scan green: {stale_run.stdout.splitlines()[:1]}",
         ),
-        (messages.n3_stale_departure(1, own_dials_entry(stale)) == note, "the note typed whole"),
+        (
+            (entry := own_dials_entry(stale)) is not None and messages.n3_stale_departure(1, entry) == note,
+            "the note typed whole",
+        ),
         expect(hooked, 0, green_hook(), "stdout"),
     )
 
 
-def own_dials_entry(patch: dict[str, object]) -> Departure:
-    """The one departure of a patch, as the gate's own parser reads it."""
+def own_dials_entry(patch: dict[str, object]) -> Departure | None:
+    """The one departure of a patch, as the gate's own parser reads it; None where the parser reads
+    none, so that a mutant there fails the item instead of crashing the runner."""
     namespace = patch[NAMESPACE]
     assert isinstance(namespace, dict)
-    return own_dials.parse(namespace).departures[0]
+    departures = own_dials.parse(namespace).departures
+    return departures[0] if departures else None
 
 
 # ---------------------------------------------------------------- the red→green cases

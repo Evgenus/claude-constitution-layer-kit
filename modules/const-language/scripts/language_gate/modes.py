@@ -153,12 +153,13 @@ def _judge(rel: str, hit: Hit, lines: Sequence[str], dials: LanguageDials) -> Fi
 def _within_the_cap(findings: Sequence[Finding]) -> Sequence[Finding]:
     """The first findings that fit: no more characters than leave the count line inside what the
     platform passes on — it cuts a hook's text at 10,000 characters, from the end, where the count
-    stands; the first finding is always shown."""
+    stands. A finding renders far under the cap, its echoes being cut at 80 characters, so the first
+    always fits."""
     shown: list[Finding] = []
     size = 0
     for finding in findings:
         size += len(finding.render()) + 1
-        if size > SHOWN_CHARACTERS and shown:
+        if size > SHOWN_CHARACTERS:
             break
         shown.append(finding)
     return shown
