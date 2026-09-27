@@ -628,6 +628,10 @@ def t10() -> tuple[bool, str]:
             "BROKEN: constitution.yaml: const-language.departures entry 1: reason must be one non-empty line saying why — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole
         ),
         (
+            own(exceptions=["z" * 100]),
+            "BROKEN: constitution.yaml: const-language.exceptions names 'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz… [100 characters]', which no forbidden phrase and no simpler pair holds — fix: an exception removes a phrase the rules know; check its spelling against the rules' lists, or remove it",  # noqa: E501 — a golden line is typed whole
+        ),
+        (
             own(exceptions=["hit the road"]),
             "BROKEN: constitution.yaml: const-language.exceptions names 'hit the road', which no forbidden phrase and no simpler pair holds — fix: an exception removes a phrase the rules know; check its spelling against the rules' lists, or remove it",  # noqa: E501 — a golden line is typed whole
         ),
