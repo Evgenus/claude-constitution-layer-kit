@@ -37,9 +37,9 @@ C, chosen by the decider in chat on 2026-09-28, against the session's recommenda
 
 ## Ruling
 
-**R1.** Outside module prose a kit document cites a module by a link to its specification anchor, with the plugin name as text. Two places are excepted. A kit template names the module plain and gives the link's path from the copy's folder in a code span, since its text is copied into another folder where a relative link would break. A frozen comparison keeps the form it was frozen with.
+**R1.** Outside module prose — the files under `modules/` and `module-template/` — a kit document cites a module by a link to its specification anchor, with the plugin name as text. Two places are excepted. A kit template under `templates/` names the module plain and gives the link's path from the copy's folder in a code span, since its text is copied into another folder where a relative link would break. A frozen comparison keeps the form it was frozen with.
 
-**R2.** The gate is `scripts/check-module-links.py`, kit development tooling never shipped in a module. It reads the Markdown files git lists outside `modules/`, `module-template/`, `docs/research/` and `templates/`, and skips fenced code, a link's text, a code span that holds the mention, and a name that is no directory under `modules/`. It exits 2 with the file, the line and a teaching message on each plain mention, 0 with the counts examined, and 1 when it could not run; `--self-test` is its fixture. It is one line of the gate list, run before every commit that touches a document, and is listed in the routine of `pyproject.toml`.
+**R2.** The gate is `scripts/check-module-links.py`, kit development tooling never shipped in a module. It reads the Markdown files git lists outside `modules/`, `module-template/`, `docs/research/` and `templates/`, and there the plugin name after the word "module" or "modules", in either case; a name standing alone, or the second of a plural, is left to review. It skips fenced code, a link, a code span that holds the mention, and a name that is no directory under `modules/`. It exits 2 with the file, the line and a teaching message on each plain mention, 0 with the counts examined, and 1 when it could not run; `--self-test` is its fixture. It is one line of the gate list, run before every commit that touches a document, never at write time, and by hand until the kit's CI runs it; it is listed in the routine of `pyproject.toml`.
 
 **R3.** The check runs in the kit's CI with the other kit checks once CI is wired.
 
@@ -47,11 +47,11 @@ C, chosen by the decider in chat on 2026-09-28, against the session's recommenda
 
 ## Applied
 
-The commit that creates this record adds the script, states R1 and R2 in rules 4 and 9 of [plc-0007-requirements](../policies/plc-0007-requirements.md) and in the reference bullet of [CLAUDE.md](../../CLAUDE.md), adds the check to the gate list of the `gate-list-runner` agent and to the routine of [pyproject.toml](../../pyproject.toml), and names it in step 10 of the [rollout plan](../rollout-plan.md#s10). The record is born `inactive`.
+The commit that creates this record adds the script, states R1 and R2 in rules 4 and 9 of [plc-0007-requirements](../policies/plc-0007-requirements.md), in the row of [requirement A5.6](../requirements.md#a5-6) and in the reference bullet of [CLAUDE.md](../../CLAUDE.md), adds the check to the gate list of the `gate-list-runner` agent and to the routine of [pyproject.toml](../../pyproject.toml), and names it in step 10 of the [rollout plan](../rollout-plan.md#s10). The first round of its carry audit corrected it in place before its yes, widened the check to either case and the plural's first name, and linked the three mentions the widened check found — two in rule 6 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r6), one in an accepted record by a reference-form migration. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [rule 4 of plc-0007-requirements](../policies/plc-0007-requirements.md#r4); the reference bullet of [CLAUDE.md](../../CLAUDE.md).
-2. R2 — [the gate itself](../../scripts/check-module-links.py), its docstring stating what it reads, what it skips, its modes and its exits; [rule 4](../policies/plc-0007-requirements.md#r4) and [rule 9 of plc-0007-requirements](../policies/plc-0007-requirements.md#r9); the reference bullet of [CLAUDE.md](../../CLAUDE.md); the routine list of [pyproject.toml](../../pyproject.toml).
+2. R2 — [the gate itself](../../scripts/check-module-links.py), its docstring stating what it reads, what it skips, its modes and its exits; [rule 4](../policies/plc-0007-requirements.md#r4) and [rule 9 of plc-0007-requirements](../policies/plc-0007-requirements.md#r9); the enforcement cell of [requirement A5.6](../requirements.md#a5-6); the reference bullet of [CLAUDE.md](../../CLAUDE.md); the routine list of [pyproject.toml](../../pyproject.toml).
 3. R3 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the CI wiring.
 4. R4 — history only: the option not chosen, whose reason [rule 4 of plc-0007-requirements](../policies/plc-0007-requirements.md#r4) states.
