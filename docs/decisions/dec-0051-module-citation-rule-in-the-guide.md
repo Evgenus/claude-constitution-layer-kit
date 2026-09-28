@@ -39,7 +39,7 @@ A, chosen by the decider in chat on 2026-09-28.
 
 **R2.** The kit check reads no research comparison, frozen or not: rule 10 of plc-0005-research names it as the one exception to "a frozen comparison is never taken out of any gate's territory". A frozen comparison keeps the form it was frozen with, and in one not yet frozen review holds the module links. The check's scope is dec-0049's; this item states it where the research policy said otherwise.
 
-**R3.** The scope of dec-0049 narrowed R3 of [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md), "a frozen document is never taken out of any gate's territory", by one check, without naming it; R2 names it. That record stays as written (rule 13 of plc-0004-decision-records).
+**R3.** R2 narrows R3 of [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md), "a frozen document is never taken out of any gate's territory", by one named check, the kit's `scripts/check-module-links.py`, whose scope dec-0049 set. That record stays as written (rule 13 of plc-0004-decision-records).
 
 ## Applied
 
