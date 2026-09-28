@@ -89,7 +89,7 @@ A, chosen by the decider in chat on 2026-09-28.
 
 ### Context
 
-The carry audit read every wording edit of the day. Six splits changed what their text said: they fell between the items of a list, or at the dash that closes a pair of dashes, so the items after the split left the scope of their lead — in one comparison "re-verified today and unchanged" no longer covered the facts after the split, and in one record an amendment was no longer the decider's. The kind of R1 was narrowed to a split between two independent clauses. Of the seven sentences those splits served, one had such a point elsewhere. The other six, in two records and three comparisons, are lists written inside one sentence with no such point, and stood over 100 words again once their splits were reverted.
+The carry audit read every wording edit of the day. Seven splits changed what their text said: they fell between the items of a list, or at the dash that closes a pair of dashes, so the items after the split left the scope of their lead — in one comparison "re-verified today and unchanged" no longer covered the facts after the split, and in one record an amendment was no longer the decider's. The kind of R1 was narrowed to a split between two independent clauses. Of the seven sentences those splits served, one had such a point elsewhere. The other six, in two records and three comparisons, are lists written inside one sentence with no such point, and stood over 100 words again once their splits were reverted.
 
 ### Options
 
@@ -119,7 +119,7 @@ B, chosen by the decider in chat on 2026-09-28. The session's objection stands: 
 
 ## Applied
 
-The commit that creates this record changes the kernel's section on records, the three policies, the dials file, the module documents and skills of R4 and R8 and the three manifests, and makes the wording edits of R5. The first round of the carry audit corrected the record and the documents in place before the yes: the kinds of R1 were narrowed and bounded, R2 and R3 widened, section 3 added, the six wrong splits reverted and the edits of R9 and R10 made. The second round barred a split at or after a colon that opens a list, reverted every split of the first day that fell there, and set those lists as bullets under kind (e). The record is born `active`, since the audit's findings may still add to it, and is set `inactive` in the commit that names its yes.
+The commit that creates this record changes the kernel's section on records, the three policies, the dials file, the module documents and skills of R4 and R8 and the three manifests, and makes the wording edits of R5. The first round of the carry audit corrected the record and the documents in place before the yes: the kinds of R1 were narrowed and bounded, R2 and R3 widened, section 3 added, the seven wrong splits reverted and the edits of R9 and R10 made. The second round barred a split at or after a colon that opens a list, reverted every split of the first day that fell there, and set those lists as bullets under kind (e). The record is born `active`, since the audit's findings may still add to it, and is set `inactive` in the commit that names its yes.
 
 ## Carry list
 
