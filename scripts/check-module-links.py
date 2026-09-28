@@ -2,19 +2,20 @@
 """Kit check: a kit document outside module prose cites a module by a link to its specification.
 
 Module prose says "module `const-x`"; every other kit document writes the same words as a link,
-module [`const-x`](<path to>/docs/requirements.md#const-x) — rule 4 of plc-0007-requirements.
+module [`const-x`](<path to>/docs/requirements.md#const-x) — the reference rule of CLAUDE.md.
 The form read is the word "module" or "modules", with a small or a capital m, a space, and a
-module's name in a code span; a name standing alone, or the second of "modules `a` and `b`", is
+module's name in a code span; a name standing alone, or any name after the first of "modules `a` and `b`", is
 left to review. The link lint of const-referencing cannot hold this: it matches its lanes on text
 whose code spans are blanked, and the module's name stands in one. So the kit checks it here, over
 the Markdown files git lists, the names being the directories under modules/.
 
-Not read: module prose (modules/, module-template/), where the plain form is the rule; frozen
-comparisons (docs/research/), which keep the form they were frozen with (rule 7 of
-plc-0005-research); the kit's templates (templates/), whose text is copied into another folder,
-so that a relative link cannot be right in both — a template gives the path from the copy's folder
-in a code span instead; fenced code; a mention inside a link or inside a longer code span; a
-name that is no module's directory, such as the placeholder `const-x`.
+Not read: module prose (modules/, module-template/), where the plain form is the rule; every
+research comparison (docs/research/), frozen or not: a frozen one keeps the form it was frozen
+with (rule 7 of plc-0005-research), and in one not yet frozen review holds the link; the kit's
+templates (templates/), whose text is copied into another folder, so that a relative link cannot
+be right in both — a template gives the path from the copy's folder in a code span instead;
+fenced code; a mention inside a link or inside a longer code span; a name that is no module's
+directory, such as the placeholder `const-x`.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway repository: red for the plain form in a
@@ -51,7 +52,7 @@ TICKS = re.compile(r"`+")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 WHY = (
     "a kit document cites a module by a link to its specification, so a reader reaches it in one"
-    " click (rule 4 of plc-0007-requirements)"
+    " click (the reference rule of CLAUDE.md)"
 )
 
 
@@ -225,7 +226,7 @@ def self_test() -> int:
     green: dict[str, tuple[str, str]] = {  # case: path, text with the plain form not read
         "module prose": ("modules/const-sample/MODULE.md", plain),
         "the module template": ("module-template/MODULE.md", plain),
-        "a frozen comparison": ("docs/research/r.md", plain),
+        "a research comparison": ("docs/research/r.md", plain),
         "a template": ("templates/policy.md", plain),
         "a fenced block": ("docs/policies/q.md", "~~~\n" + plain + "~~~\n"),
         "a fence whose info-string line closes nothing": (
@@ -246,7 +247,7 @@ def self_test() -> int:
     report_lines = [  # the report of the capital case, typed by hand: a message function cannot check itself
         "RED: docs/policies/c.md:1: Module `const-sample` is written plain, outside module prose",
         "  why: a kit document cites a module by a link to its specification, so a reader reaches it in one"
-        " click (rule 4 of plc-0007-requirements)",
+        " click (the reference rule of CLAUDE.md)",
         "  fix: write Module [`const-sample`](../requirements.md#const-sample)",
         "RED: 1 finding(s) — 2 document(s) examined outside module prose, 1 module name(s) known",
     ]
