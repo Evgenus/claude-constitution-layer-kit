@@ -49,7 +49,7 @@ A, chosen by the decider in chat on 2026-09-28.
 
 **R4.** The kit's calibration follows. The list-handles scan, the marker scan and the language gate cover every Markdown file git lists: the three number-range patterns of `const-interaction.territories` and the two template patterns of `const-questions.territories` go, and the entry of `const-language.departures` over the number ranges gives way to the entry of R10. A draft module document is still taken out of the marker scan by its own path while it carries open slots.
 
-**R5.** The edits of the day, named in the commits that make them: the ten plain list items in seven accepted records and two frozen comparisons, with their sibling items, took a bold lead; of the 26 language findings, 22 were removed by sentence splits, two lists set as bullets and one quotation put in a code span, and four stand under the entry of R10.
+**R5.** The edits of the day, named in the commits that make them: the ten plain list items in seven accepted records and two frozen comparisons, with their sibling items, took a bold lead; of the 26 language findings, 20 were removed by lists set as bullets, one by a sentence split and one by a quotation put in a code span, and four stand under the entry of R10.
 
 **R6.** Reversed or narrowed, the reversed records untouched: R12 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md), "never edited to fit a later rule", now holds beyond the wording edits; R37 of the same record, the edits a frozen comparison allows, gains the wording edit; R1 of [dec-0045-frozen-documents-stay-in-the-style-scan](dec-0045-frozen-documents-stay-in-the-style-scan.md), in its clauses "stands as written" and "never by an edit"; R11 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md), in its kit departure and in the policies' clause beside the style scan; R4 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md), in its two template patterns.
 
@@ -119,7 +119,7 @@ B, chosen by the decider in chat on 2026-09-28. The session's objection stands: 
 
 ## Applied
 
-The commit that creates this record changes the kernel's section on records, the three policies, the dials file, the module documents and skills of R4 and R8 and the three manifests, and makes the wording edits of R5. The first round of the carry audit corrected the record and the documents in place before the yes: the kinds of R1 were narrowed and bounded, R2 and R3 widened, section 3 added, the six wrong splits reverted and the edits of R9 and R10 made. The record is born `active`, since the audit's findings may still add to it, and is set `inactive` in the commit that names its yes.
+The commit that creates this record changes the kernel's section on records, the three policies, the dials file, the module documents and skills of R4 and R8 and the three manifests, and makes the wording edits of R5. The first round of the carry audit corrected the record and the documents in place before the yes: the kinds of R1 were narrowed and bounded, R2 and R3 widened, section 3 added, the six wrong splits reverted and the edits of R9 and R10 made. The second round barred a split at or after a colon that opens a list, reverted every split of the first day that fell there, and set those lists as bullets under kind (e). The record is born `active`, since the audit's findings may still add to it, and is set `inactive` in the commit that names its yes.
 
 ## Carry list
 
