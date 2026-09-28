@@ -29,7 +29,7 @@ A choice was needed on what the records are for once everything is carried.
   - **Cons:** the folder of records keeps growing, in mild tension with the kernel's "the working tree holds only current truth".
 - **B. Delete every record in one act after the repairs.** Amend the kernel's evidence clause, the template's decisions section and the intent page; provenance becomes the commit.
   - **Pros:** the tree holds current truth only; the question of editing surviving records never arises.
-  - **Cons:** a kernel change; reasoning reachable only through git; [requirement A5.6](../requirements.md#a5-6) allows commit hashes only in commit messages, record bodies and chat, so it would change too; module `const-decision-records` would govern an empty territory in the kit, which weakens its live proof.
+  - **Cons:** a kernel change; reasoning reachable only through git; [requirement A5.6](../requirements.md#a5-6) allows commit hashes only in commit messages, record bodies and chat, so it would change too; module [`const-decision-records`](../requirements.md#const-decision-records) would govern an empty territory in the kit, which weakens its live proof.
 - **C. Drain gradually.** A record is deleted once nothing links to it, as [kernel §1](../../kernel/CONVENTIONS.md#k1) already says; links are stripped when someone passes by.
   - **Pros:** uses the rule as written; no single large change.
   - **Cons:** one record links ten others, so almost nothing drains until that one does; a permanent half-state.

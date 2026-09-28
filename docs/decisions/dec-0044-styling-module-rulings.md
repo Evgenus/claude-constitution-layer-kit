@@ -67,7 +67,7 @@ The session recommended B. **R3.** D, chosen by the decider in chat on 2026-09-2
 The defaults must reach a session at the moment of choice and have a home the consumer can accrete into.
 
 - **A. A skill plus the guide's text shipped as a file.** The skill's description phrased by the activities before a departure — a diagram, prose against list against table, a formula, a fourth heading level or a callout, a template — its body the procedure; the text the consumer's guide is born from.
-  - **Pros:** works on a bare repository with no configuration; the consumer's guide is the home of accretion; the pattern is shipped twice, the record template of module `const-decision-records` and the templates dial of module `const-locations`.
+  - **Pros:** works on a bare repository with no configuration; the consumer's guide is the home of accretion; the pattern is shipped twice, the record template of module [`const-decision-records`](../requirements.md#const-decision-records) and the templates dial of module [`const-locations`](../requirements.md#const-locations).
   - **Cons:** the entries exist in the shipped text and in the consumer's guide, which drifts by accretion — the relation of every template to its documents; the skill fires only when the model judges a choice is at hand.
 - **B. The skill alone.**
   - **Pros:** one copy.
@@ -132,7 +132,7 @@ The decider rejected the comparison's marker — an HTML comment or a visible li
 
 The session recommended B. **R7.** B, chosen by the decider in chat on 2026-09-26, with the decider's own finding that nothing then needs to be stated twice:
 
-- **every departure** is an entry of the dial `departures` of module `const-styling` — `paths` a pattern for a kind or one document by its path, `allow` the signature keys, `reason` one required line, never two — and nothing in a document marks it;
+- **every departure** is an entry of the dial `departures` of module [`const-styling`](../requirements.md#const-styling) — `paths` a pattern for a kind or one document by its path, `allow` the signature keys, `reason` one required line, never two — and nothing in a document marks it;
 - **a kind's policy** may keep the documents of its kind finished before its style rule out of the scan's territory by number range, saying so — in the kit the records accepted before this one and the comparisons frozen before this module's, which stand as written;
 - **a kind policy's style rule** is one fixed sentence that restates no departure, the guide lists none, and the skill restates no default;
 - **an entry with an empty reason, an unknown key or a malformed shape** is a configuration failure naming it;
