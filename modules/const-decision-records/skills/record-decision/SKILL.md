@@ -109,7 +109,7 @@ neither and is accepted when committed.
   replaces it. Never edit the old record's ruling, stakes or decider in place. The only
   in-place edit left is mechanical — a typo, rewriting how it cites other documents, or a
   wording edit of a kind the project's policy for records lists in a closed set, such as a long
-  sentence split — with the commit message saying so.
+  sentence split — with the commit message naming it a typo fix, a migration or a wording edit.
 
 ## 5. Before you finish
 

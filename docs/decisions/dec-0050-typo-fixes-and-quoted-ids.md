@@ -15,7 +15,7 @@ The full carry audit of [dec-0048-frozen-documents-take-wording-edits](dec-0048-
 
 ## 1. A deleted record's id or path in a code span
 
-[Rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7) turned every link to a deleted record into its title in plain words, "so nothing in the tree points at what is gone". It spoke of links alone. Records and comparisons also quote ids and paths inside code spans: [dec-0005-reference-forms](dec-0005-reference-forms.md) shows the link syntax with a record's id as its example, and [res-0007-const-questions](../research/res-0007-const-questions.md) lists records by path as the data of a measurement. No edit the rules allow reaches a code span, so the promise could not be kept.
+[Rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7) turned every link to a deleted record into its title in plain words, "so nothing in the tree points at what is gone" — a promise from item 4 of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md). It spoke of links alone. Records and comparisons also quote ids and paths inside code spans: [dec-0005-reference-forms](dec-0005-reference-forms.md) shows the link syntax with a record's id as its example, and [res-0007-const-questions](../research/res-0007-const-questions.md) lists records by path as the data of a measurement. No edit the rules allow reaches a code span, so the promise could not be kept.
 
 - **A. Narrow the promise to links.** No link points at what is gone; an id or a path quoted in a code span stays as written, as quoted evidence.
   - **Pros:** it promises what the rule's mechanism delivers; no quotation or measurement is falsified; one sentence and no new kind of edit.
@@ -31,7 +31,7 @@ The full carry audit of [dec-0048-frozen-documents-take-wording-edits](dec-0048-
 
 **Choice:** A, chosen by the decider in chat on 2026-09-28.
 
-**R1.** When a record is deleted, no link points at what is gone. An id or a path of the deleted record quoted in a code span stays as written, wherever it stands: it is quoted evidence, and no edit reaches it.
+**R1.** When a record is deleted, no link points at what is gone. An id or a path of the deleted record quoted in code — a code span or a fenced block — of a record or a frozen comparison stays as written: it is quoted evidence, and no edit reaches it. Anywhere else the deletion commit removes it, a comment or an entry of the dials file included. The deletion commit names the deletion and, where a record was edited, the migration.
 
 ## 2. A typo in a frozen comparison
 
@@ -51,7 +51,7 @@ The kernel lets a record's body take a typo fix at any time ([kernel §5](../../
 
 **Choice:** A, chosen by the decider in chat on 2026-09-28.
 
-**R2.** A comparison frozen under rule 7 of plc-0005-research takes a fifth kind of edit, the typo fix. It corrects a misspelt word, a doubled word or a wrong punctuation mark, and changes no fact, number, link, anchor, code span, handle or word of a quotation. The commit names it a typo fix.
+**R2.** A comparison frozen under rule 7 of plc-0005-research takes a fifth kind of edit, the typo fix. It corrects a misspelt word, a doubled word or a wrong punctuation mark, and changes no fact, number, link, anchor, code span, handle or word of a quotation. The commit names it a typo fix and names the comparisons it edits.
 
 ## 3. The commit word for a typo fix
 
@@ -71,14 +71,14 @@ Kernel section 5 listed three mechanical edits of a record's body and named the 
 
 **Choice:** A, chosen by the decider in chat on 2026-09-28.
 
-**R3.** A typo fix in a record's body is named a typo fix in its commit, as a reference-form migration and a wording edit are named.
+**R3.** A typo fix in a record's body is named a typo fix in its commit, as a reference-form migration and a wording edit are named, and the commit names the records it edits. For a record it is the same narrow kind R2 defines for a comparison, and it changes no ruling either.
 
 ## Applied
 
-The commit that creates this record states R1 in rule 7 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7), R2 in rule 7 of [plc-0005-research](../policies/plc-0005-research.md#r7), and R3 in [kernel §5](../../kernel/CONVENTIONS.md#k5) and in boundary example 9 of the module document of [`const-decision-records`](../requirements.md#const-decision-records). The record is born `inactive`.
+The commit that creates this record states R1 in rule 7 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7), R2 in rule 7 of [plc-0005-research](../policies/plc-0005-research.md#r7), and R3 in [kernel §5](../../kernel/CONVENTIONS.md#k5) and in boundary example 9 of the module document of [`const-decision-records`](../requirements.md#const-decision-records). The first fix round of its carry audit corrected it in place before its yes: R1 reaches only quoted code in a record or a frozen comparison and names what is removed everywhere else, as the `mentions` scan of module [`const-referencing`](../requirements.md#const-referencing) already asked; R3 gives a record's typo fix the definition R2 gives a comparison's, stated once in rule 14 of plc-0004 and cited by rule 7 of plc-0005; the record-decision skill names the three commit words. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7).
-2. R2 — [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7).
-3. R3 — [kernel §5](../../kernel/CONVENTIONS.md#k5); boundary example 9 in section 8 of [the module document of `const-decision-records`](../../modules/const-decision-records/MODULE.md#t8).
+2. R2 — [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7), with the definition in [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14).
+3. R3 — [kernel §5](../../kernel/CONVENTIONS.md#k5); [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14); boundary example 9 in section 8 of [the module document of `const-decision-records`](../../modules/const-decision-records/MODULE.md#t8); section 4 of [the record-decision skill](../../modules/const-decision-records/skills/record-decision/SKILL.md).
