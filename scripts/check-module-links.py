@@ -9,12 +9,13 @@ left to review. The link lint of const-referencing cannot hold this: it matches 
 whose code spans are blanked, and the module's name stands in one. So the kit checks it here, over
 the Markdown files git lists, the names being the directories under modules/.
 
-Not read: module prose (modules/, module-template/), where the plain form is the rule; frozen
-comparisons (docs/research/), which keep the form they were frozen with (rule 7 of
-plc-0005-research); the kit's templates (templates/), whose text is copied into another folder,
-so that a relative link cannot be right in both — a template gives the path from the copy's folder
-in a code span instead; fenced code; a mention inside a link or inside a longer code span; a
-name that is no module's directory, such as the placeholder `const-x`.
+Not read: module prose (modules/, module-template/), where the plain form is the rule; every
+research comparison (docs/research/), frozen or not: a frozen one keeps the form it was frozen
+with (rule 7 of plc-0005-research), and in one not yet frozen review holds the link; the kit's
+templates (templates/), whose text is copied into another folder, so that a relative link cannot
+be right in both — a template gives the path from the copy's folder in a code span instead;
+fenced code; a mention inside a link or inside a longer code span; a name that is no module's
+directory, such as the placeholder `const-x`.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway repository: red for the plain form in a
@@ -225,7 +226,7 @@ def self_test() -> int:
     green: dict[str, tuple[str, str]] = {  # case: path, text with the plain form not read
         "module prose": ("modules/const-sample/MODULE.md", plain),
         "the module template": ("module-template/MODULE.md", plain),
-        "a frozen comparison": ("docs/research/r.md", plain),
+        "a research comparison": ("docs/research/r.md", plain),
         "a template": ("templates/policy.md", plain),
         "a fenced block": ("docs/policies/q.md", "~~~\n" + plain + "~~~\n"),
         "a fence whose info-string line closes nothing": (
