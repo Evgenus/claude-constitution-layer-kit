@@ -1,13 +1,13 @@
 ---
 id: dec-0050-typo-fixes-and-quoted-ids
 type: task-record
-title: A typo fix is named in its commit and allowed in a frozen comparison; a deleted record's id or path quoted as evidence in a record or a frozen comparison stays as written
+title: A typo fix is named in its commit and allowed in a frozen comparison; a deleted record's id or path in code or a comment of a record or a frozen comparison stays as written
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# A typo fix is named in its commit and allowed in a frozen comparison; a deleted record's id or path quoted as evidence in a record or a frozen comparison stays as written
+# A typo fix is named in its commit and allowed in a frozen comparison; a deleted record's id or path in code or a comment of a record or a frozen comparison stays as written
 
 ## Context
 
@@ -31,7 +31,7 @@ The full carry audit of [dec-0048-frozen-documents-take-wording-edits](dec-0048-
 
 **Choice:** A, chosen by the decider in chat on 2026-09-28.
 
-**R1.** When a record is deleted, no link points at what is gone. An id or a path of the deleted record quoted in a record or a frozen comparison — in a code span, a fenced or indented block, or an HTML comment — stays as written: it is quoted evidence, and no edit reaches it. Anywhere else the deletion commit removes it, a comment in a script or a configuration file included, and an entry of the dials file. The deletion commit names the deletion and, where a record was edited, the migration.
+**R1.** When a record is deleted, no link points at what is gone. An id or a path of the deleted record quoted in a record or a frozen comparison — in a code span, a fenced or indented block, or an HTML comment — stays as written: it is quoted evidence, and no edit reaches it. Anywhere else the deletion commit removes it, including from a comment in a script or in a configuration file and from an entry of the dials file. The deletion commit names the deletion and, where a record was edited, the migration.
 
 ## 2. A typo in a frozen comparison
 
