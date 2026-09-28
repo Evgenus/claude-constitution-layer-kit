@@ -128,14 +128,14 @@ What the twelve show together: the kit's tree is already uniform on every aspect
 Described, not decided, for the scan of section 2 should the decider ship it; part names as in [kit-shared-gate-code §1](../../shared/GATE.md#g1).
 
 - g1. **What it would use.**
-  - An `Identity` of its own;
+  - **An `Identity` of its own;**
   - `cli.run` with `load_modes`;
   - `pipeline.locate_scan` for the repository and its dials — no root policy, since the gate reads only its own dials, matching its `territories` with the `Matcher` and building no index, the pattern of `const-referencing` with `governed_only: false` and of the scan of `const-questions` as [res-0007-const-questions](res-0007-const-questions.md) described it (its g1);
   - `Dials.own` parsed into a dataclass with `territories`, refused when empty, its patterns through the shared `C5.7`;
   - `repository` for git's file list;
-  - its own `messages` — one finding per signature, `RED: {path}:{line}: {signature} without a reason on the line before — the style defaults prefer {default}; put <!-- style: {default} — <why the default cannot serve here> --> on the line above, or use the default`, and one for the empty reason — and `pipeline.report_scan` with a count line of its own, "{n} documents examined, {s} marked signatures, {m} without a reason";
+  - **its own `messages`** — one finding per signature, `RED: {path}:{line}: {signature} without a reason on the line before — the style defaults prefer {default}; put <!-- style: {default} — <why the default cannot serve here> --> on the line above, or use the default`, and one for the empty reason — and `pipeline.report_scan` with a count line of its own, "{n} documents examined, {s} marked signatures, {m} without a reason";
   - `output` and `route_log`;
-  - the links and the runner.
+  - **the links and the runner.**
 - g2. **The strains.** s1: **no hook mode**, the strain e2 of [res-0007-const-questions](res-0007-const-questions.md) named as s1 and `const-interaction` then met by a hook function that refuses with a reason — the same answer here, the shared items' write-driven cases handled as that module's runner handles them. s2: **no `severity`**, since a scan-only module carries none. s3: **a line-numbered finding** and a value echoed from the document — the reason's text — through the shared `shown`. s4: **the opposite masking from the referencing scan's.** That gate masks fenced code before it reads; this one must read the fence's info string and its first line, and mask code spans, so the module's own parse is a fence walker, not the sibling's masker — the shared code has neither, and neither belongs there until a second module needs it (class K or R of [kit-shared-gate-code §1](../../shared/GATE.md#g1) admits neither today). s5: **a note that is not a finding.** Fences holding box-drawing characters (c7) would be listed as notes with the count line; the shared `report_scan` carries notes already. s6: **the documents that define the marker** are exempted by the consumer's negated pattern, never by a manifest read, as [res-0007-const-questions](res-0007-const-questions.md) ruled for the marker scan (its s5).
 
 ## 8. Platform facts, re-verified, and discrepancies
