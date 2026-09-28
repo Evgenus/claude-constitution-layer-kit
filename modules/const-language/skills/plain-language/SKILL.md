@@ -61,8 +61,9 @@ A phrase the project keeps on purpose — a term of art the plain word would cha
 in `const-language.exceptions` of `constitution.yaml`, one line per phrase, and the check stops
 reporting it everywhere. A phrase of the project's own to forbid goes in `const-language.forbidden`;
 a pair of its own in `const-language.simpler`. A document that must stand as it is written — an
-accepted record, a frozen comparison — takes first the wording edits its policy allows, where the
-constitution's conventions page lets that policy list them: a sentence split, a plain word. What
+accepted record, a frozen comparison — takes first the wording edits its policy allows (for a
+record, those its records policy lists, as the constitution's conventions page lets it; for another
+kind, those its own policy allows): a sentence split, a plain word, a list set as bullets. What
 no such edit fixes is declared in `const-language.departures`, by path or by a pattern over its
 kind, with the rules it may fail there and the reason in one line; the check still reads it for
 every other rule, and nothing is written into the document.

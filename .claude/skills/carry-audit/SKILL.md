@@ -49,7 +49,7 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    commit message of the change — in the pull request once the kit has one.
 7. **Read the fixes again.** Fixes made in a hurry break things. Commit them,
    pin a confirming reader to that commit — prompt D — and, when the fixes make or change wording
-   edits in frozen documents, a reader of prompt E beside it; repeat while a pass finds a defect. Until
+   edits in accepted records or frozen comparisons, a reader of prompt E beside it; repeat while a pass finds a defect. Until
    its yes the fixes may correct the record in place, and the commit says so
    ([kernel §5](../../../kernel/CONVENTIONS.md#k5)); a `product` record has no such window and is not
    edited beyond the same section's mechanical edits — its findings go into the documents or a
