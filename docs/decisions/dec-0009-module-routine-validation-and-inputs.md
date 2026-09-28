@@ -36,8 +36,19 @@ B, chosen by the decider in chat on 2026-09-18.
 ## Rulings carried
 
 1. The design-phase research lives in `docs/research/`, each file carrying the kernel envelope as `non-authoritative`, `inactive`, with a provenance line; an index at `docs/research/README.md` maps the design-phase aspect numbers onto the kit's aspects and lists the settled findings the design prompt carried. (Reversed the same day by decision [dec-0010-module-research-per-module](dec-0010-module-research-per-module.md); the files are deleted and this cite is plain text.) The territory is claimed by the kit-documents policy.
-2. [Template §6](../../module-template/MODULE.md#t6) gains a **research inputs** slot: every mechanism names the comparison it rests on, or a comparison is written first, in the same shape. It also gains the portability rule for installed components: a skill, hook, script, command, agent, error text, or install note references nothing in the kit repository, because consumers install the module without the kit; reasoning lives in the module document and its records.
-3. [Template §9](../../module-template/MODULE.md#t9) gains the exit-code contract: a check distinguishes a finding (the repository is wrong) from a configuration failure (the checker is broken, a pinned tool is missing) by exit code and message; a missing tool is loud, never a silent pass.
-4. [Template §10](../../module-template/MODULE.md#t10) gains the examined-count rule: every check reports how many items it examined; zero is a visible count and never a silent green; each gate's fixtures include the exit-code split.
+2. [Template §6](../../module-template/MODULE.md#t6) gains a **research inputs** slot: every mechanism names the comparison it rests on, or a comparison is written first, in the same shape. It also gains the portability rule for installed components:
+   - **a skill, hook, script, command, agent, error text, or install note** references nothing in the kit repository, because consumers install the module without the kit;
+   - **reasoning** lives in the module document and its records.
+3. [Template §9](../../module-template/MODULE.md#t9) gains the exit-code contract:
+   - **a check** distinguishes a finding (the repository is wrong) from a configuration failure (the checker is broken, a pinned tool is missing) by exit code and message;
+   - **a missing tool** is loud, never a silent pass.
+4. [Template §10](../../module-template/MODULE.md#t10) gains the examined-count rule:
+   - **every check** reports how many items it examined;
+   - **zero** is a visible count and never a silent green;
+   - **each gate's fixtures** include the exit-code split.
 5. Step 2 of the routine confirms or overturns the matrix's recommended enforcement per row before the artifacts table is filled, naming on each step down what the native option cannot do.
-6. A new routine step before the human yes: a fresh-context validation by a subagent holding only the module's files, the template, the laws, and the module's matrix rows, never the authoring reasoning; every finding is fixed or justified in the pull request. The kit's own `scripts/check-references.sh`, which already failed loudly without lychee and printed its counts on green, is amended in the same commit to print its counts on every exit and to exit 2 on findings and 1 on a configuration failure: the first instance of rulings 3 and 4.
+6. A new routine step before the human yes:
+   - **a fresh-context validation** by a subagent holding only the module's files, the template, the laws, and the module's matrix rows, never the authoring reasoning;
+   - **every finding** is fixed or justified in the pull request.
+
+   The kit's own `scripts/check-references.sh`, which already failed loudly without lychee and printed its counts on green, is amended in the same commit to print its counts on every exit and to exit 2 on findings and 1 on a configuration failure: the first instance of rulings 3 and 4.

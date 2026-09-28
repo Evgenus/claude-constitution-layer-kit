@@ -40,4 +40,4 @@ A, chosen by the decider in chat on 2026-09-18.
 
 - `kernel/schemas/constitution.schema.json`, new; [kernel §6](../../kernel/CONVENTIONS.md#k6) names it and the read-time rule.
 - [A2.6](../requirements.md#a2-6), [A4.6](../requirements.md#a4-6), [A13.7](../requirements.md#a13-7): "at module load" replaced by "at each read".
-- Rollout plan, Phase D: the kit's CI validates the kit's own dials file.
+- **Rollout plan, Phase D:** the kit's CI validates the kit's own dials file.

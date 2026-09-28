@@ -107,8 +107,9 @@ neither and is accepted when committed.
   message.
 - **Once it is accepted,** write a **new** record that names the old one and says what
   replaces it. Never edit the old record's ruling, stakes or decider in place. The only
-  in-place edit left is mechanical — a typo, or rewriting
-  how it cites other documents — with the commit message saying so.
+  in-place edit left is mechanical — a typo, rewriting how it cites other documents, or a
+  wording edit of a kind the project's policy for records lists in a closed set, such as a long
+  sentence split — with the commit message saying so.
 
 ## 5. Before you finish
 

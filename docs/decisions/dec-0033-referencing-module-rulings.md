@@ -191,11 +191,26 @@ No real choice was put to the decider on these; each is the session's derivation
 
 **R22.** Two rows gain the words their checks already stood under, so that neither check is content beyond its row ([law 4 of CLAUDE.md](../../CLAUDE.md#law-4)): [requirement A5.1](../requirements.md#a5-1) now says that a reference never names a path on one machine, and [requirement A5.3](../requirements.md#a5-3) that a governed id named outside Markdown is a reference where the project declares its form. Found by the first fresh-context validation; both checks were ruled by the decider (R21, R8), the rows had not followed.
 
-**R23.** From the first fresh-context validation, pinned to 22ab5da — twenty findings, nine of fourteen mutants alive — the behaviour that changed: the mover asks everything that can refuse before it moves anything, the link checker and the root policy of `governed_only` among it, and a failure after the move closes by saying that the act stopped midway, never that nothing was changed; it keeps line endings and leaves a file that is not UTF-8 alone, saying so; a usage of a reference definition is a link, judged by what its label opens, and never rewritten, its definition being the link; a fence indented under a list item is code; a write to a document that is not covered still has the covered links it broke reported after it; a key of the module's namespace that is no dial is a configuration failure; R4 asks for a user's directory and something inside it; one document's cost is linear in its size.
+**R23.** From the first fresh-context validation, pinned to 22ab5da — twenty findings, nine of fourteen mutants alive — the behaviour that changed:
+
+- **the mover** asks everything that can refuse before it moves anything, the link checker and the root policy of `governed_only` among it, and a failure after the move closes by saying that the act stopped midway, never that nothing was changed;
+- **it keeps line endings** and leaves a file that is not UTF-8 alone, saying so;
+- **a usage of a reference definition** is a link, judged by what its label opens, and never rewritten, its definition being the link;
+- **a fence indented under a list item** is code;
+- **a write to a document that is not covered** still has the covered links it broke reported after it;
+- **a key of the module's namespace that is no dial** is a configuration failure;
+- R4 asks for a user's directory and something inside it;
+- **one document's cost** is linear in its size.
 
 **R26.** R4 gets the switch the two other universal checks have: the dial `local_paths: refuse | allow`, default `refuse`. Put to the decider on 2026-09-22 after the first validation showed an ordinary document R4 blocks with no way out — a README whose Dockerfile fence sets the working directory to a home directory inside the container. Options: A, the dial; B, fences masked for the `/home/` form only, which would half reopen R21; C, the limit stated and nothing built. The decider chose A: the kit keeps `refuse`, a consumer gets the same adoption path as for `bare_ids` and `heading_anchors`.
 
-**R25.** From the second fresh-context validation, pinned to 822c070 — thirteen findings, twelve of thirty-one mutants alive — the behaviour that changed: a fence closes at its opener's depth, a tab counts as four columns, and a fence that shows a deeper fence is content to its own end (the first validation's fix had let any closing fence end any fence); a footnote is no link; the report after a write is cut by characters as well as by count, so the count line survives the platform's cap; the mover refuses a new path that names a directory, that drops the `.md` ending, or whose source is a symbolic link, allows a rename in case alone, and repairs a document moved out of coverage; the cost of code spans is linear.
+**R25.** From the second fresh-context validation, pinned to 822c070 — thirteen findings, twelve of thirty-one mutants alive — the behaviour that changed:
+
+- **a fence closes at its opener's depth**, a tab counts as four columns, and a fence that shows a deeper fence is content to its own end (the first validation's fix had let any closing fence end any fence);
+- **a footnote** is no link;
+- **the report after a write** is cut by characters as well as by count, so the count line survives the platform's cap;
+- **the mover** refuses a new path that names a directory, that drops the `.md` ending, or whose source is a symbolic link, allows a rename in case alone, and repairs a document moved out of coverage;
+- **the cost of code spans** is linear.
 
 **R24.** The handler after the write is a `gate` in kind — deterministic, red means fix — at a moment that cannot block, and is declared so; it is not `advisory`, since nothing in it shapes judgment. The validation had found "deterministic feedback" to be a third kind beside the two [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) names.
 

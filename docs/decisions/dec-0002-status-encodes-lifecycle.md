@@ -39,5 +39,5 @@ Option 3, proposed by the decider and confirmed in chat on 2026-09-14. Applied i
 - [kernel §2](../../kernel/CONVENTIONS.md#k2): precedence items 2 and 3; close sets the record `inactive`; stalled = active without commits.
 - [kernel §3](../../kernel/CONVENTIONS.md#k3): declaration pairs with an active task-record, not with `inactive`.
 - [kernel §5](../../kernel/CONVENTIONS.md#k5): record lifecycle stated; "append-only" clause dropped (git holds it).
-- Schema comment on `status` updated.
-- Plan: rows [A4.3](../requirements.md#a4-3), [A4.5](../requirements.md#a4-5), [A4.6](../requirements.md#a4-6); [`const-locations`](../requirements.md#const-locations), [`const-decision-records`](../requirements.md#const-decision-records), [`const-task-close`](../requirements.md#const-task-close) spec text; [dec-0001-session-conduct-rows](dec-0001-session-conduct-rows.md) set `inactive`.
+- **Schema comment** on `status` updated.
+- **Plan:** rows [A4.3](../requirements.md#a4-3), [A4.5](../requirements.md#a4-5), [A4.6](../requirements.md#a4-6); [`const-locations`](../requirements.md#const-locations), [`const-decision-records`](../requirements.md#const-decision-records), [`const-task-close`](../requirements.md#const-task-close) spec text; [dec-0001-session-conduct-rows](dec-0001-session-conduct-rows.md) set `inactive`.

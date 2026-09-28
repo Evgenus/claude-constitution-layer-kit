@@ -61,9 +61,12 @@ A phrase the project keeps on purpose — a term of art the plain word would cha
 in `const-language.exceptions` of `constitution.yaml`, one line per phrase, and the check stops
 reporting it everywhere. A phrase of the project's own to forbid goes in `const-language.forbidden`;
 a pair of its own in `const-language.simpler`. A document that must stand as it is written — an
-accepted record, a frozen comparison — is declared in `const-language.departures`, by path or by
-a pattern over its kind, with the rules it may fail there and the reason in one line; the check
-still reads it for every other rule, and nothing is written into the document.
+accepted record, a frozen comparison — takes first the wording edits its policy allows (for a
+record, those its records policy lists, as the constitution's conventions page lets it; for another
+kind, those its own policy allows), such as a sentence split, a plain word, a quotation put in a
+code span or a list set as bullets. What no such edit fixes is declared in `const-language.departures`, by path
+or by a pattern over its kind, with the rules it may fail there and the reason in one line; the
+check still reads it for every other rule, and nothing is written into the document.
 
 ## 4. Adopt the check on a repository
 
@@ -72,7 +75,8 @@ thresholds the documents can bear today — `grade_ceiling`, `sentence_words` �
 project is not ready for to `warning` under `levels`, so every finding is reported and none is
 red; rewrite the documents kind by kind; lower the numbers and raise the levels in steps, each
 step a change of `constitution.yaml` with its reason in the commit. A document that must not be
-edited — a frozen record, an accepted comparison — is declared as a departure in
+edited — an accepted record, a frozen comparison — beyond the wording edits its policy allows is
+brought under each step by those edits; what they cannot fix is declared as a departure in
 `const-language.departures`, never marked and never taken out of the territory.
 
 ## 5. What the check does not judge

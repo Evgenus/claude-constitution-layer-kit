@@ -79,7 +79,11 @@ The defaults must reach a session at the moment of choice and have a home the co
   - **Pros:** one binding copy.
   - **Cons:** nothing brings it to the model at the moment of writing.
 
-The session recommended A. **R4.** A, taken with the ruling of section 5 in chat on 2026-09-26 — the decider's questions moved the discussion to the home before a letter was given, and the home chosen there is A's shipped text as a document of its own kind: the module ships one skill, `style-defaults`, whose description names the moments before a departure and whose body is the procedure, and the guide's text as `skills/style-defaults/style-guide.md`, the file the consumer's guide is born from and the floor on a bare repository; no `SessionStart` line; the skill restates no default — it points at the guides the dial `guides` names and at the shipped file where none exists.
+The session recommended A. **R4.** A, taken with the ruling of section 5 in chat on 2026-09-26 — the decider's questions moved the discussion to the home before a letter was given, and the home chosen there is A's shipped text as a document of its own kind:
+
+- **the module** ships one skill, `style-defaults`, whose description names the moments before a departure and whose body is the procedure, and the guide's text as `skills/style-defaults/style-guide.md`, the file the consumer's guide is born from and the floor on a bare repository;
+- **no `SessionStart` line;**
+- **the skill** restates no default — it points at the guides the dial `guides` names and at the shipped file where none exists.
 
 ## 5. The home of the defaults
 
@@ -98,7 +102,19 @@ The comparison proposed a policy that claims nothing, a document in the root pol
   - **Pros:** reaches everything.
   - **Cons:** the kernel is semantics, and the consumer cannot accrete into a page the kit ships.
 
-The session recommended C. **R5.** C, chosen by the decider in chat on 2026-09-26: the style guide is a document kind of its own, one document in a territory of one path, governed by its own policy — in the kit [plc-0010-style-guide](../policies/plc-0010-style-guide.md) governing `docs/style-guide.md`, the guide created by hand from the module's shipped text; the matrix row [requirement A9.1](../requirements.md#a9-1) is edited to say so, and the destination of [requirement A9.3](../requirements.md#a9-3) and [requirement A9.4](../requirements.md#a9-4) reads the guide in place of a policy, under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2); a style guide never claims a territory beyond its own path, since a document resolving to two policies is the kernel's defect. **R6.** The binding is by governance, the session's proposal adopted with the ruling of section 6: the root policy asks every policy to carry a rule named "Style", saying that its kind's documents follow the style guides in the territory of the policy that governs the style guide and depart from a default only where the module's dial names a departure for their territory, with its reason; policies follow the guides as documents of their own kind; the guides are found through the module's dial `guides`, which the kit aliases to the style-guide policy's territory, and are never enumerated, so the root policy relies on no other policy; each policy's enforcement rule names the module's scan among its guards, and the style rule names no departure; a template carries no inheritance sentence — it complies with the guide or shows the departure its kind's entry allows.
+The session recommended C. **R5.** C, chosen by the decider in chat on 2026-09-26:
+
+- **the style guide** is a document kind of its own, one document in a territory of one path, governed by its own policy — in the kit [plc-0010-style-guide](../policies/plc-0010-style-guide.md) governing `docs/style-guide.md`, the guide created by hand from the module's shipped text;
+- **the matrix row [requirement A9.1](../requirements.md#a9-1)** is edited to say so, and the destination of [requirement A9.3](../requirements.md#a9-3) and [requirement A9.4](../requirements.md#a9-4) reads the guide in place of a policy, under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2);
+- **a style guide** never claims a territory beyond its own path, since a document resolving to two policies is the kernel's defect.
+
+**R6.** The binding is by governance, the session's proposal adopted with the ruling of section 6:
+
+- **the root policy** asks every policy to carry a rule named "Style", saying that its kind's documents follow the style guides in the territory of the policy that governs the style guide and depart from a default only where the module's dial names a departure for their territory, with its reason;
+- **policies** follow the guides as documents of their own kind;
+- **the guides** are found through the module's dial `guides`, which the kit aliases to the style-guide policy's territory, and are never enumerated, so the root policy relies on no other policy;
+- **each policy's enforcement rule** names the module's scan among its guards, and the style rule names no departure;
+- **a template** carries no inheritance sentence — it complies with the guide or shows the departure its kind's entry allows.
 
 ## 6. Where a departure is declared
 
@@ -114,7 +130,13 @@ The decider rejected the comparison's marker — an HTML comment or a visible li
   - **Pros:** zero markup, zero dial entries.
   - **Cons:** the gate-lite becomes advisory in fact; the reason is in history, and the tree holds current truth.
 
-The session recommended B. **R7.** B, chosen by the decider in chat on 2026-09-26, with the decider's own finding that nothing then needs to be stated twice: every departure is an entry of the dial `departures` of module `const-styling` — `paths` a pattern for a kind or one document by its path, `allow` the signature keys, `reason` one required line, never two — and nothing in a document marks it; a kind's policy may keep the documents of its kind finished before its style rule out of the scan's territory by number range, saying so — in the kit the records accepted before this one and the comparisons frozen before this module's, which stand as written; a kind policy's style rule is one fixed sentence that restates no departure, the guide lists none, and the skill restates no default; an entry with an empty reason, an unknown key or a malformed shape is a configuration failure naming it; an entry matching no covered document is a note on every scan, never a finding.
+The session recommended B. **R7.** B, chosen by the decider in chat on 2026-09-26, with the decider's own finding that nothing then needs to be stated twice:
+
+- **every departure** is an entry of the dial `departures` of module `const-styling` — `paths` a pattern for a kind or one document by its path, `allow` the signature keys, `reason` one required line, never two — and nothing in a document marks it;
+- **a kind's policy** may keep the documents of its kind finished before its style rule out of the scan's territory by number range, saying so — in the kit the records accepted before this one and the comparisons frozen before this module's, which stand as written;
+- **a kind policy's style rule** is one fixed sentence that restates no departure, the guide lists none, and the skill restates no default;
+- **an entry with an empty reason, an unknown key or a malformed shape** is a configuration failure naming it;
+- **an entry matching no covered document** is a note on every scan, never a finding.
 
 ## 7. The signatures the scan knows
 

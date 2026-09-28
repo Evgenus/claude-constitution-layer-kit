@@ -94,7 +94,12 @@ The row's optional gate-lite, "a script flagging unnumbered multi-item lists in 
   - **Pros:** catches the list at the keystroke.
   - **Cons:** blocks every draft list mid-work on a heuristic.
 
-The session recommended A. **R5.** B, chosen by the decider in chat on 2026-09-25: the check ships in this version as a `gate` with a scan mode only — a second entry point of the module beside the shell gate, its hook mode never wired and answering that it is not, so the shared code is not widened — over the dials `territories` and `handles` of the module's own namespace, a finding per list naming the first item without a handle, a list inside a fenced block never counted, the message claiming no more than that an item opens with no token of the grammar; the kit's own exemptions are ruled after the first scan on the kit's tree, never before, as [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) R4 learned. The session's objection stands: the measurement found no consumer friction, and the rule allows keys the grammar cannot see, so the scan is red on prose the rule permits until the grammar or the territory is tuned.
+The session recommended A. **R5.** B, chosen by the decider in chat on 2026-09-25:
+
+- **the check** ships in this version as a `gate` with a scan mode only — a second entry point of the module beside the shell gate, its hook mode never wired and answering that it is not, so the shared code is not widened — over the dials `territories` and `handles` of the module's own namespace, a finding per list naming the first item without a handle, a list inside a fenced block never counted, the message claiming no more than that an item opens with no token of the grammar;
+- **the kit's own exemptions** are ruled after the first scan on the kit's tree, never before, as [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) R4 learned.
+
+The session's objection stands: the measurement found no consumer friction, and the rule allows keys the grammar cannot see, so the scan is red on prose the rule permits until the grammar or the territory is tuned.
 
 ## 6. The pattern language of the destructive-command dial
 
@@ -126,7 +131,13 @@ The live runs (d4 to d6, E4, E5, E11 of [res-0008-const-interaction](../research
   - **Pros:** works headless.
   - **Cons:** the model can add it alone; the yes is not in a human hand.
 
-The session recommended A. **R7.** A, chosen by the decider in chat on 2026-09-25: a `Bash` command matching an entry is answered with `permissionDecision: "ask"` and the entry's three-part teaching text as the reason — what matched, why the act is hard to reverse, the reversible alternative — at exit 0; an unlisted command passes at exit 0 with nothing printed but the green line; under `severity: warn` the match is reported in the JSON form the sibling gates use and the command runs, the adoption path; no `updatedInput` at this version, a rewrite deferred with its signal; the shared report path gains the `ask` verdict as a widening that defaults to what the other modules pass.
+The session recommended A. **R7.** A, chosen by the decider in chat on 2026-09-25:
+
+- **a `Bash` command matching an entry** is answered with `permissionDecision: "ask"` and the entry's three-part teaching text as the reason — what matched, why the act is hard to reverse, the reversible alternative — at exit 0;
+- **an unlisted command** passes at exit 0 with nothing printed but the green line;
+- **under `severity: warn`** the match is reported in the JSON form the sibling gates use and the command runs, the adoption path;
+- **no `updatedInput` at this version**, a rewrite deferred with its signal;
+- **the shared report path** gains the `ask` verdict as a widening that defaults to what the other modules pass.
 
 ## 8. The default destructive-command list
 
