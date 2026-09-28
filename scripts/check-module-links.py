@@ -2,7 +2,7 @@
 """Kit check: a kit document outside module prose cites a module by a link to its specification.
 
 Module prose says "module `const-x`"; every other kit document writes the same words as a link,
-module [`const-x`](<path to>/docs/requirements.md#const-x) — rule 4 of plc-0007-requirements.
+module [`const-x`](<path to>/docs/requirements.md#const-x) — the reference rule of CLAUDE.md.
 The form read is the word "module" or "modules", with a small or a capital m, a space, and a
 module's name in a code span; a name standing alone, or the second of "modules `a` and `b`", is
 left to review. The link lint of const-referencing cannot hold this: it matches its lanes on text
@@ -51,7 +51,7 @@ TICKS = re.compile(r"`+")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 WHY = (
     "a kit document cites a module by a link to its specification, so a reader reaches it in one"
-    " click (rule 4 of plc-0007-requirements)"
+    " click (the reference rule of CLAUDE.md)"
 )
 
 
@@ -246,7 +246,7 @@ def self_test() -> int:
     report_lines = [  # the report of the capital case, typed by hand: a message function cannot check itself
         "RED: docs/policies/c.md:1: Module `const-sample` is written plain, outside module prose",
         "  why: a kit document cites a module by a link to its specification, so a reader reaches it in one"
-        " click (rule 4 of plc-0007-requirements)",
+        " click (the reference rule of CLAUDE.md)",
         "  fix: write Module [`const-sample`](../requirements.md#const-sample)",
         "RED: 1 finding(s) — 2 document(s) examined outside module prose, 1 module name(s) known",
     ]
