@@ -1,13 +1,13 @@
 ---
 id: dec-0050-typo-fixes-and-quoted-ids
 type: task-record
-title: A typo fix is named in its commit and allowed in a frozen comparison; a deleted record quoted in a code span stays as written
+title: A typo fix is named in its commit and allowed in a frozen comparison; a deleted record quoted in code of a frozen document stays as written
 status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
 
-# A typo fix is named in its commit and allowed in a frozen comparison; a deleted record quoted in a code span stays as written
+# A typo fix is named in its commit and allowed in a frozen comparison; a deleted record quoted in code of a frozen document stays as written
 
 ## Context
 
@@ -31,7 +31,7 @@ The full carry audit of [dec-0048-frozen-documents-take-wording-edits](dec-0048-
 
 **Choice:** A, chosen by the decider in chat on 2026-09-28.
 
-**R1.** When a record is deleted, no link points at what is gone. An id or a path of the deleted record quoted in code — a code span or a fenced block — of a record or a frozen comparison stays as written: it is quoted evidence, and no edit reaches it. Anywhere else the deletion commit removes it, a comment or an entry of the dials file included. The deletion commit names the deletion and, where a record was edited, the migration.
+**R1.** When a record is deleted, no link points at what is gone. An id or a path of the deleted record quoted in a record or a frozen comparison — in a code span, a fenced or indented block, or an HTML comment — stays as written: it is quoted evidence, and no edit reaches it. Anywhere else the deletion commit removes it, a comment or an entry of the dials file included. The deletion commit names the deletion and, where a record was edited, the migration.
 
 ## 2. A typo in a frozen comparison
 
@@ -73,12 +73,19 @@ Kernel section 5 listed three mechanical edits of a record's body and named the 
 
 **R3.** A typo fix in a record's body is named a typo fix in its commit, as a reference-form migration and a wording edit are named, and the commit names the records it edits. For a record it is the same narrow kind R2 defines for a comparison, and it changes no ruling either.
 
+## 4. The earlier ruling R1 narrows
+
+R1 narrows a promise of an accepted record, which rule 13 of plc-0004-decision-records asks this record to name by record and handle.
+
+**R4.** Item 4 of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md) is narrowed: its promise that nothing in the tree points at a deleted record now covers links only, as R1 says.
+
 ## Applied
 
-The commit that creates this record states R1 in rule 7 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7), R2 in rule 7 of [plc-0005-research](../policies/plc-0005-research.md#r7), and R3 in [kernel §5](../../kernel/CONVENTIONS.md#k5) and in boundary example 9 of the module document of [`const-decision-records`](../requirements.md#const-decision-records). The first fix round of its carry audit corrected it in place before its yes: R1 reaches only quoted code in a record or a frozen comparison and names what is removed everywhere else, as the `mentions` scan of module [`const-referencing`](../requirements.md#const-referencing) already asked; R3 gives a record's typo fix the definition R2 gives a comparison's, stated once in rule 14 of plc-0004 and cited by rule 7 of plc-0005; the record-decision skill names the three commit words. The record is born `inactive`.
+The commit that creates this record states R1 in rule 7 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7), R2 in rule 7 of [plc-0005-research](../policies/plc-0005-research.md#r7), and R3 in [kernel §5](../../kernel/CONVENTIONS.md#k5) and in boundary example 9 of the module document of [`const-decision-records`](../requirements.md#const-decision-records). The first fix round of its carry audit corrected it in place before its yes: R1 keeps only what is quoted in a record or a frozen comparison and names what is removed everywhere else — outside Markdown as the `mentions` scan of module [`const-referencing`](../requirements.md#const-referencing) already asked, in Markdown by review; R3 gives a record's typo fix the definition R2 gives a comparison's, stated in rule 14 of plc-0004 and restated for a comparison in rule 7 of plc-0005; R4 names the item of dec-0027 that R1 narrows; the record-decision skill names the three commit words. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7).
 2. R2 — [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7), with the definition in [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14).
 3. R3 — [kernel §5](../../kernel/CONVENTIONS.md#k5); [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14); boundary example 9 in section 8 of [the module document of `const-decision-records`](../../modules/const-decision-records/MODULE.md#t8); section 4 of [the record-decision skill](../../modules/const-decision-records/skills/record-decision/SKILL.md).
+4. R4 — history only: the narrowing of an earlier ruling, which R1 carries ([rule 13 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r13)).
