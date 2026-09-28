@@ -2,7 +2,7 @@
 id: dec-0048-frozen-documents-take-wording-edits
 type: task-record
 title: An accepted record and a frozen comparison take wording edits from a closed list, so every scan covers them and a departure holds only what no wording edit reaches
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
