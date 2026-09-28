@@ -3,7 +3,7 @@
 
 Module prose says "module `const-x`"; every other kit document writes the same words as a link,
 module [`const-x`](<path to>/docs/requirements.md#const-x) — rule 4 of plc-0007-requirements. The
-form read is the word "module" or "modules", either case, a space, and a module's name in a code
+form read is the word "module" or "modules", with a small or a capital m, a space, and a module's name in a code
 span; a name standing alone, or the second of "modules `a` and `b`", is left to review. The
 link lint of const-referencing cannot hold this: it matches its lanes on text whose code spans are
 blanked, and the module's name stands in one. So the kit checks it here, over the Markdown files
@@ -18,7 +18,9 @@ name that is no module's directory, such as the placeholder `const-x`.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway repository: red for the plain form in a
-                       document, green for the link and for every place not read.
+                       document, with the number of findings typed by hand; green for the link
+                       and for every place not read; the report of one finding as literal lines
+                       with exit 2; a file that is not UTF-8 as a BROKEN line.
 Exit:   0 green; 2 a plain mention; 1 the check could not run.
 """
 
@@ -41,7 +43,7 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SPEC = "docs/requirements.md"
 NOT_READ = ("modules/", "module-template/", "docs/research/", "templates/")
 MENTION = re.compile(r"\b([Mm]odules?) `(const-[a-z0-9-]+)`")
-LINK = re.compile(r"\[(?:[^\[\]]|\[[^\[\]]*\])*\]\([^()\s]*\)")
+LINK = re.compile(r"\[(?:[^\[\]]|\[[^\[\]]*\])*\](?:\([^()]*\)|\[[^\[\]]*\])")  # inline or reference
 TICKS = re.compile(r"`+")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 WHY = (
@@ -205,6 +207,15 @@ def self_test() -> int:
             "a[0 and " + plain,
         ),
     }
+    expected = {  # the findings each red text holds, typed by hand: never counted by the pattern under test
+        "a policy": 1,
+        "a record, two on one line": 2,
+        "the guide at the root": 1,
+        "a line after a closed fence": 1,
+        "a capital at a sentence's start": 1,
+        "the plural's first name": 1,
+        "a line with an unclosed bracket before it": 1,
+    }
     green: dict[str, tuple[str, str]] = {  # case: path, text with the plain form not read
         "module prose": ("modules/const-sample/MODULE.md", plain),
         "the module template": ("module-template/MODULE.md", plain),
@@ -216,13 +227,16 @@ def self_test() -> int:
             "```\n```python\n" + plain + "```\n",
         ),
         "link text": ("docs/policies/s.md", "[the words module `const-sample` here](x.md)\n"),
+        "the text of a link with a title": ("docs/policies/w.md", '[module `const-sample`](x.md "t")\n'),
+        "the text of a reference link": ("docs/policies/y.md", "[module `const-sample`][spec]\n"),
         "a longer code span": ("docs/policies/t.md", "`` module `const-sample` ``\n"),
         "a code span after another": ("docs/policies/v.md", "`a` then `` module `const-sample` ``\n"),
         "a name that is no module": ("docs/policies/u.md", "module `const-x`\n"),
     }
     report_lines = [  # the report of the capital case, typed by hand: a message function cannot check itself
         "RED: docs/policies/c.md:1: Module `const-sample` is written plain, outside module prose",
-        f"  why: {WHY}",
+        "  why: a kit document cites a module by a link to its specification, so a reader reaches it in one"
+        " click (rule 4 of plc-0007-requirements)",
         "  fix: write Module [`const-sample`](../requirements.md#const-sample)",
         "RED: 1 finding(s) — 2 document(s) examined outside module prose, 1 module name(s) known",
     ]
@@ -230,9 +244,14 @@ def self_test() -> int:
     def fresh(root: Path) -> None:
         try:
             subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
-        except (OSError, subprocess.CalledProcessError) as failed:
+        except OSError as missing:
             raise Broken(
-                f"git init failed in {root} ({failed}) — fix: install git, then run the self-test"
+                f"git cannot start ({missing.strerror}) — fix: install git, then run the self-test"
+            ) from missing
+        except subprocess.CalledProcessError as failed:
+            said = (failed.stderr.decode(errors="replace").splitlines() or ["no message"])[0]
+            raise Broken(
+                f"git init failed in {root}: {said} — fix: repair what git names, then run the self-test"
             ) from failed
         (root / "modules" / "const-sample").mkdir(parents=True)
         (root / "docs").mkdir()
@@ -251,7 +270,7 @@ def self_test() -> int:
             green_before = not check_kit(root)[0]
             write(root, path, bad)
             findings = check_kit(root)[0]
-            red_after = len(findings) == len(MENTION.findall(bad)) and all(f.path == path for f in findings)
+            red_after = len(findings) == expected[name] and all(f.path == path for f in findings)
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the link is green, the plain form in {name} is red")
@@ -279,6 +298,8 @@ def self_test() -> int:
         (root / "docs" / "latin1.md").write_bytes(b"caf\xe9\n")
         try:
             check_kit(root)
+            ok = False
+        except UnicodeDecodeError:  # the decoding escaped the check: its fix is gone
             ok = False
         except Broken as broken:
             ok = str(broken).startswith("docs/latin1.md is not UTF-8") and "fix: save it as UTF-8" in str(
