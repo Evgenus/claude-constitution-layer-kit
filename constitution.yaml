@@ -201,6 +201,8 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-task-close/MODULE.md"
     - name: const-questions
       code:
+        - "modules/const-questions/scripts/**"
+        - "modules/const-questions/hooks/**"
         - "modules/const-questions/skills/**"
         - "modules/const-questions/tests/**"
       docs:

@@ -40,7 +40,7 @@ A change lands in the code and the page that describes the code stays as it was.
 3. [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) — the runtime, the `severity` dial, the order of the two live proofs.
 4. [dec-0014-territory-dialect](../../docs/decisions/dec-0014-territory-dialect.md) and [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — a pair's `code` and the `working_files` are gitignore patterns matched by `git check-ignore`; every read of the dials file validates the keys read.
 5. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) and [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md) — the gate-script rules and the linked shared code; this module is its sixth consumer, the first wired to an event that names no file.
-6. [dec-0006-accumulating-set-first](../../docs/decisions/dec-0006-accumulating-set-first.md) — the kit as consumer zero; the reorder that brings this module here is item 4 of the first record above.
+6. [dec-0006-accumulating-set-first](../../docs/decisions/dec-0006-accumulating-set-first.md) — the kit as consumer zero; the reorder that brings this module here is R6 of the first record above.
 7. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 
 <a id="t5"></a>
