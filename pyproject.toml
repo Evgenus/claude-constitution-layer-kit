@@ -9,6 +9,8 @@
 #   python3 scripts/check-shared-links.py && python3 scripts/check-shared-links.py --self-test
 #   python3 scripts/check-carry-lists.py && python3 scripts/check-carry-lists.py --self-test
 #   python3 scripts/check-yaml-style.py && python3 scripts/check-yaml-style.py --self-test   (block style of constitution.yaml; --fix rewrites it)
+#   python3 scripts/check-module-links.py && python3 scripts/check-module-links.py --self-test   (a module linked outside module prose)
+#   (cd scripts && mypy --strict check-module-links.py)
 #   (cd scripts && mypy --strict check-carry-lists.py)
 # And for the kit's own branch-first gate — the first is red in a clone until sh scripts/setup-clone.sh has run once:
 #   sh scripts/setup-clone.sh --check && sh scripts/git-hooks/tests/run.sh
