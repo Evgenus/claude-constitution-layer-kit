@@ -2,12 +2,12 @@
 """Kit check: a kit document outside module prose cites a module by a link to its specification.
 
 Module prose says "module `const-x`"; every other kit document writes the same words as a link,
-module [`const-x`](<path to>/docs/requirements.md#const-x) — rule 4 of plc-0007-requirements. The
-form read is the word "module" or "modules", with a small or a capital m, a space, and a module's name in a code
-span; a name standing alone, or the second of "modules `a` and `b`", is left to review. The
-link lint of const-referencing cannot hold this: it matches its lanes on text whose code spans are
-blanked, and the module's name stands in one. So the kit checks it here, over the Markdown files
-git lists, the names being the directories under modules/.
+module [`const-x`](<path to>/docs/requirements.md#const-x) — rule 4 of plc-0007-requirements.
+The form read is the word "module" or "modules", with a small or a capital m, a space, and a
+module's name in a code span; a name standing alone, or the second of "modules `a` and `b`", is
+left to review. The link lint of const-referencing cannot hold this: it matches its lanes on text
+whose code spans are blanked, and the module's name stands in one. So the kit checks it here, over
+the Markdown files git lists, the names being the directories under modules/.
 
 Not read: module prose (modules/, module-template/), where the plain form is the rule; frozen
 comparisons (docs/research/), which keep the form they were frozen with (rule 7 of
@@ -43,7 +43,10 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SPEC = "docs/requirements.md"
 NOT_READ = ("modules/", "module-template/", "docs/research/", "templates/")
 MENTION = re.compile(r"\b([Mm]odules?) `(const-[a-z0-9-]+)`")
-LINK = re.compile(r"\[(?:[^\[\]]|\[[^\[\]]*\])*\](?:\([^()]*\)|\[[^\[\]]*\])")  # inline or reference
+LINK = re.compile(  # inline: a destination with no space, then an optional title; or a reference
+    r"\[(?:[^\[\]]|\[[^\[\]]*\])*\]"
+    r"(?:\(\s*[^()\s]*(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^()]*\)))?\s*\)|\[[^\[\]]*\])"
+)
 TICKS = re.compile(r"`+")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 WHY = (
@@ -173,48 +176,51 @@ def report(findings: list[Finding], documents: int, names: int) -> int:
 
 
 def self_test() -> int:
-    """Red→green on a throwaway repository: the plain form is red where the check reads, and the
-    link is green; every place the check does not read stays green with the plain form; and the
-    report of one finding is its literal text with exit 2."""
+    """Red→green on a throwaway repository: the plain form is red where the check reads, with
+    the number of findings typed by hand, and the link is green; every place the check does not
+    read stays green with the plain form; the report of one finding is its literal text with
+    exit 2; and a file that is not UTF-8 is a teaching BROKEN line."""
     linked = "See module [`const-sample`](../requirements.md#const-sample).\n"
     plain = "See module `const-sample`.\n"
-    red: dict[str, tuple[str, str, str]] = {  # case: path, green text, red text
-        "a policy": ("docs/policies/p.md", linked, plain),
+    red: dict[str, tuple[str, str, str, int]] = {  # case: path, green, red, its findings by hand
+        "a policy": ("docs/policies/p.md", linked, plain, 1),
         "a record, two on one line": (
             "docs/decisions/d.md",
             linked,
             "module `const-sample` and module `const-sample`.\n",
+            2,
         ),
         "the guide at the root": (
             "GUIDE.md",
             "module [`const-sample`](docs/requirements.md#const-sample)\n",
             plain,
+            1,
         ),
-        "a line after a closed fence": ("docs/f.md", linked, "```\nx\n```\n" + plain),
+        "a line after a closed fence": ("docs/f.md", linked, "```\nx\n```\n" + plain, 1),
         "a capital at a sentence's start": (
             "docs/policies/c.md",
             "Module [`const-sample`](../requirements.md#const-sample) guards it.\n",
             "Module `const-sample` guards it.\n",
+            1,
         ),
         "the plural's first name": (
             "docs/policies/m.md",
             "modules [`const-sample`](../requirements.md#const-sample) and more\n",
             "modules `const-sample` and more\n",
+            1,
+        ),
+        "what is no link, its destination holding a space": (
+            "docs/policies/n.md",
+            linked,
+            "[module `const-sample`](b c)\n",
+            1,
         ),
         "a line with an unclosed bracket before it": (
             "docs/policies/b.md",
             "a[0 and " + linked,
             "a[0 and " + plain,
+            1,
         ),
-    }
-    expected = {  # the findings each red text holds, typed by hand: never counted by the pattern under test
-        "a policy": 1,
-        "a record, two on one line": 2,
-        "the guide at the root": 1,
-        "a line after a closed fence": 1,
-        "a capital at a sentence's start": 1,
-        "the plural's first name": 1,
-        "a line with an unclosed bracket before it": 1,
     }
     green: dict[str, tuple[str, str]] = {  # case: path, text with the plain form not read
         "module prose": ("modules/const-sample/MODULE.md", plain),
@@ -262,7 +268,7 @@ def self_test() -> int:
         (root / path).write_text(text, encoding="utf-8")
 
     failed = 0
-    for name, (path, good, bad) in red.items():
+    for name, (path, good, bad, count) in red.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             fresh(root)
@@ -270,7 +276,7 @@ def self_test() -> int:
             green_before = not check_kit(root)[0]
             write(root, path, bad)
             findings = check_kit(root)[0]
-            red_after = len(findings) == expected[name] and all(f.path == path for f in findings)
+            red_after = len(findings) == count and all(f.path == path for f in findings)
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the link is green, the plain form in {name} is red")
