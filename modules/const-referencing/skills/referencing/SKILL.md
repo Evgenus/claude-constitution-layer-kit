@@ -50,6 +50,8 @@ judgment, and the rest of this page.
    about a diff.
 6. A commit hash belongs in a commit message, a record of what was decided, or chat — not in a
    document that describes how things are: a rebuilt history leaves it pointing at nothing.
+7. A pull request is cited with its repository — `owner/repo#n`, never a bare `#n`: a bare
+   number names another pull request in every other repository.
 
 ## 2. Give every cited place an anchor of its own
 
