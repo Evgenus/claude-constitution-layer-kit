@@ -43,9 +43,9 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SPEC = "docs/requirements.md"
 NOT_READ = ("modules/", "module-template/", "docs/research/", "templates/")
 MENTION = re.compile(r"\b([Mm]odules?) `(const-[a-z0-9-]+)`")
-LINK = re.compile(  # inline: a destination with no space, then an optional title; or a reference
+LINK = re.compile(  # inline: a destination in <> or with no space, then an optional title; or a reference
     r"\[(?:[^\[\]]|\[[^\[\]]*\])*\]"
-    r"(?:\(\s*[^()\s]*(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^()]*\)))?\s*\)|\[[^\[\]]*\])"
+    r"(?:\(\s*(?:<[^<>\n]*>|[^()\s]*)(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^()]*\)))?\s*\)|\[[^\[\]]*\])"
 )
 TICKS = re.compile(r"`+")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
@@ -234,6 +234,10 @@ def self_test() -> int:
         ),
         "link text": ("docs/policies/s.md", "[the words module `const-sample` here](x.md)\n"),
         "the text of a link with a title": ("docs/policies/w.md", '[module `const-sample`](x.md "t")\n'),
+        "the text of a link whose destination in <> holds a space": (
+            "docs/policies/z.md",
+            "[module `const-sample`](<a b.md>)\n",
+        ),
         "the text of a reference link": ("docs/policies/y.md", "[module `const-sample`][spec]\n"),
         "a longer code span": ("docs/policies/t.md", "`` module `const-sample` ``\n"),
         "a code span after another": ("docs/policies/v.md", "`a` then `` module `const-sample` ``\n"),
