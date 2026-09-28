@@ -138,7 +138,7 @@ The gate validates the three dials it reads at each read, and a key of this name
 **In place or a new record:**
 
 8. A link form changes across every record, rulings untouched → in place, the commit names it a migration / the substance of an accepted record's ruling changes → a new record naming the old one.
-9. A typo in an accepted record — past the yes or the review its stakes ask for, or a `product` record once committed — → in place / an accepted record's `stakes` or `decider` "corrected" after the fact → *not* in place without saying so in the commit; if the ruling's price or owner was genuinely different, that is a new record.
+9. A typo in an accepted record — past the yes or the review its stakes ask for, or a `product` record once committed — → in place, the commit names it a typo fix / an accepted record's `stakes` or `decider` "corrected" after the fact → *not* in place without saying so in the commit; if the ruling's price or owner was genuinely different, that is a new record.
 
 10. An accepted record cites a document that has since moved → in place, a migration / an accepted record's ruling no longer holds because a later ruling replaced it → *not* an edit and not a status flip: the later record names it, and the old one stays as written.
 
