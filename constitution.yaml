@@ -243,7 +243,7 @@ const-task-close:                     # task close as one act: a change that tou
 const-questions:                      # ask at recorded stakes or a blocker; no open question inside a deliverable
   severity: block                     # values: block | warn
   log_dir: local/gate-logs
-  territories:                        # gate: the delivered documents among the Markdown files git lists; a negated pattern takes files out
+  territories:                        # gate: the delivered documents among the Markdown files git lists; a negated pattern takes files out, never a frozen document
     - "*.md"                          # every document, the templates included: they quote the marker syntax only in code (decision dec-0048-frozen-documents-take-wording-edits)
     # a draft module document is taken out here by its own path while it carries [decide: slots, never by a wildcard
   markers:                            # gate: the texts that mark an open question, matched outside code
@@ -262,7 +262,7 @@ const-interaction:                    # answer shape, assumptions and addressabl
   severity: block                     # values: block | warn — block: a listed command asks the user at the platform's prompt; warn: reported, the command runs
   log_dir: local/gate-logs
   # destructive: absent — the default list of entries stated in MODULE.md §7; an empty list gates nothing and says so at session start
-  territories:                        # the documents the list-handles scan reads among the Markdown files git lists; a negated pattern takes files out
+  territories:                        # the documents the list-handles scan reads among the Markdown files git lists; a negated pattern takes files out, never a frozen document
     - "*.md"                          # every document, the frozen ones included: a plain item in an accepted record or a frozen comparison takes a bold lead, a wording edit (plc-0004 rule 14, plc-0005 rule 7)
   handles:                            # the forms a list item may open with, after an optional anchor and bold marker; the kit's keys beyond the defaults follow
     - '[0-9]+\.'
@@ -306,7 +306,15 @@ const-language:                       # the prose of covered documents: a grade 
   forbidden: []                       # phrases of the kit's own beyond the founding list: none
   simpler: {}                         # pairs of the kit's own beyond the founding list: none
   exceptions: []                      # phrases of the lists the kit keeps on purpose: none
-  departures: []                      # what stands as written, where, and why — per kind by pattern, one-off by path; none: what a frozen document fails is met by a wording edit (decision dec-0048-frozen-documents-take-wording-edits)
+  departures:                         # what stands as written, where, and why — per kind by pattern, one-off by path; a frozen document meets the thresholds by wording edits, and only what no wording edit reaches stands here (decision dec-0048-frozen-documents-take-wording-edits)
+    - paths:
+        - "/docs/decisions/dec-0040-rules-fit-their-documents.md"
+        - "/docs/decisions/dec-0044-styling-module-rulings.md"
+        - "/docs/research/res-0007-const-questions.md"
+        - "/docs/research/res-0009-const-styling.md"
+      allow:
+        - sentence
+      reason: a list framed by a pair of dashes, or a carry-list entry of homes, which no wording edit splits without changing its meaning
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs

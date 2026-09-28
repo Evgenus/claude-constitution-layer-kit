@@ -42,6 +42,8 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    in before sending: a prompt has gone out with its list still a placeholder.
 5. **Run the blind pass** on each record the change adds: one more reader, prompt C, with one
    question per carried item — a "pending" or "history only" item has nothing to answer from.
+   Where the change makes wording edits in accepted records or frozen comparisons, run one more
+   reader, prompt E, on every such edit.
 6. **Consolidate, and verify before acting.** A reader can be wrong: check every finding you mean to
    act on against the tree yourself. Give every finding a handle. Each is fixed, or justified in a
    commit message of the change — in the pull request once the kit has one.
@@ -133,6 +135,19 @@ agent must hear them too.
 > every code path the diff changed does what its message says, and that every fix a message teaches
 > would turn the check green. Say of each finding whether it is a defect to fix before the yes, or a
 > nicety.
+
+## Prompt E — a reader of wording edits
+
+> STRICTLY READ-ONLY, pinned to `<pin>`, with the two git readings, as in prompt A. Read the kinds
+> of wording edit that rule 14 of `docs/policies/plc-0004-decision-records.md` allows in an
+> accepted record and rule 7 of `docs/policies/plc-0005-research.md` in a frozen comparison, and
+> the mechanical edits of section 5 of `kernel/CONVENTIONS.md`. Then read every edit in
+> `git diff <base> <pin> -- <the frozen documents the change edits>`, with `--word-diff` too. For
+> each changed spot, say which kind it is, whether it is that kind exactly as the rule words it,
+> and whether the text still says what it said: no ruling, fact, number, scope or speaker moved,
+> no clause attached to another subject, no fragment that reads differently. Report each finding
+> with the file, the line, the text before and after, and whether it is a defect to fix before
+> the yes or a nicety.
 
 ## What this audit cannot do
 

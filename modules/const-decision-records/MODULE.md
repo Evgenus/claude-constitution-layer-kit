@@ -40,6 +40,7 @@ Rows enforced through [A3.4](../../docs/requirements.md#a3-4) and not homed here
 6. [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) — what every gate shares has one source under `shared/`, drawn from the edits this module's first, copied form needed; this module links to it and keeps its own model, messages, dials, checks and modes.
 7. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 8. [dec-0012-record-references-are-provenance](../../docs/decisions/dec-0012-record-references-are-provenance.md) — the skill's rule that an applied ruling stands in the text of the current-state document it changed.
+9. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — the skill names a third mechanical edit of an accepted record, the wording edit of a kind the project's policy for records lists.
 
 <a id="t5"></a>
 ## 5. Invariant

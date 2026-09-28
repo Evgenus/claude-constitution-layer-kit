@@ -114,7 +114,21 @@ Candidates:
 
 ## 7. Hook mechanics and plugin loading — re-verification and discrepancies
 
-Re-verified today and unchanged — facts 1, 2, 3, 5 and 7–12 of the [first module's](../../modules/const-meta-types/MODULE.md) list: exit 2 blocks and stderr is the reason; the `Write` and `Edit` fields and the "always absolute" path; `Write|Edit` as an exact-string list ("Only letters, digits, `_`, `-`, spaces, `,`, and `|`"); handlers "run in the current directory" and "`cwd` follows Claude"; the default of 600 seconds. Exec form, "each `args` element is one argument exactly as written"; the three path variables exported to hook processes ([hooks reference](https://code.claude.com/docs/en/hooks)); `MultiEdit` absent from the [tools reference](https://code.claude.com/docs/en/tools-reference) and "legacy" in [permissions](https://code.claude.com/docs/en/permissions); `hooks/hooks.json`, `${CLAUDE_PLUGIN_DATA}` deleted on uninstall unless `--keep-data`, placeholders resolved "Anywhere the placeholder appears" in skill content ([plugins reference](https://code.claude.com/docs/en/plugins-reference)); `--plugin-dir` one path per flag, the folder form "requires Claude Code v2.1.265 or later", which local 2.1.251 predates ([CLI reference](https://code.claude.com/docs/en/cli-reference)); the 1,536-character cap and `paths` ([skills](https://code.claude.com/docs/en/skills)). Fact 8, re-run as E12: `git --git-dir=<fresh-null-repo>/.git --work-tree=<empty-dir> -c core.excludesfile=<file holding docs/decisions/**> -c core.ignorecase=false check-ignore --no-index -v -n -z --stdin` over `docs/decisions/dec-0001-x.md` and `README.md` → the first matched on pattern line 1 though the path does not exist, the second returned empty source, line and pattern fields.
+Re-verified today and unchanged — facts 1, 2, 3, 5 and 7–12 of the [first module's](../../modules/const-meta-types/MODULE.md) list:
+
+- **exit 2** blocks and stderr is the reason;
+- **the `Write` and `Edit` fields** and the "always absolute" path;
+- `Write|Edit` as an exact-string list ("Only letters, digits, `_`, `-`, spaces, `,`, and `|`");
+- **handlers** "run in the current directory" and "`cwd` follows Claude";
+- **the default of 600 seconds**;
+- **exec form**, "each `args` element is one argument exactly as written";
+- **the three path variables** exported to hook processes ([hooks reference](https://code.claude.com/docs/en/hooks));
+- `MultiEdit` absent from the [tools reference](https://code.claude.com/docs/en/tools-reference) and "legacy" in [permissions](https://code.claude.com/docs/en/permissions);
+- `hooks/hooks.json`, `${CLAUDE_PLUGIN_DATA}` deleted on uninstall unless `--keep-data`, placeholders resolved "Anywhere the placeholder appears" in skill content ([plugins reference](https://code.claude.com/docs/en/plugins-reference));
+- `--plugin-dir` one path per flag, the folder form "requires Claude Code v2.1.265 or later", which local 2.1.251 predates ([CLI reference](https://code.claude.com/docs/en/cli-reference));
+- **the 1,536-character cap** and `paths` ([skills](https://code.claude.com/docs/en/skills)).
+
+Fact 8, re-run as E12: `git --git-dir=<fresh-null-repo>/.git --work-tree=<empty-dir> -c core.excludesfile=<file holding docs/decisions/**> -c core.ignorecase=false check-ignore --no-index -v -n -z --stdin` over `docs/decisions/dec-0001-x.md` and `README.md` → the first matched on pattern line 1 though the path does not exist, the second returned empty source, line and pattern fields.
 
 Stale, imprecise or missing (every quotation from the [hooks reference](https://code.claude.com/docs/en/hooks) unless another source is named):
 

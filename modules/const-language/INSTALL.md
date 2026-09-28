@@ -70,8 +70,9 @@ floor, is reported by the check with the fix on its first line; nothing is silen
 6. **Adoption onto a repository with many findings:** set `grade_ceiling` and `sentence_words` to
    what the documents bear today, the rules the project is not ready for to `warning`, rewrite
    the documents kind by kind, and lower the numbers in steps. A document that must not be edited
-   is declared as a departure with its reason, allowing the rules it cannot meet; the check still
-   reads it for the rest, and nothing is marked in the document.
+   takes first the wording edits its policy allows, if any; what they cannot meet is declared as a
+   departure with its reason, allowing the rules it cannot meet; the check still reads it for the
+   rest, and nothing is marked in the document.
 7. **A departure is declared, never marked.** An exception, a level, a threshold, a departure: all
    in the dials file, where every reader sees them; a Vale comment in a document, outside a fence
    or a code span, is a finding.

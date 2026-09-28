@@ -39,6 +39,7 @@ Every document decides its own style at the moment of writing, and decides it di
 5. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 6. [dec-0011-one-policy-per-kind](../../docs/decisions/dec-0011-one-policy-per-kind.md) — the precedent of a kind of one document, which the style guide follows.
 7. [dec-0046-language-module-rulings](../../docs/decisions/dec-0046-language-module-rulings.md) — the twelve signatures do not graduate to Vale; the path is kept for rules about words.
+8. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — a trace of a default in an accepted record or a frozen comparison is removed by a wording edit its policy allows where one removes it, and declared as a departure where none does.
 
 <a id="t5"></a>
 ## 5. Invariant
