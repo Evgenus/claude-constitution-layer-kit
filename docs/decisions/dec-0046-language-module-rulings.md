@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The module [`const-language`](../requirements.md#const-language) is authored from 2026-09-26 in the kit, ahead of its friction signal, as the decider chose in chat that day against the session's recommendation. Its rows are [requirement A10.1](../requirements.md#a10-1) and [requirement A10.2](../requirements.md#a10-2), and it takes the mechanism of [requirement A9.4](../requirements.md#a9-4), module `const-styling`'s row; its research comparison is [res-0010-const-language](../research/res-0010-const-language.md), a survey of the enforcement instruments the decider asked for in those words — Vale and its packages, textlint, proselint, write-good, alex, LanguageTool, Harper, Hemingway, the readability formulas and their libraries, an LLM as judge — with experiments over the kit's own tree. The questions below were put to the decider in chat, one per message, each with lettered options; the pick was the letter, as the kit's preferences ask. Every ruling is stated in the module's document and the kit's documents the carry list names; this record holds the options and the reasoning.
+The module [`const-language`](../requirements.md#const-language) is authored from 2026-09-26 in the kit, ahead of its friction signal, as the decider chose in chat that day against the session's recommendation. Its rows are [requirement A10.1](../requirements.md#a10-1) and [requirement A10.2](../requirements.md#a10-2), and it takes the mechanism of [requirement A9.4](../requirements.md#a9-4), module [`const-styling`](../requirements.md#const-styling)'s row; its research comparison is [res-0010-const-language](../research/res-0010-const-language.md), a survey of the enforcement instruments the decider asked for in those words — Vale and its packages, textlint, proselint, write-good, alex, LanguageTool, Harper, Hemingway, the readability formulas and their libraries, an LLM as judge — with experiments over the kit's own tree. The questions below were put to the decider in chat, one per message, each with lettered options; the pick was the letter, as the kit's preferences ask. Every ruling is stated in the module's document and the kit's documents the carry list names; this record holds the options and the reasoning.
 
 ## 1. Which work is next, and which module
 
@@ -90,7 +90,7 @@ The session recommended A. **R8.** A, chosen by the decider in chat on 2026-09-2
 
 ## 6. Where the plain-chat row lives
 
-The matrix held [requirement A10.2](../requirements.md#a10-2) under module `const-interaction` with a dagger and a note asking whether it moves to [`const-language`](../requirements.md#const-language). The comparison applied the three boundary tests — the same invariant; no shared enforcement moment, a reply being no file; no shared lifecycle trigger — and rejected the one measurement possible, Vale over the last reply at `Stop`, as judgment dressed as a check.
+The matrix held [requirement A10.2](../requirements.md#a10-2) under module [`const-interaction`](../requirements.md#const-interaction) with a dagger and a note asking whether it moves to [`const-language`](../requirements.md#const-language). The comparison applied the three boundary tests — the same invariant; no shared enforcement moment, a reply being no file; no shared lifecycle trigger — and rejected the one measurement possible, Vale over the last reply at `Stop`, as judgment dressed as a check.
 
 - **A. Settle it now: the row is `const-interaction`'s.** The dagger and the question leave the matrix; this module's document names the chat half as the other half of one aspect.
   - **Pros:** the question has an answer from the tests the matrix names; a flag left standing is a deferred question.
@@ -99,11 +99,11 @@ The matrix held [requirement A10.2](../requirements.md#a10-2) under module `cons
   - **Pros:** no matrix edit inside this module's work.
   - **Cons:** every reader of the matrix re-asks a closed question.
 
-The session recommended A. **R9.** A, chosen by the decider in chat on 2026-09-26: the row's destination is module `const-interaction`, the boundary note settled, and this module ships nothing for chat.
+The session recommended A. **R9.** A, chosen by the decider in chat on 2026-09-26: the row's destination is module [`const-interaction`](../requirements.md#const-interaction), the boundary note settled, and this module ships nothing for chat.
 
 ## 7. Sentence-case headings as this module's first rule
 
-The comparison overturned the graduation of the twelve markup signatures of module `const-styling` — all expressible in Vale, five only as scripts, but the departures dial with its reason has no Vale form and a second home per rule crosses [law 1 of CLAUDE.md](../../CLAUDE.md#law-1) and [law 3 of CLAUDE.md](../../CLAUDE.md#law-3) — and kept the path for rules about words, sentence-case headings first.
+The comparison overturned the graduation of the twelve markup signatures of module [`const-styling`](../requirements.md#const-styling) — all expressible in Vale, five only as scripts, but the departures dial with its reason has no Vale form and a second home per rule crosses [law 1 of CLAUDE.md](../../CLAUDE.md#law-1) and [law 3 of CLAUDE.md](../../CLAUDE.md#law-3) — and kept the path for rules about words, sentence-case headings first.
 
 - **A. Not at founding.** The module ships the rules of its own rows; its document records the shape and the path.
   - **Pros:** a heading-case rule is no row of the module's aspect, so shipping it is scope creep; the styling guide holds sentence case as a default already, but no consumer has asked for the rule; the rule needs an exception list with no signal behind it.

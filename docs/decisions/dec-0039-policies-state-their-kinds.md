@@ -65,7 +65,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 ### 4. The decision-record policy, [plc-0004-decision-records](../policies/plc-0004-decision-records.md)
 
-**R7.** A record is written from the kit's own template, `templates/decision-record.md`, named for the kind in `const-locations.templates`: the shape the record skill of module `const-decision-records` ships to every consumer, with what the policy's rules 2, 9, 11 and 12 add, which are the kit's rules and no module's — so the module's template stays within its rows. A change to the shape rules changes the template in the same change.
+**R7.** A record is written from the kit's own template, `templates/decision-record.md`, named for the kind in `const-locations.templates`: the shape the record skill of module [`const-decision-records`](../requirements.md#const-decision-records) ships to every consumer, with what the policy's rules 2, 9, 11 and 12 add, which are the kit's rules and no module's — so the module's template stays within its rows. A change to the shape rules changes the template in the same change.
 
 **R8.** The sections and their order are fixed for both shapes; a record answering several questions has one numbered section per question, with its context, options, recommendation, choice and handled ruling; the title states the ruling and the H1 repeats it.
 

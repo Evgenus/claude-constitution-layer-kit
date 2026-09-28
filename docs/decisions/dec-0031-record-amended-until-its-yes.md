@@ -49,7 +49,7 @@ B, by Eugene Chernyshov in chat on 2026-09-21.
    - **rule 4 of the decision-record policy** speaks of a ruling past its yes, and rule 5 points at the kernel, names the validation and the carry audit as what may correct a kit record, and says records below `0030` are accepted;
    - **step 7 of the carry-audit skill** points at the kernel;
    - **item R16 of [dec-0030-carry-audit-mandatory](dec-0030-carry-audit-mandatory.md)** says where the rule lives.
-8. **R8.** The consumers' procedure says the same: in module `const-decision-records`, section 4 of the skill `record-decision` tells an author what may be corrected before a record is accepted and what after; the module's document states it as advisory rule R-e, as boundary pair 11, and says "accepted record" where it had said "closed", a word the kernel keeps for a task set `inactive`. The module is unpublished at `0.0.1`, so no version changes.
+8. **R8.** The consumers' procedure says the same: in module [`const-decision-records`](../requirements.md#const-decision-records), section 4 of the skill `record-decision` tells an author what may be corrected before a record is accepted and what after; the module's document states it as advisory rule R-e, as boundary pair 11, and says "accepted record" where it had said "closed", a word the kernel keeps for a task set `inactive`. The module is unpublished at `0.0.1`, so no version changes.
 9. **R9.** A change to the kernel: the carry audit was run in full over every record before this record's yes, and its findings rewrote items R1 to R8.
 
 ## Carry list
