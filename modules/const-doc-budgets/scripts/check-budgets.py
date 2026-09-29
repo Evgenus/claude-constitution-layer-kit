@@ -4,7 +4,9 @@ the fact. Entry point.
 
 Events:   PostToolUse on Write and Edit (the plugin's wiring): the document as it is on disk after
           the write. A PreToolUse payload is judged the same way on the document the write would
-          produce, should a consumer wire it there. Any other event is a configuration failure.
+          produce, should a consumer wire it there — and a finding there refuses the write. An event
+          of another name carrying a write's input is a configuration failure; one that carries no
+          file is a visible skip.
 Modes:    (hook)          one tool event, JSON on stdin — the written document, when a ceiling of the
                           dial `ceilings` holds it, is counted in characters; over a ceiling at level
                           error it is a finding, at level warning a note; under a departure that

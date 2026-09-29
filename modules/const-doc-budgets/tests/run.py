@@ -87,8 +87,8 @@ def b1(rel: str, length: str, excess: str, most: str = "100", name: str = "notes
 
 
 def doc(length: int, letter: str = "a") -> str:
-    """A document of `length` characters, counted as the kernel counts: a heading line, a blank line,
-    one line of the letter. The expected numbers beside it are typed by hand."""
+    """A document of `length` characters, counted as the project's conventions count: a heading line,
+    a blank line, one line of the letter. The expected numbers beside it are typed by hand."""
     return "# T\n\n" + letter * (length - 6) + "\n"
 
 
@@ -339,8 +339,10 @@ def t9() -> tuple[bool, str]:
     at_thirty, _ = gate_on(Write("docs/notes/a.md", doc(10)), own(ceilings=[thirty]))
     warned, _ = gate_on(Write("docs/notes/a.md", doc(10)), own(ceilings=[one_day]))
     line = (
-        "BROKEN: constitution.yaml: const-doc-budgets.ceilings 'notes' is at level error on a window of 29"
-        " day(s), 2026-08-01 to 2026-08-30 — fix: a ceiling blocks only on 30 days of observed data or more:"
+        "BROKEN: constitution.yaml: const-doc-budgets.ceilings 'notes' is at level error on a window whose"
+        " span"
+        " is 29 day(s), 2026-08-01 to 2026-08-30 — fix: a ceiling blocks only on 30 days of observed data"
+        " or more:"
         " set its level to warning until window.to is 30 days or more after window.from — the report --scan"
         " --since <YYYY-MM-DD> prints the data of those days"
     )
@@ -353,6 +355,11 @@ def t9() -> tuple[bool, str]:
 
 
 C5 = "BROKEN: constitution.yaml: const-doc-budgets."
+LIFT: dict[str, object] = {"paths": ["docs/notes/**"], "allow": ["notes"], "reason": "stands"}
+DEP_FIX = (
+    " — fix: write the entry as paths: [<patterns>], allow: [<ceiling names>], reason: <one line saying why"
+    " these documents stand as written>; the ceilings are named in const-doc-budgets.ceilings: notes"
+)
 ENTRY_FIX = (
     " — fix: write the entry as name: <kebab-case>, paths: [<patterns>], max: <characters>, level: warning or"
     " error, window: {from: <YYYY-MM-DD>, to: <YYYY-MM-DD>}, the days of data the number was set from"
@@ -434,6 +441,32 @@ def t10() -> tuple[bool, str]:
             " key out, or write [], for no departure",
         ),
         (
+            own(departures=["docs/notes/**"]),
+            C5 + "departures entry 1: it is not a mapping" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "why": "x"}]),
+            C5 + "departures entry 1: 'why' is no field of an entry" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "paths": []}]),
+            C5 + "departures entry 1: paths must be a non-empty list of path patterns" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "allow": []}]),
+            C5 + "departures entry 1: allow must be a non-empty list of ceiling names" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "reason": "one\ntwo"}]),
+            C5 + "departures entry 1: reason must be one non-empty line saying why" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "paths": ["#docs/**"]}]),
+            C5 + "departures entry 1 paths holds '#docs/**', which git would read as a comment or as two"
+            " lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes,"
+            " as \\\\# in double quotes, and remove a line break",
+        ),
+        (
             own(departures=[{"paths": ["docs/notes/**"], "allow": ["notes"], "reason": ""}]),
             C5 + "departures entry 1: reason must be one non-empty line saying why — fix: write the entry as"
             " paths: [<patterns>], allow: [<ceiling names>], reason: <one line saying why these documents"
@@ -503,8 +536,9 @@ def t13() -> tuple[bool, str]:
     empty = {**GUIDE, "name": "empty", "paths": ["/docs/none/**"]}
     lift = {"paths": ["docs/notes/frozen-*.md"], "allow": ["notes"], "reason": "accepted before the ceiling"}
     stale = {"paths": ["docs/gone/**"], "allow": ["guide"], "reason": "moved away"}
+    elsewhere = {"paths": ["/docs/guide.md"], "allow": ["notes"], "reason": "names the wrong ceiling"}
     root = prepared(
-        own(ceilings=[NOTES, GUIDE, empty], departures=[lift, stale]),
+        own(ceilings=[NOTES, GUIDE, empty], departures=[lift, stale, elsewhere]),
         files={
             "docs/notes/a.md": doc(90),
             "docs/notes/b.md": doc(120),
@@ -515,8 +549,12 @@ def t13() -> tuple[bool, str]:
     )
     finding = b1("docs/notes/b.md", "120", "20")
     wanted = (
-        "note: const-doc-budgets.departures entry 2 (docs/gone/**) matches no measured document; the"
-        " documents it allowed were deleted or moved, or the pattern is wrong\n"
+        "note: const-doc-budgets.departures entry 2 (docs/gone/**) lifts nothing: it matches no document a"
+        " ceiling it names holds; the documents were deleted or moved, or the pattern or the names are"
+        " wrong\n"
+        "note: const-doc-budgets.departures entry 3 (/docs/guide.md) lifts nothing: it matches no document a"
+        " ceiling it names holds; the documents were deleted or moved, or the pattern or the names are"
+        " wrong\n"
         "note: ceiling 'notes' — 100 characters, error, window 2026-08-01 to 2026-09-01: 3 document(s), 1"
         " lifted by a departure, the longest of the others docs/notes/b.md at 120, over by 20\n"
         "note: ceiling 'guide' — 50 characters, warning, window 2026-09-01 to 2026-09-02: 1 document(s), the"
@@ -525,7 +563,7 @@ def t13() -> tuple[bool, str]:
         "note: docs/guide.md: 60 characters, over the ceiling 'guide' of 50 by 10 — reported, not red, while"
         " the ceiling's level is warning; shorten it or split it before the ceiling blocks\n"
         f"{finding.render()}\n"
-        "RED: 1 finding(s) — 4 document(s) measured under 3 ceiling(s) and 2 departure(s), 8 Markdown file(s)"
+        "RED: 1 finding(s) — 4 document(s) measured under 3 ceiling(s) and 3 departure(s), 8 Markdown file(s)"
         " scanned\n"
     )
     return exactly(scan(root), 2, wanted)
@@ -564,24 +602,143 @@ HISTORY: list[tuple[str, dict[str, str | None]]] = [
 
 
 def t14() -> tuple[bool, str]:
-    """The history report, golden: per day the documents of its last commit and the longest version any
-    commit of the day held; the window's longest and the rule of thumb; exit 0, nothing judged."""
+    """The history report, golden: per day the documents at its last commit and the longest version any
+    commit of the day held, the state before the window read from the last commit before it; the window
+    from the first day with data, its longest and the rule of thumb; exit 0, nothing judged."""
     root = history_repo(HISTORY)
     wanted = (
-        "2026-08-11 notes: 2 document(s), the longest docs/notes/a.md at 80\n"
-        "2026-08-12 notes: 1 document(s), the longest docs/notes/a.md at 60\n"
-        "window notes: 2026-08-11 to 2026-08-12, 1 day(s), the longest docs/notes/a.md at 80; plus 10 %"
-        " rounded up to 1,000: 1,000; set now: 100\n"
-        "const-doc-budgets: history since 2026-08-11 — 3 commit(s) of the first-parent line on 2 day(s), 1"
-        " ceiling(s); a report, nothing judged\n"
+        "2026-08-11 notes: 2 document(s) at the day's last commit, the longest of the day docs/notes/a.md at"
+        " 80\n"
+        "2026-08-12 notes: 1 document(s) at the day's last commit, the longest of the day docs/notes/a.md at"
+        " 60\n"
+        "window notes: 2026-08-11 to 2026-08-12, a span of 1 day(s), the longest docs/notes/a.md at 80; plus"
+        " 10 % rounded up to 1,000: 1,000; set now: 100\n"
+        "const-doc-budgets: history since 2026-08-11 — 4 commit(s) of the first-parent line read, 2 day(s)"
+        " with data, 1 ceiling(s); a report, nothing judged\n"
     )
-    later = (
-        "const-doc-budgets: history since 2026-08-13 — no commit on the first-parent line; a report, nothing"
-        " judged\n"
+    before = (  # --since before the first commit: the window opens on the first day with data
+        "2026-08-10 notes: 1 document(s) at the day's last commit, the longest of the day docs/notes/a.md at"
+        " 50\n"
+        "2026-08-11 notes: 2 document(s) at the day's last commit, the longest of the day docs/notes/a.md at"
+        " 80\n"
+        "2026-08-12 notes: 1 document(s) at the day's last commit, the longest of the day docs/notes/a.md at"
+        " 60\n"
+        "window notes: 2026-08-10 to 2026-08-12, a span of 2 day(s), the longest docs/notes/a.md at 80; plus"
+        " 10 % rounded up to 1,000: 1,000; set now: 100\n"
+        "const-doc-budgets: history since 2026-08-01 — 4 commit(s) of the first-parent line read, 3 day(s)"
+        " with data, 1 ceiling(s); a report, nothing judged\n"
+    )
+    after = (  # --since after the last commit: the state in force, from the last commit before it
+        "2026-08-13 notes: 1 document(s) at the day's last commit, the longest of the day docs/notes/a.md at"
+        " 60\n"
+        "window notes: 2026-08-13 to 2026-08-13, a span of 0 day(s), the longest docs/notes/a.md at 60; plus"
+        " 10 % rounded up to 1,000: 1,000; set now: 100\n"
+        "const-doc-budgets: history since 2026-08-13 — 1 commit(s) of the first-parent line read, 1 day(s)"
+        " with data, 1 ceiling(s); a report, nothing judged\n"
     )
     return all_of(
         exactly(scan(root, "--since", "2026-08-11"), 0, wanted),
-        exactly(scan(root, "--since", "2026-08-13"), 0, later),
+        exactly(scan(root, "--since", "2026-08-01"), 0, before),
+        exactly(scan(root, "--since", "2026-08-13"), 0, after),
+    )
+
+
+def t22() -> tuple[bool, str]:
+    """The report's other lines: a day whose last commit holds no document while an earlier commit did;
+    a day and a window with no document at all; a repository with no commit; git failing inside it."""
+    gone = history_repo(
+        [
+            ("2026-08-20T09:00:00+0000", {"docs/notes/x.md": doc(50)}),
+            ("2026-08-20T17:00:00+0000", {"docs/notes/x.md": None}),
+        ]
+    )
+    empty = history_repo([("2026-08-20T09:00:00+0000", {"docs/other.md": doc(50)})])
+    fresh = H.scratch_dir()
+    Consumer(fresh).write("constitution.yaml", dials_text())
+    subprocess.run(["git", "init", "-q"], cwd=fresh, check=True)
+    fake = H.scratch_dir()
+    real = shutil.which("git") or "git"
+    (fake / "git").write_text(
+        "#!/bin/sh\n"
+        'for a in "$@"; do if [ "$a" = log ]; then echo "fatal: simulated failure" >&2; exit 128; fi; done\n'
+        f"exec '{real}' \"$@\"\n",
+        encoding="utf-8",
+    )
+    (fake / "git").chmod(0o755)
+    failing = H.run_gate(
+        "", args=["--scan", str(gone), "--since", "2026-08-20"], env={"PATH": f"{fake}:{os.environ['PATH']}"}
+    )
+    return all_of(
+        exactly(
+            scan(gone, "--since", "2026-08-20"),
+            0,
+            "2026-08-20 notes: 0 document(s) at the day's last commit, the longest of the day docs/notes/x.md"
+            " at 50\n"
+            "window notes: 2026-08-20 to 2026-08-20, a span of 0 day(s), the longest docs/notes/x.md at 50;"
+            " plus"
+            " 10 % rounded up to 1,000: 1,000; set now: 100\n"
+            "const-doc-budgets: history since 2026-08-20 — 2 commit(s) of the first-parent line read, 1"
+            " day(s)"
+            " with data, 1 ceiling(s); a report, nothing judged\n",
+        ),
+        exactly(
+            scan(empty, "--since", "2026-08-20"),
+            0,
+            "2026-08-20 notes: no document\n"
+            "window notes: 2026-08-20 to 2026-08-20, a span of 0 day(s), no document\n"
+            "const-doc-budgets: history since 2026-08-20 — 1 commit(s) of the first-parent line read, 1"
+            " day(s)"
+            " with data, 1 ceiling(s); a report, nothing judged\n",
+        ),
+        exactly(
+            scan(fresh, "--since", "2026-08-20"),
+            0,
+            "const-doc-budgets: history since 2026-08-20 — no commit on the first-parent line; a report,"
+            " nothing judged\n",
+        ),
+        broken(
+            failing,
+            "BROKEN: git could not read the history: fatal: simulated failure — fix: repair what git names in"
+            " the message, then check by hand: git log --first-parent -1",
+        ),
+    )
+
+
+def t23() -> tuple[bool, str]:
+    """The scan's other margins: a document at exactly its ceiling is green with nothing to spare; a
+    ceiling whose documents are all lifted says so; two documents of one length name the first in path
+    order, in the scan and in the report alike; two departures lifting one document name the first."""
+    frozen = {**GUIDE, "name": "frozen", "paths": ["/docs/frozen/**"]}
+    lift_frozen = {"paths": ["docs/frozen/**"], "allow": ["frozen"], "reason": "stands"}
+    root = prepared(
+        own(ceilings=[NOTES, frozen], departures=[lift_frozen]),
+        files={"docs/notes/b.md": doc(100), "docs/notes/a.md": doc(100), "docs/frozen/x.md": doc(900)},
+    )
+    wanted = (
+        "note: ceiling 'notes' — 100 characters, error, window 2026-08-01 to 2026-09-01: 2 document(s), the"
+        " longest docs/notes/a.md at 100, 0 to spare\n"
+        "note: ceiling 'frozen' — 50 characters, warning, window 2026-09-01 to 2026-09-02: 1 document(s), all"
+        " lifted by a departure\n"
+        "GREEN: const-doc-budgets: 3 document(s) measured under 2 ceiling(s) and 1 departure(s), 6 Markdown"
+        " file(s) scanned\n"
+    )
+    tie = history_repo(
+        [("2026-08-20T09:00:00+0000", {"docs/notes/b.md": doc(70), "docs/notes/a.md": doc(70)})]
+    )
+    second = {"paths": ["docs/notes/frozen-*.md"], "allow": ["notes"], "reason": "the second entry"}
+    first = {**second, "paths": ["docs/notes/*.md"], "reason": "the first entry"}
+    twice, _ = gate_on(Write("docs/notes/frozen-1.md", doc(300)), own(departures=[first, second]))
+    return all_of(
+        exactly(scan(root), 0, wanted),
+        (
+            "the longest of the day docs/notes/a.md at 70" in scan(tie, "--since", "2026-08-20").stdout,
+            "the report names the first of two equal documents in path order",
+        ),
+        exactly(
+            twice,
+            0,
+            green("300 characters; the ceiling 'notes' is lifted by const-doc-budgets.departures entry 1"),
+        ),
     )
 
 
@@ -648,13 +805,25 @@ def t17() -> tuple[bool, str]:
 
 
 def t18() -> tuple[bool, str]:
-    """Any event but a write, before it or after it, is a configuration failure typed whole."""
+    """An event of another name carrying a write's input is a configuration failure typed whole; an
+    event that carries no file — a session start sent to the gate — is the shared visible skip."""
     root = prepared()
     result = H.run_gate(event_json(root, Write("docs/notes/a.md", doc(10)), event="Notification"))
-    return broken(
-        result,
-        "BROKEN: this check is wired to a tool event before or after a write, not to 'Notification' — fix: in"
-        " hooks.json wire it to PostToolUse on Write|Edit, or run it with --scan [<dir>]",
+    start = H.run_gate(
+        json.dumps(
+            {"hook_event_name": "SessionStart", "session_id": "s", "cwd": str(root), "source": "startup"}
+        )
+    )
+    return all_of(
+        broken(
+            result,
+            "BROKEN: this check is wired to a tool event before or after a write, not to 'Notification' —"
+            " fix:"
+            " in hooks.json wire it to PostToolUse on Write|Edit, or run it with --scan [<dir>]",
+        ),
+        exactly(
+            start, 0, "GREEN: const-doc-budgets: 0 documents examined — tool '' carries no file to examine\n"
+        ),
     )
 
 
@@ -719,7 +888,18 @@ def t20() -> tuple[bool, str]:
         bad.code == 1
         and bad.stdout == ""
         and bad.stderr.startswith("BROKEN: constitution.yaml is not valid YAML")
-        and messages.s1_could_not_run() in bad.stderr
+        and messages.z1_could_not_run() in bad.stderr
+    )
+    short = {**NOTES, "window": {"from": "2026-08-01", "to": "2026-08-15"}}
+    refused = SESSION.run_gate(session_json(prepared(own(ceilings=[short]))))
+    refused_ok = (
+        refused.code == 1
+        and refused.stdout == ""
+        and refused.stderr.startswith(
+            "BROKEN: constitution.yaml: const-doc-budgets.ceilings 'notes' is at level error on a window"
+            " whose"
+            " span is 14 day(s), 2026-08-01 to 2026-08-15"
+        )
     )
     arg = SESSION.run_gate(session_json(prepared()), args=["--scan"])
     arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
@@ -743,6 +923,7 @@ def t20() -> tuple[bool, str]:
     return all_of(
         (bad_ok, f"malformed dials got {bad.code}: {bad.stdout!r} {bad.stderr[:300]!r}"),
         (arg_ok, f"an argument got {arg.code}: {arg.stderr[:200]!r}"),
+        (refused_ok, f"a ceiling at error on 14 days got {refused.code}: {refused.stderr[:300]!r}"),
         (yaml_ok and no_yaml.stdout == "", yaml_said),
         (py_ok and no_python.stdout == "", py_said),
     )
@@ -808,6 +989,12 @@ ITEMS = [
     ),
     (20, "session start: malformed dials, an argument, PyYAML and python3 missing", t20),
     (21, "install note, skill and manifest name no kit document; hooks shape; description size", t21),
+    (22, "report: a day whose last commit holds none, no document at all, no commit, git failing", t22),
+    (
+        23,
+        "scan margins: at the ceiling, all lifted, a tie named in path order, two departures on one file",
+        t23,
+    ),
 ]
 
 NOTED = Write("docs/notes/ok.md", doc(151))
@@ -836,7 +1023,7 @@ SUBJECT = Subject(
     red=Write("docs/notes/bad.md", doc(151)),
     red_finding=b1("docs/notes/bad.md", "151", "51"),
     green="characters against the ceiling 'notes' of 100",  # the count left out: a byte-order mark is one
-    # more character by the kernel's definition, and the item about one compares this text
+    # more character by the project's conventions, and the item about one compares this text
     territory=["docs/notes/**"],
     claim=claim,
     resolves_policies=False,

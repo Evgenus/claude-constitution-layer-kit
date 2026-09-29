@@ -4,7 +4,7 @@ shared package's messages module.
 
 Error messages are a teaching surface: a finding states what failed, why the rule exists (one
 clause), and the exact fix; a configuration failure is one self-sufficient line. Every function
-name starts with the stable key of its text (b1, n2 to n4, f9, g1, h1, s1, c5, c12), so a text can
+name starts with the stable key of its text (b1, n2 to n4, f9, g1, h1, z1, c5, c12), so a text can
 be cited, reviewed and asserted by key. A reader must be able to act on a message without holding
 any other document: no text here cites one.
 """
@@ -18,7 +18,7 @@ from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import MARGIN, ROUND_TO, WINDOW_DAYS, Ceiling, Departure, Key, Level
+from .model import MARGIN_PERCENT, ROUND_TO, WINDOW_DAYS, Ceiling, Departure, Key, Level
 
 
 def _ns() -> str:
@@ -68,8 +68,9 @@ def n2_warning(rel: str, length: int, ceiling: Ceiling) -> str:
 
 def n3_stale_departure(index: int, departure: Departure) -> str:
     return (
-        f"note: {_ns()}.departures entry {index} ({', '.join(departure.paths)}) matches no measured"
-        " document; the documents it allowed were deleted or moved, or the pattern is wrong"
+        f"note: {_ns()}.departures entry {index} ({', '.join(departure.paths)}) lifts nothing: it matches"
+        " no document a ceiling it names holds; the documents were deleted or moved, or the pattern or"
+        " the names are wrong"
     )
 
 
@@ -127,30 +128,33 @@ def f9_tail(documents: int, ceilings: int, departures: int, scanned: int) -> str
 # ---------------------------------------------------------------- the history report
 
 
-def h1_day(day: datetime.date, ceiling: Ceiling, documents: int, longest: tuple[str, int] | None) -> str:
-    if longest is None:
+def h1_day(day: datetime.date, ceiling: Ceiling, documents: int, top: tuple[str, int] | None) -> str:
+    if top is None:
         return f"{day.isoformat()} {ceiling.name}: no document"
-    rel, length = longest
-    return f"{day.isoformat()} {ceiling.name}: {documents} document(s), the longest {rel} at {length:,}"
+    rel, length = top
+    return (
+        f"{day.isoformat()} {ceiling.name}: {documents} document(s) at the day's last commit, the longest"
+        f" of the day {rel} at {length:,}"
+    )
 
 
 def h1_window(
-    ceiling: Ceiling, since: datetime.date, last: datetime.date, longest: tuple[str, int] | None, thumb: int
+    ceiling: Ceiling, first: datetime.date, last: datetime.date, top: tuple[str, int] | None, thumb: int
 ) -> str:
-    if longest is None:
-        return f"window {ceiling.name}: no document from {since.isoformat()} to {last.isoformat()}"
-    rel, length = longest
+    span = f"{first.isoformat()} to {last.isoformat()}, a span of {(last - first).days} day(s)"
+    if top is None:
+        return f"window {ceiling.name}: {span}, no document"
+    rel, length = top
     return (
-        f"window {ceiling.name}: {since.isoformat()} to {last.isoformat()}, {(last - since).days} day(s),"
-        f" the longest {rel} at {length:,}; plus {round(MARGIN * 100)} % rounded up to {ROUND_TO:,}:"
-        f" {thumb:,}; set now: {ceiling.max:,}"
+        f"window {ceiling.name}: {span}, the longest {rel} at {length:,}; plus {MARGIN_PERCENT} % rounded"
+        f" up to {ROUND_TO:,}: {thumb:,}; set now: {ceiling.max:,}"
     )
 
 
 def h1_closing(since: datetime.date, commits: int, days: int, ceilings: int) -> str:
     return (
-        f"{_ns()}: history since {since.isoformat()} — {commits} commit(s) of the first-parent line on"
-        f" {days} day(s), {ceilings} ceiling(s); a report, nothing judged"
+        f"{_ns()}: history since {since.isoformat()} — {commits} commit(s) of the first-parent line read,"
+        f" {days} day(s) with data, {ceilings} ceiling(s); a report, nothing judged"
     )
 
 
@@ -164,26 +168,26 @@ def h1_no_commit(since: datetime.date) -> str:
 # ---------------------------------------------------------------- the session-start line
 
 
-def s1_empty() -> str:
+def z1_empty() -> str:
     return f"{_ns()}: no document is measured — {_ns()}.ceilings is empty or absent in {DIALS_FILE}"
 
 
-def s1_no_dials(root: str) -> str:
+def z1_no_dials(root: str) -> str:
     return (
         f"{_ns()}: no {DIALS_FILE} in {root} — the length gate measures nothing there until the file"
         f" sets a ceiling in {_ns()}.ceilings"
     )
 
 
-def s1_no_repo(cwd: str) -> str:
+def z1_no_repo(cwd: str) -> str:
     return f"{_ns()}: {cwd} is not inside a git repository — the length gate measures nothing there"
 
 
-def s1_prefix() -> str:
+def z1_prefix() -> str:
     return _ns()
 
 
-def s1_could_not_run() -> str:
+def z1_could_not_run() -> str:
     return "BROKEN: the session-start line could not be printed — the gate's state is unknown"
 
 
@@ -273,8 +277,8 @@ def c5_duplicate_name(name: str) -> Broken:
 
 def c5_window(name: str, window_days: int, start: datetime.date, end: datetime.date) -> Broken:
     return _c5(
-        f"{_ns()}.ceilings '{name}' is at level error on a window of {window_days} day(s),"
-        f" {start.isoformat()} to {end.isoformat()}",
+        f"{_ns()}.ceilings '{one_line(shown(name))}' is at level error on a window whose span is"
+        f" {window_days} day(s), {start.isoformat()} to {end.isoformat()}",
         f"a ceiling blocks only on {WINDOW_DAYS} days of observed data or more: set its level to warning"
         f" until window.to is {WINDOW_DAYS} days or more after window.from — the report --scan --since"
         " <YYYY-MM-DD> prints the data of those days",
@@ -283,7 +287,8 @@ def c5_window(name: str, window_days: int, start: datetime.date, end: datetime.d
 
 def c5_overlap(first: str, second: str, rel: str) -> Broken:
     return _c5(
-        f"{_ns()}.ceilings '{first}' and '{second}' both hold {one_line(shown(rel))}",
+        f"{_ns()}.ceilings '{one_line(shown(first))}' and '{one_line(shown(second))}' both hold"
+        f" {one_line(shown(rel))}",
         "a document is held to one ceiling at most, so that its number never depends on the order of the"
         " list: narrow one entry's paths, or take the file out of one with a negated pattern; a document"
         " that must stand over its ceiling takes a departure",
@@ -299,7 +304,7 @@ def c5_departures() -> Broken:
 
 
 def c5_departure(index: int, detail: str, names: Sequence[str]) -> Broken:
-    known = ", ".join(names) if names else "none is set"
+    known = ", ".join(one_line(shown(name)) for name in names) if names else "none is set"
     return _c5(
         f"{_ns()}.departures entry {index}: {detail}",
         "write the entry as paths: [<patterns>], allow: [<ceiling names>], reason: <one line saying why"

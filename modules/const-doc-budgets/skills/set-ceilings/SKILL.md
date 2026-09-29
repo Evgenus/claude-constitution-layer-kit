@@ -16,13 +16,13 @@ A document that grows with every change costs every reader, and every session th
 ceiling says how long a group of documents may be, in characters, as the project's conventions
 count them — never tokens, never bytes, never lines. This procedure sets the number from what the
 group was observed to need, and turns a finding into a cut. It is judgment from start to finish,
-except the checks named in steps 2 and 4.
+except the checks named in steps 1 and 2.
 
 ## 1. A ceiling comes from data
 
 - **Group first.** A ceiling holds a group of documents named by path patterns: a kind of
   document — the path patterns of its policy, by a YAML alias where the dials file anchors
-  them — or any other group, such as the session guide or the skills. One document, one ceiling:
+  them — or any other group, such as the project's CLAUDE.md or its skills. One document, one ceiling:
   two entries that match one document are refused.
 - **Then the report.** Write the entry at `level: warning` with a generous number, then run the
   report over the history: `--scan --since <the first day of the window>`. It prints, per day,

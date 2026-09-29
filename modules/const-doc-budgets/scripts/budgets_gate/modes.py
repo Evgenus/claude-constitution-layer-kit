@@ -1,7 +1,8 @@
 """The two modes and the history report. Each wires the shared pipeline to this module's
 measurement and returns an exit code. No policy is resolved and no envelope is read: a document is
 held to the ceiling whose paths match it, among the Markdown files git lists, and its length is
-counted in characters. A document held by two ceilings is a configuration failure."""
+counted in characters. A document held by two ceilings is a configuration failure. The plugin wires
+the hook after the write; wired before it, the same finding would refuse the write."""
 
 from __future__ import annotations
 
@@ -21,9 +22,19 @@ from const_gate.territory import Matcher
 
 from . import dials as own_dials
 from . import history, messages
-from .model import BudgetDials, Ceiling, Level, characters
+from .model import Ceiling, Departure, Level, characters, longest
 
 SINCE = "--since"
+
+
+def judge(rel: str, length: int, ceiling: Ceiling) -> Finding | str | None:
+    """A measured document against its ceiling: nothing at or under it; over it, a finding at level
+    error and a note at level warning."""
+    if length <= ceiling.max:
+        return None
+    if ceiling.level is Level.WARNING:
+        return messages.n2_warning(rel, length, ceiling)
+    return messages.b1_over(rel, length, ceiling)
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
@@ -38,25 +49,22 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     rel = target.rel
     with Matcher() as matcher:
         holding = _holding(matcher, dials.ceilings, [rel])
-        lifted = _lifted(matcher, dials, [rel])
+        lifted = _lifted(matcher, dials.departures, [rel])
     ceiling = holding.get(rel)
     if ceiling is None:
         return pipeline.skip(output, messages.g1_skip_not_covered(rel))
     length = characters(target.text)
     lifting = lifted.get(rel, {}).get(ceiling.name)
     if lifting is not None:
-        return pipeline.green_hook(
-            output, messages.g1_lifted(length, ceiling, lifting), (), target.event_name
-        )
-    what = messages.g1_measured(length, ceiling)
-    if length <= ceiling.max:
+        what = messages.g1_lifted(length, ceiling, lifting)
         return pipeline.green_hook(output, what, (), target.event_name)
-    if ceiling.level is Level.WARNING:
-        return pipeline.green_hook(
-            output, what, [messages.n2_warning(rel, length, ceiling)], target.event_name
-        )
-    finding = messages.b1_over(rel, length, ceiling)
-    return pipeline.report_hook(output, [finding], (), rel, target.dials.severity, target.event_name)
+    verdict = judge(rel, length, ceiling)
+    what = messages.g1_measured(length, ceiling)
+    if verdict is None:
+        return pipeline.green_hook(output, what, (), target.event_name)
+    if isinstance(verdict, str):
+        return pipeline.green_hook(output, what, [verdict], target.event_name)
+    return pipeline.report_hook(output, [verdict], (), rel, target.dials.severity, target.event_name)
 
 
 def scan_mode(output: Output, start: Path) -> int:
@@ -75,13 +83,12 @@ def scan_with(output: Output, start: Path, values: cli.Values) -> int:
     paths = list_markdown(target.root)
     with Matcher() as matcher:
         holding = _holding(matcher, dials.ceilings, paths)
-        lifted = _lifted(matcher, dials, sorted(holding))
-        matched = [set(matcher.match(d.paths, sorted(holding))) for d in dials.departures]
-    notes = [
-        messages.n3_stale_departure(index, departure)
-        for index, (departure, files) in enumerate(zip(dials.departures, matched, strict=True), 1)
-        if not files
-    ]
+        lifted = _lifted(matcher, dials.departures, sorted(holding))
+        notes = [
+            messages.n3_stale_departure(index, departure)
+            for index, departure in enumerate(dials.departures, 1)
+            if not _lifts(matcher, departure, holding)
+        ]
     lengths: dict[str, int] = {}
     for rel in sorted(holding):
         text = read_text(target.root, rel)
@@ -93,15 +100,14 @@ def scan_with(output: Output, start: Path, values: cli.Values) -> int:
     for ceiling in dials.ceilings:
         held = [rel for rel in sorted(holding) if holding[rel] is ceiling]
         measured = [rel for rel in held if ceiling.name not in lifted.get(rel, {})]
-        longest = max(((rel, lengths[rel]) for rel in measured), key=lambda p: (p[1], p[0]), default=None)
-        notes.append(messages.n4_ceiling(ceiling, len(held), len(held) - len(measured), longest))
+        top = longest([(rel, lengths[rel]) for rel in measured])
+        notes.append(messages.n4_ceiling(ceiling, len(held), len(held) - len(measured), top))
         for rel in measured:
-            if lengths[rel] <= ceiling.max:
-                continue
-            if ceiling.level is Level.WARNING:
-                warnings.append(messages.n2_warning(rel, lengths[rel], ceiling))
-            else:
-                findings.append(messages.b1_over(rel, lengths[rel], ceiling))
+            verdict = judge(rel, lengths[rel], ceiling)
+            if isinstance(verdict, str):
+                warnings.append(verdict)
+            elif verdict is not None:
+                findings.append(verdict)
     tail = messages.f9_tail(len(holding), len(dials.ceilings), len(dials.departures), len(paths))
     return pipeline.report_scan(output, findings, [*notes, *warnings], tail)
 
@@ -123,14 +129,24 @@ def _holding(matcher: Matcher, ceilings: Sequence[Ceiling], rels: Sequence[str])
     return holding
 
 
-def _lifted(matcher: Matcher, dials: BudgetDials, rels: Sequence[str]) -> dict[str, dict[str, int]]:
+def _lifted(
+    matcher: Matcher, departures: Sequence[Departure], rels: Sequence[str]
+) -> dict[str, dict[str, int]]:
     """The ceilings each document's departures lift: {rel: {ceiling name: the first entry's number}}."""
     lifted: dict[str, dict[str, int]] = {}
-    for index, departure in enumerate(dials.departures, 1):
+    for index, departure in enumerate(departures, 1):
         for rel in matcher.match(departure.paths, rels):
             for name in departure.allow:
                 lifted.setdefault(rel, {}).setdefault(name, index)
     return lifted
+
+
+def _lifts(matcher: Matcher, departure: Departure, holding: dict[str, Ceiling]) -> bool:
+    """Whether an entry matches a document held by a ceiling it names: one that matches only
+    documents under other ceilings lifts nothing, and is as stale as one that matches none."""
+    return any(
+        holding[rel].name in departure.allow for rel in matcher.match(departure.paths, sorted(holding))
+    )
 
 
 def _day(value: str) -> datetime.date:
