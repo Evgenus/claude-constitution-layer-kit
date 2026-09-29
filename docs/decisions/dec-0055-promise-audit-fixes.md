@@ -44,19 +44,19 @@ The session recommended B: bare aspect handles were three in the kit, all in rec
 
 Each carries a clause a row states, or corrects a text the audit found wrong; none is a new rule.
 
-**R3.** F1, [requirement A4.3](../requirements.md#a4-3): an `inactive` record is kept while something should still reference it and deleted once nothing should, git history its archive, whether anything should being judgment — carried into rule T-b of module [`const-task-close`](../requirements.md#const-task-close) and its close skill, in the words of [kernel §1](../../kernel/CONVENTIONS.md#k1).
+**R3.** F1, [requirement A4.3](../requirements.md#a4-3): an `inactive` record is kept while something should still reference it and deleted once nothing should, git history its archive, whether anything should being judgment — carried into rule T-b of module [`const-task-close`](../requirements.md#const-task-close) and its close skill, after [kernel §1](../../kernel/CONVENTIONS.md#k1), its "should" read as judgment, as [rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7) reads it for the kit's own records.
 
 **R4.** F2, the rest of the same row: a code location by symbol, a commit hash and a bare `#n` stay advisory, with the reason now stated — a pattern cannot tell a symbol from a word, a hash from other hexadecimal text, or a bare `#n` from prose such as "record #1".
 
 **R5.** F3, [requirement A7.5](../requirements.md#a7-5): rule e of the rules text of module [`const-interaction`](../requirements.md#const-interaction) says a stable per-item handle, as the row does.
 
-**R6.** F4, [requirement A9.1](../requirements.md#a9-1): what module [`const-styling`](../requirements.md#const-styling) ships tells a project that each kind's policy binds its documents to the guide by a style rule, which the root policy asks every policy to carry.
+**R6.** F4, [requirement A9.1](../requirements.md#a9-1): what module [`const-styling`](../requirements.md#const-styling) ships tells a project that governs its documents by policies that its root policy asks every policy for a style rule, and that each kind's policy carries one, binding that kind's documents to the guide.
 
 **R7.** F5: the list-handles scan of module [`const-interaction`](../requirements.md#const-interaction), the gate of [requirement A7.5](../requirements.md#a7-5), is a line of the kit's gate list.
 
 **R8.** F6: the CI of rollout step 10 runs the scan of every module that ships one, not only the reference scan and the range check.
 
-**R9.** F7, [requirement A9.4](../requirements.md#a9-4): the row's text says that the checkable defaults about words graduate to Vale, and that the twelve markup signatures stay the styling scan's — the ruling of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md), section 7, carried into the row as a repair.
+**R9.** F7, [requirement A9.4](../requirements.md#a9-4): the row's text says that, once module [`const-language`](../requirements.md#const-language) is installed, a checkable default about words may graduate to a Vale rule, each at its first need, and that the markup signatures the styling scan detects stay the scan's — the ruling R10 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md), section 7; the row is amended under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), its rule having changed.
 
 **R10.** F9 and F10, two readings corrected: in module [`const-interaction`](../requirements.md#const-interaction) the daggers of [requirement A8.1](../requirements.md#a8-1) and [requirement A8.2](../requirements.md#a8-2) are still an open test, as its rows section says; in module [`const-task-close`](../requirements.md#const-task-close) the row's "blocking is a dial" is kept by a stronger hold, the scan exiting 2 on every finding, while the shared `severity` governs only the turn-end hook.
 
@@ -64,8 +64,8 @@ F11 needs no edit: module [`const-catalogs`](../requirements.md#const-catalogs) 
 
 ## Carry list
 
-1. R1 — history only: how this work is split, the second change's scope, and F8 moved to it.
-2. R2 — the reference bullet of [CLAUDE.md](../../CLAUDE.md#references); the enforcement cell of [requirement A5.6](../requirements.md#a5-6).
+1. R1 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the two kit checks and F8 settled in the grep's design; how this work is split is history.
+2. R2 — the reference bullet of [CLAUDE.md](../../CLAUDE.md#references).
 3. R3 — [module `const-task-close`](../../modules/const-task-close/MODULE.md#t5), rule T-b; [its close skill](../../modules/const-task-close/skills/close-task/SKILL.md), step 5.
 4. R4 — [module `const-referencing`](../../modules/const-referencing/MODULE.md#t3), its reading of the row.
 5. R5 — [the rules text](../../modules/const-interaction/scripts/rules.txt), rule e; [module `const-interaction`](../../modules/const-interaction/MODULE.md#t6), the size it states.

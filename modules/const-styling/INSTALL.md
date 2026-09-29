@@ -20,8 +20,8 @@ reported by the scan with the fix on its first line; nothing is silently skipped
    drawings for trivial cases only, pseudocode over formulas, prose against lists against tables,
    list format, table format, heading levels, code font and fence languages, emphasis, no
    callouts — each defined by examples. A project whose documents are governed by policies gives
-   the guide a policy of its own first, and binds each kind's documents to the guide by a style
-   rule in that kind's policy, which the root policy asks every policy to carry. Where module `const-locations` is installed and the
+   the guide a policy of its own first; its root policy asks every policy for a style rule, and
+   each kind's policy carries one, binding that kind's documents to the guide. Where module `const-locations` is installed and the
    guide's territory is a directory, name the shipped file as the template of that policy in
    `const-locations.templates` and create the guide through its command; a territory of one path
    is created by hand, once.
