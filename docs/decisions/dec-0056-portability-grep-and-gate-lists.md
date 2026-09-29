@@ -39,9 +39,9 @@ The session recommended A, and the decider chose A. A prototype of A then left 7
   - **Pros:** no row change.
   - **Cons:** the same noise, never red.
 
-The session recommended A, the only form the prototype showed could be a gate. **R1.** A refined, chosen by the decider in chat on 2026-09-30: the grep of [requirement A12.1](../requirements.md#a12-1) reads the installed components of a module — its skills, hooks, scripts, commands, agents, install note and manifest, never its document or its tests — and the shared gate code; a path under a home directory, `~/`, a link with the `file` scheme, or a relative path with a slash and a file extension or a glob that is no file of the plugin is a finding, outside a public URL and outside Markdown code. There is no exemption marker, and `constitution.yaml` is the one repository path a module may name. What it no longer sees — a hard-coded folder with neither extension nor glob, a system path — stays with the bare-repository run on defaults, the gate of record. The row is amended under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), its rule having changed.
+The session recommended A, the only form the prototype showed could be a gate. **R1.** A refined, chosen by the decider in chat on 2026-09-30: the grep of [requirement A12.1](../requirements.md#a12-1) reads the installed components of a module — its skills, hooks, scripts, commands, agents, install note and manifest, never its document or its tests — and the shared gate code it installs. There, a path under a home directory — `/Users/`, `/home/`, `$HOME`, a Windows user folder — `~/`, a link with the `file` scheme, or a relative path with a slash and a file extension or a glob, not opening with a wildcard, that is no file or directory of the plugin is a finding, outside a public URL and outside Markdown code; an interpreter line is read as any other. There is no exemption marker, and `constitution.yaml` is the one repository path a module may name. What the grep does not see — a folder named with neither an extension nor a glob, a system path — is held by review, and by the bare-repository run on defaults, the gate of record, only where the path acts on a bare repository. The row is amended under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), its rule having changed.
 
-The session's first script also skipped a file's interpreter line; a mutation probe showed that exception guarded nothing under these forms and would hide a home path written there, so the script reads the interpreter line as any other — one exception fewer than the pick named, the rule stricter.
+The session's first script also skipped a file's interpreter line; a mutation probe showed that exception guarded nothing under these forms and would hide a home path written there, so the script reads the interpreter line as any other — one exception fewer than the session's first script had, the rule stricter. The carry audit then widened the home forms to `$HOME` and a Windows user folder, which the row's "a path under a home directory" already meant, and found that a glob opening with a wildcard names every place and no particular one: the skill field `paths: "**/*.md"` is none.
 
 ## 2. Where the check learns a module's scans
 
@@ -73,6 +73,10 @@ The session recommended A. **R3.** A, chosen by the decider in chat on 2026-09-3
 
 **R4.** Both run in the kit's CI with the other kit checks once CI is wired.
 
+## 4. What this record narrows
+
+**R5.** R1 narrows the grep ruled in section 6 of [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md), its choice C: from every file of a module to the installed components; from any absolute path to a path under a home directory; from any relative path not written `${CLAUDE_PLUGIN_ROOT}`-relative to one with an extension or a glob that is no file or directory of the plugin; with Markdown code an example. The rest of that ruling stands — no exemption marker, `constitution.yaml` the one repository path, the grep a heuristic, the bare-repository run the gate of record. That record is not touched ([rule 13 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r13)). Its reasoning that such a run cannot catch a path which acts only where it exists holds: that path is review's.
+
 ## Applied
 
 The change adds the two scripts, the lines of the gate list and of the routine in `pyproject.toml`, amends the row of [requirement A12.1](../requirements.md#a12-1), names both in steps 5 and "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md), and marks the two checks done in step 10 of the rollout plan. In module [`const-referencing`](../requirements.md#const-referencing) the comment and regex of the lint's one-machine pattern are respelled so the module names no such path itself; the regex matches what it matched. The record is born `inactive`.
@@ -80,6 +84,7 @@ The change adds the two scripts, the lines of the gate list and of the routine i
 ## Carry list
 
 1. R1 — [requirement A12.1](../requirements.md#a12-1), its enforcement cell; [the script](../../scripts/check-portability.py), its docstring; step 5 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md).
-2. R2 — [the script](../../scripts/check-gate-lists.py), its docstring; the bullet "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md).
+2. R2 — [the script](../../scripts/check-gate-lists.py), its docstring; the bullet "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md); [template §9](../../module-template/MODULE.md#t9), the form of a declared scan.
 3. R3 — both scripts; the routine list of [pyproject.toml](../../pyproject.toml); [CLAUDE.md](../../CLAUDE.md), the two places above.
 4. R4 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the CI wiring.
+5. R5 — history only: the narrowing, stated where R1 is carried.

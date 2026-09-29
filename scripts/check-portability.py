@@ -9,18 +9,21 @@ and the shared gate code under `shared/const_gate/`, which every module installs
 `scripts/const_gate`. A symbolic link is read at its source, once.
 
 A finding is one of four forms, outside a public URL:
-  - a path under a home directory, `/Users/…` or `/home/…`;
+  - a path under a home directory, `/Users/…`, `/home/…`, `$HOME/…`, `${HOME}/…` or a Windows
+    user folder;
   - `~/`;
   - a `file:/` link;
-  - a relative path with a slash and a file extension or a glob, `docs/notes.md` or
-    `docs/**`, that is no file or directory of the plugin and is not `constitution.yaml`, the one
-    repository path a module may name.
+  - a relative path with a slash and a file extension or a glob, `docs/notes.md`, `docs/**` or
+    `docs/**/*.md`, that is no file or directory of the plugin. A glob that opens with a wildcard,
+    `**/*.md`, names every place and no particular one, so it is none. `constitution.yaml`, the one repository
+    path a module may name, has no slash and so is never one.
 Not read: in Markdown, fenced blocks and inline code, which show an example to adapt, not a
 location. There is no exemption marker; an interpreter line is read as any other, so
 `#!/usr/bin/env` passes and a home path there does not.
 
-A heuristic, as the row says: the bare-repository run on defaults stays the gate of record, and
-a hard-coded folder without an extension or a glob is not seen here.
+A heuristic, as the row says: the bare-repository run on defaults stays the gate of record. Not
+seen here, and held by review and by that run where it acts there: a folder named with neither
+an extension nor a glob, a system path such as `/srv/…`, a home directory of another name.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: each form red with its count typed
@@ -46,13 +49,16 @@ KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 INSTALLED = ("skills/", "hooks/", "scripts/", "commands/", "agents/", "INSTALL.md", ".claude-plugin/")
 SHARED = "shared/const_gate"
-ALLOWED = "constitution.yaml"
 
 URL = re.compile(r"https?://[^\s)>\"'`]+")
-HOME = re.compile(r"(?<![\w.$}~-])/(?:Users|home)/[^\s)>\"'`]*")
+HOME = re.compile(
+    r"(?<![\w.$}~-])/(?:Users|home)/[^\s)>\"'`]*"
+    r"|\$\{?HOME\}?/[^\s)>\"'`]*"
+    r"|\b[A-Za-z]:[\\/]Users[\\/][^\s)>\"'`]*"
+)
 TILDE = re.compile(r"~/")
 FILE_LINK = re.compile(r"\bfile:/")
-RELATIVE = re.compile(r"(?<![\w/.$}{~:-])((?:[\w.-]+/)+[\w.*-]*)")
+RELATIVE = re.compile(r"(?<![\w/.$}{~:*-])((?:[\w.-]+/)(?:[\w.*-]+/)*[\w.*-]*)")
 NAMES_A_FILE = re.compile(r"(\.[A-Za-z]{1,5}$|\*)")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 CODE_SPAN = re.compile(r"(`+)(?:(?!\1).)+?\1")
@@ -136,7 +142,7 @@ def examine(path: str, text: str, plugins: list[Path]) -> list[Finding]:
             findings.extend(Finding(path, number, kind, m[0][:60]) for m in pattern.finditer(line))
         for m in RELATIVE.finditer(line):
             candidate = m[1].rstrip(".")
-            if not NAMES_A_FILE.search(candidate) or candidate == ALLOWED:
+            if not NAMES_A_FILE.search(candidate):
                 continue
             plain = candidate.split("*")[0].rstrip("/")
             if plain and any((plugin / plain).exists() for plugin in plugins):
@@ -196,6 +202,13 @@ def self_test() -> int:
             1,
         ),
         "a tilde path in an install note": ("INSTALL.md", "Clone the kit.\n", "Clone into ~/kit.\n", 1),
+        "a home path through the variable": ("scripts/gate.sh", "cd docs\n", "cd $HOME/work/notes.md\n", 1),
+        "a braced home variable and a Windows user folder": (
+            "INSTALL.md",
+            "Install.\n",
+            "Copy ${HOME}/x/y.md or C:\\Users\\ann\\x.md there.\n",
+            2,
+        ),
         "a home path in an interpreter line": (
             "scripts/run.sh",
             "#!/usr/bin/env sh\n",
@@ -226,6 +239,8 @@ def self_test() -> int:
         "a public URL": ("INSTALL.md", "See https://example.org/~/docs/page.md for more.\n"),
         "a file of the plugin": ("INSTALL.md", "The skill is skills/s/SKILL.md.\n"),
         "the dials file": ("scripts/gate.py", "NAME = 'constitution.yaml'\n"),
+        "a folder of the plugin by its glob": ("INSTALL.md", "Every skills/**/SKILL.md file.\n"),
+        "a glob that opens with a wildcard, naming every place": ("skills/s/SKILL.md", 'paths: "**/*.md"\n'),
         "a path with no extension or glob": ("scripts/gate.py", "REF = 'refs/heads/main'\n"),
         "a plugin-root path": ("hooks/hooks.json", '{"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/x/y.sh"]}\n'),
     }

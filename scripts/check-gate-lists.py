@@ -85,7 +85,7 @@ def declared_scans(text: str) -> list[str]:
     lines = text.splitlines()
     start = next((i for i, line in enumerate(lines) if line.strip() == '<a id="t9"></a>'), None)
     if start is None:
-        return []
+        raise Broken("a module document has no enforcement section, anchor t9 — fix: restore the anchor")
     end = next(
         (i for i in range(start + 1, len(lines)) if lines[i].strip() == '<a id="t10"></a>'), len(lines)
     )
@@ -126,7 +126,11 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
         raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
     gates, ci = gate_list(root), ci_list(root)
     findings: list[Finding] = []
-    modules = sorted(d.name for d in base.iterdir() if (d / "MODULE.md").is_file())
+    directories = sorted(d for d in base.iterdir() if d.is_dir() and d.name.startswith("const-"))
+    for directory in directories:
+        if not (directory / "MODULE.md").is_file():
+            raise Broken(f"modules/{directory.name} has no MODULE.md — fix: restore the module document")
+    modules = [d.name for d in directories]
     scans = 0
     for module in modules:
         for entry in declared_scans(read(root, f"modules/{module}/MODULE.md")):
@@ -192,7 +196,9 @@ def self_test() -> int:
     def findings_of(gates: str, plan: str) -> list[Finding]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, gates, plan)
+            build(root, listed if gates == "NO-T9" else gates, plan)
+            if gates == "NO-T9":
+                (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
             return check_kit(root)[0]
 
     failed = 0
@@ -222,6 +228,7 @@ def self_test() -> int:
     for name, gates, plan, said in (
         ("a gate list without its heading", "1. x\n2. When the message asks: y\n", plan_in, "has no line"),
         ("a plan whose CI sentence moved", listed, '10. <a id="s10"></a>CI later.\n', "has no sentence"),
+        ("a module document without its anchor", "NO-T9", plan_in, "no enforcement section"),
     ):
         try:
             findings_of(gates, plan)
@@ -230,7 +237,7 @@ def self_test() -> int:
             ok = said in str(broken) and "fix:" in str(broken)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 4
+    total = len(cases) + 5
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
