@@ -152,6 +152,17 @@ def green_hook() -> str:
     return f"GREEN: {NAMESPACE}: 1 document examined, {messages.g1_covered()}"
 
 
+def context(result: Result) -> Result:
+    """A green hook run with notes answers with one JSON object: what it hands the model, as stdout;
+    any other run as it is. The object's shape is the shared item's to prove."""
+    try:
+        answer = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return result
+    said = answer.get("hookSpecificOutput", {}).get("additionalContext") if isinstance(answer, dict) else None
+    return Result(result.code, said, result.stderr) if isinstance(said, str) else result
+
+
 def all_of(*checks: tuple[bool, str]) -> tuple[bool, str]:
     failed = [evidence for ok, evidence in checks if not ok]
     return not failed, "; ".join(failed) if failed else "; ".join(evidence for _, evidence in checks)
@@ -338,8 +349,8 @@ def t5() -> tuple[bool, str]:
     inside, _ = gate_on(Write(DOC, "# T\n\nThis used car is fine.\n"))  # "is" inside "This": no passive
     return all_of(
         (found.render() == typed, "L5 typed whole equals the function's text"),
-        expect(result, 0, note, "stdout"),
-        expect(result, 0, green_hook(), "stdout"),
+        expect(context(result), 0, note, "stdout"),
+        expect(context(result), 0, green_hook(), "stdout"),
         (
             note == f"note: {DOC}:3: passive voice — 'was written' — reported, not red, while"
             " const-language.levels.passive is warning",
@@ -442,8 +453,8 @@ def t9() -> tuple[bool, str]:
     warned, _ = gate_on(Write(DOC, GRADE_RED), own(levels={"grade": "warning"}))
     all_off = own(levels={r.value: "off" for r in Rule})
     return all_of(
-        expect(warned, 0, messages.n2_warning(DOC, Rule.GRADE, found), "stdout"),
-        expect(warned, 0, green_hook(), "stdout"),
+        expect(context(warned), 0, messages.n2_warning(DOC, Rule.GRADE, found), "stdout"),
+        expect(context(warned), 0, green_hook(), "stdout"),
         broken(gate_on(Write(DOC, PLAIN), all_off)[0], messages.c5_all_off()),
         broken(
             gate_on(Write(DOC, PLAIN), own(levels={"tone": "error"}))[0],
@@ -1131,6 +1142,9 @@ SUBJECT = Subject(
     outside=messages.g1_skip_not_covered("docs/notes/bad.md"),
     hook_lists_files=False,  # the hook matches the written file by pattern and never lists the tree
     long_value=None,  # L3's echo is the phrase and not the sentence: the cut is proven by item 14
+    noted=Write(DOC, PASSIVE),
+    note=f"note: {DOC}:3: passive voice — 'was written' — reported, not red, while"
+    " const-language.levels.passive is warning",
 )
 
 

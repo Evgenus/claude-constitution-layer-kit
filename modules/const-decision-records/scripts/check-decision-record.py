@@ -23,7 +23,9 @@ Exit:     0 green, or nothing to examine (the count line says which);
           1 configuration failure — the checker could not run. Never a silent pass.
 Output:   hook, block: findings, with any notes above them, on stderr; hook, warn: one JSON
           object on stdout and nothing else, the notes inside it; scan: everything on stdout.
-          Green and skip lines, and the notes above them, on stdout. Configuration failures
+          Green and skip lines on stdout: in hook mode with notes, one JSON object and nothing
+          else, the notes and the line in its additionalContext; otherwise the notes above the
+          line, plain. Configuration failures
           (BROKEN) on stderr in both modes. Every print is also appended, as one record, to
           the output log — under log_dir when set, else under the directory the platform
           names in the environment variable CLAUDE_PLUGIN_DATA, else nowhere.

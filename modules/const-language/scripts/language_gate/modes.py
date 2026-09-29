@@ -54,7 +54,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         return pipeline.skip(output, messages.g1_skip_not_covered(rel))
     verdict = examine({rel: target.text}, dials, allowed)
     if not verdict.findings:
-        return pipeline.green_hook(output, messages.g1_covered(), verdict.notes)
+        return pipeline.green_hook(output, messages.g1_covered(), verdict.notes, target.event_name)
     shown = _within_the_cap(verdict.findings)
     count = (
         messages.f9_cut(len(verdict.findings), len(shown), rel)

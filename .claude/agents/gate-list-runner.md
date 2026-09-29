@@ -28,13 +28,14 @@ The list, in this order:
 6. `sh modules/const-styling/scripts/check-style.sh --scan`
 7. `sh modules/const-language/scripts/check-language.sh --scan` — needs `vale` 3.23.0 or newer on
    PATH; a `BROKEN` line naming it is reported as such, never skipped
-8. `python3 scripts/check-carry-lists.py`
-9. `python3 scripts/check-shared-links.py`
-10. `python3 scripts/check-yaml-style.py` — never with `--fix`
-11. `python3 scripts/check-module-links.py`
-12. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
+8. `sh modules/const-doc-budgets/scripts/check-budgets.sh --scan`
+9. `python3 scripts/check-carry-lists.py`
+10. `python3 scripts/check-shared-links.py`
+11. `python3 scripts/check-yaml-style.py` — never with `--fix`
+12. `python3 scripts/check-module-links.py`
+13. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
    trunk, or when the message names a landed merge, `--scan --change <merge>`
-13. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
+14. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
     `python3 scripts/check-carry-lists.py --self-test`, `python3 scripts/check-yaml-style.py --self-test`,
     `python3 scripts/check-module-links.py --self-test`;
     `python3 modules/<module>/tests/run.py` for the module named (it writes temporary

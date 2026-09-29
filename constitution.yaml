@@ -28,11 +28,11 @@ plc-0001-root-policy:                 # the policy for policies; its territory i
     - "docs/policies/**"
 
 plc-0002-kernel:                      # one policy per document kind (decision dec-0011-one-policy-per-kind)
-  territory:
+  territory: &kernel   # anchored: a ceiling of the length gate below holds exactly this territory
     - "kernel/**"
 
 plc-0003-intent-page:
-  territory:   # leading slash: a slash-less gitignore pattern matches at any depth
+  territory: &intent   # leading slash: a slash-less gitignore pattern matches at any depth
     - "/INTENT.md"
 
 plc-0004-decision-records:
@@ -44,19 +44,19 @@ plc-0005-research:
     - "docs/research/**"
 
 plc-0006-module-documents:
-  territory:
+  territory: &module_documents   # anchored: a ceiling of the length gate below holds exactly this territory
     - "modules/*/MODULE.md"
 
 plc-0007-requirements:
-  territory:
+  territory: &requirements   # anchored: a ceiling of the length gate below holds exactly this territory
     - "docs/requirements.md"
 
 plc-0008-rollout-plan:
-  territory:
+  territory: &rollout   # anchored: a ceiling of the length gate below holds exactly this territory
     - "docs/rollout-plan.md"
 
 plc-0009-shared-code:
-  territory:
+  territory: &shared_code   # anchored: a ceiling of the length gate below holds exactly this territory
     - "shared/GATE.md"
 
 plc-0010-style-guide:                 # the kind of one document, like the intent page (decision dec-0044-styling-module-rulings)
@@ -65,9 +65,10 @@ plc-0010-style-guide:                 # the kind of one document, like the inten
 
 # --- module namespaces (kernel §6): a module reads only its own -------------------
 # Two dials are every gate's, read by the shared code (shared/GATE.md):
-#   severity  values: block | warn — block: a finding exits 2 and the write is blocked;
-#                            warn: reported, the write proceeds (the adoption path).
-#                            The --scan mode ignores it and always blocks.
+#   severity  values: block | warn — block: a finding blocks in the way the gate's module chose —
+#                            a write refused, a finding beside the tool result, a turn held, a prompt
+#                            or a refused shell call; warn: reported, the act proceeds (the adoption path).
+#                            The --scan mode ignores it and always reports.
 #   log_dir   a repository-relative, git-ignored directory for the output log;
 #             absent: the platform's per-plugin data directory, or nowhere in CI.
 
@@ -230,6 +231,14 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-language/tests/**"
       docs:
         - "modules/const-language/MODULE.md"
+    - name: const-doc-budgets
+      code:
+        - "modules/const-doc-budgets/scripts/**"
+        - "modules/const-doc-budgets/hooks/**"
+        - "modules/const-doc-budgets/skills/**"
+        - "modules/const-doc-budgets/tests/**"
+      docs:
+        - "modules/const-doc-budgets/MODULE.md"
     - name: kit-scripts   # the git hooks, the clone setup, the kit gates and the development routine
       code:
         - "scripts/**"
@@ -317,6 +326,146 @@ const-language:                       # the prose of covered documents: a grade 
       allow:
         - sentence
       reason: a list framed by a pair of dashes, or a carry-list entry of homes, which no wording edit splits without changing its meaning
+
+const-doc-budgets:                    # a character ceiling per group of documents, measured after the fact (MODULE.md §7)
+  severity: block                     # values: block | warn — block: a finding reaches the model as a block after the write; warn: as context
+  log_dir: local/gate-logs
+  ceilings:                           # set 2026-09-29 by the report --scan --since 2026-09-14: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
+    - name: records   # the accepted records among them frozen: wording edits only (plc-0004 rule 14)
+      paths: *decisions
+      max: 34000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: comparisons   # the frozen ones among them take wording edits only (plc-0005 rule 7)
+      paths: *research
+      max: 79000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: policies
+      paths: *policies
+      max: 22000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: module-documents
+      paths: *module_documents
+      max: 66000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: kernel
+      paths: *kernel
+      max: 14000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: intent
+      paths: *intent
+      max: 8000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: requirements
+      paths: *requirements
+      max: 46000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: rollout-plan
+      paths: *rollout
+      max: 48000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: shared-code
+      paths: *shared_code
+      max: 49000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: style-guide
+      paths: *style
+      max: 11000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: guide   # loaded into every session
+      paths:
+        - "/CLAUDE.md"
+      max: 24000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: readme
+      paths:
+        - "/README.md"
+      max: 11000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: module-skills   # every file of a module's skills, SKILL.md and the files beside it
+      paths:
+        - "modules/*/skills/**/*.md"
+      max: 11000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: install-notes
+      paths:
+        - "modules/*/INSTALL.md"
+      max: 9000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: kit-agents
+      paths:
+        - "/.claude/agents/*.md"
+      max: 4000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: kit-skills
+      paths:
+        - "/.claude/skills/**/*.md"
+      max: 14000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: templates
+      paths:
+        - "/templates/**"
+      max: 4000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+    - name: module-template
+      paths:
+        - "/module-template/**"
+      max: 23000
+      level: warning
+      window:
+        from: 2026-09-14
+        to: 2026-09-29
+  departures: []                      # none: every ceiling sits above the frozen documents it holds
 
 const-locations:                      # creates documents; blocks nothing, so no severity (MODULE.md §7)
   log_dir: local/gate-logs

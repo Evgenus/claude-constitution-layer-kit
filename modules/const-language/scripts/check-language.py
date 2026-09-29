@@ -23,10 +23,12 @@ Exit:     0 green, or nothing to examine (the count line says which);
             name at level error, or a Vale comment outside a fence or a code span;
           1 configuration failure — the checker could not run: a missing or old vale among them.
           Never a silent pass.
-Output:   stdout for green and notes; a block verdict on stderr; warn as one JSON object on
-          stdout; configuration failures (BROKEN) on stderr. Every print is also appended, as one
-          record, to the output log — under log_dir when set, else under the directory the platform
-          names in the environment variable CLAUDE_PLUGIN_DATA, else nowhere.
+Output:   stdout for green and notes — after a write with notes, one JSON object and nothing
+          else, the notes and the green line in its additionalContext; a block verdict on stderr;
+          warn as one JSON object on stdout; configuration failures (BROKEN) on stderr. Every print
+          is also appended, as one record, to the output log — under log_dir when set, else under
+          the directory the platform names in the environment variable CLAUDE_PLUGIN_DATA, else
+          nowhere.
 
 This file stays parseable by any Python 3 so that an interpreter below the floor gets the
 teaching message rather than a syntax error; the code lives in the package beside it.

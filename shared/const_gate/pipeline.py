@@ -119,11 +119,16 @@ def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
     return ScanTarget(root, dials)
 
 
-def skip(output: Output, reason: str, notes: Sequence[str] = ()) -> int:
-    for note in notes:
-        output.out(note)
-    output.out(messages.g1_green_skip(reason))
-    return EXIT_GREEN
+def skip(output: Output, reason: str, notes: Sequence[str] = (), event_name: str | None = None) -> int:
+    """`event_name`: the write event a hook run answers, so that its notes reach the model as
+    `green_hook`'s do; None for a scan, whose stdout is its reader's."""
+    line = messages.g1_green_skip(reason)
+    if event_name is None:
+        for note in notes:
+            output.out(note)
+        output.out(line)
+        return EXIT_GREEN
+    return _green_write(output, notes, line, event_name)
 
 
 def no_root_policy(output: Output) -> int:
@@ -131,12 +136,25 @@ def no_root_policy(output: Output) -> int:
     return skip(output, messages.g1_skip_no_root())
 
 
-def green_hook(output: Output, what: str, notes: Sequence[str] = ()) -> int:
+def green_hook(output: Output, what: str, notes: Sequence[str] = (), event_name: str = PRE_WRITE) -> int:
     """`what` says what the examined document is: `messages.governed_by(policy)`, or the module's
-    own words where no policy is involved."""
-    for note in notes:
-        output.out(note)
-    output.out(messages.g1_green_hook(what))
+    own words where no policy is involved. `event_name`: the write event the run answers, which a
+    run with notes must repeat."""
+    return _green_write(output, notes, messages.g1_green_hook(what), event_name)
+
+
+def _green_write(output: Output, notes: Sequence[str], line: str, event_name: str) -> int:
+    """The green of a hook run on a write event. Without notes: the line alone, plain. With notes:
+    exit 0 with one JSON object on stdout and nothing else, the notes and the line in
+    additionalContext — the platform writes a write event's plain stdout to its debug log, where
+    the model never reads it, and passes additionalContext on."""
+    if not notes:
+        output.out(line)
+        return EXIT_GREEN
+    context = "\n".join([*notes, line])
+    output.out(
+        json.dumps({"hookSpecificOutput": {"hookEventName": event_name, "additionalContext": context}})
+    )
     return EXIT_GREEN
 
 
