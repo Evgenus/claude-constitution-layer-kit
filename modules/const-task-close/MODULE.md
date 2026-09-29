@@ -42,6 +42,7 @@ A change lands in the code and the page that describes the code stays as it was.
 5. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) and [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md) — the gate-script rules and the linked shared code; this module is its sixth consumer, the first wired to an event that names no file.
 6. [dec-0006-accumulating-set-first](../../docs/decisions/dec-0006-accumulating-set-first.md) — the kit as consumer zero; the reorder that brings this module here is R6 of [dec-0036-task-close-module-rulings](../../docs/decisions/dec-0036-task-close-module-rulings.md).
 7. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
+8. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 
 <a id="t5"></a>
 ## 5. Invariant
@@ -193,7 +194,7 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12 and the declared library)
 | L1 | live | **done 2026-09-23, in this repository, Claude Code 2.1.251:** the kit's own map declared in its `constitution.yaml`, nine pairs; `--change` of the locations merge green — code and document in one range; `--change` of the tooling merge red with three findings, the one landed change the research found undocumented; this module's own branch red while the shared page's update was uncommitted and green once it landed — the check comparing commits, as ruled |
 | L2 | live | **done 2026-09-23, headless, Claude Code 2.1.251,** the plugin loaded with `--plugin-dir` in a scratch repository, three sessions: under `block` the hook fired at the turn's end with T1, the model read it as `Stop hook feedback`, committed, and the second firing found the tree clean — four turns; under `warn` the user's notice carried the whole finding as `Stop says` lines, the model saw nothing, the tree stayed dirty and the turn ended in two; a clean tree was silent |
 | L3 | review | the designed texts of [§6](#t6), the skills, the install note, at the one yes |
-| L4 | live, deferred | **the consumer-live proof**, [step 5 of the rollout plan](../../docs/rollout-plan.md#s5) and the second stage of step 5 of [CLAUDE.md](../../CLAUDE.md): a named step of the consumer's bootstrap, since no consumer exists at authoring; a finding there is a fix with a version bump |
+| L4 | live, deferred | **the consumer-live proof**, [step 5 of the rollout plan](../../docs/rollout-plan.md#s5) and the second stage of step 5 of [CLAUDE.md](../../CLAUDE.md): a named step of the consumer's bootstrap, since no consumer exists at authoring; a finding there is a fix, with a version bump once the module is published |
 
 **Examined count.** F9 in every green and red line; zero is said as zero.
 
