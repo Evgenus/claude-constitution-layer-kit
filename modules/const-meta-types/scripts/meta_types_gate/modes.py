@@ -54,10 +54,10 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
             if claiming
             else messages.g1_skip_outside_territory(rel)
         )
-        return pipeline.skip(output, reason, index.notes)
+        return pipeline.skip(output, reason, index.notes, target.event_name)
     if examination.findings:
         return pipeline.report_hook(output, examination.findings, index.notes, rel, dials.severity)
-    return pipeline.green_hook(output, governed_by(examination.policy or ""), index.notes)
+    return pipeline.green_hook(output, governed_by(examination.policy or ""), index.notes, target.event_name)
 
 
 def scan_mode(output: Output, start: Path) -> int:

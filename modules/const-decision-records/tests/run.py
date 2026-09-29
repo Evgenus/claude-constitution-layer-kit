@@ -325,8 +325,10 @@ def record_policy_claims_nothing() -> tuple[bool, str]:
     to write, never a failure, and nothing examined."""
     result, _ = gate_on(VALID, dials_patch={RECORDS_POLICY: {"territory": []}})
     note = messages.n3_note_record_policy_claims_nothing(RECORDS_POLICY, POLICY_DOCUMENT.target)
-    ok, evidence = expect(result, 0, note, "stdout")
-    return ok and "0 documents examined" in result.stdout, evidence
+    answer = json.loads(result.stdout)  # a hook run with notes hands them to the model as one JSON object
+    said = Result(result.code, answer["hookSpecificOutput"]["additionalContext"], result.stderr)
+    ok, evidence = expect(said, 0, note, "stdout")
+    return ok and "0 documents examined" in said.stdout, evidence
 
 
 def a_misspelt_dial() -> tuple[bool, str]:

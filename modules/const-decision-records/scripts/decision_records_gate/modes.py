@@ -39,10 +39,12 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         examination = examine(index, own.record_policies, rel, target.text)
     notes = _notes(index, own)
     if examination.outside:
-        return pipeline.skip(output, messages.g1_skip_not_a_record(rel, own.record_policies), notes)
+        return pipeline.skip(
+            output, messages.g1_skip_not_a_record(rel, own.record_policies), notes, target.event_name
+        )
     if examination.findings:
         return pipeline.report_hook(output, examination.findings, notes, rel, target.dials.severity)
-    return pipeline.green_hook(output, governed_by(examination.policy or ""), notes)
+    return pipeline.green_hook(output, governed_by(examination.policy or ""), notes, target.event_name)
 
 
 def scan_mode(output: Output, start: Path) -> int:

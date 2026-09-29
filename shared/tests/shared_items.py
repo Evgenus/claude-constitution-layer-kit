@@ -108,6 +108,9 @@ class Subject:
     hook_lists_files: bool = True  # False: the gate's hook mode never asks git for the file list — it
     # matches the written file against its territories by pattern alone — so the item about git failing
     # to list the files runs the scan on the prepared consumer, where the gate does ask
+    noted: Write | None = None  # a write the gate passes with one note; None leaves the item about notes
+    # reaching the model out
+    note: str = ""  # the note `noted` earns, typed by hand
     scan_only: bool = False  # True: the gate has no hook mode — it scans a tree and judges no single
     # write, and run as a hook it is its own configuration failure — so the items about hook input,
     # a written file, the warn channel and a negated pattern's skip are not its own and are left out;
@@ -439,7 +442,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def policy_without_id_note() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, files={"docs/policies/zz-no-id.md": NO_ENVELOPE})
-        return expect(result, 0, messages.n1_note_policy_without_id("docs/policies/zz-no-id.md"), "stdout")
+        said = Result(result.code, green_said(result), result.stderr)
+        return expect(said, 0, messages.n1_note_policy_without_id("docs/policies/zz-no-id.md"), "stdout")
 
     def edit_empty_old_string() -> tuple[bool, str]:
         """An empty old_string on a file that exists matches everywhere: the tool refuses it."""
@@ -453,6 +457,53 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         result, _ = s.gate_on(action, files={s.valid.target: s.valid.text})
         skip = messages.g1_green_skip(messages.g1_skip_edit_unappliable(s.valid.target))
         return expect(result, 0, skip, "stdout")
+
+    def green_said(result: Result) -> str:
+        """What a green run said: the additionalContext of the one JSON object a hook run with notes
+        prints, or stdout as it is — a run without notes, a scan, a generator."""
+        try:
+            answer = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return result.stdout
+        context = (
+            answer.get("hookSpecificOutput", {}).get("additionalContext")
+            if isinstance(answer, dict)
+            else None
+        )
+        return context if isinstance(context, str) else result.stdout
+
+    def notes_reach_the_model() -> tuple[bool, str]:
+        """A green hook run with notes answers with one JSON object, the notes and the green line in
+        additionalContext: the platform writes a write event's plain stdout to its debug log, where the
+        model never reads it. A green run without notes prints its green line alone, as before."""
+        if s.noted is None:  # the item is left out then; a direct call must not pass vacuously
+            return False, "Subject.noted not given"
+        result, _ = s.gate_on(s.noted)
+        try:
+            answer = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return False, f"exit {result.code}; stdout is not one JSON object: {result.stdout.strip()[:400]}"
+        output = answer.get("hookSpecificOutput") if isinstance(answer, dict) else None
+        lines = str(output.get("additionalContext", "")).split("\n") if isinstance(output, dict) else []
+        plain, _ = s.gate_on(s.valid)
+        ok = (
+            result.code == 0
+            and isinstance(output, dict)
+            and set(answer) == {"hookSpecificOutput"}
+            and set(output) == {"hookEventName", "additionalContext"}
+            and output["hookEventName"] == s.event
+            and s.note in lines
+            and lines[-1].startswith(f"GREEN: {ns}: ")
+            and not any(line.startswith("RED") for line in lines)
+            and not result.stderr
+            and plain.code == 0
+            and plain.stdout.startswith(f"GREEN: {ns}: ")
+        )
+        return ok, (
+            "exit 0; the note and the green line in additionalContext, one JSON object; no note, a plain line"
+            if ok
+            else f"exit {result.code}: {result.stdout.strip()[:400]} / no notes: {plain.stdout.strip()[:200]}"
+        )
 
     # ---------------------------------------------------------------- the warn channel
 
@@ -837,6 +888,10 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             " policy with no id",
             policy_unreadable,
         ),
+        (
+            "a green hook run with notes hands them to the model as JSON, one without notes stays plain",
+            notes_reach_the_model,
+        ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
     # that resolves no policy leaves gaps where the items about policies stand.
@@ -913,4 +968,5 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         and (not no_file or check not in about_listing)
         and (not s.scan_only or check not in about_hooks)
         and (s.long_value is not None or check is not long_value_is_cut)
+        and (s.noted is not None or check is not notes_reach_the_model)
     ]
