@@ -22,7 +22,7 @@ reported by the scan with the fix on its first line; nothing is silently skipped
    callouts — each defined by examples. A project whose documents are governed by policies gives
    the guide a policy of its own first; its root policy asks every policy for a style rule, and
    each kind's policy carries one, binding that kind's documents to the guide. Where module `const-locations` is installed and the
-   guide's territory is a directory, name the shipped file as the template of that policy in
+   guide's territory is a directory, name the shipped file as the template of the guide's policy in
    `const-locations.templates` and create the guide through its command; a territory of one path
    is created by hand, once.
 3. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this

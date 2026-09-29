@@ -2,7 +2,7 @@
 name: gate-list-runner
 description: >
   Runs the kit's gate list from the kit root — the scans of the document modules, the
-  open-question scan, the language scan, the list-handles scan, the carry-lists, shared-links, YAML-style, module-links and aspects checks, the range check of
+  open-question, style, language, budget and list-handles scans, the carry-lists, shared-links, YAML-style, module-links and aspects checks, the range check of
   the task-close module, and on request a module's fixture runner and the lint and type
   commands — and returns one verdict line per gate with every red, broken and note line
   verbatim. Use before a commit that touches a document, before a merge, and after a merge on

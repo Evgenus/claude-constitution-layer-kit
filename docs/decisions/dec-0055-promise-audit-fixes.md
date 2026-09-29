@@ -50,7 +50,7 @@ Each carries a clause a row states, or corrects a text the audit found wrong; no
 
 **R5.** F3, [requirement A7.5](../requirements.md#a7-5): rule e of the rules text of module [`const-interaction`](../requirements.md#const-interaction) says a stable per-item handle, as the row does.
 
-**R6.** F4, [requirement A9.1](../requirements.md#a9-1): what module [`const-styling`](../requirements.md#const-styling) ships tells a project that governs its documents by policies that its root policy asks every policy for a style rule, and that each kind's policy carries one, binding that kind's documents to the guide.
+**R6.** F4, [requirement A9.1](../requirements.md#a9-1): what module [`const-styling`](../requirements.md#const-styling) ships tells a project that governs its documents by policies to have its root policy ask every policy for a style rule, and each kind's policy carry one, binding that kind's documents to the guide.
 
 **R7.** F5: the list-handles scan of module [`const-interaction`](../requirements.md#const-interaction), the gate of [requirement A7.5](../requirements.md#a7-5), is a line of the kit's gate list.
 
