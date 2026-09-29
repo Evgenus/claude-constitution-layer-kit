@@ -69,9 +69,21 @@ The shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) run thro
   - **Pros:** the simplest script.
   - **Cons:** a red shared item is seen only in a separate run.
 
-The session recommended B. **R4.** A, chosen by the decider in chat on 2026-09-29, against the session's recommendation: the line of the shared items carries every row that a fixture item of the module, run through the same entry point — the script its hook or its scan calls — names, and no other row. The session's concern stands: a red shared item turns every such row red, and only the item tells whether the row's own rule failed.
+The session recommended B. **R4.** A, chosen by the decider in chat on 2026-09-29, against the session's recommendation, its wording corrected by the decider's second pick in chat on 2026-09-30, below: the line of the shared items carries every row that a fixture item of the module, run through the same entry point — the script its hook or its scan calls — names, and no other row. The session's concern stands: a red shared item turns every such row red, and only the item tells whether the row's own rule failed.
 
-The carry audit found the first wording, "the rows of the gate whose entry point runs them", read two ways: one module gave its line only the rows of gate class, another its dial and definitional rows too, and two left out the rows of a scan that the same script runs. The session put the reading to the decider: A, every row a fixture item run through the same entry point names; B, only those of gate or gate-lite class; C, only the hook's rows. The session recommended A, and the decider chose A in chat on 2026-09-30; R4 is corrected in place to it, before the yes.
+The carry audit found the first wording, "the rows of the gate whose entry point runs them", read two ways: one module gave its line only the rows of gate class, another its dial and definitional rows too, and two left out the rows of a scan that the same script runs. The session put the reading to the decider:
+
+- **A. Every row a fixture item of the module, run through the same entry point, names.**
+  - **Pros:** a rule anyone can check against the runner; a fail-open script stops holding everything it holds, and the line says so.
+  - **Cons:** longer lines, so one red shared item turns more rows red.
+- **B. Only those of them whose matrix class is gate or gate-lite.**
+  - **Pros:** a red shared item touches only the rows that are gates.
+  - **Cons:** the class is read from prose again, and a dial row the same script validates stays green when the script fails open.
+- **C. Only the hook's rows.**
+  - **Pros:** no table change for most modules.
+  - **Cons:** the shared items run the scan too, so the line claims less than they prove.
+
+The session recommended A, the one reading that needs no judgment. The decider chose A in chat on 2026-09-30, and R4 above is corrected in place to it, before the yes.
 
 ## 5. An item that proves no row
 
@@ -126,7 +138,7 @@ The session first proposed `scripts/check-rows.py`, a plain run the gate and `--
 
 These follow the plan the decider saw, and stay open to override.
 
-**R10.** The report gives each row its destination from the matrix, the modules that hold a part of it with their manifest versions, its items with their kind and result, and one verdict. A row is `red` when an item of it is red. It is `green` when at least one of its items was run and every item run was green, the items no run examines listed beside. A row whose items are none of them run takes their kinds: `live, done <date>`, `live, deferred`, `review`, `kit check`. A row no module holds shows its destination and its enforcement cell as the matrix states them — definitional, config, review, a kit CI not yet built — and is never green.
+**R10.** The report gives each row its destination from the matrix, the modules that hold a part of it with their manifest versions, its items with their kind and result, and one verdict. A row is `red` when an item of it is red. It is `green` when at least one of its items was run and every item run was green, the items no run examines listed beside. A row whose items are none of them run takes their kinds: `live, done <date>`, `live, deferred`, `review`, `kit check`, or `fixture, not read` for a fixture item the runner did not print. A row a module holds and no item names is `no item`; a row no module holds is counted as `no module`. A row no module holds shows its destination and its enforcement cell as the matrix states them — definitional, config, review, a kit CI not yet built — and is never green.
 
 **R11.** An item names a row only where it proves what the module's reading of that row in [template §3](../../module-template/MODULE.md#t3) says the module ships — a gate, a carrier, an assist. The judgment of an advisory row is proved by its boundary examples at the review item, never by a fixture, so a fixture green on an advisory row proves its carrier alone.
 

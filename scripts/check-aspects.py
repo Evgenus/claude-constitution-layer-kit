@@ -504,7 +504,7 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
 def advisory_only(enforcement: str) -> bool:
     """An advisory row, as the matrix classes it: the cell opens with `advisory` and names no gate."""
     text = enforcement.lower()  # a word, so that "ungateable" is no gate and "gate-lite" is one
-    return text.startswith("advisory") and not re.search(r"\bgates?\b", text)
+    return re.match(r"advisory\b", text) is not None and not re.search(r"\bgates?\b", text)
 
 
 def verdict(items: list[Item], advisory: bool = False) -> str:
@@ -799,15 +799,10 @@ def self_test() -> int:
             "names runner item 3, which the runner did not print",
         ),
         "an item not read on a row": (
-            [
-                GREEN_RUN[0],
-                GREEN_RUN[1],
-                *GREEN_RUN[3:5],
-                "3/3 acceptance items green — 1 red→green cases, 2 assertions examined",
-            ],
+            [GREEN_RUN[3], "1/1 acceptance items green — 0 red→green cases, 1 assertions examined"],
             0,
             EXIT_RED,
-            "      const-sample T1–T2: fixture — not read",
+            "  A1.1  fixture, not read + review — M1 hook — const-sample 0.0.1",
         ),
         "a runner item no table names": (
             [
@@ -836,6 +831,7 @@ def self_test() -> int:
         ok
         and not advisory_only("advisory; optional gate-lite: a script")
         and advisory_only("advisory — honestly ungateable")
+        and not advisory_only("advisoryish — a word of its own")
         and not advisory_only("advisory procedure — caught by A1.4 gates")
     )
     failed += 0 if ok else 1
