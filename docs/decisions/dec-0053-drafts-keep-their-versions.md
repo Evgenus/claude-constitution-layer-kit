@@ -11,9 +11,9 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The carry audit of [dec-0052-doc-budgets-module-rulings](dec-0052-doc-budgets-module-rulings.md) found three texts that disagreed on versions. Step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md) and rule 7 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7) said a fix in shared code bumps the version of every module that links it, with no condition; step 7 said "Version bump on every change once published". Three changes to the shared code had bumped nothing, every module being a draft at `0.0.x`. The audit justified the tension and left it to the decider, who asked for it as a decision on 2026-09-29. The two questions below were put in chat, one per message, each with lettered options; the pick was the letter.
+The carry audit of [dec-0052-doc-budgets-module-rulings](dec-0052-doc-budgets-module-rulings.md) found three texts that disagreed on versions. Step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md) said "a fix in shared code bumps the version of every module that links it", and rule 7 of [plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7) said a change to the shared code bumps the version of every module that links the code, neither with a condition; step 7 said "Version bump on every change once published". Three changes to the shared code had bumped nothing, every module being a draft at `0.0.x`. The audit justified the tension and left it to the decider, who asked for it as a decision on 2026-09-29. The two questions below were put in chat, one per message, each with lettered options; the pick was the letter.
 
-## 1. When a change to the shared code bumps a module's version
+## 1. When a fix to shared code bumps a module's version
 
 - **A. Drafts are exempt: the bump applies once a module is published.**
   - **Pros:** it matches what the kit did three times; a draft has no consumer who installs by version; the texts then agree.
@@ -42,7 +42,7 @@ The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-2
 
 ## 3. What this record narrows
 
-**R3.** R1 narrows the unconditional bump of R5 and R34 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md), carried into rule 3 of plc-0002 and rule 7 of plc-0009. R2 narrows the clause "a finding there is a fix with a version bump" of section 3 of [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) and the same clause as R4 of [dec-0035-locations-module-rulings](dec-0035-locations-module-rulings.md), R6 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md), R1 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md), R1 of [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md) and R2 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md). Each such bump now applies once the module is published; the rest of those rulings stands.
+**R3.** R1 narrows the unconditional bump of R5 and R34 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md), carried into [rule 3 of plc-0002-kernel](../policies/plc-0002-kernel.md#r3) and [rule 7 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7). R2 narrows the clause "a finding there is a fix with a version bump" of section 3 of [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) and the same clause as R4 of [dec-0035-locations-module-rulings](dec-0035-locations-module-rulings.md), R6 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md), R1 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md), R1 of [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md) and R2 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md). Each such bump now applies once the module is published; the rest of those rulings stands.
 
 ## Carry list
 

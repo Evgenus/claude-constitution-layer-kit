@@ -44,6 +44,7 @@ A session asks what it should have decided, and decides what it should have aske
 5. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 6. [dec-0047-decision-shape-printed-at-session-start](../../docs/decisions/dec-0047-decision-shape-printed-at-session-start.md) — the shape of a decision message printed at every session start by a `SessionStart` hook beside the skill, the skill's description asking to be loaded before any choice is put, the always-on carrier the module had deferred added on the kit's own evidence as consumer zero, and the enforcement of [A6.2](../../docs/requirements.md#a6-2) naming both carriers.
 7. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — the kit's marker scan covers its templates.
+8. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 
 <a id="t5"></a>
 ## 5. Invariant

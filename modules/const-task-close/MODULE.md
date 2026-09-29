@@ -42,6 +42,7 @@ A change lands in the code and the page that describes the code stays as it was.
 5. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) and [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md) — the gate-script rules and the linked shared code; this module is its sixth consumer, the first wired to an event that names no file.
 6. [dec-0006-accumulating-set-first](../../docs/decisions/dec-0006-accumulating-set-first.md) — the kit as consumer zero; the reorder that brings this module here is R6 of [dec-0036-task-close-module-rulings](../../docs/decisions/dec-0036-task-close-module-rulings.md).
 7. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
+8. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 
 <a id="t5"></a>
 ## 5. Invariant

@@ -38,6 +38,7 @@ A document a project keeps grows with every change that touches it, and nobody m
 5. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 6. [dec-0042-interaction-module-rulings](../../docs/decisions/dec-0042-interaction-module-rulings.md) — a gate whose own dial leaves it examining nothing says so in one line at session start.
 7. [dec-0045-frozen-documents-stay-in-the-style-scan](../../docs/decisions/dec-0045-frozen-documents-stay-in-the-style-scan.md) and [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — a frozen document stays in a gate's territory, and what it cannot meet is a departure with its reason.
+8. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 
 <a id="t5"></a>
 ## 5. Invariant

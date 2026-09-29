@@ -39,6 +39,7 @@ The documents a project governs are read by people whose first language is not E
 6. [dec-0042-interaction-module-rulings](../../docs/decisions/dec-0042-interaction-module-rulings.md) — the carrier of the plain-chat rule this module names as the other half of its aspect.
 7. [dec-0044-styling-module-rulings](../../docs/decisions/dec-0044-styling-module-rulings.md) — the twelve signatures and their departures dial, which this module leaves where they are.
 8. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — an accepted record and a frozen comparison take the wording edits their policies list, so the kit's departure holds only what no such edit reaches.
+9. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 
 <a id="t5"></a>
 ## 5. Invariant

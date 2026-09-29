@@ -38,6 +38,7 @@ The specification's optional dial, "default policy for otherwise-unclaimed gover
 4. [dec-0014-territory-dialect](../../docs/decisions/dec-0014-territory-dialect.md) and [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — the home is derived from gitignore patterns and proved by `git check-ignore`; every read of the dials file validates the keys read.
 5. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) and [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md) — the script rules the generator follows and the shared code it links, on the pattern of the fourth module's second entry point.
 6. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
+7. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 
 <a id="t5"></a>
 ## 5. Invariant

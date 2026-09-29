@@ -40,6 +40,7 @@ Every document decides its own style at the moment of writing, and decides it di
 6. [dec-0011-one-policy-per-kind](../../docs/decisions/dec-0011-one-policy-per-kind.md) — the precedent of a kind of one document, which the style guide follows.
 7. [dec-0046-language-module-rulings](../../docs/decisions/dec-0046-language-module-rulings.md) — the twelve signatures do not graduate to Vale; the path is kept for rules about words.
 8. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — a trace of a default in an accepted record or a frozen comparison is removed by a wording edit its policy allows where one removes it, and declared as a departure where none does.
+9. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 
 <a id="t5"></a>
 ## 5. Invariant

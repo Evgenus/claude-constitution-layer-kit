@@ -48,6 +48,7 @@ A short, vague request is answered by a page: a yes/no question opens with three
 6. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 7. [dec-0046-language-module-rulings](../../docs/decisions/dec-0046-language-module-rulings.md) — the plain-chat row settled as this module's, the boundary test closed.
 8. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — the kit's list scan covers its accepted records and frozen comparisons, a plain item in one taking a bold lead as a wording edit.
+9. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 
 <a id="t5"></a>
 ## 5. Invariant
