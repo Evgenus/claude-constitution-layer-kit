@@ -797,10 +797,13 @@ def t16() -> tuple[bool, str]:
 
 def t17() -> tuple[bool, str]:
     """A file that is not valid UTF-8 is measured, each replacement character the decoder puts in one:
-    here each lone 0xff byte is one."""
+    a lone 0xff byte is one, and so is a two-byte sequence cut short, which a count per byte makes two."""
     root = prepared()
     (root / "docs/notes").mkdir(parents=True, exist_ok=True)
-    (root / "docs/notes/bin.md").write_bytes(b"# T\n\n" + b"\xff" * 95 + b"\n")  # 101 characters
+    bad = (
+        b"\xff" * 45 + b"\xe2\x82" * 50
+    )  # 45 lone bytes and 50 truncated sequences: 95 characters, 145 bytes
+    (root / "docs/notes/bin.md").write_bytes(b"# T\n\n" + bad + b"\n")  # 101 characters
     finding = b1("docs/notes/bin.md", "101", "1")
     return exactly(after_write(root, "docs/notes/bin.md"), 2, "", block(finding, "docs/notes/bin.md"))
 
@@ -882,8 +885,10 @@ def t19() -> tuple[bool, str]:
 
 
 def t20() -> tuple[bool, str]:
-    """The printer's failures: malformed dials exit 1, C4 first, nothing on stdout; an argument is a
-    misinvocation; PyYAML missing is C2 and python3 missing is C1, each with the printer's clause."""
+    """The printer's failures: the shared code dropped from a copy is C15 and git missing is C3; malformed
+    dials exit 1 with C4 first and nothing on stdout; a ceiling at error on 14 days is this module's C5; an
+    argument is a misinvocation; PyYAML missing is C2 and python3 missing is C1, each with the printer's
+    clause."""
     bad = SESSION.run_gate(session_json(prepared(raw_dials="root-policy: [\n")))
     bad_ok = (
         bad.code == 1

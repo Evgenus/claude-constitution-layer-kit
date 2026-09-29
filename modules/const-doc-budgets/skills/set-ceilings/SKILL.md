@@ -59,14 +59,13 @@ names the number and the reason.
 ## 4. A document that must stand
 
 An accepted record, a frozen comparison, a document the project will not rewrite: first make the
-edits the project's rules allow for such a document, where they bring it under; what they do not
-reach, declare in
-the dials file, as an entry of `departures` with `paths` for the document or its number range,
-`allow` naming the ceiling it may exceed, and a one-line `reason`. The check still measures it,
-and the other ceilings still apply. Never mark the document, and never take it out of a
-ceiling's paths with a negated pattern, which hides it with no reason. An entry that lifts nothing — it
-matches no document that a ceiling it names holds — is a note on every scan: remove it or fix its
-names.
+edits the project's rules allow for such a document, where they bring it under. Declare what they
+do not reach in the dials file, as an entry of `departures` with `paths` for the document or its
+number range, `allow` naming the ceiling it may exceed, and a one-line `reason`. The check still
+measures it, and the other ceilings still apply. Never mark the document, and never take it out of
+a ceiling's paths with a negated pattern, which hides it with no reason. An entry that lifts
+nothing — it matches no document that a ceiling it names holds — is a note on every scan: remove
+it or fix its names.
 
 ## 5. Lowering a ceiling
 

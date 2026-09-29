@@ -75,8 +75,8 @@ reported by the check with the fix on its first line; nothing is silently skippe
    one note per ceiling: what it holds, the longest document and the margin left.
 8. **A departure is declared, never marked.** A document that must stand over its ceiling is
    named in `departures` with its reason; nothing is marked in the document, and no pattern hides
-   it from its ceiling. A departure that lifts nothing — its paths match no document that a ceiling it names holds — is a note on every scan
-   until it is removed.
+   it from its ceiling. A departure that lifts nothing — its paths match no document that a
+   ceiling it names holds — is a note on every scan until it is removed.
 9. Output log: everything the check prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-doc-budgets.jsonl`. By default it lives
    in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository;
