@@ -2,7 +2,7 @@
 id: dec-0052-doc-budgets-module-rulings
 type: task-record
 title: Rulings of the const-doc-budgets authoring — ceilings per group of paths, warning below 30 days of data, a character defined in the kernel, a green hook's notes handed to the model
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
