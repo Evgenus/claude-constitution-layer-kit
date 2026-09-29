@@ -797,7 +797,8 @@ def t16() -> tuple[bool, str]:
 
 def t17() -> tuple[bool, str]:
     """A file that is not valid UTF-8 is measured, each replacement character the decoder puts in one:
-    a lone 0xff byte is one, and so is a two-byte sequence cut short, which a count per byte makes two."""
+    a lone 0xff byte is one, and so is a three-byte sequence cut after two bytes, which a count per byte
+    makes two."""
     root = prepared()
     (root / "docs/notes").mkdir(parents=True, exist_ok=True)
     bad = (

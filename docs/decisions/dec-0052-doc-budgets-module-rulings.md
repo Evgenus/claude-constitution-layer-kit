@@ -149,7 +149,7 @@ The session recommended A. **R8.** C, chosen by the decider in chat on 2026-09-2
   - **Pros:** no damaged file passes quietly.
   - **Cons:** a rule no row asks for; a second way of reading files.
 
-The session recommended A. **R9.** A, chosen by the decider in chat on 2026-09-29: bytes that are not valid UTF-8 count one per replacement character that a decoder following the Unicode standard's recommended practice puts in their place — one for each maximal subpart of an ill-formed sequence, as the shared code already reads them.
+The session recommended A. **R9.** A, chosen by the decider in chat on 2026-09-29: bytes that are not valid UTF-8 count one per replacement character that a decoder following the Unicode standard's recommended practice puts in their place — one for each maximal subpart of an ill-formed subsequence, as the shared code already reads them.
 
 ## 10. Where the definition of a character lives
 
