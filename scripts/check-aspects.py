@@ -29,11 +29,14 @@ table row names, and a fixture item a table names that the runner did not print.
 
 Each row then gets one verdict. `red` when an item of it is red. `green` when at least one of
 its items was run and every item run was green; the items no run examines are listed beside.
-Otherwise the kinds of its items: `live, done <date>`, `live, deferred`, `review`,
-`kit check` — none of them a green. A row no module holds shows its destination and its
-enforcement cell as the matrix states them, and is never green. A shared-items line carries
-the rows of the gate whose entry point runs them, so a red there turns those rows red. Items
-marked `none` are listed per module outside every row; a red one still makes the run red.
+`carrier green` instead of `green` for an advisory row — its enforcement cell in the matrix
+opens with the word `advisory` and holds the word `gate` or `gates` nowhere — since a fixture there proves
+the carrier of a judgment, never the judgment. Otherwise the kinds of its items:
+`live, done <date>`, `live, deferred`, `review`, `kit check` — none of them a green. A row no
+module holds shows its destination and its enforcement cell as the matrix states them, and is
+never green. A shared-items line carries the rows of the gate whose entry point runs them, so a
+red there turns those rows red. Items marked `none` are listed per module outside every row; a
+red one still makes the run red.
 
 Modes:  no arguments         the gate;
         --run                the gate, then every runner and the per-row report;
@@ -488,12 +491,18 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
     return results
 
 
-def verdict(items: list[Item]) -> str:
+def advisory_only(enforcement: str) -> bool:
+    """An advisory row, as the matrix classes it: the cell opens with `advisory` and names no gate."""
+    text = enforcement.lower()  # a word, so that "ungateable" is no gate and "gate-lite" is one
+    return text.startswith("advisory") and not re.search(r"\bgates?\b", text)
+
+
+def verdict(items: list[Item], advisory: bool = False) -> str:
     outcomes = [i.outcome() for i in items]
     if "red" in outcomes:
         return "red"
     if "green" in outcomes:
-        return "green"
+        return "carrier green" if advisory else "green"
     labels: list[str] = []
     for item in items:
         if item.outcome() is None and item.label() not in labels:
@@ -559,7 +568,7 @@ def full_run(
         items = [i for m in modules for i in m.items if row.anchor in i.rows]
         holders = [m for m in modules if row.anchor in m.held]
         if holders:
-            v = verdict(items)
+            v = verdict(items, advisory_only(row.enforcement))
             who = ", ".join(f"{m.name} {m.version}" for m in holders)
             print(f"  {row.handle}  {v} — {cut(row.destination, 60)} — {who}")
             for item in items:
@@ -789,6 +798,30 @@ def self_test() -> int:
             "runner item 7 is named by no acceptance item",
         ),
     }
+    carrier_table = GOOD_TABLE.replace(
+        "| T3 | fixture, assertion | none |", f"| T3 | fixture, assertion | {LINK_3} |"
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # an advisory row a green fixture names is carrier green
+        root = Path(tmp).resolve()
+        build(root, carrier_table)
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = full_run(root, None)
+    out = printed.getvalue()
+    ok = code == EXIT_GREEN and "  A1.3  carrier green — M1 skill — const-sample 0.0.1" in out
+    ok = ok and "  A1.1  green — M1 hook" in out and "1 carrier green" in out
+    ok = (
+        ok
+        and not advisory_only("advisory; optional gate-lite: a script")
+        and advisory_only("advisory — honestly ungateable")
+        and not advisory_only("advisory procedure — caught by A1.4 gates")
+    )
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] an advisory row proved by a green fixture is carrier green, never green"
+    )
+    if not ok:
+        print(out)
     for name, (lines, runner_exit, want, needle) in runs.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -832,7 +865,7 @@ def self_test() -> int:
                 ok = needle in str(said) and "fix:" in str(said)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a runner with {name} is a BROKEN line, never a pass")
-    total = len(red) + 2 + len(runs) + len(broken)
+    total = len(red) + 3 + len(runs) + len(broken)
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

@@ -130,10 +130,29 @@ These follow the plan the decider saw, and stay open to override.
 
 **R12.** In a full run, a runner's item that no row of the module's acceptance table names, and a fixture item a table names that the runner did not print, are findings.
 
+## 10. A green on an advisory row
+
+The first full run over the eleven runners gave 40 rows `green`, twelve of them rows whose matrix enforcement is advisory alone, green only because a fixture of a carrier passed: a session-start printer, a skill file, an assist. The session put R10 and R11 to the decider again.
+
+- **A. Keep `green`.**
+  - **Pros:** no change; the fixtures ran and passed.
+  - **Cons:** a reader can take a green on an advisory row for a proof of the judgment, which [law 5 of CLAUDE.md](../../CLAUDE.md#law-5) forbids.
+- **B. Keep `green`, and print the matrix's enforcement cell beside every row.**
+  - **Pros:** no parsing and no new verdict.
+  - **Cons:** the verdict and the count still say green.
+- **C. A verdict of its own, `carrier green`, for an advisory row.**
+  - **Pros:** the verdict says what was proved, and the count keeps advisory rows apart.
+  - **Cons:** the script reads the opening word of a cell of prose.
+- **D. Fixtures never name an advisory row.**
+  - **Pros:** nothing is green that a run did not prove.
+  - **Cons:** the tables are edited again, and the proof that a carrier works leaves the row.
+
+The session recommended C. **R13.** C, chosen by the decider in chat on 2026-09-29: a row whose enforcement cell in the matrix opens with the word `advisory` and holds the word `gate` or `gates` nowhere takes `carrier green` where R10 would give it `green`; the report counts it apart. The words are matched whole, so "ungateable" is no gate and "gate-lite" is one.
+
 ## Carry list
 
 1. R1 — [rule 1](../policies/plc-0007-requirements.md#r1) and [rule 8 of plc-0007-requirements](../policies/plc-0007-requirements.md#r8); [the gate itself](../../scripts/check-aspects.py), its docstring.
 2. R2, R3, R4, R5, R11 — [template §10](../../module-template/MODULE.md#t10), its paragraph on rows; the acceptance tables of the eleven module documents.
-3. R6, R10, R12 — [the gate itself](../../scripts/check-aspects.py), its docstring.
+3. R6, R10, R12, R13 — [the gate itself](../../scripts/check-aspects.py), its docstring.
 4. R7, R9 — [the gate itself](../../scripts/check-aspects.py), its docstring; [template §10](../../module-template/MODULE.md#t10); [rule 12 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12); step 5 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); the routine list of [pyproject.toml](../../pyproject.toml).
 5. R8 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the CI wiring.
