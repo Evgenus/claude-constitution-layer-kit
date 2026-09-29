@@ -116,4 +116,4 @@ Profiles (e.g. solo-agents, small-team, regulated) are nothing but prewritten `c
 <a id="k7"></a>
 ## 7. Naming
 
-Modules are plugins named `const-<aspect>` (kebab-case). Module dial namespaces equal plugin names. Document ids, file names, and skill names: kebab-case. All sizes and budgets are measured in **characters**, never tokens. A character is one Unicode code point of the file read as UTF-8: a CRLF line ending counts as one, nothing is normalized or left out, and bytes that are not valid UTF-8 count as the replacement characters a standard decoder puts in their place, one each.
+Modules are plugins named `const-<aspect>` (kebab-case). Module dial namespaces equal plugin names. Document ids, file names, and skill names: kebab-case. All sizes and budgets are measured in **characters**, never tokens. A character is one Unicode code point of the file read as UTF-8: a CRLF line ending counts as one, nothing is normalized or left out, and bytes that are not valid UTF-8 count one per replacement character that a decoder following the Unicode standard's recommended practice puts in their place — one for each maximal invalid subsequence, not one per byte.

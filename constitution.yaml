@@ -65,7 +65,7 @@ plc-0010-style-guide:                 # the kind of one document, like the inten
 
 # --- module namespaces (kernel §6): a module reads only its own -------------------
 # Two dials are every gate's, read by the shared code (shared/GATE.md):
-#   severity  values: block | warn — block: a finding exits 2 and the write is blocked;
+#   severity  values: block | warn — block: a finding exits 2 — before a write it refuses the write, after one it stands beside the tool result;
 #                            warn: reported, the write proceeds (the adoption path).
 #                            The --scan mode ignores it and always blocks.
 #   log_dir   a repository-relative, git-ignored directory for the output log;
@@ -329,7 +329,7 @@ const-language:                       # the prose of covered documents: a grade 
 const-doc-budgets:                    # a character ceiling per group of documents, measured after the fact (MODULE.md §7)
   severity: block                     # values: block | warn — block: a finding reaches the model as a block after the write; warn: as context
   log_dir: local/gate-logs
-  ceilings:                           # set 2026-09-29 by the report --scan --since 2026-09-14: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data (decision dec-0052-doc-budgets-module-rulings)
+  ceilings:                           # set 2026-09-29 by the report --scan --since 2026-09-14: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
     - name: records   # the accepted records among them frozen: wording edits only (plc-0004 rule 14)
       paths: *decisions
       max: 34000

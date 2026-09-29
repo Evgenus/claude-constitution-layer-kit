@@ -796,7 +796,8 @@ def t16() -> tuple[bool, str]:
 
 
 def t17() -> tuple[bool, str]:
-    """A file that is not valid UTF-8 is measured, each bad byte one character, never a crash."""
+    """A file that is not valid UTF-8 is measured, each replacement character the decoder puts in one:
+    here each lone 0xff byte is one."""
     root = prepared()
     (root / "docs/notes").mkdir(parents=True, exist_ok=True)
     (root / "docs/notes/bin.md").write_bytes(b"# T\n\n" + b"\xff" * 95 + b"\n")  # 101 characters
@@ -920,7 +921,33 @@ def t20() -> tuple[bool, str]:
         "BROKEN: const-doc-budgets needs python3 — fix: install Python 3.12 or newer"
         " (https://www.python.org/downloads/) — until then the gate's state is not said at session start",
     )
+    copy = H.scratch_dir() / "scripts"
+    shutil.copytree(SCRIPTS, copy, symlinks=True, ignore=shutil.ignore_patterns("__pycache__", ".mypy_cache"))
+    (copy / "const_gate").unlink()  # an install that dropped the link to the shared code
+    no_shared = SESSION.run_gate(
+        session_json(prepared()), command=[SESSION.sh, str(copy / "session-start.sh")]
+    )
+    shared_ok, shared_said = broken_first_line(
+        no_shared,
+        "BROKEN: const-doc-budgets is installed without its shared code (scripts/const_gate is missing or is"
+        " not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout of"
+        " the repository it comes from; a copy of the plugin's folder must be made with links followed"
+        " (cp -RL) — until then the gate's state is not said at session start",
+    )
+    no_git_bin = H.scratch_dir()
+    for tool in ("sh", "dirname", "python3"):
+        (no_git_bin / tool).symlink_to(shutil.which(tool) or tool)
+    no_git = SESSION.run_gate(session_json(prepared()), env={"PATH": str(no_git_bin)})
+    git_ok, git_said = broken_first_line(
+        no_git,
+        "BROKEN: const-doc-budgets needs git on PATH — fix: install git (https://git-scm.com/downloads)",
+    )
     return all_of(
+        (
+            shared_ok and no_shared.stdout == "" and messages.z1_could_not_run() in no_shared.stderr,
+            shared_said,
+        ),
+        (git_ok and no_git.stdout == "" and messages.z1_could_not_run() in no_git.stderr, git_said),
         (bad_ok, f"malformed dials got {bad.code}: {bad.stdout!r} {bad.stderr[:300]!r}"),
         (arg_ok, f"an argument got {arg.code}: {arg.stderr[:200]!r}"),
         (refused_ok, f"a ceiling at error on 14 days got {refused.code}: {refused.stderr[:300]!r}"),

@@ -175,7 +175,7 @@ An accepted record or a frozen comparison takes only the edits its policy lists;
   - **Pros:** every document keeps a limit; no third parser.
   - **Cons:** a shape unlike the siblings'.
 
-The session recommended B. **R11.** A, chosen by the decider in chat on 2026-09-29: an entry of the dial `departures` lifts the ceilings it names for the documents it matches, with a one-line reason; it names only ceilings that exist; an entry matching no held document is a note on every scan; the kit's dial holds none, every ceiling sitting above its frozen documents. The two policies with frozen documents say that such a document over its ceiling stays as it is and is declared so.
+The session recommended B. **R11.** A, chosen by the decider in chat on 2026-09-29: an entry of the dial `departures` lifts the ceilings it names for the documents it matches, with a one-line reason; it names only ceilings that exist; an entry matching no held document is a note on every scan; the kit's dial holds none, every ceiling sitting above its frozen documents. The two policies with frozen documents say that such a document over its ceiling is brought under it by the wording edits its policy allows where they reach it, and otherwise stays as it is and is declared so, as R3 of [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md) rules for every later threshold.
 
 ## 12. How the observed data is shown
 
