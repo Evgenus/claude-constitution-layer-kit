@@ -39,9 +39,10 @@ lower it. `carrier green` instead of `green` for an advisory row — its enforce
 matrix opens with the word `advisory` and holds the word `gate` or `gates` nowhere, matched as
 whole words, so that "ungateable" is no gate and "gate-lite" is one — since a fixture there
 proves the carrier of a judgment, never the judgment. Otherwise the kinds of its items joined
-by " + ": `live, done <date>`, `live, deferred`, `review`, `kit check`, and `fixture, not read`
-for a fixture item the runner did not print — none of them a green. A row a module holds that
-no item names is `no item`, a finding of the gate as well. A row no module holds is printed as
+by " + ": `live, done <date>`, `live` for a live item that names no date, `live, deferred`,
+`review`, `kit check`, and `fixture, not read` for a fixture item the runner did not print —
+none of them a green. A row a module holds that no item names is `no item`, a finding of the
+gate as well. A row no module holds is printed as
 "held by" its destination and its enforcement cell as the matrix states them, counted as
 `no module`, and never green. A shared-items line carries every row a fixture item of the
 module, run through the same entry point, names, so a red there turns those rows red. Items
