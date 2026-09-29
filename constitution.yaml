@@ -65,10 +65,10 @@ plc-0010-style-guide:                 # the kind of one document, like the inten
 
 # --- module namespaces (kernel §6): a module reads only its own -------------------
 # Two dials are every gate's, read by the shared code (shared/GATE.md):
-#   severity  values: block | warn — block: a finding blocks in the way the gate's hook event allows —
-#                            a write refused, a finding beside the tool result, a turn held, a prompt;
-#                            warn: reported, the act proceeds (the adoption path).
-#                            The --scan mode ignores it and always blocks.
+#   severity  values: block | warn — block: a finding blocks in the way the gate's module chose —
+#                            a write refused, a finding beside the tool result, a turn held, a prompt
+#                            or a refused shell call; warn: reported, the act proceeds (the adoption path).
+#                            The --scan mode ignores it and always reports.
 #   log_dir   a repository-relative, git-ignored directory for the output log;
 #             absent: the platform's per-plugin data directory, or nowhere in CI.
 

@@ -138,7 +138,7 @@ The session recommended B. **R7.** B, chosen by the decider in chat on 2026-09-2
   - **Pros:** one ceiling per file, nothing unclear.
   - **Cons:** the hook sees the written file alone; useful set-ups are ruled out.
 
-The session recommended A. **R8.** C, chosen by the decider in chat on 2026-09-29: a document two ceilings hold is a configuration failure — in the hook for the written file, in the scan for the first such file in path order — and [requirement A11.2](../requirements.md#a11-2) says one ceiling per document at most.
+The session recommended A. **R8.** C, chosen by the decider in chat on 2026-09-29: a document two ceilings hold is a configuration failure — in the hook for the written file, in the scan, the history report excepted, for the first such file in path order — and [requirement A11.2](../requirements.md#a11-2) says one ceiling per document at most.
 
 ## 9. A file that is not valid UTF-8
 
