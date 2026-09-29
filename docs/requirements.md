@@ -87,9 +87,9 @@ status: active
 | <a id="a10-1"></a>A10.1 | Governed documents pass Vale (`vale-cli`, pinned); grade/length/construction rules | M9 gate; thresholds → binding | **gate**: Vale in CI, red = fix |
 | <a id="a10-2"></a>A10.2 | Plain chat language for non-native readers | M7 skill — settled: the chat half of the language aspect stays with M7 by two of the three boundary tests, the document half is M9's (decision [dec-0046-language-module-rulings](decisions/dec-0046-language-module-rulings.md)) | advisory — honestly ungateable |
 | <a id="a11"></a>**A11 — Document budgets** | | | |
-| <a id="a11-1"></a>A11.1 | Sizes measured in characters, never tokens | [kernel §7](../kernel/CONVENTIONS.md#k7) | definitional — embodied by A11.2's script |
-| <a id="a11-2"></a>A11.2 | Post-hoc length gate per document kind; ceilings, not targets | M10 script | **gate**: script, warn → block per dial (ladder) |
-| <a id="a11-3"></a>A11.3 | Ceilings set from observed data (≥ a month), one per meta-type at most | binding | review judgment, data-informed |
+| <a id="a11-1"></a>A11.1 | Sizes measured in characters, never tokens; a character is what [kernel §7](../kernel/CONVENTIONS.md#k7) defines | [kernel §7](../kernel/CONVENTIONS.md#k7) | definitional — embodied by A11.2's script |
+| <a id="a11-2"></a>A11.2 | Post-hoc length gate per group of documents named by path patterns — a document kind or any other group, one ceiling per document at most; ceilings, not targets | M10 script | **gate**: script, warn → block per ceiling, the level a dial of each (ladder) (decision [dec-0052-doc-budgets-module-rulings](decisions/dec-0052-doc-budgets-module-rulings.md)) |
+| <a id="a11-3"></a>A11.3 | Each ceiling set from observed data of the group it covers; a ceiling set from fewer than 30 days of data only warns, and blocks only on 30 days or more | binding | the 30 days: **config**, checked on the dials at every read; the number: review judgment, data-informed (decision [dec-0052-doc-budgets-module-rulings](decisions/dec-0052-doc-budgets-module-rulings.md)) |
 | <a id="a12"></a>**A12 — Kit portability** | | | |
 | <a id="a12-1"></a>A12.1 | No project references in modules; specifics via dials; empty-repo test | [kernel §6](../kernel/CONVENTIONS.md#k6) + template | **gate**: kit-repo CI — install on bare repo + project-reference grep. The grep (decision [dec-0015-pre-module-audit-rulings](decisions/dec-0015-pre-module-audit-rulings.md)): in every file of a module, any absolute path, `file:` link, `~/`, or repository-relative path literal not prefixed by `${CLAUDE_PLUGIN_ROOT}` and not a public URL is a finding, with no exemption marker; the one repository path a module may name is `constitution.yaml`, every other location comes from the dials file or the territory declarations at runtime. A heuristic: the bare-repo defaults-only run stays the gate of record |
 | <a id="a12-2"></a>A12.2 | Sibling references only as optional enhancements; kernel+module alone = functioning install | template | **gate**: kit-repo CI — kernel+single-module bare-repo run |
@@ -155,10 +155,7 @@ Description moved into the module's document: [`modules/const-language/MODULE.md
 <a id="const-doc-budgets"></a>
 ### M10 `const-doc-budgets` — self-limiting; enters when bloat is observed, with data
 
-**Invariant:** governed documents respect character ceilings per document kind — **characters, never tokens** (tokenizer changes silently redefine token ceilings; character counts are vendor-stable and offline) — measured post-hoc by script; budgets are ceilings, not targets.
-**Ships:** length-check script + wiring; a month of observed length data informs the ceilings before any becomes blocking.
-**Dials:** ceiling per document kind (start with one per meta-type at most).
-**Acceptance:** red→green on an over-limit fixture.
+Description moved into the module's document: [`modules/const-doc-budgets/MODULE.md`](../modules/const-doc-budgets/MODULE.md) (rows [A11.1](#a11-1)–[A11.3](#a11-3)); this anchor stays the module's handle.
 
 <a id="const-catalogs"></a>
 ### M11 `const-catalogs` — accumulating; enters with the first numbered kind (typically the first decision record, beside M3)

@@ -1,7 +1,7 @@
 {
-  "name": "const-aspect-name",
+  "name": "const-doc-budgets",
   "version": "0.0.1",
-  "description": "One line: the failure pattern this module prevents.",
-  "author": { "name": "your-name" },
+  "description": "A character ceiling per group of documents, measured after every write and in a scan: each ceiling names its documents by path patterns, its number and the days of data it was set from, and warns until 30 days of data stand behind it; a history report over git gives those data; a document that must stand over its ceiling is declared as a departure in the dials file. Plus a skill for setting a ceiling and reading a finding.",
+  "author": { "name": "Eugene Chernyshov" },
   "license": "MIT"
 }
