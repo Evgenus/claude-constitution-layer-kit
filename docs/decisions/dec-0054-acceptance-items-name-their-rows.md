@@ -2,7 +2,7 @@
 id: dec-0054-acceptance-items-name-their-rows
 type: task-record
 title: Each acceptance item names the matrix rows it proves, and scripts/check-aspects.py holds the tags as a gate and reports each row's result on request
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
