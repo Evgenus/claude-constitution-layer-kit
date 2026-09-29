@@ -498,7 +498,7 @@ def verdict(items: list[Item]) -> str:
     for item in items:
         if item.outcome() is None and item.label() not in labels:
             labels.append(item.label())
-    return ", ".join(labels) if labels else "no item"
+    return " + ".join(labels) if labels else "no item"
 
 
 def item_line(item: Item) -> str:
