@@ -69,7 +69,9 @@ The shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) run thro
   - **Pros:** the simplest script.
   - **Cons:** a red shared item is seen only in a separate run.
 
-The session recommended B. **R4.** A, chosen by the decider in chat on 2026-09-29, against the session's recommendation: the line of the shared items carries the rows of the gate whose entry point runs them, and no row of another gate of the same module. The session's concern stands: a red shared item turns every row of its gate red, and only the item tells whether the row's own rule failed.
+The session recommended B. **R4.** A, chosen by the decider in chat on 2026-09-29, against the session's recommendation: the line of the shared items carries every row that a fixture item of the module, run through the same entry point — the script its hook or its scan calls — names, and no other row. The session's concern stands: a red shared item turns every such row red, and only the item tells whether the row's own rule failed.
+
+The carry audit found the first wording, "the rows of the gate whose entry point runs them", read two ways: one module gave its line only the rows of gate class, another its dial and definitional rows too, and two left out the rows of a scan that the same script runs. The session put the reading to the decider: A, every row a fixture item run through the same entry point names; B, only those of gate or gate-lite class; C, only the hook's rows. The session recommended A, and the decider chose A in chat on 2026-09-30; R4 is corrected in place to it, before the yes.
 
 ## 5. An item that proves no row
 
@@ -96,7 +98,7 @@ The session recommended A. **R5.** A, chosen by the decider in chat on 2026-09-2
   - **Pros:** an exact contract.
   - **Cons:** it fails the admission test of [rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) as written, and ships kit-only code to consumers.
 
-The session recommended A. **R6.** A, chosen by the decider in chat on 2026-09-29: the script reads each runner's `[ok]` and `[FAIL]` item lines and its last line; an item line out of that format, a count of item lines that differs from the total of the last line, or an exit other than 0 or 2 is a configuration failure, never a pass. A fixture item's handle is its runner number: `T12`, `S101` and a bare `12` alike. The shared harness does not change.
+The session recommended A. **R6.** A, chosen by the decider in chat on 2026-09-29: the script reads each runner's `[ok]` and `[FAIL]` item lines and its last line; an item line out of that format, a count of item lines that differs from the total of the last line, or an exit other than 0 or 2 is a configuration failure, never a pass. A fixture item's handle is its runner number, bare or under `T` or `S`: `T12` and a bare `12` are item 12, `S101` is item 101. The shared harness does not change.
 
 ## 7. Gate or report
 

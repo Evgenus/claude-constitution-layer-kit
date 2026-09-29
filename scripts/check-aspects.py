@@ -11,7 +11,8 @@ rollout plan (decision dec-0054-acceptance-items-name-their-rows).
 The gate, a plain run, reads the documents and runs nothing. It is red on:
   - an acceptance table without the `rows` column;
   - an item cell that is not a list of handles and closed ranges, `T1–T4, T7`, `S101`, `L1b`;
-  - a kind that is none of fixture, kit check, live, live deferred, review;
+  - a kind that opens with none of the words fixture, kit check, live, review — `live,
+    deferred` opening with live;
   - a `rows` cell that is empty, or holds anything but row links or the one word `none`;
   - a link to a row the matrix does not hold;
   - an item that names a row its module's rows section does not hold;
@@ -20,23 +21,31 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
     module's rows section holds.
 
 The report, `--run`, also runs each module's `tests/run.py` and reads its item lines, which
-the shared harness prints as `[ok]` or `[FAIL]`, the number, the kind in brackets and the
+the shared harness prints as `[ok]` or `[FAIL]`, the number, the kind in round brackets and the
 title, and its last line, `N/T acceptance items green — …`. An item line out of that form, a
-count of item lines that differs from T, or an exit other than 0 or 2 means the runner could
-not be read: the check could not run, never a pass. A fixture item's handle is its runner
-number — `T12`, `S101` and `12` alike are item 12. Also red in a full run: a runner item no
-table row names, and a fixture item a table names that the runner did not print.
+count of item lines that differs from T, a count N of green lines that differs from the `[ok]`
+lines, an exit other than 0 or 2, or an exit that disagrees with the item lines means the runner
+could not be read: the check could not run, never a pass. A fixture item's handle is its runner
+number, bare or under `T` or `S` — `T12` and `12` are item 12, `S101` is item 101. Also red in a
+full run: a runner item no table row names, and a fixture item a table names that the runner did
+not print.
 
-Each row then gets one verdict. `red` when an item of it is red. `green` when at least one of
-its items was run and every item run was green; the items no run examines are listed beside.
-`carrier green` instead of `green` for an advisory row — its enforcement cell in the matrix
-opens with the word `advisory` and holds the word `gate` or `gates` nowhere — since a fixture there proves
-the carrier of a judgment, never the judgment. Otherwise the kinds of its items:
-`live, done <date>`, `live, deferred`, `review`, `kit check` — none of them a green. A row no
-module holds shows its destination and its enforcement cell as the matrix states them, and is
-never green. A shared-items line carries the rows of the gate whose entry point runs them, so a
-red there turns those rows red. Items marked `none` are listed per module outside every row; a
-red one still makes the run red.
+Each row a module holds is printed with its destination as the matrix states it, every module
+that holds a part of it with the version of its manifest, and every item that names it — from
+every such module alike — with its kind and its result. Then one verdict. `red` when an item of
+it is red. `green` when at least one of its items was run and every item run was green; the
+items no run examines, of any module that holds a part of the row, are listed beside and do not
+lower it. `carrier green` instead of `green` for an advisory row — its enforcement cell in the
+matrix opens with the word `advisory` and holds the word `gate` or `gates` nowhere, matched as
+whole words, so that "ungateable" is no gate and "gate-lite" is one — since a fixture there
+proves the carrier of a judgment, never the judgment. Otherwise the kinds of its items joined
+by " + ": `live, done <date>`, `live, deferred`, `review`, `kit check`, and `fixture, not read`
+for a fixture item the runner did not print — none of them a green. A row a module holds that
+no item names is `no item`, a finding of the gate as well. A row no module holds is printed as
+"held by" its destination and its enforcement cell as the matrix states them, counted as
+`no module`, and never green. A shared-items line carries every row a fixture item of the
+module, run through the same entry point, names, so a red there turns those rows red. Items
+marked `none` are listed per module outside every row; a red one still makes the run red.
 
 Modes:  no arguments         the gate;
         --run                the gate, then every runner and the per-row report;
@@ -131,7 +140,7 @@ class Item:
     def label(self) -> str:
         if self.kind == "live" and self.done:
             return f"live, done {self.done}"
-        return self.kind
+        return "fixture, not read" if self.kind == "fixture" else self.kind
 
     def outcome(self) -> str | None:
         """'green' or 'red' for a fixture item every number of which was read; None otherwise."""
@@ -233,6 +242,7 @@ def parse_handles(cell: str) -> list[tuple[str, int, int, str]] | None:
 
 
 def kind_of(cell: str) -> str | None:
+    """The kind a cell opens with, as a whole word: `fixtures` or `reviewer` is no kind."""
     text = cell.lower()
     for prefix, kind in (
         ("fixture", "fixture"),
@@ -241,7 +251,7 @@ def kind_of(cell: str) -> str | None:
         ("live", "live"),
         ("review", "review"),
     ):
-        if text.startswith(prefix):
+        if re.match(rf"{re.escape(prefix)}\b", text):
             return kind
     return None
 
@@ -517,11 +527,8 @@ def item_line(item: Item) -> str:
         if outcome
         else ("not read" if item.kind == "fixture" else "not run")
     )
-    return f"      {item.module} {item.handles}: {item.label()} — {result}"
-
-
-def cut(text: str, limit: int = 110) -> str:
-    return text if len(text) <= limit else text[: limit - 1] + "…"
+    kind = item.kind if item.kind == "fixture" else item.label()
+    return f"      {item.module} {item.handles}: {kind} — {result}"
 
 
 def full_run(
@@ -570,12 +577,12 @@ def full_run(
         if holders:
             v = verdict(items, advisory_only(row.enforcement))
             who = ", ".join(f"{m.name} {m.version}" for m in holders)
-            print(f"  {row.handle}  {v} — {cut(row.destination, 60)} — {who}")
+            print(f"  {row.handle}  {v} — {row.destination} — {who}")
             for item in items:
                 print(item_line(item))
         elif only is None:
             v = "no module"
-            print(f"  {row.handle}  held by {cut(row.destination, 60)} — {cut(row.enforcement)}")
+            print(f"  {row.handle}  held by {row.destination} — {row.enforcement}")
         else:
             continue
         red = red or v == "red"
@@ -699,6 +706,10 @@ def self_test() -> int:
             "not a list of handles",
         ),
         "a kind outside the set": (GOOD_TABLE + f"| T9 | probe | {LINK_1} | x |\n", "is none of the set"),
+        "a kind that is a longer word": (
+            GOOD_TABLE + f"| T9 | fixtures | {LINK_1} | x |\n",
+            "is none of the set",
+        ),
         "a live handle as a fixture": (GOOD_TABLE + f"| L3 | fixture | {LINK_1} | x |\n", "no runner number"),
         "an empty rows cell": (GOOD_TABLE + "| T9 | fixture |  | x |\n", "the rows cell of item T9"),
         "a bare handle in the rows cell": (
@@ -786,6 +797,17 @@ def self_test() -> int:
             0,
             EXIT_RED,
             "names runner item 3, which the runner did not print",
+        ),
+        "an item not read on a row": (
+            [
+                GREEN_RUN[0],
+                GREEN_RUN[1],
+                *GREEN_RUN[3:5],
+                "3/3 acceptance items green — 1 red→green cases, 2 assertions examined",
+            ],
+            0,
+            EXIT_RED,
+            "      const-sample T1–T2: fixture — not read",
         ),
         "a runner item no table names": (
             [
