@@ -16,8 +16,9 @@ dec-0056-portability-grep-and-gate-lists).
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: a scan missing from each list red,
                        a scan in both green, a span with more after the flag no scan, the report
-                       of one finding as literal lines with exit 2, a list whose anchor moved as
-                       a BROKEN line.
+                       of one finding as literal lines with exit 2, a list whose anchor moved, a
+                       module document without its enforcement anchor and a module folder without
+                       its document, each a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -81,11 +82,11 @@ def read(root: Path, path: str) -> str:
         raise Broken(f"{path} cannot be read ({bad.strerror}) — fix: make it readable") from bad
 
 
-def declared_scans(text: str) -> list[str]:
+def declared_scans(text: str, path: str = "the module document") -> list[str]:
     lines = text.splitlines()
     start = next((i for i, line in enumerate(lines) if line.strip() == '<a id="t9"></a>'), None)
     if start is None:
-        raise Broken("a module document has no enforcement section, anchor t9 — fix: restore the anchor")
+        raise Broken(f"{path} has no enforcement section, anchor t9 — fix: restore the anchor")
     end = next(
         (i for i in range(start + 1, len(lines)) if lines[i].strip() == '<a id="t10"></a>'), len(lines)
     )
@@ -126,14 +127,15 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
         raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
     gates, ci = gate_list(root), ci_list(root)
     findings: list[Finding] = []
-    directories = sorted(d for d in base.iterdir() if d.is_dir() and d.name.startswith("const-"))
+    directories = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
     for directory in directories:
         if not (directory / "MODULE.md").is_file():
             raise Broken(f"modules/{directory.name} has no MODULE.md — fix: restore the module document")
     modules = [d.name for d in directories]
     scans = 0
     for module in modules:
-        for entry in declared_scans(read(root, f"modules/{module}/MODULE.md")):
+        document = f"modules/{module}/MODULE.md"
+        for entry in declared_scans(read(root, document), document):
             scans += 1
             runs = re.search(
                 rf"modules/{re.escape(module)}/scripts/{re.escape(entry)}\.(?:sh|py) --scan\b", gates
@@ -160,7 +162,8 @@ def self_test() -> int:
     """Red→green on a throwaway tree: a scan missing from the gate list, and one missing from the CI
     list, are red with one finding each and green once listed; a span with more after the flag is no
     scan; a module with no scan needs no line; the report of one finding is its literal text with
-    exit 2; a gate list or a plan whose anchor moved is a teaching BROKEN line."""
+    exit 2; a gate list or a plan whose anchor moved, a module document without its enforcement
+    anchor and a module folder without its document are each a teaching BROKEN line."""
     module_text = (
         '<a id="t9"></a>\n## 9\n\n| # | artifact | kind |\n|---|---|---|\n'
         "| E1 | hook + `check-x` (hook mode) | `gate` |\n| E2 | `check-x --scan`: all | `gate` |\n"
@@ -196,9 +199,11 @@ def self_test() -> int:
     def findings_of(gates: str, plan: str) -> list[Finding]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, listed if gates == "NO-T9" else gates, plan)
+            build(root, listed if gates in ("NO-T9", "NO-DOC") else gates, plan)
             if gates == "NO-T9":
                 (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
+            if gates == "NO-DOC":
+                (root / "modules/const-empty").mkdir()
             return check_kit(root)[0]
 
     failed = 0
@@ -228,7 +233,13 @@ def self_test() -> int:
     for name, gates, plan, said in (
         ("a gate list without its heading", "1. x\n2. When the message asks: y\n", plan_in, "has no line"),
         ("a plan whose CI sentence moved", listed, '10. <a id="s10"></a>CI later.\n', "has no sentence"),
-        ("a module document without its anchor", "NO-T9", plan_in, "no enforcement section"),
+        (
+            "a module document without its anchor",
+            "NO-T9",
+            plan_in,
+            "modules/const-x/MODULE.md has no enforcement",
+        ),
+        ("a module folder without its document", "NO-DOC", plan_in, "modules/const-empty has no MODULE.md"),
     ):
         try:
             findings_of(gates, plan)
@@ -237,7 +248,7 @@ def self_test() -> int:
             ok = said in str(broken) and "fix:" in str(broken)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 5
+    total = len(cases) + 6
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

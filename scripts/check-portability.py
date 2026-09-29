@@ -9,21 +9,21 @@ and the shared gate code under `shared/const_gate/`, which every module installs
 `scripts/const_gate`. A symbolic link is read at its source, once.
 
 A finding is one of four forms, outside a public URL:
-  - a path under a home directory, `/Users/…`, `/home/…`, `$HOME/…`, `${HOME}/…` or a Windows
-    user folder;
-  - `~/`;
+  - a path under a home directory: `/Users/…`, `/home/…`, `~/`, `$HOME/…`, `${HOME}/…` or a
+    Windows user folder;
   - a `file:/` link;
   - a relative path with a slash and a file extension or a glob, `docs/notes.md`, `docs/**` or
-    `docs/**/*.md`, that is no file or directory of the plugin. A glob that opens with a wildcard,
-    `**/*.md`, names every place and no particular one, so it is none. `constitution.yaml`, the one repository
-    path a module may name, has no slash and so is never one.
+    `**/docs/*.md`, that is no file or directory of the plugin. A glob whose folder parts are all
+    wildcards, `**/*.md`, names every place and none in particular, so it is none.
+    `constitution.yaml`, the one repository path a module may name, has no slash and so is never
+    one.
 Not read: in Markdown, fenced blocks and inline code, which show an example to adapt, not a
 location. There is no exemption marker; an interpreter line is read as any other, so
 `#!/usr/bin/env` passes and a home path there does not.
 
 A heuristic, as the row says: the bare-repository run on defaults stays the gate of record. Not
-seen here, and held by review and by that run where it acts there: a folder named with neither
-an extension nor a glob, a system path such as `/srv/…`, a home directory of another name.
+seen here — a folder named with neither an extension nor a glob, a system path such as `/srv/…`
+— is held by review, and by that run where the path acts on a bare repository.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: each form red with its count typed
@@ -58,7 +58,8 @@ HOME = re.compile(
 )
 TILDE = re.compile(r"~/")
 FILE_LINK = re.compile(r"\bfile:/")
-RELATIVE = re.compile(r"(?<![\w/.$}{~:*-])((?:[\w.-]+/)(?:[\w.*-]+/)*[\w.*-]*)")
+RELATIVE = re.compile(r"(?<![\w/.$}{~:*-])((?:[\w.*-]+/)+[\w.*-]*)")
+WILDCARD = re.compile(r"\*+")
 NAMES_A_FILE = re.compile(r"(\.[A-Za-z]{1,5}$|\*)")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 CODE_SPAN = re.compile(r"(`+)(?:(?!\1).)+?\1")
@@ -144,6 +145,8 @@ def examine(path: str, text: str, plugins: list[Path]) -> list[Finding]:
             candidate = m[1].rstrip(".")
             if not NAMES_A_FILE.search(candidate):
                 continue
+            if all(WILDCARD.fullmatch(part) for part in candidate.split("/")[:-1]):
+                continue  # every folder part a wildcard: every place, none in particular
             plain = candidate.split("*")[0].rstrip("/")
             if plain and any((plugin / plain).exists() for plugin in plugins):
                 continue
@@ -208,6 +211,12 @@ def self_test() -> int:
             "Install.\n",
             "Copy ${HOME}/x/y.md or C:\\Users\\ann\\x.md there.\n",
             2,
+        ),
+        "a glob naming a folder after a wildcard": (
+            "skills/s/SKILL.md",
+            'paths: "**/*.md"\n',
+            'paths: "**/docs/decisions/*.md"\n',
+            1,
         ),
         "a home path in an interpreter line": (
             "scripts/run.sh",
