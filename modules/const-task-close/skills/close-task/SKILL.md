@@ -73,7 +73,9 @@ keeps: code, not working files.
 ## 5. Set the record inactive
 
 If the task has a record — a decision record, a plan — set its `status` to `inactive` in the same
-change: its ruling now lives in the documents it changed, and the record is evidence. When a
+change: its ruling now lives in the documents it changed, and the record is evidence. It is kept
+while something should still reference it; once nothing should, it is deleted, and git history is
+its archive — whether anything should is judgment, never a count of links. When a
 module that guards records is installed, its own skill defines when a record is `inactive`; this
 step performs it. An active record whose scope sees no commits is stalled drift: commit it back
 or roll it back, never leave the halfway state as the truth.

@@ -20,8 +20,9 @@ reported by the scan with the fix on its first line; nothing is silently skipped
    drawings for trivial cases only, pseudocode over formulas, prose against lists against tables,
    list format, table format, heading levels, code font and fence languages, emphasis, no
    callouts — each defined by examples. A project whose documents are governed by policies gives
-   the guide a policy of its own first. Where module `const-locations` is installed and the
-   guide's territory is a directory, name the shipped file as the template of that policy in
+   the guide a policy of its own first, has its root policy ask every policy for a style rule,
+   and has each kind's policy carry one, binding that kind's documents to the guide. Where module `const-locations` is installed and the
+   guide's territory is a directory, name the shipped file as the template of the guide's policy in
    `const-locations.templates` and create the guide through its command; a territory of one path
    is created by hand, once.
 3. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
