@@ -30,7 +30,8 @@ Where the repository has no style guide, create one from `style-guide.md` beside
 fill its envelope — the `id` a stable kebab-case name — put it where the project's documents of
 that kind live, and name its path in `const-styling.guides`. That file carries the founding
 entries. A project that governs its documents by policies gives the guide a policy of its own
-first, as its constitution asks for any new kind.
+first, as its constitution asks for any new kind, and binds each kind's documents to the guide by
+a style rule in that kind's policy, which the root policy asks every policy to carry.
 
 ## 2. Before the choice
 

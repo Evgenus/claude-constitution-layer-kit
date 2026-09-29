@@ -1,7 +1,7 @@
 ---
 name: gate-list-runner
 description: >
-  Runs the kit's gate list from the kit root — the scans of the document modules, the
+  Runs the kit's gate list from the kit root — the scans of the document modules, the list-handles scan, the
   open-question scan, the language scan, the carry-lists, shared-links, YAML-style, module-links and aspects checks, the range check of
   the task-close module, and on request a module's fixture runner and the lint and type
   commands — and returns one verdict line per gate with every red, broken and note line
@@ -29,14 +29,15 @@ The list, in this order:
 7. `sh modules/const-language/scripts/check-language.sh --scan` — needs `vale` 3.23.0 or newer on
    PATH; a `BROKEN` line naming it is reported as such, never skipped
 8. `sh modules/const-doc-budgets/scripts/check-budgets.sh --scan`
-9. `python3 scripts/check-carry-lists.py`
-10. `python3 scripts/check-shared-links.py`
-11. `python3 scripts/check-yaml-style.py` — never with `--fix`
-12. `python3 scripts/check-module-links.py`
-13. `python3 scripts/check-aspects.py`
-14. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
+9. `sh modules/const-interaction/scripts/check-list-handles.sh --scan`
+10. `python3 scripts/check-carry-lists.py`
+11. `python3 scripts/check-shared-links.py`
+12. `python3 scripts/check-yaml-style.py` — never with `--fix`
+13. `python3 scripts/check-module-links.py`
+14. `python3 scripts/check-aspects.py`
+15. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
    trunk, or when the message names a landed merge, `--scan --change <merge>`
-15. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
+16. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
     `python3 scripts/check-carry-lists.py --self-test`, `python3 scripts/check-yaml-style.py --self-test`,
     `python3 scripts/check-module-links.py --self-test`, `python3 scripts/check-aspects.py --self-test`;
     `python3 scripts/check-aspects.py --run`, the per-row report, which runs every module's runner;
