@@ -1,5 +1,5 @@
 #!/bin/sh
-# Kit gate: no commit is made on main; work starts on a branch and reaches main by a merge.
+# Kit gate: no commit is made on main; work starts on a branch and reaches main by a pull request's merge.
 # Enabled per clone by scripts/setup-clone.sh. Deterministic: red = switch to a branch.
 # It is this hook and not pre-commit because git runs this one for a commit, an amend, a
 # cherry-pick and a revert alike, and does not skip it on --no-verify; pre-commit is skipped by a
@@ -7,6 +7,7 @@
 # What it cannot see — whatever moves main without passing here: git am, a rebase of main, a
 # fast-forward asked for on the command line (--ff, --ff-only), a push into main, git reset,
 # git update-ref, git branch -f. And a merge passes whole: one concluded by hand can carry any content.
+# The shared main on the remote is held by the repository's ruleset: a pull request, merge commits only.
 # Exit: 0 the commit may proceed; 1 refused.
 
 protected=main
@@ -29,6 +30,6 @@ cat >&2 <<MSG
 RED: this commit would land on $protected
   why: every change, one commit or many, is made on its own branch and reaches $protected as one merge commit, so the history reads one line per work
   fix: $fix
-  then, after the yes where one is needed: git switch $protected && git merge --no-ff work/<name> -m "Work: <name>"
+  then: git push -u origin work/<name> && gh pr create --base $protected --title "<name>" — and after the yes where one is needed the pull request is merged with a merge commit: gh pr merge <n> --merge --subject "Work: <name>"
 MSG
 exit 1

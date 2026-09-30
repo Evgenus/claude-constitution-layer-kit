@@ -27,10 +27,14 @@ expect 2 "an unprepared clone is red"                    sh scripts/setup-clone.
 echo x > x && git add x
 expect 0 "without the hook a commit lands on main"        git commit -q -m "unguarded"
 expect 0 "setup turns the clone green"                    sh scripts/setup-clone.sh
+git config --unset pull.ff
+expect 2 "a clone that pulls with a merge commit is red"   sh scripts/setup-clone.sh --check
+sh scripts/setup-clone.sh >/dev/null 2>&1
 echo a > a && git add a
 expect 1 "a commit on main is refused"                    git commit -q -m "on main"
 git commit -q -m "on main" >"$tmp/msg" 2>&1
 expect 0 "the refusal teaches the fix"                     grep -q 'fix: git switch -c work/<name>' "$tmp/msg"
+expect 0 "and the way to main, a pull request's merge"     grep -q 'gh pr merge <n> --merge --subject "Work: <name>"' "$tmp/msg"
 expect 1 "--no-verify does not get past it"               git commit -q --no-verify -m "on main"
 expect 1 "an amend on main is refused"                    git commit -q --amend -m "reworded"
 git commit -q --amend -m "reworded" >"$tmp/msg" 2>&1
@@ -56,6 +60,12 @@ expect 128 "a revert of several commits on main is refused"  git revert --no-edi
 cp "$tmp/out" "$tmp/msg"
 expect 0 "and is told to abort first"                     grep -q 'fix: git revert --abort' "$tmp/msg"
 expect 0 "the taught fix works: abort, then the branch"   sh -c 'git revert --abort && git switch -q -c work/four && git switch -q main'
+git init -q --bare -b main "$tmp/remote.git" && git push -q "$tmp/remote.git" main
+git clone -q "$tmp/remote.git" "$tmp/other" && (cd "$tmp/other" && git -c user.name=f -c user.email=f@example.invalid commit -q --allow-empty -m "merged on the remote" && git push -q origin main)
+remote_main=$(git --git-dir="$tmp/remote.git" rev-parse main)
+expect 0 "the remote's main is ahead of this one"          test "$remote_main" != "$(git rev-parse HEAD)"
+expect 0 "after setup a pull onto main only fast-forwards" git pull -q "$tmp/remote.git" main
+expect 0 "to the remote's main exactly, no merge of its own" test "$(git rev-parse HEAD)" = "$remote_main"
 chmod -x scripts/git-hooks/prepare-commit-msg
 expect 2 "a hook that is not executable makes the clone red" sh scripts/setup-clone.sh --check
 chmod +x scripts/git-hooks/prepare-commit-msg
