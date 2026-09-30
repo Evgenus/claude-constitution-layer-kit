@@ -15,8 +15,9 @@ A finding is one of these forms, outside a public URL:
   - a `file:/` link;
   - a relative path with a slash and a file extension or a glob, `docs/notes.md`, `docs/**` or
     `**/docs/*.md`, that is no file or directory of the plugin. A glob whose parts before the last
-    are all wildcards and whose last part names files by an extension, `**/*.md`, names no
-    particular place, so it is no finding; `**/decisions` names a folder and is one.
+    are all wildcards and whose last part is wildcards before an extension, `**/*.md`, names no
+    particular place, so it is no finding; `**/decisions`, `**/.github`, `**/index.md` and `**/*`
+    are findings.
     `constitution.yaml`, the one repository path a module may name, has no slash and so is never
     one.
 Not read: in Markdown, fenced blocks and inline code, which show an example to adapt, not a
@@ -31,8 +32,8 @@ bare repository.
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: each form red with its count typed
                        by hand and green once fixed; every place not read stays green; the report
-                       of one finding as literal lines with exit 2; a file that is not UTF-8 as a
-                       BROKEN line.
+                       of one finding as literal lines with exit 2; a module folder not named
+                       `const-` read as a module; a file that is not UTF-8 as a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -63,6 +64,7 @@ TILDE = re.compile(r"~/")
 FILE_LINK = re.compile(r"\bfile:/")
 RELATIVE = re.compile(r"(?<![\w/.$}{~:*-])((?:[\w.*-]+/)+[\w.*-]*)")
 WILDCARD = re.compile(r"\*+")
+FILES_BY_EXTENSION = re.compile(r"\*+\.[A-Za-z0-9]{1,5}")
 NAMES_A_FILE = re.compile(r"(\.[A-Za-z]{1,5}$|\*)")
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 CODE_SPAN = re.compile(r"(`+)(?:(?!\1).)+?\1")
@@ -149,8 +151,10 @@ def examine(path: str, text: str, plugins: list[Path]) -> list[Finding]:
             if not NAMES_A_FILE.search(candidate):
                 continue
             parts = candidate.split("/")
-            if all(WILDCARD.fullmatch(part) for part in parts[:-1]) and "." in parts[-1]:
-                continue  # wildcards before files named by extension: no particular place
+            if all(WILDCARD.fullmatch(part) for part in parts[:-1]) and FILES_BY_EXTENSION.fullmatch(
+                parts[-1]
+            ):
+                continue  # wildcards, then wildcards before an extension: no particular place
             plain = candidate.split("*")[0].rstrip("/")
             if plain and any((plugin / plain).exists() for plugin in plugins):
                 continue
@@ -194,7 +198,8 @@ def report(findings: list[Finding], files: int, modules: int) -> int:
 def self_test() -> int:
     """Red→green on a throwaway tree: each form is red where the check reads, with its number of
     findings typed by hand, and green once fixed; every place not read stays green; the report of
-    one finding is its literal text with exit 2; a file that is not UTF-8 is a teaching BROKEN."""
+    one finding is its literal text with exit 2; a module folder not named `const-` is read; a file
+    that is not UTF-8 is a teaching BROKEN."""
     red: dict[str, tuple[str, str, str, int]] = {  # case: file, green, red, its findings by hand
         "a home path in a script": (
             "scripts/gate.py",
@@ -222,6 +227,9 @@ def self_test() -> int:
             "P = '**/decisions'\n",
             1,
         ),
+        "a glob ending in a dotted folder": ("scripts/gate.py", "P = 'docs'\n", "P = '**/.github'\n", 1),
+        "a glob ending in a named file": ("scripts/gate.py", "P = 'docs'\n", "P = '**/index.md'\n", 1),
+        "a glob of wildcards alone": ("scripts/gate.py", "P = 'docs'\n", "P = '**/*'\n", 1),
         "a glob naming a folder after a wildcard": (
             "skills/s/SKILL.md",
             'paths: "**/*.md"\n',
@@ -259,7 +267,7 @@ def self_test() -> int:
         "a file of the plugin": ("INSTALL.md", "The skill is skills/s/SKILL.md.\n"),
         "the dials file": ("scripts/gate.py", "NAME = 'constitution.yaml'\n"),
         "a folder of the plugin by its glob": ("INSTALL.md", "Every skills/**/SKILL.md file.\n"),
-        "wildcards before files named by an extension": ("skills/s/SKILL.md", 'paths: "**/*.md"\n'),
+        "wildcards before wildcards and an extension": ("skills/s/SKILL.md", 'paths: "**/*.md"\n'),
         "a path with no extension or glob": ("scripts/gate.py", "REF = 'refs/heads/main'\n"),
         "a plugin-root path": ("hooks/hooks.json", '{"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/x/y.sh"]}\n'),
     }

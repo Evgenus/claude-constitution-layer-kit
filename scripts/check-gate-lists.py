@@ -11,8 +11,7 @@ scan. For each declared scan:
   - the CI list of step 10 of `docs/rollout-plan.md`, the sentence that opens "Then CI wiring",
     links the module's specification, `requirements.md#<module>`.
 Every folder under `modules/` whose name opens with neither a dot nor an underscore is a module
-and must hold its
-`MODULE.md`. A module that declares no scan is examined and needs neither (decision
+and must hold its `MODULE.md`. A module that declares no scan is examined and needs neither (decision
 dec-0056-portability-grep-and-gate-lists).
 
 Modes:  no arguments   check the kit;
@@ -169,7 +168,8 @@ def self_test() -> int:
     list, are red with one finding each and green once listed; a span with more after the flag is no
     scan; a module with no scan needs no line; the report of one finding is its literal text with
     exit 2; a gate list or a plan whose anchor moved, a module document without its enforcement
-    anchor and a module folder without its document are each a teaching BROKEN line."""
+    anchor and a module folder without its document are each a teaching BROKEN line; a scan
+    declared as `<entry>.py --scan` is held by its python3 line and taught by it."""
     module_text = (
         '<a id="t9"></a>\n## 9\n\n| # | artifact | kind |\n|---|---|---|\n'
         "| E1 | hook + `check-x` (hook mode) | `gate` |\n| E2 | `check-x --scan`: all | `gate` |\n"
