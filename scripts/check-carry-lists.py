@@ -21,9 +21,10 @@ script can hold:
                "Carry-Audit: at <commit>; <n> records; <f> findings, <x> fixed, <j> justified";
                the commit named is an ancestor at which the record already existed, n is above
                zero, x + j = f. The newest acceptance of a record is the one that counts, so a
-               wrong receipt is mended by accepting again. A record no commit accepts yet awaits
-               its yes: a note, never a finding — a gate is not red for waiting on a person. An
-               "Accepted:" id that names no record is a note too: deleted since, or misspelt.
+               wrong receipt is mended by accepting again, in the merge commit of a new pull
+               request. A record no commit accepts yet awaits its yes: a note, never a finding —
+               a gate is not red for waiting on a person. An "Accepted:" id that names no record
+               is a note too: deleted since, or misspelt.
 
 What it cannot see, and leaves to the reader of the audit: a ruling item the author never gave a
 handle; whether the linked text states the rule; whether the audit the receipt names was run.
@@ -348,7 +349,10 @@ def acceptances(kit: Path) -> list[Acceptance]:
 
 
 RECEIPT_FORM = "Carry-Audit: at <commit>; <n> records; <f> findings, <x> fixed, <j> justified"
-AGAIN = " — then accept again in a new commit, never by rewriting history: the newest acceptance counts"
+AGAIN = (
+    " — then accept again in the merge commit of a new pull request, never by rewriting history: "
+    "the newest acceptance counts"
+)
 
 
 def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Finding]:
@@ -358,7 +362,8 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
             Finding(
                 f"{where} and names no carry audit",
                 WHY_RECEIPT,
-                "run the audit, then accept again in a new commit that carries both trailers — "
+                "run the audit, then accept again in the merge commit of a new pull request, "
+                "carrying both trailers — "
                 f'"Accepted: {record_id}" and "{RECEIPT_FORM}" — never by rewriting history: the newest '
                 "acceptance counts",
             )
@@ -446,8 +451,8 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
             if stem not in present:
                 notes.append(
                     f"NOTE: commit {acceptance.commit[:7]} accepts {stem}, which is no record here — "
-                    "deleted since, or misspelt; when misspelt, accept again in a new commit, the id "
-                    "spelt right"
+                    "deleted since, or misspelt; when misspelt, accept again in the merge commit of a "
+                    "new pull request, the id spelt right"
                 )
     return findings, notes, len(records)
 

@@ -31,6 +31,6 @@ cat >&2 <<MSG
 RED: this commit would land on $protected
   why: every change, one commit or many, is made on its own branch and reaches $protected as one merge commit, so the history reads one line per work
   fix: $fix
-  then: git push -u origin work/<name> && gh pr create --base $protected --title "<name>" — the pull request is merged with a merge commit, which gives the yes where one is needed: gh pr merge <n> --merge --subject "Work: <name>"
+  then: git push -u origin work/<name> && gh pr create --base $protected --title "<name>" — merged with a merge commit by the decider, or by the session after the decider's yes in chat where one is needed: gh pr merge <n> --merge --subject "Work: <name>"
 MSG
 exit 1
