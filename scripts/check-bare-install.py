@@ -16,9 +16,11 @@ A red is a finding against the module; a missing `claude` or `git`, or an instal
 refuses, is a configuration failure. Needs no login: plugin install reads no account.
 
 Modes:  --module <name>  check one module of the kit;
-        --self-test      prove step 3 on throwaway plugin folders: a green one green; a link left,
-                         a hook that fails on the bare repository and a scan that is red each one
-                         finding; the report of one finding as literal lines with exit 2.
+        --self-test      prove step 3 on throwaway source and copy folders: a green copy green; a
+                         link left, a link missing, a link inside the module, a copy without its
+                         hooks file, a hook that exits 1 or 2, one that denies, one given another
+                         event, a red shell or Python scan, each a finding; the report of one
+                         finding as literal lines with exit 2.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -47,6 +49,10 @@ NOTE = "docs/note.md"
 
 class Broken(Exception):
     """The check could not run; the message says why and how to fix it."""
+
+
+class Refused(Exception):
+    """The platform refused to install the module: a finding against the module."""
 
 
 @dataclass(frozen=True)
@@ -143,42 +149,76 @@ def sample_event(hook: Hook, repo: Path) -> dict[str, object]:
     return event
 
 
-def check_installed(module: str, plugin: Path, repo: Path, data: Path) -> list[Finding]:
+def refusal(said: str) -> str:
+    """A decision a hook that exits 0 still gives in its JSON: a block, a denial or a question."""
+    try:
+        answer = json.loads(said) if said.startswith("{") else {}
+    except ValueError:
+        return ""
+    if not isinstance(answer, dict):
+        return ""
+    specific = answer.get("hookSpecificOutput")
+    decision = specific.get("permissionDecision") if isinstance(specific, dict) else None
+    if answer.get("decision") == "block":
+        return "block"
+    if decision in ("deny", "ask"):
+        return str(decision)
+    if answer.get("continue") is False:
+        return "stop"
+    return ""
+
+
+def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
     findings: list[Finding] = []
-    links = sorted(str(p.relative_to(plugin)) for p in plugin.rglob("*") if p.is_symlink())
-    if links:
-        findings.append(
-            Finding(
-                module,
-                f"the installed copy keeps {len(links)} symbolic link(s): {', '.join(links[:3])}",
-                "the install must carry what it runs — fire the fallback of limit 3 of shared/GATE.md §4,"
-                " links replaced by copies",
+    for link in sorted(p for p in source.rglob("*") if p.is_symlink()):
+        place = plugin / link.relative_to(source)
+        if place.is_symlink() or not place.exists():
+            inside = link.resolve().is_relative_to(source.resolve())
+            fix = (
+                "replace the link inside the module with the file it points at"
+                if inside
+                else "the install must carry what it runs — fire the fallback of limit 3 of"
+                " shared/GATE.md §4, links replaced by copies"
             )
+            state = "left a link" if place.is_symlink() else "missing"
+            findings.append(
+                Finding(module, f"the link {link.relative_to(source)} is {state} in the installed copy", fix)
+            )
+    return findings
+
+
+def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
+    """What the kit's source of the module promises, held in its installed copy on a bare repository."""
+    findings = link_findings(module, source, plugin)
+    if (source / "hooks" / "hooks.json").is_file() and not (plugin / "hooks" / "hooks.json").is_file():
+        findings.append(
+            Finding(module, "the installed copy has no hooks/hooks.json", "restore the hooks file")
         )
     env = os.environ | {
         "CLAUDE_PLUGIN_ROOT": str(plugin),
         "CLAUDE_PROJECT_DIR": str(repo),
         "CLAUDE_PLUGIN_DATA": str(data),
     }
-    for hook in hooks_of(plugin):
+    for hook in hooks_of(source):
         argv = [a.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin)) for a in (hook.command, *hook.args)]
-        event = sample_event(hook, repo)
+        shown = " ".join(argv[1:]).replace(str(plugin), "<plugin>")
         note = repo / NOTE
         if hook.event == "PostToolUse":
             note.write_text("# Note\n", encoding="utf-8")
-        code, said = run(argv, repo, env, json.dumps(event), hook.timeout)
+        code, said = run(argv, repo, env, json.dumps(sample_event(hook, repo)), hook.timeout)
         note.unlink(missing_ok=True)
-        if code != 0:
+        answered = refusal(said) if code == 0 else ""
+        if code != 0 or answered:
             last = said.splitlines()[-1] if said else "no output"
+            what = f"exits {code}" if code != 0 else f"answers {answered}"
             findings.append(
                 Finding(
                     module,
-                    f"its {hook.event} hook `{' '.join(argv[1:]).replace(str(plugin), '<plugin>')}` exits"
-                    f" {code} on a bare repository ({last})",
+                    f"its {hook.event} hook `{shown}` {what} on a bare repository ({last})",
                     "make the hook pass with a visible zero where no constitution.yaml claims anything",
                 )
             )
-    for entry in declared_scans(plugin):
+    for entry in declared_scans(source):
         script = plugin / "scripts" / (entry if entry.endswith(".py") else f"{entry}.sh")
         argv = ["python3" if entry.endswith(".py") else "sh", str(script), "--scan"]
         code, said = run(argv, repo, env)
@@ -227,14 +267,15 @@ def install(module: str, root: Path, repo: Path) -> Path:
     config = root / "config"
     config.mkdir()
     env = os.environ | {"CLAUDE_CONFIG_DIR": str(config)}
-    for argv in (
-        ["claude", "plugin", "marketplace", "add", str(KIT)],
-        ["claude", "plugin", "install", f"{module}@{MARKETPLACE}"],
-    ):
-        code, said = run(argv, repo, env)
-        if code != 0:
-            last = said.splitlines()[-1] if said else "no output"
-            raise Broken(f"`{' '.join(argv[:3])} …` exited {code} ({last}) — fix: read its output above")
+    code, said = run(["claude", "plugin", "marketplace", "add", str(KIT)], repo, env)
+    if code != 0:
+        last = said.splitlines()[-1] if said else "no output"
+        raise Broken(
+            f"`claude plugin marketplace add` exited {code} ({last}) — fix: check the kit's marketplace.json"
+        )
+    code, said = run(["claude", "plugin", "install", f"{module}@{MARKETPLACE}"], repo, env)
+    if code != 0:
+        raise Refused(said.splitlines()[-1] if said else f"exit {code}")
     record = config / "plugins" / "installed_plugins.json"
     try:
         entries = json.loads(record.read_text(encoding="utf-8"))["plugins"][f"{module}@{MARKETPLACE}"]
@@ -251,9 +292,18 @@ def check_module(module: str) -> list[Finding]:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         repo = bare_repository(root)
-        plugin = install(module, root, repo)
+        try:
+            plugin = install(module, root, repo)
+        except Refused as refused:
+            return [
+                Finding(
+                    module,
+                    f"Claude Code refuses to install it ({refused})",
+                    "fix its manifest or its entry in marketplace.json",
+                )
+            ]
         (root / "data").mkdir()
-        return check_installed(module, plugin, repo, root / "data")
+        return check_installed(module, KIT / "modules" / module, plugin, repo, root / "data")
 
 
 def report(module: str, findings: list[Finding], examined: str) -> int:
@@ -267,68 +317,108 @@ def report(module: str, findings: list[Finding], examined: str) -> int:
 
 
 def self_test() -> int:
-    """Red→green on throwaway plugin folders, no install: a plugin whose hook and scan pass is green;
-    a link left in it, a hook that exits 1 and a scan that exits 2 are one finding each; the report
-    of one finding is its literal text with exit 2."""
-    module_text = '<a id="t9"></a>\n| E1 | `check-x --scan`: all | `gate` |\n<a id="t10"></a>\n'
-    hooks = {
-        "hooks": {
-            "PreToolUse": [
-                {
-                    "matcher": "Write|Edit",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "sh",
-                            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.sh"],
-                        }
-                    ],
-                }
-            ]
-        }
-    }
+    """Red→green on throwaway source and copy folders, no install: a copy whose hook and scans pass
+    and whose outside link arrived as a real directory is green; a link left in the copy, one missing
+    from it, a link inside the module, a copy without its hooks file, a hook that exits 1, one that
+    exits 2, one that exits 0 but denies, a hook that is not given its event, and a shell or Python
+    scan that is red are one finding each; the report of one finding is its literal text, exit 2."""
+    module_text = (
+        '<a id="t9"></a>\n| E1 | `check-x --scan`: all | `gate` |\n| E2 | `check-p.py --scan` | `gate` |\n'
+        '<a id="t10"></a>\n'
+    )
+    command = {"type": "command", "command": "sh", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.sh"]}
+    hooks = {"hooks": {"PreToolUse": [{"matcher": "Write|Edit", "hooks": [command]}]}}
+    deny = '{"hookSpecificOutput": {"permissionDecision": "deny"}}'
 
-    def plugin_in(root: Path, hook_exit: int = 0, scan_exit: int = 0, link: bool = False) -> Path:
-        plugin = root / "plugin"
-        (plugin / "hooks").mkdir(parents=True)
-        (plugin / "scripts").mkdir()
-        (plugin / "hooks" / "hooks.json").write_text(json.dumps(hooks), encoding="utf-8")
-        (plugin / "MODULE.md").write_text(module_text, encoding="utf-8")
-        (plugin / "scripts" / "hook.sh").write_text(f"cat >/dev/null\nexit {hook_exit}\n", encoding="utf-8")
-        (plugin / "scripts" / "check-x.sh").write_text(f"echo scanned\nexit {scan_exit}\n", encoding="utf-8")
-        if link:
-            (plugin / "scripts" / "shared").symlink_to(plugin / "hooks")
-        return plugin
+    def folders(root: Path, change: str) -> tuple[Path, Path]:
+        source, shared = root / "source", root / "shared"
+        (shared).mkdir()
+        (shared / "code.py").write_text("x = 1\n", encoding="utf-8")
+        (source / "hooks").mkdir(parents=True)
+        (source / "scripts").mkdir()
+        (source / "hooks" / "hooks.json").write_text(json.dumps(hooks), encoding="utf-8")
+        (source / "MODULE.md").write_text(module_text, encoding="utf-8")
+        hook = {
+            "hook-exit-1": "exit 1",
+            "hook-exit-2": "exit 2",
+            "hook-denies": f"echo '{deny}'",
+        }.get(change, "exit 0")
+        (source / "scripts" / "hook.sh").write_text(
+            f'grep -q \'"hook_event_name": "PreToolUse"\' || exit 3\n{hook}\n', encoding="utf-8"
+        )
+        (source / "scripts" / "check-x.sh").write_text(
+            f"exit {2 if change == 'scan-red' else 0}\n", encoding="utf-8"
+        )
+        (source / "scripts" / "check-p.py").write_text(
+            f"raise SystemExit({2 if change == 'py-scan-red' else 0})\n", encoding="utf-8"
+        )
+        (source / "scripts" / "shared").symlink_to(shared)
+        if change == "inner-link":
+            (source / "scripts" / "again").symlink_to(source / "hooks")
+        copy = root / "copy"
+        shutil.copytree(source, copy, symlinks=False)
+        if change == "inner-link":
+            shutil.rmtree(copy / "scripts" / "again")
+            (copy / "scripts" / "again").symlink_to(copy / "hooks")
+        if change == "link-left":
+            shutil.rmtree(copy / "scripts" / "shared")
+            (copy / "scripts" / "shared").symlink_to(shared)
+        if change == "link-missing":
+            shutil.rmtree(copy / "scripts" / "shared")
+        if change == "no-hooks-file":
+            (copy / "hooks" / "hooks.json").unlink()
+        if change == "no-event":
+            (source / "hooks" / "hooks.json").write_text(
+                json.dumps({"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": [command]}]}}).replace(
+                    "PreToolUse", "PostToolUse"
+                ),
+                encoding="utf-8",
+            )
+        return source, copy
 
-    def findings_of(**kind: int | bool) -> list[Finding]:
+    def findings_of(change: str) -> list[Finding]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             (root / "repo" / "docs").mkdir(parents=True)
             (root / "data").mkdir()
-            plugin = plugin_in(root, **kind)  # type: ignore[arg-type]
-            return check_installed("const-x", plugin, root / "repo", root / "data")
+            source, copy = folders(root, change)
+            return check_installed("const-x", source, copy, root / "repo", root / "data")
 
     failed = 0
-    cases: dict[str, tuple[dict[str, int | bool], list[str]]] = {
-        "a plugin whose hook and scan pass on a bare repository is green": ({}, []),
-        "a symbolic link left in the installed copy is a finding": ({"link": True}, ["symbolic link"]),
-        "a hook that exits 1 on a bare repository is a finding": ({"hook_exit": 1}, ["PreToolUse hook"]),
-        "a scan that is red on a bare repository is a finding": ({"scan_exit": 2}, ["scan `check-x --scan`"]),
+    cases = {
+        "a copy whose hook and scans pass, its outside link a real directory, is green": ("", ""),
+        "a link left a link in the copy is a finding": ("link-left", "is left a link"),
+        "a link missing from the copy is a finding": ("link-missing", "is missing"),
+        "a link inside the module is a finding, fixed by the file it points at": ("inner-link", "again"),
+        "a copy without its hooks file is a finding": ("no-hooks-file", "no hooks/hooks.json"),
+        "a hook that exits 1 is a finding": ("hook-exit-1", "exits 1"),
+        "a hook that exits 2 is a finding": ("hook-exit-2", "exits 2"),
+        "a hook that exits 0 but denies is a finding": ("hook-denies", "answers deny"),
+        "a hook given another event than its own is a finding": ("no-event", "exits 3"),
+        "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
+        "a Python scan that is red is a finding": ("py-scan-red", "check-p.py --scan"),
     }
-    for name, (kind, wanted) in cases.items():
-        got = [f.what for f in findings_of(**kind)]
-        ok = len(got) == len(wanted) and all(w in g for w, g in zip(wanted, got, strict=True))
+    for name, (change, wanted) in cases.items():
+        got = [f.what for f in findings_of(change)]
+        ok = got == [] if not wanted else len(got) >= 1 and all(wanted in g for g in got[:1])
+        if change == "no-hooks-file":
+            ok = ok and len(got) == 1  # the file is missing; the hook the source names still runs in the copy
+        if change == "inner-link":
+            fixes = [f.fix for f in findings_of(change)]
+            ok = ok and fixes[:1] == ["replace the link inside the module with the file it points at"]
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
+        if not ok:
+            print(f"        got: {got}")
     report_lines = [  # typed by hand: a message function cannot check itself
-        "RED: const-x: its scan `check-x --scan` exits 2 on a bare repository (scanned)",
+        "RED: const-x: its scan `check-x --scan` exits 2 on a bare repository (no output)",
         f"  why: {WHY}",
         "  fix: make the scan green, with a visible zero, where no constitution.yaml claims anything",
-        "RED: 1 finding(s) — 1 hook(s), 1 scan(s)",
+        "RED: 1 finding(s) — 1 hook(s), 2 scan(s)",
     ]
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed):
-        code = report("const-x", findings_of(scan_exit=2), "1 hook(s), 1 scan(s)")
+        code = report("const-x", findings_of("scan-red"), "1 hook(s), 2 scan(s)")
     ok = code == EXIT_RED and printed.getvalue().splitlines() == report_lines
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the report of one finding is its literal text, exit 2")
