@@ -12,8 +12,8 @@ For the module named, in throwaway folders that the check removes:
      leads inside the module; every link arrives as a real file with the same bytes, or a
      directory with the same file names; the copy holds no link the source lacks; the copy holds
      the source's hooks file; every hook of the source's hooks/hooks.json, run from the copy in
-     exec form on a sample event of its kind with CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on the bare repository, and its JSON on standard
-     output neither blocks, denies, asks nor stops; every scan the source declares in its
+     exec form on a sample event of its kind with CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on
+     the bare repository, and its JSON on standard output neither blocks, denies, asks nor stops; every scan the source declares in its
      enforcement section (template §9), run from the copy, exits 0 there.
 A red is a finding against the module, and so is an install Claude Code refuses; a missing
 `claude` or `git`, or a marketplace the CLI cannot add, is a configuration failure. The run holds
