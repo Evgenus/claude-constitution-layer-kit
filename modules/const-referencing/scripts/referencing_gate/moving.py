@@ -122,8 +122,12 @@ def _repair(rel: str, text: str, old: str, new: str, ids: Ids | None) -> Rewritt
 
 
 def _list_mentions(output: Output, root: Path, covered: Sequence[str], old: str, new: str) -> int:
+    """Every text file git lists is read for the old path: the covered documents, the Markdown
+    files outside coverage, and the other files. A symbolic link outside coverage is not read."""
+    known = set(covered)
+    uncovered = [rel for rel in list_markdown(root) if rel not in known and not (root / rel).is_symlink()]
     listed = 0
-    for rel in [*covered, *other_files(root)]:
+    for rel in [*covered, *uncovered, *other_files(root)]:
         if rel == new:
             continue
         text = read_text(root, rel)
