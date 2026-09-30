@@ -7,13 +7,18 @@ For the module named, in throwaway folders that the check removes:
   1. a bare repository — `git init`, the kit's kernel copied to docs/constitution/ and committed,
      no constitution.yaml — and an empty Claude configuration folder (CLAUDE_CONFIG_DIR);
   2. `claude plugin marketplace add <kit>` and `claude plugin install <module>@constitution-kit`,
-     the platform's own install, which copies the plugin into the configuration's cache;
-  3. in the installed copy: no symbolic link is left, since an installed plugin carries what it
-     runs; every hook of hooks/hooks.json, run in exec form with CLAUDE_PLUGIN_ROOT set to the
-     copy, exits 0 on a sample event of its kind in the bare repository; every scan the module
-     declares in its enforcement section (template §9) exits 0 there.
-A red is a finding against the module; a missing `claude` or `git`, or an install the CLI
-refuses, is a configuration failure. Needs no login: plugin install reads no account.
+     the platform's own install, which writes a copy of the plugin into the configuration's cache;
+  3. what the kit's source of the module declares, held in that copy: every link of the source
+     arrives as a real file or directory with the same files, and the copy holds no link the
+     source lacks; the copy holds the source's hooks file; every hook of the source's
+     hooks/hooks.json, run from the copy in exec form on a sample event of its kind with
+     CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on the bare repository, and its JSON on standard
+     output neither blocks, denies, asks nor stops; every scan the source declares in its
+     enforcement section (template §9), run from the copy, exits 0 there.
+A red is a finding against the module, and so is an install Claude Code refuses; a missing
+`claude` or `git`, or a marketplace the CLI cannot add, is a configuration failure. The run holds
+the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
+Needs no login: plugin install reads no account.
 
 Modes:  --module <name>  check one module of the kit;
         --self-test      prove step 3 on throwaway source and copy folders: a green copy green; a
@@ -76,7 +81,8 @@ class Hook:
 
 def run(
     argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: int = 300
-) -> tuple[int, str]:
+) -> tuple[int, str, str]:
+    """The exit, the standard output and the standard error of one command."""
     try:
         done = subprocess.run(
             argv, cwd=cwd, env=env, input=stdin, capture_output=True, text=True, timeout=timeout, check=False
@@ -86,8 +92,13 @@ def run(
             f"{argv[0]} is not installed ({bad.strerror}) — fix: install it and put it on PATH"
         ) from bad
     except subprocess.TimeoutExpired:
-        return 124, f"timed out after {timeout} s"
-    return done.returncode, (done.stdout + done.stderr).strip()
+        return 124, "", f"timed out after {timeout} s"
+    return done.returncode, done.stdout.strip(), done.stderr.strip()
+
+
+def last_line(out: str, err: str) -> str:
+    said = err or out
+    return said.splitlines()[-1] if said else "no output"
 
 
 def hooks_of(plugin: Path) -> list[Hook]:
@@ -150,7 +161,8 @@ def sample_event(hook: Hook, repo: Path) -> dict[str, object]:
 
 
 def refusal(said: str) -> str:
-    """A decision a hook that exits 0 still gives in its JSON: a block, a denial or a question."""
+    """A decision a hook that exits 0 still gives in the JSON of its standard output: a block, a
+    denial, a question or a stop."""
     try:
         answer = json.loads(said) if said.startswith("{") else {}
     except ValueError:
@@ -168,22 +180,57 @@ def refusal(said: str) -> str:
     return ""
 
 
+CACHES = ("__pycache__", ".mypy_cache", ".ruff_cache")
+
+
+def files_under(folder: Path) -> set[str]:
+    """The files under a folder, by relative path, caches left out."""
+    return {
+        str(f.relative_to(folder))
+        for f in folder.rglob("*")
+        if f.is_file() and not any(part in CACHES for part in f.relative_to(folder).parts)
+    }
+
+
 def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
+    """Every link of the source arrives as a real file, or a directory with the same files; the copy
+    holds no link the source lacks."""
     findings: list[Finding] = []
-    for link in sorted(p for p in source.rglob("*") if p.is_symlink()):
-        place = plugin / link.relative_to(source)
+    links = sorted(p for p in source.rglob("*") if p.is_symlink())
+    for link in links:
+        where = link.relative_to(source)
+        place = plugin / where
+        target = link.resolve()
+        inside = target.is_relative_to(source.resolve())
+        fix = (
+            "replace the link inside the module with the file it points at"
+            if inside
+            else "the install must carry what it runs — fire the fallback of limit 3 of"
+            " shared/GATE.md §4, links replaced by copies"
+        )
         if place.is_symlink() or not place.exists():
-            inside = link.resolve().is_relative_to(source.resolve())
-            fix = (
-                "replace the link inside the module with the file it points at"
-                if inside
-                else "the install must carry what it runs — fire the fallback of limit 3 of"
-                " shared/GATE.md §4, links replaced by copies"
-            )
             state = "left a link" if place.is_symlink() else "missing"
+            findings.append(Finding(module, f"the link {where} is {state} in the installed copy", fix))
+        elif inside:
+            findings.append(Finding(module, f"the link {where} leads inside the module", fix))
+        elif target.is_dir() and files_under(place) != files_under(target):
+            lost = sorted(files_under(target) - files_under(place))
             findings.append(
-                Finding(module, f"the link {link.relative_to(source)} is {state} in the installed copy", fix)
+                Finding(
+                    module,
+                    f"the link {where} arrived without {len(lost)} of its files: {', '.join(lost[:3])}",
+                    fix,
+                )
             )
+    carried = {plugin / link.relative_to(source) for link in links}
+    for extra in sorted(p for p in plugin.rglob("*") if p.is_symlink() and p not in carried):
+        findings.append(
+            Finding(
+                module,
+                f"the installed copy holds a link its source lacks: {extra.relative_to(plugin)}",
+                "find what makes the link in the install, and make the module carry a file instead",
+            )
+        )
     return findings
 
 
@@ -205,11 +252,11 @@ def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: P
         note = repo / NOTE
         if hook.event == "PostToolUse":
             note.write_text("# Note\n", encoding="utf-8")
-        code, said = run(argv, repo, env, json.dumps(sample_event(hook, repo)), hook.timeout)
+        code, out, err = run(argv, repo, env, json.dumps(sample_event(hook, repo)), hook.timeout)
         note.unlink(missing_ok=True)
-        answered = refusal(said) if code == 0 else ""
+        answered = refusal(out) if code == 0 else ""
         if code != 0 or answered:
-            last = said.splitlines()[-1] if said else "no output"
+            last = last_line(out, err)
             what = f"exits {code}" if code != 0 else f"answers {answered}"
             findings.append(
                 Finding(
@@ -221,9 +268,9 @@ def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: P
     for entry in declared_scans(source):
         script = plugin / "scripts" / (entry if entry.endswith(".py") else f"{entry}.sh")
         argv = ["python3" if entry.endswith(".py") else "sh", str(script), "--scan"]
-        code, said = run(argv, repo, env)
+        code, out, err = run(argv, repo, env)
         if code != 0:
-            last = said.splitlines()[-1] if said else "no output"
+            last = last_line(out, err)
             findings.append(
                 Finding(
                     module,
@@ -239,9 +286,9 @@ def bare_repository(root: Path) -> Path:
     repo.mkdir()
     env = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull}
     for argv in (["git", "init", "-q", "-b", "main"],):
-        code, said = run(argv, repo, env)
+        code, out, err = run(argv, repo, env)
         if code != 0:
-            raise Broken(f"git init failed ({said}) — fix: install git")
+            raise Broken(f"git init failed ({last_line(out, err)}) — fix: install git")
     shutil.copytree(KIT / "kernel", repo / "docs" / "constitution")
     for argv in (
         ["git", "add", "-A"],
@@ -257,8 +304,9 @@ def bare_repository(root: Path) -> Path:
             "kernel",
         ],
     ):
-        code, said = run(argv, repo, env)
+        code, out, err = run(argv, repo, env)
         if code != 0:
+            said = last_line(out, err)
             raise Broken(f"{' '.join(argv[:2])} failed in the bare repository ({said}) — fix: install git")
     return repo
 
@@ -267,15 +315,15 @@ def install(module: str, root: Path, repo: Path) -> Path:
     config = root / "config"
     config.mkdir()
     env = os.environ | {"CLAUDE_CONFIG_DIR": str(config)}
-    code, said = run(["claude", "plugin", "marketplace", "add", str(KIT)], repo, env)
+    code, out, err = run(["claude", "plugin", "marketplace", "add", str(KIT)], repo, env)
     if code != 0:
-        last = said.splitlines()[-1] if said else "no output"
+        last = last_line(out, err)
         raise Broken(
             f"`claude plugin marketplace add` exited {code} ({last}) — fix: check the kit's marketplace.json"
         )
-    code, said = run(["claude", "plugin", "install", f"{module}@{MARKETPLACE}"], repo, env)
+    code, out, err = run(["claude", "plugin", "install", f"{module}@{MARKETPLACE}"], repo, env)
     if code != 0:
-        raise Refused(said.splitlines()[-1] if said else f"exit {code}")
+        raise Refused(last_line(out, err))
     record = config / "plugins" / "installed_plugins.json"
     try:
         entries = json.loads(record.read_text(encoding="utf-8"))["plugins"][f"{module}@{MARKETPLACE}"]
@@ -319,9 +367,11 @@ def report(module: str, findings: list[Finding], examined: str) -> int:
 def self_test() -> int:
     """Red→green on throwaway source and copy folders, no install: a copy whose hook and scans pass
     and whose outside link arrived as a real directory is green; a link left in the copy, one missing
-    from it, a link inside the module, a copy without its hooks file, a hook that exits 1, one that
-    exits 2, one that exits 0 but denies, a hook that is not given its event, and a shell or Python
-    scan that is red are one finding each; the report of one finding is its literal text, exit 2."""
+    from it, one that arrived without its files, a link inside the module, a link the source lacks, a
+    copy without its hooks file, a hook that exits 1 or 2, one that exits 0 but denies — with a
+    warning on standard error too — blocks, asks or stops, a hook not given its event, a shell or
+    Python scan that is red, and a red scan the source declares where the copy lost its document, are
+    each a finding; the report of one finding is its literal text, exit 2."""
     module_text = (
         '<a id="t9"></a>\n| E1 | `check-x --scan`: all | `gate` |\n| E2 | `check-p.py --scan` | `gate` |\n'
         '<a id="t10"></a>\n'
@@ -342,12 +392,16 @@ def self_test() -> int:
             "hook-exit-1": "exit 1",
             "hook-exit-2": "exit 2",
             "hook-denies": f"echo '{deny}'",
+            "hook-denies-and-warns": f"echo '{deny}'; echo 'WARNING: logged' >&2",
+            "hook-blocks": """echo '{"decision": "block"}'""",
+            "hook-asks": """echo '{"hookSpecificOutput": {"permissionDecision": "ask"}}'""",
+            "hook-stops": """echo '{"continue": false}'""",
         }.get(change, "exit 0")
         (source / "scripts" / "hook.sh").write_text(
             f'grep -q \'"hook_event_name": "PreToolUse"\' || exit 3\n{hook}\n', encoding="utf-8"
         )
         (source / "scripts" / "check-x.sh").write_text(
-            f"exit {2 if change == 'scan-red' else 0}\n", encoding="utf-8"
+            f"exit {2 if change in ('scan-red', 'copy-without-document') else 0}\n", encoding="utf-8"
         )
         (source / "scripts" / "check-p.py").write_text(
             f"raise SystemExit({2 if change == 'py-scan-red' else 0})\n", encoding="utf-8"
@@ -367,6 +421,12 @@ def self_test() -> int:
             shutil.rmtree(copy / "scripts" / "shared")
         if change == "no-hooks-file":
             (copy / "hooks" / "hooks.json").unlink()
+        if change == "copy-without-document":
+            (copy / "MODULE.md").unlink()
+        if change == "link-emptied":
+            (copy / "scripts" / "shared" / "code.py").unlink()
+        if change == "extra-link":
+            (copy / "scripts" / "made").symlink_to(copy / "hooks")
         if change == "no-event":
             (source / "hooks" / "hooks.json").write_text(
                 json.dumps({"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": [command]}]}}).replace(
@@ -394,6 +454,19 @@ def self_test() -> int:
         "a hook that exits 1 is a finding": ("hook-exit-1", "exits 1"),
         "a hook that exits 2 is a finding": ("hook-exit-2", "exits 2"),
         "a hook that exits 0 but denies is a finding": ("hook-denies", "answers deny"),
+        "a hook that denies and writes a warning to standard error is a finding": (
+            "hook-denies-and-warns",
+            "answers deny",
+        ),
+        "a hook that exits 0 but blocks is a finding": ("hook-blocks", "answers block"),
+        "a hook that exits 0 but asks is a finding": ("hook-asks", "answers ask"),
+        "a hook that exits 0 but stops is a finding": ("hook-stops", "answers stop"),
+        "a scan the source declares is run though the copy lost its document": (
+            "copy-without-document",
+            "check-x --scan",
+        ),
+        "a link that arrived without its files is a finding": ("link-emptied", "without 1 of its files"),
+        "a link in the copy that the source lacks is a finding": ("extra-link", "a link its source lacks"),
         "a hook given another event than its own is a finding": ("no-event", "exits 3"),
         "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
         "a Python scan that is red is a finding": ("py-scan-red", "check-p.py --scan"),
@@ -445,7 +518,8 @@ def main(argv: list[str]) -> int:
             return self_test()
         module = str(args.module)
         plugin = KIT / "modules" / module
-        examined = f"{len(hooks_of(plugin))} hook(s), {len(declared_scans(plugin))} scan(s)"
+        links = sum(1 for p in plugin.rglob("*") if p.is_symlink())
+        examined = f"{len(hooks_of(plugin))} hook(s), {len(declared_scans(plugin))} scan(s), {links} link(s)"
         return report(module, check_module(module), examined)
     except Broken as broken:
         print(f"BROKEN: {broken}")
