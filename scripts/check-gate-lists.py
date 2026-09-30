@@ -10,7 +10,8 @@ scan. For each declared scan:
     `….py --scan`;
   - the CI list of step 10 of `docs/rollout-plan.md`, the sentence that opens "Then CI wiring",
     links the module's specification, `requirements.md#<module>`.
-Every folder under `modules/` but a hidden or an underscore one is a module and must hold its
+Every folder under `modules/` whose name opens with neither a dot nor an underscore is a module
+and must hold its
 `MODULE.md`. A module that declares no scan is examined and needs neither (decision
 dec-0056-portability-grep-and-gate-lists).
 
@@ -19,7 +20,8 @@ Modes:  no arguments   check the kit;
                        a scan in both green, a span with more after the flag no scan, the report
                        of one finding as literal lines with exit 2, a list whose anchor moved, a
                        module document without its enforcement anchor and a module folder without
-                       its document, each a BROKEN line.
+                       its document, each a BROKEN line; a `.py` scan held by its python3 line and
+                       taught by it.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -220,6 +222,25 @@ def self_test() -> int:
         ok = [f.where for f in findings_of(gates, plan)] == wanted
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
+    with tempfile.TemporaryDirectory() as tmp:  # a scan declared by its Python file, run by python3
+        root = Path(tmp).resolve()
+        build(
+            root,
+            listed.replace("1. ", "1. `python3 modules/const-p/scripts/check-p.py --scan`\n0. "),
+            plan_in,
+        )
+        text = module_text.replace("check-x", "check-p").replace("`check-p --scan`", "`check-p.py --scan`")
+        (root / "modules/const-p").mkdir()
+        (root / "modules/const-p/MODULE.md").write_text(text, encoding="utf-8")
+        plan = (
+            (root / PLAN)
+            .read_text(encoding="utf-8")
+            .replace("All but", "and module [`const-p`](requirements.md#const-p). All but")
+        )
+        (root / PLAN).write_text(plan, encoding="utf-8")
+        ok = check_kit(root)[0] == []
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a scan declared as `<entry>.py --scan` is held by its python3 line")
     ok = declared_scans(module_text) == ["check-x"] and declared_scans(quiet_text) == []
     ok = ok and "fix: add a line `python3 modules/const-y/scripts/check-y.py --scan`" in (
         Finding("const-y", "check-y.py", "gate list").render()
@@ -261,7 +282,7 @@ def self_test() -> int:
             ok = said in str(broken) and "fix:" in str(broken)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 6
+    total = len(cases) + 7
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

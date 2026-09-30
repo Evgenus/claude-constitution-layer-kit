@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """Kit check: no installed component of a module names a place in someone's project.
 
-It reads every folder under `modules/` but a hidden or an underscore one as a module.
-
 The grep of requirement A12.1, as the row words it since decision
 dec-0056-portability-grep-and-gate-lists. It reads the installed components of every module —
 the files git lists under `skills/`, `hooks/`, `scripts/`, `commands/`, `agents/`, the install
 note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md` nor `tests/` —
 and the shared gate code under `shared/const_gate/`, which every module installs as its
-`scripts/const_gate`. A symbolic link is read at its source, once.
+`scripts/const_gate`. A symbolic link is read at its source, once. A module is every folder under
+`modules/` whose name opens with neither a dot nor an underscore.
 
 A finding is one of these forms, outside a public URL:
   - a path under a home directory: `/Users/…`, `/home/…`, `~/`, `$HOME/…`, `${HOME}/…` or a
     Windows user folder;
   - a `file:/` link;
   - a relative path with a slash and a file extension or a glob, `docs/notes.md`, `docs/**` or
-    `**/docs/*.md`, that is no file or directory of the plugin. A glob whose folder parts are all
-    wildcards, `**/*.md`, names no particular folder, so it is none.
+    `**/docs/*.md`, that is no file or directory of the plugin. A glob whose parts before the last
+    are all wildcards and whose last part names files by an extension, `**/*.md`, names no
+    particular place, so it is no finding; `**/decisions` names a folder and is one.
     `constitution.yaml`, the one repository path a module may name, has no slash and so is never
     one.
 Not read: in Markdown, fenced blocks and inline code, which show an example to adapt, not a
@@ -148,8 +148,9 @@ def examine(path: str, text: str, plugins: list[Path]) -> list[Finding]:
             candidate = m[1].rstrip(".")
             if not NAMES_A_FILE.search(candidate):
                 continue
-            if all(WILDCARD.fullmatch(part) for part in candidate.split("/")[:-1]):
-                continue  # every folder part a wildcard: every place, none in particular
+            parts = candidate.split("/")
+            if all(WILDCARD.fullmatch(part) for part in parts[:-1]) and "." in parts[-1]:
+                continue  # wildcards before files named by extension: no particular place
             plain = candidate.split("*")[0].rstrip("/")
             if plain and any((plugin / plain).exists() for plugin in plugins):
                 continue
@@ -215,6 +216,12 @@ def self_test() -> int:
             "Copy ${HOME}/x/y.md or C:\\Users\\ann\\x.md there.\n",
             2,
         ),
+        "a glob ending in a folder after a wildcard": (
+            "scripts/gate.py",
+            "P = 'docs'\n",
+            "P = '**/decisions'\n",
+            1,
+        ),
         "a glob naming a folder after a wildcard": (
             "skills/s/SKILL.md",
             'paths: "**/*.md"\n',
@@ -252,7 +259,7 @@ def self_test() -> int:
         "a file of the plugin": ("INSTALL.md", "The skill is skills/s/SKILL.md.\n"),
         "the dials file": ("scripts/gate.py", "NAME = 'constitution.yaml'\n"),
         "a folder of the plugin by its glob": ("INSTALL.md", "Every skills/**/SKILL.md file.\n"),
-        "a glob whose folder parts are all wildcards": ("skills/s/SKILL.md", 'paths: "**/*.md"\n'),
+        "wildcards before files named by an extension": ("skills/s/SKILL.md", 'paths: "**/*.md"\n'),
         "a path with no extension or glob": ("scripts/gate.py", "REF = 'refs/heads/main'\n"),
         "a plugin-root path": ("hooks/hooks.json", '{"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/x/y.sh"]}\n'),
     }
@@ -301,6 +308,13 @@ def self_test() -> int:
             ok = not check_kit(root)[0]
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is not a finding")
+    with tempfile.TemporaryDirectory() as tmp:  # a module folder of another name is read too
+        root = Path(tmp).resolve()
+        fresh(root)
+        write(root, "modules/other/INSTALL.md", "Clone into ~/kit.\n")
+        ok = [f.path for f in check_kit(root)[0]] == ["modules/other/INSTALL.md"]
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a module folder not named const- is read as a module")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
@@ -324,7 +338,7 @@ def self_test() -> int:
             ok = str(broken).startswith("modules/const-x/INSTALL.md is not UTF-8") and "fix:" in str(broken)
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a file that is not UTF-8 is a teaching BROKEN line, never a traceback")
-    total = len(red) + len(green) + 2
+    total = len(red) + len(green) + 3
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
