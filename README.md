@@ -2,17 +2,18 @@
 
 A portable governance layer for Claude Code projects: a one-page semantic kernel plus modules shipped as plugins. This page is the install procedure only. For purpose read `INTENT.md`; for vocabulary read `kernel/CONVENTIONS.md`.
 
-**Status today.** The kit ships the kernel and the module template; the first modules are being authored under `modules/` in rollout Phase A (`docs/rollout-plan.md`), each a draft at manifest version `0.0.x` until published. `profiles/` arrives in Phase D; `.claude-plugin/marketplace.json` exists at the kit root, one relative entry per module, and the kit's own sessions load the modules from it. Part 1 works now; Part 2 describes the development path and the marketplace path, both of which work from a clone.
+**Status today.** The kit ships the kernel, the module template and eleven modules under `modules/`, each a draft at manifest version `0.0.x` until Phase D publishes it (`docs/rollout-plan.md`). No module has had its consumer-live proof yet: the first project's bootstrap is that proof, and a finding there is a fix in the kit. `profiles/` arrives in Phase D. The kit's own tooling — the branch-first commit hook, the agents, the carry audit, the checks under `scripts/` — ships in no module.
 
 ## Prerequisites
 
 1. Claude Code installed and authenticated (`claude --version`).
 2. A local clone of this kit, e.g. `~/dev/constitution-kit/`.
 3. The consumer project is a git repository (rollback points live in git).
+4. For the gates: Python 3.12 or newer as `python3` with PyYAML (`python3 -m pip install 'PyYAML>=6.0'`); Vale 3.23.0 or newer for `const-language` and lychee 0.24.2 or newer for `const-referencing` (`brew install vale lychee`). A missing tool stops a gate with exit 1, never a silent pass.
 
 ## Part 1 — Install the constitution (kernel) into a project
 
-Run from the consumer project root. Commit after each step. Install the accumulating modules (Part 2) in the same session, before any governed document beyond the kernel is written — their failures compound with every unguarded file (`docs/rollout-plan.md`, Phase B).
+Run from the consumer project root. Commit after each step. Load the modules first (Part 2, step 1), so that no governed document is written unguarded, the kernel copy included — their failures compound with every unguarded file (`docs/rollout-plan.md`, Phase B).
 
 1. **Copy the kernel into the project.**
    ```bash
@@ -62,19 +63,23 @@ Pass the flag once per module. Do not point `--plugin-dir` at the `modules/` fol
 
 After editing module source, run `/reload-plugins` inside the session.
 
-**B. Marketplace path.** Register the kit as a marketplace, then install at project scope so every collaborator gets it via `.claude/settings.json`:
+**B. Marketplace path.** Register the kit as a marketplace, then install at project scope, which enables it in the project's `.claude/settings.json`:
 
 ```bash
 claude plugin marketplace add ~/dev/constitution-kit
 ```
 
-A GitHub-hosted kit registers as `owner/repo` instead of a path. Then:
+The marketplace goes to your user settings by default. With `--scope project` it goes to the project's `.claude/settings.json` as a `directory` source holding the clone's absolute path: right for one machine, not for a team. A GitHub-hosted kit registers as `owner/repo` instead of a path. Then, per module:
 
 ```bash
 claude plugin install const-<aspect>@constitution-kit --scope project
 ```
 
-The same two commands work as `/plugin marketplace add …` and `/plugin install …` inside a session.
+The same two commands work as `/plugin marketplace add …` and `/plugin install …` inside a session. The install copies the module into the plugin cache at its manifest version; a later edit in the kit reaches the project only as Update below says. All eleven at once:
+
+```bash
+for m in ~/dev/constitution-kit/modules/const-*; do claude plugin install "$(basename "$m")@constitution-kit" --scope project; done
+```
 
 **C. Team auto-registration.** Commit the marketplace to the project's `.claude/settings.json` so the catalog is added automatically when a teammate trusts the folder. Plugins from an external source, such as a GitHub-hosted kit, still need one `claude plugin install` per person. A repository that holds the marketplace itself — the kit is its own consumer zero — declares it with `{ "source": "directory", "path": "." }` instead and lists each plugin under `enabledPlugins` as `"<name>@constitution-kit": true`; its relative-path plugins then load with no install at all, once the folder is trusted.
 
@@ -119,7 +124,7 @@ Commit `constitution.yaml`, `.claude/settings.json`, and any CLAUDE.md line. Not
 claude plugin marketplace update constitution-kit
 ```
 
-Then `/reload-plugins`.
+Then `claude plugin update const-<aspect>@constitution-kit --scope project` and `/reload-plugins`. A draft keeps its version across changes (decision [dec-0053-drafts-keep-their-versions](docs/decisions/dec-0053-drafts-keep-their-versions.md)), and the update command then reports it current even after a kit change (seen on Claude Code 2.1.282). To take such a change, uninstall the module and install it again, or load it with `--plugin-dir`, which reads the clone in place.
 
 **Uninstall.** Remove the plugin, its namespace from `constitution.yaml`, and its CLAUDE.md line. The kernel copy in `docs/constitution/` stays; delete it only by a recorded `process` decision.
 
