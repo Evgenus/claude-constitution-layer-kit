@@ -5,19 +5,20 @@ A module declares its scan in its document's enforcement section (template §9):
 row of that section that reads exactly `<entry> --scan`, or `<entry>.py --scan` — nothing after
 the flag, so an explain mode (`--scan --command …`) or a report (`--scan --since …`) is no tree
 scan. For each declared scan:
-  - the gate list, the numbered list of `.claude/agents/gate-list-runner.md` before its
-    on-request item, has a line that runs `modules/<module>/scripts/<entry>.sh --scan` or
-    `….py --scan`;
-  - the CI list of step 10 of `docs/rollout-plan.md`, the sentence that opens "Then CI wiring",
-    links the module's specification, `requirements.md#<module>`.
+  - the gate list, the entries `sh scripts/gate-list.sh --names gate` prints, has one whose
+    commands (`--show <entry>`) run `modules/<module>/scripts/<entry>.sh --scan` or `….py --scan`;
+  - the CI list is every entry of that script, when `.github/workflows/gates.yml` builds its jobs
+    from `sh scripts/gate-list.sh --json` and runs each with `sh scripts/gate-list.sh --run`; a
+    workflow that does not leaves every declared scan out of CI.
 Every folder under `modules/` whose name opens with neither a dot nor an underscore is a module
-and must hold its `MODULE.md`. A module that declares no scan is examined and needs neither (decision
-dec-0056-portability-grep-and-gate-lists).
+and must hold its `MODULE.md`. A module that declares no scan is examined and needs neither
+(decisions dec-0056-portability-grep-and-gate-lists and dec-0058-ci-runs-each-check-in-parallel).
 
 Modes:  no arguments   check the kit;
-        --self-test    prove the check on a throwaway tree: a scan missing from each list red,
-                       a scan in both green, a span with more after the flag no scan, the report
-                       of one finding as literal lines with exit 2, a list whose anchor moved, a
+        --self-test    prove the check on a throwaway tree: a scan missing from the gate list, or
+                       from a workflow that does not read the list, red; a scan in both green; an
+                       extra entry no gate; a span with more after the flag no scan; the report of
+                       one finding as literal lines with exit 2; a list that cannot be read, a
                        module document without its enforcement anchor and a module folder without
                        its document, each a BROKEN line; a `.py` scan held by its python3 line and
                        taught by it.
@@ -30,6 +31,7 @@ import argparse
 import contextlib
 import io
 import re
+import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -37,13 +39,9 @@ from pathlib import Path
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
-GATE_LIST = ".claude/agents/gate-list-runner.md"
-PLAN = "docs/rollout-plan.md"
-LIST_OPENS = "The list, in this order:"
-ON_REQUEST = re.compile(r"^\d+\. When the message asks")
-STEP_10 = '<a id="s10"></a>'
-CI_OPENS = "Then CI wiring"
-CI_CLOSES = "All but the last"
+GATE_LIST = "scripts/gate-list.sh"
+WORKFLOW = ".github/workflows/gates.yml"
+READS_LIST = ("sh scripts/gate-list.sh --json", "sh scripts/gate-list.sh --run")
 DECLARED = re.compile(r"`([a-z][a-z0-9-]*?(?:\.py)?) --scan`")
 WHY = "a scan the kit does not run holds nothing, and the lists are where the kit says what it runs"
 
@@ -65,9 +63,12 @@ class Finding:
                 if self.entry.endswith(".py")
                 else f"sh modules/{self.module}/scripts/{self.entry}.sh --scan"
             )
-            fix = f"add a line `{run}` to the list of {GATE_LIST}"
+            fix = f"add an entry to the gate group of {GATE_LIST} that runs `{run}`"
         else:
-            fix = f"link [`{self.module}`](requirements.md#{self.module}) in the CI list of step 10 of {PLAN}"
+            fix = (
+                f"let {WORKFLOW} build its jobs from `{READS_LIST[0]}` and run each with"
+                f" `{READS_LIST[1]} <entry>`"
+            )
         return (
             f"RED: {self.module}: its scan `{self.entry} --scan` is not in the {self.where}\n"
             f"  why: {WHY}\n"
@@ -98,38 +99,37 @@ def declared_scans(text: str, path: str = "the module document") -> list[str]:
     return sorted({m[1] for row in rows for m in DECLARED.finditer(row)})
 
 
-def gate_list(root: Path) -> str:
-    lines = read(root, GATE_LIST).splitlines()
-    start = next((i for i, line in enumerate(lines) if line.strip() == LIST_OPENS), None)
-    if start is None:
-        raise Broken(f"{GATE_LIST} has no line '{LIST_OPENS}' — fix: restore the heading of the gate list")
-    end = next((i for i in range(start, len(lines)) if ON_REQUEST.match(lines[i])), None)
-    if end is None:
-        raise Broken(f"{GATE_LIST} has no item 'When the message asks' — fix: restore the on-request item")
-    return "\n".join(lines[start:end])
-
-
-def ci_list(root: Path) -> str:
-    text = read(root, PLAN)
-    at = text.find(STEP_10)
-    if at < 0:
-        raise Broken(f"{PLAN} has no anchor s10 — fix: restore step 10's anchor")
-    step = text[at : text.find("\n", at) if "\n" in text[at:] else len(text)]
-    opens = step.find(CI_OPENS)
-    closes = step.find(CI_CLOSES, opens)
-    if opens < 0 or closes < 0:
+def listed(root: Path, *args: str) -> str:
+    """What `sh scripts/gate-list.sh <args>` prints, run from `root`."""
+    try:
+        done = subprocess.run(["sh", GATE_LIST, *args], cwd=root, capture_output=True, text=True, check=False)
+    except OSError as bad:
+        raise Broken(f"{GATE_LIST} cannot be run ({bad.strerror}) — fix: install a POSIX sh") from bad
+    if done.returncode != 0:
+        said = (done.stderr or done.stdout).strip().splitlines()
         raise Broken(
-            f"step 10 of {PLAN} has no sentence from '{CI_OPENS}' to '{CI_CLOSES}' — fix: keep the CI list in"
-            " that sentence, or change this check with it"
+            f"{GATE_LIST} {' '.join(args)} exited {done.returncode}"
+            f" ({said[-1] if said else 'no output'}) — fix: restore the list script"
         )
-    return step[opens:closes]
+    return done.stdout
+
+
+def gate_list(root: Path) -> str:
+    return "\n".join(listed(root, "--show", name) for name in listed(root, "--names", "gate").split())
+
+
+def ci_reads_list(root: Path) -> bool:
+    if not (root / WORKFLOW).is_file():
+        return False
+    text = read(root, WORKFLOW)
+    return all(phrase in text for phrase in READS_LIST)
 
 
 def check_kit(root: Path) -> tuple[list[Finding], int, int]:
     base = root / "modules"
     if not base.is_dir():
         raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
-    gates, ci = gate_list(root), ci_list(root)
+    gates, ci = gate_list(root), ci_reads_list(root)
     findings: list[Finding] = []
     directories = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
     for directory in directories:
@@ -147,7 +147,7 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
             )
             if runs is None:
                 findings.append(Finding(module, entry, "gate list"))
-            if f"requirements.md#{module})" not in ci:
+            if not ci:
                 findings.append(Finding(module, entry, "CI list"))
     return findings, len(modules), scans
 
@@ -164,12 +164,13 @@ def report(findings: list[Finding], modules: int, scans: int) -> int:
 
 
 def self_test() -> int:
-    """Red→green on a throwaway tree: a scan missing from the gate list, and one missing from the CI
-    list, are red with one finding each and green once listed; a span with more after the flag is no
-    scan; a module with no scan needs no line; the report of one finding is its literal text with
-    exit 2; a gate list or a plan whose anchor moved, a module document without its enforcement
-    anchor and a module folder without its document are each a teaching BROKEN line; a scan
-    declared as `<entry>.py --scan` is held by its python3 line and taught by it."""
+    """Red→green on a throwaway tree: a scan missing from the gate group, and one in a kit whose
+    workflow does not read the list, are red with one finding each and green once listed and read;
+    an extra entry is no gate; a span with more after the flag is no scan; a module with no scan
+    needs no entry; the report of one finding is its literal text with exit 2; a list script that
+    fails, a module document without its enforcement anchor and a module folder without its
+    document are each a teaching BROKEN line; a scan declared as `<entry>.py --scan` is held by its
+    python3 line and taught by it."""
     module_text = (
         '<a id="t9"></a>\n## 9\n\n| # | artifact | kind |\n|---|---|---|\n'
         "| E1 | hook + `check-x` (hook mode) | `gate` |\n| E2 | `check-x --scan`: all | `gate` |\n"
@@ -177,72 +178,78 @@ def self_test() -> int:
         "A sibling's `check-y --scan` is not this module's.\n\n<a id=\"t10\"></a>\n"
     )
     quiet_text = '<a id="t9"></a>\n| E1 | `explain --scan --command <text>` | `gate` |\n<a id="t10"></a>\n'
-    scan = "`sh modules/const-x/scripts/check-x.sh --scan`"
-    link = "[`const-x`](requirements.md#const-x)"
-    listed = f"The list, in this order:\n\n1. {scan}\n2. When the message asks: x\n"
-    unlisted = (
-        f"The list, in this order:\n\n1. `python3 scripts/other.py`\n2. When the message asks: {scan}\n"
-    )
-    plan_in = f'10. <a id="s10"></a>Remote. Then CI wiring the scan of module {link}. All but the last run.\n'
-    plan_out = f'10. <a id="s10"></a>Remote. Then CI wiring nothing. All but the last run. {link}\n'
+    scan = "sh modules/const-x/scripts/check-x.sh --scan"
+    reads = f'jobs:\n  list:\n    run: {READS_LIST[0]}\n  check:\n    run: {READS_LIST[1]} "$ENTRY"\n'
     report_lines = [  # typed by hand: a message function cannot check itself
         "RED: const-x: its scan `check-x --scan` is not in the CI list",
         "  why: a scan the kit does not run holds nothing, and the lists are where the kit says what it runs",
-        "  fix: link [`const-x`](requirements.md#const-x) in the CI list of step 10 of docs/rollout-plan.md",
+        f"  fix: let {WORKFLOW} build its jobs from `{READS_LIST[0]}` and run each with"
+        f" `{READS_LIST[1]} <entry>`",
         "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s)",
     ]
 
-    def build(root: Path, gates: str, plan: str) -> None:
+    def script(gates: dict[str, str], extras: dict[str, str]) -> str:
+        arms = "".join(f"            {name}) echo '{cmd}' ;;\n" for name, cmd in {**gates, **extras}.items())
+        return (
+            '#!/bin/sh\ncase "$1" in\n'
+            f'    --names) for n in {" ".join(gates)}; do echo "$n"; done ;;\n'
+            f'    --show) case "$2" in\n{arms}            *) exit 1 ;;\n        esac ;;\n'
+            "    *) exit 1 ;;\nesac\n"
+        )
+
+    def build(root: Path, gates: dict[str, str], extras: dict[str, str], workflow: str) -> None:
         for path, text in (
             ("modules/const-x/MODULE.md", module_text),
             ("modules/const-quiet/MODULE.md", quiet_text),
-            (GATE_LIST, gates),
-            (PLAN, plan),
+            (GATE_LIST, script(gates, extras)),
+            (WORKFLOW, workflow),
         ):
             (root / path).parent.mkdir(parents=True, exist_ok=True)
             (root / path).write_text(text, encoding="utf-8")
 
-    def findings_of(gates: str, plan: str) -> list[Finding]:
+    def findings_of(gates: dict[str, str], extras: dict[str, str], workflow: str) -> list[str]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, listed if gates in ("NO-T9", "NO-DOC") else gates, plan)
-            if gates == "NO-T9":
-                (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
-            if gates == "NO-DOC":
-                (root / "modules/empty").mkdir()
-            return check_kit(root)[0]
+            build(root, gates, extras, workflow)
+            return [f.where for f in check_kit(root)[0]]
 
     failed = 0
-    cases = {
-        "both lists hold the scan, and the module with none needs none": (listed, plan_in, []),
-        "the gate list lacks it (an on-request mention does not count)": (unlisted, plan_in, ["gate list"]),
-        "the CI list lacks it (a link after the list does not count)": (listed, plan_out, ["CI list"]),
+    Case = tuple[dict[str, str], dict[str, str], str, list[str]]
+    cases: dict[str, Case] = {
+        "a gate runs the scan and CI reads the list, and the module with none needs none": (
+            {"x": scan},
+            {},
+            reads,
+            [],
+        ),
+        "the gate group lacks it (an extra entry does not count)": (
+            {"other": "python3 scripts/other.py"},
+            {"extra": scan},
+            reads,
+            ["gate list"],
+        ),
+        "the workflow does not read the list": (
+            {"x": scan},
+            {},
+            "jobs:\n  one:\n    run: make\n",
+            ["CI list"],
+        ),
     }
-    for name, (gates, plan, wanted) in cases.items():
-        ok = [f.where for f in findings_of(gates, plan)] == wanted
+    for name, (gates, extras, workflow, wanted) in cases.items():
+        ok = findings_of(gates, extras, workflow) == wanted
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
     with tempfile.TemporaryDirectory() as tmp:  # a scan declared by its Python file, run by python3
         root = Path(tmp).resolve()
-        build(
-            root,
-            listed.replace("1. ", "1. `python3 modules/const-p/scripts/check-p.py --scan`\n0. "),
-            plan_in,
-        )
+        build(root, {"x": scan, "p": "python3 modules/const-p/scripts/check-p.py --scan"}, {}, reads)
         text = module_text.replace("check-x", "check-p").replace("`check-p --scan`", "`check-p.py --scan`")
         (root / "modules/const-p").mkdir()
         (root / "modules/const-p/MODULE.md").write_text(text, encoding="utf-8")
-        plan = (
-            (root / PLAN)
-            .read_text(encoding="utf-8")
-            .replace("All but", "and module [`const-p`](requirements.md#const-p). All but")
-        )
-        (root / PLAN).write_text(plan, encoding="utf-8")
         ok = check_kit(root)[0] == []
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a scan declared as `<entry>.py --scan` is held by its python3 line")
     ok = declared_scans(module_text) == ["check-x"] and declared_scans(quiet_text) == []
-    ok = ok and "fix: add a line `python3 modules/const-y/scripts/check-y.py --scan`" in (
+    ok = ok and "runs `python3 modules/const-y/scripts/check-y.py --scan`" in (
         Finding("const-y", "check-y.py", "gate list").render()
     )
     ok = ok and declared_scans(module_text.replace("`check-x --scan`", "`check-x.py --scan`")) == [
@@ -255,7 +262,7 @@ def self_test() -> int:
     )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        build(root, listed, plan_out)
+        build(root, {"x": scan}, {}, "jobs: {}\n")
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
@@ -264,25 +271,30 @@ def self_test() -> int:
     print(f"[{'ok' if ok else 'FAIL'}] the report of one finding is its literal text, exit 2")
     if not ok:
         print(printed.getvalue())
-    for name, gates, plan, said in (
-        ("a gate list without its heading", "1. x\n2. When the message asks: y\n", plan_in, "has no line"),
-        ("a plan whose CI sentence moved", listed, '10. <a id="s10"></a>CI later.\n', "has no sentence"),
-        (
-            "a module document without its anchor",
-            "NO-T9",
-            plan_in,
-            "modules/const-x/MODULE.md has no enforcement",
-        ),
-        ("a module folder without its document", "NO-DOC", plan_in, "modules/empty has no MODULE.md"),
+    for name, change, said in (
+        ("a list script that fails", "LIST", f"{GATE_LIST} --names gate exited"),
+        ("a module document without its anchor", "NO-T9", "modules/const-x/MODULE.md has no enforcement"),
+        ("a module folder without its document", "NO-DOC", "modules/empty has no MODULE.md"),
     ):
-        try:
-            findings_of(gates, plan)
-            ok = False
-        except Broken as broken:
-            ok = said in str(broken) and "fix:" in str(broken)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, {"x": scan}, {}, reads)
+            if change == "LIST":
+                (root / GATE_LIST).write_text(
+                    "#!/bin/sh\necho 'BROKEN: no list' >&2\nexit 1\n", encoding="utf-8"
+                )
+            if change == "NO-T9":
+                (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
+            if change == "NO-DOC":
+                (root / "modules/empty").mkdir()
+            try:
+                check_kit(root)
+                ok = False
+            except Broken as broken:
+                ok = said in str(broken) and "fix:" in str(broken)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 7
+    total = len(cases) + 6
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
