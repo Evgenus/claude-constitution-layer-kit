@@ -10,7 +10,8 @@ scan. For each declared scan:
     `….py --scan`;
   - the CI list of step 10 of `docs/rollout-plan.md`, the sentence that opens "Then CI wiring",
     links the module's specification, `requirements.md#<module>`.
-A module that declares no scan is examined and needs neither (decision
+Every folder under `modules/` but a hidden or an underscore one is a module and must hold its
+`MODULE.md`. A module that declares no scan is examined and needs neither (decision
 dec-0056-portability-grep-and-gate-lists).
 
 Modes:  no arguments   check the kit;
@@ -42,7 +43,7 @@ ON_REQUEST = re.compile(r"^\d+\. When the message asks")
 STEP_10 = '<a id="s10"></a>'
 CI_OPENS = "Then CI wiring"
 CI_CLOSES = "All but the last"
-DECLARED = re.compile(r"`([a-z][a-z0-9-]*?)(?:\.py)? --scan`")
+DECLARED = re.compile(r"`([a-z][a-z0-9-]*?(?:\.py)?) --scan`")
 WHY = "a scan the kit does not run holds nothing, and the lists are where the kit says what it runs"
 
 
@@ -58,10 +59,12 @@ class Finding:
 
     def render(self) -> str:
         if self.where == "gate list":
-            fix = (
-                f"add a line `sh modules/{self.module}/scripts/{self.entry}.sh --scan`"
-                f" to the list of {GATE_LIST}"
+            run = (
+                f"python3 modules/{self.module}/scripts/{self.entry} --scan"
+                if self.entry.endswith(".py")
+                else f"sh modules/{self.module}/scripts/{self.entry}.sh --scan"
             )
+            fix = f"add a line `{run}` to the list of {GATE_LIST}"
         else:
             fix = f"link [`{self.module}`](requirements.md#{self.module}) in the CI list of step 10 of {PLAN}"
         return (
@@ -137,8 +140,9 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
         document = f"modules/{module}/MODULE.md"
         for entry in declared_scans(read(root, document), document):
             scans += 1
+            stem = entry.removesuffix(".py")
             runs = re.search(
-                rf"modules/{re.escape(module)}/scripts/{re.escape(entry)}\.(?:sh|py) --scan\b", gates
+                rf"modules/{re.escape(module)}/scripts/{re.escape(stem)}\.(?:sh|py) --scan\b", gates
             )
             if runs is None:
                 findings.append(Finding(module, entry, "gate list"))
@@ -203,7 +207,7 @@ def self_test() -> int:
             if gates == "NO-T9":
                 (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
             if gates == "NO-DOC":
-                (root / "modules/const-empty").mkdir()
+                (root / "modules/empty").mkdir()
             return check_kit(root)[0]
 
     failed = 0
@@ -217,8 +221,17 @@ def self_test() -> int:
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
     ok = declared_scans(module_text) == ["check-x"] and declared_scans(quiet_text) == []
+    ok = ok and "fix: add a line `python3 modules/const-y/scripts/check-y.py --scan`" in (
+        Finding("const-y", "check-y.py", "gate list").render()
+    )
+    ok = ok and declared_scans(module_text.replace("`check-x --scan`", "`check-x.py --scan`")) == [
+        "check-x.py"
+    ]
     failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] a span with more after the flag is no scan")
+    print(
+        f"[{'ok' if ok else 'FAIL'}] a span with more after the flag is no scan;"
+        " a .py entry is taught by python3"
+    )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         build(root, listed, plan_out)
@@ -239,7 +252,7 @@ def self_test() -> int:
             plan_in,
             "modules/const-x/MODULE.md has no enforcement",
         ),
-        ("a module folder without its document", "NO-DOC", plan_in, "modules/const-empty has no MODULE.md"),
+        ("a module folder without its document", "NO-DOC", plan_in, "modules/empty has no MODULE.md"),
     ):
         try:
             findings_of(gates, plan)

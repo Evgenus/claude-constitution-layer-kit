@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Kit check: no installed component of a module names a place in someone's project.
 
+It reads every folder under `modules/` but a hidden or an underscore one as a module.
+
 The grep of requirement A12.1, as the row words it since decision
 dec-0056-portability-grep-and-gate-lists. It reads the installed components of every module —
 the files git lists under `skills/`, `hooks/`, `scripts/`, `commands/`, `agents/`, the install
@@ -8,13 +10,13 @@ note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md` n
 and the shared gate code under `shared/const_gate/`, which every module installs as its
 `scripts/const_gate`. A symbolic link is read at its source, once.
 
-A finding is one of four forms, outside a public URL:
+A finding is one of these forms, outside a public URL:
   - a path under a home directory: `/Users/…`, `/home/…`, `~/`, `$HOME/…`, `${HOME}/…` or a
     Windows user folder;
   - a `file:/` link;
   - a relative path with a slash and a file extension or a glob, `docs/notes.md`, `docs/**` or
     `**/docs/*.md`, that is no file or directory of the plugin. A glob whose folder parts are all
-    wildcards, `**/*.md`, names every place and none in particular, so it is none.
+    wildcards, `**/*.md`, names no particular folder, so it is none.
     `constitution.yaml`, the one repository path a module may name, has no slash and so is never
     one.
 Not read: in Markdown, fenced blocks and inline code, which show an example to adapt, not a
@@ -22,8 +24,9 @@ location. There is no exemption marker; an interpreter line is read as any other
 `#!/usr/bin/env` passes and a home path there does not.
 
 A heuristic, as the row says: the bare-repository run on defaults stays the gate of record. Not
-seen here — a folder named with neither an extension nor a glob, a system path such as `/srv/…`
-— is held by review, and by that run where the path acts on a bare repository.
+seen here — a folder named with neither an extension nor a glob, a system path such as `/srv/…`,
+a home path in a form not listed — is held by review, and by that run where the path acts on a
+bare repository.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: each form red with its count typed
@@ -158,7 +161,7 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
     base = root / "modules"
     if not base.is_dir():
         raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
-    modules = sorted(d for d in base.iterdir() if d.is_dir() and d.name.startswith("const-"))
+    modules = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
     findings: list[Finding] = []
     files = 0
     for module in modules:
@@ -249,7 +252,7 @@ def self_test() -> int:
         "a file of the plugin": ("INSTALL.md", "The skill is skills/s/SKILL.md.\n"),
         "the dials file": ("scripts/gate.py", "NAME = 'constitution.yaml'\n"),
         "a folder of the plugin by its glob": ("INSTALL.md", "Every skills/**/SKILL.md file.\n"),
-        "a glob that opens with a wildcard, naming every place": ("skills/s/SKILL.md", 'paths: "**/*.md"\n'),
+        "a glob whose folder parts are all wildcards": ("skills/s/SKILL.md", 'paths: "**/*.md"\n'),
         "a path with no extension or glob": ("scripts/gate.py", "REF = 'refs/heads/main'\n"),
         "a plugin-root path": ("hooks/hooks.json", '{"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/x/y.sh"]}\n'),
     }
