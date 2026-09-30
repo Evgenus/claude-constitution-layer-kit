@@ -20,6 +20,7 @@
 #   (cd scripts && mypy --strict check-portability.py check-gate-lists.py)
 #   (cd scripts && mypy --strict check-carry-lists.py check-shared-links.py check-yaml-style.py)
 #   python3 scripts/check-schema-mirror.py   (the gates' mirror never more lenient than the kernel schemas)
+#   python3 scripts/check-bare-install.py --self-test && python3 scripts/check-bare-install.py --module <name>   (A12: installed alone on a bare repo; needs claude)
 #   (cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts mypy --strict check-schema-mirror.py)
 # And for the kit's own branch-first gate — the first is red in a clone until sh scripts/setup-clone.sh has run once:
 #   sh scripts/setup-clone.sh --check && sh scripts/git-hooks/tests/run.sh
