@@ -2,8 +2,8 @@
 name: gate-list-runner
 description: >
   Runs the kit's gate list from the kit root, through scripts/gate-list.sh, the one list CI runs
-  too — the module scans, the kit checks with their self-tests, the range check of the
-  task-close module, and on request the fixtures, lint and types — and returns one verdict line per gate with every red, broken and note line
+  too — the module scans, the kit checks with their self-tests where they have one, the range
+  check of the task-close module, and on request the fixtures, lint and types — and returns one verdict line per entry with every red, broken and note line
   verbatim. Use when a red is wanted before a push — CI runs the same list on every pull request
   and on the trunk; the runner fixes nothing and judges nothing. Kit development tooling; never shipped
   in a module.

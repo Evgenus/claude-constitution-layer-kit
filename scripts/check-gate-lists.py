@@ -231,10 +231,16 @@ def self_test() -> int:
             reads,
             ["gate list"],
         ),
-        "the workflow names the list only in a comment": (
+        "the workflow names --json only in a comment line": (
             {"x": scan},
             {},
-            f"# {READS_LIST[0]}\njobs:\n  one:\n    run: make # {READS_LIST[1]}\n",
+            f"# {READS_LIST[0]}\njobs:\n  one:\n    run: {READS_LIST[1]} x\n",
+            ["CI list"],
+        ),
+        "the workflow names --run only in a trailing comment": (
+            {"x": scan},
+            {},
+            f"jobs:\n  one:\n    run: {READS_LIST[0]}\n  two:\n    run: make # {READS_LIST[1]}\n",
             ["CI list"],
         ),
         "the workflow does not read the list": (
