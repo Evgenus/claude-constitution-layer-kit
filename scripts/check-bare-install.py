@@ -8,11 +8,11 @@ For the module named, in throwaway folders that the check removes:
      no constitution.yaml — and an empty Claude configuration folder (CLAUDE_CONFIG_DIR);
   2. `claude plugin marketplace add <kit>` and `claude plugin install <module>@constitution-kit`,
      the platform's own install, which writes a copy of the plugin into the configuration's cache;
-  3. what the kit's source of the module declares, held in that copy: every link of the source
-     arrives as a real file or directory with the same files, and the copy holds no link the
-     source lacks; the copy holds the source's hooks file; every hook of the source's
-     hooks/hooks.json, run from the copy in exec form on a sample event of its kind with
-     CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on the bare repository, and its JSON on standard
+  3. what the kit's source of the module declares, held in that copy: no link of the source
+     leads inside the module; every link arrives as a real file with the same bytes, or a
+     directory with the same file names; the copy holds no link the source lacks; the copy holds
+     the source's hooks file; every hook of the source's hooks/hooks.json, run from the copy in
+     exec form on a sample event of its kind with CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on the bare repository, and its JSON on standard
      output neither blocks, denies, asks nor stops; every scan the source declares in its
      enforcement section (template §9), run from the copy, exits 0 there.
 A red is a finding against the module, and so is an install Claude Code refuses; a missing
@@ -21,11 +21,9 @@ the case of an absent dials file; a module with neither hook nor scan is held on
 Needs no login: plugin install reads no account.
 
 Modes:  --module <name>  check one module of the kit;
-        --self-test      prove step 3 on throwaway source and copy folders: a green copy green; a
-                         link left, a link missing, a link inside the module, a copy without its
-                         hooks file, a hook that exits 1 or 2, one that denies, one given another
-                         event, a red shell or Python scan, each a finding; the report of one
-                         finding as literal lines with exit 2.
+        --self-test      prove step 3 on throwaway source and copy folders, no install: each branch
+                         of the link, hooks-file, hook and scan checks red once, a green copy green,
+                         and the report of one finding as literal lines with exit 2.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -214,13 +212,17 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
         elif inside:
             findings.append(Finding(module, f"the link {where} leads inside the module", fix))
         elif target.is_dir() and files_under(place) != files_under(target):
-            lost = sorted(files_under(target) - files_under(place))
+            lost = sorted(files_under(target) ^ files_under(place))
             findings.append(
                 Finding(
                     module,
-                    f"the link {where} arrived without {len(lost)} of its files: {', '.join(lost[:3])}",
+                    f"the link {where} arrived with other files than its target: {', '.join(lost[:3])}",
                     fix,
                 )
+            )
+        elif target.is_file() and (not place.is_file() or place.read_bytes() != target.read_bytes()):
+            findings.append(
+                Finding(module, f"the link {where} arrived with other bytes than its target", fix)
             )
     carried = {plugin / link.relative_to(source) for link in links}
     for extra in sorted(p for p in plugin.rglob("*") if p.is_symlink() and p not in carried):
@@ -323,7 +325,7 @@ def install(module: str, root: Path, repo: Path) -> Path:
         )
     code, out, err = run(["claude", "plugin", "install", f"{module}@{MARKETPLACE}"], repo, env)
     if code != 0:
-        raise Refused(last_line(out, err))
+        raise Refused(last_line(out, err) if out or err else f"exit {code}")
     record = config / "plugins" / "installed_plugins.json"
     try:
         entries = json.loads(record.read_text(encoding="utf-8"))["plugins"][f"{module}@{MARKETPLACE}"]
@@ -414,6 +416,12 @@ def self_test() -> int:
         if change == "inner-link":
             shutil.rmtree(copy / "scripts" / "again")
             (copy / "scripts" / "again").symlink_to(copy / "hooks")
+        if change == "inner-link-copied":
+            (source / "scripts" / "again").symlink_to(source / "hooks")
+            shutil.copytree(source / "hooks", copy / "scripts" / "again")
+        if change == "link-other-bytes":
+            (source / "scripts" / "one").symlink_to(shared / "code.py")
+            (copy / "scripts" / "one").write_text("x = 2\n", encoding="utf-8")
         if change == "link-left":
             shutil.rmtree(copy / "scripts" / "shared")
             (copy / "scripts" / "shared").symlink_to(shared)
@@ -449,7 +457,15 @@ def self_test() -> int:
         "a copy whose hook and scans pass, its outside link a real directory, is green": ("", ""),
         "a link left a link in the copy is a finding": ("link-left", "is left a link"),
         "a link missing from the copy is a finding": ("link-missing", "is missing"),
-        "a link inside the module is a finding, fixed by the file it points at": ("inner-link", "again"),
+        "a link inside the module left a link is a finding, fixed by the file it points at": (
+            "inner-link",
+            "again",
+        ),
+        "a link inside the module that arrived as a real directory is a finding": (
+            "inner-link-copied",
+            "leads inside the module",
+        ),
+        "a link to a file that arrived with other bytes is a finding": ("link-other-bytes", "other bytes"),
         "a copy without its hooks file is a finding": ("no-hooks-file", "no hooks/hooks.json"),
         "a hook that exits 1 is a finding": ("hook-exit-1", "exits 1"),
         "a hook that exits 2 is a finding": ("hook-exit-2", "exits 2"),
@@ -465,7 +481,7 @@ def self_test() -> int:
             "copy-without-document",
             "check-x --scan",
         ),
-        "a link that arrived without its files is a finding": ("link-emptied", "without 1 of its files"),
+        "a link that arrived without its files is a finding": ("link-emptied", "other files than its target"),
         "a link in the copy that the source lacks is a finding": ("extra-link", "a link its source lacks"),
         "a hook given another event than its own is a finding": ("no-event", "exits 3"),
         "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
