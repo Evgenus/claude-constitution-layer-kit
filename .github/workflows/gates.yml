@@ -1,0 +1,77 @@
+# Kit tooling, never shipped in a module: the kit's checks on every pull request and on main.
+# One job per entry of scripts/gate-list.sh, in parallel; the list is read from the script, never
+# written here. The job "gates" waits for all of them and is the one check the ruleset requires.
+name: gates
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  # a pull request's newer push replaces its older run; on main each merge has a group of its own, never cut short
+  group: gates-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      entries: ${{ steps.list.outputs.entries }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: list
+        run: echo "entries=$(sh scripts/gate-list.sh --json)" >> "$GITHUB_OUTPUT"
+
+  check:
+    needs: list
+    name: ${{ matrix.entry }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        entry: ${{ fromJSON(needs.list.outputs.entries) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the carry-lists and range checks read the whole history
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Python tools
+        run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518"
+      - name: Vale and lychee
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz \
+            | tar -xz -C "$HOME/.local/bin" vale
+          curl -fsSL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz \
+            | tar -xz -C "$HOME/.local/bin" --strip-components=1 lychee-x86_64-unknown-linux-gnu/lychee
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Git identity for the fixtures' throwaway repositories
+        run: |
+          git config --global user.name "gates"
+          git config --global user.email "gates@example.invalid"
+      - name: Run ${{ matrix.entry }}
+        env:
+          ENTRY: ${{ matrix.entry }}
+        run: sh scripts/gate-list.sh --run "$ENTRY"
+
+  gates:
+    needs:
+      - list
+      - check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every entry green
+        env:
+          LIST: ${{ needs.list.result }}
+          CHECKS: ${{ needs.check.result }}
+        run: |
+          echo "list: $LIST, checks: $CHECKS"
+          test "$LIST" = success && test "$CHECKS" = success
