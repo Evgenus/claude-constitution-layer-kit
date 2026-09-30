@@ -12,7 +12,7 @@ status: active
 <a id="g1"></a>
 ## 1. What is shared, and why it may be
 
-Code is admitted here only when it implements a kernel section literally (class K) or a gate-script rule of [template §6](../module-template/MODULE.md#t6) (class R), and two or more modules need it. A part already admitted may be widened for one module where the widening keeps a rule the part carries for all — the one guard around a second entry point, the one pipeline under a second event, the one fixture subject for a gate shaped differently. The widening defaults to what the other modules pass, so they change nothing (rule 2 of [plc-0009-shared-code](../docs/policies/plc-0009-shared-code.md#r2)).
+What may be admitted here, and when a part already admitted may be widened for one module, is [rule 2 of plc-0009-shared-code](../docs/policies/plc-0009-shared-code.md#r2). The table's class says which kind of code each part is: K, it implements a kernel section literally; R, it implements a gate-script rule of [template §6](../module-template/MODULE.md#t6).
 
 | part | class | carries |
 |---|---|---|
