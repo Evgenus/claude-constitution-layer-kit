@@ -91,4 +91,4 @@ The change that adds this record applies every item that binds — R5 and the ho
 7. R9 — [rule 2 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2); step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); step 6 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
 8. R10 — [rule 15 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r15).
 9. R11 — [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), the acceptances that stand; the narrowing and the withdrawal are history, stated where R4 to R8 are carried.
-10. R12 — [rule 11 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r11), which the status slot of `templates/decision-record.md` follows; the replacement of R10 of dec-0039's moment is history.
+10. R12 — [rule 11 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r11), which the status slot of `templates/decision-record.md` follows; the replacement of the moment R10 of dec-0039 set is history.
