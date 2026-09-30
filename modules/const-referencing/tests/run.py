@@ -976,6 +976,13 @@ def mentions_are_listed_not_changed() -> tuple[bool, str]:
     acted = moving_consumer()
     done = mover(acted, OLD, NEW)
     script = (acted.root / "tools/x.sh").read_text()
+    # a Markdown file outside coverage is a text file git lists: read, by either name, like a script
+    outside = moving_consumer()
+    outside.write("constitution.yaml", dials_text(own(territories=["docs/**"])))
+    outside.write("other/readme.md", f"# Readme\nSee {OLD}.\nOr ../{OLD}.\n")
+    outside.write("tools/y.sh", f"cat ../{OLD}\n")
+    outside.commit()
+    listed = mover(outside, OLD, NEW)
     return all_of(
         [
             expect(done, 0, "MENTION: docs/notes/two.md:11: ", "stdout"),
@@ -983,8 +990,16 @@ def mentions_are_listed_not_changed() -> tuple[bool, str]:
                 done, 0, f"MENTION: tools/x.sh:1: '# see {OLD}' names the old path outside a link", "stdout"
             ),
             (script == f"# see {OLD}\n", "the script was not rewritten"),
+            expect(listed, 0, f"MENTION: other/readme.md:2: 'See {OLD}.' names the old path", "stdout"),
+            expect(listed, 0, f"MENTION: other/readme.md:3: 'Or ../{OLD}.' names the old path", "stdout"),
+            expect(listed, 0, f"MENTION: tools/y.sh:1: 'cat ../{OLD}' names the old path", "stdout"),
+            (
+                (outside.root / "other/readme.md").read_text() == f"# Readme\nSee {OLD}.\nOr ../{OLD}.\n",
+                "the uncovered Markdown file was not rewritten",
+            ),
         ],
-        "a sentence, a code span and a script naming the old path are listed; none is changed",
+        "a sentence, a code span, a script and a Markdown file outside coverage naming the old path"
+        " are listed; none is changed",
     )
 
 
@@ -1720,8 +1735,12 @@ def r4_more_shapes() -> tuple[bool, str]:
     ]
     results = [blocks(body(text), messages.r4_one_machine(DOC, LINE, path)) for text, path in reds]
     return all_of(
-        [*results, passes(body("Mine: ~/Users/x/y and ~/home/ann/z."))],
-        "a PATH entry and C:/Users are red; tilde paths of any depth are not",
+        [
+            *results,
+            passes(body("Mine: ~/Users/x/y and ~/home/ann/z.")),
+            passes(body("A user's directory alone is a route: C:/Users/ann and C:\\Users\\ann\\ are one.")),
+        ],
+        "a PATH entry and C:/Users/ann/x are red; C:/Users/ann alone and tilde paths of any depth are not",
     )
 
 
@@ -2145,7 +2164,11 @@ ASSERTIONS = [
         "labels fold case; a usage inside a link's text is none; one R7 per definition",
         labels_fold_case_and_nest,
     ),
-    Assertion(76, "R4: a PATH entry and C:/Users are red; tilde paths are not", r4_more_shapes),
+    Assertion(
+        76,
+        "R4: a PATH entry and C:/Users/ann/x are red; C:/Users/ann alone and tilde paths are not",
+        r4_more_shapes,
+    ),
     Assertion(
         77,
         "a mention ends where the name does; an href is rewritten, not listed",

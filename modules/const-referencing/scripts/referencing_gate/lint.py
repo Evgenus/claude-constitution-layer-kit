@@ -21,7 +21,7 @@ from .model import Ids, Lane, Link, LinkKind
 # [e] and [s], match what the plain letter would: they keep this file from naming such a path itself.
 _ONE_MACHINE = re.compile(
     r"fil[e]:/+[^\s)>\"']*"
-    r"|\b[A-Za-z]:[\\/]Users[\\/][^\s)>\"'`]+"
+    r"|\b[A-Za-z]:[\\/]Users[\\/][^\s\\/:)>\"'`]+[\\/][^\s)>\"'`]+"
     r"|(?<![\w./~-])(?:/User[s]/|/hom[e]/)[^\s/:)>\"'`]+/[^\s:)>\"'`]+"
 )
 _CLOSES_A_SENTENCE = ".,;:!?"  # punctuation after a path is the sentence's, not the path's

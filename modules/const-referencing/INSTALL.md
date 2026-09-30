@@ -82,9 +82,9 @@ not, and every write says so until it is installed.
    `lychee`'s options is a dial.
 6. Moving or renaming a document: `sh <plugin root>/scripts/move-document.sh <old> <new>` moves
    it with `git mv`, repairs every covered document's links to it and its own, lists — and does
-   not change — what names the old path elsewhere, and ends with the scan. After a move made
-   by hand: `--moved <old> <new>`. To point every link whose text is a document's id at that
-   document: `--ids`. The skill `/const-referencing:referencing` carries the procedure.
+   not change — what names the old path elsewhere in any text file git lists, covered or not,
+   and ends with the scan. After a move made by hand: `--moved <old> <new>`. To point every
+   link whose text is a document's id at that document: `--ids`. The skill `/const-referencing:referencing` carries the procedure.
 7. Output log: everything the gate and the mover print is also appended, one JSON line per print
    (timestamp, module, gate, mode, session, stream, text), to `const-referencing.jsonl` —
    blocked writes and reports after a write leave no trace in git. By default it lives
