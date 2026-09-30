@@ -33,8 +33,9 @@ Ask one question: **is the call cheap to revert?**
   why. Write no record — a record for a routine call is ritual, and the gate refuses
   `stakes: routine`.
 - **No, and it rules on the harness, a policy or a procedure → `process`.** A record, and one
-  human yes on the change: approval of the pull request where a PR flow exists, otherwise
-  the yes is named in the commit message that lands the change. This is the fast lane: a
+  human yes on the change, named in the commit that lands it: where a PR flow exists, the
+  merge commit of the pull request, the yes being its approval or, where no second human
+  reviews it, the decider's own. This is the fast lane: a
   process fix needs that one yes and nothing more — it never waits behind a heavier gate,
   least of all the gate it is fixing.
 - **No, and it changes what a user sees → `product`.** A record.
