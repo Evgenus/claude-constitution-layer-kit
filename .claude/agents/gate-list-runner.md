@@ -2,7 +2,7 @@
 name: gate-list-runner
 description: >
   Runs the kit's gate list from the kit root — the scans of the document modules, the
-  open-question, style, language, budget and list-handles scans, the carry-lists, shared-links, YAML-style, module-links and aspects checks, the range check of
+  open-question, style, language, budget and list-handles scans, the carry-lists, shared-links, YAML-style, module-links, aspects, portability and gate-lists checks, the range check of
   the task-close module, and on request a module's fixture runner and the lint and type
   commands — and returns one verdict line per gate with every red, broken and note line
   verbatim. Use before a commit that touches a document, before a merge, and after a merge on
@@ -35,11 +35,14 @@ The list, in this order:
 12. `python3 scripts/check-yaml-style.py` — never with `--fix`
 13. `python3 scripts/check-module-links.py`
 14. `python3 scripts/check-aspects.py`
-15. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
+15. `python3 scripts/check-portability.py`
+16. `python3 scripts/check-gate-lists.py`
+17. `sh modules/const-task-close/scripts/check-task-close.sh --scan` on a work branch; on the
    trunk, or when the message names a landed merge, `--scan --change <merge>`
-16. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
+18. When the message asks: `python3 scripts/check-shared-links.py --self-test`,
     `python3 scripts/check-carry-lists.py --self-test`, `python3 scripts/check-yaml-style.py --self-test`,
-    `python3 scripts/check-module-links.py --self-test`, `python3 scripts/check-aspects.py --self-test`;
+    `python3 scripts/check-module-links.py --self-test`, `python3 scripts/check-aspects.py --self-test`,
+    `python3 scripts/check-portability.py --self-test`, `python3 scripts/check-gate-lists.py --self-test`;
     `python3 scripts/check-aspects.py --run`, the per-row report, which runs every module's runner;
     `python3 modules/<module>/tests/run.py` for the module named (it writes temporary
     repositories in the system's temporary directory, never in the kit); and the lint and type

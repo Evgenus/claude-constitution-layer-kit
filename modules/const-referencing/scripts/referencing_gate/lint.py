@@ -17,11 +17,12 @@ from .masking import Masked, Span, content, holder, line_of, mask
 from .model import Ids, Lane, Link, LinkKind
 
 # A home directory is an operating system's fact, not a project's.
-# A user's directory and something inside it: /home/feed is a route, /home/ann/notes.md a machine.
+# A user's directory alone is a route; something inside it is a machine. The one-letter classes,
+# [e] and [s], match what the plain letter would: they keep this file from naming such a path itself.
 _ONE_MACHINE = re.compile(
-    r"file:/+[^\s)>\"']*"
+    r"fil[e]:/+[^\s)>\"']*"
     r"|\b[A-Za-z]:[\\/]Users[\\/][^\s)>\"'`]+"
-    r"|(?<![\w./~-])(?:/Users/|/home/)[^\s/:)>\"'`]+/[^\s:)>\"'`]+"
+    r"|(?<![\w./~-])(?:/User[s]/|/hom[e]/)[^\s/:)>\"'`]+/[^\s:)>\"'`]+"
 )
 _CLOSES_A_SENTENCE = ".,;:!?"  # punctuation after a path is the sentence's, not the path's
 _SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
