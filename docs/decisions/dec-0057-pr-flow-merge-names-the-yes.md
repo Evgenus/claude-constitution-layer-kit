@@ -41,7 +41,7 @@ The session recommended A, since it took the decider's plan to be GitHub Free, w
   - **Pros:** it guards against losing history, in minutes, with no rule change.
   - **Cons:** a bad merge can still be pushed; step 10 stays open.
 
-The session recommended C. **R3.** B, chosen by the decider in chat on 2026-09-30: the shared `main` on GitHub is held by a repository ruleset — a pull request before every merge, with no approval required, since the only human is the author; no force push; no deletion. The repository allows merge commits only, squash and rebase off, and does not delete a head branch after its merge.
+The session recommended C. **R3.** B, chosen by the decider in chat on 2026-09-30: the shared `main` on GitHub is held by a repository ruleset — a pull request before every merge, with no approval required, since the only human is the author; no force push; no deletion; no one on its bypass list. The repository allows merge commits only, squash and rebase off, and does not delete a head branch after its merge.
 
 **R4.** A work reaches `main` as a pull request from its branch `work/<name>`, merged with a merge commit whose subject is `Work: <name>`: `gh pr merge <n> --merge --subject "Work: <name>"`. The branch is pushed, and it is kept on the remote after the merge as it is in the clone. A local `main` follows the remote only by fast-forward.
 
@@ -64,19 +64,19 @@ The session recommended C. **R3.** B, chosen by the decider in chat on 2026-09-3
   - **Pros:** the smallest rule change.
   - **Cons:** the yes comes before the pull request's checks; the kernel wording changes anyway.
 
-The session recommended A. **R7.** A, chosen by the decider in chat on 2026-09-30. The `process` row of [kernel §4](../../kernel/CONVENTIONS.md#k4) now reads: one human yes on the change, named in the commit that lands it — where a PR flow exists, the merge commit of the pull request, the yes being its approval or, where no second human reviews it, the decider's own.
+The session recommended A. **R7.** A, chosen by the decider in chat on 2026-09-30. The `process` row of [kernel §4](../../kernel/CONVENTIONS.md#k4) now reads: one human yes on the change, named in the commit that lands it — where a PR flow exists, the commit that merges the pull request, the yes being its approval or, where no second human reviews it, the decider's own merge.
 
-**R8.** In the kit, the decider gives the yes by merging the pull request, or by saying it in chat and having the session merge in the decider's name. The merge commit names the yes and carries the `Accepted:` and `Carry-Audit:` trailers in its last paragraph, written with `--body`. It is the commit that lands the change and completes it in the sense of rule 5 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5). A branch commit carries no such trailer, and a change with no yes merges with none.
+**R8.** In the kit, the decider gives the yes by merging the pull request, or by saying it in chat and having the session merge in the decider's name. The merge commit names the yes and carries the `Accepted:` and `Carry-Audit:` trailers in its last paragraph, written with `--body`. It is the commit that lands the change and completes it in the sense of rule 5 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), and the window for corrections closes with it. A decider who merges on the forge's page writes the yes and the trailers into the merge message there. A branch commit carries no such trailer, and a change with no yes merges with none; a `product` record's lone `Carry-Audit:` trailer stands on the merge commit too. A wrong receipt is mended by accepting again in the merge commit of a new pull request.
 
 **R9.** An audit finding is justified in a commit message of the change, the merge commit included — never only in the pull request's description, which git does not keep.
 
-**R10.** The review of an `architecture` record is complete when the decider says so, in chat or by the merge that names it.
+**R10.** The review of an `architecture` record is complete when the decider says so, in chat or by the merge, and ends with the merge that names it.
 
-**R11.** R7 and R8 narrow the sunset of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) — PR approval on a protected main from rollout Phase D — and the clause of R2 of [dec-0032-work-starts-on-a-branch](dec-0032-work-starts-on-a-branch.md) that puts the yes on a branch commit until the kit has a PR flow. The acceptances made before 2026-09-30, each on the branch commit that named the yes, stand.
+**R11.** R7 and R8 narrow the sunset of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) — PR approval on a protected main from rollout Phase D — and the clause of R2 of [dec-0032-work-starts-on-a-branch](dec-0032-work-starts-on-a-branch.md) that puts the yes on a branch commit until the kit has a PR flow. R4 replaces that R2's merge command, `git merge --no-ff work/<name>`, and R5 its R5's two settings. R6 withdraws the clause of its R7 that a pull request's review sees the content of a merge concluded by hand: no approval is required, so no review is promised. The acceptances made until the merge of the kit's first pull request, on 2026-09-30, each on the branch commit that named the yes, stand.
 
 ## Applied
 
-The commit that creates this record applies every item that binds, so the record is born `inactive`. The ruleset and the repository settings of R3 are set on GitHub before the pull request that carries this change is merged; that merge is the flow's first use.
+The change that adds this record applies every item that binds — R5 and the hook's text in the commit before the record's, the rest in the record's own — so the record is born `inactive`. The ruleset and the repository settings of R3 are set on GitHub before the pull request that carries this change is merged; that merge is the flow's first use.
 
 ## Carry list
 
@@ -85,7 +85,7 @@ The commit that creates this record applies every item that binds, so the record
 3. R3, R4, R6 — the rule "Work starts on a branch" in session conduct of [CLAUDE.md](../../CLAUDE.md); R4 also [the hook](../../scripts/git-hooks/prepare-commit-msg).
 4. R5 — [the setup script](../../scripts/setup-clone.sh); [its fixture](../../scripts/git-hooks/tests/run.sh); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
 5. R7 — [kernel §4](../../kernel/CONVENTIONS.md#k4); [law 9 of CLAUDE.md](../../CLAUDE.md#law-9); [the record skill](../../modules/const-decision-records/skills/record-decision/SKILL.md).
-6. R8 — [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md); step 8 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
+6. R8 — [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), and for a `product` record [its rule 15](../policies/plc-0004-decision-records.md#r15); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md); step 8 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
 7. R9 — [rule 2 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2); step 6 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); step 6 of [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md).
 8. R10 — [rule 15 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r15).
-9. R11 — history only: the narrowing is stated where R7 and R8 are carried.
+9. R11 — [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5), the acceptances that stand; the narrowing and the withdrawal are history, stated where R4 to R8 are carried.

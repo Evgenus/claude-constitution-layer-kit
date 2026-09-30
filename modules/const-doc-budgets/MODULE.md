@@ -17,7 +17,7 @@ A document a project keeps grows with every change that touches it, and nobody m
 <a id="t2"></a>
 ## 2. Failure class
 
-`self-limiting`: an over-long document is felt by its readers and fixed there; nothing compounds across the repository except a template, whose documents inherit its length. **Entry trigger:** bloat observed, with data — a reader or a session saying a document is too long to use, or a document loaded into every session growing past what its readers want, and the lengths of its group over time at hand to show it. The kit did not pass it: the module was started ahead of the trigger by the decider's choice, with ceilings set from 15 days of data, the objection recorded (decision [dec-0052-doc-budgets-module-rulings](../../docs/decisions/dec-0052-doc-budgets-module-rulings.md), section 1).
+`self-limiting`: an over-long document is felt by its readers and fixed there; nothing compounds across the repository except a template, whose documents inherit its length. **Entry trigger:** bloat observed, with data — a reader or a session saying a document is too long to use, or a document loaded into every session growing past what its readers want, and the lengths of its group over time at hand to show it. The kit did not pass it: the module was started ahead of the trigger by the decider's choice, with ceilings set from 15 days of data, over the session's objection that no friction signal on document length existed (decision [dec-0052-doc-budgets-module-rulings](../../docs/decisions/dec-0052-doc-budgets-module-rulings.md), section 1).
 
 <a id="t3"></a>
 ## 3. Rows

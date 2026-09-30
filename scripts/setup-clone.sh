@@ -19,7 +19,7 @@ if [ "$1" = "--check" ]; then
     fi
     cat >&2 <<MSG
 RED: this clone is not set up — core.hooksPath is "$(git config --get core.hooksPath)", merge.ff is "$(git config --get merge.ff)", pull.ff is "$(git config --get pull.ff)", the hook is $([ -x scripts/git-hooks/prepare-commit-msg ] && echo executable || echo "missing or not executable")
-  why: git never versions the three settings or runs a hook that is not executable, and without all four a commit can land on main unrefused
+  why: git never versions the three settings or runs a hook that is not executable, and without all four main can take a commit no rule allowed
   fix: sh scripts/setup-clone.sh   — and if the hook is not executable: chmod +x scripts/git-hooks/prepare-commit-msg; if it is missing: git checkout -- scripts/git-hooks
 MSG
     exit 2

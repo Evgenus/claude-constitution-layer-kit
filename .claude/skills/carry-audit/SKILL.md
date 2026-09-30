@@ -63,9 +63,9 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    `Carry-Audit: at <pin>; <n> records; <f> findings, <x> fixed, <j> justified` — where the pin is
    the last round's, an ancestor at which the record already existed; `n` counts `full` and
    `regression` records together and is above zero; `f` counts the findings of every round, and
-   `x + j = f`. For a `product` record, which has no yes, the `Carry-Audit:` trailer stands alone on the commit
-   that holds the fixes. The newest acceptance of a record is the one that counts: a
-   wrong receipt is mended by accepting again, in a new commit.
+   `x + j = f`. For a `product` record, which has no yes, the `Carry-Audit:` trailer stands alone on the merge
+   commit of the change that holds the fixes. The newest acceptance of a record is the one that counts: a
+   wrong receipt is mended by accepting again, in the merge commit of a new pull request.
 9. **Run the gate:** `python3 scripts/check-carry-lists.py`. Red is fixed before the turn ends.
 
 ## Prompt A — a reader of `full` records

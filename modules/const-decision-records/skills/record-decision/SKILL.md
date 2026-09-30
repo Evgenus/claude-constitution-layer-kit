@@ -34,8 +34,8 @@ Ask one question: **is the call cheap to revert?**
   `stakes: routine`.
 - **No, and it rules on the harness, a policy or a procedure → `process`.** A record, and one
   human yes on the change, named in the commit that lands it: where a PR flow exists, the
-  merge commit of the pull request, the yes being its approval or, where no second human
-  reviews it, the decider's own. This is the fast lane: a
+  commit that merges the pull request, the yes being its approval or, where no second human
+  reviews it, the decider's own merge. This is the fast lane: a
   process fix needs that one yes and nothing more — it never waits behind a heavier gate,
   least of all the gate it is fixing.
 - **No, and it changes what a user sees → `product`.** A record.

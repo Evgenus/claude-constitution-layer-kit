@@ -7,7 +7,8 @@
 # What it cannot see — whatever moves main without passing here: git am, a rebase of main, a
 # fast-forward asked for on the command line (--ff, --ff-only), a push into main, git reset,
 # git update-ref, git branch -f. And a merge passes whole: one concluded by hand can carry any content.
-# The shared main on the remote is held by the repository's ruleset: a pull request, merge commits only.
+# The shared main on the remote is held by the repository's ruleset — a pull request, no force push, no
+# deletion — and the repository allows merge commits only.
 # Exit: 0 the commit may proceed; 1 refused.
 
 protected=main
@@ -30,6 +31,6 @@ cat >&2 <<MSG
 RED: this commit would land on $protected
   why: every change, one commit or many, is made on its own branch and reaches $protected as one merge commit, so the history reads one line per work
   fix: $fix
-  then: git push -u origin work/<name> && gh pr create --base $protected --title "<name>" — and after the yes where one is needed the pull request is merged with a merge commit: gh pr merge <n> --merge --subject "Work: <name>"
+  then: git push -u origin work/<name> && gh pr create --base $protected --title "<name>" — the pull request is merged with a merge commit, which gives the yes where one is needed: gh pr merge <n> --merge --subject "Work: <name>"
 MSG
 exit 1
