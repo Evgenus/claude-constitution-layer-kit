@@ -9,8 +9,8 @@ For the module named, in throwaway folders that the check removes:
   2. `claude plugin marketplace add <kit>` and `claude plugin install <module>@constitution-kit`,
      the platform's own install, which writes a copy of the plugin into the configuration's cache;
   3. what the kit's source of the module declares, held in that copy: no link of the source
-     leads inside the module; every link arrives as a real file with the same bytes, or a
-     directory with the same file names; the copy holds no link the source lacks; the copy holds
+     leads inside the module; every link arrives as a real file, or a real directory, with the
+     same files byte for byte; the copy holds no link the source lacks; the copy holds
      the source's hooks file; every hook of the source's hooks/hooks.json, run from the copy in
      exec form on a sample event of its kind with CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on
      the bare repository, and its JSON on standard output neither blocks, denies, asks nor stops;
@@ -192,8 +192,8 @@ def files_under(folder: Path) -> set[str]:
 
 
 def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
-    """No link of the source leads inside the module; every link arrives as a real file with the same
-    bytes, or a directory with the same file names; the copy holds no link the source lacks."""
+    """No link of the source leads inside the module; every link arrives as a real file, or a real
+    directory, with the same files byte for byte; the copy holds no link the source lacks."""
     findings: list[Finding] = []
     links = sorted(p for p in source.rglob("*") if p.is_symlink())
     for link in links:
@@ -212,8 +212,20 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
             findings.append(Finding(module, f"the link {where} is {state} in the installed copy", fix))
         elif inside:
             findings.append(Finding(module, f"the link {where} leads inside the module", fix))
-        elif target.is_dir() and files_under(place) != files_under(target):
-            differing = sorted(files_under(target) ^ files_under(place))
+        elif target.is_file() and place.is_dir():
+            findings.append(Finding(module, f"the link {where} to a file arrived as a folder", fix))
+        elif target.is_dir() and (
+            files_under(place) != files_under(target)
+            or any((place / f).read_bytes() != (target / f).read_bytes() for f in files_under(target))
+        ):
+            differing = sorted(
+                (files_under(target) ^ files_under(place))
+                | {
+                    f
+                    for f in files_under(target) & files_under(place)
+                    if (place / f).read_bytes() != (target / f).read_bytes()
+                }
+            )
             findings.append(
                 Finding(
                     module,
@@ -221,7 +233,7 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
                     fix,
                 )
             )
-        elif target.is_file() and (not place.is_file() or place.read_bytes() != target.read_bytes()):
+        elif target.is_file() and place.read_bytes() != target.read_bytes():
             findings.append(
                 Finding(module, f"the link {where} arrived with other bytes than its target", fix)
             )
@@ -369,8 +381,8 @@ def report(module: str, findings: list[Finding], examined: str) -> int:
 
 def self_test() -> int:
     """Red→green on throwaway source and copy folders, no install: a green copy is green; each branch
-    of the link check — a link inside the module, left a link, missing, with files lost or added,
-    a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
+    of the link check — a link inside the module, left a link, missing, with files lost, added or
+    changed, a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
     the hooks-file, hook and scan checks, and a red scan the source declares where the copy lost its
     document, are each a finding; the report of one finding is its literal text, exit 2."""
     module_text = (
@@ -435,6 +447,8 @@ def self_test() -> int:
             (copy / "MODULE.md").unlink()
         if change == "link-emptied":
             (copy / "scripts" / "shared" / "code.py").unlink()
+        if change == "link-edited":
+            (copy / "scripts" / "shared" / "code.py").write_text("x = 3\n", encoding="utf-8")
         if change == "link-grown":
             (copy / "scripts" / "shared" / "added.py").write_text("y = 1\n", encoding="utf-8")
         if change == "extra-link":
@@ -487,7 +501,11 @@ def self_test() -> int:
         ),
         "a link that arrived without its files is a finding": ("link-emptied", "code.py"),
         "a link that arrived with a file its target lacks is a finding": ("link-grown", "added.py"),
-        "a link to a file that arrived as a folder is a finding": ("file-link-as-folder", "other bytes"),
+        "a link to a file that arrived as a folder is a finding": (
+            "file-link-as-folder",
+            "arrived as a folder",
+        ),
+        "a linked folder whose file arrived with other bytes is a finding": ("link-edited", "code.py"),
         "a link in the copy that the source lacks is a finding": ("extra-link", "a link its source lacks"),
         "a hook given another event than its own is a finding": ("no-event", "exits 3"),
         "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
