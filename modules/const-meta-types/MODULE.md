@@ -31,7 +31,7 @@ A session opens a research note, a stale structure description, or a half-migrat
 <a id="t4"></a>
 ## 4. Decisions
 
-1. [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) — section 1 fixes the runtime (Python 3 with PyYAML, POSIX shell for the entry point, a missing runtime exits 1 with the install command); section 2 homes [A2.3](../../docs/requirements.md#a2-3) here, one script for envelope and resolution with a repository-scan mode as backstop; section 7 adds the `severity` dial.
+1. [dec-0015-pre-module-audit-rulings](../../docs/decisions/dec-0015-pre-module-audit-rulings.md) — section 1 fixes the runtime (Python 3 with PyYAML, a missing runtime exits 1 with the install command); section 2 homes [A2.3](../../docs/requirements.md#a2-3) here, one script for envelope and resolution with a repository-scan mode as backstop; section 7 adds the `severity` dial.
 2. [dec-0014-territory-dialect](../../docs/decisions/dec-0014-territory-dialect.md) — territory patterns are gitignore syntax by default, `territory_dialect` names another; this module supports `gitignore` only and reports any other as a configuration failure.
 3. [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — every read of `constitution.yaml` validates the keys read; a malformed file is a configuration failure.
 4. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.

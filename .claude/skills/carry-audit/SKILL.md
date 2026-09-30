@@ -46,7 +46,8 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    reader, prompt E, on every such edit.
 6. **Consolidate, and verify before acting.** A reader can be wrong: check every finding you mean to
    act on against the tree yourself. Give every finding a handle. Each is fixed, or justified in a
-   commit message of the change — in the pull request once the kit has one.
+   commit message of the change, the merge commit included — never only in the pull request's
+   description, which git does not keep.
 7. **Read the fixes again.** Fixes made in a hurry break things. Commit them,
    pin a confirming reader to that commit — prompt D — and, when the fixes make or change wording
    edits in accepted records or frozen comparisons, a reader of prompt E beside it; repeat while a pass finds a defect. Until
@@ -55,15 +56,16 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
    edited beyond the same section's mechanical edits — its findings go into the documents or a
    further record
    ([rule 15 of plc-0004-decision-records](../../../docs/policies/plc-0004-decision-records.md#r15)).
-8. **Write the receipt.** The commit that names the yes carries two trailers in its last paragraph,
-   beside the attribution line:
+8. **Write the receipt.** The commit that names the yes — the merge commit of the change's pull
+   request, written with `gh pr merge <n> --merge --subject "Work: <name>" --body "…"` — carries two
+   trailers in its last paragraph, beside the attribution line:
    `Accepted: <record id>` — one per record, or several ids separated by commas;
    `Carry-Audit: at <pin>; <n> records; <f> findings, <x> fixed, <j> justified` — where the pin is
    the last round's, an ancestor at which the record already existed; `n` counts `full` and
    `regression` records together and is above zero; `f` counts the findings of every round, and
-   `x + j = f`. For a `product` record, which has no yes, the `Carry-Audit:` trailer stands alone on the commit
-   that holds the fixes. The newest acceptance of a record is the one that counts: a
-   wrong receipt is mended by accepting again, in a new commit.
+   `x + j = f`. For a `product` record, which has no yes, the `Carry-Audit:` trailer stands alone on the merge
+   commit of the change that holds the fixes. The newest acceptance of a record is the one that counts: a
+   wrong receipt is mended by accepting again, in the merge commit of a new pull request.
 9. **Run the gate:** `python3 scripts/check-carry-lists.py`. Red is fixed before the turn ends.
 
 ## Prompt A — a reader of `full` records
