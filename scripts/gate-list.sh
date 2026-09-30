@@ -7,15 +7,16 @@
 #   sh scripts/gate-list.sh --show <entry>             the commands of one entry, one per line
 #   sh scripts/gate-list.sh --run <entry>              run one entry's commands in turn, from the kit root
 # The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types.
+# The install-<module> gates need Claude Code's `claude` on PATH; they need no login.
 # --run runs every command of the entry even after a red one and prints each command's exit; it
 # exits 0 when every command did, else 2 when every failing command exited 2 (a finding), else 1.
 # The other modes exit 0, or 1 on a misinvocation.
 
-GATES="references meta-types catalogs decision-records open-questions style language budgets
-list-handles carry-lists shared-links yaml-style module-links aspects portability gate-lists
-schema-mirror task-close"
 MODULES="const-catalogs const-decision-records const-doc-budgets const-interaction const-language
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
+GATES="references meta-types catalogs decision-records open-questions style language budgets
+list-handles carry-lists shared-links yaml-style module-links aspects portability gate-lists
+schema-mirror bare-install $(for m in $MODULES; do printf 'install-%s ' "$m"; done)task-close"
 EXTRAS="branch-gate $(for m in $MODULES; do printf 'fixtures-%s ' "$m"; done)lint types"
 
 commands() {
@@ -33,6 +34,12 @@ commands() {
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
         schema-mirror) echo "python3 scripts/check-schema-mirror.py" ;;
+        bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;
+        install-*)
+            for m in $MODULES; do
+                [ "$1" = "install-$m" ] && echo "python3 scripts/check-bare-install.py --module $m" && return 0
+            done
+            return 1 ;;
         task-close) echo "sh modules/const-task-close/scripts/check-task-close.sh --scan" ;;
         branch-gate) echo "sh scripts/git-hooks/tests/run.sh" ;;
         fixtures-*)
@@ -51,7 +58,7 @@ commands() {
                 done
                 echo "cd modules/$m/tests && MYPYPATH=../scripts python3 -m mypy --strict *.py"
             done
-            echo "cd scripts && python3 -m mypy --strict check-carry-lists.py check-shared-links.py check-yaml-style.py check-module-links.py check-aspects.py check-portability.py check-gate-lists.py"
+            echo "cd scripts && python3 -m mypy --strict check-carry-lists.py check-shared-links.py check-yaml-style.py check-module-links.py check-aspects.py check-portability.py check-gate-lists.py check-bare-install.py"
             echo "cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts python3 -m mypy --strict check-schema-mirror.py" ;;
         *) return 1 ;;
     esac
