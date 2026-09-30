@@ -13,7 +13,7 @@
 
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links yaml-style module-links aspects portability gate-lists
-task-close"
+schema-mirror task-close"
 MODULES="const-catalogs const-decision-records const-doc-budgets const-interaction const-language
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 EXTRAS="branch-gate $(for m in $MODULES; do printf 'fixtures-%s ' "$m"; done)lint types"
@@ -32,6 +32,7 @@ commands() {
         carry-lists | shared-links | yaml-style | module-links | aspects | portability | gate-lists)
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
+        schema-mirror) echo "python3 scripts/check-schema-mirror.py" ;;
         task-close) echo "sh modules/const-task-close/scripts/check-task-close.sh --scan" ;;
         branch-gate) echo "sh scripts/git-hooks/tests/run.sh" ;;
         fixtures-*)
@@ -50,7 +51,8 @@ commands() {
                 done
                 echo "cd modules/$m/tests && MYPYPATH=../scripts python3 -m mypy --strict *.py"
             done
-            echo "cd scripts && python3 -m mypy --strict check-carry-lists.py check-module-links.py check-aspects.py check-portability.py check-gate-lists.py" ;;
+            echo "cd scripts && python3 -m mypy --strict check-carry-lists.py check-shared-links.py check-yaml-style.py check-module-links.py check-aspects.py check-portability.py check-gate-lists.py"
+            echo "cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts python3 -m mypy --strict check-schema-mirror.py" ;;
         *) return 1 ;;
     esac
 }

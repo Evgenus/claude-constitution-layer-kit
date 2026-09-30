@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: gates-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }} # a merge's run on main is never cut short
 
 jobs:
   list:
@@ -42,7 +42,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Python tools
-        run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0"
+        run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" \
+            "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518"
       - name: Vale and lychee
         run: |
           mkdir -p "$HOME/.local/bin"

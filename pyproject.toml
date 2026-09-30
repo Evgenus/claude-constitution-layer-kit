@@ -16,7 +16,7 @@
 #   python3 scripts/check-aspects.py && python3 scripts/check-aspects.py --self-test   (every acceptance item names its rows; --run reports each row)
 #   (cd scripts && mypy --strict check-aspects.py)
 #   python3 scripts/check-portability.py && python3 scripts/check-portability.py --self-test   (the A12.1 grep over the installed components)
-#   python3 scripts/check-gate-lists.py && python3 scripts/check-gate-lists.py --self-test   (every declared module scan in the gate list and the CI list)
+#   python3 scripts/check-gate-lists.py && python3 scripts/check-gate-lists.py --self-test   (every declared module scan in the list's gate group; the workflow calls the list)
 #   (cd scripts && mypy --strict check-portability.py check-gate-lists.py)
 #   (cd scripts && mypy --strict check-carry-lists.py)
 # And for the kit's own branch-first gate — the first is red in a clone until sh scripts/setup-clone.sh has run once:

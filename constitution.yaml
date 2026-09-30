@@ -13,7 +13,7 @@
 #
 # Written in block style: one key or one "- " item per line; flow style, [] or {},
 # only where a list or a mapping is empty. The gate is scripts/check-yaml-style.py,
-# run before every commit that touches this file; its --fix rewrites the file.
+# run by the kit's CI on every pull request; its --fix rewrites the file.
 
 # --- kernel-owned keys (kernel §6) -------------------------------------------------
 

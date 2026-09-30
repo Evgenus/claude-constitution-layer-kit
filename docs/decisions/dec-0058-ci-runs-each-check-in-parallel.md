@@ -31,11 +31,11 @@ The session recommended A. **R1.** B, chosen by the decider in chat on 2026-09-3
 
 **R3.** One job, `gates`, waits for every other and is green only when every other is. It is the one check the ruleset requires on `main`, so a new entry never changes the ruleset.
 
-**R4.** Every kit check's entry runs its `--self-test` after its plain run, so CI runs each fixture the kit has.
+**R4.** Every kit check's entry runs its `--self-test` after its plain run where it has one, and `scripts/check-schema-mirror.py`, the kit check the kernel policy names for the mirror of the dials schema, is an entry of the gate group.
 
-**R5.** The workflow runs on every pull request and on every push to `main`, with the whole history fetched, since the carry-lists and range checks read it. Each job installs pinned versions: Python 3.12, PyYAML 6.0.2, ruff 0.16.8, mypy 1.8.0, Vale 3.23.0 and lychee 0.24.2. A newer push cancels a run of the same ref still going.
+**R5.** The workflow runs on every pull request and on every push to `main`, with the whole history fetched, since the carry-lists and range checks read it. Each job installs pinned versions: Python 3.12, PyYAML 6.0.2, ruff 0.16.8, mypy 1.8.0 with the type stubs of PyYAML and jsonschema, jsonschema 4.26.0, referencing 0.37.0, Vale 3.23.0 and lychee 0.24.2. On a pull request a newer push cancels the run still going; a run on `main` is never cut short, so every merge gets its range check.
 
-**R6.** `scripts/check-gate-lists.py` reads the gate list from `sh scripts/gate-list.sh --names gate` and `--show`, and holds the CI list as that script, when the workflow builds its jobs from `--json` and runs them with `--run`. This replaces where R2 of [dec-0056-portability-grep-and-gate-lists](dec-0056-portability-grep-and-gate-lists.md) read the two lists: the agent's numbered list and the CI sentence of rollout step 10.
+**R6.** `scripts/check-gate-lists.py` reads the gate list from `sh scripts/gate-list.sh --names gate` and `--show`, and holds the CI list as that script, when the workflow builds its jobs from `--json` and runs them with `--run`. Comment lines of the workflow do not count. That the matrix is built from the one and runs the other is the workflow's own text, held by review and by its run. This replaces where R2 of [dec-0056-portability-grep-and-gate-lists](dec-0056-portability-grep-and-gate-lists.md) read the two lists: the agent's numbered list and the CI sentence of rollout step 10.
 
 ## 2. What happens to the local runs
 
@@ -49,17 +49,19 @@ The session recommended A. **R1.** B, chosen by the decider in chat on 2026-09-3
   - **Pros:** the strictest.
   - **Cons:** every check runs twice; the "until" texts must lose their condition.
 
-The session recommended B. **R7.** B, chosen by the decider in chat on 2026-09-30: CI takes the runs before the merge and on `main` after it, and no local run of the gate list is required. The `gate-list-runner` agent runs it locally when a red is wanted before a push.
+The session recommended B. **R7.** B, chosen by the decider in chat on 2026-09-30: CI takes the runs before the merge and on `main` after it, and no local run of the gate list is required. The `gate-list-runner` agent runs its gate group locally, and its extra group on request, when a red is wanted before a push.
 
-**R8.** The texts that said a check runs by hand "until the kit's CI runs it" now say CI runs it: the dials-file style check and the references scan in [CLAUDE.md](../../CLAUDE.md), the module-links check there, the reference-forms cell of [requirement A5.6](../requirements.md#a5-6), and the project-reference grep among the A12 gates of [the intent page](../../INTENT.md).
+**R8.** The texts that said a check runs by hand "until the kit's CI runs it" now say CI runs it: the dials-file style check in [CLAUDE.md](../../CLAUDE.md) and in the header comment of `constitution.yaml`, the references scan there, the module-links check there, the reference-forms cell of [requirement A5.6](../requirements.md#a5-6), and the project-reference grep among the A12 gates of [the intent page](../../INTENT.md).
 
 **R9.** Not wired by this record, and left to rollout step 10: the bare-repo install and the kernel-plus-one-module run of [aspect A12](../requirements.md#a12), and the validation of the kit's `constitution.yaml` against the kernel's dials schema by a real validator.
 
 **R10.** Items other records left pending on CI are now real: R4 of [dec-0056-portability-grep-and-gate-lists](dec-0056-portability-grep-and-gate-lists.md), R8 of [dec-0055-promise-audit-fixes](dec-0055-promise-audit-fixes.md), R8 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md), R3 of [dec-0049-module-links-held-by-a-kit-check](dec-0049-module-links-held-by-a-kit-check.md), the CI half of R2 of [dec-0037-dials-file-block-style](dec-0037-dials-file-block-style.md), and the whole history R11 of [dec-0030-carry-audit-mandatory](dec-0030-carry-audit-mandatory.md) asks CI to fetch.
 
+**R11.** R7 ends the local runs three accepted records set until the kit's CI runs the checks, their own condition now met: the run of the references scan before every commit that touches a document, R9 of [dec-0033-referencing-module-rulings](dec-0033-referencing-module-rulings.md); the run of the dials-file style check before every commit that touches the file, R2 of [dec-0037-dials-file-block-style](dec-0037-dials-file-block-style.md); and the hand run of the module-links check, R2 of [dec-0049-module-links-held-by-a-kit-check](dec-0049-module-links-held-by-a-kit-check.md).
+
 ## Applied
 
-The change that adds this record applies every item that binds: the script, the workflow, the check and the agent in the commit before the record's, the rest in the record's own. The ruleset's required check `gates` is set once this change is on `main`, since a required check that no workflow on `main` yet runs would hold every other open pull request. So the record is born `inactive`.
+The change that adds this record applies every item that binds: the script, the workflow, the check and the agent in the commit before the record's, the rest in the record's own. The ruleset's required check `gates` is set before this change is merged, so that its own merge already needs `gates` green; an open pull request cut from `main` before this merge gets the check once it brings `main` in. So the record is born `inactive`.
 
 ## Carry list
 
@@ -68,6 +70,7 @@ The change that adds this record applies every item that binds: the script, the 
 3. R3 — [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), the ruleset's sentence.
 4. R6 — [the gate-list check](../../scripts/check-gate-lists.py); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md); the narrowing of dec-0056's R2 is history.
 5. R7 — the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
-6. R8 — [CLAUDE.md](../../CLAUDE.md), the reading-list item on `constitution.yaml`, the rule "References are clickable; handles are scoped" and step 5 of "Developing a module"; [requirement A5.6](../requirements.md#a5-6); [the intent page](../../INTENT.md).
+6. R8 — [CLAUDE.md](../../CLAUDE.md), the reading-list item on `constitution.yaml`, the rule "References are clickable; handles are scoped" and step 5 of "Developing a module"; [requirement A5.6](../requirements.md#a5-6); [the intent page](../../INTENT.md); the header comment of [constitution.yaml](../../constitution.yaml).
 7. R9 — pending: [rollout step 10](../rollout-plan.md#s10).
 8. R10 — history only: the items are stated where their own records carry them, and CI now runs them.
+9. R11 — history only: the local runs end, as R7 states in the rule "Work starts on a branch" of [CLAUDE.md](../../CLAUDE.md).

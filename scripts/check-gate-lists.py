@@ -7,9 +7,10 @@ the flag, so an explain mode (`--scan --command …`) or a report (`--scan --sin
 scan. For each declared scan:
   - the gate list, the entries `sh scripts/gate-list.sh --names gate` prints, has one whose
     commands (`--show <entry>`) run `modules/<module>/scripts/<entry>.sh --scan` or `….py --scan`;
-  - the CI list is every entry of that script, when `.github/workflows/gates.yml` builds its jobs
-    from `sh scripts/gate-list.sh --json` and runs each with `sh scripts/gate-list.sh --run`; a
-    workflow that does not leaves every declared scan out of CI.
+  - the CI list is every entry of that script, when the lines of `.github/workflows/gates.yml`,
+    comments aside, call `sh scripts/gate-list.sh --json` and `sh scripts/gate-list.sh --run`; a
+    workflow that does not leaves every declared scan out of CI. That the matrix is built from the
+    one and runs the other is the workflow's own text, held by review and by its run.
 Every folder under `modules/` whose name opens with neither a dot nor an underscore is a module
 and must hold its `MODULE.md`. A module that declares no scan is examined and needs neither
 (decisions dec-0056-portability-grep-and-gate-lists and dec-0058-ci-runs-each-check-in-parallel).
@@ -121,8 +122,10 @@ def gate_list(root: Path) -> str:
 def ci_reads_list(root: Path) -> bool:
     if not (root / WORKFLOW).is_file():
         return False
-    text = read(root, WORKFLOW)
-    return all(phrase in text for phrase in READS_LIST)
+    steps = "\n".join(
+        line.split(" #")[0] for line in read(root, WORKFLOW).splitlines() if not line.lstrip().startswith("#")
+    )
+    return all(phrase in steps for phrase in READS_LIST)
 
 
 def check_kit(root: Path) -> tuple[list[Finding], int, int]:
@@ -227,6 +230,12 @@ def self_test() -> int:
             {"extra": scan},
             reads,
             ["gate list"],
+        ),
+        "the workflow names the list only in a comment": (
+            {"x": scan},
+            {},
+            f"# {READS_LIST[0]}\njobs:\n  one:\n    run: make # {READS_LIST[1]}\n",
+            ["CI list"],
         ),
         "the workflow does not read the list": (
             {"x": scan},

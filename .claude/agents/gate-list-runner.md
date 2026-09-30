@@ -4,8 +4,8 @@ description: >
   Runs the kit's gate list from the kit root, through scripts/gate-list.sh, the one list CI runs
   too — the module scans, the kit checks with their self-tests, the range check of the
   task-close module, and on request the fixtures, lint and types — and returns one verdict line per gate with every red, broken and note line
-  verbatim. Use before a commit that touches a document, before a merge, and after a merge on
-  the trunk; the runner fixes nothing and judges nothing. Kit development tooling; never shipped
+  verbatim. Use when a red is wanted before a push — CI runs the same list on every pull request
+  and on the trunk; the runner fixes nothing and judges nothing. Kit development tooling; never shipped
   in a module.
 model: sonnet
 tools: Read, Grep, Glob, Bash
@@ -37,7 +37,7 @@ Run each entry on its own, capture its exit code and its whole output, and never
 into another. A command that cannot start — a missing interpreter, a missing file — is reported
 as such, with its exit code; it is never skipped in silence.
 
-Report: the git readings; a table with one row per gate — its number, its exit code, its last
+Report: the git readings; a table with one row per entry — its name, its exit code, its last
 line verbatim; then, grouped by gate, every line beginning `RED:`, `BROKEN:` or `NOTE:` verbatim,
 and for the fixture runner every `[FAIL]` block whole; the number of items examined where the
 last line says it. Nothing else: no summary of what the findings mean, no fix, no advice.
