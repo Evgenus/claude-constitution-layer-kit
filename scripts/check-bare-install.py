@@ -214,6 +214,10 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
             findings.append(Finding(module, f"the link {where} leads inside the module", fix))
         elif target.is_file() and place.is_dir():
             findings.append(Finding(module, f"the link {where} to a file arrived as a folder", fix))
+        elif target.is_dir() and not place.is_dir():
+            findings.append(Finding(module, f"the link {where} to a folder arrived as a file", fix))
+        elif not target.exists():
+            findings.append(Finding(module, f"the link {where} leads nowhere in the source", fix))
         elif target.is_dir() and (
             files_under(place) != files_under(target)
             or any((place / f).read_bytes() != (target / f).read_bytes() for f in files_under(target))
@@ -229,7 +233,8 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
             findings.append(
                 Finding(
                     module,
-                    f"the link {where} arrived with other files than its target: {', '.join(differing[:3])}",
+                    f"the link {where} arrived with other files or bytes than its target:"
+                    f" {', '.join(differing[:3])}",
                     fix,
                 )
             )
@@ -447,6 +452,9 @@ def self_test() -> int:
             (copy / "MODULE.md").unlink()
         if change == "link-emptied":
             (copy / "scripts" / "shared" / "code.py").unlink()
+        if change == "folder-link-as-file":
+            shutil.rmtree(copy / "scripts" / "shared")
+            (copy / "scripts" / "shared").write_text("x = 1\n", encoding="utf-8")
         if change == "link-edited":
             (copy / "scripts" / "shared" / "code.py").write_text("x = 3\n", encoding="utf-8")
         if change == "link-grown":
@@ -506,6 +514,10 @@ def self_test() -> int:
             "arrived as a folder",
         ),
         "a linked folder whose file arrived with other bytes is a finding": ("link-edited", "code.py"),
+        "a link to a folder that arrived as a file is a finding": (
+            "folder-link-as-file",
+            "arrived as a file",
+        ),
         "a link in the copy that the source lacks is a finding": ("extra-link", "a link its source lacks"),
         "a hook given another event than its own is a finding": ("no-event", "exits 3"),
         "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
@@ -563,6 +575,10 @@ def main(argv: list[str]) -> int:
         return report(module, check_module(module), examined)
     except Broken as broken:
         print(f"BROKEN: {broken}")
+        print("BROKEN: the check could not run — 0 modules examined")
+        return EXIT_BROKEN
+    except OSError as bad:
+        print(f"BROKEN: a file could not be read ({bad}) — fix: make the module's files readable")
         print("BROKEN: the check could not run — 0 modules examined")
         return EXIT_BROKEN
 
