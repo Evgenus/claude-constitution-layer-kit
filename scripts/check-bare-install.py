@@ -192,8 +192,8 @@ def files_under(folder: Path) -> set[str]:
 
 
 def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
-    """Every link of the source arrives as a real file, or a directory with the same files; the copy
-    holds no link the source lacks."""
+    """No link of the source leads inside the module; every link arrives as a real file with the same
+    bytes, or a directory with the same file names; the copy holds no link the source lacks."""
     findings: list[Finding] = []
     links = sorted(p for p in source.rglob("*") if p.is_symlink())
     for link in links:
@@ -213,11 +213,11 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
         elif inside:
             findings.append(Finding(module, f"the link {where} leads inside the module", fix))
         elif target.is_dir() and files_under(place) != files_under(target):
-            lost = sorted(files_under(target) ^ files_under(place))
+            differing = sorted(files_under(target) ^ files_under(place))
             findings.append(
                 Finding(
                     module,
-                    f"the link {where} arrived with other files than its target: {', '.join(lost[:3])}",
+                    f"the link {where} arrived with other files than its target: {', '.join(differing[:3])}",
                     fix,
                 )
             )
@@ -368,13 +368,11 @@ def report(module: str, findings: list[Finding], examined: str) -> int:
 
 
 def self_test() -> int:
-    """Red→green on throwaway source and copy folders, no install: a copy whose hook and scans pass
-    and whose outside link arrived as a real directory is green; a link left in the copy, one missing
-    from it, one that arrived without its files, a link inside the module, a link the source lacks, a
-    copy without its hooks file, a hook that exits 1 or 2, one that exits 0 but denies — with a
-    warning on standard error too — blocks, asks or stops, a hook not given its event, a shell or
-    Python scan that is red, and a red scan the source declares where the copy lost its document, are
-    each a finding; the report of one finding is its literal text, exit 2."""
+    """Red→green on throwaway source and copy folders, no install: a green copy is green; each branch
+    of the link check — a link inside the module, left a link, missing, with files lost or added,
+    a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
+    the hooks-file, hook and scan checks, and a red scan the source declares where the copy lost its
+    document, are each a finding; the report of one finding is its literal text, exit 2."""
     module_text = (
         '<a id="t9"></a>\n| E1 | `check-x --scan`: all | `gate` |\n| E2 | `check-p.py --scan` | `gate` |\n'
         '<a id="t10"></a>\n'
@@ -423,6 +421,9 @@ def self_test() -> int:
         if change == "link-other-bytes":
             (source / "scripts" / "one").symlink_to(shared / "code.py")
             (copy / "scripts" / "one").write_text("x = 2\n", encoding="utf-8")
+        if change == "file-link-as-folder":
+            (source / "scripts" / "one").symlink_to(shared / "code.py")
+            (copy / "scripts" / "one").mkdir()
         if change == "link-left":
             shutil.rmtree(copy / "scripts" / "shared")
             (copy / "scripts" / "shared").symlink_to(shared)
@@ -434,6 +435,8 @@ def self_test() -> int:
             (copy / "MODULE.md").unlink()
         if change == "link-emptied":
             (copy / "scripts" / "shared" / "code.py").unlink()
+        if change == "link-grown":
+            (copy / "scripts" / "shared" / "added.py").write_text("y = 1\n", encoding="utf-8")
         if change == "extra-link":
             (copy / "scripts" / "made").symlink_to(copy / "hooks")
         if change == "no-event":
@@ -482,7 +485,9 @@ def self_test() -> int:
             "copy-without-document",
             "check-x --scan",
         ),
-        "a link that arrived without its files is a finding": ("link-emptied", "other files than its target"),
+        "a link that arrived without its files is a finding": ("link-emptied", "code.py"),
+        "a link that arrived with a file its target lacks is a finding": ("link-grown", "added.py"),
+        "a link to a file that arrived as a folder is a finding": ("file-link-as-folder", "other bytes"),
         "a link in the copy that the source lacks is a finding": ("extra-link", "a link its source lacks"),
         "a hook given another event than its own is a finding": ("no-event", "exits 3"),
         "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
