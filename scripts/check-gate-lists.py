@@ -8,8 +8,9 @@ scan. For each declared scan:
   - the gate list, the entries `sh scripts/gate-list.sh --names gate` prints, has one whose
     commands (`--show <entry>`) run `modules/<module>/scripts/<entry>.sh --scan` or `….py --scan`;
   - the CI list is every entry of that script, when the lines of `.github/workflows/gates.yml`,
-    comments aside, call `sh scripts/gate-list.sh --json` and `sh scripts/gate-list.sh --run`; a
-    workflow that does not leaves every declared scan out of CI. That the matrix is built from the
+    comments aside — a whole comment line, or a `#` after a space or a tab — call
+    `sh scripts/gate-list.sh --json` and `sh scripts/gate-list.sh --run`; a workflow that does not
+    leaves every declared scan out of CI. That the matrix is built from the
     one and runs the other is the workflow's own text, held by review and by its run.
 Every folder under `modules/` whose name opens with neither a dot nor an underscore is a module
 and must hold its `MODULE.md`. A module that declares no scan is examined and needs neither
@@ -123,7 +124,9 @@ def ci_reads_list(root: Path) -> bool:
     if not (root / WORKFLOW).is_file():
         return False
     steps = "\n".join(
-        line.split(" #")[0] for line in read(root, WORKFLOW).splitlines() if not line.lstrip().startswith("#")
+        re.split(r"\s#", line, maxsplit=1)[0]
+        for line in read(root, WORKFLOW).splitlines()
+        if not line.lstrip().startswith("#")
     )
     return all(phrase in steps for phrase in READS_LIST)
 
@@ -168,7 +171,8 @@ def report(findings: list[Finding], modules: int, scans: int) -> int:
 
 def self_test() -> int:
     """Red→green on a throwaway tree: a scan missing from the gate group, and one in a kit whose
-    workflow does not read the list, are red with one finding each and green once listed and read;
+    workflow does not read the list or names it only in a comment line or a trailing comment, are red
+    with one finding each and green once listed and read;
     an extra entry is no gate; a span with more after the flag is no scan; a module with no scan
     needs no entry; the report of one finding is its literal text with exit 2; a list script that
     fails, a module document without its enforcement anchor and a module folder without its
@@ -240,7 +244,7 @@ def self_test() -> int:
         "the workflow names --run only in a trailing comment": (
             {"x": scan},
             {},
-            f"jobs:\n  one:\n    run: {READS_LIST[0]}\n  two:\n    run: make # {READS_LIST[1]}\n",
+            f"jobs:\n  one:\n    run: {READS_LIST[0]}\n  two:\n    run: make\t# {READS_LIST[1]}\n",
             ["CI list"],
         ),
         "the workflow does not read the list": (
