@@ -12,7 +12,7 @@ scan. For each declared scan:
     `sh scripts/gate-list.sh --json` and `sh scripts/gate-list.sh --run`; a workflow that does not
     leaves every declared scan out of CI. That the matrix is built from the one and runs the other
     is the workflow's own text, held by review and by its run; that each entry falls in one of the
-    jobs `--json` prints is the list script's own fallback to `kit`, not this check's.
+    jobs `--json` prints is the list script's own, its jobs read from its entries, not this check's.
 Every folder under `modules/` whose name opens with neither a dot nor an underscore is a module
 and must hold its `MODULE.md`. A module that declares no scan is examined and needs neither
 (decisions dec-0056-portability-grep-and-gate-lists, dec-0058-ci-runs-each-check-in-parallel and

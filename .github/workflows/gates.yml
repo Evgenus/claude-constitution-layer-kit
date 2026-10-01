@@ -2,7 +2,7 @@
 # One CI job per job scripts/gate-list.sh names — each module with its scan, install, fixtures, lint and
 # types, and `kit` for the rest — in parallel; the jobs and their entries are read from the script, never
 # written here. Every job runs on every run, none skipped for the paths a change touched: the scans
-# read the whole tree, and the shared gate code sits in every module. The job "gates" waits for all
+# read the whole tree or the change's whole range, and the shared gate code sits in every module. The job "gates" waits for all
 # of them and is the one check the ruleset requires, so a new module or entry never changes the ruleset.
 name: gates
 

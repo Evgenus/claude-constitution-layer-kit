@@ -32,15 +32,15 @@ The session first recommended A, for the fewest billed minutes with the simplest
 
 **R1.** `.github/workflows/gates.yml` runs one job per module and one job `kit`, in parallel, none cancelled by another's red. A module's job holds every entry of that module: its scan where it declares one, its install, its fixtures, its lint and its types. `kit` holds every other entry. This reverses R1 of [dec-0058-ci-runs-each-check-in-parallel](dec-0058-ci-runs-each-check-in-parallel.md), one job per entry, and narrows R3 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md) and the job named in R1 of [dec-0060-ci-installs-from-the-github-remote](dec-0060-ci-installs-from-the-github-remote.md): each module's install is now an entry of the module's own job, as [requirement A12.1](../requirements.md#a12-1) says, no longer a job of its own.
 
-**R2.** The jobs are written once, in `scripts/gate-list.sh`, and read from the entries: each entry is mapped to exactly one job, and an entry no line maps falls into `kit`, so none is left out of CI. `--json` prints the jobs; `--names <job>` lists a job's entries; `--run <job>` runs every entry of the job in turn, after a red one too, and exits as `--run <entry>` does, 0 when every command did, else 2 when every failing command exited 2, else 1. This narrows R2 of [dec-0058-ci-runs-each-check-in-parallel](dec-0058-ci-runs-each-check-in-parallel.md), where `--json` printed the entries and each job ran one.
+**R2.** The jobs are written once, in `scripts/gate-list.sh`, and read from the entries: each entry is mapped to exactly one job, and an entry no line maps falls into `kit`, so none is left out of CI. `--json` prints the jobs; `--names <job>` lists a job's entries; `--run <job>` runs every entry of the job in turn, after a red one too, and exits as `--run <entry>` does, 0 when every command did, else 2 when every failing command exited 2, else 1. An entry with no commands is a BROKEN line and exit 1, never a pass. This narrows R2 of [dec-0058-ci-runs-each-check-in-parallel](dec-0058-ci-runs-each-check-in-parallel.md), where `--json` printed the entries and each job ran one.
 
 **R3.** A job's run in GitHub Actions folds each entry's log under the entry's name, writes for each entry that did not exit 0 an error annotation naming the entry and the command that reruns it alone, and writes one line per entry with its exit to the job's summary.
 
-**R4.** Lint and types are split like the rest: each module has its own entries `lint-<module>` and `types-<module>` in the extra group, and the kit's own `lint` and `types` cover `scripts/` and `shared/`.
+**R4.** Lint and types are split like the rest: each module has its own entries `lint-<module>` and `types-<module>` in the extra group, the kit's own `lint` covers `scripts/` and `shared/`, and its `types` the kit's checks under `scripts/` and the shared package `shared/const_gate`, the shared tests being typed through each module's links.
 
 **R5.** Every module's job installs Node 22 and Claude Code, pinned as R3 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md) says, for its install entry. The job's run carries the token and the install source that entry needs, for every entry of the job, though only the install reads the source; the job `kit` installs neither and carries neither, its install self-test needing no `claude`.
 
-**R6.** Every job runs on every run. None is skipped for the paths a change touched: the scans read the whole tree, and the shared gate code sits in every module.
+**R6.** Every job runs on every run. None is skipped for the paths a change touched: the scans read the whole tree or, for the range check, the change's whole range, and the shared gate code sits in every module.
 
 **R7.** The job `gates` stays the one check the ruleset requires, green only when every other job is, so the ruleset does not change.
 
@@ -59,7 +59,7 @@ The session recommended A: a scan is a module's rule applied to the tree, so its
 
 ## Applied
 
-The change that adds this record applies every item: the list script, the workflow, the gate-list check's message, the agent, the note in `pyproject.toml` and the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md) in the commit before the record's, the workflow's sentence of R6 in the record's own. So the record is born `inactive`.
+The change that adds this record applies every item: the list script, the workflow, the gate-list check's message, the agent, the note in `pyproject.toml` and the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md) in the commit before the record's; the workflow's sentence of R6 in the record's own; the sentences of R5 and R8, the empty-entry stop of R2 and the wording of [requirement A12.1](../requirements.md#a12-1) in the fix rounds of its carry audit. So the record is born `inactive`.
 
 ## Carry list
 
