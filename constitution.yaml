@@ -63,6 +63,10 @@ plc-0010-style-guide:                 # the kind of one document, like the inten
   territory: &style   # anchored: the styling module's guides dial names exactly this territory
     - "/docs/style-guide.md"
 
+plc-0011-install-guide:               # the kind of one document, the kit's install procedure, run by scripts/check-install-guide.py (decision dec-0062-install-guide-governed-kind)
+  territory: &install_guide   # anchored: a ceiling of the length gate below holds exactly this territory; the leading slash keeps the modules' own INSTALL.md out
+    - "/INSTALL.md"
+
 # --- module namespaces (kernel §6): a module reads only its own -------------------
 # Two dials are every gate's, read by the shared code (shared/GATE.md):
 #   severity  values: block | warn — block: a finding blocks in the way the gate's module chose —
