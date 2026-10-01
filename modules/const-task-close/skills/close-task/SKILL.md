@@ -54,8 +54,8 @@ helper the page never describes — say so where the check reads it, one line pe
   `Key: value`** — one line without a colon hides the whole paragraph from git:
   `No-Doc-Impact: <pair name> — <why the documents are unaffected>`
 - **Or in the description:** the same line on its own in the pull request's description, read
-  only where the description is given to the check with `--body <file>`, as CI does on a pull
-  request; where it is not, the trailer is the only form.
+  only where the description is given to the check with `--body <file>`; where it is not, the
+  trailer is the only form.
 
 The reason is for the reviewer: write what a reviewer needs to agree. Never declare what an update
 would have fixed. The key is `declaration_key` under `const-task-close` when the project changed it.
