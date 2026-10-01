@@ -6,7 +6,9 @@
 #   sh scripts/gate-list.sh --json                     every job as one JSON array, for CI's matrix
 #   sh scripts/gate-list.sh --show <entry>             the commands of one entry, one per line
 #   sh scripts/gate-list.sh --run <entry>|<job>        run one entry's commands, or every entry of a job, in turn, from the kit root
-# The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types.
+# The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types: each
+# module's, the branch gate's fixture, and the kit's own lint of scripts/ and shared/ and types of its
+# checks and shared/const_gate, the shared tests typed through each module's links.
 # A CI job is a module — its scan, its install, its fixtures, its lint and its types — or `kit`, every
 # entry no module holds; an entry is in exactly one job, and one no line of job() maps falls into `kit`.
 # The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's
@@ -151,7 +153,11 @@ case "$1" in
         printf ']\n' ;;
     --show)
         [ -n "$2" ] || misuse "--show needs an entry"
-        commands "$2" || misuse "no entry '$2' in the list" ;;
+        is_entry "$2" || misuse "no entry '$2' in the list"
+        commands "$2" || {
+            echo "BROKEN: entry $2 has no commands — why: an entry that runs nothing would pass unexamined — fix: give it an arm in commands() of scripts/gate-list.sh" >&2
+            exit 1
+        } ;;
     --run)
         [ -n "$2" ] || misuse "--run needs an entry or a job"
         worst=0
