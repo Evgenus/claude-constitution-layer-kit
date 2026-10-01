@@ -6,7 +6,8 @@ The guide is INSTALL.md at the kit's root, read as committed at the working fold
 commit the run clones. First its marks, read from the text:
   every `bash` fence names `check=<name>` after its language — a name of the set below, each
   standing in the guide exactly once, or `none`, a block the check does not run, as often as
-  needed; the dials example is the one `yaml` fence named `check=dials`.
+  needed; the dials example is the one `yaml` fence named `check=dials`; a fence that opens with
+  `check=<name>` where its language should stand is red too.
 Then the run, in throwaway folders the check removes: a home folder of its own, HOME and
 CLAUDE_CONFIG_DIR (<home>/.claude) under it and git's identity in a global configuration of its
 own; the kit cloned from the working folder's HEAD to ~/dev/constitution-kit, so what is not
@@ -163,7 +164,8 @@ def blocks_of(guide: str) -> tuple[list[Block], list[Finding]]:
                 Finding(
                     block.line,
                     f"the fence opens with {block.language} where its language should stand",
-                    f"write the language first, then the mark: ```bash {block.language}",
+                    f"write the language first, then the mark: "
+                    f"```{'yaml' if block.language == 'check=dials' else 'bash'} {block.language}",
                 )
             )
             continue
@@ -209,7 +211,8 @@ def blocks_of(guide: str) -> tuple[list[Block], list[Finding]]:
             continue
         seen[block.name] = block.line
     for name in NAMES:
-        if name not in seen and not any(f.what.startswith(f"check={name} ") for f in findings):
+        said = (f"check={name} ", f"the fence opens with check={name} ")
+        if name not in seen and not any(f.what.startswith(said) for f in findings):
             findings.append(
                 Finding(
                     0, f"no block is named check={name}", f"name the block that {DOES[name]} check={name}"
@@ -492,17 +495,13 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
         return [], f"{ran} block(s) run, {len(state.modules)} module(s)"
 
 
-def committed_guide(kit: Path) -> str:
+def committed_guide(kit: Path, env: dict[str, str]) -> str:
     """The guide as committed at the kit's HEAD, the commit the run clones: standard output alone."""
-    env = dict(os.environ)
-    if run(["git", "rev-parse", "HEAD"], kit, env)[0] != 0:
+    if run(["git", "rev-parse", "HEAD"], kit, env)[0] != 0:  # run() turns a missing git into Broken
         raise Broken(f"{kit} is no git clone with a commit — fix: run the check from a clone of the kit")
-    try:
-        done = subprocess.run(
-            ["git", "show", f"HEAD:{GUIDE}"], cwd=kit, env=env, capture_output=True, text=True, check=False
-        )
-    except FileNotFoundError as bad:
-        raise Broken(f"git is not installed ({bad.strerror}) — fix: install it and put it on PATH") from bad
+    done = subprocess.run(
+        ["git", "show", f"HEAD:{GUIDE}"], cwd=kit, env=env, capture_output=True, text=True, check=False
+    )
     if done.returncode != 0:
         raise Broken(
             f"{GUIDE} is not committed at HEAD ({last_line(done.stderr.strip())}) — fix: commit the guide"
@@ -690,6 +689,12 @@ def self_test() -> int:
     for name, guide, expected in marks:
         _, findings = blocks_of(guide)
         case(name, len(findings) == 1 and findings[0].what.startswith(expected), whats(findings))
+    _, misplaced = blocks_of(toy_guide().replace("```yaml check=dials", "```check=dials"))
+    case(
+        "a misplaced dials mark red once, its fix a yaml fence",
+        len(misplaced) == 1 and misplaced[0].fix.endswith("```yaml check=dials"),
+        " | ".join(f"{f.what} / {f.fix}" for f in misplaced),
+    )
     _, clean = blocks_of(toy_guide() + "\n```text\nnot a command\n```\n")
     case("a green guide gives no mark finding; a `text` fence needs no mark", not clean, whats(clean))
 
@@ -782,7 +787,7 @@ def self_test() -> int:
             whats(early),
         )
         try:
-            committed_guide(kit)
+            committed_guide(kit, os.environ | {"GIT_TRACE": "2"})
             absent = "no Broken"
         except Broken as broken:
             absent = str(broken)
@@ -793,7 +798,7 @@ def self_test() -> int:
         )
         (kit / GUIDE).write_text(toy_guide(), encoding="utf-8")
         try:
-            committed_guide(kit)
+            committed_guide(kit, os.environ | {"GIT_TRACE": "2"})
             unread = "no Broken"
         except Broken as broken:
             unread = str(broken)
@@ -803,8 +808,18 @@ def self_test() -> int:
         run(
             ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "guide"], kit, git
         )
-        read = committed_guide(kit)
+        read = committed_guide(kit, os.environ | {"GIT_TRACE": "2"})  # git writes its trace to stderr
         case("the committed guide is read whole, standard output alone", read == toy_guide(), read[:80])
+        try:
+            committed_guide(root / "bin", os.environ | {"GIT_CEILING_DIRECTORIES": str(root)})
+            bare = "no Broken"
+        except Broken as broken:
+            bare = str(broken)
+        case(
+            "a folder that is no clone is a configuration failure",
+            "is no git clone with a commit" in bare,
+            bare,
+        )
         logged = (root / "kit").exists()
         case(
             "the toy kit is left as it was: the run works on a clone",
@@ -845,7 +860,7 @@ def main(argv: list[str]) -> int:
     try:
         if args.self_test:
             return self_test()
-        findings, examined = run_guide(committed_guide(KIT), KIT, dict(os.environ))
+        findings, examined = run_guide(committed_guide(KIT, dict(os.environ)), KIT, dict(os.environ))
         return report(findings, examined)
     except Broken as broken:
         print(f"BROKEN: {broken}")
@@ -854,7 +869,7 @@ def main(argv: list[str]) -> int:
     except OSError as bad:
         print(
             f"BROKEN: a file could not be read or written ({bad}) — "
-            "fix: check the kit's clone and the temporary folder"
+            "fix: make the kit's files readable and the system's temporary folder writable"
         )
         print("BROKEN: the check could not run — 0 blocks run")
         return EXIT_BROKEN
