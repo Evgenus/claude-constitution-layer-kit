@@ -1,6 +1,10 @@
 # Kit tooling, never shipped in a module: the kit's checks on every pull request and on main.
-# One job per entry of scripts/gate-list.sh, in parallel; the list is read from the script, never
-# written here. The job "gates" waits for all of them and is the one check the ruleset requires.
+# One CI job per job scripts/gate-list.sh names — each module with its scan, install, fixtures, lint and
+# types, and `kit` for the rest — in parallel; the jobs and their entries are read from the script, never
+# written here. Every job runs on every run, none skipped for the paths a change touched: the scans
+# read the whole tree or the change's whole range, and the shared gate code sits in every module.
+# The job "gates" waits for all of them and is the one check the ruleset requires, so a new module or
+# entry never changes the ruleset.
 name: gates
 
 on:
@@ -21,24 +25,24 @@ jobs:
   list:
     runs-on: ubuntu-latest
     outputs:
-      entries: ${{ steps.list.outputs.entries }}
+      jobs: ${{ steps.list.outputs.jobs }}
     steps:
       - uses: actions/checkout@v7
       - id: list
-        run: echo "entries=$(sh scripts/gate-list.sh --json)" >> "$GITHUB_OUTPUT"
+        run: echo "jobs=$(sh scripts/gate-list.sh --json)" >> "$GITHUB_OUTPUT"
 
   check:
     needs: list
-    name: ${{ matrix.entry }}
+    name: ${{ matrix.job }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        entry: ${{ fromJSON(needs.list.outputs.entries) }}
+        job: ${{ fromJSON(needs.list.outputs.jobs) }}
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # the carry-lists and range checks read the whole history; an install job reads its commit's source there
+          fetch-depth: 0 # the carry-lists and range checks read the whole history; an install reads its commit's source there
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -52,16 +56,17 @@ jobs:
           curl -fsSL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz \
             | tar -xz -C "$HOME/.local/bin" --strip-components=1 lychee-x86_64-unknown-linux-gnu/lychee
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # only a module's job runs an install entry; the kit's install self-test calls no claude, so kit installs neither
       - name: Node for Claude Code
-        if: startsWith(matrix.entry, 'install-')
+        if: startsWith(matrix.job, 'const-')
         uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Claude Code, for the bare-repo install
-        if: startsWith(matrix.entry, 'install-')
+        if: startsWith(matrix.job, 'const-')
         run: npm install --global --silent "@anthropic-ai/claude-code@2.1.282"
       - name: Git credentials, so Claude Code can clone the private repository
-        if: startsWith(matrix.entry, 'install-')
+        if: startsWith(matrix.job, 'const-')
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh auth setup-git
@@ -69,16 +74,16 @@ jobs:
         run: |
           git config --global user.name "gates"
           git config --global user.email "gates@example.invalid"
-      - name: Run ${{ matrix.entry }}
+      - name: Run ${{ matrix.job }}
         env:
-          ENTRY: ${{ matrix.entry }}
+          JOB: ${{ matrix.job }}
           # git's credential helper, set by `gh auth setup-git`, reads the token when Claude Code clones
-          GH_TOKEN: ${{ startsWith(matrix.entry, 'install-') && github.token || '' }}
-          CLAUDE_CODE_PLUGIN_PREFER_HTTPS: ${{ startsWith(matrix.entry, 'install-') && '1' || '' }}
-          # the install jobs install from the GitHub repository and branch of the change — the pull request's
+          GH_TOKEN: ${{ startsWith(matrix.job, 'const-') && github.token || '' }}
+          CLAUDE_CODE_PLUGIN_PREFER_HTTPS: ${{ startsWith(matrix.job, 'const-') && '1' || '' }}
+          # a module's install installs from the GitHub repository and branch of the change — the pull request's
           # head, or main on a push — the copy a consumer's install writes; a fork the token cannot read fails
-          CONSTITUTION_KIT_INSTALL_FROM: ${{ startsWith(matrix.entry, 'install-') && (github.event_name == 'pull_request' && format('{0}#{1}', github.event.pull_request.head.repo.full_name, github.head_ref) || format('{0}#{1}', github.repository, github.ref_name)) || '' }}
-        run: sh scripts/gate-list.sh --run "$ENTRY"
+          CONSTITUTION_KIT_INSTALL_FROM: ${{ startsWith(matrix.job, 'const-') && (github.event_name == 'pull_request' && format('{0}#{1}', github.event.pull_request.head.repo.full_name, github.head_ref) || format('{0}#{1}', github.repository, github.ref_name)) || '' }}
+        run: sh scripts/gate-list.sh --run "$JOB"
 
   gates:
     needs:

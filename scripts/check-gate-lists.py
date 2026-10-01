@@ -10,11 +10,13 @@ scan. For each declared scan:
   - the CI list is every entry of that script, when the lines of `.github/workflows/gates.yml`,
     comments aside — a whole comment line, or a `#` after a space or a tab — call
     `sh scripts/gate-list.sh --json` and `sh scripts/gate-list.sh --run`; a workflow that does not
-    leaves every declared scan out of CI. That the matrix is built from the
-    one and runs the other is the workflow's own text, held by review and by its run.
+    leaves every declared scan out of CI. That the matrix is built from the one and runs the other
+    is the workflow's own text, held by review and by its run; that each entry falls in one of the
+    jobs `--json` prints is the list script's own, its jobs read from its entries, not this check's.
 Every folder under `modules/` whose name opens with neither a dot nor an underscore is a module
 and must hold its `MODULE.md`. A module that declares no scan is examined and needs neither
-(decisions dec-0056-portability-grep-and-gate-lists and dec-0058-ci-runs-each-check-in-parallel).
+(decisions dec-0056-portability-grep-and-gate-lists, dec-0058-ci-runs-each-check-in-parallel and
+dec-0061-ci-runs-one-job-per-module).
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: a scan missing from the gate list, or
@@ -69,7 +71,7 @@ class Finding:
         else:
             fix = (
                 f"let {WORKFLOW} build its jobs from `{READS_LIST[0]}` and run each with"
-                f" `{READS_LIST[1]} <entry>`"
+                f" `{READS_LIST[1]} <job>`"
             )
         return (
             f"RED: {self.module}: its scan `{self.entry} --scan` is not in the {self.where}\n"
@@ -186,12 +188,12 @@ def self_test() -> int:
     )
     quiet_text = '<a id="t9"></a>\n| E1 | `explain --scan --command <text>` | `gate` |\n<a id="t10"></a>\n'
     scan = "sh modules/const-x/scripts/check-x.sh --scan"
-    reads = f'jobs:\n  list:\n    run: {READS_LIST[0]}\n  check:\n    run: {READS_LIST[1]} "$ENTRY"\n'
+    reads = f'jobs:\n  list:\n    run: {READS_LIST[0]}\n  check:\n    run: {READS_LIST[1]} "$JOB"\n'
     report_lines = [  # typed by hand: a message function cannot check itself
         "RED: const-x: its scan `check-x --scan` is not in the CI list",
         "  why: a scan the kit does not run holds nothing, and the lists are where the kit says what it runs",
         f"  fix: let {WORKFLOW} build its jobs from `{READS_LIST[0]}` and run each with"
-        f" `{READS_LIST[1]} <entry>`",
+        f" `{READS_LIST[1]} <job>`",
         "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s)",
     ]
 
