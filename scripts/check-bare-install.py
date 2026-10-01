@@ -15,8 +15,8 @@ For the module named, in throwaway folders that the check removes:
      folder, a local-directory marketplace, gives a copy no session runs (shared/GATE.md, limit 3).
      The copy is compared with the kit's source at the commit the install came from, which Claude
      Code's install record names (gitCommitSha, on 2.1.282), read from the kit's git history and
-     fetched when absent; an install from a local folder, or one whose record names no commit, is
-     compared with the working folder;
+     fetched when absent; an install from a local folder is compared with that folder, and a remote
+     install whose record names no commit with the working folder;
   3. what the kit's source of the module declares, held in that copy: no link of the source
      leads inside the module; every link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
@@ -33,7 +33,9 @@ Needs no Claude account login: plugin install reads none; git needs a private re
 Modes:  --module <name> [--from <source>]  check one module of the kit;
         --self-test      prove step 3 on throwaway source and copy folders, no install: each branch
                          of the link, hooks-file, hook and scan checks red once, a green copy green,
-                         and the report of one finding as literal lines with exit 2.
+                         and the report of one finding as literal lines with exit 2; and step 2's
+                         reading of the install record, and of a module's source at a commit from
+                         the kit's history (const-meta-types at HEAD, its links reaching shared/).
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -400,7 +402,13 @@ def install(module: str, root: Path, repo: Path, source: str) -> tuple[Path, str
     return installed_entry(config / "plugins" / "installed_plugins.json", module)
 
 
-def check_module(module: str, source: str) -> list[Finding]:
+def counted(source: Path) -> str:
+    links = sum(1 for p in source.rglob("*") if p.is_symlink())
+    return f"{len(hooks_of(source))} hook(s), {len(declared_scans(source))} scan(s), {links} link(s)"
+
+
+def check_module(module: str, source: str) -> tuple[list[Finding], str]:
+    """The findings, and what was examined: the hooks, scans and links of the source compared."""
     if not (KIT / "modules" / module / ".claude-plugin" / "plugin.json").is_file():
         raise Broken(f"no module {module} in the kit — fix: name a folder under modules/ that holds a plugin")
     with tempfile.TemporaryDirectory() as tmp:
@@ -409,17 +417,18 @@ def check_module(module: str, source: str) -> list[Finding]:
         try:
             plugin, commit = install(module, root, repo, source)
         except Refused as refused:
-            return [
-                Finding(
-                    module,
-                    f"Claude Code refuses to install it ({refused})",
-                    "fix its manifest or its entry in marketplace.json",
-                )
-            ]
+            refusal_finding = Finding(
+                module,
+                f"Claude Code refuses to install it ({refused})",
+                "fix its manifest or its entry in marketplace.json",
+            )
+            return [refusal_finding], "no install"
         (root / "data").mkdir()
-        local = Path(source).exists()  # a local folder is copied as it stands, uncommitted edits included
-        kit_source = KIT / "modules" / module if local or not commit else source_at(commit, module, root)
-        return check_installed(module, kit_source, plugin, repo, root / "data")
+        if Path(source).exists():  # a local folder is copied as it stands, uncommitted edits included
+            kit_source = Path(source).resolve() / "modules" / module
+        else:
+            kit_source = source_at(commit, module, root) if commit else KIT / "modules" / module
+        return check_installed(module, kit_source, plugin, repo, root / "data"), counted(kit_source)
 
 
 def report(module: str, findings: list[Finding], examined: str) -> int:
@@ -615,9 +624,8 @@ def self_test() -> int:
         ok = (
             ok and (extracted / "MODULE.md").is_file() and (extracted / "scripts" / "const_gate").is_symlink()
         )
-        ok = ok and (extracted / "scripts" / "const_gate").resolve().is_relative_to(
-            root / "source" / "shared"
-        )
+        target = (extracted / "scripts" / "const_gate").resolve()
+        ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
     total = len(cases) + 3
@@ -641,11 +649,9 @@ def main(argv: list[str]) -> int:
         if args.self_test:
             return self_test()
         module = str(args.module)
-        plugin = KIT / "modules" / module
-        links = sum(1 for p in plugin.rglob("*") if p.is_symlink())
-        examined = f"{len(hooks_of(plugin))} hook(s), {len(declared_scans(plugin))} scan(s), {links} link(s)"
         source = args.source or os.environ.get(FROM_ENV) or str(KIT)
-        return report(module, check_module(module, source), f"{examined}, from {source}")
+        findings, examined = check_module(module, source)
+        return report(module, findings, f"{examined}, from {source}")
     except Broken as broken:
         print(f"BROKEN: {broken}")
         print("BROKEN: the check could not run — 0 modules examined")

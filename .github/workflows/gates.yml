@@ -75,9 +75,9 @@ jobs:
           # git's credential helper, set by `gh auth setup-git`, reads the token when Claude Code clones
           GH_TOKEN: ${{ startsWith(matrix.entry, 'install-') && github.token || '' }}
           CLAUDE_CODE_PLUGIN_PREFER_HTTPS: ${{ startsWith(matrix.entry, 'install-') && '1' || '' }}
-          # the install jobs install from the kit's GitHub remote — the pull request's head branch, or main
-          # on a push — the copy a consumer's install writes; a pull request from a fork has no such branch
-          CONSTITUTION_KIT_INSTALL_FROM: ${{ startsWith(matrix.entry, 'install-') && format('{0}#{1}', github.repository, github.head_ref || github.ref_name) || '' }}
+          # the install jobs install from the GitHub repository and branch of the change — the pull request's
+          # head, or main on a push — the copy a consumer's install writes; a fork the token cannot read fails
+          CONSTITUTION_KIT_INSTALL_FROM: ${{ startsWith(matrix.entry, 'install-') && format('{0}#{1}', github.event.pull_request.head.repo.full_name || github.repository, github.head_ref || github.ref_name) || '' }}
         run: sh scripts/gate-list.sh --run "$ENTRY"
 
   gates:

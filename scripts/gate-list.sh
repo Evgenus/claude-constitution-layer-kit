@@ -7,7 +7,7 @@
 #   sh scripts/gate-list.sh --show <entry>             the commands of one entry, one per line
 #   sh scripts/gate-list.sh --run <entry>              run one entry's commands in turn, from the kit root
 # The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types.
-# The install-<module> gates need Claude Code's `claude` on PATH; they need no login.
+# The install-<module> gates need Claude Code's `claude` on PATH, and no Claude account login.
 # --run runs every command of the entry even after a red one and prints each command's exit; it
 # exits 0 when every command did, else 2 when every failing command exited 2 (a finding), else 1.
 # The other modes exit 0, or 1 on a misinvocation.
