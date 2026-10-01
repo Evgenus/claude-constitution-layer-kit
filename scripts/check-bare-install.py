@@ -9,8 +9,9 @@ For the module named, in throwaway folders that the check removes:
   2. `claude plugin marketplace add <source>` and `claude plugin install <module>@constitution-kit`,
      the platform's own install, which writes a copy of the plugin into the configuration's cache.
      The source is --from, else the environment's CONSTITUTION_KIT_INSTALL_FROM, else the kit's
-     working folder. The kit's CI names its GitHub remote, `<owner>/<repo>#<branch>` — the pull
-     request's head branch, or main on a push to it — the copy a consumer's install writes; git
+     working folder. The kit's CI names the change's GitHub repository and branch,
+     `<owner>/<repo>#<branch>` — a pull request's head repository and branch, or the kit's main on
+     a push to it — the copy a consumer's install writes; a fork the job's token cannot read fails; git
      clones it with the machine's own credentials, which a private remote needs. The working
      folder, a local-directory marketplace, gives a copy no session runs (shared/GATE.md, limit 3).
      The copy is compared with the kit's source at the commit the install came from, which Claude
@@ -650,6 +651,8 @@ def main(argv: list[str]) -> int:
             return self_test()
         module = str(args.module)
         source = args.source or os.environ.get(FROM_ENV) or str(KIT)
+        if Path(source).exists():  # the install runs in another folder, so a local source is made absolute
+            source = str(Path(source).resolve())
         findings, examined = check_module(module, source)
         return report(module, findings, f"{examined}, from {source}")
     except Broken as broken:
