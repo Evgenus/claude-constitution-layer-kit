@@ -1,8 +1,9 @@
 # Development tooling of the kit repository only (decision dec-0020-gate-script-rules).
 # Never shipped to consumers: modules carry no tool configuration of their own.
 #
-# The kit's whole list of checks is scripts/gate-list.sh; CI runs every entry (.github/workflows/gates.yml):
-#   sh scripts/gate-list.sh --names       sh scripts/gate-list.sh --run <entry>
+# The kit's whole list of checks is scripts/gate-list.sh; CI runs every entry, one job per module and one
+# job `kit` (.github/workflows/gates.yml):
+#   sh scripts/gate-list.sh --names       sh scripts/gate-list.sh --run <entry>|<job>
 # Run from the kit root before a module's scripts are reviewed:
 #   python3 -m ruff format --check modules scripts shared && python3 -m ruff check modules scripts shared
 #   (cd shared && mypy --strict const_gate)

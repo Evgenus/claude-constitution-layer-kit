@@ -21,6 +21,8 @@ The list is `scripts/gate-list.sh`, the one list the kit's CI runs as well. Its 
 `sh scripts/gate-list.sh --names gate`, is the gate list, in order; run each entry with
 `sh scripts/gate-list.sh --run <entry>`, which runs the entry's commands in turn — a kit check and
 its `--self-test` where it has one — and prints each command's exit. `--show <entry>` prints an entry's commands.
+CI runs the same entries grouped by job, one job per module and one `kit`; `--names <job>` lists a
+job's entries and `--run <job>` runs them all, when the message asks for a job by name.
 The entry `task-close` runs the range check with a bare `--scan`: on a work branch it examines the
 branch, on the trunk the last landed change; when the message names a landed merge, run
 `sh modules/const-task-close/scripts/check-task-close.sh --scan --change <merge>` instead.
