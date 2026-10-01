@@ -41,7 +41,10 @@ failure. Needs no Claude account login: the plugin commands read none.
 Modes:  no arguments   check the kit's guide;
         --self-test    prove the check with a toy kit, a toy guide and a fake `claude` that logs to
                        a file: each kind of mark finding red once from the text alone; a green toy run
-                       green; a block that exits 1 red; a block that reads another block's variable red;
+                       green; a mark where a fence's language should be red; a block that exits 1 red; a
+                       block that reads another block's variable red, though it would pass under
+                       `bash -e`; a guide not committed at HEAD a configuration failure, and the
+                       committed one read whole;
                        the dials before the project red; each claim red once against a fake or a block
                        that breaks it — a block that makes no repository, a marketplace never added,
                        an install that enables nothing, a kernel copy that copies nothing, a
@@ -155,6 +158,15 @@ def blocks_of(guide: str) -> tuple[list[Block], list[Finding]]:
         i = j + 1
     seen: dict[str, int] = {}
     for block in found:
+        if block.language.startswith("check="):
+            findings.append(
+                Finding(
+                    block.line,
+                    f"the fence opens with {block.language} where its language should stand",
+                    f"write the language first, then the mark: ```bash {block.language}",
+                )
+            )
+            continue
         if block.language == "bash" and not block.name:
             findings.append(
                 Finding(
@@ -480,6 +492,24 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
         return [], f"{ran} block(s) run, {len(state.modules)} module(s)"
 
 
+def committed_guide(kit: Path) -> str:
+    """The guide as committed at the kit's HEAD, the commit the run clones: standard output alone."""
+    env = dict(os.environ)
+    if run(["git", "rev-parse", "HEAD"], kit, env)[0] != 0:
+        raise Broken(f"{kit} is no git clone with a commit — fix: run the check from a clone of the kit")
+    try:
+        done = subprocess.run(
+            ["git", "show", f"HEAD:{GUIDE}"], cwd=kit, env=env, capture_output=True, text=True, check=False
+        )
+    except FileNotFoundError as bad:
+        raise Broken(f"git is not installed ({bad.strerror}) — fix: install it and put it on PATH") from bad
+    if done.returncode != 0:
+        raise Broken(
+            f"{GUIDE} is not committed at HEAD ({last_line(done.stderr.strip())}) — fix: commit the guide"
+        )
+    return done.stdout
+
+
 def report(findings: list[Finding], examined: str) -> int:
     if findings:
         for finding in findings:
@@ -647,6 +677,11 @@ def self_test() -> int:
             "check=dials stands on a `bash` fence",
         ),
         (
+            "a mark where the language should be red",
+            toy_guide() + "\n```check=scan\nls\n```\n",
+            "the fence opens with check=scan where its language should stand",
+        ),
+        (
             "a bash name on a yaml fence red",
             toy_guide().replace("```bash check=scan", "```yaml check=scan"),
             "check=scan stands on a `yaml` fence",
@@ -686,7 +721,8 @@ def self_test() -> int:
                 "a block that reads another block's variable red",
                 {
                     "marketplace": 'KIT=~/dev/constitution-kit && claude plugin marketplace add "$KIT"',
-                    "kernel": 'mkdir -p docs/constitution && cp -r "$KIT/kernel/." docs/constitution/',
+                    "kernel": 'echo "$KIT" && mkdir -p docs/constitution && '
+                    "cp -r ~/dev/constitution-kit/kernel/. docs/constitution/",
                 },
                 "",
                 "the block named check=kernel exited",
@@ -745,6 +781,30 @@ def self_test() -> int:
             len(early) == 1 and early[0].what.startswith("the dials example comes before the project exists"),
             whats(early),
         )
+        try:
+            committed_guide(kit)
+            absent = "no Broken"
+        except Broken as broken:
+            absent = str(broken)
+        case(
+            "a guide not committed at HEAD is a configuration failure",
+            "is not committed at HEAD" in absent,
+            absent,
+        )
+        (kit / GUIDE).write_text(toy_guide(), encoding="utf-8")
+        try:
+            committed_guide(kit)
+            unread = "no Broken"
+        except Broken as broken:
+            unread = str(broken)
+        case("a guide written but not committed is not read", "is not committed at HEAD" in unread, unread)
+        git = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull}
+        run(["git", "add", GUIDE], kit, git)
+        run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "guide"], kit, git
+        )
+        read = committed_guide(kit)
+        case("the committed guide is read whole, standard output alone", read == toy_guide(), read[:80])
         logged = (root / "kit").exists()
         case(
             "the toy kit is left as it was: the run works on a clone",
@@ -785,18 +845,17 @@ def main(argv: list[str]) -> int:
     try:
         if args.self_test:
             return self_test()
-        code, guide = run(["git", "show", f"HEAD:{GUIDE}"], KIT, dict(os.environ))
-        if code != 0:
-            raise Broken(f"{GUIDE} is not committed at HEAD ({last_line(guide)}) — fix: commit the guide")
-        guide += "\n"
-        findings, examined = run_guide(guide, KIT, dict(os.environ))
+        findings, examined = run_guide(committed_guide(KIT), KIT, dict(os.environ))
         return report(findings, examined)
     except Broken as broken:
         print(f"BROKEN: {broken}")
         print("BROKEN: the check could not run — 0 blocks run")
         return EXIT_BROKEN
     except OSError as bad:
-        print(f"BROKEN: a file could not be read ({bad}) — fix: restore {GUIDE} at the kit's root")
+        print(
+            f"BROKEN: a file could not be read or written ({bad}) — "
+            "fix: check the kit's clone and the temporary folder"
+        )
         print("BROKEN: the check could not run — 0 blocks run")
         return EXIT_BROKEN
 
