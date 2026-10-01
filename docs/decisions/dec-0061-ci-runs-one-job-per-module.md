@@ -30,7 +30,7 @@ R1 of [dec-0058-ci-runs-each-check-in-parallel](dec-0058-ci-runs-each-check-in-p
 
 The session first recommended A, for the fewest billed minutes with the simplest code. Asked to discuss D in depth, it recommended D: for about four more billed minutes per run, D brings the wait from about 5 minutes to about 1.5, and a red names a module. D, chosen by the decider in chat on 2026-10-01.
 
-**R1.** `.github/workflows/gates.yml` runs one job per module and one job `kit`, in parallel, none cancelled by another's red. A module's job holds every entry of that module: its scan where it declares one, its install, its fixtures, its lint and its types. `kit` holds every other entry. This reverses R1 of [dec-0058-ci-runs-each-check-in-parallel](dec-0058-ci-runs-each-check-in-parallel.md), one job per entry, and narrows R3 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md): each module's install is still one CI job per module, as [requirement A12.1](../requirements.md#a12-1) says, now the module's own job.
+**R1.** `.github/workflows/gates.yml` runs one job per module and one job `kit`, in parallel, none cancelled by another's red. A module's job holds every entry of that module: its scan where it declares one, its install, its fixtures, its lint and its types. `kit` holds every other entry. This reverses R1 of [dec-0058-ci-runs-each-check-in-parallel](dec-0058-ci-runs-each-check-in-parallel.md), one job per entry, and narrows R3 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md) and the job named in R1 of [dec-0060-ci-installs-from-the-github-remote](dec-0060-ci-installs-from-the-github-remote.md): each module's install is now an entry of the module's own job, as [requirement A12.1](../requirements.md#a12-1) says, no longer a job of its own.
 
 **R2.** The jobs are written once, in `scripts/gate-list.sh`, and read from the entries: each entry is mapped to exactly one job, and an entry no line maps falls into `kit`, so none is left out of CI. `--json` prints the jobs; `--names <job>` lists a job's entries; `--run <job>` runs every entry of the job in turn, after a red one too, and exits as `--run <entry>` does, 0 when every command did, else 2 when every failing command exited 2, else 1. This narrows R2 of [dec-0058-ci-runs-each-check-in-parallel](dec-0058-ci-runs-each-check-in-parallel.md), where `--json` printed the entries and each job ran one.
 
@@ -38,7 +38,7 @@ The session first recommended A, for the fewest billed minutes with the simplest
 
 **R4.** Lint and types are split like the rest: each module has its own entries `lint-<module>` and `types-<module>` in the extra group, and the kit's own `lint` and `types` cover `scripts/` and `shared/`.
 
-**R5.** Every module's job installs Node 22 and Claude Code, pinned as R3 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md) says, for its install entry, with the token and the install source that entry needs; the job `kit` installs neither, its install self-test needing no `claude`.
+**R5.** Every module's job installs Node 22 and Claude Code, pinned as R3 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md) says, for its install entry. The job's run carries the token and the install source that entry needs, for every entry of the job, though only the install reads the source; the job `kit` installs neither and carries neither, its install self-test needing no `claude`.
 
 **R6.** Every job runs on every run. None is skipped for the paths a change touched: the scans read the whole tree, and the shared gate code sits in every module.
 
@@ -63,11 +63,11 @@ The change that adds this record applies every item: the list script, the workfl
 
 ## Carry list
 
-1. R1 — [the workflow](../../.github/workflows/gates.yml); [the list script](../../scripts/gate-list.sh); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md). The reversal of dec-0058's R1 and the narrowing of dec-0059's R3 are history.
+1. R1 — [the workflow](../../.github/workflows/gates.yml); [the list script](../../scripts/gate-list.sh); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md); [requirement A12.1](../requirements.md#a12-1). The reversal of dec-0058's R1 and the narrowing of dec-0059's R3 and of dec-0060's R1 are history.
 2. R2 — [the list script](../../scripts/gate-list.sh), its header; [the gate-list check](../../scripts/check-gate-lists.py), its docstring and its fix line. The narrowing of dec-0058's R2 is history.
 3. R3 — [the list script](../../scripts/gate-list.sh), its header and its `--run`; the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
 4. R4 — [the list script](../../scripts/gate-list.sh); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), the extra group's sentence.
-5. R5 — [the workflow](../../.github/workflows/gates.yml).
+5. R5 — [the workflow](../../.github/workflows/gates.yml), its install steps and their comment.
 6. R6 — [the workflow](../../.github/workflows/gates.yml), its header.
 7. R7 — [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), the ruleset's sentence.
-8. R8 — [the list script](../../scripts/gate-list.sh), its job mapping; the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), "holding that module's scan".
+8. R8 — [the list script](../../scripts/gate-list.sh), its job mapping and its header; the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), "holding that module's scan".

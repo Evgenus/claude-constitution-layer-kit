@@ -9,13 +9,17 @@
 # The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types.
 # A CI job is a module — its scan, its install, its fixtures, its lint and its types — or `kit`, every
 # entry no module holds; an entry is in exactly one job, and one no line of job() maps falls into `kit`.
-# The jobs are read from the entries, never listed apart, so no entry is left out of CI.
+# The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's scan
+# reads the whole tree, so a red scan on a module's job means the tree breaks that module's rule, not
+# that the module's code is broken; the annotation names the entry.
 # The install-<module> gates need Claude Code's `claude` on PATH and no Claude account login; an install
 # from a private remote needs git's credentials for it.
 # --run runs every command of the entry, and every entry of the job, even after a red one and prints
 # each command's exit; it exits 0 when every command did, else 2 when every failing command exited 2
 # (a finding), else 1. A job's run in GitHub Actions folds each entry's log, annotates each entry that
-# did not exit 0 and writes one summary line per entry. The other modes exit 0, or 1 on a misinvocation.
+# did not exit 0 and writes one summary line per entry. CI reruns a whole job; an entry is run alone
+# with --run <entry>, where an install entry run by hand installs from the working folder unless
+# CONSTITUTION_KIT_INSTALL_FROM names a source, as CI's does. The other modes exit 0, or 1 on a misinvocation.
 
 MODULES="const-catalogs const-decision-records const-doc-budgets const-interaction const-language
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
@@ -103,7 +107,11 @@ misuse() {
 
 # run_entry <entry>: run the entry's commands in turn, print each exit, and fold its worst into $worst.
 run_entry() {
-    list=$(commands "$1")
+    list=$(commands "$1") && [ -n "$list" ] || {
+        echo "BROKEN: entry $1 has no commands — fix: give it an arm in commands() of scripts/gate-list.sh"
+        worst=1
+        return
+    }
     while IFS= read -r c; do
         (sh -c "$c") </dev/null; code=$?
         echo "gate-list: exit $code — $c"
@@ -153,7 +161,7 @@ case "$1" in
             [ "$GITHUB_ACTIONS" = true ] && echo "::endgroup::"
             echo "gate-list: entry $n — exit $worst"
             if [ "$GITHUB_ACTIONS" = true ]; then
-                [ "$worst" -eq 0 ] || echo "::error title=$n::entry $n exited $worst — its log is the fold named $n; rerun it with sh scripts/gate-list.sh --run $n"
+                [ "$worst" -eq 0 ] || echo "::error title=$n::entry $n exited $worst — its log is the fold named $n; run it alone with sh scripts/gate-list.sh --run $n"
                 [ -z "$GITHUB_STEP_SUMMARY" ] || echo "- \`$n\`: exit $worst" >>"$GITHUB_STEP_SUMMARY"
             fi
             case $worst in

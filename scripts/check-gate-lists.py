@@ -7,11 +7,12 @@ the flag, so an explain mode (`--scan --command …`) or a report (`--scan --sin
 scan. For each declared scan:
   - the gate list, the entries `sh scripts/gate-list.sh --names gate` prints, has one whose
     commands (`--show <entry>`) run `modules/<module>/scripts/<entry>.sh --scan` or `….py --scan`;
-  - the CI list is every entry of that script, each in one of the jobs its `--json` prints, when
-    the lines of `.github/workflows/gates.yml`, comments aside — a whole comment line, or a `#`
-    after a space or a tab — call `sh scripts/gate-list.sh --json` and `sh scripts/gate-list.sh
-    --run`; a workflow that does not leaves every declared scan out of CI. That the matrix is
-    built from the one and runs the other is the workflow's own text, held by review and by its run.
+  - the CI list is every entry of that script, when the lines of `.github/workflows/gates.yml`,
+    comments aside — a whole comment line, or a `#` after a space or a tab — call
+    `sh scripts/gate-list.sh --json` and `sh scripts/gate-list.sh --run`; a workflow that does not
+    leaves every declared scan out of CI. That the matrix is built from the one and runs the other
+    is the workflow's own text, held by review and by its run; that each entry falls in one of the
+    jobs `--json` prints is the list script's own fallback to `kit`, not this check's.
 Every folder under `modules/` whose name opens with neither a dot nor an underscore is a module
 and must hold its `MODULE.md`. A module that declares no scan is examined and needs neither
 (decisions dec-0056-portability-grep-and-gate-lists, dec-0058-ci-runs-each-check-in-parallel and
