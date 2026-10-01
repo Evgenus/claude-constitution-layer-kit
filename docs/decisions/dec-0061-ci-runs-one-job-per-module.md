@@ -55,19 +55,19 @@ The session first recommended A, for the fewest billed minutes with the simplest
 
 The session recommended A: a scan is a module's rule applied to the tree, so its red belongs on that module's line. A, chosen by the decider in chat on 2026-10-01.
 
-**R8.** A module's scan runs in that module's job. A red scan on a module's line means the tree breaks that module's rule, not that the module's code is broken; the annotation of R3 names the scan's entry.
+**R8.** A module's scan runs in that module's job. A red scan on a module's line means the tree, or for the range check the change, breaks that module's rule, not that the module's code is broken; the annotation of R3 names the scan's entry.
 
 ## Applied
 
-The change that adds this record applies every item: the list script, the workflow, the gate-list check's message, the agent, the note in `pyproject.toml` and the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md) in the commit before the record's; the workflow's sentence of R6 in the record's own; the sentences of R5 and R8, the empty-entry stop of R2 and the wording of [requirement A12.1](../requirements.md#a12-1) in the fix rounds of its carry audit. So the record is born `inactive`.
+The change that adds this record applies every item, in the commit before the record's, the record's own and the fix rounds of its carry audit. So the record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [the workflow](../../.github/workflows/gates.yml); [the list script](../../scripts/gate-list.sh); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md); [requirement A12.1](../requirements.md#a12-1). The reversal of dec-0058's R1 and the narrowing of dec-0059's R3 and of dec-0060's R1 are history.
 2. R2 — [the list script](../../scripts/gate-list.sh), its header; [the gate-list check](../../scripts/check-gate-lists.py), its docstring and its fix line. The narrowing of dec-0058's R2 is history.
-3. R3 — [the list script](../../scripts/gate-list.sh), its header and its `--run`; the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md).
+3. R3 — [the list script](../../scripts/gate-list.sh), its header and its `--run`.
 4. R4 — [the list script](../../scripts/gate-list.sh); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), the extra group's sentence.
 5. R5 — [the workflow](../../.github/workflows/gates.yml), its install steps and their comment.
 6. R6 — [the workflow](../../.github/workflows/gates.yml), its header.
 7. R7 — [the workflow](../../.github/workflows/gates.yml); the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), the ruleset's sentence.
-8. R8 — [the list script](../../scripts/gate-list.sh), its job mapping and its header; the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md), "holding that module's scan".
+8. R8 — [the list script](../../scripts/gate-list.sh), its job mapping and its header.

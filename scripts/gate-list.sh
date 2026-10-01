@@ -9,17 +9,19 @@
 # The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types.
 # A CI job is a module — its scan, its install, its fixtures, its lint and its types — or `kit`, every
 # entry no module holds; an entry is in exactly one job, and one no line of job() maps falls into `kit`.
-# The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's scan
-# reads the whole tree, or for task-close the change's whole range, so a red scan on a module's job means the tree breaks that module's rule, not
-# that the module's code is broken; the annotation names the entry.
+# The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's
+# scan reads the whole tree, or for task-close the change's whole range, so a red scan on a module's
+# job means the tree, or the change, breaks that module's rule, not that the module's code is broken;
+# the annotation names the entry.
 # The install-<module> gates need Claude Code's `claude` on PATH and no Claude account login; an install
 # from a private remote needs git's credentials for it.
 # --run runs every command of the entry, and every entry of the job, even after a red one and prints
 # each command's exit; it exits 0 when every command did, else 2 when every failing command exited 2
-# (a finding), else 1; an entry with no commands is a BROKEN line and exit 1. A job's run in GitHub Actions folds each entry's log, annotates each entry that
-# did not exit 0 and writes one summary line per entry. CI reruns a whole job; an entry is run alone
-# with --run <entry>, where an install entry run by hand installs from the working folder unless
-# CONSTITUTION_KIT_INSTALL_FROM names a source, as CI's does. The other modes exit 0, or 1 on a misinvocation.
+# (a finding), else 1; an entry with no commands is a BROKEN line and exit 1. A job's run in GitHub
+# Actions folds each entry's log, annotates each entry that did not exit 0 and writes one summary line
+# per entry. CI reruns a whole job; an entry is run alone with --run <entry>, where an install entry
+# run by hand installs from the working folder unless CONSTITUTION_KIT_INSTALL_FROM names a source, as
+# CI's does. The other modes exit 0, or 1 on a misinvocation.
 
 MODULES="const-catalogs const-decision-records const-doc-budgets const-interaction const-language
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
@@ -47,6 +49,11 @@ job() {
 
 jobs() {
     for n in $GATES $EXTRAS; do job "$n"; done | sort -u
+}
+
+is_entry() {
+    for n in $GATES $EXTRAS; do [ "$n" = "$1" ] && return 0; done
+    return 1
 }
 
 members() {
@@ -148,7 +155,7 @@ case "$1" in
     --run)
         [ -n "$2" ] || misuse "--run needs an entry or a job"
         worst=0
-        if commands "$2" >/dev/null; then
+        if is_entry "$2"; then
             run_entry "$2"
             exit "$worst"
         fi
