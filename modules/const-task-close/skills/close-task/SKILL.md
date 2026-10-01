@@ -85,11 +85,12 @@ or roll it back, never leave the halfway state as the truth.
 
 Commit the documents, the deletions and the status change together, the message naming the close.
 Run the check once more; merge, or open the pull request, on green. In a project's CI on a pull
-request, the same check runs with the base from the event, and with the description as `--body`
-where that CI writes it:
+request, the same check can run with the base from the event as `--since`, and with the
+description as `--body` where that CI writes it to a file:
 
 ```bash
 sh <plugin root>/scripts/check-task-close.sh --scan --since <base commit> --body <description file>
 ```
 
 where `<plugin root>` is the plugin's path on the runner: the placeholder above is filled only in a session.
+Drop `--body` where the CI writes no description, and the trailers alone are read.
