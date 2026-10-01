@@ -84,8 +84,9 @@ or roll it back, never leave the halfway state as the truth.
 ## 6. Commit as one change, and check again
 
 Commit the documents, the deletions and the status change together, the message naming the close.
-Run the check once more; merge, or open the pull request, on green. The check is also the one for
-CI on a pull request, with the base from the event:
+Run the check once more; merge, or open the pull request, on green. In a project's CI on a pull
+request, the same check runs with the base from the event, and with the description as `--body`
+where that CI writes it:
 
 ```bash
 sh <plugin root>/scripts/check-task-close.sh --scan --since <base commit> --body <description file>
