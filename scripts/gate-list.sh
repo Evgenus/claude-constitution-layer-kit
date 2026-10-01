@@ -10,14 +10,15 @@
 # The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types: each
 # module's, the branch gate's fixture, and the kit's own lint of scripts/ and shared/ and types of its
 # checks and shared/const_gate, the shared tests typed through each module's links.
-# A CI job is a module — its scan, its install, its fixtures, its lint and its types — or `kit`, every
-# entry no module holds; an entry is in exactly one job, and one no line of job() maps falls into `kit`.
+# A CI job is a module — its scan, its install, its fixtures, its lint and its types — or `install-guide`,
+# the run of the install guide, or `kit`, every other entry no module holds; an entry is in exactly one job, and one no line of job() maps falls into `kit`.
 # The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's
 # scan reads the whole tree, or for task-close the change's whole range, so a red scan on a module's
 # job means the tree, or the change, breaks that module's rule, not that the module's code is broken;
 # the annotation names the entry.
-# The install-<module> gates need Claude Code's `claude` on PATH and no Claude account login; an install
-# from a private remote needs git's credentials for it.
+# The install-<module> gates and the guide gate need Claude Code's `claude` on PATH and no Claude account
+# login; an install from a private remote needs git's credentials for it, and the guide, which installs
+# from a clone of the working folder, needs none.
 # --run runs every command of the entry, and every entry of the job, even after a red one and prints
 # each command's exit; it exits 0 when every command did, else 2 when every failing command exited 2
 # (a finding), else 1; an entry with no commands is a BROKEN line and exit 1. A job's run in GitHub
@@ -30,7 +31,7 @@ MODULES="const-catalogs const-decision-records const-doc-budgets const-interacti
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links yaml-style module-links aspects portability gate-lists
-schema-mirror dials-schema bare-install $(for m in $MODULES; do printf 'install-%s ' "$m"; done)task-close"
+schema-mirror dials-schema bare-install guide $(for m in $MODULES; do printf 'install-%s ' "$m"; done)task-close"
 EXTRAS="branch-gate $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types"
 
 job() {
@@ -45,6 +46,7 @@ job() {
         budgets) echo const-doc-budgets ;;
         list-handles) echo const-interaction ;;
         task-close) echo const-task-close ;;
+        guide) echo install-guide ;;
         install-* | fixtures-* | lint-* | types-*) echo "${1#*-}" ;;
         *) echo kit ;;
     esac
@@ -79,6 +81,9 @@ commands() {
             echo "python3 scripts/check-$1.py --self-test" ;;
         schema-mirror) echo "python3 scripts/check-schema-mirror.py" ;;
         bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;
+        guide)
+            echo "python3 scripts/check-install-guide.py"
+            echo "python3 scripts/check-install-guide.py --self-test" ;;
         install-* | fixtures-* | lint-* | types-*)
             for m in $MODULES; do
                 [ "${1#*-}" = "$m" ] || continue
@@ -104,7 +109,7 @@ commands() {
             echo "python3 -m ruff check scripts shared" ;;
         types)
             echo "cd shared && python3 -m mypy --strict const_gate"
-            echo "cd scripts && python3 -m mypy --strict check-carry-lists.py check-shared-links.py check-yaml-style.py check-module-links.py check-aspects.py check-portability.py check-gate-lists.py check-bare-install.py check-dials-schema.py"
+            echo "cd scripts && python3 -m mypy --strict check-carry-lists.py check-shared-links.py check-yaml-style.py check-module-links.py check-aspects.py check-portability.py check-gate-lists.py check-bare-install.py check-install-guide.py check-dials-schema.py"
             echo "cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts python3 -m mypy --strict check-schema-mirror.py" ;;
         *) return 1 ;;
     esac
