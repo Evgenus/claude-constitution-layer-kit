@@ -6,8 +6,12 @@ dec-0059-bare-repo-install-in-ci).
 For the module named, in throwaway folders that the check removes:
   1. a bare repository — `git init`, the kit's kernel copied to docs/constitution/ and committed,
      no constitution.yaml — and an empty Claude configuration folder (CLAUDE_CONFIG_DIR);
-  2. `claude plugin marketplace add <kit>` and `claude plugin install <module>@constitution-kit`,
-     the platform's own install, which writes a copy of the plugin into the configuration's cache;
+  2. `claude plugin marketplace add <source>` and `claude plugin install <module>@constitution-kit`,
+     the platform's own install, which writes a copy of the plugin into the configuration's cache.
+     The source is --from, else the environment's CONSTITUTION_KIT_INSTALL_FROM, else the kit's
+     working folder; the kit's CI names its GitHub remote at the change's branch, `<owner>/<repo>#<branch>`,
+     the copy a consumer runs. With --commit, or CONSTITUTION_KIT_INSTALL_COMMIT, the install must
+     come from that commit, the one whose source the copy is compared with;
   3. what the kit's source of the module declares, held in that copy: no link of the source
      leads inside the module; every link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
@@ -21,7 +25,7 @@ A red is a finding against the module, and so is an install Claude Code refuses;
 the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
 Needs no login: plugin install reads no account.
 
-Modes:  --module <name>  check one module of the kit;
+Modes:  --module <name> [--from <source>] [--commit <sha>]  check one module of the kit;
         --self-test      prove step 3 on throwaway source and copy folders, no install: each branch
                          of the link, hooks-file, hook and scan checks red once, a green copy green,
                          and the report of one finding as literal lines with exit 2.
@@ -49,6 +53,8 @@ MARKETPLACE = "constitution-kit"
 DECLARED = re.compile(r"`([a-z][a-z0-9-]*?(?:\.py)?) --scan`")
 WHY = "a module must install and operate on a bare repository with its defaults alone (requirement A12.1)"
 NOTE = "docs/note.md"
+FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
+COMMIT_ENV = "CONSTITUTION_KIT_INSTALL_COMMIT"
 
 
 class Broken(Exception):
@@ -331,37 +337,49 @@ def bare_repository(root: Path) -> Path:
     return repo
 
 
-def install(module: str, root: Path, repo: Path) -> Path:
-    config = root / "config"
-    config.mkdir()
-    env = os.environ | {"CLAUDE_CONFIG_DIR": str(config)}
-    code, out, err = run(["claude", "plugin", "marketplace", "add", str(KIT)], repo, env)
-    if code != 0:
-        last = last_line(out, err)
-        raise Broken(
-            f"`claude plugin marketplace add` exited {code} ({last}) — fix: check the kit's marketplace.json"
-        )
-    code, out, err = run(["claude", "plugin", "install", f"{module}@{MARKETPLACE}"], repo, env)
-    if code != 0:
-        raise Refused(last_line(out, err) if out or err else f"exit {code}")
-    record = config / "plugins" / "installed_plugins.json"
+def installed_path(record: Path, module: str, commit: str) -> Path:
+    """The installed copy's folder, from Claude Code's install record; when a commit is named, the
+    install must have come from it."""
     try:
-        entries = json.loads(record.read_text(encoding="utf-8"))["plugins"][f"{module}@{MARKETPLACE}"]
-        return Path(entries[0]["installPath"])
+        entry = json.loads(record.read_text(encoding="utf-8"))["plugins"][f"{module}@{MARKETPLACE}"][0]
+        path, got = Path(entry["installPath"]), entry.get("gitCommitSha")
     except (OSError, ValueError, KeyError, IndexError, TypeError) as bad:
         raise Broken(
             f"{record} names no install of {module} ({bad}) — fix: check the Claude Code version"
         ) from bad
+    if commit and got != commit:
+        raise Broken(
+            f"the install came from commit {got}, not {commit} — fix: the branch moved during the run;"
+            " run the job again"
+        )
+    return path
 
 
-def check_module(module: str) -> list[Finding]:
+def install(module: str, root: Path, repo: Path, source: str, commit: str) -> Path:
+    config = root / "config"
+    config.mkdir()
+    env = os.environ | {"CLAUDE_CONFIG_DIR": str(config)}
+    code, out, err = run(["claude", "plugin", "marketplace", "add", source], repo, env)
+    if code != 0:
+        last = last_line(out, err)
+        raise Broken(
+            f"`claude plugin marketplace add {source}` exited {code} ({last}) — fix: check the kit's"
+            " marketplace.json, and that git can reach the source"
+        )
+    code, out, err = run(["claude", "plugin", "install", f"{module}@{MARKETPLACE}"], repo, env)
+    if code != 0:
+        raise Refused(last_line(out, err) if out or err else f"exit {code}")
+    return installed_path(config / "plugins" / "installed_plugins.json", module, commit)
+
+
+def check_module(module: str, source: str, commit: str) -> list[Finding]:
     if not (KIT / "modules" / module / ".claude-plugin" / "plugin.json").is_file():
         raise Broken(f"no module {module} in the kit — fix: name a folder under modules/ that holds a plugin")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         repo = bare_repository(root)
         try:
-            plugin = install(module, root, repo)
+            plugin = install(module, root, repo, source, commit)
         except Refused as refused:
             return [
                 Finding(
@@ -549,7 +567,23 @@ def self_test() -> int:
     print(f"[{'ok' if ok else 'FAIL'}] the report of one finding is its literal text, exit 2")
     if not ok:
         print(printed.getvalue())
-    total = len(cases) + 1
+    with tempfile.TemporaryDirectory() as tmp:
+        record = Path(tmp) / "installed_plugins.json"
+        entry = {"installPath": "/cache/const-x/0.0.1", "gitCommitSha": "abc"}
+        record.write_text(json.dumps({"plugins": {f"const-x@{MARKETPLACE}": [entry]}}), encoding="utf-8")
+        ok = installed_path(record, "const-x", "abc") == Path("/cache/const-x/0.0.1")
+        ok = ok and installed_path(record, "const-x", "") == Path("/cache/const-x/0.0.1")
+        try:
+            installed_path(record, "const-x", "def")
+            ok = False
+        except Broken as broken:
+            ok = ok and "came from commit abc, not def" in str(broken) and "fix:" in str(broken)
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] an install from another commit than the one named"
+        " is a teaching BROKEN line"
+    )
+    total = len(cases) + 2
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
@@ -559,10 +593,15 @@ def main(argv: list[str]) -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--module")
     group.add_argument("--self-test", action="store_true")
+    parser.add_argument("--from", dest="source")
+    parser.add_argument("--commit")
     try:
         args = parser.parse_args(argv)
     except SystemExit:
-        print("BROKEN: misinvocation — fix: run with --module <name>, or with --self-test")
+        print(
+            "BROKEN: misinvocation — fix: run with --module <name> [--from <source>] [--commit <sha>],"
+            " or with --self-test"
+        )
         print("BROKEN: the check could not run — 0 modules examined")
         return EXIT_BROKEN
     try:
@@ -572,7 +611,9 @@ def main(argv: list[str]) -> int:
         plugin = KIT / "modules" / module
         links = sum(1 for p in plugin.rglob("*") if p.is_symlink())
         examined = f"{len(hooks_of(plugin))} hook(s), {len(declared_scans(plugin))} scan(s), {links} link(s)"
-        return report(module, check_module(module), examined)
+        source = args.source or os.environ.get(FROM_ENV) or str(KIT)
+        commit = args.commit or os.environ.get(COMMIT_ENV) or ""
+        return report(module, check_module(module, source, commit), f"{examined}, from {source}")
     except Broken as broken:
         print(f"BROKEN: {broken}")
         print("BROKEN: the check could not run — 0 modules examined")

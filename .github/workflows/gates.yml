@@ -39,6 +39,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # the carry-lists and range checks read the whole history
+          # an install job compares the copy with the commit it installs: the change's own head
+          ref: ${{ startsWith(matrix.entry, 'install-') && (github.event.pull_request.head.sha || github.sha) || '' }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -60,6 +62,11 @@ jobs:
       - name: Claude Code, for the bare-repo install
         if: startsWith(matrix.entry, 'install-')
         run: npm install --global --silent "@anthropic-ai/claude-code@2.1.282"
+      - name: Git credentials, so Claude Code can clone the private repository
+        if: startsWith(matrix.entry, 'install-')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh auth setup-git
       - name: Git identity for the fixtures' throwaway repositories
         run: |
           git config --global user.name "gates"
@@ -67,6 +74,11 @@ jobs:
       - name: Run ${{ matrix.entry }}
         env:
           ENTRY: ${{ matrix.entry }}
+          GH_TOKEN: ${{ startsWith(matrix.entry, 'install-') && github.token || '' }}
+          CLAUDE_CODE_PLUGIN_PREFER_HTTPS: "1"
+          # the install jobs install from the kit's GitHub remote at the change's branch, the copy a consumer runs
+          CONSTITUTION_KIT_INSTALL_FROM: ${{ startsWith(matrix.entry, 'install-') && format('{0}#{1}', github.repository, github.head_ref || github.ref_name) || '' }}
+          CONSTITUTION_KIT_INSTALL_COMMIT: ${{ startsWith(matrix.entry, 'install-') && (github.event.pull_request.head.sha || github.sha) || '' }}
         run: sh scripts/gate-list.sh --run "$ENTRY"
 
   gates:
