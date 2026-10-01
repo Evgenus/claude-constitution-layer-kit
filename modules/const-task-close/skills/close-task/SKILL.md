@@ -53,8 +53,9 @@ helper the page never describes — say so where the check reads it, one line pe
 - **As a trailer** on a commit of the change, in the message's **last paragraph, where every line is
   `Key: value`** — one line without a colon hides the whole paragraph from git:
   `No-Doc-Impact: <pair name> — <why the documents are unaffected>`
-- **Or in the description:** the same line on its own in the pull request's description; CI
-  hands the description to the check with `--body <file>`.
+- **Or in the description:** the same line on its own in the pull request's description, read
+  only where the description is given to the check with `--body <file>`; where it is not, the
+  trailer is the only form.
 
 The reason is for the reviewer: write what a reviewer needs to agree. Never declare what an update
 would have fixed. The key is `declaration_key` under `const-task-close` when the project changed it.
@@ -83,11 +84,13 @@ or roll it back, never leave the halfway state as the truth.
 ## 6. Commit as one change, and check again
 
 Commit the documents, the deletions and the status change together, the message naming the close.
-Run the check once more; merge, or open the pull request, on green. The check is also the one for
-CI on a pull request, with the base from the event:
+Run the check once more; merge, or open the pull request, on green. In a project's CI on a pull
+request, the same check can run with the base from the event as `--since`, and with the
+description as `--body` where that CI writes it to a file:
 
 ```bash
 sh <plugin root>/scripts/check-task-close.sh --scan --since <base commit> --body <description file>
 ```
 
 where `<plugin root>` is the plugin's path on the runner: the placeholder above is filled only in a session.
+Drop `--body` where the CI writes no description, and the trailers alone are read.
