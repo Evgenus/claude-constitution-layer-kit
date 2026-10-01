@@ -370,6 +370,13 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-09-14
         to: 2026-09-29
+    - name: install-guide   # set 2026-10-01 on the guide's first day: its length then, 12,878, plus 10 %, rounded up to 1,000
+      paths: *install_guide
+      max: 15000
+      level: warning
+      window:
+        from: 2026-10-01
+        to: 2026-10-01
     - name: intent
       paths: *intent
       max: 8000
