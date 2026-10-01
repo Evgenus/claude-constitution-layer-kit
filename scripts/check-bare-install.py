@@ -387,6 +387,11 @@ def source_at(commit: str, module: str, root: Path) -> Path:
 
 
 def install(module: str, root: Path, repo: Path, source: str) -> tuple[Path, str]:
+    if source.startswith("#"):
+        raise Broken(
+            f"the source {source} names a branch of no repository — the pull request's head repository is"
+            " gone — fix: open the change again from a branch of a repository that exists"
+        )
     config = root / "config"
     config.mkdir()
     env = os.environ | {"CLAUDE_CONFIG_DIR": str(config)}
