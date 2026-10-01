@@ -62,3 +62,17 @@ The session recommended A: the place new users look, at the cost of writing by h
   - **Cons:** it protects only the part that already worked; update, reinstall and the scan loop stay judgment; whether the two command sets match is review too.
 
 The session recommended B: only a run makes the guide's commands trustworthy, and A or C would have let both wrong claims of 2026-09-30 through. B, chosen by the decider in chat on 2026-10-01.
+
+## 4. What the check holds the guide to
+
+- **A. Exit codes only.** Every runnable block runs in order, from a fresh scratch project, and must exit 0.
+  - **Pros:** the smallest check; it knows nothing of the guide's content.
+  - **Cons:** it misses the error of 2026-09-30, since `claude plugin update` exits 0 while it leaves the old copy in place; a command that runs but does the wrong thing passes.
+- **B. Exit codes plus the guide's claims.** As A, and at named points the check tests what the guide says happened: after the install, each module is in the plugin cache and enabled in the project's settings; after a change the check makes in its own copy of the kit, the guide's update path puts the change into the cache; after the bootstrap, every module's scan exits 0 on the new project.
+  - **Pros:** it catches the class of error found on 2026-09-30; each claim the guide makes about the platform gets a test.
+  - **Cons:** the check knows the guide's sections by name, so a renamed section is red until the check follows; more code and a larger self-test.
+- **C. The guide carries its own tests.** The check stays as in A, and the guide holds short verify commands a user also runs.
+  - **Pros:** every test is something the guide teaches; the check stays small.
+  - **Cons:** the guide fills with test commands a new user does not need; the update test needs a change in the kit between two blocks, which no block a user runs can make.
+
+The session recommended B: A passes the error that justified the check, and C makes the guide harder to read. B, chosen by the decider in chat on 2026-10-01.
