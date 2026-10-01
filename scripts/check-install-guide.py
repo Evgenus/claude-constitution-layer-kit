@@ -2,17 +2,20 @@
 """Kit check: the install guide's commands run, and do what the guide says they do — rule 4 of
 plc-0011-install-guide (decision dec-0062-install-guide-governed-kind).
 
-The guide is INSTALL.md at the kit's root. First its marks, read from the text:
-  every `bash` fence names `check=<name>` after its language — a name of the set below, each at
-  most once, or `none`, a block the check does not run, as often as needed; the dials example is
-  the one `yaml` fence named `check=dials`; every name of the set stands in the guide.
+The guide is INSTALL.md at the kit's root, read as committed at the working folder's HEAD, the
+commit the run clones. First its marks, read from the text:
+  every `bash` fence names `check=<name>` after its language — a name of the set below, each
+  standing in the guide exactly once, or `none`, a block the check does not run, as often as
+  needed; the dials example is the one `yaml` fence named `check=dials`.
 Then the run, in throwaway folders the check removes: a home folder of its own, HOME and
 CLAUDE_CONFIG_DIR (<home>/.claude) under it and git's identity in a global configuration of its
 own; the kit cloned from the working folder's HEAD to ~/dev/constitution-kit, so what is not
-committed is not run; and the named blocks run in the guide's order, each written to a file and run
-by a fresh `bash -e` in the folder the block before it ended in, the first in the home folder. A
-block's exit is what `bash -e` gives it: a command that fails inside an `&&` list, other than the
-list's last, stops no block, so what such a block does is held by the claims below, not by its exit.
+committed is not run; and the named blocks run in the guide's order, each written to a file and
+sourced by a fresh `bash -eu` in the folder the block before it ended in, the first in the home
+folder, so a block that relies on a variable another block set fails on it, unset. A block's exit is
+what `bash -eu` gives the sourcing: a block's last command decides it, and a command that fails
+inside an `&&` list earlier in the block, other than the list's last, stops no block, so what such a
+block does is held by the claims below, not by its exit.
 Beside every block's exit 0, the check holds at each name:
   new-repo     the block ends in a git repository: the project.
   marketplace  the configuration's plugins/known_marketplaces.json knows `constitution-kit`.
@@ -38,8 +41,10 @@ failure. Needs no Claude account login: the plugin commands read none.
 Modes:  no arguments   check the kit's guide;
         --self-test    prove the check with a toy kit, a toy guide and a fake `claude` that logs to
                        a file: each kind of mark finding red once from the text alone; a green toy run
-                       green; a block that exits 1 red; each claim red once against a fake that breaks
-                       it — an install that enables nothing, a kernel copy that copies nothing, a
+                       green; a block that exits 1 red; a block that reads another block's variable red;
+                       the dials before the project red; each claim red once against a fake or a block
+                       that breaks it — a block that makes no repository, a marketplace never added,
+                       an install that enables nothing, a kernel copy that copies nothing, a
                        commit that leaves the tree dirty, an update that takes a draft's change, an
                        install that keeps a stale copy, an uninstall that keeps the plugin enabled; the
                        report of one finding as literal lines with exit 2.
@@ -145,7 +150,7 @@ def blocks_of(guide: str) -> tuple[list[Block], list[Finding]]:
             j += 1
         words = info.split()
         language = words[0] if words else ""
-        mark = MARK.search(info)
+        mark = MARK.search(" ".join(words[1:]))
         found.append(Block(i + 1, language, mark.group(1) if mark else "", "\n".join(body) + "\n"))
         i = j + 1
     seen: dict[str, int] = {}
@@ -457,8 +462,10 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
                 probe(state)
             script = Path(scratch) / f"{block.name}.sh"
             where = Path(scratch) / f"{block.name}.cwd"
-            script.write_text(f"trap 'pwd > \"{where}\"' EXIT\n{block.text}", encoding="utf-8")
-            code, said = run(["bash", "-e", str(script)], state.cwd, env)
+            body = Path(scratch) / f"{block.name}.block.sh"
+            body.write_text(block.text, encoding="utf-8")
+            script.write_text(f'. "{body}"\npwd > "{where}"\n', encoding="utf-8")
+            code, said = run(["bash", "-eu", str(script)], state.cwd, env)
             ran += 1
             if where.is_file():
                 state.cwd = Path(where.read_text(encoding="utf-8").strip())
@@ -639,6 +646,11 @@ def self_test() -> int:
             toy_guide().replace("```yaml check=dials", "```bash check=dials"),
             "check=dials stands on a `bash` fence",
         ),
+        (
+            "a bash name on a yaml fence red",
+            toy_guide().replace("```bash check=scan", "```yaml check=scan"),
+            "check=scan stands on a `yaml` fence",
+        ),
     ]
     for name, guide, expected in marks:
         _, findings = blocks_of(guide)
@@ -658,6 +670,27 @@ def self_test() -> int:
         case("a green toy run green", not green, f"{whats(green)} ({examined})")
         runs: list[tuple[str, dict[str, str], str, str]] = [
             ("a block that exits 1 red", {"scan": "false"}, "", "the block named check=scan exited 1"),
+            (
+                "a block that makes no repository red",
+                {"new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project"},
+                "",
+                "after check=new-repo: the block ends in no git repository",
+            ),
+            (
+                "a marketplace never added red",
+                {"marketplace": "true"},
+                "",
+                "after check=marketplace: the configuration knows no marketplace",
+            ),
+            (
+                "a block that reads another block's variable red",
+                {
+                    "marketplace": 'KIT=~/dev/constitution-kit && claude plugin marketplace add "$KIT"',
+                    "kernel": 'mkdir -p docs/constitution && cp -r "$KIT/kernel/." docs/constitution/',
+                },
+                "",
+                "the block named check=kernel exited",
+            ),
             (
                 "an install that enables nothing red",
                 {},
@@ -702,6 +735,16 @@ def self_test() -> int:
                 len(findings) == 1 and findings[0].what.startswith(expected),
                 f"{whats(findings)} ({examined})",
             )
+        dials = toy_guide().split("Step dials:")
+        moved = dials[0].replace(
+            "# Toy guide\n", "# Toy guide\n\nStep dials:" + dials[1].split("Step scan:")[0], 1
+        )
+        early, _ = run_guide(moved + "Step scan:" + dials[1].split("Step scan:")[1], kit, base)
+        case(
+            "the dials before the project red",
+            len(early) == 1 and early[0].what.startswith("the dials example comes before the project exists"),
+            whats(early),
+        )
         logged = (root / "kit").exists()
         case(
             "the toy kit is left as it was: the run works on a clone",
@@ -742,7 +785,10 @@ def main(argv: list[str]) -> int:
     try:
         if args.self_test:
             return self_test()
-        guide = (KIT / GUIDE).read_text(encoding="utf-8")
+        code, guide = run(["git", "show", f"HEAD:{GUIDE}"], KIT, dict(os.environ))
+        if code != 0:
+            raise Broken(f"{GUIDE} is not committed at HEAD ({last_line(guide)}) — fix: commit the guide")
+        guide += "\n"
         findings, examined = run_guide(guide, KIT, dict(os.environ))
         return report(findings, examined)
     except Broken as broken:

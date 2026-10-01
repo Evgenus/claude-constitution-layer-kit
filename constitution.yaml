@@ -334,7 +334,7 @@ const-language:                       # the prose of covered documents: a grade 
 const-doc-budgets:                    # a character ceiling per group of documents, measured after the fact (MODULE.md §7)
   severity: block                     # values: block | warn — block: a finding reaches the model as a block after the write; warn: as context
   log_dir: local/gate-logs
-  ceilings:                           # set 2026-09-29 by the report --scan --since 2026-09-14: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
+  ceilings:                           # the founding entries set 2026-09-29 by the report --scan --since 2026-09-14, a later entry on the day and window its own comment and `window` name: the window's longest plus 10 %, rounded up to 1,000; at warning until 30 days of data; every Markdown file git lists stands under one ceiling (decision dec-0052-doc-budgets-module-rulings)
     - name: records   # the accepted records among them frozen: wording edits only (plc-0004 rule 14)
       paths: *decisions
       max: 34000
@@ -370,7 +370,7 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-09-14
         to: 2026-09-29
-    - name: install-guide   # set 2026-10-01 on the guide's first day: its length then, 12,878, plus 10 %, rounded up to 1,000
+    - name: install-guide   # set 2026-10-01 on the guide's first day: its length then, 12,862 characters, plus 10 %, rounded up to 1,000
       paths: *install_guide
       max: 15000
       level: warning

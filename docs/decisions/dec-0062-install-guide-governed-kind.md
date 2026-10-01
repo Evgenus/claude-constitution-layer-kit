@@ -95,7 +95,7 @@ The session recommended B: A passes the error that justified the check, and C ma
 
 The session checked that the style scan of [`const-styling`](../requirements.md#const-styling) accepts words after a fence's language and masks HTML comments, so all three pass it, and recommended A: the mark cannot drift from its block, and a skipped test becomes a written choice. A, chosen by the decider in chat on 2026-10-01.
 
-**R5.** Every `bash` fence of the install guide names `check=<name>` after its language: a name of the closed set the check knows, each at most once, or `none`, as often as needed, for a block the check does not run — an interactive session, a system package manager, the module fixtures. The dials example is the one `yaml` fence named `check=dials`. An unmarked `bash` block, an unknown name, a name twice, a name on the wrong fence and a name of the set missing from the guide are each red. A block runs in a fresh `bash -e`, in the folder the block before it ended in, so no block relies on a variable another set. A change that adds, renames or removes a named block, or changes what the guide says one does, changes the check in the same change.
+**R5.** Every `bash` fence of the install guide names `check=<name>` after its language: a name of the closed set the check knows, each at most once, or `none`, as often as needed, for a block the check does not run — an interactive session, a system package manager, the module fixtures. The dials example is the one `yaml` fence named `check=dials`. An unmarked `bash` block, an unknown name, a name twice, a name on the wrong fence and a name of the set missing from the guide are each red. A block runs in a fresh `bash -eu`, in the folder the block before it ended in, so no block relies on a variable another set: such a variable is unset there, and the block fails. A change that adds, renames or removes a named block, or changes what the guide says one does, changes the check in the same change.
 
 ## 6. Which CI job runs the check
 
@@ -119,7 +119,7 @@ These items carry no options: each follows from the answers above or from the ki
 
 **R7.** The policy [plc-0011-install-guide](../policies/plc-0011-install-guide.md) states the kind's rules: the type, `current-state`; the content, the kit's whole install procedure, restating no rule of the kernel and no module's install note; the present tense; anchors `s<n>`; an edit of the guide routine once the check is green on it, a change to a rule `process`; its enforcement and its style.
 
-**R8.** A command of the install procedure stands in the install guide, where the check runs it; another document of the kit links to the guide instead of copying a command.
+**R8.** A command of the install procedure stands in the install guide, where the check runs it; another document of the kit links to the guide instead of copying a command. A module's own `INSTALL.md` is the one exception: it ships inside the plugin, where no link to the kit's root resolves, and names the command that loads its own module.
 
 **R9.** The README is rewritten as the kit's landing page — what the kit is, why it is shaped so, how it works, its modules with their gates and skills, one real gate message, the status, and where to go next — with no install command. The README lies in no territory, so the rewrite is routine.
 
@@ -127,7 +127,7 @@ These items carry no options: each follows from the answers above or from the ki
 
 **R11.** That departure leaves the guide's example when the kit's kernel meets the module's default thresholds, in the kit's descent to the defaults.
 
-**R12.** A length ceiling of [`const-doc-budgets`](../requirements.md#const-doc-budgets), `install-guide`, holds the guide at 15,000 characters at warning: its length on its first day, 12,878, plus 10 %, rounded up to 1,000, with that one day as its window.
+**R12.** A length ceiling of [`const-doc-budgets`](../requirements.md#const-doc-budgets), `install-guide`, holds the guide at 15,000 characters at warning: its length on its first day, 12,862 characters, plus 10 %, rounded up to 1,000, with that one day as its window.
 
 ## Applied
 
@@ -137,7 +137,7 @@ The change that adds this record applies every item: the policy and its territor
 
 1. R1 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md), its opening paragraph; [the dials file](../../constitution.yaml), the namespace of [plc-0011-install-guide](../policies/plc-0011-install-guide.md); [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r3), rule 3. That the README was the install guide until this record is history.
 2. R2 — [the dials file](../../constitution.yaml), the territory of [plc-0011-install-guide](../policies/plc-0011-install-guide.md) and its comment.
-3. R3 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r7), rules 4 and 7; [the check](../../scripts/check-install-guide.py), its docstring; [the list script](../../scripts/gate-list.sh), the entry `guide`.
+3. R3 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r7), rules 4 and 7; [the check](../../scripts/check-install-guide.py), its docstring; [the list script](../../scripts/gate-list.sh), the entry `guide`; [the install guide](../../INSTALL.md#s6), its last section, for a check shipped in no module.
 4. R4 — [the check](../../scripts/check-install-guide.py), its docstring; [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r4), rule 4.
 5. R5 — [plc-0011-install-guide](../policies/plc-0011-install-guide.md#r4), rule 4; [the check](../../scripts/check-install-guide.py), its docstring.
 6. R6 — [the list script](../../scripts/gate-list.sh), its header, `job()` and `commands()`; [the workflow](../../.github/workflows/gates.yml), its header and its install steps; the rule "Work starts on a branch" in [CLAUDE.md](../../CLAUDE.md). The narrowing of dec-0061's R1 and R5 is history.
