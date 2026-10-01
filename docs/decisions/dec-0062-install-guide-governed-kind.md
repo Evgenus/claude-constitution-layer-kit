@@ -48,3 +48,17 @@ The session recommended A: the place a new user looks first, routine, and the po
 The session recommended A: the place new users look, at the cost of writing by hand once and a front-matter table the intent page already shows. A, chosen by the decider in chat on 2026-10-01.
 
 **R2.** The install guide is one document, `INSTALL.md` at the repository's root, and its policy's territory is `/INSTALL.md`, with the leading slash. A module's own `INSTALL.md` is not of this kind.
+
+## 3. How the guide's commands are kept true
+
+- **A. Review, with a stamp.** The guide states the Claude Code version and the date its commands were last run; review holds that a changed command, or a new Claude Code version, is run again.
+  - **Pros:** no new code; the reader sees which version the guide was tested on.
+  - **Cons:** judgment only, the protection the README had when it was wrong; the stamp can claim a run that never happened.
+- **B. A kit check that runs the guide.** A new `scripts/check-install-guide.py` takes the guide's command blocks marked runnable and runs them in order, in a scratch repository with an empty Claude configuration folder, in CI on every pull request; files the reader writes by hand come from the check's own fixture.
+  - **Pros:** deterministic, so a wrong command or a changed platform turns CI red; it covers the update and reinstall path, where the README was wrong; it reuses the CI install route of `scripts/check-bare-install.py`.
+  - **Cons:** the largest change: a new check with its `--self-test`, an entry of the gate list, and Claude Code installed in the CI job `kit`, which installed none under R5 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md); a marker for runnable blocks; the steps written by hand stay review.
+- **C. The existing install check, plus a stamp.** The policy requires the guide's `marketplace add` and `install` commands to be the ones `scripts/check-bare-install.py` runs for each module in CI; the rest is held as in A.
+  - **Pros:** reuses a check that exists; no new code beyond a sentence of policy.
+  - **Cons:** it protects only the part that already worked; update, reinstall and the scan loop stay judgment; whether the two command sets match is review too.
+
+The session recommended B: only a run makes the guide's commands trustworthy, and A or C would have let both wrong claims of 2026-09-30 through. B, chosen by the decider in chat on 2026-10-01.
