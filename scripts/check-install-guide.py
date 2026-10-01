@@ -45,7 +45,10 @@ Modes:  no arguments   check the kit's guide;
                        green; a mark where a fence's language should be red; a block that exits 1 red; a
                        block that reads another block's variable red, though it would pass under
                        `bash -e`; a guide not committed at HEAD a configuration failure, and the
-                       committed one read whole;
+                       committed one read whole, standard output alone; a folder that is no clone a
+                       configuration failure, to the guide's reader and to the run; a misplaced
+                       dials mark red once, its fix a `yaml` fence; a run whose git writes a trace
+                       to stderr green;
                        the dials before the project red; each claim red once against a fake or a block
                        that breaks it — a block that makes no repository, a marketplace never added,
                        an install that enables nothing, a kernel copy that copies nothing, a
@@ -221,8 +224,11 @@ def blocks_of(guide: str) -> tuple[list[Block], list[Finding]]:
     return [b for b in found if b.name in NAMES and seen.get(b.name) == b.line], findings
 
 
-def run(argv: list[str], cwd: Path, env: dict[str, str], timeout: int = TIMEOUT) -> tuple[int, str]:
-    """The exit and the combined output of one command."""
+def run(
+    argv: list[str], cwd: Path, env: dict[str, str], timeout: int = TIMEOUT, joined: bool = True
+) -> tuple[int, str]:
+    """The exit and the output of one command: standard output and error joined, for a message, or
+    standard output alone where the output is read as data."""
     try:
         done = subprocess.run(
             argv, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout, check=False
@@ -233,7 +239,7 @@ def run(argv: list[str], cwd: Path, env: dict[str, str], timeout: int = TIMEOUT)
         ) from bad
     except subprocess.TimeoutExpired:
         return 124, f"timed out after {timeout} s"
-    return done.returncode, (done.stdout + done.stderr).strip()
+    return done.returncode, (done.stdout + done.stderr if joined else done.stdout).strip()
 
 
 def last_line(said: str) -> str:
@@ -377,7 +383,7 @@ def claim(state: Run, name: str) -> str:
                 return f"docs/constitution/{path.relative_to(source)} is not the kernel's file"
         return ""
     if name == "commit":
-        code, said = run(["git", "status", "--porcelain"], project, state.env)
+        code, said = run(["git", "status", "--porcelain"], project, state.env, joined=False)
         return "" if code == 0 and not said else "the project's working tree is not clean after the commit"
     if name == "update":
         if (state.cache(next(iter(state.modules))) / PROBE).is_file():
@@ -449,14 +455,17 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
         }
         clone = home / "dev" / MARKETPLACE
         clone.parent.mkdir(parents=True)
-        head = run(["git", "rev-parse", "HEAD"], kit, env)
-        if head[0] != 0:
+        head = subprocess.run(  # standard output alone, so no warning on stderr joins the commit
+            ["git", "rev-parse", "HEAD"], cwd=kit, env=env, capture_output=True, text=True, check=False
+        )
+        if head.returncode != 0:
             raise Broken(
-                f"{kit} is no git clone ({last_line(head[1])}) — fix: run the check from a clone of the kit"
+                f"{kit} is no git clone ({last_line(head.stderr.strip())}) — "
+                "fix: run the check from a clone of the kit"
             )
         for argv, where in (
             (["git", "clone", "--quiet", "--no-checkout", str(kit), str(clone)], home),
-            (["git", "checkout", "--quiet", "--detach", head[1]], clone),
+            (["git", "checkout", "--quiet", "--detach", head.stdout.strip()], clone),
         ):
             code, said = run(argv, where, env)
             if code != 0:
@@ -820,6 +829,18 @@ def self_test() -> int:
             "is no git clone with a commit" in bare,
             bare,
         )
+        try:
+            run_guide(toy_guide(), root / "bin", base | {"GIT_CEILING_DIRECTORIES": str(root)})
+            unrun = "no Broken"
+        except Broken as broken:
+            unrun = str(broken)
+        case(
+            "a run from a folder that is no clone is a configuration failure",
+            "is no git clone (" in unrun,
+            unrun,
+        )
+        traced, examined = run_guide(toy_guide(), kit, base | {"GIT_TRACE": "2"})
+        case("a run whose git writes a trace to stderr green", not traced, f"{whats(traced)} ({examined})")
         logged = (root / "kit").exists()
         case(
             "the toy kit is left as it was: the run works on a clone",
