@@ -21,7 +21,8 @@ Beside every block's exit 0, the check holds at each name:
   kernel       the project's docs/constitution/ holds every file of the kit's kernel/, byte for byte.
   dials        not run: written as the project's constitution.yaml, and with it what the reader
                writes by hand, from the check's fixture — one policy per namespace of the dials that
-               claims a territory, the root at `root_policy`, and decision record #1.
+               claims a territory, the root at `root_policy`, and decision record #1, named and placed by
+               the dials' first catalog.
   scan         the block's exit: every scan it runs exits 0.
   commit       the project's working tree is clean.
   update       before it, the check commits a probe file into the first module of its clone; after
@@ -93,7 +94,7 @@ DOES = {
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 MARK = re.compile(r"(?:^|\s)check=(\S*)")
 PROBE = ".install-guide-probe"
-RECORD = "docs/decisions/dec-0001-adopt-constitution-kernel.md"
+RECORD_SLUG = "adopt-constitution-kernel"
 WHY = "a command nobody runs drifts from the platform unseen (rule 4 of plc-0011-install-guide)"
 TIMEOUT = 900
 
@@ -262,7 +263,8 @@ def recorded(config: Path, project: Path) -> set[str]:
 
 def fixture(project: Path, dials: str) -> None:
     """What the reader writes by hand: the dials file, one policy per namespace that claims a
-    territory, the root at `root_policy`, and decision record #1."""
+    territory, the root at `root_policy`, and decision record #1, named and placed by the dials' first
+    catalog."""
     (project / "constitution.yaml").write_text(dials, encoding="utf-8")
     try:
         data = yaml.safe_load(dials)
@@ -283,10 +285,23 @@ def fixture(project: Path, dials: str) -> None:
             f"# The {key} policy\n\nThis policy governs one kind of document.\n",
             encoding="utf-8",
         )
-    record = project / RECORD
+    catalogs = (
+        data.get("const-catalogs", {}).get("catalogs")
+        if isinstance(data.get("const-catalogs"), dict)
+        else None
+    )
+    first = catalogs[0] if isinstance(catalogs, list) and catalogs and isinstance(catalogs[0], dict) else None
+    territory = first.get("territory") if first else None
+    if not (first and isinstance(territory, list) and territory and str(territory[0]).endswith("/**")):
+        raise Broken(
+            "the dials example lists no catalog with a folder territory, so record #1 has no home — "
+            "fix: correct the guide's check=dials block"
+        )
+    stem = f"{first.get('prefix')}-{1:0{int(first.get('width', 4))}d}-{RECORD_SLUG}"
+    record = project / str(territory[0]).removesuffix("/**").lstrip("/") / f"{stem}.md"
     record.parent.mkdir(parents=True, exist_ok=True)
     record.write_text(
-        "---\nid: dec-0001-adopt-constitution-kernel\ntype: task-record\ntitle: Adopt constitution kernel\n"
+        f"---\nid: {stem}\ntype: task-record\ntitle: Adopt constitution kernel\n"
         "status: inactive\nstakes: process\ndecider: the owner\n---\n\n# Adopt constitution kernel\n\n"
         "We adopt the kernel.\n",
         encoding="utf-8",
@@ -527,7 +542,11 @@ else:
     sys.exit(3)
 '''
 
-TOY_DIALS = 'root_policy: docs/policies/root-policy.md\nroot-policy:\n  territory: ["docs/policies/**"]\n'
+TOY_DIALS = (
+    'root_policy: docs/policies/root-policy.md\nroot-policy:\n  territory: ["docs/policies/**"]\n'
+    'records:\n  territory: ["docs/records/**"]\n'
+    'const-catalogs:\n  catalogs:\n    - prefix: rec\n      width: 4\n      territory: ["docs/records/**"]\n'
+)
 
 
 def toy_guide(**replace: str) -> str:
@@ -540,7 +559,8 @@ def toy_guide(**replace: str) -> str:
         'claude plugin install "$(basename "$m")@constitution-kit" --scope project; done',
         "kernel": "mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/",
         "dials": TOY_DIALS.rstrip("\n"),
-        "scan": "test -f constitution.yaml && test -f docs/policies/root-policy.md",
+        "scan": "test -f constitution.yaml && test -f docs/policies/root-policy.md && "
+        "test -f docs/policies/records.md && test -f docs/records/rec-0001-adopt-constitution-kernel.md",
         "commit": 'git add -A && git commit --quiet -m "Adopt the constitution kernel"',
         "update": "claude plugin marketplace update constitution-kit && "
         "for m in ~/dev/constitution-kit/modules/const-*; "

@@ -1,141 +1,87 @@
-# Constitution Kit — Install Guide
+# Constitution Kit
 
-A portable governance layer for Claude Code projects: a one-page semantic kernel plus modules shipped as plugins. This page is the install procedure only. For purpose read `INTENT.md`; for vocabulary read `kernel/CONVENTIONS.md`.
+A portable governance layer for Claude Code projects, shipped as plugins.
 
-**Status today.** The kit ships the kernel, the module template and eleven modules under `modules/`, each a draft at manifest version `0.0.x` until Phase D publishes it (`docs/rollout-plan.md`). No module has had its consumer-live proof yet: the first project's bootstrap is that proof, and a finding there is a fix in the kit. `profiles/` arrives in Phase D. The kit's own tooling — the branch-first commit hook, the agents, the carry audit, the checks under `scripts/` — ships in no module.
+AI sessions write documents, make decisions and change code fast. Without shared rules, every session improvises: documents with no stated authority, decisions lost in chat, a typo and a security ruling priced the same, documents that drift from the code with no owner. The kit installs those rules into any repository, new or existing: a one-page semantic kernel, and modules that guard it, each a Claude Code plugin calibrated by one `constitution.yaml`. The [intent page](INTENT.md) says what the kit is for and what it is not.
 
-## Prerequisites
+## Why it is shaped this way
 
-1. Claude Code installed and authenticated (`claude --version`).
-2. A local clone of this kit, e.g. `~/dev/constitution-kit/`.
-3. The consumer project is a git repository (rollback points live in git).
-4. For the gates: Python 3.12 or newer as `python3` with PyYAML (`python3 -m pip install 'PyYAML>=6.0'`); Vale 3.23.0 or newer for `const-language` and lychee 0.24.2 or newer for `const-referencing` (`brew install vale lychee`). A missing tool stops a gate with exit 1, never a silent pass.
+A heavyweight constitution costs more than the disorder it cures: fixed ceremony for every question, hundreds of rules before the first product decision. The kit takes the middle road ([intent §2](INTENT.md#i2)):
 
-## Part 1 — Install the constitution (kernel) into a project
+- **A minimal core.** One page of vocabulary — the document envelope, three meta-types, governance by territory, stakes, the decision record, dials — and nothing git already records ([the kernel](kernel/CONVENTIONS.md)).
+- **Hard gates only where a check is deterministic.** Everything that needs judgment is advisory and says so ([principle p4](INTENT.md#p4)).
+- **Ceremony scales with stakes.** A routine call is a line in the commit; a `process` ruling is a record and one human yes ([principle p3](INTENT.md#p3)).
+- **Growth only from friction.** A module is added when a failure recurs in real projects, never for a failure nobody has hit ([principle p2](INTENT.md#p2)).
 
-Run from the consumer project root. Commit after each step. Load the modules first (Part 2, step 1), so that no governed document is written unguarded, the kernel copy included — their failures compound with every unguarded file (`docs/rollout-plan.md`, Phase B).
+## How it works
 
-1. **Copy the kernel into the project.**
-   ```bash
-   mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/
-   ```
-   Only the kernel is copied. Module source never lives in a project.
-2. **Check the kernel's envelope.** `docs/constitution/CONVENTIONS.md` ships with its own frontmatter (`id: constitution-kernel`, `type: current-state`, `status: active`), so the kernel is the first document governed by its own rules. Nothing to add; confirm it survived the copy.
-3. **Create the root policy and one policy per document kind.** Markdown documents under `docs/policies/`, each with the kernel envelope: a root policy, the policy for policies, whose territory is `docs/policies/**` including itself; a policy for the kernel copy, `docs/constitution/**` (its id is its own, never [constitution-kernel](kernel/CONVENTIONS.md), which the kernel document already carries and [kernel §1](kernel/CONVENTIONS.md#k1) forbids reusing); a policy for decision records, `docs/decisions/**`. One policy governs exactly one kind, and a policy never lists its documents: the territory does ([kernel §3](kernel/CONVENTIONS.md#k3)). A document is a policy because it sits in the root's territory. Write them yourself; the kit's own policies under `docs/policies/` are examples to read, not to copy, since they cite kit-only rules. Bodies are prose, the kernel specifies no format. Policies are consumer content: never kernel, never shipped by a module.
-4. **Create the dials file** at the repository root. Each policy's territory sits under its id:
-   ```yaml
-   # constitution.yaml
-   root_policy: docs/policies/root-policy.md
-   root-policy:
-     territory: ["docs/policies/**"]
-   kernel-policy:
-     territory: ["docs/constitution/**"]
-   decision-records:
-     territory: ["docs/decisions/**"]
-   const-decision-records:
-     record_policies: [decision-records]   # the gate examines nothing until this names the record policy
-   const-catalogs:
-     catalogs:                             # the gate examines nothing until a catalog is listed
-       - prefix: dec                       # a record is dec-<nnnn>-<slug>, its id the file name without .md
-         width: 4
-         territory: ["docs/decisions/**"]
-   const-task-close:
-     severity: block                       # a dirty tree at turn end is reported once per turn: block asks the model to commit, warn notifies the user
-     coverage: []                          # code territories paired with the documents that describe them; zero pairs examined until written
-   ```
-   The three module namespaces are read only once the module is loaded (Part 2) and are harmless before. Claim nothing else yet: a territory is claimed once its kind has a policy, before the first document rather than after, and never without a policy behind it.
-5. **Write decision record #1** at `docs/decisions/dec-0001-adopt-constitution-kernel.md` — "Adopt constitution kernel", `id` equal to the file name without `.md`, `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). The kit ships no validator for `docs/constitution/schemas/decision-record.schema.json`; the record's fields are checked at write time by the gates of `const-meta-types` and `const-decision-records` once installed (Part 2) — the second only once `record_policies` names the records policy (step 4) — and by their scans afterwards.
-6. **Commit and merge** with one human yes. The kernel is installed.
-
-## Part 2 — Install a module
-
-Each module is one plugin named `const-<aspect>`. Repeat these steps per module. A module must work with zero configuration; steps 2–3 are optional calibration.
-
-### 1. Load the plugin — pick one path
-
-**A. Development path (works now).** Load from your kit clone for one session:
-
-```bash
-claude --plugin-dir ~/dev/constitution-kit/modules/const-<aspect>
+```mermaid
+flowchart TB
+    platform["Claude Code: plugins, skills, hooks, agents"]
+    kernel["Kernel: one page of conventions"]
+    modules["Modules: one plugin each, one invariant each"]
+    project["Your project: constitution.yaml, policies, records"]
+    platform --> kernel --> modules --> project
 ```
 
-Pass the flag once per module. Do not point `--plugin-dir` at the `modules/` folder: on Claude Code below 2.1.265 that loads nothing and prints nothing (check with `claude --version`); the kit will offer the folder form once its CI verifies it on a pinned version.
+1. **Claude Code is the mechanical layer.** The kit never wraps or mirrors the platform's plugins, skills, hooks and agents ([intent §3](INTENT.md#i3)).
+2. **The kernel is the semantic layer.** A project copies it into `docs/constitution/`, and it is the first document its own rules govern.
+3. **Each module is one plugin.** It guards one invariant, depends on the kernel and nothing else, and reads only its own namespace of the project's `constitution.yaml`. It works on an empty repository with its defaults alone.
+4. **The project holds the binding.** Its policies, territories, thresholds, deciders and every governed document are its own; the kit ships none of them.
 
-After editing module source, run `/reload-plugins` inside the session.
+## The modules
 
-**B. Marketplace path.** Register the kit as a marketplace, then install at project scope, which enables it in the project's `.claude/settings.json`:
+Every gate's error message says what failed, why the rule exists, and the exact fix. A gate is deterministic, and red means fix; a skill shapes judgment and checks nothing.
 
-```bash
-claude plugin marketplace add ~/dev/constitution-kit
+| No. | Module | What it holds | Gate | Advisory |
+|---|---|---|---|---|
+| 1 | [`const-meta-types`](docs/requirements.md#const-meta-types) | every document in claimed territory carries the envelope and has exactly one governing policy | at write time and in a scan | choosing a meta-type |
+| 2 | [`const-decision-records`](docs/requirements.md#const-decision-records) | a decision record carries its type, stakes and decider | at write time and in a scan | pricing and recording a decision |
+| 3 | [`const-catalogs`](docs/requirements.md#const-catalogs) | a numbered document's file name, id and number agree, and no number repeats | at write time and in a scan | taking a number, renumbering |
+| 4 | [`const-locations`](docs/requirements.md#const-locations) | a document is born in its canonical home, from its kind's template | none | creating documents, introducing a kind |
+| 5 | [`const-referencing`](docs/requirements.md#const-referencing) | references a machine can follow and a move can repair | at write time and in a scan | citing, anchoring, moving |
+| 6 | [`const-task-close`](docs/requirements.md#const-task-close) | a change to described code updates its documents or declares no impact | a range check; a dirty tree at turn end | closing a task, committing |
+| 7 | [`const-questions`](docs/requirements.md#const-questions) | no open question inside a delivered document | at write time and in a scan | when to ask, and the shape of a question |
+| 8 | [`const-interaction`](docs/requirements.md#const-interaction) | a prompt before a listed destructive command; every list item addressable | a shell hook and a scan | the shape of every reply |
+| 9 | [`const-styling`](docs/requirements.md#const-styling) | one style guide, a departure declared with its reason | a scan | the style defaults |
+| 10 | [`const-language`](docs/requirements.md#const-language) | plain prose under a grade ceiling and a sentence limit | after every write and in a scan | writing plain English |
+| 11 | [`const-doc-budgets`](docs/requirements.md#const-doc-budgets) | a character ceiling per group of documents, set from history | after every write and in a scan | setting a ceiling |
+
+## What a gate says
+
+A write that cites a document by its id in backticks, where a link is required, is refused with this message, from [`const-referencing`](docs/requirements.md#const-referencing):
+
+```text
+RED: INSTALL.md:50: document id 'constitution-kernel' stands in backticks and is no link
+  why: an id names a document that can move: only a link lets a reader reach it and lets a move repair it
+  fix: write [constitution-kernel](kernel/CONVENTIONS.md) — the path from this document to kernel/CONVENTIONS.md
 ```
 
-The marketplace goes to your user settings by default. With `--scope project` it goes to the project's `.claude/settings.json` as a `directory` source holding the clone's absolute path: right for one machine, not for a team. A GitHub-hosted kit registers as `owner/repo` instead of a path. Then, per module:
+The session reads the fix, makes it, and writes again; nobody has to explain the rule.
 
-```bash
-claude plugin install const-<aspect>@constitution-kit --scope project
-```
+## Status
 
-The same two commands work as `/plugin marketplace add …` and `/plugin install …` inside a session. The install copies the module into the plugin cache at its manifest version; a later edit in the kit reaches the project only as Update below says. All eleven at once:
+Eleven modules ship, each a draft at version `0.0.x` until Phase D of the [rollout plan](docs/rollout-plan.md#phase-d) publishes it. The kit is its own first consumer: its own documents, code territories and session conduct run under its modules. No other project has adopted it yet, so the first one's bootstrap is each module's consumer-live proof. CI runs every gate, each module's install on a bare repository, and the install guide's own commands, on every pull request.
 
-```bash
-for m in ~/dev/constitution-kit/modules/const-*; do claude plugin install "$(basename "$m")@constitution-kit" --scope project; done
-```
+## Get started
 
-**C. Team auto-registration.** Commit the marketplace to the project's `.claude/settings.json` so the catalog is added automatically when a teammate trusts the folder. Plugins from an external source, such as a GitHub-hosted kit, still need one `claude plugin install` per person. A repository that holds the marketplace itself — the kit is its own consumer zero — declares it with `{ "source": "directory", "path": "." }` instead and lists each plugin under `enabledPlugins` as `"<name>@constitution-kit": true`; its relative-path plugins then load with no install at all, once the folder is trusted.
+The [install guide](INSTALL.md) bootstraps a new project step by step: the prerequisites, the modules loaded first, the kernel copied, the first policies, the dials file and the first record, then a scan of every module. It also covers installing one module, updating and uninstalling. CI runs its commands on every change to the kit.
 
-```json
-{
-  "extraKnownMarketplaces": {
-    "constitution-kit": {
-      "source": { "source": "github", "repo": "<owner>/constitution-kit" }
-    }
-  }
-}
-```
+## Repository map
 
-### 2. Calibrate (optional)
-
-Add the module's namespace to `constitution.yaml`. The namespace equals the plugin name; the module reads nothing else. Defaults apply when the namespace is absent.
-```yaml
-const-<aspect>:
-  some_dial: value
-```
-Profiles are prewritten `constitution.yaml` files under `profiles/`; copy one instead of writing dials by hand. Three dials switch a check on: `record_policies` of `const-decision-records`, `catalogs` of `const-catalogs`, and `coverage` for the range check of `const-task-close`; the example of Part 1 step 4 writes the first two and leaves the third empty, and each gate says so on every run until then.
-
-### 3. CLAUDE.md pointer (optional)
-
-Only if the module's `MODULE.md` declares one: add the single line given in `modules/const-<aspect>/INSTALL.md` to the project's `CLAUDE.md`. Never more than one line per module.
-
-### 4. Verify
-
-1. `/plugin list` shows `const-<aspect>` enabled (`/plugin` → Errors tab if not).
-2. Skills appear as `/const-<aspect>:<skill>` under `/help`.
-3. Run the module's scan against the project from the project root, as its `INSTALL.md` names it — `sh <plugin root>/scripts/check-<check>.sh --scan`, exit 0 green — and its fixtures: `python3 <plugin root>/tests/run.py`, every item green. The fixtures run on throwaway repositories of their own, never on the project; `const-locations` has no scan and no gate, so only its fixtures run.
-
-### 5. Commit
-
-Commit `constitution.yaml`, `.claude/settings.json`, and any CLAUDE.md line. Note the install in the commit message; routine stakes, no record needed. With `const-task-close` loaded, a turn that ends with uncommitted changes is reported once and the model is asked to commit; a change that touches code named in `coverage` updates the paired document or carries a `No-Doc-Impact: <pair> — <reason>` trailer on one of its commits.
-
-## Update and uninstall
-
-**Update.** Modules are versioned; the consumer bumps by version. Nothing in the consumer repo needs editing when a module updates.
-
-```bash
-claude plugin marketplace update constitution-kit
-```
-
-Then `claude plugin update const-<aspect>@constitution-kit --scope project` and `/reload-plugins`. A draft keeps its version across changes (decision [dec-0053-drafts-keep-their-versions](docs/decisions/dec-0053-drafts-keep-their-versions.md)), and the update command then reports it current even after a kit change (seen on Claude Code 2.1.282). To take such a change, uninstall the module and install it again, or load it with `--plugin-dir`, which reads the clone in place.
-
-**Uninstall.** Remove the plugin, its namespace from `constitution.yaml`, and its CLAUDE.md line. The kernel copy in `docs/constitution/` stays; delete it only by a recorded `process` decision.
-
-```bash
-claude plugin uninstall const-<aspect>@constitution-kit --scope project
-```
+| No. | Path | What it holds |
+|---|---|---|
+| 1 | `kernel/` | the semantic kernel, `CONVENTIONS.md`, and its schemas |
+| 2 | `modules/` | the eleven modules, one plugin each |
+| 3 | `module-template/` | the fixed shape every module fills |
+| 4 | `shared/` | the code every gate shares, linked into each module ([shared/GATE.md](shared/GATE.md)) |
+| 5 | `docs/` | the requirements matrix, the rollout plan, the kit's policies, decision records, research and style guide |
+| 6 | `templates/` | the templates of the kit's own document kinds |
+| 7 | `scripts/` | the kit's own checks and hooks, never shipped in a module |
 
 ## Where to go next
 
-- `kernel/CONVENTIONS.md` — the one page every participant reads.
-- `docs/requirements.md` — traceability matrix and module specifications.
-- `docs/rollout-plan.md` — phases.
-- `module-template/` — how a module is shaped, if you intend to author one.
-- `templates/` — the templates of the kit's own document kinds that live in no territory; the `templates` dial of `const-locations` in `constitution.yaml` names which kind each serves.
+- **To adopt the kit:** the [install guide](INSTALL.md).
+- **To understand it:** the [intent page](INTENT.md), then the [kernel](kernel/CONVENTIONS.md).
+- **To build or change a module:** the session guide, [CLAUDE.md](CLAUDE.md), and the [module template](module-template/MODULE.md).
+- **To see why a rule exists:** the decision records in `docs/decisions/`, each with its options, its reasoning and who decided.
