@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # the carry-lists and range checks read the whole history
+          fetch-depth: 0 # the carry-lists and range checks read the whole history; an install job reads its commit's source there
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -60,6 +60,11 @@ jobs:
       - name: Claude Code, for the bare-repo install
         if: startsWith(matrix.entry, 'install-')
         run: npm install --global --silent "@anthropic-ai/claude-code@2.1.282"
+      - name: Git credentials, so Claude Code can clone the private repository
+        if: startsWith(matrix.entry, 'install-')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh auth setup-git
       - name: Git identity for the fixtures' throwaway repositories
         run: |
           git config --global user.name "gates"
@@ -67,6 +72,12 @@ jobs:
       - name: Run ${{ matrix.entry }}
         env:
           ENTRY: ${{ matrix.entry }}
+          # git's credential helper, set by `gh auth setup-git`, reads the token when Claude Code clones
+          GH_TOKEN: ${{ startsWith(matrix.entry, 'install-') && github.token || '' }}
+          CLAUDE_CODE_PLUGIN_PREFER_HTTPS: ${{ startsWith(matrix.entry, 'install-') && '1' || '' }}
+          # the install jobs install from the GitHub repository and branch of the change — the pull request's
+          # head, or main on a push — the copy a consumer's install writes; a fork the token cannot read fails
+          CONSTITUTION_KIT_INSTALL_FROM: ${{ startsWith(matrix.entry, 'install-') && (github.event_name == 'pull_request' && format('{0}#{1}', github.event.pull_request.head.repo.full_name, github.head_ref) || format('{0}#{1}', github.repository, github.ref_name)) || '' }}
         run: sh scripts/gate-list.sh --run "$ENTRY"
 
   gates:
