@@ -9,9 +9,14 @@ For the module named, in throwaway folders that the check removes:
   2. `claude plugin marketplace add <source>` and `claude plugin install <module>@constitution-kit`,
      the platform's own install, which writes a copy of the plugin into the configuration's cache.
      The source is --from, else the environment's CONSTITUTION_KIT_INSTALL_FROM, else the kit's
-     working folder; the kit's CI names its GitHub remote at the change's branch, `<owner>/<repo>#<branch>`,
-     the copy a consumer runs. With --commit, or CONSTITUTION_KIT_INSTALL_COMMIT, the install must
-     come from that commit, the one whose source the copy is compared with;
+     working folder. The kit's CI names its GitHub remote, `<owner>/<repo>#<branch>` — the pull
+     request's head branch, or main on a push to it — the copy a consumer's install writes; git
+     clones it with the machine's own credentials, which a private remote needs. The working
+     folder, a local-directory marketplace, gives a copy no session runs (shared/GATE.md, limit 3).
+     The copy is compared with the kit's source at the commit the install came from, which Claude
+     Code's install record names (gitCommitSha, on 2.1.282), read from the kit's git history and
+     fetched when absent; an install from a local folder, or one whose record names no commit, is
+     compared with the working folder;
   3. what the kit's source of the module declares, held in that copy: no link of the source
      leads inside the module; every link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
@@ -23,9 +28,9 @@ For the module named, in throwaway folders that the check removes:
 A red is a finding against the module, and so is an install Claude Code refuses; a missing
 `claude` or `git`, or a marketplace the CLI cannot add, is a configuration failure. The run holds
 the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
-Needs no login: plugin install reads no account.
+Needs no Claude account login: plugin install reads none; git needs a private remote's credentials.
 
-Modes:  --module <name> [--from <source>] [--commit <sha>]  check one module of the kit;
+Modes:  --module <name> [--from <source>]  check one module of the kit;
         --self-test      prove step 3 on throwaway source and copy folders, no install: each branch
                          of the link, hooks-file, hook and scan checks red once, a green copy green,
                          and the report of one finding as literal lines with exit 2.
@@ -43,6 +48,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,7 +60,6 @@ DECLARED = re.compile(r"`([a-z][a-z0-9-]*?(?:\.py)?) --scan`")
 WHY = "a module must install and operate on a bare repository with its defaults alone (requirement A12.1)"
 NOTE = "docs/note.md"
 FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
-COMMIT_ENV = "CONSTITUTION_KIT_INSTALL_COMMIT"
 
 
 class Broken(Exception):
@@ -337,25 +342,48 @@ def bare_repository(root: Path) -> Path:
     return repo
 
 
-def installed_path(record: Path, module: str, commit: str) -> Path:
-    """The installed copy's folder, from Claude Code's install record; when a commit is named, the
-    install must have come from it."""
+def installed_entry(record: Path, module: str) -> tuple[Path, str]:
+    """The installed copy's folder and the commit it came from ("" when the record names none),
+    from Claude Code's install record."""
     try:
         entry = json.loads(record.read_text(encoding="utf-8"))["plugins"][f"{module}@{MARKETPLACE}"][0]
-        path, got = Path(entry["installPath"]), entry.get("gitCommitSha")
+        return Path(entry["installPath"]), str(entry.get("gitCommitSha") or "")
     except (OSError, ValueError, KeyError, IndexError, TypeError) as bad:
         raise Broken(
             f"{record} names no install of {module} ({bad}) — fix: check the Claude Code version"
         ) from bad
-    if commit and got != commit:
-        raise Broken(
-            f"the install came from commit {got}, not {commit} — fix: the branch moved during the run;"
-            " run the job again"
+
+
+def source_at(commit: str, module: str, root: Path) -> Path:
+    """The kit's source of the module at a commit — its folder and the shared code its links reach —
+    read from git history into a folder under root, the commit fetched when the clone lacks it."""
+    env = os.environ.copy()
+    code, _, _ = run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], KIT, env)
+    if code != 0:
+        code, out, err = run(["git", "fetch", "-q", "origin", commit], KIT, env)
+        if code != 0:
+            raise Broken(
+                f"commit {commit} is not in the kit's history and cannot be fetched ({last_line(out, err)})"
+                " — fix: run the check from a clone that holds it"
+            )
+    try:
+        done = subprocess.run(
+            ["git", "archive", "--format=tar", commit, f"modules/{module}", "shared"],
+            cwd=KIT,
+            capture_output=True,
+            check=True,
         )
-    return path
+    except subprocess.CalledProcessError as bad:
+        raise Broken(
+            f"git archive of {commit} failed ({bad.stderr.decode().strip()}) — fix: check the commit"
+        ) from bad
+    target = root / "source"
+    with tarfile.open(fileobj=io.BytesIO(done.stdout)) as archive:
+        archive.extractall(target, filter="data")
+    return target / "modules" / module
 
 
-def install(module: str, root: Path, repo: Path, source: str, commit: str) -> Path:
+def install(module: str, root: Path, repo: Path, source: str) -> tuple[Path, str]:
     config = root / "config"
     config.mkdir()
     env = os.environ | {"CLAUDE_CONFIG_DIR": str(config)}
@@ -369,17 +397,17 @@ def install(module: str, root: Path, repo: Path, source: str, commit: str) -> Pa
     code, out, err = run(["claude", "plugin", "install", f"{module}@{MARKETPLACE}"], repo, env)
     if code != 0:
         raise Refused(last_line(out, err) if out or err else f"exit {code}")
-    return installed_path(config / "plugins" / "installed_plugins.json", module, commit)
+    return installed_entry(config / "plugins" / "installed_plugins.json", module)
 
 
-def check_module(module: str, source: str, commit: str) -> list[Finding]:
+def check_module(module: str, source: str) -> list[Finding]:
     if not (KIT / "modules" / module / ".claude-plugin" / "plugin.json").is_file():
         raise Broken(f"no module {module} in the kit — fix: name a folder under modules/ that holds a plugin")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         repo = bare_repository(root)
         try:
-            plugin = install(module, root, repo, source, commit)
+            plugin, commit = install(module, root, repo, source)
         except Refused as refused:
             return [
                 Finding(
@@ -389,7 +417,9 @@ def check_module(module: str, source: str, commit: str) -> list[Finding]:
                 )
             ]
         (root / "data").mkdir()
-        return check_installed(module, KIT / "modules" / module, plugin, repo, root / "data")
+        local = Path(source).exists()  # a local folder is copied as it stands, uncommitted edits included
+        kit_source = KIT / "modules" / module if local or not commit else source_at(commit, module, root)
+        return check_installed(module, kit_source, plugin, repo, root / "data")
 
 
 def report(module: str, findings: list[Finding], examined: str) -> int:
@@ -571,19 +601,26 @@ def self_test() -> int:
         record = Path(tmp) / "installed_plugins.json"
         entry = {"installPath": "/cache/const-x/0.0.1", "gitCommitSha": "abc"}
         record.write_text(json.dumps({"plugins": {f"const-x@{MARKETPLACE}": [entry]}}), encoding="utf-8")
-        ok = installed_path(record, "const-x", "abc") == Path("/cache/const-x/0.0.1")
-        ok = ok and installed_path(record, "const-x", "") == Path("/cache/const-x/0.0.1")
-        try:
-            installed_path(record, "const-x", "def")
-            ok = False
-        except Broken as broken:
-            ok = ok and "came from commit abc, not def" in str(broken) and "fix:" in str(broken)
+        ok = installed_entry(record, "const-x") == (Path("/cache/const-x/0.0.1"), "abc")
+        del entry["gitCommitSha"]
+        record.write_text(json.dumps({"plugins": {f"const-x@{MARKETPLACE}": [entry]}}), encoding="utf-8")
+        ok = ok and installed_entry(record, "const-x") == (Path("/cache/const-x/0.0.1"), "")
     failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] an install from another commit than the one named"
-        " is a teaching BROKEN line"
-    )
-    total = len(cases) + 2
+    print(f"[{'ok' if ok else 'FAIL'}] the install record gives the copy's folder and its commit, or none")
+    with tempfile.TemporaryDirectory() as tmp:  # the kit's own history: the source at the commit checked out
+        head = run(["git", "rev-parse", "HEAD"], KIT, os.environ.copy())[1]
+        root = Path(tmp).resolve()
+        extracted = source_at(head, "const-meta-types", root)
+        ok = extracted == root / "source" / "modules" / "const-meta-types"
+        ok = (
+            ok and (extracted / "MODULE.md").is_file() and (extracted / "scripts" / "const_gate").is_symlink()
+        )
+        ok = ok and (extracted / "scripts" / "const_gate").resolve().is_relative_to(
+            root / "source" / "shared"
+        )
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
+    total = len(cases) + 3
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
@@ -594,14 +631,10 @@ def main(argv: list[str]) -> int:
     group.add_argument("--module")
     group.add_argument("--self-test", action="store_true")
     parser.add_argument("--from", dest="source")
-    parser.add_argument("--commit")
     try:
         args = parser.parse_args(argv)
     except SystemExit:
-        print(
-            "BROKEN: misinvocation — fix: run with --module <name> [--from <source>] [--commit <sha>],"
-            " or with --self-test"
-        )
+        print("BROKEN: misinvocation — fix: run with --module <name> [--from <source>], or with --self-test")
         print("BROKEN: the check could not run — 0 modules examined")
         return EXIT_BROKEN
     try:
@@ -612,8 +645,7 @@ def main(argv: list[str]) -> int:
         links = sum(1 for p in plugin.rglob("*") if p.is_symlink())
         examined = f"{len(hooks_of(plugin))} hook(s), {len(declared_scans(plugin))} scan(s), {links} link(s)"
         source = args.source or os.environ.get(FROM_ENV) or str(KIT)
-        commit = args.commit or os.environ.get(COMMIT_ENV) or ""
-        return report(module, check_module(module, source, commit), f"{examined}, from {source}")
+        return report(module, check_module(module, source), f"{examined}, from {source}")
     except Broken as broken:
         print(f"BROKEN: {broken}")
         print("BROKEN: the check could not run — 0 modules examined")

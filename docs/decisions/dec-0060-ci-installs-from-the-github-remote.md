@@ -35,9 +35,9 @@ C, chosen by the decider in chat on 2026-10-01.
 
 ## Ruling
 
-**R1.** In the kit's CI, each `install-<module>` job installs the module from the kit's GitHub remote at the change's branch, `<repository>#<branch>` — the pull request's head branch, or `main` on a push to it — over HTTPS, with git credentials set from the job's own token. Run by hand, the check installs from the working folder. `scripts/check-bare-install.py` takes the source from `--from`, else from `CONSTITUTION_KIT_INSTALL_FROM`, else the working folder.
+**R1.** In the kit's CI, each `install-<module>` job installs the module from the kit's GitHub remote, `<repository>#<branch>` — the pull request's head branch, or `main` on a push to it — over HTTPS, with git credentials set from the job's own token; Claude Code needs no account login. A pull request from a fork has no branch in the repository, so its install jobs cannot run. Run by hand, the check installs from the working folder. `scripts/check-bare-install.py` takes the source from `--from`, else from `CONSTITUTION_KIT_INSTALL_FROM`, else the working folder.
 
-**R2.** The install must come from the commit under test: the job checks out the change's head commit, and the check, given that commit by `--commit` or `CONSTITUTION_KIT_INSTALL_COMMIT`, is a configuration failure when the install record names another — the branch moved during the run, and the job is run again.
+**R2.** The installed copy is compared with the kit's source at the commit the install came from, which Claude Code's install record names, read from the kit's git history and fetched when the clone lacks it. A branch that moves during a run then changes nothing: the copy is held against its own commit, and the newer commit has a run of its own. An install from a local folder, or one whose record names no commit, is compared with the working folder.
 
 **R3.** R1 replaces the local-directory marketplace of R1 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md) in CI, and so its R4's "R1 holds that copy on every run": the local-directory copy was observed on 2026-10-01 and is not held since. The first install of the two-install proof of rollout step 10, from the git remote, is held by R1 on every run.
 
@@ -49,6 +49,6 @@ The change that adds this record applies every item that binds: the script and t
 
 ## Carry list
 
-1. R1, R2 — [the install check](../../scripts/check-bare-install.py); [the workflow](../../.github/workflows/gates.yml); [requirement A12.1](../requirements.md#a12-1).
+1. R1, R2 — [the install check](../../scripts/check-bare-install.py); [the workflow](../../.github/workflows/gates.yml); [requirement A12.1](../requirements.md#a12-1); step 5 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md).
 2. R3 — limit 3 of [kit-shared-gate-code §4](../../shared/GATE.md#g4); the narrowing of dec-0059's R1 and R4 is history.
 3. R4 — pending: [rollout step 10](../rollout-plan.md#s10).
