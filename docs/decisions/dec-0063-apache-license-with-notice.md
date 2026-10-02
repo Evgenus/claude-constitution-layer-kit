@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[Step 10 of the rollout plan](../rollout-plan.md#s10) makes the kit's repository public and left the license to be decided before that. Until this record the tree held no license file. Five module manifests and the template's manifest named `MIT`, a placeholder the template carried and no ruling chose; six manifests named no license and no author.
+[Step 10 of the rollout plan](../rollout-plan.md#s10) makes the kit's repository public after the first consumer project's live proof. R1 of [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md) put two decisions at that step: the license, and whether the author's email stays in the history. The decider asked for the license ahead of it, in chat on 2026-10-02. Until this record the tree held no license file. Five module manifests and the template's manifest named `MIT`, a placeholder the template carried and no ruling chose; six manifests named no license and no author.
 
 The decider stated two wishes in chat on 2026-10-02: the credit is kept, and no profit is needed. So every option below requires attribution and allows commercial use. The options differ in how strong the credit is, and in how well they fit a tree that is part prose and part scripts.
 
@@ -40,7 +40,7 @@ B, by the decider, in chat on 2026-10-02. The decider picked the license. The se
 
 ## Ruling
 
-**R1.** The kit is under the Apache License, Version 2.0. It is one license for the whole tree, documents and code alike. Its text is `LICENSE` at the kit's root, and no file carries a license header.
+**R1.** The kit is under the Apache License, Version 2.0. It is one license for the whole tree, documents and code alike. Its text is `LICENSE` at the kit's root, and no file takes a license header.
 
 **R2.** `NOTICE` at the kit's root carries the credit: the kit's name, the copyright line with the author's name, and the address of the kit's repository. It holds no email address.
 
@@ -49,6 +49,8 @@ B, by the decider, in chat on 2026-10-02. The decider picked the license. The se
 **R4.** The install guide tells a project what the license asks of its kernel copy. A project that passes the copy on to others keeps a copy of `LICENSE` and of `NOTICE` beside it, and says in each kernel file it changed that it changed it.
 
 **R5.** Whether the author's email stays in the history is not ruled here. It stays a decision of the plan's step 10, made before the repository is public.
+
+**R6.** The license is decided by this record, ahead of the step that makes the repository public. This reverses one part of R1 of [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md): that the license is decided at that step. The rest of that item stands.
 
 ## Applied
 
@@ -61,3 +63,4 @@ The commit that creates this record applies R1 to R4: it adds `LICENSE` and `NOT
 3. R3 — step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the template's manifest](../../module-template/.claude-plugin/plugin.json).
 4. R4 — [the install guide](../../INSTALL.md#s2), step 4 of its bootstrap.
 5. R5 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the decision on the author's email.
+6. R6 — history only: the reversal of when the license is decided, a one-time act; the license itself is R1's.
