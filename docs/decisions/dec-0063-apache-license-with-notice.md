@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 [Step 10 of the rollout plan](../rollout-plan.md#s10) makes the kit's repository public after the first consumer project's live proof. R1 of [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md) put two decisions at that step: the license, and whether the author's email stays in the history. The decider asked for the license ahead of it, in chat on 2026-10-02. Until this record the tree held no license file. Five module manifests and the template's manifest named `MIT`, a placeholder the template carried and no ruling chose; six manifests named no license and no author.
 
-The record answers three questions, each put in chat on 2026-10-02 with lettered options, the pick a letter: which license, how its two files reach a project's kernel copy, and whether an installed module carries them.
+The record answers three questions, each put in chat on 2026-10-02 with lettered options, the pick a letter: which license, in section 1; how its two files reach a project's kernel copy, in section 2; and whether an installed module carries them, in section 4. Section 3 holds two items where no choice existed.
 
 ## 1. Which license the kit takes
 
@@ -77,7 +77,7 @@ A module never lands in a project's repository: an install copies it into the pl
   - **Cons:** a module's folder passed on alone carries neither file; whoever passes it on takes both from the root.
 - **B. Each module links to the root files.** Two relative links in every module, as a module links the shared gate code.
   - **Pros:** one source; an install turns a link inside the marketplace into a real file, which the kit's CI already holds for every link of a module.
-  - **Cons:** twenty-two links and the template's; the link check, its fixture and the shared-code document change; a folder copied by hand from a clone gets two dangling links.
+  - **Cons:** twenty-two links and the template's; the link check, its fixture and the shared-code document change; the install check reads only a module's folder and the shared code from history, so it would have to read the root files too; a folder copied by hand from a clone gets two dangling links.
 - **C. Each module holds real copies.** Both files in every module, held equal to the root by a new check.
   - **Pros:** a module's folder is whole however it is copied.
   - **Cons:** the license text exists twelve times; a new check to build.
@@ -92,7 +92,7 @@ A module never lands in a project's repository: an install copies it into the pl
 
 ## Applied
 
-The change that creates this record applies R1 to R4, R7 and R8. It adds `LICENSE` and `NOTICE`, and sets the two fields in the eleven manifests and the license in the template's; the template's was set in a later commit of the change than the record's first. It adds the sentences to `CLAUDE.md`, to the install guide and to the module template. The guide's kernel block copies the two files, and `scripts/check-install-guide.py` holds them there, with a case of its `--self-test` for a copy that leaves them out. The text of `LICENSE` is the one GitHub's license API gives for `apache-2.0`. The README gains a section "License", a routine edit of a page in no territory. The plan's step 10 marks the license done. So the record is `inactive`.
+The change that creates this record applies R1 to R4, R7 and R8. It adds `LICENSE` and `NOTICE`, and sets the license in the eleven manifests, the author in the six that had none, and the license in the template's; the template's was set in a later commit of the change than the record's first. It adds the sentences to `CLAUDE.md`, to the install guide and to the module template. The guide's kernel block copies the two files, and `scripts/check-install-guide.py` holds them there, with a case of its `--self-test` for a copy that leaves them out. The text of `LICENSE` is the one GitHub's license API gives for `apache-2.0`. The README gains a section "License", a routine edit of a page in no territory. The plan's step 10 marks the license done. So the record is `inactive`.
 
 ## Carry list
 
