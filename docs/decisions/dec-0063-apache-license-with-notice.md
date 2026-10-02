@@ -54,7 +54,7 @@ B, by the decider, in chat on 2026-10-02. The decider picked the license. The se
 
 ## Applied
 
-The change that creates this record applies R1 to R4: it adds `LICENSE` and `NOTICE`, sets the two fields in the eleven manifests and the license in the template's, and adds the sentences to `CLAUDE.md` and to the install guide. The text of `LICENSE` is the one GitHub's license API gives for `apache-2.0`. The README gains a section "License", a routine edit of a page in no territory. The plan's step 10 marks the license done. So the record is `inactive` from its first commit.
+The change that creates this record applies R1 to R4: it adds `LICENSE` and `NOTICE`, sets the two fields in the eleven manifests and the license in the template's, and adds the sentences to `CLAUDE.md` and to the install guide. The text of `LICENSE` is the one GitHub's license API gives for `apache-2.0`. The README gains a section "License", a routine edit of a page in no territory. The plan's step 10 marks the license done. So the record is `inactive`.
 
 ## Carry list
 
