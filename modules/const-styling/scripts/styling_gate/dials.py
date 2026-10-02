@@ -5,31 +5,26 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from const_gate import identity
-from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
+from const_gate.dials import LOG_DIR_KEY, refuse_unknown_keys, refuse_unreadable_patterns, texts
 from const_gate.errors import ConfigurationFailure
 from const_gate.messages import echoed
 
 from . import messages
 from .model import DEFAULT_TERRITORIES, Departure, Signature, StylingDials
 
-KEYS = (
-    "log_dir",
-    "territories",
-    "guides",
-    "departures",
-)  # the first is every gate's, read by the shared code
+KEYS = (LOG_DIR_KEY, "territories", "guides", "departures")  # no severity: the gate blocks nothing
 ENTRY_KEYS = ("paths", "allow", "reason")
 
 
 def parse(own: Mapping[str, object]) -> StylingDials:
     refuse_unknown_keys(own, KEYS)
     namespace = identity.current().namespace
-    territories = _texts(own.get("territories", list(DEFAULT_TERRITORIES)))
+    territories = texts(own.get("territories", list(DEFAULT_TERRITORIES)))
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
     refuse_unreadable_patterns(f"{namespace}.territories", territories)
     raw_guides = own.get("guides", [])
-    guides = _texts(raw_guides) if raw_guides != [] else ()
+    guides = texts(raw_guides) if raw_guides != [] else ()
     if raw_guides != [] and not guides:
         raise ConfigurationFailure(messages.c5_guides())
     refuse_unreadable_patterns(f"{namespace}.guides", guides)
@@ -56,13 +51,13 @@ def _departures(value: object) -> tuple[Departure, ...]:
             raise ConfigurationFailure(
                 messages.c5_departure(index, f"'{echoed(unknown[0])}' is no field of an entry")
             )
-        paths = _texts(item.get("paths"))
+        paths = texts(item.get("paths"))
         if not paths:
             raise ConfigurationFailure(
                 messages.c5_departure(index, "paths must be a non-empty list of path patterns")
             )
         refuse_unreadable_patterns(f"{identity.current().namespace}.departures entry {index} paths", paths)
-        allow = _texts(item.get("allow"))
+        allow = texts(item.get("allow"))
         if not allow:
             raise ConfigurationFailure(
                 messages.c5_departure(index, "allow must be a non-empty list of signature keys")
@@ -80,13 +75,6 @@ def _departures(value: object) -> tuple[Departure, ...]:
             )
         entries.append(Departure(paths, tuple(Signature(key) for key in allow), str(reason).strip()))
     return tuple(entries)
-
-
-def _texts(value: object) -> tuple[str, ...]:
-    """The non-empty strings of a list; empty when the value is no such list."""
-    if not isinstance(value, list) or not all(isinstance(t, str) and t.strip() for t in value):
-        return ()
-    return tuple(str(t) for t in value)
 
 
 def _reason(value: object) -> bool:

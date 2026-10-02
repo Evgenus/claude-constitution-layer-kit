@@ -14,7 +14,7 @@ from const_gate.dials import load_dials
 from const_gate.errors import ConfigurationFailure
 from const_gate.output import Output
 from const_gate.pipeline import ScanTarget
-from const_gate.repository import first_line, git, list_markdown, read_text, repo_root
+from const_gate.repository import first_line, git, is_markdown, list_markdown, read_text, repo_root
 from const_gate.territory import Matcher
 
 from . import dials as own_dials
@@ -66,7 +66,7 @@ def act(output: Output, request: Request, closing: Closing) -> int:
     with Matcher() as matcher:  # asked again: the moved document lies elsewhere now
         covered = modes.covered_documents(matcher, dials, target, list_markdown(root)) or []
     # the moved document's own links are repaired wherever it went, covered there or not
-    repaired = [*covered, *([new] if _is_markdown(new) and new not in covered else [])]
+    repaired = [*covered, *([new] if is_markdown(new) and new not in covered else [])]
     texts = {rel: text for rel in repaired if (text := _read(root, rel, output)) is not None}
     files = links = 0
     ids = modes.ids_of(texts) if request.ids else None
@@ -137,10 +137,6 @@ def _list_mentions(output: Output, root: Path, covered: Sequence[str], old: str,
     return listed
 
 
-def _is_markdown(rel: str) -> bool:
-    return rel.lower().endswith(".md")
-
-
 def _within(root: Path, given: str) -> str:
     path = Path(os.path.abspath(given))
     parent = (
@@ -164,7 +160,7 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
         raise ConfigurationFailure(messages.v5_not_listed(old))
     if (root / old).is_symlink():
         raise ConfigurationFailure(messages.v5_is_a_link(old))
-    if _is_markdown(old) and not _is_markdown(new):
+    if is_markdown(old) and not is_markdown(new):
         raise ConfigurationFailure(messages.v5_leaves_markdown(old, new))
     # where the file system ignores case, a new name in another case "exists": it is the file itself
     renamed_in_case = (

@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from const_gate.dials import refuse_unknown_keys
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys
 
-KEYS = ("severity", "log_dir")
+KEYS = GATE_KEYS
 
 
 def parse(own: Mapping[str, object]) -> None:

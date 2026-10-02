@@ -7,6 +7,7 @@ import re
 from collections.abc import Sequence
 
 from const_gate.envelope import ID_RE
+from const_gate.repository import is_markdown
 
 from .model import HomeClass, HomeRule
 
@@ -34,7 +35,7 @@ def rule_of(patterns: Sequence[str]) -> HomeRule:
     if (
         parts.count("*") == 1
         and parts[-1] != "*"
-        and parts[-1].lower().endswith(".md")
+        and is_markdown(parts[-1])
         and all(part and GLOB.search(part) is None for part in literal)
     ):
         at = parts.index("*")

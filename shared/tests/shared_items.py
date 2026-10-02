@@ -20,9 +20,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from const_gate import messages, preflight
-from const_gate.model import Broken, Finding
+from const_gate import messages, pipeline, preflight
+from const_gate.model import Broken, Finding, SharedKey
 from const_gate.output import ROTATE_AT, log_name
+from const_gate.repository import list_markdown
 from consumer import ROOT_POLICY
 from harness import (
     Assertion,
@@ -215,7 +216,18 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             ({"territory_dialect": ""}, messages.c5_dialect_empty()),
             ({"notes-policy": "docs/notes/**"}, messages.c5_namespace_not_mapping("notes-policy")),
             ({"notes-policy": {"territory": "docs/notes/**"}}, messages.c5_territory_shape("notes-policy")),
+            # a list holding a blank string is no list of non-empty strings
+            (
+                {"notes-policy": {"territory": ["docs/notes/**", " "]}},
+                messages.c5_territory_shape("notes-policy"),
+            ),
             (s.own(log_dir="/absolute/logs"), messages.c5_log_dir()),
+            # a path that leaves the repository by `..`, written plain or after a step down
+            ({"root_policy": "../root.md"}, messages.c5_root_policy_path()),
+            ({"root_policy": "docs/../../root.md"}, messages.c5_root_policy_path()),
+            (s.own(log_dir="../logs"), messages.c5_log_dir()),
+            (s.own(log_dir="logs/../../logs"), messages.c5_log_dir()),
+            ({"root_policy": " "}, messages.c5_root_policy_path()),
         ]
         results = [broken(s.gate_on(s.valid, dials_patch=patch)[0], failure) for patch, failure in pairs]
         failed = [evidence for ok, evidence in results if not ok]
@@ -833,6 +845,39 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             else f"exit {result.code}; {len(lines)} lines; {result.stderr[:300]}"
         )
 
+    def file_named_md() -> tuple[bool, str]:
+        """A file named just `.md` is Markdown to the hook as to the scan, which lists it: the hook
+        does not skip it for its ending."""
+        result, root = s.gate_on(Write(".md", NO_ENVELOPE))
+        said = result.stdout + result.stderr
+        (root / ".md").write_text(NO_ENVELOPE, encoding="utf-8")  # the hook never applied the write
+        listed = ".md" in list_markdown(root)  # what the scan examines
+        ok = "is not a .md file" not in said and "BROKEN:" not in said and listed
+        return ok, (
+            "the hook examines a file named .md, as the scan does"
+            if ok
+            else f"listed by the scan: {listed}; the hook said: {said[:400]}"
+        )
+
+    def cap_keeps_the_first() -> tuple[bool, str]:
+        """The findings a hook shows after one write: the first always, however long; then while the
+        text fits 8,000 characters; never more than `most` — each number typed by hand."""
+
+        def finding(size: int) -> Finding:  # renders as 3 lines: its headline carries the size
+            return Finding(SharedKey.C5, "h" * size, "w", "f")
+
+        big, small = finding(9_000), finding(3_000)  # renders 9,000+ and 3,000+ characters
+        checks = [
+            (pipeline.within_the_cap([big]) == [big], "a first finding over the cap is still shown"),
+            (pipeline.within_the_cap([big, small]) == [big], "nothing follows it"),
+            (pipeline.within_the_cap([small, small]) == [small, small], "6,000 characters fit"),
+            (pipeline.within_the_cap([small, small, small]) == [small, small], "the third is past 8,000"),
+            (pipeline.within_the_cap([small] * 3, most=1) == [small], "`most` stops it at one"),
+            (pipeline.within_the_cap([]) == [], "no finding, none shown"),
+        ]
+        failed = [what for ok, what in checks if not ok]
+        return not failed, "; ".join(failed) or "the first always, then what fits, never more than `most`"
+
     def pattern_in_own_dial_is_one_line() -> tuple[bool, str]:
         """A pattern git would read as a comment, in a dial of the module's own, a page long: C5.7
         naming the dial as it is written — no policy's `.territory` after it — on one line, the pattern
@@ -961,6 +1006,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "C5.7: a pattern git would misread in a dial of the module's own is one line, naming it",
             pattern_in_own_dial_is_one_line,
         ),
+        ("a file named just .md is Markdown to the hook as to the scan", file_named_md),
+        (
+            "the findings shown after a write: the first always, then what fits, never more than most",
+            cap_keeps_the_first,
+        ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
     # that resolves no policy leaves gaps where the items about policies stand.
@@ -996,6 +1046,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         byte_order_mark,
         negated_pattern,
         document_unreadable,
+        file_named_md,
     }
     # A gate wired to Stop examines a repository, never a written file: these items are a tool gate's.
     about_files = {
@@ -1007,6 +1058,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         byte_order_mark,
         negated_pattern,
         deeply_nested_envelope,
+        file_named_md,
     }
     # A gate wired to Stop never reaches git's file list, the territory's scratch repository or its
     # check-ignore, nor reads a document the scan lists: these items are a tool gate's.
@@ -1026,6 +1078,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         edit_empty_old_string,
         severity_warn,
         negated_pattern,
+        file_named_md,
     }
     return [
         Assertion(first + n, title, check)

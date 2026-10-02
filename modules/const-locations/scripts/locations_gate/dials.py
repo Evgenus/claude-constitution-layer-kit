@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 
-from const_gate.dials import refuse_unknown_keys
+from const_gate.dials import LOG_DIR_KEY, refuse_unknown_keys, relative_path
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
 from .model import LocationsDials
 
-KEYS = ("log_dir", "templates")  # log_dir is every gate's, read by the shared code
+KEYS = (LOG_DIR_KEY, "templates")  # no severity: the generator blocks nothing
 ENTRY_KEYS = ("policy", "template")
 
 
@@ -50,7 +49,7 @@ def _entry(position: int, entry: object, seen: Mapping[str, str]) -> dict[str, s
         values[key] = found
     if values["policy"] in seen:
         raise refuse(messages.entry_repeated(values["policy"]))
-    path = values["template"]
-    if os.path.isabs(path) or ".." in os.path.normpath(path).split(os.sep):
+    path = relative_path(values["template"])
+    if path is None:
         raise refuse(messages.entry_outside())
-    return {values["policy"]: os.path.normpath(path).replace(os.sep, "/")}
+    return {values["policy"]: path}

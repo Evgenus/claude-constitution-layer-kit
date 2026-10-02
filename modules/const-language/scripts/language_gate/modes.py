@@ -26,10 +26,6 @@ from . import messages, rules, vale
 from .model import Hit, LanguageDials, Level, Rule
 from .prepare import prepare
 
-SHOWN_CHARACTERS = (
-    8000  # the findings printed after one write fit in this: the platform cuts a hook's text at 10,000
-)
-
 
 @dataclass(frozen=True, slots=True)
 class Verdict:
@@ -55,7 +51,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     verdict = examine({rel: target.text}, dials, allowed)
     if not verdict.findings:
         return pipeline.green_hook(output, messages.g1_covered(), verdict.notes, target.event_name)
-    shown = _within_the_cap(verdict.findings)
+    shown = pipeline.within_the_cap(verdict.findings)
     count = (
         messages.f9_cut(len(verdict.findings), len(shown), rel)
         if len(shown) < len(verdict.findings)
@@ -148,18 +144,3 @@ def _judge(rel: str, hit: Hit, lines: Sequence[str], dials: LanguageDials) -> Fi
     if dials.levels[hit.rule] is Level.WARNING:
         return messages.n2_warning(rel, hit.rule, found)
     return found
-
-
-def _within_the_cap(findings: Sequence[Finding]) -> Sequence[Finding]:
-    """The first findings that fit: no more characters than leave the count line inside what the
-    platform passes on — it cuts a hook's text at 10,000 characters, from the end, where the count
-    stands. A finding renders far under the cap, its echoes being cut at 80 characters, so the first
-    always fits."""
-    shown: list[Finding] = []
-    size = 0
-    for finding in findings:
-        size += len(finding.render()) + 1
-        if size > SHOWN_CHARACTERS:
-            break
-        shown.append(finding)
-    return shown

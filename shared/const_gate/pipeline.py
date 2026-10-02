@@ -18,7 +18,7 @@ from .errors import ConfigurationFailure
 from .events import document_after_write, read_event
 from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, STOP, Dials, Finding, Severity, SkipKind
 from .output import Output, log_name
-from .repository import is_ignored, read_text, repo_root
+from .repository import is_ignored, is_markdown, read_text, repo_root
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +72,7 @@ def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
     if not path.is_absolute():
         path = Path(event.cwd or os.getcwd()) / path
     path = Path(os.path.realpath(path))
-    if path.suffix.lower() != ".md":
+    if not is_markdown(path.name):
         return Skip(messages.g1_skip_not_markdown(str(path)), SkipKind.NOT_MARKDOWN, str(path))
     root = repo_root(path)
     if root is None:
@@ -168,6 +168,24 @@ def green_event(output: Output, line: str, notes: Sequence[str] = ()) -> int:
         output.out(note)
     output.out(messages.g1_green_event(line))
     return EXIT_GREEN
+
+
+SHOWN_CHARACTERS = 8000  # the platform cuts a hook's text at 10,000 from the end, where the count line
+# stands (limit 14 of the shared limits): the findings keep what the count line and the closing note leave
+
+
+def within_the_cap(findings: Sequence[Finding], most: int | None = None) -> Sequence[Finding]:
+    """The first findings that fit: at most `most` of them when it is given, and no more characters
+    than SHOWN_CHARACTERS. The first is always shown, however long, so that a verdict with a finding
+    never shows none."""
+    shown: list[Finding] = []
+    size = 0
+    for finding in findings[:most]:
+        size += len(finding.render()) + 1
+        if size > SHOWN_CHARACTERS and shown:
+            break
+        shown.append(finding)
+    return shown
 
 
 def report_hook(

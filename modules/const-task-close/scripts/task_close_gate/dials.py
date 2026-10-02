@@ -7,13 +7,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from const_gate import identity
-from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns, relative_path
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
 from .model import DEFAULT_KEY, DEFAULT_TRUNK, KEY_RE, NAME_RE, Pair, TaskCloseDials
 
-KEYS = ("severity", "log_dir", "coverage", "trunk", "declaration_key", "working_files")
+KEYS = (*GATE_KEYS, "coverage", "trunk", "declaration_key", "working_files")
 PAIR_KEYS = {"name", "code", "docs"}
 
 
@@ -78,19 +78,18 @@ def _patterns(value: object) -> tuple[str, ...] | None:
 
 
 def _paths(value: object) -> tuple[str, ...] | None:
-    """Repository-relative paths, normalised to forward slashes with no leading './'. A trailing
-    slash is kept as written, so that the caller can refuse it as a directory."""
+    """Repository-relative paths, trimmed and normalised by the shared `relative_path`. A trailing
+    slash is kept, so that the caller can refuse it as a directory."""
     patterns = _patterns(value)
     if patterns is None:
         return None
     paths: list[str] = []
     for path in patterns:
-        clean = path.strip().replace("\\", "/")
-        while clean.startswith("./"):
-            clean = clean[2:]
-        if clean.startswith("/") or ".." in clean.split("/") or not clean:
+        written = path.strip()
+        clean = relative_path(written)
+        if clean is None:
             return None
-        paths.append(clean)
+        paths.append(clean + "/" if written.endswith("/") else clean)
     return tuple(paths)
 
 

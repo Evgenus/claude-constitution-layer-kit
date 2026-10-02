@@ -6,15 +6,14 @@ import re
 from collections.abc import Mapping
 
 from const_gate import identity
-from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
 from .model import DEFAULT_TERRITORIES, Lane, Mention, ReferencingDials, Switch
 
 KEYS = {
-    "severity",
-    "log_dir",
+    *GATE_KEYS,
     "territories",
     "governed_only",
     "heading_anchors",
@@ -22,7 +21,7 @@ KEYS = {
     "local_paths",
     "lanes",
     "mentions",
-}  # the first two are every gate's, read by the shared code
+}
 LANE_KEYS = {"pattern", "names", "fix", "home"}
 MENTION_KEYS = {"pattern", "files"}
 

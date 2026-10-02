@@ -9,19 +9,14 @@ import re
 from collections.abc import Callable, Mapping
 
 from const_gate import identity
-from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns, texts
 from const_gate.errors import ConfigurationFailure
 from const_gate.messages import echoed
 
 from . import messages
 from .model import WINDOW_DAYS, BudgetDials, Ceiling, Departure, Level, Window
 
-KEYS = (
-    "severity",
-    "log_dir",
-    "ceilings",
-    "departures",
-)  # the first two are every gate's, read by the shared code
+KEYS = (*GATE_KEYS, "ceilings", "departures")
 CEILING_KEYS = ("name", "paths", "max", "level", "window")
 WINDOW_KEYS = ("from", "to")
 DEPARTURE_KEYS = ("paths", "allow", "reason")
@@ -64,7 +59,7 @@ def _ceiling(index: int, item: object) -> Ceiling:
     name = item.get("name")
     if not isinstance(name, str) or not KEBAB.fullmatch(name):
         raise bad("name must be a kebab-case name, such as records")
-    paths = _texts(item.get("paths"))
+    paths = texts(item.get("paths"))
     if not paths:
         raise bad("paths must be a non-empty list of path patterns")
     refuse_unreadable_patterns(f"{identity.current().namespace}.ceilings entry {index} paths", paths)
@@ -125,11 +120,11 @@ def _departures(value: object, names: list[str]) -> tuple[Departure, ...]:
         unknown = sorted(str(key) for key in item if key not in DEPARTURE_KEYS)
         if unknown:
             raise bad(f"'{echoed(unknown[0])}' is no field of an entry")
-        paths = _texts(item.get("paths"))
+        paths = texts(item.get("paths"))
         if not paths:
             raise bad("paths must be a non-empty list of path patterns")
         refuse_unreadable_patterns(f"{identity.current().namespace}.departures entry {index} paths", paths)
-        allow = _texts(item.get("allow"))
+        allow = texts(item.get("allow"))
         if not allow:
             raise bad("allow must be a non-empty list of ceiling names")
         for name in allow:
@@ -140,13 +135,6 @@ def _departures(value: object, names: list[str]) -> tuple[Departure, ...]:
             raise bad("reason must be one non-empty line saying why")
         entries.append(Departure(paths, allow, str(reason).strip()))
     return tuple(entries)
-
-
-def _texts(value: object) -> tuple[str, ...]:
-    """The non-empty strings of a list, line breaks included; empty when the value is no such list."""
-    if not isinstance(value, list) or not all(isinstance(t, str) and t.strip() for t in value):
-        return ()
-    return tuple(str(t) for t in value)
 
 
 def _reason(value: object) -> bool:

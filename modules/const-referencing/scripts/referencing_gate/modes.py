@@ -24,7 +24,6 @@ from . import lint, mentions, messages, tree
 from .model import Ids, Lane, ReferencingDials, Switch
 
 SHOWN_AFTER_WRITE = 20  # findings printed after one write; the count line carries the total
-SHOWN_CHARACTERS = 8000  # and their characters: the platform cuts a hook's text at 10,000
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
@@ -70,24 +69,10 @@ def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -
         if rel not in covered:
             return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         return pipeline.green_hook(output, messages.g1_covered())
-    shown = _within_the_cap(findings)
+    shown = pipeline.within_the_cap(findings, most=SHOWN_AFTER_WRITE)
     cut = len(shown) if len(shown) < len(findings) else None
     count = "RED: " + messages.f9_after_write(rel, links, len(findings), cut)
     return pipeline.report_hook(output, shown, (), rel, target.dials.severity, POST_WRITE, count)
-
-
-def _within_the_cap(findings: Sequence[Finding]) -> Sequence[Finding]:
-    """The first findings that fit: at most twenty, and no more characters than leave the count
-    line and the closing note inside what the platform passes on — it cuts a hook's text at
-    10,000 characters, from the end, where the count stands."""
-    shown: list[Finding] = []
-    size = 0
-    for finding in findings[:SHOWN_AFTER_WRITE]:
-        size += len(finding.render()) + 1
-        if size > SHOWN_CHARACTERS and shown:
-            break
-        shown.append(finding)
-    return shown
 
 
 def scan_mode(output: Output, start: Path) -> int:

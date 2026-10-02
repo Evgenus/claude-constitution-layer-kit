@@ -7,7 +7,7 @@ from collections.abc import Mapping
 
 from const_gate import identity
 from const_gate import messages as shared
-from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns, texts
 from const_gate.errors import ConfigurationFailure
 from const_gate.messages import echoed
 
@@ -24,8 +24,7 @@ from .model import (
 )
 
 KEYS = (
-    "severity",
-    "log_dir",
+    *GATE_KEYS,
     "territories",
     "grade_ceiling",
     "sentence_words",
@@ -34,13 +33,13 @@ KEYS = (
     "simpler",
     "exceptions",
     "departures",
-)  # the first two are every gate's, read by the shared code
+)
 ENTRY_KEYS = ("paths", "allow", "reason")
 
 
 def parse(own: Mapping[str, object]) -> LanguageDials:
     refuse_unknown_keys(own, KEYS)
-    territories = _texts(own.get("territories", list(DEFAULT_TERRITORIES)))
+    territories = texts(own.get("territories", list(DEFAULT_TERRITORIES)))
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
     refuse_unreadable_patterns(f"{identity.current().namespace}.territories", territories)
@@ -91,13 +90,13 @@ def _departures(value: object) -> tuple[Departure, ...]:
             raise ConfigurationFailure(
                 messages.c5_departure(index, f"'{echoed(unknown[0])}' is no field of an entry")
             )
-        paths = _texts(item.get("paths"))
+        paths = texts(item.get("paths"))
         if not paths:
             raise ConfigurationFailure(
                 messages.c5_departure(index, "paths must be a non-empty list of path patterns")
             )
         refuse_unreadable_patterns(f"{identity.current().namespace}.departures entry {index} paths", paths)
-        allow = _texts(item.get("allow"))
+        allow = texts(item.get("allow"))
         if not allow:
             raise ConfigurationFailure(
                 messages.c5_departure(index, "allow must be a non-empty list of rule keys")
@@ -161,13 +160,6 @@ def _simpler(value: object) -> dict[str, str]:
     if not isinstance(value, dict) or not all(_one_line(k) and _one_line(v) for k, v in value.items()):
         raise ConfigurationFailure(messages.c5_simpler())
     return {str(k).strip(): str(v).strip() for k, v in value.items()}
-
-
-def _texts(value: object) -> tuple[str, ...]:
-    """The non-empty strings of a list, line breaks included; empty when the value is no such list."""
-    if not isinstance(value, list) or not all(isinstance(t, str) and t.strip() for t in value):
-        return ()
-    return tuple(str(t) for t in value)
 
 
 def _one_line(value: object) -> bool:

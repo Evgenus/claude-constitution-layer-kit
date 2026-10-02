@@ -7,13 +7,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from const_gate import identity
-from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
 from .model import DEFAULT_WIDTH, MAX_WIDTH, PREFIX_RE, Catalog, CatalogDials
 
-NAMESPACE_KEYS = ("severity", "log_dir", "catalogs")
+NAMESPACE_KEYS = (*GATE_KEYS, "catalogs")
 KEYS = {"prefix", "territory", "width"}
 
 

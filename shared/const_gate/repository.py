@@ -48,6 +48,12 @@ def first_line(stderr: bytes) -> str:
     return lines[0] if lines else "no message"
 
 
+def is_markdown(rel: str) -> bool:
+    """Markdown means `.md`: the name's ending, in any case — a file named just `.md` too — wherever
+    the hook or the scan asks (limit 7 of the shared limits)."""
+    return rel.lower().endswith(".md")
+
+
 def list_markdown(root: Path) -> list[str]:
     """Tracked and untracked non-ignored Markdown files, repository-relative. A tracked file
     deleted from the working tree is still listed by git until the deletion is staged; it is
@@ -56,7 +62,7 @@ def list_markdown(root: Path) -> list[str]:
     if result.returncode != 0:
         raise ConfigurationFailure(messages.c12_ls_files(str(root), first_line(result.stderr)))
     paths = os.fsdecode(result.stdout).split("\0")  # bytes git cannot decode survive as they are
-    return sorted({p for p in paths if p and p.lower().endswith(".md") and (root / p).is_file()})
+    return sorted({p for p in paths if p and is_markdown(p) and (root / p).is_file()})
 
 
 def is_ignored(root: Path, rel: str) -> bool:

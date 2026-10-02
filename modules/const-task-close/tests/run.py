@@ -239,7 +239,14 @@ def spec_update() -> tuple[bool, str]:
     red = red_scan(scan(r.root), t2())
     commit(r.root, "the page", {"docs/core.md": "# core, updated\n"})
     green = green_scan(scan(r.root), tail(1, 2, short(r.root, "main"), short(r.root)))
-    return all_of([red, green], "red→green: T2, then the document updated")
+    # the same pair written with a leading './' and a doubled slash is the same document: the shared
+    # normalisation reads it as 'docs/core.md', so the update counts (read as written, it never did)
+    spelt = repo(with_map({**CORE, "docs": ["./docs//core.md"]}))
+    branch(spelt.root)
+    commit(spelt.root, "code only", {"src/a.py": "x = 2\n"})
+    commit(spelt.root, "the page", {"docs/core.md": "# core, updated\n"})
+    normalised = green_scan(scan(spelt.root), tail(1, 2, short(spelt.root, "main"), short(spelt.root)))
+    return all_of([red, green, normalised], "red→green: T2, then the document updated, however it is spelt")
 
 
 def spec_trailer() -> tuple[bool, str]:
@@ -694,6 +701,14 @@ def dial_failures() -> tuple[bool, str]:
             pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
         ),
         (
+            own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["../x.md"]}]),
+            pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
+        ),
+        (
+            own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["docs/../../x.md"]}]),
+            pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
+        ),
+        (
             own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["docs/"]}]),
             pair_line(1, "names 'docs/', a directory — a pair's documents are files"),
         ),
@@ -711,6 +726,23 @@ def dial_failures() -> tuple[bool, str]:
         ),
     ]
     results = [broken(scan(repo(patch).root), failure) for patch, failure in cases]
+    # a backslash is a separator only where the platform says so: there `..\x.md` leaves the repository,
+    # elsewhere it is one file name and stays inside (it was refused everywhere before)
+    escaping = scan(repo(own(coverage=[{**CORE, "docs": ["..\\x.md"]}])).root)
+    if os.sep == "\\":
+        results.append(
+            broken(
+                escaping,
+                pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
+            )
+        )
+    else:
+        first = escaping.stderr.splitlines()[0] if escaping.stderr else ""
+        named = (  # past the dials, the one thing wrong is that no such document is at HEAD
+            "BROKEN: constitution.yaml: const-task-close.coverage[core] names the document ..\\x.md, which"
+            " does not exist at HEAD ("
+        )
+        results.append((escaping.code == 1 and first.startswith(named), first[:200]))
     return all_of(results, f"{len(cases)} dial failures, each exit 1 with its own line")
 
 
