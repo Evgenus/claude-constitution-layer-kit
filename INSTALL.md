@@ -43,7 +43,7 @@ The modules are loaded first, so that no governed document is ever written witho
    ```bash check=install
    for m in ~/dev/constitution-kit/modules/const-*; do claude plugin install "$(basename "$m")@constitution-kit" --scope project; done
    ```
-4. **Copy the kernel.** Only the kernel is copied; module source never lives in a project. `docs/constitution/CONVENTIONS.md` carries its own envelope, so the kernel is the first document its own rules govern.
+4. **Copy the kernel.** Only the kernel is copied; module source never lives in a project. `docs/constitution/CONVENTIONS.md` carries its own envelope, so the kernel is the first document its own rules govern. The kit is under the Apache License 2.0: its text is `LICENSE` at the kit's root, and its credit is `NOTICE` beside it. A project that passes its kernel copy on to others, as a public repository does, keeps a copy of both files beside the kernel, in `docs/constitution/`, and says in each kernel file it changed that it changed it.
    ```bash check=kernel
    mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/
    ```

@@ -79,6 +79,10 @@ The [install guide](INSTALL.md) bootstraps a new project step by step: the prere
 | 6 | `templates/` | the templates of the kit's own document kinds |
 | 7 | `scripts/` | the kit's own checks and hooks, never shipped in a module |
 
+## License
+
+The kit is under the [Apache License 2.0](LICENSE). You may use it, change it and sell what you build with it. Keep the credit in [NOTICE](NOTICE) with every copy you pass on.
+
 ## Where to go next
 
 - **To adopt the kit:** the [install guide](INSTALL.md).

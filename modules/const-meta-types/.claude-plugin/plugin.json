@@ -1,5 +1,7 @@
 {
   "name": "const-meta-types",
   "version": "0.0.1",
-  "description": "Write-time guard of claimed territory: every Markdown document there carries the envelope (id, type, title, status) and resolves to exactly one governing policy. Plus a skill for choosing the meta-type."
+  "description": "Write-time guard of claimed territory: every Markdown document there carries the envelope (id, type, title, status) and resolves to exactly one governing policy. Plus a skill for choosing the meta-type.",
+  "author": { "name": "Eugene Chernyshov" },
+  "license": "Apache-2.0"
 }
