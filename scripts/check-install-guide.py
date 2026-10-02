@@ -22,7 +22,8 @@ Beside every block's exit 0, the check holds at each name:
   marketplace  the configuration's plugins/known_marketplaces.json knows `constitution-kit`.
   install      every module of the kit stands in the plugin cache at its manifest version and is
                enabled in the project's .claude/settings.json.
-  kernel       the project's docs/constitution/ holds every file of the kit's kernel/, byte for byte.
+  kernel       the project's docs/constitution/ holds every file of the kit's kernel/, and the kit's
+               LICENSE and NOTICE, byte for byte.
   dials        not run: written as the project's constitution.yaml, and with it what the reader
                writes by hand, from the check's fixture — one policy per namespace of the dials that
                claims a territory, the root at `root_policy`, and decision record #1, named and placed by
@@ -51,7 +52,8 @@ Modes:  no arguments   check the kit's guide;
                        to stderr green;
                        the dials before the project red; each claim red once against a fake or a block
                        that breaks it — a block that makes no repository, a marketplace never added,
-                       an install that enables nothing, a kernel copy that copies nothing, a
+                       an install that enables nothing, a kernel copy that copies nothing, one that
+                       leaves the license out, a
                        commit that leaves the tree dirty, an update that takes a draft's change, an
                        install that keeps a stale copy, an uninstall that keeps the plugin enabled; the
                        report of one finding as literal lines with exit 2.
@@ -106,6 +108,7 @@ DOES = {
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 MARK = re.compile(r"(?:^|\s)check=(\S*)")
 PROBE = ".install-guide-probe"
+LICENSE_FILES = ("LICENSE", "NOTICE")  # the kit's license and credit, copied beside the kernel
 RECORD_SLUG = "adopt-constitution-kernel"
 WHY = "a command nobody runs drifts from the platform unseen (rule 4 of plc-0011-install-guide)"
 TIMEOUT = 900
@@ -381,6 +384,10 @@ def claim(state: Run, name: str) -> str:
             copy = project / "docs" / "constitution" / path.relative_to(source)
             if not copy.is_file() or copy.read_bytes() != path.read_bytes():
                 return f"docs/constitution/{path.relative_to(source)} is not the kernel's file"
+        for held in LICENSE_FILES:
+            copy = project / "docs" / "constitution" / held
+            if not copy.is_file() or copy.read_bytes() != (state.kit / held).read_bytes():
+                return f"docs/constitution/{held} is not the kit's file"
         return ""
     if name == "commit":
         code, said = run(["git", "status", "--porcelain"], project, state.env, joined=False)
@@ -602,7 +609,8 @@ def toy_guide(**replace: str) -> str:
         "marketplace": "claude plugin marketplace add ~/dev/constitution-kit",
         "install": "for m in ~/dev/constitution-kit/modules/const-*; do "
         'claude plugin install "$(basename "$m")@constitution-kit" --scope project; done',
-        "kernel": "mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/",
+        "kernel": "mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/\n"
+        "cp ~/dev/constitution-kit/LICENSE ~/dev/constitution-kit/NOTICE docs/constitution/",
         "dials": TOY_DIALS.rstrip("\n"),
         "scan": "test -f constitution.yaml && test -f docs/policies/root-policy.md && "
         "test -f docs/policies/records.md && test -f docs/records/rec-0001-adopt-constitution-kernel.md",
@@ -627,6 +635,8 @@ def toy_kit(root: Path) -> Path:
     kit = root / "kit"
     (kit / "kernel").mkdir(parents=True)
     (kit / "kernel" / "CONVENTIONS.md").write_text("# Kernel\n", encoding="utf-8")
+    for name in LICENSE_FILES:
+        (kit / name).write_text(f"toy {name}\n", encoding="utf-8")
     for module in ("const-alpha", "const-beta"):
         manifest = kit / "modules" / module / ".claude-plugin"
         manifest.mkdir(parents=True)
@@ -752,6 +762,15 @@ def self_test() -> int:
                 {"kernel": "mkdir -p docs/constitution"},
                 "",
                 "after check=kernel: docs/constitution/CONVENTIONS.md is not the kernel's file",
+            ),
+            (
+                "a kernel copy that leaves the license out red",
+                {
+                    "kernel": "mkdir -p docs/constitution && "
+                    "cp -r ~/dev/constitution-kit/kernel/. docs/constitution/"
+                },
+                "",
+                "after check=kernel: docs/constitution/LICENSE is not the kit's file",
             ),
             (
                 "a commit that leaves the tree dirty red",
