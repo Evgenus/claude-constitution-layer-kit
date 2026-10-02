@@ -1,5 +1,7 @@
 {
   "name": "const-catalogs",
   "version": "0.0.1",
-  "description": "Numbered kinds: a catalogued document's file name and id are one name, <prefix>-<nnnn>-<slug>; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing."
+  "description": "Numbered kinds: a catalogued document's file name and id are one name, <prefix>-<nnnn>-<slug>; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing.",
+  "author": { "name": "Eugene Chernyshov" },
+  "license": "Apache-2.0"
 }

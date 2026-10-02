@@ -148,4 +148,4 @@ const-<aspect-name>/
 └── tests/                   # harness.py, consumer.py, shared_items.py linked from shared/tests/; one red→green fixture per gate ([law 7 of CLAUDE.md](../CLAUDE.md#law-7))
 ```
 
-Kebab-case everywhere. Only plugin.json lives inside `.claude-plugin/`; every component directory sits at plugin root. Verify the manifest fields against the current plugin reference at authoring time.
+Kebab-case everywhere. Only plugin.json lives inside `.claude-plugin/`; every component directory sits at plugin root. Verify the manifest fields against the current plugin reference at authoring time. A module carries no license file: its manifest names the license, and the kit's `LICENSE` and `NOTICE` stand at the kit root alone. Linking both into each module is reopened as a decision once a module is mirrored or vendored outside the kit's marketplace.

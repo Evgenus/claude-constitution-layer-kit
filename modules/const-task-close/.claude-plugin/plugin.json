@@ -1,5 +1,7 @@
 {
   "name": "const-task-close",
   "version": "0.0.1",
-  "description": "Task close as a single act: a change that touches code covered by current-state documents updates them or declares no impact; a close procedure that merges deltas, deletes working files and sets the record inactive; and a dirty tree at turn end warned or blocked."
+  "description": "Task close as a single act: a change that touches code covered by current-state documents updates them or declares no impact; a close procedure that merges deltas, deletes working files and sets the record inactive; and a dirty tree at turn end warned or blocked.",
+  "author": { "name": "Eugene Chernyshov" },
+  "license": "Apache-2.0"
 }

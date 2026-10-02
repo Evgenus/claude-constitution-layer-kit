@@ -43,9 +43,10 @@ The modules are loaded first, so that no governed document is ever written witho
    ```bash check=install
    for m in ~/dev/constitution-kit/modules/const-*; do claude plugin install "$(basename "$m")@constitution-kit" --scope project; done
    ```
-4. **Copy the kernel.** Only the kernel is copied; module source never lives in a project. `docs/constitution/CONVENTIONS.md` carries its own envelope, so the kernel is the first document its own rules govern.
+4. **Copy the kernel.** Only the kernel is copied, and the kit's `LICENSE` and `NOTICE` with it; module source never lives in a project. `docs/constitution/CONVENTIONS.md` carries its own envelope, so the kernel is the first document its own rules govern. The kit is under the Apache License 2.0, so its `LICENSE` and its credit, `NOTICE`, travel with the copy: the block puts both beside the kernel. They cover the kernel copy alone, never your project, and carry no envelope, which [kernel §1](kernel/CONVENTIONS.md#k1) asks of Markdown documents only. A project that passes its kernel copy on to others, as a public repository does, keeps both files there and says in each kernel file it changed that it changed it.
    ```bash check=kernel
    mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/
+   cp ~/dev/constitution-kit/LICENSE ~/dev/constitution-kit/NOTICE docs/constitution/
    ```
 5. **Write one policy per document kind** under `docs/policies/`, each with the kernel envelope ([kernel §1](kernel/CONVENTIONS.md#k1)): a root policy, the policy for policies, whose territory is `docs/policies/**`, itself included; a policy for the kernel copy, `docs/constitution/**`, with an id of its own, never [constitution-kernel](kernel/CONVENTIONS.md), which the kernel document already carries; a policy for decision records, `docs/decisions/**`. One policy governs exactly one kind, and a policy never lists its documents: the territory does ([kernel §3](kernel/CONVENTIONS.md#k3)). Write them yourself; the kit's own policies are examples to read, not to copy, since they cite rules only the kit has. Policies are your project's content, never the kernel's or a module's. The skill `/const-locations:new-kind` walks the order: policy, territory, document.
 6. **Write the dials file** at the repository's root, each policy's territory under its id:
@@ -139,4 +140,4 @@ for m in ~/dev/constitution-kit/modules/const-*; do claude plugin uninstall "$(b
 <a id="s6"></a>
 ## What the kit does not install
 
-The kit's own tooling ships in no module: the branch-first commit hook, the agents under `.claude/agents/`, the carry audit and the checks under `scripts/` serve the kit's own development. A project gets only what the plugins carry. `profiles/`, prewritten dials files to copy instead of writing dials by hand, are planned for [step 10 of the rollout plan](docs/rollout-plan.md#s10).
+The kit's own tooling ships in no module: the branch-first commit hook, the agents under `.claude/agents/`, the carry audit and the checks under `scripts/` serve the kit's own development. A project gets only what the plugins carry. A module carries its license in its manifest alone: `LICENSE` and `NOTICE` stand at the kit's root, and whoever passes a module's folder on alone takes both from there. `profiles/`, prewritten dials files to copy instead of writing dials by hand, are planned for [step 10 of the rollout plan](docs/rollout-plan.md#s10).
