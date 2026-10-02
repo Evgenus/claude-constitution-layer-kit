@@ -851,6 +851,20 @@ def session_json(root: Path) -> str:
     )
 
 
+def colon_dir() -> Path:
+    """A fresh directory named `a:b`: a path holding ':' must be said whole by the session printer."""
+    path = H.scratch_dir() / "a:b"
+    path.mkdir()
+    return path
+
+
+def colon_root() -> Path:
+    """A repository root whose own name holds ':', its dials file removed."""
+    consumer = Consumer(colon_dir()).build()
+    (consumer.root / "constitution.yaml").unlink()
+    return consumer.root
+
+
 def t19() -> tuple[bool, str]:
     """Nothing while a ceiling is set; the zero line typed by hand when the dial is empty or absent, of
     the size the module document states; no dials file and no repository said in the module's words."""
@@ -860,9 +874,9 @@ def t19() -> tuple[bool, str]:
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     match = re.search(r"one line of ([0-9,]+) characters saying that no document is measured", module_doc)
     stated = int(match.group(1).replace(",", "")) if match else -1
-    root = prepared(remove="constitution.yaml")
+    root = colon_root()
     no_dials = SESSION.run_gate(session_json(root))
-    loose = H.scratch_dir()
+    loose = colon_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
     return all_of(
         exactly(set_, 0, ""),

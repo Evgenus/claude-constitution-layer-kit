@@ -690,10 +690,24 @@ def t30() -> tuple[bool, str]:
     )
 
 
+def colon_dir() -> Path:
+    """A fresh directory named `a:b`: a path holding ':' must be said whole by the session printer."""
+    path = H.scratch_dir() / "a:b"
+    path.mkdir()
+    return path
+
+
+def colon_root() -> Path:
+    """A repository root whose own name holds ':', its dials file removed."""
+    consumer = Consumer(colon_dir()).build()
+    (consumer.root / "constitution.yaml").unlink()
+    return consumer.root
+
+
 def t31() -> tuple[bool, str]:
     """No dials file and no repository: the shared skips said in the module's words; malformed dials:
     exit 1 with the shared C4 first on stderr and the rules still on stdout; an argument: exit 1."""
-    root = prepared(remove="constitution.yaml")
+    root = colon_root()
     no_dials = SESSION.run_gate(session_json(root))
     no_dials_line = (
         f"const-interaction: no constitution.yaml in {root} — the destructive-command gate examines nothing"
@@ -704,7 +718,7 @@ def t31() -> tuple[bool, str]:
         " when triggered, never as an empty ritual\n"
     )
     no_dials_ok = no_dials.code == 0 and no_dials.stdout == RULES + verbosity + no_dials_line + "\n"
-    loose = H.scratch_dir()
+    loose = colon_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
     no_repo_line = (
         f"const-interaction: {loose} is not inside a git repository — the destructive-command gate examines"

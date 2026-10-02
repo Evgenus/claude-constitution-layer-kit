@@ -581,17 +581,31 @@ def session_start_zero_line() -> tuple[bool, str]:
     )
 
 
+def colon_dir() -> Path:
+    """A fresh directory named `a:b`: a path holding ':' must be said whole by the session printer."""
+    path = H.scratch_dir() / "a:b"
+    path.mkdir()
+    return path
+
+
+def colon_root() -> Path:
+    """A repository root whose own name holds ':', its dials file removed."""
+    consumer = Consumer(colon_dir()).build()
+    (consumer.root / "constitution.yaml").unlink()
+    return consumer.root
+
+
 def session_start_skips_and_failures() -> tuple[bool, str]:
     """No dials file and no repository: the shared skips said in the module's words, typed by hand;
     malformed dials: exit 1 with the shared C4 first on stderr and nothing on stdout; an argument: exit 1."""
-    root = session_root(remove="constitution.yaml")
+    root = colon_root()
     no_dials = SESSION.run_gate(session_json(root))
     no_dials_line = (
         f"const-decision-records: no constitution.yaml in {root} — the record gate examines nothing there"
         " until the file names a record policy in const-decision-records.record_policies"
     )
     no_dials_ok = no_dials.code == 0 and no_dials.stdout == no_dials_line + "\n"
-    loose = H.scratch_dir()
+    loose = colon_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
     no_repo_line = (
         f"const-decision-records: {loose} is not inside a git repository — the record gate examines nothing"

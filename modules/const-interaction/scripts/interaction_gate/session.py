@@ -8,15 +8,19 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from const_gate import cli, preflight
 from const_gate import messages as shared
 from const_gate.errors import ConfigurationFailure
 from const_gate.identity import Identity
-from const_gate.model import Mode
+from const_gate.model import Mode, SkipKind
 from const_gate.output import Output
 
 from . import messages
+
+if TYPE_CHECKING:
+    from const_gate.pipeline import Skip
 from .model import Verbosity
 
 USAGE = "session-start takes no arguments; it reads one SessionStart event on stdin"
@@ -36,7 +40,7 @@ def body(output: Output, argv: Sequence[str]) -> int:
     target = pipeline.locate_event(output, sys.stdin)
     if isinstance(target, Skip):  # no dials to read: the default value, then why the gate is off
         output.out(messages.s1_verbosity(Verbosity.TRIGGERED))
-        output.out(_zero_line(target.reason))
+        output.out(_zero_line(target))
         return 0
     dials = own_dials.parse(target.dials.own)
     output.out(messages.s1_verbosity(dials.verbosity))
@@ -49,13 +53,14 @@ def body(output: Output, argv: Sequence[str]) -> int:
     return 0
 
 
-def _zero_line(reason: str) -> str:
-    """The shared skip reasons, said in this module's own words for the session."""
-    if reason.startswith("no constitution.yaml in "):
-        return messages.s1_no_dials(reason.removeprefix("no constitution.yaml in ").split(":", 1)[0])
-    if " is not inside a git repository" in reason:
-        return messages.s1_no_repo(reason.split(" is not inside a git repository", 1)[0])
-    return f"{messages.s1_prefix()}: {reason}"
+def _zero_line(skip: Skip) -> str:
+    """The shared skip, said in this module's own words for the session; a skip of another kind is
+    printed whole after the module's name."""
+    if skip.kind is SkipKind.NO_DIALS:
+        return messages.s1_no_dials(skip.where)
+    if skip.kind is SkipKind.NO_REPO:
+        return messages.s1_no_repo(skip.where)
+    return f"{messages.s1_prefix()}: {skip.reason}"
 
 
 def run(argv: Sequence[str], gate: Identity) -> int:

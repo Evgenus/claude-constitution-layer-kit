@@ -52,6 +52,17 @@ class Mode(StrEnum):
     ACT = "act"  # a second entry point that changes files: a generator, never a gate
 
 
+class SkipKind(StrEnum):
+    """Why a run examines nothing: one value per shared skip reason a `pipeline.Skip` carries."""
+
+    NO_FILE = "no-file"  # G1.1
+    NOT_MARKDOWN = "not-markdown"  # G1.2
+    NO_REPO = "no-repo"  # G1.3
+    NO_DIALS = "no-dials"  # G1.4
+    EDIT_UNAPPLIABLE = "edit-unappliable"  # G1.6
+    GONE = "gone"  # G1.7
+
+
 class Stream(StrEnum):
     STDOUT = "stdout"
     STDERR = "stderr"
