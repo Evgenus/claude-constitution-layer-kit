@@ -14,12 +14,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import DEFAULT_KEY, DEFAULT_TRUNK, SHOWN_LINES, SHOWN_PATHS, Declaration, Key, Pair
 
-DIALS = "severity, log_dir, coverage, trunk, declaration_key, working_files"
 _PAIR = "{name: <kebab>, code: [<patterns>], docs: [<paths>]}"
 _PAIR_FULL = (
     "{name: <kebab>, code: [<gitignore patterns of the code it describes>], docs: [<paths of the"
@@ -152,14 +151,6 @@ def x2_document_is_directory(pair: str, path: str, head_short: str) -> Broken:
     )
 
 
-def c5_unknown_dial(key: str) -> Broken:
-    return Broken(
-        SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.{shown(key)} is no dial of this module",
-        f"a misspelt dial would be ignored in silence, so none is: write one of {DIALS}",
-    )
-
-
 def c5_coverage_not_a_list() -> Broken:
     return Broken(
         SharedKey.C5,
@@ -184,7 +175,7 @@ def pair_not_a_mapping() -> str:
 
 
 def pair_unknown_key(key: str) -> str:
-    return f"carries the key '{shown(key)}', which no pair has (name, code, docs)"
+    return f"carries the key '{echoed(key)}', which no pair has (name, code, docs)"
 
 
 def pair_name() -> str:

@@ -335,7 +335,12 @@ def a_misspelt_dial() -> tuple[bool, str]:
     """A key of the namespace that is none of the six is refused, never a setting ignored in
     silence — `record_policy:` for `record_policies:` would otherwise read as the dial unset."""
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policy": [RECORDS_POLICY]}})
-    return broken_first_line(result, messages.c5_unknown_dial("record_policy").render())
+    return broken_first_line(
+        result,
+        "BROKEN: constitution.yaml: const-decision-records.record_policy is no dial of this module — fix: a"
+        " misspelt dial would be ignored in silence, so none is: write one of severity, log_dir,"
+        " record_policies, boundary_examples, deciders, note_trailer",
+    )
 
 
 def rest_of_envelope_not_judged() -> tuple[bool, str]:

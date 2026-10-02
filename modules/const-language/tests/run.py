@@ -50,7 +50,7 @@ from harness import (  # noqa: E402
 from language_gate import dials as own_dials  # noqa: E402
 from language_gate import messages, rules, start  # noqa: E402
 from language_gate.model import Departure, Rule  # noqa: E402
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-language.sh", "check-language.py", start.GATE.namespace)
@@ -458,7 +458,7 @@ def t9() -> tuple[bool, str]:
         broken(gate_on(Write(DOC, PLAIN), all_off)[0], messages.c5_all_off()),
         broken(
             gate_on(Write(DOC, PLAIN), own(levels={"tone": "error"}))[0],
-            messages.c5_unknown_key("levels.tone", [f"levels.{r.value}" for r in Rule]),
+            shared.c5_unknown_dial("levels.tone", [f"levels.{r.value}" for r in Rule]),
         ),
         broken(
             gate_on(Write(DOC, PLAIN), own(levels={"grade": "loud"}))[0], messages.c5_level("grade", "loud")
@@ -487,11 +487,11 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(territories=["#docs/**"]),
-            "BROKEN: constitution.yaml: const-language.territories holds '#docs/**', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: '#docs/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(territories=["a\nb"]),
-            "BROKEN: constitution.yaml: const-language.territories holds 'a\\nb', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: 'a\\nb' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(grade_ceiling=-1),
@@ -563,11 +563,11 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(departures=[{"paths": ["#a.md"], "allow": ["grade"], "reason": "r"}]),
-            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds '#a.md', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds a pattern git would not read as one: '#a.md' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(departures=[{"paths": ["#" + "x" * 100], "allow": ["grade"], "reason": "r"}]),
-            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds a pattern git would not read as one: '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": [], "reason": "r"}]),
@@ -600,7 +600,7 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(levels={"x" * 70 + "\n" + "y" * 20: "error"}),
-            "BROKEN: constitution.yaml: const-language.levels.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters] is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of levels.grade, levels.sentence, levels.forbidden, levels.simpler, levels.passive",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.levels.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyy… [98 characters] is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of levels.grade, levels.sentence, levels.forbidden, levels.simpler, levels.passive",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(levels={"grade": "x" * 70 + "\n" + "y" * 20}),
@@ -608,7 +608,7 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(territories=["#" + "x" * 69 + "\n" + "y" * 20]),
-            "BROKEN: constitution.yaml: const-language.territories holds '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters]', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": ["x" * 70 + "\n" + "y" * 20], "reason": "r"}]),
@@ -628,7 +628,7 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(territories=["#" + "x" * 100]),
-            "BROKEN: constitution.yaml: const-language.territories holds '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]', which git would read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(levels={"a\nb": "error"}),
@@ -651,7 +651,12 @@ def t10() -> tuple[bool, str]:
             "BROKEN: constitution.yaml: const-language.exceptions names 'hit the road', which no forbidden phrase and no simpler pair holds — fix: an exception removes a phrase the rules know; check its spelling against the rules' lists, or remove it",  # noqa: E501 — a golden line is typed whole
         ),
     ]
-    return all_of(*(broken(gate_on(Write(DOC, PLAIN), patch)[0], line) for patch, line in pairs))
+    block_scalar = own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": "why\n"}])
+    return all_of(
+        *(broken(gate_on(Write(DOC, PLAIN), patch)[0], line) for patch, line in pairs),
+        # what `reason: |` gives, a line break at the end: trimmed and taken, as in the other two gates
+        expect(gate_on(Write(DOC, PLAIN), block_scalar)[0], 0, green_hook(), "stdout"),
+    )
 
 
 def fake_vale(directory: Path, script: str) -> Path:
@@ -1145,6 +1150,7 @@ SUBJECT = Subject(
     noted=Write(DOC, PASSIVE),
     note=f"note: {DOC}:3: passive voice — 'was written' — reported, not red, while"
     " const-language.levels.passive is warning",
+    pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
 )
 
 

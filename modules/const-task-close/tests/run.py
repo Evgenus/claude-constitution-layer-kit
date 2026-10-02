@@ -44,7 +44,7 @@ from harness import (  # noqa: E402
     expect,
     stop_json,
 )
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 from task_close_gate import messages, start  # noqa: E402
 from task_close_gate.model import BODY, Declaration, Pair  # noqa: E402
 
@@ -664,6 +664,10 @@ def dial_failures() -> tuple[bool, str]:
             own(coverage=[{**CORE, "extra": 1}]),
             pair_line(1, "carries the key 'extra', which no pair has (name, code, docs)"),
         ),
+        (  # a line break in the key is shown escaped: the line stays one line
+            own(coverage=[{**CORE, "a\nb": 1}]),
+            pair_line(1, "carries the key 'a\\nb', which no pair has (name, code, docs)"),
+        ),
         (
             own(coverage=[{"code": ["src/**"], "docs": ["docs/core.md"]}]),
             pair_line(1, "has no name, or one that is not kebab-case"),
@@ -711,13 +715,17 @@ def dial_failures() -> tuple[bool, str]:
 
 
 def unreadable_patterns() -> tuple[bool, str]:
+    fix = (
+        " — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or"
+        " remove it"
+    )
     code = broken(
         scan(repo(with_map({**CORE, "code": ["#src/**"]})).root),
-        shared.c5_territory_pattern(f"{NS}.coverage[core].code", "#src/**").render(),
+        DIAL + "coverage[core].code holds a pattern git would not read as one: '#src/**'" + fix,
     )
     working = broken(
         scan(repo(own(working_files=["#x"])).root),
-        shared.c5_territory_pattern(f"{NS}.working_files", "#x").render(),
+        DIAL + "working_files holds a pattern git would not read as one: '#x'" + fix,
     )
     return all_of([code, working], "a pattern git would misread, in a pair's code and in working_files")
 
@@ -1000,6 +1008,7 @@ SUBJECT = Subject(
     resolves_policies=False,
     judges_envelopes=False,
     event="Stop",
+    pattern_dial=PatternDial("working_files", lambda pattern: own(working_files=[pattern])),
 )
 
 ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [

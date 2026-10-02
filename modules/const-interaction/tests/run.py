@@ -47,7 +47,7 @@ from harness import (  # noqa: E402
 )
 from interaction_gate import messages, start, tokens  # noqa: E402
 from interaction_gate.model import DEFAULT_DESTRUCTIVE, Entry, Subcommand  # noqa: E402
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-destructive.sh", "check-destructive.py", start.GATE.namespace)
@@ -401,6 +401,12 @@ def t10() -> tuple[bool, str]:
         (
             own(destructive=[{"command": ["rm"], "teach": "t", "alternative": "a", "why": "x"}]),
             prefix + "const-interaction.destructive entry 1: 'why' is no field of an entry — fix: write the"
+            " entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard to"
+            " reverse>, alternative: <the reversible way>",
+        ),
+        (  # a line break in the key is shown escaped: the line stays one line
+            own(destructive=[{"command": ["rm"], "teach": "t", "alternative": "a", "a\nb": "x"}]),
+            prefix + "const-interaction.destructive entry 1: 'a\\nb' is no field of an entry — fix: write the"
             " entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard to"
             " reverse>, alternative: <the reversible way>",
         ),
@@ -853,6 +859,7 @@ SUBJECT = Subject(
     event="Bash",
     ask=True,
     long_value=command(RED_LONG),
+    pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
 )
 
 ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [

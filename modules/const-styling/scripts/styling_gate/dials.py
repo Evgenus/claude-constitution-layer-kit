@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from const_gate import identity
+from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
+from const_gate.messages import echoed
 
 from . import messages
 from .model import DEFAULT_TERRITORIES, Departure, Signature, StylingDials
@@ -19,32 +22,22 @@ ENTRY_KEYS = ("paths", "allow", "reason")
 
 
 def parse(own: Mapping[str, object]) -> StylingDials:
-    unknown = sorted(str(key) for key in own if key not in KEYS)
-    if unknown:
-        raise ConfigurationFailure(messages.c5_unknown_key(unknown[0], KEYS))
+    refuse_unknown_keys(own, KEYS)
+    namespace = identity.current().namespace
     territories = _texts(own.get("territories", list(DEFAULT_TERRITORIES)))
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
-    for pattern in territories:
-        if _unreadable(pattern):
-            raise ConfigurationFailure(messages.c5_pattern("territories", pattern))
+    refuse_unreadable_patterns(f"{namespace}.territories", territories)
     raw_guides = own.get("guides", [])
     guides = _texts(raw_guides) if raw_guides != [] else ()
     if raw_guides != [] and not guides:
         raise ConfigurationFailure(messages.c5_guides())
-    for pattern in guides:
-        if _unreadable(pattern):
-            raise ConfigurationFailure(messages.c5_pattern("guides", pattern))
+    refuse_unreadable_patterns(f"{namespace}.guides", guides)
     return StylingDials(
         territories=territories,
         guides=guides,
         departures=_departures(own.get("departures")),
     )
-
-
-def _unreadable(pattern: str) -> bool:
-    """A pattern git would read as a comment, or as two lines."""
-    return pattern.startswith("#") or "\n" in pattern or "\r" in pattern
 
 
 def _departures(value: object) -> tuple[Departure, ...]:
@@ -61,16 +54,14 @@ def _departures(value: object) -> tuple[Departure, ...]:
         unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
         if unknown:
             raise ConfigurationFailure(
-                messages.c5_departure(index, f"'{unknown[0]}' is no field of an entry")
+                messages.c5_departure(index, f"'{echoed(unknown[0])}' is no field of an entry")
             )
         paths = _texts(item.get("paths"))
         if not paths:
             raise ConfigurationFailure(
                 messages.c5_departure(index, "paths must be a non-empty list of path patterns")
             )
-        for pattern in paths:
-            if _unreadable(pattern):
-                raise ConfigurationFailure(messages.c5_pattern(f"departures entry {index} paths", pattern))
+        refuse_unreadable_patterns(f"{identity.current().namespace}.departures entry {index} paths", paths)
         allow = _texts(item.get("allow"))
         if not allow:
             raise ConfigurationFailure(
@@ -80,14 +71,14 @@ def _departures(value: object) -> tuple[Departure, ...]:
         for key in allow:
             if key not in known:
                 raise ConfigurationFailure(
-                    messages.c5_departure(index, f"'{key}' is no signature this scan knows")
+                    messages.c5_departure(index, f"'{echoed(key)}' is no signature this scan knows")
                 )
         reason = item.get("reason")
-        if not isinstance(reason, str) or not reason.strip() or any(c in reason.strip() for c in "\r\n"):
+        if not _reason(reason):
             raise ConfigurationFailure(
                 messages.c5_departure(index, "reason must be one non-empty line saying why")
             )
-        entries.append(Departure(paths, tuple(Signature(key) for key in allow), reason.strip()))
+        entries.append(Departure(paths, tuple(Signature(key) for key in allow), str(reason).strip()))
     return tuple(entries)
 
 
@@ -96,3 +87,12 @@ def _texts(value: object) -> tuple[str, ...]:
     if not isinstance(value, list) or not all(isinstance(t, str) and t.strip() for t in value):
         return ()
     return tuple(str(t) for t in value)
+
+
+def _reason(value: object) -> bool:
+    """A reason is one non-empty line; a line break at its end, which a YAML block scalar gives,
+    is trimmed, one in the middle is refused."""
+    if not isinstance(value, str):
+        return False
+    text = value.strip()
+    return bool(text) and "\n" not in text and "\r" not in text

@@ -11,10 +11,8 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import VALE_FLOOR, Departure, Hit, Key, Level, Rule
@@ -224,33 +222,11 @@ def _c5(detail: str, fix: str) -> Broken:
     return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
 
 
-def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
-    return _c5(
-        f"{_ns()}.{key} is no dial of this module",
-        "a misspelt dial would be ignored in silence, so none is: write one of " + ", ".join(known),
-    )
-
-
 def c5_territories() -> Broken:
     return _c5(
         f"{_ns()}.territories must be a non-empty list of path patterns",
         'write the patterns of the documents to check, one per line under "- ", or leave the key out to'
         " cover every Markdown file; an empty list would examine nothing in silence",
-    )
-
-
-def one_line(pattern: str) -> str:
-    """A pattern echoed in a message stays on one line: its line breaks are shown escaped."""
-    return pattern.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
-
-
-def c5_pattern(where: str, pattern: str) -> Broken:
-    """`where` names the dial, or the departure entry's paths, holding the pattern."""
-    return _c5(
-        f"{_ns()}.{where} holds '{one_line(shown(pattern))}', which git would read as a comment or as two"
-        " lines",
-        "patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in"
-        " double quotes, and remove a line break",
     )
 
 
@@ -279,7 +255,7 @@ def c5_levels() -> Broken:
 
 def c5_level(rule: str, value: str) -> Broken:
     return _c5(
-        f"{_ns()}.levels.{rule} is '{one_line(shown(value))}', and the levels are error, warning, off",
+        f"{_ns()}.levels.{rule} is '{echoed(value)}', and the levels are error, warning, off",
         "set it to error (a finding, red), warning (reported, not red) or off, or remove the line; the"
         " rules are " + ", ".join(r.value for r in Rule),
     )

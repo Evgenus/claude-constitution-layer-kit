@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
+from const_gate.messages import echoed
 from const_gate.model import DIALS_FILE, Broken, MetaType, SharedKey
 
 from .model import ActKey
@@ -264,14 +265,6 @@ def _c5(detail: str, fix: str) -> Broken:
     return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
 
 
-def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
-    return _c5(
-        f"{_ns()}.{key} is not a dial of this module (known: {', '.join(known)}); a misspelt dial is never"
-        " a setting ignored in silence",
-        "remove or rename the key",
-    )
-
-
 def c5_severity_here() -> Broken:
     return _c5(
         f"{_ns()}.severity has no meaning: this module blocks nothing, and a line that sets nothing misleads"
@@ -303,7 +296,7 @@ def entry_missing(key: str) -> str:
 
 
 def entry_unknown_key(key: str) -> str:
-    return f"carries an unknown key '{key}'"
+    return f"carries an unknown key '{echoed(key)}'"
 
 
 def entry_repeated(policy: str) -> str:

@@ -44,8 +44,7 @@ from harness import (  # noqa: E402
     expect,
 )
 from referencing_gate import messages, start  # noqa: E402
-from referencing_gate.dials import KEYS  # noqa: E402
-from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
+from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-references.sh", "check-references.py", start.GATE.namespace)
@@ -113,7 +112,12 @@ def scan_of(files: dict[str, str], dials_patch: dict[str, object] | None = None)
 
 
 def broken(result: Result, failure: Broken) -> tuple[bool, str]:
-    ok, evidence = broken_first_line(result, failure.render())
+    return broken_typed(result, failure.render())
+
+
+def broken_typed(result: Result, line: str) -> tuple[bool, str]:
+    """The failure's line, typed by hand where the item types it, first; then the count line."""
+    ok, evidence = broken_first_line(result, line)
     counted = shared.c11_broken_count() in result.stderr
     return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
@@ -398,8 +402,15 @@ def dial_failures() -> tuple[bool, str]:
     ]
     results = [broken(gate_on(VALID, dials_patch=patch)[0], failure) for patch, failure in wrong]
     in_scan = H.run_gate("", args=["--scan", str(gate_on(VALID, dials_patch=own(bare_ids="maybe"))[1])])
+    odd_key = broken_typed(  # a key with a line break is shown escaped: one line, typed by hand
+        gate_on(VALID, dials_patch=own(lanes=[{**LANE, "a\nb": 1}]))[0],
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes carries the key 'a\\nb'; a lane holds"
+        " pattern, names, fix and home, and nothing else — fix: write the entry as {pattern: <regular"
+        " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
+        " optional",
+    )
     return all_of(
-        [*results, broken(in_scan, messages.c5_switch("bare_ids"))],
+        [*results, broken(in_scan, messages.c5_switch("bare_ids")), odd_key],
         f"{len(wrong)} malformed dials, each exit 1, and one in the scan",
     )
 
@@ -432,7 +443,12 @@ def control_character_in_a_pattern() -> tuple[bool, str]:
 
 def lane_home_pattern_git_would_misread() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch=own(lanes=[{**LANE, "home": ["#docs"]}]))
-    return broken(result, shared.c5_territory_pattern(f"{NAMESPACE}.lanes[1].home", "#docs"))
+    return broken_typed(
+        result,
+        "BROKEN: constitution.yaml: const-referencing.lanes[1].home holds a pattern git would not read as"
+        " one: '#docs' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
+        " break; escape or remove it",
+    )
 
 
 def unreadable_envelope_is_no_crash() -> tuple[bool, str]:
@@ -754,7 +770,13 @@ def mention_dial_failures() -> tuple[bool, str]:
         (own(mentions=[{"pattern": "note-("}]), messages.c5_mention(1, unclosed)),
     ]
     results = [broken(gate_on(VALID, dials_patch=patch)[0], failure) for patch, failure in wrong]
-    return all_of(results, f"{len(wrong)} malformed dials, each exit 1")
+    odd_key = broken_typed(  # a key with a line break is shown escaped: one line, typed by hand
+        gate_on(VALID, dials_patch=own(mentions=[{**MENTION, "a\nb": 1}]))[0],
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.mentions carries the key 'a\\nb'; a mention"
+        " holds pattern and files, and nothing else — fix: write the entry as {pattern: <regular expression"
+        " whose whole match is a document's id>}; files: [<patterns>] is optional",
+    )
+    return all_of([*results, odd_key], f"{len(wrong)} malformed dials, each exit 1")
 
 
 # ------------------------------------------------------------------ after the write
@@ -1444,9 +1466,13 @@ def uncovered_write_that_breaks_a_covered_link() -> tuple[bool, str]:
 
 
 def a_misspelt_dial() -> tuple[bool, str]:
-    known = sorted(KEYS)
     result, _ = gate_on(VALID, dials_patch=own(heading_anchor="allow"))
-    return broken(result, messages.c5_unknown_key("heading_anchor", known))
+    return broken_typed(
+        result,
+        "BROKEN: constitution.yaml: const-referencing.heading_anchor is no dial of this module — fix: a"
+        " misspelt dial would be ignored in silence, so none is: write one of bare_ids, governed_only,"
+        " heading_anchors, lanes, local_paths, log_dir, mentions, severity, territories",
+    )
 
 
 def one_break_one_finding() -> tuple[bool, str]:
@@ -2211,6 +2237,7 @@ SUBJECT = Subject(
     resolves_policies=False,
     bare_readme="1 document examined",
     judges_envelopes=False,
+    pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
 )
 
 if __name__ == "__main__":

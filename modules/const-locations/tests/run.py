@@ -221,8 +221,8 @@ GOLDEN: dict[str, str] = {
     "L5.24": "BROKEN: notes-policy claims no territory: its namespace in constitution.yaml has no territory,"
     " so no home follows — fix: under notes-policy: in constitution.yaml write territory: ['<dir>/**'],"
     " <dir> being the directory its documents live in",
-    "C5.a": "BROKEN: constitution.yaml: const-locations.bogus is not a dial of this module (known: log_dir,"
-    " templates); a misspelt dial is never a setting ignored in silence — fix: remove or rename the key",
+    "C5.a": "BROKEN: constitution.yaml: const-locations.bogus is no dial of this module — fix: a misspelt"
+    " dial would be ignored in silence, so none is: write one of log_dir, templates",
     "C5.b": "BROKEN: constitution.yaml: const-locations.severity has no meaning: this module blocks"
     " nothing, and a line that sets nothing misleads the next reader — fix: remove the line",
     "C5.c": "BROKEN: constitution.yaml: const-locations.templates must be a list of {policy: <id>, template:"
@@ -233,6 +233,8 @@ GOLDEN: dict[str, str] = {
     "C5.d no template": "BROKEN: constitution.yaml: const-locations.templates[0] has no template" + ENTRY,
     "C5.d unknown key": "BROKEN: constitution.yaml: const-locations.templates[0] carries an unknown key"
     " 'type'" + ENTRY,
+    "C5.d odd key": "BROKEN: constitution.yaml: const-locations.templates[0] carries an unknown key"
+    " 'a\\nb'" + ENTRY,
     "C5.d repeated": "BROKEN: constitution.yaml: const-locations.templates[1] names policy 'notes-policy' a"
     " second time" + ENTRY,
     "C5.d outside": "BROKEN: constitution.yaml: const-locations.templates[0] names a template outside the"
@@ -625,6 +627,11 @@ def dial_failures() -> tuple[bool, str]:
             "C5.d unknown key",
         ),
         (
+            [{"policy": "notes-policy", "template": "t.md", "a\nb": "x"}],
+            messages.c5_template_entry(0, messages.entry_unknown_key("a\nb")),
+            "C5.d odd key",  # a line break in the key is shown escaped: the line stays one line
+        ),
+        (
             [{"policy": "notes-policy", "template": "t.md"}, {"policy": "notes-policy", "template": "u.md"}],
             messages.c5_template_entry(1, messages.entry_repeated("notes-policy")),
             "C5.d repeated",
@@ -639,7 +646,7 @@ def dial_failures() -> tuple[bool, str]:
         (run(prepared(own(templates=value)), *NOTE_ARGS), failure, handle)
         for value, failure, handle in entries
     ]
-    triples.append((run(prepared(own(bogus=1)), *NOTE_ARGS), messages.c5_unknown_key("bogus", KEYS), "C5.a"))
+    triples.append((run(prepared(own(bogus=1)), *NOTE_ARGS), shared.c5_unknown_dial("bogus", KEYS), "C5.a"))
     triples.append((run(prepared(own(severity="block")), *NOTE_ARGS), messages.c5_severity_here(), "C5.b"))
     return all_of(
         [broken(r, f, h) for r, f, h in triples],

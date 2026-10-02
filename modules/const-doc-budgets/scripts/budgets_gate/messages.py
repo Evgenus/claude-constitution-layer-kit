@@ -15,7 +15,7 @@ import datetime
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import MARGIN_PERCENT, ROUND_TO, WINDOW_DAYS, Ceiling, Departure, Key, Level
@@ -23,11 +23,6 @@ from .model import MARGIN_PERCENT, ROUND_TO, WINDOW_DAYS, Ceiling, Departure, Ke
 
 def _ns() -> str:
     return identity.current().namespace
-
-
-def one_line(value: str) -> str:
-    """A value echoed in a message stays on one line: its line breaks are shown escaped."""
-    return value.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
 
 
 def _over(rel: str, length: int, ceiling: Ceiling) -> str:
@@ -205,7 +200,7 @@ def c12_event(event: str) -> Broken:
 def c12_since(value: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"misinvocation: --since takes a date written YYYY-MM-DD, not '{one_line(shown(value))}'",
+        f"misinvocation: --since takes a date written YYYY-MM-DD, not '{echoed(value)}'",
         "run --scan [<dir>] --since <YYYY-MM-DD>, the first day of the window to report",
     )
 
@@ -234,13 +229,6 @@ def _c5(detail: str, fix: str) -> Broken:
     return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
 
 
-def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
-    return _c5(
-        f"{_ns()}.{key} is no dial of this module",
-        "a misspelt dial would be ignored in silence, so none is: write one of " + ", ".join(known),
-    )
-
-
 def c5_ceilings() -> Broken:
     return _c5(
         f"{_ns()}.ceilings must be a list of entries",
@@ -258,26 +246,16 @@ def c5_ceiling(index: int, detail: str) -> Broken:
     )
 
 
-def c5_pattern(where: str, pattern: str) -> Broken:
-    """`where` names the entry's paths holding the pattern."""
-    return _c5(
-        f"{_ns()}.{where} holds '{one_line(shown(pattern))}', which git would read as a comment or as two"
-        " lines",
-        "patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in"
-        " double quotes, and remove a line break",
-    )
-
-
 def c5_duplicate_name(name: str) -> Broken:
     return _c5(
-        f"{_ns()}.ceilings names '{one_line(shown(name))}' twice",
+        f"{_ns()}.ceilings names '{echoed(name)}' twice",
         "a departure lifts a ceiling by its name, so each name is one entry's: rename one of the two",
     )
 
 
 def c5_window(name: str, window_days: int, start: datetime.date, end: datetime.date) -> Broken:
     return _c5(
-        f"{_ns()}.ceilings '{one_line(shown(name))}' is at level error on a window whose span is"
+        f"{_ns()}.ceilings '{echoed(name)}' is at level error on a window whose span is"
         f" {window_days} day(s), {start.isoformat()} to {end.isoformat()}",
         f"a ceiling blocks only on {WINDOW_DAYS} days of observed data or more: set its level to warning"
         f" until window.to is {WINDOW_DAYS} days or more after window.from — the report --scan --since"
@@ -287,8 +265,7 @@ def c5_window(name: str, window_days: int, start: datetime.date, end: datetime.d
 
 def c5_overlap(first: str, second: str, rel: str) -> Broken:
     return _c5(
-        f"{_ns()}.ceilings '{one_line(shown(first))}' and '{one_line(shown(second))}' both hold"
-        f" {one_line(shown(rel))}",
+        f"{_ns()}.ceilings '{echoed(first)}' and '{echoed(second)}' both hold {echoed(rel)}",
         "a document is held to one ceiling at most, so that its number never depends on the order of the"
         " list: narrow one entry's paths, or take the file out of one with a negated pattern; a document"
         " that must stand over its ceiling takes a departure",
@@ -304,7 +281,7 @@ def c5_departures() -> Broken:
 
 
 def c5_departure(index: int, detail: str, names: Sequence[str]) -> Broken:
-    known = ", ".join(one_line(shown(name)) for name in names) if names else "none is set"
+    known = ", ".join(echoed(name) for name in names) if names else "none is set"
     return _c5(
         f"{_ns()}.departures entry {index}: {detail}",
         "write the entry as paths: [<patterns>], allow: [<ceiling names>], reason: <one line saying why"

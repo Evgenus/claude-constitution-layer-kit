@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping
 
 from const_gate import identity
-from const_gate.dials import refuse_unreadable_patterns
+from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
@@ -28,9 +28,7 @@ MENTION_KEYS = {"pattern", "files"}
 
 
 def parse(own: Mapping[str, object]) -> ReferencingDials:
-    unknown = sorted(str(key) for key in own if key not in KEYS)
-    if unknown:
-        raise ConfigurationFailure(messages.c5_unknown_key(unknown[0], sorted(KEYS)))
+    refuse_unknown_keys(own, sorted(KEYS))
     territories = _patterns(own.get("territories", list(DEFAULT_TERRITORIES)))
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())

@@ -7,19 +7,18 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from const_gate.dials import refuse_unknown_keys
 from const_gate.envelope import ID_RE
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
 from .model import RecordDials
 
-KEYS = {"severity", "log_dir", "record_policies", "boundary_examples", "deciders", "note_trailer"}
+KEYS = ("severity", "log_dir", "record_policies", "boundary_examples", "deciders", "note_trailer")
 
 
 def parse(own: Mapping[str, object]) -> RecordDials:
-    for key in own:
-        if key not in KEYS:
-            raise ConfigurationFailure(messages.c5_unknown_dial(key))
+    refuse_unknown_keys(own, KEYS)
     value = own.get("record_policies")
     if value is None:
         return RecordDials(())

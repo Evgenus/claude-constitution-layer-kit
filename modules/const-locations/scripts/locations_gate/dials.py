@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 
+from const_gate.dials import refuse_unknown_keys
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
@@ -17,9 +18,7 @@ ENTRY_KEYS = ("policy", "template")
 def parse(own: Mapping[str, object]) -> LocationsDials:
     if "severity" in own:  # the shared reader has accepted it by now; here it means nothing
         raise ConfigurationFailure(messages.c5_severity_here())
-    unknown = sorted(str(key) for key in own if key not in KEYS)
-    if unknown:
-        raise ConfigurationFailure(messages.c5_unknown_key(unknown[0], KEYS))
+    refuse_unknown_keys(own, KEYS)
     return LocationsDials(templates=_templates(own.get("templates")))
 
 

@@ -63,6 +63,16 @@ class Claim(Protocol):
 
 
 @dataclass(frozen=True)
+class PatternDial:
+    """A dial of the module's own that holds path patterns, for the item that gives it a pattern git
+    would read as a comment."""
+
+    path: str  # the dial as a person finds it under the module's namespace: "territories", "lanes[1].home"
+    patch: Callable[[str], dict[str, object]]  # the dials patch that puts the pattern there and keeps
+    # the module working
+
+
+@dataclass(frozen=True)
 class Subject:
     harness: Harness
     gate_on: GateOn
@@ -111,6 +121,8 @@ class Subject:
     noted: Write | None = None  # a write the gate passes with one note; None leaves the item about notes
     # reaching the model out
     note: str = ""  # the note `noted` earns, typed by hand
+    pattern_dial: PatternDial | None = None  # a dial of the module's own that holds path patterns;
+    # None leaves the item about a pattern git would misread in it out
     scan_only: bool = False  # True: the gate has no hook mode — it scans a tree and judges no single
     # write, and run as a hook it is its own configuration failure — so the items about hook input,
     # a written file, the warn channel and a negated pattern's skip are not its own and are left out;
@@ -183,7 +195,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def dials_comment_pattern() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, dials_patch={"notes-policy": {"territory": ["#docs/notes/**"]}})
-        return broken(result, messages.c5_territory_pattern("notes-policy", "#docs/notes/**"))
+        line = (  # typed by hand: the dial's whole path, then the pattern in single quotes
+            "BROKEN: constitution.yaml: notes-policy.territory holds a pattern git would not read as one:"
+            " '#docs/notes/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
+            " break; escape or remove it"
+        )
+        return broken_as_typed(result, line)
 
     def dials_unsupported_dialect() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, dials_patch={"territory_dialect": "regex"})
@@ -795,6 +812,50 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return broken_as_typed(result, line)
 
+    def unknown_dial_is_one_line() -> tuple[bool, str]:
+        """A key of the module's namespace that holds a line break and is a page long: C5 on one line,
+        the line break shown escaped, the key cut — in hook mode only the first stderr line reaches the
+        user — and, of two keys, the first in sorted order named."""
+        key = "bad\nkey" + "x" * 12_000
+        # a second key that sorts later, written first: the one named is the first in sorted order
+        result, _ = s.gate_on(s.valid, dials_patch=s.own(**{"zz_second": 1, key: 1}))
+        first = (  # typed by hand: the key cut at 80 characters, its break escaped; the list that
+            # follows is the module's own
+            f"BROKEN: constitution.yaml: {ns}.bad\\nkey" + "x" * 73 + "… [12007 characters] is no dial of"
+            " this module — fix: a misspelt dial would be ignored in silence, so none is: write one of "
+        )
+        lines = result.stderr.splitlines()
+        one_line = len(lines) == 1 + len(s.closing.splitlines())  # the failure, then the closing line
+        ok = result.code == 1 and one_line and lines[0].startswith(first) and len(result.stderr) < 2_000
+        return ok, (
+            f"exit 1; the failure on one line, {len(result.stderr)} characters in all"
+            if ok
+            else f"exit {result.code}; {len(lines)} lines; {result.stderr[:300]}"
+        )
+
+    def pattern_in_own_dial_is_one_line() -> tuple[bool, str]:
+        """A pattern git would read as a comment, in a dial of the module's own, a page long: C5.7
+        naming the dial as it is written — no policy's `.territory` after it — on one line, the pattern
+        cut."""
+        if s.pattern_dial is None:  # the item is left out then; a direct call must not pass vacuously
+            return False, "Subject.pattern_dial not given"
+        dial = s.pattern_dial
+        result, _ = s.gate_on(s.valid, dials_patch=dial.patch("#" + "x" * 12_000))
+        first = (  # typed by hand
+            f"BROKEN: constitution.yaml: {ns}.{dial.path} holds a pattern git would not read as one: '#"
+            + "x" * 79
+            + "… [12001 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain"
+            " a line break; escape or remove it"
+        )
+        lines = result.stderr.splitlines()
+        one_line = len(lines) == 1 + len(s.closing.splitlines())
+        ok = result.code == 1 and one_line and lines[0] == first and len(result.stderr) < 2_000
+        return ok, (
+            f"exit 1; {ns}.{dial.path} named whole, on one line, {len(result.stderr)} characters in all"
+            if ok
+            else f"exit {result.code}; {len(lines)} lines; {result.stderr[:300]}"
+        )
+
     items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
         ("C4b: a dials file that is not a mapping", dials_not_mapping),
@@ -892,6 +953,14 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "a green hook run with notes hands them to the model as JSON, one without notes stays plain",
             notes_reach_the_model,
         ),
+        (
+            "C5: a key with a line break, a page long, in the module's namespace is one line, cut",
+            unknown_dial_is_one_line,
+        ),
+        (
+            "C5.7: a pattern git would misread in a dial of the module's own is one line, naming it",
+            pattern_in_own_dial_is_one_line,
+        ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
     # that resolves no policy leaves gaps where the items about policies stand.
@@ -968,5 +1037,6 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         and (not no_file or check not in about_listing)
         and (not s.scan_only or check not in about_hooks)
         and (s.long_value is not None or check is not long_value_is_cut)
+        and (s.pattern_dial is not None or check is not pattern_in_own_dial_is_one_line)
         and (s.noted is not None or check is not notes_reach_the_model)
     ]

@@ -48,7 +48,7 @@ from harness import (  # noqa: E402
     broken_first_line,
     event_json,
 )
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the shared texts the items compare are built for this gate's name
 H = Harness(SCRIPTS, "check-budgets.sh", "check-budgets.py", start.GATE.namespace)
@@ -375,6 +375,27 @@ def t10() -> tuple[bool, str]:
             " none is: write one of severity, log_dir, ceilings, departures",
         ),
         (
+            own(**{"bad\nkey": 1}),
+            C5 + "bad\\nkey is no dial of this module — fix: a misspelt dial would be ignored in silence, so"
+            " none is: write one of severity, log_dir, ceilings, departures",
+        ),
+        (
+            own(ceilings=[{**NOTES, "a\nb": 3}]),
+            C5 + "ceilings entry 1: 'a\\nb' is no field of an entry" + ENTRY_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "a\nb": 3}]),
+            C5 + "departures entry 1: 'a\\nb' is no field of an entry" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "allow": ["x\ny"]}]),
+            C5 + "departures entry 1: 'x\\ny' names no ceiling" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "reason": "one\ntwo\n"}]),
+            C5 + "departures entry 1: reason must be one non-empty line saying why" + DEP_FIX,
+        ),
+        (
             own(ceilings={"notes": 1}),
             C5 + 'ceilings must be a list of entries — fix: write one entry per "- " item with the fields'
             " name, paths, max, level and window; leave the key out, or write [], for no ceiling",
@@ -394,9 +415,9 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(ceilings=[{**NOTES, "paths": ["#docs/**"]}]),
-            C5 + "ceilings entry 1 paths holds '#docs/**', which git would read as a comment or as two"
-            " lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes,"
-            " as \\\\# in double quotes, and remove a line break",
+            C5 + "ceilings entry 1 paths holds a pattern git would not read as one: '#docs/**' — fix: a"
+            " pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove"
+            " it",
         ),
         (
             own(ceilings=[{**NOTES, "max": 0}]),
@@ -462,9 +483,9 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(departures=[{**LIFT, "paths": ["#docs/**"]}]),
-            C5 + "departures entry 1 paths holds '#docs/**', which git would read as a comment or as two"
-            " lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes,"
-            " as \\\\# in double quotes, and remove a line break",
+            C5 + "departures entry 1 paths holds a pattern git would not read as one: '#docs/**' — fix: a"
+            " pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove"
+            " it",
         ),
         (
             own(departures=[{"paths": ["docs/notes/**"], "allow": ["notes"], "reason": ""}]),
@@ -474,6 +495,15 @@ def t10() -> tuple[bool, str]:
         ),
     ]
     checks = [broken(gate_on(Write("docs/notes/a.md", doc(10)), patch)[0], line) for patch, line in pairs]
+    block_scalar = own(departures=[{**LIFT, "reason": "stands\n"}])  # what `reason: |` gives: trimmed, taken
+    trimmed, _ = gate_on(Write("docs/notes/a.md", doc(10)), block_scalar)
+    checks.append(
+        exactly(
+            trimmed,
+            0,
+            green("10 characters; the ceiling 'notes' is lifted by const-doc-budgets.departures entry 1"),
+        )
+    )
     return all_of(*checks)
 
 
@@ -1084,6 +1114,9 @@ SUBJECT = Subject(
     noted=NOTED,
     note="note: docs/notes/ok.md: 151 characters, over the ceiling 'notes' of 100 by 51 — reported, not red,"
     " while the ceiling's level is warning; shorten it or split it before the ceiling blocks",
+    pattern_dial=PatternDial(
+        "ceilings entry 1 paths", lambda pattern: own(ceilings=[{**NOTES, "paths": [pattern]}])
+    ),
 )
 
 

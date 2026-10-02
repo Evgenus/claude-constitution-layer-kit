@@ -271,7 +271,11 @@ def a_misspelt_dial() -> tuple[bool, str]:
     """A key of the namespace that is neither of the two is refused, never a setting ignored in
     silence — `severty:` for `severity:` would otherwise leave the default in force unseen."""
     result, _ = gate_on(VALID, dials_patch=own(severty="warn"))
-    return broken_first_line(result, messages.c5_unknown_dial("severty").render())
+    return broken_first_line(
+        result,
+        "BROKEN: constitution.yaml: const-meta-types.severty is no dial of this module — fix: a misspelt"
+        " dial would be ignored in silence, so none is: write one of severity, log_dir",
+    )
 
 
 def outside_territory() -> tuple[bool, str]:

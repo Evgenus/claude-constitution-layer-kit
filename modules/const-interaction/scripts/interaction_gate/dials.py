@@ -6,8 +6,9 @@ import re
 from collections.abc import Mapping
 
 from const_gate import identity
-from const_gate.dials import refuse_unreadable_patterns
+from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
+from const_gate.messages import echoed
 
 from . import messages
 from .model import (
@@ -34,9 +35,7 @@ PAIR_KEYS = ("violates", "complies")
 
 
 def parse(own: Mapping[str, object]) -> InteractionDials:
-    unknown = sorted(str(key) for key in own if key not in KEYS)
-    if unknown:
-        raise ConfigurationFailure(messages.c5_unknown_key(unknown[0], KEYS))
+    refuse_unknown_keys(own, KEYS)
     territories = _texts(own.get("territories", list(DEFAULT_TERRITORIES)))
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
@@ -71,7 +70,9 @@ def _entries(value: object) -> tuple[Entry, ...]:
             raise ConfigurationFailure(messages.c5_entry(index, "it is not a mapping"))
         unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
         if unknown:
-            raise ConfigurationFailure(messages.c5_entry(index, f"'{unknown[0]}' is no field of an entry"))
+            raise ConfigurationFailure(
+                messages.c5_entry(index, f"'{echoed(unknown[0])}' is no field of an entry")
+            )
         command = _texts(item.get("command"))
         if not command or any(" " in word for word in command):
             raise ConfigurationFailure(messages.c5_entry(index, "command must be a non-empty list of words"))

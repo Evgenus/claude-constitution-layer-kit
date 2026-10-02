@@ -10,7 +10,7 @@ anything else is another module's business."""
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import yaml
@@ -92,16 +92,26 @@ def _territory(name: str, value: object, lenient: bool) -> tuple[str, ...]:
             return ()
         raise ConfigurationFailure(messages.c5_territory_shape(name))
     patterns = tuple(str(p) for p in value)
-    refuse_unreadable_patterns(name, patterns)
+    refuse_unreadable_patterns(f"{name}.territory", patterns)
     return patterns
 
 
-def refuse_unreadable_patterns(name: str, patterns: Sequence[str]) -> None:
+def refuse_unreadable_patterns(where: str, patterns: Sequence[str]) -> None:
     """A pattern git would read as something else — a comment, two lines — is a configuration
-    failure wherever a territory is declared: under a policy's id, or in a module's own dials."""
+    failure wherever a territory is declared: under a policy's id, or in a module's own dials.
+    `where` is the dial's whole path, as a person would write it to find it."""
     for pattern in patterns:
         if pattern.startswith("#") or "\n" in pattern or "\r" in pattern:
-            raise ConfigurationFailure(messages.c5_territory_pattern(name, pattern))
+            raise ConfigurationFailure(messages.c5_territory_pattern(where, pattern))
+
+
+def refuse_unknown_keys(own: Mapping[str, object], known: Sequence[str]) -> None:
+    """A key of the module's namespace that is none of `known` is a configuration failure, never a
+    setting ignored in silence: the first in sorted order is named, so the verdict does not depend
+    on the order the file lists them."""
+    unknown = sorted(str(key) for key in own if str(key) not in known)
+    if unknown:
+        raise ConfigurationFailure(messages.c5_unknown_dial(unknown[0], known))
 
 
 def _is_relative(value: str) -> bool:

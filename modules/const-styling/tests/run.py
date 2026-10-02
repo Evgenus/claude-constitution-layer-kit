@@ -42,7 +42,7 @@ from harness import (  # noqa: E402
     expect,
     red_lines,
 )
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 from styling_gate import messages, start  # noqa: E402
 from styling_gate.model import Hit, Signature  # noqa: E402
 
@@ -545,6 +545,22 @@ def t13() -> tuple[bool, str]:
             f" — fix: {entry_fix}",
         ),
         (
+            own(**{"bad\nkey": 1}),
+            "BROKEN: constitution.yaml: const-styling.bad\\nkey is no dial of this module — fix: a misspelt"
+            " dial would be ignored in silence, so none is: write one of log_dir, territories, guides,"
+            " departures",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "r", "a\nb": "w"}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: 'a\\nb' is no field of an entry"
+            f" — fix: {entry_fix}",
+        ),
+        (
+            own(departures=[{"paths": ["a.md"], "allow": ["plant\numl"], "reason": "r"}]),
+            "BROKEN: constitution.yaml: const-styling.departures entry 1: 'plant\\numl' is no signature this"
+            f" scan knows — fix: {entry_fix}",
+        ),
+        (
             own(departures=[{"paths": [], "allow": ["plantuml"], "reason": "r"}]),
             "BROKEN: constitution.yaml: const-styling.departures entry 1: paths must be a non-empty list of"
             f" path patterns — fix: {entry_fix}",
@@ -561,15 +577,15 @@ def t13() -> tuple[bool, str]:
         ),
         (
             own(territories=["#docs/**"]),
-            "BROKEN: constitution.yaml: const-styling.territories holds '#docs/**', which git would read as a"
-            " comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or"
-            " in single quotes, as \\\\# in double quotes, and remove a line break",
+            "BROKEN: constitution.yaml: const-styling.territories holds a pattern git would not read as one:"
+            " '#docs/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
+            " break; escape or remove it",
         ),
         (
             own(guides=["a\nb"]),
-            "BROKEN: constitution.yaml: const-styling.guides holds 'a\\nb', which git would read as a comment"
-            " or as two lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in"
-            " single quotes, as \\\\# in double quotes, and remove a line break",
+            "BROKEN: constitution.yaml: const-styling.guides holds a pattern git would not read as one:"
+            " 'a\\nb' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break;"
+            " escape or remove it",
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "one\rtwo"}]),
@@ -583,12 +599,15 @@ def t13() -> tuple[bool, str]:
         ),
         (
             own(departures=[{"paths": ["#a.md"], "allow": ["plantuml"], "reason": "r"}]),
-            "BROKEN: constitution.yaml: const-styling.departures entry 1 paths holds '#a.md', which git would"
-            " read as a comment or as two lines — fix: patterns are gitignore syntax: escape a leading # as"
-            " \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",
+            "BROKEN: constitution.yaml: const-styling.departures entry 1 paths holds a pattern git would not"
+            " read as one: '#a.md' — fix: a pattern may not start with '#' (a comment to git) nor contain a"
+            " line break; escape or remove it",
         ),
     ]
     results = [broken_first_line(scan({"docs/notes/a.md": MERMAID}, patch), line) for patch, line in cases]
+    # what `reason: |` gives, a line break at the end: trimmed and taken, as in the other two gates
+    block_scalar = own(departures=[{"paths": ["docs/gone/**"], "allow": ["plantuml"], "reason": "why\n"}])
+    results.append(no_finding({"docs/notes/a.md": MERMAID}, block_scalar, departures=1))
     failed = [evidence for ok, evidence in results if not ok]
     return not failed, "; ".join(
         failed
@@ -926,6 +945,7 @@ SUBJECT = Subject(
     judges_envelopes=False,
     long_value=Write("docs/notes/long.md", "# T\n\n* " + "x" * 12000 + "\n"),
     scan_only=True,
+    pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
 )
 
 

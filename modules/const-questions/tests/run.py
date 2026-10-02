@@ -42,7 +42,7 @@ from harness import (  # noqa: E402
     red_lines,
 )
 from questions_gate import messages, start  # noqa: E402
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-open-questions.sh", "check-open-questions.py", start.GATE.namespace)
@@ -599,6 +599,7 @@ SUBJECT = Subject(
     bare_readme="1 document examined",
     judges_envelopes=False,
     long_value=wrote("[decide:" + "x" * 11992 + "\n"),
+    pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
 )
 
 if __name__ == "__main__":

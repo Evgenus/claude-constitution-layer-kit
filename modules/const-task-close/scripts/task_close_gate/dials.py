@@ -7,20 +7,18 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from const_gate import identity
-from const_gate.dials import refuse_unreadable_patterns
+from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
 from .model import DEFAULT_KEY, DEFAULT_TRUNK, KEY_RE, NAME_RE, Pair, TaskCloseDials
 
-KEYS = {"severity", "log_dir", "coverage", "trunk", "declaration_key", "working_files"}
+KEYS = ("severity", "log_dir", "coverage", "trunk", "declaration_key", "working_files")
 PAIR_KEYS = {"name", "code", "docs"}
 
 
 def parse(own: Mapping[str, object]) -> TaskCloseDials:
-    for key in own:
-        if key not in KEYS:
-            raise ConfigurationFailure(messages.c5_unknown_dial(key))
+    refuse_unknown_keys(own, KEYS)
     coverage = _coverage(own.get("coverage"))
     working_files = _patterns(own.get("working_files"))
     if working_files is None:

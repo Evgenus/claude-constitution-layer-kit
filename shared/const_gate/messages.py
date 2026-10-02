@@ -30,6 +30,12 @@ def shown(value: str) -> str:
     return value if len(value) <= SHOWN_MAX else value[:SHOWN_MAX] + f"… [{len(value)} characters]"
 
 
+def echoed(value: str) -> str:
+    """A value echoed in a message: cut as `shown` cuts, then on one line — a backslash and the
+    line breaks shown escaped — since in hook mode only a failure's first line reaches the user."""
+    return shown(value).replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
+
+
 def patterns(territory: Sequence[str]) -> str:
     return "[" + ", ".join(f"'{p}'" for p in territory) + "]"
 
@@ -212,11 +218,21 @@ def c5_own_namespace_not_mapping() -> Broken:
     )
 
 
-def c5_territory_pattern(key: str, pattern: str) -> Broken:
+def c5_territory_pattern(where: str, pattern: str) -> Broken:
+    """`where` is the dial's whole path: `{policy id}.territory`, or a module's own dial."""
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {key}.territory holds a pattern git would not read as one: {pattern!r}",
+        f"{DIALS_FILE}: {where} holds a pattern git would not read as one: '{echoed(pattern)}'",
         "a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",
+    )
+
+
+def c5_unknown_dial(key: str, known: Sequence[str]) -> Broken:
+    """`key` is the name given, `known` the names this module reads, in the order it lists them."""
+    return Broken(
+        SharedKey.C5,
+        f"{DIALS_FILE}: {_ns()}.{echoed(key)} is no dial of this module",
+        "a misspelt dial would be ignored in silence, so none is: write one of " + ", ".join(known),
     )
 
 

@@ -14,7 +14,7 @@ from collections.abc import Sequence
 
 from const_gate import identity
 from const_gate.messages import patterns, shown
-from const_gate.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, SharedKey, Status
+from const_gate.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, Status
 
 from .model import Key
 
@@ -24,7 +24,6 @@ _DECLARATION_WHY = (
 )
 _TYPES = " | ".join(t.value for t in MetaType)
 _STATUSES = " | ".join(s.value for s in Status)
-DIALS = "severity, log_dir"
 
 
 def _ns() -> str:
@@ -245,14 +244,6 @@ def n1_note_void_namespace(name: str) -> str:
 
 
 # ---------------------------------------------------------------- this module's dial failure
-
-
-def c5_unknown_dial(key: str) -> Broken:
-    return Broken(
-        SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.{shown(key)} is no dial of this module",
-        f"a misspelt dial would be ignored in silence, so none is: write one of {DIALS}",
-    )
 
 
 # field-level parts of F4, beside the two every gate shares, in reading order

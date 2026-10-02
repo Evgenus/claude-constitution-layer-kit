@@ -8,8 +8,10 @@ import datetime
 import re
 from collections.abc import Callable, Mapping
 
+from const_gate import identity
+from const_gate.dials import refuse_unknown_keys, refuse_unreadable_patterns
 from const_gate.errors import ConfigurationFailure
-from const_gate.messages import shown
+from const_gate.messages import echoed
 
 from . import messages
 from .model import WINDOW_DAYS, BudgetDials, Ceiling, Departure, Level, Window
@@ -28,9 +30,7 @@ DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 def parse(own: Mapping[str, object]) -> BudgetDials:
-    unknown = sorted(str(key) for key in own if key not in KEYS)
-    if unknown:
-        raise ConfigurationFailure(messages.c5_unknown_key(messages.one_line(shown(unknown[0])), KEYS))
+    refuse_unknown_keys(own, KEYS)
     ceilings = _ceilings(own.get("ceilings"))
     return BudgetDials(ceilings, _departures(own.get("departures"), [c.name for c in ceilings]))
 
@@ -60,16 +60,14 @@ def _ceiling(index: int, item: object) -> Ceiling:
         raise bad("it is not a mapping")
     unknown = sorted(str(key) for key in item if key not in CEILING_KEYS)
     if unknown:
-        raise bad(f"'{messages.one_line(shown(unknown[0]))}' is no field of an entry")
+        raise bad(f"'{echoed(unknown[0])}' is no field of an entry")
     name = item.get("name")
     if not isinstance(name, str) or not KEBAB.fullmatch(name):
         raise bad("name must be a kebab-case name, such as records")
     paths = _texts(item.get("paths"))
     if not paths:
         raise bad("paths must be a non-empty list of path patterns")
-    for pattern in paths:
-        if _unreadable(pattern):
-            raise ConfigurationFailure(messages.c5_pattern(f"ceilings entry {index} paths", pattern))
+    refuse_unreadable_patterns(f"{identity.current().namespace}.ceilings entry {index} paths", paths)
     most = item.get("max")
     if isinstance(most, bool) or not isinstance(most, int) or most < 1:
         raise bad("max must be a whole number of characters, 1 or more")
@@ -126,29 +124,22 @@ def _departures(value: object, names: list[str]) -> tuple[Departure, ...]:
             raise bad("it is not a mapping")
         unknown = sorted(str(key) for key in item if key not in DEPARTURE_KEYS)
         if unknown:
-            raise bad(f"'{messages.one_line(shown(unknown[0]))}' is no field of an entry")
+            raise bad(f"'{echoed(unknown[0])}' is no field of an entry")
         paths = _texts(item.get("paths"))
         if not paths:
             raise bad("paths must be a non-empty list of path patterns")
-        for pattern in paths:
-            if _unreadable(pattern):
-                raise ConfigurationFailure(messages.c5_pattern(f"departures entry {index} paths", pattern))
+        refuse_unreadable_patterns(f"{identity.current().namespace}.departures entry {index} paths", paths)
         allow = _texts(item.get("allow"))
         if not allow:
             raise bad("allow must be a non-empty list of ceiling names")
         for name in allow:
             if name not in names:
-                raise bad(f"'{messages.one_line(shown(name))}' names no ceiling")
+                raise bad(f"'{echoed(name)}' names no ceiling")
         reason = item.get("reason")
-        if not _one_line(reason):
+        if not _reason(reason):
             raise bad("reason must be one non-empty line saying why")
         entries.append(Departure(paths, allow, str(reason).strip()))
     return tuple(entries)
-
-
-def _unreadable(pattern: str) -> bool:
-    """A pattern git would read as a comment, or as two lines."""
-    return pattern.startswith("#") or "\n" in pattern or "\r" in pattern
 
 
 def _texts(value: object) -> tuple[str, ...]:
@@ -158,5 +149,10 @@ def _texts(value: object) -> tuple[str, ...]:
     return tuple(str(t) for t in value)
 
 
-def _one_line(value: object) -> bool:
-    return isinstance(value, str) and bool(value.strip()) and "\n" not in value and "\r" not in value
+def _reason(value: object) -> bool:
+    """A reason is one non-empty line; a line break at its end, which a YAML block scalar gives,
+    is trimmed, one in the middle is refused."""
+    if not isinstance(value, str):
+        return False
+    text = value.strip()
+    return bool(text) and "\n" not in text and "\r" not in text

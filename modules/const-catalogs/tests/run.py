@@ -49,7 +49,7 @@ from harness import (  # noqa: E402
     event_json,
     expect,
 )
-from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
+from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-catalog-item.sh", "check-catalog-item.py", start.GATE.namespace)
@@ -302,7 +302,12 @@ def scan_of(files: dict[str, str], dials_patch: dict[str, object] | None = None)
 
 
 def broken(result: Result, failure: Broken) -> tuple[bool, str]:
-    ok, evidence = broken_first_line(result, failure.render())
+    return broken_typed(result, failure.render())
+
+
+def broken_typed(result: Result, line: str) -> tuple[bool, str]:
+    """The failure's line, typed by hand where the item types it, first; then the count line."""
+    ok, evidence = broken_first_line(result, line)
     counted = shared.c11_broken_count() in result.stderr
     return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
@@ -384,7 +389,11 @@ def a_misspelt_dial() -> tuple[bool, str]:
     """A key of the namespace that is none of the three is refused, never a setting ignored in
     silence — `catalog:` for `catalogs:` would otherwise read as no catalog listed."""
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"catalog": [entry()]}})
-    return broken(result, messages.c5_unknown_dial("catalog"))
+    return broken_typed(
+        result,
+        "BROKEN: constitution.yaml: const-catalogs.catalog is no dial of this module — fix: a misspelt dial"
+        " would be ignored in silence, so none is: write one of severity, log_dir, catalogs",
+    )
 
 
 def catalogs_not_a_list() -> tuple[bool, str]:
@@ -417,14 +426,28 @@ def entry_shapes() -> tuple[bool, str]:
         )
         for shape, what in shapes
     ]
+    # a key with a line break is shown escaped: one line, typed by hand
+    odd_key = broken_typed(
+        gate_on(VALID, dials_patch=catalogs(entry("ok"), {**entry(), "a\nb": 1}))[0],
+        "BROKEN: constitution.yaml: entry 2 of const-catalogs.catalogs carries the key 'a\\nb'; an entry"
+        " holds prefix, territory and width, and nothing else — fix: write the entry as {prefix: <lowercase"
+        " letters and digits>, territory: [<patterns of the paths where the numbered documents live>],"
+        " width: 4}",
+    )
     return all_of(
-        results, f"{len(shapes)} malformed entries, each exit 1 with C5 naming entry 2 and the field"
+        [*results, odd_key],
+        f"{len(shapes)} malformed entries, each exit 1 with C5 naming entry 2 and the field",
     )
 
 
 def entry_pattern_git_would_misread() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch=catalogs(entry(territory=["#docs/items/**"])))
-    return broken(result, shared.c5_territory_pattern(f"{NAMESPACE}.catalogs[itm]", "#docs/items/**"))
+    return broken_typed(
+        result,
+        "BROKEN: constitution.yaml: const-catalogs.catalogs[itm] holds a pattern git would not read as"
+        " one: '#docs/items/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a"
+        " line break; escape or remove it",
+    )
 
 
 TWICE = catalogs(entry(), entry(territory=["docs/more/**"], width=3))
@@ -1262,6 +1285,7 @@ SUBJECT = Subject(
     # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
     outside="docs/items/first.md lies in no catalog's territory (itm)",
     resolves_policies=False,
+    pattern_dial=PatternDial("catalogs[itm]", lambda pattern: catalogs(entry(territory=[pattern]))),
 )
 
 if __name__ == "__main__":

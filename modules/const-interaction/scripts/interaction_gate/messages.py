@@ -11,8 +11,6 @@ without holding any other document: no text here cites one.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
@@ -128,13 +126,6 @@ def s1_pairs_heading() -> str:
 
 def _c5(detail: str, fix: str) -> Broken:
     return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
-
-
-def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
-    return _c5(
-        f"{_ns()}.{key} is no dial of this module",
-        "a misspelt dial would be ignored in silence, so none is: write one of " + ", ".join(known),
-    )
 
 
 def c5_territories() -> Broken:

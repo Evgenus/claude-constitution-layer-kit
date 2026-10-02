@@ -13,12 +13,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, shown
 from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey
 
 from .model import DEFAULT_WIDTH, MAX_WIDTH, Advice, Catalog, Key, NameToTake, Reach, Read
 
-DIALS = "severity, log_dir, catalogs"
 _ENTRY = (
     "{prefix: <lowercase letters and digits>, territory: [<patterns of the paths where the numbered"
     f" documents live>], width: {DEFAULT_WIDTH}}}"
@@ -238,14 +237,6 @@ def s1_could_not_run() -> str:
 # ---------------------------------------------------------------- this module's dial failures
 
 
-def c5_unknown_dial(key: str) -> Broken:
-    return Broken(
-        SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.{shown(key)} is no dial of this module",
-        f"a misspelt dial would be ignored in silence, so none is: write one of {DIALS}",
-    )
-
-
 def c5_catalogs_not_a_list() -> Broken:
     return Broken(
         SharedKey.C5,
@@ -270,7 +261,7 @@ def entry_not_a_mapping() -> str:
 
 
 def entry_unknown_key(key: str) -> str:
-    return f"carries the key '{shown(key)}'; an entry holds prefix, territory and width, and nothing else"
+    return f"carries the key '{echoed(key)}'; an entry holds prefix, territory and width, and nothing else"
 
 
 def entry_prefix() -> str:

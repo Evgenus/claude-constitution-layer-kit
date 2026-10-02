@@ -10,10 +10,8 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import ActKey, Key, ToolKey
@@ -220,13 +218,6 @@ def _c5(detail: str, fix: str) -> Broken:
     return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
 
 
-def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
-    return _c5(
-        f"{_ns()}.{shown(key)} is no dial of this module",
-        f"a misspelt dial would be ignored in silence, so none is: write one of {', '.join(known)}",
-    )
-
-
 def c5_territories() -> Broken:
     return _c5(
         f"{_ns()}.territories must be a non-empty list of path patterns",
@@ -280,7 +271,7 @@ def mention_not_a_mapping() -> str:
 
 
 def mention_unknown_key(key: str) -> str:
-    return f"carries the key '{shown(key)}'; a mention holds pattern and files, and nothing else"
+    return f"carries the key '{echoed(key)}'; a mention holds pattern and files, and nothing else"
 
 
 def mention_files() -> str:
@@ -306,7 +297,7 @@ def lane_not_a_mapping() -> str:
 
 
 def lane_unknown_key(key: str) -> str:
-    return f"carries the key '{shown(key)}'; a lane holds pattern, names, fix and home, and nothing else"
+    return f"carries the key '{echoed(key)}'; a lane holds pattern, names, fix and home, and nothing else"
 
 
 def lane_needs(field: str) -> str:
