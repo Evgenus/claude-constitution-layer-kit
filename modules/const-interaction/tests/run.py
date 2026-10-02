@@ -705,7 +705,8 @@ def colon_root() -> Path:
 
 
 def t31() -> tuple[bool, str]:
-    """No dials file and no repository: the shared skips said in the module's words; malformed dials:
+    """No dials file and no repository (roots and folders whose names hold `:` too), the first also from a
+    subfolder of the root: the shared skips said in the module's words; malformed dials:
     exit 1 with the shared C4 first on stderr and the rules still on stdout; an argument: exit 1."""
     root = colon_root()
     no_dials = SESSION.run_gate(session_json(root))
@@ -718,6 +719,9 @@ def t31() -> tuple[bool, str]:
         " when triggered, never as an empty ritual\n"
     )
     no_dials_ok = no_dials.code == 0 and no_dials.stdout == RULES + verbosity + no_dials_line + "\n"
+    (root / "sub").mkdir()
+    from_sub = SESSION.run_gate(session_json(root / "sub"))
+    from_sub_ok = from_sub.code == 0 and from_sub.stdout == RULES + verbosity + no_dials_line + "\n"
     loose = colon_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
     no_repo_line = (
@@ -737,6 +741,7 @@ def t31() -> tuple[bool, str]:
     arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
     return all_of(
         (no_dials_ok, "no dials said" if no_dials_ok else f"got: {no_dials.stdout[-300:]}"),
+        (from_sub_ok, "no dials said from a subfolder" if from_sub_ok else f"got: {from_sub.stdout[-300:]}"),
         (no_repo_ok, "no repository said" if no_repo_ok else f"got: {no_repo.stdout[-300:]}"),
         (bad_ok, "malformed dials: exit 1, rules kept" if bad_ok else f"got {bad.code}: {bad.stderr[:300]}"),
         (arg_ok, "an argument is a misinvocation" if arg_ok else f"got {arg.code}: {arg.stderr[:200]}"),

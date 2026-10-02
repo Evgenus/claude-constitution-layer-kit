@@ -867,7 +867,8 @@ def colon_root() -> Path:
 
 def t19() -> tuple[bool, str]:
     """Nothing while a ceiling is set; the zero line typed by hand when the dial is empty or absent, of
-    the size the module document states; no dials file and no repository said in the module's words."""
+    the size the module document states; no dials file (the first also from a subfolder of the root) and no
+    repository said in the module's words, roots and folders whose names hold `:` too."""
     set_ = SESSION.run_gate(session_json(prepared()))
     empty = SESSION.run_gate(session_json(prepared({NAMESPACE: {"ceilings": []}})))
     absent = SESSION.run_gate(session_json(prepared({NAMESPACE: {}})))
@@ -876,6 +877,12 @@ def t19() -> tuple[bool, str]:
     stated = int(match.group(1).replace(",", "")) if match else -1
     root = colon_root()
     no_dials = SESSION.run_gate(session_json(root))
+    (root / "sub").mkdir()
+    from_sub = SESSION.run_gate(session_json(root / "sub"))
+    no_dials_line = (
+        f"const-doc-budgets: no constitution.yaml in {root} — the length gate measures nothing there"
+        " until the file sets a ceiling in const-doc-budgets.ceilings\n"
+    )
     loose = colon_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
     return all_of(
@@ -884,12 +891,8 @@ def t19() -> tuple[bool, str]:
         exactly(absent, 0, ZERO_LINE + "\n"),
         (stated == 111, f"the document states {stated} characters; 111 typed by hand"),
         (len(ZERO_LINE) == 111, f"the zero line has {len(ZERO_LINE)} characters; 111 typed by hand"),
-        exactly(
-            no_dials,
-            0,
-            f"const-doc-budgets: no constitution.yaml in {root} — the length gate measures nothing there"
-            " until the file sets a ceiling in const-doc-budgets.ceilings\n",
-        ),
+        exactly(no_dials, 0, no_dials_line),
+        exactly(from_sub, 0, no_dials_line),
         exactly(
             no_repo,
             0,

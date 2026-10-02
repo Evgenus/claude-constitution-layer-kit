@@ -981,8 +981,9 @@ def colon_root() -> Path:
 
 
 def session_start_skips_and_failures() -> tuple[bool, str]:
-    """No dials file and no repository: the shared skips said in the module's words, typed by hand;
-    malformed dials: exit 1 with the shared C4 first on stderr and nothing on stdout; an argument: exit 1."""
+    """No dials file and no repository (roots and folders whose names hold `:` too), the first also from a
+    subfolder of the root: the shared skips said in the module's words, typed by hand; malformed dials:
+    exit 1 with the shared C4 first on stderr and nothing on stdout; an argument: exit 1."""
     root = colon_root()
     no_dials = SESSION.run_gate(session_json(root))
     no_dials_line = (
@@ -990,6 +991,9 @@ def session_start_skips_and_failures() -> tuple[bool, str]:
         " file lists a catalog in const-catalogs.catalogs"
     )
     no_dials_ok = no_dials.code == 0 and no_dials.stdout == no_dials_line + "\n"
+    (root / "sub").mkdir()
+    from_sub = SESSION.run_gate(session_json(root / "sub"))
+    from_sub_ok = from_sub.code == 0 and from_sub.stdout == no_dials_line + "\n"
     loose = colon_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
     no_repo_line = (
@@ -1008,6 +1012,7 @@ def session_start_skips_and_failures() -> tuple[bool, str]:
     return all_of(
         [
             (no_dials_ok, f"no dials got: {no_dials.stdout!r} {no_dials.stderr[:200]!r}"),
+            (from_sub_ok, f"no dials from a subfolder got: {from_sub.stdout!r} {from_sub.stderr[:200]!r}"),
             (no_repo_ok, f"no repository got: {no_repo.stdout!r} {no_repo.stderr[:200]!r}"),
             (bad_ok, f"malformed dials got {bad.code}: {bad.stdout!r} {bad.stderr[:300]!r}"),
             (arg_ok, f"an argument got {arg.code}: {arg.stderr[:200]!r}"),
