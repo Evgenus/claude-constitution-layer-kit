@@ -170,8 +170,9 @@ def green_event(output: Output, line: str, notes: Sequence[str] = ()) -> int:
     return EXIT_GREEN
 
 
-SHOWN_CHARACTERS = 8000  # the platform cuts a hook's text at 10,000 from the end, where the count line
-# stands (limit 14 of the shared limits): the findings keep what the count line and the closing note leave
+SHOWN_CHARACTERS = 8000  # above 10,000 characters the platform replaces a hook's text with a file path
+# and a preview of the first 2,000 (hooks documentation, read 2026-10-03; limit 14 of the shared limits):
+# the findings keep the whole text under the cap, the count line and the closing note standing last
 
 
 def within_the_cap(findings: Sequence[Finding], most: int | None = None) -> Sequence[Finding]:

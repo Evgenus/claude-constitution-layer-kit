@@ -231,7 +231,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ]
         results = [broken(s.gate_on(s.valid, dials_patch=patch)[0], failure) for patch, failure in pairs]
         failed = [evidence for ok, evidence in results if not ok]
-        return not failed, "; ".join(failed) or f"{len(pairs)} dial failures, each exit 1 with its own line"
+        # the same dials written the long way read as written the short way: the verdict is the plain
+        # run's, never a refusal — `./` and `//` dropped, a step down and back up undone
+        plain = s.gate_on(s.valid)[0]
+        long_way: list[tuple[str, dict[str, object]]] = [
+            ("root_policy", {"root_policy": "./docs//../" + ROOT_POLICY}),
+        ]
+        for name, patch in long_way:
+            got = s.gate_on(s.valid, dials_patch=patch)[0]
+            if (got.code, "BROKEN" in got.stderr) != (plain.code, "BROKEN" in plain.stderr):
+                failed.append(f"{name}: exit {got.code}, the plain run exit {plain.code}: {got.stderr[:200]}")
+        return not failed, "; ".join(failed) or (
+            f"{len(pairs)} dial failures, each exit 1 with its own line; the long way reads as plain"
+        )
 
     def root_missing() -> tuple[bool, str]:
         return broken(s.gate_on(s.valid, remove=ROOT_POLICY)[0], messages.c6_root_missing(ROOT_POLICY))
@@ -601,7 +613,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             s.valid,
             files={".gitignore": ".gate-logs/\n"},
             env={"CLAUDE_PLUGIN_DATA": str(data)},
-            dials_patch=s.own(log_dir=".gate-logs"),
+            dials_patch=s.own(log_dir="./docs//../.gate-logs//"),  # read as `.gate-logs`
         )
         log = root / ".gate-logs" / log_name()
         ok = (
@@ -826,14 +838,14 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def unknown_dial_is_one_line() -> tuple[bool, str]:
         """A key of the module's namespace that holds a line break and is a page long: C5 on one line,
-        the line break shown escaped, the key cut — in hook mode only the first stderr line reaches the
-        user — and, of two keys, the first in sorted order named."""
-        key = "bad\nkey" + "x" * 12_000
+        the backslash and the line break shown escaped, the key cut — in hook mode only the first stderr
+        line reaches the user — and, of two keys, the first in sorted order named."""
+        key = "ba\\d\nkey" + "x" * 12_000  # a backslash and a line break, each shown escaped
         # a second key that sorts later, written first: the one named is the first in sorted order
         result, _ = s.gate_on(s.valid, dials_patch=s.own(**{"zz_second": 1, key: 1}))
         first = (  # typed by hand: the key cut at 80 characters, its break escaped; the list that
             # follows is the module's own
-            f"BROKEN: constitution.yaml: {ns}.bad\\nkey" + "x" * 73 + "… [12007 characters] is no dial of"
+            f"BROKEN: constitution.yaml: {ns}.ba\\\\d\\nkey" + "x" * 72 + "… [12008 characters] is no dial of"
             " this module — fix: a misspelt dial would be ignored in silence, so none is: write one of "
         )
         lines = result.stderr.splitlines()
@@ -867,11 +879,15 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             return Finding(SharedKey.C5, "h" * size, "w", "f")
 
         big, small = finding(9_000), finding(3_000)  # renders 9,000+ and 3,000+ characters
+        a, b, c = finding(4_000), finding(3_900), finding(4_100)  # render 4,023, 3,923 and 4,123
         checks = [
             (pipeline.within_the_cap([big]) == [big], "a first finding over the cap is still shown"),
             (pipeline.within_the_cap([big, small]) == [big], "nothing follows it"),
             (pipeline.within_the_cap([small, small]) == [small, small], "6,000 characters fit"),
             (pipeline.within_the_cap([small, small, small]) == [small, small], "the third is past 8,000"),
+            # each counts its render and a line break: 4,024 + 3,924 = 7,948 fit; 4,024 + 4,124 = 8,148 do not
+            (pipeline.within_the_cap([a, b]) == [a, b], "7,948 characters fit"),
+            (pipeline.within_the_cap([a, c]) == [a], "8,148 characters do not"),
             (pipeline.within_the_cap([small] * 3, most=1) == [small], "`most` stops it at one"),
             (pipeline.within_the_cap([]) == [], "no finding, none shown"),
         ]
