@@ -34,7 +34,7 @@ The decider stated two wishes: the credit is kept, and no profit is needed. So e
 
 **Recommendation.** B, by the session. The credit is the decider's main wish, and `NOTICE` is the one mechanism that carries a credit line of the author's own wording into every derivative. The duty to mark changes keeps the author's name off a changed copy. It stays one license for the whole tree.
 
-**Choice.** B, by the decider, in chat on 2026-10-02. The decider picked the license. The session set the rest as defaults, each open to the decider's override before the yes: the wording of `NOTICE`, the `author` field in every manifest, and no license header in any file.
+**Choice.** B, by the decider, in chat on 2026-10-02. The decider picked the license. The session set the rest as defaults, each open to the decider's override before the yes: the wording of `NOTICE`, the `author` field in every manifest, and no license header in any file. The decider then picked the wording of `NOTICE` from four drafts, in chat on 2026-10-02: the one that names the author once, in the copyright line.
 
 **R1.** The kit is under the Apache License, Version 2.0. It is one license for the whole tree, documents and code alike. Its text is `LICENSE` at the kit's root, and no file takes a license header.
 
@@ -76,7 +76,7 @@ A module never lands in a project's repository: an install copies it into the pl
   - **Pros:** nothing to build; whoever gets a module through the marketplace gets it from a clone that holds the root files.
   - **Cons:** a module's folder passed on alone carries neither file; whoever passes it on takes both from the root.
 - **B. Each module links to the root files.** Two relative links in every module, as a module links the shared gate code.
-  - **Pros:** one source; an install turns a link inside the marketplace into a real file, which the kit's CI already holds for every link of a module.
+  - **Pros:** one source; an install turns a link inside the marketplace into a real file, which the kit's CI holds for every link that reaches the shared code.
   - **Cons:** twenty-two links and the template's; the link check, its fixture and the shared-code document change; the install check reads only a module's folder and the shared code from history, so it would have to read the root files too; a folder copied by hand from a clone gets two dangling links.
 - **C. Each module holds real copies.** Both files in every module, held equal to the root by a new check.
   - **Pros:** a module's folder is whole however it is copied.
