@@ -54,12 +54,12 @@ B, by the decider, in chat on 2026-10-02. The decider picked the license. The se
 
 ## Applied
 
-The commit that creates this record applies R1 to R4: it adds `LICENSE` and `NOTICE`, sets the two fields in the eleven manifests and the license in the template's, and adds the sentences to `CLAUDE.md` and to the install guide. The text of `LICENSE` is the one GitHub's license API gives for `apache-2.0`. The README gains a section "License", a routine edit of a page in no territory. The plan's step 10 marks the license done. So the record is born `inactive`.
+The change that creates this record applies R1 to R4: it adds `LICENSE` and `NOTICE`, sets the two fields in the eleven manifests and the license in the template's, and adds the sentences to `CLAUDE.md` and to the install guide. The text of `LICENSE` is the one GitHub's license API gives for `apache-2.0`. The README gains a section "License", a routine edit of a page in no territory. The plan's step 10 marks the license done. So the record is `inactive` from its first commit.
 
 ## Carry list
 
 1. R1 — step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the license](../../LICENSE).
-2. R2 — [the credit file](../../NOTICE); step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md).
+2. R2 — [the credit file](../../NOTICE), for the three parts it holds; step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md), for the file's place and for no email address.
 3. R3 — step 4 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md); [the template's manifest](../../module-template/.claude-plugin/plugin.json).
 4. R4 — [the install guide](../../INSTALL.md#s2), step 4 of its bootstrap.
 5. R5 — pending: [step 10 of the rollout plan](../rollout-plan.md#s10), the decision on the author's email.
