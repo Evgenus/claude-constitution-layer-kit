@@ -62,7 +62,12 @@ reported by the scan with the fix on its first line; nothing is silently skipped
    findings: fix them, or declare the departures for the kinds that keep their form, one entry
    each with its reason; there is no warn mode, since the scan blocks no write.
 6. **A departure is declared, never marked.** Nothing is written into a document to excuse it;
-   the entry in the dials file is the record, and the reason is required.
+   the entry in the dials file is the record, and the reason is required. The scan holds the
+   shipped values of three defaults: three heading levels at most, the dash for a bullet, the
+   asterisk for emphasis. If your guide changes one of them, declare a departure for that
+   signature over your whole tree, with the reason naming the guide's entry. The scan then stops
+   checking that signature and does not check your new value; the guide's entry and review hold
+   it.
 7. Output log: everything the scan prints is also appended, one JSON line per print (timestamp,
    module, gate, mode, session, stream, text), to `const-styling.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the

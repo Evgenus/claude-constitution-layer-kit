@@ -139,38 +139,6 @@ def no_finding(
     return expect(result, 0, green(3 + len(files), departures), "stdout")
 
 
-def finding_keys(files: dict[str, str]) -> list[str]:
-    """The signatures found, in order, read from the headlines back through the message functions."""
-    result = scan(files)
-    found: list[str] = []
-    for line in headlines(result):
-        for signature in Signature:
-            key = messages.finding("x", type("H", (), {"signature": signature, "line": 1, "text": "t"})()).key
-            if key.value in _key_of_headline(line):
-                found.append(signature.value)
-                break
-    return found
-
-
-def _key_of_headline(line: str) -> str:
-    """Which message a headline came from, by its fixed words."""
-    words = {
-        "PlantUML where Mermaid": "Y1",
-        "a formula where pseudocode": "Y2",
-        "a callout where none": "Y3",
-        "where three is the deepest": "Y4",
-        "skipping a level": "Y5",
-        "a second level-one heading": "Y6",
-        "names no language": "Y7",
-        "a marker other than a dash": "Y8",
-        "an ordered item numbered": "Y9",
-        "emphasis by underscores": "Y10",
-        "a table row with": "Y11",
-        "an empty cell in column": "Y12",
-    }
-    return next((key for text, key in words.items() if text in line), "")
-
-
 # ---------------------------------------------------------------- the twelve signatures
 
 PLANTUML_FENCE = "# T\n\n```plantuml\n@startuml\nA -> B\n@enduml\n```\n"
@@ -183,26 +151,28 @@ def t1() -> tuple[bool, str]:
     entry naming the file makes the same document green and the count says one departure."""
     result = scan({"docs/notes/d.md": PLANTUML_FENCE})
     wanted = (
-        "RED: docs/notes/d.md:3: PlantUML where Mermaid is the default — ```plantuml\n"
+        "RED: docs/notes/d.md:3: PlantUML, where the shipped default is Mermaid — ```plantuml\n"
         "  why: Mermaid renders on GitHub, GitLab and in editor previews with no server; PlantUML needs one\n"
         "  fix: draw the diagram in a ```mermaid fence, or declare the departure with its reason: add to"
         " const-styling.departures in constitution.yaml an entry {paths: [<the file, or a pattern of the"
-        " documents that depart>], allow: [plantuml], reason: <the capability Mermaid lacks, in one line>}\n"
+        " documents that depart>], allow: [plantuml], reason: <the capability Mermaid lacks, in one line>};"
+        " where your guide changed this default,"
+        " the pattern is your whole tree and the reason names the guide's entry\n"
         "RED: 1 finding(s) — 4 document(s) examined for 12 signature(s) under 0 departure(s), 4 Markdown"
         " file(s) scanned"
     )
     red_ok = result.code == 2 and result.stdout.strip() == wanted
     bare = one_finding(
         {"docs/notes/d.md": PLANTUML_BARE},
-        "docs/notes/d.md:4: PlantUML where Mermaid is the default — @startuml",
+        "docs/notes/d.md:4: PlantUML, where the shipped default is Mermaid — @startuml",
     )
     loose = one_finding(
         {"docs/notes/d.md": "# T\n\n@startuml\nA -> B\n@enduml\n"},
-        "docs/notes/d.md:3: PlantUML where Mermaid is the default — @startuml",
+        "docs/notes/d.md:3: PlantUML, where the shipped default is Mermaid — @startuml",
     )
     puml = one_finding(
         {"docs/notes/d.md": "# T\n\n```puml\nA -> B\n```\n"},
-        "docs/notes/d.md:3: PlantUML where Mermaid is the default — ```puml",
+        "docs/notes/d.md:3: PlantUML, where the shipped default is Mermaid — ```puml",
     )
     mermaid = no_finding({"docs/notes/d.md": MERMAID})
     departure = [{"paths": ["/docs/notes/d.md"], "allow": ["plantuml"], "reason": "a timing diagram"}]
@@ -223,11 +193,11 @@ def t2() -> tuple[bool, str]:
     fence of another language is code."""
     fence = one_finding(
         {"docs/notes/f.md": "# T\n\n```math\nE = mc^2\n```\n"},
-        "docs/notes/f.md:3: a formula where pseudocode is the default — ```math",
+        "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — ```math",
     )
     line = one_finding(
         {"docs/notes/f.md": "# T\n\n$$ E = mc^2 $$\n"},
-        "docs/notes/f.md:3: a formula where pseudocode is the default — $$ E = mc^2 $$",
+        "docs/notes/f.md:3: a formula, where the shipped default is pseudocode — $$ E = mc^2 $$",
     )
     pseudo = no_finding(
         {"docs/notes/f.md": "# T\n\n```text\nenergy = mass * c * c\n```\n\n```bash\necho $$\n```\n"}
@@ -239,7 +209,7 @@ def t3() -> tuple[bool, str]:
     """red and green: an alert line is red (Y3); a plain blockquote is green."""
     alert = one_finding(
         {"docs/notes/c.md": "# T\n\n> [!NOTE]\n> Careful.\n"},
-        "docs/notes/c.md:3: a callout where none is the default — > [!NOTE]",
+        "docs/notes/c.md:3: a callout, where the shipped default is none — > [!NOTE]",
     )
     quote = no_finding({"docs/notes/c.md": "# T\n\n> A quoted reply, as it was written.\n"})
     return all_of(alert, quote)
@@ -247,14 +217,15 @@ def t3() -> tuple[bool, str]:
 
 def t4() -> tuple[bool, str]:
     """red and green: a level-four heading is red (Y4), and one that also skips a level is two findings;
-    three levels in order are green; a closing sequence of hashes and a heading in a fence are not."""
+    three levels in order are green; a closing sequence of hashes and a heading in a fence are not; a
+    departure over the whole tree turns the signature off, level six included (the limit of section 9)."""
     deep = one_finding(
         {"docs/notes/h.md": "# T\n\n## A\n\n### B\n\n#### C\n"},
-        "docs/notes/h.md:7: a heading of level 4 where three is the deepest",
+        "docs/notes/h.md:7: a heading of level 4, deeper than the shipped default of three",
     )
     both = scan({"docs/notes/h.md": "# T\n\n## A\n\n#### C\n"})
     both_ok = headlines(both) == [
-        "RED: docs/notes/h.md:5: a heading of level 4 where three is the deepest",
+        "RED: docs/notes/h.md:5: a heading of level 4, deeper than the shipped default of three",
         "RED: docs/notes/h.md:5: a heading of level 4, skipping a level",
     ]
     fine = no_finding(
@@ -263,7 +234,15 @@ def t4() -> tuple[bool, str]:
             "    #### nor this\n"
         }
     )
-    return all_of(deep, (both_ok, "deep and skipped on one line" if both_ok else both.stdout), fine)
+    whole_tree = [
+        {"paths": ["*.md"], "allow": ["deep-heading"], "reason": "our guide allows four levels (entry 7)"}
+    ]
+    limit = no_finding(
+        {"docs/notes/h.md": "# T\n\n## A\n\n### B\n\n#### C\n\n##### D\n\n###### E\n"},
+        own(departures=whole_tree),
+        departures=1,
+    )
+    return all_of(deep, (both_ok, "deep and skipped on one line" if both_ok else both.stdout), fine, limit)
 
 
 def t5() -> tuple[bool, str]:
@@ -314,16 +293,16 @@ def t7() -> tuple[bool, str]:
     horizontal rule are no items."""
     star = one_finding(
         {"docs/notes/l.md": "# T\n\n* one\n- two\n"},
-        "docs/notes/l.md:3: a bullet item opening with a marker other than a dash — one",
+        "docs/notes/l.md:3: a bullet item whose marker is not the shipped default, a dash — one",
     )
     plus = one_finding(
         {"docs/notes/l.md": "# T\n\n- one\n  + nested\n"},
-        "docs/notes/l.md:4: a bullet item opening with a marker other than a dash — nested",
+        "docs/notes/l.md:4: a bullet item whose marker is not the shipped default, a dash — nested",
     )
     fine = no_finding({"docs/notes/l.md": "# T\n\n- one\n- two\n\n**bold** at the start\n\n***\n"})
     no_fence = one_finding(
         {"docs/notes/l.md": "# T\n\n``` x`y\n* star\n"},
-        "docs/notes/l.md:4: a bullet item opening with a marker other than a dash — star",
+        "docs/notes/l.md:4: a bullet item whose marker is not the shipped default, a dash — star",
     )
     return all_of(star, plus, fine, no_fence)
 
@@ -434,7 +413,7 @@ def t11() -> tuple[bool, str]:
     territory = own(departures=[{"paths": ["docs/notes/**"], "allow": ["plantuml"], "reason": "timing"}])
     by_territory = scan(files, territory)
     territory_ok = headlines(by_territory) == [
-        "RED: docs/other/c.md:3: PlantUML where Mermaid is the default — ```plantuml"
+        "RED: docs/other/c.md:3: PlantUML, where the shipped default is Mermaid — ```plantuml"
     ]
     by_path = scan(
         files, own(departures=[{"paths": ["/docs/notes/a.md"], "allow": ["plantuml"], "reason": "timing"}])
@@ -445,8 +424,8 @@ def t11() -> tuple[bool, str]:
     ] or (
         headlines(by_path)
         == [
-            "RED: docs/notes/b.md:3: PlantUML where Mermaid is the default — ```plantuml",
-            "RED: docs/other/c.md:3: PlantUML where Mermaid is the default — ```plantuml",
+            "RED: docs/notes/b.md:3: PlantUML, where the shipped default is Mermaid — ```plantuml",
+            "RED: docs/other/c.md:3: PlantUML, where the shipped default is Mermaid — ```plantuml",
         ]
     )
     other = scan(
@@ -490,7 +469,8 @@ def t12() -> tuple[bool, str]:
     out = scan({"docs/notes/a.md": PLANTUML_FENCE}, own(territories=["*.md", "!docs/notes/**"]))
     out_ok = expect(out, 0, green(3, scanned=4), "stdout")
     top = one_finding(
-        {"README.md": PLANTUML_FENCE}, "README.md:3: PlantUML where Mermaid is the default — ```plantuml"
+        {"README.md": PLANTUML_FENCE},
+        "README.md:3: PlantUML, where the shipped default is Mermaid — ```plantuml",
     )
     guides = no_finding({"docs/notes/a.md": MERMAID}, own(guides=["docs/style/**"]))
     return all_of(out_ok, top, guides)
@@ -647,14 +627,14 @@ def t15() -> tuple[bool, str]:
     line order; and a document with none is green."""
     result = scan({"docs/notes/g.md": GOLDEN})
     wanted = [
-        "RED: docs/notes/g.md:3: PlantUML where Mermaid is the default — ```plantuml",
-        "RED: docs/notes/g.md:7: a formula where pseudocode is the default — $$ x $$",
-        "RED: docs/notes/g.md:9: a callout where none is the default — > [!TIP]",
-        "RED: docs/notes/g.md:11: a heading of level 4 where three is the deepest",
+        "RED: docs/notes/g.md:3: PlantUML, where the shipped default is Mermaid — ```plantuml",
+        "RED: docs/notes/g.md:7: a formula, where the shipped default is pseudocode — $$ x $$",
+        "RED: docs/notes/g.md:9: a callout, where the shipped default is none — > [!TIP]",
+        "RED: docs/notes/g.md:11: a heading of level 4, deeper than the shipped default of three",
         "RED: docs/notes/g.md:11: a heading of level 4, skipping a level",
         "RED: docs/notes/g.md:13: a second level-one heading — Second",
         "RED: docs/notes/g.md:15: a fenced block that names no language",
-        "RED: docs/notes/g.md:19: a bullet item opening with a marker other than a dash — star",
+        "RED: docs/notes/g.md:19: a bullet item whose marker is not the shipped default, a dash — star",
         "RED: docs/notes/g.md:22: an ordered item numbered 1 after 1",
         "RED: docs/notes/g.md:24: emphasis by underscores — under",
         "RED: docs/notes/g.md:28: a table row with 1 cell(s) under a header of 2",
@@ -690,8 +670,14 @@ def t19() -> tuple[bool, str]:
         " reason: <{what}>}"
     )
 
-    def fix(head: str, key: str, what: str) -> str:
-        return "  fix: " + head + allow.replace("{key}", key).replace("{what}", what)
+    amended_tail = (
+        "; where your guide changed this default, the pattern is your whole tree and the reason names"
+        " the guide's entry"
+    )
+
+    def fix(head: str, key: str, what: str, amended: bool = False) -> str:
+        tail = amended_tail if amended else ""
+        return "  fix: " + head + allow.replace("{key}", key).replace("{what}", what) + tail
 
     wanted = [
         "  why: Mermaid renders on GitHub, GitLab and in editor previews with no server; PlantUML needs one",
@@ -699,6 +685,7 @@ def t19() -> tuple[bool, str]:
             "draw the diagram in a ```mermaid fence, ",
             "plantuml",
             "the capability Mermaid lacks, in one line",
+            amended=True,
         ),
         "  why: a formula renders only in a web view and is invisible to a prose reader and a linter;"
         " pseudocode reads everywhere",
@@ -706,6 +693,7 @@ def t19() -> tuple[bool, str]:
             "write the computation as pseudocode in a fenced block, ",
             "formula",
             "why this must be a formula, in one line",
+            amended=True,
         ),
         "  why: a callout pulls a sentence out of its argument; an aside is a clause, and a warning about an"
         " act is a sentence where the act is described",
@@ -713,6 +701,7 @@ def t19() -> tuple[bool, str]:
             "write the sentence in the paragraph it belongs to, ",
             "callout",
             "why the reader must see this apart from the text, in one line",
+            amended=True,
         ),
         "  why: a fourth level is a section too small to stand on its own, and most renderers stop showing"
         " levels below three in a page's outline",
@@ -720,6 +709,7 @@ def t19() -> tuple[bool, str]:
             "make it a bold run-in label at the start of a paragraph, or split the document, ",
             "deep-heading",
             "why this document needs the level, in one line",
+            amended=True,
         ),
         "  why: a skipped level makes a section look nested in one that does not exist, and an outline built"
         " from the headings mis-nests it",
@@ -744,7 +734,12 @@ def t19() -> tuple[bool, str]:
         ),
         "  why: one marker for every bullet list keeps the source uniform, so a diff shows a change of"
         " content and never a change of marker",
-        fix("open the item with '- ', ", "list-marker", "why this list keeps its marker, in one line"),
+        fix(
+            "open the item with the shipped default, '- ', ",
+            "list-marker",
+            "why this list keeps its marker, in one line",
+            amended=True,
+        ),
         "  why: an item is cited by the number written in the source, so the numbers must be the ones a"
         " reader sees: each the one before it plus one, never all ones and never a jump",
         fix(
@@ -756,9 +751,11 @@ def t19() -> tuple[bool, str]:
         "  why: one emphasis marker keeps the source uniform, and an underscore inside a word or a name is"
         " text, which a second marker makes ambiguous",
         fix(
-            "use *italic* and **bold**; put a name that carries underscores in a code span, ",
+            "use the shipped default, *italic* and **bold**; put a name that carries underscores in a"
+            " code span, ",
             "underscore-emphasis",
             "why this document marks emphasis so, in one line",
+            amended=True,
         ),
         "  why: a row with more or fewer cells than the header puts values under the wrong heads, or drops"
         " them in silence, in every renderer",

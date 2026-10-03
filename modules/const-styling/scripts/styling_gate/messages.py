@@ -21,12 +21,19 @@ def _ns() -> str:
     return identity.current().namespace
 
 
-def _allow(signature: Signature, what: str) -> str:
-    """The second half of every fix: how a departure is declared, with the reason it needs."""
+AMENDED = (
+    "; where your guide changed this default, the pattern is your whole tree and the reason names"
+    " the guide's entry"
+)
+
+
+def _allow(signature: Signature, what: str, *, default: bool = False) -> str:
+    """The second half of every fix: how a departure is declared, with the reason it needs. For a
+    signature that holds a shipped default, it adds how a project that changed the default says so."""
     return (
         f"or declare the departure with its reason: add to {_ns()}.departures in {DIALS_FILE} an entry"
         f" {{paths: [<the file, or a pattern of the documents that depart>], allow: [{signature.value}],"
-        f" reason: <{what}>}}"
+        f" reason: <{what}>}}" + (AMENDED if default else "")
     )
 
 
@@ -41,43 +48,45 @@ def finding(rel: str, hit: Hit) -> Finding:
 def y1_plantuml(rel: str, line: int, text: str) -> Finding:
     return Finding(
         KEY_OF[Signature.PLANTUML],
-        f"{rel}:{line}: PlantUML where Mermaid is the default — {shown(text)}",
+        f"{rel}:{line}: PlantUML, where the shipped default is Mermaid — {shown(text)}",
         "Mermaid renders on GitHub, GitLab and in editor previews with no server; PlantUML needs one",
         "draw the diagram in a ```mermaid fence, "
-        + _allow(Signature.PLANTUML, "the capability Mermaid lacks, in one line"),
+        + _allow(Signature.PLANTUML, "the capability Mermaid lacks, in one line", default=True),
     )
 
 
 def y2_formula(rel: str, line: int, text: str) -> Finding:
     return Finding(
         KEY_OF[Signature.FORMULA],
-        f"{rel}:{line}: a formula where pseudocode is the default — {shown(text)}",
+        f"{rel}:{line}: a formula, where the shipped default is pseudocode — {shown(text)}",
         "a formula renders only in a web view and is invisible to a prose reader and a linter;"
         " pseudocode reads everywhere",
         "write the computation as pseudocode in a fenced block, "
-        + _allow(Signature.FORMULA, "why this must be a formula, in one line"),
+        + _allow(Signature.FORMULA, "why this must be a formula, in one line", default=True),
     )
 
 
 def y3_callout(rel: str, line: int, text: str) -> Finding:
     return Finding(
         KEY_OF[Signature.CALLOUT],
-        f"{rel}:{line}: a callout where none is the default — {shown(text)}",
+        f"{rel}:{line}: a callout, where the shipped default is none — {shown(text)}",
         "a callout pulls a sentence out of its argument; an aside is a clause, and a warning about an act"
         " is a sentence where the act is described",
         "write the sentence in the paragraph it belongs to, "
-        + _allow(Signature.CALLOUT, "why the reader must see this apart from the text, in one line"),
+        + _allow(
+            Signature.CALLOUT, "why the reader must see this apart from the text, in one line", default=True
+        ),
     )
 
 
 def y4_deep_heading(rel: str, line: int, text: str) -> Finding:
     return Finding(
         KEY_OF[Signature.DEEP_HEADING],
-        f"{rel}:{line}: a heading of level {text} where three is the deepest",
+        f"{rel}:{line}: a heading of level {text}, deeper than the shipped default of three",
         "a fourth level is a section too small to stand on its own, and most renderers stop showing"
         " levels below three in a page's outline",
         "make it a bold run-in label at the start of a paragraph, or split the document, "
-        + _allow(Signature.DEEP_HEADING, "why this document needs the level, in one line"),
+        + _allow(Signature.DEEP_HEADING, "why this document needs the level, in one line", default=True),
     )
 
 
@@ -116,11 +125,11 @@ def y7_fence_language(rel: str, line: int, text: str) -> Finding:
 def y8_list_marker(rel: str, line: int, text: str) -> Finding:
     return Finding(
         KEY_OF[Signature.LIST_MARKER],
-        f"{rel}:{line}: a bullet item opening with a marker other than a dash — {shown(text)}",
+        f"{rel}:{line}: a bullet item whose marker is not the shipped default, a dash — {shown(text)}",
         "one marker for every bullet list keeps the source uniform, so a diff shows a change of content"
         " and never a change of marker",
-        "open the item with '- ', "
-        + _allow(Signature.LIST_MARKER, "why this list keeps its marker, in one line"),
+        "open the item with the shipped default, '- ', "
+        + _allow(Signature.LIST_MARKER, "why this list keeps its marker, in one line", default=True),
     )
 
 
@@ -141,8 +150,11 @@ def y10_underscore_emphasis(rel: str, line: int, text: str) -> Finding:
         f"{rel}:{line}: emphasis by underscores — {shown(text)}",
         "one emphasis marker keeps the source uniform, and an underscore inside a word or a name is text,"
         " which a second marker makes ambiguous",
-        "use *italic* and **bold**; put a name that carries underscores in a code span, "
-        + _allow(Signature.UNDERSCORE_EMPHASIS, "why this document marks emphasis so, in one line"),
+        "use the shipped default, *italic* and **bold**; put a name that carries underscores in a"
+        " code span, "
+        + _allow(
+            Signature.UNDERSCORE_EMPHASIS, "why this document marks emphasis so, in one line", default=True
+        ),
     )
 
 
