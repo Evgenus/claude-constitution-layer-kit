@@ -533,7 +533,24 @@ def t11() -> tuple[bool, str]:
         " plugin's hooks file does; to see what the dial does to a command by hand run it with --scan"
         " --command '<text>'",
     )
-    return all_of(write_ok, no_command_ok, odd_ok)
+    odd_event = H.run_gate(
+        json.dumps(
+            {
+                "hook_event_name": "N\nx\\y" + "e" * 90,
+                "cwd": str(root),
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls"},
+            }
+        )
+    )
+    odd_event_ok = broken_first_line(  # the event name only points: cut at 80, the cut said, then escaped
+        odd_event,
+        "BROKEN: hook input names the event 'N\\nx\\\\y" + "e" * 75 + "… [95 characters]' on tool 'Bash',"
+        " which this gate is not wired to — fix: wire the gate to PreToolUse with the matcher Bash, as the"
+        " plugin's hooks file does; to see what the dial does to a command by hand run it with --scan"
+        " --command '<text>'",
+    )
+    return all_of(write_ok, no_command_ok, odd_ok, odd_event_ok)
 
 
 def t12() -> tuple[bool, str]:

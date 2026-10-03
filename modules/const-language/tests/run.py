@@ -432,8 +432,15 @@ def t6() -> tuple[bool, str]:
     mentioned = "# T\n\n```text\n<!-- vale Language.Simpler = NO -->\n```\n\nDo it prior to noon.\n"
     in_span = "# T\n\nA `<!-- vale Language.Simpler = NO -->` span; do it prior to noon.\n"
     across, _ = gate_on(Write(DOC, multi))
+    # a lone carriage return reaches the message only by a PreToolUse payload, whose content is not read
+    # through universal newlines; the comment stays on line 3 and its headline shows the return escaped
+    carriage, _ = gate_on(Write(DOC, "# T\n\n<!-- vale\roff -->\nShort.\n"))
     return all_of(
         (found.render() == typed, "L6 typed whole equals the function's text"),
+        (
+            headlines(carriage) == [f"RED: {DOC}:3: a Vale comment in the document — <!-- vale\\roff -->"],
+            f"a lone carriage return in a Vale comment is shown escaped: {headlines(carriage)}",
+        ),
         (headlines(result) == wanted, f"both findings, in line order: {headlines(result)}"),
         (
             headlines(across)
