@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import patterns, shown
+from const_gate.messages import echoed, patterns
 from const_gate.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, Status
 
 from .model import TITLE_MAX, Key
@@ -250,15 +250,15 @@ def n1_note_void_namespace(name: str) -> str:
 
 
 def f4_id_not_kebab(value: str) -> str:
-    return f"id '{shown(value)}' is not kebab-case"
+    return f"id '{echoed(value)}' is not kebab-case"
 
 
 def f4_type_not_allowed(value: str) -> str:
-    return f"type '{shown(value)}' not one of {_TYPES}"
+    return f"type '{echoed(value)}' not one of {_TYPES}"
 
 
 def f4_status_not_allowed(value: str) -> str:
-    return f"status '{shown(value)}' not one of {_STATUSES}"
+    return f"status '{echoed(value)}' not one of {_STATUSES}"
 
 
 def f4_title_empty() -> str:
@@ -270,4 +270,4 @@ def f4_title_too_long() -> str:
 
 
 def f4_declaration_not_kebab(value: str) -> str:
-    return f"{DECLARATION} '{shown(value)}' is not a kebab-case policy id"
+    return f"{DECLARATION} '{echoed(value)}' is not a kebab-case policy id"

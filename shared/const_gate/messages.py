@@ -224,7 +224,9 @@ def c5_territory_pattern(where: str, pattern: str) -> Broken:
     return Broken(
         SharedKey.C5,
         f"{DIALS_FILE}: {where} holds a pattern git would not read as one: '{echoed(pattern)}'",
-        "a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",
+        "a pattern may not start with '#' (a comment to git) nor contain a line break; "
+        "escape a leading # as \\# bare or in single quotes, "
+        "as \\\\# in double quotes, and remove a line break",
     )
 
 

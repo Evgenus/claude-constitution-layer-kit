@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import echoed, shown
+from const_gate.messages import echoed
 from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey
 
 from .model import DEFAULT_WIDTH, MAX_WIDTH, Advice, Catalog, Key, NameToTake, Reach, Read
@@ -95,7 +95,7 @@ def _name_to_take(catalog: Catalog, take: NameToTake) -> str:
 def k1_name_without_form(rel: str, stem: str, catalog: Catalog, take: NameToTake) -> Finding:
     return Finding(
         Key.K1,
-        f"{rel}: file name '{shown(stem)}' is not {_form(catalog)}, the form of catalog"
+        f"{rel}: file name '{echoed(stem)}' is not {_form(catalog)}, the form of catalog"
         f" '{catalog.prefix}', whose territory holds this file",
         "an item of a numbered kind is cited by its number, and a citation resolves only when the"
         " number stands in the file's name, in one form for the whole catalog",
@@ -131,7 +131,7 @@ def k2_id_is_not_the_name(rel: str, stem: str, detail: str) -> Finding:
 
 
 def k2_differs(value: str, stem: str) -> str:
-    return f"id '{shown(value)}' differs from the file name '{stem}'"
+    return f"id '{echoed(value)}' differs from the file name '{stem}'"
 
 
 def k2_no_envelope(rel: str, stem: str, state: EnvelopeState, yaml_detail: str = "") -> Finding:

@@ -68,7 +68,7 @@ def t2_not_updated(pair: Pair, touched: Sequence[str], key: str) -> Finding:
 def t3_names_no_pair(declaration: Declaration, key: str, names: Sequence[str]) -> Finding:
     return Finding(
         Key.T3,
-        f'{declaration.where}: "{key}: {shown(declaration.value)}" names no pair of the coverage map'
+        f'{declaration.where}: "{key}: {echoed(declaration.value)}" names no pair of the coverage map'
         f" (pairs: {', '.join(names)})",
         "a declaration must name what it declares unaffected, or it declares nothing",
         "name one of the pairs before the dash, or remove the line",
@@ -195,7 +195,7 @@ def pair_docs() -> str:
 
 
 def pair_docs_directory(path: str) -> str:
-    return f"names '{shown(path)}', a directory — a pair's documents are files"
+    return f"names '{echoed(path)}', a directory — a pair's documents are files"
 
 
 def c5_trunk() -> Broken:
@@ -228,7 +228,7 @@ SCAN_USAGE = "--scan [<dir>] [--since <ref> | --change <commit>] [--body <file>]
 def c12_not_wired(event: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"hook input names the event '{shown(event)}', which this gate is not wired to",
+        f"hook input names the event '{echoed(event)}', which this gate is not wired to",
         f"wire the gate to Stop, as the plugin's hooks file does; to check a change by hand run it with"
         f" {SCAN_USAGE}",
     )
@@ -246,7 +246,7 @@ def c12_unknown_ref(flag: str, ref: str, root: str, detail: str) -> Broken:
 def c12_no_trunk(trunk: str, root: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"the trunk '{shown(trunk)}' is neither a local branch nor origin/{shown(trunk)} in {root}",
+        f"the trunk '{echoed(trunk)}' is neither a local branch nor origin/{echoed(trunk)} in {root}",
         f"set {_ns()}.trunk to the branch changes land on, or run the scan with --since <ref>",
     )
 

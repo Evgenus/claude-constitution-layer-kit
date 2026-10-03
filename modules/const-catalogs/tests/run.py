@@ -446,7 +446,9 @@ def entry_pattern_git_would_misread() -> tuple[bool, str]:
         result,
         "BROKEN: constitution.yaml: const-catalogs.catalogs[itm] holds a pattern git would not read as"
         " one: '#docs/items/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a"
-        " line break; escape or remove it",
+        " line break; "
+        "escape a leading # as \\# bare or in single quotes, "
+        "as \\\\# in double quotes, and remove a line break",
     )
 
 
@@ -876,6 +878,10 @@ GOLDEN = {
     "K2 missing": f"RED: {ITEM_A}: id missing",
     "K2 differs": f"RED: {ITEM_A}: id 'itm-0001-other' differs from the file name '{STEM_A}'",
     "K2 no envelope": f"RED: {ITEM_A}: id cannot be read: the file does not start with a '---' line",
+    # a value echoed from a document stays on one line: the break shown escaped, typed by hand
+    "K2 id with a break": f"RED: {ITEM_A}: id 'itm-0001-a\\nb' differs from the file name '{STEM_A}'",
+    "K1 name with a break": "b.md: file name 'a\\nb' is not itm-<4 digits>-<kebab-slug>, the form of catalog"
+    " 'itm', whose territory holds this file",
     "K4": f"RED: {SECOND_TAKEN}: number itm-0001 is already carried by {ITEM_A}",
     "K4 why": "  why: a number cites one item; two items under one number make every reference to it"
     " ambiguous",
@@ -907,6 +913,8 @@ def golden_lines() -> tuple[bool, str]:
         "K2 missing": gate_on(Write(ITEM_A, item(drop=("id",))))[0],
         "K2 differs": gate_on(Write(ITEM_A, item(id="itm-0001-other")))[0],
         "K2 no envelope": gate_on(Write(ITEM_A, NO_ENVELOPE))[0],
+        "K2 id with a break": gate_on(Write(ITEM_A, item(id="itm-0001-a\nb")))[0],
+        "K1 name with a break": gate_on(Write(at("a\nb"), item("a\nb")))[0],
         "K4": gate_on(Write(SECOND_TAKEN, item("itm-0001-second")), files={ITEM_A: item()})[0],
     }
     runs["K1 fix"] = runs["K1 why"] = runs["K1"]

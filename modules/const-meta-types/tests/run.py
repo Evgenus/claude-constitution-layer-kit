@@ -563,6 +563,24 @@ def golden_lines() -> tuple[bool, str]:
         case = cases[number]
         stderr = H.run_gate(event_json(H.fresh_consumer(case.setup).root, case.red)).stderr
         missing += [f"case {number}: {line}" for line in lines if line not in stderr]
+    # an id, a type, a status and a declared policy holding a line break stay on one line, each break
+    # shown escaped, typed by hand
+    breaks = H.run_gate(
+        event_json(
+            H.fresh_consumer().root,
+            Write(
+                NOTE_A,
+                document(id="a\nb", type="c\nd", title="A", status="e\nf", policy="g\nh"),
+            ),
+        )
+    ).stderr
+    escaped = (
+        "RED: docs/notes/a.md: envelope field(s) invalid: id 'a\\nb' is not kebab-case; type 'c\\nd' not"
+        " one of current-state | task-record | non-authoritative; status 'e\\nf' not one of active |"
+        " inactive; policy 'g\\nh' is not a kebab-case policy id"
+    )
+    if escaped not in breaks:
+        missing.append(f"escaped values: {escaped}")
     found = sum(len(lines) for lines in GOLDEN.values())
     return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 

@@ -416,8 +416,9 @@ def t10() -> tuple[bool, str]:
         (
             own(ceilings=[{**NOTES, "paths": ["#docs/**"]}]),
             C5 + "ceilings entry 1 paths holds a pattern git would not read as one: '#docs/**' — fix: a"
-            " pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove"
-            " it",
+            " pattern may not start with '#' (a comment to git) nor contain a line break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break",
         ),
         (
             own(ceilings=[{**NOTES, "max": 0}]),
@@ -484,8 +485,9 @@ def t10() -> tuple[bool, str]:
         (
             own(departures=[{**LIFT, "paths": ["#docs/**"]}]),
             C5 + "departures entry 1 paths holds a pattern git would not read as one: '#docs/**' — fix: a"
-            " pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove"
-            " it",
+            " pattern may not start with '#' (a comment to git) nor contain a line break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break",
         ),
         (
             own(departures=[{"paths": ["docs/notes/**"], "allow": ["notes"], "reason": ""}]),

@@ -205,7 +205,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         line = (  # typed by hand: the dial's whole path, then the pattern in single quotes
             "BROKEN: constitution.yaml: notes-policy.territory holds a pattern git would not read as one:"
             " '#docs/notes/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
-            " break; escape or remove it"
+            " break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break"
         )
         return broken_as_typed(result, line)
 
@@ -914,7 +916,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             f"BROKEN: constitution.yaml: {ns}.{dial.path} holds a pattern git would not read as one: '#"
             + "x" * 79
             + "… [12001 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain"
-            " a line break; escape or remove it"
+            " a line break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break"
         )
         lines = result.stderr.splitlines()
         one_line = len(lines) == 1 + len(s.closing.splitlines())

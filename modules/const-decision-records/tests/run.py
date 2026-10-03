@@ -521,6 +521,18 @@ def golden_lines() -> tuple[bool, str]:
         case = cases[number]
         stderr = H.run_gate(event_json(H.fresh_consumer(case.setup).root, case.red)).stderr
         missing += [f"case {number}: {line}" for line in lines if line not in stderr]
+    # a type and a stakes value holding a line break stay on one line, the break shown escaped
+    broken_values = H.run_gate(
+        event_json(
+            H.fresh_consumer(SETUP).root, Write(RECORD_A, record(type="task\nrecord", stakes="high\nlow"))
+        )
+    ).stderr
+    escaped = (
+        "RED: docs/decisions/a.md: decision-record field(s) invalid: type 'task\\nrecord' is not"
+        " task-record; stakes 'high\\nlow' not one of process | product | architecture"
+    )
+    if escaped not in broken_values:
+        missing.append(f"escaped values: {escaped}")
     # the R2 fix glosses each stakes level in prose: exactly the enum's members, in its order
     fix = messages.r2_invalid_fields("x", []).fix
     glossed = re.findall(r"(\w+) \(", fix.split("stakes = ")[1].split("; decider")[0])

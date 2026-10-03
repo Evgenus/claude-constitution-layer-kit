@@ -197,7 +197,7 @@ def f9_after_write(rel: str, links: int, findings: int, shown_first: int | None)
 def c12_event(name: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"hook input names the event '{shown(name)}', which this gate is not wired to",
+        f"hook input names the event '{echoed(name)}', which this gate is not wired to",
         "wire the gate to PreToolUse and PostToolUse on Write|Edit, as the plugin's hooks file does; to"
         " check a repository by hand run it with --scan [<dir>]",
     )
@@ -310,7 +310,7 @@ def lane_home() -> str:
 
 def lane_pattern(error: str) -> str:
     return (
-        f"has a pattern that is no regular expression ({shown(error)}) — in YAML write it in single"
+        f"has a pattern that is no regular expression ({echoed(error)}) — in YAML write it in single"
         " quotes, where a backslash stands for itself"
     )
 

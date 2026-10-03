@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed
 from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey, Status
 
 from .model import Key, Stakes
@@ -83,11 +83,11 @@ def r3_routine_record(rel: str) -> Finding:
 
 
 def r2_type_not_task_record(value: str) -> str:
-    return f"type '{shown(value)}' is not task-record"
+    return f"type '{echoed(value)}' is not task-record"
 
 
 def r2_stakes_not_allowed(value: str) -> str:
-    return f"stakes '{shown(value)}' not one of {_STAKES}"
+    return f"stakes '{echoed(value)}' not one of {_STAKES}"
 
 
 def r2_decider_empty() -> str:

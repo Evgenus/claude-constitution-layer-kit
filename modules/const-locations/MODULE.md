@@ -117,7 +117,7 @@ None: an advisory module claims no invariant. In its place, the rules, each `adv
 | C5.a | a key that is no dial of this module is the shared [C5.10](../../shared/GATE.md#g3), the list it gives being `log_dir, templates` |
 | C5.b | `constitution.yaml: const-locations.severity has no meaning: this module blocks nothing, and a line that sets nothing misleads the next reader` — `remove the line` |
 | C5.c | `constitution.yaml: const-locations.templates must be a list of {policy: <id>, template: <repository-relative path>}: one entry names one kind's template` — `write it as templates: [{policy: <id>, template: <path>}, ...], or remove the key` |
-| C5.d | `constitution.yaml: const-locations.templates[{n}] {what}; an entry the command cannot read names no template` — `write the entry as {policy: <id>, template: <repository-relative path>}` — `what` one of `is not a mapping`, `has no policy`, `has no template`, `carries an unknown key '{key}'`, `names policy '{id}' a second time`, `names a template outside the repository` |
+| C5.d | `constitution.yaml: const-locations.templates[{n}] {what}; an entry the command cannot read names no template` — `write the entry as {policy: <id>, template: <repository-relative path>}` — `what` one of `is not a mapping`, `has no policy`, `has no template`, `carries an unknown key '{key}'`, `names policy '{id}' a second time`, `names a template outside the repository` — a blank or absolute path, or one leaving the repository by `..`, read as limit 15 of [kit-shared-gate-code §4](../../shared/GATE.md#g4) says, with the platform's separator |
 
 **Installed components reference nothing in the kit.** The skills, scripts, error texts, fixtures and install note name no kit document; where the skills need the kernel's definitions they point at "the constitution's conventions page the project adopted". The reasoning lives here and in [§4](#t4).
 
@@ -128,7 +128,7 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 
 | dial | default | meaning |
 |---|---|---|
-| `templates` | absent | the kinds that have a template: a list of `{policy: <policy id>, template: <repository-relative path>}`; a kind with no entry is created with the envelope alone; a policy listed twice is a configuration failure |
+| `templates` | absent | the kinds that have a template: a list of `{policy: <policy id>, template: <repository-relative path>}`; a kind with no entry is created with the envelope alone; a policy listed twice is a configuration failure; a path is read as limit 15 of [kit-shared-gate-code §4](../../shared/GATE.md#g4) says |
 | `log_dir` | absent | a repository-relative, git-ignored directory for the output log; absent: the platform's per-plugin data directory, else nowhere |
 
 <a id="t8"></a>

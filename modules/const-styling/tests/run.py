@@ -560,13 +560,16 @@ def t13() -> tuple[bool, str]:
             own(territories=["#docs/**"]),
             "BROKEN: constitution.yaml: const-styling.territories holds a pattern git would not read as one:"
             " '#docs/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
-            " break; escape or remove it",
+            " break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break",
         ),
         (
             own(guides=["a\nb"]),
             "BROKEN: constitution.yaml: const-styling.guides holds a pattern git would not read as one:"
-            " 'a\\nb' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break;"
-            " escape or remove it",
+            " 'a\\nb' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break",
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": ["plantuml"], "reason": "one\rtwo"}]),
@@ -582,7 +585,9 @@ def t13() -> tuple[bool, str]:
             own(departures=[{"paths": ["#a.md"], "allow": ["plantuml"], "reason": "r"}]),
             "BROKEN: constitution.yaml: const-styling.departures entry 1 paths holds a pattern git would not"
             " read as one: '#a.md' — fix: a pattern may not start with '#' (a comment to git) nor contain a"
-            " line break; escape or remove it",
+            " line break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break",
         ),
     ]
     results = [broken_first_line(scan({"docs/notes/a.md": MERMAID}, patch), line) for patch, line in cases]

@@ -487,11 +487,11 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(territories=["#docs/**"]),
-            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: '#docs/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: '#docs/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(territories=["a\nb"]),
-            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: 'a\\nb' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: 'a\\nb' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(grade_ceiling=-1),
@@ -563,11 +563,11 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(departures=[{"paths": ["#a.md"], "allow": ["grade"], "reason": "r"}]),
-            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds a pattern git would not read as one: '#a.md' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds a pattern git would not read as one: '#a.md' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(departures=[{"paths": ["#" + "x" * 100], "allow": ["grade"], "reason": "r"}]),
-            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds a pattern git would not read as one: '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.departures entry 1 paths holds a pattern git would not read as one: '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": [], "reason": "r"}]),
@@ -608,7 +608,7 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(territories=["#" + "x" * 69 + "\n" + "y" * 20]),
-            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\nyyyyyyyyy… [91 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(departures=[{"paths": ["a.md"], "allow": ["x" * 70 + "\n" + "y" * 20], "reason": "r"}]),
@@ -628,7 +628,7 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(territories=["#" + "x" * 100]),
-            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or remove it",  # noqa: E501 — a golden line is typed whole
+            "BROKEN: constitution.yaml: const-language.territories holds a pattern git would not read as one: '#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [101 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes, and remove a line break",  # noqa: E501 — a golden line is typed whole
         ),
         (
             own(levels={"a\nb": "error"}),
@@ -649,6 +649,10 @@ def t10() -> tuple[bool, str]:
         (
             own(exceptions=["hit the road"]),
             "BROKEN: constitution.yaml: const-language.exceptions names 'hit the road', which no forbidden phrase and no simpler pair holds — fix: an exception removes a phrase the rules know; check its spelling against the rules' lists, or remove it",  # noqa: E501 — a golden line is typed whole
+        ),
+        (  # a phrase is one line by the dial's own rule; its backslash is shown escaped
+            own(exceptions=["a\\b"]),
+            "BROKEN: constitution.yaml: const-language.exceptions names 'a\\\\b', which no forbidden phrase and no simpler pair holds — fix: an exception removes a phrase the rules know; check its spelling against the rules' lists, or remove it",  # noqa: E501 — a golden line is typed whole
         ),
     ]
     block_scalar = own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": "why\n"}])

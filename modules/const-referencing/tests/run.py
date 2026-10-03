@@ -409,8 +409,17 @@ def dial_failures() -> tuple[bool, str]:
         " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
         " optional",
     )
+    # the compiler's own words echo the pattern's backslash, shown escaped in turn: typed by hand
+    odd_pattern = broken_typed(
+        gate_on(VALID, dials_patch=lane(pattern=r"(?P<a\b>x)"))[0],
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes has a pattern that is no regular"
+        " expression (bad character in group name 'a\\\\\\\\b' at position 4) — in YAML write it in single"
+        " quotes, where a backslash stands for itself — fix: write the entry as {pattern: <regular"
+        " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
+        " optional",
+    )
     return all_of(
-        [*results, broken(in_scan, messages.c5_switch("bare_ids")), odd_key],
+        [*results, broken(in_scan, messages.c5_switch("bare_ids")), odd_key, odd_pattern],
         f"{len(wrong)} malformed dials, each exit 1, and one in the scan",
     )
 
@@ -447,7 +456,9 @@ def lane_home_pattern_git_would_misread() -> tuple[bool, str]:
         result,
         "BROKEN: constitution.yaml: const-referencing.lanes[1].home holds a pattern git would not read as"
         " one: '#docs' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
-        " break; escape or remove it",
+        " break; "
+        "escape a leading # as \\# bare or in single quotes, "
+        "as \\\\# in double quotes, and remove a line break",
     )
 
 
@@ -906,7 +917,19 @@ def file_gone_after_write() -> tuple[bool, str]:
 
 def unknown_event() -> tuple[bool, str]:
     files = {SOURCE: source("See [x](gone.md).")}
-    return broken(after_write(SOURCE, files, event="Notification"), messages.c12_event("Notification"))
+    odd = broken_typed(  # a name holding a line break stays on one line, the break shown escaped
+        after_write(SOURCE, files, event="Notif\nication"),
+        "BROKEN: hook input names the event 'Notif\\nication', which this gate is not wired to — fix: wire"
+        " the gate to PreToolUse and PostToolUse on Write|Edit, as the plugin's hooks file does; to check a"
+        " repository by hand run it with --scan [<dir>]",
+    )
+    return all_of(
+        [
+            broken(after_write(SOURCE, files, event="Notification"), messages.c12_event("Notification")),
+            odd,
+        ],
+        "an event the gate is not wired to is a configuration failure, a line break in its name escaped",
+    )
 
 
 def lychee_absent_after_write() -> tuple[bool, str]:

@@ -339,11 +339,24 @@ def tool_event_is_not_wired() -> tuple[bool, str]:
             "cwd": str(r.root),
         }
     )
-    return broken(
-        H.run_gate(event),
-        "BROKEN: hook input names the event 'PreToolUse', which this gate is not wired to — fix: wire"
-        " the gate to Stop, as the plugin's hooks file does; to check a change by hand run it with"
-        " --scan [<dir>] [--since <ref> | --change <commit>] [--body <file>]",
+    fix = (
+        " — fix: wire the gate to Stop, as the plugin's hooks file does; to check a change by hand run it"
+        " with --scan [<dir>] [--since <ref> | --change <commit>] [--body <file>]"
+    )
+    # a name holding a line break stays on one line, the break shown escaped, typed by hand
+    odd = event.replace("PreToolUse", "Pre\\nTool")
+    return all_of(
+        [
+            broken(
+                H.run_gate(event),
+                "BROKEN: hook input names the event 'PreToolUse', which this gate is not wired to" + fix,
+            ),
+            broken(
+                H.run_gate(odd),
+                "BROKEN: hook input names the event 'Pre\\nTool', which this gate is not wired to" + fix,
+            ),
+        ],
+        "an event the gate is not wired to is a configuration failure, a line break in its name escaped",
     )
 
 
@@ -368,8 +381,15 @@ def trunk_dial() -> tuple[bool, str]:
         f"BROKEN: the trunk 'nowhere' is neither a local branch nor origin/nowhere in {r2.root} — fix:"
         " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
     )
+    r3 = repo(with_map(trunk="no\nwhere"))
+    branch(r3.root)
+    odd = broken(  # a line break in the dial's value stays on one line, shown escaped, typed by hand
+        scan(r3.root),
+        f"BROKEN: the trunk 'no\\nwhere' is neither a local branch nor origin/no\\nwhere in {r3.root} — fix:"
+        " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
+    )
     return all_of(
-        [named, missing], "the trunk dial names the base; an unknown trunk is a configuration failure"
+        [named, missing, odd], "the trunk dial names the base; an unknown trunk is a configuration failure"
     )
 
 
@@ -712,6 +732,10 @@ def dial_failures() -> tuple[bool, str]:
             own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["docs/"]}]),
             pair_line(1, "names 'docs/', a directory — a pair's documents are files"),
         ),
+        (  # a line break in the path stays on one line, shown escaped
+            own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["a\nb/"]}]),
+            pair_line(1, "names 'a\\nb/', a directory — a pair's documents are files"),
+        ),
         (own(trunk=""), TRUNK),
         (own(trunk=3), TRUNK),
         (
@@ -748,8 +772,9 @@ def dial_failures() -> tuple[bool, str]:
 
 def unreadable_patterns() -> tuple[bool, str]:
     fix = (
-        " — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; escape or"
-        " remove it"
+        " — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; "
+        "escape a leading # as \\# bare or in single quotes, "
+        "as \\\\# in double quotes, and remove a line break"
     )
     code = broken(
         scan(repo(with_map({**CORE, "code": ["#src/**"]})).root),
@@ -790,6 +815,12 @@ def golden_lines() -> tuple[bool, str]:
         r.root, "wrong\n\n" + f"{KEY}: nosuch — reason\n{KEY}: core\n", {"src/a.py": "2\n"}
     )
     out = scan(r.root).stdout
+    spelt = repo(with_map())
+    branch(spelt.root)
+    odd_where = "commit " + commit(  # a line break inside a declaration's value stays on one line
+        spelt.root, "wrong\n\n" + f"{KEY}: nosuch — a\rb\n", {"src/a.py": "2\n"}
+    )
+    odd = scan(spelt.root).stdout
     x1 = scan(repo(with_map({**CORE, "docs": ["docs/none.md"]})).root).stderr
     x2 = scan(repo(with_map({**CORE, "docs": ["docs"]})).root).stderr
     slash = scan(repo(with_map({**CORE, "docs": ["docs/"]})).root).stderr
@@ -802,6 +833,11 @@ def golden_lines() -> tuple[bool, str]:
     commit(wide.root, "four", {"src/a.py": "2\n", "src/b.py": "b\n", "src/c.py": "c\n", "src/d.py": "d\n"})
     four = scan(wide.root).stdout  # one more path than T2 lists
     literals = [
+        (
+            f'RED: {odd_where}: "No-Doc-Impact: nosuch — a\\rb" names no pair of the coverage map'
+            " (pairs: core)",
+            odd,
+        ),
         ("RED: the working tree is dirty at turn end — 1 path(s): ?? scratch.txt", tree),
         (
             "  why: rollback points live in git, not in the chat's rewind, which does not see edits made through the shell, a script or a subagent — work not committed did not happen",  # noqa: E501 — a golden line is typed whole

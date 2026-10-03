@@ -302,7 +302,7 @@ def c5_departure(index: int, detail: str) -> Broken:
 
 def c5_exception(phrase: str) -> Broken:
     return _c5(
-        f"{_ns()}.exceptions names '{shown(phrase)}', which no forbidden phrase and no simpler pair holds",
+        f"{_ns()}.exceptions names '{echoed(phrase)}', which no forbidden phrase and no simpler pair holds",
         "an exception removes a phrase the rules know; check its spelling against the rules' lists, or"
         " remove it",
     )
