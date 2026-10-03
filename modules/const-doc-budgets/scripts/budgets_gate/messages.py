@@ -15,7 +15,7 @@ import datetime
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import echoed
+from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import MARGIN_PERCENT, ROUND_TO, WINDOW_DAYS, Ceiling, Departure, Key, Level
@@ -27,7 +27,7 @@ def _ns() -> str:
 
 def _over(rel: str, length: int, ceiling: Ceiling) -> str:
     return (
-        f"{rel}: {length:,} characters, over the ceiling '{ceiling.name}' of {ceiling.max:,}"
+        f"{escaped(rel)}: {length:,} characters, over the ceiling '{ceiling.name}' of {ceiling.max:,}"
         f" by {length - ceiling.max:,}"
     )
 
@@ -63,7 +63,8 @@ def n2_warning(rel: str, length: int, ceiling: Ceiling) -> str:
 
 def n3_stale_departure(index: int, departure: Departure) -> str:
     return (
-        f"note: {_ns()}.departures entry {index} ({', '.join(departure.paths)}) lifts nothing: it matches"
+        f"note: {_ns()}.departures entry {index} ({echoed(', '.join(departure.paths))}) lifts nothing: it"
+        " matches"
         " no document a ceiling it names holds; the documents were deleted or moved, or the pattern or"
         " the names are wrong"
     )
@@ -86,10 +87,10 @@ def n4_ceiling(ceiling: Ceiling, held: int, lifted: int, longest: tuple[str, int
     )
     if lifted:
         return (
-            f"{head}: {held} document(s), {lifted} lifted by a departure, the longest of the others {rel}"
-            f" at {length:,}, {margin}"
+            f"{head}: {held} document(s), {lifted} lifted by a departure, the longest of the others"
+            f" {escaped(rel)} at {length:,}, {margin}"
         )
-    return f"{head}: {held} document(s), the longest {rel} at {length:,}, {margin}"
+    return f"{head}: {held} document(s), the longest {escaped(rel)} at {length:,}, {margin}"
 
 
 # ---------------------------------------------------------------- green, count lines and skips
@@ -110,7 +111,7 @@ def g1_skip_no_ceiling() -> str:
 
 
 def g1_skip_not_covered(rel: str) -> str:
-    return f"{rel} is under no ceiling ({_ns()}.ceilings)"
+    return f"{escaped(rel)} is under no ceiling ({_ns()}.ceilings)"
 
 
 def f9_tail(documents: int, ceilings: int, departures: int, scanned: int) -> str:
@@ -129,7 +130,7 @@ def h1_day(day: datetime.date, ceiling: Ceiling, documents: int, top: tuple[str,
     rel, length = top
     return (
         f"{day.isoformat()} {ceiling.name}: {documents} document(s) at the day's last commit, the longest"
-        f" of the day {rel} at {length:,}"
+        f" of the day {escaped(rel)} at {length:,}"
     )
 
 
@@ -141,8 +142,8 @@ def h1_window(
         return f"window {ceiling.name}: {span}, no document"
     rel, length = top
     return (
-        f"window {ceiling.name}: {span}, the longest {rel} at {length:,}; plus {MARGIN_PERCENT} % rounded"
-        f" up to {ROUND_TO:,}: {thumb:,}; set now: {ceiling.max:,}"
+        f"window {ceiling.name}: {span}, the longest {escaped(rel)} at {length:,}; plus {MARGIN_PERCENT} %"
+        f" rounded up to {ROUND_TO:,}: {thumb:,}; set now: {ceiling.max:,}"
     )
 
 
@@ -169,13 +170,13 @@ def z1_empty() -> str:
 
 def z1_no_dials(root: str) -> str:
     return (
-        f"{_ns()}: no {DIALS_FILE} in {root} — the length gate measures nothing there until the file"
+        f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the length gate measures nothing there until the file"
         f" sets a ceiling in {_ns()}.ceilings"
     )
 
 
 def z1_no_repo(cwd: str) -> str:
-    return f"{_ns()}: {cwd} is not inside a git repository — the length gate measures nothing there"
+    return f"{_ns()}: {escaped(cwd)} is not inside a git repository — the length gate measures nothing there"
 
 
 def z1_prefix() -> str:
@@ -192,7 +193,7 @@ def z1_could_not_run() -> str:
 def c12_event(event: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"this check is wired to a tool event before or after a write, not to '{event}'",
+        f"this check is wired to a tool event before or after a write, not to '{echoed(event)}'",
         "in hooks.json wire it to PostToolUse on Write|Edit, or run it with --scan [<dir>]",
     )
 
@@ -208,7 +209,7 @@ def c12_since(value: str) -> Broken:
 def c12_shallow(root: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"{root} is a shallow clone, so its history holds only the last commits",
+        f"{escaped(root)} is a shallow clone, so its history holds only the last commits",
         "a report on days it cannot see would say they held nothing: run git fetch --unshallow, or in"
         " CI check out with the whole history (fetch-depth: 0), then run the report again",
     )
@@ -217,7 +218,7 @@ def c12_shallow(root: str) -> Broken:
 def c12_git_history(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"git could not read the history: {detail}",
+        f"git could not read the history: {escaped(detail)}",
         "repair what git names in the message, then check by hand: git log --first-parent -1",
     )
 
@@ -265,7 +266,7 @@ def c5_window(name: str, window_days: int, start: datetime.date, end: datetime.d
 
 def c5_overlap(first: str, second: str, rel: str) -> Broken:
     return _c5(
-        f"{_ns()}.ceilings '{echoed(first)}' and '{echoed(second)}' both hold {echoed(rel)}",
+        f"{_ns()}.ceilings '{echoed(first)}' and '{echoed(second)}' both hold {escaped(rel)}",
         "a document is held to one ceiling at most, so that its number never depends on the order of the"
         " list: narrow one entry's paths, or take the file out of one with a negated pattern; a document"
         " that must stand over its ceiling takes a departure",

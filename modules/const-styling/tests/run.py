@@ -54,6 +54,12 @@ GUIDE = MODULE_ROOT / "skills" / "style-defaults" / "style-guide.md"
 SKILL = MODULE_ROOT / "skills" / "style-defaults" / "SKILL.md"
 
 
+# a file name of over 80 characters holding a line break and a backslash: the real name, and the text the
+# scan shows for it, typed by hand — the whole name, since a path is what the reader opens
+WEIRD = "docs/notes/w\nx\\y" + "z" * 80 + ".md"
+WEIRD_SHOWN = "docs/notes/w\\nx\\\\y" + "z" * 80 + ".md"
+
+
 def own(**dials: object) -> dict[str, object]:
     """A patch of this module's namespace that keeps it working."""
     return {NAMESPACE: dict(dials)}
@@ -305,7 +311,21 @@ def t7() -> tuple[bool, str]:
         {"docs/notes/l.md": "# T\n\n``` x`y\n* star\n"},
         "docs/notes/l.md:4: a bullet item whose marker is not the shipped default, a dash — star",
     )
-    return all_of(star, plus, fine, no_fence)
+    odd = (
+        one_finding(  # the echoed text holds backslashes and runs to 105 characters: cut at 80, then escaped
+            {"docs/notes/l.md": "# T\n\n* a\\b\\c" + "x" * 100 + "\n"},
+            "docs/notes/l.md:3: a bullet item whose marker is not the shipped default, a dash — a\\\\b\\\\c"
+            + "x" * 75
+            + "… [105 characters]",
+        )
+    )
+    long_path = (
+        one_finding(  # the path whole in the headline, over 80 characters, its break and backslash escaped
+            {WEIRD: "# T\n\n* one\n"},
+            WEIRD_SHOWN + ":3: a bullet item whose marker is not the shipped default, a dash — one",
+        )
+    )
+    return all_of(star, plus, fine, no_fence, odd, long_path)
 
 
 def t8() -> tuple[bool, str]:
@@ -455,12 +475,23 @@ def t11() -> tuple[bool, str]:
         " allowed were deleted or moved, or the pattern is wrong"
     )
     stale_ok = stale.code == 0 and stale.stdout.splitlines()[0] == note and green(4, 1) in stale.stdout
+    long_pattern = "docs\\gone/" + "p" * 100  # 110 characters with a backslash: a pattern only points
+    cut = scan(
+        {"docs/notes/a.md": MERMAID},
+        own(departures=[{"paths": [long_pattern], "allow": ["plantuml"], "reason": "was"}]),
+    )
+    cut_note = (
+        "note: const-styling.departures entry 1 (docs\\\\gone/" + "p" * 70 + "… [110 characters]) matches no"
+        " covered document; the documents it allowed were deleted or moved, or the pattern is wrong"
+    )
+    cut_ok = cut.code == 0 and cut.stdout.splitlines()[0] == cut_note
     return all_of(
         (territory_ok, "territory entry" if territory_ok else by_territory.stdout),
         (path_ok, "path entry" if path_ok else by_path.stdout),
         other_ok,
         (stale_ok, "stale entry noted, typed by hand" if stale_ok else f"{stale.code}: {stale.stdout}"),
         (outside_ok, "an entry over uncovered documents is stale" if outside_ok else outside.stdout),
+        (cut_ok, "a pattern of 110 characters cut at 80, said, then escaped" if cut_ok else cut.stdout),
     )
 
 
@@ -648,7 +679,19 @@ def t15() -> tuple[bool, str]:
     ]
     ok = result.code == 2 and headlines(result) == wanted and red_lines(result.stdout)[-1] == red(12, 4)
     clean = no_finding({"docs/notes/g.md": MERMAID})
-    return all_of((ok, "twelve headlines in order" if ok else result.stdout), clean)
+    long_path = scan(
+        {WEIRD: GOLDEN}
+    )  # the path of over 80 characters, whole and escaped, in all twelve headlines
+    long_ok = (
+        long_path.code == 2
+        and len(headlines(long_path)) == 12
+        and all(line.startswith("RED: " + WEIRD_SHOWN + ":") for line in headlines(long_path))
+    )
+    return all_of(
+        (ok, "twelve headlines in order" if ok else result.stdout),
+        clean,
+        (long_ok, "the path whole in every headline" if long_ok else long_path.stdout[:600]),
+    )
 
 
 def t16() -> tuple[bool, str]:
@@ -661,7 +704,40 @@ def t16() -> tuple[bool, str]:
         and "x" * 81 not in result.stdout
         and len(result.stdout) < 2_000
     )
-    return ok, f"{len(result.stdout)} characters of verdict" if ok else result.stdout[:300]
+    odd = scan(  # six signatures echo a line: each holds a backslash and runs over 80 characters
+        {
+            "docs/notes/o.md": "# T\n\n"  # 1-2
+            "```plantuml a\\b" + "p" * 100 + "\nA -> B\n```\n\n"  # 3-6
+            "$$ a\\b " + "f" * 100 + " $$\n\n"  # 7-8
+            "> [!TIP] a\\b" + "c" * 100 + "\n\n"  # 9-10
+            "# Second a\\b" + "h" * 100 + "\n\n"  # 11-12
+            "* a\\b" + "l" * 100 + "\n\n"  # 13-14
+            "_a\\b" + "u" * 100 + "_\n"  # 15
+        }
+    )
+    odd_wanted = [
+        "RED: docs/notes/o.md:3: PlantUML, where the shipped default is Mermaid — ```plantuml a\\\\b"
+        + "p" * 65
+        + "… [115 characters]",
+        "RED: docs/notes/o.md:7: a formula, where the shipped default is pseudocode — $$ a\\\\b "
+        + "f" * 73
+        + "… [110 characters]",
+        "RED: docs/notes/o.md:9: a callout, where the shipped default is none — > [!TIP] a\\\\b"
+        + "c" * 68
+        + "… [112 characters]",
+        "RED: docs/notes/o.md:11: a second level-one heading — Second a\\\\b"
+        + "h" * 70
+        + "… [110 characters]",
+        "RED: docs/notes/o.md:13: a bullet item whose marker is not the shipped default, a dash — a\\\\b"
+        + "l" * 77
+        + "… [103 characters]",
+        "RED: docs/notes/o.md:15: emphasis by underscores — a\\\\b" + "u" * 77 + "… [103 characters]",
+    ]
+    odd_ok = odd.code == 2 and headlines(odd) == odd_wanted
+    return all_of(
+        (ok, f"{len(result.stdout)} characters of verdict" if ok else result.stdout[:300]),
+        (odd_ok, "six echoed lines, backslash doubled, cut at 80" if odd_ok else odd.stdout[:1500]),
+    )
 
 
 # ---------------------------------------------------------------- golden lines

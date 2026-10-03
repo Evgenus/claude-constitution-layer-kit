@@ -85,6 +85,14 @@ COMMENT_RED = "# T\n\n<!-- vale Language.Simpler = NO -->\nDo it prior to noon.\
 COMMENT_GREEN = "# T\n\nDo it before noon.\n"
 
 
+# a file name of over 80 characters holding a line break and a backslash: the real name, and the text the
+# gate shows for it, typed by hand — the whole name, since a path is what the reader opens
+WEIRD = "docs/notes/w\nx\\y" + "z" * 80 + ".md"
+WEIRD_SHOWN = "docs/notes/w\\nx\\\\y" + "z" * 80 + ".md"
+WEIRD_OTHER = "docs/other/w\nx\\y" + "z" * 80 + ".md"
+WEIRD_OTHER_SHOWN = "docs/other/w\\nx\\\\y" + "z" * 80 + ".md"
+
+
 def own(**dials: object) -> dict[str, object]:
     """A patch of this module's namespace that keeps it working."""
     return {NAMESPACE: dict(dials)}
@@ -294,6 +302,29 @@ def t4() -> tuple[bool, str]:
     """L4 typed whole with the plain word, in any case; an exception keeps the phrase; a pair of the
     repository's own; the pair's plain word arrives from the rule, not from the document."""
     found = messages.l4_simpler(DOC, 3, "prior to", "before")
+    odd, _ = (
+        gate_on(  # the plain word holds a backslash and 103 characters: the headline points, the fix is typed
+            Write(DOC, "# T\n\nWe will ascertain it.\n"), own(simpler={"ascertain": "a\\b" + "x" * 100})
+        )
+    )
+    long_plain = (
+        odd.stderr.splitlines()[0:3:2]
+        == [
+            "RED: docs/notes/c.md:3: 'ascertain' where the plain word is 'a\\\\b"
+            + "x" * 77
+            + "… [103 characters]'",
+            "  fix: write 'a\\\\b" + "x" * 100 + "'; a word this repository keeps on purpose is named in"
+            " const-language.exceptions in constitution.yaml" + ALLOW_SIMPLER,
+        ],
+        "the plain word cut in the headline and whole in the fix, its backslash doubled: " + odd.stderr[:600],
+    )
+    weird, _ = gate_on(Write(WEIRD, SIMPLER_RED))
+    long_path = (  # the path whole in the headline and in the count line, though over 80 characters
+        weird.stderr.splitlines()[0]
+        == "RED: " + WEIRD_SHOWN + ":3: 'prior to' where the plain word is 'before'"
+        and weird.stderr.splitlines()[-1] == "RED: 1 finding(s) — 1 document examined (" + WEIRD_SHOWN + ")",
+        "the path whole and escaped: " + weird.stderr[:400],
+    )
     typed = (
         f"RED: {DOC}:3: 'prior to' where the plain word is 'before'\n"
         "  why: a long or formal word costs a non-native reader a dictionary where the plain one does"
@@ -315,15 +346,21 @@ def t4() -> tuple[bool, str]:
             own(simpler={"ascertain": "x" * 12000}),
         ),
         (
-            "… [12000 characters]" in messages.l4_simpler(DOC, 3, "ascertain", "x" * 12000).render()
-            and "x" * 81 not in messages.l4_simpler(DOC, 3, "ascertain", "x" * 12000).render(),
-            "a plain word of 12,000 characters is echoed cut, twice",
+            messages.l4_simpler(DOC, 3, "ascertain", "x" * 12000).headline.endswith(
+                "'ascertain' where the plain word is '" + "x" * 80 + "… [12000 characters]'"
+            )
+            and "x" * 12000 + "'; a word this repository"
+            in messages.l4_simpler(DOC, 3, "ascertain", "x" * 12000).render(),
+            "a plain word of 12,000 characters is cut in the headline, which only points, and whole in the"
+            " fix, which the reader types",
         ),
         one_finding(
             "# T\n\nWe will ascertain it.\n",
             messages.l4_simpler(DOC, 3, "ascertain", "find out").headline,
             own(simpler={"ascertain": "find out"}),
         ),
+        long_plain,
+        long_path,
     )
 
 
@@ -440,6 +477,8 @@ def t8() -> tuple[bool, str]:
     other = json.loads(event_json(root, Write(DOC, "x")))
     other["hook_event_name"] = "UserPromptSubmit"
     elsewhere = H.run_gate(json.dumps(other))
+    other["hook_event_name"] = "N\nx\\y" + "e" * 90
+    odd_event = H.run_gate(json.dumps(other))
     c12 = "BROKEN: this check is wired to a tool event before or after a write, not to 'UserPromptSubmit' — fix: in hooks.json wire it to PostToolUse on Write|Edit, or run it with --scan [<dir>]"  # noqa: E501 — a golden line is typed whole  # noqa: E501 — a golden line is typed whole
     return all_of(
         expect(red, 2, messages.l4_simpler(DOC, 3, "prior to", "before").render(), "stderr"),
@@ -448,6 +487,13 @@ def t8() -> tuple[bool, str]:
         expect(gone, 0, shared.g1_green_skip(shared.g1_skip_gone("docs/notes/gone.md")), "stdout"),
         (messages.c12_event("UserPromptSubmit").render() == c12, "C12 typed whole"),
         broken_first_line(elsewhere, c12),
+        broken_first_line(  # an event name only points: cut at 80 characters, the cut said, then escaped
+            odd_event,
+            "BROKEN: this check is wired to a tool event before or after a write, not to 'N\\nx\\\\y"
+            + "e" * 75
+            + "… [95 characters]' — fix: in hooks.json wire it to PostToolUse on Write|Edit, or run it with"
+            " --scan [<dir>]",
+        ),
         expect(stop, 0, shared.g1_green_skip(shared.g1_skip_no_file("")), "stdout"),
     )
 
@@ -704,6 +750,16 @@ def t11() -> tuple[bool, str]:
         'case "$1" in --version) echo "vale version 3.23.0";; *) echo \'{"Line":1,"Path":"x","Text":"E201 something broke","Code":"E201","Span":1}\'; exit 2;; esac',  # noqa: E501 — a golden line is typed whole
     )
     mute = fake_vale(H.scratch_dir(), "echo hello")
+    odd_version = fake_vale(
+        H.scratch_dir(), "printf '%s\\n' 'a\\b " + "w" * 90 + "'"
+    )  # a backslash, 93 characters
+    odd_exit = fake_vale(H.scratch_dir(), "printf '%s\\n' 'a\\b " + "w" * 90 + "'; exit 1")
+    odd_failed = fake_vale(
+        H.scratch_dir(),
+        'case "$1" in --version) echo "vale version 3.23.0";; *) printf \'%s\\n\' \'{"Text":"E201 a\\\\b '
+        + "w" * 90
+        + "\"}'; exit 2;; esac",
+    )
     failing_version = fake_vale(H.scratch_dir(), 'echo "vale version 3.23.0"; exit 1')
     missing = "BROKEN: const-language needs vale 3.23.0 or newer on PATH — fix: brew install vale (macOS, Linuxbrew), or the other routes at https://vale.sh/docs/install — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     too_old = "BROKEN: const-language needs vale 3.23.0 or newer, found 3.19.0 — fix: upgrade it: brew install vale (macOS, Linuxbrew), or the other routes at https://vale.sh/docs/install — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
@@ -715,7 +771,31 @@ def t11() -> tuple[bool, str]:
     ]
     exit_one = "BROKEN: vale --version failed (exit 1: vale version 3.23.0) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     scan_old = H.run_gate("", args=["--scan", str(prepared(files={DOC: PLAIN}))], env={"PATH": str(old)})
+    odd = [
+        gate_on(Write(DOC, PLAIN), env={"PATH": str(directory)})[0]
+        for directory in (odd_version, odd_exit, odd_failed)
+    ]
+    repair = (
+        "run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"
+    )
     return all_of(
+        broken(  # a diagnosis is what the reader acts on: whole, its backslash doubled, 90 letters uncut
+            odd[0],
+            ("BROKEN: vale did not report its version (a\\\\b " + "w" * 90 + ") — fix: " + repair),
+        ),
+        broken(
+            odd[1],
+            ("BROKEN: vale --version failed (exit 1: a\\\\b " + "w" * 90 + ") — fix: " + repair),
+        ),
+        broken(
+            odd[2],
+            (
+                "BROKEN: vale could not run: E201 a\\\\b "
+                + "w" * 90
+                + " — fix: repair what the message names"
+                " — the binary, its permissions, the temporary directory — then run the check again"
+            ),
+        ),
         broken(results[0], missing),
         broken(results[1], too_old),
         broken(results[2], failed),
@@ -758,6 +838,14 @@ def t12() -> tuple[bool, str]:
     wide, _ = gate_on(Write(DOC, wide_text))
     wide_fit = fit_of(lambda line: messages.l6_vale_comment(DOC, line, "<!-- vale off -->").render())
     wide_count = f"RED: 60 finding(s), the first {wide_fit} shown — the scan lists them all — 1 document examined ({DOC})"  # noqa: E501 — a golden line is typed whole
+    weird_fit = fit_of(lambda line: messages.l4_simpler(WEIRD, line, "prior to", "before").render())
+    weird, _ = gate_on(Write(WEIRD, text))
+    weird_count = (  # the cut count line keeps the path whole, over 80 characters, escaped
+        f"RED: 60 finding(s), the first {weird_fit} shown — the scan lists them all — 1 document examined ("
+        + WEIRD_SHOWN
+        + ")"
+    )
+    weird_tail = red_lines(weird.stderr)[-1] if red_lines(weird.stderr) else "no RED line"
     tail_of = red_lines(result.stderr)[-1] if red_lines(result.stderr) else "no RED line"
     wide_tail = red_lines(wide.stderr)[-1] if red_lines(wide.stderr) else "no RED line"
     return all_of(
@@ -766,6 +854,7 @@ def t12() -> tuple[bool, str]:
             f"exit {result.code}, {len(headlines(result))} shown of a fit of {fit}",
         ),
         (tail_of == count, f"count line: {tail_of}"),
+        (weird_tail == weird_count, f"count line of a long path: {weird_tail}"),
         (len(result.stderr) < 10_000, f"{len(result.stderr)} characters of verdict"),
         (
             0 < wide_fit < 60 and len(headlines(wide)) == wide_fit,
@@ -786,7 +875,27 @@ def t13() -> tuple[bool, str]:
     default = scan(files)
     narrowed = scan(files, own(territories=["docs/**/*.md", "!docs/other/**"]))
     dialled = scan({DOC: PLAIN}, own(grade_ceiling=12.5, sentence_words=40))
+    outside, _ = gate_on(Write(WEIRD_OTHER, PLAIN), own(territories=["docs/notes/**"]))
+    long_pattern = "docs\\gone/" + "p" * 100  # 110 characters with a backslash: a pattern only points
+    stale = scan(
+        {DOC: PLAIN}, own(departures=[{"paths": [long_pattern], "allow": ["simpler"], "reason": "moved"}])
+    )
     return all_of(
+        expect(  # the skip names the path whole and escaped, over 80 characters
+            outside,
+            0,
+            "GREEN: const-language: 0 documents examined — " + WEIRD_OTHER_SHOWN + " is not covered"
+            " (const-language.territories)",
+            "stdout",
+        ),
+        (
+            "note: const-language.departures entry 1 (docs\\\\gone/"
+            + "p" * 70
+            + "… [110 characters]) matches no"
+            " covered document; the documents it allowed were deleted or moved, or the pattern is wrong"
+            in stale.stdout.splitlines(),
+            "the pattern cut at 80, said, then escaped: " + stale.stdout[:400],
+        ),
         expect(default, 2, f"RED: 2 finding(s) — {tail(6)}", "stdout"),
         expect(narrowed, 2, f"RED: 1 finding(s) — {tail(4, 6)}", "stdout"),
         expect(dialled, 0, green_scan(4, ceiling=12.5, words=40), "stdout"),
@@ -846,7 +955,25 @@ def t15() -> tuple[bool, str]:
         ]
     )
     ok = result.code == 2 and result.stdout == typed
-    return ok, "the whole output typed by hand" if ok else f"exit {result.code}:\n{result.stdout}"
+    long_path = scan(
+        {WEIRD: text}
+    )  # every finding and the note name the path whole, escaped, over 80 characters
+    long_lines = long_path.stdout.splitlines()
+    long_ok = (
+        long_path.code == 2
+        and len(headlines(long_path, "stdout")) == 5
+        and all(line.startswith("RED: " + WEIRD_SHOWN + ":") for line in headlines(long_path, "stdout"))
+        and long_lines[0].startswith("note: " + WEIRD_SHOWN + ":8: passive voice")
+    )
+    return all_of(
+        (ok, "the whole output typed by hand" if ok else f"exit {result.code}:\n{result.stdout}"),
+        (
+            long_ok,
+            "the path whole in every headline"
+            if long_ok
+            else f"exit {long_path.code}:\n{long_path.stdout[:600]}",
+        ),
+    )
 
 
 def t16() -> tuple[bool, str]:

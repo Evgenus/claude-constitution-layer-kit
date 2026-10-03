@@ -49,7 +49,7 @@ def body(output: Output, argv: Sequence[str]) -> int:
     if dials.boundary_examples:
         output.out(messages.s1_pairs_heading())
         for number, pair in enumerate(dials.boundary_examples, 1):
-            output.out(f"{number}. {pair.violates} / {pair.complies}")
+            output.out(messages.s1_pair(number, pair.violates, pair.complies))
     return 0
 
 
