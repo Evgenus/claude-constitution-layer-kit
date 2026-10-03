@@ -908,9 +908,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "C8": messages.c8_root_claims_nothing(path),
             "C9": messages.c9_root_outside_own_territory(path, ["p" * 100, "q\\"], path),
             "C12.1": messages.c12_ls_files(path, "fatal: x\\y" + "z" * 100),
-            "C12.2": messages.c12_init("w" * 120),
-            "C12.3": messages.c12_check_ignore("w" * 120),
-            "C12.5": messages.c12_git_failed("g" * 120),
+            "C12.2": messages.c12_init("w\\" + "w" * 118),
+            "C12.3": messages.c12_check_ignore("w\\" + "w" * 118),
+            "C12.5": messages.c12_git_failed("g\\" + "g" * 118),
             "C12.6": messages.c12_scan_path(path),
             "C12.8": messages.c12_no_repo(path),
             "C12.9": messages.c12_invocation("bad " + "a\nb" + "c" * 100),
@@ -947,12 +947,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             f" {esc}.territory to include it",
             "C12.1": f"BROKEN: git could not list the files of {esc}: fatal: x\\\\y{'z' * 100} — fix: repair"
             " what git names in the message, then check by hand: git -C <that directory> ls-files",
-            "C12.2": f"BROKEN: git init of the scratch repository failed: {'w' * 120} — fix: repair what git"
-            " names in the message; the scratch repository lives in the system's temporary directory",
-            "C12.3": f"BROKEN: git check-ignore failed: {'w' * 120} — fix: territory patterns must be"
+            "C12.2": f"BROKEN: git init of the scratch repository failed: w\\\\{'w' * 118} — fix: repair what"
+            " git names in the message; the scratch repository lives in the system's temporary directory",
+            "C12.3": f"BROKEN: git check-ignore failed: w\\\\{'w' * 118} — fix: territory patterns must be"
             " gitignore syntax; check constitution.yaml",
-            "C12.5": f"BROKEN: git could not answer where the repository is: {'g' * 120} — fix: repair the"
-            " git setup named in the message (configuration, ownership, installation)",
+            "C12.5": f"BROKEN: git could not answer where the repository is: g\\\\{'g' * 118} — fix: repair"
+            " the git setup named in the message (configuration, ownership, installation)",
             "C12.6": f"BROKEN: {esc} does not exist — fix: pass --scan an existing directory, or none for"
             " the current one",
             "C12.8": f"BROKEN: {esc} is not inside a git repository — fix: run --scan from a repository, or"
@@ -975,6 +975,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 "echoed cuts, then escapes",
                 messages.echoed("ba\\d\nkey" + "x" * 100),
                 "ba\\\\d\\nkey" + "x" * 72 + "… [108 characters]",
+            ),
+            (
+                "G1.1",
+                messages.g1_skip_no_file("T\n" + "t" * 100),
+                "tool 'T\\n" + "t" * 78 + "… [102 characters]' carries no file to examine",
             ),
             ("G1.2", messages.g1_skip_not_markdown(path), f"{esc} is not a .md file"),
             (

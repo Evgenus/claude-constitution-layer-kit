@@ -112,7 +112,7 @@ def w1_warn_stop(body: str) -> str:
 
 
 def g1_skip_no_file(tool: str) -> str:
-    return f"tool '{tool}' carries no file to examine"
+    return f"tool '{echoed(tool)}' carries no file to examine"
 
 
 def g1_skip_not_markdown(path: str) -> str:
