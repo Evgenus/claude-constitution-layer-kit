@@ -395,7 +395,7 @@ def golden_lines() -> tuple[bool, str]:
     ]
     if "\n".join(lines) not in result.stderr:
         return False, f"expected:\n{chr(10).join(lines)}\ngot:\n{result.stderr[:900]}"
-    # the echoed line has a backslash and 209 characters: shown escaped, then cut at 80, the cut said
+    # the echoed line has a backslash and 209 characters: cut at 80, the cut said, then escaped
     long = wrote("TODO a\\b " + "y" * 200 + "\n")
     result, _ = gate_on(long)
     head = (
