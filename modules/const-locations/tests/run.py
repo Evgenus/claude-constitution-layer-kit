@@ -237,6 +237,8 @@ GOLDEN: dict[str, str] = {
     " 'a\\nb'" + ENTRY,
     "C5.d repeated": "BROKEN: constitution.yaml: const-locations.templates[1] names policy 'notes-policy' a"
     " second time" + ENTRY,
+    "C5.d odd repeated": "BROKEN: constitution.yaml: const-locations.templates[1] names policy 'a\\nb' a"
+    " second time" + ENTRY,
     "C5.d outside": "BROKEN: constitution.yaml: const-locations.templates[0] names a template outside the"
     " repository" + ENTRY,
 }
@@ -635,6 +637,11 @@ def dial_failures() -> tuple[bool, str]:
             [{"policy": "notes-policy", "template": "t.md"}, {"policy": "notes-policy", "template": "u.md"}],
             messages.c5_template_entry(1, messages.entry_repeated("notes-policy")),
             "C5.d repeated",
+        ),
+        (
+            [{"policy": "a\nb", "template": "t.md"}, {"policy": "a\nb", "template": "u.md"}],
+            messages.c5_template_entry(1, messages.entry_repeated("a\nb")),
+            "C5.d odd repeated",  # a policy name with a line break is shown escaped, like the key's
         ),
         (
             [{"policy": "notes-policy", "template": "../t.md"}],

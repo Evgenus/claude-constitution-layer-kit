@@ -105,7 +105,7 @@ The shared-code page, [kit-shared-gate-code](../../shared/GATE.md), grew from ab
 
 **R6.** The ceiling `shared-code` stays at 49,000 characters at warning, and the page stays over it, until the decider decides. This change does not alter the ceiling.
 
-**R7.** History only for the deferral itself: the decider will choose between splitting section 5 and raising the ceiling after this change lands. That decision is a later act, with its own record if it is a `process` ruling, and this record rules neither way.
+**R7.** A deferred choice, held pending by [step 9 of the rollout plan](../rollout-plan.md#s9): the decider will choose between splitting section 5 and raising the ceiling after this change lands. That decision is a later act, with its own record if it is a `process` ruling, and this record rules neither way.
 
 ## 6. What the change makes where no choice existed
 

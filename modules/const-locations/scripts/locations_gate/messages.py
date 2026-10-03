@@ -6,6 +6,12 @@ the closing line that says nothing was written. Every function name starts with 
 key of its text (l1_, l5_, c5_), so a text can be cited, reviewed and asserted by key. A
 reader must be able to act on a message without holding any other document: no text here
 cites one.
+
+Every value taken from a dial, a document or the command line goes through `echoed`, so that a
+line break in it leaves the message one line. Two kinds of value stay raw, on purpose: the
+directory the run stands in and the repository root, which the environment gives and which a
+cut would make useless as a fix, and the system's own error text, which names the absolute path
+the fix tells the reader to look at.
 """
 
 from __future__ import annotations
@@ -31,26 +37,26 @@ def _ns() -> str:
 
 
 def l1_home(home: str, kind: str, pattern: str) -> str:
-    return f"HOME: {home} — governed by {kind} (territory '{pattern}')"
+    return f"HOME: {echoed(home)} — governed by {echoed(kind)} (territory '{echoed(pattern)}')"
 
 
 def l2_template(path: str) -> str:
-    return f"TEMPLATE: {path}"
+    return f"TEMPLATE: {echoed(path)}"
 
 
 def l2_no_template(kind: str) -> str:
     return (
-        f"TEMPLATE: none — {kind} names no template in {_ns()}.templates; the envelope alone is"
+        f"TEMPLATE: none — {echoed(kind)} names no template in {_ns()}.templates; the envelope alone is"
         " written, and the body is the title's heading"
     )
 
 
 def l3_created(home: str) -> str:
-    return f"CREATED: {home}"
+    return f"CREATED: {echoed(home)}"
 
 
 def l4_count(home: str) -> str:
-    return f"1 document created ({home}) — fill the body where the template says, then commit"
+    return f"1 document created ({echoed(home)}) — fill the body where the template says, then commit"
 
 
 def l4_dry_run() -> str:
@@ -74,7 +80,7 @@ def _refused(what: str, fix: str) -> Broken:
 
 
 def l5_usage(detail: str) -> Broken:
-    return _refused(f"misinvocation: {detail}", f"run it with {_USAGE}")
+    return _refused(f"misinvocation: {echoed(detail)}", f"run it with {_USAGE}")
 
 
 def l5_no_repository(directory: str) -> Broken:
@@ -101,24 +107,25 @@ def l5_no_root_policy() -> Broken:
 
 def l5_not_a_policy(kind: str, ids: Sequence[str]) -> Broken:
     return _refused(
-        f"'{kind}' is not a policy: no document in the root policy's territory carries that id",
-        f"name one of: {', '.join(ids) or 'nothing — no policy is declared'}; for a new kind, create"
+        f"'{echoed(kind)}' is not a policy: no document in the root policy's territory carries that id",
+        f"name one of: {', '.join(echoed(i) for i in ids) or 'nothing — no policy is declared'}; for "
+        "a new kind, create"
         " its policy first — the new-kind procedure",
     )
 
 
 def l5_single_path(kind: str, pattern: str) -> Broken:
     return _refused(
-        f"{kind}'s territory is the single path '{pattern}': nothing new is born there",
+        f"{echoed(kind)}'s territory is the single path '{echoed(pattern)}': nothing new is born there",
         "that document is created by hand at exactly that path, once; a kind that holds many"
         " documents claims a directory: <dir>/**",
     )
 
 
 def l5_no_home(kind: str, patterns: Sequence[str]) -> Broken:
-    shown = "[" + ", ".join(f"'{p}'" for p in patterns) + "]"
+    shown = "[" + ", ".join(f"'{echoed(p)}'" for p in patterns) + "]"
     return _refused(
-        f"no home follows from {kind}'s territory {shown}",
+        f"no home follows from {echoed(kind)}'s territory {shown}",
         "a home follows from one pattern <dir>/** or <dir>/**/*.md, or from one with a single free"
         " segment, <dir>/*/NAME.md; write the document by hand inside the territory, or simplify the"
         " territory",
@@ -127,15 +134,17 @@ def l5_no_home(kind: str, patterns: Sequence[str]) -> Broken:
 
 def l5_no_territory(kind: str) -> Broken:
     return _refused(
-        f"{kind} claims no territory: its namespace in {DIALS_FILE} has no territory, so no home follows",
-        f"under {kind}: in {DIALS_FILE} write territory: ['<dir>/**'], <dir> being the directory its"
+        f"{echoed(kind)} claims no territory: its namespace in {DIALS_FILE} has no territory, so no "
+        "home follows",
+        f"under {echoed(kind)}: in {DIALS_FILE} write territory: ['<dir>/**'], <dir> being the directory its"
         " documents live in",
     )
 
 
 def l5_segment_needed(kind: str, pattern: str) -> Broken:
     return _refused(
-        f"{kind}'s territory '{pattern}' has a free segment, and --segment was not given: the pattern fixes"
+        f"{echoed(kind)}'s territory '{echoed(pattern)}' has a free segment, and --segment was not "
+        "given: the pattern fixes"
         " the file name and leaves that one segment to be named",
         "run it with --segment <the segment>; the file name is the pattern's, so --stem is not taken",
     )
@@ -143,14 +152,16 @@ def l5_segment_needed(kind: str, pattern: str) -> Broken:
 
 def l5_stem_not_taken(kind: str, pattern: str, name: str) -> Broken:
     return _refused(
-        f"--stem was given, but {kind}'s territory '{pattern}' fixes the file name '{name}'",
+        f"--stem was given, but {echoed(kind)}'s territory '{echoed(pattern)}' fixes the file name"
+        f" '{echoed(name)}'",
         "drop --stem and give --segment",
     )
 
 
 def l5_segment_not_taken(kind: str, pattern: str) -> Broken:
     return _refused(
-        f"--segment was given, but {kind}'s territory '{pattern}' has no free segment: the home is the"
+        f"--segment was given, but {echoed(kind)}'s territory '{echoed(pattern)}' has no free "
+        "segment: the home is the"
         " directory and the stem",
         "drop --segment and give --stem",
     )
@@ -158,7 +169,7 @@ def l5_segment_not_taken(kind: str, pattern: str) -> Broken:
 
 def l5_not_kebab(value: str, what: str) -> Broken:
     return _refused(
-        f"'{value}' is not a kebab-case name for {what}",
+        f"'{echoed(value)}' is not a kebab-case name for {what}",
         "lower-case letters, digits and single hyphens between them: a-z, 0-9, no leading, trailing"
         " or double hyphen",
     )
@@ -166,29 +177,34 @@ def l5_not_kebab(value: str, what: str) -> Broken:
 
 def l5_exists(home: str) -> Broken:
     return _refused(
-        f"{home} already exists: creating never overwrites, so the document that is there stays as it is",
+        f"{echoed(home)} already exists: creating never overwrites, so the document that is there "
+        "stays as it is",
         "choose another stem, or edit the document that is there",
     )
 
 
 def l5_two_policies(home: str, other: str, pattern: str) -> Broken:
     return _refused(
-        f"{home} would also lie in {other}'s territory ('{pattern}'): two policies would govern it",
+        f"{echoed(home)} would also lie in {echoed(other)}'s territory ('{echoed(pattern)}'): two policies"
+        " would govern it",
         f"territories never overlap; narrow one of them in {DIALS_FILE} before creating documents there",
     )
 
 
 def l5_type_needed(kind: str, policy_path: str) -> Broken:
     return _refused(
-        f"{kind} has no template, and --type was not given: without a template nothing but the policy's"
+        f"{echoed(kind)} has no template, and --type was not given: without a template nothing but "
+        "the policy's"
         " prose says which meta-type the kind is",
-        f"run it with --type {TYPES_OR} — {policy_path} says which its kind is",
+        f"run it with --type {TYPES_OR} — {echoed(policy_path)} says which its kind is",
     )
 
 
 def l5_type_conflict(given: str, path: str, fixed: str) -> Broken:
     return _refused(
-        f"--type {given} was given, but the template {path} fixes type: {fixed}, and a kind has one"
+        f"--type {echoed(given)} was given, but the template {echoed(path)} fixes type: "
+        f"{echoed(fixed)}, and a"
+        " kind has one"
         " meta-type",
         "drop --type; the template decides",
     )
@@ -196,21 +212,21 @@ def l5_type_conflict(given: str, path: str, fixed: str) -> Broken:
 
 def l5_template_missing(kind: str, path: str) -> Broken:
     return _refused(
-        f"the template of {kind}, {path}, does not exist",
+        f"the template of {echoed(kind)}, {echoed(path)}, does not exist",
         f"point {_ns()}.templates at a Markdown file of this repository, or remove the entry",
     )
 
 
 def l5_template_unreadable(kind: str, path: str, error: str) -> Broken:
     return _refused(
-        f"the template of {kind}, {path}, cannot be read ({error})",
+        f"the template of {echoed(kind)}, {echoed(path)}, cannot be read ({error})",
         f"point {_ns()}.templates at a Markdown file of this repository, or remove the entry",
     )
 
 
 def l5_template_no_envelope(path: str, detail: str) -> Broken:
     return _refused(
-        f"the template {path} opens with no readable envelope ({detail})",
+        f"the template {echoed(path)} opens with no readable envelope ({echoed(detail)})",
         "a template opens with the YAML block a document of its kind carries — id, type, title,"
         " status — with placeholders where the writer fills",
     )
@@ -218,7 +234,7 @@ def l5_template_no_envelope(path: str, detail: str) -> Broken:
 
 def l5_template_bad_type(path: str, value: str) -> Broken:
     return _refused(
-        f"the template {path} carries type '{value}', which is no meta-type",
+        f"the template {echoed(path)} carries type '{echoed(value)}', which is no meta-type",
         f"set type: {TYPES_OR} in the template",
     )
 
@@ -243,14 +259,15 @@ def l5_title_multiline() -> Broken:
 
 def l5_id_in_use(doc_id: str, path: str) -> Broken:
     return _refused(
-        f"id '{doc_id}' is already carried by {path}",
+        f"id '{echoed(doc_id)}' is already carried by {echoed(path)}",
         "ids are unique in the tree: choose another stem, or give --id",
     )
 
 
 def l5_could_not_write(home: str, error: str) -> Broken:
     return _refused(
-        f"{home} could not be written ({error}): the write is the last act, so the refusal leaves nothing"
+        f"{echoed(home)} could not be written ({error}): the write is the last act, so the refusal "
+        "leaves nothing"
         " behind",
         "remove what the system's error names — a denied permission, a file or link in the way at the"
         " home or a directory above it, a full or read-only disk — and run it again; nothing else was"
@@ -300,7 +317,7 @@ def entry_unknown_key(key: str) -> str:
 
 
 def entry_repeated(policy: str) -> str:
-    return f"names policy '{policy}' a second time"
+    return f"names policy '{echoed(policy)}' a second time"
 
 
 def entry_outside() -> str:

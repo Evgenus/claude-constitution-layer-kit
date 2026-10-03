@@ -415,11 +415,19 @@ def dial_failures() -> tuple[bool, str]:
         " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
         " optional",
     )
-    # the compiler's own words echo the pattern's backslash, shown escaped in turn: typed by hand
+    # the compiler's own words come from `re` again, for the pattern under test; they echo the pattern's
+    # backslash, which the message shows escaped in turn, so the doubling is typed by hand
+    odd = r"(?P<a\b>x)"
+    try:
+        re.compile(odd)
+    except re.error as odd_compiler:
+        odd_words = str(odd_compiler).replace("\\", "\\\\")
+    else:
+        return False, "the pattern (?P<a\\b>x) compiled; the fixture needs one the compiler refuses"
     odd_pattern = broken_typed(
-        gate_on(VALID, dials_patch=lane(pattern=r"(?P<a\b>x)"))[0],
+        gate_on(VALID, dials_patch=lane(pattern=odd))[0],
         "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes has a pattern that is no regular"
-        " expression (bad character in group name 'a\\\\\\\\b' at position 4) — in YAML write it in single"
+        f" expression ({odd_words}) — in YAML write it in single"
         " quotes, where a backslash stands for itself — fix: write the entry as {pattern: <regular"
         " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
         " optional",
