@@ -19,14 +19,14 @@ The change that this record rules is on one branch. Every module is a draft at `
 
 Every module refuses a key in its own namespace that it does not read. The refusal exists in eleven modules in three forms. Referencing adds `shown`. Locations has its own wording. Four modules look at keys in file order and show a line break raw. Only two escape it. The refusal is not a kernel section, since [kernel section 6](../../kernel/CONVENTIONS.md#k6) leaves module namespaces open, and it is not a named gate-script rule either.
 
-- **A. Share it under gate-script rule 8, no fail-open.** One shared text and one shared function replace the eleven forms.
-  - **Pros:** a dial ignored in silence is a silent pass, which rule 8 forbids, so the refusal belongs to that rule; one text, sorted, escaped, cut; the eight modules with the two-line defect are fixed at once; a future module inherits it.
-  - **Cons:** it reads rule 8 broadly, since rule 8 names exceptions and unparseable input and not misspelt dials; it is the one admission here that neither a kernel section nor a named rule makes plain.
-- **B. Keep it in each module and share only `echoed`.** The modules keep their refusals and call the shared escape.
-  - **Pros:** no stretch of rule 2; the modules keep their own wording.
-  - **Cons:** eleven copies remain, with three forms; the next module copies one of them again, as styling copied the weakest.
+- **A. Admit it to shared code under gate-script rule 8, no fail-open.** One shared function with one message replaces the three forms in all eleven modules.
+  - **Pros:** a dial that is silently ignored is a silent pass, so rule 8 fits; one fix reaches every module, future modules too; the three forms become one.
+  - **Cons:** this record must argue the admission; it touches all eleven modules; locations loses its own wording.
+- **B. Keep the refusal in each module, and share only a small `echoed()` helper.** `echoed()` escapes line breaks and cuts long values; each module keeps its own text but sends the key through it.
+  - **Pros:** no admission question; the visible defect, split lines and lines of 12,000 characters, is still fixed everywhere.
+  - **Cons:** the three forms of one message stay; the next module will copy one of them again.
 
-**Recommendation.** A, by the session: the silent pass is the harm rule 8 names, and one text is what stops the forms from drifting again.
+**Recommendation.** A, by the session: the refusal exists to stop a silent pass, which is what rule 8 is about, and the split-line defect shows what copied code costs.
 
 **Choice.** A, by the decider, in chat on 2026-10-02.
 
@@ -36,14 +36,14 @@ Every module refuses a key in its own namespace that it does not read. The refus
 
 A departure's `reason` must be one line. Styling stripped the value before it looked for a line break, so it accepted what a YAML block scalar, `reason: |`, gives. Language and doc-budgets refused it.
 
-- **A. Trim it, then accept.** A break at the end is removed. A break in the middle is refused.
-  - **Pros:** a valid one-line reason written as a block scalar works; the rule matches styling, which already did so; the line that is still refused is the one that would split a message.
-  - **Cons:** two modules accept what they refused before; the rule is two clauses, not one.
-- **B. Refuse it.** Any line break is refused, styling included.
-  - **Pros:** one literal rule, the stricter one; no trimming to explain.
-  - **Cons:** a user who writes `reason: |` with one line gets a refusal for a value that is one line; styling gets stricter with no friction behind it.
+- **A. Trim, then accept.** A single line break at the end is removed. A break in the middle is still refused.
+  - **Pros:** `reason: |` is a normal YAML form; a user who writes it is not told off for a quirk of YAML; it matches what styling does today.
+  - **Cons:** the value kept differs from the value as written; language and doc-budgets change from refusing to accepting.
+- **B. Refuse.** Any line break is refused, a trailing one included.
+  - **Pros:** strict and explicit; the value is checked exactly as written; it matches two of the three modules today.
+  - **Cons:** `reason: |` is refused, and the user must switch to a plain or quoted string; styling changes from accepting to refusing.
 
-**Recommendation.** A, by the session: the refusal protects the one-line message, and a trailing break does not break it.
+**Recommendation.** A, by the session: the trailing break comes from the YAML block form, not from the user's text, and a break in the middle is still refused, so the reason stays one line.
 
 **Choice.** A, by the decider, in chat on 2026-10-02.
 
@@ -53,16 +53,16 @@ A departure's `reason` must be one line. Styling stripped the value before it lo
 
 `root_policy`, `log_dir`, a template path and the `docs` paths of task-close each had a rule for "repository-relative". Task-close refused `..\x` and kept `./docs//core.md` as written, so a pair declared that way never saw its document updated. The shared reader and locations kept `..\x` and a leading space.
 
-- **A. A backslash is a separator everywhere.** The value is rewritten with `/` first.
-  - **Pros:** one verdict on every platform, as for a pattern, which every platform reads the same way; `..\x` is refused everywhere.
-  - **Cons:** on macOS and Linux a backslash is a legal character in a file name, so the shared checks for `log_dir` and `root_policy` would change their verdicts there; it adds a rewrite rule that no platform asked for.
-- **B. Keep the platform's separator, `os.sep`.** No rewrite; the file system's own reading decides.
-  - **Pros:** a path means what the machine reads; no verdict changes on macOS and Linux; no new rewrite rule.
-  - **Cons:** one dials file gets two verdicts on two machines for `..\x`, which is the cost the first option avoids.
+- **A. Treat a backslash as a separator everywhere.** `..\x`, `a\..\..\x` and `C:\x` are refused on every machine, and `a\b` is kept as `a/b`.
+  - **Pros:** one verdict on every machine, as limit 9 of the shared-code page already promises for patterns; it closes a way out of the repository; it matches what task-close does today.
+  - **Cons:** a file name that really holds a backslash can no longer be used in a path dial; the shared C5.1 and C5.9 verdicts change on macOS and Linux.
+- **B. Use the platform's own separator, `os.sep`, as the shared code does today.** Each machine keeps its current behaviour.
+  - **Pros:** no change in verdicts; file names with a backslash stay usable on macOS and Linux.
+  - **Cons:** two verdicts for one file on two machines; `..\x` passes on macOS and Linux; task-close stays different from the rest.
 
-**Recommendation.** A, by the session, for the single verdict.
+**Recommendation.** A, by the session: the same dials file should get the same verdict on every machine, and a real file name with a backslash in a dial path is very unlikely.
 
-**Choice.** B, by the decider, in chat on 2026-10-02. It differs from the recommendation. The session's objection stands as a shared limit: the two verdicts are written down, not removed.
+**Choice.** B, by the decider, in chat on 2026-10-02. It differs from the recommendation. The two verdicts are written down as a shared limit.
 
 **R3.** A dial path goes through the shared `dials.relative_path`: a blank value, an absolute one and one that leaves the repository by `..` are refused; `./` and `//` are normalised; the separator is the platform's own, so a backslash separates only where the platform says so. `..\x` leaves the repository on Windows and is one file name on macOS and Linux. The shared code states this as a limit, so no module's document claims one verdict everywhere.
 
@@ -72,14 +72,14 @@ A departure's `reason` must be one line. Styling stripped the value before it lo
 
 The hook decided what Markdown is by the path's suffix, and a file named just `.md` has none. It skipped the file as "not a .md file". The scan, which tests the name's ending, listed and examined it.
 
-- **A. Examine it in both.** A name that ends in `.md` is Markdown, in any case, in the hook and in the scan.
-  - **Pros:** the hook and the scan agree; one test, by the name's ending, is all that "Markdown document" needs.
-  - **Cons:** a file with no stem is examined as a governed document, which is almost always a mistake of the author.
-- **B. Skip it in both.** A name needs a stem.
-  - **Pros:** a name with no stem is not a document in any sense.
-  - **Cons:** the scan stops listing a file it lists today, so a stray `.md` would pass unseen.
+- **A. Examine it in both modes.** A name that ends in `.md` counts as Markdown, even when nothing comes before the dot.
+  - **Pros:** it matches the scan and five of the six places in the code today; it is simple, since only the name's ending is tested; no Markdown file escapes a gate.
+  - **Cons:** the hook starts judging a file it skips today; `.md` is a hidden file on Unix, and someone may not mean it as a document.
+- **B. Skip it in both modes.** A file needs a name before `.md` to count as Markdown.
+  - **Pros:** a hidden file stays outside the gates; it matches the hook today.
+  - **Cons:** the scan stops examining a file it examines today, which loosens the check; it adds a rule beyond "Markdown means `.md`" in limit 7 of the shared-code page.
 
-**Recommendation.** A, by the session: the failure to examine is the worse one, and the scan already holds the file as a document.
+**Recommendation.** A, by the session: "Markdown means `.md`" is the rule the shared-code page already states, and a gate should not have a quiet exception for one file name.
 
 **Choice.** A, by the decider, in chat on 2026-10-02.
 
@@ -89,17 +89,17 @@ The hook decided what Markdown is by the path's suffix, and a file named just `.
 
 The shared-code page, [kit-shared-gate-code](../../shared/GATE.md), grew from about 45,500 characters to about 50,900 with this change. Its ceiling `shared-code` is 49,000 at warning, so the length check reports a note and no finding.
 
-- **A. Split its section 5 as the change's last step.** The acceptance items move to a page of their own.
-  - **Pros:** the page is under its ceiling at once; the items have a home that holds only them.
-  - **Cons:** a new document or kind inside a change that is already large; every link to that section changes, and an anchor is never renumbered under [rule 5 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r5).
-- **B. Raise the ceiling.** One number in the dials file.
-  - **Pros:** one line.
-  - **Cons:** the ceiling was set from fourteen days of history plus ten percent; raising it each time the page grows empties it.
-- **C. Leave it at warning and decide after the change lands.** The decider sees the page's final size and then picks A or B.
-  - **Pros:** no cut made before the last edit of the change is known; the note stays visible.
-  - **Cons:** the scan reports the note until the decider decides.
+- **A. Split along a seam the page already has, as the change's last step.** The long table of shared items, its section 5, moves to a document of its own, linked from the page, and the territory of [plc-0009-shared-code](../policies/plc-0009-shared-code.md) widens to hold it.
+  - **Pros:** it is the fix the ceiling procedure names first; the page is back well under 49,000 with room to grow; the item table is the part only fixture authors read.
+  - **Cons:** a structural change, which this record would have to rule; a new document to govern; every link to the items must move, which the mover of const-referencing repairs.
+- **B. Raise the ceiling.** A new number by the rule of thumb, the longest document plus ten percent, about 57,000, with a new window of data.
+  - **Pros:** one line in the dials file; no document moves.
+  - **Cons:** the number then comes from the growth it should hold back, not from a window of data; the ceiling stops doing its job for this page.
+- **C. Leave it at warning for now.** Decide after the change lands.
+  - **Pros:** no work now; nothing is blocked.
+  - **Cons:** the note repeats after every write; the decision is only postponed, and the next planned change touches the page too.
 
-**Recommendation.** A, by the session.
+**Recommendation.** A, by the session, done after the last items of the change have added their lines, so the split happens once and is measured on the final page.
 
 **Choice.** C, by the decider, in chat on 2026-10-03. This defers the choice between A and B. It is no ruling on the page's length, and this record does not decide it.
 
