@@ -157,7 +157,8 @@ def t1() -> tuple[bool, str]:
         " const-styling.departures in constitution.yaml an entry {paths: [<the file, or a pattern of the"
         " documents that depart>], allow: [plantuml], reason: <the capability Mermaid lacks, in one line>};"
         " where your guide changed this default,"
-        " the pattern is your whole tree and the reason names the guide's entry\n"
+        " the pattern is your whole tree, '*.md' in the default territory, and the reason names the"
+        " guide's entry\n"
         "RED: 1 finding(s) — 4 document(s) examined for 12 signature(s) under 0 departure(s), 4 Markdown"
         " file(s) scanned"
     )
@@ -671,8 +672,8 @@ def t19() -> tuple[bool, str]:
     )
 
     amended_tail = (
-        "; where your guide changed this default, the pattern is your whole tree and the reason names"
-        " the guide's entry"
+        "; where your guide changed this default, the pattern is your whole tree, '*.md' in the default"
+        " territory, and the reason names the guide's entry"
     )
 
     def fix(head: str, key: str, what: str, amended: bool = False) -> str:

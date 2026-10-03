@@ -22,8 +22,8 @@ def _ns() -> str:
 
 
 AMENDED = (
-    "; where your guide changed this default, the pattern is your whole tree and the reason names"
-    " the guide's entry"
+    "; where your guide changed this default, the pattern is your whole tree, '*.md' in the default"
+    " territory, and the reason names the guide's entry"
 )
 
 
