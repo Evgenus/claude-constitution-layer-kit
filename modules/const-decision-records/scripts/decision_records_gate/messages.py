@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import echoed
+from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey, Status
 
 from .model import Key, Stakes
@@ -42,14 +42,14 @@ def r1_no_readable_envelope(rel: str, state: EnvelopeState, yaml_detail: str = "
             detail = "opened with '---' but never closed"
             fix = f"close the YAML block with a line holding only '---'; the block carries {carries}"
         case EnvelopeState.INVALID:
-            detail = f"the block between the '---' lines cannot be read: {yaml_detail}"
+            detail = f"the block between the '---' lines cannot be read: {escaped(yaml_detail)}"
             fix = f"repair the YAML between the '---' lines; the block carries {carries}"
         case _:
             detail = "the file does not start with a '---' line"
             fix = f"start the file with a YAML block between two '---' lines carrying {carries}"
     return Finding(
         Key.R1,
-        f"{rel}: a decision record with no readable envelope ({detail})",
+        f"{escaped(rel)}: a decision record with no readable envelope ({detail})",
         "a record declares its stakes and its decider in the envelope: without them the ruling has no"
         " price and nobody accountable",
         fix,
@@ -59,7 +59,7 @@ def r1_no_readable_envelope(rel: str, state: EnvelopeState, yaml_detail: str = "
 def r2_invalid_fields(rel: str, errors: Sequence[str]) -> Finding:
     return Finding(
         Key.R2,
-        f"{rel}: decision-record field(s) invalid: {'; '.join(errors)}",
+        f"{escaped(rel)}: decision-record field(s) invalid: {'; '.join(errors)}",
         "a decision record is a task-record whose envelope adds the stakes, which set the ceremony the"
         " ruling gets, and the decider, who is accountable for it; git can derive neither",
         "set each named field: type = task-record (a record is a change delta); stakes = process"
@@ -71,7 +71,7 @@ def r2_invalid_fields(rel: str, errors: Sequence[str]) -> Finding:
 def r3_routine_record(rel: str) -> Finding:
     return Finding(
         Key.R3,
-        f"{rel}: stakes 'routine' — a routine call never produces a record",
+        f"{escaped(rel)}: stakes 'routine' — a routine call never produces a record",
         "ceremony scales with stakes: a call that is cheap to revert is noted in the commit message,"
         " and a record for it is ritual",
         "write no record: put the note in the commit message, and delete this file if it already"
@@ -113,21 +113,22 @@ def g1_skip_no_record_policies() -> str:
 
 
 def g1_skip_not_a_record(rel: str, record_policies: Sequence[str]) -> str:
-    return f"{rel} is not governed by a record policy ({', '.join(record_policies)})"
+    policies = ", ".join(echoed(p) for p in record_policies)
+    return f"{escaped(rel)} is not governed by a record policy ({policies})"
 
 
 def n2_note_dangling_record_policy(policy_id: str) -> str:
     return (
-        f"note: {_ns()}.record_policies names '{policy_id}', but no policy with that id lies in the"
+        f"note: {_ns()}.record_policies names '{echoed(policy_id)}', but no policy with that id lies in the"
         " root policy's territory; it claims nothing until that policy exists"
     )
 
 
 def n3_note_record_policy_claims_nothing(policy_id: str, path: str) -> str:
     return (
-        f"note: {_ns()}.record_policies names '{policy_id}' ({path}), whose namespace declares no"
-        f" territory — it governs no document until {DIALS_FILE} holds {policy_id}: {{territory:"
-        " [<patterns of the paths where decision records live>]}"
+        f"note: {_ns()}.record_policies names '{escaped(policy_id)}' ({escaped(path)}), whose namespace"
+        f" declares no territory — it governs no document until {DIALS_FILE} holds {escaped(policy_id)}:"
+        " {territory: [<patterns of the paths where decision records live>]}"
     )
 
 
@@ -140,13 +141,13 @@ def s1_empty() -> str:
 
 def s1_no_dials(root: str) -> str:
     return (
-        f"{_ns()}: no {DIALS_FILE} in {root} — the record gate examines nothing there until the file"
+        f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the record gate examines nothing there until the file"
         f" names a record policy in {_ns()}.record_policies"
     )
 
 
 def s1_no_repo(cwd: str) -> str:
-    return f"{_ns()}: {cwd} is not inside a git repository — the record gate examines nothing there"
+    return f"{_ns()}: {escaped(cwd)} is not inside a git repository — the record gate examines nothing there"
 
 
 def s1_prefix() -> str:
@@ -172,7 +173,7 @@ def c5_record_policies() -> Broken:
 def c5_record_policy_is_root(root_id: str) -> Broken:
     return Broken(
         SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.record_policies names the root policy '{root_id}', which governs"
+        f"{DIALS_FILE}: {_ns()}.record_policies names the root policy '{echoed(root_id)}', which governs"
         " policies, never decision records",
         "name the policy that governs decision records instead; if there is none yet, write that"
         " policy first",

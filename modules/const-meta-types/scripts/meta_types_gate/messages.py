@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import echoed, patterns
+from const_gate.messages import echoed, escaped, patterns
 from const_gate.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, Status
 
 from .model import TITLE_MAX, Key
@@ -45,7 +45,7 @@ _FIELD_FIXES = {
 
 
 def _matches(matches: Sequence[Match]) -> str:
-    return ", ".join(f"{m.policy_id} ({m.pattern})" for m in matches)
+    return ", ".join(f"{echoed(m.policy_id)} ({echoed(m.pattern)})" for m in matches)
 
 
 # ---------------------------------------------------------------- findings: the envelope
@@ -54,7 +54,7 @@ def _matches(matches: Sequence[Match]) -> str:
 def f1_no_envelope(rel: str) -> Finding:
     return Finding(
         Key.F1,
-        f"{rel}: no frontmatter envelope",
+        f"{escaped(rel)}: no frontmatter envelope",
         "a governed document declares its authority in its envelope, or sessions guess it",
         "start the file with a YAML block between two '---' lines carrying at least id: <kebab-id>,"
         f" type: {_TYPES}, title: <one line>, status: {_STATUSES} — the fields every governed"
@@ -65,7 +65,7 @@ def f1_no_envelope(rel: str) -> Finding:
 def f2_unterminated(rel: str) -> Finding:
     return Finding(
         Key.F2,
-        f"{rel}: frontmatter opened with '---' but never closed",
+        f"{escaped(rel)}: frontmatter opened with '---' but never closed",
         "an unclosed envelope is unreadable by machines and by the next session",
         "close the YAML block with a line holding only '---'",
     )
@@ -74,7 +74,7 @@ def f2_unterminated(rel: str) -> Finding:
 def f3_invalid_yaml(rel: str, detail: str) -> Finding:
     return Finding(
         Key.F3,
-        f"{rel}: frontmatter is not valid YAML ({detail})",
+        f"{escaped(rel)}: frontmatter is not valid YAML ({escaped(detail)})",
         "the envelope is read by machines, so it must parse",
         "repair the YAML between the '---' lines; keep at least the four fields id, type, title, status",
     )
@@ -86,7 +86,7 @@ def f4_invalid_fields(rel: str, errors: Sequence[str]) -> Finding:
     fragments = [fix for key, fix in _FIELD_FIXES.items() if key in named] or list(_FIELD_FIXES.values())
     return Finding(
         Key.F4,
-        f"{rel}: envelope field(s) invalid: {'; '.join(errors)}",
+        f"{escaped(rel)}: envelope field(s) invalid: {'; '.join(errors)}",
         _ENVELOPE_WHY,
         f"set {'each named field' if len(fragments) > 1 else 'the named field'}: {'; '.join(fragments)}",
     )
@@ -95,7 +95,7 @@ def f4_invalid_fields(rel: str, errors: Sequence[str]) -> Finding:
 def f5_duplicate_id(rel: str, doc_id: str, other: str) -> Finding:
     return Finding(
         Key.F5,
-        f"{rel}: id '{doc_id}' is already carried by {other}",
+        f"{escaped(rel)}: id '{echoed(doc_id)}' is already carried by {escaped(other)}",
         "an id is a stable identifier: two documents sharing one break every reference to it",
         "give this document its own id, never a retired one; if this is a move, delete or git mv the"
         " old file first, then write",
@@ -105,7 +105,7 @@ def f5_duplicate_id(rel: str, doc_id: str, other: str) -> Finding:
 def f10_policy_type(rel: str, found_type: str, root_territory: Sequence[str]) -> Finding:
     return Finding(
         Key.F10,
-        f"{rel}: lies in the root policy's territory but has type '{found_type}'",
+        f"{escaped(rel)}: lies in the root policy's territory but has type '{found_type}'",
         "a policy is a current-state document, and only policies lie where policies live",
         f"set type: current-state, or move the file out of {patterns(root_territory)}",
     )
@@ -117,7 +117,7 @@ def f10_policy_type(rel: str, found_type: str, root_territory: Sequence[str]) ->
 def f6_no_such_policy(rel: str, declared: str, root_territory: Sequence[str]) -> Finding:
     return Finding(
         Key.F6,
-        f"{rel}: declares policy '{declared}' but no policy with that id lies in the root"
+        f"{escaped(rel)}: declares policy '{echoed(declared)}' but no policy with that id lies in the root"
         f" policy's territory {patterns(root_territory)}",
         "a governed document resolves to exactly one governing policy, or its rules are undefined",
         "declare the id of a policy that exists there, or drop the declaration and place the file"
@@ -128,7 +128,7 @@ def f6_no_such_policy(rel: str, declared: str, root_territory: Sequence[str]) ->
 def f7_multi_policy(rel: str, matches: Sequence[Match]) -> Finding:
     return Finding(
         Key.F7,
-        f"{rel}: matched by {len(matches)} policy territories: {_matches(matches)}",
+        f"{escaped(rel)}: matched by {len(matches)} policy territories: {_matches(matches)}",
         "a document resolves to exactly one governing policy, or two rule sets compete",
         f"narrow one territory in {DIALS_FILE} so the patterns no longer overlap; during a move,"
         f" declare the intended one with '{DECLARATION}: <id>' in the envelope while an active"
@@ -141,15 +141,15 @@ def f8_contradiction(
 ) -> Finding:
     """declared_territory is None when the declared id is no policy at all."""
     headline = (
-        f"{rel}: declares policy '{declared}' but its path is claimed by"
-        f" '{match.policy_id}' ({match.pattern})"
+        f"{escaped(rel)}: declares policy '{echoed(declared)}' but its path is claimed by"
+        f" '{echoed(match.policy_id)}' ({echoed(match.pattern)})"
     )
     if declared_territory is None:
-        fix = f"remove '{DECLARATION}: {declared}' from the envelope — no policy with that id exists"
+        fix = f"remove '{DECLARATION}: {echoed(declared)}' from the envelope — no policy with that id exists"
     else:
         fix = (
-            f"remove '{DECLARATION}: {declared}' from the envelope, or move the file into the territory"
-            f" of '{declared}': {patterns(declared_territory)}"
+            f"remove '{DECLARATION}: {echoed(declared)}' from the envelope, or move the file into the"
+            f" territory of '{echoed(declared)}': {patterns(declared_territory)}"
         )
     return Finding(Key.F8, headline, _DECLARATION_WHY, fix)
 
@@ -157,7 +157,8 @@ def f8_contradiction(
 def f8b_contradiction_in_overlap(rel: str, declared: str, matches: Sequence[Match]) -> Finding:
     return Finding(
         Key.F8B,
-        f"{rel}: declares policy '{declared}' but its path is claimed by {_matches(matches)}",
+        f"{escaped(rel)}: declares policy '{echoed(declared)}' but its path is claimed by"
+        f" {_matches(matches)}",
         _DECLARATION_WHY,
         "declare one of the policies that claim the path, or remove the declaration and narrow"
         f" the territories in {DIALS_FILE}",
@@ -172,7 +173,7 @@ def f14_root_breaks_governance(rel: str, broken: Broken) -> Finding:
     as a finding: as a configuration failure it would be non-blocking and the damage would land."""
     return Finding(
         Key.F14,
-        f"{rel}: as written, {broken.headline}",
+        f"{escaped(rel)}: as written, {broken.headline}",
         "every chain of governance ends at the root policy; a write that breaks it ungoverns the repository",
         broken.fix,
     )
@@ -181,7 +182,7 @@ def f14_root_breaks_governance(rel: str, broken: Broken) -> Finding:
 def f11_root_unreadable(rel: str, detail: str) -> Finding:
     return Finding(
         Key.F11,
-        f"{rel}: the root policy has no readable envelope ({detail})",
+        f"{escaped(rel)}: the root policy has no readable envelope ({escaped(detail)})",
         "the root policy's id names the namespace where policies live; without it nothing is governed",
         "keep the YAML block between two '---' lines with id, type: current-state, title, status: active",
     )
@@ -198,7 +199,7 @@ def f11_detail_unterminated() -> str:
 def f12_root_type(rel: str, found_type: str) -> Finding:
     return Finding(
         Key.F12,
-        f"{rel}: the root policy has type '{found_type}'",
+        f"{escaped(rel)}: the root policy has type '{found_type}'",
         "a policy is a current-state document, and the root is the policy for policies",
         "set type: current-state",
     )
@@ -207,7 +208,8 @@ def f12_root_type(rel: str, found_type: str) -> Finding:
 def f13_root_id_orphaned(rel: str, doc_id: str) -> Finding:
     return Finding(
         Key.F13,
-        f"{rel}: the root policy's id '{doc_id}' has no territory under that id in {DIALS_FILE}",
+        f"{escaped(rel)}: the root policy's id '{echoed(doc_id)}' has no territory under that id in"
+        f" {DIALS_FILE}",
         "the root's namespace is where policies live; changing the id orphans every policy",
         f"keep the id that has the namespace, or rename the namespace in {DIALS_FILE} in the same change",
     )
@@ -220,26 +222,26 @@ def f9_scan_tail(examined: int, scanned: int, policies: int) -> str:
 
 
 def g1_skip_outside_territory(rel: str) -> str:
-    return f"{rel} is outside claimed territory"
+    return f"{escaped(rel)} is outside claimed territory"
 
 
 def g1_skip_void_territory(rel: str, namespaces: Sequence[str]) -> str:
-    listed = ", ".join(f"'{n}'" for n in namespaces)
+    listed = ", ".join(f"'{echoed(n)}'" for n in namespaces)
     if len(namespaces) == 1:
         return (
-            f"{rel} lies only in the territory of namespace {listed}, which has no policy document"
+            f"{escaped(rel)} lies only in the territory of namespace {listed}, which has no policy document"
             " behind it and so claims nothing"
         )
     return (
-        f"{rel} lies only in the territories of namespaces {listed}, none of which has a policy"
+        f"{escaped(rel)} lies only in the territories of namespaces {listed}, none of which has a policy"
         " document behind it, so nothing is claimed"
     )
 
 
 def n1_note_void_namespace(name: str) -> str:
     return (
-        f"note: namespace '{name}' declares a territory but no policy with id '{name}' lies in the root"
-        " policy's territory; it claims nothing until that policy exists"
+        f"note: namespace '{echoed(name)}' declares a territory but no policy with id '{echoed(name)}'"
+        " lies in the root policy's territory; it claims nothing until that policy exists"
     )
 
 

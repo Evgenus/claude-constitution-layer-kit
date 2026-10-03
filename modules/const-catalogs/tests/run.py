@@ -331,7 +331,18 @@ def no_catalog_listed_scan() -> tuple[bool, str]:
 def not_an_item() -> tuple[bool, str]:
     result, _ = gate_on(Write(ELSEWHERE, NO_ENVELOPE))
     skip = messages.g1_skip_not_an_item(ELSEWHERE, [CATALOG])
-    return expect(result, 0, shared.g1_green_skip(skip), "stdout")
+    plain = expect(result, 0, shared.g1_green_skip(skip), "stdout")
+    # a path over 80 characters holding a line break: the skip line stays whole, the break escaped
+    long_path = "docs/elsewhere/a\n" + "b" * 100 + ".md"
+    long_result, _ = gate_on(Write(long_path, NO_ENVELOPE))
+    line = (
+        "GREEN: const-catalogs: 0 documents examined — docs/elsewhere/a\\n"
+        + "b" * 100
+        + ".md lies in no catalog's territory (itm)"
+    )
+    return all_of(
+        [plain, expect(long_result, 0, line, "stdout")], "a path of any length is said whole on one line"
+    )
 
 
 NO_POLICIES = yaml.safe_dump(catalogs(entry()), sort_keys=False)  # a dials file with no root_policy at all
@@ -862,6 +873,10 @@ def holder_is_the_first_by_path() -> tuple[bool, str]:
     return expect(result, 2, taught.render(), "stderr")
 
 
+# a directory whose name holds a line break and is a page long: a path through it is shown whole, escaped
+WEIRD_DIR = "docs/items/w\n" + "w" * 90
+WEIRD = "docs/items/w\\n" + "w" * 90  # the same as the message shows it, typed by hand
+
 GOLDEN = {
     "K1": "RED: docs/items/first.md: file name 'first' is not itm-<4 digits>-<kebab-slug>, the form of"
     " catalog 'itm', whose territory holds this file",
@@ -880,14 +895,37 @@ GOLDEN = {
     "K2 no envelope": f"RED: {ITEM_A}: id cannot be read: the file does not start with a '---' line",
     # a value echoed from a document stays on one line: the break shown escaped, typed by hand
     "K2 id with a break": f"RED: {ITEM_A}: id 'itm-0001-a\\nb' differs from the file name '{STEM_A}'",
-    "K1 name with a break": "b.md: file name 'a\\nb' is not itm-<4 digits>-<kebab-slug>, the form of catalog"
-    " 'itm', whose territory holds this file",
+    # the written file's path is shown whole, its break escaped, however long; the name cut at 80
+    "K1 name with a break": "RED: docs/items/a\\nb.md: file name 'a\\nb' is not itm-<4 digits>-<kebab-slug>,"
+    " the form of catalog 'itm', whose territory holds this file",
+    "K1 long path": "RED: docs/items/a\\n"
+    + "b" * 100
+    + ".md: file name 'a\\n"
+    + "b" * 78
+    + "… [102 characters]' is not itm-<4 digits>-<kebab-slug>, the form of catalog 'itm',"
+    " whose territory holds this file",
+    # a path through a directory with a break, in the headline of each K2 shape; an id over 80 characters cut
+    "K2 missing path": f"RED: {WEIRD}/{STEM_A}.md: id missing",
+    "K2 differs path": f"RED: {WEIRD}/{STEM_A}.md: id 'itm-0001-other' differs from the file name '{STEM_A}'",
+    "K2 differs long": f"RED: {ITEM_A}: id 'i"
+    + "j" * 79
+    + f"… [100 characters]' differs from the file name '{STEM_A}'",
+    "K2 no envelope path": f"RED: {WEIRD}/{STEM_A}.md: id cannot be read: the file does not start with a"
+    " '---' line",
+    "K2 yaml detail": f"RED: {ITEM_A}: id cannot be read: the block between the '---' lines is not readable"
+    ' YAML: while scanning a double-quoted scalar in "<unicode string>", line 1, column 5: id: "x\\\\q" ^'
+    ' found unknown escape character \'q\' in "<unicode string>", line 1, column 8: id: "x\\\\q" ^',
+    "K4 paths": f"RED: {WEIRD}/itm-0001-second.md: number itm-0001 is already carried by"
+    f" {WEIRD}/itm-0001-a.md",
+    "K4 holder fix": f"  fix: {WEIRD}/itm-0001-a.md keeps its number; name the file itm-0002-<slug>.md:",
     "K4": f"RED: {SECOND_TAKEN}: number itm-0001 is already carried by {ITEM_A}",
     "K4 why": "  why: a number cites one item; two items under one number make every reference to it"
     " ambiguous",
     "K4 fix": f"  fix: {ITEM_A} keeps its number; name the file itm-0002-<slug>.md:",
     "keep": "  fix: rename the file with git mv to itm-0006-<slug>.md: it keeps its number,",
     "contested": f"  fix: the name shows number 6, and so does {at('itm-0006-new')}: only one of the two",
+    "contested path": f"  fix: the name shows number 6, and so does {WEIRD}/itm-0006-new.md: only one of"
+    " the two",
     "words": "  fix: rename the file to itm-<number>-<slug>.md: the number it is already cited by,",
     "full": "  fix: no name can be given: catalog 'itm' has used every number 1 digit(s) can write.",
     "wide": "  fix: no name can be given: the name shows number 123456, which 4 digit(s) cannot write.",
@@ -915,16 +953,28 @@ def golden_lines() -> tuple[bool, str]:
         "K2 no envelope": gate_on(Write(ITEM_A, NO_ENVELOPE))[0],
         "K2 id with a break": gate_on(Write(ITEM_A, item(id="itm-0001-a\nb")))[0],
         "K1 name with a break": gate_on(Write(at("a\nb"), item("a\nb")))[0],
+        "K1 long path": gate_on(Write(at("a\n" + "b" * 100), item("a\n" + "b" * 100)))[0],
+        "K2 missing path": gate_on(Write(f"{WEIRD_DIR}/{STEM_A}.md", item(drop=("id",))))[0],
+        "K2 differs path": gate_on(Write(f"{WEIRD_DIR}/{STEM_A}.md", item(id="itm-0001-other")))[0],
+        "K2 differs long": gate_on(Write(ITEM_A, item(id="i" + "j" * 99)))[0],
+        "K2 no envelope path": gate_on(Write(f"{WEIRD_DIR}/{STEM_A}.md", NO_ENVELOPE))[0],
+        "K2 yaml detail": gate_on(Write(ITEM_A, '---\nid: "x\\q"\n---\n'))[0],
         "K4": gate_on(Write(SECOND_TAKEN, item("itm-0001-second")), files={ITEM_A: item()})[0],
     }
     runs["K1 fix"] = runs["K1 why"] = runs["K1"]
     runs["K2 why"] = runs["K2 fix"] = runs["K2 missing"]
     runs["K2 no envelope fix"] = runs["K2 no envelope"]
     runs["K4 why"] = runs["K4 fix"] = runs["K4"]
+    holder = {f"{WEIRD_DIR}/itm-0001-a.md": item("itm-0001-a")}
+    runs["K4 paths"] = runs["K4 holder fix"] = gate_on(
+        Write(f"{WEIRD_DIR}/itm-0001-second.md", item("itm-0001-second")), files=holder
+    )[0]
     legacy = {LEGACY: item("ITM-06-upper")}
     runs["keep"] = gate_on(Write(LEGACY, item("ITM-06-upper")), files=legacy)[0]
     both = {**legacy, at("itm-0006-new"): item("itm-0006-new")}
     runs["contested"] = gate_on(Write(LEGACY, item("ITM-06-upper")), files=both)[0]
+    weird_new = {f"{WEIRD_DIR}/itm-0006-new.md": item("itm-0006-new")}
+    runs["contested path"] = gate_on(Write(LEGACY, item("ITM-06-upper")), files={**legacy, **weird_new})[0]
     runs["words"] = gate_on(Write(at("old"), item("old")), files={at("old"): item("old")})[0]
     nine = {at("itm-9-ninth"): item("itm-9-ninth")}
     runs["full"] = gate_on(
@@ -938,7 +988,13 @@ def golden_lines() -> tuple[bool, str]:
     missing = [key for key, line in GOLDEN.items() if line not in runs[key].stderr]
     k3 = scan_of(COLLIDING).stdout
     missing += [line for line in K3_GOLDEN if line not in k3]
-    found = len(GOLDEN) + len(K3_GOLDEN)
+    two = {f"{WEIRD_DIR}/itm-0001-a.md": item("itm-0001-a"), f"{WEIRD_DIR}/itm-0001-b.md": item("itm-0001-b")}
+    k3_paths = (
+        f"RED: catalog 'itm': 2 items carry number itm-0001: {WEIRD}/itm-0001-a.md, {WEIRD}/itm-0001-b.md"
+    )
+    if k3_paths not in scan_of(two).stdout:  # the paths whole, each on the one line, breaks escaped
+        missing.append(k3_paths)
+    found = len(GOLDEN) + len(K3_GOLDEN) + 1
     return not missing, f"{found} literal lines found" if not missing else f"not found: {missing}"
 
 
@@ -1038,6 +1094,28 @@ def session_start_skips_and_failures() -> tuple[bool, str]:
         and bad.stderr.startswith("BROKEN: constitution.yaml is not valid YAML")
         and messages.s1_could_not_run() in bad.stderr
     )
+    broken_name = "d\n" + "e" * 100  # a folder name holding a line break, over 80 characters
+    wide_dir = H.scratch_dir() / broken_name
+    wide_dir.mkdir()
+    wide_root = Consumer(wide_dir).build().root
+    (wide_root / "constitution.yaml").unlink()
+    wide = SESSION.run_gate(session_json(wide_root))
+    wide_head = "const-catalogs: no constitution.yaml in "
+    wide_tail = (
+        "d\\n" + "e" * 100 + " — the catalog gate examines nothing there until the file lists a catalog"
+    )
+    wide_ok = wide.code == 0 and wide.stdout.startswith(wide_head) and wide_tail in wide.stdout
+    wide_ok = wide_ok and wide.stdout.count("\n") == 1  # one line: the break is shown escaped
+    wide_loose = H.scratch_dir() / broken_name
+    wide_loose.mkdir()
+    wide_no_repo = SESSION.run_gate(
+        session_json(wide_loose), env={"GIT_CEILING_DIRECTORIES": str(wide_loose.parent)}
+    )
+    wide_no_repo_ok = (
+        wide_no_repo.code == 0
+        and wide_no_repo.stdout.count("\n") == 1
+        and f"{wide_tail.split(' — ')[0]} is not inside a git repository" in wide_no_repo.stdout
+    )
     arg = SESSION.run_gate(session_json(session_root()), args=["--scan"])
     arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
     return all_of(
@@ -1045,6 +1123,11 @@ def session_start_skips_and_failures() -> tuple[bool, str]:
             (no_dials_ok, f"no dials got: {no_dials.stdout!r} {no_dials.stderr[:200]!r}"),
             (from_sub_ok, f"no dials from a subfolder got: {from_sub.stdout!r} {from_sub.stderr[:200]!r}"),
             (no_repo_ok, f"no repository got: {no_repo.stdout!r} {no_repo.stderr[:200]!r}"),
+            (wide_ok, f"a long folder name with a break, no dials, got: {wide.stdout!r}"),
+            (
+                wide_no_repo_ok,
+                f"a long folder name with a break, no repository, got: {wide_no_repo.stdout!r}",
+            ),
             (bad_ok, f"malformed dials got {bad.code}: {bad.stdout!r} {bad.stderr[:300]!r}"),
             (arg_ok, f"an argument got {arg.code}: {arg.stderr[:200]!r}"),
         ],

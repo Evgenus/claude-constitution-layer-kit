@@ -11,7 +11,7 @@ holding any other document: no text here cites one.
 from __future__ import annotations
 
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import DEFAULT_MARKERS, Key
@@ -34,7 +34,7 @@ _WHY = (
 def q1_marker(rel: str, line: int, marker: str, text: str) -> Finding:
     return Finding(
         Key.Q1,
-        f"{rel}:{line}: open question marker '{marker}' — {shown(text)}",
+        f"{escaped(rel)}:{line}: open question marker '{echoed(marker)}' — {echoed(text)}",
         _WHY,
         "resolve the question in the text; if the decider is absent, replace the marker by a named blocker"
         " — 'blocked: <who> must decide <what>' — and halt that part; a draft whose own convention keeps"
@@ -51,7 +51,7 @@ def g1_covered() -> str:
 
 
 def g1_skip_not_covered(rel: str) -> str:
-    return f"{rel} is not covered ({_ns()}.territories)"
+    return f"{escaped(rel)} is not covered ({_ns()}.territories)"
 
 
 def f9_scan_tail(documents: int, markers: int, scanned: int) -> str:
@@ -88,7 +88,7 @@ def c5_markers() -> Broken:
 def c12_event(name: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"hook input names the event '{name}', which this gate is not wired to",
+        f"hook input names the event '{echoed(name)}', which this gate is not wired to",
         "wire the gate to PreToolUse on Write|Edit, as the plugin's hooks file does; to check a repository"
         " by hand run it with --scan [<dir>]",
     )
