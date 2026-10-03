@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Protocol
 
 from const_gate import messages, pipeline, preflight
-from const_gate.model import Broken, Finding, SharedKey
+from const_gate.model import DIALECT, Broken, Finding, SharedKey
 from const_gate.output import ROTATE_AT, log_name
 from const_gate.repository import list_markdown
 from consumer import ROOT_POLICY
@@ -242,6 +242,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         plain = s.gate_on(s.valid)[0]
         long_way: list[tuple[str, dict[str, object]]] = [
             ("root_policy", {"root_policy": "./docs//../" + ROOT_POLICY}),
+            # the kernel's one dialect, written out: a kernel-owned key, never refused as a namespace
+            ("territory_dialect", {"territory_dialect": DIALECT}),
         ]
         for name, patch in long_way:
             got = s.gate_on(s.valid, dials_patch=patch)[0]
@@ -969,7 +971,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ("declared dependencies: requirements.txt equals the preflight table", declared_libraries),
         ("C5: the module's own namespace given as null", dials_own_namespace_null),
         (
-            "C5: root_policy, an empty dialect, a namespace and a territory of the wrong shape, log_dir",
+            "C5: root_policy, an empty dialect, a namespace and a territory of the wrong shape, log_dir;"
+            " the dials written the long way, and the dialect written out, read as plain",
             dials_other_pairs,
         ),
         (
