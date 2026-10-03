@@ -14,7 +14,9 @@ from const_gate import identity
 from const_gate.messages import shown
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import Key
+from .model import DEFAULT_MARKERS, Key
+
+_DEFAULT_MARKERS = ", ".join(f"'{marker}'" for marker in DEFAULT_MARKERS)
 
 
 def _ns() -> str:
@@ -75,8 +77,8 @@ def c5_markers() -> Broken:
     return _c5(
         f"{_ns()}.markers must be a non-empty list of non-empty one-line texts",
         'write the marker texts to look for, one per line under "- ", in single quotes, or leave the key'
-        " out for the defaults '[decide:', 'TODO', 'TBD', 'FIXME'; an empty list would examine nothing in"
-        " silence",
+        f" out for the defaults {_DEFAULT_MARKERS}; an empty list would"
+        " examine nothing in silence",
     )
 
 

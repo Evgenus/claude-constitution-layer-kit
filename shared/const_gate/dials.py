@@ -18,9 +18,8 @@ import yaml
 from . import identity, messages
 from .envelope import yaml_error_line
 from .errors import ConfigurationFailure
-from .model import DIALECT, DIALS_FILE, Dials, Namespace, Severity
+from .model import DIALECT, DIALECT_KEY, DIALS_FILE, KERNEL_KEYS, ROOT_POLICY_KEY, Dials, Namespace, Severity
 
-KERNEL_KEYS = ("root_policy", "territory_dialect")
 SEVERITY_KEY = "severity"
 LOG_DIR_KEY = "log_dir"
 GATE_KEYS = (SEVERITY_KEY, LOG_DIR_KEY)  # the two dials every gate has, read here; a module whose gate
@@ -54,7 +53,7 @@ def load_dials(root: Path) -> Dials | None:
 
 
 def _parse(raw: dict[object, object]) -> Dials:
-    _check_dialect(raw.get("territory_dialect", DIALECT))
+    _check_dialect(raw.get(DIALECT_KEY, DIALECT))
     namespaces: dict[str, Namespace] = {}
     for key, value in raw.items():
         name = str(key)
@@ -73,7 +72,7 @@ def _parse(raw: dict[object, object]) -> Dials:
     if not isinstance(own, dict):
         raise ConfigurationFailure(messages.c5_own_namespace_not_mapping())
     return Dials(
-        root_policy=_root_policy(raw.get("root_policy")),
+        root_policy=_root_policy(raw.get(ROOT_POLICY_KEY)),
         severity=_severity(own.get(SEVERITY_KEY)),
         log_dir=_relative_dir(own.get(LOG_DIR_KEY)),
         own={str(key): value for key, value in own.items()},

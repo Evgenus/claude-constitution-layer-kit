@@ -186,7 +186,13 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return expect(result, 1, "BROKEN: constitution.yaml is not valid YAML", "stderr")
 
     def dials_not_mapping() -> tuple[bool, str]:
-        return broken(s.gate_on(s.valid, raw_dials="- a\n- b\n")[0], messages.c4b_dials_not_mapping())
+        result, _ = s.gate_on(s.valid, raw_dials="- a\n- b\n")
+        line = (  # typed by hand: both kernel keys, the second said to be needed only off the default
+            "BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: root_policy,"
+            " and territory_dialect when the dialect is not gitignore, then one namespace per policy or"
+            " module"
+        )
+        return broken_as_typed(result, line)
 
     def dials_bad_severity() -> tuple[bool, str]:
         return broken(s.gate_on(s.valid, dials_patch=s.own(severity="loud"))[0], messages.c5_severity())

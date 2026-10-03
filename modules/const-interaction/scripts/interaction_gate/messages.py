@@ -170,7 +170,7 @@ def c5_entry(index: int, detail: str) -> Broken:
 
 def c5_verbosity() -> Broken:
     return _c5(
-        f"{_ns()}.verbosity must be one of: triggered",
+        f"{_ns()}.verbosity must be one of: {', '.join(level.value for level in Verbosity)}",
         "write verbosity: triggered — the one value today: assumption and restatement lines appear only"
         " when triggered — or leave the key out for it",
     )

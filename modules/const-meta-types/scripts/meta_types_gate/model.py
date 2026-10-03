@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+TITLE_MAX = 200  # characters: the kernel schema's maxLength of title
+
 
 class Key(StrEnum):
     F1 = "F1"

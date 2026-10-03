@@ -16,7 +16,7 @@ from const_gate import identity
 from const_gate.messages import patterns, shown
 from const_gate.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, Status
 
-from .model import Key
+from .model import TITLE_MAX, Key
 
 _ENVELOPE_WHY = "the envelope is the one place a document's authority is declared, and it is read by machines"
 _DECLARATION_WHY = (
@@ -38,7 +38,7 @@ _FIELD_FIXES = {
         "type = current-state (reconciled truth) | task-record (change delta) | non-authoritative"
         " (explanation)"
     ),
-    "title": "title = one line",
+    "title": f"title = one line of at most {TITLE_MAX} characters",
     "status": f"status = {_STATUSES}",
     DECLARATION: f"{DECLARATION} = the kebab-case id of the governing policy, or no such line",
 }
@@ -266,7 +266,7 @@ def f4_title_empty() -> str:
 
 
 def f4_title_too_long() -> str:
-    return "title longer than 200 characters"
+    return f"title longer than {TITLE_MAX} characters"
 
 
 def f4_declaration_not_kebab(value: str) -> str:

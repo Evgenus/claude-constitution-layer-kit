@@ -46,7 +46,7 @@ from harness import (  # noqa: E402
     red_lines,
 )
 from interaction_gate import messages, start, tokens  # noqa: E402
-from interaction_gate.model import DEFAULT_DESTRUCTIVE, Entry, Subcommand  # noqa: E402
+from interaction_gate.model import DEFAULT_DESTRUCTIVE, Entry, Subcommand, Verbosity  # noqa: E402
 from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -467,6 +467,12 @@ def t10() -> tuple[bool, str]:
         result, _ = gate_on(command("ls"), dials_patch=patch)
         ok, evidence = broken_first_line(result, line)
         checks.append((ok and shared.c11_broken_count() in result.stderr, evidence))
+    # the verbosity fix is prose that says "the one value today": a second value fails here, and
+    # points at that prose
+    one_value = len(Verbosity) == 1 and f"write verbosity: {Verbosity.TRIGGERED.value} — the one value" in (
+        messages.c5_verbosity().fix
+    )
+    checks.append((one_value, "one verbosity value, and its fix says so" if one_value else "a second value"))
     return all_of(*checks)
 
 

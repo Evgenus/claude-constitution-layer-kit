@@ -33,6 +33,7 @@ from const_gate.envelope import yaml_error_line  # noqa: E402
 from const_gate.model import EnvelopeState  # noqa: E402
 from consumer import Consumer, envelope  # noqa: E402
 from decision_records_gate import messages, start  # noqa: E402
+from decision_records_gate.model import Stakes  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
     Case,
@@ -520,6 +521,11 @@ def golden_lines() -> tuple[bool, str]:
         case = cases[number]
         stderr = H.run_gate(event_json(H.fresh_consumer(case.setup).root, case.red)).stderr
         missing += [f"case {number}: {line}" for line in lines if line not in stderr]
+    # the R2 fix glosses each stakes level in prose: exactly the enum's members, in its order
+    fix = messages.r2_invalid_fields("x", []).fix
+    glossed = re.findall(r"(\w+) \(", fix.split("stakes = ")[1].split("; decider")[0])
+    if glossed != [level.value for level in Stakes]:
+        missing.append(f"the R2 fix glosses {glossed}, the enum holds {[level.value for level in Stakes]}")
     found = sum(len(lines) for lines in GOLDEN.values())
     return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 

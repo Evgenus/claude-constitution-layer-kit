@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from . import identity
-from .model import DIALECT, DIALS_FILE, Broken, SharedKey
+from .model import DIALECT, DIALECT_KEY, DIALS_FILE, ROOT_POLICY_KEY, Broken, SharedKey
 
 
 def _ns() -> str:
@@ -174,7 +174,8 @@ def c4b_dials_not_mapping() -> Broken:
     return Broken(
         SharedKey.C4B,
         f"{DIALS_FILE} is not a mapping",
-        "the file holds top-level keys: root_policy, then one namespace per policy or module",
+        f"the file holds top-level keys: {ROOT_POLICY_KEY}, and {DIALECT_KEY} when the dialect is not"
+        f" {DIALECT}, then one namespace per policy or module",
     )
 
 

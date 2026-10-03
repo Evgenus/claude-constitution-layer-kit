@@ -431,6 +431,12 @@ def hooks_file() -> tuple[bool, str]:
             )
             if not right:
                 problems.append(f"{name}: {group}")
+    wired = messages.c12_event("x").fix  # the C12 fix names the event and matcher the file wires
+    problems += [
+        f"{name} on {matcher}: not in the C12 fix"
+        for name, (matcher, _) in wanted.items()
+        if matcher is not None and f"{name} on {matcher}" not in wired
+    ]
     return (
         not problems,
         "a PreToolUse handler on Write|Edit and a SessionStart handler without matcher, exec form, timeouts,"

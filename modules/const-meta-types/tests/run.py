@@ -22,8 +22,8 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
-from const_gate.envelope import yaml_error_line  # noqa: E402
-from const_gate.model import Match  # noqa: E402
+from const_gate.envelope import parse_envelope, yaml_error_line  # noqa: E402
+from const_gate.model import Match, MetaType  # noqa: E402
 from consumer import ROOT_POLICY, document, envelope  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
@@ -38,6 +38,7 @@ from harness import (  # noqa: E402
     red_lines,
 )
 from meta_types_gate import messages, start  # noqa: E402
+from meta_types_gate.checks import envelope_errors  # noqa: E402
 from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -395,15 +396,41 @@ def fix_names_the_failing_field() -> tuple[bool, str]:
     policy_only = (
         "  fix: set the named field: policy = the kebab-case id of the governing policy, or no such line\n"
     )
+    long_title, _ = gate_on(
+        Write(NOTE_A, document(id="note-a", type="non-authoritative", title="x" * 201, status="active"))
+    )
+    title_only = (  # typed by hand: the limit is named in the headline and taught in the fix
+        "RED: docs/notes/a.md: envelope field(s) invalid: title longer than 200 characters\n"
+        "  why: the envelope is the one place a document's authority is declared, and it is read by"
+        " machines\n"
+        "  fix: set the named field: title = one line of at most 200 characters\n"
+    )
+    edge, _ = gate_on(
+        Write(NOTE_A, document(id="note-a", type="non-authoritative", title="x" * 200, status="active"))
+    )
+    # the hand-written fragments stay tied to the closed sets they gloss: a type added to the
+    # enum is glossed, and each fragment's key is a field the checks report
+    all_wrong = parse_envelope(document(id="X_", type="x", title="", status="x", policy="X_"))
+    reported = {error.split(" ", 1)[0] for error in envelope_errors(all_wrong)}
+    tied = all(
+        meta_type.value in messages._FIELD_FIXES["type"] for meta_type in MetaType
+    ) and reported == set(messages._FIELD_FIXES)
     ok = (
         result.code == 2
         and status_only in result.stderr
         and "id = " not in result.stderr
         and declared.code == 2
         and policy_only in declared.stderr
+        and long_title.code == 2
+        and title_only in long_title.stderr
+        and edge.code == 0
+        and tied
     )
-    return ok, "status alone: the status fragment; policy alone: the policy fragment" if ok else (
-        f"{result.stderr}\n{declared.stderr}"
+    return ok, (
+        "status alone: the status fragment; policy alone: the policy fragment; a title of 201 characters:"
+        " the limit taught, of 200: green; the fragments tied to the enum and the fields"
+        if ok
+        else f"{result.stderr}\n{declared.stderr}\n{long_title.stderr}\n{edge.stderr}\n{reported}"
     )
 
 
@@ -522,7 +549,8 @@ GOLDEN: dict[int, Sequence[str]] = {
     35: [
         "RED: docs/notes/a.md: envelope field(s) invalid: id must be a quoted string (YAML read it as bool);"
         " title empty",
-        "  fix: set each named field: id = stable kebab-case (never changed, never reused); title = one line",
+        "  fix: set each named field: id = stable kebab-case (never changed, never reused); title = one"
+        " line of at most 200 characters",
     ],
 }
 

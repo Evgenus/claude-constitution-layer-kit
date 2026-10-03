@@ -24,8 +24,7 @@ from const_gate.resolution import resolve
 from const_gate.territory import Matcher
 
 from . import messages
-
-TITLE_MAX = 200
+from .model import TITLE_MAX
 
 
 def resolution_findings(index: Index, rel: str, resolution: Resolution) -> list[Finding]:
