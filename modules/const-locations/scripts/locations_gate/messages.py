@@ -8,10 +8,13 @@ reader must be able to act on a message without holding any other document: no t
 cites one.
 
 Every value taken from a dial, a document or the command line goes through `echoed`, so that a
-line break in it leaves the message one line. Two kinds of value stay raw, on purpose: the
-directory the run stands in and the repository root, which the environment gives and which a
-cut would make useless as a fix, and the system's own error text, which names the absolute path
-the fix tells the reader to look at.
+line break in it leaves the message one line, with one exception: a path a later step uses whole —
+the home, the template's path and the path that holds an id — is shown by `escaped`, which escapes
+the same way and never cuts, since a cut path is no path to open. Two values stay
+raw, on purpose: the directory the run stands in and the repository root come from the
+environment, not from a document or a dial, so no line break of a document can reach them; and the
+system's own error text names the absolute path the fix tells the reader to look at, and Python's
+error text already shows a path's line breaks escaped.
 """
 
 from __future__ import annotations
@@ -33,15 +36,21 @@ def _ns() -> str:
     return identity.current().namespace
 
 
+def escaped(value: str) -> str:
+    """A path a later step uses whole, on one line: its backslashes and line breaks escaped, never cut,
+    since a cut path is no path."""
+    return value.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
+
+
 # ---------------------------------------------------------------- the lines of a run
 
 
 def l1_home(home: str, kind: str, pattern: str) -> str:
-    return f"HOME: {echoed(home)} — governed by {echoed(kind)} (territory '{echoed(pattern)}')"
+    return f"HOME: {escaped(home)} — governed by {echoed(kind)} (territory '{echoed(pattern)}')"
 
 
 def l2_template(path: str) -> str:
-    return f"TEMPLATE: {echoed(path)}"
+    return f"TEMPLATE: {escaped(path)}"
 
 
 def l2_no_template(kind: str) -> str:
@@ -52,11 +61,11 @@ def l2_no_template(kind: str) -> str:
 
 
 def l3_created(home: str) -> str:
-    return f"CREATED: {echoed(home)}"
+    return f"CREATED: {escaped(home)}"
 
 
 def l4_count(home: str) -> str:
-    return f"1 document created ({echoed(home)}) — fill the body where the template says, then commit"
+    return f"1 document created ({escaped(home)}) — fill the body where the template says, then commit"
 
 
 def l4_dry_run() -> str:
@@ -177,7 +186,7 @@ def l5_not_kebab(value: str, what: str) -> Broken:
 
 def l5_exists(home: str) -> Broken:
     return _refused(
-        f"{echoed(home)} already exists: creating never overwrites, so the document that is there "
+        f"{escaped(home)} already exists: creating never overwrites, so the document that is there "
         "stays as it is",
         "choose another stem, or edit the document that is there",
     )
@@ -259,7 +268,7 @@ def l5_title_multiline() -> Broken:
 
 def l5_id_in_use(doc_id: str, path: str) -> Broken:
     return _refused(
-        f"id '{echoed(doc_id)}' is already carried by {echoed(path)}",
+        f"id '{echoed(doc_id)}' is already carried by {escaped(path)}",
         "ids are unique in the tree: choose another stem, or give --id",
     )
 

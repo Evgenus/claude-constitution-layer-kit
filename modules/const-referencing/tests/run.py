@@ -513,7 +513,15 @@ def golden_lines() -> tuple[bool, str]:
     skip = gate_on(wrote("# F\n"), dials_patch=claim(["docs/policies/**"]))[0].stdout
     if f"{DOC} is not covered (const-referencing.territories)" not in skip:
         missing.append("skip")
-    return not missing, f"{len(GOLDEN) + 1} literal lines found" if not missing else f"not found: {missing}"
+    odd = own(lanes=[{**LANE, "names": "a\nrequirement", "fix": "[REQ-7]\n(x\\y)"}])
+    broken_lines = gate_on(CASES[0].red, dials_patch=odd)[0].stderr
+    for hand_typed in (  # the lane's own words with a line break: shown escaped, the finding stays lines
+        f"RED: {DOC}:9: 'REQ-7' cites a\\nrequirement by a bare handle",
+        "  fix: write it as a link: [REQ-7]\\n(x\\\\y)",
+    ):
+        if hand_typed not in broken_lines:
+            missing.append(hand_typed)
+    return not missing, f"{len(GOLDEN) + 3} literal lines found" if not missing else f"not found: {missing}"
 
 
 # ------------------------------------------------------------------ the whole tree, in the scan

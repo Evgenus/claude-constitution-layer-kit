@@ -300,7 +300,24 @@ def created(
 
 def directory_prefix() -> tuple[bool, str]:
     consumer = prepared()
-    return created(consumer, NOTE, NOTE_TEXT, run(consumer, *NOTE_ARGS), NOTE_LINES)
+    plain = created(consumer, NOTE, NOTE_TEXT, run(consumer, *NOTE_ARGS), NOTE_LINES)
+    # A home over 80 characters is a path the next step opens, so its lines show it whole — never cut
+    stem = "a" * 90
+    long_home = f"docs/notes/{stem}.md"
+    long_consumer = prepared()
+    long_args = ["--kind", "notes-policy", "--stem", stem, "--title", "A note", "--type", "non-authoritative"]
+    long_text = document("# A note\n", id=stem, type="non-authoritative", title="A note", status="active")
+    long_lines = [  # typed by hand: the home whole on the HOME, CREATED and count lines
+        f"HOME: {long_home} — governed by notes-policy (territory 'docs/notes/**')",
+        f"CREATED: {long_home}",
+        f"1 document created ({long_home}) — fill the body where the template says, then commit",
+    ]
+    whole = created(long_consumer, long_home, long_text, run(long_consumer, *long_args), long_lines)
+    escapes = (
+        messages.escaped("a\\b\nc\r" + stem) == "a\\\\b\\nc\\r" + stem,
+        "a backslash and the line breaks of a path are escaped, the path never cut",
+    )
+    return all_of([plain, whole, escapes], "a home of 20 characters and one of 99 are shown whole")
 
 
 def prefix_forms() -> tuple[bool, str]:

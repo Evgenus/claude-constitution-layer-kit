@@ -36,9 +36,9 @@ def r1_bare_form(rel: str, line: int, match: str, names: str, fix: str) -> Findi
     """`names` and `fix` are the project's words, from its lane; the reason is never theirs."""
     return Finding(
         Key.R1,
-        f"{rel}:{line}: '{shown(match)}' cites {names} by a bare handle",
+        f"{rel}:{line}: '{echoed(match)}' cites {echoed(names)} by a bare handle",
         _WHY_BARE,
-        f"write it as a link: {fix}",
+        f"write it as a link: {echoed(fix)}",
     )
 
 

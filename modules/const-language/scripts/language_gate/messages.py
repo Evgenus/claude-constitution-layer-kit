@@ -12,7 +12,7 @@ holding any other document: no text here cites one.
 from __future__ import annotations
 
 from const_gate import identity
-from const_gate.messages import echoed, shown
+from const_gate.messages import echoed
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import VALE_FLOOR, Departure, Hit, Key, Level, Rule
@@ -68,7 +68,7 @@ def l1_grade(rel: str, grade: float, ceiling: float) -> Finding:
 def l2_sentence(rel: str, line: int, words: int, limit: int, text: str) -> Finding:
     return Finding(
         Key.L2,
-        f"{rel}:{line}: a sentence of {words} words, over the limit of {limit} — {shown(text)}",
+        f"{rel}:{line}: a sentence of {words} words, over the limit of {limit} — {echoed(text)}",
         "a sentence longer than the limit carries more than one idea, and a non-native reader loses the"
         " first before reaching the last",
         f"split it at a clause into sentences of at most {limit} words; the limit for this repository is"
@@ -79,7 +79,7 @@ def l2_sentence(rel: str, line: int, words: int, limit: int, text: str) -> Findi
 def l3_forbidden(rel: str, line: int, text: str) -> Finding:
     return Finding(
         Key.L3,
-        f"{rel}:{line}: '{shown(text)}' is a construction plain language avoids",
+        f"{rel}:{line}: '{echoed(text)}' is a construction plain language avoids",
         "an idiom or a formal phrase says nothing a plain sentence does not, and a non-native reader must"
         " translate it before reading on",
         "say it in plain words, or drop it; a phrase this repository keeps on purpose is named in"
@@ -90,9 +90,9 @@ def l3_forbidden(rel: str, line: int, text: str) -> Finding:
 def l4_simpler(rel: str, line: int, text: str, plain: str) -> Finding:
     return Finding(
         Key.L4,
-        f"{rel}:{line}: '{shown(text)}' where the plain word is '{shown(plain)}'",
+        f"{rel}:{line}: '{echoed(text)}' where the plain word is '{echoed(plain)}'",
         "a long or formal word costs a non-native reader a dictionary where the plain one does not",
-        f"write '{shown(plain)}'; a word this repository keeps on purpose is named in {_ns()}.exceptions in"
+        f"write '{echoed(plain)}'; a word this repository keeps on purpose is named in {_ns()}.exceptions in"
         f" {DIALS_FILE}" + _allow(Rule.SIMPLER),
     )
 
@@ -100,7 +100,7 @@ def l4_simpler(rel: str, line: int, text: str, plain: str) -> Finding:
 def l5_passive(rel: str, line: int, text: str) -> Finding:
     return Finding(
         Key.L5,
-        f"{rel}:{line}: passive voice — '{shown(text)}'",
+        f"{rel}:{line}: passive voice — '{echoed(text)}'",
         "the passive hides who acts, and a non-native reader must supply the actor to follow the sentence",
         "name who acts and put them first; a passive kept on purpose is a register the repository sets by"
         f" {_ns()}.levels.passive in {DIALS_FILE}" + _allow(Rule.PASSIVE),
@@ -110,7 +110,7 @@ def l5_passive(rel: str, line: int, text: str) -> Finding:
 def l6_vale_comment(rel: str, line: int, text: str) -> Finding:
     return Finding(
         Key.L6,
-        f"{rel}:{line}: a Vale comment in the document — {shown(text)}",
+        f"{rel}:{line}: a Vale comment in the document — {echoed(text)}",
         "a comment that switches a rule off is a mark in the document, which the gate blanks before it"
         " reads; what departs from a rule is declared in the dials file, where every reader sees it",
         "remove the comment; to change a rule for this repository set its level or threshold under"

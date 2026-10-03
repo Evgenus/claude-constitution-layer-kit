@@ -349,6 +349,12 @@ def t5() -> tuple[bool, str]:
     inside, _ = gate_on(Write(DOC, "# T\n\nThis used car is fine.\n"))  # "is" inside "This": no passive
     return all_of(
         (found.render() == typed, "L5 typed whole equals the function's text"),
+        # a form of be and its participle on two lines: Vale's match holds the line break, shown escaped
+        one_finding(
+            "# T\n\nThe report was\nwritten yesterday.\n",
+            f"{DOC}:3: passive voice — 'was\\nwritten'",
+            own(levels={"passive": "error"}),
+        ),
         expect(context(result), 0, note, "stdout"),
         expect(context(result), 0, green_hook(), "stdout"),
         (
