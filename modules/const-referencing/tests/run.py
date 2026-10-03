@@ -381,6 +381,12 @@ def dial_failures() -> tuple[bool, str]:
         return own(lanes=[{**LANE, **changes}])
 
     dropped = {key: value for key, value in LANE.items() if key != "fix"}
+    try:  # the compiler's own words come from `re` itself, so a Python version cannot break the golden
+        re.compile("REQ-([")
+    except re.error as compiler:
+        compiler_words = str(compiler)
+    else:
+        return False, "the pattern 'REQ-([' compiled; the fixture needs one the compiler refuses"
     wrong: list[tuple[dict[str, object], Broken]] = [
         (own(territories="*.md"), messages.c5_territories()),
         (own(territories=[]), messages.c5_territories()),
@@ -397,7 +403,7 @@ def dial_failures() -> tuple[bool, str]:
         (lane(home="docs/reqs.md"), messages.c5_lane(1, messages.lane_home())),
         (
             lane(pattern="REQ-(["),
-            messages.c5_lane(1, messages.lane_pattern("unterminated character set at position 5")),
+            messages.c5_lane(1, messages.lane_pattern(compiler_words)),
         ),
     ]
     results = [broken(gate_on(VALID, dials_patch=patch)[0], failure) for patch, failure in wrong]

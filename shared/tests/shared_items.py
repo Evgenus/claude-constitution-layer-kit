@@ -923,10 +923,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         lines = result.stderr.splitlines()
         one_line = len(lines) == 1 + len(s.closing.splitlines())
         ok = result.code == 1 and one_line and lines[0] == first and len(result.stderr) < 2_000
-        return ok, (
-            f"exit 1; {ns}.{dial.path} named whole, on one line, {len(result.stderr)} characters in all"
-            if ok
-            else f"exit {result.code}; {len(lines)} lines; {result.stderr[:300]}"
+        if not ok:
+            return ok, f"exit {result.code}; {len(lines)} lines; {result.stderr[:300]}"
+        # the escape the message teaches passes: `\#drafts/**`, typed by hand, is a pattern git reads as one,
+        # so it is no C5.7 and no configuration failure
+        escaped, _ = s.gate_on(s.valid, dials_patch=dial.patch("\\#drafts/**"))
+        refused = "holds a pattern git would not read as one" in escaped.stderr + escaped.stdout
+        if escaped.code == 1 or refused:
+            return False, (
+                f"the taught escape \\#drafts/** was refused: exit {escaped.code}; {escaped.stderr[:300]}"
+            )
+        return True, (
+            f"exit 1; {ns}.{dial.path} named whole, on one line, {len(result.stderr)} characters in all;"
+            f" the escape \\#drafts/** passes, exit {escaped.code}"
         )
 
     items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [

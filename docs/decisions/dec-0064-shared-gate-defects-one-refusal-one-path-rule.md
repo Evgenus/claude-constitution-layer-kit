@@ -47,7 +47,7 @@ A departure's `reason` must be one line. Styling stripped the value before it lo
 
 **Choice.** A, by the decider, in chat on 2026-10-02.
 
-**R2.** A departure's `reason` that ends in a line break is trimmed and accepted, and one with a line break in the middle is refused, in [`const-language`](../requirements.md#const-language), [`const-doc-budgets`](../requirements.md#const-doc-budgets) and [`const-styling`](../requirements.md#const-styling) alike.
+**R2.** A departure's `reason` is trimmed of white space and line breaks at both ends and then accepted, and one with a line break in the middle is refused, in [`const-language`](../requirements.md#const-language), [`const-doc-budgets`](../requirements.md#const-doc-budgets) and [`const-styling`](../requirements.md#const-styling) alike.
 
 ## 3. How a dial path is read
 
@@ -145,7 +145,7 @@ The commits of this branch before the one that adds this record apply every item
 4. R4 — [`const-task-close`](../../modules/const-task-close/MODULE.md#t7), its dial `coverage`; [kit-shared-gate-code](../../shared/GATE.md#g4), limit 15 of section 4.
 5. R5 — [kit-shared-gate-code](../../shared/GATE.md#g4), limit 7 of section 4; [section 1](../../shared/GATE.md#g1), the `repository, territory` row.
 6. R6 — [the dials file](../../constitution.yaml), the ceiling `shared-code` of `const-doc-budgets`.
-7. R7 — history only: the deferral of the decider's choice between a split and a raise; the ceiling itself is R6's.
+7. R7 — pending: [step 9 of the rollout plan](../rollout-plan.md#s9), the decider's choice between a split and a raise; the ceiling itself is R6's.
 8. R8 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `messages` row of section 1; [section 2](../../shared/GATE.md#g2), item 5.
 9. R9 — [kit-shared-gate-code](../../shared/GATE.md#g3), the row C5.7 of section 3; [section 2](../../shared/GATE.md#g2), item 4; [section 1](../../shared/GATE.md#g1), the `dials` row.
 10. R10 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `dials` row of section 1.
