@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 
 import yaml
-from const_gate.envelope import parse_envelope
+from const_gate.envelope import envelope_bounds, parse_envelope
 from const_gate.errors import ConfigurationFailure
 from const_gate.model import EnvelopeState, MetaType, Status
 
@@ -14,6 +14,8 @@ from . import messages
 
 OWN_FIELDS = ("id", "title", "status")
 FIELD_LINE = re.compile(r"^(?P<key>[A-Za-z_][A-Za-z0-9_-]*)\s*:")
+# where a line of the template's block ends: the helper's definition, which cuts the block the same way
+LINE_END = re.compile(r"\r\n|\r|\n")
 
 
 def _line(key: str, value: str) -> str:
@@ -47,12 +49,15 @@ def from_template(template: str, path: str, doc_id: str, title: str, given_type:
     if given_type is not None and given_type.value != fixed:
         raise ConfigurationFailure(messages.l5_type_conflict(given_type.value, path, fixed))
     values = {"id": doc_id, "title": title, "status": Status.ACTIVE.value}
-    lines = template.lstrip("﻿").split("\n")
-    close = next(i for i in range(1, len(lines)) if lines[i].rstrip() == "---")
+    bounds = envelope_bounds(template)
+    if bounds is None or bounds.yaml_end is None or bounds.end is None:  # unreachable: read OK above
+        raise ConfigurationFailure(messages.l5_template_no_envelope(path, envelope.state.value))
+    # the block as lines: the last piece, after the break that ends the block's last line, is empty
+    lines = LINE_END.split(template[bounds.yaml_start : bounds.yaml_end])[:-1]
     block: list[str] = []
     written: set[str] = set()
     skipping = False
-    for line in lines[1:close]:
+    for line in lines:
         if skipping and (line.startswith((" ", "\t")) or not line.strip()):
             continue  # a continuation line of the value just replaced
         skipping = False
@@ -68,4 +73,6 @@ def from_template(template: str, path: str, doc_id: str, title: str, given_type:
     for key in OWN_FIELDS:
         if key not in written:
             block.append(_line(key, values[key]))
-    return "\n".join(["---", *block, "---", *lines[close + 1 :]])
+    closing = template[bounds.yaml_end : bounds.end]  # the closing line as written: a break ends it, or none
+    ending = "\n" if closing.endswith(("\n", "\r")) else ""
+    return "".join(f"{line}\n" for line in ["---", *block]) + "---" + ending + template[bounds.end :]
