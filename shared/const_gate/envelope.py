@@ -31,8 +31,9 @@ class Bounds:
     end: int | None  # first character after the closing line and its line ending; None when none closes
 
 
-def _lines(text: str, start: int, stop: int) -> Iterator[tuple[int, str, int]]:
-    """The lines of text[start:stop] as (offset, content without its line ending, offset of the next)."""
+def envelope_lines(text: str, start: int, stop: int) -> Iterator[tuple[int, str, int]]:
+    """The lines of text[start:stop] as (offset, content without its line ending, offset of the next):
+    the one place a line ends, at `\\n`, `\\r\\n` or a lone `\\r` and nowhere else."""
     pos = start
     while pos < stop:
         found = _LINE_END.search(text, pos, stop)
@@ -46,7 +47,7 @@ def envelope_bounds(text: str) -> Bounds | None:
     line is `---` with its trailing whitespace ignored. The closing line is the first later line that
     is `---` the same way. A line ends at `\\n`, `\\r\\n` or a lone `\\r`, and nowhere else."""
     start = len(text) - len(text.lstrip(_BOM))
-    lines = _lines(text, start, len(text))
+    lines = envelope_lines(text, start, len(text))
     opening = next(lines, None)
     if opening is None or opening[1].rstrip() != "---":
         return None
@@ -63,7 +64,7 @@ def parse_envelope(text: str) -> Envelope:
         return Envelope(EnvelopeState.NONE)
     if bounds.yaml_end is None:
         return Envelope(EnvelopeState.UNTERMINATED)
-    block = "\n".join(content for _, content, _ in _lines(text, bounds.yaml_start, bounds.yaml_end))
+    block = "\n".join(content for _, content, _ in envelope_lines(text, bounds.yaml_start, bounds.yaml_end))
     try:
         loaded: object = yaml.safe_load(block)
     except yaml.YAMLError as exc:

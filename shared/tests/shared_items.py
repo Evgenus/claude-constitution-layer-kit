@@ -1180,9 +1180,32 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                     failed.append(f"{what}: got {got}, wanted {wanted}")
             if bounds_of("# no envelope\n---\n") is not None or bounds_of("") is not None:
                 failed.append("an envelope found where the first line is no `---`")
+        # the line splitter every reader of a block shares, by its name: (offset, content, next offset)
+        lines_of = getattr(envelope_reader, "envelope_lines", None)
+        if lines_of is None:
+            failed.append("no envelope_lines in the shared envelope reader")
+        else:
+            cuts = {
+                "LF, CRLF and a lone CR": (
+                    "a\nb\r\nc\rd",
+                    [(0, "a", 2), (2, "b", 5), (5, "c", 7), (7, "d", 8)],
+                ),
+                "an empty line, a CRLF and a lone CR in a row": (
+                    "a\n\r\n\rb\n",
+                    [(0, "a", 2), (2, "", 4), (4, "", 5), (5, "b", 7)],
+                ),
+                "a form feed and U+2028 end nothing": ("a\x0cb c\n", [(0, "a\x0cb c", 6)]),
+            }
+            for what, (text, wanted_lines) in cuts.items():
+                got_lines = list(lines_of(text, 0, len(text)))
+                if got_lines != wanted_lines:
+                    failed.append(f"envelope_lines, {what}: got {got_lines}, wanted {wanted_lines}")
+            # the stop is a wall: a CR at the stop is a lone CR, though a LF follows it
+            if list(lines_of("a\r\nb", 0, 2)) != [(0, "a", 2)]:
+                failed.append("envelope_lines read past its stop")
         return not failed, (
             "trailing whitespace and CRLF delimit the envelope, a form feed before the closer does not;"
-            " the offsets hold"
+            " the offsets and the line cuts hold"
             if not failed
             else "; ".join(failed)[:600]
         )

@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 
 import yaml
-from const_gate.envelope import envelope_bounds, parse_envelope
+from const_gate.envelope import envelope_bounds, envelope_lines, parse_envelope
 from const_gate.errors import ConfigurationFailure
 from const_gate.model import EnvelopeState, MetaType, Status
 
@@ -14,8 +14,6 @@ from . import messages
 
 OWN_FIELDS = ("id", "title", "status")
 FIELD_LINE = re.compile(r"^(?P<key>[A-Za-z_][A-Za-z0-9_-]*)\s*:")
-# where a line of the template's block ends: the helper's definition, which cuts the block the same way
-LINE_END = re.compile(r"\r\n|\r|\n")
 
 
 def _line(key: str, value: str) -> str:
@@ -52,8 +50,8 @@ def from_template(template: str, path: str, doc_id: str, title: str, given_type:
     bounds = envelope_bounds(template)
     if bounds is None or bounds.yaml_end is None or bounds.end is None:  # unreachable: read OK above
         raise ConfigurationFailure(messages.l5_template_no_envelope(path, envelope.state.value))
-    # the block as lines: the last piece, after the break that ends the block's last line, is empty
-    lines = LINE_END.split(template[bounds.yaml_start : bounds.yaml_end])[:-1]
+    # the block as lines, cut where the helper cuts them: each without its line ending
+    lines = [content for _, content, _ in envelope_lines(template, bounds.yaml_start, bounds.yaml_end)]
     block: list[str] = []
     written: set[str] = set()
     skipping = False
