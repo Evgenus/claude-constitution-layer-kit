@@ -112,7 +112,7 @@ The verifier of the locations generator's piece found that `filling.py` held its
 
 These items carry no options. Each follows from the answers above or from the kit's rules, and each stands open to the decider's override before the yes.
 
-**R6.** The language gate blanks exactly the envelope `envelope_bounds` returns. Everything before its end is replaced by one empty line for each line feed it holds, so every line number Vale reports stays the same. A carriage return in the envelope is deleted, not turned into a space, so prose after a closer that ends with a lone carriage return is read and never taken for indented code. An envelope that never closes is not blanked.
+**R6.** The language gate blanks exactly the envelope `envelope_bounds` returns. Everything before its end is replaced by one empty line for each line feed it holds, so the text after it keeps the count of line feeds before it. A carriage return in the envelope is deleted, not turned into a space, so prose after a closer that ends with a lone carriage return is read and never taken for indented code. An envelope that never closes is not blanked.
 
 **R7.** The referencing gate masks the envelope from the start of the file to where `envelope_bounds` says it ends, and to the end of the file when it never closes.
 
@@ -122,7 +122,7 @@ These items carry no options. Each follows from the answers above or from the ki
 
 ## Applied
 
-The commits of this branch apply every item. R1 and R4 to R9 were applied by the commits before the one that adds this record, save sentences added with the record or by its audit. The commit that adds the record adds item 9 of section 2 of the shared-code page, which states R1's rule for a module, the clause of [`const-referencing`](../requirements.md#const-referencing)'s rows section that states R7, and the plan's sentence that holds R3. The audit's fixes add the plan's sentence that holds R2 and the clause of rule L-d of [`const-locations`](../requirements.md#const-locations) on the byte-order mark in R8. The record is born `inactive`.
+The commits of this branch apply every item. The code of R1 and R4 to R9 was applied by the commits before the one that adds this record. That commit and the fixes of its carry audit added sentences that state the items in the documents, and the message of each commit names the sentences it added. The record is born `inactive`.
 
 ## Carry list
 
