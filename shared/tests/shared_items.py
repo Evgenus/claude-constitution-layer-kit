@@ -20,9 +20,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from const_gate import envelope as envelope_reader
 from const_gate import messages, pipeline, preflight
 from const_gate.envelope import ID_RE, declared_policy, document_id, parse_envelope
-from const_gate.model import DECLARATION, DIALECT, Broken, Finding, SharedKey
+from const_gate.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, SharedKey
 from const_gate.output import ROTATE_AT, log_name
 from const_gate.repository import list_markdown
 from consumer import ROOT_POLICY
@@ -1126,6 +1127,65 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             f" the escape \\#drafts/** passes, exit {escaped.code}"
         )
 
+    def envelope_delimiters() -> tuple[bool, str]:
+        """A `---` line with trailing whitespace opens and closes the envelope, and a line ends at
+        `\\n`, `\\r\\n` or a lone `\\r` only: a delimiter after any other break character is none. The
+        offsets typed by hand, a byte-order mark counted."""
+        closer = "\n---\n"
+        at = s.valid.text.find(closer)
+        if not s.valid.text.startswith("---\n") or at < 0:
+            return False, "the module's valid write holds no plain envelope to vary"
+        head, body = s.valid.text[:at], s.valid.text[at + len(closer) :]
+        # an envelope that stays whole in every case: the opener, the closer and the line endings vary
+        green = {
+            "the opener `--- `": "--- \n" + s.valid.text[4:],
+            "the closer `--- `": head + "\n--- \n" + body,
+            "the closer `---` and a tab": head + "\n---\t\n" + body,
+            "CRLF throughout": s.valid.text.replace("\n", "\r\n"),
+        }
+        failed = []
+        for what, text in green.items():
+            result, _ = s.gate_on(Write(s.valid.target, text))
+            ok, evidence = expect(result, 0, s.green, "stdout")
+            if not ok:
+                failed.append(f"{what}: {evidence[:300]}")
+        # a form feed before the only closer is no delimiter: the envelope never closes, whatever the
+        # reader's `splitlines()` would say
+        unclosed = head + "\n\x0c---\n" + body
+        result, _ = s.gate_on(Write(s.valid.target, unclosed))
+        if result.code != red_code or s.green in result.stdout:
+            failed.append(f"a form feed before the closer was not blocked: exit {result.code}")
+        # the reader and the helper themselves, on text typed by hand
+        for breaker in "\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029":
+            if parse_envelope(f"---\nid: a\n{breaker}---\nBODY\n").state is not EnvelopeState.UNTERMINATED:
+                failed.append(f"{breaker!r} before the closer makes a delimiter")
+        for what, text in {"closer `--- `": "---\nid: a\n--- \n", "CRLF": "---\r\nid: a\r\n---\r\n"}.items():
+            if parse_envelope(text).state is not EnvelopeState.OK:
+                failed.append(f"the {what} does not close the envelope")
+        bounds_of = getattr(envelope_reader, "envelope_bounds", None)  # the helper, by its name
+        if bounds_of is None:
+            failed.append("no envelope_bounds in the shared envelope reader")
+        else:
+            offsets = {
+                "BOM, then a plain envelope": ("\ufeff---\nid: a\n---\nBODY\n", (5, 11, 15)),
+                "CRLF, the closer `--- `": ("---\r\nid: a\r\n--- \r\nB", (5, 12, 18)),
+                "a closer that is the last line, with no ending": ("---\nid: a\n---", (4, 10, 13)),
+                "a lone CR ends a line": ("---\rid: a\r---\rB", (4, 10, 14)),
+                "a form feed before the closer": ("---\nid: a\n\x0c---\n", (4, None, None)),
+            }
+            for what, (text, wanted) in offsets.items():
+                got = bounds_of(text)
+                if (got.yaml_start, got.yaml_end, got.end) != wanted:
+                    failed.append(f"{what}: got {got}, wanted {wanted}")
+            if bounds_of("# no envelope\n---\n") is not None or bounds_of("") is not None:
+                failed.append("an envelope found where the first line is no `---`")
+        return not failed, (
+            "trailing whitespace and CRLF delimit the envelope, a form feed before the closer does not;"
+            " the offsets hold"
+            if not failed
+            else "; ".join(failed)[:600]
+        )
+
     items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
         ("C4b: a dials file that is not a mapping", dials_not_mapping),
@@ -1237,6 +1297,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "the findings shown after a write: the first always, then what fits, never more than most",
             cap_keeps_the_first,
         ),
+        (
+            "a `---` line with trailing whitespace opens and closes the envelope, and a line-break character"
+            " other than \\n, \\r\\n or \\r makes no delimiter",
+            envelope_delimiters,
+        ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
     # that resolves no policy leaves gaps where the items about policies stand.
@@ -1269,6 +1334,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         severity_warn,
         stdout_cannot_encode,
         deeply_nested_envelope,
+        envelope_delimiters,
         byte_order_mark,
         negated_pattern,
         document_unreadable,
@@ -1284,6 +1350,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         byte_order_mark,
         negated_pattern,
         deeply_nested_envelope,
+        envelope_delimiters,
         file_named_md,
     }
     # A gate wired to Stop never reaches git's file list, the territory's scratch repository or its
@@ -1310,7 +1377,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         Assertion(first + n, title, check)
         for n, (title, check) in enumerate(items)
         if (s.resolves_policies or check not in about_policies)
-        and (s.judges_envelopes or check is not deeply_nested_envelope)
+        and (s.judges_envelopes or check not in (deeply_nested_envelope, envelope_delimiters))
         and (s.event_driven or check not in about_events)
         and (not no_file or check not in about_files)
         and (not no_file or check not in about_listing)
