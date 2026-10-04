@@ -23,13 +23,17 @@ The list's modules, its `MODULES`, are read from its entries `install-<module>`,
 `lint-<module>` and `types-<module>` in `--names all`: each module folder has all four, and no
 module that has one lacks its folder (decisions dec-0056-portability-grep-and-gate-lists,
 dec-0058-ci-runs-each-check-in-parallel and dec-0061-ci-runs-one-job-per-module).
+No line of the list script or of the workflow, comments aside, passes a fixture runner's filter,
+`--item <n>` or `--item=<n>`: a filtered run runs only the items named and is never a full pass,
+so the gate list and CI always run every item.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: a scan missing from the gate list, or
                        from a workflow that does not read the list, red; a scan in both green; an
                        extra entry no gate; a span with more after the flag no scan; a scan whose
                        entry falls into `kit` or another module's job red; a module folder the list
-                       leaves out, and a listed module with no folder, red; the report of each kind
+                       leaves out, and a listed module with no folder, red; an `--item` in the
+                       list or the workflow red, and one in a comment green; the report of each kind
                        of finding as literal lines with exit 2; a list that cannot be read, jobs
                        that are no JSON list, a module document without its enforcement anchor and
                        a module folder without its document, each a BROKEN line; a `.py` scan held
@@ -67,6 +71,8 @@ WHY_MISSING = "a module the list leaves out is never installed, run, linted or t
 WHY_STRAY = (
     "the list's modules are exactly the module folders, and an entry of a missing module checks nothing"
 )
+ITEM_FILTER = re.compile(r"(?<![\w-])--item(?![\w-])")  # the runners' filter, `--item <n>` or `--item=<n>`
+WHY_FILTER = "the gate list and CI run every item of every runner, so that their green is a full pass"
 
 
 class Broken(Exception):
@@ -79,6 +85,7 @@ class Where(StrEnum):
     JOB = "module's job"
     MISSING = "list's modules"
     STRAY = "module folders"
+    FILTER = "item filter"
 
 
 @dataclass(frozen=True)
@@ -89,6 +96,7 @@ class Finding:
     runner: str = ""  # the list's entry that runs the scan
     job: str = ""  # the job that entry stands in, empty for none
     names: tuple[str, ...] = field(default=())  # the list's entries of a module
+    line: int = 0  # an item filter: its line in the file, `module` holding the file's path
 
     def render(self) -> str:
         spans = ", ".join(f"`{name}`" for name in self.names)
@@ -115,6 +123,12 @@ class Finding:
             why = WHY_JOB
             fix = (
                 f"map the entry to its module in job() of {GATE_LIST}: `{self.runner}) echo {self.module} ;;`"
+            )
+        elif self.where is Where.FILTER:
+            return (
+                f"RED: {self.module}:{self.line}: it runs a fixture runner with `--item`, which runs only"
+                f" the items named\n  why: {WHY_FILTER}\n  fix: remove the `--item` option and its numbers"
+                f" from line {self.line} of {self.module}"
             )
         elif self.where is Where.MISSING:
             what = f"the list lacks its entries {spans}"
@@ -189,15 +203,29 @@ def jobs_of(root: Path) -> dict[str, str]:
     return {entry: job for job in jobs for entry in listed(root, "--names", job).split()}
 
 
+def code_of(line: str) -> str:
+    """A line of the list script or the workflow, comments aside: a whole comment line, or a `#`
+    after a space or a tab."""
+    return "" if line.lstrip().startswith("#") else re.split(r"\s#", line, maxsplit=1)[0]
+
+
 def ci_reads_list(root: Path) -> bool:
     if not (root / WORKFLOW).is_file():
         return False
-    steps = "\n".join(
-        re.split(r"\s#", line, maxsplit=1)[0]
-        for line in read(root, WORKFLOW).splitlines()
-        if not line.lstrip().startswith("#")
-    )
+    steps = "\n".join(code_of(line) for line in read(root, WORKFLOW).splitlines())
     return all(phrase in steps for phrase in READS_LIST)
+
+
+def item_filters(root: Path) -> list[Finding]:
+    """Every line of the list script and of the workflow, comments aside, that passes a runner's
+    `--item`: a filtered run is never a full pass, so neither list may run one."""
+    return [
+        Finding(path, Where.FILTER, line=number)
+        for path in (GATE_LIST, WORKFLOW)
+        if (root / path).is_file()
+        for number, line in enumerate(read(root, path).splitlines(), start=1)
+        if ITEM_FILTER.search(code_of(line))
+    ]
 
 
 def check_scan(
@@ -250,6 +278,7 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
             scans += 1
             findings += check_scan(module, entry, gates, jobs, ci)
     findings += check_modules(modules, listed(root, "--names", "all").split())
+    findings += item_filters(root)
     return findings, len(modules), scans
 
 
@@ -261,8 +290,9 @@ def report(findings: list[Finding], modules: int, scans: int) -> int:
         print(f"RED: {len(findings)} finding(s) — {counts}")
         return EXIT_RED
     print(
-        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, and the"
-        f" list's modules are the module folders — {counts}"
+        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the"
+        " list's modules are the module folders, and neither list filters a runner's items"
+        f" — {counts}"
     )
     return EXIT_GREEN
 
@@ -324,6 +354,13 @@ def self_test() -> int:
         "  fix: remove `const-gone` from MODULES in scripts/gate-list.sh, or restore modules/const-gone"
         " with its MODULE.md",
         "RED: 3 finding(s) — 2 module document(s) examined, 1 declared scan(s)",
+    ]
+    filter_lines = [
+        "RED: .github/workflows/gates.yml:7: it runs a fixture runner with `--item`, which runs only the"
+        " items named",
+        "  why: the gate list and CI run every item of every runner, so that their green is a full pass",
+        "  fix: remove the `--item` option and its numbers from line 7 of .github/workflows/gates.yml",
+        "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s)",
     ]
 
     def script(case: Case) -> str:
@@ -409,6 +446,25 @@ def self_test() -> int:
             Case({"x": scan}, listed=("const-x", "const-quiet", "const-gone")),
             [Where.STRAY],
         ),
+        "the list runs a fixture runner with --item": (
+            Case({"x": scan}, {"filtered": "python3 modules/const-x/tests/run.py --item 3"}),
+            [Where.FILTER],
+        ),
+        "the workflow runs a fixture runner with --item=": (
+            Case(
+                {"x": scan},
+                workflow=f"{reads}  more:\n    run: python3 modules/const-x/tests/run.py --item=3\n",
+            ),
+            [Where.FILTER],
+        ),
+        "--item only in comments, and --items, filter nothing": (
+            Case(
+                {"x": scan},
+                {"noted": "python3 modules/const-x/tests/run.py  # not --item 3"},
+                workflow=f"{reads}  # run.py --item 3\n  more:\n    run: run.py --items 3\n",
+            ),
+            [],
+        ),
     }
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
@@ -444,6 +500,14 @@ def self_test() -> int:
             "the job and module findings",
             Case({"x": scan}, jobs={"x": "kit"}, listed=("const-x", "const-gone")),
             placed_lines,
+        ),
+        (
+            "an item filter",
+            Case(
+                {"x": scan},
+                workflow=f"{reads}  filtered:\n    run: python3 modules/const-x/tests/run.py --item 3\n",
+            ),
+            filter_lines,
         ),
     ):
         with tempfile.TemporaryDirectory() as tmp:
@@ -486,7 +550,7 @@ def self_test() -> int:
                 ok = said in str(broken) and "fix:" in str(broken)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 8
+    total = len(cases) + 9
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
