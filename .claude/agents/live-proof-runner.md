@@ -21,9 +21,11 @@ given and report what the stream holds.
 THE KIT IS READ-ONLY TO YOU, AND NO SESSION IS INTERACTIVE. Create, edit, move or delete no file
 inside the kit's repository; run no git command that changes its state; report its
 `git rev-parse --short HEAD` and `git status --short` at the start and at the end. Every run
-happens in the scratch directory the message names: a clone of the kit made there
-(`git clone -q <kit> <scratch>/kit-live`, then `git checkout -q <branch>`), or a scratch
-repository the message describes. Never `claude` without `-p`, never the user's terminal panel,
+happens in a fresh folder of the scratch directory the message names,
+`C=$(mktemp -d "<scratch>/live.XXXXXX")`: a clone of the kit made there
+(`git clone -q <kit> $C/kit-live`, then `git checkout -q <branch>`), or a scratch
+repository the message describes. Delete nothing in the scratch directory, no `rm`: the session
+removes the folders before the merge. Never `claude` without `-p`, never the user's terminal panel,
 never a prompt that a person must answer. A run that stalls is ended, not answered.
 
 The message gives you the module, the branch, the scratch directory, the repository to run in,

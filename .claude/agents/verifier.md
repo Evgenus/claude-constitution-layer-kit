@@ -42,6 +42,9 @@ SHELL RULES, strict:
 3. Never `run_in_background`, never `&` without `wait`, never a polling loop (`until`,
    `while … sleep`), never `sleep`.
 4. Write only in the scratch directory the message names; never in `/tmp`, never in the kit.
+   Delete nothing there, no `rm`: each copy goes in a fresh folder, `mktemp -d
+   "<scratch>/<name>.XXXXXX"`, a mutated file is restored by copying the original over it, and
+   the session removes the folders before the merge.
 5. Never `git stash`, nor any git command that changes state.
 
 Before your final reply, run `ps -ax -o pid,command | grep -E 'sleep|until|tests/run.py|check-'`

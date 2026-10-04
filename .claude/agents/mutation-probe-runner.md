@@ -19,10 +19,12 @@ kit at the start and at the end; they must not change.
 The message gives you the module's path, the scratch directory, and the probes, each with a
 handle and the change to make. Procedure:
 
-1. Copy the module with links followed: `cp -RL <kit>/modules/<module> <scratch>/probe-copy`
-   (`tests/run.py` imports the shared code through `scripts/const_gate`, which the copy
-   dereferences). Keep a second copy, `<scratch>/pristine`, and never edit it.
-2. Baseline: `python3 <scratch>/probe-copy/tests/run.py`; record the count line — `N/N acceptance
+1. Make a fresh folder, `C=$(mktemp -d "<scratch>/probe.XXXXXX")`, and copy the module there
+   with links followed: `cp -RL <kit>/modules/<module> $C/probe-copy` (`tests/run.py` imports the
+   shared code through `scripts/const_gate`, which the copy dereferences). Keep a second copy,
+   `$C/pristine`, and never edit it. Delete nothing in the scratch directory, no `rm`: each run
+   makes its own folder, and the session removes them all before the merge.
+2. Baseline: `python3 $C/probe-copy/tests/run.py`; record the count line — `N/N acceptance
    items green` — and the item numbers run. A red baseline stops the work: report it and do
    nothing more.
 3. Per probe, in order: make exactly the change described, in the copy; run the runner; record
@@ -30,7 +32,7 @@ handle and the change to make. Procedure:
    `pristine`; run the runner again only if the restore is in doubt. If the change as described
    cannot be made — the code differs from the description — say so and skip the probe; invent no
    substitute.
-4. After the last probe, `diff -r <scratch>/pristine <scratch>/probe-copy` must be empty, and the
+4. After the last probe, `diff -r $C/pristine $C/probe-copy` must be empty, and the
    kit's two git readings must equal the start's; report both.
 
 Report: the two git readings; the baseline line; a table with one row per probe — handle, the
