@@ -2,7 +2,7 @@
 id: res-0008-const-interaction
 type: non-authoritative
 title: Research comparison — const-interaction (2026-09-25)
-status: active
+status: inactive
 ---
 
 # Research comparison — const-interaction (2026-09-25)
