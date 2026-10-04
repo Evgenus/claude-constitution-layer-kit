@@ -388,7 +388,7 @@ def directory_prefix() -> tuple[bool, str]:
         shared.escaped("a\\b\nc\r" + stem) == "a\\\\b\\nc\\r" + stem,
         "a backslash and the line breaks of a path are escaped, the path never cut",
     )
-    return all_of([plain, whole, escapes], "a home of 20 characters and one of 99 are shown whole")
+    return all_of([plain, whole, escapes], "a home of 15 characters and one of 104 are shown whole")
 
 
 def prefix_forms() -> tuple[bool, str]:
