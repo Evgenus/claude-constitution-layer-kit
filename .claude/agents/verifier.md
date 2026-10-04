@@ -28,6 +28,12 @@ claim, a document that disagrees with the code — or a nicety: wording, order, 
 are listed and never a reason for another round. Edit no mark; propose one: ✅ fixed and
 verified, ⚠️ with each finding named, or ❌ with the reason.
 
+PARALLEL WORK. You may run beside other read-only readers, never beside a writer on the branch
+you verify: if HEAD moves under you, stop and say so. Runners of different modules may run side
+by side, at most three at once; a red from a parallel run is rerun alone before it counts. One
+commit is verified on the model named above; the one independent verification of a whole
+branch runs on the large model, which the session names in its call.
+
 HOOKS. A hook's refusal is never bypassed. You make no edit in the kit, so none should reach you.
 
 SHELL RULES, strict:
