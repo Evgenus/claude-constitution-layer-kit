@@ -312,7 +312,7 @@ def lane_home() -> str:
 
 def lane_pattern(error: str) -> str:
     return (
-        f"has a pattern that is no regular expression ({echoed(error)}) — in YAML write it in single"
+        f"has a pattern that is no regular expression ({escaped(error)}) — in YAML write it in single"
         " quotes, where a backslash stands for itself"
     )
 

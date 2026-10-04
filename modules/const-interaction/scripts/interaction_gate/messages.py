@@ -151,7 +151,7 @@ def c5_handles() -> Broken:
 
 def c5_handle_pattern(pattern: str, error: str) -> Broken:
     return _c5(
-        f"{_ns()}.handles holds '{echoed(pattern)}', which is not a regular expression ({echoed(error)})",
+        f"{_ns()}.handles holds '{echoed(pattern)}', which is not a regular expression ({escaped(error)})",
         "repair the pattern; Python's re syntax, matched at the start of the item's text",
     )
 

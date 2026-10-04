@@ -693,6 +693,10 @@ def t10() -> tuple[bool, str]:
             own(levels={"a\nb": "error"}),
             "BROKEN: constitution.yaml: const-language.levels.a\\nb is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of levels.grade, levels.sentence, levels.forbidden, levels.simpler, levels.passive",  # noqa: E501 — a golden line is typed whole
         ),
+        (  # two unknown rules, the later one written first: the first in sorted order is named, as C5.10 does
+            own(levels={"zeta": "error", "alpha": "error"}),
+            "BROKEN: constitution.yaml: const-language.levels.alpha is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write one of levels.grade, levels.sentence, levels.forbidden, levels.simpler, levels.passive",  # noqa: E501 — a golden line is typed whole
+        ),
         (
             own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": "a\nb"}]),
             "BROKEN: constitution.yaml: const-language.departures entry 1: reason must be one non-empty line saying why — fix: write the entry as paths: [<patterns>], allow: [<rule keys>], reason: <one line saying why these documents stand as written>; the keys are grade, sentence, forbidden, simpler, passive",  # noqa: E501 — a golden line is typed whole

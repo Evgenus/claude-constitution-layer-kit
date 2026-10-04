@@ -122,7 +122,7 @@ def _levels(value: object) -> dict[Rule, Level]:
     if not isinstance(value, dict):
         raise ConfigurationFailure(messages.c5_levels())
     known = {r.value for r in Rule}
-    for raw_rule, raw_level in value.items():
+    for raw_rule, raw_level in sorted(value.items(), key=lambda pair: str(pair[0])):  # C5.10: sorted order
         rule = str(raw_rule)
         if rule not in known:
             raise ConfigurationFailure(

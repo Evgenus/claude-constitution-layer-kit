@@ -893,6 +893,8 @@ def t15() -> tuple[bool, str]:
     weird_shallow = scan(weird_clone, "--since", "2026-08-11")
     bad_date = scan(source, "--since", "2026-8-11")
     week = scan(source, "--since", "2026-W33-2")  # a form the standard library would take
+    broken_up = scan(source, "--since", "2026\n" + "x" * 90)  # 95 characters, a break inside the first 80
+    slashed = scan(source, "--since", "2026\\x")  # a backslash, shown escaped
     alone = H.run_gate("", args=["--since", "2026-08-11"])
     date_line = (
         "BROKEN: misinvocation: --since takes a date written YYYY-MM-DD, not '{v}' — fix: run --scan [<dir>]"
@@ -910,6 +912,10 @@ def t15() -> tuple[bool, str]:
         ),
         broken(bad_date, date_line.format(v="2026-8-11")),
         broken(week, date_line.format(v="2026-W33-2")),
+        # the value only points: cut at 80 characters with the cut said, its break and backslash escaped,
+        # the expected text typed by hand, not built by the shared function the message calls
+        broken(broken_up, date_line.format(v="2026\\n" + "x" * 75 + "… [95 characters]")),
+        broken(slashed, date_line.format(v="2026\\\\x")),
         broken(
             alone,
             "BROKEN: misinvocation: --since applies to --scan — fix: run with no arguments (hook) or --scan"
