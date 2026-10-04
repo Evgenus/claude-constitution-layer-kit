@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 An audit on 2026-10-02 looked for gate logic that modules wrote again instead of sharing. It found copies that had drifted apart, and the drift was where the defects were. A key with a line break in it split a BROKEN line in eight modules, and in hook mode only the first line reaches the user, so the fix half was lost. A long value flooded the screen in five places. The shared message for a pattern git misreads always added `.territory` to the dial's name, so it named a dial that does not exist for any module's own dial. Three modules disagreed on a `reason` that ends in a line break. The hook skipped a file named `.md` that the scan examined. Two modules each kept a copy of the platform's 10,000-character cap with no date. Four session printers cut a path at its first colon, so a repository under `client:acme` was named `client`. A message listed the kernel's keys without `territory_dialect`. Six styling messages spoke as if they stated the project's style guide, when the scan holds the shipped values.
 
-The change that this record rules is on one branch. Every module is a draft at `0.0.x`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). [Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code to the shared source only when it implements a kernel section or a gate-script rule of [template section 6](../../module-template/MODULE.md#t6) and two or more modules need it, and the record argues each admission. Five questions were put to the decider in chat, one per message, each with lettered options, the pick a letter. Section 6 holds what the change makes where no choice existed.
+The change that this record rules is on one branch. Every module is a draft at `0.0.x`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). [Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code to the shared source only when it implements a kernel section or a gate-script rule of [template section 6](../../module-template/MODULE.md#t6) and two or more modules need it, and the record argues each admission. Seven questions were put to the decider in chat, one per message, each with lettered options, the pick a letter: five in sections 1 to 5, and two more in sections 7 and 8, put while the carry audit ran. Section 6 holds what the change makes where no choice existed.
 
 ## 1. Whether the unknown-dial refusal is shared
 
@@ -87,7 +87,7 @@ The hook decided what Markdown is by the path's suffix, and a file named just `.
 
 ## 5. The shared-code page over its ceiling
 
-The shared-code page, [kit-shared-gate-code](../../shared/GATE.md), grew from about 45,500 characters to about 50,900 with this change. Its ceiling `shared-code` is 49,000 at warning, so the length check reports a note and no finding.
+The shared-code page, [kit-shared-gate-code](../../shared/GATE.md), grew from about 45,500 characters to about 50,900 with the first part of this change, and to about 55,700 by its end. Its ceiling `shared-code` is 49,000 at warning, so the length check reports a note and no finding.
 
 - **A. Split along a seam the page already has, as the change's last step.** The long table of shared items, its section 5, moves to a document of its own, linked from the page, and the territory of [plc-0009-shared-code](../policies/plc-0009-shared-code.md) widens to hold it.
   - **Pros:** it is the fix the ceiling procedure names first; the page is back well under 49,000 with room to grow; the item table is the part only fixture authors read.
@@ -133,9 +133,35 @@ These items carry no options. Each follows from the five answers above or from t
 
 **R18.** Deferred trigger: two value dials of [`const-styling`](../requirements.md#const-styling), the deepest heading level and the bullet marker, are built only when a consumer's commit note amends one of them in its guide and declares the whole-tree departure. Building them is a `process` ruling and needs a record of its own.
 
+## 7. Whether the echo rule is finished inside this change
+
+The carry audit of this record ran four rounds of fixes on R8, and each round found the next site where a value was cut that a reader needs whole, or left raw where it can hold a line break. The cause was that R8 was written as a rule before anyone listed the sites where messages print outside values. The question was put on 2026-10-03.
+
+- **A. Finish it inside this change.** One agent first lists every site in all eleven modules: where its value comes from, whether a later step needs it whole, whether it can hold a line break. Then a shared escape-only helper and one round of fixes made from that list.
+  - **Pros:** R8 ends complete and true for every module; one round made from a full list should end the loop.
+  - **Cons:** the change grows again before the yes; it touches findings in nearly every module, well beyond its first scope; more rounds of the carry audit.
+- **B. Close this change on its own scope, and move the rest to a new item.** Fix only what the rounds broke, word R8 as exactly what the code holds, and log the sites that existed before the change as a new item that starts with the list.
+  - **Pros:** it stops the loop now; the change lands what it set out to do; the remaining work starts from a list instead of a rule.
+  - **Cons:** known line-break gaps stay in the code until the new item lands; R8 is narrower than "every value".
+
+**Recommendation.** B, by the session: the remaining sites all existed before the change, so the change does not make them worse, and the new item should start from the list.
+
+**Choice.** A, by the decider, in chat on 2026-10-03. The list was made: 224 sites, of which 144 differed from their target. Its ruling is R8.
+
+## 8. How far the echo rule reaches
+
+With the list made, the rule was put again. A first version, with three options, was too detailed; the decider asked for it in simple terms, and it was put again so:
+
+- **A. Do all 144 sites now, inside this change.** Two helpers: one keeps a value on one line and never cuts it, for what the reader opens or copies; one keeps it on one line and cuts it, for what only points. Each site is given the right one, from the list. The cost: a large change that touches every module and many test lines before the yes.
+- **B. Close this change small, and do the rest later as its own task.** Fix only what the change itself broke; the list makes the later task easy to do properly.
+
+**Recommendation.** B, by the session, so that the change lands without growing further.
+
+**Choice.** A, by the decider, in chat on 2026-10-03. Its ruling is R8. The session added two fixes of the same kind without asking and said so in chat, so that the decider could stop them: the id pattern applied whole, so that no id ends in a line break, and a generator's stem refused when it holds one. Both are in R8.
+
 ## Applied
 
-The commits of this branch before the one that adds this record apply every item. They change the shared code, the eleven modules, the shared-code page, the module documents, the install note and the style guides of styling. The shared-code page states each shared part with its class, in the rows of its section 1 and in the limits of its section 4. The Windows branch of `relative_path` and of task-close's backslash test is written and has not been run on Windows. So this record is born `inactive`.
+The commits of this branch apply every item. R1 to R7 and R9 to R18 were applied by the commits before the one that adds this record. R8 was corrected in place before the yes, as the carry audit found the sites it missed, and was applied by the later commits of the branch, the four batches of the list among them. They change the shared code, the eleven modules, the shared-code page, the module documents, the install note and the style guides of styling. The shared-code page states each shared part with its class, in the rows of its section 1 and in the limits of its section 4. The Windows branch of `relative_path` and of task-close's backslash test is written and has not been run on Windows. So this record is born `inactive`.
 
 ## Carry list
 
