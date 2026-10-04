@@ -6,8 +6,9 @@ import re
 from collections.abc import Mapping
 
 from const_gate import identity
-from const_gate.dials import refuse_unreadable_patterns
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns, texts
 from const_gate.errors import ConfigurationFailure
+from const_gate.messages import echoed
 
 from . import messages
 from .model import (
@@ -21,27 +22,24 @@ from .model import (
 )
 
 KEYS = (
-    "severity",
-    "log_dir",
+    *GATE_KEYS,
     "destructive",
     "territories",
     "handles",
     "boundary_examples",
     "verbosity",
-)  # the first two are every gate's, read by the shared code
+)
 ENTRY_KEYS = ("command", "flags", "teach", "alternative")
 PAIR_KEYS = ("violates", "complies")
 
 
 def parse(own: Mapping[str, object]) -> InteractionDials:
-    unknown = sorted(str(key) for key in own if key not in KEYS)
-    if unknown:
-        raise ConfigurationFailure(messages.c5_unknown_key(unknown[0], KEYS))
-    territories = _texts(own.get("territories", list(DEFAULT_TERRITORIES)))
+    refuse_unknown_keys(own, KEYS)
+    territories = texts(own.get("territories", list(DEFAULT_TERRITORIES)))
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
     refuse_unreadable_patterns(f"{identity.current().namespace}.territories", territories)
-    handles = _texts(own.get("handles", list(DEFAULT_HANDLES)))
+    handles = texts(own.get("handles", list(DEFAULT_HANDLES)))
     if not handles:
         raise ConfigurationFailure(messages.c5_handles())
     for handle in handles:
@@ -71,12 +69,14 @@ def _entries(value: object) -> tuple[Entry, ...]:
             raise ConfigurationFailure(messages.c5_entry(index, "it is not a mapping"))
         unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
         if unknown:
-            raise ConfigurationFailure(messages.c5_entry(index, f"'{unknown[0]}' is no field of an entry"))
-        command = _texts(item.get("command"))
+            raise ConfigurationFailure(
+                messages.c5_entry(index, f"'{echoed(unknown[0])}' is no field of an entry")
+            )
+        command = texts(item.get("command"))
         if not command or any(" " in word for word in command):
             raise ConfigurationFailure(messages.c5_entry(index, "command must be a non-empty list of words"))
         raw_flags = item.get("flags", [])
-        flags = _texts(raw_flags) if raw_flags != [] else ()
+        flags = texts(raw_flags) if raw_flags != [] else ()
         if raw_flags != [] and (not flags or any(not flag.startswith("-") or " " in flag for flag in flags)):
             raise ConfigurationFailure(
                 messages.c5_entry(index, "flags must be a list of flags, each starting with '-'")
@@ -112,10 +112,3 @@ def _pairs(value: object) -> tuple[Pair, ...]:
             raise ConfigurationFailure(messages.c5_boundary_examples())
         pairs.append(Pair(violates.strip(), complies.strip()))
     return tuple(pairs)
-
-
-def _texts(value: object) -> tuple[str, ...]:
-    """The non-empty strings of a list; empty when the value is no such list."""
-    if not isinstance(value, list) or not all(isinstance(t, str) and t.strip() for t in value):
-        return ()
-    return tuple(str(t) for t in value)

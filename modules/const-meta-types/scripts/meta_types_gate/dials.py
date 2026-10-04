@@ -7,14 +7,10 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from const_gate.errors import ConfigurationFailure
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys
 
-from . import messages
-
-KEYS = {"severity", "log_dir"}
+KEYS = GATE_KEYS
 
 
 def parse(own: Mapping[str, object]) -> None:
-    for key in own:
-        if key not in KEYS:
-            raise ConfigurationFailure(messages.c5_unknown_dial(key))
+    refuse_unknown_keys(own, KEYS)

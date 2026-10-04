@@ -22,8 +22,8 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
-from const_gate.envelope import yaml_error_line  # noqa: E402
-from const_gate.model import Match  # noqa: E402
+from const_gate.envelope import parse_envelope, yaml_error_line  # noqa: E402
+from const_gate.model import Match, MetaType  # noqa: E402
 from consumer import ROOT_POLICY, document, envelope  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
@@ -38,6 +38,7 @@ from harness import (  # noqa: E402
     red_lines,
 )
 from meta_types_gate import messages, start  # noqa: E402
+from meta_types_gate.checks import envelope_errors  # noqa: E402
 from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -271,19 +272,61 @@ def a_misspelt_dial() -> tuple[bool, str]:
     """A key of the namespace that is neither of the two is refused, never a setting ignored in
     silence — `severty:` for `severity:` would otherwise leave the default in force unseen."""
     result, _ = gate_on(VALID, dials_patch=own(severty="warn"))
-    return broken_first_line(result, messages.c5_unknown_dial("severty").render())
+    return broken_first_line(
+        result,
+        "BROKEN: constitution.yaml: const-meta-types.severty is no dial of this module — fix: a misspelt"
+        " dial would be ignored in silence, so none is: write one of severity, log_dir",
+    )
 
 
 def outside_territory() -> tuple[bool, str]:
     result, _ = gate_on(Write("README.md", NO_ENVELOPE))
-    return expect(result, 0, shared.g1_green_skip(messages.g1_skip_outside_territory("README.md")), "stdout")
+    plain = expect(result, 0, shared.g1_green_skip(messages.g1_skip_outside_territory("README.md")), "stdout")
+    # a path of over 80 characters with a line break is said whole on one line, the break escaped
+    wide, _ = gate_on(Write("a\n" + "b" * 100 + ".md", NO_ENVELOPE))
+    line = (
+        "GREEN: const-meta-types: 0 documents examined — a\\n"
+        + "b" * 100
+        + ".md is outside claimed territory"
+    )
+    wide_ok, wide_evidence = expect(wide, 0, line, "stdout")
+    return (plain[0] and wide_ok, wide_evidence if plain[0] else plain[1])
+
+
+VOID_KEY = "g\nh" + "o" * 100  # a namespace key with a line break, 103 characters
+VOID_SHOWN = "g\\nh" + "o" * 77 + "… [103 characters]"  # the message's form of it, typed by hand
 
 
 def void_territory() -> tuple[bool, str]:
     result, _ = gate_on(
         Write("docs/ghost/g.md", NO_ENVELOPE), dials_patch={"ghost": {"territory": ["docs/ghost/**"]}}
     )
-    return expect(result, 0, messages.g1_skip_void_territory("docs/ghost/g.md", ["ghost"]), "stdout")
+    plain = expect(result, 0, messages.g1_skip_void_territory("docs/ghost/g.md", ["ghost"]), "stdout")
+    # a namespace key holding a line break, over 80 characters, only points: cut, then escaped
+    # and the path stands whole, its break escaped, over 80 characters
+    wide, _ = gate_on(
+        Write("docs/ghost/g\n" + "h" * 100 + ".md", NO_ENVELOPE),
+        dials_patch={VOID_KEY: {"territory": ["docs/ghost/**"]}},
+    )
+    line = (
+        "GREEN: const-meta-types: 0 documents examined — docs/ghost/g\\n" + "h" * 100 + ".md lies only in"
+        f" the territory of namespace '{VOID_SHOWN}', which has no policy document behind it and so claims"
+        " nothing"
+    )
+    wide_ok, wide_evidence = expect(wide, 0, line, "stdout")
+    # two such namespaces: the plural line, the same path whole and the keys cut
+    two, _ = gate_on(
+        Write("docs/ghost/g\n" + "h" * 100 + ".md", NO_ENVELOPE),
+        dials_patch={VOID_KEY: {"territory": ["docs/ghost/**"]}, "ghost": {"territory": ["docs/ghost/**"]}},
+    )
+    plural = (
+        "GREEN: const-meta-types: 0 documents examined — docs/ghost/g\\n" + "h" * 100 + ".md lies only in"
+        f" the territories of namespaces '{VOID_SHOWN}', 'ghost', none of which has a policy document behind"
+        " it, so nothing is claimed"
+    )
+    two_ok, two_evidence = expect(two, 0, plural, "stdout")
+    ok = plain[0] and wide_ok and two_ok
+    return ok, plain[1] if not plain[0] else (wide_evidence if not wide_ok else two_evidence)
 
 
 def module_named_policy() -> tuple[bool, str]:
@@ -320,9 +363,9 @@ def severity_warn_with_note() -> tuple[bool, str]:
     return ok, "stdout parses as one JSON object; the note travels inside additionalContext"
 
 
-def _scan(bad: bool) -> Result:
+def _scan(bad: bool, void_key: str = "ghost") -> Result:
     consumer = H.fresh_consumer()
-    consumer.dials.update({**own(severity="warn"), "ghost": {"territory": ["nowhere/**"]}})
+    consumer.dials.update({**own(severity="warn"), void_key: {"territory": ["nowhere/**"]}})
     consumer.build()
     consumer.write(NOTE_A, NO_ENVELOPE if bad else envelope("note-a"))
     return H.run_gate("", args=["--scan", str(consumer.root)])
@@ -348,9 +391,15 @@ def scan_red() -> tuple[bool, str]:
 def scan_green() -> tuple[bool, str]:
     result = _scan(bad=False)
     ok, evidence = expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(4, 4, 3)), "stdout")
-    return ok and messages.n1_note_void_namespace(
-        "ghost"
-    ) in result.stdout, evidence + " + void-namespace note"
+    note = messages.n1_note_void_namespace("ghost")
+    # a namespace key with a line break and 103 characters: the note names it cut at 80 and escaped,
+    # each time on the one line — typed by hand
+    wide = _scan(bad=False, void_key=VOID_KEY)
+    wide_note = (
+        f"note: namespace '{VOID_SHOWN}' declares a territory but no policy with id '{VOID_SHOWN}' lies in"
+        " the root policy's territory; it claims nothing until that policy exists"
+    )
+    return ok and note in result.stdout and wide_note in wide.stdout, evidence + " + void-namespace note"
 
 
 def scan_scales() -> tuple[bool, str]:
@@ -391,15 +440,41 @@ def fix_names_the_failing_field() -> tuple[bool, str]:
     policy_only = (
         "  fix: set the named field: policy = the kebab-case id of the governing policy, or no such line\n"
     )
+    long_title, _ = gate_on(
+        Write(NOTE_A, document(id="note-a", type="non-authoritative", title="x" * 201, status="active"))
+    )
+    title_only = (  # typed by hand: the limit is named in the headline and taught in the fix
+        "RED: docs/notes/a.md: envelope field(s) invalid: title longer than 200 characters\n"
+        "  why: the envelope is the one place a document's authority is declared, and it is read by"
+        " machines\n"
+        "  fix: set the named field: title = one line of at most 200 characters\n"
+    )
+    edge, _ = gate_on(
+        Write(NOTE_A, document(id="note-a", type="non-authoritative", title="x" * 200, status="active"))
+    )
+    # the hand-written fragments stay tied to the closed sets they gloss: a type added to the
+    # enum is glossed, and each fragment's key is a field the checks report
+    all_wrong = parse_envelope(document(id="X_", type="x", title="", status="x", policy="X_"))
+    reported = {error.split(" ", 1)[0] for error in envelope_errors(all_wrong)}
+    tied = all(
+        meta_type.value in messages._FIELD_FIXES["type"] for meta_type in MetaType
+    ) and reported == set(messages._FIELD_FIXES)
     ok = (
         result.code == 2
         and status_only in result.stderr
         and "id = " not in result.stderr
         and declared.code == 2
         and policy_only in declared.stderr
+        and long_title.code == 2
+        and title_only in long_title.stderr
+        and edge.code == 0
+        and tied
     )
-    return ok, "status alone: the status fragment; policy alone: the policy fragment" if ok else (
-        f"{result.stderr}\n{declared.stderr}"
+    return ok, (
+        "status alone: the status fragment; policy alone: the policy fragment; a title of 201 characters:"
+        " the limit taught, of 200: green; the fragments tied to the enum and the fields"
+        if ok
+        else f"{result.stderr}\n{declared.stderr}\n{long_title.stderr}\n{edge.stderr}\n{reported}"
     )
 
 
@@ -518,7 +593,8 @@ GOLDEN: dict[int, Sequence[str]] = {
     35: [
         "RED: docs/notes/a.md: envelope field(s) invalid: id must be a quoted string (YAML read it as bool);"
         " title empty",
-        "  fix: set each named field: id = stable kebab-case (never changed, never reused); title = one line",
+        "  fix: set each named field: id = stable kebab-case (never changed, never reused); title = one"
+        " line of at most 200 characters",
     ],
 }
 
@@ -531,7 +607,208 @@ def golden_lines() -> tuple[bool, str]:
         case = cases[number]
         stderr = H.run_gate(event_json(H.fresh_consumer(case.setup).root, case.red)).stderr
         missing += [f"case {number}: {line}" for line in lines if line not in stderr]
-    found = sum(len(lines) for lines in GOLDEN.values())
+    # an id, a type, a status and a declared policy holding a line break stay on one line, each break
+    # shown escaped, typed by hand
+    breaks = H.run_gate(
+        event_json(
+            H.fresh_consumer().root,
+            Write(
+                NOTE_A,
+                document(id="a\nb", type="c\nd", title="A", status="e\nf", policy="g\nh"),
+            ),
+        )
+    ).stderr
+    escaped = (
+        "RED: docs/notes/a.md: envelope field(s) invalid: id 'a\\nb' is not kebab-case; type 'c\\nd' not"
+        " one of current-state | task-record | non-authoritative; status 'e\\nf' not one of active |"
+        " inactive; policy 'g\\nh' is not a kebab-case policy id"
+    )
+    if escaped not in breaks:
+        missing.append(f"escaped values: {escaped}")
+    # the same four values at 100 characters only point: each cut at 80, the cut said
+    long_values = H.run_gate(
+        event_json(
+            H.fresh_consumer().root,
+            Write(
+                NOTE_A, document(id="I" * 100, type="t" * 100, title="A", status="s" * 100, policy="P" * 100)
+            ),
+        )
+    ).stderr
+    cut_head = "… [100 characters]'"
+    cut = (
+        f"RED: docs/notes/a.md: envelope field(s) invalid: id '{'I' * 80}{cut_head} is not kebab-case;"
+        f" type '{'t' * 80}{cut_head} not one of current-state | task-record | non-authoritative;"
+        f" status '{'s' * 80}{cut_head} not one of active | inactive;"
+        f" policy '{'P' * 80}{cut_head} is not a kebab-case policy id"
+    )
+    if cut not in long_values:
+        missing.append(f"cut values: {cut}")
+    # a written file's path stands whole, over 80 characters, its break escaped; a YAML error keeps its
+    # text and shows its backslash doubled; an id or a declared policy that only points is cut at 80
+    weird = "docs/notes/a\n" + "b" * 100 + ".md"
+    shown = "docs/notes/a\\n" + "b" * 100 + ".md"
+    other = "docs/notes/o\n" + "x" * 100 + ".md"
+    shown_other = "docs/notes/o\\n" + "x" * 100 + ".md"
+    long_id = "d" * 100
+    cut_id = "d" * 80 + "… [100 characters]"
+    ghost = "g" * 100
+    cut_ghost = "g" * 80 + "… [100 characters]"
+    runs: list[tuple[str, Write, str, list[Write]]] = [
+        ("F1 path", Write(weird, NO_ENVELOPE), f"RED: {shown}: no frontmatter envelope", []),
+        (
+            "F3 yaml",
+            Write(NOTE_A, '---\nid: "x\\q"\n---\n'),
+            "RED: docs/notes/a.md: frontmatter is not valid YAML (while scanning a double-quoted scalar in"
+            ' "<unicode string>", line 1, column 5: id: "x\\\\q" ^ found unknown escape character \'q\' in'
+            ' "<unicode string>", line 1, column 8: id: "x\\\\q" ^)',
+            [],
+        ),
+        (
+            "F5 id and path",
+            Write(NOTE_A, envelope(long_id)),
+            f"RED: docs/notes/a.md: id '{cut_id}' is already carried by {shown_other}",
+            [Write(other, envelope(long_id))],
+        ),
+        (
+            "F6 declared",
+            Write("loose.md", envelope("loose", policy=ghost)),
+            f"RED: loose.md: declares policy '{cut_ghost}' but no policy with that id lies in the root"
+            " policy's territory ['docs/policies/**']",
+            [],
+        ),
+        (
+            "F8 declared, headline",
+            Write(NOTE_A, envelope("note-a", policy=ghost)),
+            f"RED: docs/notes/a.md: declares policy '{cut_ghost}' but its path is claimed by 'notes-policy'"
+            " (docs/notes/**)",
+            [],
+        ),
+        (
+            "F8 declared, fix",
+            Write(NOTE_A, envelope("note-a", policy=ghost)),
+            f"  fix: remove 'policy: {cut_ghost}' from the envelope — no policy with that id exists",
+            [],
+        ),
+        (
+            "F13 root id",
+            Write(ROOT_POLICY, envelope("r" * 100, "current-state")),
+            "RED: docs/policies/root-policy.md: the root policy's id '"
+            + "r" * 80
+            + "… [100 characters]' has no territory under that id in constitution.yaml",
+            [],
+        ),
+    ]
+    runs.append(
+        (
+            "F11 yaml",
+            Write(ROOT_POLICY, '---\nid: "x\\q"\n---\n'),
+            "RED: docs/policies/root-policy.md: the root policy has no readable envelope (while scanning a"
+            ' double-quoted scalar in "<unicode string>", line 1, column 5: id: "x\\\\q" ^ found unknown'
+            ' escape character \'q\' in "<unicode string>", line 1, column 8: id: "x\\\\q" ^)',
+            [],
+        )
+    )
+    for label, action, wanted, setup in runs:
+        said = H.run_gate(event_json(H.fresh_consumer(setup).root, action)).stderr
+        if wanted not in said:
+            missing.append(f"{label}: {wanted}")
+    # every finding about a written file opens with its path whole, however long, the break escaped: the
+    # red half of each case, its target renamed to a name of 106 characters holding a line break
+    cases_by_number = {case.number: case for case in CASES}
+    found_paths = 0
+    for number in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 35):
+        case = cases_by_number[number]
+        assert isinstance(case.red, Write)
+        folder, _, _ = case.red.target.rpartition("/")
+        renamed = (folder + "/" if folder else "") + "a\n" + "b" * 100 + ".md"
+        said = H.run_gate(event_json(H.fresh_consumer(case.setup).root, Write(renamed, case.red.text))).stderr
+        head = "RED: " + renamed.replace("\n", "\\n") + ": "
+        found_paths += 1
+        if not said.startswith(head):
+            missing.append(f"case {number} with a long path: {head} — got {said[:300]}")
+    # the same for the root policy's own findings: the root policy dial points at a file of that kind
+    shown_root = "docs/policies/r\\n" + "s" * 100 + ".md"
+    root = "docs/policies/r\n" + "s" * 100 + ".md"
+    for number in (12, 13, 14, 15, 34):
+        case = cases_by_number[number]
+        assert isinstance(case.red, Write)
+        result, _ = gate_on(
+            Write(root, case.red.text),
+            dials_patch={"root_policy": root},
+            files={root: envelope("root-policy", "current-state")},
+            remove=ROOT_POLICY,
+        )
+        found_paths += 1
+        if not result.stderr.startswith(f"RED: {shown_root}: "):
+            missing.append(f"case {number} with a long root path: {result.stderr[:300]}")
+    # a policy id and a territory pattern of 100 characters or more only point: cut at 80, the cut said
+    long_id = "p" * 100
+    pattern = "docs/notes/" + "a" * 100 + ".md"
+    cut_policy = "p" * 80 + "… [100 characters]"
+    cut_pattern = "docs/notes/" + "a" * 69 + "… [114 characters]"
+    twin = {f"docs/policies/{long_id}.md": envelope(long_id, "current-state")}
+    overlap: dict[str, object] = {long_id: {"territory": [pattern]}}
+    mark = f"{cut_policy} ({cut_pattern})"
+    for label, doc, wanted in (
+        ("F7", envelope("note-a"), f"matched by 2 policy territories: notes-policy (docs/notes/**), {mark}"),
+        (
+            "F8b",
+            envelope("note-a", policy="root-policy"),
+            f"declares policy 'root-policy' but its path is claimed by notes-policy (docs/notes/**), {mark}",
+        ),
+    ):
+        said = gate_on(Write(pattern, doc), dials_patch=overlap, files=twin)[0].stderr
+        found_paths += 1
+        if wanted not in said:
+            missing.append(f"{label} long policy and pattern: {wanted} — got {said[:400]}")
+    single = "docs/other/" + "c" * 100 + ".md"
+    alone: dict[str, object] = {long_id: {"territory": [single]}}
+    said = gate_on(Write(single, envelope("note-a", policy="root-policy")), dials_patch=alone, files=twin)[
+        0
+    ].stderr
+    wanted = (
+        f"declares policy 'root-policy' but its path is claimed by '{cut_policy}' ("
+        + "docs/other/"
+        + "c" * 69
+        + "… [114 characters])"
+    )
+    found_paths += 1
+    if wanted not in said:
+        missing.append(f"F8 long policy and pattern: {wanted} — got {said[:400]}")
+    # a declared policy of 100 characters that exists and claims elsewhere: cut in the headline, in the
+    # fix's removal line and in the fix's pointer to its territory
+    declared = "q" * 100
+    cut_declared = "q" * 80 + "… [100 characters]"
+    elsewhere: dict[str, object] = {declared: {"territory": ["docs/other/**"]}}
+    home = {f"docs/policies/{declared}.md": envelope(declared, "current-state")}
+    said = gate_on(Write(NOTE_A, envelope("note-a", policy=declared)), dials_patch=elsewhere, files=home)[
+        0
+    ].stderr
+    for label, wanted in (
+        (
+            "F8 headline",
+            f"RED: docs/notes/a.md: declares policy '{cut_declared}' but its path is claimed by"
+            " 'notes-policy' (docs/notes/**)",
+        ),
+        (
+            "F8 fix",
+            f"  fix: remove 'policy: {cut_declared}' from the envelope, or move the file into the territory"
+            f" of '{cut_declared}': ['docs/other/**']",
+        ),
+    ):
+        found_paths += 1
+        if wanted not in said:
+            missing.append(f"{label} with a declared policy of 100 characters: {wanted} — got {said[:400]}")
+    said = gate_on(Write(pattern, envelope("note-a", policy=declared)), dials_patch=overlap, files=twin)[
+        0
+    ].stderr
+    wanted = (
+        f"declares policy '{cut_declared}' but its path is claimed by notes-policy (docs/notes/**), {mark}"
+    )
+    found_paths += 1
+    if wanted not in said:
+        missing.append(f"F8b with a declared policy of 100 characters: {wanted} — got {said[:400]}")
+    found = sum(len(lines) for lines in GOLDEN.values()) + len(runs) + found_paths
     return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 
 

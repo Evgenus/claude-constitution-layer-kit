@@ -20,9 +20,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from const_gate import messages, preflight
-from const_gate.model import Broken, Finding
+from const_gate import messages, pipeline, preflight
+from const_gate.envelope import ID_RE, declared_policy, document_id, parse_envelope
+from const_gate.model import DECLARATION, DIALECT, Broken, Finding, SharedKey
 from const_gate.output import ROTATE_AT, log_name
+from const_gate.repository import list_markdown
 from consumer import ROOT_POLICY
 from harness import (
     Assertion,
@@ -60,6 +62,16 @@ class OwnPatch(Protocol):
 
 class Claim(Protocol):
     def __call__(self, territory: Sequence[str]) -> dict[str, object]: ...
+
+
+@dataclass(frozen=True)
+class PatternDial:
+    """A dial of the module's own that holds path patterns, for the item that gives it a pattern git
+    would read as a comment."""
+
+    path: str  # the dial as a person finds it under the module's namespace: "territories", "lanes[1].home"
+    patch: Callable[[str], dict[str, object]]  # the dials patch that puts the pattern there and keeps
+    # the module working
 
 
 @dataclass(frozen=True)
@@ -111,6 +123,8 @@ class Subject:
     noted: Write | None = None  # a write the gate passes with one note; None leaves the item about notes
     # reaching the model out
     note: str = ""  # the note `noted` earns, typed by hand
+    pattern_dial: PatternDial | None = None  # a dial of the module's own that holds path patterns;
+    # None leaves the item about a pattern git would misread in it out
     scan_only: bool = False  # True: the gate has no hook mode — it scans a tree and judges no single
     # write, and run as a hook it is its own configuration failure — so the items about hook input,
     # a written file, the warn channel and a negated pattern's skip are not its own and are left out;
@@ -173,7 +187,13 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return expect(result, 1, "BROKEN: constitution.yaml is not valid YAML", "stderr")
 
     def dials_not_mapping() -> tuple[bool, str]:
-        return broken(s.gate_on(s.valid, raw_dials="- a\n- b\n")[0], messages.c4b_dials_not_mapping())
+        result, _ = s.gate_on(s.valid, raw_dials="- a\n- b\n")
+        line = (  # typed by hand: both kernel keys, the second said to be needed only off the default
+            "BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: root_policy,"
+            " and territory_dialect when the dialect is not gitignore, then one namespace per policy or"
+            " module"
+        )
+        return broken_as_typed(result, line)
 
     def dials_bad_severity() -> tuple[bool, str]:
         return broken(s.gate_on(s.valid, dials_patch=s.own(severity="loud"))[0], messages.c5_severity())
@@ -183,7 +203,14 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def dials_comment_pattern() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, dials_patch={"notes-policy": {"territory": ["#docs/notes/**"]}})
-        return broken(result, messages.c5_territory_pattern("notes-policy", "#docs/notes/**"))
+        line = (  # typed by hand: the dial's whole path, then the pattern in single quotes
+            "BROKEN: constitution.yaml: notes-policy.territory holds a pattern git would not read as one:"
+            " '#docs/notes/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
+            " break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break"
+        )
+        return broken_as_typed(result, line)
 
     def dials_unsupported_dialect() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, dials_patch={"territory_dialect": "regex"})
@@ -198,11 +225,36 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             ({"territory_dialect": ""}, messages.c5_dialect_empty()),
             ({"notes-policy": "docs/notes/**"}, messages.c5_namespace_not_mapping("notes-policy")),
             ({"notes-policy": {"territory": "docs/notes/**"}}, messages.c5_territory_shape("notes-policy")),
+            # a list holding a blank string is no list of non-empty strings
+            (
+                {"notes-policy": {"territory": ["docs/notes/**", " "]}},
+                messages.c5_territory_shape("notes-policy"),
+            ),
             (s.own(log_dir="/absolute/logs"), messages.c5_log_dir()),
+            # a path that leaves the repository by `..`, written plain or after a step down
+            ({"root_policy": "../root.md"}, messages.c5_root_policy_path()),
+            ({"root_policy": "docs/../../root.md"}, messages.c5_root_policy_path()),
+            (s.own(log_dir="../logs"), messages.c5_log_dir()),
+            (s.own(log_dir="logs/../../logs"), messages.c5_log_dir()),
+            ({"root_policy": " "}, messages.c5_root_policy_path()),
         ]
         results = [broken(s.gate_on(s.valid, dials_patch=patch)[0], failure) for patch, failure in pairs]
         failed = [evidence for ok, evidence in results if not ok]
-        return not failed, "; ".join(failed) or f"{len(pairs)} dial failures, each exit 1 with its own line"
+        # the same dials written the long way read as written the short way: the verdict is the plain
+        # run's, never a refusal — `./` and `//` dropped, a step down and back up undone
+        plain = s.gate_on(s.valid)[0]
+        long_way: list[tuple[str, dict[str, object]]] = [
+            ("root_policy", {"root_policy": "./docs//../" + ROOT_POLICY}),
+            # the kernel's one dialect, written out: a kernel-owned key, never refused as a namespace
+            ("territory_dialect", {"territory_dialect": DIALECT}),
+        ]
+        for name, patch in long_way:
+            got = s.gate_on(s.valid, dials_patch=patch)[0]
+            if (got.code, "BROKEN" in got.stderr) != (plain.code, "BROKEN" in plain.stderr):
+                failed.append(f"{name}: exit {got.code}, the plain run exit {plain.code}: {got.stderr[:200]}")
+        return not failed, "; ".join(failed) or (
+            f"{len(pairs)} dial failures, each exit 1 with its own line; the long way reads as plain"
+        )
 
     def root_missing() -> tuple[bool, str]:
         return broken(s.gate_on(s.valid, remove=ROOT_POLICY)[0], messages.c6_root_missing(ROOT_POLICY))
@@ -389,7 +441,18 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         target = str(Path(s.valid.target).with_suffix(".markdown"))
         result, root = s.gate_on(Write(target, "x"))
         skip = messages.g1_green_skip(messages.g1_skip_not_markdown(str(root / target)))
-        return expect(result, 0, skip, "stdout")
+        ok, said = expect(result, 0, skip, "stdout")
+        # a path of over 80 characters with a line break in it: shown whole, the break escaped — typed
+        # by hand, since the reader opens that path and the line is read by a later step
+        name = "docs/" + "d" * 90 + "\nx.markdown"
+        long_result, long_root = s.gate_on(Write(name, "x"))
+        line = (
+            f"GREEN: {ns}: 0 documents examined — {long_root}/docs/"
+            + "d" * 90
+            + "\\nx.markdown is not a .md file"
+        )
+        long_ok, long_said = expect(long_result, 0, line, "stdout")
+        return ok and long_ok, said if ok and long_ok else f"{said}; {long_said}"
 
     def relative_path() -> tuple[bool, str]:
         """A relative file_path is resolved against the event's cwd."""
@@ -404,7 +467,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         result = h.run_gate(event, env={"GIT_CEILING_DIRECTORIES": str(directory.parent)})
         where = directory if no_file else directory / "loose.md"  # no file named: its cwd is the place
         skip = messages.g1_green_skip(messages.g1_skip_no_repo(str(where)))
-        return expect(result, 0, skip, "stdout")
+        ok, said = expect(result, 0, skip, "stdout")
+        if no_file:
+            return ok, said
+        # the written file's path with a line break in it and over 80 characters: whole, escaped
+        name = "a\n" + "b" * 90 + ".md"
+        long_event = payload(directory, Write(name, NO_ENVELOPE))
+        long_result = h.run_gate(long_event, env={"GIT_CEILING_DIRECTORIES": str(directory.parent)})
+        line = (
+            f"GREEN: {ns}: 0 documents examined — {directory}/a\\n" + "b" * 90 + ".md is not inside a git"
+            " repository; the constitution is silent there"
+        )
+        long_ok, long_said = expect(long_result, 0, line, "stdout")
+        return ok and long_ok, said if ok and long_ok else f"{said}; {long_said}"
 
     def no_dials_file() -> tuple[bool, str]:
         consumer = h.fresh_consumer()
@@ -441,9 +516,26 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
 
     def policy_without_id_note() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, files={"docs/policies/zz-no-id.md": NO_ENVELOPE})
+        """A document where policies live with no readable id earns note N1.1. An id written as a YAML
+        block scalar ends in a line break, which the kernel schema's pattern does not accept: it is no
+        readable id either, and earns the note too — the note typed by hand."""
+        block = "---\nid: |\n  zz-block\ntype: current-state\ntitle: T\nstatus: active\n---\n"
+        files = {"docs/policies/zz-no-id.md": NO_ENVELOPE, "docs/policies/zz-block.md": block}
+        result, _ = s.gate_on(s.valid, files=files)
         said = Result(result.code, green_said(result), result.stderr)
-        return expect(said, 0, messages.n1_note_policy_without_id("docs/policies/zz-no-id.md"), "stdout")
+        lead = (
+            " lies in the root policy's territory but carries no readable id; it claims nothing until it does"
+        )
+        ok, evidence = expect(
+            said, 0, messages.n1_note_policy_without_id("docs/policies/zz-no-id.md"), "stdout"
+        )
+        block_ok = "note: docs/policies/zz-block.md" + lead in said.stdout
+        return (
+            ok and block_ok,
+            evidence
+            if ok and block_ok
+            else f"{evidence}; no note for the block-scalar id: {said.stdout[:300]}",
+        )
 
     def edit_empty_old_string() -> tuple[bool, str]:
         """An empty old_string on a file that exists matches everywhere: the tool refuses it."""
@@ -572,7 +664,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             s.valid,
             files={".gitignore": ".gate-logs/\n"},
             env={"CLAUDE_PLUGIN_DATA": str(data)},
-            dials_patch=s.own(log_dir=".gate-logs"),
+            dials_patch=s.own(log_dir="./docs//../.gate-logs//"),  # read as `.gate-logs`
         )
         log = root / ".gate-logs" / log_name()
         ok = (
@@ -638,25 +730,24 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     # ---------------------------------------------------------------- git failing in one way; a file unread
 
     def git_failing_at(
-        trigger: str, code: int, line: Callable[[Path], str], through_scan: bool = False
+        trigger: str, code: int, line: Callable[[Path], str], through_scan: bool = False, then: str = ""
     ) -> tuple[bool, str]:
         """A git first on PATH that exits `code` when one of its arguments is `trigger`, and hands every
         other call to the real git — so the gate gets as far as that one call. `through_scan`: the
         failing git is met by the scan on the prepared consumer, for a gate whose hook never makes
-        the call."""
+        the call. `then`: a second stderr line the failing git adds, which no message may carry."""
         real = shutil.which("git")
         if real is None:
             return False, "no git on PATH: the failing git hands every other call to the real one"
         directory = h.scratch_dir()
         fake = directory / "git"
+        said = [f"fatal: simulated {trigger} failure", *([then] if then else [])]
         fake.write_text(
             "#!/bin/sh\n"
             'for a in "$@"; do\n'
             f'  if [ "$a" = {shlex.quote(trigger)} ]; then\n'
-            f"    echo {shlex.quote(f'fatal: simulated {trigger} failure')} >&2\n"
-            f"    exit {code}\n"
-            "  fi\n"
-            "done\n"
+            + "".join(f"    echo {shlex.quote(line)} >&2\n" for line in said)
+            + f"    exit {code}\n  fi\ndone\n"
             f'exec {shlex.quote(real)} "$@"\n',
             encoding="utf-8",
         )
@@ -693,7 +784,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
 
     def check_ignore_fails() -> tuple[bool, str]:
-        """Exit 128: check-ignore's exit 1 means no path matched, which is no failure."""
+        """Exit 128: check-ignore's exit 1 means no path matched, which is no failure. Git's second
+        line of stderr stays out of the message, whose first line is the one that reaches the user."""
         return git_failing_at(
             "--no-index",
             128,
@@ -701,6 +793,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 "BROKEN: git check-ignore failed: fatal: simulated --no-index failure — fix: territory"
                 " patterns must be gitignore syntax; check constitution.yaml"
             ),
+            then="hint: a second line of git's message",
         )
 
     def unreadable(path: Path, run: Callable[[], Result], line: str) -> tuple[bool, str]:
@@ -795,6 +888,244 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return broken_as_typed(result, line)
 
+    def shared_texts_escape_or_cut() -> tuple[bool, str]:
+        """The two helpers and the shared texts that use them, every expectation typed by hand. A
+        value the reader opens or types into a fix — a path, an id in a fix, git's diagnosis — stands
+        whole, however long, with its backslash and line breaks escaped; a value that only points —
+        a key, a pattern, a command word — is cut at 80 characters and then escaped. An id never
+        ends in a line break."""
+        path = "docs/" + "d" * 90 + "\nx.md"  # over 80 characters, with a line break
+        esc = "docs/" + "d" * 90 + "\\nx.md"  # the same, escaped, typed by hand
+        cut = "a" * 80 + "… [100 characters]"  # a value of 100 characters, cut
+        broken = {
+            "C4 detail whole": messages.c4_dials_invalid_yaml("at " + "w" * 100 + "\\x"),
+            "C5.3 dialect": messages.c5_dialect_unsupported("d\n" + "e" * 100),
+            "C5.4 key": messages.c5_namespace_not_mapping("a\nb"),
+            "C5.6 key": messages.c5_territory_shape("a" * 100),
+            "C5.7 where": messages.c5_territory_pattern("k" * 100, "#x"),
+            "C6": messages.c6_root_missing(path),
+            "C7": messages.c7_root_without_id(path),
+            "C8": messages.c8_root_claims_nothing(path),
+            "C9": messages.c9_root_outside_own_territory(path, ["p" * 100, "q\\"], path),
+            "C12.1": messages.c12_ls_files(path, "fatal: x\\y" + "z" * 100),
+            "C12.2": messages.c12_init("w\\" + "w" * 118),
+            "C12.3": messages.c12_check_ignore("w\\" + "w" * 118),
+            "C12.5": messages.c12_git_failed("g\\" + "g" * 118),
+            "C12.6": messages.c12_scan_path(path),
+            "C12.8": messages.c12_no_repo(path),
+            "C12.9": messages.c12_invocation("bad " + "a\nb" + "c" * 100),
+            "C12.10": messages.c12_unreadable(path),
+            "C12.11": messages.c12_unexpected("ValueError: " + "v" * 100),
+            "C13": messages.c13_log_dir_not_ignored(path),
+        }
+        wanted = {
+            "C4 detail whole": f"BROKEN: constitution.yaml is not valid YAML (at {'w' * 100}\\\\x) — fix: "
+            "repair the YAML at the place the message names; nothing is checked until the file parses",
+            "C5.3 dialect": "BROKEN: constitution.yaml: territory_dialect 'd\\n"
+            + "e" * 78
+            + "… [102 characters]'"
+            f" is not supported by {ns} (supports: gitignore) — fix: set territory_dialect: gitignore, or"
+            " remove the key",
+            "C5.4 key": "BROKEN: constitution.yaml: namespace 'a\\nb' must be a mapping — fix: write it as"
+            " a\\nb: {territory: [...]}",
+            "C5.6 key": f"BROKEN: constitution.yaml: {cut}.territory must be a list of non-empty strings"
+            f' — fix: write it as {cut}: {{territory: ["<pattern>", ...]}}',
+            "C5.7 where": f"BROKEN: constitution.yaml: {'k' * 80}… [100 characters] holds a pattern git would"
+            " not read as one: '#x' — fix: a pattern may not start with '#' (a comment to git) nor contain a"
+            " line break; escape a leading # as \\# bare or in single quotes, as \\\\# in double quotes,"
+            " and remove a line break",
+            "C6": f"BROKEN: constitution.yaml names root_policy '{esc}' but no such file exists — fix: create"
+            " it, or point root_policy at the policy for policies",
+            "C7": f"BROKEN: root policy '{esc}' carries no readable id in its envelope — fix: give it the"
+            " envelope (id, type, title, status); its id names its namespace",
+            "C8": f"BROKEN: root policy '{esc}' claims no territory in constitution.yaml — fix: write {esc}:"
+            " {territory: [<where policies live, including the root itself>]} — nothing is governed until"
+            " then",
+            "C9": f"BROKEN: root policy '{esc}' lies outside its own territory ['"
+            + "p" * 80
+            + "… [100 characters]', 'q\\\\'] — fix: every chain of governance ends at the root; widen"
+            f" {esc}.territory to include it",
+            "C12.1": f"BROKEN: git could not list the files of {esc}: fatal: x\\\\y{'z' * 100} — fix: repair"
+            " what git names in the message, then check by hand: git -C <that directory> ls-files",
+            "C12.2": f"BROKEN: git init of the scratch repository failed: w\\\\{'w' * 118} — fix: repair what"
+            " git names in the message; the scratch repository lives in the system's temporary directory",
+            "C12.3": f"BROKEN: git check-ignore failed: w\\\\{'w' * 118} — fix: territory patterns must be"
+            " gitignore syntax; check constitution.yaml",
+            "C12.5": f"BROKEN: git could not answer where the repository is: g\\\\{'g' * 118} — fix: repair"
+            " the git setup named in the message (configuration, ownership, installation)",
+            "C12.6": f"BROKEN: {esc} does not exist — fix: pass --scan an existing directory, or none for"
+            " the current one",
+            "C12.8": f"BROKEN: {esc} is not inside a git repository — fix: run --scan from a repository, or"
+            " pass its path",
+            "C12.9": "BROKEN: misinvocation: bad a\\nb"
+            + "c" * 73
+            + "… [107 characters] — fix: "
+            + messages.USAGE,
+            "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: check that the file can be"
+            " read: its permissions, or a link that leads nowhere",
+            "C12.11": "unexpected failure inside the checker: ValueError: " + "v" * 68 + "… [112 characters]",
+            "C13": f"BROKEN: constitution.yaml: {ns}.log_dir '{esc}' is not ignored by git — fix: a log"
+            " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
+            " directory to .gitignore, or remove the key",
+        }
+        rendered = [
+            ("escaped keeps a path whole", messages.escaped("p" * 200), "p" * 200),
+            ("escaped shows backslash and breaks", messages.escaped("a\\b\nc\rd"), "a\\\\b\\nc\\rd"),
+            (
+                "echoed cuts, then escapes",
+                messages.echoed("ba\\d\nkey" + "x" * 100),
+                "ba\\\\d\\nkey" + "x" * 72 + "… [108 characters]",
+            ),
+            (
+                "G1.1",
+                messages.g1_skip_no_file("T\n" + "t" * 100),
+                "tool 'T\\n" + "t" * 78 + "… [102 characters]' carries no file to examine",
+            ),
+            ("G1.2", messages.g1_skip_not_markdown(path), f"{esc} is not a .md file"),
+            (
+                "G1.3",
+                messages.g1_skip_no_repo(path),
+                f"{esc} is not inside a git repository; the constitution is silent there",
+            ),
+            ("G1.4", messages.g1_skip_no_dials(path), f"no constitution.yaml in {esc}: nothing is claimed"),
+            (
+                "G1.6",
+                messages.g1_skip_edit_unappliable(path),
+                f"the Edit cannot be applied to {esc}; the tool will report it",
+            ),
+            ("G1.7", messages.g1_skip_gone(path), f"{esc} is not there after the write"),
+            (
+                "F9 count line",
+                messages.f9_count_hook(2, path),
+                f"RED: 2 finding(s) — 1 document examined ({esc})",
+            ),
+            ("G1 governed by", messages.governed_by("a" * 100), f"governed by {cut}"),
+            (
+                "N1.1",
+                messages.n1_note_policy_without_id(path),
+                f"note: {esc} lies in the root policy's territory but carries no readable id; it claims"
+                " nothing until it does",
+            ),
+            (
+                "N1.2",
+                messages.n1_note_policy_id_shared(path, path, "a" * 100),
+                f"note: {esc} and {esc} both carry id '{cut}'; the first claims, the second is ignored",
+            ),
+        ]
+        for label, failure in broken.items():
+            # C12.11's closing clause is the entry point's own identity: its headline is what is typed
+            got = failure.headline if label == "C12.11" else failure.render()
+            rendered.append((label, got, wanted[label]))
+        block = "---\nid: |\n  abc-d\ntype: policy\n---\n"  # a key after it keeps the break
+        declared = f"---\n{DECLARATION}: |\n  abc-d\ntype: policy\n---\n"
+        rendered += [
+            ("an id ending in a line break is refused by the pattern", repr(ID_RE.match("abc-d\n")), "None"),
+            ("a block-scalar id is no id", repr(document_id(parse_envelope(block))), "None"),
+            (
+                "a block-scalar declaration is no declaration",
+                repr(declared_policy(parse_envelope(declared))),
+                "None",
+            ),
+            ("a plain id is an id", repr(document_id(parse_envelope("---\nid: abc-d\n---\n"))), "'abc-d'"),
+        ]
+        wrong = [f"{label}: got {got!r}, wanted {want!r}" for label, got, want in rendered if got != want]
+        return not wrong, (
+            f"{len(rendered)} typed expectations of the shared texts hold" if not wrong else wrong[0][:600]
+        )
+
+    def unknown_dial_is_one_line() -> tuple[bool, str]:
+        """A key of the module's namespace that holds a line break and is a page long: C5 on one line,
+        the backslash and the line break shown escaped, the key cut — in hook mode only the first stderr
+        line reaches the user — and, of two keys, the first in sorted order named."""
+        key = "ba\\d\nkey" + "x" * 12_000  # a backslash and a line break, each shown escaped
+        # a second key that sorts later, written first: the one named is the first in sorted order
+        result, _ = s.gate_on(s.valid, dials_patch=s.own(**{"zz_second": 1, key: 1}))
+        first = (  # typed by hand: the key cut at 80 characters, its break escaped; the list that
+            # follows is the module's own
+            f"BROKEN: constitution.yaml: {ns}.ba\\\\d\\nkey" + "x" * 72 + "… [12008 characters] is no dial of"
+            " this module — fix: a misspelt dial would be ignored in silence, so none is: write one of "
+        )
+        lines = result.stderr.splitlines()
+        one_line = len(lines) == 1 + len(s.closing.splitlines())  # the failure, then the closing line
+        ok = result.code == 1 and one_line and lines[0].startswith(first) and len(result.stderr) < 2_000
+        texts_ok, texts = shared_texts_escape_or_cut()  # the same two helpers at the other shared texts
+        return ok and texts_ok, (
+            f"exit 1; the failure on one line, {len(result.stderr)} characters in all; {texts}"
+            if ok and texts_ok
+            else f"exit {result.code}; {len(lines)} lines; {result.stderr[:300]}; {texts}"
+        )
+
+    def file_named_md() -> tuple[bool, str]:
+        """A file named just `.md` is Markdown to the hook as to the scan, which lists it: the hook
+        does not skip it for its ending."""
+        result, root = s.gate_on(Write(".md", NO_ENVELOPE))
+        said = result.stdout + result.stderr
+        (root / ".md").write_text(NO_ENVELOPE, encoding="utf-8")  # the hook never applied the write
+        listed = ".md" in list_markdown(root)  # what the scan examines
+        ok = "is not a .md file" not in said and "BROKEN:" not in said and listed
+        return ok, (
+            "the hook examines a file named .md, as the scan does"
+            if ok
+            else f"listed by the scan: {listed}; the hook said: {said[:400]}"
+        )
+
+    def cap_keeps_the_first() -> tuple[bool, str]:
+        """The findings a hook shows after one write: the first always, however long; then while the
+        text fits 8,000 characters; never more than `most` — each number typed by hand."""
+
+        def finding(size: int) -> Finding:  # renders as 3 lines: its headline carries the size
+            return Finding(SharedKey.C5, "h" * size, "w", "f")
+
+        big, small = finding(9_000), finding(3_000)  # renders 9,000+ and 3,000+ characters
+        a, b, c = finding(4_000), finding(3_900), finding(4_100)  # render 4,023, 3,923 and 4,123
+        checks = [
+            (pipeline.within_the_cap([big]) == [big], "a first finding over the cap is still shown"),
+            (pipeline.within_the_cap([big, small]) == [big], "nothing follows it"),
+            (pipeline.within_the_cap([small, small]) == [small, small], "6,000 characters fit"),
+            (pipeline.within_the_cap([small, small, small]) == [small, small], "the third is past 8,000"),
+            # each counts its render and a line break: 4,024 + 3,924 = 7,948 fit; 4,024 + 4,124 = 8,148 do not
+            (pipeline.within_the_cap([a, b]) == [a, b], "7,948 characters fit"),
+            (pipeline.within_the_cap([a, c]) == [a], "8,148 characters do not"),
+            (pipeline.within_the_cap([small] * 3, most=1) == [small], "`most` stops it at one"),
+            (pipeline.within_the_cap([]) == [], "no finding, none shown"),
+        ]
+        failed = [what for ok, what in checks if not ok]
+        return not failed, "; ".join(failed) or "the first always, then what fits, never more than `most`"
+
+    def pattern_in_own_dial_is_one_line() -> tuple[bool, str]:
+        """A pattern git would read as a comment, in a dial of the module's own, a page long: C5.7
+        naming the dial as it is written — no policy's `.territory` after it — on one line, the pattern
+        cut."""
+        if s.pattern_dial is None:  # the item is left out then; a direct call must not pass vacuously
+            return False, "Subject.pattern_dial not given"
+        dial = s.pattern_dial
+        result, _ = s.gate_on(s.valid, dials_patch=dial.patch("#" + "x" * 12_000))
+        first = (  # typed by hand
+            f"BROKEN: constitution.yaml: {ns}.{dial.path} holds a pattern git would not read as one: '#"
+            + "x" * 79
+            + "… [12001 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain"
+            " a line break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break"
+        )
+        lines = result.stderr.splitlines()
+        one_line = len(lines) == 1 + len(s.closing.splitlines())
+        ok = result.code == 1 and one_line and lines[0] == first and len(result.stderr) < 2_000
+        if not ok:
+            return ok, f"exit {result.code}; {len(lines)} lines; {result.stderr[:300]}"
+        # the escape the message teaches passes: `\#drafts/**`, typed by hand, is a pattern git reads as one,
+        # so it is no C5.7 and no configuration failure
+        escaped, _ = s.gate_on(s.valid, dials_patch=dial.patch("\\#drafts/**"))
+        refused = "holds a pattern git would not read as one" in escaped.stderr + escaped.stdout
+        if escaped.code == 1 or refused:
+            return False, (
+                f"the taught escape \\#drafts/** was refused: exit {escaped.code}; {escaped.stderr[:300]}"
+            )
+        return True, (
+            f"exit 1; {ns}.{dial.path} named whole, on one line, {len(result.stderr)} characters in all;"
+            f" the escape \\#drafts/** passes, exit {escaped.code}"
+        )
+
     items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         ("exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
         ("C4b: a dials file that is not a mapping", dials_not_mapping),
@@ -841,7 +1172,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ("declared dependencies: requirements.txt equals the preflight table", declared_libraries),
         ("C5: the module's own namespace given as null", dials_own_namespace_null),
         (
-            "C5: root_policy, an empty dialect, a namespace and a territory of the wrong shape, log_dir",
+            "C5: root_policy, an empty dialect, a namespace and a territory of the wrong shape, log_dir;"
+            " the dials written the long way, and the dialect written out, read as plain",
             dials_other_pairs,
         ),
         (
@@ -892,6 +1224,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "a green hook run with notes hands them to the model as JSON, one without notes stays plain",
             notes_reach_the_model,
         ),
+        (
+            "C5: a key with a line break, a page long, in the module's namespace is one line, cut",
+            unknown_dial_is_one_line,
+        ),
+        (
+            "C5.7: a pattern git would misread in a dial of the module's own is one line, naming it",
+            pattern_in_own_dial_is_one_line,
+        ),
+        ("a file named just .md is Markdown to the hook as to the scan", file_named_md),
+        (
+            "the findings shown after a write: the first always, then what fits, never more than most",
+            cap_keeps_the_first,
+        ),
     ]
     # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
     # that resolves no policy leaves gaps where the items about policies stand.
@@ -927,6 +1272,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         byte_order_mark,
         negated_pattern,
         document_unreadable,
+        file_named_md,
     }
     # A gate wired to Stop examines a repository, never a written file: these items are a tool gate's.
     about_files = {
@@ -938,6 +1284,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         byte_order_mark,
         negated_pattern,
         deeply_nested_envelope,
+        file_named_md,
     }
     # A gate wired to Stop never reaches git's file list, the territory's scratch repository or its
     # check-ignore, nor reads a document the scan lists: these items are a tool gate's.
@@ -957,6 +1304,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         edit_empty_old_string,
         severity_warn,
         negated_pattern,
+        file_named_md,
     }
     return [
         Assertion(first + n, title, check)
@@ -968,5 +1316,6 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         and (not no_file or check not in about_listing)
         and (not s.scan_only or check not in about_hooks)
         and (s.long_value is not None or check is not long_value_is_cut)
+        and (s.pattern_dial is not None or check is not pattern_in_own_dial_is_one_line)
         and (s.noted is not None or check is not notes_reach_the_model)
     ]

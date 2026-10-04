@@ -11,15 +11,14 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import DEFAULT_KEY, DEFAULT_TRUNK, SHOWN_LINES, SHOWN_PATHS, Declaration, Key, Pair
 
-DIALS = "severity, log_dir, coverage, trunk, declaration_key, working_files"
 _PAIR = "{name: <kebab>, code: [<patterns>], docs: [<paths>]}"
 _PAIR_FULL = (
     "{name: <kebab>, code: [<gitignore patterns of the code it describes>], docs: [<paths of the"
@@ -31,9 +30,10 @@ def _ns() -> str:
     return identity.current().namespace
 
 
-def _some(items: Sequence[str], limit: int) -> str:
-    """The first few of a list, then an ellipsis."""
-    head = ", ".join(items[:limit])
+def _some(items: Sequence[str], limit: int, show: Callable[[str], str] = escaped) -> str:
+    """The first few of a list, each shown by `show` — `escaped` for a path, `echoed` for a line that only
+    points — then an ellipsis."""
+    head = ", ".join(show(item) for item in items[:limit])
     return head + (", …" if len(items) > limit else "")
 
 
@@ -43,7 +43,7 @@ def _some(items: Sequence[str], limit: int) -> str:
 def t1_dirty_tree(lines: Sequence[str]) -> Finding:
     return Finding(
         Key.T1,
-        f"the working tree is dirty at turn end — {len(lines)} path(s): {_some(lines, SHOWN_LINES)}",
+        f"the working tree is dirty at turn end — {len(lines)} path(s): {_some(lines, SHOWN_LINES, echoed)}",
         "rollback points live in git, not in the chat's rewind, which does not see edits made through"
         " the shell, a script or a subagent — work not committed did not happen",
         "commit what is finished: git add -A && git commit -m '<what changed and why>' — stash or discard"
@@ -52,7 +52,7 @@ def t1_dirty_tree(lines: Sequence[str]) -> Finding:
 
 
 def t2_not_updated(pair: Pair, touched: Sequence[str], key: str) -> Finding:
-    docs = ", ".join(pair.docs)
+    docs = ", ".join(escaped(doc) for doc in pair.docs)
     return Finding(
         Key.T2,
         f"{pair.name}: the change touches {len(touched)} path(s) this pair describes"
@@ -69,7 +69,7 @@ def t2_not_updated(pair: Pair, touched: Sequence[str], key: str) -> Finding:
 def t3_names_no_pair(declaration: Declaration, key: str, names: Sequence[str]) -> Finding:
     return Finding(
         Key.T3,
-        f'{declaration.where}: "{key}: {shown(declaration.value)}" names no pair of the coverage map'
+        f'{declaration.where}: "{key}: {echoed(declaration.value)}" names no pair of the coverage map'
         f" (pairs: {', '.join(names)})",
         "a declaration must name what it declares unaffected, or it declares nothing",
         "name one of the pairs before the dash, or remove the line",
@@ -90,7 +90,10 @@ def t4_no_reason(declaration: Declaration, key: str) -> Finding:
 
 def n1_declared(declaration: Declaration, covered: bool) -> str:
     if covered:
-        return f"note: {declaration.pair}: no impact declared in {declaration.where}: {declaration.reason}"
+        return (
+            f"note: {declaration.pair}: no impact declared in {declaration.where}:"
+            f" {echoed(declaration.reason)}"
+        )
     return (
         f"note: {declaration.pair}: no impact declared in {declaration.where}, and the change touches"
         " nothing this pair describes"
@@ -138,7 +141,7 @@ def f9_scan_tail_empty() -> str:
 def x1_document_missing(pair: str, path: str, head_short: str) -> Broken:
     return Broken(
         Key.X1,
-        f"{DIALS_FILE}: {_ns()}.coverage[{pair}] names the document {path}, which does not exist at"
+        f"{DIALS_FILE}: {_ns()}.coverage[{pair}] names the document {escaped(path)}, which does not exist at"
         f" HEAD ({head_short})",
         "correct the path, or create the document; a pair whose document is gone describes nothing",
     )
@@ -147,16 +150,9 @@ def x1_document_missing(pair: str, path: str, head_short: str) -> Broken:
 def x2_document_is_directory(pair: str, path: str, head_short: str) -> Broken:
     return Broken(
         Key.X2,
-        f"{DIALS_FILE}: {_ns()}.coverage[{pair}] names {path}, which is a directory at HEAD ({head_short})",
+        f"{DIALS_FILE}: {_ns()}.coverage[{pair}] names {escaped(path)}, which is a directory at HEAD"
+        f" ({head_short})",
         "name the document file; a change names files, so a directory can never count as updated",
-    )
-
-
-def c5_unknown_dial(key: str) -> Broken:
-    return Broken(
-        SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.{shown(key)} is no dial of this module",
-        f"a misspelt dial would be ignored in silence, so none is: write one of {DIALS}",
     )
 
 
@@ -184,7 +180,7 @@ def pair_not_a_mapping() -> str:
 
 
 def pair_unknown_key(key: str) -> str:
-    return f"carries the key '{shown(key)}', which no pair has (name, code, docs)"
+    return f"carries the key '{echoed(key)}', which no pair has (name, code, docs)"
 
 
 def pair_name() -> str:
@@ -204,7 +200,7 @@ def pair_docs() -> str:
 
 
 def pair_docs_directory(path: str) -> str:
-    return f"names '{shown(path)}', a directory — a pair's documents are files"
+    return f"names '{escaped(path)}', a directory — a pair's documents are files"
 
 
 def c5_trunk() -> Broken:
@@ -237,7 +233,7 @@ SCAN_USAGE = "--scan [<dir>] [--since <ref> | --change <commit>] [--body <file>]
 def c12_not_wired(event: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"hook input names the event '{shown(event)}', which this gate is not wired to",
+        f"hook input names the event '{echoed(event)}', which this gate is not wired to",
         f"wire the gate to Stop, as the plugin's hooks file does; to check a change by hand run it with"
         f" {SCAN_USAGE}",
     )
@@ -246,7 +242,7 @@ def c12_not_wired(event: str) -> Broken:
 def c12_unknown_ref(flag: str, ref: str, root: str, detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"{flag} names '{shown(ref)}', which git cannot resolve in {root}: {detail}",
+        f"{flag} names '{echoed(ref)}', which git cannot resolve in {escaped(root)}: {escaped(detail)}",
         "name a commit, branch or tag this repository has; a shallow clone may need its history fetched"
         " (git fetch --unshallow)",
     )
@@ -255,7 +251,8 @@ def c12_unknown_ref(flag: str, ref: str, root: str, detail: str) -> Broken:
 def c12_no_trunk(trunk: str, root: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"the trunk '{shown(trunk)}' is neither a local branch nor origin/{shown(trunk)} in {root}",
+        f"the trunk '{echoed(trunk)}' is neither a local branch nor origin/{echoed(trunk)} in"
+        f" {escaped(root)}",
         f"set {_ns()}.trunk to the branch changes land on, or run the scan with --since <ref>",
     )
 
@@ -272,7 +269,7 @@ def c12_since_and_change() -> Broken:
 def c12_body_unreadable(path: str, error: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"--body names {path}, which cannot be read ({error})",
+        f"--body names {escaped(path)}, which cannot be read ({error})",
         "give the pull request's description as a readable file",
     )
 
@@ -280,7 +277,7 @@ def c12_body_unreadable(path: str, error: str) -> Broken:
 def c12_range(base_short: str, tip_short: str, root: str, detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"git could not read the range {base_short}..{tip_short} in {root}: {detail}",
+        f"git could not read the range {base_short}..{tip_short} in {escaped(root)}: {escaped(detail)}",
         "repair what git names in the message; a shallow clone may need its history fetched"
         " (git fetch --unshallow)",
     )
@@ -289,6 +286,6 @@ def c12_range(base_short: str, tip_short: str, root: str, detail: str) -> Broken
 def c12_tree(root: str, detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"git could not read the working tree in {root}: {detail}",
+        f"git could not read the working tree in {escaped(root)}: {escaped(detail)}",
         "repair what git names in the message, then check by hand: git -C <that directory> status",
     )

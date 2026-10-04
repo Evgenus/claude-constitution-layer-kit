@@ -44,7 +44,7 @@ from harness import (  # noqa: E402
     expect,
     stop_json,
 )
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 from task_close_gate import messages, start  # noqa: E402
 from task_close_gate.model import BODY, Declaration, Pair  # noqa: E402
 
@@ -98,9 +98,11 @@ def repo(
     patch: Mapping[str, object] | None = None,
     raw: str | None = None,
     files: Mapping[str, str] | None = None,
+    parent: Path | None = None,
 ) -> Consumer:
-    """A consumer on branch main with the dials and the map's documents committed."""
-    consumer = H.fresh_consumer()
+    """A consumer on branch main with the dials and the map's documents committed; with a parent, the
+    repository lives in the folder WEIRD_DIR below it."""
+    consumer = H.fresh_consumer() if parent is None else Consumer(parent / WEIRD_DIR).build()
     git(consumer.root, "branch", "-M", "main")
     consumer.write("constitution.yaml", raw if raw is not None else dials_text(patch))
     for rel, text in {"docs/core.md": "# core\n", "src/a.py": "x = 1\n", **(files or {})}.items():
@@ -188,6 +190,13 @@ UNKNOWN_DIAL_FIX = (
     " one of severity, log_dir, coverage, trunk, declaration_key, working_files"
 )
 SHALLOW = "a shallow clone may need its history fetched (git fetch --unshallow)"
+# a path or a folder name over 80 characters with a line break and a backslash: the echo rule's value
+WEIRD_DIR = "w\nx\\y" + "d" * 80  # a folder name, for a root
+WEIRD_DIR_SHOWN = "w\\nx\\\\y" + "d" * 80
+WEIRD_DOC = "docs/w\nx\\y" + "m" * 80 + ".md"
+WEIRD_DOC_SHOWN = "docs/w\\nx\\\\y" + "m" * 80 + ".md"
+WEIRD_CODE = "src/w\nx\\y" + "c" * 80 + ".py"
+WEIRD_CODE_SHOWN = "src/w\\nx\\\\y" + "c" * 80 + ".py"
 
 
 def pair_line(position: int, detail: str) -> str:
@@ -239,7 +248,32 @@ def spec_update() -> tuple[bool, str]:
     red = red_scan(scan(r.root), t2())
     commit(r.root, "the page", {"docs/core.md": "# core, updated\n"})
     green = green_scan(scan(r.root), tail(1, 2, short(r.root, "main"), short(r.root)))
-    return all_of([red, green], "red→green: T2, then the document updated")
+    # the same pair written with a leading './' and a doubled slash is the same document: the shared
+    # normalisation reads it as 'docs/core.md', so the update counts (read as written, it never did)
+    spelt = repo(with_map({**CORE, "docs": ["./docs//core.md"]}))
+    branch(spelt.root)
+    commit(spelt.root, "code only", {"src/a.py": "x = 2\n"})
+    commit(spelt.root, "the page", {"docs/core.md": "# core, updated\n"})
+    normalised = green_scan(scan(spelt.root), tail(1, 2, short(spelt.root, "main"), short(spelt.root)))
+    # the paths a finding names are the reader's to open and to update: whole, never cut, one line
+    odd = repo(with_map({**CORE, "docs": [WEIRD_DOC]}), files={WEIRD_DOC: "# core\n"})
+    branch(odd.root)
+    commit(odd.root, "code only", {WEIRD_CODE: "x = 2\n"})
+    odd_lines = scan(odd.root).stdout.splitlines()
+    odd_head = (
+        "RED: core: the change touches 1 path(s) this pair describes ("
+        + WEIRD_CODE_SHOWN
+        + ") and none of its document(s): "
+        + WEIRD_DOC_SHOWN
+    )
+    odd_fix = "  fix: update " + WEIRD_DOC_SHOWN + " in this change, or declare no impact: add the trailer"
+    whole = (
+        odd_head in odd_lines and any(line.startswith(odd_fix) for line in odd_lines),
+        f"T2 names the changed path and the document whole: {odd_lines}",
+    )
+    return all_of(
+        [red, green, normalised, whole], "red→green: T2, then the document updated, however it is spelt"
+    )
 
 
 def spec_trailer() -> tuple[bool, str]:
@@ -254,7 +288,19 @@ def spec_trailer() -> tuple[bool, str]:
     )
     green = green_scan(result, tail(1, 2, short(r.root, "main"), short(r.root)))
     noted = (note in result.stdout, f"the note: {note}" if note in result.stdout else result.stdout)
-    return all_of([red, green, noted], "red→green: T2, then a trailer on a later commit of the range")
+    # the reason only points at the commit the note names: cut at 80 characters with the cut said, then
+    # escaped, a backslash shown doubled; typed by hand, never built with the function under test
+    odd = repo(with_map())
+    branch(odd.root)
+    commit(odd.root, "code only", {"src/a.py": "x = 2\n"})
+    odd_where = "commit " + commit(odd.root, "declare\n\n" + trailer(reason="a\\b " + "r" * 100))
+    odd_note = f"note: core: no impact declared in {odd_where}: a\\\\b " + "r" * 76 + "… [104 characters]"
+    odd_result = scan(odd.root)
+    odd_ok = (
+        odd_note in odd_result.stdout.splitlines(),
+        f"the note cuts the reason at 80 characters and escapes it: {odd_result.stdout}",
+    )
+    return all_of([red, green, noted, odd_ok], "red→green: T2, then a trailer on a later commit of the range")
 
 
 def spec_body() -> tuple[bool, str]:
@@ -280,7 +326,19 @@ def spec_tree() -> tuple[bool, str]:
     counted = expect(hook(r.root), 2, messages.f9_count_hook(1), "stderr")
     (r.root / "scratch.txt").unlink()
     green = expect(hook(r.root), 0, shared.g1_green_event(messages.g1_clean()), "stdout")
-    return all_of([red, counted, green], "red→green: T1 on an untracked file, silent once it is gone")
+    # git quotes a path with a line break and doubles its backslash; the line is cut at 80 characters with
+    # the cut said, and escaped again: it only points at what `git status` shows
+    odd = repo(own())
+    odd.write("w\nx\\y" + "z" * 90 + ".txt", "x\n")
+    cut = expect(
+        hook(odd.root),
+        2,
+        'RED: the working tree is dirty at turn end — 1 path(s): ?? "w\\\\nx\\\\\\\\y'
+        + "z" * 69
+        + "… [106 characters]\n",
+        "stderr",
+    )
+    return all_of([red, counted, green, cut], "red→green: T1 on an untracked file, silent once it is gone")
 
 
 # ------------------------------------------------------------------ the hook
@@ -332,11 +390,24 @@ def tool_event_is_not_wired() -> tuple[bool, str]:
             "cwd": str(r.root),
         }
     )
-    return broken(
-        H.run_gate(event),
-        "BROKEN: hook input names the event 'PreToolUse', which this gate is not wired to — fix: wire"
-        " the gate to Stop, as the plugin's hooks file does; to check a change by hand run it with"
-        " --scan [<dir>] [--since <ref> | --change <commit>] [--body <file>]",
+    fix = (
+        " — fix: wire the gate to Stop, as the plugin's hooks file does; to check a change by hand run it"
+        " with --scan [<dir>] [--since <ref> | --change <commit>] [--body <file>]"
+    )
+    # a name holding a line break stays on one line, the break shown escaped, typed by hand
+    odd = event.replace("PreToolUse", "Pre\\nTool")
+    return all_of(
+        [
+            broken(
+                H.run_gate(event),
+                "BROKEN: hook input names the event 'PreToolUse', which this gate is not wired to" + fix,
+            ),
+            broken(
+                H.run_gate(odd),
+                "BROKEN: hook input names the event 'Pre\\nTool', which this gate is not wired to" + fix,
+            ),
+        ],
+        "an event the gate is not wired to is a configuration failure, a line break in its name escaped",
     )
 
 
@@ -361,8 +432,26 @@ def trunk_dial() -> tuple[bool, str]:
         f"BROKEN: the trunk 'nowhere' is neither a local branch nor origin/nowhere in {r2.root} — fix:"
         " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
     )
+    r3 = repo(with_map(trunk="no\nwhere"))
+    branch(r3.root)
+    odd = broken(  # a line break in the dial's value stays on one line, shown escaped, typed by hand
+        scan(r3.root),
+        f"BROKEN: the trunk 'no\\nwhere' is neither a local branch nor origin/no\\nwhere in {r3.root} — fix:"
+        " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
+    )
+    parent = H.scratch_dir()  # a root of over 80 characters, a break and a backslash: whole
+    r4 = repo(with_map(trunk="nowhere"), parent=parent)
+    branch(r4.root)
+    whole = broken(
+        scan(r4.root),
+        f"BROKEN: the trunk 'nowhere' is neither a local branch nor origin/nowhere in {parent}/"
+        + WEIRD_DIR_SHOWN
+        + " — fix: set const-task-close.trunk to the branch changes land on, or run the scan with --since"
+        " <ref>",
+    )
     return all_of(
-        [named, missing], "the trunk dial names the base; an unknown trunk is a configuration failure"
+        [named, missing, odd, whole],
+        "the trunk dial names the base; an unknown trunk is a configuration failure",
     )
 
 
@@ -453,7 +542,26 @@ def unknown_ref() -> tuple[bool, str]:
     )
     since = broken(scan(r.root, "--since", "nope"), f"BROKEN: --since names {unknown}")
     change = broken(scan(r.root, "--change", "nope"), f"BROKEN: --change names {unknown}")
-    return all_of([since, change], "an unknown ref is a configuration failure for both flags")
+    # the ref only points: cut at 80, the cut said, then escaped; the root is a path: whole
+    parent = H.scratch_dir()
+    odd_root = repo(with_map(), parent=parent).root
+    odd_unknown = (
+        "'n\\nx\\\\y" + "r" * 75 + f"… [95 characters]', which git cannot resolve in {parent}/"
+        f"{WEIRD_DIR_SHOWN}: no such ref — fix: name a commit, branch or tag this repository has; {SHALLOW}"
+    )
+    odd = broken(scan(odd_root, "--since", "n\nx\\y" + "r" * 90), f"BROKEN: --since names {odd_unknown}")
+    # git's own line is the diagnosis the reader acts on: whole, escaped, over 80 characters
+    real = shutil.which("git")
+    if real is None:
+        return False, "no git on PATH for the fake git to hand its other calls to"
+    said = "fatal: a\\b " + "w" * 90
+    diagnosed = broken(
+        scan(r.root, "--since", "nope", env=fake_git(real, "rev-parse", said, "nope")),
+        f"BROKEN: --since names 'nope', which git cannot resolve in {r.root}: fatal: a\\\\b "
+        + "w" * 90
+        + f" — fix: name a commit, branch or tag this repository has; {SHALLOW}",
+    )
+    return all_of([since, change, odd, diagnosed], "an unknown ref is a configuration failure for both flags")
 
 
 # ------------------------------------------------------------------ declarations
@@ -513,7 +621,17 @@ def body_forms() -> tuple[bool, str]:
         f"BROKEN: --body names {gone}, which cannot be read ([Errno 2] No such file or directory: '{gone}')"
         " — fix: give the pull request's description as a readable file",
     )
-    return all_of([read, unreadable], "the body's line, any case, any dash; an unreadable body")
+    odd_dir = H.scratch_dir()  # a path of over 80 characters with a break and a backslash: whole
+    odd_name = "w\nx\\y" + "b" * 80 + ".txt"
+    odd = broken(
+        scan(r.root, "--body", str(odd_dir / odd_name)),
+        f"BROKEN: --body names {odd_dir}/w\\nx\\\\y"
+        + "b" * 80
+        + ".txt, which cannot be read ([Errno 2] No such"
+        f" file or directory: '{odd_dir}/w\\nx\\\\y" + "b" * 80 + ".txt') — fix: give the pull request's"
+        " description as a readable file",
+    )
+    return all_of([read, unreadable, odd], "the body's line, any case, any dash; an unreadable body")
 
 
 def t3_and_t4() -> tuple[bool, str]:
@@ -613,6 +731,27 @@ def missing_document() -> tuple[bool, str]:
     directory = broken(
         scan(tree.root), messages.x2_document_is_directory("core", "docs", short(tree.root)).render()
     )
+    gone = repo(with_map({**CORE, "docs": [WEIRD_DOC]}))  # a document path over 80 characters: whole
+    dir_doc = repo(with_map({**CORE, "docs": [WEIRD_DOC]}), files={WEIRD_DOC + "/a.md": "x\n"})
+    odd = all_of(
+        [
+            broken(
+                scan(gone.root),
+                "BROKEN: constitution.yaml: const-task-close.coverage[core] names the document "
+                + WEIRD_DOC_SHOWN
+                + f", which does not exist at HEAD ({short(gone.root)}) — fix: correct the path, or create"
+                " the document; a pair whose document is gone describes nothing",
+            ),
+            broken(
+                scan(dir_doc.root),
+                "BROKEN: constitution.yaml: const-task-close.coverage[core] names "
+                + WEIRD_DOC_SHOWN
+                + f", which is a directory at HEAD ({short(dir_doc.root)}) — fix: name the document file; a"
+                " change names files, so a directory can never count as updated",
+            ),
+        ],
+        "X1 and X2 name the path whole",
+    )
     r2 = repo(with_map())
     branch(r2.root)
     commit(r2.root, "drop the page", remove=["docs/core.md"])
@@ -630,7 +769,7 @@ def missing_document() -> tuple[bool, str]:
     later = Pair("core", ("src/**",), ("docs/later.md",))
     older = red_scan(scan(r3.root, "--change", first), messages.t2_not_updated(later, ["src/a.py"], KEY))
     return all_of(
-        [missing, directory, deleted, older],
+        [missing, directory, odd, deleted, older],
         "X1 for a document that never was; X2 for a directory at HEAD; not for one the range deleted;"
         " an older change judged by today's map is a finding, never X1",
     )
@@ -664,6 +803,10 @@ def dial_failures() -> tuple[bool, str]:
             own(coverage=[{**CORE, "extra": 1}]),
             pair_line(1, "carries the key 'extra', which no pair has (name, code, docs)"),
         ),
+        (  # a line break in the key is shown escaped: the line stays one line
+            own(coverage=[{**CORE, "a\nb": 1}]),
+            pair_line(1, "carries the key 'a\\nb', which no pair has (name, code, docs)"),
+        ),
         (
             own(coverage=[{"code": ["src/**"], "docs": ["docs/core.md"]}]),
             pair_line(1, "has no name, or one that is not kebab-case"),
@@ -690,8 +833,24 @@ def dial_failures() -> tuple[bool, str]:
             pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
         ),
         (
+            own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["../x.md"]}]),
+            pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
+        ),
+        (
+            own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["docs/../../x.md"]}]),
+            pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
+        ),
+        (
             own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["docs/"]}]),
             pair_line(1, "names 'docs/', a directory — a pair's documents are files"),
+        ),
+        (  # a line break in the path stays on one line, shown escaped
+            own(coverage=[{"name": "core", "code": ["src/**"], "docs": ["a\nb/"]}]),
+            pair_line(1, "names 'a\\nb/', a directory — a pair's documents are files"),
+        ),
+        (  # a path of over 80 characters stays whole: the reader corrects it
+            own(coverage=[{"name": "core", "code": ["src/**"], "docs": [WEIRD_DOC[:-3] + "/"]}]),
+            pair_line(1, "names '" + WEIRD_DOC_SHOWN[:-3] + "/', a directory — a pair's documents are files"),
         ),
         (own(trunk=""), TRUNK),
         (own(trunk=3), TRUNK),
@@ -707,17 +866,39 @@ def dial_failures() -> tuple[bool, str]:
         ),
     ]
     results = [broken(scan(repo(patch).root), failure) for patch, failure in cases]
+    # a backslash is a separator only where the platform says so: there `..\x.md` leaves the repository,
+    # elsewhere it is one file name and stays inside (it was refused everywhere before)
+    escaping = scan(repo(own(coverage=[{**CORE, "docs": ["..\\x.md"]}])).root)
+    if os.sep == "\\":
+        results.append(
+            broken(
+                escaping,
+                pair_line(1, "has no docs, or docs is not a non-empty list of repository-relative paths"),
+            )
+        )
+    else:
+        first = escaping.stderr.splitlines()[0] if escaping.stderr else ""
+        named = (  # past the dials, the one thing wrong is that no such document is at HEAD
+            "BROKEN: constitution.yaml: const-task-close.coverage[core] names the document ..\\\\x.md, which"
+            " does not exist at HEAD ("
+        )
+        results.append((escaping.code == 1 and first.startswith(named), first[:200]))
     return all_of(results, f"{len(cases)} dial failures, each exit 1 with its own line")
 
 
 def unreadable_patterns() -> tuple[bool, str]:
+    fix = (
+        " — fix: a pattern may not start with '#' (a comment to git) nor contain a line break; "
+        "escape a leading # as \\# bare or in single quotes, "
+        "as \\\\# in double quotes, and remove a line break"
+    )
     code = broken(
         scan(repo(with_map({**CORE, "code": ["#src/**"]})).root),
-        shared.c5_territory_pattern(f"{NS}.coverage[core].code", "#src/**").render(),
+        DIAL + "coverage[core].code holds a pattern git would not read as one: '#src/**'" + fix,
     )
     working = broken(
         scan(repo(own(working_files=["#x"])).root),
-        shared.c5_territory_pattern(f"{NS}.working_files", "#x").render(),
+        DIAL + "working_files holds a pattern git would not read as one: '#x'" + fix,
     )
     return all_of([code, working], "a pattern git would misread, in a pair's code and in working_files")
 
@@ -727,7 +908,13 @@ def working_files_note() -> tuple[bool, str]:
     r.write("notes/untracked.md", "y\n")
     result = scan(r.root)
     note = messages.n2_working_files(["notes/todo.md"])
-    return expect(result, 0, note, "stdout")
+    odd = "notes/w\nx\\y" + "p" * 80 + ".md"  # a path over 80 characters: whole, escaped
+    odd_run = scan(repo(own(working_files=["notes/**"]), files={odd: "x\n"}).root)
+    odd_note = (
+        "note: 1 tracked file(s) match working_files (notes/w\\nx\\\\y" + "p" * 80 + ".md) — a task's"
+        " working files are deleted at its close; keep one only with a reason"
+    )
+    return all_of([expect(result, 0, note, "stdout"), expect(odd_run, 0, odd_note, "stdout")], "the note")
 
 
 def misspelt_dial() -> tuple[bool, str]:
@@ -750,6 +937,18 @@ def golden_lines() -> tuple[bool, str]:
         r.root, "wrong\n\n" + f"{KEY}: nosuch — reason\n{KEY}: core\n", {"src/a.py": "2\n"}
     )
     out = scan(r.root).stdout
+    spelt = repo(with_map())
+    branch(spelt.root)
+    odd_where = "commit " + commit(  # a line break inside a declaration's value stays on one line
+        spelt.root, "wrong\n\n" + f"{KEY}: nosuch — a\rb\n", {"src/a.py": "2\n"}
+    )
+    odd = scan(spelt.root).stdout
+    cut = repo(with_map())
+    branch(cut.root)
+    cut_where = "commit " + commit(  # a value of 95 characters with a backslash points only: cut at 80
+        cut.root, "wrong\n\n" + f"{KEY}: nosuch — q\\" + "z" * 84 + "\n", {"src/a.py": "2\n"}
+    )
+    cut_out = scan(cut.root).stdout
     x1 = scan(repo(with_map({**CORE, "docs": ["docs/none.md"]})).root).stderr
     x2 = scan(repo(with_map({**CORE, "docs": ["docs"]})).root).stderr
     slash = scan(repo(with_map({**CORE, "docs": ["docs/"]})).root).stderr
@@ -762,6 +961,18 @@ def golden_lines() -> tuple[bool, str]:
     commit(wide.root, "four", {"src/a.py": "2\n", "src/b.py": "b\n", "src/c.py": "c\n", "src/d.py": "d\n"})
     four = scan(wide.root).stdout  # one more path than T2 lists
     literals = [
+        (
+            f'RED: {odd_where}: "No-Doc-Impact: nosuch — a\\rb" names no pair of the coverage map'
+            " (pairs: core)",
+            odd,
+        ),
+        (
+            f'RED: {cut_where}: "No-Doc-Impact: nosuch — q\\\\'
+            + "z" * 69
+            + '… [95 characters]" names no pair'
+            " of the coverage map (pairs: core)",
+            cut_out,
+        ),
         ("RED: the working tree is dirty at turn end — 1 path(s): ?? scratch.txt", tree),
         (
             "  why: rollback points live in git, not in the chat's rewind, which does not see edits made through the shell, a script or a subagent — work not committed did not happen",  # noqa: E501 — a golden line is typed whole
@@ -923,12 +1134,15 @@ def unrelated_histories() -> tuple[bool, str]:
     )
 
 
-def fake_git(real: str, failing: str) -> dict[str, str]:
-    """A git first on PATH that fails one subcommand as git does and hands every other to the real one."""
+def fake_git(real: str, failing: str, said: str | None = None, when: str = "") -> dict[str, str]:
+    """A git first on PATH that fails one subcommand as git does, with the line it says, and hands every
+    other to the real one; with `when`, only a call whose arguments hold that text."""
+    line = f"fatal: planted {failing} failure" if said is None else said
     script = H.scratch_dir() / "git"
     script.write_text(
-        f'#!/bin/sh\nif [ "$1" = "{failing}" ]; then\n'
-        f'  echo "fatal: planted {failing} failure" >&2; exit 128\nfi\nexec {shlex.quote(real)} "$@"\n',
+        f'#!/bin/sh\nif [ "$1" = "{failing}" ]; then\n  case "$*" in *{when}*)\n'
+        f"  printf '%s\\n' {shlex.quote(line)} >&2; exit 128;;\n  esac\nfi\n"
+        f'exec {shlex.quote(real)} "$@"\n',
         encoding="utf-8",
     )
     script.chmod(0o755)
@@ -956,7 +1170,37 @@ def unreadable_tree() -> tuple[bool, str]:
         f"BROKEN: git could not read the working tree in {r2.root}: fatal: planted ls-files failure — fix:"
         " repair what git names in the message, then check by hand: git -C <that directory> status",
     )
-    return all_of([hooked, scanned], "git status failing in the hook, git ls-files in the scan: exit 1 each")
+    # git's line is the diagnosis the fix says to repair, and the root a path: both whole, escaped
+    parent = H.scratch_dir()
+    said = "fatal: a\\b " + "w" * 90
+    odd = repo(own(), parent=parent)
+    odd.write("scratch.txt", "x\n")
+    odd_hooked = broken(
+        hook(odd.root, env=fake_git(real, "status", said)),
+        f"BROKEN: git could not read the working tree in {parent}/"
+        + WEIRD_DIR_SHOWN
+        + ": fatal: a\\\\b "
+        + "w" * 90
+        + " — fix: repair what git names in the message, then check by hand:"
+        " git -C <that directory> status",
+    )
+    r3 = repo(with_map(), parent=H.scratch_dir())
+    branch(r3.root)
+    commit(r3.root, "code", {"src/a.py": "2\n"})
+    odd_range = broken(
+        scan(r3.root, env=fake_git(real, "merge-base", said)),
+        f"BROKEN: git could not read the range {short(r3.root, 'main')}..{short(r3.root)} in"
+        f" {r3.root.parent}/"
+        + WEIRD_DIR_SHOWN
+        + ": fatal: a\\\\b "
+        + "w" * 90
+        + " — fix: repair what git names in the message; "
+        + SHALLOW,
+    )
+    return all_of(
+        [hooked, scanned, odd_hooked, odd_range],
+        "git status failing in the hook, git ls-files in the scan: exit 1 each",
+    )
 
 
 def gate_on(
@@ -1000,6 +1244,7 @@ SUBJECT = Subject(
     resolves_policies=False,
     judges_envelopes=False,
     event="Stop",
+    pattern_dial=PatternDial("working_files", lambda pattern: own(working_files=[pattern])),
 )
 
 ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [

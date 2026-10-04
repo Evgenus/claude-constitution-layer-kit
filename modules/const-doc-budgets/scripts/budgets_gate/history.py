@@ -19,7 +19,7 @@ from pathlib import Path
 from const_gate.errors import ConfigurationFailure
 from const_gate.model import EXIT_GREEN
 from const_gate.output import Output
-from const_gate.repository import first_line, git
+from const_gate.repository import first_line, git, is_markdown
 from const_gate.territory import Matcher
 
 from . import messages
@@ -110,7 +110,7 @@ def _markdown_blobs(root: Path, sha: str) -> dict[str, str]:
     for entry in os.fsdecode(listing.stdout).split("\0"):
         head, _, path = entry.partition("\t")
         parts = head.split()
-        if len(parts) == 3 and parts[1] == "blob" and path.lower().endswith(".md"):
+        if len(parts) == 3 and parts[1] == "blob" and is_markdown(path):
             blobs[path] = parts[2]
     return blobs
 

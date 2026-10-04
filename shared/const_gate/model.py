@@ -10,6 +10,9 @@ from enum import StrEnum
 DIALS_FILE = "constitution.yaml"
 DECLARATION = "policy"  # the envelope field of the secondary binding
 DIALECT = "gitignore"
+ROOT_POLICY_KEY = "root_policy"  # the two kernel-owned top-level keys of the dials file
+DIALECT_KEY = "territory_dialect"
+KERNEL_KEYS = (ROOT_POLICY_KEY, DIALECT_KEY)
 
 
 class MetaType(StrEnum):
@@ -50,6 +53,17 @@ class Mode(StrEnum):
     HOOK = "hook"
     SCAN = "scan"
     ACT = "act"  # a second entry point that changes files: a generator, never a gate
+
+
+class SkipKind(StrEnum):
+    """Why a run examines nothing: one value per shared skip reason a `pipeline.Skip` carries."""
+
+    NO_FILE = "no-file"  # G1.1
+    NOT_MARKDOWN = "not-markdown"  # G1.2
+    NO_REPO = "no-repo"  # G1.3
+    NO_DIALS = "no-dials"  # G1.4
+    EDIT_UNAPPLIABLE = "edit-unappliable"  # G1.6
+    GONE = "gone"  # G1.7
 
 
 class Stream(StrEnum):

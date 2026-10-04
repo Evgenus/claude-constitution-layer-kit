@@ -33,6 +33,7 @@ from const_gate.envelope import yaml_error_line  # noqa: E402
 from const_gate.model import EnvelopeState  # noqa: E402
 from consumer import Consumer, envelope  # noqa: E402
 from decision_records_gate import messages, start  # noqa: E402
+from decision_records_gate.model import Stakes  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
     Case,
@@ -297,10 +298,33 @@ def dial_unset_scan() -> tuple[bool, str]:
     return expect(result, 0, shared.g1_green_skip(messages.g1_skip_no_record_policies()), "stdout")
 
 
+def as_context(result: Result) -> Result:
+    """A hook run that carries notes hands them, with the verdict, to the model as one JSON object."""
+    answer = json.loads(result.stdout)
+    return Result(result.code, answer["hookSpecificOutput"]["additionalContext"], result.stderr)
+
+
 def not_a_record() -> tuple[bool, str]:
     result, _ = gate_on(Write(NOTE_A, NO_ENVELOPE))
     skip = messages.g1_skip_not_a_record(NOTE_A, [RECORDS_POLICY])
-    return expect(result, 0, shared.g1_green_skip(skip), "stdout")
+    plain = expect(result, 0, shared.g1_green_skip(skip), "stdout")
+    # a path over 80 characters with a line break stands whole, the break escaped; a policy id of 100
+    # characters in the dial only points, so it is cut — every expected line typed by hand
+    long_note = "docs/notes/a\n" + "b" * 100 + ".md"
+    wide, _ = gate_on(
+        Write(long_note, NO_ENVELOPE),
+        dials_patch={NAMESPACE: {"record_policies": [RECORDS_POLICY, "g" * 100]}},
+    )
+    line = (
+        "GREEN: const-decision-records: 0 documents examined — docs/notes/a\\n"
+        + "b" * 100
+        + ".md is not governed by a record policy (records-policy, "
+        + "g" * 80
+        + "… [100 characters])"
+    )
+    return all_of(
+        [plain, expect(as_context(wide), 0, line, "stdout")], "a path whole on one line, a long id cut"
+    )
 
 
 def declared_elsewhere() -> tuple[bool, str]:
@@ -317,7 +341,20 @@ def declared_elsewhere() -> tuple[bool, str]:
 def dangling_record_policy() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policies": ["ghost-policy"]}})
     ok, evidence = expect(result, 0, messages.n2_note_dangling_record_policy("ghost-policy"), "stdout")
-    return ok and "0 documents examined" in result.stdout, evidence
+    # an id of 100 characters only points: the note cuts it at 80 and says so, typed by hand
+    long_id = "g" * 100
+    wide, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policies": [long_id]}})
+    cut = (
+        "note: const-decision-records.record_policies names '"
+        + "g" * 80
+        + "… [100 characters]', but no policy"
+        " with that id lies in the root policy's territory; it claims nothing until that policy exists"
+    )
+    wide_ok, wide_evidence = expect(as_context(wide), 0, cut, "stdout")
+    return all_of(
+        [(ok and "0 documents examined" in result.stdout, evidence), (wide_ok, wide_evidence)],
+        "a dangling policy id is named; a long one is cut",
+    )
 
 
 def record_policy_claims_nothing() -> tuple[bool, str]:
@@ -328,14 +365,39 @@ def record_policy_claims_nothing() -> tuple[bool, str]:
     answer = json.loads(result.stdout)  # a hook run with notes hands them to the model as one JSON object
     said = Result(result.code, answer["hookSpecificOutput"]["additionalContext"], result.stderr)
     ok, evidence = expect(said, 0, note, "stdout")
-    return ok and "0 documents examined" in said.stdout, evidence
+    # the policy file's path, over 80 characters with a line break, and its id of 100 characters are
+    # typed whole into the note — the reader opens the one and writes the other: escaped, never cut
+    long_id = "p" * 100
+    long_path = "docs/policies/q\n" + "x" * 100 + ".md"
+    wide, _ = gate_on(
+        VALID,
+        dials_patch={NAMESPACE: {"record_policies": [long_id]}, long_id: {"territory": []}},
+        files={long_path: envelope(long_id, "current-state")},
+    )
+    wide_note = (
+        f"note: const-decision-records.record_policies names '{long_id}' (docs/policies/q\\n"
+        + "x" * 100
+        + ".md),"
+        " whose namespace declares no territory — it governs no document until constitution.yaml holds"
+        f" {long_id}: {{territory: [<patterns of the paths where decision records live>]}}"
+    )
+    wide_ok, wide_evidence = expect(as_context(wide), 0, wide_note, "stdout")
+    return all_of(
+        [(ok and "0 documents examined" in said.stdout, evidence), (wide_ok, wide_evidence)],
+        "the policy's path and id whole, on one line",
+    )
 
 
 def a_misspelt_dial() -> tuple[bool, str]:
     """A key of the namespace that is none of the six is refused, never a setting ignored in
     silence — `record_policy:` for `record_policies:` would otherwise read as the dial unset."""
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policy": [RECORDS_POLICY]}})
-    return broken_first_line(result, messages.c5_unknown_dial("record_policy").render())
+    return broken_first_line(
+        result,
+        "BROKEN: constitution.yaml: const-decision-records.record_policy is no dial of this module — fix: a"
+        " misspelt dial would be ignored in silence, so none is: write one of severity, log_dir,"
+        " record_policies, boundary_examples, deciders, note_trailer",
+    )
 
 
 def rest_of_envelope_not_judged() -> tuple[bool, str]:
@@ -369,7 +431,28 @@ def policy_in_record_territory() -> tuple[bool, str]:
 
 def root_named_as_record_policy() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policies": ["root-policy"]}})
-    return broken_first_line(result, messages.c5_record_policy_is_root("root-policy").render())
+    plain = broken_first_line(result, messages.c5_record_policy_is_root("root-policy").render())
+    if not plain[0]:
+        return plain
+    # a root policy whose id is 100 characters only points: the line cuts it at 80 and says so
+    root = "docs/policies/long-root.md"
+    long_id = "r" * 100
+    wide, _ = gate_on(
+        VALID,
+        dials_patch={
+            "root_policy": root,
+            long_id: {"territory": ["docs/policies/**"]},
+            NAMESPACE: {"record_policies": [long_id]},
+        },
+        files={root: envelope(long_id, "current-state")},
+    )
+    cut = (
+        "BROKEN: constitution.yaml: const-decision-records.record_policies names the root policy '"
+        + "r" * 80
+        + "… [100 characters]', which governs policies, never decision records — fix: name the policy that"
+        " governs decision records instead; if there is none yet, write that policy first"
+    )
+    return broken_first_line(wide, cut)
 
 
 def policy_named_twice() -> tuple[bool, str]:
@@ -515,7 +598,67 @@ def golden_lines() -> tuple[bool, str]:
         case = cases[number]
         stderr = H.run_gate(event_json(H.fresh_consumer(case.setup).root, case.red)).stderr
         missing += [f"case {number}: {line}" for line in lines if line not in stderr]
-    found = sum(len(lines) for lines in GOLDEN.values())
+    # a type and a stakes value holding a line break stay on one line, the break shown escaped
+    broken_values = H.run_gate(
+        event_json(
+            H.fresh_consumer(SETUP).root, Write(RECORD_A, record(type="task\nrecord", stakes="high\nlow"))
+        )
+    ).stderr
+    escaped = (
+        "RED: docs/decisions/a.md: decision-record field(s) invalid: type 'task\\nrecord' is not"
+        " task-record; stakes 'high\\nlow' not one of process | product | architecture"
+    )
+    if escaped not in broken_values:
+        missing.append(f"escaped values: {escaped}")
+    # a type and a stakes value of 100 characters only point: cut at 80, the cut said
+    cut_values = H.run_gate(
+        event_json(H.fresh_consumer(SETUP).root, Write(RECORD_A, record(type="t" * 100, stakes="s" * 100)))
+    ).stderr
+    cut = (
+        "RED: docs/decisions/a.md: decision-record field(s) invalid: type '"
+        + "t" * 80
+        + "… [100 characters]' is not task-record; stakes '"
+        + "s" * 80
+        + "… [100 characters]' not one of process | product | architecture"
+    )
+    if cut not in cut_values:
+        missing.append(f"cut values: {cut}")
+    # the R2 fix glosses each stakes level in prose: exactly the enum's members, in its order
+    fix = messages.r2_invalid_fields("x", []).fix
+    glossed = re.findall(r"(\w+) \(", fix.split("stakes = ")[1].split("; decider")[0])
+    if glossed != [level.value for level in Stakes]:
+        missing.append(f"the R2 fix glosses {glossed}, the enum holds {[level.value for level in Stakes]}")
+    # the written file's path stands whole, over 80 characters, its break escaped, in every headline;
+    # a YAML error's backslash is shown doubled and its whole text kept
+    weird = "docs/decisions/a\n" + "b" * 100 + ".md"
+    shown_path = "docs/decisions/a\\n" + "b" * 100 + ".md"
+    runs = {
+        "R1 path": (
+            Write(weird, NO_ENVELOPE),
+            f"RED: {shown_path}: a decision record with no readable envelope (",
+        ),
+        "R2 path": (
+            Write(weird, record(stakes="high")),
+            f"RED: {shown_path}: decision-record field(s) invalid: ",
+        ),
+        "R3 path": (
+            Write(weird, record(stakes="routine")),
+            f"RED: {shown_path}: stakes 'routine' — a routine",
+        ),
+        "R1 yaml": (
+            Write(RECORD_A, '---\nid: "x\\q"\n---\n'),
+            "RED: docs/decisions/a.md: a decision record with no readable envelope (the block between the"
+            " '---' lines cannot be read: while scanning a double-quoted scalar in"
+            ' "<unicode string>", line 1, column 5:'
+            ' id: "x\\\\q" ^ found unknown escape character \'q\' in "<unicode string>", line 1, column 8:'
+            ' id: "x\\\\q" ^)',
+        ),
+    }
+    for label, (action, wanted) in runs.items():
+        said = H.run_gate(event_json(H.fresh_consumer(SETUP).root, action)).stderr
+        if wanted not in said:
+            missing.append(f"{label}: {wanted}")
+    found = sum(len(lines) for lines in GOLDEN.values()) + len(runs)
     return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 
 
@@ -581,17 +724,35 @@ def session_start_zero_line() -> tuple[bool, str]:
     )
 
 
+def colon_dir() -> Path:
+    """A fresh directory named `a:b`: a path holding ':' must be said whole by the session printer."""
+    path = H.scratch_dir() / "a:b"
+    path.mkdir()
+    return path
+
+
+def colon_root() -> Path:
+    """A repository root whose own name holds ':', its dials file removed."""
+    consumer = Consumer(colon_dir()).build()
+    (consumer.root / "constitution.yaml").unlink()
+    return consumer.root
+
+
 def session_start_skips_and_failures() -> tuple[bool, str]:
-    """No dials file and no repository: the shared skips said in the module's words, typed by hand;
-    malformed dials: exit 1 with the shared C4 first on stderr and nothing on stdout; an argument: exit 1."""
-    root = session_root(remove="constitution.yaml")
+    """No dials file and no repository (roots and folders whose names hold `:` too), the first also from a
+    subfolder of the root: the shared skips said in the module's words, typed by hand; malformed dials:
+    exit 1 with the shared C4 first on stderr and nothing on stdout; an argument: exit 1."""
+    root = colon_root()
     no_dials = SESSION.run_gate(session_json(root))
     no_dials_line = (
         f"const-decision-records: no constitution.yaml in {root} — the record gate examines nothing there"
         " until the file names a record policy in const-decision-records.record_policies"
     )
     no_dials_ok = no_dials.code == 0 and no_dials.stdout == no_dials_line + "\n"
-    loose = H.scratch_dir()
+    (root / "sub").mkdir()
+    from_sub = SESSION.run_gate(session_json(root / "sub"))
+    from_sub_ok = from_sub.code == 0 and from_sub.stdout == no_dials_line + "\n"
+    loose = colon_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
     no_repo_line = (
         f"const-decision-records: {loose} is not inside a git repository — the record gate examines nothing"
@@ -605,12 +766,41 @@ def session_start_skips_and_failures() -> tuple[bool, str]:
         and bad.stderr.startswith("BROKEN: constitution.yaml is not valid YAML")
         and messages.s1_could_not_run() in bad.stderr
     )
+    broken_name = "d\n" + "e" * 100  # a folder name holding a line break, over 80 characters
+    wide_dir = H.scratch_dir() / broken_name
+    wide_dir.mkdir()
+    wide_root = Consumer(wide_dir).build().root
+    (wide_root / "constitution.yaml").unlink()
+    wide = SESSION.run_gate(session_json(wide_root))
+    shown_name = "d\\n" + "e" * 100
+    wide_ok = (
+        wide.code == 0
+        and wide.stdout.count("\n") == 1  # one line: the break is shown escaped
+        and wide.stdout.startswith("const-decision-records: no constitution.yaml in ")
+        and f"{shown_name} — the record gate examines nothing there" in wide.stdout
+    )
+    wide_loose = H.scratch_dir() / broken_name
+    wide_loose.mkdir()
+    wide_no_repo = SESSION.run_gate(
+        session_json(wide_loose), env={"GIT_CEILING_DIRECTORIES": str(wide_loose.parent)}
+    )
+    wide_no_repo_ok = (
+        wide_no_repo.code == 0
+        and wide_no_repo.stdout.count("\n") == 1
+        and f"{shown_name} is not inside a git repository" in wide_no_repo.stdout
+    )
     arg = SESSION.run_gate(session_json(session_root()), args=["--scan"])
     arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
     return all_of(
         [
             (no_dials_ok, f"no dials got: {no_dials.stdout!r} {no_dials.stderr[:200]!r}"),
+            (from_sub_ok, f"no dials from a subfolder got: {from_sub.stdout!r} {from_sub.stderr[:200]!r}"),
             (no_repo_ok, f"no repository got: {no_repo.stdout!r} {no_repo.stderr[:200]!r}"),
+            (wide_ok, f"a long folder name with a break, no dials, got: {wide.stdout!r}"),
+            (
+                wide_no_repo_ok,
+                f"a long folder name with a break, no repository, got: {wide_no_repo.stdout!r}",
+            ),
             (bad_ok, f"malformed dials got {bad.code}: {bad.stdout!r} {bad.stderr[:300]!r}"),
             (arg_ok, f"an argument got {arg.code}: {arg.stderr[:200]!r}"),
         ],

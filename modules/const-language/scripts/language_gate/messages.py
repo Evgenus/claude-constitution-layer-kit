@@ -11,10 +11,8 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import VALE_FLOOR, Departure, Hit, Key, Level, Rule
@@ -58,7 +56,8 @@ def finding(rel: str, hit: Hit, dials_grade: float, dials_words: int) -> Finding
 def l1_grade(rel: str, grade: float, ceiling: float) -> Finding:
     return Finding(
         Key.L1,
-        f"{rel}:1: the document reads at grade {grade:g} by Flesch–Kincaid, above the ceiling of {ceiling:g}",
+        f"{escaped(rel)}:1: the document reads at grade {grade:g} by Flesch–Kincaid, above the ceiling of"
+        f" {ceiling:g}",
         "a reader whose first language is not English pays for every year of schooling the prose assumes,"
         " and the grade rises with words per sentence and syllables per word",
         "split the long sentences and prefer short words in the prose outside headings, code and tables"
@@ -70,7 +69,7 @@ def l1_grade(rel: str, grade: float, ceiling: float) -> Finding:
 def l2_sentence(rel: str, line: int, words: int, limit: int, text: str) -> Finding:
     return Finding(
         Key.L2,
-        f"{rel}:{line}: a sentence of {words} words, over the limit of {limit} — {shown(text)}",
+        f"{escaped(rel)}:{line}: a sentence of {words} words, over the limit of {limit} — {echoed(text)}",
         "a sentence longer than the limit carries more than one idea, and a non-native reader loses the"
         " first before reaching the last",
         f"split it at a clause into sentences of at most {limit} words; the limit for this repository is"
@@ -81,7 +80,7 @@ def l2_sentence(rel: str, line: int, words: int, limit: int, text: str) -> Findi
 def l3_forbidden(rel: str, line: int, text: str) -> Finding:
     return Finding(
         Key.L3,
-        f"{rel}:{line}: '{shown(text)}' is a construction plain language avoids",
+        f"{escaped(rel)}:{line}: '{echoed(text)}' is a construction plain language avoids",
         "an idiom or a formal phrase says nothing a plain sentence does not, and a non-native reader must"
         " translate it before reading on",
         "say it in plain words, or drop it; a phrase this repository keeps on purpose is named in"
@@ -92,9 +91,9 @@ def l3_forbidden(rel: str, line: int, text: str) -> Finding:
 def l4_simpler(rel: str, line: int, text: str, plain: str) -> Finding:
     return Finding(
         Key.L4,
-        f"{rel}:{line}: '{shown(text)}' where the plain word is '{shown(plain)}'",
+        f"{escaped(rel)}:{line}: '{echoed(text)}' where the plain word is '{echoed(plain)}'",
         "a long or formal word costs a non-native reader a dictionary where the plain one does not",
-        f"write '{shown(plain)}'; a word this repository keeps on purpose is named in {_ns()}.exceptions in"
+        f"write '{escaped(plain)}'; a word this repository keeps on purpose is named in {_ns()}.exceptions in"
         f" {DIALS_FILE}" + _allow(Rule.SIMPLER),
     )
 
@@ -102,7 +101,7 @@ def l4_simpler(rel: str, line: int, text: str, plain: str) -> Finding:
 def l5_passive(rel: str, line: int, text: str) -> Finding:
     return Finding(
         Key.L5,
-        f"{rel}:{line}: passive voice — '{shown(text)}'",
+        f"{escaped(rel)}:{line}: passive voice — '{echoed(text)}'",
         "the passive hides who acts, and a non-native reader must supply the actor to follow the sentence",
         "name who acts and put them first; a passive kept on purpose is a register the repository sets by"
         f" {_ns()}.levels.passive in {DIALS_FILE}" + _allow(Rule.PASSIVE),
@@ -112,7 +111,7 @@ def l5_passive(rel: str, line: int, text: str) -> Finding:
 def l6_vale_comment(rel: str, line: int, text: str) -> Finding:
     return Finding(
         Key.L6,
-        f"{rel}:{line}: a Vale comment in the document — {shown(text)}",
+        f"{escaped(rel)}:{line}: a Vale comment in the document — {echoed(text)}",
         "a comment that switches a rule off is a mark in the document, which the gate blanks before it"
         " reads; what departs from a rule is declared in the dials file, where every reader sees it",
         "remove the comment; to change a rule for this repository set its level or threshold under"
@@ -134,7 +133,7 @@ def n2_warning(rel: str, rule: Rule, found: Finding) -> str:
 
 def n3_stale_departure(index: int, departure: Departure) -> str:
     return (
-        f"note: {_ns()}.departures entry {index} ({', '.join(departure.paths)}) matches no covered"
+        f"note: {_ns()}.departures entry {index} ({echoed(', '.join(departure.paths))}) matches no covered"
         " document; the documents it allowed were deleted or moved, or the pattern is wrong"
     )
 
@@ -153,7 +152,7 @@ def f9_cut(findings: int, shown_first: int, rel: str) -> str:
     """The count line of a hook run whose findings did not all fit: the first so many are shown."""
     return (
         f"RED: {findings} finding(s), the first {shown_first} shown — the scan lists them all"
-        f" — 1 document examined ({rel})"
+        f" — 1 document examined ({escaped(rel)})"
     )
 
 
@@ -162,7 +161,7 @@ def g1_covered() -> str:
 
 
 def g1_skip_not_covered(rel: str) -> str:
-    return f"{rel} is not covered ({_ns()}.territories)"
+    return f"{escaped(rel)} is not covered ({_ns()}.territories)"
 
 
 # ---------------------------------------------------------------- the binary (C2, C12)
@@ -187,7 +186,7 @@ def c2_vale_too_old(found: str) -> Broken:
 def c12_vale_version(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"vale did not report its version ({detail})",
+        f"vale did not report its version ({escaped(detail)})",
         f"run vale --version by hand and repair the installation — {identity.current().until_installed}",
     )
 
@@ -195,7 +194,7 @@ def c12_vale_version(detail: str) -> Broken:
 def c12_vale_version_exit(code: int, detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"vale --version failed (exit {code}: {detail})",
+        f"vale --version failed (exit {code}: {escaped(detail)})",
         f"run vale --version by hand and repair the installation — {identity.current().until_installed}",
     )
 
@@ -203,7 +202,7 @@ def c12_vale_version_exit(code: int, detail: str) -> Broken:
 def c12_vale_failed(detail: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"vale could not run: {detail}",
+        f"vale could not run: {escaped(detail)}",
         "repair what the message names — the binary, its permissions, the temporary directory — then"
         " run the check again",
     )
@@ -212,7 +211,7 @@ def c12_vale_failed(detail: str) -> Broken:
 def c12_event(event: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"this check is wired to a tool event before or after a write, not to '{event}'",
+        f"this check is wired to a tool event before or after a write, not to '{echoed(event)}'",
         "in hooks.json wire it to PostToolUse on Write|Edit, or run it with --scan [<dir>]",
     )
 
@@ -224,33 +223,11 @@ def _c5(detail: str, fix: str) -> Broken:
     return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
 
 
-def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
-    return _c5(
-        f"{_ns()}.{key} is no dial of this module",
-        "a misspelt dial would be ignored in silence, so none is: write one of " + ", ".join(known),
-    )
-
-
 def c5_territories() -> Broken:
     return _c5(
         f"{_ns()}.territories must be a non-empty list of path patterns",
         'write the patterns of the documents to check, one per line under "- ", or leave the key out to'
         " cover every Markdown file; an empty list would examine nothing in silence",
-    )
-
-
-def one_line(pattern: str) -> str:
-    """A pattern echoed in a message stays on one line: its line breaks are shown escaped."""
-    return pattern.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
-
-
-def c5_pattern(where: str, pattern: str) -> Broken:
-    """`where` names the dial, or the departure entry's paths, holding the pattern."""
-    return _c5(
-        f"{_ns()}.{where} holds '{one_line(shown(pattern))}', which git would read as a comment or as two"
-        " lines",
-        "patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes, as \\\\# in"
-        " double quotes, and remove a line break",
     )
 
 
@@ -279,7 +256,7 @@ def c5_levels() -> Broken:
 
 def c5_level(rule: str, value: str) -> Broken:
     return _c5(
-        f"{_ns()}.levels.{rule} is '{one_line(shown(value))}', and the levels are error, warning, off",
+        f"{_ns()}.levels.{rule} is '{echoed(value)}', and the levels are error, warning, off",
         "set it to error (a finding, red), warning (reported, not red) or off, or remove the line; the"
         " rules are " + ", ".join(r.value for r in Rule),
     )
@@ -326,7 +303,7 @@ def c5_departure(index: int, detail: str) -> Broken:
 
 def c5_exception(phrase: str) -> Broken:
     return _c5(
-        f"{_ns()}.exceptions names '{shown(phrase)}', which no forbidden phrase and no simpler pair holds",
+        f"{_ns()}.exceptions names '{echoed(phrase)}', which no forbidden phrase and no simpler pair holds",
         "an exception removes a phrase the rules know; check its spelling against the rules' lists, or"
         " remove it",
     )

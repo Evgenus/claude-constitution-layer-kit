@@ -11,10 +11,8 @@ without holding any other document: no text here cites one.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import COMMAND_FLAG, Entry, Key, Subcommand, Verbosity
@@ -28,15 +26,14 @@ def _ns() -> str:
 
 
 def d1_destructive(entry: Entry, subcommand: Subcommand, matched: str) -> Finding:
-    text = subcommand.text.replace("\n", "\\n")  # a continuation line stays one headline
-    what = f"'{shown(text)}' matches the entry {' '.join(entry.command)}"
+    what = f"'{echoed(subcommand.text)}' matches the entry {echoed(' '.join(entry.command))}"
     if matched:
-        what += f" with {matched}"
+        what += f" with {echoed(matched)}"
     return Finding(
         Key.D1,
         f"destructive command: {what}",
-        entry.teach,
-        f"{entry.alternative}; to run it as written, confirm at the prompt — where no prompt can be"
+        escaped(entry.teach),
+        f"{escaped(entry.alternative)}; to run it as written, confirm at the prompt — where no prompt can be"
         " shown, get the user's yes in chat and run it again, one yes per command; to stop gating it,"
         f" remove the entry from {_ns()}.destructive in {DIALS_FILE}",
     )
@@ -45,7 +42,7 @@ def d1_destructive(entry: Entry, subcommand: Subcommand, matched: str) -> Findin
 def l1_list_item(rel: str, line: int, text: str) -> Finding:
     return Finding(
         Key.L1,
-        f"{rel}:{line}: list item without a handle — {shown(text)}",
+        f"{escaped(rel)}:{line}: list item without a handle — {echoed(text)}",
         "an item with no stable handle cannot be cited without quoting it, so a reader cannot point at one",
         "open the item with a handle — a number, a letter or a short key such as R1 or Q-a — or add the"
         f" form the document uses to {_ns()}.handles in {DIALS_FILE}, or take the document out of"
@@ -93,14 +90,15 @@ def s1_empty() -> str:
 
 def s1_no_dials(root: str) -> str:
     return (
-        f"{_ns()}: no {DIALS_FILE} in {root} — the destructive-command gate examines nothing there until"
-        " the file exists (an empty mapping, {}, is enough for the default list)"
+        f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the destructive-command gate examines nothing there"
+        " until the file exists (an empty mapping, {}, is enough for the default list)"
     )
 
 
 def s1_no_repo(cwd: str) -> str:
     return (
-        f"{_ns()}: {cwd} is not inside a git repository — the destructive-command gate examines nothing there"
+        f"{_ns()}: {escaped(cwd)} is not inside a git repository — the destructive-command gate examines"
+        " nothing there"
     )
 
 
@@ -119,6 +117,11 @@ def s1_verbosity(value: Verbosity) -> str:
     )
 
 
+def s1_pair(number: int, violates: str, complies: str) -> str:
+    """One boundary example: the content of the line is the example, so it stands whole, escaped."""
+    return f"{number}. {escaped(violates)} / {escaped(complies)}"
+
+
 def s1_pairs_heading() -> str:
     return f"Boundary examples of this project ({_ns()}.boundary_examples), each violates / complies:"
 
@@ -128,13 +131,6 @@ def s1_pairs_heading() -> str:
 
 def _c5(detail: str, fix: str) -> Broken:
     return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
-
-
-def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
-    return _c5(
-        f"{_ns()}.{key} is no dial of this module",
-        "a misspelt dial would be ignored in silence, so none is: write one of " + ", ".join(known),
-    )
 
 
 def c5_territories() -> Broken:
@@ -155,7 +151,7 @@ def c5_handles() -> Broken:
 
 def c5_handle_pattern(pattern: str, error: str) -> Broken:
     return _c5(
-        f"{_ns()}.handles holds '{pattern}', which is not a regular expression ({error})",
+        f"{_ns()}.handles holds '{echoed(pattern)}', which is not a regular expression ({escaped(error)})",
         "repair the pattern; Python's re syntax, matched at the start of the item's text",
     )
 
@@ -179,7 +175,7 @@ def c5_entry(index: int, detail: str) -> Broken:
 
 def c5_verbosity() -> Broken:
     return _c5(
-        f"{_ns()}.verbosity must be one of: triggered",
+        f"{_ns()}.verbosity must be one of: {', '.join(level.value for level in Verbosity)}",
         "write verbosity: triggered — the one value today: assumption and restatement lines appear only"
         " when triggered — or leave the key out for it",
     )
@@ -198,7 +194,8 @@ def c5_boundary_examples() -> Broken:
 def c12_event(name: str, tool: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"hook input names the event '{name}' on tool '{tool}', which this gate is not wired to",
+        f"hook input names the event '{echoed(name)}' on tool '{echoed(tool)}', which this gate is not wired"
+        " to",
         "wire the gate to PreToolUse with the matcher Bash, as the plugin's hooks file does; to see what"
         f" the dial does to a command by hand run it with --scan {COMMAND_FLAG} '<text>'",
     )

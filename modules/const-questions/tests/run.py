@@ -42,7 +42,7 @@ from harness import (  # noqa: E402
     red_lines,
 )
 from questions_gate import messages, start  # noqa: E402
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-open-questions.sh", "check-open-questions.py", start.GATE.namespace)
@@ -275,7 +275,18 @@ def territories_decide_coverage() -> tuple[bool, str]:
     if not ok:
         return False, evidence
     readme = Write("README.md", "# Top\n\nTBD\n")
-    return blocked(readme, messages.q1_marker("README.md", 3, "TBD", "TBD"))
+    covered = blocked(readme, messages.q1_marker("README.md", 3, "TBD", "TBD"))
+    if not covered[0]:
+        return covered
+    # an uncovered path over 80 characters with a line break is said whole, the break escaped
+    weird = "docs/notes/a\n" + "b" * 100 + ".md"
+    wide, _ = gate_on(wrote("TBD\n", target=weird), dials_patch=claim(["docs/other/**"]))
+    line = (
+        "GREEN: const-questions: 0 documents examined — docs/notes/a\\n"
+        + "b" * 100
+        + ".md is not covered (const-questions.territories)"
+    )
+    return expect(wide, 0, line, "stdout")
 
 
 def dial_failures() -> tuple[bool, str]:
@@ -384,15 +395,52 @@ def golden_lines() -> tuple[bool, str]:
     ]
     if "\n".join(lines) not in result.stderr:
         return False, f"expected:\n{chr(10).join(lines)}\ngot:\n{result.stderr[:900]}"
-    long = wrote("TODO " + "y" * 200 + "\n")
+    # the echoed line has a backslash and 209 characters: cut at 80, the cut said, then escaped
+    long = wrote("TODO a\\b " + "y" * 200 + "\n")
     result, _ = gate_on(long)
     head = (
-        f"RED: {DOC}:{line_of(long.text, 'TODO')}: open question marker 'TODO' — TODO "
-        + "y" * 75
-        + "… [205 characters]"
+        f"RED: {DOC}:{line_of(long.text, 'TODO')}: open question marker 'TODO' — TODO a\\\\b "
+        + "y" * 71
+        + "… [209 characters]"
     )
-    ok = head in result.stderr and "y" * 76 not in result.stderr
-    return ok, "three lines and the cut as typed" if ok else result.stderr[:400]
+    ok = head in result.stderr and "y" * 72 not in result.stderr
+    if not ok:
+        return False, result.stderr[:400]
+    # a marker of the project's own holding a backslash only points: shown escaped
+    own_marker = wrote("X\\Y: who decides\n")
+    result, _ = gate_on(own_marker, dials_patch=own(markers=["X\\Y"]))
+    marked = (
+        f"RED: {DOC}:{line_of(own_marker.text, 'X')}: open question marker 'X\\\\Y' — X\\\\Y: who decides"
+    )
+    if marked not in result.stderr:
+        return False, result.stderr[:400]
+    # a marker of 103 characters, with the backslash, is cut at 80 and the cut said, in its own place
+    # and again in the echoed line, which runs on to 116 characters
+    long_marker = "X\\Y" + "Z" * 100
+    long_doc = wrote(long_marker + ": who decides\n")
+    result, _ = gate_on(long_doc, dials_patch=own(markers=[long_marker]))
+    cut = "X\\\\Y" + "Z" * 77
+    cut_both = (
+        f"RED: {DOC}:{line_of(long_doc.text, 'X')}: open question marker '{cut}… [103 characters]' — "
+        f"{cut}… [116 characters]"
+    )
+    if cut_both not in result.stderr:
+        return False, result.stderr[:400]
+    # the written file's path, over 80 characters with a line break, is shown whole, the break escaped,
+    # in the headline and in the count line
+    weird = "docs/notes/a\n" + "b" * 100 + ".md"
+    shown_path = "docs/notes/a\\n" + "b" * 100 + ".md"
+    result, _ = gate_on(wrote("TBD: who owns this\n", target=weird))
+    at_line = line_of(note("TBD: who owns this"), "TBD")
+    path_lines = [
+        f"RED: {shown_path}:{at_line}: open question marker 'TBD' — TBD: who owns this",
+        f"RED: 1 finding(s) — 1 document examined ({shown_path})",
+    ]
+    ok = result.code == 2 and red_lines(result.stderr) == path_lines
+    return (
+        ok,
+        "the cut, the escaped marker and the whole path, as typed" if ok else result.stderr[:600],
+    )
 
 
 SHAPE = (
@@ -431,6 +479,12 @@ def hooks_file() -> tuple[bool, str]:
             )
             if not right:
                 problems.append(f"{name}: {group}")
+    wired = messages.c12_event("x").fix  # the C12 fix names the event and matcher the file wires
+    problems += [
+        f"{name} on {matcher}: not in the C12 fix"
+        for name, (matcher, _) in wanted.items()
+        if matcher is not None and f"{name} on {matcher}" not in wired
+    ]
     return (
         not problems,
         "a PreToolUse handler on Write|Edit and a SessionStart handler without matcher, exec form, timeouts,"
@@ -529,7 +583,19 @@ def other_event_refused() -> tuple[bool, str]:
         " gate to PreToolUse on Write|Edit, as the plugin's hooks file does; to check a repository by hand"
         " run it with --scan [<dir>]"
     )
-    return broken_first_line(result, line)
+    ok, evidence = broken_first_line(result, line)
+    if not ok:
+        return ok, evidence
+    # an event name that holds a line break and is 105 characters only points: cut at 80, then escaped
+    odd = H.run_gate(event_json(consumer.root, VALID, event="Post\n" + "T" * 100))
+    cut = (
+        "BROKEN: hook input names the event 'Post\\n"
+        + "T" * 75
+        + "… [105 characters]', which this gate is not wired to — fix: wire the gate to PreToolUse on"
+        " Write|Edit, as the plugin's hooks file does; to check a repository by hand run it with --scan"
+        " [<dir>]"
+    )
+    return broken_first_line(odd, cut)
 
 
 def deep_envelope_is_no_crash() -> tuple[bool, str]:
@@ -599,6 +665,7 @@ SUBJECT = Subject(
     bare_readme="1 document examined",
     judges_envelopes=False,
     long_value=wrote("[decide:" + "x" * 11992 + "\n"),
+    pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
 )
 
 if __name__ == "__main__":

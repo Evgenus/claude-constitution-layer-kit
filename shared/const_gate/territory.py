@@ -67,9 +67,7 @@ class Matcher:
             stdin=("\0".join(paths) + "\0").encode("utf-8"),
         )
         if result.returncode not in (0, 1):
-            raise ConfigurationFailure(
-                messages.c12_check_ignore(result.stderr.decode("utf-8", "replace").strip())
-            )
+            raise ConfigurationFailure(messages.c12_check_ignore(first_line(result.stderr)))
         fields = result.stdout.decode("utf-8", "replace").split("\0")
         found: dict[str, str] = {}
         for i in range(0, len(fields) - 3, 4):

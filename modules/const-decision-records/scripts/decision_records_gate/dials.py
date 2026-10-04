@@ -7,22 +7,21 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys
 from const_gate.envelope import ID_RE
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
 from .model import RecordDials
 
-KEYS = {"severity", "log_dir", "record_policies", "boundary_examples", "deciders", "note_trailer"}
+KEYS = (*GATE_KEYS, "record_policies", "boundary_examples", "deciders", "note_trailer")
 
 
 def parse(own: Mapping[str, object]) -> RecordDials:
-    for key in own:
-        if key not in KEYS:
-            raise ConfigurationFailure(messages.c5_unknown_dial(key))
+    refuse_unknown_keys(own, KEYS)
     value = own.get("record_policies")
     if value is None:
         return RecordDials(())
-    if not isinstance(value, list) or not all(isinstance(i, str) and ID_RE.match(i) for i in value):
+    if not isinstance(value, list) or not all(isinstance(i, str) and ID_RE.fullmatch(i) for i in value):
         raise ConfigurationFailure(messages.c5_record_policies())
     return RecordDials(tuple(dict.fromkeys(str(i) for i in value)))  # a policy named twice counts once

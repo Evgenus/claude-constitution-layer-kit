@@ -5,8 +5,11 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns, texts
 from const_gate.errors import ConfigurationFailure
-from const_gate.messages import shown
+from const_gate.messages import echoed
 
 from . import messages, rules
 from .model import (
@@ -21,8 +24,7 @@ from .model import (
 )
 
 KEYS = (
-    "severity",
-    "log_dir",
+    *GATE_KEYS,
     "territories",
     "grade_ceiling",
     "sentence_words",
@@ -31,20 +33,16 @@ KEYS = (
     "simpler",
     "exceptions",
     "departures",
-)  # the first two are every gate's, read by the shared code
+)
 ENTRY_KEYS = ("paths", "allow", "reason")
 
 
 def parse(own: Mapping[str, object]) -> LanguageDials:
-    unknown = sorted(str(key) for key in own if key not in KEYS)
-    if unknown:
-        raise ConfigurationFailure(messages.c5_unknown_key(messages.one_line(shown(unknown[0])), KEYS))
-    territories = _texts(own.get("territories", list(DEFAULT_TERRITORIES)))
+    refuse_unknown_keys(own, KEYS)
+    territories = texts(own.get("territories", list(DEFAULT_TERRITORIES)))
     if not territories:
         raise ConfigurationFailure(messages.c5_territories())
-    for pattern in territories:
-        if _unreadable(pattern):
-            raise ConfigurationFailure(messages.c5_pattern("territories", pattern))
+    refuse_unreadable_patterns(f"{identity.current().namespace}.territories", territories)
     grade = own.get("grade_ceiling", DEFAULT_GRADE_CEILING)
     if isinstance(grade, bool) or not isinstance(grade, int | float) or not math.isfinite(grade) or grade < 0:
         raise ConfigurationFailure(messages.c5_grade_ceiling())
@@ -75,11 +73,6 @@ def parse(own: Mapping[str, object]) -> LanguageDials:
     )
 
 
-def _unreadable(pattern: str) -> bool:
-    """A pattern git would read as a comment, or as two lines."""
-    return pattern.startswith("#") or "\n" in pattern or "\r" in pattern
-
-
 def _departures(value: object) -> tuple[Departure, ...]:
     """Absent or an empty list: no departure. Anything else is a list of well-formed entries, or a
     configuration failure naming the first bad one."""
@@ -95,19 +88,15 @@ def _departures(value: object) -> tuple[Departure, ...]:
         unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
         if unknown:
             raise ConfigurationFailure(
-                messages.c5_departure(
-                    index, f"'{messages.one_line(shown(unknown[0]))}' is no field of an entry"
-                )
+                messages.c5_departure(index, f"'{echoed(unknown[0])}' is no field of an entry")
             )
-        paths = _texts(item.get("paths"))
+        paths = texts(item.get("paths"))
         if not paths:
             raise ConfigurationFailure(
                 messages.c5_departure(index, "paths must be a non-empty list of path patterns")
             )
-        for pattern in paths:
-            if _unreadable(pattern):
-                raise ConfigurationFailure(messages.c5_pattern(f"departures entry {index} paths", pattern))
-        allow = _texts(item.get("allow"))
+        refuse_unreadable_patterns(f"{identity.current().namespace}.departures entry {index} paths", paths)
+        allow = texts(item.get("allow"))
         if not allow:
             raise ConfigurationFailure(
                 messages.c5_departure(index, "allow must be a non-empty list of rule keys")
@@ -115,12 +104,10 @@ def _departures(value: object) -> tuple[Departure, ...]:
         for key in allow:
             if key not in known:
                 raise ConfigurationFailure(
-                    messages.c5_departure(
-                        index, f"'{messages.one_line(shown(key))}' is no rule this gate knows"
-                    )
+                    messages.c5_departure(index, f"'{echoed(key)}' is no rule this gate knows")
                 )
         reason = item.get("reason")
-        if not _one_line(reason):
+        if not _reason(reason):
             raise ConfigurationFailure(
                 messages.c5_departure(index, "reason must be one non-empty line saying why")
             )
@@ -135,13 +122,11 @@ def _levels(value: object) -> dict[Rule, Level]:
     if not isinstance(value, dict):
         raise ConfigurationFailure(messages.c5_levels())
     known = {r.value for r in Rule}
-    for raw_rule, raw_level in value.items():
+    for raw_rule, raw_level in sorted(value.items(), key=lambda pair: str(pair[0])):  # C5.10: sorted order
         rule = str(raw_rule)
         if rule not in known:
             raise ConfigurationFailure(
-                messages.c5_unknown_key(
-                    f"levels.{messages.one_line(shown(rule))}", [f"levels.{r.value}" for r in Rule]
-                )
+                shared.c5_unknown_dial(f"levels.{rule}", [f"levels.{r.value}" for r in Rule])
             )
         if raw_level is False:  # a bare `off` is a boolean to YAML: read as the level it was written as
             raw_level = Level.OFF.value
@@ -177,12 +162,11 @@ def _simpler(value: object) -> dict[str, str]:
     return {str(k).strip(): str(v).strip() for k, v in value.items()}
 
 
-def _texts(value: object) -> tuple[str, ...]:
-    """The non-empty strings of a list, line breaks included; empty when the value is no such list."""
-    if not isinstance(value, list) or not all(isinstance(t, str) and t.strip() for t in value):
-        return ()
-    return tuple(str(t) for t in value)
-
-
 def _one_line(value: object) -> bool:
     return isinstance(value, str) and bool(value.strip()) and "\n" not in value and "\r" not in value
+
+
+def _reason(value: object) -> bool:
+    """A reason is one non-empty line; a line break at its end, which a YAML block scalar gives,
+    is trimmed, one in the middle is refused."""
+    return isinstance(value, str) and _one_line(value.strip())

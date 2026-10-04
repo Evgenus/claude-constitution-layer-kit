@@ -44,8 +44,7 @@ from harness import (  # noqa: E402
     expect,
 )
 from referencing_gate import messages, start  # noqa: E402
-from referencing_gate.dials import KEYS  # noqa: E402
-from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
+from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-references.sh", "check-references.py", start.GATE.namespace)
@@ -55,6 +54,18 @@ DOC = "docs/notes/a.md"
 OWNER_ID = "notes-policy"  # a document of the shared consumer, carrying this id
 OWNER = "docs/policies/notes-policy.md"
 TO_OWNER = "../policies/notes-policy.md"
+# Values over 80 characters, the echo rule's cases: a path the reader opens or types stays whole, with a
+# break and a backslash shown escaped; a word that only points is cut at 80 with the cut said.
+HOOK_RAW = (
+    "docs/notes/w\nx\\y" + "z" * 80 + ".md"
+)  # the hook reads no file: a line break may stand in the path
+HOOK_SHOWN = "docs/notes/w\\nx\\\\y" + "z" * 80 + ".md"
+BS_RAW = "docs/notes/w\\x" + "z" * 80 + ".md"  # a backslash only: lychee is handed its paths one to a line
+BS_SHOWN = "docs/notes/w\\\\x" + "z" * 80 + ".md"
+WEIRD_DIR = "w\nx\\y" + "d" * 80  # a folder name, for a root and a directory the run stands in
+WEIRD_DIR_SHOWN = "w\\nx\\\\y" + "d" * 80
+BS_DIR = "w\\x" + "d" * 80  # a folder with a backslash only: git quotes its path in one line
+BS_DIR_SHOWN = "w\\\\x" + "d" * 80
 LANE = {
     "pattern": r"\bREQ-[0-9]+\b",
     "names": "a requirement",
@@ -113,7 +124,12 @@ def scan_of(files: dict[str, str], dials_patch: dict[str, object] | None = None)
 
 
 def broken(result: Result, failure: Broken) -> tuple[bool, str]:
-    ok, evidence = broken_first_line(result, failure.render())
+    return broken_typed(result, failure.render())
+
+
+def broken_typed(result: Result, line: str) -> tuple[bool, str]:
+    """The failure's line, typed by hand where the item types it, first; then the count line."""
+    ok, evidence = broken_first_line(result, line)
     counted = shared.c11_broken_count() in result.stderr
     return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
@@ -377,6 +393,12 @@ def dial_failures() -> tuple[bool, str]:
         return own(lanes=[{**LANE, **changes}])
 
     dropped = {key: value for key, value in LANE.items() if key != "fix"}
+    try:  # the compiler's own words come from `re` itself, so a Python version cannot break the golden
+        re.compile("REQ-([")
+    except re.error as compiler:
+        compiler_words = str(compiler)
+    else:
+        return False, "the pattern 'REQ-([' compiled; the fixture needs one the compiler refuses"
     wrong: list[tuple[dict[str, object], Broken]] = [
         (own(territories="*.md"), messages.c5_territories()),
         (own(territories=[]), messages.c5_territories()),
@@ -393,13 +415,57 @@ def dial_failures() -> tuple[bool, str]:
         (lane(home="docs/reqs.md"), messages.c5_lane(1, messages.lane_home())),
         (
             lane(pattern="REQ-(["),
-            messages.c5_lane(1, messages.lane_pattern("unterminated character set at position 5")),
+            messages.c5_lane(1, messages.lane_pattern(compiler_words)),
         ),
     ]
     results = [broken(gate_on(VALID, dials_patch=patch)[0], failure) for patch, failure in wrong]
     in_scan = H.run_gate("", args=["--scan", str(gate_on(VALID, dials_patch=own(bare_ids="maybe"))[1])])
+    odd_key = broken_typed(  # a key with a line break is shown escaped: one line, typed by hand
+        gate_on(VALID, dials_patch=own(lanes=[{**LANE, "a\nb": 1}]))[0],
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes carries the key 'a\\nb'; a lane holds"
+        " pattern, names, fix and home, and nothing else — fix: write the entry as {pattern: <regular"
+        " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
+        " optional",
+    )
+    # the compiler's own words come from `re` again, for the pattern under test; they echo the pattern's
+    # backslash, which the message shows escaped in turn, so the doubling is typed by hand
+    odd = r"(?P<a\b>x)"
+    try:
+        re.compile(odd)
+    except re.error as odd_compiler:
+        odd_words = str(odd_compiler).replace("\\", "\\\\")
+    else:
+        return False, "the pattern (?P<a\\b>x) compiled; the fixture needs one the compiler refuses"
+    odd_pattern = broken_typed(
+        gate_on(VALID, dials_patch=lane(pattern=odd))[0],
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes has a pattern that is no regular"
+        f" expression ({odd_words}) — in YAML write it in single"
+        " quotes, where a backslash stands for itself — fix: write the entry as {pattern: <regular"
+        " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
+        " optional",
+    )
+    # the compiler's words can pass 80 characters, a group name having no limit; the diagnosis stands in
+    # the line whole, never cut, so the words come from `re` again and the line around them is typed
+    long_name = "a" * 100
+    long = "(?P=" + long_name + ")"
+    try:
+        re.compile(long)
+    except re.error as long_compiler:
+        long_words = str(long_compiler)
+    else:
+        return False, "the pattern (?P=aaa...) compiled; the fixture needs one the compiler refuses"
+    if len(long_words) <= 80 or long_name not in long_words:
+        return False, f"the compiler's words are {len(long_words)} characters; the fixture needs more than 80"
+    long_pattern = broken_typed(
+        gate_on(VALID, dials_patch=lane(pattern=long))[0],
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes has a pattern that is no regular"
+        f" expression ({long_words}) — in YAML write it in single"
+        " quotes, where a backslash stands for itself — fix: write the entry as {pattern: <regular"
+        " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
+        " optional",
+    )
     return all_of(
-        [*results, broken(in_scan, messages.c5_switch("bare_ids"))],
+        [*results, broken(in_scan, messages.c5_switch("bare_ids")), odd_key, odd_pattern, long_pattern],
         f"{len(wrong)} malformed dials, each exit 1, and one in the scan",
     )
 
@@ -432,7 +498,14 @@ def control_character_in_a_pattern() -> tuple[bool, str]:
 
 def lane_home_pattern_git_would_misread() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch=own(lanes=[{**LANE, "home": ["#docs"]}]))
-    return broken(result, shared.c5_territory_pattern(f"{NAMESPACE}.lanes[1].home", "#docs"))
+    return broken_typed(
+        result,
+        "BROKEN: constitution.yaml: const-referencing.lanes[1].home holds a pattern git would not read as"
+        " one: '#docs' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
+        " break; "
+        "escape a leading # as \\# bare or in single quotes, "
+        "as \\\\# in double quotes, and remove a line break",
+    )
 
 
 def unreadable_envelope_is_no_crash() -> tuple[bool, str]:
@@ -472,7 +545,36 @@ def golden_lines() -> tuple[bool, str]:
     skip = gate_on(wrote("# F\n"), dials_patch=claim(["docs/policies/**"]))[0].stdout
     if f"{DOC} is not covered (const-referencing.territories)" not in skip:
         missing.append("skip")
-    return not missing, f"{len(GOLDEN) + 1} literal lines found" if not missing else f"not found: {missing}"
+    odd = own(lanes=[{**LANE, "names": "a\nrequirement", "fix": "[REQ-7]\n(x\\y)"}])
+    broken_lines = gate_on(CASES[0].red, dials_patch=odd)[0].stderr
+    for hand_typed in (  # the lane's own words with a line break: shown escaped, the finding stays lines
+        f"RED: {DOC}:9: 'REQ-7' cites a\\nrequirement by a bare handle",
+        "  fix: write it as a link: [REQ-7]\\n(x\\\\y)",
+    ):
+        if hand_typed not in broken_lines:
+            missing.append(hand_typed)
+    # the document's path is the reader's to open, and the lane's fix the text the reader copies: both whole,
+    # a break and a backslash escaped, over 80 characters; the lane's `names` and the match only point: cut
+    wide_lanes = own(
+        lanes=[
+            {**LANE, "names": "a\nrequirement" + "n" * 90, "fix": "[REQ-7]\n(x\\y" + "z" * 130 + ")"},
+            {**LANE, "pattern": r"\bLONG-[0-9]+\b", "names": "a long one"},
+        ]
+    )
+    wide = gate_on(wrote(body("See REQ-7 and LONG-" + "7" * 100 + "."), HOOK_RAW), dials_patch=wide_lanes)[0]
+    for hand_typed in (
+        f"RED: {HOOK_SHOWN}:9: 'REQ-7' cites a\\nrequirement"
+        + "n" * 67
+        + "… [103 characters] by a bare handle",
+        "  fix: write it as a link: [REQ-7]\\n(x\\\\y" + "z" * 130 + ")",
+        f"RED: {HOOK_SHOWN}:9: 'LONG-" + "7" * 75 + "… [105 characters]' cites a long one by a bare handle",
+    ):
+        if hand_typed not in wide.stderr.splitlines():
+            missing.append(hand_typed)
+    outside = gate_on(Write(HOOK_RAW, note("# F\n")), dials_patch=claim(["docs/policies/**"]))[0].stdout
+    if f"{HOOK_SHOWN} is not covered (const-referencing.territories)" not in outside:
+        missing.append("skip of a path over 80 characters")
+    return not missing, f"{len(GOLDEN) + 7} literal lines found" if not missing else f"not found: {missing}"
 
 
 # ------------------------------------------------------------------ the whole tree, in the scan
@@ -622,6 +724,29 @@ def link_checker_unusable() -> tuple[bool, str]:
             broken(
                 scan_with(path_with(usage)), messages.x3_no_report("exit 2", "error: unexpected argument")
             ),
+            # lychee's version output is several lines with a backslash: it only points, cut at 80, escaped
+            broken_typed(
+                scan_with(path_with("printf 'lychee 0.23.0\\nline\\\\two " + "w" * 90 + "\\n'\n")),
+                "BROKEN: const-referencing needs lychee 0.24.2 or newer, found 'lychee 0.23.0\\nline\\\\two "
+                + "w" * 57
+                + "… [113 characters]' — fix: install a current one (https://lychee.cli.rs/installation/),"
+                " then run the scan — until then no reference is checked for resolving",
+            ),
+            # its first line of stderr is the diagnosis the fix asks to be reported: whole, escaped
+            broken_typed(
+                scan_with(
+                    path_with(
+                        'case "$1" in --version) echo "lychee 0.24.2";;'
+                        " *) printf '%s\\n' 'error: a\\b " + "e" * 90 + "' >&2; exit 2;; esac\n"
+                    )
+                ),
+                "BROKEN: lychee gave no report: exit 2 (error: a\\\\b "
+                + "e" * 90
+                + ") — fix: this is a defect"
+                " of the gate's invocation or of the installed lychee, not of the repository; run lychee"
+                " --version and report both to whoever maintains the plugin — until then no reference is"
+                " checked for resolving",
+            ),
         ],
         "below the floor, a version nobody can read, and exit 2 with no report: each exit 1, never a finding",
     )
@@ -754,7 +879,13 @@ def mention_dial_failures() -> tuple[bool, str]:
         (own(mentions=[{"pattern": "note-("}]), messages.c5_mention(1, unclosed)),
     ]
     results = [broken(gate_on(VALID, dials_patch=patch)[0], failure) for patch, failure in wrong]
-    return all_of(results, f"{len(wrong)} malformed dials, each exit 1")
+    odd_key = broken_typed(  # a key with a line break is shown escaped: one line, typed by hand
+        gate_on(VALID, dials_patch=own(mentions=[{**MENTION, "a\nb": 1}]))[0],
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.mentions carries the key 'a\\nb'; a mention"
+        " holds pattern and files, and nothing else — fix: write the entry as {pattern: <regular expression"
+        " whose whole match is a document's id>}; files: [<patterns>] is optional",
+    )
+    return all_of([*results, odd_key], f"{len(wrong)} malformed dials, each exit 1")
 
 
 # ------------------------------------------------------------------ after the write
@@ -786,6 +917,13 @@ def own_links_after_write() -> tuple[bool, str]:
             expect(after_write(SOURCE, files), 2, finding.render(), "stderr"),
             expect(after_write(SOURCE, files), 2, after_count(SOURCE, 1, 1), "stderr"),
             expect(after_write(SOURCE, fixed), 0, messages.g1_covered(), "stdout"),
+            # the count line is what a later step reads: the path whole, escaped, over 80 characters
+            expect(
+                after_write(BS_RAW, {TARGET: TARGET_TEXT, BS_RAW: source("See [x](gone.md).")}),
+                2,
+                f"RED: 1 link(s) of the whole tree examined, 1 finding(s) involve {BS_SHOWN}",
+                "stderr",
+            ),
         ],
         "the written document's broken link is reported on stderr with exit 2; repaired, green",
     )
@@ -884,7 +1022,19 @@ def file_gone_after_write() -> tuple[bool, str]:
 
 def unknown_event() -> tuple[bool, str]:
     files = {SOURCE: source("See [x](gone.md).")}
-    return broken(after_write(SOURCE, files, event="Notification"), messages.c12_event("Notification"))
+    odd = broken_typed(  # a name holding a line break stays on one line, the break shown escaped
+        after_write(SOURCE, files, event="Notif\nication"),
+        "BROKEN: hook input names the event 'Notif\\nication', which this gate is not wired to — fix: wire"
+        " the gate to PreToolUse and PostToolUse on Write|Edit, as the plugin's hooks file does; to check a"
+        " repository by hand run it with --scan [<dir>]",
+    )
+    return all_of(
+        [
+            broken(after_write(SOURCE, files, event="Notification"), messages.c12_event("Notification")),
+            odd,
+        ],
+        "an event the gate is not wired to is a configuration failure, a line break in its name escaped",
+    )
 
 
 def lychee_absent_after_write() -> tuple[bool, str]:
@@ -1078,8 +1228,54 @@ def refusals_change_nothing() -> tuple[bool, str]:
     results = [broken_first_line(result, failure.render()) for result, failure in refused]
     closing = [(messages.v4_nothing_changed() in result.stderr, "no closing line") for result, _ in refused]
     unchanged = (tree_state(consumer) == before, "a refusal changed the tree")
+    # a path the reader opens is whole, escaped; an argument that only says which one is wrong is cut at 80
+    odd = moving_consumer()
+    odd.write(HOOK_RAW, note("# W\n", "note-w"))
+    odd.commit()
+    odd_before = tree_state(odd)
+    moved_to = "docs/m\\nx\\\\y" + "m" * 80 + ".md"  # the new path, never made: whole
+    typed = [
+        (
+            mover(odd, "docs/notes/n\nx\\y" + "n" * 80 + ".md", NEW),
+            "BROKEN: docs/notes/n\\nx\\\\y"
+            + "n" * 80
+            + ".md is not a file git lists — fix: name a file of this"
+            " repository, by its path from where you stand",
+        ),
+        (
+            mover(odd, OLD, HOOK_RAW),
+            f"BROKEN: {HOOK_SHOWN} already exists — fix: choose a path that is free, or move what lies there"
+            " first",
+        ),
+        (
+            mover(odd, HOOK_RAW, HOOK_RAW),
+            f"BROKEN: {HOOK_SHOWN} would move onto itself — fix: name two different paths",
+        ),
+        (
+            mover(odd, "--moved", HOOK_RAW, "docs/m\nx\\y" + "m" * 80 + ".md"),
+            f"BROKEN: --moved says the move was made by hand, yet {HOOK_SHOWN} still exists or {moved_to}"
+            " does not — fix: to make the move and repair the links in one act, run it without --moved",
+        ),
+        (
+            mover(odd, OLD, "../q\nr\\s" + "o" * 90),
+            "BROKEN: ../q\\nr\\\\s" + "o" * 72 + "… [98 characters] lies outside the repository — fix: name a"
+            " path inside it",
+        ),
+        (
+            mover(odd, "--zz\nz\\" + "u" * 90),
+            "BROKEN: misinvocation: unrecognized arguments: --zz\\nz\\\\"
+            + "u" * 49
+            + "… [121 characters] — fix:"
+            " run it with <old path> <new path> to move a file and repair the links; --moved <old path> <new"
+            " path> after a move made by hand; --ids to point every link whose text is a document's id at"
+            " that document",
+        ),
+    ]
+    odd_lines = [broken_first_line(result, line) for result, line in typed]
+    odd_unchanged = (tree_state(odd) == odd_before, "a refusal of a long path changed the tree")
     return all_of(
-        [*results, *closing, unchanged], f"{len(refused)} refusals, each exit 1, the tree as it was"
+        [*results, *closing, unchanged, *odd_lines, odd_unchanged],
+        f"{len(refused) + len(typed)} refusals, each exit 1, the tree as it was",
     )
 
 
@@ -1088,7 +1284,18 @@ def mover_without_dials() -> tuple[bool, str]:
     (consumer.root / "constitution.yaml").unlink()
     result = mover(consumer, OLD, NEW)
     ok, evidence = broken_first_line(result, messages.v5_no_dials(str(consumer.root)).render())
-    return ok and (consumer.root / OLD).exists(), evidence
+    # the root is a path the reader goes to: whole, escaped, over 80 characters
+    parent = H.scratch_dir()
+    odd = Consumer(parent / WEIRD_DIR).build()
+    odd.write(OLD, ONE)
+    odd.commit()
+    (odd.root / "constitution.yaml").unlink()
+    odd_ok, odd_evidence = broken_first_line(
+        mover(odd, OLD, NEW),
+        f"BROKEN: no constitution.yaml in {parent}/{WEIRD_DIR_SHOWN}: the check that proves a move cannot run"
+        " — fix: create constitution.yaml at the repository's top — an empty mapping, {}, is enough",
+    )
+    return ok and odd_ok and (consumer.root / OLD).exists(), evidence if not ok else odd_evidence
 
 
 def mover_ends_red_when_the_tree_is() -> tuple[bool, str]:
@@ -1120,9 +1327,33 @@ def golden_mover_lines() -> tuple[bool, str]:
     )
     if wanted not in refused:
         missing.append(wanted)
+    # paths over 80 characters with a backslash: every path whole, escaped; the line that only points at
+    # a mention is cut at 80 with the cut said
+    odd = moving_consumer()
+    odd.write(BS_RAW, note(body("See [o](one.md)."), "note-w"))
+    odd_script = "tools/w\\x" + "t" * 80 + ".sh"
+    odd.write(odd_script, "# see " + OLD + " a\\b " + "t" * 90 + "\n")
+    odd.commit()
+    odd_out = mover(odd, BS_RAW, "docs/notes/n\\x" + "n" * 80 + ".md").stdout.splitlines()
+    moved = mover(odd, OLD, NEW).stdout.splitlines()
+    for hand_typed in (
+        f"MOVED: {BS_SHOWN} → docs/notes/n\\\\x" + "n" * 80 + ".md",
+        "REWROTE: docs/notes/n\\\\x" + "n" * 80 + ".md: 1 link(s)",
+    ):
+        if hand_typed not in odd_out + moved:
+            missing.append(hand_typed)
+    mention = (
+        "MENTION: tools/w\\\\x"
+        + "t" * 80
+        + ".sh:1: '# see docs/notes/one.md a\\\\b "
+        + "t" * 52
+        + "… [118 characters]' names the old path outside a link — read it and decide; nothing was changed"
+    )
+    if mention not in moved:
+        missing.append(mention)
     return (
         not missing,
-        f"{len(GOLDEN_MOVER) + 2} literal lines found" if not missing else f"not found: {missing}",
+        f"{len(GOLDEN_MOVER) + 5} literal lines found" if not missing else f"not found: {missing}",
     )
 
 
@@ -1293,6 +1524,10 @@ def mover_keeps_every_other_character() -> tuple[bool, str]:
     crlf = "\ufeff# Two\r\n\r\nSee [one](one.md).\r\n"
     (consumer.root / "docs/notes/crlf.md").write_bytes(crlf.encode("utf-8"))
     (consumer.root / "docs/notes/latin.md").write_bytes("# Caf\xe9\n\nSee [one](one.md).\n".encode("latin-1"))
+    odd_latin = (
+        "docs/notes/l\\y" + "n" * 80 + ".md"
+    )  # a path over 80 characters with a backslash: named whole
+    (consumer.root / odd_latin).write_bytes("# Caf\xe9\n\nSee [one](one.md).\n".encode("latin-1"))
     consumer.commit()
     done = mover(consumer, OLD, NEW)
     after = (consumer.root / "docs/notes/crlf.md").read_bytes().decode("utf-8")
@@ -1302,6 +1537,13 @@ def mover_keeps_every_other_character() -> tuple[bool, str]:
             (after == crlf.replace("one.md", "../moved/deep/first.md"), f"CRLF document: {after!r}"),
             (b"Caf\xe9" in latin and b"(one.md)" in latin, "the latin-1 file was rewritten"),
             (messages.v2_left_alone("docs/notes/latin.md") in done.stdout, done.stdout),
+            (
+                "LEFT ALONE: docs/notes/l\\\\y"
+                + "n" * 80
+                + ".md is not UTF-8 text — its links, if any, were not"
+                " repaired" in done.stdout.splitlines(),
+                done.stdout,
+            ),
         ],
         "one link rewritten, line endings and the byte order mark kept; the latin-1 file left alone, named",
     )
@@ -1314,8 +1556,29 @@ def mover_refuses_cleanly() -> tuple[bool, str]:
     (consumer.root / ".git" / "index.lock").write_text("")
     locked = mover(consumer, OLD, "brand/new/dir/first.md")
     (consumer.root / ".git" / "index.lock").unlink()
+    # the path under a file, and git's own line naming the repository, are whole, escaped, over 80 characters
+    odd = moving_consumer()
+    odd.write(HOOK_RAW, note("# W\n", "note-w"))
+    odd.commit()
+    under_odd = mover(odd, OLD, HOOK_RAW + "/inside.md")
+    parent = H.scratch_dir()
+    in_folder = Consumer(parent / BS_DIR).build()
+    in_folder.write(OLD, ONE)
+    in_folder.commit()
+    (in_folder.root / ".git" / "index.lock").write_text("")
+    locked_odd = mover(in_folder, OLD, "brand/new/dir/first.md")
     return all_of(
         [
+            broken_first_line(
+                under_odd,
+                f"BROKEN: {HOOK_SHOWN} is a file, so nothing can lie inside it — fix: name a new path whose"
+                " directories exist or can be made",
+            ),
+            broken_first_line(
+                locked_odd,
+                f"BROKEN: git mv refused: fatal: Unable to create '{parent}/{BS_DIR_SHOWN}/.git/index.lock':"
+                " File exists. — fix: repair what git names, then run the move again",
+            ),
             broken_first_line(under_a_file, messages.v5_parent_is_a_file("docs/notes/two.md").render()),
             (locked.code == 1 and "BROKEN: git mv refused: " in locked.stderr, locked.stderr),
             (messages.v4_nothing_changed() in locked.stderr, "no closing line"),
@@ -1444,9 +1707,13 @@ def uncovered_write_that_breaks_a_covered_link() -> tuple[bool, str]:
 
 
 def a_misspelt_dial() -> tuple[bool, str]:
-    known = sorted(KEYS)
     result, _ = gate_on(VALID, dials_patch=own(heading_anchor="allow"))
-    return broken(result, messages.c5_unknown_key("heading_anchor", known))
+    return broken_typed(
+        result,
+        "BROKEN: constitution.yaml: const-referencing.heading_anchor is no dial of this module — fix: a"
+        " misspelt dial would be ignored in silence, so none is: write one of bare_ids, governed_only,"
+        " heading_anchors, lanes, local_paths, log_dir, mentions, severity, territories",
+    )
 
 
 def one_break_one_finding() -> tuple[bool, str]:
@@ -1498,13 +1765,38 @@ def scan_findings_in_line_order() -> tuple[bool, str]:
 
 def a_break_in_words_of_lychee() -> tuple[bool, str]:
     """A kind of break this module has no text of its own for is reported in the checker's words."""
+    plain = _lychee_words("Some new failure")
+    odd = _lychee_words("Some\nnew failure\\ " + "w" * 90, "x\\y" + "n" * 100 + ".md")  # both only point: cut
+    return all_of(
+        [
+            expect(
+                plain,
+                2,
+                messages.r5_unresolved(SOURCE, LINE, "/nowhere/x.md", "Some new failure").render(),
+                "stdout",
+            ),
+            expect(
+                odd,
+                2,
+                f"RED: {SOURCE}:{LINE}: link target /nowhere/x\\\\y"
+                + "n" * 68
+                + "… [115 characters] does not"
+                " resolve: Some\\nnew failure\\\\ " + "w" * 62 + "… [108 characters]",
+                "stdout",
+            ),
+        ],
+        "a break in the checker's words, shown as it said, cut when long, on one line",
+    )
+
+
+def _lychee_words(text: str, name: str = "x.md") -> Result:
     report = json.dumps(
         {
             "error_map": {
                 "SRC": [
                     {
-                        "url": "file:///nowhere/x.md",
-                        "status": {"text": "Some new failure"},
+                        "url": f"file:///nowhere/{name}",
+                        "status": {"text": text},
                         "span": {"line": 9, "column": 5},
                     }
                 ]
@@ -1523,8 +1815,7 @@ def a_break_in_words_of_lychee() -> tuple[bool, str]:
         report.replace("SRC", str(consumer.root / SOURCE)) + "\n"
     )  # read needs the line closed
     result = H.run_gate("", args=["--scan", str(consumer.root)], env=env)
-    finding = messages.r5_unresolved(SOURCE, LINE, "/nowhere/x.md", "Some new failure")
-    return expect(result, 2, finding.render(), "stdout")
+    return result
 
 
 def mover_entry_absences() -> tuple[bool, str]:
@@ -1808,11 +2099,65 @@ def mover_refuses_what_would_leave_coverage() -> tuple[bool, str]:
         env=merged,
         check=False,
     )
+    # a path the reader opens or goes to is whole, escaped; the new path as typed only says which one is wrong
+    odd = moving_consumer()
+    odd.write(HOOK_RAW, note("# W\n", "note-w"))
+    link = "docs/notes/l\nx\\y" + "k" * 80 + ".md"
+    (odd.root / link).symlink_to("one.md")
+    odd.commit()
+    odd_before = tree_state(odd)
+    odd_typed = [
+        (
+            mover(odd, OLD, "docs/n\nx\\y" + "d" * 80 + "/"),
+            "BROKEN: docs/n\\nx\\\\y"
+            + "d" * 70
+            + "… [91 characters] names a directory, not the file's new path"
+            " — fix: give the new path in full, file name included — a document is never moved 'into' a"
+            " directory",
+        ),
+        (
+            mover(odd, HOOK_RAW, "docs/notes/n\nx\\y" + "k" * 80 + ".txt"),
+            f"BROKEN: {HOOK_SHOWN} is a Markdown document and docs/notes/n\\nx\\\\y"
+            + "k" * 80
+            + ".txt is not"
+            " named as one — fix: keep the .md ending: a document that loses it is no longer checked, and its"
+            " own links are never repaired",
+        ),
+        (
+            mover(odd, link, NEW),
+            "BROKEN: docs/notes/l\\nx\\\\y"
+            + "k" * 80
+            + ".md is a symbolic link, not a document — fix: move the"
+            " document it points at; move the link itself with git mv, its target being relative to it",
+        ),
+    ]
+    parent = H.scratch_dir()
+    outside_odd = parent / ("o" + WEIRD_DIR)
+    outside_odd.mkdir()
+    nowhere_odd = subprocess.run(
+        [H.sh, str(MOVER), "a.md", "b.md"],
+        cwd=outside_odd,
+        capture_output=True,
+        text=True,
+        env=merged,
+        check=False,
+    )
+    odd_results = [broken_first_line(result, line) for result, line in odd_typed]
     return all_of(
         [
             *results,
             (tree_state(consumer) == before, "the tree changed"),
             (nowhere.returncode == 1 and "is not inside a git repository" in nowhere.stderr, nowhere.stderr),
+            *odd_results,
+            (tree_state(odd) == odd_before, "a refusal of a long path changed the tree"),
+            (
+                nowhere_odd.returncode == 1
+                and nowhere_odd.stderr.startswith(
+                    f"BROKEN: {parent}/o{WEIRD_DIR_SHOWN} is not inside a git repository — fix: run the mover"
+                    " from inside the repository\n"
+                ),
+                nowhere_odd.stderr,
+            ),
         ],
         "a directory, a name that is no Markdown, a link, no repository: each refused, the tree as it was",
     )
@@ -1883,9 +2228,95 @@ GOLDEN_TREE = {
 }
 
 
+def wide_tree_lines() -> list[str]:
+    """A scan of a document whose path, ids, targets and anchors run over 80 characters with a backslash:
+    every line typed by hand. A path is whole, escaped; an id, a link's target and a match only point:
+    cut at 80 with the cut said, then escaped; the anchor the fix tells the reader to write is whole."""
+    doc = "docs/notes/w\\x" + "z" * 80 + ".md"
+    shown = "docs/notes/w\\\\x" + "z" * 80 + ".md"
+    owner = "docs/notes/o\\y" + "q" * 80 + ".md"
+    target = "docs/notes/t\\z" + "t" * 80 + ".md"  # lychee reads its backslash as a separator: R7 only
+    long_target = "docs/notes/" + "t" * 100 + ".md"
+    doc_id = "i" * 100
+    lines = (
+        f"See `{doc_id}`.\n"
+        f"See [{doc_id}]({'l' * 100}.md).\n"
+        "See /Users/ann/" + "p" * 100 + " there.\n"
+        "See [e](an.md#K\\z" + "x" * 100 + ").\n"
+        "See [a](gone-" + "g" * 100 + ".md).\n"
+        "See [b](t.md#a%0Ab).\n"
+        "See [c](" + "t" * 100 + ".md#" + "f" * 100 + ").\n"
+        "See [d](t\\z" + "t" * 80 + ".md#first-section).\n"
+        "See [f](t%5Cz" + "t" * 80 + ".md#nope).\n"
+    )
+    files = {
+        TARGET: TARGET_TEXT,
+        target: TARGET_TEXT.replace("id: note-t\n", "id: note-tw\n"),
+        long_target: TARGET_TEXT.replace("id: note-t\n", "id: note-tl\n"),
+        doc: note(body(lines), "note-w"),
+        owner: note("# O\n", doc_id),
+        "docs/notes/" + "l" * 100 + ".md": note("# L\n", "long-t"),
+        "docs/notes/an.md": note('# An\n\n<a id="k\\z' + "x" * 100 + '"></a>\n', "note-an"),
+        "tools/w\\x" + "t" * 80 + ".sh": "see note-" + "n" * 100 + "\n",
+        "docs/notes/c\rd.md": note(body("See [g](gone-cr.md).\n"), "note-c"),  # a lone carriage return
+    }
+    out = scan_of(files, own(mentions=[{"pattern": r"\bnote-[a-z]+\b"}])).stdout.splitlines()
+    owner_shown = "docs/notes/o\\\\y" + "q" * 80 + ".md"
+    owner_rel = "o\\\\y" + "q" * 80 + ".md"
+    target_shown = "docs/notes/t\\\\z" + "t" * 80 + ".md"
+    cut_target = "t\\\\z" + "t" * 77  # a destination of over 80 characters, cut, its backslash escaped
+    wanted = (
+        f"RED: {shown}:9: document id '{doc_id}' stands in backticks and is no link",
+        f"  fix: write [{doc_id}]({owner_rel}) — the path from this document to {owner_shown}",
+        f"RED: {shown}:10: the link's text is document id '"
+        + "i" * 80
+        + "… [100 characters]', and its target "
+        + "l" * 80
+        + f"… [103 characters] is not that document ({owner_shown})",
+        f"RED: {shown}:11: '/Users/ann/" + "p" * 69 + "… [111 characters]' is a path on one machine",
+        f"RED: {shown}:12: an.md#K\\\\z"
+        + "x" * 71
+        + "… [109 characters] has no anchor 'K\\\\z"
+        + "x" * 100
+        + "' (it has 'k\\\\z"
+        + "x" * 100
+        + "': an anchor's case counts)",
+        "  fix: cite 'k\\\\z" + "x" * 100 + "' as it is written",
+        f"RED: {shown}:13: link target gone-" + "g" * 75 + "… [108 characters] does not exist",
+        f"RED: {shown}:14: t.md#a%0Ab has no anchor 'a\\nb'",
+        '  fix: cite an anchor the target carries, or add <a id="a\\nb"></a> on its own line before the cited'
+        " place in docs/notes/t.md",
+        f"RED: {shown}:15: " + "t" * 80 + "… [204 characters] has no anchor '" + "f" * 100 + "'",
+        '  fix: cite an anchor the target carries, or add <a id="'
+        + "f" * 100
+        + '"></a> on its own line before'
+        f" the cited place in {long_target}",
+        f"RED: {shown}:16: {cut_target}… [100 characters] resolves only through a heading — its generated"
+        " name, or a {#key} written after it — not through an anchor written in " + target_shown,
+        f"RED: {shown}:17: t%5Cz" + "t" * 75 + "… [93 characters] has no anchor 'nope'",
+        '  fix: cite an anchor the target carries, or add <a id="nope"></a> on its own line before the cited'
+        " place in " + target_shown,
+        "RED: docs/notes/c\\rd.md:9: link target gone-cr.md does not exist",
+        "RED: tools/w\\\\x"
+        + "t" * 80
+        + ".sh:1: 'note-"
+        + "n" * 75
+        + "… [105 characters]' names a document no covered document carries as its id",
+    )
+    prefixes = (
+        f"  fix: point it at {owner_rel}; after a move, every such link is repaired at once by: ",
+        '  fix: add <a id="<short fixed key>"></a> on its own line before that heading in '
+        + target_shown
+        + " and cite",
+    )
+    absent = [line for line in wanted if line not in out]
+    return absent + [p for p in prefixes if not any(line.startswith(p) for line in out)]
+
+
 def golden_tree_lines() -> tuple[bool, str]:
     out = tree_scan("See [a](gone.md), [b](t.md#nope), [c](t.md#K1) and [d](t.md#first-section).").stdout
     missing = [key for key, line in GOLDEN_TREE.items() if line not in out]
+    missing += wide_tree_lines()
     absent = scan_with(path_with(None)).stderr
     x1 = (
         "BROKEN: const-referencing needs lychee 0.24.2 or newer and found none on PATH — fix: install it"
@@ -1895,7 +2326,7 @@ def golden_tree_lines() -> tuple[bool, str]:
         missing.append("X1")
     return (
         not missing,
-        f"{len(GOLDEN_TREE) + 1} literal lines found" if not missing else f"not found: {missing}",
+        f"{len(GOLDEN_TREE) + 16} literal lines found" if not missing else f"not found: {missing}",
     )
 
 
@@ -2211,6 +2642,7 @@ SUBJECT = Subject(
     resolves_policies=False,
     bare_readme="1 document examined",
     judges_envelopes=False,
+    pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
 )
 
 if __name__ == "__main__":

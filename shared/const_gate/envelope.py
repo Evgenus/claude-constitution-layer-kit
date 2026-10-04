@@ -10,7 +10,9 @@ import yaml
 from . import messages
 from .model import DECLARATION, Envelope, EnvelopeState, FieldValue
 
-ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+# The kernel schema's pattern, end to end: `$` would let one trailing line break through, and an id
+# is echoed in messages and used as a name; `\Z` ends the match at the string's end whoever calls it.
+ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\Z")
 
 
 def parse_envelope(text: str) -> Envelope:
@@ -61,13 +63,13 @@ def string_field(envelope: Envelope, key: str, errors: list[str]) -> str | None:
 def document_id(envelope: Envelope) -> str | None:
     """The id, when the envelope is readable and the id well-formed."""
     doc_id = envelope.text("id")
-    return doc_id if doc_id is not None and ID_RE.match(doc_id) else None
+    return doc_id if doc_id is not None and ID_RE.fullmatch(doc_id) else None
 
 
 def declared_policy(envelope: Envelope) -> str | None:
     """The declaration, when well-formed; a malformed one is an envelope field error."""
     declared = envelope.text(DECLARATION)
-    return declared if declared is not None and ID_RE.match(declared) else None
+    return declared if declared is not None and ID_RE.fullmatch(declared) else None
 
 
 def id_of_text(text: str | None) -> str | None:

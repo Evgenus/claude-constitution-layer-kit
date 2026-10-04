@@ -13,12 +13,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey
 
 from .model import DEFAULT_WIDTH, MAX_WIDTH, Advice, Catalog, Key, NameToTake, Reach, Read
 
-DIALS = "severity, log_dir, catalogs"
 _ENTRY = (
     "{prefix: <lowercase letters and digits>, territory: [<patterns of the paths where the numbered"
     f" documents live>], width: {DEFAULT_WIDTH}}}"
@@ -67,9 +66,9 @@ def _name_to_take(catalog: Catalog, take: NameToTake) -> str:
         case Advice.CONTESTED:
             name = catalog.written(take.number or 0)
             return (
-                f"the name shows number {take.number}, and so does {take.other}: only one of the two can"
-                f" be {name}. The one that others already cite by that number keeps it — rename it with"
-                f" git mv to {name}-<slug>.md; the other takes one more than the highest the catalog has"
+                f"the name shows number {take.number}, and so does {escaped(take.other)}: only one of the"
+                f" two can be {name}. The one that others already cite by that number keeps it — rename it"
+                f" with git mv to {name}-<slug>.md; the other takes one more than the highest the catalog has"
                 f" held, which the scan's last line names; {_SLUG}; {_THEN_ID}"
             )
         case Advice.WIDE:
@@ -96,7 +95,7 @@ def _name_to_take(catalog: Catalog, take: NameToTake) -> str:
 def k1_name_without_form(rel: str, stem: str, catalog: Catalog, take: NameToTake) -> Finding:
     return Finding(
         Key.K1,
-        f"{rel}: file name '{shown(stem)}' is not {_form(catalog)}, the form of catalog"
+        f"{escaped(rel)}: file name '{echoed(stem)}' is not {_form(catalog)}, the form of catalog"
         f" '{catalog.prefix}', whose territory holds this file",
         "an item of a numbered kind is cited by its number, and a citation resolves only when the"
         " number stands in the file's name, in one form for the whole catalog",
@@ -107,9 +106,9 @@ def k1_name_without_form(rel: str, stem: str, catalog: Catalog, take: NameToTake
 def k4_number_taken(rel: str, catalog: Catalog, number: int, holder: str, take: NameToTake) -> Finding:
     return Finding(
         Key.K4,
-        f"{rel}: number {catalog.written(number)} is already carried by {holder}",
+        f"{escaped(rel)}: number {catalog.written(number)} is already carried by {escaped(holder)}",
         "a number cites one item; two items under one number make every reference to it ambiguous",
-        f"{holder} keeps its number; {_name_to_take(catalog, take)}",
+        f"{escaped(holder)} keeps its number; {_name_to_take(catalog, take)}",
     )
 
 
@@ -124,7 +123,7 @@ def k2_id_is_not_the_name(rel: str, stem: str, detail: str) -> Finding:
     a quoted string …` — or `k2_differs`: each already begins with the field's name."""
     return Finding(
         Key.K2,
-        f"{rel}: {detail}",
+        f"{escaped(rel)}: {detail}",
         _K2_WHY,
         f"set id: {stem} in the YAML block between the two '---' lines that open the file; if other"
         " documents already cite the id as it stands, rename the file to match the id instead",
@@ -132,7 +131,7 @@ def k2_id_is_not_the_name(rel: str, stem: str, detail: str) -> Finding:
 
 
 def k2_differs(value: str, stem: str) -> str:
-    return f"id '{shown(value)}' differs from the file name '{stem}'"
+    return f"id '{echoed(value)}' differs from the file name '{stem}'"
 
 
 def k2_no_envelope(rel: str, stem: str, state: EnvelopeState, yaml_detail: str = "") -> Finding:
@@ -142,12 +141,12 @@ def k2_no_envelope(rel: str, stem: str, state: EnvelopeState, yaml_detail: str =
             detail = "the file's YAML block is opened with '---' but never closed"
             fix = f"close the YAML block with a line holding only '---'; the block carries id: {stem}"
         case EnvelopeState.INVALID:
-            detail = f"the block between the '---' lines is not readable YAML: {yaml_detail}"
+            detail = f"the block between the '---' lines is not readable YAML: {escaped(yaml_detail)}"
             fix = f"repair the YAML between the '---' lines; the block carries id: {stem}"
         case _:
             detail = "the file does not start with a '---' line"
             fix = f"start the file with a YAML block between two '---' lines carrying at least id: {stem}"
-    return Finding(Key.K2, f"{rel}: id cannot be read: {detail}", _K2_WHY, fix)
+    return Finding(Key.K2, f"{escaped(rel)}: id cannot be read: {detail}", _K2_WHY, fix)
 
 
 # ---------------------------------------------------------------- finding: one catalog
@@ -157,7 +156,7 @@ def k3_number_shared(catalog: Catalog, number: int, paths: Sequence[str]) -> Fin
     return Finding(
         Key.K3,
         f"catalog '{catalog.prefix}': {len(paths)} items carry number {catalog.written(number)}:"
-        f" {', '.join(paths)}",
+        f" {', '.join(escaped(p) for p in paths)}",
         "a number cites one item; two items under one number make every reference to it ambiguous",
         "the item already on the main branch keeps its number; every other one takes a number of its"
         " own, one more than the highest the catalog has held: rename its file, set its id to the new"
@@ -206,7 +205,7 @@ def g1_skip_no_catalog() -> str:
 
 
 def g1_skip_not_an_item(rel: str, catalogs: Sequence[Catalog]) -> str:
-    return f"{rel} lies in no catalog's territory ({', '.join(c.prefix for c in catalogs)})"
+    return f"{escaped(rel)} lies in no catalog's territory ({', '.join(c.prefix for c in catalogs)})"
 
 
 # ---------------------------------------------------------------- session start: the visible zero (S1)
@@ -218,13 +217,13 @@ def s1_empty() -> str:
 
 def s1_no_dials(root: str) -> str:
     return (
-        f"{_ns()}: no {DIALS_FILE} in {root} — the catalog gate examines nothing there until the file"
-        f" lists a catalog in {_ns()}.catalogs"
+        f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the catalog gate examines nothing there until"
+        f" the file lists a catalog in {_ns()}.catalogs"
     )
 
 
 def s1_no_repo(cwd: str) -> str:
-    return f"{_ns()}: {cwd} is not inside a git repository — the catalog gate examines nothing there"
+    return f"{_ns()}: {escaped(cwd)} is not inside a git repository — the catalog gate examines nothing there"
 
 
 def s1_prefix() -> str:
@@ -236,14 +235,6 @@ def s1_could_not_run() -> str:
 
 
 # ---------------------------------------------------------------- this module's dial failures
-
-
-def c5_unknown_dial(key: str) -> Broken:
-    return Broken(
-        SharedKey.C5,
-        f"{DIALS_FILE}: {_ns()}.{shown(key)} is no dial of this module",
-        f"a misspelt dial would be ignored in silence, so none is: write one of {DIALS}",
-    )
 
 
 def c5_catalogs_not_a_list() -> Broken:
@@ -270,7 +261,7 @@ def entry_not_a_mapping() -> str:
 
 
 def entry_unknown_key(key: str) -> str:
-    return f"carries the key '{shown(key)}'; an entry holds prefix, territory and width, and nothing else"
+    return f"carries the key '{echoed(key)}'; an entry holds prefix, territory and width, and nothing else"
 
 
 def entry_prefix() -> str:

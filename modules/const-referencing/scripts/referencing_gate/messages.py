@@ -10,10 +10,8 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-
 from const_gate import identity
-from const_gate.messages import shown
+from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import ActKey, Key, ToolKey
@@ -38,18 +36,19 @@ def r1_bare_form(rel: str, line: int, match: str, names: str, fix: str) -> Findi
     """`names` and `fix` are the project's words, from its lane; the reason is never theirs."""
     return Finding(
         Key.R1,
-        f"{rel}:{line}: '{shown(match)}' cites {names} by a bare handle",
+        f"{escaped(rel)}:{line}: '{echoed(match)}' cites {echoed(names)} by a bare handle",
         _WHY_BARE,
-        f"write it as a link: {fix}",
+        f"write it as a link: {escaped(fix)}",
     )
 
 
 def r2_bare_id(rel: str, line: int, doc_id: str, owner: str, path_to_owner: str) -> Finding:
     return Finding(
         Key.R2,
-        f"{rel}:{line}: document id '{doc_id}' stands in backticks and is no link",
+        f"{escaped(rel)}:{line}: document id '{escaped(doc_id)}' stands in backticks and is no link",
         "an id names a document that can move: only a link lets a reader reach it and lets a move repair it",
-        f"write [{doc_id}]({path_to_owner}) — the path from this document to {owner}",
+        f"write [{escaped(doc_id)}]({escaped(path_to_owner)}) — the path from this document to"
+        f" {escaped(owner)}",
     )
 
 
@@ -58,10 +57,10 @@ def r3_id_link_astray(
 ) -> Finding:
     return Finding(
         Key.R3,
-        f"{rel}:{line}: the link's text is document id '{doc_id}', and its target {shown(target)} is not"
-        f" that document ({owner})",
+        f"{escaped(rel)}:{line}: the link's text is document id '{echoed(doc_id)}', and its target"
+        f" {echoed(target)} is not that document ({escaped(owner)})",
         "a link that shows one document's id and opens another misleads every reader who trusts the text",
-        f"point it at {path_to_owner}; after a move, every such link is repaired at once by:"
+        f"point it at {escaped(path_to_owner)}; after a move, every such link is repaired at once by:"
         f" {mover_command('--ids')}",
     )
 
@@ -69,7 +68,7 @@ def r3_id_link_astray(
 def r4_one_machine(rel: str, line: int, match: str) -> Finding:
     return Finding(
         Key.R4,
-        f"{rel}:{line}: '{shown(match)}' is a path on one machine",
+        f"{escaped(rel)}:{line}: '{echoed(match)}' is a path on one machine",
         "it resolves on the machine it was written on and nowhere else",
         "link a file of this repository by its relative path, or cite the public address the fact was"
         " verified at, or drop the reference",
@@ -86,7 +85,7 @@ _WHY_BROKEN = (
 def r5_no_target(rel: str, line: int, destination: str) -> Finding:
     return Finding(
         Key.R5,
-        f"{rel}:{line}: link target {shown(destination)} does not exist",
+        f"{escaped(rel)}:{line}: link target {echoed(destination)} does not exist",
         _WHY_BROKEN,
         "correct the path; if the target was moved by hand, repair every link to it by:"
         f" {mover_command('--moved', '<old path>', '<new path>')}; if it was deleted, remove the link and"
@@ -98,7 +97,7 @@ def r5_unresolved(rel: str, line: int, destination: str, words: str) -> Finding:
     """A break the link checker reports in words this module has no text of its own for."""
     return Finding(
         Key.R5,
-        f"{rel}:{line}: link target {shown(destination)} does not resolve: {shown(words)}",
+        f"{escaped(rel)}:{line}: link target {echoed(destination)} does not resolve: {echoed(words)}",
         _WHY_BROKEN,
         "correct the link so that it names a file of this repository by its relative path",
     )
@@ -107,16 +106,16 @@ def r5_unresolved(rel: str, line: int, destination: str, words: str) -> Finding:
 def r6_no_anchor(
     rel: str, line: int, destination: str, fragment: str, target: str, other_case: str | None
 ) -> Finding:
-    hint = f" (it has '{other_case}': an anchor's case counts)" if other_case is not None else ""
+    hint = f" (it has '{escaped(other_case)}': an anchor's case counts)" if other_case is not None else ""
     fix = (
-        f"cite '{other_case}' as it is written"
+        f"cite '{escaped(other_case)}' as it is written"
         if other_case is not None
-        else f'cite an anchor the target carries, or add <a id="{shown(fragment)}"></a> on its own line'
-        f" before the cited place in {target}"
+        else f'cite an anchor the target carries, or add <a id="{escaped(fragment)}"></a> on its own line'
+        f" before the cited place in {escaped(target)}"
     )
     return Finding(
         Key.R6,
-        f"{rel}:{line}: {shown(destination)} has no anchor '{shown(fragment)}'{hint}",
+        f"{escaped(rel)}:{line}: {echoed(destination)} has no anchor '{escaped(fragment)}'{hint}",
         _WHY_BROKEN,
         fix,
     )
@@ -125,11 +124,12 @@ def r6_no_anchor(
 def r7_heading_anchor(rel: str, line: int, destination: str, target: str) -> Finding:
     return Finding(
         Key.R7,
-        f"{rel}:{line}: {shown(destination)} resolves only through a heading — its generated name, or a"
-        f" {{#key}} written after it — not through an anchor written in {target}",
+        f"{escaped(rel)}:{line}: {echoed(destination)} resolves only through a heading — its generated name,"
+        f" or a {{#key}} written after it — not through an anchor written in {escaped(target)}",
         "a generated name changes when the heading is reworded, and every link through it breaks unseen",
-        f'add <a id="<short fixed key>"></a> on its own line before that heading in {target} and cite the'
-        f" key; a repository whose links go through headings sets {_ns()}: {{heading_anchors: allow}} in"
+        f'add <a id="<short fixed key>"></a> on its own line before that heading in {escaped(target)} and'
+        f" cite the key; a repository whose links go through headings sets {_ns()}:"
+        f" {{heading_anchors: allow}} in"
         f" {DIALS_FILE} until they are converted",
     )
 
@@ -137,7 +137,7 @@ def r7_heading_anchor(rel: str, line: int, destination: str, target: str) -> Fin
 def r8_unknown_mention(rel: str, line: int, match: str) -> Finding:
     return Finding(
         Key.R8,
-        f"{rel}:{line}: '{shown(match)}' names a document no covered document carries as its id",
+        f"{escaped(rel)}:{line}: '{echoed(match)}' names a document no covered document carries as its id",
         "outside Markdown no link checker follows a name, so it dangles unseen once the document is"
         " renamed or deleted",
         "correct the name, or drop the mention and state the rule in words",
@@ -158,7 +158,7 @@ def x1_no_lychee(floor: str) -> Broken:
 
 
 def x2_lychee_too_old(floor: str, said: str) -> Broken:
-    found = f"found '{shown(said)}'" if said else "its version could not be read"
+    found = f"found '{echoed(said)}'" if said else "its version could not be read"
     return Broken(
         ToolKey.X2,
         f"{_ns()} needs lychee {floor} or newer, {found}",
@@ -168,7 +168,7 @@ def x2_lychee_too_old(floor: str, said: str) -> Broken:
 
 
 def x3_no_report(what: str, first_line: str) -> Broken:
-    said = f" ({shown(first_line)})" if first_line else ""
+    said = f" ({escaped(first_line)})" if first_line else ""
     return Broken(
         ToolKey.X3,
         f"lychee gave no report: {what}{said}",
@@ -186,20 +186,20 @@ def g1_covered() -> str:
 
 
 def g1_skip_not_covered(rel: str) -> str:
-    return f"{rel} is not covered ({_ns()}.territories)"
+    return f"{escaped(rel)} is not covered ({_ns()}.territories)"
 
 
 def f9_after_write(rel: str, links: int, findings: int, shown_first: int | None) -> str:
     """The count line of the check after a write: the whole tree is examined, and the findings
     that involve the written document are reported — all, or the first so many."""
     cut = f" — the first {shown_first} shown" if shown_first is not None else ""  # by count or by size
-    return f"{links} link(s) of the whole tree examined, {findings} finding(s) involve {rel}{cut}"
+    return f"{links} link(s) of the whole tree examined, {findings} finding(s) involve {escaped(rel)}{cut}"
 
 
 def c12_event(name: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"hook input names the event '{shown(name)}', which this gate is not wired to",
+        f"hook input names the event '{echoed(name)}', which this gate is not wired to",
         "wire the gate to PreToolUse and PostToolUse on Write|Edit, as the plugin's hooks file does; to"
         " check a repository by hand run it with --scan [<dir>]",
     )
@@ -218,13 +218,6 @@ def f9_scan_tail(documents: int, links: int, scanned: int, lanes: int, mentions:
 
 def _c5(detail: str, fix: str) -> Broken:
     return Broken(SharedKey.C5, f"{DIALS_FILE}: {detail}", fix)
-
-
-def c5_unknown_key(key: str, known: Sequence[str]) -> Broken:
-    return _c5(
-        f"{_ns()}.{shown(key)} is no dial of this module",
-        f"a misspelt dial would be ignored in silence, so none is: write one of {', '.join(known)}",
-    )
 
 
 def c5_territories() -> Broken:
@@ -280,7 +273,7 @@ def mention_not_a_mapping() -> str:
 
 
 def mention_unknown_key(key: str) -> str:
-    return f"carries the key '{shown(key)}'; a mention holds pattern and files, and nothing else"
+    return f"carries the key '{echoed(key)}'; a mention holds pattern and files, and nothing else"
 
 
 def mention_files() -> str:
@@ -306,7 +299,7 @@ def lane_not_a_mapping() -> str:
 
 
 def lane_unknown_key(key: str) -> str:
-    return f"carries the key '{shown(key)}'; a lane holds pattern, names, fix and home, and nothing else"
+    return f"carries the key '{echoed(key)}'; a lane holds pattern, names, fix and home, and nothing else"
 
 
 def lane_needs(field: str) -> str:
@@ -319,7 +312,7 @@ def lane_home() -> str:
 
 def lane_pattern(error: str) -> str:
     return (
-        f"has a pattern that is no regular expression ({shown(error)}) — in YAML write it in single"
+        f"has a pattern that is no regular expression ({escaped(error)}) — in YAML write it in single"
         " quotes, where a backslash stands for itself"
     )
 
@@ -344,17 +337,17 @@ def mover_command(*arguments: str) -> str:
 
 
 def v1_moved(old: str, new: str) -> str:
-    return f"MOVED: {old} → {new}"
+    return f"MOVED: {escaped(old)} → {escaped(new)}"
 
 
 def v2_rewrote(rel: str, links: int) -> str:
-    return f"REWROTE: {rel}: {links} link(s)"
+    return f"REWROTE: {escaped(rel)}: {links} link(s)"
 
 
 def v3_mention(rel: str, line: int, text: str) -> str:
     return (
-        f"MENTION: {rel}:{line}: '{shown(text)}' names the old path outside a link — read it and decide;"
-        " nothing was changed"
+        f"MENTION: {escaped(rel)}:{line}: '{echoed(text)}' names the old path outside a link — read it"
+        " and decide; nothing was changed"
     )
 
 
@@ -377,7 +370,7 @@ def v4_stopped_midway() -> str:
 
 
 def v2_left_alone(rel: str) -> str:
-    return f"LEFT ALONE: {rel} is not UTF-8 text — its links, if any, were not repaired"
+    return f"LEFT ALONE: {escaped(rel)} is not UTF-8 text — its links, if any, were not repaired"
 
 
 _USAGE = (
@@ -387,7 +380,7 @@ _USAGE = (
 
 
 def v5_usage(detail: str) -> Broken:
-    return Broken(ActKey.V5, f"misinvocation: {detail}", f"run it with {_USAGE}")
+    return Broken(ActKey.V5, f"misinvocation: {echoed(detail)}", f"run it with {_USAGE}")
 
 
 def v5_refused(what: str, fix: str) -> Broken:
@@ -396,56 +389,61 @@ def v5_refused(what: str, fix: str) -> Broken:
 
 def v5_not_listed(old: str) -> Broken:
     return v5_refused(
-        f"{old} is not a file git lists", "name a file of this repository, by its path from where you stand"
+        f"{escaped(old)} is not a file git lists",
+        "name a file of this repository, by its path from where you stand",
     )
 
 
 def v5_target_exists(new: str) -> Broken:
-    return v5_refused(f"{new} already exists", "choose a path that is free, or move what lies there first")
+    return v5_refused(
+        f"{escaped(new)} already exists", "choose a path that is free, or move what lies there first"
+    )
 
 
 def v5_same(old: str) -> Broken:
-    return v5_refused(f"{old} would move onto itself", "name two different paths")
+    return v5_refused(f"{escaped(old)} would move onto itself", "name two different paths")
 
 
 def v5_not_moved(old: str, new: str) -> Broken:
     return v5_refused(
-        f"--moved says the move was made by hand, yet {old} still exists or {new} does not",
+        f"--moved says the move was made by hand, yet {escaped(old)} still exists or {escaped(new)} does not",
         "to make the move and repair the links in one act, run it without --moved",
     )
 
 
 def v5_outside(path: str) -> Broken:
-    return v5_refused(f"{shown(path)} lies outside the repository", "name a path inside it")
+    return v5_refused(f"{echoed(path)} lies outside the repository", "name a path inside it")
 
 
 def v5_git_mv(first_line: str) -> Broken:
     return v5_refused(
-        f"git mv refused: {shown(first_line)}", "repair what git names, then run the move again"
+        f"git mv refused: {escaped(first_line)}", "repair what git names, then run the move again"
     )
 
 
 def v5_no_repository(where: str) -> Broken:
-    return v5_refused(f"{where} is not inside a git repository", "run the mover from inside the repository")
+    return v5_refused(
+        f"{escaped(where)} is not inside a git repository", "run the mover from inside the repository"
+    )
 
 
 def v5_names_a_directory(new: str) -> Broken:
     return v5_refused(
-        f"{shown(new)} names a directory, not the file's new path",
+        f"{echoed(new)} names a directory, not the file's new path",
         "give the new path in full, file name included — a document is never moved 'into' a directory",
     )
 
 
 def v5_is_a_link(old: str) -> Broken:
     return v5_refused(
-        f"{old} is a symbolic link, not a document",
+        f"{escaped(old)} is a symbolic link, not a document",
         "move the document it points at; move the link itself with git mv, its target being relative to it",
     )
 
 
 def v5_leaves_markdown(old: str, new: str) -> Broken:
     return v5_refused(
-        f"{old} is a Markdown document and {new} is not named as one",
+        f"{escaped(old)} is a Markdown document and {escaped(new)} is not named as one",
         "keep the .md ending: a document that loses it is no longer checked, and its own links are"
         " never repaired",
     )
@@ -453,7 +451,7 @@ def v5_leaves_markdown(old: str, new: str) -> Broken:
 
 def v5_parent_is_a_file(path: str) -> Broken:
     return v5_refused(
-        f"{path} is a file, so nothing can lie inside it",
+        f"{escaped(path)} is a file, so nothing can lie inside it",
         "name a new path whose directories exist or can be made",
     )
 
@@ -468,6 +466,6 @@ def v5_no_root_policy() -> Broken:
 
 def v5_no_dials(root: str) -> Broken:
     return v5_refused(
-        f"no {DIALS_FILE} in {root}: the check that proves a move cannot run",
+        f"no {DIALS_FILE} in {escaped(root)}: the check that proves a move cannot run",
         f"create {DIALS_FILE} at the repository's top — an empty mapping, {{}}, is enough",
     )

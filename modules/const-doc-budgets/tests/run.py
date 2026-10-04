@@ -48,7 +48,7 @@ from harness import (  # noqa: E402
     broken_first_line,
     event_json,
 )
-from shared_items import Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the shared texts the items compare are built for this gate's name
 H = Harness(SCRIPTS, "check-budgets.sh", "check-budgets.py", start.GATE.namespace)
@@ -84,6 +84,16 @@ def b1(rel: str, length: str, excess: str, most: str = "100", name: str = "notes
         " reason: add to const-doc-budgets.departures an entry {paths: [<the file, or a pattern of the"
         f" documents that stand>], allow: [{name}], reason: <why they stand, in one line>}}",
     )
+
+
+# a file name of over 80 characters holding a line break and a backslash: the real name, and the line the
+# gate shows for it, typed by hand — the whole name, since a path is what the reader opens
+WEIRD = "docs/notes/w\nx\\y" + "z" * 80 + ".md"
+WEIRD_SHOWN = "docs/notes/w\\nx\\\\y" + "z" * 80 + ".md"
+WEIRD_OTHER = "docs/other/w\nx\\y" + "z" * 80 + ".md"
+WEIRD_OTHER_SHOWN = "docs/other/w\\nx\\\\y" + "z" * 80 + ".md"
+WEIRD_DIR = "w\nx\\y" + "d" * 80  # a folder name, for a root and a clone
+WEIRD_DIR_SHOWN = "w\\nx\\\\y" + "d" * 80
 
 
 def doc(length: int, letter: str = "a") -> str:
@@ -249,11 +259,21 @@ def t5() -> tuple[bool, str]:
         "note: docs/guide.md: 60 characters, over the ceiling 'guide' of 50 by 10 — reported, not red, while"
         " the ceiling's level is warning; shorten it or split it before the ceiling blocks"
     )
+    long_over, _ = gate_on(Write(WEIRD, doc(160)), own(ceilings=[{**NOTES, "level": "warning"}]))
+    long_note = (  # the path whole, its break and backslash escaped, though it is over 80 characters
+        "note: " + WEIRD_SHOWN + ": 160 characters, over the ceiling 'notes' of 100 by 60 — reported, not"
+        " red, while the ceiling's level is warning; shorten it or split it before the ceiling blocks"
+    )
     return all_of(
         exactly(
             context(over), 0, note + "\n" + green("60 characters against the ceiling 'guide' of 50").rstrip()
         ),
         exactly(under, 0, green("50 characters against the ceiling 'guide' of 50")),
+        exactly(
+            context(long_over),
+            0,
+            long_note + "\n" + green("160 characters against the ceiling 'notes' of 100").rstrip(),
+        ),
     )
 
 
@@ -262,8 +282,11 @@ def t6() -> tuple[bool, str]:
     red_root = prepared(files={"docs/notes/c.md": doc(120)})
     green_root = prepared(files={"docs/notes/c.md": CRLF_GREEN})
     finding = b1("docs/notes/c.md", "120", "20")
+    weird_root = prepared(files={WEIRD: doc(120)})
+    weird = b1(WEIRD_SHOWN, "120", "20")  # the path whole and escaped, in the headline and the count line
     return all_of(
         exactly(after_write(red_root, "docs/notes/c.md"), 2, "", block(finding, "docs/notes/c.md")),
+        exactly(after_write(weird_root, WEIRD), 2, "", block(weird, WEIRD_SHOWN)),
         exactly(
             after_write(green_root, "docs/notes/c.md"),
             0,
@@ -299,12 +322,13 @@ def t7() -> tuple[bool, str]:
     )
 
 
-OVERLAP = (
-    "BROKEN: constitution.yaml: const-doc-budgets.ceilings 'notes' and 'wide' both hold docs/notes/a.md —"
-    " fix: a document is held to one ceiling at most, so that its number never depends on the order of the"
+OVERLAP_HEAD = "BROKEN: constitution.yaml: const-doc-budgets.ceilings 'notes' and 'wide' both hold "
+OVERLAP_FIX = (
+    " — fix: a document is held to one ceiling at most, so that its number never depends on the order of the"
     " list: narrow one entry's paths, or take the file out of one with a negated pattern; a document that"
     " must stand over its ceiling takes a departure"
 )
+OVERLAP = OVERLAP_HEAD + "docs/notes/a.md" + OVERLAP_FIX
 
 
 def t8() -> tuple[bool, str]:
@@ -320,8 +344,10 @@ def t8() -> tuple[bool, str]:
     }  # file patterns, so the negation takes the files out
     fine, _ = gate_on(Write("docs/notes/a.md", doc(10)), own(ceilings=[NOTES, carved]))
     outside, _ = gate_on(Write("docs/policies/x.md", doc(10)), both)  # held by `wide` alone
+    weird, _ = gate_on(Write(WEIRD, doc(10)), both)
     return all_of(
         broken(hook, OVERLAP),
+        broken(weird, OVERLAP_HEAD + WEIRD_SHOWN + OVERLAP_FIX),  # the path whole, escaped, not cut at 80
         broken(scan(root), OVERLAP),
         exactly(fine, 0, green("10 characters against the ceiling 'notes' of 100")),
         exactly(outside, 0, green("10 characters against the ceiling 'wide' of 500")),
@@ -375,6 +401,27 @@ def t10() -> tuple[bool, str]:
             " none is: write one of severity, log_dir, ceilings, departures",
         ),
         (
+            own(**{"bad\nkey": 1}),
+            C5 + "bad\\nkey is no dial of this module — fix: a misspelt dial would be ignored in silence, so"
+            " none is: write one of severity, log_dir, ceilings, departures",
+        ),
+        (
+            own(ceilings=[{**NOTES, "a\nb": 3}]),
+            C5 + "ceilings entry 1: 'a\\nb' is no field of an entry" + ENTRY_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "a\nb": 3}]),
+            C5 + "departures entry 1: 'a\\nb' is no field of an entry" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "allow": ["x\ny"]}]),
+            C5 + "departures entry 1: 'x\\ny' names no ceiling" + DEP_FIX,
+        ),
+        (
+            own(departures=[{**LIFT, "reason": "one\ntwo\n"}]),
+            C5 + "departures entry 1: reason must be one non-empty line saying why" + DEP_FIX,
+        ),
+        (
             own(ceilings={"notes": 1}),
             C5 + 'ceilings must be a list of entries — fix: write one entry per "- " item with the fields'
             " name, paths, max, level and window; leave the key out, or write [], for no ceiling",
@@ -394,9 +441,10 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(ceilings=[{**NOTES, "paths": ["#docs/**"]}]),
-            C5 + "ceilings entry 1 paths holds '#docs/**', which git would read as a comment or as two"
-            " lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes,"
-            " as \\\\# in double quotes, and remove a line break",
+            C5 + "ceilings entry 1 paths holds a pattern git would not read as one: '#docs/**' — fix: a"
+            " pattern may not start with '#' (a comment to git) nor contain a line break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break",
         ),
         (
             own(ceilings=[{**NOTES, "max": 0}]),
@@ -462,9 +510,10 @@ def t10() -> tuple[bool, str]:
         ),
         (
             own(departures=[{**LIFT, "paths": ["#docs/**"]}]),
-            C5 + "departures entry 1 paths holds '#docs/**', which git would read as a comment or as two"
-            " lines — fix: patterns are gitignore syntax: escape a leading # as \\# bare or in single quotes,"
-            " as \\\\# in double quotes, and remove a line break",
+            C5 + "departures entry 1 paths holds a pattern git would not read as one: '#docs/**' — fix: a"
+            " pattern may not start with '#' (a comment to git) nor contain a line break; "
+            "escape a leading # as \\# bare or in single quotes, "
+            "as \\\\# in double quotes, and remove a line break",
         ),
         (
             own(departures=[{"paths": ["docs/notes/**"], "allow": ["notes"], "reason": ""}]),
@@ -474,6 +523,15 @@ def t10() -> tuple[bool, str]:
         ),
     ]
     checks = [broken(gate_on(Write("docs/notes/a.md", doc(10)), patch)[0], line) for patch, line in pairs]
+    block_scalar = own(departures=[{**LIFT, "reason": "stands\n"}])  # what `reason: |` gives: trimmed, taken
+    trimmed, _ = gate_on(Write("docs/notes/a.md", doc(10)), block_scalar)
+    checks.append(
+        exactly(
+            trimmed,
+            0,
+            green("10 characters; the ceiling 'notes' is lifted by const-doc-budgets.departures entry 1"),
+        )
+    )
     return all_of(*checks)
 
 
@@ -512,7 +570,14 @@ def t12() -> tuple[bool, str]:
     outside, _ = gate_on(Write("README.md", doc(500)))
     root = prepared({NAMESPACE: {}}, files={"docs/notes/a.md": doc(500)})
     skip = "GREEN: const-doc-budgets: 0 documents examined — no ceiling is set (const-doc-budgets.ceilings)\n"
+    weird_outside, _ = gate_on(Write(WEIRD_OTHER, doc(500)))
     return all_of(
+        exactly(
+            weird_outside,
+            0,
+            "GREEN: const-doc-budgets: 0 documents examined — " + WEIRD_OTHER_SHOWN + " is under no ceiling"
+            " (const-doc-budgets.ceilings)\n",
+        ),
         exactly(empty, 0, skip),
         exactly(absent, 0, skip),
         exactly(
@@ -566,7 +631,19 @@ def t13() -> tuple[bool, str]:
         "RED: 1 finding(s) — 4 document(s) measured under 3 ceiling(s) and 3 departure(s), 8 Markdown file(s)"
         " scanned\n"
     )
-    return exactly(scan(root), 2, wanted)
+    long_pattern = "docs\\gone/" + "p" * 100  # 110 characters with a backslash: a pattern only points
+    cut = prepared(
+        own(departures=[{"paths": [long_pattern], "allow": ["notes"], "reason": "moved away"}]),
+    )
+    cut_wanted = (
+        "note: const-doc-budgets.departures entry 1 (docs\\\\gone/" + "p" * 70 + "… [110 characters]) lifts"
+        " nothing: it matches no document a ceiling it names holds; the documents were deleted or moved, or"
+        " the pattern or the names are wrong\n"
+        "note: ceiling 'notes' — 100 characters, error, window 2026-08-01 to 2026-09-01: no document\n"
+        "GREEN: const-doc-budgets: 0 document(s) measured under 1 ceiling(s) and 1 departure(s), 3 Markdown"
+        " file(s) scanned\n"
+    )
+    return all_of(exactly(scan(root), 2, wanted), exactly(scan(cut), 0, cut_wanted))
 
 
 def history_repo(dates: Sequence[tuple[str, dict[str, str | None]]]) -> Path:
@@ -636,7 +713,19 @@ def t14() -> tuple[bool, str]:
         "const-doc-budgets: history since 2026-08-13 — 1 commit(s) of the first-parent line read, 1 day(s)"
         " with data, 1 ceiling(s); a report, nothing judged\n"
     )
+    weird = history_repo([("2026-08-20T09:00:00+0000", {WEIRD: doc(50)})])
+    weird_wanted = (  # the longest document's path whole, escaped, in the day line and the window line
+        "2026-08-20 notes: 1 document(s) at the day's last commit, the longest of the day "
+        + WEIRD_SHOWN
+        + " at"
+        " 50\n"
+        "window notes: 2026-08-20 to 2026-08-20, a span of 0 day(s), the longest " + WEIRD_SHOWN + " at 50;"
+        " plus 10 % rounded up to 1,000: 1,000; set now: 100\n"
+        "const-doc-budgets: history since 2026-08-20 — 1 commit(s) of the first-parent line read, 1 day(s)"
+        " with data, 1 ceiling(s); a report, nothing judged\n"
+    )
     return all_of(
+        exactly(scan(weird, "--since", "2026-08-20"), 0, weird_wanted),
         exactly(scan(root, "--since", "2026-08-11"), 0, wanted),
         exactly(scan(root, "--since", "2026-08-01"), 0, before),
         exactly(scan(root, "--since", "2026-08-13"), 0, after),
@@ -667,6 +756,21 @@ def t22() -> tuple[bool, str]:
     (fake / "git").chmod(0o755)
     failing = H.run_gate(
         "", args=["--scan", str(gone), "--since", "2026-08-20"], env={"PATH": f"{fake}:{os.environ['PATH']}"}
+    )
+    odd = H.scratch_dir()  # git's diagnosis holds a backslash and runs over 80 characters
+    (odd / "git").write_text(
+        "#!/bin/sh\n"
+        'for a in "$@"; do if [ "$a" = log ]; then printf \'%s\\n\' "fatal: a\\b '
+        + "w"
+        * 90
+        + '" >&2; exit 128; fi;'
+        " done\n"
+        f"exec '{real}' \"$@\"\n",
+        encoding="utf-8",
+    )
+    (odd / "git").chmod(0o755)
+    failing_odd = H.run_gate(
+        "", args=["--scan", str(gone), "--since", "2026-08-20"], env={"PATH": f"{odd}:{os.environ['PATH']}"}
     )
     return all_of(
         exactly(
@@ -701,6 +805,11 @@ def t22() -> tuple[bool, str]:
             "BROKEN: git could not read the history: fatal: simulated failure — fix: repair what git names in"
             " the message, then check by hand: git log --first-parent -1",
         ),
+        broken(  # the diagnosis whole: its backslash doubled, none of its 90 letters cut
+            failing_odd,
+            "BROKEN: git could not read the history: fatal: a\\\\b " + "w" * 90 + " — fix: repair what git"
+            " names in the message, then check by hand: git log --first-parent -1",
+        ),
     )
 
 
@@ -728,7 +837,28 @@ def t23() -> tuple[bool, str]:
     second = {"paths": ["docs/notes/frozen-*.md"], "allow": ["notes"], "reason": "the second entry"}
     first = {**second, "paths": ["docs/notes/*.md"], "reason": "the first entry"}
     twice, _ = gate_on(Write("docs/notes/frozen-1.md", doc(300)), own(departures=[first, second]))
+    longest = prepared(files={WEIRD: doc(90)})
+    lifted = prepared(
+        own(departures=[{"paths": ["docs/notes/frozen-*.md"], "allow": ["notes"], "reason": "stands"}]),
+        files={WEIRD: doc(90), "docs/notes/frozen-1.md": doc(300)},
+    )
     return all_of(
+        exactly(  # with a document lifted, the longest of the others is named whole and escaped too
+            scan(lifted),
+            0,
+            "note: ceiling 'notes' — 100 characters, error, window 2026-08-01 to 2026-09-01: 2 document(s),"
+            " 1 lifted by a departure, the longest of the others " + WEIRD_SHOWN + " at 90, 10 to spare\n"
+            "GREEN: const-doc-budgets: 2 document(s) measured under 1 ceiling(s) and 1 departure(s), 5"
+            " Markdown file(s) scanned\n",
+        ),
+        exactly(  # the longest document's path whole in the ceiling's note, escaped, over 80 characters
+            scan(longest),
+            0,
+            "note: ceiling 'notes' — 100 characters, error, window 2026-08-01 to 2026-09-01: 1 document(s),"
+            " the longest " + WEIRD_SHOWN + " at 90, 10 to spare\n"
+            "GREEN: const-doc-budgets: 1 document(s) measured under 1 ceiling(s) and 0 departure(s), 4"
+            " Markdown file(s) scanned\n",
+        ),
         exactly(scan(root), 0, wanted),
         (
             "the longest of the day docs/notes/a.md at 70" in scan(tie, "--since", "2026-08-20").stdout,
@@ -753,23 +883,39 @@ def t15() -> tuple[bool, str]:
         capture_output=True,
     )
     shallow = scan(clone, "--since", "2026-08-11")
+    weird_parent = H.scratch_dir()
+    weird_clone = weird_parent / WEIRD_DIR
+    subprocess.run(
+        ["git", "clone", "-q", "--depth", "1", f"file://{source}", str(weird_clone)],
+        check=True,
+        capture_output=True,
+    )
+    weird_shallow = scan(weird_clone, "--since", "2026-08-11")
     bad_date = scan(source, "--since", "2026-8-11")
     week = scan(source, "--since", "2026-W33-2")  # a form the standard library would take
+    broken_up = scan(source, "--since", "2026\n" + "x" * 90)  # 95 characters, a break inside the first 80
+    slashed = scan(source, "--since", "2026\\x")  # a backslash, shown escaped
     alone = H.run_gate("", args=["--since", "2026-08-11"])
     date_line = (
         "BROKEN: misinvocation: --since takes a date written YYYY-MM-DD, not '{v}' — fix: run --scan [<dir>]"
         " --since <YYYY-MM-DD>, the first day of the window to report"
     )
+    shallow_fix = (
+        " is a shallow clone, so its history holds only the last commits — fix: a report on days it cannot"
+        " see would say they held nothing: run git fetch --unshallow, or in CI check out with the whole"
+        " history (fetch-depth: 0), then run the report again"
+    )
     return all_of(
-        broken(
-            shallow,
-            f"BROKEN: {os.path.realpath(clone)} is a shallow clone, so its history holds only the last"
-            " commits — fix: a report on days it cannot see would say they held nothing: run git fetch"
-            " --unshallow, or in CI check out with the whole history (fetch-depth: 0), then run the report"
-            " again",
+        broken(shallow, f"BROKEN: {os.path.realpath(clone)}" + shallow_fix),
+        broken(  # the folder's path whole, over 80 characters, its break and backslash escaped
+            weird_shallow, f"BROKEN: {os.path.realpath(weird_parent)}/" + WEIRD_DIR_SHOWN + shallow_fix
         ),
         broken(bad_date, date_line.format(v="2026-8-11")),
         broken(week, date_line.format(v="2026-W33-2")),
+        # the value only points: cut at 80 characters with the cut said, its break and backslash escaped,
+        # the expected text typed by hand, not built by the shared function the message calls
+        broken(broken_up, date_line.format(v="2026\\n" + "x" * 75 + "… [95 characters]")),
+        broken(slashed, date_line.format(v="2026\\\\x")),
         broken(
             alone,
             "BROKEN: misinvocation: --since applies to --scan — fix: run with no arguments (hook) or --scan"
@@ -814,6 +960,7 @@ def t18() -> tuple[bool, str]:
     event that carries no file — a session start sent to the gate — is the shared visible skip."""
     root = prepared()
     result = H.run_gate(event_json(root, Write("docs/notes/a.md", doc(10)), event="Notification"))
+    odd = H.run_gate(event_json(root, Write("docs/notes/a.md", doc(10)), event="N\nx\\y" + "e" * 90))
     start = H.run_gate(
         json.dumps(
             {"hook_event_name": "SessionStart", "session_id": "s", "cwd": str(root), "source": "startup"}
@@ -825,6 +972,12 @@ def t18() -> tuple[bool, str]:
             "BROKEN: this check is wired to a tool event before or after a write, not to 'Notification' —"
             " fix:"
             " in hooks.json wire it to PostToolUse on Write|Edit, or run it with --scan [<dir>]",
+        ),
+        broken(  # an event name only points: cut at 80 characters with the cut said, then escaped
+            odd,
+            "BROKEN: this check is wired to a tool event before or after a write, not to"
+            " 'N\\nx\\\\y" + "e" * 75 + "… [95 characters]' — fix: in hooks.json wire it to PostToolUse on"
+            " Write|Edit, or run it with --scan [<dir>]",
         ),
         exactly(
             start, 0, "GREEN: const-doc-budgets: 0 documents examined — tool '' carries no file to examine\n"
@@ -851,31 +1004,69 @@ def session_json(root: Path) -> str:
     )
 
 
+def colon_dir() -> Path:
+    """A fresh directory named `a:b`: a path holding ':' must be said whole by the session printer."""
+    path = H.scratch_dir() / "a:b"
+    path.mkdir()
+    return path
+
+
+def colon_root() -> Path:
+    """A repository root whose own name holds ':', its dials file removed."""
+    consumer = Consumer(colon_dir()).build()
+    (consumer.root / "constitution.yaml").unlink()
+    return consumer.root
+
+
 def t19() -> tuple[bool, str]:
     """Nothing while a ceiling is set; the zero line typed by hand when the dial is empty or absent, of
-    the size the module document states; no dials file and no repository said in the module's words."""
+    the size the module document states; no dials file (the first also from a subfolder of the root) and no
+    repository said in the module's words, roots and folders whose names hold `:` too."""
     set_ = SESSION.run_gate(session_json(prepared()))
     empty = SESSION.run_gate(session_json(prepared({NAMESPACE: {"ceilings": []}})))
     absent = SESSION.run_gate(session_json(prepared({NAMESPACE: {}})))
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     match = re.search(r"one line of ([0-9,]+) characters saying that no document is measured", module_doc)
     stated = int(match.group(1).replace(",", "")) if match else -1
-    root = prepared(remove="constitution.yaml")
+    root = colon_root()
     no_dials = SESSION.run_gate(session_json(root))
-    loose = H.scratch_dir()
+    (root / "sub").mkdir()
+    from_sub = SESSION.run_gate(session_json(root / "sub"))
+    no_dials_line = (
+        f"const-doc-budgets: no constitution.yaml in {root} — the length gate measures nothing there"
+        " until the file sets a ceiling in const-doc-budgets.ceilings\n"
+    )
+    loose = colon_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
+    weird_parent = H.scratch_dir()
+    weird_root = Consumer(weird_parent / WEIRD_DIR).build().root  # a root of over 80 characters, a break, a \
+    (weird_root / "constitution.yaml").unlink()
+    weird_no_dials = SESSION.run_gate(session_json(weird_root))
+    weird_loose = weird_parent / ("l" + WEIRD_DIR)
+    weird_loose.mkdir()
+    weird_no_repo = SESSION.run_gate(
+        session_json(weird_loose), env={"GIT_CEILING_DIRECTORIES": str(weird_parent)}
+    )
     return all_of(
+        exactly(  # the folder whole: escaped, never cut
+            weird_no_dials,
+            0,
+            f"const-doc-budgets: no constitution.yaml in {weird_parent}/" + WEIRD_DIR_SHOWN + " — the length"
+            " gate measures nothing there until the file sets a ceiling in const-doc-budgets.ceilings\n",
+        ),
+        exactly(
+            weird_no_repo,
+            0,
+            f"const-doc-budgets: {weird_parent}/l" + WEIRD_DIR_SHOWN + " is not inside a git repository — the"
+            " length gate measures nothing there\n",
+        ),
         exactly(set_, 0, ""),
         exactly(empty, 0, ZERO_LINE + "\n"),
         exactly(absent, 0, ZERO_LINE + "\n"),
         (stated == 111, f"the document states {stated} characters; 111 typed by hand"),
         (len(ZERO_LINE) == 111, f"the zero line has {len(ZERO_LINE)} characters; 111 typed by hand"),
-        exactly(
-            no_dials,
-            0,
-            f"const-doc-budgets: no constitution.yaml in {root} — the length gate measures nothing there"
-            " until the file sets a ceiling in const-doc-budgets.ceilings\n",
-        ),
+        exactly(no_dials, 0, no_dials_line),
+        exactly(from_sub, 0, no_dials_line),
         exactly(
             no_repo,
             0,
@@ -1067,6 +1258,9 @@ SUBJECT = Subject(
     noted=NOTED,
     note="note: docs/notes/ok.md: 151 characters, over the ceiling 'notes' of 100 by 51 — reported, not red,"
     " while the ceiling's level is warning; shorten it or split it before the ceiling blocks",
+    pattern_dial=PatternDial(
+        "ceilings entry 1 paths", lambda pattern: own(ceilings=[{**NOTES, "paths": [pattern]}])
+    ),
 )
 
 

@@ -46,8 +46,8 @@ from harness import (  # noqa: E402
     red_lines,
 )
 from interaction_gate import messages, start, tokens  # noqa: E402
-from interaction_gate.model import DEFAULT_DESTRUCTIVE, Entry, Subcommand  # noqa: E402
-from shared_items import Subject, shared_assertions  # noqa: E402
+from interaction_gate.model import DEFAULT_DESTRUCTIVE, Entry, Subcommand, Verbosity  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-destructive.sh", "check-destructive.py", start.GATE.namespace)
@@ -57,6 +57,14 @@ SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.na
 NAMESPACE = start.GATE.namespace
 ENTRIES = len(DEFAULT_DESTRUCTIVE)
 RULES = (SCRIPTS / "rules.txt").read_text(encoding="utf-8")
+
+
+# a file name and a folder name of over 80 characters holding a line break and a backslash: the real names,
+# and the text the gate shows for them, typed by hand — the whole name, since a path is what the reader opens
+WEIRD = "docs/notes/w\nx\\y" + "z" * 80 + ".md"
+WEIRD_SHOWN = "docs/notes/w\\nx\\\\y" + "z" * 80 + ".md"
+WEIRD_DIR = "w\nx\\y" + "d" * 80
+WEIRD_DIR_SHOWN = "w\\nx\\\\y" + "d" * 80
 
 
 def own(**dials: object) -> dict[str, object]:
@@ -378,6 +386,14 @@ def t9() -> tuple[bool, str]:
 def t10() -> tuple[bool, str]:
     """This module's C5 lines typed by hand, each exit 1."""
     prefix = "BROKEN: constitution.yaml: "
+    try:  # the compiler's own words come from `re` itself, never from the code under test
+        re.compile("(?P=" + "a" * 100 + ")")
+    except re.error as compiler:
+        long_words = str(compiler)
+    else:
+        return False, "the pattern (?P=aaa...) compiled; the fixture needs one the compiler refuses"
+    if len(long_words) <= 80:
+        return False, f"the compiler's words are {len(long_words)} characters; the fixture needs more than 80"
     cases: list[tuple[dict[str, object], str]] = [
         (
             own(marker="x"),
@@ -401,6 +417,12 @@ def t10() -> tuple[bool, str]:
         (
             own(destructive=[{"command": ["rm"], "teach": "t", "alternative": "a", "why": "x"}]),
             prefix + "const-interaction.destructive entry 1: 'why' is no field of an entry — fix: write the"
+            " entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard to"
+            " reverse>, alternative: <the reversible way>",
+        ),
+        (  # a line break in the key is shown escaped: the line stays one line
+            own(destructive=[{"command": ["rm"], "teach": "t", "alternative": "a", "a\nb": "x"}]),
+            prefix + "const-interaction.destructive entry 1: 'a\\nb' is no field of an entry — fix: write the"
             " entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard to"
             " reverse>, alternative: <the reversible way>",
         ),
@@ -435,6 +457,26 @@ def t10() -> tuple[bool, str]:
             " unterminated subpattern at position 0) — fix: repair the pattern; Python's re syntax, matched"
             " at the start of the item's text",
         ),
+        (  # a pattern only points: 102 characters, cut at 80 with the cut said, its backslash doubled; the
+            # compiler's words quote a character of it and keep their own backslash, doubled
+            own(handles=["\\q" + "x" * 100]),
+            prefix
+            + "const-interaction.handles holds '\\\\q"
+            + "x" * 78
+            + "… [102 characters]', which is not a"
+            " regular expression (bad escape \\\\q at position 0) — fix: repair the pattern; Python's re"
+            " syntax, matched at the start of the item's text",
+        ),
+        (  # the compiler's words can pass 80 characters, a group name having no limit, and stand whole,
+            # never cut, though the pattern before them is cut: 105 characters, cut at 80
+            own(handles=["(?P=" + "a" * 100 + ")"]),
+            prefix
+            + "const-interaction.handles holds '(?P="
+            + "a" * 76
+            + "… [105 characters]', which is not a regular expression ("
+            + long_words
+            + ") — fix: repair the pattern; Python's re syntax, matched at the start of the item's text",
+        ),
         (
             own(territories=[]),
             prefix + "const-interaction.territories must be a non-empty list of path patterns — fix: write"
@@ -461,6 +503,12 @@ def t10() -> tuple[bool, str]:
         result, _ = gate_on(command("ls"), dials_patch=patch)
         ok, evidence = broken_first_line(result, line)
         checks.append((ok and shared.c11_broken_count() in result.stderr, evidence))
+    # the verbosity fix is prose that says "the one value today": a second value fails here, and
+    # points at that prose
+    one_value = len(Verbosity) == 1 and f"write verbosity: {Verbosity.TRIGGERED.value} — the one value" in (
+        messages.c5_verbosity().fix
+    )
+    checks.append((one_value, "one verbosity value, and its fix says so" if one_value else "a second value"))
     return all_of(*checks)
 
 
@@ -484,7 +532,43 @@ def t11() -> tuple[bool, str]:
         " hook this script reads one tool event, a JSON object, on stdin; to check a repository by hand run"
         " it with --scan [<dir>]",
     )
-    return all_of(write_ok, no_command_ok)
+    odd = H.run_gate(
+        json.dumps(
+            {
+                "hook_event_name": "PreToolUse",
+                "cwd": str(root),
+                "tool_name": "N\nx\\y" + "e" * 90,
+                "tool_input": {},
+            }
+        )
+    )
+    odd_ok = broken_first_line(  # names only point: cut at 80 characters with the cut said, then escaped
+        odd,
+        "BROKEN: hook input names the event 'PreToolUse' on tool 'N\\nx\\\\y"
+        + "e" * 75
+        + "… [95 characters]',"
+        " which this gate is not wired to — fix: wire the gate to PreToolUse with the matcher Bash, as the"
+        " plugin's hooks file does; to see what the dial does to a command by hand run it with --scan"
+        " --command '<text>'",
+    )
+    odd_event = H.run_gate(
+        json.dumps(
+            {
+                "hook_event_name": "N\nx\\y" + "e" * 90,
+                "cwd": str(root),
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls"},
+            }
+        )
+    )
+    odd_event_ok = broken_first_line(  # the event name only points: cut at 80, the cut said, then escaped
+        odd_event,
+        "BROKEN: hook input names the event 'N\\nx\\\\y" + "e" * 75 + "… [95 characters]' on tool 'Bash',"
+        " which this gate is not wired to — fix: wire the gate to PreToolUse with the matcher Bash, as the"
+        " plugin's hooks file does; to see what the dial does to a command by hand run it with --scan"
+        " --command '<text>'",
+    )
+    return all_of(write_ok, no_command_ok, odd_ok, odd_event_ok)
 
 
 def t12() -> tuple[bool, str]:
@@ -504,7 +588,36 @@ def t12() -> tuple[bool, str]:
         "RED: 1 finding(s) — 1 command examined (1 subcommand(s))"
     )
     ok = reason == wanted
-    return ok, "D1 typed whole matches" if ok else f"differs:\n{reason}"
+    teach = (
+        "line one\nline two \\ " + "t" * 100
+    )  # the entry's teaching text and alternative: lines, a backslash,
+    alternative = (
+        "alt one\nalt \\ " + "a" * 100
+    )  # over 80 characters — a reader acts on them, so they stand whole
+    word = "wipe\\x" + "k" * 90  # a command word of 96 characters and a flag of 95, each with a backslash
+    flag = "--f\\g" + "m" * 90
+    entry = {"command": [word], "flags": [flag], "teach": teach, "alternative": alternative}
+    odd, _ = gate_on(
+        command("'" + word + "' '" + flag + "' " + "q" * 100), dials_patch=own(destructive=[entry])
+    )
+    odd_reason = ask_reason(odd) or ""
+    odd_wanted = (
+        "RED: destructive command: ''wipe\\\\x" + "k" * 73 + "… [297 characters]' matches the entry"
+        " wipe\\\\x" + "k" * 74 + "… [96 characters] with --f\\\\g" + "m" * 75 + "… [95 characters]\n"
+        "  why: line one\\nline two \\\\ " + "t" * 100 + "\n"
+        "  fix: alt one\\nalt \\\\ " + "a" * 100 + "; to run it as written, confirm at the prompt — where no"
+        " prompt can be shown, get the user's yes in chat and run it again, one yes per command; to stop"
+        " gating it, remove the entry from const-interaction.destructive in constitution.yaml\n"
+        "RED: 1 finding(s) — 1 command examined (1 subcommand(s))"
+    )
+    odd_ok = odd_reason == odd_wanted
+    return all_of(
+        (ok, "D1 typed whole matches" if ok else f"differs:\n{reason}"),
+        (  # the command, words and flag only point: cut at 80, then escaped; teach and alternative whole
+            odd_ok,
+            "D1 with a backslash, a break and long texts" if odd_ok else f"differs:\n{odd_reason}",
+        ),
+    )
 
 
 def t13() -> tuple[bool, str]:
@@ -569,9 +682,23 @@ def t20() -> tuple[bool, str]:
         " file(s) scanned",
         "stdout",
     )
+    odd = lists_scan({WEIRD: "# T\n\n- one\\two " + "y" * 100 + "\n- two\n"})
+    odd_ok = (  # the path whole, escaped, and the item cut at 80 characters with the cut said, then escaped
+        odd.code == 2
+        and red_lines(odd.stdout)[0]
+        == "RED: "
+        + WEIRD_SHOWN
+        + ":3: list item without a handle — one\\\\two "
+        + "y" * 72
+        + "… [108 characters]"
+    )
     return all_of(
         (red_ok, "L1 typed whole matches" if red_ok else f"differs (exit {red.code}):\n{red.stdout}"),
         green_ok,
+        (
+            odd_ok,
+            "a long path whole, a long item cut" if odd_ok else f"differs (exit {odd.code}):\n{odd.stdout}",
+        ),
     )
 
 
@@ -678,7 +805,26 @@ def t30() -> tuple[bool, str]:
         "Boundary examples of this project (const-interaction.boundary_examples), each violates / complies:\n"
         "1. an essay / the word\n"
     )
+    long_pair = {"violates": "a\nb \\ " + "v" * 100, "complies": "c\\d\r\n" + "w" * 100}
+    long_root = prepared(own(boundary_examples=[long_pair]))
+    long_pairs = SESSION.run_gate(session_json(long_root))
+    long_ok = (
+        long_pairs.stdout
+        == RULES
+        + verbosity
+        + (  # the example is the content: whole, escaped, one line
+            "Boundary examples of this project (const-interaction.boundary_examples), each violates /"
+            " complies:\n"
+            "1. a\\nb \\\\ " + "v" * 100 + " / c\\\\d\\r\\n" + "w" * 100 + "\n"
+        )
+    )
     return all_of(
+        (
+            long_ok,
+            "a pair with breaks, a backslash and 100 characters, whole"
+            if long_ok
+            else f"got: {long_pairs.stdout[-400:]}",
+        ),
         (
             plain_ok,
             f"rules and the verbosity line, {len(RULES)} rule characters"
@@ -690,10 +836,25 @@ def t30() -> tuple[bool, str]:
     )
 
 
+def colon_dir() -> Path:
+    """A fresh directory named `a:b`: a path holding ':' must be said whole by the session printer."""
+    path = H.scratch_dir() / "a:b"
+    path.mkdir()
+    return path
+
+
+def colon_root() -> Path:
+    """A repository root whose own name holds ':', its dials file removed."""
+    consumer = Consumer(colon_dir()).build()
+    (consumer.root / "constitution.yaml").unlink()
+    return consumer.root
+
+
 def t31() -> tuple[bool, str]:
-    """No dials file and no repository: the shared skips said in the module's words; malformed dials:
+    """No dials file and no repository (roots and folders whose names hold `:` too), the first also from a
+    subfolder of the root: the shared skips said in the module's words; malformed dials:
     exit 1 with the shared C4 first on stderr and the rules still on stdout; an argument: exit 1."""
-    root = prepared(remove="constitution.yaml")
+    root = colon_root()
     no_dials = SESSION.run_gate(session_json(root))
     no_dials_line = (
         f"const-interaction: no constitution.yaml in {root} — the destructive-command gate examines nothing"
@@ -704,7 +865,10 @@ def t31() -> tuple[bool, str]:
         " when triggered, never as an empty ritual\n"
     )
     no_dials_ok = no_dials.code == 0 and no_dials.stdout == RULES + verbosity + no_dials_line + "\n"
-    loose = H.scratch_dir()
+    (root / "sub").mkdir()
+    from_sub = SESSION.run_gate(session_json(root / "sub"))
+    from_sub_ok = from_sub.code == 0 and from_sub.stdout == RULES + verbosity + no_dials_line + "\n"
+    loose = colon_dir()
     no_repo = SESSION.run_gate(session_json(loose), env={"GIT_CEILING_DIRECTORIES": str(loose.parent)})
     no_repo_line = (
         f"const-interaction: {loose} is not inside a git repository — the destructive-command gate examines"
@@ -721,8 +885,39 @@ def t31() -> tuple[bool, str]:
     )
     arg = SESSION.run_gate(session_json(root), args=["--scan"])
     arg_ok = arg.code == 1 and "BROKEN: misinvocation: unexpected argument --scan" in arg.stderr
+    weird_parent = H.scratch_dir()
+    weird_root = Consumer(weird_parent / WEIRD_DIR).build().root  # over 80 characters, a break, a backslash
+    (weird_root / "constitution.yaml").unlink()
+    weird_no_dials = SESSION.run_gate(session_json(weird_root))
+    weird_loose = weird_parent / ("l" + WEIRD_DIR)
+    weird_loose.mkdir()
+    weird_no_repo = SESSION.run_gate(
+        session_json(weird_loose), env={"GIT_CEILING_DIRECTORIES": str(weird_parent)}
+    )
+    weird_dials_ok = weird_no_dials.stdout == RULES + verbosity + (
+        f"const-interaction: no constitution.yaml in {weird_parent}/" + WEIRD_DIR_SHOWN + " — the"
+        " destructive-command gate examines nothing there until the file exists (an empty mapping, {}, is"
+        " enough for the default list)\n"
+    )
+    weird_repo_ok = weird_no_repo.stdout == RULES + verbosity + (
+        f"const-interaction: {weird_parent}/l" + WEIRD_DIR_SHOWN + " is not inside a git repository — the"
+        " destructive-command gate examines nothing there\n"
+    )
     return all_of(
+        (  # the folder is what the reader opens: whole, escaped, over 80 characters
+            weird_dials_ok,
+            "a folder with a break, whole, no dials"
+            if weird_dials_ok
+            else f"got: {weird_no_dials.stdout[-400:]}",
+        ),
+        (
+            weird_repo_ok,
+            "a folder with a break, whole, no repository"
+            if weird_repo_ok
+            else f"got: {weird_no_repo.stdout[-400:]}",
+        ),
         (no_dials_ok, "no dials said" if no_dials_ok else f"got: {no_dials.stdout[-300:]}"),
+        (from_sub_ok, "no dials said from a subfolder" if from_sub_ok else f"got: {from_sub.stdout[-300:]}"),
         (no_repo_ok, "no repository said" if no_repo_ok else f"got: {no_repo.stdout[-300:]}"),
         (bad_ok, "malformed dials: exit 1, rules kept" if bad_ok else f"got {bad.code}: {bad.stderr[:300]}"),
         (arg_ok, "an argument is a misinvocation" if arg_ok else f"got {arg.code}: {arg.stderr[:200]}"),
@@ -834,6 +1029,7 @@ SUBJECT = Subject(
     event="Bash",
     ask=True,
     long_value=command(RED_LONG),
+    pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
 )
 
 ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [

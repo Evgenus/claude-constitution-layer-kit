@@ -16,16 +16,19 @@ from . import messages
 from .dials import load_dials
 from .errors import ConfigurationFailure
 from .events import document_after_write, read_event
-from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, STOP, Dials, Finding, Severity
+from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, STOP, Dials, Finding, Severity, SkipKind
 from .output import Output, log_name
-from .repository import is_ignored, read_text, repo_root
+from .repository import is_ignored, is_markdown, read_text, repo_root
 
 
 @dataclass(frozen=True, slots=True)
 class Skip:
-    """Nothing to examine, and the reason the count line gives."""
+    """Nothing to examine, and the reason the count line gives. `kind` and `where` are the same
+    facts typed, for a module that says the skip in its own words: never parse `reason`."""
 
     reason: str
+    kind: SkipKind
+    where: str  # the path, root, file or tool the reason names, whole
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,29 +67,29 @@ def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
     event = read_event(stdin)
     output.session = event.session_id
     if event.tool is None:
-        return Skip(messages.g1_skip_no_file(event.tool_name))
+        return Skip(messages.g1_skip_no_file(event.tool_name), SkipKind.NO_FILE, event.tool_name)
     path = Path(os.path.expanduser(event.file_path))
     if not path.is_absolute():
         path = Path(event.cwd or os.getcwd()) / path
     path = Path(os.path.realpath(path))
-    if path.suffix.lower() != ".md":
-        return Skip(messages.g1_skip_not_markdown(str(path)))
+    if not is_markdown(path.name):
+        return Skip(messages.g1_skip_not_markdown(str(path)), SkipKind.NOT_MARKDOWN, str(path))
     root = repo_root(path)
     if root is None:
-        return Skip(messages.g1_skip_no_repo(str(path)))
+        return Skip(messages.g1_skip_no_repo(str(path)), SkipKind.NO_REPO, str(path))
     rel = path.relative_to(root).as_posix()
     dials = load_dials(root)
     if dials is None:
-        return Skip(messages.g1_skip_no_dials(str(root)))
+        return Skip(messages.g1_skip_no_dials(str(root)), SkipKind.NO_DIALS, str(root))
     route_log(output, root, dials)
     if event.event_name == POST_WRITE:  # the document is the file on disk: nothing to reconstruct
         text = read_text(root, rel)
         if text is None:
-            return Skip(messages.g1_skip_gone(rel))
+            return Skip(messages.g1_skip_gone(rel), SkipKind.GONE, rel)
     else:
         text = document_after_write(event, root, rel)
         if text is None:
-            return Skip(messages.g1_skip_edit_unappliable(rel))
+            return Skip(messages.g1_skip_edit_unappliable(rel), SkipKind.EDIT_UNAPPLIABLE, rel)
     return WriteTarget(root, rel, text, dials, event.event_name or PRE_WRITE)
 
 
@@ -98,10 +101,10 @@ def locate_event(output: Output, stdin: TextIO) -> EventTarget | Skip:
     cwd = Path(os.path.realpath(event.cwd or os.getcwd()))
     root = repo_root(cwd)
     if root is None:
-        return Skip(messages.g1_skip_no_repo(str(cwd)))
+        return Skip(messages.g1_skip_no_repo(str(cwd)), SkipKind.NO_REPO, str(cwd))
     dials = load_dials(root)
     if dials is None:
-        return Skip(messages.g1_skip_no_dials(str(root)))
+        return Skip(messages.g1_skip_no_dials(str(root)), SkipKind.NO_DIALS, str(root))
     route_log(output, root, dials)
     return EventTarget(root, dials, event.event_name, event.stop_hook_active, event.tool_name, event.command)
 
@@ -114,7 +117,7 @@ def locate_scan(output: Output, start: Path) -> ScanTarget | Skip:
         raise ConfigurationFailure(messages.c12_no_repo(str(start)))
     dials = load_dials(root)
     if dials is None:
-        return Skip(messages.g1_skip_no_dials(str(root)))
+        return Skip(messages.g1_skip_no_dials(str(root)), SkipKind.NO_DIALS, str(root))
     route_log(output, root, dials)
     return ScanTarget(root, dials)
 
@@ -165,6 +168,25 @@ def green_event(output: Output, line: str, notes: Sequence[str] = ()) -> int:
         output.out(note)
     output.out(messages.g1_green_event(line))
     return EXIT_GREEN
+
+
+SHOWN_CHARACTERS = 8000  # above 10,000 characters the platform replaces a hook's text with a file path
+# and a preview of the first 2,000 (hooks documentation, read 2026-10-03; limit 14 of the shared limits):
+# the findings after the first keep the text under the cap, the count line and the closing note standing last
+
+
+def within_the_cap(findings: Sequence[Finding], most: int | None = None) -> Sequence[Finding]:
+    """The first findings that fit: at most `most` of them when it is given, and no more characters
+    than SHOWN_CHARACTERS. The first is always shown, however long, so that a verdict with a finding
+    never shows none."""
+    shown: list[Finding] = []
+    size = 0
+    for finding in findings[:most]:
+        size += len(finding.render()) + 1
+        if size > SHOWN_CHARACTERS and shown:
+            break
+        shown.append(finding)
+    return shown
 
 
 def report_hook(

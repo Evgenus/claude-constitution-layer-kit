@@ -53,7 +53,8 @@ THIS_FILE = "scripts/check-schema-mirror.py"
 WHY_MIRROR = "the module's mirror is the only copy of the kernel schema a consumer has"
 WHY_EXEMPTION = "an exemption that no longer holds would hide the next real disagreement on its case"
 ALIGN = (
-    "align with kernel/schemas/ — dials.py of shared/const_gate/, or checks.py of the module the line names"
+    "align with kernel/schemas/ — dials.py of shared/const_gate/,"
+    " or checks.py or model.py of the module the line names"
 )
 
 
