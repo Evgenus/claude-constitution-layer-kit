@@ -116,7 +116,7 @@ These items carry no options. Each follows from the answers above or from the ki
 
 **R7.** The referencing gate masks the envelope from the start of the file to where `envelope_bounds` says it ends, and to the end of the file when it never closes.
 
-**R8.** The locations generator rewrites the envelope it finds through `envelope_bounds` and `envelope_lines`, writes the rewritten block with line feeds, and keeps the body as the template has it.
+**R8.** The locations generator rewrites the envelope it finds through `envelope_bounds` and `envelope_lines`, writes the rewritten block with line feeds and no byte-order mark before it, and keeps the body as the command read it.
 
 **R9.** The shared acceptance item S164 proves R4 and the offsets and line cuts of R1 in every gate that judges envelopes. A gate that judges none leaves it out, and where it blanks or masks the envelope, it proves where the envelope ends in its own items.
 
@@ -127,7 +127,7 @@ The commits of this branch apply every item. R1 to R9 were applied by the commit
 ## Carry list
 
 1. R1 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `envelope` row of section 1; [section 2](../../shared/GATE.md#g2), item 9; [`const-language`](../../modules/const-language/MODULE.md#t9), limit 9.
-2. R2 — history only: a call on this change's scope; the defect binds nothing here.
+2. R2 — [`const-doc-budgets`](../../modules/const-doc-budgets/MODULE.md#t9), limit 9 of section 9, which states the defect and its fallback, a change of its own; the call on this change's scope is history.
 3. R3 — pending: [step 9 of the rollout plan](../rollout-plan.md#s9), the decider's choice for the shared-code page.
 4. R4 — [kit-shared-gate-code](../../shared/GATE.md#g4), limit 8 of section 4; [section 1](../../shared/GATE.md#g1), the `envelope` row; [`const-language`](../../modules/const-language/MODULE.md#t7), the configuration of the envelope's blanking.
 5. R5 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `envelope` row of section 1; [section 2](../../shared/GATE.md#g2), item 9.
