@@ -91,7 +91,7 @@ The shared-code page, [kit-shared-gate-code](../../shared/GATE.md), grew from ab
 
 - **A. Split along a seam the page already has, as the change's last step.** The long table of shared items, its section 5, moves to a document of its own, linked from the page, and the territory of [plc-0009-shared-code](../policies/plc-0009-shared-code.md) widens to hold it.
   - **Pros:** it is the fix the ceiling procedure names first; the page is back well under 49,000 with room to grow; the item table is the part only fixture authors read.
-  - **Cons:** a structural change, which this record would have to rule; a new document to govern; every link to the items must move, which the mover of const-referencing repairs.
+  - **Cons:** a structural change, which this record would have to rule; a new document to govern; every link to the items must move, which the mover of [`const-referencing`](../requirements.md#const-referencing) repairs.
 - **B. Raise the ceiling.** A new number by the rule of thumb, the longest document plus ten percent, about 57,000, with a new window of data.
   - **Pros:** one line in the dials file; no document moves.
   - **Cons:** the number then comes from the growth it should hold back, not from a window of data; the ceiling stops doing its job for this page.
@@ -163,7 +163,7 @@ The message put in simple terms carried no pros and cons beneath each option, on
 
 ## Applied
 
-The commits of this branch apply every item. R1 to R7 and R9 to R18 were applied by the commits before the one that adds this record, save two points the independent verification found: R1's sorted order for a nested name of const-language, applied after the record, and R10's count of the modules that use `GATE_KEYS`, corrected in place. R8 was corrected in place before the yes, as the carry audit found the sites it missed, and was applied by the later commits of the branch, the four batches of the list among them. They change the shared code, the eleven modules, the shared-code page, the module documents, the install note and the style guides of styling. The shared-code page states each shared part with its class, in the rows of its section 1 and in the limits of its section 4. The Windows branch of `relative_path` and of task-close's backslash test is written and has not been run on Windows. So this record is born `inactive`.
+The commits of this branch apply every item. R1 to R7 and R9 to R18 were applied by the commits before the one that adds this record, save two points the independent verification found: R1's sorted order for a nested name of [`const-language`](../requirements.md#const-language), applied after the record, and R10's count of the modules that use `GATE_KEYS`, corrected in place. R8 was corrected in place before the yes, as the carry audit found the sites it missed, and was applied by the later commits of the branch, the four batches of the list among them. They change the shared code, the eleven modules, the shared-code page, the module documents, the install note and the style guides of styling. The shared-code page states each shared part with its class, in the rows of its section 1 and in the limits of its section 4. The Windows branch of `relative_path` and of task-close's backslash test is written and has not been run on Windows. So this record is born `inactive`.
 
 ## Carry list
 
