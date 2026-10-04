@@ -1168,6 +1168,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         else:
             offsets = {
                 "BOM, then a plain envelope": ("\ufeff---\nid: a\n---\nBODY\n", (5, 11, 15)),
+                "two BOMs, both skipped and counted": ("\ufeff\ufeff---\nid: a\n---\nB", (6, 12, 16)),
                 "CRLF, the closer `--- `": ("---\r\nid: a\r\n--- \r\nB", (5, 12, 18)),
                 "a closer that is the last line, with no ending": ("---\nid: a\n---", (4, 10, 13)),
                 "a lone CR ends a line": ("---\rid: a\r---\rB", (4, 10, 14)),
@@ -1175,7 +1176,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             }
             for what, (text, wanted) in offsets.items():
                 got = bounds_of(text)
-                if (got.yaml_start, got.yaml_end, got.end) != wanted:
+                if got is None or (got.yaml_start, got.yaml_end, got.end) != wanted:
                     failed.append(f"{what}: got {got}, wanted {wanted}")
             if bounds_of("# no envelope\n---\n") is not None or bounds_of("") is not None:
                 failed.append("an envelope found where the first line is no `---`")
