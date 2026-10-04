@@ -37,7 +37,8 @@ branch runs on the large model, which the session names in its call.
 HOOKS. A hook's refusal is never bypassed. You make no edit in the kit, so none should reach you.
 
 SHELL RULES, strict:
-1. Each command is one synchronous foreground command that ends in under 600 seconds.
+1. Each command is one synchronous foreground command that ends in under 600 seconds; one that
+   may pass two minutes sets the tool's timeout, or the tool backgrounds it at 120 seconds.
 2. At most three test runners at once, in one command joined by `wait`.
 3. Never `run_in_background`, never `&` without `wait`, never a polling loop (`until`,
    `while … sleep`), never `sleep`.
