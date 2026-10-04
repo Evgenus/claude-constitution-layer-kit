@@ -22,8 +22,10 @@ handle and the change to make. Procedure:
 1. Make a fresh folder, `C=$(mktemp -d "<scratch>/probe.XXXXXX")`, and copy the module there
    with links followed: `cp -RL <kit>/modules/<module> $C/probe-copy` (`tests/run.py` imports the
    shared code through `scripts/const_gate`, which the copy dereferences). Keep a second copy,
-   `$C/pristine`, and never edit it. Delete nothing in the scratch directory, no `rm`: each run
-   makes its own folder, and the session removes them all before the merge.
+   `$C/pristine`, and never edit it. Shell variables do not survive between commands: write the
+   printed path out, or bind `C` again, in every later command. Delete nothing in the scratch
+   directory, no `rm`: each run makes its own folder, and the session removes them all before the
+   merge.
 2. Baseline: `python3 $C/probe-copy/tests/run.py`; record the count line — `N/N acceptance
    items green` — and the item numbers run. A red baseline stops the work: report it and do
    nothing more.

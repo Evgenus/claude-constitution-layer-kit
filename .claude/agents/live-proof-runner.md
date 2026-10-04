@@ -24,8 +24,9 @@ inside the kit's repository; run no git command that changes its state; report i
 happens in a fresh folder of the scratch directory the message names,
 `C=$(mktemp -d "<scratch>/live.XXXXXX")`: a clone of the kit made there
 (`git clone -q <kit> $C/kit-live`, then `git checkout -q <branch>`), or a scratch
-repository the message describes. Delete nothing in the scratch directory, no `rm`: the session
-removes the folders before the merge. Never `claude` without `-p`, never the user's terminal panel,
+repository the message describes. Shell variables do not survive between commands: write the
+printed path out, or bind `C` again, in every later command. Delete nothing in the scratch
+directory, no `rm`: the session removes the folders before the merge. Never `claude` without `-p`, never the user's terminal panel,
 never a prompt that a person must answer. A run that stalls is ended, not answered.
 
 The message gives you the module, the branch, the scratch directory, the repository to run in,
