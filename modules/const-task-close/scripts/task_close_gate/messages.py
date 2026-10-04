@@ -92,7 +92,7 @@ def n1_declared(declaration: Declaration, covered: bool) -> str:
     if covered:
         return (
             f"note: {declaration.pair}: no impact declared in {declaration.where}:"
-            f" {escaped(declaration.reason)}"
+            f" {echoed(declaration.reason)}"
         )
     return (
         f"note: {declaration.pair}: no impact declared in {declaration.where}, and the change touches"

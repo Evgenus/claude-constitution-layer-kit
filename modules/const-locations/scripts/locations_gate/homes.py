@@ -58,4 +58,4 @@ def segment_home(rule: HomeRule, segment: str) -> str:
 
 
 def is_kebab(value: str) -> bool:
-    return ID_RE.match(value) is not None
+    return ID_RE.fullmatch(value) is not None

@@ -22,6 +22,6 @@ def parse(own: Mapping[str, object]) -> RecordDials:
     value = own.get("record_policies")
     if value is None:
         return RecordDials(())
-    if not isinstance(value, list) or not all(isinstance(i, str) and ID_RE.match(i) for i in value):
+    if not isinstance(value, list) or not all(isinstance(i, str) and ID_RE.fullmatch(i) for i in value):
         raise ConfigurationFailure(messages.c5_record_policies())
     return RecordDials(tuple(dict.fromkeys(str(i) for i in value)))  # a policy named twice counts once

@@ -288,16 +288,17 @@ def spec_trailer() -> tuple[bool, str]:
     )
     green = green_scan(result, tail(1, 2, short(r.root, "main"), short(r.root)))
     noted = (note in result.stdout, f"the note: {note}" if note in result.stdout else result.stdout)
-    # the reason is for a reviewer to read: whole, with a backslash shown escaped, over 80 characters
+    # the reason only points at the commit the note names: cut at 80 characters with the cut said, then
+    # escaped, a backslash shown doubled; typed by hand, never built with the function under test
     odd = repo(with_map())
     branch(odd.root)
     commit(odd.root, "code only", {"src/a.py": "x = 2\n"})
     odd_where = "commit " + commit(odd.root, "declare\n\n" + trailer(reason="a\\b " + "r" * 100))
-    odd_note = f"note: core: no impact declared in {odd_where}: a\\\\b " + "r" * 100
+    odd_note = f"note: core: no impact declared in {odd_where}: a\\\\b " + "r" * 76 + "… [104 characters]"
     odd_result = scan(odd.root)
     odd_ok = (
         odd_note in odd_result.stdout.splitlines(),
-        f"the note names the reason whole: {odd_result.stdout}",
+        f"the note cuts the reason at 80 characters and escapes it: {odd_result.stdout}",
     )
     return all_of([red, green, noted, odd_ok], "red→green: T2, then a trailer on a later commit of the range")
 

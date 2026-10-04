@@ -51,7 +51,7 @@ def envelope_errors(envelope: Envelope) -> list[str]:
         return string_field(envelope, key, errors)
 
     doc_id = string("id")
-    if doc_id is not None and not ID_RE.match(doc_id):
+    if doc_id is not None and not ID_RE.fullmatch(doc_id):
         errors.append(messages.f4_id_not_kebab(doc_id))
     meta_type = string("type")
     if meta_type is not None and meta_type not in {t.value for t in MetaType}:
@@ -65,7 +65,7 @@ def envelope_errors(envelope: Envelope) -> list[str]:
     if status is not None and status not in {s.value for s in Status}:
         errors.append(messages.f4_status_not_allowed(status))
     declaration = envelope.fields.get(DECLARATION)
-    if declaration is not None and (declaration.text is None or not ID_RE.match(declaration.text)):
+    if declaration is not None and (declaration.text is None or not ID_RE.fullmatch(declaration.text)):
         errors.append(messages.f4_declaration_not_kebab(declaration.shown))
     return errors
 
