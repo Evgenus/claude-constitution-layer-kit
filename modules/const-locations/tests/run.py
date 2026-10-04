@@ -32,7 +32,7 @@ from const_gate import messages as shared  # noqa: E402
 from const_gate.model import Broken, Finding  # noqa: E402
 from consumer import ROOT_POLICY, Consumer, document, envelope  # noqa: E402
 from harness import Assertion, Edit, Harness, Result, Write, broken_first_line, expect  # noqa: E402
-from locations_gate import messages, start  # noqa: E402
+from locations_gate import filling, messages, start  # noqa: E402
 from locations_gate.dials import KEYS  # noqa: E402
 from locations_gate.model import ActKey  # noqa: E402
 from shared_items import Subject, shared_assertions  # noqa: E402
@@ -83,6 +83,17 @@ TEMPLATE_TEXT = (
     "## Context\n"
     "\n"
     "<what forced it>\n"
+)
+
+# a form feed is no line ending: the closer is the later `---`, and the form feed lies inside the block,
+# which YAML refuses; the parser's line, with the position of the form feed
+FF_BEFORE_CLOSER = "---\nid: <x>\ntype: current-state\ntitle: T\n\x0c---\nBODY\n---\nTWO\n"
+FF_BEFORE_CLOSER_YAML = (
+    'unacceptable character #x000c: special characters are not allowed in "<unicode string>", position 37'
+)
+FF_AFTER_CLOSER = "---\nid: <x>\ntype: current-state\ntitle: T\n---\x0cBODY\n---\nTWO\n"
+FF_AFTER_CLOSER_YAML = (
+    'unacceptable character #x000c: special characters are not allowed in "<unicode string>", position 40'
 )
 
 
@@ -247,6 +258,14 @@ GOLDEN: dict[str, str] = {
     ' line 1, column 5: id: "x\\\\q" ^ found unknown escape character \'q\' in "<unicode string>", line 1,'
     ' column 8: id: "x\\\\q" ^) — fix: a template opens with the YAML block a document of its kind carries'
     " — id, type, title, status — with placeholders where the writer fills",
+    "L5.16 ff closer": "BROKEN: the template tpl/record.md opens with no readable envelope (unacceptable"
+    ' character #x000c: special characters are not allowed in "<unicode string>", position 37) — fix: a'
+    " template opens with the YAML block a document of its kind carries — id, type, title, status — with"
+    " placeholders where the writer fills",
+    "L5.16 ff after": "BROKEN: the template tpl/record.md opens with no readable envelope (unacceptable"
+    ' character #x000c: special characters are not allowed in "<unicode string>", position 40) — fix: a'
+    " template opens with the YAML block a document of its kind carries — id, type, title, status — with"
+    " placeholders where the writer fills",
     "L5.16": "BROKEN: the template tpl/record.md opens with no readable envelope (none) — fix: a template"
     " opens with the YAML block a document of its kind carries — id, type, title, status — with"
     " placeholders where the writer fills",
@@ -474,9 +493,8 @@ def no_home() -> tuple[bool, str]:
 
 
 def from_template() -> tuple[bool, str]:
-    consumer = prepared(
-        own(templates=[{"policy": "notes-policy", "template": TEMPLATE}]), files={TEMPLATE: TEMPLATE_TEXT}
-    )
+    dials = own(templates=[{"policy": "notes-policy", "template": TEMPLATE}])
+    consumer = prepared(dials, files={TEMPLATE: TEMPLATE_TEXT})
     result = run(consumer, "--kind", "notes-policy", "--stem", "a", "--title", 'A ruling: "quoted"')
     expected = (
         "---\n"
@@ -494,7 +512,67 @@ def from_template() -> tuple[bool, str]:
         "\n"
         "<what forced it>\n"
     )
-    return created(consumer, NOTE, expected, result, [messages.l2_template(TEMPLATE)])
+    # the same template with a space after its closing line: the same file
+    spaced = TEMPLATE_TEXT.replace("\n---\n\n#", "\n--- \n\n#")
+    spaced_consumer = prepared(dials, files={TEMPLATE: spaced})
+    spaced_result = run(
+        spaced_consumer, "--kind", "notes-policy", "--stem", "a", "--title", 'A ruling: "quoted"'
+    )
+    return all_of(
+        [
+            created(consumer, NOTE, expected, result, [messages.l2_template(TEMPLATE)]),
+            (spaced != TEMPLATE_TEXT, "the closer with a trailing space was not made"),
+            created(spaced_consumer, NOTE, expected, spaced_result, [messages.l2_template(TEMPLATE)]),
+            *from_text_in_process(),
+        ],
+        "the command's id, title and status, the template's type, the rest verbatim; a closer `--- ` the"
+        " same; a template read from text: any line ending of Markdown, the block written with LF and the"
+        " body as written",
+    )
+
+
+# `read_text` turns a CRLF and a lone CR in a template file into LF before the generator sees it, so
+# those endings reach `from_template` only as text: it is called here with the text, each expected file typed
+FROM_TEXT: list[tuple[str, str, str]] = [
+    (
+        "a lone CR ends each line",
+        "---\rid: <x>\rtype: current-state\rtitle: T\r---\rBODY\r",
+        "---\nid: a\ntype: current-state\ntitle: N\nstatus: active\n---\nBODY\r",
+    ),
+    (
+        "CRLF, a folded title of two continuation lines, a status missing",
+        "---\r\nid: <x>\r\ntype: current-state\r\ntitle: >\r\n  one\r\n  two\r\nstakes: process\r\n"
+        "---\r\nBODY\r\n",
+        "---\nid: a\ntype: current-state\ntitle: N\nstakes: process\nstatus: active\n---\nBODY\r\n",
+    ),
+    (
+        "the closing line ends the text, with no line ending after it",
+        "---\nid: <x>\ntype: current-state\ntitle: T\n---",
+        "---\nid: a\ntype: current-state\ntitle: N\nstatus: active\n---",
+    ),
+    (
+        "a closer `--- ` with its space, and a later thematic break in the body",
+        "---\nid: <x>\ntype: current-state\ntitle: T\n--- \nBODY\n---\nTWO\n",
+        "---\nid: a\ntype: current-state\ntitle: N\nstatus: active\n---\nBODY\n---\nTWO\n",
+    ),
+    (
+        "two byte-order marks before the opener, and an opener `--- `",
+        "\ufeff\ufeff--- \nid: <x>\ntype: current-state\ntitle: T\n---\nBODY\n",
+        "---\nid: a\ntype: current-state\ntitle: N\nstatus: active\n---\nBODY\n",
+    ),
+]
+
+
+def from_text_in_process() -> list[tuple[bool, str]]:
+    results: list[tuple[bool, str]] = []
+    for name, template, expected in FROM_TEXT:
+        try:
+            got = filling.from_template(template, TEMPLATE, "a", "N", None)
+        except Exception as error:  # the old reader met a lone CR as no closing line at all
+            results.append((False, f"{name}: {type(error).__name__} {error}"))
+            continue
+        results.append((got == expected, f"{name}: gave {got!r}, expected {expected!r}"))
+    return results
 
 
 def template_refusals() -> tuple[bool, str]:
@@ -549,6 +627,32 @@ def template_refusals() -> tuple[bool, str]:
             ),
             messages.l5_template_no_envelope(TEMPLATE, "none"),
             "L5.16",
+        ),
+        (
+            run(
+                prepared(with_template, files={TEMPLATE: FF_BEFORE_CLOSER}),
+                "--kind",
+                "notes-policy",
+                "--stem",
+                "a",
+                "--title",
+                "T",
+            ),
+            messages.l5_template_no_envelope(TEMPLATE, FF_BEFORE_CLOSER_YAML),
+            "L5.16 ff closer",
+        ),
+        (
+            run(
+                prepared(with_template, files={TEMPLATE: FF_AFTER_CLOSER}),
+                "--kind",
+                "notes-policy",
+                "--stem",
+                "a",
+                "--title",
+                "T",
+            ),
+            messages.l5_template_no_envelope(TEMPLATE, FF_AFTER_CLOSER_YAML),
+            "L5.16 ff after",
         ),
         (
             run(prepared(with_template), "--kind", "notes-policy", "--stem", "a", "--title", "T"),
@@ -626,8 +730,8 @@ def template_refusals() -> tuple[bool, str]:
             *(broken(r, f, h) for r, f, h in pairs),
             (tree_state(not_utf8) == "", "a template that is not UTF-8 changed the tree"),
         ],
-        "no type, a conflicting type, a bad type, no envelope, a missing template, a template that is not"
-        " UTF-8: each refused",
+        "no type, a conflicting type, a bad type, no envelope, a form feed before or after the closer, a"
+        " missing template, a template that is not UTF-8: each refused",
     )
 
 
@@ -1090,9 +1194,14 @@ OWN: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
         free_segment,
     ),
     ("a single path and every fourth-class territory: no home, refused and taught", no_home),
-    ("a template: the command's id, title and status, the template's type, the rest verbatim", from_template),
     (
-        "no type, a conflicting type, a bad type, no envelope, a missing template, one not UTF-8",
+        "a template: the command's id, title and status, the template's type, the rest verbatim; a closer"
+        " `--- ` and every line ending of Markdown read",
+        from_template,
+    ),
+    (
+        "no type, a conflicting type, a bad type, no envelope, a form feed at the closer, a missing"
+        " template, one not UTF-8",
         template_refusals,
     ),
     ("an overlap, an existing file, an id in use", proof_refusals),

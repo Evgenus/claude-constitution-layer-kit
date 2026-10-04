@@ -1,12 +1,15 @@
-"""A document as the gate hands it to Vale. The envelope is blanked, so a title or an id is not
-prose; every Vale comment outside code is blanked, so nothing in a document can switch a rule off —
-a departure is declared in the dials file, never marked in the document — and reported; one inside
-a fence or a code span is a mention, which Vale does not honour, and is left as it stands. Line
-numbers are kept: a blanked line is an empty line, a blanked comment is spaces."""
+"""A document as the gate hands it to Vale. The envelope, the block the shared reader finds, is
+blanked, so a title or an id is not prose; an envelope never closed is prose; every Vale comment
+outside code is blanked, so nothing in a document can switch a rule off — a departure is declared
+in the dials file, never marked in the document — and reported; one inside a fence or a code span
+is a mention, which Vale does not honour, and is left as it stands. Line numbers are kept: a
+blanked line is an empty line, a blanked comment is spaces."""
 
 from __future__ import annotations
 
 import re
+
+from const_gate.envelope import envelope_bounds
 
 from .model import Prepared
 
@@ -16,14 +19,12 @@ CODE_SPAN = re.compile(r"(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)")
 
 
 def prepare(text: str) -> Prepared:
-    lines = text.split("\n")
-    if lines and lines[0].lstrip("﻿") == "---":
-        for end in range(1, len(lines)):
-            if lines[end] == "---":
-                for index in range(end + 1):
-                    lines[index] = ""
-                break
-    blanked = "\n".join(lines)
+    bounds = envelope_bounds(text)
+    blanked = text
+    if bounds is not None and bounds.end is not None:
+        # exactly the shared reader's block: only its `\n` stay, one per line Vale counts; whatever else
+        # stood there (a byte-order mark, a `\r`) goes, so no line break is left for Vale but its own
+        blanked = "\n" * text.count("\n", 0, bounds.end) + text[bounds.end :]
     code = _code_ranges(blanked)
     comments: list[tuple[int, str]] = []
 

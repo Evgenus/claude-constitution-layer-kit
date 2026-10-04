@@ -14,6 +14,8 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from const_gate.envelope import Bounds, envelope_bounds
+
 _FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
 _FENCE_IN_LIST = re.compile(r"[ \t]*(`{3,}|~{3,})")  # a list item's content is indented with it
 _TAB = 4  # columns a tab counts for where indentation is compared
@@ -46,9 +48,9 @@ class Masked:
 
 
 def mask(document: str) -> Masked:
-    regions = _block_regions(document)
-    opens_with_envelope = document.lstrip("\ufeff").startswith("---")
-    body = _blank(document, regions[:1] if opens_with_envelope and regions and regions[0].start == 0 else [])
+    bounds = envelope_bounds(document)  # the one reading of where the YAML block stands
+    regions = _block_regions(document, bounds)
+    body = _blank(document, regions[:1] if bounds is not None else [])  # then the block is the first region
     blocks = _blank(document, regions)
     blocks = _blank(blocks, _comments(blocks))
     spans = tuple(_code_spans(blocks))
@@ -94,23 +96,28 @@ def _blank(text: str, regions: list[Span] | tuple[Span, ...]) -> str:
     return "".join(chars)
 
 
-def _block_regions(document: str) -> list[Span]:
+def _block_regions(document: str, bounds: Bounds | None) -> list[Span]:
+    """The block-level regions in reading order. Where the YAML block stands is the helper's `bounds`: a
+    block that opens the file is the first region, from offset 0 to the end of its closing line. A block
+    no line closes is this module's own rule, not the helper's: it masks to the end of the file. The
+    rest — fences, indented code — is read line by line here; the block's end falls on a line break
+    that `splitlines` also breaks at, so the loop resumes at the line after the block."""
     regions: list[Span] = []
     lines = document.splitlines(keepends=True)
     offset = 0
     fence: str | None = None  # the run that opened the fence being read
     fence_depth = 0  # the columns its opener was indented by
     block_start = 0
-    in_envelope = bool(lines) and lines[0].lstrip("\ufeff").rstrip() == "---"  # a byte order mark may lead
+    in_envelope = bounds is not None
     in_list = False  # the last unindented line was a list item: indented text continues it
     after_blank = True
     in_indented = False
-    for number, line in enumerate(lines):
+    for line in lines:
         end = offset + len(line)
         bare = line.rstrip("\r\n")
         if in_envelope:
-            if number > 0 and bare.rstrip() == "---":
-                regions.append(Span(0, end))
+            if bounds is not None and bounds.end is not None and end >= bounds.end:
+                regions.append(Span(0, bounds.end))
                 in_envelope = False
         elif fence is not None:
             closing = _FENCE_IN_LIST.match(bare)

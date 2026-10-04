@@ -42,6 +42,7 @@ from harness import (  # noqa: E402
     broken_first_line,
     event_json,
     expect,
+    red_lines,
 )
 from referencing_gate import messages, start  # noqa: E402
 from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions  # noqa: E402
@@ -257,12 +258,65 @@ def a_path_on_one_machine_is_read_in_code_too() -> tuple[bool, str]:
         "# F\n", id="note-a", type="non-authoritative", title=f"About {path}", status="active"
     )
     green = expect(gate_on(Write(DOC, in_envelope))[0], 0, messages.g1_covered(), "stdout")
-    return all_of([*results, green], f"red in {', '.join(reds)}; not read in the YAML block")
+    # A document with no YAML block has no region the checks skip: its first block, a fence, is read like the
+    # rest. This case lives here, not in item 11, since what it holds is the path rule; it has no envelope, so
+    # it is written whole and not through `note`. The fence opens on line 1, the path stands on line 2.
+    bare = f"```sh\ncat {path}\n```\n"
+    wanted = [f"RED: {DOC}:2: '{path}' is a path on one machine"]
+    no_block, _ = gate_on(Write(DOC, bare), dials_patch=LANES)
+    got = [line for line in red_lines(no_block.stderr) if line.startswith(f"RED: {DOC}:")]
+    no_envelope = (
+        got == wanted and no_block.code == 2,
+        f"no YAML block: wanted exit 2 with {wanted}; got exit {no_block.code}: {got}",
+    )
+    return all_of(
+        [*results, green, no_envelope],
+        f"red in {', '.join(reds)}, and in a fence with no YAML block; not read in the YAML block",
+    )
 
 
 def envelope_is_masked() -> tuple[bool, str]:
-    text = document("# F\n", id="note-a", type="non-authoritative", title="About REQ-7", status="active")
-    return expect(gate_on(Write(DOC, text), dials_patch=LANES)[0], 0, messages.g1_covered(), "stdout")
+    """The YAML block is where the shared helper says it stands: its first line is `---` with trailing
+    whitespace aside, its closer the next such line, a line ends at a line feed, a carriage return or
+    both and nowhere else, and a block no line closes runs to the end of the file. Every text holds
+    `REQ-7` in the block, which no check may read, and, but for the unclosed block, once in the text
+    after it, which the check must find, on the line typed here. Every line is typed by hand."""
+    block = "id: note-a\ntype: non-authoritative\ntitle: About REQ-7\nstatus: active\n"  # lines 2 to 5
+    tail = "\n# F\nSee REQ-7.\n"  # the blank line is 7, the reference stands on line 9 after a closer on 6
+    found = f"RED: {DOC}:9: 'REQ-7' cites a requirement by a bare handle"
+    unmasked = [  # no opener: nothing is masked, the title stands on line 3 and the text after the `---` on 8
+        f"RED: {DOC}:3: 'REQ-7' cites a requirement by a bare handle",
+        f"RED: {DOC}:8: 'REQ-7' cites a requirement by a bare handle",
+    ]
+    texts = {
+        "exact": ("---\n" + block + "---\n" + tail, [found]),
+        "an opener with a trailing space": ("--- \n" + block + "---\n" + tail, [found]),
+        "a closer with a trailing space": ("---\n" + block + "--- \n" + tail, [found]),
+        "a closer with a trailing tab": ("---\n" + block + "---\t\n" + tail, [found]),
+        "CRLF": (("---\n" + block + "---\n" + tail).replace("\n", "\r\n"), [found]),
+        "a byte order mark": ("﻿---\n" + block + "---\n" + tail, [found]),
+        # The closer's line ends the block and the next line opens a fence: the fence is masked as a block,
+        # the text after it is not. The fence opens on line 7, `See REQ-7.` stands in it, the reference on 10.
+        "a fence on the line after the closer": (
+            "---\n" + block + "---\n```\nSee REQ-7.\n```\nAfter REQ-7.\n",
+            [f"RED: {DOC}:10: 'REQ-7' cites a requirement by a bare handle"],
+        ),
+        "no closer": ("---\n" + block + tail, []),
+        "no block": (block + "---\n" + tail, unmasked),
+        # A form feed breaks a line for `str.splitlines()` and for no Markdown reader: it closes nothing.
+        "a form feed before the only closer": ("---\n" + block + "\x0c---\n" + tail, []),
+        "a form feed before a closer, and a later one": (
+            "---\n" + block + "\x0c---\n\n# F\nSee REQ-7.\n---\n\nSee REQ-7.\n",
+            [f"RED: {DOC}:12: 'REQ-7' cites a requirement by a bare handle"],
+        ),
+    }
+    for name, (text, wanted) in texts.items():
+        result, _ = gate_on(Write(DOC, text), dials_patch=LANES)
+        got = [line for line in red_lines(result.stderr) if line.startswith(f"RED: {DOC}:")]  # not the count
+        code = 2 if wanted else 0
+        if got != wanted or result.code != code:
+            return False, f"{name}: wanted exit {code} with {wanted}; got exit {result.code}: {got}"
+    return True, f"{len(texts)} texts: the block is masked as far as the helper says, and no further"
 
 
 def list_continuation_is_no_code() -> tuple[bool, str]:
