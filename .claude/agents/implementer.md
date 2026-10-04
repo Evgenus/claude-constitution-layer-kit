@@ -26,12 +26,15 @@ HOOKS. A hook's refusal is fixed at its cause, never bypassed: no script, heredo
 redirect that writes around it. Edit Markdown only with Edit or Write.
 
 SHELL RULES, strict:
-1. Each command is one synchronous foreground command that ends in under 600 seconds.
+1. Each command is one synchronous foreground command that ends in under 600 seconds; one that
+   may pass two minutes sets the tool's timeout, or the tool backgrounds it at 120 seconds.
 2. At most three test runners at once, in one command joined by `wait`.
 3. Never `run_in_background`, never `&` without `wait`, never a polling loop (`until`,
    `while … sleep`), never `sleep`.
 4. Write only inside the kit's tracked tree for the piece itself, and in the scratch directory
-   the message names; never in `/tmp`, never at the repository root.
+   the message names; never in `/tmp`, never at the repository root. Delete nothing in the
+   scratch directory, no `rm`: make a fresh folder, `mktemp -d "<scratch>/<name>.XXXXXX"`, and
+   copy in what you need; the session removes the folders before the merge.
 5. Never `git stash`, `git push`, `git merge`, `git reset`, `git checkout --` or `git rebase`.
 
 Before your final reply, run `ps -ax -o pid,command | grep -E 'sleep|until|tests/run.py|check-'`
