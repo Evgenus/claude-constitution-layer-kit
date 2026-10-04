@@ -686,15 +686,26 @@ def dry_run() -> tuple[bool, str]:
         messages.l2_no_template("notes-policy"),
         messages.l4_dry_run(),
     ]
+    # a template path of over 80 characters with a break and a backslash: the TEMPLATE line shows it whole
+    odd = prepared(
+        own(templates=[{"policy": "notes-policy", "template": TPL_ODD}]), files={TPL_ODD: TEMPLATE_TEXT}
+    )
+    odd_result = run(odd, "--kind", "notes-policy", "--stem", "a", "--dry-run")
+    odd_line = "TEMPLATE: tpl/w\\nx\\\\y" + "t" * 80 + ".md"
     ok = (
         result.code == 0
         and all(line in result.stdout for line in lines)
         and not (consumer.root / NOTE).exists()
         and tree_state(consumer) == ""
+        and odd_result.code == 0
+        and odd_line in odd_result.stdout.splitlines()
+        and tree_state(odd) == ""
     )
     return (
         ok,
-        "exit 0, the three lines, nothing written" if ok else f"{result}; tree: {tree_state(consumer)!r}",
+        "exit 0, the three lines, nothing written; a template path of 80+ characters whole"
+        if ok
+        else f"{result}; tree: {tree_state(consumer)!r}; odd: {odd_result}",
     )
 
 

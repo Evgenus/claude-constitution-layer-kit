@@ -2227,6 +2227,7 @@ def wide_tree_lines() -> list[str]:
         "See [b](t.md#a%0Ab).\n"
         "See [c](" + "t" * 100 + ".md#" + "f" * 100 + ").\n"
         "See [d](t\\z" + "t" * 80 + ".md#first-section).\n"
+        "See [f](t%5Cz" + "t" * 80 + ".md#nope).\n"
     )
     files = {
         TARGET: TARGET_TEXT,
@@ -2237,6 +2238,7 @@ def wide_tree_lines() -> list[str]:
         "docs/notes/" + "l" * 100 + ".md": note("# L\n", "long-t"),
         "docs/notes/an.md": note('# An\n\n<a id="k\\z' + "x" * 100 + '"></a>\n', "note-an"),
         "tools/w\\x" + "t" * 80 + ".sh": "see note-" + "n" * 100 + "\n",
+        "docs/notes/c\rd.md": note(body("See [g](gone-cr.md).\n"), "note-c"),  # a lone carriage return
     }
     out = scan_of(files, own(mentions=[{"pattern": r"\bnote-[a-z]+\b"}])).stdout.splitlines()
     owner_shown = "docs/notes/o\\\\y" + "q" * 80 + ".md"
@@ -2271,6 +2273,10 @@ def wide_tree_lines() -> list[str]:
         f" the cited place in {long_target}",
         f"RED: {shown}:16: {cut_target}… [100 characters] resolves only through a heading — its generated"
         " name, or a {#key} written after it — not through an anchor written in " + target_shown,
+        f"RED: {shown}:17: t%5Cz" + "t" * 75 + "… [93 characters] has no anchor 'nope'",
+        '  fix: cite an anchor the target carries, or add <a id="nope"></a> on its own line before the cited'
+        " place in " + target_shown,
+        "RED: docs/notes/c\\rd.md:9: link target gone-cr.md does not exist",
         "RED: tools/w\\\\x"
         + "t" * 80
         + ".sh:1: 'note-"

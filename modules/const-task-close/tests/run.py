@@ -942,6 +942,12 @@ def golden_lines() -> tuple[bool, str]:
         spelt.root, "wrong\n\n" + f"{KEY}: nosuch — a\rb\n", {"src/a.py": "2\n"}
     )
     odd = scan(spelt.root).stdout
+    cut = repo(with_map())
+    branch(cut.root)
+    cut_where = "commit " + commit(  # a value of 95 characters with a backslash points only: cut at 80
+        cut.root, "wrong\n\n" + f"{KEY}: nosuch — q\\" + "z" * 84 + "\n", {"src/a.py": "2\n"}
+    )
+    cut_out = scan(cut.root).stdout
     x1 = scan(repo(with_map({**CORE, "docs": ["docs/none.md"]})).root).stderr
     x2 = scan(repo(with_map({**CORE, "docs": ["docs"]})).root).stderr
     slash = scan(repo(with_map({**CORE, "docs": ["docs/"]})).root).stderr
@@ -958,6 +964,13 @@ def golden_lines() -> tuple[bool, str]:
             f'RED: {odd_where}: "No-Doc-Impact: nosuch — a\\rb" names no pair of the coverage map'
             " (pairs: core)",
             odd,
+        ),
+        (
+            f'RED: {cut_where}: "No-Doc-Impact: nosuch — q\\\\'
+            + "z" * 69
+            + '… [95 characters]" names no pair'
+            " of the coverage map (pairs: core)",
+            cut_out,
         ),
         ("RED: the working tree is dirty at turn end — 1 path(s): ?? scratch.txt", tree),
         (
