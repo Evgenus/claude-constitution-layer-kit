@@ -33,7 +33,7 @@ The audit's item on this defect argued three ways to fix it.
 
 **Choice.** B, by the decider, in chat on 2026-10-04, when the decider set this change's scope.
 
-**R1.** The shared envelope reader has two more public parts, both class K. `envelope_bounds(text)` says where the envelope stands, as character offsets into the text as given, a byte-order mark included. `envelope_lines(text, start, stop)` is the line splitter. `parse_envelope` is built on both and gives the same verdict as before for every text that holds none of the characters of R4. A module that blanks, masks or rewrites the envelope asks `envelope_bounds` where it stands and cuts its lines with `envelope_lines`; it keeps no reading of its own of where the envelope opens or closes, or of where a line ends.
+**R1.** The shared envelope reader has two more public parts, both class K. `envelope_bounds(text)` says where the envelope stands, as character offsets into the text as given, a byte-order mark included. `envelope_lines(text, start, stop)` is the line splitter. `parse_envelope` is built on both and gives the same verdict as before for every text that holds none of the characters of R4. A module that blanks, masks or rewrites the envelope asks `envelope_bounds` where it stands and cuts its lines with `envelope_lines`; it keeps no reading of its own of where the envelope opens or closes, or of where one of the envelope's lines ends.
 
 ## 2. Whether the history report's link defect joins this change
 
@@ -122,16 +122,16 @@ These items carry no options. Each follows from the answers above or from the ki
 
 ## Applied
 
-The commits of this branch apply every item. R1 to R9 were applied by the commits before the one that adds this record, save three sentences that commit adds: item 9 of section 2 of the shared-code page, which states R1's rule for a module; the clause of [`const-referencing`](../requirements.md#const-referencing)'s rows section that states R7; and the plan's step that holds R3. The record is born `inactive`.
+The commits of this branch apply every item. R1 and R4 to R9 were applied by the commits before the one that adds this record, save sentences added with the record or by its audit. The commit that adds the record adds item 9 of section 2 of the shared-code page, which states R1's rule for a module, the clause of [`const-referencing`](../requirements.md#const-referencing)'s rows section that states R7, and the plan's sentence that holds R3. The audit's fixes add the plan's sentence that holds R2 and the clause of rule L-d of [`const-locations`](../requirements.md#const-locations) on the byte-order mark in R8. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `envelope` row of section 1; [section 2](../../shared/GATE.md#g2), item 9; [`const-language`](../../modules/const-language/MODULE.md#t9), limit 9.
-2. R2 — [`const-doc-budgets`](../../modules/const-doc-budgets/MODULE.md#t9), limit 9 of section 9, which states the defect and its fallback, a change of its own; the call on this change's scope is history.
+2. R2 — pending: [step 9 of the rollout plan](../rollout-plan.md#s9), the routine change that makes the history report follow a link; until it lands, limit 9 of the module's own document states the defect.
 3. R3 — pending: [step 9 of the rollout plan](../rollout-plan.md#s9), the decider's choice for the shared-code page.
 4. R4 — [kit-shared-gate-code](../../shared/GATE.md#g4), limit 8 of section 4; [section 1](../../shared/GATE.md#g1), the `envelope` row; [`const-language`](../../modules/const-language/MODULE.md#t7), the configuration of the envelope's blanking.
 5. R5 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `envelope` row of section 1; [section 2](../../shared/GATE.md#g2), item 9.
 6. R6 — [`const-language`](../../modules/const-language/MODULE.md#t7), the configuration of the envelope's blanking; [its acceptance section](../../modules/const-language/MODULE.md#t10), item T7.
 7. R7 — [`const-referencing`](../../modules/const-referencing/MODULE.md#t3), the row of [requirement A5.1](../requirements.md#a5-1) in section 3.
-8. R8 — [`const-locations`](../../modules/const-locations/MODULE.md#t5), rule L-d; [its acceptance section](../../modules/const-locations/MODULE.md#t10), item T5.
+8. R8 — [`const-locations`](../../modules/const-locations/MODULE.md#t5), rule L-d; [its acceptance section](../../modules/const-locations/MODULE.md#t10), item T5; [kit-shared-gate-code](../../shared/GATE.md#g2), item 9 of section 2.
 9. R9 — [kit-shared-gate-code](../../shared/GATE.md#g5), the row S164 of section 5 and the paragraph after the table.
