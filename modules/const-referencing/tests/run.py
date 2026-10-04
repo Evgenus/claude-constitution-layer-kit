@@ -258,7 +258,21 @@ def a_path_on_one_machine_is_read_in_code_too() -> tuple[bool, str]:
         "# F\n", id="note-a", type="non-authoritative", title=f"About {path}", status="active"
     )
     green = expect(gate_on(Write(DOC, in_envelope))[0], 0, messages.g1_covered(), "stdout")
-    return all_of([*results, green], f"red in {', '.join(reds)}; not read in the YAML block")
+    # A document with no YAML block has no region the checks skip: its first block, a fence, is read like the
+    # rest. This case lives here, not in item 11, since what it holds is the path rule; it has no envelope, so
+    # it is written whole and not through `note`. The fence opens on line 1, the path stands on line 2.
+    bare = f"```sh\ncat {path}\n```\n"
+    wanted = [f"RED: {DOC}:2: '{path}' is a path on one machine"]
+    no_block, _ = gate_on(Write(DOC, bare), dials_patch=LANES)
+    got = [line for line in red_lines(no_block.stderr) if line.startswith(f"RED: {DOC}:")]
+    no_envelope = (
+        got == wanted and no_block.code == 2,
+        f"no YAML block: wanted exit 2 with {wanted}; got exit {no_block.code}: {got}",
+    )
+    return all_of(
+        [*results, green, no_envelope],
+        f"red in {', '.join(reds)}, and in a fence with no YAML block; not read in the YAML block",
+    )
 
 
 def envelope_is_masked() -> tuple[bool, str]:
@@ -281,6 +295,12 @@ def envelope_is_masked() -> tuple[bool, str]:
         "a closer with a trailing tab": ("---\n" + block + "---\t\n" + tail, [found]),
         "CRLF": (("---\n" + block + "---\n" + tail).replace("\n", "\r\n"), [found]),
         "a byte order mark": ("﻿---\n" + block + "---\n" + tail, [found]),
+        # The closer's line ends the block and the next line opens a fence: the fence is masked as a block,
+        # the text after it is not. The fence opens on line 7, `See REQ-7.` stands in it, the reference on 10.
+        "a fence on the line after the closer": (
+            "---\n" + block + "---\n```\nSee REQ-7.\n```\nAfter REQ-7.\n",
+            [f"RED: {DOC}:10: 'REQ-7' cites a requirement by a bare handle"],
+        ),
         "no closer": ("---\n" + block + tail, []),
         "no block": (block + "---\n" + tail, unmasked),
         # A form feed breaks a line for `str.splitlines()` and for no Markdown reader: it closes nothing.
