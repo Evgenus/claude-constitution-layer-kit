@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 An audit of the kit's hardcoded logic on 2026-10-02 found that four places read where the envelope ends, each in its own way. The shared reader ignored trailing whitespace on a `---` line and split lines with Python's `splitlines()`. [`const-language`](../requirements.md#const-language) compared each line with `== "---"` and split on line feeds only. So a closing line `--- ` made the language gate grade the title as prose, a false red on the wrong line. Worse, with a later `---` in the body, it blanked everything down to that line, so the first section was never read: a false green. [`const-referencing`](../requirements.md#const-referencing) and [`const-locations`](../requirements.md#const-locations) kept copies that agreed with the shared reader on common input. An inventory made before any code found a fifth site, a second test in the referencing gate. It also found a second drift: Python's `splitlines()` breaks a line at a form feed, U+2028 and six other characters, which Vale and Markdown do not.
 
-The change this record rules is on one branch. Every module is a draft at `0.0.x`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). [Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code to the shared source when it implements a kernel section and two or more modules need it, and lets a shared part be widened for one module when the widening keeps a rule the part carries for all. Five questions were put to the decider in chat, each with lettered options and one recommendation, the pick a letter. Section 6 holds what the change makes where no choice existed.
+The change this record rules is on one branch. Every module is a draft at `0.0.x`, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). [Rule 2 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r2) admits code to the shared source when it implements a kernel section and two or more modules need it, and lets a shared part be widened for one module when the widening keeps a rule the part carries for all. The choice of section 1 is the decider's instruction, given on the options the audit had argued. Four more questions, in sections 2 to 5, were put to the decider in chat, one per message, each with lettered options and one recommendation, the pick a letter. Section 6 holds what the change makes where no choice existed.
 
 ## 1. Whether the envelope's bounds are shared
 
@@ -118,7 +118,7 @@ These items carry no options. Each follows from the answers above or from the ki
 
 **R8.** The locations generator rewrites the envelope it finds through `envelope_bounds` and `envelope_lines`, writes the rewritten block with line feeds and no byte-order mark before it, and keeps the body as the command read it.
 
-**R9.** The shared acceptance item S164 proves R4 and the offsets and line cuts of R1 in every gate that judges envelopes. A gate that judges none leaves it out, and where it blanks or masks the envelope, it proves where the envelope ends in its own items.
+**R9.** The shared acceptance item S164 proves, in every gate that judges envelopes, that a `---` line with trailing whitespace and CRLF endings delimit the envelope, that a break character other than those of R4 before `---` makes no delimiter, and the offsets and line cuts of R1. A gate that judges none leaves it out, and where it blanks or masks the envelope, it proves where the envelope ends in its own items.
 
 ## Applied
 
