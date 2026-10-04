@@ -30,7 +30,7 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
 from const_gate.model import Broken, Finding  # noqa: E402
-from consumer import ROOT_POLICY, Consumer, document  # noqa: E402
+from consumer import ROOT_POLICY, Consumer, document, envelope  # noqa: E402
 from harness import Assertion, Edit, Harness, Result, Write, broken_first_line, expect  # noqa: E402
 from locations_gate import messages, start  # noqa: E402
 from locations_gate.dials import KEYS  # noqa: E402
@@ -40,6 +40,21 @@ from shared_items import Subject, shared_assertions  # noqa: E402
 identity.declare(start.GENERATOR)  # the expected messages are built by the same functions the generator uses
 H = Harness(SCRIPTS, "new-document.sh", "new-document.py", start.GENERATOR.namespace)
 NAMESPACE = start.GENERATOR.namespace
+
+# values over 80 characters, with a line break and a backslash where the origin lets one in: a path the
+# reader opens or types stays whole; a name that only points is cut at 80 with the cut said
+WEIRD_DIR = "w\nx\\y" + "d" * 80  # a folder name, for the directory the run stands in and a root
+WEIRD_DIR_SHOWN = "w\\nx\\\\y" + "d" * 80
+TPL_ODD = "tpl/w\nx\\y" + "t" * 80 + ".md"  # a template path of the dial
+TPL_ODD_SHOWN = "tpl/w\\nx\\\\y" + "t" * 80 + ".md"
+LONG_STEM = "s" * 100  # a kebab name over 80 characters: its home is a path over 80 characters
+LONG_KIND = "k" * 100  # a policy id over 80 characters
+
+ODD_YAML = (  # the parser's line on a template whose id holds a bad escape: it quotes the backslash
+    "while scanning a double-quoted scalar in"
+    ' "<unicode string>", line 1, column 5: id: "x\\q" ^ found unknown escape character \'q\' in'
+    ' "<unicode string>", line 1, column 8: id: "x\\q" ^'
+)
 
 NOTE = "docs/notes/a.md"  # the home of --kind notes-policy --stem a
 NOTE_ARGS = ["--kind", "notes-policy", "--stem", "a", "--title", "A note", "--type", "non-authoritative"]
@@ -151,12 +166,22 @@ ENTRY = (
 GOLDEN: dict[str, str] = {
     "L5.1": "BROKEN: misinvocation: --stem was not given — fix: run it with --kind <policy id> --stem <stem>"
     " --title <text> [--type <meta-type>] [--segment <segment>] [--id <id>] [--dry-run]",
+    "L5.2 odd": f"BROKEN: {AT}/l" + WEIRD_DIR_SHOWN + " is not inside a git repository — fix: run it from"
+    " inside the repository the document belongs to",
     "L5.2": f"BROKEN: {AT} is not inside a git repository — fix: run it from inside the repository the"
     " document belongs to",
+    "L5.3 odd": f"BROKEN: no constitution.yaml in {AT}/" + WEIRD_DIR_SHOWN + ": no kind is declared — fix: a"
+    " document is created into a policy's territory; declare the root policy and the kind's policy first —"
+    " the new-kind procedure",
     "L5.3": f"BROKEN: no constitution.yaml in {AT}: no kind is declared — fix: a document is created into a"
     " policy's territory; declare the root policy and the kind's policy first — the new-kind procedure",
     "L5.4": "BROKEN: constitution.yaml names no root_policy: no policy claims anything — fix: set"
     " root_policy: <path of the policy for policies>",
+    "L5.5 long": "BROKEN: 'const-locations' is not a policy: no document in the root policy's territory"
+    " carries that id — fix: name one of: "
+    + LONG_KIND
+    + ", notes-policy, root-policy, shared-policy; for a new"
+    " kind, create its policy first — the new-kind procedure",
     "L5.5": "BROKEN: 'const-locations' is not a policy: no document in the root policy's territory carries"
     " that id — fix: name one of: notes-policy, root-policy, shared-policy; for a new kind, create its"
     " policy first — the new-kind procedure",
@@ -177,14 +202,34 @@ GOLDEN: dict[str, str] = {
     "L5.10 stem": "BROKEN: 'Bad_Stem' is not a kebab-case name for the stem" + KEBAB,
     "L5.10 id": "BROKEN: 'x--y' is not a kebab-case name for the id" + KEBAB,
     "L5.10 segment": "BROKEN: 'Bad_Name' is not a kebab-case name for the segment" + KEBAB,
+    "L5.10 stem break": "BROKEN: 'abc\\n' is not a kebab-case name for the stem" + KEBAB,
+    "L5.10 stem cr": "BROKEN: 'abc\\r' is not a kebab-case name for the stem" + KEBAB,
+    "L5.10 id break": "BROKEN: 'x\\ny' is not a kebab-case name for the id" + KEBAB,
+    "L5.10 stem odd": "BROKEN: 'a\\nb\\\\c"
+    + "d" * 75
+    + "… [95 characters]' is not a kebab-case name for the stem"
+    + KEBAB,
     "L5.11": "BROKEN: docs/notes/a.md already exists: creating never overwrites, so the document that is"
     " there stays as it is — fix: choose another stem, or edit the document that is there",
+    "L5.11 long": "BROKEN: docs/notes/" + LONG_STEM + ".md already exists: creating never overwrites, so the"
+    " document that is there stays as it is — fix: choose another stem, or edit the document that is there",
+    "L5.12 long": "BROKEN: docs/notes/shared/" + LONG_STEM + ".md would also lie in notes-policy's territory"
+    " ('docs/notes/**'): two policies would govern it — fix: territories never overlap; narrow one of them"
+    " in constitution.yaml before creating documents there",
     "L5.12": "BROKEN: docs/notes/shared/b.md would also lie in notes-policy's territory ('docs/notes/**'):"
     " two policies would govern it — fix: territories never overlap; narrow one of them in"
     " constitution.yaml before creating documents there",
     "L5.13": "BROKEN: notes-policy has no template, and --type was not given: without a template nothing but"
     " the policy's prose says which meta-type the kind is — fix: run it with --type current-state,"
     " task-record or non-authoritative — docs/policies/notes-policy.md says which its kind is",
+    "L5.13 long": "BROKEN: "
+    + "k" * 80
+    + "… [100 characters] has no template, and --type was not given: without a"
+    " template nothing but the policy's prose says which meta-type the kind is — fix: run it with --type"
+    " current-state, task-record or non-authoritative — docs/policies/" + LONG_KIND + ".md says which its"
+    " kind is",
+    "L5.14 odd": "BROKEN: --type current-state was given, but the template " + TPL_ODD_SHOWN + " fixes type:"
+    " task-record, and a kind has one meta-type — fix: drop --type; the template decides",
     "L5.14": "BROKEN: --type current-state was given, but the template tpl/record.md fixes type:"
     " task-record, and a kind has one meta-type — fix: drop --type; the template decides",
     "L5.15 missing": "BROKEN: the template of notes-policy, tpl/record.md, does not exist — fix: point"
@@ -192,15 +237,38 @@ GOLDEN: dict[str, str] = {
     "L5.15 unreadable": "BROKEN: the template of notes-policy, tpl/record.md, cannot be read ('utf-8' codec"
     " can't decode byte 0xff in position 222: invalid start byte) — fix: point const-locations.templates"
     " at a Markdown file of this repository, or remove the entry",
+    "L5.15 missing odd": "BROKEN: the template of notes-policy, " + TPL_ODD_SHOWN + ", does not exist — fix:"
+    " point const-locations.templates at a Markdown file of this repository, or remove the entry",
+    "L5.15 unreadable odd": "BROKEN: the template of notes-policy, " + TPL_ODD_SHOWN + ", cannot be read"
+    " ('utf-8' codec can't decode byte 0xff in position 222: invalid start byte) — fix: point"
+    " const-locations.templates at a Markdown file of this repository, or remove the entry",
+    "L5.16 odd": "BROKEN: the template " + TPL_ODD_SHOWN + " opens with no readable envelope (while"
+    ' scanning a double-quoted scalar in "<unicode string>",'
+    ' line 1, column 5: id: "x\\\\q" ^ found unknown escape character \'q\' in "<unicode string>", line 1,'
+    ' column 8: id: "x\\\\q" ^) — fix: a template opens with the YAML block a document of its kind carries'
+    " — id, type, title, status — with placeholders where the writer fills",
     "L5.16": "BROKEN: the template tpl/record.md opens with no readable envelope (none) — fix: a template"
     " opens with the YAML block a document of its kind carries — id, type, title, status — with"
     " placeholders where the writer fills",
+    "L5.17 odd": "BROKEN: the template " + TPL_ODD_SHOWN + " carries type 'x\\ny" + "v" * 77 + "… [93"
+    " characters]', which is no meta-type — fix: set type: current-state, task-record or non-authoritative"
+    " in the template",
     "L5.17": "BROKEN: the template tpl/record.md carries type 'ruling', which is no meta-type — fix: set"
     " type: current-state, task-record or non-authoritative in the template",
     "L5.18": "BROKEN: --title was not given, and the envelope is written with the title as a value — fix:"
     " run it with --title '<the document's title>'; a dry run needs none",
+    "L5.19 long": "BROKEN: id '"
+    + "s" * 80
+    + "… [100 characters]' is already carried by docs/notes/"
+    + "o" * 100
+    + ".md — fix: ids are unique in the tree: choose another stem, or give --id",
     "L5.19": "BROKEN: id 'a' is already carried by docs/notes/other.md — fix: ids are unique in the tree:"
     " choose another stem, or give --id",
+    "L5.20 link long": "BROKEN: docs/notes/" + LONG_STEM + ".md could not be written ([Errno 17] File exists:"
+    f" '{AT}/docs/notes/" + LONG_STEM + ".md'): the write is the last act, so the refusal leaves nothing"
+    " behind — fix: remove what the system's error names — a denied permission, a file or link in the way"
+    " at the home or a directory above it, a full or read-only disk — and run it again; nothing else was"
+    " changed",
     "L5.20": "BROKEN: docs/notes/a.md could not be written ([Errno 13] Permission denied:"
     f" '{AT}/docs/notes'): the write is the last act, so the refusal leaves nothing behind — fix:"
     " remove what the system's error names — a denied permission, a file or link in the way at the home"
@@ -218,6 +286,9 @@ GOLDEN: dict[str, str] = {
     "L5.22": "BROKEN: --title is empty (or only whitespace), and the title is the envelope's one non-empty"
     " line — fix: run it with --title '<the document's title>'",
     "L5.23": "BROKEN: --title holds a line break, and a title is one line — fix: give the title on one line",
+    "L5.24 long": "BROKEN: " + LONG_KIND + " claims no territory: its namespace in constitution.yaml has no"
+    " territory, so no home follows — fix: under " + LONG_KIND + ": in constitution.yaml write territory:"
+    " ['<dir>/**'], <dir> being the directory its documents live in",
     "L5.24": "BROKEN: notes-policy claims no territory: its namespace in constitution.yaml has no territory,"
     " so no home follows — fix: under notes-policy: in constitution.yaml write territory: ['<dir>/**'],"
     " <dir> being the directory its documents live in",
@@ -314,7 +385,7 @@ def directory_prefix() -> tuple[bool, str]:
     ]
     whole = created(long_consumer, long_home, long_text, run(long_consumer, *long_args), long_lines)
     escapes = (
-        messages.escaped("a\\b\nc\r" + stem) == "a\\\\b\\nc\\r" + stem,
+        shared.escaped("a\\b\nc\r" + stem) == "a\\\\b\\nc\\r" + stem,
         "a backslash and the line breaks of a path are escaped, the path never cut",
     )
     return all_of([plain, whole, escapes], "a home of 20 characters and one of 99 are shown whole")
@@ -390,6 +461,11 @@ def no_home() -> tuple[bool, str]:
     for namespace in namespaces:
         result = run(prepared(namespace), *NOTE_ARGS)
         results.append(broken(result, messages.l5_no_territory("notes-policy"), "L5.24"))
+    long_policy = {f"docs/policies/{LONG_KIND}.md": envelope(LONG_KIND, "current-state")}
+    long_run = run(prepared(files=long_policy), "--kind", LONG_KIND, "--stem", "a", "--title", "T")
+    results.append(
+        broken(long_run, messages.l5_no_territory(LONG_KIND), "L5.24 long")
+    )  # typed into the dials
     return all_of(
         results,
         "a single path, two patterns, a negation, a glob in the name, a bare directory, no territory: each"
@@ -490,6 +566,61 @@ def template_refusals() -> tuple[bool, str]:
             "L5.15 unreadable",
         ),
     ]
+    # the template's path, as the dial gives it, is the reader's to point at a real file: whole, escaped
+    odd_dials = own(templates=[{"policy": "notes-policy", "template": TPL_ODD}])
+    odd_args = ("--kind", "notes-policy", "--stem", "a", "--title", "T")
+    odd_not_utf8 = prepared(odd_dials, files={TPL_ODD: TEMPLATE_TEXT})
+    (odd_not_utf8.root / TPL_ODD).write_bytes(TEMPLATE_TEXT.encode() + b"\xff\n")
+    commit_if_changed(odd_not_utf8)
+    odd_type = TEMPLATE_TEXT.replace("type: task-record", 'type: "x\\ny' + "v" * 90 + '"')
+    pairs += [
+        (
+            run(prepared(odd_dials), *odd_args),
+            messages.l5_template_missing("notes-policy", TPL_ODD),
+            "L5.15 missing odd",
+        ),
+        (
+            run(odd_not_utf8, *odd_args),
+            messages.l5_template_unreadable(
+                "notes-policy",
+                TPL_ODD,
+                f"'utf-8' codec can't decode byte 0xff in position {len(TEMPLATE_TEXT.encode())}: invalid"
+                " start byte",
+            ),
+            "L5.15 unreadable odd",
+        ),
+        (
+            run(prepared(odd_dials, files={TPL_ODD: TEMPLATE_TEXT}), *odd_args, "--type", "current-state"),
+            messages.l5_type_conflict("current-state", TPL_ODD, "task-record"),
+            "L5.14 odd",
+        ),
+        (
+            run(prepared(odd_dials, files={TPL_ODD: odd_type}), *odd_args),
+            messages.l5_template_bad_type(TPL_ODD, "x\ny" + "v" * 90),
+            "L5.17 odd",
+        ),
+        (
+            run(prepared(odd_dials, files={TPL_ODD: '---\nid: "x\\q"\n---\n\n# T\n'}), *odd_args),
+            messages.l5_template_no_envelope(TPL_ODD, ODD_YAML),
+            "L5.16 odd",
+        ),
+        (
+            run(
+                prepared(
+                    {LONG_KIND: {"territory": ["docs/long/**"]}},
+                    files={f"docs/policies/{LONG_KIND}.md": envelope(LONG_KIND, "current-state")},
+                ),
+                "--kind",
+                LONG_KIND,
+                "--stem",
+                "a",
+                "--title",
+                "T",
+            ),
+            messages.l5_type_needed(LONG_KIND, f"docs/policies/{LONG_KIND}.md"),
+            "L5.13 long",
+        ),
+    ]
     return all_of(
         [
             *(broken(r, f, h) for r, f, h in pairs),
@@ -507,6 +638,23 @@ def proof_refusals() -> tuple[bool, str]:
     exists = run(prepared(files={NOTE: NOTE_TEXT}), *NOTE_ARGS)
     other = document("# Other\n", id="a", type="non-authoritative", title="Other", status="active")
     in_use = run(prepared(files={"docs/notes/other.md": other}), *NOTE_ARGS)
+    # a stem of 100 characters makes every home a path over 80 characters: whole, never cut
+    long_home = f"docs/notes/{LONG_STEM}.md"
+    long_args = ["--kind", "notes-policy", "--stem", LONG_STEM, "--title", "T", "--type", "non-authoritative"]
+    long_overlap = run(
+        prepared(),
+        "--kind",
+        "shared-policy",
+        "--stem",
+        LONG_STEM,
+        "--title",
+        "T",
+        "--type",
+        "non-authoritative",
+    )
+    long_exists = run(prepared(files={long_home: NOTE_TEXT}), *long_args)
+    long_other = f"docs/notes/{'o' * 100}.md"  # a holder whose path is over 80 characters, and an id too
+    long_in_use = run(prepared(files={long_other: envelope(LONG_STEM, "non-authoritative")}), *long_args)
     return all_of(
         [
             broken(
@@ -516,6 +664,15 @@ def proof_refusals() -> tuple[bool, str]:
             ),
             broken(exists, messages.l5_exists(NOTE), "L5.11"),
             broken(in_use, messages.l5_id_in_use("a", "docs/notes/other.md"), "L5.19"),
+            broken(
+                long_overlap,
+                messages.l5_two_policies(
+                    f"docs/notes/shared/{LONG_STEM}.md", "notes-policy", "docs/notes/**"
+                ),
+                "L5.12 long",
+            ),
+            broken(long_exists, messages.l5_exists(long_home), "L5.11 long"),
+            broken(long_in_use, messages.l5_id_in_use(LONG_STEM, long_other), "L5.19 long"),
         ],
         "an overlap, an existing file and an id in use: each refused",
     )
@@ -549,6 +706,20 @@ def repository_refusals() -> tuple[bool, str]:
     no_root = run(prepared(raw_dials="notes-policy:\n  territory: ['docs/notes/**']\n"), *NOTE_ARGS)
     outside = H.scratch_dir()
     loose = H.run_gate("", args=NOTE_ARGS, cwd=outside, env={"GIT_CEILING_DIRECTORIES": str(outside.parent)})
+    # the directory the run stands in and the repository root are paths: whole, a break and a backslash shown
+    parent = H.scratch_dir()
+    odd = Consumer(parent / WEIRD_DIR).build()
+    (odd.root / "constitution.yaml").unlink()
+    odd_no_dials = run(odd, *NOTE_ARGS)
+    odd_loose_dir = parent / ("l" + WEIRD_DIR)
+    odd_loose_dir.mkdir()
+    odd_loose = H.run_gate(
+        "", args=NOTE_ARGS, cwd=odd_loose_dir, env={"GIT_CEILING_DIRECTORIES": str(parent)}
+    )
+    long_policy = {f"docs/policies/{LONG_KIND}.md": envelope(LONG_KIND, "current-state")}
+    long_not_policy = run(
+        prepared(files=long_policy), "--kind", "const-locations", "--stem", "a", "--title", "T"
+    )
     return all_of(
         [
             broken(
@@ -559,6 +730,15 @@ def repository_refusals() -> tuple[bool, str]:
             broken(no_dials, messages.l5_no_dials(str(consumer.root)), "L5.3", at=str(consumer.root)),
             broken(no_root, messages.l5_no_root_policy(), "L5.4"),
             broken(loose, messages.l5_no_repository(str(outside)), "L5.2", at=str(outside)),
+            broken(odd_no_dials, messages.l5_no_dials(str(odd.root)), "L5.3 odd", at=str(parent)),
+            broken(odd_loose, messages.l5_no_repository(str(odd_loose_dir)), "L5.2 odd", at=str(parent)),
+            broken(
+                long_not_policy,
+                messages.l5_not_a_policy(
+                    "const-locations", [LONG_KIND, "notes-policy", "root-policy", "shared-policy"]
+                ),
+                "L5.5 long",
+            ),
         ],
         "not a policy, no dials file, no root policy, outside any repository: each refused",
     )
@@ -600,6 +780,30 @@ def argument_refusals() -> tuple[bool, str]:
             "L5.1",
         ),
     ]
+    broke = prepared()
+    for stem, handle in (("abc\n", "L5.10 stem break"), ("abc\r", "L5.10 stem cr")):
+        pairs.append(
+            (
+                run(broke, "--kind", "notes-policy", "--stem", stem, "--title", "T"),
+                messages.l5_not_kebab(stem, "the stem"),
+                handle,
+            )
+        )
+    pairs.append(  # a line break in the id; then a value over 80 characters with a backslash, cut
+        (
+            run(broke, "--kind", "notes-policy", "--stem", "a", "--title", "T", "--id", "x\ny"),
+            messages.l5_not_kebab("x\ny", "the id"),
+            "L5.10 id break",
+        )
+    )
+    odd_stem = "a\nb\\c" + "d" * 90
+    pairs.append(
+        (
+            run(broke, "--kind", "notes-policy", "--stem", odd_stem, "--title", "T"),
+            messages.l5_not_kebab(odd_stem, "the stem"),
+            "L5.10 stem odd",
+        )
+    )
     titles = prepared()  # an empty title, one of whitespace — in a dry run too — and one of two lines
     for title, failure, handle in (
         ("", messages.l5_title_empty(), "L5.22"),
@@ -620,6 +824,10 @@ def argument_refusals() -> tuple[bool, str]:
         [
             *(broken(r, f, h) for r, f, h in pairs),
             (tree_state(titles) == "", "a refused title changed the tree"),
+            (
+                tree_state(broke) == "" and not (broke.root / "docs" / "notes").exists(),
+                "a refused stem or id with a line break wrote a file",
+            ),
         ],
         "a bad stem, a bad id, a bad segment, no title, an empty, a blank and a two-line title, no stem: each"
         " refused",
@@ -772,6 +980,7 @@ def write_refused_by_a_link() -> tuple[bool, str]:
     notes = consumer.root / "docs" / "notes"
     notes.mkdir(parents=True)
     os.symlink("nowhere.md", notes / "a.md")
+    os.symlink("nowhere.md", notes / f"{LONG_STEM}.md")  # a home over 80 characters is named whole
     before = tree_state(consumer)
     result = run(consumer, *NOTE_ARGS)
     error = f"[Errno {errno.EEXIST}] {os.strerror(errno.EEXIST)}: '{notes}/a.md'"
@@ -780,9 +989,28 @@ def write_refused_by_a_link() -> tuple[bool, str]:
     )
     link = notes / "a.md"
     kept = link.is_symlink() and os.readlink(link) == "nowhere.md"
+    long_result = run(
+        consumer,
+        "--kind",
+        "notes-policy",
+        "--stem",
+        LONG_STEM,
+        "--title",
+        "A note",
+        "--type",
+        "non-authoritative",
+    )
+    long_error = f"[Errno {errno.EEXIST}] {os.strerror(errno.EEXIST)}: '{notes}/{LONG_STEM}.md'"
+    long_ok, long_evidence = broken(
+        long_result,
+        messages.l5_could_not_write(f"docs/notes/{LONG_STEM}.md", long_error),
+        "L5.20 link long",
+        at=str(consumer.root),
+    )
     after = tree_state(consumer)
     problems = [
         *([] if ok else [evidence]),
+        *([] if long_ok else [long_evidence]),
         *([] if after == before else [f"tree: {before!r} became {after!r}"]),
         *([] if kept else ["the link was not left as it was"]),
     ]

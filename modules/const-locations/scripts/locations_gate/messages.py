@@ -7,14 +7,15 @@ key of its text (l1_, l5_, c5_), so a text can be cited, reviewed and asserted b
 reader must be able to act on a message without holding any other document: no text here
 cites one.
 
-Every value taken from a dial, a document or the command line goes through `echoed`, so that a
-line break in it leaves the message one line, with one exception: a path a later step uses whole —
-the home, the template's path and the path that holds an id — is shown by `escaped`, which escapes
-the same way and never cuts, since a cut path is no path to open. Two values stay
-raw, on purpose: the directory the run stands in and the repository root come from the
-environment, not from a document or a dial, so no line break of a document can reach them; and the
-system's own error text names the absolute path the fix tells the reader to look at, and Python's
-error text already shows a path's line breaks escaped.
+Every value taken from a dial, a document, the command line or the environment goes through one of the
+shared helpers, so that a line break in it leaves the message one line. `echoed` cuts at 80 characters,
+says the cut, then escapes: for a value that only points at what the reader can see elsewhere — a
+policy id, a pattern, a flag's value. `escaped` never cuts: for what the reader opens, copies or types
+into a fix, or a later step reads — every path, the directory the run stands in and the repository
+root, the ids the reader picks from, the policy id the fix writes into the dials file, the template's
+detail with its line and column. Two values stay raw, on purpose: the system's own error text names the
+absolute path the fix tells the reader to look at, and Python's error text already shows a path's line
+breaks escaped.
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from const_gate import identity
-from const_gate.messages import echoed
+from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, MetaType, SharedKey
 
 from .model import ActKey
@@ -34,12 +35,6 @@ _ENTRY = "{policy: <id>, template: <repository-relative path>}"
 
 def _ns() -> str:
     return identity.current().namespace
-
-
-def escaped(value: str) -> str:
-    """A path a later step uses whole, on one line: its backslashes and line breaks escaped, never cut,
-    since a cut path is no path."""
-    return value.replace("\\", "\\\\").replace("\n", "\\n").replace("\r", "\\r")
 
 
 # ---------------------------------------------------------------- the lines of a run
@@ -94,14 +89,14 @@ def l5_usage(detail: str) -> Broken:
 
 def l5_no_repository(directory: str) -> Broken:
     return _refused(
-        f"{directory} is not inside a git repository",
+        f"{escaped(directory)} is not inside a git repository",
         "run it from inside the repository the document belongs to",
     )
 
 
 def l5_no_dials(root: str) -> Broken:
     return _refused(
-        f"no {DIALS_FILE} in {root}: no kind is declared",
+        f"no {DIALS_FILE} in {escaped(root)}: no kind is declared",
         "a document is created into a policy's territory; declare the root policy and the kind's"
         " policy first — the new-kind procedure",
     )
@@ -117,7 +112,7 @@ def l5_no_root_policy() -> Broken:
 def l5_not_a_policy(kind: str, ids: Sequence[str]) -> Broken:
     return _refused(
         f"'{echoed(kind)}' is not a policy: no document in the root policy's territory carries that id",
-        f"name one of: {', '.join(echoed(i) for i in ids) or 'nothing — no policy is declared'}; for "
+        f"name one of: {', '.join(escaped(i) for i in ids) or 'nothing — no policy is declared'}; for "
         "a new kind, create"
         " its policy first — the new-kind procedure",
     )
@@ -143,9 +138,9 @@ def l5_no_home(kind: str, patterns: Sequence[str]) -> Broken:
 
 def l5_no_territory(kind: str) -> Broken:
     return _refused(
-        f"{echoed(kind)} claims no territory: its namespace in {DIALS_FILE} has no territory, so no "
+        f"{escaped(kind)} claims no territory: its namespace in {DIALS_FILE} has no territory, so no "
         "home follows",
-        f"under {echoed(kind)}: in {DIALS_FILE} write territory: ['<dir>/**'], <dir> being the directory its"
+        f"under {escaped(kind)}: in {DIALS_FILE} write territory: ['<dir>/**'], <dir> being the directory its"
         " documents live in",
     )
 
@@ -194,7 +189,7 @@ def l5_exists(home: str) -> Broken:
 
 def l5_two_policies(home: str, other: str, pattern: str) -> Broken:
     return _refused(
-        f"{echoed(home)} would also lie in {echoed(other)}'s territory ('{echoed(pattern)}'): two policies"
+        f"{escaped(home)} would also lie in {echoed(other)}'s territory ('{echoed(pattern)}'): two policies"
         " would govern it",
         f"territories never overlap; narrow one of them in {DIALS_FILE} before creating documents there",
     )
@@ -205,13 +200,13 @@ def l5_type_needed(kind: str, policy_path: str) -> Broken:
         f"{echoed(kind)} has no template, and --type was not given: without a template nothing but "
         "the policy's"
         " prose says which meta-type the kind is",
-        f"run it with --type {TYPES_OR} — {echoed(policy_path)} says which its kind is",
+        f"run it with --type {TYPES_OR} — {escaped(policy_path)} says which its kind is",
     )
 
 
 def l5_type_conflict(given: str, path: str, fixed: str) -> Broken:
     return _refused(
-        f"--type {echoed(given)} was given, but the template {echoed(path)} fixes type: "
+        f"--type {echoed(given)} was given, but the template {escaped(path)} fixes type: "
         f"{echoed(fixed)}, and a"
         " kind has one"
         " meta-type",
@@ -221,21 +216,21 @@ def l5_type_conflict(given: str, path: str, fixed: str) -> Broken:
 
 def l5_template_missing(kind: str, path: str) -> Broken:
     return _refused(
-        f"the template of {echoed(kind)}, {echoed(path)}, does not exist",
+        f"the template of {echoed(kind)}, {escaped(path)}, does not exist",
         f"point {_ns()}.templates at a Markdown file of this repository, or remove the entry",
     )
 
 
 def l5_template_unreadable(kind: str, path: str, error: str) -> Broken:
     return _refused(
-        f"the template of {echoed(kind)}, {echoed(path)}, cannot be read ({error})",
+        f"the template of {echoed(kind)}, {escaped(path)}, cannot be read ({error})",
         f"point {_ns()}.templates at a Markdown file of this repository, or remove the entry",
     )
 
 
 def l5_template_no_envelope(path: str, detail: str) -> Broken:
     return _refused(
-        f"the template {echoed(path)} opens with no readable envelope ({echoed(detail)})",
+        f"the template {escaped(path)} opens with no readable envelope ({escaped(detail)})",
         "a template opens with the YAML block a document of its kind carries — id, type, title,"
         " status — with placeholders where the writer fills",
     )
@@ -243,7 +238,7 @@ def l5_template_no_envelope(path: str, detail: str) -> Broken:
 
 def l5_template_bad_type(path: str, value: str) -> Broken:
     return _refused(
-        f"the template {echoed(path)} carries type '{echoed(value)}', which is no meta-type",
+        f"the template {escaped(path)} carries type '{echoed(value)}', which is no meta-type",
         f"set type: {TYPES_OR} in the template",
     )
 
@@ -275,7 +270,7 @@ def l5_id_in_use(doc_id: str, path: str) -> Broken:
 
 def l5_could_not_write(home: str, error: str) -> Broken:
     return _refused(
-        f"{echoed(home)} could not be written ({error}): the write is the last act, so the refusal "
+        f"{escaped(home)} could not be written ({error}): the write is the last act, so the refusal "
         "leaves nothing"
         " behind",
         "remove what the system's error names — a denied permission, a file or link in the way at the"
