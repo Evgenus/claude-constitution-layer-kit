@@ -461,13 +461,17 @@ def t7() -> tuple[bool, str]:
     it changes nothing; a document of no prose is green; an unterminated envelope is prose. The
     envelope is the block the shared reader finds: a closer `--- ` with trailing whitespace closes
     it and a thematic break below does not stand in for it; a whole file in CRLF is blanked; a
-    form feed before `---` makes no closer, since a line ends at a line break and nowhere else."""
+    form feed before `---` makes no closer, since a line ends at a line break and nowhere else; an
+    envelope ended by lone carriage returns is deleted, not turned to spaces, so the prose after
+    it on the same line is read, never taken for an indented code block."""
     with_title = "---\nid: c\ntitle: Do it prior to noon\nstatus: active\n---\n\n# T\n\nShort.\n"
     unterminated = "---\nid: c\n\nDo it prior to noon.\n"
     # the closer's trailing space, a thematic break further down: the first section is prose
     spaced_closer = "---\nid: c\ntitle: Plain\n--- \n\n# T\n\nDo it prior to noon.\n\n---\n\nMore.\n"
     # a form feed starts the only closer line: no line is `---`, nothing is blanked, the prose is read
     form_feed = "---\nid: c\n\x0c---\n\n# T\n\nDo it prior to noon.\n"
+    # lone carriage returns end the envelope's lines: the prose shares line 1 with it
+    lone_cr = "---\rid: c\rtitle: Plain\r---\rDo it prior to noon.\n\n# T\n\nShort.\n"
     return all_of(
         no_finding(with_title),
         no_finding("﻿" + with_title),
@@ -480,6 +484,7 @@ def t7() -> tuple[bool, str]:
         no_finding(with_title.replace("\n", "\r\n")),
         one_finding(spaced_closer, messages.l4_simpler(DOC, 8, "prior to", "before").headline),
         one_finding(form_feed, messages.l4_simpler(DOC, 7, "prior to", "before").headline),
+        one_finding(lone_cr, messages.l4_simpler(DOC, 1, "prior to", "before").headline),
     )
 
 
@@ -1266,7 +1271,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (
         7,
         "the envelope is blanked; a byte-order mark; no prose; an unterminated envelope is prose;"
-        " a closer with trailing whitespace; CRLF; a form feed makes no closer",
+        " a closer with trailing whitespace; CRLF; a form feed makes no closer; lone carriage returns",
         t7,
     ),
     (8, "after the write the file on disk is judged; a missing file skips; a Stop event is C12", t8),
