@@ -386,6 +386,14 @@ def t9() -> tuple[bool, str]:
 def t10() -> tuple[bool, str]:
     """This module's C5 lines typed by hand, each exit 1."""
     prefix = "BROKEN: constitution.yaml: "
+    try:  # the compiler's own words come from `re` itself, never from the code under test
+        re.compile("(?P=" + "a" * 100 + ")")
+    except re.error as compiler:
+        long_words = str(compiler)
+    else:
+        return False, "the pattern (?P=aaa...) compiled; the fixture needs one the compiler refuses"
+    if len(long_words) <= 80:
+        return False, f"the compiler's words are {len(long_words)} characters; the fixture needs more than 80"
     cases: list[tuple[dict[str, object], str]] = [
         (
             own(marker="x"),
@@ -458,6 +466,16 @@ def t10() -> tuple[bool, str]:
             + "… [102 characters]', which is not a"
             " regular expression (bad escape \\\\q at position 0) — fix: repair the pattern; Python's re"
             " syntax, matched at the start of the item's text",
+        ),
+        (  # the compiler's words can pass 80 characters, a group name having no limit, and stand whole,
+            # never cut, though the pattern before them is cut: 105 characters, cut at 80
+            own(handles=["(?P=" + "a" * 100 + ")"]),
+            prefix
+            + "const-interaction.handles holds '(?P="
+            + "a" * 76
+            + "… [105 characters]', which is not a regular expression ("
+            + long_words
+            + ") — fix: repair the pattern; Python's re syntax, matched at the start of the item's text",
         ),
         (
             own(territories=[]),

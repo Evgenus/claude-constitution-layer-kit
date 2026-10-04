@@ -444,8 +444,28 @@ def dial_failures() -> tuple[bool, str]:
         " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
         " optional",
     )
+    # the compiler's words can pass 80 characters, a group name having no limit; the diagnosis stands in
+    # the line whole, never cut, so the words come from `re` again and the line around them is typed
+    long_name = "a" * 100
+    long = "(?P=" + long_name + ")"
+    try:
+        re.compile(long)
+    except re.error as long_compiler:
+        long_words = str(long_compiler)
+    else:
+        return False, "the pattern (?P=aaa...) compiled; the fixture needs one the compiler refuses"
+    if len(long_words) <= 80 or long_name not in long_words:
+        return False, f"the compiler's words are {len(long_words)} characters; the fixture needs more than 80"
+    long_pattern = broken_typed(
+        gate_on(VALID, dials_patch=lane(pattern=long))[0],
+        "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes has a pattern that is no regular"
+        f" expression ({long_words}) — in YAML write it in single"
+        " quotes, where a backslash stands for itself — fix: write the entry as {pattern: <regular"
+        " expression>, names: <what the form cites>, fix: <the link form to write>}; home: [<patterns>] is"
+        " optional",
+    )
     return all_of(
-        [*results, broken(in_scan, messages.c5_switch("bare_ids")), odd_key, odd_pattern],
+        [*results, broken(in_scan, messages.c5_switch("bare_ids")), odd_key, odd_pattern, long_pattern],
         f"{len(wrong)} malformed dials, each exit 1, and one in the scan",
     )
 
