@@ -458,9 +458,16 @@ def t6() -> tuple[bool, str]:
 
 def t7() -> tuple[bool, str]:
     """The envelope is blanked: a title holding a phrase is not prose, and a byte-order mark before
-    it changes nothing; a document of no prose is green; an unterminated envelope is prose."""
+    it changes nothing; a document of no prose is green; an unterminated envelope is prose. The
+    envelope is the block the shared reader finds: a closer `--- ` with trailing whitespace closes
+    it and a thematic break below does not stand in for it; a whole file in CRLF is blanked; a
+    form feed before `---` makes no closer, since a line ends at a line break and nowhere else."""
     with_title = "---\nid: c\ntitle: Do it prior to noon\nstatus: active\n---\n\n# T\n\nShort.\n"
     unterminated = "---\nid: c\n\nDo it prior to noon.\n"
+    # the closer's trailing space, a thematic break further down: the first section is prose
+    spaced_closer = "---\nid: c\ntitle: Plain\n--- \n\n# T\n\nDo it prior to noon.\n\n---\n\nMore.\n"
+    # a form feed starts the only closer line: no line is `---`, nothing is blanked, the prose is read
+    form_feed = "---\nid: c\n\x0c---\n\n# T\n\nDo it prior to noon.\n"
     return all_of(
         no_finding(with_title),
         no_finding("﻿" + with_title),
@@ -469,6 +476,10 @@ def t7() -> tuple[bool, str]:
         no_finding(
             "---\nid: " + "[" * 600 + "\n---\n\nShort.\n"
         ),  # nested past the parser's depth: blanked, no crash
+        no_finding(with_title.replace("status: active\n---\n", "status: active\n--- \n")),
+        no_finding(with_title.replace("\n", "\r\n")),
+        one_finding(spaced_closer, messages.l4_simpler(DOC, 8, "prior to", "before").headline),
+        one_finding(form_feed, messages.l4_simpler(DOC, 7, "prior to", "before").headline),
     )
 
 
@@ -1252,7 +1263,12 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         t5,
     ),
     (6, "L6 a Vale comment is red and the rule it names still fires; across lines; code is a mention", t6),
-    (7, "the envelope is blanked; a byte-order mark; no prose; an unterminated envelope is prose", t7),
+    (
+        7,
+        "the envelope is blanked; a byte-order mark; no prose; an unterminated envelope is prose;"
+        " a closer with trailing whitespace; CRLF; a form feed makes no closer",
+        t7,
+    ),
     (8, "after the write the file on disk is judged; a missing file skips; a Stop event is C12", t8),
     (9, "levels: a rule at warning notes; all off refused; unknown rule and level are C5", t9),
     (10, "this module's C5 lines typed by hand, each exit 1", t10),
