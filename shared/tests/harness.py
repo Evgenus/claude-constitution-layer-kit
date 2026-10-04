@@ -18,8 +18,11 @@ from __future__ import annotations
 import atexit
 import json
 import os
+import re
+import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -252,20 +255,90 @@ class Harness:
             )
         return True, f"red → {case.expect.key}: {case.expect.headline}"
 
-    def run_all(self, cases: Sequence[Case], assertions: Sequence[Assertion]) -> int:
-        failed = 0
-        items: list[Case | Assertion] = [*cases, *assertions]
-        for item in sorted(items, key=lambda i: i.number):
+    def run_all(
+        self, cases: Sequence[Case], assertions: Sequence[Assertion], argv: Sequence[str] | None = None
+    ) -> int:
+        """Run every item, or with `--item <n>[,<n>…]` on the command line only the items named.
+        A filtered run never prints the full line, `N/T acceptance items green — …`, which only a full
+        run may print: its last line says how many items of how many ran and that it is not a full
+        pass. A filter the runner cannot honour — an unknown number, a malformed list, any other
+        argument — is a configuration failure, exit 1, never a silent full or empty run."""
+        items: list[Case | Assertion] = sorted([*cases, *assertions], key=lambda i: i.number)
+        total = len(items)
+        try:
+            wanted = item_filter(sys.argv[1:] if argv is None else argv, [i.number for i in items])
+        except Misuse as misuse:
+            print(f"BROKEN: {misuse}", file=sys.stderr)
+            print(f"BROKEN: the runner could not run — 0 of {total} items run", file=sys.stderr)
+            return 1
+        failed = run = 0
+        for item in items:
+            if wanted is not None and item.number not in wanted:
+                continue
             kind = "red→green" if isinstance(item, Case) else "assertion"
             ok, evidence = self.run_case(item) if isinstance(item, Case) else item.check()
             failed += 0 if ok else 1
+            run += 1
             print(f"[{'ok' if ok else 'FAIL'}] {item.number:>3}. ({kind}) {item.title}\n        {evidence}")
-        total = len(cases) + len(assertions)
-        print(
-            f"{total - failed}/{total} acceptance items green — {len(cases)} red→green cases,"
-            f" {len(assertions)} assertions examined"
-        )
+        if wanted is not None:
+            print(f"{run - failed}/{run} selected items green — {run} of {total} items run, not a full pass")
+        else:
+            print(
+                f"{total - failed}/{total} acceptance items green — {len(cases)} red→green cases,"
+                f" {len(assertions)} assertions examined"
+            )
         return 0 if failed == 0 else 2
+
+
+class Misuse(Exception):
+    """The runner's command line cannot be honoured; the message says what, why and the fix."""
+
+
+ITEM_FLAG = "--item"
+ITEM_LIST = re.compile(r"[0-9]+(?:,[0-9]+)*")
+RUN_FORMS = f"run with no arguments for a full run, or with {ITEM_FLAG} <n>[,<n>…] to run only those items"
+
+
+def item_filter(argv: Sequence[str], numbers: Sequence[int]) -> frozenset[int] | None:
+    """The item numbers `--item <n>[,<n>…]` (or `--item=<n>[,<n>…]`) names, or None for a full run
+    when the command line is empty. Every number must be one of `numbers`."""
+    if not argv:
+        return None
+    if len(argv) == 2 and argv[0] == ITEM_FLAG:
+        given = argv[1]
+    elif len(argv) == 1 and argv[0].startswith(ITEM_FLAG + "="):
+        given = argv[0].removeprefix(ITEM_FLAG + "=")
+    else:
+        raise Misuse(
+            f"misinvocation: {shlex.join(argv)} — why: the runner takes one option, and an argument it"
+            f" ignored could pass for a filter — fix: {RUN_FORMS}"
+        )
+    if ITEM_LIST.fullmatch(given) is None:
+        raise Misuse(
+            f"{ITEM_FLAG} {given!r} is no list of item numbers — why: a filter the runner cannot read"
+            f" would run nothing, or everything — fix: {RUN_FORMS}"
+        )
+    wanted = frozenset(int(part) for part in given.split(","))
+    unknown = sorted(wanted - set(numbers))
+    if unknown:
+        held = ", ".join(spans(sorted(set(numbers))))
+        raise Misuse(
+            f"{ITEM_FLAG} {given}: no item numbered {', '.join(map(str, unknown))} in this runner — why: a"
+            f" filter that matches nothing runs nothing, and nothing run looks green — fix: name items this"
+            f" runner holds: {held}"
+        )
+    return wanted
+
+
+def spans(numbers: Sequence[int]) -> list[str]:
+    """Sorted numbers as runs: [1, 2, 3, 101] gives ["1–3", "101"]."""
+    runs: list[list[int]] = []
+    for number in numbers:
+        if runs and number == runs[-1][1] + 1:
+            runs[-1][1] = number
+        else:
+            runs.append([number, number])
+    return [f"{a}–{b}" if a != b else f"{a}" for a, b in runs]
 
 
 def expect(result: Result, code: int, text: str, where: str = "both") -> tuple[bool, str]:
