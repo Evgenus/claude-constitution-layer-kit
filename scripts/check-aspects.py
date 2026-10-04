@@ -673,6 +673,23 @@ GREEN_RUN = [
 ]
 
 
+def harness_runner(argv: list[str]) -> str:
+    """A runner on the kit's own shared harness — the items of GREEN_RUN, each an assertion — with
+    `argv` as its command line, so the self-test reads what the harness prints, never a copy of it."""
+    shared = KIT / "shared"
+    return (
+        "import sys\n"
+        f"sys.path[:0] = [{str(shared)!r}, {str(shared / 'tests')!r}]\n"
+        f"sys.argv[1:] = {argv!r}\n"
+        "from pathlib import Path\n"
+        "from harness import Assertion, Harness\n"
+        "H = Harness(Path('.'), 'none.sh', 'none.py', 'const-sample')\n"
+        "NAMED = ((1, 'a'), (2, 'b'), (3, 'c'), (101, 's'))\n"
+        "ITEMS = [Assertion(n, t, lambda: (True, 'evidence')) for n, t in NAMED]\n"
+        "sys.exit(H.run_all([], ITEMS))\n"
+    )
+
+
 def build(root: Path, table: str, rows: str | None = None, runner: str | None = None) -> None:
     (root / "docs").mkdir(parents=True, exist_ok=True)
     (root / SPEC).write_text(MATRIX, encoding="utf-8")
@@ -884,7 +901,79 @@ def self_test() -> int:
                 ok = needle in str(said) and "fix:" in str(said)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a runner with {name} is a BROKEN line, never a pass")
-    total = len(red) + 3 + len(runs) + len(broken)
+    unknown = (  # typed by hand: a message function cannot check itself
+        "BROKEN: --item 7: no item numbered 7 in this runner — why: a filter that matches nothing runs"
+        " nothing, and nothing run looks green — fix: name items this runner holds: 1–3, 101"
+    )
+    misused = (
+        "BROKEN: misinvocation: --items 2 — why: the runner takes one option, and an argument it ignored"
+        " could pass for a filter — fix: run with no arguments for a full run, or with --item <n>[,<n>…]"
+        " to run only those items"
+    )
+    filtered: dict[str, tuple[list[str], int, int, list[str], str | None]] = {
+        # case: the command line; the runner's exit; its item lines; its last lines, on stdout, or on
+        # stderr when it could not run; what the full run's BROKEN line says, None when it reads green
+        "no filter, a full run": (
+            [],
+            0,
+            4,
+            ["4/4 acceptance items green — 0 red→green cases, 4 assertions examined"],
+            None,
+        ),
+        "--item 2,101": (
+            ["--item", "2,101"],
+            0,
+            2,
+            ["2/2 selected items green — 2 of 4 items run, not a full pass"],
+            "does not count them",
+        ),
+        "--item 7, a number it does not hold": (
+            ["--item", "7"],
+            1,
+            0,
+            [unknown, "BROKEN: the runner could not run — 0 of 4 items run"],
+            "exited 1",
+        ),
+        "--items 2, an argument it does not take": (
+            ["--items", "2"],
+            1,
+            0,
+            [misused, "BROKEN: the runner could not run — 0 of 4 items run"],
+            "exited 1",
+        ),
+    }
+    for name, (argv, runner_exit, count, tail, reason) in filtered.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, runner=harness_runner(argv))
+            done = subprocess.run(
+                [sys.executable, str(root / "modules" / "const-sample" / "tests" / "run.py")],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            lines_out = done.stdout.splitlines()
+            shown = done.stderr.splitlines() if runner_exit == 1 else lines_out
+            ok = done.returncode == runner_exit and shown[-len(tail) :] == tail
+            ok = ok and sum(1 for line in lines_out if ITEM_LINE.match(line)) == count
+            ok = ok and (
+                not argv or not any(LAST_LINE.match(line) for line in lines_out)
+            )  # never the full line
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    code = full_run(root, None)
+                ok = ok and reason is None and code == EXIT_GREEN
+            except Broken as why:
+                ok = ok and reason is not None and reason in str(why)
+        failed += 0 if ok else 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] the shared harness run with {name} prints its literal last lines"
+            f" and {'reads green' if reason is None else 'is a BROKEN line, never a pass'}"
+        )
+        if not ok:
+            print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
+    total = len(red) + 3 + len(runs) + len(broken) + len(filtered)
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
