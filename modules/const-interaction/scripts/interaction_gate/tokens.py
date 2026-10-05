@@ -324,19 +324,20 @@ def _options(
 
 
 def _shell_strings(rest: list[str], with_value: tuple[str, ...], command_flags: tuple[str, ...]) -> list[str]:
-    """The command strings of a shell, in the order they stand, `rest` being the words after its name.
-    The options are walked as a shell reads them: a word that starts with `-` or `+`, `--` the last of
-    them, a short cluster read letter by letter, where a wrapper's cluster ends at its first valued
-    letter (`_option`). Shells differ on a valued letter that is not the cluster's last: bash gives it
-    the next word, whatever its place (`-oe pipefail`), zsh and ksh take the rest of the cluster as its
-    value (`-oerrexit`). Where the reader cannot tell which shell runs the text it errs toward examining
-    more: the words are walked both ways, and the strings are those either walk finds, each read once.
-    Every command flag met yields a string: its attached value (`--command=x`), else the next word when
-    that is not an option and is no other option's value, else the first operand after the options. A
-    word taken as a string is taken off `rest`, so the one string of `bash -c "…"` is the next word and
-    never the operand as well, and several command flags that found no word share the one operand. The
-    walk goes on after a string (`fish -C "…" -c "…"` has two); the words after it end are arguments, not
-    read, and with no command flag the first operand is a script file and nothing is read."""
+    """The command strings of a shell, in the order they stand, `rest` being the words after its name. The
+    options are walked as a shell reads them: a word that starts with `-` or `+`, `--` the last of them, a
+    short cluster read letter by letter, where a wrapper's cluster ends at its first valued letter
+    (`_option`). Shells differ on a valued letter that is not the cluster's last: bash gives it the next
+    word, whatever its place (`-oe pipefail`); zsh and ksh, the cluster's command-flag letters taken out
+    first, give the first valued letter left the letters after it (`-oerrexit`). Where the reader cannot
+    tell which shell runs the text it errs toward examining more: the words are walked both ways, and the
+    strings are those either walk finds, each read once. Every command flag met yields a string: its
+    attached value (`--command=x`), else the next word when that is not an option and is no other option's
+    value, else the first operand after the options. A word taken as a string is taken off `rest`, so the
+    one string of `bash -c "…"` is the next word and never the operand as well, and several command flags
+    that found no word share the one operand. The walk goes on after a string (`fish -C "…" -c "…"` has
+    two); the words after it end are arguments, not read, and with no command flag the first operand is a
+    script file and nothing is read."""
     bash = _walk_shell(list(rest), with_value, command_flags, True)
     seen = {string for _, string in bash}
     for place, string in _walk_shell(list(rest), with_value, command_flags, False):
@@ -350,9 +351,9 @@ def _walk_shell(
     rest: list[str], with_value: tuple[str, ...], command_flags: tuple[str, ...], next_word: bool
 ) -> list[tuple[int, str]]:
     """One walk of `_shell_strings`, its strings as (place, string); `next_word` says a valued letter
-    takes the next word whatever its place in a cluster (bash's), else the first valued letter takes
-    the rest of the cluster when there is any (zsh's and ksh's), the command flags of the cluster
-    standing in either case."""
+    takes the next word whatever its place in a cluster (bash's), else, the cluster's command-flag
+    letters taken out first, the first valued letter left takes the letters after it, or the next word
+    when none follow (zsh's and ksh's); the command flags of the cluster stand in either case."""
     total = len(rest)
     strings: list[tuple[int, str]] = []
     waiting = False  # a command flag found no next word: the first operand after the options is its string
