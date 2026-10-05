@@ -834,14 +834,70 @@ def t13() -> tuple[bool, str]:
     }
     if unread or off:
         return False, f"defaults not read as themselves: {unread}; entry readings wrong: {off}"
+    # The reader's wrappers and shells as they stood before their lists moved into dials, typed by hand
+    # and never derived from tokens.py: a table derived from the code would move with it and guard
+    # nothing. Every wrapper name, every valued flag of every wrapper (a flag takes the next word `v`),
+    # every shell, and every option of a shell that takes a value, each read to `rm -rf b`.
+    wrapper_names = (
+        "time",
+        "nohup",
+        "command",
+        "builtin",
+        "noglob",
+        "xargs",
+        "sudo",
+        "doas",
+        "env",
+        "nice",
+        "stdbuf",
+        "timeout",
+    )
+    # env's `-S` and `--split-string` are no flags of this table: item 6 holds the string they name
+    valued_flags = {
+        "xargs": "-I -J -d -P -s -n -L -a -E -R -S --max-args --max-procs --max-chars --arg-file"
+        " --delimiter --process-slot-var",
+        "sudo": "-u -g -C -p -h -U -r -t -D -R -T -a -c --user --group --close-from --prompt --host"
+        " --other-user --role --type --chdir --chroot --command-timeout --auth-type --login-class",
+        "doas": "-u -C -a",
+        "env": "-C -u -P -L -U --chdir --unset",
+        "nice": "-n --adjustment",
+        "stdbuf": "-i -o -e --input --output --error",
+        "timeout": "-s -k --signal --kill-after",
+    }
+    positional = {"timeout": " 5"}  # `timeout <duration> <command>`: one word before the command
+    shells = ("bash", "sh", "zsh", "dash", "ksh")
+    shell_options = (  # (shell, the options before `-c`)
+        ("bash", "-o pipefail "),
+        ("bash", "-O extglob "),
+        ("bash", "+o posix "),
+        ("bash", "-eo pipefail "),
+        ("bash", "--rcfile f "),
+        ("bash", "--init-file f "),
+        ("zsh", "--rcfile f "),
+        ("ksh", "--init-file f "),
+    )
+    rm = ("rm", "-rf", "b")
+    wrapper_texts = {f"{name}{positional.get(name, '')} rm -rf b": [rm] for name in wrapper_names}
+    wrapper_texts["/usr/bin/sudo rm -rf b"] = [rm]
+    wrapper_texts["timeout -s KILL 5 rm -rf b"] = [rm]
+    flag_texts = {
+        f"{name} {flag} v{positional.get(name, '')} rm -rf b": [rm]
+        for name, flags in valued_flags.items()
+        for flag in flags.split()
+    }
+    shell_texts = {
+        f"{shell} {options}-c 'rm -rf b'": [(shell, *options.split(), "-c", "rm -rf b"), rm]
+        for shell, options in (*((name, "") for name in shells), *shell_options)
+    }
+    pinned = {**wrapper_texts, **flag_texts, **shell_texts}
     wrong = {
         text: [s.words for s in tokens.split(text)]
-        for text, words in readings.items()
+        for text, words in {**readings, **pinned}.items()
         if [s.words for s in tokens.split(text)] != words
     }
     return (not wrong), (
-        f"{len(readings)} readings and {len(entry_readings)} entry readings hold, {ENTRIES} defaults read as"
-        " themselves"
+        f"{len(readings)} readings, {len(pinned)} wrapper and shell readings and {len(entry_readings)} entry"
+        f" readings hold, {ENTRIES} defaults read as themselves"
         if not wrong
         else f"wrong: {wrong}"
     )
