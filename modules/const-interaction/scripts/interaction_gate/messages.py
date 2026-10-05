@@ -17,7 +17,7 @@ from const_gate import identity
 from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import COMMAND_FLAG, Entry, Key, OptionFault, ReaderDial, Subcommand, Verbosity
+from .model import COMMAND_FLAG, Entry, Key, OptionFault, ReaderDial, ReaderField, Subcommand, Verbosity
 
 
 def _ns() -> str:
@@ -337,7 +337,9 @@ def c5_reader_both_fields(dial: ReaderDial, index: int, option: str) -> Broken:
     )
 
 
-def c5_reader_option(dial: ReaderDial, index: int, field: str, option: str, fault: OptionFault) -> Broken:
+def c5_reader_option(
+    dial: ReaderDial, index: int, field: ReaderField, option: str, fault: OptionFault
+) -> Broken:
     """An option the reader could never match, and the reason: `option` is what the dials gave."""
     example = _OPTION_EXAMPLES[dial]
     if fault is OptionFault.NOT_A_LIST:
@@ -396,7 +398,7 @@ def c5_reader_option(dial: ReaderDial, index: int, field: str, option: str, faul
     )
 
 
-def c5_reader_count(dial: ReaderDial, index: int, field: str) -> Broken:
+def c5_reader_count(dial: ReaderDial, index: int, field: ReaderField) -> Broken:
     return _reader(
         dial,
         index,
@@ -414,7 +416,7 @@ def c5_reader_drop_value(dial: ReaderDial, index: int) -> Broken:
     )
 
 
-def c5_reader_drop_beside(dial: ReaderDial, index: int, field: str) -> Broken:
+def c5_reader_drop_beside(dial: ReaderDial, index: int, field: ReaderField) -> Broken:
     return _reader(
         dial,
         index,

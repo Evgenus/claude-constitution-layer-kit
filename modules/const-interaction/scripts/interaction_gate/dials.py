@@ -23,6 +23,7 @@ from .model import (
     OptionFault,
     Pair,
     ReaderDial,
+    ReaderField,
     ReaderLists,
     Replaced,
     Shell,
@@ -42,8 +43,20 @@ KEYS = (
 )
 ENTRY_KEYS = ("command", "flags", "teach", "alternative")
 PAIR_KEYS = ("violates", "complies")
-WRAPPER_FIELDS = ("command", "with_value", "positionals", "numbers", "command_flags", "drop")
-SHELL_FIELDS = ("command", "with_value", "command_flags", "drop")
+WRAPPER_FIELDS = (
+    ReaderField.COMMAND,
+    ReaderField.WITH_VALUE,
+    ReaderField.POSITIONALS,
+    ReaderField.NUMBERS,
+    ReaderField.COMMAND_FLAGS,
+    ReaderField.DROP,
+)
+SHELL_FIELDS = (
+    ReaderField.COMMAND,
+    ReaderField.WITH_VALUE,
+    ReaderField.COMMAND_FLAGS,
+    ReaderField.DROP,
+)
 # The signs an option of each starts with: the reader takes a wrapper's options as the words that start
 # with `-`, a shell's as those that start with `-` or `+`.
 OPTION_SIGNS = {ReaderDial.WRAPPERS: "-", ReaderDial.SHELLS: "-+"}
@@ -98,7 +111,7 @@ def _words_of(entry: Wrapper | Shell) -> tuple[str, ...]:
 
 
 def _merged(
-    dial: ReaderDial, value: object, fields: tuple[str, ...], defaults: Sequence[Wrapper | Shell]
+    dial: ReaderDial, value: object, fields: tuple[ReaderField, ...], defaults: Sequence[Wrapper | Shell]
 ) -> tuple[list[Wrapper | Shell], tuple[Dropped | Replaced, ...]]:
     """Absent: the defaults. A list: each entry applied to the defaults by its command — one of a
     default's command replaces that default whole, a new command is added, `drop: true` removes the
@@ -124,10 +137,12 @@ def _merged(
         if command in seen:
             raise ConfigurationFailure(messages.c5_reader_twice(dial, index, command, seen[command]))
         seen[command] = index
-        if "drop" in item:
-            if item["drop"] is not True:
+        if ReaderField.DROP in item:
+            if item[ReaderField.DROP] is not True:
                 raise ConfigurationFailure(messages.c5_reader_drop_value(dial, index))
-            beside = sorted(str(key) for key in item if key not in ("command", "drop"))
+            beside = sorted(
+                ReaderField(key) for key in item if key not in (ReaderField.COMMAND, ReaderField.DROP)
+            )
             if beside:
                 raise ConfigurationFailure(messages.c5_reader_drop_beside(dial, index, beside[0]))
             if not any(_words_of(default) == command for default in defaults):
@@ -158,7 +173,7 @@ def _reader_command(dial: ReaderDial, index: int, item: dict[str, object]) -> tu
     """The words of an entry's `command`: a non-empty list, no word empty or holding white space, the
     first with no `/` — the reader reduces only the program to its base name, so a first word with a `/`
     can never match, while a later word is compared as written — and for a shell one word."""
-    command = texts(item.get("command"))
+    command = texts(item.get(ReaderField.COMMAND))
     if not command or "/" in command[0] or any(any(letter.isspace() for letter in word) for word in command):
         raise ConfigurationFailure(messages.c5_reader_command(dial, index))
     if dial is ReaderDial.SHELLS and len(command) != 1:
@@ -175,10 +190,10 @@ def _refuse_stripped_first_word(dial: ReaderDial, index: int, word: str) -> None
 
 def _wrapper(dial: ReaderDial, index: int, item: dict[str, object], command: tuple[str, ...]) -> Wrapper:
     _refuse_stripped_first_word(dial, index, command[0])
-    with_value = _options(dial, index, item, "with_value")
-    positionals = _count(dial, index, item, "positionals")
-    numbers = _count(dial, index, item, "numbers")
-    command_flags = _options(dial, index, item, "command_flags")
+    with_value = _options(dial, index, item, ReaderField.WITH_VALUE)
+    positionals = _count(dial, index, item, ReaderField.POSITIONALS)
+    numbers = _count(dial, index, item, ReaderField.NUMBERS)
+    command_flags = _options(dial, index, item, ReaderField.COMMAND_FLAGS)
     _refuse_shared_option(dial, index, with_value, command_flags)
     return Wrapper(
         command, with_value=with_value, positionals=positionals, numbers=numbers, command_flags=command_flags
@@ -187,8 +202,8 @@ def _wrapper(dial: ReaderDial, index: int, item: dict[str, object], command: tup
 
 def _shell(dial: ReaderDial, index: int, item: dict[str, object], command: tuple[str, ...]) -> Shell:
     _refuse_stripped_first_word(dial, index, command[0])
-    with_value = _options(dial, index, item, "with_value")
-    command_flags = _options(dial, index, item, "command_flags")
+    with_value = _options(dial, index, item, ReaderField.WITH_VALUE)
+    command_flags = _options(dial, index, item, ReaderField.COMMAND_FLAGS)
     _refuse_shared_option(dial, index, with_value, command_flags)
     return Shell(command[0], with_value=with_value, command_flags=command_flags)
 
@@ -202,7 +217,7 @@ def _refuse_shared_option(
         raise ConfigurationFailure(messages.c5_reader_both_fields(dial, index, shared))
 
 
-def _options(dial: ReaderDial, index: int, item: dict[str, object], field: str) -> tuple[str, ...]:
+def _options(dial: ReaderDial, index: int, item: dict[str, object], field: ReaderField) -> tuple[str, ...]:
     """The options of a field, each one the reader could match, or a configuration failure naming the
     first that it could not. Absent or an empty list: none."""
     raw = item.get(field, [])
@@ -232,7 +247,7 @@ def _option_fault(dial: ReaderDial, option: str) -> OptionFault | None:
     return OptionFault.LETTERS if len(option) != 2 else None
 
 
-def _count(dial: ReaderDial, index: int, item: dict[str, object], field: str) -> int:
+def _count(dial: ReaderDial, index: int, item: dict[str, object], field: ReaderField) -> int:
     value = item.get(field, 0)
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ConfigurationFailure(messages.c5_reader_count(dial, index, field))

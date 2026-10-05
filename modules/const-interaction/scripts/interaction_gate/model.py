@@ -237,6 +237,17 @@ class ReaderDial(StrEnum):
     SHELLS = "shells"
 
 
+class ReaderField(StrEnum):
+    """The fields of an entry of a reader dial, each named by the key it is written under."""
+
+    COMMAND = "command"
+    WITH_VALUE = "with_value"
+    POSITIONALS = "positionals"
+    NUMBERS = "numbers"
+    COMMAND_FLAGS = "command_flags"
+    DROP = "drop"
+
+
 @dataclass(frozen=True, slots=True)
 class Dropped:
     """A default the dials removed: the dial it stood in (`wrappers` or `shells`) and its command."""
