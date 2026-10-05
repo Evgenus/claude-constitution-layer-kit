@@ -1119,10 +1119,16 @@ def t15() -> tuple[bool, str]:
     )
 
 
+# Seconds the handler keeps beyond its waits: the interpreter's start, git, the module's own reading.
+LEFT_FOR_THE_REST = 5
+
+
 def t16() -> tuple[bool, str]:
     """The install note, the skill and the manifest name no kit document; the skill's description
-    is under the platform's cap; the hook is wired after the write with a timeout; the manifest
-    names the plugin at a draft version; the install note's calibration example is accepted."""
+    is under the platform's cap; the hook is wired after the write, and only then, with an integer
+    timeout that holds the version probe, then the run, and LEFT_FOR_THE_REST, both read from
+    the module's own code; the manifest names the plugin at a draft version; the install note's
+    calibration example is accepted."""
     kit_words = ("requirements.md", "rollout-plan", "dec-00", "res-00", "MODULE.md", "GATE.md", "kernel/")
     texts = {p.name: p.read_text(encoding="utf-8") for p in (SKILL, INSTALL, MANIFEST)}
     named = [f"{n}: {w}" for n, t in texts.items() for w in kit_words if w in t]
@@ -1138,6 +1144,8 @@ def t16() -> tuple[bool, str]:
     stated = re.search(
         r"a description of (\d+) characters", (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     )
+    timeout = entry["hooks"][0].get("timeout")
+    needed = vale.VERSION_SECONDS + vale.HOOK_SECONDS + LEFT_FOR_THE_REST
     return all_of(
         (not named, f"no kit document named: {named}"),
         (len(description) < 1536, f"description of {len(description)} characters"),
@@ -1148,9 +1156,17 @@ def t16() -> tuple[bool, str]:
         (
             list(hooks) == ["PostToolUse"]
             and entry["matcher"] == "Write|Edit"
-            and entry["hooks"][0].get("timeout") == 30
             and entry["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/check-language.sh"],
-            "PostToolUse on Write|Edit through the plugin root, timeout 30, no other event",
+            "PostToolUse on Write|Edit through the plugin root, no other event",
+        ),
+        (
+            isinstance(timeout, int) and timeout >= needed,
+            f"timeout {timeout} s holds the {needed} s it needs: version probe {vale.VERSION_SECONDS} s"
+            f" + run {vale.HOOK_SECONDS} s + {LEFT_FOR_THE_REST} s left"
+            if isinstance(timeout, int) and timeout >= needed
+            else f"timeout {timeout} s is not an int of at least the {needed} s it needs:"
+            f" version probe {vale.VERSION_SECONDS} s + run {vale.HOOK_SECONDS} s"
+            f" + {LEFT_FOR_THE_REST} s left",
         ),
         (
             manifest["name"] == NAMESPACE and manifest["version"].startswith("0.0."),
