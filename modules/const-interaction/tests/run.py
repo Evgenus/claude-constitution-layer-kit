@@ -285,6 +285,9 @@ def t5() -> tuple[bool, str]:
         asked("fish --command='git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
         asked("yash --cmdline 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
         asked("mksh -T /dev/tty2 -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        # fish runs `-C` and `-c` strings alike: every command flag met yields a string, both are read
+        asked("fish -C 'set x 1' -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=3),
+        asked("fish -c 'git push -f' -C 'set x 1'", d1("", "git push", "-f", "git push -f"), subcommands=3),
     )
 
 
@@ -301,6 +304,9 @@ def t6() -> tuple[bool, str]:
         passed("git push -- --force"),
         passed("rm build.log"),
         passed("git branch -d old"),
+        # a word after a shell's string is an argument: only the strings of its command flags are read
+        passed("fish -C 'set x 1' -c 'git status' git push -f", subcommands=3),
+        passed("bash -c 'git status' git push -f", subcommands=2),
         # a word that is neither an option nor an option's value ends the walk between an entry's words,
         # and so does `--`; the entry is one consumer entry, `kubectl delete`
         passed("kubectl get pods delete", entries=1, dials_patch=kubectl),
@@ -1308,6 +1314,37 @@ def t13() -> tuple[bool, str]:
         "bash -c -e 'rm -rf b'": [("bash", "-c", "-e", "rm -rf b"), ("rm", "-rf", "b")],
         "bash -c 'rm -rf b' arg0 arg1": [("bash", "-c", "rm -rf b", "arg0", "arg1"), ("rm", "-rf", "b")],
         "bash script.sh -c x": [("bash", "script.sh", "-c", "x")],
+        "bash -c -- 'rm -rf b'": [("bash", "-c", "--", "rm -rf b"), ("rm", "-rf", "b")],
+        # every command flag met yields a string, each read in the order it stands: its attached value, else
+        # the next word when that is no option and no other option's value, else the first operand after the
+        # options; a word taken as a string is no operand, so a POSIX shell's one string is read once
+        "fish -C 'set x 1' -c 'rm -rf b'": [
+            ("fish", "-C", "set x 1", "-c", "rm -rf b"),
+            ("set", "x", "1"),
+            ("rm", "-rf", "b"),
+        ],
+        "fish -c 'rm -rf b' -C 'set x 1'": [
+            ("fish", "-c", "rm -rf b", "-C", "set x 1"),
+            ("rm", "-rf", "b"),
+            ("set", "x", "1"),
+        ],
+        "fish --init-command='set x 1' -c 'rm -rf b'": [
+            ("fish", "--init-command=set x 1", "-c", "rm -rf b"),
+            ("set", "x", "1"),
+            ("rm", "-rf", "b"),
+        ],
+        "fish -C -c 'set x 1' 'rm -rf b'": [
+            ("fish", "-C", "-c", "set x 1", "rm -rf b"),
+            ("set", "x", "1"),
+            ("rm", "-rf", "b"),
+        ],
+        "fish -c -C 'rm -rf b'": [("fish", "-c", "-C", "rm -rf b"), ("rm", "-rf", "b")],
+        "fish -d x -C 'set x 1' --command 'rm -rf b'": [
+            ("fish", "-d", "x", "-C", "set x 1", "--command", "rm -rf b"),
+            ("set", "x", "1"),
+            ("rm", "-rf", "b"),
+        ],
+        "bash -c -- -x": [("bash", "-c", "--", "-x"), ("-x",)],
         # `--` ends the options of a wrapper and of a shell: what follows it is the command, or a file
         "nice -- -n 5 rm -rf b": [("-n", "5", "rm", "-rf", "b")],
         "sh -- -lc 'rm -rf b'": [("sh", "--", "-lc", "rm -rf b")],

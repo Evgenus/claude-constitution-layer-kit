@@ -28,8 +28,8 @@ REDIRECT_BEFORE = frozenset({">", "<"})
 def split(command: str, lists: ReaderLists) -> list[Subcommand]:
     """Every simple command of the text, in order of appearance: the top-level ones, then the
     contents of each `$(…)` and backtick substitution, then the string a shell is told to run
-    with its command option (`-c`) or that a wrapper's command option names (`env -S`) with the
-    words after it, each split in turn. A heredoc's body is data and is dropped. The wrappers and
+    with its command options (`-c`, fish's `-C`) or that a wrapper's command option names (`env -S`)
+    with the words after it, each split in turn. A heredoc's body is data and is dropped. The wrappers and
     the shells are those of `lists`."""
     found: list[Subcommand] = []
     _collect(_drop_heredocs(command), found, lists)
@@ -42,7 +42,7 @@ def reading(words: Sequence[str], lists: ReaderLists) -> list[str] | None:
     do. The dials loader asks it of an entry's command: one this does not give back as written can
     never match."""
     rest, inner = _normalise(list(words), lists)
-    return None if inner is not None else rest
+    return None if inner else rest
 
 
 def _collect(text: str, found: list[Subcommand], lists: ReaderLists) -> None:
@@ -55,10 +55,10 @@ def _collect(text: str, found: list[Subcommand], lists: ReaderLists) -> None:
         words = _words(stripped)
         if not words:
             continue
-        words, inner_command = _normalise(words, lists)
+        words, inner_commands = _normalise(words, lists)
         if words:  # empty: nothing but shell words or assignments, or a wrapper whose value is the command
             found.append(Subcommand(tuple(words), stripped))
-        if inner_command is not None:
+        for inner_command in inner_commands:
             _collect(inner_command, found, lists)
 
 
@@ -241,10 +241,11 @@ def _words(text: str) -> list[str]:
         return text.split()
 
 
-def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], str | None]:
+def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], list[str]]:
     """Strip assignments, shell words and wrappers, reduce the program to its base name, and leave
-    every option after the program in the words; a shell told to run a string, and a wrapper
-    whose option names one, hand that string back for its own split."""
+    every option after the program in the words; a shell told to run strings hands back each, in the
+    order they stand, and a wrapper whose option names one hands back that one, each for its own
+    split. The list is empty when no string is handed on."""
     rest = list(words)
     while rest:
         head = rest[0].rsplit("/", 1)[-1]  # `/usr/bin/env` is `env`
@@ -257,16 +258,16 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], str | N
         del rest[: len(wrapper.command)]
         string = _after_wrapper(wrapper, rest)
         if string is not None:  # `env -S "<command>" <more>`: the value and what follows are the command
-            return [], string
+            return [], [string]
     if not rest:
-        return rest, None
+        return rest, []
     rest[0] = rest[0].rsplit("/", 1)[-1]
     shell = next((shell for shell in lists.shells if shell.command == rest[0]), None)
     if shell is None:
-        return rest, None
+        return rest, []
     arguments = rest[1:]
-    string = _shell_string(arguments, shell.with_value, shell.command_flags)
-    return rest, string  # the words after the string are the shell's arguments: not read
+    # the words after the strings are the shell's arguments: not read
+    return rest, _shell_strings(arguments, shell.with_value, shell.command_flags)
 
 
 def _wrapper(rest: list[str], wrappers: tuple[Wrapper, ...]) -> Wrapper | None:
@@ -322,32 +323,44 @@ def _options(
     return None
 
 
-def _shell_string(rest: list[str], with_value: tuple[str, ...], command_flags: tuple[str, ...]) -> str | None:
-    """The command string of a shell, `rest` being the words after its name. A shell's command flag
-    is a mode, never a valued flag: the options are walked with the one option rule — a word that
-    starts with `-` or `+`, `--` the last of them — and a short cluster that holds a command-flag letter
-    sets the mode, its other letters read as usual (`-oc posix`: `-o` takes `posix`); a long command
-    flag given as a word sets the mode, and one given as `--name=value` hands its value back at once.
-    After the options, the first operand is the string when the mode is set, and the words after it are
-    arguments, not read; with no mode the operand is a script file and nothing is read."""
-    mode = False
+def _shell_strings(rest: list[str], with_value: tuple[str, ...], command_flags: tuple[str, ...]) -> list[str]:
+    """The command strings of a shell, in the order they stand, `rest` being the words after its name.
+    The options are walked with the one option rule: a word that starts with `-` or `+`, `--` the last
+    of them, a short cluster read letter by letter (`-oc posix`: `-o` takes `posix`). Every command flag
+    met yields a string: its attached value (`--command=x`), else the next word when that is not an option
+    and is no other option's value, else the first operand after the options. A word taken as a string is
+    taken off `rest`, so the one string of `bash -c "…"` is the next word and never the operand as well,
+    and several command flags that found no word share the one operand. The walk goes on after a string
+    (`fish -C "…" -c "…"` has two); the words after it end are arguments, not read, and with no command
+    flag the first operand is a script file and nothing is read."""
+    strings: list[str] = []
+    waiting = False  # a command flag found no next word: the first operand after the options is its string
     while rest and rest[0].startswith(("-", "+")):
         word = rest.pop(0)
         if word == "--":
             break
+        wants = False
         if word.startswith("--"):
             name, equals, attached = word.partition("=")
             if name in command_flags:
                 if equals:
-                    return attached
-                mode = True
-                continue
+                    strings.append(attached)
+                else:
+                    wants = True
+            else:
+                _option(word, rest, with_value, ())
         else:
             letters = "".join(letter for letter in word[1:] if word[0] + letter not in command_flags)
-            mode = mode or len(letters) < len(word) - 1
-            word = word[0] + letters
-        _option(word, rest, with_value, ())
-    return rest[0] if mode and rest else None
+            wants = len(letters) < len(word) - 1
+            _option(word[0] + letters, rest, with_value, ())  # its valued letters take their words first
+        if wants:
+            if rest and not rest[0].startswith(("-", "+")):
+                strings.append(rest.pop(0))
+            else:
+                waiting = True
+    if waiting and rest:
+        strings.append(rest.pop(0))
+    return strings
 
 
 def _option(
@@ -359,7 +372,7 @@ def _option(
     the reading, its value the rest of the word, else the next word — `-uSHELL` names a variable,
     `-iu SHELL` is a flag and an option with its value. The value of a command option is its command
     string, handed back; None for every other option. A shell's options go through it with no command
-    flags, its own are a mode (`_shell_string`)."""
+    flags, its own are read by `_shell_strings`."""
     if word.startswith("--"):
         name, equals, attached = word.partition("=")
         if name in command_flags:
