@@ -45,7 +45,7 @@ from harness import (  # noqa: E402
     expect,
     red_lines,
 )
-from referencing_gate import messages, start  # noqa: E402
+from referencing_gate import lychee, messages, start  # noqa: E402
 from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -1432,9 +1432,15 @@ CHAT_RULE = (
 )
 
 
+# Seconds a handler keeps beyond its waits: the interpreter's start, git, the module's own reading.
+LEFT_FOR_THE_REST = 5
+
+
 def hooks_file() -> tuple[bool, str]:
     """Three handlers, each in the exec form with an explicit timeout; both tool events run the
-    gate's one entry point, which tells them apart by the event's name."""
+    gate's one entry point, which tells them apart by the event's name. A tool handler's timeout
+    holds what its check after a write waits on, one wait after the other (the version probe, then
+    the run), and LEFT_FOR_THE_REST; the session-start printer runs no child process."""
     hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())["hooks"]
     gate = ["${CLAUDE_PLUGIN_ROOT}/scripts/check-references.sh"]
     wanted = {
@@ -1442,7 +1448,13 @@ def hooks_file() -> tuple[bool, str]:
         "PostToolUse": ("Write|Edit", gate),
         "SessionStart": (None, ["${CLAUDE_PLUGIN_ROOT}/scripts/print-chat-rule.sh"]),
     }
+    waits = {
+        "PreToolUse": lychee.VERSION_SECONDS + lychee.HOOK_SECONDS,
+        "PostToolUse": lychee.VERSION_SECONDS + lychee.HOOK_SECONDS,
+        "SessionStart": 0,
+    }
     problems = [name for name in wanted if name not in hooks] + [name for name in hooks if name not in wanted]
+    tied: list[str] = []
     for name, (matcher, args) in wanted.items():
         for group in hooks.get(name, []):
             handler = group["hooks"][0]
@@ -1456,8 +1468,20 @@ def hooks_file() -> tuple[bool, str]:
             )
             if not right:
                 problems.append(f"{name}: {group}")
-    return not problems, "three handlers, exec form, timeouts, scripts present" if not problems else str(
-        problems
+            elif waits[name]:
+                needed = waits[name] + LEFT_FOR_THE_REST
+                if handler["timeout"] < needed:
+                    problems.append(
+                        f"{name}: timeout {handler['timeout']} s is under the {needed} s it needs:"
+                        f" version probe {lychee.VERSION_SECONDS} s + run {lychee.HOOK_SECONDS} s"
+                        f" + {LEFT_FOR_THE_REST} s left"
+                    )
+                else:
+                    tied.append(f"{name} {handler['timeout']} s >= {needed} s")
+    return not problems, (
+        "three handlers, exec form, scripts present, timeouts that hold the waits: " + ", ".join(tied)
+        if not problems
+        else str(problems)
     )
 
 
@@ -2595,7 +2619,10 @@ ASSERTIONS = [
         45, "a negated pattern takes a tree out of the territory: !dir/**, not !dir/", a_tree_taken_out
     ),
     Assertion(
-        70, "hooks.json: three handlers in the exec form, explicit timeouts, scripts present", hooks_file
+        70,
+        "hooks.json: three handlers in the exec form, scripts present, explicit timeouts that hold the"
+        " budgets each tool handler waits on",
+        hooks_file,
     ),
     Assertion(71, "the always-on rule is printed as typed here, and nothing else", chat_rule),
     Assertion(

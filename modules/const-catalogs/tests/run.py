@@ -32,6 +32,7 @@ MODULE_ROOT = SCRIPTS.parent
 sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
 
 from catalogs_gate import messages, start  # noqa: E402
+from catalogs_gate.history import HOOK_SECONDS  # noqa: E402
 from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read  # noqa: E402
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
@@ -1160,12 +1161,24 @@ def session_start_absence_paths() -> tuple[bool, str]:
     return all_of([(yaml_ok, yaml_said), (py_ok, py_said)], f"{yaml_said}; {py_said}")
 
 
+# Seconds a handler keeps beyond its waits: the interpreter's start, git, the module's own reading.
+LEFT_FOR_THE_REST = 5
+
+
 def hooks_file_shape() -> tuple[bool, str]:
     """A SessionStart handler with no matcher and a PreToolUse handler on Write|Edit, exec form, the
-    placeholder in args, timeouts."""
+    placeholder in args, timeouts. The PreToolUse timeout holds the history read the hook waits on
+    and LEFT_FOR_THE_REST; the session-start printer reads no history."""
     hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
     start_hook = hooks["SessionStart"][0]
     write_hook = hooks["PreToolUse"][0]
+    needed = HOOK_SECONDS + LEFT_FOR_THE_REST
+    timeout = write_hook["hooks"][0]["timeout"]
+    if isinstance(timeout, int) and timeout < needed:
+        return False, (
+            f"PreToolUse: timeout {timeout} s is under the {needed:g} s it needs:"
+            f" history read {HOOK_SECONDS:g} s + {LEFT_FOR_THE_REST} s left"
+        )
     ok = (
         "matcher" not in start_hook
         and start_hook["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"]
@@ -1178,7 +1191,8 @@ def hooks_file_shape() -> tuple[bool, str]:
     )
     return (
         ok,
-        "SessionStart without matcher, PreToolUse on Write|Edit, exec form, timeouts"
+        "SessionStart without matcher, PreToolUse on Write|Edit, exec form, timeouts; PreToolUse"
+        f" {timeout} s >= history read {HOOK_SECONDS:g} s + {LEFT_FOR_THE_REST} s left"
         if ok
         else f"bad: {hooks}",
     )
@@ -1353,7 +1367,11 @@ ASSERTIONS = [
         "the printer's absence paths: PyYAML missing is C2, python3 missing is C1",
         session_start_absence_paths,
     ),
-    Assertion(77, "the hooks file's shape", hooks_file_shape),
+    Assertion(
+        77,
+        "the hooks file's shape, with a timeout that holds the history read the hook waits on",
+        hooks_file_shape,
+    ),
 ]
 
 
