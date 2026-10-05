@@ -7,11 +7,12 @@ Modes:    no arguments  read one SessionStart event on stdin and print, after th
                         POSIX wrapper printed: the value of the verbosity dial, the default
                         where no dials file can be read; one line when the destructive-command
                         gate examines nothing in the session's repository — no repository, no
-                        constitution.yaml, an empty destructive dial — and the project's own
-                        boundary examples, numbered.
+                        constitution.yaml, an empty destructive dial — then one line for each
+                        default wrapper or shell the wrappers and shells dials drop or replace,
+                        and the project's own boundary examples, numbered.
 Reads:    from the event: cwd, session_id. From constitution.yaml: this module's dials
-          const-interaction.destructive, .boundary_examples and .verbosity, the whole namespace
-          validated;
+          const-interaction.destructive, .wrappers, .shells, .boundary_examples and .verbosity,
+          the whole namespace validated;
           the file as a whole is validated as every gate does.
 Exit:     0 printed, or nothing to print; 1 configuration failure — the dials could not be
           read, said on stderr and in the log. Never a silent pass.

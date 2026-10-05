@@ -4,10 +4,11 @@
 Events:   PreToolUse on the Bash tool (hook mode); none (scan mode).
 Modes:    no arguments  read one PreToolUse event of the Bash tool on stdin and judge its
                         command: every subcommand of it — after the shell operators, the
-                        substitutions, a shell told to run a string, the wrappers and the
-                        assignments, the program path and git's global options — against the
-                        entries of the destructive dial; a match asks the platform to prompt
-                        the user, with the entry's teaching text as the reason;
+                        substitutions, the strings a shell is told to run, the wrappers and the
+                        assignments, the program path — against the entries of the destructive
+                        dial, an entry's words matching with only options between them; a match
+                        asks the platform to prompt the user, with the entry's teaching text as
+                        the reason;
           --scan [DIR] --command <text>
                         explain what the dial of the repository containing DIR (default: the
                         current directory) does to the command text: the findings it would
@@ -15,9 +16,10 @@ Modes:    no arguments  read one PreToolUse event of the Bash tool on stdin and 
 Reads:    from the event: hook_event_name, tool_name, tool_input.command, cwd, session_id.
           From constitution.yaml: this module's dials const-interaction.destructive (a list of
           {command, flags, teach, alternative}; default: the list of the module's document),
-          .severity (block | warn) and .log_dir; the other dials of the namespace are validated
-          and unused here; the file as a whole is validated as every gate does. No policy is
-          read; no document is judged.
+          .wrappers and .shells (the programs the reading strips and the shells whose strings it
+          reads, merged with the defaults), .severity (block | warn) and .log_dir; the other dials
+          of the namespace are validated and unused here; the file as a whole is validated as every
+          gate does. No policy is read; no document is judged.
 Exit:     0 green, or nothing to examine (the count line says which) — and also a match at
             severity block: the verdict is then one JSON object on stdout asking the platform
             to prompt the user, the finding its reason, exit 0 because the yes is the

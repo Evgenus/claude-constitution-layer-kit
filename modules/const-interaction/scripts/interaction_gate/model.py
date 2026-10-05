@@ -212,9 +212,10 @@ class Wrapper:
 @dataclass(frozen=True, slots=True)
 class Shell:
     """A program whose option reads a command string: `command` is its one word, `with_value` the
-    options whose value is the next word, `command_flags` the options that set the mode of reading a
-    string — a mode, never a valued flag: the string is the first word after the options, and the
-    words after it are the program's arguments and are not read."""
+    options whose value is the next word, `command_flags` the options whose string is read: every one
+    met yields a string, its attached value, else the next word when that is no option and no other
+    option's value, else the first operand after the options. The words after a string are the
+    program's arguments and are not read."""
 
     command: str
     with_value: tuple[str, ...] = ()
@@ -346,10 +347,12 @@ DEFAULT_WRAPPERS: tuple[Wrapper, ...] = (
     ),
 )
 
-# The default shells: the programs whose `-c` string is read as commands. `-c` is a mode the shell is
-# put in, not an option with a value: the string is the first word after the options. Bash's own
-# options that take a value stand for the first five alike: `-o` and `-O` with their `+` forms (`bash -o
-# pipefail -c …`, `-eo pipefail`, `+o posix`, `-O extglob`) and the long `--rcfile` and `--init-file`.
+# The default shells: the programs whose command strings are read as commands. Every command flag met
+# yields a string: its attached value, else the next word when that is no option and no other option's
+# value, else the first operand after the options, so `bash -ce 'x'` and `bash -c -e 'x'` read `x` once
+# and fish's `-C` and `-c` both read theirs. Bash's own options that take a value stand for the first
+# five alike: `-o` and `-O` with their `+` forms (`bash -o pipefail -c …`, `-eo pipefail`, `+o posix`,
+# `-O extglob`) and the long `--rcfile` and `--init-file`.
 DEFAULT_SHELLS: tuple[Shell, ...] = (
     *(
         Shell(name, with_value=_flags("-o -O +o +O --rcfile --init-file"), command_flags=("-c",))

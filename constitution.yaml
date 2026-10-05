@@ -277,6 +277,8 @@ const-interaction:                    # answer shape, assumptions and addressabl
   severity: block                     # values: block | warn — block: a listed command asks the user at the platform's prompt; warn: reported, the command runs
   log_dir: local/gate-logs
   # destructive: absent — the default list of entries stated in MODULE.md §7; an empty list gates nothing and says so at session start
+  # wrappers: absent — the default wrappers the gate reads through, stated in MODULE.md §7; an entry adds one, replaces the default of its command, or drops it with drop: true, each drop and replacement said at session start
+  # shells: absent — the default shells whose command strings the gate reads, stated in MODULE.md §7; entries as for wrappers, a shell given its command_flags
   territories:                        # the documents the list-handles scan reads among the Markdown files git lists; a negated pattern takes files out, never a frozen document
     - "*.md"                          # every document, the frozen ones included: a plain item in an accepted record or a frozen comparison takes a bold lead, a wording edit (plc-0004 rule 14, plc-0005 rule 7)
   handles:                            # the forms a list item may open with, after an optional anchor and bold marker; the kit's keys beyond the defaults follow

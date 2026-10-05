@@ -402,7 +402,8 @@ def t6() -> tuple[bool, str]:
 
 def t7() -> tuple[bool, str]:
     """The dial: an empty list gates nothing and says so; an own entry with words alone; a short
-    flag inside a cluster; a long flag by equality only."""
+    flag inside a cluster; a long flag by equality only; an entry's words apart by options; the
+    reader's dials `wrappers` and `shells`, merged with the defaults by command."""
     result, _ = gate_on(command(FORCE_PUSH), dials_patch=own(destructive=[]))
     empty = expect(result, 0, shared.g1_green_event(messages.g1_nothing_gated()), "stdout")
     teach, alternative = "a dropped database is gone", "dump it first"
@@ -707,7 +708,7 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             " first, so its place in with_value is never used — fix: keep it in one of the two, in"
             " command_flags if its value is a command to read, in with_value if not",
         ),
-        *(  # a shell with no command flag reads no string: only a command flag sets the mode
+        *(  # a shell with no command flag reads no string: only a command flag yields one
             (
                 own(shells=[entry]),
                 s + f"entry 1: the shell '{word}' has no command_flags, so it reads no string, since only a"
@@ -1289,8 +1290,8 @@ def t13() -> tuple[bool, str]:
         "flock /tmp/l -c 'rm -rf b'": [("rm", "-rf", "b")],
         "flock -c 'rm -rf b' /tmp/l": [("rm", "-rf", "b", "/tmp/l")],
         "flock --command 'rm -rf b' /tmp/l": [("rm", "-rf", "b", "/tmp/l")],
-        # the shells added on 2026-10-05: `-c` a mode, its string the first operand; fish's `-C` and its
-        # long forms too, yash's `--cmdline`, mksh's `-T` takes the next word, fish's `-d` too
+        # the shells added on 2026-10-05: `-c` and its string; fish's `-C` and its long forms too, yash's
+        # `--cmdline`, mksh's `-T` takes the next word, fish's `-d` too
         "fish -c 'rm -rf b'": [("fish", "-c", "rm -rf b"), ("rm", "-rf", "b")],
         "fish --command='rm -rf b'": [("fish", "--command=rm -rf b"), ("rm", "-rf", "b")],
         "fish -C 'rm -rf b'": [("fish", "-C", "rm -rf b"), ("rm", "-rf", "b")],
@@ -1305,8 +1306,9 @@ def t13() -> tuple[bool, str]:
         "posh -c 'rm -rf b'": [("posh", "-c", "rm -rf b"), ("rm", "-rf", "b")],
         "csh -c 'rm -rf b'": [("csh", "-c", "rm -rf b"), ("rm", "-rf", "b")],
         "tcsh -c 'rm -rf b'": [("tcsh", "-c", "rm -rf b"), ("rm", "-rf", "b")],
-        # a shell's command flag is a mode: the string is the first operand after the options, whatever
-        # letters share the cluster; the words after it are arguments, not read; no mode, no string
+        # a shell's command flag yields its string, whatever letters share the cluster: the next word when
+        # that is no option, else the first operand after the options, each read once; the words after the
+        # string are arguments, not read; with no command flag the first operand is a script file
         "bash -ce 'rm -rf b'": [("bash", "-ce", "rm -rf b"), ("rm", "-rf", "b")],
         "bash -cl 'rm -rf b'": [("bash", "-cl", "rm -rf b"), ("rm", "-rf", "b")],
         "sh -ec 'rm -rf b'": [("sh", "-ec", "rm -rf b"), ("rm", "-rf", "b")],
@@ -2033,15 +2035,16 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     ),
     (
         7,
-        "the dial: empty gates nothing and says so; an own entry; a cluster; equality; one hit per piece",
+        "the dial: empty gates nothing; an own entry; options between an entry's words; the reader's"
+        " two dials merged with the defaults",
         t7,
     ),
     (8, "severity warn: the finding as context, the command let through", t8),
     (9, "the scan explains a command; no command is a visible skip; --command needs --scan", t9),
-    (10, "this module's C5 lines typed by hand, each exit 1", t10),
+    (10, "this module's C5 lines typed by hand, an unread entry, the reader's dials, each exit 1", t10),
     (11, "an event the gate is not wired to, and a shell event without a command", t11),
     (12, "golden lines: D1 typed whole", t12),
-    (13, "the tokeniser's readings typed by hand, and an entry's own", t13),
+    (13, "the readings typed by hand: every default wrapper, flag and shell, an entry's own", t13),
     (20, "red→green: a plain list is red with L1 typed whole; handled lists are green", t20),
     (
         21,
@@ -2050,7 +2053,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     ),
     (22, "territories: a negated pattern takes a document out; a README at the top is covered", t22),
     (23, "the list scan as a hook is its own C12; a misinvocation exits 1", t23),
-    (30, "session start: the rules first, the verbosity line, the zero line, the pairs numbered", t30),
+    (
+        30,
+        "session start: rules, verbosity line, zero line, a default dropped or replaced, the pairs",
+        t30,
+    ),
     (31, "session start: no dials file, no repository, malformed dials, an argument", t31),
     (32, "the rules text: under the cap, of the stated size, lettered a–i", t32),
     (33, "the printer's absence paths: PyYAML missing is C2, python3 missing is C1, the rules kept", t33),

@@ -97,8 +97,10 @@ def _merged(
 ) -> tuple[list[Wrapper | Shell], tuple[Dropped | Replaced, ...]]:
     """Absent: the defaults. A list: each entry applied to the defaults by its command — one of a
     default's command replaces that default whole, a new command is added, `drop: true` removes the
-    default — or a configuration failure naming the first bad entry. An empty list leaves the defaults.
-    The defaults dropped and the defaults replaced come back together, in the order of their entries."""
+    default — or a configuration failure naming the first bad entry of the loop. A shell given with no
+    command flag is judged after the loop, so an entry the loop would refuse later in the list is named
+    before it. An empty list leaves the defaults. The defaults dropped and the defaults replaced come
+    back together, in the order of their entries."""
     merged = list(defaults)
     if value is None:
         return merged, ()

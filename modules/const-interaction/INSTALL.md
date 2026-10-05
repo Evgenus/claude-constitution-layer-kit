@@ -8,8 +8,9 @@ first line; nothing is silently skipped.
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the plugin
    prints its rules for every reply into the model's context (about 2,400 characters with the verbosity line; the
-   transcript does not show them), followed by the value of `verbosity` and by one line when the
-   destructive-command gate examines nothing in the session's repository. Before every `Bash` command the gate reads the command and,
+   transcript does not show them), followed by the value of `verbosity`, by one line when the
+   destructive-command gate examines nothing in the session's repository, and by one line for each
+   default wrapper or shell your dials drop or replace. Before every `Bash` command the gate reads the command and,
    where a subcommand matches a listed destructive pattern, asks the platform to prompt you with the
    reason — what matched, why the act is hard to reverse, the reversible alternative — labelled with
    the plugin's name; you confirm at the prompt, once per command. Where no prompt can be shown, in a
@@ -27,11 +28,16 @@ first line; nothing is silently skipped.
    is a visible skip naming it, and the session-start line says so; an empty mapping, `{}`, is
    enough. The command is read as the platform reads it for its own rules: split on `&&`, `||`,
    `;`, `|`, `&` and newlines outside quotes, the contents of `$(…)` and backticks and the string
-   after `bash -c` examined too, `sudo`, `env`, `nohup`, `timeout`, `nice` and the like stripped with
-   their own flags, `exec` and a shell keyword stripped, a program path reduced to its name, git's
-   global options before the verb skipped — so `git -C . push --force` is a forced push, and so is
-   `sudo -k /usr/bin/env git push -f`. A command built from a variable, an `eval`, a here-string or
-   an interpreter's `-c` string hides its verb; the explain (step 5) shows any reading. A flag matches anywhere after the words: a short one
+   after the `-c` of a shell examined too, the wrappers of the dial `wrappers` stripped with their own
+   options, a shell keyword stripped, a program path reduced to its name, the options between a
+   program and its verb stepped over — so `git -C . push --force` is a forced push, and so is
+   `sudo -k /usr/bin/env git push -f`. The defaults of `wrappers` are `time`, `nohup`, `command`,
+   `builtin`, `noglob`, `exec`, `xargs`, `sudo`, `doas`, `env`, `nice`, `stdbuf`, `timeout`,
+   `busybox`, `setsid`, `ionice`, `taskset`, `caffeinate`, `flock` and `chrt`; those of `shells` are
+   `bash`, `sh`, `zsh`, `dash`, `ksh`, `fish`, `ash`, `mksh`, `yash`, `posh`, `csh` and `tcsh`, each
+   with its options, which the module document lists. A command built from a variable, an `eval`, a
+   here-string or an interpreter's `-c` string hides its verb, and so does a wrapper or a shell no
+   dial names, such as `uv run`; the explain (step 5) shows any reading. A flag matches anywhere after the words: a short one
    inside a cluster (`rm -rf`), a long one as the whole token (`--force`, never
    `--force-with-lease`).
 3. Calibration, all optional, in the project's `constitution.yaml`:
@@ -42,6 +48,8 @@ first line; nothing is silently skipped.
          flags: [--force, -f]  # optional: any one matching; without it the words alone match
          teach: a forced push rewrites the branch on the remote for every other clone
          alternative: push with --force-with-lease, or a new branch and a pull request
+     wrappers: []              # the programs the reader strips; [] keeps the defaults; an entry adds one or, by its command, replaces one: {command: [uv, run], with_value: [--with]}; {command: [sudo], drop: true} removes one
+     shells: []                # the shells whose -c strings are read, as for wrappers: {command: [elvish], command_flags: [-c]}
      territories: ["*.md", "!docs/archive/**"]   # gitignore syntax; the list scan's documents; default ["*.md"]
      handles: ['[0-9]+\.', '[A-Z]\.', '[a-z]\.', '[a-z][0-9]+\.', '[A-Z]+[0-9]+[a-z]?\b', '[A-Z]-[a-z]\b', '\*\*[^*]+\*\*']
      boundary_examples: []     # the project's own pairs, printed at session start: [{violates: "…", complies: "…"}]
@@ -50,13 +58,17 @@ first line; nothing is silently skipped.
      # log_dir: .gate-logs     # optional, and the directory must be git-ignored; see step 7
    ```
    `destructive` is a list of entries — `command` a list of words, `flags` optional, `teach` and
-   `alternative` texts — and a malformed entry is refused naming it; `handles` are regular
-   expressions matched at the start of an item's text, after an optional anchor and bold marker,
-   and a project whose documents key items by a bold label, a link or a code span adds those
-   forms (`'\*\*[^*]+\*\*'`, `'\[[^\]]+\]\('`, `` '`[^`]+`' ``); `territories` takes a negated
+   `alternative` texts. A malformed entry is refused naming it. So is an entry whose words the
+   reader does not read as written, such as `[sudo, rm]` or a program path; write `[rm]`.
+   `wrappers` and `shells` are lists of entries too. They are merged with their defaults by
+   command, a default is removed only by `drop: true`, and each removal or replacement is said at
+   session start. An entry that would load and do nothing is refused. `handles` are regular
+   expressions matched at the start of an item's text, after an optional anchor and bold marker.
+   A project whose documents key items by a bold label, a link or a code span adds those
+   forms (`'\*\*[^*]+\*\*'`, `'\[[^\]]+\]\('`, `` '`[^`]+`' ``). `territories` takes a negated
    pattern to leave out a document a later rule may not edit. An empty `territories` or `handles`
-   is refused, since it would examine nothing or find everything red in silence; a key of this
-   namespace that is none of the seven above is refused with exit 1 — a misspelt dial is never a
+   is refused, since it would examine nothing or find everything red in silence. A key of this
+   namespace that is none of the nine above is refused with exit 1: a misspelt dial is never a
    setting ignored in silence.
 4. **Adoption** onto a repository whose scripts the list would stop at every turn: set
    `severity: warn` meanwhile — the match is then reported to the model and the user and the
@@ -82,7 +94,8 @@ first line; nothing is silently skipped.
 8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
 9. CLAUDE.md pointer: none. The rules ride on the session-start hook; the gate on the shell hook.
 
-What this module does not check: a destructive act the list does not name — an interpreter
+What this module does not check: a command given to the `PowerShell` tool, which no hook of this
+plugin sees, since the gate is wired to `Bash` alone; a destructive act the list does not name — an interpreter
 one-liner, a script file, a shell function or alias, a deletion through a file tool, a database
 statement inside a quoted argument; `git checkout -- .` and any pattern that needs an argument
 value; whether a reply matched its question's shape, listed its assumptions or softened a
