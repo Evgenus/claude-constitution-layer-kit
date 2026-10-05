@@ -36,7 +36,7 @@ The audit argued four ways to treat an entry whose words the reader would never 
 
 **Choice.** A, kept by the decider when reading the change's plan on 2026-10-05.
 
-**R1.** An entry of `destructive` whose words the reader, with the reader dials as loaded, does not read as themselves is a configuration failure at every entry point. The message names the reading and the entry to write. Where the reading is empty, or holds a word the base name empties, the fix asks for the command the wrapper or shell runs; where it hands a string on to be split again, the command the shell runs. A base-name entry such as `[deploy.sh]` still matches that program in every folder.
+**R1.** An entry of `destructive` whose words the reader, with the reader dials as loaded, does not read as themselves is a configuration failure at every entry point. The message names the reading and the entry to write. Where the reading is empty, or holds a word the base name empties, the fix asks for the command the wrapper or shell runs; where it hands a string on to be split again, the command the shell runs. A base-name entry such as `[deploy.sh]` still matches that program in every folder. When `destructive` is absent, each default entry is read the same way, and one that the reader dials keep from reading as itself is a configuration failure; its fix names the entry of `wrappers` or `shells` to remove or change.
 
 ## 2. Whether the change earns a new survey
 
@@ -57,7 +57,7 @@ Option-tolerant matching reopens the matching of [res-0008-const-interaction](..
 
 ## 3. Options between an entry's words
 
-The survey weighed five ways in its section 2: skip option words between an entry's words; a field per entry listing its program's options that take a value; a dial of wrappers; match the entry anywhere in the command; or state the limit only.
+The survey weighed five ways in its section 2: skip option words between an entry's words; a field per entry listing its program's options that take a value; a dial of wrappers; match the entry anywhere in the command; or state the limit only. The dial of wrappers is the question of section 6, so four ways are argued here.
 
 - **A. Skip options between an entry's words.**
   - **Pros:** closes the gap for every program without a new dial; lets an entry name a runner; on 1,281 commands it added one prompt, a true one.
@@ -140,8 +140,8 @@ Asked after a probe on a copy: a wrapper named by its words alone, every place t
 
 ## 7. How a given list relates to the defaults
 
-- **A. Add by name; a default is never dropped.**
-  - **Pros:** extending is one short entry; the gate never examines less than its defaults.
+- **A. Add by name; a default is never dropped.** A new name adds a wrapper; a default's name replaces that default's options.
+  - **Pros:** extending is one short entry; one wrapper can be overridden; the gate never examines less than its defaults.
   - **Cons:** no way to turn a default off; not quite the "replace" of section 6.
 - **B. Add by name; drop a default only by an explicit entry, each drop named at every session start.**
   - **Pros:** extend, override one, or drop; a short dials file for the usual case; a weaker gate is said aloud.
