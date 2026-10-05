@@ -117,8 +117,13 @@ def command(text: str) -> Write:
     return Write("docs/notes/command.md", text)
 
 
-def d1(text: str, entry_index: int, matched: str, subcommand: str | None = None) -> Finding:
-    entry = DEFAULT_DESTRUCTIVE[entry_index]
+def d1(text: str, words: str, matched: str, subcommand: str | None = None) -> Finding:
+    """The finding of the default entry whose command words are `words`, found by its words and
+    never by its place in the list; no such entry, or two, is an error naming the words."""
+    found = [entry for entry in DEFAULT_DESTRUCTIVE if entry.command == tuple(words.split())]
+    if len(found) != 1:
+        raise AssertionError(f"d1: {len(found)} default entries with the command words {words!r}, wanted one")
+    entry = found[0]
     return messages.d1_destructive(entry, Subcommand((), subcommand or text), matched)
 
 
@@ -175,7 +180,7 @@ FORCE_PUSH = "git -C . push --force origin main"
 
 def t1() -> tuple[bool, str]:
     return pair(
-        lambda: asked(FORCE_PUSH, d1(FORCE_PUSH, 0, "--force")),
+        lambda: asked(FORCE_PUSH, d1(FORCE_PUSH, "git push", "--force")),
         lambda: passed("git push --force-with-lease origin main"),
     )()
 
@@ -183,7 +188,7 @@ def t1() -> tuple[bool, str]:
 def t2() -> tuple[bool, str]:
     text = "cd build && rm -rf dist; ls"
     return pair(
-        lambda: asked(text, d1(text, 13, "-r", "rm -rf dist"), subcommands=3),
+        lambda: asked(text, d1(text, "rm", "-r", "rm -rf dist"), subcommands=3),
         lambda: passed("cd build && rm dist.log; ls", subcommands=3),
     )()
 
@@ -191,7 +196,7 @@ def t2() -> tuple[bool, str]:
 def t3() -> tuple[bool, str]:
     text = 'bash -c "git reset --hard HEAD~1"'
     return pair(
-        lambda: asked(text, d1(text, 1, "--hard", "git reset --hard HEAD~1"), subcommands=2),
+        lambda: asked(text, d1(text, "git reset", "--hard", "git reset --hard HEAD~1"), subcommands=2),
         lambda: passed('bash -c "git reset --soft HEAD~1"', subcommands=2),
     )()
 
@@ -199,7 +204,7 @@ def t3() -> tuple[bool, str]:
 def t4() -> tuple[bool, str]:
     text = "echo $(git rebase main)"
     return pair(
-        lambda: asked(text, d1(text, 8, "", "git rebase main"), subcommands=2),
+        lambda: asked(text, d1(text, "git rebase", "", "git rebase main"), subcommands=2),
         lambda: passed("echo $(git log -1)", subcommands=2),
     )()
 
@@ -207,19 +212,26 @@ def t4() -> tuple[bool, str]:
 def t5() -> tuple[bool, str]:
     """Wrappers, assignments, a program path, git's global options: none hides the verb."""
     return all_of(
-        asked("sudo /bin/rm -r /tmp/x", d1("", 13, "-r", "sudo /bin/rm -r /tmp/x")),
-        asked("git -c push.default=current push -f", d1("", 0, "-f", "git -c push.default=current push -f")),
-        asked("FOO=1 timeout 5 git stash drop", d1("", 6, "", "FOO=1 timeout 5 git stash drop")),
-        asked("nohup git filter-repo --path x", d1("", 10, "", "nohup git filter-repo --path x")),
-        asked("git gc --prune=now", d1("git gc --prune=now", 12, "--prune=now")),
-        asked("env -i git push -f", d1("", 0, "-f", "env -i git push -f")),
-        asked("sudo -k git push -f", d1("", 0, "-f", "sudo -k git push -f")),
-        asked("sudo --user root git push -f", d1("", 0, "-f", "sudo --user root git push -f")),
-        asked("/usr/bin/env git push -f", d1("", 0, "-f", "/usr/bin/env git push -f")),
-        asked('bash -lc "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked("exec git push -f", d1("", 0, "-f", "exec git push -f")),
-        asked("if true; then git push -f; fi", d1("", 0, "-f", "then git push -f"), subcommands=2),
-        asked("git push -f 2>&1", d1("", 0, "-f", "git push -f 2>&1")),
+        asked("sudo /bin/rm -r /tmp/x", d1("", "rm", "-r", "sudo /bin/rm -r /tmp/x")),
+        asked(
+            "git -c push.default=current push -f",
+            d1("", "git push", "-f", "git -c push.default=current push -f"),
+        ),
+        asked(
+            "FOO=1 timeout 5 git stash drop", d1("", "git stash drop", "", "FOO=1 timeout 5 git stash drop")
+        ),
+        asked(
+            "nohup git filter-repo --path x", d1("", "git filter-repo", "", "nohup git filter-repo --path x")
+        ),
+        asked("git gc --prune=now", d1("git gc --prune=now", "git gc", "--prune=now")),
+        asked("env -i git push -f", d1("", "git push", "-f", "env -i git push -f")),
+        asked("sudo -k git push -f", d1("", "git push", "-f", "sudo -k git push -f")),
+        asked("sudo --user root git push -f", d1("", "git push", "-f", "sudo --user root git push -f")),
+        asked("/usr/bin/env git push -f", d1("", "git push", "-f", "/usr/bin/env git push -f")),
+        asked('bash -lc "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("exec git push -f", d1("", "git push", "-f", "exec git push -f")),
+        asked("if true; then git push -f; fi", d1("", "git push", "-f", "then git push -f"), subcommands=2),
+        asked("git push -f 2>&1", d1("", "git push", "-f", "git push -f 2>&1")),
     )
 
 
@@ -234,9 +246,9 @@ def t6() -> tuple[bool, str]:
         passed("git push -- --force"),
         passed("rm build.log"),
         passed("git branch -d old"),
-        asked('echo "a<<EOF"\ngit push -f', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('echo "a<<EOF"\ngit push -f\nEOF', d1("", 0, "-f", "git push -f"), subcommands=3),
-        asked("cat <<EOF\ngit push -f", d1("", 0, "-f", "git push -f"), subcommands=2),
+        asked('echo "a<<EOF"\ngit push -f', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('echo "a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=3),
+        asked("cat <<EOF\ngit push -f", d1("", "git push", "-f", "git push -f"), subcommands=2),
         passed(
             "git commit -q -F - <<'EOF'\nthe branch fix; git branch -f gated\nEOF",
             subcommands=1,
@@ -245,60 +257,78 @@ def t6() -> tuple[bool, str]:
             "git commit -m \"$(cat <<'EOF'\nthe branch fix; git branch -f gated\nEOF\n)\"",
             subcommands=2,
         ),
-        asked('env -S "git push -f"', d1("", 0, "-f", "git push -f")),
-        asked('env -i -S "git push -f"', d1("", 0, "-f", "git push -f")),
-        asked('env --split-string="git push -f"', d1("", 0, "-f", "git push -f")),
-        asked('env -S "git push" -f', d1("", 0, "-f", "git push -f")),
-        asked("env -S'git push -f'", d1("", 0, "-f", "git push -f")),
-        asked("env -iS 'git push -f'", d1("", 0, "-f", "git push -f")),
-        asked("env -uSHELL git push -f", d1("", 0, "-f", "env -uSHELL git push -f")),
-        asked("env -iu SHELL git push -f", d1("", 0, "-f", "env -iu SHELL git push -f")),
-        asked("env -P /usr/bin git push -f", d1("", 0, "-f", "env -P /usr/bin git push -f")),
-        asked("sudo -iu root git push -f", d1("", 0, "-f", "sudo -iu root git push -f")),
-        asked("env -iu SHELL -S 'git push -f'", d1("", 0, "-f", "git push -f")),
-        asked("sudo -T 5 git push -f", d1("", 0, "-f", "sudo -T 5 git push -f")),
-        asked("sudo -R /tmp git push -f", d1("", 0, "-f", "sudo -R /tmp git push -f")),
-        asked("doas -a x git push -f", d1("", 0, "-f", "doas -a x git push -f")),
-        asked("xargs -J % git push -f", d1("", 0, "-f", "xargs -J % git push -f")),
-        asked("env -L user git push -f", d1("", 0, "-f", "env -L user git push -f")),
-        asked("env -U user git push -f", d1("", 0, "-f", "env -U user git push -f")),
+        asked('env -S "git push -f"', d1("", "git push", "-f", "git push -f")),
+        asked('env -i -S "git push -f"', d1("", "git push", "-f", "git push -f")),
+        asked('env --split-string="git push -f"', d1("", "git push", "-f", "git push -f")),
+        asked('env -S "git push" -f', d1("", "git push", "-f", "git push -f")),
+        asked("env -S'git push -f'", d1("", "git push", "-f", "git push -f")),
+        asked("env -iS 'git push -f'", d1("", "git push", "-f", "git push -f")),
+        asked("env -uSHELL git push -f", d1("", "git push", "-f", "env -uSHELL git push -f")),
+        asked("env -iu SHELL git push -f", d1("", "git push", "-f", "env -iu SHELL git push -f")),
+        asked("env -P /usr/bin git push -f", d1("", "git push", "-f", "env -P /usr/bin git push -f")),
+        asked("sudo -iu root git push -f", d1("", "git push", "-f", "sudo -iu root git push -f")),
+        asked("env -iu SHELL -S 'git push -f'", d1("", "git push", "-f", "git push -f")),
+        asked("sudo -T 5 git push -f", d1("", "git push", "-f", "sudo -T 5 git push -f")),
+        asked("sudo -R /tmp git push -f", d1("", "git push", "-f", "sudo -R /tmp git push -f")),
+        asked("doas -a x git push -f", d1("", "git push", "-f", "doas -a x git push -f")),
+        asked("xargs -J % git push -f", d1("", "git push", "-f", "xargs -J % git push -f")),
+        asked("env -L user git push -f", d1("", "git push", "-f", "env -L user git push -f")),
+        asked("env -U user git push -f", d1("", "git push", "-f", "env -U user git push -f")),
         asked(
-            "sudo --command-timeout 5 git push -f", d1("", 0, "-f", "sudo --command-timeout 5 git push -f")
+            "sudo --command-timeout 5 git push -f",
+            d1("", "git push", "-f", "sudo --command-timeout 5 git push -f"),
         ),
-        asked("sudo --chroot /tmp git push -f", d1("", 0, "-f", "sudo --chroot /tmp git push -f")),
-        asked("xargs --max-chars 10 git push -f", d1("", 0, "-f", "xargs --max-chars 10 git push -f")),
-        asked("xargs -R 2 git push -f", d1("", 0, "-f", "xargs -R 2 git push -f")),
-        asked("xargs -S 512 git push -f", d1("", 0, "-f", "xargs -S 512 git push -f")),
-        asked("xargs --max-lines git push -f", d1("", 0, "-f", "xargs --max-lines git push -f")),
-        asked("xargs --eof git push -f", d1("", 0, "-f", "xargs --eof git push -f")),
+        asked("sudo --chroot /tmp git push -f", d1("", "git push", "-f", "sudo --chroot /tmp git push -f")),
+        asked(
+            "xargs --max-chars 10 git push -f", d1("", "git push", "-f", "xargs --max-chars 10 git push -f")
+        ),
+        asked("xargs -R 2 git push -f", d1("", "git push", "-f", "xargs -R 2 git push -f")),
+        asked("xargs -S 512 git push -f", d1("", "git push", "-f", "xargs -S 512 git push -f")),
+        asked("xargs --max-lines git push -f", d1("", "git push", "-f", "xargs --max-lines git push -f")),
+        asked("xargs --eof git push -f", d1("", "git push", "-f", "xargs --eof git push -f")),
         asked(
             "xargs --process-slot-var N git push -f",
-            d1("", 0, "-f", "xargs --process-slot-var N git push -f"),
+            d1("", "git push", "-f", "xargs --process-slot-var N git push -f"),
         ),
-        asked("stdbuf --output L git push -f", d1("", 0, "-f", "stdbuf --output L git push -f")),
-        asked("sudo --login git push -f", d1("", 0, "-f", "sudo --login git push -f")),
-        asked("nice -- git push -f", d1("", 0, "-f", "nice -- git push -f")),
+        asked("stdbuf --output L git push -f", d1("", "git push", "-f", "stdbuf --output L git push -f")),
+        asked("sudo --login git push -f", d1("", "git push", "-f", "sudo --login git push -f")),
+        asked("nice -- git push -f", d1("", "git push", "-f", "nice -- git push -f")),
         asked(
-            "sudo --login-class staff git push -f", d1("", 0, "-f", "sudo --login-class staff git push -f")
+            "sudo --login-class staff git push -f",
+            d1("", "git push", "-f", "sudo --login-class staff git push -f"),
         ),
-        asked("sudo --auth-type pam git push -f", d1("", 0, "-f", "sudo --auth-type pam git push -f")),
-        asked('bash --rcfile /dev/null -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('bash -c -- "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('echo $(echo ")"; git push -f)', d1("", 0, "-f", "git push -f"), subcommands=3),
-        asked('echo "$(echo ")"; git push -f)"', d1("", 0, "-f", "git push -f"), subcommands=3),
-        asked('echo "$(echo "$(echo ")")"; git push -f)"', d1("", 0, "-f", "git push -f"), subcommands=4),
-        asked('bash --init-file /dev/null -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked("echo $(echo $(date)) $(git push -f)", d1("", 0, "-f", "git push -f"), subcommands=4),
-        asked("sudo -c staff git push -f", d1("", 0, "-f", "sudo -c staff git push -f")),
-        asked("sudo -a pam git push -f", d1("", 0, "-f", "sudo -a pam git push -f")),
-        asked('env -S "git push -f \'x"', d1("", 0, "-f", "git push -f ''\"'\"'x'")),
-        asked("bash -O extglob -c 'git push -f'", d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('env -S "echo \'x" ; git push -f', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked("bash +o posix -c 'git push -f'", d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('bash -o pipefail -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('bash -eo pipefail -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked("echo '$(<<EOF'\ngit push -f\nEOF", d1("", 0, "-f", "git push -f"), subcommands=4),
-        asked('echo "$(date) a<<EOF"\ngit push -f\nEOF', d1("", 0, "-f", "git push -f"), subcommands=4),
+        asked(
+            "sudo --auth-type pam git push -f", d1("", "git push", "-f", "sudo --auth-type pam git push -f")
+        ),
+        asked(
+            'bash --rcfile /dev/null -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2
+        ),
+        asked('bash -c -- "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('echo $(echo ")"; git push -f)', d1("", "git push", "-f", "git push -f"), subcommands=3),
+        asked('echo "$(echo ")"; git push -f)"', d1("", "git push", "-f", "git push -f"), subcommands=3),
+        asked(
+            'echo "$(echo "$(echo ")")"; git push -f)"',
+            d1("", "git push", "-f", "git push -f"),
+            subcommands=4,
+        ),
+        asked(
+            'bash --init-file /dev/null -c "git push -f"',
+            d1("", "git push", "-f", "git push -f"),
+            subcommands=2,
+        ),
+        asked("echo $(echo $(date)) $(git push -f)", d1("", "git push", "-f", "git push -f"), subcommands=4),
+        asked("sudo -c staff git push -f", d1("", "git push", "-f", "sudo -c staff git push -f")),
+        asked("sudo -a pam git push -f", d1("", "git push", "-f", "sudo -a pam git push -f")),
+        asked('env -S "git push -f \'x"', d1("", "git push", "-f", "git push -f ''\"'\"'x'")),
+        asked("bash -O extglob -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('env -S "echo \'x" ; git push -f', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("bash +o posix -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('bash -o pipefail -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('bash -eo pipefail -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("echo '$(<<EOF'\ngit push -f\nEOF", d1("", "git push", "-f", "git push -f"), subcommands=4),
+        asked(
+            'echo "$(date) a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=4
+        ),
     )
 
 
@@ -317,7 +347,7 @@ def t7() -> tuple[bool, str]:
         dials_patch=with_own,
     )
     own_miss = passed(FORCE_PUSH, entries=1, dials_patch=with_own)
-    cluster = asked("git clean -xdf", d1("", 4, "-f", "git clean -xdf"))
+    cluster = asked("git clean -xdf", d1("", "git clean", "-f", "git clean -xdf"))
     equality = passed("git push --force-with-lease=main origin main")
     two = own(
         destructive=[
@@ -343,7 +373,7 @@ def t8() -> tuple[bool, str]:
         context = answer["hookSpecificOutput"]["additionalContext"]
     except (ValueError, KeyError, TypeError):
         return False, f"warn must answer with one JSON object; got: {result.stdout[:300]}"
-    finding = d1(FORCE_PUSH, 0, "--force")
+    finding = d1(FORCE_PUSH, "git push", "--force")
     ok = (
         "permissionDecision" not in answer["hookSpecificOutput"]
         and finding.render() in context
@@ -1020,7 +1050,7 @@ SUBJECT = Subject(
     own=own,
     valid=command("git status"),
     red=command("git push --force origin main"),
-    red_finding=d1("git push --force origin main", 0, "--force"),
+    red_finding=d1("git push --force origin main", "git push", "--force"),
     green=shared.g1_green_event(messages.g1_command_passed(ENTRIES, 1)),
     territory=["docs/notes/**"],
     claim=claim,
