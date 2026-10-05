@@ -276,9 +276,369 @@ const-questions:                      # ask at recorded stakes or a blocker; no 
 const-interaction:                    # answer shape, assumptions and addressable lists on a session-start carrier; a prompt before a listed destructive command
   severity: block                     # values: block | warn — block: a listed command asks the user at the platform's prompt; warn: reported, the command runs
   log_dir: local/gate-logs
-  # destructive: absent — the default list of entries stated in MODULE.md §7; an empty list gates nothing and says so at session start
-  # wrappers: absent — the default wrappers the gate reads through, stated in MODULE.md §7; an entry adds one, replaces the default of its command, or drops it with drop: true, each drop and replacement said at session start
-  # shells: absent — the default shells whose command strings the gate reads, stated in MODULE.md §7; entries as for wrappers, a shell given its command_flags
+  # destructive, wrappers and shells are absent here, so the gate uses the module's defaults; they are
+  # written out below, commented, exactly as the code and MODULE.md §7 hold them, as the inventory of
+  # what the gate reads. Uncommented, `destructive` as a list replaces the defaults whole, and an empty
+  # list gates nothing and says so at session start; a `wrappers` or `shells` entry is applied to the
+  # defaults by its command: it replaces that default, or adds a new one, or drops it with drop: true,
+  # and every replaced or dropped default is named at each session start (all 32 below, uncommented).
+  # destructive:
+  #   - command:
+  #       - git
+  #       - push
+  #     flags:
+  #       - --force
+  #       - -f
+  #     teach: 'a forced push rewrites the branch on the remote: every other clone of it diverges, and the commits it replaced are unreachable there'
+  #     alternative: push with --force-with-lease, which refuses when the remote moved, or push a new branch and open a pull request
+  #   - command:
+  #       - git
+  #       - reset
+  #     flags:
+  #       - --hard
+  #     teach: a hard reset discards every uncommitted change in the working tree and the index; nothing brings them back
+  #     alternative: run git stash first, or reset with --keep, which stops when a change would be lost
+  #   - command:
+  #       - git
+  #       - checkout
+  #     flags:
+  #       - -f
+  #       - --force
+  #     teach: a forced checkout throws away local changes to the files it switches; nothing brings them back
+  #     alternative: run git stash first, then check out; or commit the changes on a branch
+  #   - command:
+  #       - git
+  #       - restore
+  #     teach: git restore discards the working-tree changes of the paths it names; nothing brings them back
+  #     alternative: run git stash first, or git diff to see what would be lost, then restore one path at a time
+  #   - command:
+  #       - git
+  #       - clean
+  #     flags:
+  #       - -f
+  #       - --force
+  #     teach: git clean deletes untracked files, which no commit holds; nothing brings them back
+  #     alternative: run git clean -n first to see what would go, then move what matters out of the tree
+  #   - command:
+  #       - git
+  #       - branch
+  #     flags:
+  #       - -D
+  #       - -f
+  #       - --force
+  #     teach: '-D deletes a branch whether or not it is merged, and -f moves one to another commit: the commits left behind become unreachable'
+  #     alternative: delete with -d, which refuses an unmerged branch, or tag the tip first (git tag keep/<name>)
+  #   - command:
+  #       - git
+  #       - stash
+  #       - drop
+  #     teach: a dropped stash is unreachable; nothing lists it again
+  #     alternative: apply it with git stash branch <name>, or leave it in the list
+  #   - command:
+  #       - git
+  #       - stash
+  #       - clear
+  #     teach: clear drops every stash at once; nothing lists them again
+  #     alternative: drop one at a time after applying it with git stash branch <name>
+  #   - command:
+  #       - git
+  #       - rebase
+  #     teach: 'a rebase rewrites the commits of the branch: their hashes change, and a branch others hold diverges from theirs'
+  #     alternative: tag the tip first (git tag keep/<name>), or make the change on a new branch and merge
+  #   - command:
+  #       - git
+  #       - filter-branch
+  #     teach: filter-branch rewrites history across every commit it touches
+  #     alternative: clone the repository first, and rewrite the clone
+  #   - command:
+  #       - git
+  #       - filter-repo
+  #     teach: filter-repo rewrites history across every commit it touches
+  #     alternative: clone the repository first, and rewrite the clone
+  #   - command:
+  #       - git
+  #       - reflog
+  #       - expire
+  #     teach: expiring the reflog removes the record that lets a lost commit be found again
+  #     alternative: leave the reflog; disk is cheaper than a lost commit
+  #   - command:
+  #       - git
+  #       - gc
+  #     flags:
+  #       - --prune=now
+  #     teach: pruning now deletes every unreachable object at once, including those the reflog would have let you recover
+  #     alternative: run git gc without --prune=now, which keeps recent unreachable objects
+  #   - command:
+  #       - rm
+  #     flags:
+  #       - -r
+  #       - -R
+  #       - --recursive
+  #     teach: a recursive rm deletes a directory tree outside git; nothing brings it back
+  #     alternative: use git rm for tracked files, or move the directory to a scratch location first
+  # wrappers:
+  #   - command:
+  #       - time
+  #   - command:
+  #       - nohup
+  #   - command:
+  #       - command
+  #   - command:
+  #       - builtin
+  #   - command:
+  #       - noglob
+  #   - command:
+  #       - exec
+  #     with_value:
+  #       - -a
+  #   - command:
+  #       - xargs
+  #     with_value:
+  #       - -I
+  #       - -J
+  #       - -d
+  #       - -P
+  #       - -s
+  #       - -n
+  #       - -L
+  #       - -a
+  #       - -E
+  #       - -R
+  #       - -S
+  #       - --max-args
+  #       - --max-procs
+  #       - --max-chars
+  #       - --arg-file
+  #       - --delimiter
+  #       - --process-slot-var
+  #   - command:
+  #       - sudo
+  #     with_value:
+  #       - -u
+  #       - -g
+  #       - -C
+  #       - -p
+  #       - -h
+  #       - -U
+  #       - -r
+  #       - -t
+  #       - -D
+  #       - -R
+  #       - -T
+  #       - -a
+  #       - -c
+  #       - --user
+  #       - --group
+  #       - --close-from
+  #       - --prompt
+  #       - --host
+  #       - --other-user
+  #       - --role
+  #       - --type
+  #       - --chdir
+  #       - --chroot
+  #       - --command-timeout
+  #       - --auth-type
+  #       - --login-class
+  #   - command:
+  #       - doas
+  #     with_value:
+  #       - -u
+  #       - -C
+  #       - -a
+  #   - command:
+  #       - env
+  #     with_value:
+  #       - -C
+  #       - -u
+  #       - -P
+  #       - -L
+  #       - -U
+  #       - --chdir
+  #       - --unset
+  #     command_flags:
+  #       - -S
+  #       - --split-string
+  #   - command:
+  #       - nice
+  #     with_value:
+  #       - -n
+  #       - --adjustment
+  #   - command:
+  #       - stdbuf
+  #     with_value:
+  #       - -i
+  #       - -o
+  #       - -e
+  #       - --input
+  #       - --output
+  #       - --error
+  #   - command:
+  #       - timeout
+  #     with_value:
+  #       - -s
+  #       - -k
+  #       - --signal
+  #       - --kill-after
+  #     positionals: 1
+  #   - command:
+  #       - busybox
+  #   - command:
+  #       - setsid
+  #   - command:
+  #       - ionice
+  #     with_value:
+  #       - -c
+  #       - -n
+  #       - --class
+  #       - --classdata
+  #   - command:
+  #       - taskset
+  #     positionals: 1
+  #   - command:
+  #       - caffeinate
+  #     with_value:
+  #       - -t
+  #       - -w
+  #   - command:
+  #       - flock
+  #     with_value:
+  #       - -E
+  #       - -w
+  #       - --conflict-exit-code
+  #       - --wait
+  #       - --timeout
+  #       - --start
+  #       - --length
+  #     positionals: 1
+  #     command_flags:
+  #       - -c
+  #       - --command
+  #   - command:
+  #       - chrt
+  #     with_value:
+  #       - -T
+  #       - -P
+  #       - -D
+  #       - -U
+  #       - -X
+  #       - --sched-runtime
+  #       - --sched-period
+  #       - --sched-deadline
+  #       - --clamp-min
+  #       - --clamp-max
+  #     numbers: 1
+  # shells:
+  #   - command:
+  #       - bash
+  #     with_value:
+  #       - -o
+  #       - -O
+  #       - +o
+  #       - +O
+  #       - --rcfile
+  #       - --init-file
+  #     command_flags:
+  #       - -c
+  #   - command:
+  #       - sh
+  #     with_value:
+  #       - -o
+  #       - -O
+  #       - +o
+  #       - +O
+  #       - --rcfile
+  #       - --init-file
+  #     command_flags:
+  #       - -c
+  #   - command:
+  #       - zsh
+  #     with_value:
+  #       - -o
+  #       - -O
+  #       - +o
+  #       - +O
+  #       - --rcfile
+  #       - --init-file
+  #     command_flags:
+  #       - -c
+  #   - command:
+  #       - dash
+  #     with_value:
+  #       - -o
+  #       - -O
+  #       - +o
+  #       - +O
+  #       - --rcfile
+  #       - --init-file
+  #     command_flags:
+  #       - -c
+  #   - command:
+  #       - ksh
+  #     with_value:
+  #       - -o
+  #       - -O
+  #       - +o
+  #       - +O
+  #       - --rcfile
+  #       - --init-file
+  #     command_flags:
+  #       - -c
+  #   - command:
+  #       - fish
+  #     with_value:
+  #       - -d
+  #       - -o
+  #       - -p
+  #       - -f
+  #       - --debug
+  #       - --debug-output
+  #       - --profile
+  #       - --profile-startup
+  #       - --features
+  #     command_flags:
+  #       - -c
+  #       - --command
+  #       - -C
+  #       - --init-command
+  #   - command:
+  #       - ash
+  #     with_value:
+  #       - -o
+  #       - +o
+  #     command_flags:
+  #       - -c
+  #   - command:
+  #       - mksh
+  #     with_value:
+  #       - -o
+  #       - +o
+  #       - -T
+  #     command_flags:
+  #       - -c
+  #   - command:
+  #       - yash
+  #     with_value:
+  #       - -o
+  #       - +o
+  #     command_flags:
+  #       - -c
+  #       - --cmdline
+  #   - command:
+  #       - posh
+  #     with_value:
+  #       - -o
+  #       - +o
+  #     command_flags:
+  #       - -c
+  #   - command:
+  #       - csh
+  #     command_flags:
+  #       - -c
+  #   - command:
+  #       - tcsh
+  #     command_flags:
+  #       - -c
   territories:                        # the documents the list-handles scan reads among the Markdown files git lists; a negated pattern takes files out, never a frozen document
     - "*.md"                          # every document, the frozen ones included: a plain item in an accepted record or a frozen comparison takes a bold lead, a wording edit (plc-0004 rule 14, plc-0005 rule 7)
   handles:                            # the forms a list item may open with, after an optional anchor and bold marker; the kit's keys beyond the defaults follow
