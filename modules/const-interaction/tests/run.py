@@ -46,7 +46,16 @@ from harness import (  # noqa: E402
     red_lines,
 )
 from interaction_gate import messages, start, tokens  # noqa: E402
-from interaction_gate.model import DEFAULT_DESTRUCTIVE, Entry, Subcommand, Verbosity  # noqa: E402
+from interaction_gate.model import (  # noqa: E402
+    DEFAULT_DESTRUCTIVE,
+    DEFAULT_READER_LISTS,
+    Entry,
+    ReaderLists,
+    Shell,
+    Subcommand,
+    Verbosity,
+    Wrapper,
+)
 from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -117,8 +126,13 @@ def command(text: str) -> Write:
     return Write("docs/notes/command.md", text)
 
 
-def d1(text: str, entry_index: int, matched: str, subcommand: str | None = None) -> Finding:
-    entry = DEFAULT_DESTRUCTIVE[entry_index]
+def d1(text: str, words: str, matched: str, subcommand: str | None = None) -> Finding:
+    """The finding of the default entry whose command words are `words`, found by its words and
+    never by its place in the list; no such entry, or two, is an error naming the words."""
+    found = [entry for entry in DEFAULT_DESTRUCTIVE if entry.command == tuple(words.split())]
+    if len(found) != 1:
+        raise AssertionError(f"d1: {len(found)} default entries with the command words {words!r}, wanted one")
+    entry = found[0]
     return messages.d1_destructive(entry, Subcommand((), subcommand or text), matched)
 
 
@@ -175,7 +189,7 @@ FORCE_PUSH = "git -C . push --force origin main"
 
 def t1() -> tuple[bool, str]:
     return pair(
-        lambda: asked(FORCE_PUSH, d1(FORCE_PUSH, 0, "--force")),
+        lambda: asked(FORCE_PUSH, d1(FORCE_PUSH, "git push", "--force")),
         lambda: passed("git push --force-with-lease origin main"),
     )()
 
@@ -183,7 +197,7 @@ def t1() -> tuple[bool, str]:
 def t2() -> tuple[bool, str]:
     text = "cd build && rm -rf dist; ls"
     return pair(
-        lambda: asked(text, d1(text, 13, "-r", "rm -rf dist"), subcommands=3),
+        lambda: asked(text, d1(text, "rm", "-r", "rm -rf dist"), subcommands=3),
         lambda: passed("cd build && rm dist.log; ls", subcommands=3),
     )()
 
@@ -191,7 +205,7 @@ def t2() -> tuple[bool, str]:
 def t3() -> tuple[bool, str]:
     text = 'bash -c "git reset --hard HEAD~1"'
     return pair(
-        lambda: asked(text, d1(text, 1, "--hard", "git reset --hard HEAD~1"), subcommands=2),
+        lambda: asked(text, d1(text, "git reset", "--hard", "git reset --hard HEAD~1"), subcommands=2),
         lambda: passed('bash -c "git reset --soft HEAD~1"', subcommands=2),
     )()
 
@@ -199,7 +213,7 @@ def t3() -> tuple[bool, str]:
 def t4() -> tuple[bool, str]:
     text = "echo $(git rebase main)"
     return pair(
-        lambda: asked(text, d1(text, 8, "", "git rebase main"), subcommands=2),
+        lambda: asked(text, d1(text, "git rebase", "", "git rebase main"), subcommands=2),
         lambda: passed("echo $(git log -1)", subcommands=2),
     )()
 
@@ -207,25 +221,81 @@ def t4() -> tuple[bool, str]:
 def t5() -> tuple[bool, str]:
     """Wrappers, assignments, a program path, git's global options: none hides the verb."""
     return all_of(
-        asked("sudo /bin/rm -r /tmp/x", d1("", 13, "-r", "sudo /bin/rm -r /tmp/x")),
-        asked("git -c push.default=current push -f", d1("", 0, "-f", "git -c push.default=current push -f")),
-        asked("FOO=1 timeout 5 git stash drop", d1("", 6, "", "FOO=1 timeout 5 git stash drop")),
-        asked("nohup git filter-repo --path x", d1("", 10, "", "nohup git filter-repo --path x")),
-        asked("git gc --prune=now", d1("git gc --prune=now", 12, "--prune=now")),
-        asked("env -i git push -f", d1("", 0, "-f", "env -i git push -f")),
-        asked("sudo -k git push -f", d1("", 0, "-f", "sudo -k git push -f")),
-        asked("sudo --user root git push -f", d1("", 0, "-f", "sudo --user root git push -f")),
-        asked("/usr/bin/env git push -f", d1("", 0, "-f", "/usr/bin/env git push -f")),
-        asked('bash -lc "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked("exec git push -f", d1("", 0, "-f", "exec git push -f")),
-        asked("if true; then git push -f; fi", d1("", 0, "-f", "then git push -f"), subcommands=2),
-        asked("git push -f 2>&1", d1("", 0, "-f", "git push -f 2>&1")),
+        asked("sudo /bin/rm -r /tmp/x", d1("", "rm", "-r", "sudo /bin/rm -r /tmp/x")),
+        asked(
+            "git -c push.default=current push -f",
+            d1("", "git push", "-f", "git -c push.default=current push -f"),
+        ),
+        asked(
+            "FOO=1 timeout 5 git stash drop", d1("", "git stash drop", "", "FOO=1 timeout 5 git stash drop")
+        ),
+        asked(
+            "nohup git filter-repo --path x", d1("", "git filter-repo", "", "nohup git filter-repo --path x")
+        ),
+        asked("git gc --prune=now", d1("git gc --prune=now", "git gc", "--prune=now")),
+        asked("env -i git push -f", d1("", "git push", "-f", "env -i git push -f")),
+        asked("sudo -k git push -f", d1("", "git push", "-f", "sudo -k git push -f")),
+        asked("sudo --user root git push -f", d1("", "git push", "-f", "sudo --user root git push -f")),
+        asked("/usr/bin/env git push -f", d1("", "git push", "-f", "/usr/bin/env git push -f")),
+        asked('bash -lc "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("exec git push -f", d1("", "git push", "-f", "exec git push -f")),
+        # exec is a wrapper whose own option -a takes a value, bash's manual: it stood in front of the verb
+        asked("exec -a x rm -r y", d1("", "rm", "-r", "exec -a x rm -r y")),
+        asked("if true; then git push -f; fi", d1("", "git push", "-f", "then git push -f"), subcommands=2),
+        asked("git push -f 2>&1", d1("", "git push", "-f", "git push -f 2>&1")),
+        # git's options before the verb are skipped by the entry's matching, as for every program
+        asked("git -C . push -f", d1("", "git push", "-f", "git -C . push -f")),
+        asked("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f")),
+        asked("git --no-pager -C . push -f", d1("", "git push", "-f", "git --no-pager -C . push -f")),
+        asked(
+            "git --git-dir .git push --force",
+            d1("", "git push", "--force", "git --git-dir .git push --force"),
+        ),
+        asked("git --git-dir=.git push -f", d1("", "git push", "-f", "git --git-dir=.git push -f")),
+        asked(
+            "git --work-tree w reset --hard", d1("", "git reset", "--hard", "git --work-tree w reset --hard")
+        ),
+        asked("git --namespace n push -f", d1("", "git push", "-f", "git --namespace n push -f")),
+        # git's page gives the value of --exec-path as optional: the verb stands right after it
+        asked("git --exec-path push -f", d1("", "git push", "-f", "git --exec-path push -f")),
+        # the wrappers of the defaults whose pages the kit read on 2026-10-05, each in the forms of its page
+        *(
+            asked(f"{form} rm -rf build", d1("", "rm", "-r", f"{form} rm -rf build"))
+            for form in (
+                "busybox",
+                "setsid -f",
+                "ionice -c3",
+                "ionice -c 3",
+                "taskset 0x3",
+                "taskset -c 0,1",
+                "caffeinate -t 5",
+                "flock /tmp/l",
+                "flock -w 5 /tmp/l",
+                "chrt 10",
+                "chrt -f 10",
+            )
+        ),
+        # flock's `-c` after the lock file: the string it names is the command, read again
+        asked("flock /tmp/l -c 'rm -rf build'", d1("", "rm", "-r", "rm -rf build")),
+        # the shells of the defaults, `-c` and the forms of their pages: the string is read as commands
+        *(
+            asked(f"{shell} -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+            for shell in ("fish", "ash", "mksh", "yash", "posh", "csh", "tcsh")
+        ),
+        asked("fish --command='git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("yash --cmdline 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("mksh -T /dev/tty2 -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        # fish runs `-C` and `-c` strings alike: every command flag met yields a string, both are read
+        asked("fish -C 'set x 1' -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=3),
+        asked("fish -c 'git push -f' -C 'set x 1'", d1("", "git push", "-f", "git push -f"), subcommands=3),
     )
 
 
 def t6() -> tuple[bool, str]:
     """What the list leaves out passes and is said so in the install note: a heredoc body, the
     argument form, an amend, a plain push, a flag after `--`, one file removed."""
+    entry = {"command": ["kubectl", "delete"], "teach": "a deleted resource is gone", "alternative": "scale"}
+    kubectl = own(destructive=[entry])
     return all_of(
         passed("cat <<EOF\nrm -rf /\nEOF\n"),
         passed("git checkout -- ."),
@@ -234,9 +304,19 @@ def t6() -> tuple[bool, str]:
         passed("git push -- --force"),
         passed("rm build.log"),
         passed("git branch -d old"),
-        asked('echo "a<<EOF"\ngit push -f', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('echo "a<<EOF"\ngit push -f\nEOF', d1("", 0, "-f", "git push -f"), subcommands=3),
-        asked("cat <<EOF\ngit push -f", d1("", 0, "-f", "git push -f"), subcommands=2),
+        # a word after a shell's string is an argument: only the strings of its command flags are read
+        passed("fish -C 'set x 1' -c 'git status' git push -f", subcommands=3),
+        passed("bash -c 'git status' git push -f", subcommands=2),
+        # a word that is neither an option nor an option's value ends the walk between an entry's words,
+        # and so does `--`; the entry is one consumer entry, `kubectl delete`
+        passed("kubectl get pods delete", entries=1, dials_patch=kubectl),
+        passed("kubectl -n prod get pods", entries=1, dials_patch=kubectl),
+        passed("kubectl -n prod -- delete pod x", entries=1, dials_patch=kubectl),
+        # an option written with `=` takes no value after it: `get` ends the walk, `delete` is no verb here
+        passed("kubectl --context=prod get delete", entries=1, dials_patch=kubectl),
+        asked('echo "a<<EOF"\ngit push -f', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('echo "a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=3),
+        asked("cat <<EOF\ngit push -f", d1("", "git push", "-f", "git push -f"), subcommands=2),
         passed(
             "git commit -q -F - <<'EOF'\nthe branch fix; git branch -f gated\nEOF",
             subcommands=1,
@@ -245,66 +325,87 @@ def t6() -> tuple[bool, str]:
             "git commit -m \"$(cat <<'EOF'\nthe branch fix; git branch -f gated\nEOF\n)\"",
             subcommands=2,
         ),
-        asked('env -S "git push -f"', d1("", 0, "-f", "git push -f")),
-        asked('env -i -S "git push -f"', d1("", 0, "-f", "git push -f")),
-        asked('env --split-string="git push -f"', d1("", 0, "-f", "git push -f")),
-        asked('env -S "git push" -f', d1("", 0, "-f", "git push -f")),
-        asked("env -S'git push -f'", d1("", 0, "-f", "git push -f")),
-        asked("env -iS 'git push -f'", d1("", 0, "-f", "git push -f")),
-        asked("env -uSHELL git push -f", d1("", 0, "-f", "env -uSHELL git push -f")),
-        asked("env -iu SHELL git push -f", d1("", 0, "-f", "env -iu SHELL git push -f")),
-        asked("env -P /usr/bin git push -f", d1("", 0, "-f", "env -P /usr/bin git push -f")),
-        asked("sudo -iu root git push -f", d1("", 0, "-f", "sudo -iu root git push -f")),
-        asked("env -iu SHELL -S 'git push -f'", d1("", 0, "-f", "git push -f")),
-        asked("sudo -T 5 git push -f", d1("", 0, "-f", "sudo -T 5 git push -f")),
-        asked("sudo -R /tmp git push -f", d1("", 0, "-f", "sudo -R /tmp git push -f")),
-        asked("doas -a x git push -f", d1("", 0, "-f", "doas -a x git push -f")),
-        asked("xargs -J % git push -f", d1("", 0, "-f", "xargs -J % git push -f")),
-        asked("env -L user git push -f", d1("", 0, "-f", "env -L user git push -f")),
-        asked("env -U user git push -f", d1("", 0, "-f", "env -U user git push -f")),
+        asked('env -S "git push -f"', d1("", "git push", "-f", "git push -f")),
+        asked('env -i -S "git push -f"', d1("", "git push", "-f", "git push -f")),
+        asked('env --split-string="git push -f"', d1("", "git push", "-f", "git push -f")),
+        asked('env --split-string "git push -f"', d1("", "git push", "-f", "git push -f")),
+        asked('env -S "git push" -f', d1("", "git push", "-f", "git push -f")),
+        asked("env -S'git push -f'", d1("", "git push", "-f", "git push -f")),
+        asked("env -iS 'git push -f'", d1("", "git push", "-f", "git push -f")),
+        asked("env -uSHELL git push -f", d1("", "git push", "-f", "env -uSHELL git push -f")),
+        asked("env -iu SHELL git push -f", d1("", "git push", "-f", "env -iu SHELL git push -f")),
+        asked("env -P /usr/bin git push -f", d1("", "git push", "-f", "env -P /usr/bin git push -f")),
+        asked("sudo -iu root git push -f", d1("", "git push", "-f", "sudo -iu root git push -f")),
+        asked("env -iu SHELL -S 'git push -f'", d1("", "git push", "-f", "git push -f")),
+        asked("sudo -T 5 git push -f", d1("", "git push", "-f", "sudo -T 5 git push -f")),
+        asked("sudo -R /tmp git push -f", d1("", "git push", "-f", "sudo -R /tmp git push -f")),
+        asked("doas -a x git push -f", d1("", "git push", "-f", "doas -a x git push -f")),
+        asked("xargs -J % git push -f", d1("", "git push", "-f", "xargs -J % git push -f")),
+        asked("env -L user git push -f", d1("", "git push", "-f", "env -L user git push -f")),
+        asked("env -U user git push -f", d1("", "git push", "-f", "env -U user git push -f")),
         asked(
-            "sudo --command-timeout 5 git push -f", d1("", 0, "-f", "sudo --command-timeout 5 git push -f")
+            "sudo --command-timeout 5 git push -f",
+            d1("", "git push", "-f", "sudo --command-timeout 5 git push -f"),
         ),
-        asked("sudo --chroot /tmp git push -f", d1("", 0, "-f", "sudo --chroot /tmp git push -f")),
-        asked("xargs --max-chars 10 git push -f", d1("", 0, "-f", "xargs --max-chars 10 git push -f")),
-        asked("xargs -R 2 git push -f", d1("", 0, "-f", "xargs -R 2 git push -f")),
-        asked("xargs -S 512 git push -f", d1("", 0, "-f", "xargs -S 512 git push -f")),
-        asked("xargs --max-lines git push -f", d1("", 0, "-f", "xargs --max-lines git push -f")),
-        asked("xargs --eof git push -f", d1("", 0, "-f", "xargs --eof git push -f")),
+        asked("sudo --chroot /tmp git push -f", d1("", "git push", "-f", "sudo --chroot /tmp git push -f")),
+        asked(
+            "xargs --max-chars 10 git push -f", d1("", "git push", "-f", "xargs --max-chars 10 git push -f")
+        ),
+        asked("xargs -R 2 git push -f", d1("", "git push", "-f", "xargs -R 2 git push -f")),
+        asked("xargs -S 512 git push -f", d1("", "git push", "-f", "xargs -S 512 git push -f")),
+        asked("xargs --max-lines git push -f", d1("", "git push", "-f", "xargs --max-lines git push -f")),
+        asked("xargs --eof git push -f", d1("", "git push", "-f", "xargs --eof git push -f")),
         asked(
             "xargs --process-slot-var N git push -f",
-            d1("", 0, "-f", "xargs --process-slot-var N git push -f"),
+            d1("", "git push", "-f", "xargs --process-slot-var N git push -f"),
         ),
-        asked("stdbuf --output L git push -f", d1("", 0, "-f", "stdbuf --output L git push -f")),
-        asked("sudo --login git push -f", d1("", 0, "-f", "sudo --login git push -f")),
-        asked("nice -- git push -f", d1("", 0, "-f", "nice -- git push -f")),
+        asked("stdbuf --output L git push -f", d1("", "git push", "-f", "stdbuf --output L git push -f")),
+        asked("sudo --login git push -f", d1("", "git push", "-f", "sudo --login git push -f")),
+        asked("nice -- git push -f", d1("", "git push", "-f", "nice -- git push -f")),
         asked(
-            "sudo --login-class staff git push -f", d1("", 0, "-f", "sudo --login-class staff git push -f")
+            "sudo --login-class staff git push -f",
+            d1("", "git push", "-f", "sudo --login-class staff git push -f"),
         ),
-        asked("sudo --auth-type pam git push -f", d1("", 0, "-f", "sudo --auth-type pam git push -f")),
-        asked('bash --rcfile /dev/null -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('bash -c -- "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('echo $(echo ")"; git push -f)', d1("", 0, "-f", "git push -f"), subcommands=3),
-        asked('echo "$(echo ")"; git push -f)"', d1("", 0, "-f", "git push -f"), subcommands=3),
-        asked('echo "$(echo "$(echo ")")"; git push -f)"', d1("", 0, "-f", "git push -f"), subcommands=4),
-        asked('bash --init-file /dev/null -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked("echo $(echo $(date)) $(git push -f)", d1("", 0, "-f", "git push -f"), subcommands=4),
-        asked("sudo -c staff git push -f", d1("", 0, "-f", "sudo -c staff git push -f")),
-        asked("sudo -a pam git push -f", d1("", 0, "-f", "sudo -a pam git push -f")),
-        asked('env -S "git push -f \'x"', d1("", 0, "-f", "git push -f ''\"'\"'x'")),
-        asked("bash -O extglob -c 'git push -f'", d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('env -S "echo \'x" ; git push -f', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked("bash +o posix -c 'git push -f'", d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('bash -o pipefail -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked('bash -eo pipefail -c "git push -f"', d1("", 0, "-f", "git push -f"), subcommands=2),
-        asked("echo '$(<<EOF'\ngit push -f\nEOF", d1("", 0, "-f", "git push -f"), subcommands=4),
-        asked('echo "$(date) a<<EOF"\ngit push -f\nEOF', d1("", 0, "-f", "git push -f"), subcommands=4),
+        asked(
+            "sudo --auth-type pam git push -f", d1("", "git push", "-f", "sudo --auth-type pam git push -f")
+        ),
+        asked(
+            'bash --rcfile /dev/null -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2
+        ),
+        asked('bash -c -- "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("bash -ce 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('echo $(echo ")"; git push -f)', d1("", "git push", "-f", "git push -f"), subcommands=3),
+        asked('echo "$(echo ")"; git push -f)"', d1("", "git push", "-f", "git push -f"), subcommands=3),
+        asked(
+            'echo "$(echo "$(echo ")")"; git push -f)"',
+            d1("", "git push", "-f", "git push -f"),
+            subcommands=4,
+        ),
+        asked(
+            'bash --init-file /dev/null -c "git push -f"',
+            d1("", "git push", "-f", "git push -f"),
+            subcommands=2,
+        ),
+        asked("echo $(echo $(date)) $(git push -f)", d1("", "git push", "-f", "git push -f"), subcommands=4),
+        asked("sudo -c staff git push -f", d1("", "git push", "-f", "sudo -c staff git push -f")),
+        asked("sudo -a pam git push -f", d1("", "git push", "-f", "sudo -a pam git push -f")),
+        asked('env -S "git push -f \'x"', d1("", "git push", "-f", "git push -f ''\"'\"'x'")),
+        asked("bash -O extglob -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('env -S "echo \'x" ; git push -f', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("bash +o posix -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('bash -o pipefail -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked('bash -eo pipefail -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("echo '$(<<EOF'\ngit push -f\nEOF", d1("", "git push", "-f", "git push -f"), subcommands=4),
+        asked(
+            'echo "$(date) a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=4
+        ),
     )
 
 
 def t7() -> tuple[bool, str]:
     """The dial: an empty list gates nothing and says so; an own entry with words alone; a short
-    flag inside a cluster; a long flag by equality only."""
+    flag inside a cluster; a long flag by equality only; an entry's words apart by options; the
+    reader's dials `wrappers` and `shells`, merged with the defaults by command."""
     result, _ = gate_on(command(FORCE_PUSH), dials_patch=own(destructive=[]))
     empty = expect(result, 0, shared.g1_green_event(messages.g1_nothing_gated()), "stdout")
     teach, alternative = "a dropped database is gone", "dump it first"
@@ -317,7 +418,7 @@ def t7() -> tuple[bool, str]:
         dials_patch=with_own,
     )
     own_miss = passed(FORCE_PUSH, entries=1, dials_patch=with_own)
-    cluster = asked("git clean -xdf", d1("", 4, "-f", "git clean -xdf"))
+    cluster = asked("git clean -xdf", d1("", "git clean", "-f", "git clean -xdf"))
     equality = passed("git push --force-with-lease=main origin main")
     two = own(
         destructive=[
@@ -330,7 +431,117 @@ def t7() -> tuple[bool, str]:
         messages.d1_destructive(Entry(("dropdb",), (), "first", "a"), Subcommand((), "dropdb prod"), ""),
         dials_patch=two,
     )
-    return all_of(empty, own_hit, own_miss, cluster, equality, first_only)
+    # an entry written as a base name matches the program by any path (the reduction stays); an entry
+    # with an option in it reads as itself and loads
+    deploy = own(destructive=[{"command": ["deploy.sh"], "teach": teach, "alternative": alternative}])
+    deploy_entry = Entry(("deploy.sh",), (), teach, alternative)
+    by_path = all_of(
+        *(
+            asked(
+                text,
+                messages.d1_destructive(deploy_entry, Subcommand((), text), ""),
+                dials_patch=deploy,
+            )
+            for text in ("./scripts/deploy.sh prod", "/abs/scripts/deploy.sh prod", "deploy.sh prod")
+        )
+    )
+    optioned = own(destructive=[{"command": ["git", "-C"], "teach": teach, "alternative": alternative}])
+    option_entry = passed("ls", entries=1, dials_patch=optioned)
+    # an option and its value, or a runner the entry names, stand between an entry's words and hide none
+    entries = [
+        {"command": ["kubectl", "delete"]},
+        {"command": ["docker", "rm"]},
+        {"command": ["terraform", "destroy"]},
+        {"command": ["helm", "uninstall"]},
+        {"command": ["npx", "prisma", "migrate", "reset"]},
+        {"command": ["uv", "run", "rm"], "flags": ["-r"]},
+    ]
+    shaped = own(destructive=[{**e, "teach": teach, "alternative": alternative} for e in entries])
+
+    def between(text: str, words: str, matched: str = "") -> tuple[bool, str]:
+        """The consumer entry with these words asks for the text."""
+        entry = next(e for e in entries if " ".join(e["command"]) == words)
+        flags = tuple(entry.get("flags", ()))
+        wanted = Entry(tuple(entry["command"]), flags, teach, alternative)
+        finding = messages.d1_destructive(wanted, Subcommand((), text), matched)
+        return asked(text, finding, dials_patch=shaped)
+
+    # The reader's lists are dials, merged with the defaults by command. A wrapper added by its words
+    # reads through to the command; a default dropped is read as a program, so an entry may name it; a
+    # default given again replaces the default whole, a field it omits taking its empty value, not the
+    # default's; a shell added has its command string read; an empty list leaves the defaults.
+    uv_run = own(wrappers=[{"command": ["uv", "run"], "with_value": ["--with"]}])
+    no_sudo = own(wrappers=[{"command": ["sudo"], "drop": True}])
+    bare_sudo = own(wrappers=[{"command": ["sudo"]}])
+    elvish = own(shells=[{"command": ["elvish"], "command_flags": ["-c"]}])
+    sudo_own = own(
+        wrappers=[{"command": ["sudo"], "drop": True}],
+        destructive=[{"command": ["sudo"], "teach": teach, "alternative": alternative}],
+    )
+    sudo_entry = Entry(("sudo",), (), teach, alternative)
+    rm_of = d1("", "rm", "-r", "uv run --with x rm -rf b")
+    git_push = d1("", "git push", "-f", "git push -f")
+    reader = all_of(
+        passed("uv run --with x rm -rf b"),  # no dial: the default wrappers do not know uv
+        asked("uv run --with x rm -rf b", rm_of, dials_patch=uv_run),
+        passed("uv run pytest -k rm", dials_patch=uv_run),
+        asked("nohup rm -rf b", d1("", "rm", "-r", "nohup rm -rf b"), dials_patch=uv_run),  # defaults stay
+        passed("sudo rm -rf b", dials_patch=no_sudo),  # a dropped wrapper is read as a program
+        asked(
+            "sudo rm -rf b",
+            messages.d1_destructive(sudo_entry, Subcommand((), "sudo rm -rf b"), ""),
+            dials_patch=sudo_own,
+        ),
+        passed(
+            "sudo -u root rm -rf b", dials_patch=bare_sudo
+        ),  # `-u` takes no value now: `root` is the program
+        asked("sudo rm -rf b", d1("", "rm", "-r", "sudo rm -rf b"), dials_patch=bare_sudo),
+        asked("sudo -u root rm -rf b", d1("", "rm", "-r", "sudo -u root rm -rf b")),  # the default's `-u`
+        passed("elvish -c 'git push -f'"),  # no dial: elvish is no default shell
+        asked("elvish -c 'git push -f'", git_push, subcommands=2, dials_patch=elvish),
+        passed(  # a replacing entry takes its fields as given: `-c` is no command flag now
+            "bash -c 'git push -f'", dials_patch=own(shells=[{"command": ["bash"], "command_flags": ["-x"]}])
+        ),
+        asked(  # a later word of a wrapper is compared as written, a '/' in it loads and can match
+            "uv ./run rm -rf b",
+            d1("", "rm", "-r", "uv ./run rm -rf b"),
+            dials_patch=own(wrappers=[{"command": ["uv", "./run"]}]),
+        ),
+        asked(  # a wrapper with a command flag reads the string after it
+            "nix develop -c 'rm -rf b'",
+            d1("", "rm", "-r", "rm -rf b"),
+            dials_patch=own(wrappers=[{"command": ["nix", "develop"], "command_flags": ["-c"]}]),
+        ),
+        passed("sh -c 'git push -f'", dials_patch=own(shells=[{"command": ["sh"], "drop": True}])),
+        asked("sh -c 'git push -f'", git_push, subcommands=2, dials_patch=own(shells=[])),
+        asked("sudo rm -rf b", d1("", "rm", "-r", "sudo rm -rf b"), dials_patch=own(wrappers=[], shells=[])),
+        passed(  # a collision is judged on the merged lists: bash a wrapper, the default shell dropped
+            "ls",
+            dials_patch=own(wrappers=[{"command": ["bash"]}], shells=[{"command": ["bash"], "drop": True}]),
+        ),
+        passed("ls", dials_patch=own(wrappers=[{"command": ["uv"], "with_value": [], "command_flags": []}])),
+    )
+    return all_of(
+        reader,
+        empty,
+        own_hit,
+        own_miss,
+        cluster,
+        equality,
+        first_only,
+        by_path,
+        option_entry,
+        between("kubectl -n prod delete pod x", "kubectl delete"),
+        between("kubectl --context=prod delete pod x", "kubectl delete"),
+        between("kubectl --namespace prod delete pod x", "kubectl delete"),
+        between("docker --context prod rm x", "docker rm"),
+        between("terraform -chdir=infra destroy", "terraform destroy"),
+        between("helm -n prod uninstall r", "helm uninstall"),
+        between("npx -y prisma migrate reset", "npx prisma migrate reset"),
+        between("uv run --with x rm -rf b", "uv run rm", "-r"),
+        # a value that equals the wanted word is read as that word: the known false prompt, by design
+        between("kubectl -n delete get pods", "kubectl delete"),
+    )
 
 
 def t8() -> tuple[bool, str]:
@@ -343,7 +554,7 @@ def t8() -> tuple[bool, str]:
         context = answer["hookSpecificOutput"]["additionalContext"]
     except (ValueError, KeyError, TypeError):
         return False, f"warn must answer with one JSON object; got: {result.stdout[:300]}"
-    finding = d1(FORCE_PUSH, 0, "--force")
+    finding = d1(FORCE_PUSH, "git push", "--force")
     ok = (
         "permissionDecision" not in answer["hookSpecificOutput"]
         and finding.render() in context
@@ -380,7 +591,372 @@ def t9() -> tuple[bool, str]:
     )
     mis = H.run_gate("", args=["--command", "ls"])
     mis_ok = expect(mis, 1, "BROKEN: misinvocation: --command applies to --scan", "stderr")
-    return all_of((red_ok, f"scan red: {red.stdout.strip()[:120]}"), green_ok, skip_ok, mis_ok)
+    # the split of the scan reads the wrappers the dials give: `uv` is no default wrapper, so the command
+    # behind `uv run --with x` is examined only when the scan splits with the loaded lists
+    uv_root = prepared(own(wrappers=[{"command": ["uv", "run"], "with_value": ["--with"]}]))
+    uv_text = "uv run --with x rm -rf b"
+    through = H.run_gate("", args=["--scan", str(uv_root), "--command", uv_text])
+    through_ok = through.code == 2 and red_lines(through.stdout) == [
+        f"RED: destructive command: '{uv_text}' matches the entry rm with -r",
+        tail,
+    ]
+    through_said = f"scan through a wrapper dial: exit {through.code}: {through.stdout.strip()[:160]}"
+    return all_of(
+        (red_ok, f"scan red: {red.stdout.strip()[:120]}"),
+        green_ok,
+        skip_ok,
+        mis_ok,
+        (through_ok, through_said),
+    )
+
+
+def unread(words: list[str]) -> dict[str, object]:
+    """One entry of `destructive` with these command words, well formed in every other field."""
+    return own(destructive=[{"command": words, "teach": "t", "alternative": "a"}])
+
+
+def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
+    """The C5 lines of the dials `wrappers` and `shells`, each typed by hand: the shape of a list and
+    of an entry, a field the entry does not have, a bad command, a bad option, a bad count, `drop` in
+    each of its three misuses, one command twice, a word both a wrapper and a shell, and `destructive`
+    read through the lists given."""
+    wrapper_shape = (
+        "command: [<words>] and, all optional, with_value: [<options>], positionals: <count>, numbers:"
+        " <count>, command_flags: [<options>]; or as command: [<words>] with drop: true to remove a default"
+    )
+    shell_shape = (
+        "command: [<word>] and, all optional, with_value: [<options>], command_flags: [<options>]; or as"
+        " command: [<word>] with drop: true to remove a default"
+    )
+    keep = "; leave the key out for the defaults, an empty list leaves them as they are"
+    each = 'write one entry per "- " item as '
+    w, s = prefix + "const-interaction.wrappers ", prefix + "const-interaction.shells "
+    command_why = (
+        "; a program is read by its base name, so a first word with a '/' can never match, and a word with"
+        " white space is two words"
+    )
+    wrapper_command = (
+        w + "entry 1: command must be a non-empty list of words, none empty, none holding white space, the"
+        " first with no '/' — fix: write the words of the program as list items, such as command: [uv, run]"
+        + command_why
+    )
+    shell_command = (
+        s + "entry 1: command must be a list of one word, not empty, holding no white space and no '/' —"
+        " fix: write the shell's name as the one item, such as command: [fish]" + command_why
+    )
+    unknown = "a misspelt field would be ignored in silence, so none is: write "
+    never = "which the reader never matches, since it "
+    sign = (
+        "entry 1: {field} holds '{option}', which is no option, a lone sign naming nothing — fix: remove it;"
+    )
+    sign += " the reader already ends a program's options at '--'"
+    cases: list[tuple[dict[str, object], str]] = [
+        (own(wrappers="sudo"), w + "must be a list of entries — fix: " + each + wrapper_shape + keep),
+        (own(shells="bash"), s + "must be a list of entries — fix: " + each + shell_shape + keep),
+        (
+            own(wrappers=["sudo"]),
+            w + "entry 1: it is not a mapping — fix: write the entry as " + wrapper_shape,
+        ),
+        (own(shells=[["bash"]]), s + "entry 1: it is not a mapping — fix: write the entry as " + shell_shape),
+        (
+            own(wrappers=[{"command": ["uv"], "flags": ["-x"]}]),
+            w + "entry 1: 'flags' is no field of a wrapper entry — fix: " + unknown + "command, with_value,"
+            " positionals, numbers, command_flags or drop",
+        ),
+        (  # a wrapper's fields are not a shell's
+            own(shells=[{"command": ["elvish"], "positionals": 1}]),
+            s + "entry 1: 'positionals' is no field of a shell entry — fix: " + unknown + "command,"
+            " with_value, command_flags or drop",
+        ),
+        (  # a line break in the key is shown escaped: the line stays one line
+            own(wrappers=[{"command": ["uv"], "a\nb": 1}]),
+            w + "entry 1: 'a\\nb' is no field of a wrapper entry — fix: " + unknown + "command, with_value,"
+            " positionals, numbers, command_flags or drop",
+        ),
+        *((own(wrappers=[entry]), wrapper_command) for entry in unread_commands(["uv run"], ["/usr/bin/uv"])),
+        *((own(shells=[entry]), shell_command) for entry in unread_commands(["a b"], ["/bin/elvish"])),
+        (
+            own(shells=[{"command": ["elvish", "x"]}]),
+            s + "entry 1: command [elvish, x] has more than one word, and a shell is one word — fix: write"
+            " one entry for each shell, command: [<word>]",
+        ),
+        *(  # the reader takes a shell word or an assignment off before it looks for a wrapper
+            (
+                own(wrappers=[{"command": [word]}]),
+                w + f"entry 1: command starts with '{word}', which is a shell word or an assignment, and the"
+                " reader takes both off before it looks for a wrapper, so the entry can never match — fix:"
+                " remove the entry; a wrapper is named by the program that runs the command",
+            )
+            for word in ("if", "FOO=1", "{")
+        ),
+        *(  # and before it looks for a shell: a shell entry of such a word never matches either
+            (
+                own(shells=[{"command": [word]}]),  # no command_flags either: this refusal comes first
+                s + f"entry 1: command starts with '{word}', which is a shell word or an assignment, and the"
+                " reader takes both off before it looks for a shell, so the entry can never match — fix:"
+                " remove the entry; a shell is named by the program that runs the string",
+            )
+            for word in ("if", "FOO=1")
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["--with"], "command_flags": ["--with"]}]),
+            w + "entry 1: with_value and command_flags both hold '--with', and the reader tries command_flags"
+            " first, so its place in with_value is never used — fix: keep it in one of the two, in"
+            " command_flags if its value is a command to read, in with_value if not",
+        ),
+        (
+            own(shells=[{"command": ["elvish"], "with_value": ["-o"], "command_flags": ["-o"]}]),
+            s + "entry 1: with_value and command_flags both hold '-o', and the reader tries command_flags"
+            " first, so its place in with_value is never used — fix: keep it in one of the two, in"
+            " command_flags if its value is a command to read, in with_value if not",
+        ),
+        *(  # a shell with no command flag reads no string: only a command flag yields one
+            (
+                own(shells=[entry]),
+                s + f"entry 1: the shell '{word}' has no command_flags, so it reads no string, since only a"
+                " command flag tells the reader that the first operand is one — fix: give the shell its"
+                " command flag, such as command_flags: [-c], or remove the entry; a default shell is removed"
+                f" by an entry with command: [{word}] and drop: true",
+            )
+            for word, entry in (("elvish", {"command": ["elvish"]}), ("bash", {"command": ["bash"]}))
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": "-u"}]),
+            w + "entry 1: with_value must be a list of options — fix: write the options as list items, each"
+            " as the command line has it, such as -u or --user; to take none, leave the field out",
+        ),
+        (
+            own(shells=[{"command": ["elvish"], "command_flags": "-c"}]),
+            s + "entry 1: command_flags must be a list of options — fix: write the options as list items,"
+            " each as the command line has it, such as -o, +o or --rcfile; to take none, leave the field out",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": [""]}]),
+            w + "entry 1: with_value must be a list of options — fix: write the options as list items, each"
+            " as the command line has it, such as -u or --user; to take none, leave the field out",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["-a b"]}]),
+            w + "entry 1: with_value holds '-a b', which holds white space, and an option is one word of the"
+            " command line — fix: write each option as an item of its own, such as -u or --user",
+        ),
+        (  # an option is echoed on one line, a break escaped
+            own(wrappers=[{"command": ["uv"], "with_value": ["-a\nb"]}]),
+            w + "entry 1: with_value holds '-a\\nb', which holds white space, and an option is one word of"
+            " the command line — fix: write each option as an item of its own, such as -u or --user",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["u"]}]),
+            w + "entry 1: with_value holds 'u', which does not start with '-', so it is no option — fix:"
+            " write it as the command line has it, with its dash, such as -u or --user",
+        ),
+        (  # a wrapper's options are the words that start with '-': a '+' never matches
+            own(wrappers=[{"command": ["uv"], "command_flags": ["+c"]}]),
+            w + "entry 1: command_flags holds '+c', which does not start with '-', so it is no option — fix:"
+            " write it as the command line has it, with its dash, such as -u or --user",
+        ),
+        (
+            own(shells=[{"command": ["elvish"], "with_value": ["o"]}]),
+            s + "entry 1: with_value holds 'o', which starts with neither '-' nor '+', so it is no option —"
+            " fix: write it as the command line has it, with its sign, such as -o, +o or --rcfile",
+        ),
+        *(
+            (
+                own(wrappers=[{"command": ["uv"], field: [option]}]),
+                w + sign.format(field=field, option=option),
+            )
+            for field, option in (("command_flags", "--"), ("with_value", "-"))
+        ),
+        (
+            own(shells=[{"command": ["elvish"], "with_value": ["+"]}]),
+            s + sign.format(field="with_value", option="+"),
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["-cx"]}]),
+            w
+            + "entry 1: with_value holds '-cx', a short option of more than one letter, "
+            + never
+            + "reads a short cluster one letter at a time — fix: write as an option of its own, as"
+            " '-<letter>', each letter that takes a value; a letter that takes none needs no entry; a long"
+            " option is written --name",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["-abc"]}]),
+            w
+            + "entry 1: with_value holds '-abc', a short option of more than one letter, "
+            + never
+            + "reads a short cluster one letter at a time — fix: write as an option of its own, as"
+            " '-<letter>', each letter that takes a value; a letter that takes none needs no entry; a long"
+            " option is written --name",
+        ),
+        (  # a shell's command flag is read the same way
+            own(shells=[{"command": ["elvish"], "command_flags": ["+ab"]}]),
+            s
+            + "entry 1: command_flags holds '+ab', a short option of more than one letter, "
+            + never
+            + "reads a short cluster one letter at a time — fix: write as an option of its own, as"
+            " '+<letter>', each letter that is a command flag; any other letter needs no entry; a long option"
+            " is written --name",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "command_flags": ["--c=x"]}]),
+            w + "entry 1: command_flags holds '--c=x', " + never + "compares a long option by its name"
+            " before the '=' — fix: write '--c'",
+        ),
+        (  # the option is cut at 80 characters in the headline, whole in the fix
+            own(wrappers=[{"command": ["uv"], "with_value": ["--" + "x" * 100 + "=1"]}]),
+            w
+            + "entry 1: with_value holds '--"
+            + "x" * 78
+            + "… [104 characters]', "
+            + never
+            + "compares a long option by its name before the '=' — fix: write '--"
+            + "x" * 100
+            + "'",
+        ),
+        *(
+            (
+                own(wrappers=[{"command": ["uv"], field: value}]),
+                w + f"entry 1: {field} must be a whole number of words, 0 or more, and true and false are no"
+                f" number — fix: write {field}: 1, or another whole number, or leave the field out for 0",
+            )
+            for field, value in (("positionals", -1), ("numbers", True), ("positionals", "1"))
+        ),
+        (
+            own(wrappers=[{"command": ["sudo"], "drop": False}]),
+            w + "entry 1: drop must be true, its one value — fix: write drop: true beside command to remove"
+            " the default of that command, or leave the field out",
+        ),
+        (
+            own(shells=[{"command": ["sh"], "drop": "yes"}]),
+            s + "entry 1: drop must be true, its one value — fix: write drop: true beside command to remove"
+            " the default of that command, or leave the field out",
+        ),
+        (  # the first field beside it, in sorted order
+            own(wrappers=[{"command": ["sudo"], "drop": True, "with_value": ["-u"], "positionals": 1}]),
+            w + "entry 1: drop: true stands with command alone, and positionals stands beside it, which"
+            " would be ignored in silence — fix: remove positionals to drop the default, or remove drop to"
+            " replace the default with the fields",
+        ),
+        (  # it comes before the check of the field's own value
+            own(shells=[{"command": ["sh"], "drop": True, "with_value": ["o"]}]),
+            s + "entry 1: drop: true stands with command alone, and with_value stands beside it, which would"
+            " be ignored in silence — fix: remove with_value to drop the default, or remove drop to replace"
+            " the default with the fields",
+        ),
+        (
+            own(wrappers=[{"command": ["suod"], "drop": True}]),
+            w + "entry 1: drop names [suod], which is no default wrapper, and a misspelt name would drop"
+            " nothing in silence — fix: write the command of a default wrapper (time, nohup, command,"
+            " builtin, noglob, exec, xargs, sudo, doas, env, nice, stdbuf, timeout, busybox, setsid, ionice,"
+            " taskset, caffeinate, flock, chrt) or remove the entry",
+        ),
+        (
+            own(shells=[{"command": ["elvish"], "drop": True}]),
+            s + "entry 1: drop names [elvish], which is no default shell, and a misspelt name would drop"
+            " nothing in silence — fix: write the command of a default shell (bash, sh, zsh, dash, ksh, fish,"
+            " ash, mksh, yash, posh, csh, tcsh) or remove the entry",
+        ),
+        (  # the word is echoed cut at 80 characters, its backslash doubled
+            own(wrappers=[{"command": ["x\\y" + "z" * 100], "drop": True}]),
+            w + "entry 1: drop names [x\\\\y" + "z" * 77 + "… [103 characters]], which is no default wrapper,"
+            " and a misspelt name would drop nothing in silence — fix: write the command of a default"
+            " wrapper (time, nohup, command, builtin, noglob, exec, xargs, sudo, doas, env, nice, stdbuf,"
+            " timeout, busybox, setsid, ionice, taskset, caffeinate, flock, chrt) or remove the entry",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"]}, {"command": ["uv"], "with_value": ["-p"]}]),
+            w + "entry 2: command [uv] stands in entry 1 already, and two entries of one command would leave"
+            " one of them unread in silence — fix: keep one entry per command, with every field it needs;"
+            " entries of one command are never merged",
+        ),
+        (  # a drop and a replacement of one command are two entries of it
+            own(wrappers=[{"command": ["sudo"], "drop": True}, {"command": ["sudo"], "with_value": ["-u"]}]),
+            w + "entry 2: command [sudo] stands in entry 1 already, and two entries of one command would"
+            " leave one of them unread in silence — fix: keep one entry per command, with every field it"
+            " needs; entries of one command are never merged",
+        ),
+        (
+            own(shells=[{"command": ["elvish"]}, {"command": ["elvish"]}]),
+            s + "entry 2: command [elvish] stands in entry 1 already, and two entries of one command would"
+            " leave one of them unread in silence — fix: keep one entry per command, with every field it"
+            " needs; entries of one command are never merged",
+        ),
+        (
+            own(
+                wrappers=[{"command": ["elvish"]}],
+                shells=[{"command": ["elvish"], "command_flags": ["-c"]}],
+            ),
+            prefix + "const-interaction.wrappers and const-interaction.shells both name 'elvish', and a word"
+            " is a wrapper or a shell, never both: the reader strips a wrapper before it reads a shell — fix:"
+            " give it to one of the two dials: remove its entry from the other, where a default is removed"
+            " by an entry with command: [elvish] and drop: true",
+        ),
+        (  # judged on the merged lists: bash is a default shell
+            own(wrappers=[{"command": ["bash"]}]),
+            prefix + "const-interaction.wrappers and const-interaction.shells both name 'bash', and a word is"
+            " a wrapper or a shell, never both: the reader strips a wrapper before it reads a shell — fix:"
+            " give it to one of the two dials: remove its entry from the other, where a default is removed"
+            " by an entry with command: [bash] and drop: true",
+        ),
+        (  # judged on a wrapper's first word: `bash -c` strips both words, the shell's string is never read
+            own(wrappers=[{"command": ["bash", "-c"]}]),
+            prefix + "const-interaction.wrappers and const-interaction.shells both name 'bash', and a word is"
+            " a wrapper or a shell, never both: the reader strips a wrapper before it reads a shell — fix:"
+            " give it to one of the two dials: remove its entry from the other, where a default is removed"
+            " by an entry with command: [bash] and drop: true",
+        ),
+        *(  # the default entries are read through the lists too, the key being absent: one that a wrapper
+            # takes the first word of is refused, what is left of it or nothing named as its reading
+            (
+                own(wrappers=[{"command": wrapper}]),
+                prefix + f"const-interaction.destructive is absent, so its default entry, command [{entry}],"
+                f" is read by the gate as {reading}, which the lists of const-interaction.wrappers and"
+                " const-interaction.shells cause — fix: remove or change the entry of"
+                " const-interaction.wrappers or const-interaction.shells whose command starts with"
+                f" '{first}', or write const-interaction.destructive out with commands the gate reads as"
+                " written; the gate compares the reading, so the default entry would never match",
+            )
+            for wrapper, entry, reading, first in (
+                (["git"], "git, push", "[push]", "git"),
+                (["git", "push"], "git, push", "nothing", "git"),
+                (["rm"], "rm", "nothing", "rm"),
+                (["git", "stash"], "git, stash, drop", "[drop]", "git"),
+            )
+        ),
+        (  # `destructive` is read through the lists given: a wrapper added hides its words
+            own(
+                wrappers=[{"command": ["uv", "run"], "with_value": ["--with"]}],
+                destructive=[
+                    {"command": ["uv", "run", "rm"], "flags": ["-r"], "teach": "t", "alternative": "a"}
+                ],
+            ),
+            prefix + "const-interaction.destructive entry 1: command [uv, run, rm] is read by the gate as"
+            " [rm] — fix: write command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # a shell added hands its string on
+            own(
+                shells=[{"command": ["elvish"], "command_flags": ["-c"]}],
+                destructive=[{"command": ["elvish", "-c", "x"], "teach": "t", "alternative": "a"}],
+            ),
+            prefix + "const-interaction.destructive entry 1: command [elvish, -c, x] has no reading, since it"
+            " hands a string on to be split again — fix: write the command the shell runs instead, such as"
+            " command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # the reader's dials are read before `destructive`
+            own(wrappers="sudo", destructive="rm"),
+            w + "must be a list of entries — fix: " + each + wrapper_shape + keep,
+        ),
+    ]
+    return cases
+
+
+def unread_commands(*words: list[str]) -> list[dict[str, object]]:
+    """Entries whose `command` is no usable list: missing, empty, not a list, a blank word, and each of
+    the given word lists."""
+    entries: list[dict[str, object]] = [{}, {"command": []}, {"command": "uv"}, {"command": ["uv", ""]}]
+    entries.extend({"command": listed} for listed in words)
+    return entries
 
 
 def t10() -> tuple[bool, str]:
@@ -398,8 +974,8 @@ def t10() -> tuple[bool, str]:
         (
             own(marker="x"),
             prefix + "const-interaction.marker is no dial of this module — fix: a misspelt dial would be"
-            " ignored in silence, so none is: write one of severity, log_dir, destructive, territories,"
-            " handles, boundary_examples, verbosity",
+            " ignored in silence, so none is: write one of severity, log_dir, destructive, wrappers, shells,"
+            " territories, handles, boundary_examples, verbosity",
         ),
         (
             own(destructive="rm"),
@@ -444,6 +1020,73 @@ def t10() -> tuple[bool, str]:
             prefix + "const-interaction.destructive entry 1: teach must be a non-empty text — fix: write the"
             " entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard to"
             " reverse>, alternative: <the reversible way>",
+        ),
+        (  # a program's path is dropped by the reading: the base name is the entry to write
+            unread(["./scripts/deploy.sh"]),
+            prefix + "const-interaction.destructive entry 1: command [./scripts/deploy.sh] is read by the"
+            " gate as [deploy.sh] — fix: write command: [deploy.sh]; the gate compares the reading, so this"
+            " entry can never match",
+        ),
+        (
+            unread(["/usr/bin/rm"]),
+            prefix + "const-interaction.destructive entry 1: command [/usr/bin/rm] is read by the gate as"
+            " [rm] — fix: write command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # a wrapper, an assignment and a shell word are dropped
+            unread(["sudo", "rm"]),
+            prefix + "const-interaction.destructive entry 1: command [sudo, rm] is read by the gate as [rm]"
+            " — fix: write command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (
+            unread(["FOO=1", "x"]),
+            prefix + "const-interaction.destructive entry 1: command [FOO=1, x] is read by the gate as [x]"
+            " — fix: write command: [x]; the gate compares the reading, so this entry can never match",
+        ),
+        (
+            unread(["exec", "x"]),
+            prefix + "const-interaction.destructive entry 1: command [exec, x] is read by the gate as [x]"
+            " — fix: write command: [x]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # nothing is left of a wrapper alone: the fix names what to write instead
+            unread(["sudo"]),
+            prefix + "const-interaction.destructive entry 1: command [sudo] is read by the gate as nothing"
+            " — fix: write the command the wrapper or shell runs instead, such as command: [rm]; the gate"
+            " compares the reading, so this entry can never match",
+        ),
+        (  # a word ending in a slash reads as an empty word, no command: the empty reading's fix
+            unread(["x/"]),
+            prefix + "const-interaction.destructive entry 1: command [x/] is read by the gate as nothing"
+            " — fix: write the command the wrapper or shell runs instead, such as command: [rm]; the gate"
+            " compares the reading, so this entry can never match",
+        ),
+        (
+            unread(["/"]),
+            prefix + "const-interaction.destructive entry 1: command [/] is read by the gate as nothing"
+            " — fix: write the command the wrapper or shell runs instead, such as command: [rm]; the gate"
+            " compares the reading, so this entry can never match",
+        ),
+        (  # a shell told to run a string hands it on: there is no reading of these words
+            unread(["bash", "-c", "x"]),
+            prefix + "const-interaction.destructive entry 1: command [bash, -c, x] has no reading, since it"
+            " hands a string on to be split again — fix: write the command the shell runs instead, such as"
+            " command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # the earlier checks come first: a malformed entry is refused as malformed
+            own(destructive=[{"command": ["sudo rm"], "teach": "t", "alternative": "a"}]),
+            prefix + "const-interaction.destructive entry 1: command must be a non-empty list of words — fix:"
+            " write the entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard"
+            " to reverse>, alternative: <the reversible way>",
+        ),
+        (  # an entry's words stand echoed, a line break escaped and a long word cut
+            unread(["x\ny/" + "z" * 100]),
+            prefix
+            + "const-interaction.destructive entry 1: command [x\\ny/"
+            + "z" * 76
+            + "… [104 characters]] is read by the gate as ["
+            + "z" * 80
+            + "… [100 characters]] — fix: write command: ["
+            + "z" * 100
+            + "]; the gate compares the reading, so this entry can never match",
         ),
         (
             own(handles=[]),
@@ -498,11 +1141,29 @@ def t10() -> tuple[bool, str]:
             " out",
         ),
     ]
+    cases.extend(reader_dial_cases(prefix))
     checks = []
     for patch, line in cases:
         result, _ = gate_on(command("ls"), dials_patch=patch)
         ok, evidence = broken_first_line(result, line)
         checks.append((ok and shared.c11_broken_count() in result.stderr, evidence))
+    # every entry point refuses a bad reader dial, with the same line first: the scan of a command, the
+    # scan of the lists and the session start, besides the hook above
+    bad_reader = own(wrappers="sudo")
+    bad_line = (
+        prefix + 'const-interaction.wrappers must be a list of entries — fix: write one entry per "- " item'
+        " as command: [<words>] and, all optional, with_value: [<options>], positionals: <count>, numbers:"
+        " <count>, command_flags: [<options>]; or as command: [<words>] with drop: true to remove a default;"
+        " leave the key out for the defaults, an empty list leaves them as they are"
+    )
+    bad_root = prepared(bad_reader)
+    for entry_point, run in (
+        ("the command scan", H.run_gate("", args=["--scan", str(bad_root), "--command", "ls"])),
+        ("the list scan", LISTS.run_gate("", args=["--scan", str(bad_root)])),
+        ("the session start", SESSION.run_gate(session_json(bad_root))),
+    ):
+        ok, evidence = broken_first_line(run, bad_line)
+        checks.append((ok, f"{entry_point}: {evidence}"))
     # the verbosity fix is prose that says "the one value today": a second value fails here, and
     # points at that prose
     one_value = len(Verbosity) == 1 and f"write verbosity: {Verbosity.TRIGGERED.value} — the one value" in (
@@ -623,29 +1284,300 @@ def t12() -> tuple[bool, str]:
 def t13() -> tuple[bool, str]:
     """The tokeniser's readings, each typed by hand."""
     readings = {
-        "git -C . push --force origin main": [("git", "push", "--force", "origin", "main")],
+        "git -C . push --force origin main": [("git", "-C", ".", "push", "--force", "origin", "main")],
         "a && b || c; d | e |& f & g\nh": [("a",), ("b",), ("c",), ("d",), ("e",), ("f",), ("g",), ("h",)],
         'echo "a && b"': [("echo", "a && b")],
         "echo `git rebase x`": [("git", "rebase", "x"), ("echo", "`git", "rebase", "x`")],
         "env -i FOO=1 nice -n 5 rm -r x": [("rm", "-r", "x")],
         "git 'push' --force": [("git", "push", "--force")],
-        "git --git-dir=.git push -f": [("git", "push", "-f")],
-        "git --git-dir .git --no-pager push -f": [("git", "push", "-f")],
+        # git's options stay in the words: the entry's matching skips them, the reader does not
+        "git --git-dir=.git push -f": [("git", "--git-dir=.git", "push", "-f")],
+        "git --git-dir .git --no-pager push -f": [("git", "--git-dir", ".git", "--no-pager", "push", "-f")],
         'sh -c "rm -r x" && echo done': [("sh", "-c", "rm -r x"), ("rm", "-r", "x"), ("echo", "done")],
         "echo 'unbalanced && rm -r x": [("echo", "'unbalanced", "&&", "rm", "-r", "x")],
         "(cd x && rm -r y)": [("cd", "x"), ("rm", "-r", "y")],
         "sudo -u root rm -r x": [("rm", "-r", "x")],
+        "exec -a x rm -r y": [("rm", "-r", "y")],
+        # the wrappers added on 2026-10-05, each to the command: busybox has no option of its own, taskset
+        # and flock one word before it, chrt an optional number, ionice two valued options in two forms
+        "busybox rm -rf b": [("rm", "-rf", "b")],
+        "setsid -f rm -rf b": [("rm", "-rf", "b")],
+        "ionice -c3 rm -rf b": [("rm", "-rf", "b")],
+        "ionice -c 3 rm -rf b": [("rm", "-rf", "b")],
+        "ionice --class 3 --classdata 7 rm -rf b": [("rm", "-rf", "b")],
+        "taskset 0x3 rm -rf b": [("rm", "-rf", "b")],
+        "taskset -c 0,1 rm -rf b": [("rm", "-rf", "b")],
+        "caffeinate -t 5 rm -rf b": [("rm", "-rf", "b")],
+        "caffeinate -dimsu rm -rf b": [("rm", "-rf", "b")],
+        "flock /tmp/l rm -rf b": [("rm", "-rf", "b")],
+        "flock -w 5 /tmp/l rm -rf b": [("rm", "-rf", "b")],
+        "flock -n -E 9 /tmp/l rm -rf b": [("rm", "-rf", "b")],
+        "chrt 10 rm -rf b": [("rm", "-rf", "b")],
+        "chrt -f 10 rm -rf b": [("rm", "-rf", "b")],
+        "chrt -i rm -rf b": [("rm", "-rf", "b")],
+        "chrt --sched-period 100 -d 0 rm -rf b": [("rm", "-rf", "b")],
+        # flock's `-c` (`--command`) names a string a shell runs: read again, before the lock file or after it
+        "flock /tmp/l -c 'rm -rf b'": [("rm", "-rf", "b")],
+        "flock -c 'rm -rf b' /tmp/l": [("rm", "-rf", "b", "/tmp/l")],
+        "flock --command 'rm -rf b' /tmp/l": [("rm", "-rf", "b", "/tmp/l")],
+        # the shells added on 2026-10-05: `-c` and its string; fish's `-C` and its long forms too, yash's
+        # `--cmdline`, mksh's `-T` takes the next word, fish's `-d` too
+        "fish -c 'rm -rf b'": [("fish", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "fish --command='rm -rf b'": [("fish", "--command=rm -rf b"), ("rm", "-rf", "b")],
+        "fish -C 'rm -rf b'": [("fish", "-C", "rm -rf b"), ("rm", "-rf", "b")],
+        "fish --init-command='rm -rf b'": [("fish", "--init-command=rm -rf b"), ("rm", "-rf", "b")],
+        "fish -d x -c 'rm -rf b'": [("fish", "-d", "x", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "ash -c 'rm -rf b'": [("ash", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "mksh -T /dev/tty2 -c 'rm -rf b'": [
+            ("mksh", "-T", "/dev/tty2", "-c", "rm -rf b"),
+            ("rm", "-rf", "b"),
+        ],
+        "yash --cmdline 'rm -rf b'": [("yash", "--cmdline", "rm -rf b"), ("rm", "-rf", "b")],
+        "posh -c 'rm -rf b'": [("posh", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "csh -c 'rm -rf b'": [("csh", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "tcsh -c 'rm -rf b'": [("tcsh", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        # a shell's command flag yields its string, whatever letters share the cluster: the next word when
+        # that is no option, else the first operand after the options, each read once; the words after the
+        # string are arguments, not read; with no command flag the first operand is a script file
+        "bash -ce 'rm -rf b'": [("bash", "-ce", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -cl 'rm -rf b'": [("bash", "-cl", "rm -rf b"), ("rm", "-rf", "b")],
+        "sh -ec 'rm -rf b'": [("sh", "-ec", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -oc posix 'rm -rf b'": [("bash", "-oc", "posix", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -c -e 'rm -rf b'": [("bash", "-c", "-e", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -c 'rm -rf b' arg0 arg1": [("bash", "-c", "rm -rf b", "arg0", "arg1"), ("rm", "-rf", "b")],
+        "bash script.sh -c x": [("bash", "script.sh", "-c", "x")],
+        "bash -c -- 'rm -rf b'": [("bash", "-c", "--", "rm -rf b"), ("rm", "-rf", "b")],
+        # a shell's valued letters each take the next word, whatever their place in the cluster; a word that
+        # starts with `+` is an option too, so it is no string
+        "bash -oe pipefail -c 'rm -rf b'": [
+            ("bash", "-oe", "pipefail", "-c", "rm -rf b"),
+            ("rm", "-rf", "b"),
+        ],
+        "bash -oO pipefail extglob -c 'rm -rf b'": [
+            ("bash", "-oO", "pipefail", "extglob", "-c", "rm -rf b"),
+            ("rm", "-rf", "b"),
+        ],
+        "bash -c +x 'rm -rf b'": [("bash", "-c", "+x", "rm -rf b"), ("rm", "-rf", "b")],
+        # zsh and ksh take a valued letter's value attached when the cluster goes on (`-oerrexit`), bash
+        # takes the next word; a cluster with a valued letter not last is read both ways, and the strings
+        # of either reading are read, each once, in the order they stand
+        "zsh -oerrexit -c 'rm -rf b'": [("zsh", "-oerrexit", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "ksh -opipefail -c 'rm -rf b'": [("ksh", "-opipefail", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "zsh -c -oerrexit 'rm -rf b'": [("zsh", "-c", "-oerrexit", "rm -rf b"), ("rm", "-rf", "b")],
+        "zsh -eoerrexit -c 'rm -rf b'": [("zsh", "-eoerrexit", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "zsh -oerrexit -c 'rm -rf b' arg0": [
+            ("zsh", "-oerrexit", "-c", "rm -rf b", "arg0"),
+            ("rm", "-rf", "b"),
+        ],
+        "bash -co pipefail 'rm -rf b'": [("bash", "-co", "pipefail", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -ce -x 'rm -rf b'": [("bash", "-ce", "-x", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -oc 'rm -rf b'": [("bash", "-oc", "rm -rf b")],
+        # every command flag met yields a string, each read in the order it stands: its attached value, else
+        # the next word when that is no option and no other option's value, else the first operand after the
+        # options; a word taken as a string is no operand, so a POSIX shell's one string is read once
+        "fish -C 'set x 1' -c 'rm -rf b'": [
+            ("fish", "-C", "set x 1", "-c", "rm -rf b"),
+            ("set", "x", "1"),
+            ("rm", "-rf", "b"),
+        ],
+        "fish -c 'rm -rf b' -C 'set x 1'": [
+            ("fish", "-c", "rm -rf b", "-C", "set x 1"),
+            ("rm", "-rf", "b"),
+            ("set", "x", "1"),
+        ],
+        "fish --init-command='set x 1' -c 'rm -rf b'": [
+            ("fish", "--init-command=set x 1", "-c", "rm -rf b"),
+            ("set", "x", "1"),
+            ("rm", "-rf", "b"),
+        ],
+        "fish -C -c 'set x 1' 'rm -rf b'": [
+            ("fish", "-C", "-c", "set x 1", "rm -rf b"),
+            ("set", "x", "1"),
+            ("rm", "-rf", "b"),
+        ],
+        "fish -c -C 'rm -rf b'": [("fish", "-c", "-C", "rm -rf b"), ("rm", "-rf", "b")],
+        "fish -d x -C 'set x 1' --command 'rm -rf b'": [
+            ("fish", "-d", "x", "-C", "set x 1", "--command", "rm -rf b"),
+            ("set", "x", "1"),
+            ("rm", "-rf", "b"),
+        ],
+        "bash -c -- -x": [("bash", "-c", "--", "-x"), ("-x",)],
+        # `--` ends the options of a wrapper and of a shell: what follows it is the command, or a file
+        "nice -- -n 5 rm -rf b": [("-n", "5", "rm", "-rf", "b")],
+        "sh -- -lc 'rm -rf b'": [("sh", "--", "-lc", "rm -rf b")],
         "git push \\\n -f": [("git", "push", "-f")],
         "ls &> /dev/null; rm -r x": [("ls", "&>", "/dev/null"), ("rm", "-r", "x")],
         "{ git push -f; }": [("git", "push", "-f")],
         "FOO=1": [],
     }
-    wrong = {
-        text: [s.words for s in tokens.split(text)]
-        for text, words in readings.items()
-        if [s.words for s in tokens.split(text)] != words
+    # the reading of an entry's own words, the dials loader's test: every default entry reads as
+    # itself; a path, a wrapper, an assignment, a shell word and a wrapper alone do not; a shell told
+    # to run a string, or `env -S`, has no reading; an option in an entry stays
+    unread = [
+        [entry.command, tokens.reading(entry.command, DEFAULT_READER_LISTS)]
+        for entry in DEFAULT_DESTRUCTIVE
+        if tokens.reading(entry.command, DEFAULT_READER_LISTS) != list(entry.command)
+    ]
+    entry_readings = {
+        ("git", "-C"): ["git", "-C"],
+        ("deploy.sh",): ["deploy.sh"],
+        ("./scripts/deploy.sh",): ["deploy.sh"],
+        ("/usr/bin/rm",): ["rm"],
+        ("sudo", "rm"): ["rm"],
+        ("FOO=1", "x"): ["x"],
+        ("exec", "x"): ["x"],
+        ("sudo",): [],
+        ("x/",): [""],
+        ("bash", "-c", "x"): None,
+        ("env", "-S", "x"): None,
     }
-    return (not wrong), f"{len(readings)} readings hold" if not wrong else f"wrong: {wrong}"
+    off = {
+        words: tokens.reading(words, DEFAULT_READER_LISTS)
+        for words, reading in entry_readings.items()
+        if tokens.reading(words, DEFAULT_READER_LISTS) != reading
+    }
+    if unread or off:
+        return False, f"defaults not read as themselves: {unread}; entry readings wrong: {off}"
+    # The reader's default wrappers and shells, as they stood before their lists moved into dials and the
+    # ones added since, typed by hand and never derived from tokens.py: a table derived from the code
+    # would move with it and guard nothing. Every wrapper name, every valued flag of every wrapper (a flag
+    # takes the next word `v`), every shell, and every option of a shell that takes a value, each read to
+    # `rm -rf b`.
+    wrapper_names = (
+        "time",
+        "nohup",
+        "command",
+        "builtin",
+        "noglob",
+        "xargs",
+        "sudo",
+        "doas",
+        "env",
+        "nice",
+        "stdbuf",
+        "timeout",
+        "exec",
+        # added on 2026-10-05, from the pages their entries cite
+        "busybox",
+        "setsid",
+        "ionice",
+        "taskset",
+        "caffeinate",
+        "flock",
+        "chrt",
+    )
+    # env's `-S` and `--split-string` are no flags of this table: item 6 holds the string they name
+    valued_flags = {
+        "xargs": "-I -J -d -P -s -n -L -a -E -R -S --max-args --max-procs --max-chars --arg-file"
+        " --delimiter --process-slot-var",
+        "sudo": "-u -g -C -p -h -U -r -t -D -R -T -a -c --user --group --close-from --prompt --host"
+        " --other-user --role --type --chdir --chroot --command-timeout --auth-type --login-class",
+        "doas": "-u -C -a",
+        "env": "-C -u -P -L -U --chdir --unset",
+        "nice": "-n --adjustment",
+        "stdbuf": "-i -o -e --input --output --error",
+        "timeout": "-s -k --signal --kill-after",
+        "exec": "-a",  # added with its move to a wrapper: bash's manual, `exec [-cl] [-a name] [command]`
+        # added on 2026-10-05; flock's `-c` and `--command` are command flags, held by their own readings
+        "ionice": "-c -n --class --classdata",
+        "caffeinate": "-t -w",
+        "flock": "-E -w --conflict-exit-code --wait --timeout --start --length",
+        "chrt": "-T -P -D -U -X --sched-runtime --sched-period --sched-deadline --clamp-min --clamp-max",
+    }
+    # `timeout <duration> <command>`, `taskset <mask> <command>`, `flock <file> <command>`: one word before it
+    positional = {"timeout": " 5", "taskset": " 0x3", "flock": " /tmp/l"}
+    shells = ("bash", "sh", "zsh", "dash", "ksh", "fish", "ash", "mksh", "yash", "posh", "csh", "tcsh")
+    shell_options = (  # (shell, the options before `-c`)
+        ("bash", "-o pipefail "),
+        ("bash", "-O extglob "),
+        ("bash", "+O extglob "),
+        ("bash", "-eO extglob "),
+        ("bash", "+o posix "),
+        ("bash", "-eo pipefail "),
+        ("bash", "--rcfile f "),
+        ("bash", "--init-file f "),
+        ("zsh", "--rcfile f "),
+        ("ksh", "--init-file f "),
+        # added on 2026-10-05: the options of each page that take the next word
+        ("fish", "-d x "),
+        ("fish", "-o x "),
+        ("fish", "-p x "),
+        ("fish", "-f x "),
+        ("fish", "--debug x "),
+        ("fish", "--debug-output x "),
+        ("fish", "--profile x "),
+        ("fish", "--profile-startup x "),
+        ("fish", "--features x "),
+        ("ash", "-o pipefail "),
+        ("ash", "+o posix "),
+        ("mksh", "-o posix "),
+        ("mksh", "+o posix "),
+        ("mksh", "-T /dev/tty2 "),
+        ("yash", "-o posix "),
+        ("yash", "+o posix "),
+        ("posh", "-o posix "),
+        ("posh", "+o posix "),
+    )
+    rm = ("rm", "-rf", "b")
+    wrapper_texts = {f"{name}{positional.get(name, '')} rm -rf b": [rm] for name in wrapper_names}
+    wrapper_texts["/usr/bin/sudo rm -rf b"] = [rm]
+    wrapper_texts["timeout -s KILL 5 rm -rf b"] = [rm]
+    flag_texts = {
+        f"{name} {flag} v{positional.get(name, '')} rm -rf b": [rm]
+        for name, flags in valued_flags.items()
+        for flag in flags.split()
+    }
+    shell_texts = {
+        f"{shell} {options}-c 'rm -rf b'": [(shell, *options.split(), "-c", "rm -rf b"), rm]
+        for shell, options in (*((name, "") for name in shells), *shell_options)
+    }
+    pinned = {**wrapper_texts, **flag_texts, **shell_texts}
+    wrong = {
+        text: [s.words for s in tokens.split(text, DEFAULT_READER_LISTS)]
+        for text, words in {**readings, **pinned}.items()
+        if [s.words for s in tokens.split(text, DEFAULT_READER_LISTS)] != words
+    }
+    # The fields no default uses, on lists of their own: a wrapper of two words, the longest match
+    # winning over its first word alone; `numbers`, skipped only when a number; a command option after
+    # a positional word and before it; a shell's long command option, its value attached or the next word.
+    own_lists = ReaderLists(
+        (
+            Wrapper(("uv",)),
+            Wrapper(("uv", "run"), with_value=("--with", "-p")),
+            Wrapper(("chrt",), with_value=("-T",), numbers=1),
+            Wrapper(("flock",), positionals=1, command_flags=("-c", "--command")),
+        ),
+        (Shell("yash", command_flags=("--cmdline",)),),
+    )
+    rm_read = [rm]
+    own_readings = {
+        "uv run --with x rm -rf b": rm_read,
+        "/bin/uv run -p 3.12 rm -rf b": rm_read,
+        "uv run rm -rf b": rm_read,
+        "uv tool rm -rf b": [("tool", "rm", "-rf", "b")],
+        "chrt 10 rm -rf b": rm_read,
+        "chrt -T 5 10 rm -rf b": rm_read,
+        "chrt rm -rf b": rm_read,
+        "chrt 10 20 rm -rf b": [("20", "rm", "-rf", "b")],
+        "flock /tmp/l rm -rf b": rm_read,
+        "flock /tmp/l -c 'rm -rf b'": rm_read,
+        "flock -c 'rm -rf b'": rm_read,
+        "flock /tmp/l --command 'rm -rf b' x": [("rm", "-rf", "b", "x")],
+        "yash --cmdline 'rm -rf b'": [("yash", "--cmdline", "rm -rf b"), rm],
+        "yash --cmdline='rm -rf b'": [("yash", "--cmdline=rm -rf b"), rm],
+    }
+    own_wrong = {
+        text: [s.words for s in tokens.split(text, own_lists)]
+        for text, words in own_readings.items()
+        if [s.words for s in tokens.split(text, own_lists)] != words
+    }
+    wrong.update(own_wrong)
+    return (not wrong), (
+        f"{len(readings)} readings, {len(pinned)} wrapper and shell readings, {len(own_readings)} on lists"
+        f" of their own and {len(entry_readings)} entry readings hold, {ENTRIES} defaults read as themselves"
+        if not wrong
+        else f"wrong: {wrong}"
+    )
 
 
 # ---------------------------------------------------------------- the list-handles scan
@@ -818,7 +1750,139 @@ def t30() -> tuple[bool, str]:
             "1. a\\nb \\\\ " + "v" * 100 + " / c\\\\d\\r\\n" + "w" * 100 + "\n"
         )
     )
+    # a dropped default and a replaced one are each named by one line, in the dials' order, the wrappers'
+    # dial first; an added one, an empty list and no dial name nothing
+    sudo_line = (
+        "const-interaction: the wrapper sudo is dropped, so a command behind it is no longer examined —"
+        " const-interaction.wrappers in constitution.yaml drops it\n"
+    )
+    nohup_line = (
+        "const-interaction: the wrapper nohup is dropped, so a command behind it is no longer examined —"
+        " const-interaction.wrappers in constitution.yaml drops it\n"
+    )
+    dash_line = (
+        "const-interaction: the shell dash is dropped, so a command it is told to run is no longer examined"
+        " — const-interaction.shells in constitution.yaml drops it\n"
+    )
+    sudo_replaced = (
+        "const-interaction: the wrapper sudo is replaced, so its options are those written for it, not the"
+        " defaults — const-interaction.wrappers in constitution.yaml replaces it\n"
+    )
+    bash_replaced = (
+        "const-interaction: the shell bash is replaced, so its options are those written for it, not the"
+        " defaults — const-interaction.shells in constitution.yaml replaces it\n"
+    )
+    drops = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[
+                        {"command": ["sudo"], "drop": True},
+                        {"command": ["uv"], "with_value": ["-p"]},
+                        {"command": ["nohup"], "drop": True},
+                    ],
+                    shells=[
+                        {"command": ["dash"], "drop": True},
+                        {"command": ["elvish"], "command_flags": ["-c"]},
+                    ],
+                )
+            )
+        )
+    )
+    drops_ok = drops.code == 0 and drops.stdout == RULES + verbosity + sudo_line + nohup_line + dash_line
+    zero_drop = SESSION.run_gate(
+        session_json(prepared(own(destructive=[], wrappers=[{"command": ["sudo"], "drop": True}])))
+    )
+    zero_drop_ok = zero_drop.stdout == RULES + verbosity + zero + "\n" + sudo_line
+    # the drop and replace lines stand before the pairs
+    ordered = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[{"command": ["sudo"], "drop": True}],
+                    boundary_examples=[{"violates": "an essay", "complies": "the word"}],
+                )
+            )
+        )
+    )
+    ordered_ok = ordered.stdout == RULES + verbosity + sudo_line + (
+        "Boundary examples of this project (const-interaction.boundary_examples), each violates / complies:\n"
+        "1. an essay / the word\n"
+    )
+    replaced = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[{"command": ["sudo"]}],
+                    shells=[{"command": ["bash"], "command_flags": ["-c"]}],
+                )
+            )
+        )
+    )
+    replaced_ok = replaced.code == 0 and replaced.stdout == RULES + verbosity + sudo_replaced + bash_replaced
+    # drops and replacements together, each as its entry stands in its list, the added entries silent
+    mixed = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[
+                        {"command": ["nohup"], "drop": True},
+                        {"command": ["uv"], "with_value": ["-p"]},
+                        {"command": ["sudo"], "with_value": ["-u"]},
+                    ],
+                    shells=[
+                        {"command": ["elvish"], "command_flags": ["-c"]},
+                        {"command": ["bash"], "command_flags": ["-c"]},
+                        {"command": ["dash"], "drop": True},
+                    ],
+                )
+            )
+        )
+    )
+    mixed_ok = mixed.stdout == RULES + verbosity + nohup_line + sudo_replaced + bash_replaced + dash_line
+    quiet = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[{"command": ["uv"]}],
+                    shells=[{"command": ["elvish"], "command_flags": ["-c"]}],
+                )
+            )
+        )
+    )
+    empty_lists = SESSION.run_gate(session_json(prepared(own(wrappers=[], shells=[]))))
+    quiet_ok = quiet.stdout == RULES + verbosity and empty_lists.stdout == RULES + verbosity
     return all_of(
+        (
+            drops_ok,
+            "one line per dropped default, the wrappers' first"
+            if drops_ok
+            else f"got: {drops.stdout[-500:]}",
+        ),
+        (
+            zero_drop_ok,
+            "a drop after the zero line" if zero_drop_ok else f"got: {zero_drop.stdout[-400:]}",
+        ),
+        (
+            ordered_ok,
+            "a drop line before the pairs" if ordered_ok else f"got: {ordered.stdout[-500:]}",
+        ),
+        (
+            replaced_ok,
+            "a replaced wrapper and a replaced shell, one line each"
+            if replaced_ok
+            else f"got: {replaced.stdout[-500:]}",
+        ),
+        (
+            mixed_ok,
+            "drops and replacements in the dials' order, the additions silent"
+            if mixed_ok
+            else f"got: {mixed.stdout[-700:]}",
+        ),
+        (
+            quiet_ok,
+            "no line for an addition or an empty list" if quiet_ok else f"got: {quiet.stdout[-300:]}",
+        ),
         (
             long_ok,
             "a pair with breaks, a backslash and 100 characters, whole"
@@ -1020,7 +2084,7 @@ SUBJECT = Subject(
     own=own,
     valid=command("git status"),
     red=command("git push --force origin main"),
-    red_finding=d1("git push --force origin main", 0, "--force"),
+    red_finding=d1("git push --force origin main", "git push", "--force"),
     green=shared.g1_green_event(messages.g1_command_passed(ENTRIES, 1)),
     territory=["docs/notes/**"],
     claim=claim,
@@ -1045,15 +2109,16 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     ),
     (
         7,
-        "the dial: empty gates nothing and says so; an own entry; a cluster; equality; one hit per piece",
+        "the dial: empty gates nothing; an own entry; options between an entry's words; the reader's"
+        " two dials merged with the defaults",
         t7,
     ),
     (8, "severity warn: the finding as context, the command let through", t8),
     (9, "the scan explains a command; no command is a visible skip; --command needs --scan", t9),
-    (10, "this module's C5 lines typed by hand, each exit 1", t10),
+    (10, "this module's C5 lines typed by hand, an unread entry, the reader's dials, each exit 1", t10),
     (11, "an event the gate is not wired to, and a shell event without a command", t11),
     (12, "golden lines: D1 typed whole", t12),
-    (13, "the tokeniser's readings typed by hand", t13),
+    (13, "the readings typed by hand: every default wrapper, flag and shell, an entry's own", t13),
     (20, "red→green: a plain list is red with L1 typed whole; handled lists are green", t20),
     (
         21,
@@ -1062,7 +2127,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     ),
     (22, "territories: a negated pattern takes a document out; a README at the top is covered", t22),
     (23, "the list scan as a hook is its own C12; a misinvocation exits 1", t23),
-    (30, "session start: the rules first, the verbosity line, the zero line, the pairs numbered", t30),
+    (
+        30,
+        "session start: rules, verbosity line, zero line, a default dropped or replaced, the pairs",
+        t30,
+    ),
     (31, "session start: no dials file, no repository, malformed dials, an argument", t31),
     (32, "the rules text: under the cap, of the stated size, lettered a–i", t32),
     (33, "the printer's absence paths: PyYAML missing is C2, python3 missing is C1, the rules kept", t33),

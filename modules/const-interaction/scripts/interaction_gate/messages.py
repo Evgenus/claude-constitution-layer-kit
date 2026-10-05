@@ -11,11 +11,13 @@ without holding any other document: no text here cites one.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
+
 from const_gate import identity
 from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import COMMAND_FLAG, Entry, Key, Subcommand, Verbosity
+from .model import COMMAND_FLAG, Entry, Key, OptionFault, ReaderDial, ReaderField, Subcommand, Verbosity
 
 
 def _ns() -> str:
@@ -86,6 +88,27 @@ def f9_lists_tail(documents: int, handles: int, scanned: int) -> str:
 
 def s1_empty() -> str:
     return f"{_ns()}: no command is gated — {_ns()}.destructive is an empty list in {DIALS_FILE}"
+
+
+def s1_dropped(dial: ReaderDial, command: Sequence[str]) -> str:
+    """One default the dials dropped, said at every session start: which, what the gate no longer
+    examines, and where it is set."""
+    kind = "wrapper" if dial is ReaderDial.WRAPPERS else "shell"
+    behind = "a command behind it" if dial is ReaderDial.WRAPPERS else "a command it is told to run"
+    return (
+        f"{_ns()}: the {kind} {escaped(' '.join(command))} is dropped, so {behind} is no longer examined —"
+        f" {_ns()}.{dial} in {DIALS_FILE} drops it"
+    )
+
+
+def s1_replaced(dial: ReaderDial, command: Sequence[str]) -> str:
+    """One default the dials replaced, said at every session start: which, what its options now are,
+    and where it is set."""
+    kind = "wrapper" if dial is ReaderDial.WRAPPERS else "shell"
+    return (
+        f"{_ns()}: the {kind} {escaped(' '.join(command))} is replaced, so its options are those written for"
+        f" it, not the defaults — {_ns()}.{dial} in {DIALS_FILE} replaces it"
+    )
 
 
 def s1_no_dials(root: str) -> str:
@@ -173,6 +196,47 @@ def c5_entry(index: int, detail: str) -> Broken:
     )
 
 
+def _words(words: Sequence[str], echo: Callable[[str], str]) -> str:
+    return "[" + ", ".join(echo(word) for word in words) + "]"
+
+
+def _read_as(read: Sequence[str] | None) -> str:
+    """What the gate does with the words of an entry: `read` is None where they hand a string on to be
+    split again."""
+    if read is None:
+        return "has no reading, since it hands a string on to be split again"
+    if not read or "" in read:  # nothing, or an empty word, as `x/` reduces to: no command to write back
+        return "is read by the gate as nothing"
+    return f"is read by the gate as {_words(read, echoed)}"
+
+
+def c5_entry_unread(index: int, command: Sequence[str], read: Sequence[str] | None) -> Broken:
+    """An entry whose words the reader does not read as themselves: it is compared by its reading,
+    so it could never match. `read` is None where the words hand a string on to be split again."""
+    never = "the gate compares the reading, so this entry can never match"
+    if read is None:
+        fix = f"write the command the shell runs instead, such as command: [rm]; {never}"
+    elif not read or "" in read:
+        fix = f"write the command the wrapper or shell runs instead, such as command: [rm]; {never}"
+    else:
+        fix = f"write command: {_words(read, escaped)}; {never}"
+    detail = f"command {_words(command, echoed)} {_read_as(read)}"
+    return _c5(f"{_ns()}.destructive entry {index}: {detail}", fix)
+
+
+def c5_default_unread(command: Sequence[str], read: Sequence[str] | None) -> Broken:
+    """A default entry that the reader dials make the gate read as something else, so that with the key
+    absent it would never match. `command` is the default's own words, `read` its reading."""
+    ns = _ns()
+    return _c5(
+        f"{ns}.destructive is absent, so its default entry, command {_words(command, echoed)},"
+        f" {_read_as(read)}, which the lists of {ns}.wrappers and {ns}.shells cause",
+        f"remove or change the entry of {ns}.wrappers or {ns}.shells whose command starts with"
+        f" '{escaped(command[0])}', or write {ns}.destructive out with commands the gate reads as written;"
+        " the gate compares the reading, so the default entry would never match",
+    )
+
+
 def c5_verbosity() -> Broken:
     return _c5(
         f"{_ns()}.verbosity must be one of: {', '.join(level.value for level in Verbosity)}",
@@ -185,6 +249,235 @@ def c5_boundary_examples() -> Broken:
     return _c5(
         f"{_ns()}.boundary_examples must be a list of pairs {{violates: <text>, complies: <text>}}",
         'write one pair per "- " item with exactly those two fields, or leave the key out',
+    )
+
+
+# ---------------------------------------------------------------- the dials of the reader (C5)
+
+_SHAPES = {
+    ReaderDial.WRAPPERS: "command: [<words>] and, all optional, with_value: [<options>],"
+    " positionals: <count>, numbers: <count>, command_flags: [<options>]; or as command: [<words>] with"
+    " drop: true to remove a default",
+    ReaderDial.SHELLS: "command: [<word>] and, all optional, with_value: [<options>],"
+    " command_flags: [<options>]; or as command: [<word>] with drop: true to remove a default",
+}
+_FIELDS = {
+    ReaderDial.WRAPPERS: "command, with_value, positionals, numbers, command_flags or drop",
+    ReaderDial.SHELLS: "command, with_value, command_flags or drop",
+}
+_KINDS = {ReaderDial.WRAPPERS: "wrapper", ReaderDial.SHELLS: "shell"}
+_OPTION_EXAMPLES = {ReaderDial.WRAPPERS: "-u or --user", ReaderDial.SHELLS: "-o, +o or --rcfile"}
+_BASE_NAME = (
+    "a program is read by its base name, so a first word with a '/' can never match, and a word with white"
+    " space is two words"
+)
+
+
+def _reader(dial: ReaderDial, index: int, detail: str, fix: str) -> Broken:
+    return _c5(f"{_ns()}.{dial} entry {index}: {detail}", fix)
+
+
+def c5_reader_list(dial: ReaderDial) -> Broken:
+    return _c5(
+        f"{_ns()}.{dial} must be a list of entries",
+        f'write one entry per "- " item as {_SHAPES[dial]}; leave the key out for the defaults, an empty'
+        " list leaves them as they are",
+    )
+
+
+def c5_reader_entry(dial: ReaderDial, index: int, detail: str) -> Broken:
+    return _reader(dial, index, detail, f"write the entry as {_SHAPES[dial]}")
+
+
+def c5_reader_unknown(dial: ReaderDial, index: int, field: str) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"'{echoed(field)}' is no field of a {_KINDS[dial]} entry",
+        f"a misspelt field would be ignored in silence, so none is: write {_FIELDS[dial]}",
+    )
+
+
+def c5_reader_command(dial: ReaderDial, index: int) -> Broken:
+    if dial is ReaderDial.WRAPPERS:
+        detail = (
+            "command must be a non-empty list of words, none empty, none holding white space, the first with"
+            " no '/'"
+        )
+        fix = "write the words of the program as list items, such as command: [uv, run]"
+    else:
+        detail = "command must be a list of one word, not empty, holding no white space and no '/'"
+        fix = "write the shell's name as the one item, such as command: [fish]"
+    return _reader(dial, index, detail, f"{fix}; {_BASE_NAME}")
+
+
+def c5_reader_shell_words(index: int, command: Sequence[str]) -> Broken:
+    return _reader(
+        ReaderDial.SHELLS,
+        index,
+        f"command {_words(command, echoed)} has more than one word, and a shell is one word",
+        "write one entry for each shell, command: [<word>]",
+    )
+
+
+def c5_reader_first_word(dial: ReaderDial, index: int, word: str) -> Broken:
+    kind = _KINDS[dial]
+    named = (
+        "the program that runs the command"
+        if dial is ReaderDial.WRAPPERS
+        else "the program that runs the string"
+    )
+    return _reader(
+        dial,
+        index,
+        f"command starts with '{echoed(word)}', which is a shell word or an assignment, and the reader takes"
+        f" both off before it looks for a {kind}, so the entry can never match",
+        f"remove the entry; a {kind} is named by {named}",
+    )
+
+
+def c5_reader_no_flags(index: int, word: str) -> Broken:
+    return _reader(
+        ReaderDial.SHELLS,
+        index,
+        f"the shell '{echoed(word)}' has no command_flags, so it reads no string, since only a command flag"
+        " tells the reader that the first operand is one",
+        "give the shell its command flag, such as command_flags: [-c], or remove the entry; a default shell"
+        f" is removed by an entry with command: [{escaped(word)}] and drop: true",
+    )
+
+
+def c5_reader_both_fields(dial: ReaderDial, index: int, option: str) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"with_value and command_flags both hold '{echoed(option)}', and the reader tries command_flags"
+        " first, so its place in with_value is never used",
+        "keep it in one of the two, in command_flags if its value is a command to read, in with_value if not",
+    )
+
+
+def c5_reader_option(
+    dial: ReaderDial, index: int, field: ReaderField, option: str, fault: OptionFault
+) -> Broken:
+    """An option the reader could never match, and the reason: `option` is what the dials gave."""
+    example = _OPTION_EXAMPLES[dial]
+    if fault is OptionFault.NOT_A_LIST:
+        return _reader(
+            dial,
+            index,
+            f"{field} must be a list of options",
+            "write the options as list items, each as the command line has it, such as"
+            f" {example}; to take none, leave the field out",
+        )
+    holds = f"{field} holds '{echoed(option)}'"
+    if fault is OptionFault.WHITE_SPACE:
+        return _reader(
+            dial,
+            index,
+            f"{holds}, which holds white space, and an option is one word of the command line",
+            f"write each option as an item of its own, such as {example}",
+        )
+    if fault is OptionFault.NO_SIGN:
+        if dial is ReaderDial.WRAPPERS:
+            return _reader(
+                dial,
+                index,
+                f"{holds}, which does not start with '-', so it is no option",
+                f"write it as the command line has it, with its dash, such as {example}",
+            )
+        return _reader(
+            dial,
+            index,
+            f"{holds}, which starts with neither '-' nor '+', so it is no option",
+            f"write it as the command line has it, with its sign, such as {example}",
+        )
+    if fault is OptionFault.LONE_SIGN:
+        return _reader(
+            dial,
+            index,
+            f"{holds}, which is no option, a lone sign naming nothing",
+            "remove it; the reader already ends a program's options at '--'",
+        )
+    never = "which the reader never matches, since it"
+    if fault is OptionFault.LETTERS:
+        each, none = (
+            ("each letter that takes a value", "a letter that takes none")
+            if field is ReaderField.WITH_VALUE
+            else ("each letter that is a command flag", "any other letter")
+        )
+        return _reader(
+            dial,
+            index,
+            f"{holds}, a short option of more than one letter, {never} reads a short cluster one letter at"
+            " a time",
+            f"write as an option of its own, as '{option[0]}<letter>', {each}; {none} needs no entry; a long"
+            " option is written --name",
+        )
+    return _reader(
+        dial,
+        index,
+        f"{holds}, {never} compares a long option by its name before the '='",
+        f"write '{escaped(option.partition('=')[0])}'",
+    )
+
+
+def c5_reader_count(dial: ReaderDial, index: int, field: ReaderField) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"{field} must be a whole number of words, 0 or more, and true and false are no number",
+        f"write {field}: 1, or another whole number, or leave the field out for 0",
+    )
+
+
+def c5_reader_drop_value(dial: ReaderDial, index: int) -> Broken:
+    return _reader(
+        dial,
+        index,
+        "drop must be true, its one value",
+        "write drop: true beside command to remove the default of that command, or leave the field out",
+    )
+
+
+def c5_reader_drop_beside(dial: ReaderDial, index: int, field: ReaderField) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"drop: true stands with command alone, and {field} stands beside it, which would be ignored in"
+        " silence",
+        f"remove {field} to drop the default, or remove drop to replace the default with the fields",
+    )
+
+
+def c5_reader_drop_unknown(
+    dial: ReaderDial, index: int, command: Sequence[str], defaults: Sequence[str]
+) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"drop names {_words(command, echoed)}, which is no default {_KINDS[dial]}, and a misspelt name would"
+        " drop nothing in silence",
+        f"write the command of a default {_KINDS[dial]} ({', '.join(defaults)}) or remove the entry",
+    )
+
+
+def c5_reader_twice(dial: ReaderDial, index: int, command: Sequence[str], first: int) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"command {_words(command, echoed)} stands in entry {first} already, and two entries of one command"
+        " would leave one of them unread in silence",
+        "keep one entry per command, with every field it needs; entries of one command are never merged",
+    )
+
+
+def c5_reader_both(word: str) -> Broken:
+    return _c5(
+        f"{_ns()}.wrappers and {_ns()}.shells both name '{echoed(word)}', and a word is a wrapper or a shell,"
+        " never both: the reader strips a wrapper before it reads a shell",
+        "give it to one of the two dials: remove its entry from the other, where a default is removed by an"
+        f" entry with command: [{escaped(word)}] and drop: true",
     )
 
 

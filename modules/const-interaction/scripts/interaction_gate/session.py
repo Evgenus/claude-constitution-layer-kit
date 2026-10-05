@@ -1,8 +1,9 @@
 """The session-start printer: after the rules, the value of the verbosity dial — the default where
 no dials file can be read — then one line about the state of the destructive-command gate where it
-examines nothing — no repository, no dials file, an empty list — and the project's own boundary
-examples. Advisory: it prints to the model's context and blocks nothing; a
-configuration failure is still exit 1 with its line first, as every script of the kit."""
+examines nothing — no repository, no dials file, an empty list — then one line for each default
+wrapper or shell the dials drop or replace, and the project's own boundary examples. Advisory: it
+prints to the model's context and blocks nothing; a configuration failure is still exit 1 with its
+line first, as every script of the kit."""
 
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from . import messages
 
 if TYPE_CHECKING:
     from const_gate.pipeline import Skip
-from .model import Verbosity
+from .model import Replaced, Verbosity
 
 USAGE = "session-start takes no arguments; it reads one SessionStart event on stdin"
 
@@ -46,6 +47,11 @@ def body(output: Output, argv: Sequence[str]) -> int:
     output.out(messages.s1_verbosity(dials.verbosity))
     if not dials.destructive:
         output.out(messages.s1_empty())
+    for change in dials.changed:
+        if isinstance(change, Replaced):
+            output.out(messages.s1_replaced(change.dial, change.command))
+        else:
+            output.out(messages.s1_dropped(change.dial, change.command))
     if dials.boundary_examples:
         output.out(messages.s1_pairs_heading())
         for number, pair in enumerate(dials.boundary_examples, 1):
