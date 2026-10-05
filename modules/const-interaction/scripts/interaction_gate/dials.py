@@ -22,6 +22,7 @@ from .model import (
     InteractionDials,
     OptionFault,
     Pair,
+    ReaderDial,
     ReaderLists,
     Replaced,
     Shell,
@@ -45,7 +46,7 @@ WRAPPER_FIELDS = ("command", "with_value", "positionals", "numbers", "command_fl
 SHELL_FIELDS = ("command", "with_value", "command_flags", "drop")
 # The signs an option of each starts with: the reader takes a wrapper's options as the words that start
 # with `-`, a shell's as those that start with `-` or `+`.
-OPTION_SIGNS = {"wrappers": "-", "shells": "-+"}
+OPTION_SIGNS = {ReaderDial.WRAPPERS: "-", ReaderDial.SHELLS: "-+"}
 
 
 def parse(own: Mapping[str, object]) -> InteractionDials:
@@ -77,9 +78,13 @@ def parse(own: Mapping[str, object]) -> InteractionDials:
 def _reader_lists(own: Mapping[str, object]) -> tuple[ReaderLists, tuple[Dropped | Replaced, ...]]:
     """The wrappers and the shells of the reader: the defaults, each list the dials give applied to them
     by command, and the defaults dropped or replaced. A word is a wrapper or a shell, never both."""
-    listed, changed_wrappers = _merged("wrappers", own.get("wrappers"), WRAPPER_FIELDS, DEFAULT_WRAPPERS)
+    listed, changed_wrappers = _merged(
+        ReaderDial.WRAPPERS, own.get(ReaderDial.WRAPPERS), WRAPPER_FIELDS, DEFAULT_WRAPPERS
+    )
     wrappers = tuple(entry for entry in listed if isinstance(entry, Wrapper))
-    listed, changed_shells = _merged("shells", own.get("shells"), SHELL_FIELDS, DEFAULT_SHELLS)
+    listed, changed_shells = _merged(
+        ReaderDial.SHELLS, own.get(ReaderDial.SHELLS), SHELL_FIELDS, DEFAULT_SHELLS
+    )
     shells = tuple(entry for entry in listed if isinstance(entry, Shell))
     wrapper_commands = {wrapper.command for wrapper in wrappers}
     for shell in shells:
@@ -93,7 +98,7 @@ def _words_of(entry: Wrapper | Shell) -> tuple[str, ...]:
 
 
 def _merged(
-    dial: str, value: object, fields: tuple[str, ...], defaults: Sequence[Wrapper | Shell]
+    dial: ReaderDial, value: object, fields: tuple[str, ...], defaults: Sequence[Wrapper | Shell]
 ) -> tuple[list[Wrapper | Shell], tuple[Dropped | Replaced, ...]]:
     """Absent: the defaults. A list: each entry applied to the defaults by its command — one of a
     default's command replaces that default whole, a new command is added, `drop: true` removes the
@@ -132,7 +137,9 @@ def _merged(
             merged = [entry for entry in merged if _words_of(entry) != command]
             continue
         built: Wrapper | Shell = (
-            _wrapper(dial, index, item, command) if dial == "wrappers" else _shell(dial, index, item, command)
+            _wrapper(dial, index, item, command)
+            if dial is ReaderDial.WRAPPERS
+            else _shell(dial, index, item, command)
         )
         if isinstance(built, Shell) and not built.command_flags:
             bare.append((index, built.command))
@@ -147,26 +154,26 @@ def _merged(
     return merged, tuple(changed)
 
 
-def _reader_command(dial: str, index: int, item: dict[str, object]) -> tuple[str, ...]:
+def _reader_command(dial: ReaderDial, index: int, item: dict[str, object]) -> tuple[str, ...]:
     """The words of an entry's `command`: a non-empty list, no word empty or holding white space, the
     first with no `/` — the reader reduces only the program to its base name, so a first word with a `/`
     can never match, while a later word is compared as written — and for a shell one word."""
     command = texts(item.get("command"))
     if not command or "/" in command[0] or any(any(letter.isspace() for letter in word) for word in command):
         raise ConfigurationFailure(messages.c5_reader_command(dial, index))
-    if dial == "shells" and len(command) != 1:
+    if dial is ReaderDial.SHELLS and len(command) != 1:
         raise ConfigurationFailure(messages.c5_reader_shell_words(index, command))
     return command
 
 
-def _refuse_stripped_first_word(dial: str, index: int, word: str) -> None:
+def _refuse_stripped_first_word(dial: ReaderDial, index: int, word: str) -> None:
     """An entry whose first word the reader would take off before it looks for a wrapper or a shell
     never matches."""
     if tokens.ASSIGNMENT.match(word) or word in tokens.SHELL_WORDS:
         raise ConfigurationFailure(messages.c5_reader_first_word(dial, index, word))
 
 
-def _wrapper(dial: str, index: int, item: dict[str, object], command: tuple[str, ...]) -> Wrapper:
+def _wrapper(dial: ReaderDial, index: int, item: dict[str, object], command: tuple[str, ...]) -> Wrapper:
     _refuse_stripped_first_word(dial, index, command[0])
     with_value = _options(dial, index, item, "with_value")
     positionals = _count(dial, index, item, "positionals")
@@ -178,7 +185,7 @@ def _wrapper(dial: str, index: int, item: dict[str, object], command: tuple[str,
     )
 
 
-def _shell(dial: str, index: int, item: dict[str, object], command: tuple[str, ...]) -> Shell:
+def _shell(dial: ReaderDial, index: int, item: dict[str, object], command: tuple[str, ...]) -> Shell:
     _refuse_stripped_first_word(dial, index, command[0])
     with_value = _options(dial, index, item, "with_value")
     command_flags = _options(dial, index, item, "command_flags")
@@ -187,7 +194,7 @@ def _shell(dial: str, index: int, item: dict[str, object], command: tuple[str, .
 
 
 def _refuse_shared_option(
-    dial: str, index: int, with_value: tuple[str, ...], command_flags: tuple[str, ...]
+    dial: ReaderDial, index: int, with_value: tuple[str, ...], command_flags: tuple[str, ...]
 ) -> None:
     """An option in both fields has one of its two places dead: the reader tries command_flags first."""
     shared = next((option for option in with_value if option in command_flags), None)
@@ -195,7 +202,7 @@ def _refuse_shared_option(
         raise ConfigurationFailure(messages.c5_reader_both_fields(dial, index, shared))
 
 
-def _options(dial: str, index: int, item: dict[str, object], field: str) -> tuple[str, ...]:
+def _options(dial: ReaderDial, index: int, item: dict[str, object], field: str) -> tuple[str, ...]:
     """The options of a field, each one the reader could match, or a configuration failure naming the
     first that it could not. Absent or an empty list: none."""
     raw = item.get(field, [])
@@ -211,7 +218,7 @@ def _options(dial: str, index: int, item: dict[str, object], field: str) -> tupl
     return options
 
 
-def _option_fault(dial: str, option: str) -> OptionFault | None:
+def _option_fault(dial: ReaderDial, option: str) -> OptionFault | None:
     """Why the reader could never match this option, or None: it reads the words that start with the
     dial's signs, a long option by its name before any `=`, a short one a letter at a time."""
     if any(letter.isspace() for letter in option):
@@ -225,7 +232,7 @@ def _option_fault(dial: str, option: str) -> OptionFault | None:
     return OptionFault.LETTERS if len(option) != 2 else None
 
 
-def _count(dial: str, index: int, item: dict[str, object], field: str) -> int:
+def _count(dial: ReaderDial, index: int, item: dict[str, object], field: str) -> int:
     value = item.get(field, 0)
     if isinstance(value, bool) or not isinstance(value, int) or value < 0:
         raise ConfigurationFailure(messages.c5_reader_count(dial, index, field))

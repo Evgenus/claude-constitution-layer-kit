@@ -230,11 +230,18 @@ class ReaderLists:
     shells: tuple[Shell, ...]
 
 
+class ReaderDial(StrEnum):
+    """The two dials that hold the reader's lists, each named by the key it is written under."""
+
+    WRAPPERS = "wrappers"
+    SHELLS = "shells"
+
+
 @dataclass(frozen=True, slots=True)
 class Dropped:
     """A default the dials removed: the dial it stood in (`wrappers` or `shells`) and its command."""
 
-    dial: str
+    dial: ReaderDial
     command: tuple[str, ...]
 
 
@@ -243,7 +250,7 @@ class Replaced:
     """A default the dials replaced whole by an entry of its command: the dial it stood in and its
     command. The entry's fields are the ones written, none of the default's kept."""
 
-    dial: str
+    dial: ReaderDial
     command: tuple[str, ...]
 
 
