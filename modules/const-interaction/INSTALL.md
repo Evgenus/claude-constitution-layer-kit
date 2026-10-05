@@ -37,7 +37,7 @@ first line; nothing is silently skipped.
    `bash`, `sh`, `zsh`, `dash`, `ksh`, `fish`, `ash`, `mksh`, `yash`, `posh`, `csh` and `tcsh`, each
    with its options, which the module document lists. A command built from a variable, an `eval`, a
    here-string or an interpreter's `-c` string hides its verb, and so does a wrapper or a shell no
-   dial names, such as `uv run`; the explain (step 5) shows any reading. A flag matches anywhere after the words: a short one
+   dial names, such as `uv run`; the explain (step 5) shows any reading. A flag matches anywhere after the words and before a `--`: a short one
    inside a cluster (`rm -rf`), a long one as the whole token (`--force`, never
    `--force-with-lease`).
 3. Calibration, all optional, in the project's `constitution.yaml`:

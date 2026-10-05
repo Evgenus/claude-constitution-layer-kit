@@ -147,7 +147,7 @@ The default entries of `destructive` — fourteen, each with the text D1 teaches
 13. `git gc` with `--prune=now` — teaches: "pruning now deletes every unreachable object at once, including those the reflog would have let you recover" — alternative: "run git gc without --prune=now, which keeps recent unreachable objects"
 14. `rm` with `-r` or `-R` or `--recursive` — teaches: "a recursive rm deletes a directory tree outside git; nothing brings it back" — alternative: "use git rm for tracked files, or move the directory to a scratch location first"
 
-The default wrappers — twenty, as the code has them, each option written as the command line has it, each source read on the date it names. A long option whose value is the next word is listed as its page spells it: an abbreviation of it, which GNU accepts, is not read as it.
+The default wrappers — twenty, as the code has them, each option written as the command line has it. Each that takes an option names its source with the date it was read, the five util-linux ones on 2026-10-05; a page's own date, where one is given, is the page's. A long option whose value is the next word is listed as its page spells it: an abbreviation of it, which GNU accepts, is not read as it.
 
 1. `time`, `nohup`, `command`, `builtin` and `noglob` — no field: none takes an option with a value.
 2. `exec` — `with_value`: `-a`. bash(1), the shell builtins, as shipped with macOS 26 (bash 3.2.57), read 2026-10-05: `exec [-cl] [-a name] [command [arguments]]`.
@@ -164,7 +164,7 @@ The default wrappers — twenty, as the code has them, each option written as th
 13. `flock` — `with_value`: `-E -w --conflict-exit-code --wait --timeout --start --length`; `positionals`: 1, the lock file; `command_flags`: `-c --command`, read after the lock file as `env -S`'s string is. Page of 2026-05-24.
 14. `chrt` — `with_value`: `-T -P -D -U -X --sched-runtime --sched-period --sched-deadline --clamp-min --clamp-max`; `numbers`: 1, since the priority is optional from util-linux 2.42. Page of 2026-08-03.
 
-The default shells — twelve, as the code has them, each source read on 2026-10-05 unless it says otherwise.
+The default shells — twelve, as the code has them; each source after the first entry was read on 2026-10-05, and the first entry names none.
 
 1. `bash`, `sh`, `zsh`, `dash` and `ksh` — `with_value`: `-o -O +o +O --rcfile --init-file`; `command_flags`: `-c`. bash's own options stand for the five alike, as the earlier fixed list had them.
 2. `fish` — `with_value`: `-d -o -p -f --debug --debug-output --profile --profile-startup --features`; `command_flags`: `-c --command -C --init-command`. fishshell.com's page for fish 4.9.3, the latest release on GitHub, which spells the long options with `=` and its examples with a space.
@@ -300,7 +300,7 @@ Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries),
 
 1. **An output style as a second carrier**, unforced, selectable under the plugin's name. The matrix's description of this module named it as optional before that description moved here; the comparison priced it and found the forced form a single slot that overrides the user (decision [dec-0042-interaction-module-rulings](../../docs/decisions/dec-0042-interaction-module-rulings.md), R2). Signal: a consumer whose sessions lose the rules after compaction with the chosen carrier, reported twice.
 2. **A checker for plain chat language.** No tool reads chat; the rule is judgment ([A10.2](../../docs/requirements.md#a10-2)). Signal: none foreseen; the document half is module `const-language`.
-3. **The class beyond the pattern list.** A destructive act the list does not name — an API call that deletes, a tool other than the shell — is advisory. Signal: a destructive act through another tool reported once in a consumer; it enters the list or earns a matcher of its own.
+3. **The class beyond the pattern list.** A destructive act the list does not name — an API call that deletes, a tool other than a shell tool — is advisory; the `PowerShell` shell tool is item 8. Signal: a destructive act through another tool reported once in a consumer; it enters the list or earns a matcher of its own.
 4. **A second value of `verbosity`** — a terser or a fuller reply on request. Signal: a consumer asking twice for a different verbosity of replies.
 5. **An argument-value form in a `destructive` entry** — `git branch -D main` against any branch. Signal: a consumer's entry that needs a value, reported once.
 6. **A rewritten command shown in the prompt** — `updatedInput` carrying the alternative where it is a plain substitution. Signal: a consumer whose entry's alternative is one flag for another, reported twice.

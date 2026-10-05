@@ -116,7 +116,7 @@ Every candidate passed green before (res-0012, E2).
 
 **Choice.** B, by the decider, in chat on 2026-10-05. In the same message the decider asked whether these patterns could go into a dial a user extends; section 6 holds that question.
 
-**R5.** The defaults hold the twelve wrappers the reader had, `exec` as a wrapper, and the set of option B, each with the page it was read from and its date: shells `fish`, `ash`, `mksh`, `yash`, `posh`, `csh`, `tcsh`; wrappers `busybox`, `setsid`, `ionice`, `taskset`, `caffeinate`, `flock` with `-c` after its lock file, `chrt`.
+**R5.** The defaults hold the twelve wrappers the reader had, `exec` as a wrapper, and the set of option B. Each entry of that set names the page it was read from and its date: shells `fish`, with `-c`, `--command`, `-C` and `--init-command` as its command flags, `ash`, `mksh`, `yash`, `posh`, `csh`, `tcsh`; wrappers `busybox`, `setsid`, `ionice`, `taskset`, `caffeinate`, `flock` with `-c` after its lock file, `chrt`.
 
 ## 6. Whether a user can extend the lists
 
@@ -211,7 +211,7 @@ A replaced default can weaken the gate: `{command: [sudo]}` takes away sudo's op
 
 **Choice.** A, by the decider, in chat on 2026-10-05.
 
-**R10.** For a shell, every command flag met yields a string: its attached value, else the next word when that word is no option and no other option's value, else the first operand after the options end. Each string is read once.
+**R10.** For a shell, every command flag met yields a string: a long flag's attached value (`--command=x`), else the next word when that word is no option and no other option's value, else the first operand after the options end. Each string is read once.
 
 ## 11. A shell comment
 
@@ -258,7 +258,7 @@ These items carry no options. Each follows from the answers above or from the mo
 
 ## 14. The module document's length
 
-The module document grew from 64,248 to about 84,700 characters, past its 66,000 `module-documents` ceiling, at warning. Most of the growth carries the rulings above.
+The module document grew from 64,248 to about 85,000 characters, past its 66,000 `module-documents` ceiling, at warning. Most of the growth carries the rulings above.
 
 - **A. Leave it at warning; shorten it as work of its own.**
   - **Pros:** this change keeps to the rulings it was opened for; nothing blocks; the shortening is audited on its own; the same call as for the shared-code page.
@@ -278,14 +278,14 @@ The module document grew from 64,248 to about 84,700 characters, past its 66,000
 
 ## Applied
 
-The commits of this branch apply every item. The code of R1 and R3 to R15 was applied by the commits before the one that adds this record, and the documents step and its fix added the sentences that state them; the message of each commit names the sentences it added. The commit that adds this record adds the module document's row for it and the pending entry of R16. The record is born `inactive`.
+The commits of this branch apply every item. The commits before the one that adds this record changed the code and wrote the documents' sentences; the message of each commit names what it changed and the sentences it added. The commit that adds this record adds the module document's row for it and the pending entry of R16. The record is born `inactive`.
 
 ## Carry list
 
 1. R1 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t7), the row `destructive` of section 7; [its section 6](../../modules/const-interaction/MODULE.md#t6), the row C5 of the message table.
 2. R2 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t6), the research item of section 6.
 3. R3 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t5), "Matches" in section 5; [its section 9](../../modules/const-interaction/MODULE.md#t9), limit 4.
-4. R4 — history only: the reversal of a clause of R6 of dec-0042-interaction-module-rulings; [`const-interaction`](../../modules/const-interaction/MODULE.md#t5), section 5, which skips no program's options by name.
+4. R4 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t5), section 5, which skips no program's options by name; the reversal of a clause of R6 of dec-0042-interaction-module-rulings is history.
 5. R5 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t7), the default wrappers and shells of section 7.
 6. R6 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t7), the rows `wrappers` and `shells` of section 7.
 7. R7 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t7), the rows `wrappers` and `shells`; [its section 6](../../modules/const-interaction/MODULE.md#t6), the row S1 of the message table.
