@@ -49,6 +49,7 @@ A short, vague request is answered by a page: a yes/no question opens with three
 7. [dec-0046-language-module-rulings](../../docs/decisions/dec-0046-language-module-rulings.md) — the plain-chat row settled as this module's, the boundary test closed.
 8. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — the kit's list scan covers its accepted records and frozen comparisons, a plain item in one taking a bold lead as a wording edit.
 9. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
+10. [dec-0066-interaction-reader-dials-and-entry-matching](../../docs/decisions/dec-0066-interaction-reader-dials-and-entry-matching.md) — the reader's wrappers and shells as the dials `wrappers` and `shells`, an entry's words apart by options, an entry the reader cannot produce refused, git's own skip dropped, the `PowerShell` tool left as a limit.
 
 <a id="t5"></a>
 ## 5. Invariant
