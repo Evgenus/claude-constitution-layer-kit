@@ -19,9 +19,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import stat
 import sys
+import time
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
@@ -33,6 +36,7 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
 from const_gate.model import Finding  # noqa: E402
+from const_gate.repository import list_markdown  # noqa: E402
 from consumer import Consumer  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
@@ -48,7 +52,7 @@ from harness import (  # noqa: E402
     stop_json,
 )
 from language_gate import dials as own_dials  # noqa: E402
-from language_gate import messages, rules, start  # noqa: E402
+from language_gate import messages, rules, start, vale  # noqa: E402
 from language_gate.model import Departure, Rule  # noqa: E402
 from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
@@ -761,8 +765,12 @@ def fake_vale(directory: Path, script: str) -> Path:
 def t11() -> tuple[bool, str]:
     """Absence of the binary, each line typed by hand: no vale on PATH is C2 with the install
     command; an old vale is C2 with its version; a vale that cannot run is C12 with its own first
-    line; a vale with no version line, or one whose --version exits 1, is C12 — and every fake was
-    asked what the gate says."""
+    line; a vale with no version line, or one whose --version exits 1, is C12; a vale whose run
+    outlasts the hook's budget is C12 in the check after a write, and in one before a write where a
+    consumer wires it, naming the budget and the scan, while the scan waits and is green; a vale
+    whose --version outlasts its own budget is C12 in both modes, the check after a write and the
+    scan — the five runs side by side, so the item costs the budget plus a second or so — and every
+    fake was asked what the gate says."""
     none = H.scratch_dir()
     for tool in ("python3", "git", "sh", "dirname"):
         source = (
@@ -805,7 +813,86 @@ def t11() -> tuple[bool, str]:
     repair = (
         "run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"
     )
+    # answers --version at once, with the floor; its run is a second past the hook's budget, then `{}`
+    sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
+    past = int(vale.HOOK_SECONDS) + 1
+    slow_run = fake_vale(
+        H.scratch_dir(),
+        f'case "$1" in --version) echo "vale version 3.23.0";; *) {sleep} {past}; echo \'{{}}\';; esac',
+    )
+    in_the_hook = prepared(files={DOC: PLAIN})
+    in_the_scan = prepared(files={DOC: PLAIN})
+    on_path = {"PATH": str(slow_run)}
+
+    def timed_hook() -> tuple[Result, float]:
+        began = time.monotonic()
+        event = event_json(in_the_hook, Write(DOC, "unused"), event="PostToolUse")
+        return H.run_gate(event, env=on_path), time.monotonic() - began
+
+    def timed_scan() -> tuple[Result, float]:
+        began = time.monotonic()
+        return H.run_gate("", args=["--scan", str(in_the_scan)], env=on_path), time.monotonic() - began
+
+    # answers --version a second past its budget, then with the floor; its run would be quick
+    slow_version = fake_vale(
+        H.scratch_dir(),
+        f'case "$1" in --version) {sleep} {vale.VERSION_SECONDS + 1}; echo "vale version 3.23.0";;'
+        " *) echo '{}';; esac",
+    )
+    on_slow_version = {"PATH": str(slow_version)}
+    version_hook_root = prepared(files={DOC: PLAIN})
+    version_scan_root = prepared(files={DOC: PLAIN})
+
+    def timed_version_hook() -> tuple[Result, float]:
+        began = time.monotonic()
+        event = event_json(version_hook_root, Write(DOC, "unused"), event="PostToolUse")
+        return H.run_gate(event, env=on_slow_version), time.monotonic() - began
+
+    def timed_version_scan() -> tuple[Result, float]:
+        began = time.monotonic()
+        result = H.run_gate("", args=["--scan", str(version_scan_root)], env=on_slow_version)
+        return result, time.monotonic() - began
+
+    # the same slow run before a write, where a consumer wires it: the budget is the hook's in both events
+    before_root = prepared(files={DOC: PLAIN})
+
+    def timed_before_hook() -> tuple[Result, float]:
+        began = time.monotonic()
+        result = H.run_gate(event_json(before_root, Write(DOC, PLAIN)), env=on_path)
+        return result, time.monotonic() - began
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        hooked = pool.submit(timed_hook)
+        before_hooked = pool.submit(timed_before_hook)
+        scanned = pool.submit(timed_scan)
+        version_hooked = pool.submit(timed_version_hook)
+        version_scanned = pool.submit(timed_version_scan)
+    hook, hook_took = hooked.result()
+    before_hook, before_took = before_hooked.result()
+    scan_slow, scan_took = scanned.result()
+    version_hook, version_hook_took = version_hooked.result()
+    version_scan, version_scan_took = version_scanned.result()
+    no_answer = "BROKEN: vale did not report its version (no answer in 5 s) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
+    too_slow = "BROKEN: vale gave no answer in 10 s, the most a check after a write waits — fix: a document of normal size takes vale well under a second, so the likely cause is a vale that hangs; run vale by hand to repair it, and the scan waits for vale as long as it takes — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     return all_of(
+        broken(hook, too_slow),
+        (hook_took > 9, f"the check after a write gave up after {hook_took:.1f} s"),
+        broken(before_hook, too_slow),  # the same budget in the event the plugin does not wire
+        (
+            before_took > vale.HOOK_SECONDS - 1,
+            f"the check before a write gave up after {before_took:.1f} s",
+        ),
+        expect(scan_slow, 0, green_scan(4), "stdout"),
+        (
+            scan_took > vale.HOOK_SECONDS,
+            f"the scan stopped after {scan_took:.1f} s, within the hook's budget",
+        ),
+        broken(version_hook, no_answer),  # the probe's bound holds in a check after a write ...
+        broken(version_scan, no_answer),  # ... and in the scan, which waits on the run but not on this
+        (
+            vale.VERSION_SECONDS - 1 < min(version_hook_took, version_scan_took),
+            f"the probe gave up after {version_hook_took:.1f} s (hook), {version_scan_took:.1f} s (scan)",
+        ),
         broken(  # a diagnosis is what the reader acts on: whole, its backslash doubled, 90 letters uncut
             odd[0],
             ("BROKEN: vale did not report its version (a\\\\b " + "w" * 90 + ") — fix: " + repair),
@@ -897,7 +984,8 @@ def t12() -> tuple[bool, str]:
 
 def t13() -> tuple[bool, str]:
     """Territories: the scan counts examined against scanned; a negated pattern drops a file; a
-    README at the top is covered by the default; the tail carries the dials' numbers."""
+    README at the top is covered by the default; the tail carries the dials' numbers; a covered
+    document with an upper-case ending or a name starting with a dash is read as Markdown."""
     files = {DOC: SIMPLER_RED, "README.md": PLAIN, "docs/other/x.md": SIMPLER_RED}
     default = scan(files)
     narrowed = scan(files, own(territories=["docs/**/*.md", "!docs/other/**"]))
@@ -930,7 +1018,79 @@ def t13() -> tuple[bool, str]:
             "12.5 and 40 words" in dialled.stdout,
             f"the tail names the dials: {dialled.stdout.strip()}",
         ),
+        *names_vale_cannot_read(),
     )
+
+
+def names_vale_cannot_read() -> list[tuple[bool, str]]:
+    """A covered document whose ending is in upper or mixed case is read as Markdown, by the scan and
+    by the hook: a phrase in prose is found at its real path, a phrase only in code is not. One whose
+    name starts with a dash is read too, not taken by Vale for a flag. Vale's keys are mapped back to
+    the paths by name, not by position, and across the runs of `vale.CHUNK` documents: a scan of more
+    than one run, plain documents sorting before each red one, finds each at its own path and line."""
+    wide = own(territories=["*"])
+    dash_found = messages.l4_simpler("-dash.md", 3, "prior to", "before").headline
+    dash_scan = scan({"-dash.md": SIMPLER_RED})
+    dash_root = prepared(files={"-dash.md": SIMPLER_RED})
+    dash_written = after_write(dash_root, "-dash.md")
+    prose_found = messages.l4_simpler("NOTES.MD", 3, "prior to", "before").headline
+    in_code = "# T\n\nDo it before noon. A `prior to` span.\n\n```text\nprior to\n```\n"
+    guide_found = messages.l4_simpler("docs/Guide.Md", 3, "prior to", "before").headline
+    in_prose = scan({"NOTES.MD": SIMPLER_RED}, wide)
+    in_a_span = scan({"NOTES.MD": in_code}, wide)
+    root = prepared(wide, files={"docs/Guide.Md": SIMPLER_RED})
+    written = after_write(root, "docs/Guide.Md")
+    # CHUNK + 30 documents named so that their order is their number: the first red one stands in
+    # the first run, the second in the second; plain ones sort before both, so that a map by position
+    # or an index per run names another path, and each red one has its own line
+    many = vale.CHUNK + 30
+    first_red = "docs/many/n0007.md"
+    second_red = f"docs/many/n{vale.CHUNK + 12:04d}.md"
+    later_red = "# T\n\nIt is warm.\n\nDo it prior to noon.\n"  # the phrase on line 5
+    crowd = {f"docs/many/n{index:04d}.md": PLAIN for index in range(many)}
+    crowd[first_red] = SIMPLER_RED
+    crowd[second_red] = later_red
+    crowd_root = prepared(files=crowd)
+    present = len(list_markdown(crowd_root))  # the consumer's own files beside the crowd, all covered
+    across = H.run_gate("", args=["--scan", str(crowd_root)])
+    across_found = [
+        f"RED: {messages.l4_simpler(first_red, 3, 'prior to', 'before').headline}",
+        f"RED: {messages.l4_simpler(second_red, 5, 'prior to', 'before').headline}",
+    ]
+    return [
+        (
+            in_prose.code == 2
+            and headlines(in_prose, "stdout") == [f"RED: {prose_found}"]
+            and f"RED: 1 finding(s) — {tail(4)}" in in_prose.stdout,
+            f"NOTES.MD under '*' found by the scan, counted as examined: {in_prose.stdout.strip()}"
+            f"{in_prose.stderr.strip()}",
+        ),
+        expect(in_a_span, 0, green_scan(4), "stdout"),
+        (
+            written.code == 2 and headlines(written) == [f"RED: {guide_found}"],
+            f"docs/Guide.Md found by the hook after a write: exit {written.code}: {written.stderr.strip()}",
+        ),
+        (
+            dash_scan.code == 2
+            and headlines(dash_scan, "stdout") == [f"RED: {dash_found}"]
+            and f"RED: 1 finding(s) — {tail(4)}" in dash_scan.stdout,
+            f"-dash.md found by the default scan, counted as examined: exit {dash_scan.code}:"
+            f" {dash_scan.stdout.strip()}{dash_scan.stderr.strip()}",
+        ),
+        (
+            dash_written.code == 2 and headlines(dash_written) == [f"RED: {dash_found}"],
+            f"-dash.md found by the hook after a write: exit {dash_written.code}:"
+            f" {dash_written.stderr.strip()}",
+        ),
+        (
+            present > vale.CHUNK + 30
+            and across.code == 2
+            and headlines(across, "stdout") == across_found
+            and f"RED: 2 finding(s) — {tail(present)}" in across.stdout,
+            f"{many} documents over two runs, one red in each, found at their own paths and lines,"
+            f" every one counted: exit {across.code}: {across.stdout.strip()}{across.stderr.strip()}",
+        ),
+    ]
 
 
 def t14() -> tuple[bool, str]:
@@ -1003,10 +1163,16 @@ def t15() -> tuple[bool, str]:
     )
 
 
+# Seconds the handler keeps beyond its waits: the interpreter's start, git, the module's own reading.
+LEFT_FOR_THE_REST = 5
+
+
 def t16() -> tuple[bool, str]:
     """The install note, the skill and the manifest name no kit document; the skill's description
-    is under the platform's cap; the hook is wired after the write with a timeout; the manifest
-    names the plugin at a draft version; the install note's calibration example is accepted."""
+    is under the platform's cap; the hook is wired after the write, and only then, with an integer
+    timeout that holds the version probe, then the run, and LEFT_FOR_THE_REST, both read from
+    the module's own code; the manifest names the plugin at a draft version; the install note's
+    calibration example is accepted."""
     kit_words = ("requirements.md", "rollout-plan", "dec-00", "res-00", "MODULE.md", "GATE.md", "kernel/")
     texts = {p.name: p.read_text(encoding="utf-8") for p in (SKILL, INSTALL, MANIFEST)}
     named = [f"{n}: {w}" for n, t in texts.items() for w in kit_words if w in t]
@@ -1022,6 +1188,8 @@ def t16() -> tuple[bool, str]:
     stated = re.search(
         r"a description of (\d+) characters", (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     )
+    timeout = entry["hooks"][0].get("timeout")
+    needed = vale.VERSION_SECONDS + vale.HOOK_SECONDS + LEFT_FOR_THE_REST
     return all_of(
         (not named, f"no kit document named: {named}"),
         (len(description) < 1536, f"description of {len(description)} characters"),
@@ -1032,9 +1200,17 @@ def t16() -> tuple[bool, str]:
         (
             list(hooks) == ["PostToolUse"]
             and entry["matcher"] == "Write|Edit"
-            and entry["hooks"][0].get("timeout") == 30
             and entry["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/check-language.sh"],
-            "PostToolUse on Write|Edit through the plugin root, timeout 30, no other event",
+            "PostToolUse on Write|Edit through the plugin root, no other event",
+        ),
+        (
+            isinstance(timeout, int) and timeout >= needed,
+            f"timeout {timeout} s holds the {needed} s it needs: version probe {vale.VERSION_SECONDS} s"
+            f" + run {vale.HOOK_SECONDS} s + {LEFT_FOR_THE_REST} s left"
+            if isinstance(timeout, int) and timeout >= needed
+            else f"timeout {timeout} s is not an int of at least the {needed} s it needs:"
+            f" version probe {vale.VERSION_SECONDS} s + run {vale.HOOK_SECONDS} s"
+            f" + {LEFT_FOR_THE_REST} s left",
         ),
         (
             manifest["name"] == NAMESPACE and manifest["version"].startswith("0.0."),
@@ -1277,7 +1453,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (8, "after the write the file on disk is judged; a missing file skips; a Stop event is C12", t8),
     (9, "levels: a rule at warning notes; all off refused; unknown rule and level are C5", t9),
     (10, "this module's C5 lines typed by hand, each exit 1", t10),
-    (11, "vale absent, old, failing, mute or exiting 1: C2 and C12 typed by hand; the fakes were asked", t11),
+    (
+        11,
+        "vale absent, old, failing, mute, slow or exiting 1: C2 and C12 typed by hand; the fakes asked",
+        t11,
+    ),
     (
         12,
         "the cap after a write: the first findings that fit in 8,000 characters; the scan lists all",

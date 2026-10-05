@@ -208,6 +208,17 @@ def c12_vale_failed(detail: str) -> Broken:
     )
 
 
+def c12_vale_too_slow(seconds: float) -> Broken:
+    """The run's budget in a check after a write ran out: a document takes vale far less, so it hangs."""
+    return Broken(
+        SharedKey.C12,
+        f"vale gave no answer in {seconds:g} s, the most a check after a write waits",
+        "a document of normal size takes vale well under a second, so the likely cause is a vale that"
+        " hangs; run vale by hand to repair it, and the scan waits for vale as long as it takes"
+        f" — {identity.current().until_installed}",
+    )
+
+
 def c12_event(event: str) -> Broken:
     return Broken(
         SharedKey.C12,
