@@ -36,6 +36,7 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
 from const_gate.model import Finding  # noqa: E402
+from const_gate.repository import list_markdown  # noqa: E402
 from consumer import Consumer  # noqa: E402
 from harness import (  # noqa: E402
     Assertion,
@@ -765,10 +766,11 @@ def t11() -> tuple[bool, str]:
     """Absence of the binary, each line typed by hand: no vale on PATH is C2 with the install
     command; an old vale is C2 with its version; a vale that cannot run is C12 with its own first
     line; a vale with no version line, or one whose --version exits 1, is C12; a vale whose run
-    outlasts the hook's budget is C12 in the check after a write, naming the budget and the scan,
-    while the scan waits and is green — the two side by side, so the item costs the budget plus
-    a second; a vale whose --version outlasts its own budget is C12 in both modes, the check after
-    a write and the scan, the four runs side by side — and every fake was asked what the gate says."""
+    outlasts the hook's budget is C12 in the check after a write, and in one before a write where a
+    consumer wires it, naming the budget and the scan, while the scan waits and is green; a vale
+    whose --version outlasts its own budget is C12 in both modes, the check after a write and the
+    scan — the five runs side by side, so the item costs the budget plus a second or so — and every
+    fake was asked what the gate says."""
     none = H.scratch_dir()
     for tool in ("python3", "git", "sh", "dirname"):
         source = (
@@ -851,12 +853,22 @@ def t11() -> tuple[bool, str]:
         result = H.run_gate("", args=["--scan", str(version_scan_root)], env=on_slow_version)
         return result, time.monotonic() - began
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    # the same slow run before a write, where a consumer wires it: the budget is the hook's in both events
+    before_root = prepared(files={DOC: PLAIN})
+
+    def timed_before_hook() -> tuple[Result, float]:
+        began = time.monotonic()
+        result = H.run_gate(event_json(before_root, Write(DOC, PLAIN)), env=on_path)
+        return result, time.monotonic() - began
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
         hooked = pool.submit(timed_hook)
+        before_hooked = pool.submit(timed_before_hook)
         scanned = pool.submit(timed_scan)
         version_hooked = pool.submit(timed_version_hook)
         version_scanned = pool.submit(timed_version_scan)
     hook, hook_took = hooked.result()
+    before_hook, before_took = before_hooked.result()
     scan_slow, scan_took = scanned.result()
     version_hook, version_hook_took = version_hooked.result()
     version_scan, version_scan_took = version_scanned.result()
@@ -865,6 +877,11 @@ def t11() -> tuple[bool, str]:
     return all_of(
         broken(hook, too_slow),
         (hook_took > 9, f"the check after a write gave up after {hook_took:.1f} s"),
+        broken(before_hook, too_slow),  # the same budget in the event the plugin does not wire
+        (
+            before_took > vale.HOOK_SECONDS - 1,
+            f"the check before a write gave up after {before_took:.1f} s",
+        ),
         expect(scan_slow, 0, green_scan(4), "stdout"),
         (
             scan_took > vale.HOOK_SECONDS,
@@ -1008,7 +1025,9 @@ def t13() -> tuple[bool, str]:
 def names_vale_cannot_read() -> list[tuple[bool, str]]:
     """A covered document whose ending is in upper or mixed case is read as Markdown, by the scan and
     by the hook: a phrase in prose is found at its real path, a phrase only in code is not. One whose
-    name starts with a dash is read too, not taken by Vale for a flag."""
+    name starts with a dash is read too, not taken by Vale for a flag. Vale's keys are mapped back to
+    the paths by name, not by position, and across the runs of `vale.CHUNK` documents: a scan of more
+    than one run, plain documents sorting before each red one, finds each at its own path and line."""
     wide = own(territories=["*"])
     dash_found = messages.l4_simpler("-dash.md", 3, "prior to", "before").headline
     dash_scan = scan({"-dash.md": SIMPLER_RED})
@@ -1021,6 +1040,23 @@ def names_vale_cannot_read() -> list[tuple[bool, str]]:
     in_a_span = scan({"NOTES.MD": in_code}, wide)
     root = prepared(wide, files={"docs/Guide.Md": SIMPLER_RED})
     written = after_write(root, "docs/Guide.Md")
+    # CHUNK + 30 documents named so that their order is their number: the first red one stands in
+    # the first run, the second in the second; plain ones sort before both, so that a map by position
+    # or an index per run names another path, and each red one has its own line
+    many = vale.CHUNK + 30
+    first_red = "docs/many/n0007.md"
+    second_red = f"docs/many/n{vale.CHUNK + 12:04d}.md"
+    later_red = "# T\n\nIt is warm.\n\nDo it prior to noon.\n"  # the phrase on line 5
+    crowd = {f"docs/many/n{index:04d}.md": PLAIN for index in range(many)}
+    crowd[first_red] = SIMPLER_RED
+    crowd[second_red] = later_red
+    crowd_root = prepared(files=crowd)
+    present = len(list_markdown(crowd_root))  # the consumer's own files beside the crowd, all covered
+    across = H.run_gate("", args=["--scan", str(crowd_root)])
+    across_found = [
+        f"RED: {messages.l4_simpler(first_red, 3, 'prior to', 'before').headline}",
+        f"RED: {messages.l4_simpler(second_red, 5, 'prior to', 'before').headline}",
+    ]
     return [
         (
             in_prose.code == 2
@@ -1045,6 +1081,14 @@ def names_vale_cannot_read() -> list[tuple[bool, str]]:
             dash_written.code == 2 and headlines(dash_written) == [f"RED: {dash_found}"],
             f"-dash.md found by the hook after a write: exit {dash_written.code}:"
             f" {dash_written.stderr.strip()}",
+        ),
+        (
+            present > vale.CHUNK + 30
+            and across.code == 2
+            and headlines(across, "stdout") == across_found
+            and f"RED: 2 finding(s) — {tail(present)}" in across.stdout,
+            f"{many} documents over two runs, one red in each, found at their own paths and lines,"
+            f" every one counted: exit {across.code}: {across.stdout.strip()}{across.stderr.strip()}",
         ),
     ]
 
