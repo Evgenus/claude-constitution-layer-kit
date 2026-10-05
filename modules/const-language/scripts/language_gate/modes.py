@@ -113,11 +113,14 @@ def examine(texts: dict[str, str], dials: LanguageDials, allowed: dict[str, set[
         config = rules.write_style(directory, dials)
         tree = directory / "tree"
         prepared = {rel: prepare(text) for rel, text in texts.items()}
-        for rel, document in prepared.items():
-            path = tree / rel
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(document.text, encoding="utf-8")
-        hits = vale.run(binary, config, tree, list(prepared))
+        # Flat numbered names: Vale picks the format from the ending, and the one section the
+        # configuration holds is `[*.md]`, so a covered X.MD under its own name would be read as no
+        # Markdown at all; no ending, no collision of X.MD with X.md, no odd path (a line break, a dash)
+        named = {f"{index:06d}.md": rel for index, rel in enumerate(prepared)}
+        tree.mkdir()
+        for name, rel in named.items():
+            (tree / name).write_text(prepared[rel].text, encoding="utf-8")
+        hits = {named[name]: found for name, found in vale.run(binary, config, tree, list(named)).items()}
     for rel in sorted(prepared):
         lines = prepared[rel].text.split("\n")
         placed: list[tuple[int, int, Finding | str]] = []

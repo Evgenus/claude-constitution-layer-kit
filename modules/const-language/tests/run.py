@@ -897,7 +897,8 @@ def t12() -> tuple[bool, str]:
 
 def t13() -> tuple[bool, str]:
     """Territories: the scan counts examined against scanned; a negated pattern drops a file; a
-    README at the top is covered by the default; the tail carries the dials' numbers."""
+    README at the top is covered by the default; the tail carries the dials' numbers; a covered
+    document with an upper-case ending is read as Markdown."""
     files = {DOC: SIMPLER_RED, "README.md": PLAIN, "docs/other/x.md": SIMPLER_RED}
     default = scan(files)
     narrowed = scan(files, own(territories=["docs/**/*.md", "!docs/other/**"]))
@@ -930,7 +931,35 @@ def t13() -> tuple[bool, str]:
             "12.5 and 40 words" in dialled.stdout,
             f"the tail names the dials: {dialled.stdout.strip()}",
         ),
+        *upper_case_ending(),
     )
+
+
+def upper_case_ending() -> list[tuple[bool, str]]:
+    """A covered document whose ending is in upper or mixed case is read as Markdown, by the scan and
+    by the hook: a phrase in prose is found at its real path, a phrase only in code is not."""
+    wide = own(territories=["*"])
+    prose_found = messages.l4_simpler("NOTES.MD", 3, "prior to", "before").headline
+    in_code = "# T\n\nDo it before noon. A `prior to` span.\n\n```text\nprior to\n```\n"
+    guide_found = messages.l4_simpler("docs/Guide.Md", 3, "prior to", "before").headline
+    in_prose = scan({"NOTES.MD": SIMPLER_RED}, wide)
+    in_a_span = scan({"NOTES.MD": in_code}, wide)
+    root = prepared(wide, files={"docs/Guide.Md": SIMPLER_RED})
+    written = after_write(root, "docs/Guide.Md")
+    return [
+        (
+            in_prose.code == 2
+            and headlines(in_prose, "stdout") == [f"RED: {prose_found}"]
+            and f"RED: 1 finding(s) — {tail(4)}" in in_prose.stdout,
+            f"NOTES.MD under '*' found by the scan, counted as examined: {in_prose.stdout.strip()}"
+            f"{in_prose.stderr.strip()}",
+        ),
+        expect(in_a_span, 0, green_scan(4), "stdout"),
+        (
+            written.code == 2 and headlines(written) == [f"RED: {guide_found}"],
+            f"docs/Guide.Md found by the hook after a write: exit {written.code}: {written.stderr.strip()}",
+        ),
+    ]
 
 
 def t14() -> tuple[bool, str]:
