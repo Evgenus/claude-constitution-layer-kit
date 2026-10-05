@@ -99,10 +99,21 @@ def repo(
     raw: str | None = None,
     files: Mapping[str, str] | None = None,
     parent: Path | None = None,
+    ref_format: str | None = None,
 ) -> Consumer:
     """A consumer on branch main with the dials and the map's documents committed; with a parent, the
-    repository lives in the folder WEIRD_DIR below it."""
-    consumer = H.fresh_consumer() if parent is None else Consumer(parent / WEIRD_DIR).build()
+    repository lives in the folder WEIRD_DIR below it; with a ref_format, "files" or "reftable", the
+    repository is created with that ref store named, whatever git defaults to."""
+    named = {"GIT_DEFAULT_REF_FORMAT": ref_format} if ref_format else {}
+    os.environ.update(named)  # the one `git init` of Consumer.build reads it; git before 2.45 ignores it
+    try:
+        consumer = H.fresh_consumer() if parent is None else Consumer(parent / WEIRD_DIR).build()
+    finally:
+        for key in named:
+            del os.environ[key]
+    if ref_format:  # a git that ignored the name is a red here, never a repository of the other store
+        store = git(consumer.root, "rev-parse", "--show-ref-format").stdout.strip()
+        assert store == ref_format, f"git made a {store!r} ref store, not {ref_format!r}: it needs git 2.45+"
     git(consumer.root, "branch", "-M", "main")
     consumer.write("constitution.yaml", raw if raw is not None else dials_text(patch))
     for rel, text in {"docs/core.md": "# core\n", "src/a.py": "x = 1\n", **(files or {})}.items():
@@ -1087,19 +1098,42 @@ def skills_and_install_note() -> tuple[bool, str]:
 
 def broken_head() -> tuple[bool, str]:
     """A HEAD git cannot read is a configuration failure, never 'nothing landed'; an orphan branch
-    in a repository with commits is unborn, and nothing landed on it."""
+    in a repository with commits is unborn, and nothing landed on it. Two broken HEADs, each in a
+    repository whose ref store the item chose: a zeroed ref file, written by hand, in the files store; a
+    ref to a commit whose object is gone, made through git alone, in the reftable store."""
     r = repo(with_map())
     git(r.root, "checkout", "-q", "--orphan", "fresh")
     orphan = green_scan(scan(r.root), rooted(1, "HEAD"))
-    git(r.root, "checkout", "-q", "main")
-    (r.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
-    result = scan(r.root)
-    ok = result.code == 1 and result.stderr.startswith("BROKEN: git could not read the range HEAD..HEAD in ")
+    failure = "BROKEN: git could not read the range HEAD..HEAD in "
+
+    zero = repo(with_map(), ref_format="files")
+    (zero.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
+    result = scan(zero.root)
+    ok = result.code == 1 and result.stderr.startswith(failure)
     zeroed = (
         ok,
-        "exit 1, the range failure with git's own line" if ok else f"{result.code}: {result.stderr}",
+        "exit 1, the range failure" if ok else f"files store, zeroed ref: {result.code}: {result.stderr}",
     )
-    return all_of([orphan, zeroed], "an orphan branch is unborn; a zeroed ref is a configuration failure")
+
+    gone = repo(with_map(), ref_format="reftable")
+    tree = git(gone.root, "write-tree").stdout.strip()
+    dangling = git(gone.root, "commit-tree", "-m", "gone", tree).stdout.strip()
+    assert git(gone.root, "update-ref", "refs/heads/main", dangling).returncode == 0
+    (gone.root / ".git" / "objects" / dangling[:2] / dangling[2:]).unlink()
+    result = scan(gone.root)
+    ok = result.code == 1 and result.stderr.startswith(failure)
+    missing = (
+        ok,
+        "exit 1, the range failure"
+        if ok
+        else f"reftable store, missing object: {result.code}: {result.stderr}",
+    )
+
+    return all_of(
+        [orphan, zeroed, missing],
+        "an orphan branch is unborn; a zeroed ref file in the files store and a ref to a missing object"
+        " in the reftable store are each a configuration failure, exit 1 with git's own line",
+    )
 
 
 def directory_named_as_document() -> tuple[bool, str]:
