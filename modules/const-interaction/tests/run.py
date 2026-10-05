@@ -232,12 +232,29 @@ def t5() -> tuple[bool, str]:
         asked("exec git push -f", d1("", "git push", "-f", "exec git push -f")),
         asked("if true; then git push -f; fi", d1("", "git push", "-f", "then git push -f"), subcommands=2),
         asked("git push -f 2>&1", d1("", "git push", "-f", "git push -f 2>&1")),
+        # git's options before the verb are skipped by the entry's matching, as for every program
+        asked("git -C . push -f", d1("", "git push", "-f", "git -C . push -f")),
+        asked("git -c k=v push -f", d1("", "git push", "-f", "git -c k=v push -f")),
+        asked("git --no-pager -C . push -f", d1("", "git push", "-f", "git --no-pager -C . push -f")),
+        asked(
+            "git --git-dir .git push --force",
+            d1("", "git push", "--force", "git --git-dir .git push --force"),
+        ),
+        asked("git --git-dir=.git push -f", d1("", "git push", "-f", "git --git-dir=.git push -f")),
+        asked(
+            "git --work-tree w reset --hard", d1("", "git reset", "--hard", "git --work-tree w reset --hard")
+        ),
+        asked("git --namespace n push -f", d1("", "git push", "-f", "git --namespace n push -f")),
+        # git's page gives the value of --exec-path as optional: the verb stands right after it
+        asked("git --exec-path push -f", d1("", "git push", "-f", "git --exec-path push -f")),
     )
 
 
 def t6() -> tuple[bool, str]:
     """What the list leaves out passes and is said so in the install note: a heredoc body, the
     argument form, an amend, a plain push, a flag after `--`, one file removed."""
+    entry = {"command": ["kubectl", "delete"], "teach": "a deleted resource is gone", "alternative": "scale"}
+    kubectl = own(destructive=[entry])
     return all_of(
         passed("cat <<EOF\nrm -rf /\nEOF\n"),
         passed("git checkout -- ."),
@@ -246,6 +263,11 @@ def t6() -> tuple[bool, str]:
         passed("git push -- --force"),
         passed("rm build.log"),
         passed("git branch -d old"),
+        # a word that is neither an option nor an option's value ends the walk between an entry's words,
+        # and so does `--`; the entry is one consumer entry, `kubectl delete`
+        passed("kubectl get pods delete", entries=1, dials_patch=kubectl),
+        passed("kubectl -n prod get pods", entries=1, dials_patch=kubectl),
+        passed("kubectl -n prod -- delete pod x", entries=1, dials_patch=kubectl),
         asked('echo "a<<EOF"\ngit push -f', d1("", "git push", "-f", "git push -f"), subcommands=2),
         asked('echo "a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=3),
         asked("cat <<EOF\ngit push -f", d1("", "git push", "-f", "git push -f"), subcommands=2),
@@ -360,7 +382,43 @@ def t7() -> tuple[bool, str]:
         messages.d1_destructive(Entry(("dropdb",), (), "first", "a"), Subcommand((), "dropdb prod"), ""),
         dials_patch=two,
     )
-    return all_of(empty, own_hit, own_miss, cluster, equality, first_only)
+    # an option and its value, or a runner the entry names, stand between an entry's words and hide none
+    entries = [
+        {"command": ["kubectl", "delete"]},
+        {"command": ["docker", "rm"]},
+        {"command": ["terraform", "destroy"]},
+        {"command": ["helm", "uninstall"]},
+        {"command": ["npx", "prisma", "migrate", "reset"]},
+        {"command": ["uv", "run", "rm"], "flags": ["-r"]},
+    ]
+    shaped = own(destructive=[{**e, "teach": teach, "alternative": alternative} for e in entries])
+
+    def between(text: str, words: str, matched: str = "") -> tuple[bool, str]:
+        """The consumer entry with these words asks for the text."""
+        entry = next(e for e in entries if " ".join(e["command"]) == words)
+        flags = tuple(entry.get("flags", ()))
+        wanted = Entry(tuple(entry["command"]), flags, teach, alternative)
+        finding = messages.d1_destructive(wanted, Subcommand((), text), matched)
+        return asked(text, finding, dials_patch=shaped)
+
+    return all_of(
+        empty,
+        own_hit,
+        own_miss,
+        cluster,
+        equality,
+        first_only,
+        between("kubectl -n prod delete pod x", "kubectl delete"),
+        between("kubectl --context=prod delete pod x", "kubectl delete"),
+        between("kubectl --namespace prod delete pod x", "kubectl delete"),
+        between("docker --context prod rm x", "docker rm"),
+        between("terraform -chdir=infra destroy", "terraform destroy"),
+        between("helm -n prod uninstall r", "helm uninstall"),
+        between("npx -y prisma migrate reset", "npx prisma migrate reset"),
+        between("uv run --with x rm -rf b", "uv run rm", "-r"),
+        # a value that equals the wanted word is read as that word: the known false prompt, by design
+        between("kubectl -n delete get pods", "kubectl delete"),
+    )
 
 
 def t8() -> tuple[bool, str]:
@@ -653,14 +711,15 @@ def t12() -> tuple[bool, str]:
 def t13() -> tuple[bool, str]:
     """The tokeniser's readings, each typed by hand."""
     readings = {
-        "git -C . push --force origin main": [("git", "push", "--force", "origin", "main")],
+        "git -C . push --force origin main": [("git", "-C", ".", "push", "--force", "origin", "main")],
         "a && b || c; d | e |& f & g\nh": [("a",), ("b",), ("c",), ("d",), ("e",), ("f",), ("g",), ("h",)],
         'echo "a && b"': [("echo", "a && b")],
         "echo `git rebase x`": [("git", "rebase", "x"), ("echo", "`git", "rebase", "x`")],
         "env -i FOO=1 nice -n 5 rm -r x": [("rm", "-r", "x")],
         "git 'push' --force": [("git", "push", "--force")],
-        "git --git-dir=.git push -f": [("git", "push", "-f")],
-        "git --git-dir .git --no-pager push -f": [("git", "push", "-f")],
+        # git's options stay in the words: the entry's matching skips them, the reader does not
+        "git --git-dir=.git push -f": [("git", "--git-dir=.git", "push", "-f")],
+        "git --git-dir .git --no-pager push -f": [("git", "--git-dir", ".git", "--no-pager", "push", "-f")],
         'sh -c "rm -r x" && echo done': [("sh", "-c", "rm -r x"), ("rm", "-r", "x"), ("echo", "done")],
         "echo 'unbalanced && rm -r x": [("echo", "'unbalanced", "&&", "rm", "-r", "x")],
         "(cd x && rm -r y)": [("cd", "x"), ("rm", "-r", "y")],

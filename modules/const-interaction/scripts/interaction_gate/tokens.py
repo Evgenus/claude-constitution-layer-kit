@@ -1,6 +1,7 @@
 """The shell command as the gate reads it. The platform splits a command into subcommands to
-match its permission rules; this module repeats that split on the raw text so that a wrapper,
-a subshell or a global option does not hide the verb. Where the reader cannot split a text
+match its permission rules; this module repeats that split on the raw text so that a wrapper
+or a subshell does not hide the program; the options between a program and its verb stay in the
+words, and the entry's matching steps over them. Where the reader cannot split a text
 cleanly it errs toward examining more — the text is one subcommand of its words; what it does
 not see at all — a verb built from a variable, an `eval`, a heredoc fed to a shell, a quote
 opened on an earlier line, a wrapper flag the lists below omit — is stated as its limit in the
@@ -99,7 +100,6 @@ SHELL_WORDS = frozenset(
 )
 SHELLS = frozenset({"bash", "sh", "zsh", "dash", "ksh"})
 SHELL_LONG_WITH_VALUE = frozenset({"--rcfile", "--init-file"})  # bash's long options that take a value
-GIT_GLOBAL_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"})
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
 # `>&`, `&>` and `<&` redirect; they are no separators.
@@ -376,8 +376,9 @@ def _is_shell_c(word: str) -> bool:
 
 
 def _normalise(words: list[str]) -> tuple[list[str], str | None]:
-    """Strip assignments, shell words and wrappers, reduce the program to its base name, skip
-    git's global options; a shell told to run a string hands that string back for its own split."""
+    """Strip assignments, shell words and wrappers, reduce the program to its base name, and leave
+    every option after the program in the words; a shell told to run a string hands that string
+    back for its own split."""
     rest = list(words)
     while rest:
         head = rest[0].rsplit("/", 1)[-1]  # `/usr/bin/env` is `env`
@@ -416,10 +417,4 @@ def _normalise(words: list[str]) -> tuple[list[str], str | None]:
                 not word.startswith("--") and word.endswith(("o", "O"))
             )
             index += 2 if takes_value else 1
-    if rest[0] == "git":
-        i = 1
-        while i < len(rest) and rest[i].startswith("-"):
-            option = rest[i].split("=", 1)[0]
-            i += 2 if option in GIT_GLOBAL_WITH_VALUE and "=" not in rest[i] else 1
-        rest = [rest[0], *rest[i:]]
     return rest, None

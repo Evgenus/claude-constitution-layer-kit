@@ -17,8 +17,10 @@ BOLD = re.compile(r"^\*\*")
 
 
 def match(entries: Sequence[Entry], subcommands: Sequence[Subcommand]) -> list[Hit]:
-    """At most one hit per subcommand: the first entry it matches. A flag matches by equality
-    when long, inside a cluster when short; the scan of flags stops at `--`."""
+    """At most one hit per subcommand: the first entry it matches. An entry's first word is the
+    program; each later word follows it with only options, and one value after an option given
+    without `=`, between them. A flag matches by equality when long, inside a cluster when
+    short; the scan of flags stops at `--`."""
     hits: list[Hit] = []
     for subcommand in subcommands:
         for entry in entries:
@@ -31,12 +33,17 @@ def match(entries: Sequence[Entry], subcommands: Sequence[Subcommand]) -> list[H
 
 def _matches(entry: Entry, subcommand: Subcommand) -> str | None:
     words = subcommand.words
-    n = len(entry.command)
-    if words[:n] != entry.command:
+    if not words or words[0] != entry.command[0]:
         return None
+    after = 1
+    for wanted in entry.command[1:]:
+        found = _next_word(words, after, wanted)
+        if found is None:
+            return None
+        after = found + 1
     if not entry.flags:
         return ""
-    for word in words[n:]:
+    for word in words[after:]:
         if word == "--":
             break
         for flag in entry.flags:
@@ -47,6 +54,27 @@ def _matches(entry: Entry, subcommand: Subcommand) -> str | None:
                 len(flag) == 2 and word.startswith("-") and not word.startswith("--") and flag[1] in word[1:]
             ):
                 return flag
+    return None
+
+
+def _next_word(words: Sequence[str], start: int, wanted: str) -> int | None:
+    """The index of the wanted word at or after `start`, where every word before it is an option
+    (starts with `-`, and is not `-` alone) or the one value right after an option given without
+    `=`; None where any other word stands first, or at `--`. A word equal to the wanted one is
+    read as it, even where it could be an option's value: the walk errs toward examining more."""
+    value_may_follow = False
+    for index in range(start, len(words)):
+        word = words[index]
+        if word == wanted:
+            return index
+        if word == "--":
+            return None
+        if word.startswith("-") and word != "-":
+            value_may_follow = "=" not in word
+        elif value_may_follow:
+            value_may_follow = False
+        else:
+            return None
     return None
 
 
