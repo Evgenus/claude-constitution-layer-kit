@@ -767,7 +767,8 @@ def t11() -> tuple[bool, str]:
     line; a vale with no version line, or one whose --version exits 1, is C12; a vale whose run
     outlasts the hook's budget is C12 in the check after a write, naming the budget and the scan,
     while the scan waits and is green — the two side by side, so the item costs the budget plus
-    a second — and every fake was asked what the gate says."""
+    a second; a vale whose --version outlasts its own budget is C12 in both modes, the check after
+    a write and the scan, the four runs side by side — and every fake was asked what the gate says."""
     none = H.scratch_dir()
     for tool in ("python3", "git", "sh", "dirname"):
         source = (
@@ -830,11 +831,36 @@ def t11() -> tuple[bool, str]:
         began = time.monotonic()
         return H.run_gate("", args=["--scan", str(in_the_scan)], env=on_path), time.monotonic() - began
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
+    # answers --version a second past its budget, then with the floor; its run would be quick
+    slow_version = fake_vale(
+        H.scratch_dir(),
+        f'case "$1" in --version) {sleep} {vale.VERSION_SECONDS + 1}; echo "vale version 3.23.0";;'
+        " *) echo '{}';; esac",
+    )
+    on_slow_version = {"PATH": str(slow_version)}
+    version_hook_root = prepared(files={DOC: PLAIN})
+    version_scan_root = prepared(files={DOC: PLAIN})
+
+    def timed_version_hook() -> tuple[Result, float]:
+        began = time.monotonic()
+        event = event_json(version_hook_root, Write(DOC, "unused"), event="PostToolUse")
+        return H.run_gate(event, env=on_slow_version), time.monotonic() - began
+
+    def timed_version_scan() -> tuple[Result, float]:
+        began = time.monotonic()
+        result = H.run_gate("", args=["--scan", str(version_scan_root)], env=on_slow_version)
+        return result, time.monotonic() - began
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
         hooked = pool.submit(timed_hook)
         scanned = pool.submit(timed_scan)
+        version_hooked = pool.submit(timed_version_hook)
+        version_scanned = pool.submit(timed_version_scan)
     hook, hook_took = hooked.result()
     scan_slow, scan_took = scanned.result()
+    version_hook, version_hook_took = version_hooked.result()
+    version_scan, version_scan_took = version_scanned.result()
+    no_answer = "BROKEN: vale did not report its version (no answer in 5 s) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     too_slow = "BROKEN: vale gave no answer in 10 s, the most a check after a write waits — fix: a document of normal size takes vale well under a second, so the likely cause is a vale that hangs; run vale by hand to repair it, and the scan waits for vale as long as it takes — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     return all_of(
         broken(hook, too_slow),
@@ -843,6 +869,13 @@ def t11() -> tuple[bool, str]:
         (
             scan_took > vale.HOOK_SECONDS,
             f"the scan stopped after {scan_took:.1f} s, within the hook's budget",
+        ),
+        broken(version_hook, no_answer),  # the probe's bound holds in a check after a write ...
+        broken(version_scan, no_answer),  # ... and in the scan, which waits on the run but not on this
+        (
+            vale.VERSION_SECONDS - 1 < min(version_hook_took, version_scan_took)
+            and max(version_hook_took, version_scan_took) < vale.VERSION_SECONDS + 1,
+            f"the probe gave up after {version_hook_took:.1f} s (hook), {version_scan_took:.1f} s (scan)",
         ),
         broken(  # a diagnosis is what the reader acts on: whole, its backslash doubled, 90 letters uncut
             odd[0],
