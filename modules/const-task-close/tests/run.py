@@ -111,9 +111,6 @@ def repo(
     finally:
         for key in named:
             del os.environ[key]
-    if ref_format:  # a git that ignored the name is a red here, never a repository of the other store
-        store = git(consumer.root, "rev-parse", "--show-ref-format").stdout.strip()
-        assert store == ref_format, f"git made a {store!r} ref store, not {ref_format!r}: it needs git 2.45+"
     git(consumer.root, "branch", "-M", "main")
     consumer.write("constitution.yaml", raw if raw is not None else dials_text(patch))
     for rel, text in {"docs/core.md": "# core\n", "src/a.py": "x = 1\n", **(files or {})}.items():
@@ -1096,6 +1093,63 @@ def skills_and_install_note() -> tuple[bool, str]:
     )
 
 
+def wrong_store(root: Path, wanted: str) -> tuple[bool, str] | None:
+    """None when the repository is in the wanted ref store; else the red of the half that needed it —
+    a git before 2.45 knows neither the option nor the variable, and the half is red, never a crash."""
+    found = git(root, "rev-parse", "--show-ref-format")
+    store = found.stdout.strip() if found.returncode == 0 else f"unreadable ({found.stderr.strip()})"
+    if store == wanted:
+        return None
+    return (
+        False,
+        f"this half needs the {wanted} ref store, found: {store} — git 2.45 or newer is needed for this half",
+    )
+
+
+def zeroed_ref_half(failure: str) -> tuple[bool, str]:
+    """A ref file of forty zeros, written by hand, in a repository of the files store."""
+    zero = repo(with_map(), ref_format="files")
+    if (red := wrong_store(zero.root, "files")) is not None:
+        return red
+    (zero.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
+    result = scan(zero.root)
+    ok = result.code == 1 and result.stderr.startswith(failure)
+    return (
+        ok,
+        "exit 1, the range failure" if ok else f"files store, zeroed ref: {result.code}: {result.stderr}",
+    )
+
+
+def missing_object_half(failure: str) -> tuple[bool, str]:
+    """A ref to a commit whose object is gone, made through git alone, in a repository of the
+    reftable store."""
+    gone = repo(with_map(), ref_format="reftable")
+    if (red := wrong_store(gone.root, "reftable")) is not None:
+        return red
+    tree = git(gone.root, "write-tree")
+    dangling = git(gone.root, "commit-tree", "-m", "gone", tree.stdout.strip())
+    sha = dangling.stdout.strip()
+    update = git(gone.root, "update-ref", "refs/heads/main", sha)
+    if tree.returncode or dangling.returncode or update.returncode:
+        return (
+            False,
+            "reftable store, the missing object could not be made: "
+            f"{tree.stderr}{dangling.stderr}{update.stderr}",
+        )
+    loose = gone.root / ".git" / "objects" / sha[:2] / sha[2:]
+    if not loose.exists():
+        return False, f"reftable store, the commit {sha} is not a loose object to delete"
+    loose.unlink()
+    result = scan(gone.root)
+    ok = result.code == 1 and result.stderr.startswith(failure)
+    return (
+        ok,
+        "exit 1, the range failure"
+        if ok
+        else f"reftable store, missing object: {result.code}: {result.stderr}",
+    )
+
+
 def broken_head() -> tuple[bool, str]:
     """A HEAD git cannot read is a configuration failure, never 'nothing landed'; an orphan branch
     in a repository with commits is unborn, and nothing landed on it. Two broken HEADs, each in a
@@ -1106,29 +1160,8 @@ def broken_head() -> tuple[bool, str]:
     orphan = green_scan(scan(r.root), rooted(1, "HEAD"))
     failure = "BROKEN: git could not read the range HEAD..HEAD in "
 
-    zero = repo(with_map(), ref_format="files")
-    (zero.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
-    result = scan(zero.root)
-    ok = result.code == 1 and result.stderr.startswith(failure)
-    zeroed = (
-        ok,
-        "exit 1, the range failure" if ok else f"files store, zeroed ref: {result.code}: {result.stderr}",
-    )
-
-    gone = repo(with_map(), ref_format="reftable")
-    tree = git(gone.root, "write-tree").stdout.strip()
-    dangling = git(gone.root, "commit-tree", "-m", "gone", tree).stdout.strip()
-    assert git(gone.root, "update-ref", "refs/heads/main", dangling).returncode == 0
-    (gone.root / ".git" / "objects" / dangling[:2] / dangling[2:]).unlink()
-    result = scan(gone.root)
-    ok = result.code == 1 and result.stderr.startswith(failure)
-    missing = (
-        ok,
-        "exit 1, the range failure"
-        if ok
-        else f"reftable store, missing object: {result.code}: {result.stderr}",
-    )
-
+    zeroed = zeroed_ref_half(failure)
+    missing = missing_object_half(failure)
     return all_of(
         [orphan, zeroed, missing],
         "an orphan branch is unborn; a zeroed ref file in the files store and a ref to a missing object"
