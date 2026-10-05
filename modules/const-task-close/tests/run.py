@@ -575,6 +575,55 @@ def unknown_ref() -> tuple[bool, str]:
 # ------------------------------------------------------------------ declarations
 
 
+def fake_gpg(root: Path) -> Path:
+    """Signs every later commit of the repository through a fake `gpg.program` and turns
+    `log.showSignature` on; the fake logs each call to the returned file and, to verify, says its
+    human text on stderr as gpg does, which git log prints before the formatted line."""
+    folder = H.scratch_dir()
+    log = folder / "gpg.log"
+    program = folder / "gpg"
+    program.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
+        "cat > /dev/null\n"
+        'case "$*" in\n'
+        "  *--verify*)\n"
+        "    printf 'gpg: Good signature from \"fake signer\"\\n' >&2\n"
+        "    printf '[GNUPG:] GOODSIG 0123456789ABCDEF fake signer\\n'\n"
+        "    printf '[GNUPG:] VALIDSIG 0123456789ABCDEF 2026-10-06 1 0 4 0 1 8 00 0123456789ABCDEF\\n';;\n"
+        "  *)\n"
+        "    printf '[GNUPG:] SIG_CREATED D 1 8 00 1 0123456789ABCDEF 1\\n' >&2\n"
+        "    printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n';;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    program.chmod(0o755)
+    for key, value in (
+        ("gpg.format", "openpgp"),
+        ("gpg.program", str(program)),
+        ("user.signingkey", "FIXTURE"),
+        ("commit.gpgsign", "true"),
+        ("log.showSignature", "true"),
+    ):
+        assert git(root, "config", key, value).returncode == 0
+    return log
+
+
+def signed_gate(root: Path, result: Result, log: Path) -> str:
+    """What is wrong with a scan of a signed range, or "": the repository's own git log verifies the
+    signature through the fake and prints its text, so the case cannot pass for want of a signature
+    check, and no text of the check reached the scan's output."""
+    shown = git(root, "log", "-1", "--format=%h")
+    calls = log.read_text(encoding="utf-8") if log.exists() else ""
+    if "--verify" not in calls:
+        return f"git never called the fake to verify: {calls!r}"
+    if "fake signer" not in shown.stdout + shown.stderr:
+        return f"git log did not print the check: {shown.stdout}{shown.stderr}"
+    if "fake signer" in result.stdout + result.stderr:
+        return f"the signature check reached the output: {result.stdout}{result.stderr}"
+    return ""
+
+
 def trailer_among_others() -> tuple[bool, str]:
     r = repo(
         with_map(
@@ -599,9 +648,31 @@ def trailer_among_others() -> tuple[bool, str]:
         messages.n1_declared(declared(where, "cli", "two"), True),
     ]
     ok = result.code == 0 and all(note in result.stdout for note in notes)
+    if not ok:
+        return False, result.stdout + result.stderr
+    return signed_note()
+
+
+def signed_note() -> tuple[bool, str]:
+    """A signed commit under log.showSignature=true: the note's label is `commit <short>` on one line,
+    as for an unsigned commit, and the scan prints that note and the count line, nothing more."""
+    r = repo(with_map())
+    branch(r.root)
+    log = fake_gpg(r.root)
+    where = "commit " + commit(r.root, "renamed\n\n" + trailer("core", "a rename only"), {"src/a.py": "2\n"})
+    result = scan(r.root)
+    note = messages.n1_declared(declared(where, "core", "a rename only"), True)
+    count = "GREEN: const-task-close: " + tail(1, 1, short(r.root, "main"), short(r.root))
+    wrong = signed_gate(r.root, result, log)
+    ok = result.code == 0 and not wrong and result.stdout.splitlines() == [*note.splitlines(), count]
+    if ok:
+        return (
+            True,
+            "both trailers read beside Co-Authored-By, one note each; a signed commit's note on one line",
+        )
     return (
-        ok,
-        "both trailers read beside Co-Authored-By, one note each" if ok else result.stdout + result.stderr,
+        False,
+        wrong or f"exit {result.code}, wanted {note!r} then {count!r}: {result.stdout}{result.stderr}",
     )
 
 
@@ -653,7 +724,29 @@ def t3_and_t4() -> tuple[bool, str]:
         Declaration(where, "nosuch — reason", "nosuch", "reason"), KEY, ["core"]
     )
     no_reason = messages.t4_no_reason(Declaration(where, "core", "core", ""), KEY)
-    return red_scan(result, no_pair, no_reason, t2())
+    unsigned = red_scan(result, no_pair, no_reason, t2())
+    if not unsigned[0]:
+        return unsigned
+    return signed_red()
+
+
+def signed_red() -> tuple[bool, str]:
+    """The same declarations in a signed commit under log.showSignature=true: the red names
+    `commit <short>` on one line."""
+    r = repo(with_map())
+    branch(r.root)
+    log = fake_gpg(r.root)
+    where = "commit " + commit(
+        r.root, "wrong\n\n" + f"{KEY}: nosuch — reason\n{KEY}: core\n", {"src/a.py": "2\n"}
+    )
+    result = scan(r.root)
+    no_pair = messages.t3_names_no_pair(
+        Declaration(where, "nosuch — reason", "nosuch", "reason"), KEY, ["core"]
+    )
+    no_reason = messages.t4_no_reason(Declaration(where, "core", "core", ""), KEY)
+    wrong = signed_gate(r.root, result, log)
+    ok, evidence = red_scan(result, no_pair, no_reason, t2())
+    return ok and not wrong, evidence if ok and not wrong else wrong or evidence
 
 
 def untouched_pair_note() -> tuple[bool, str]:
@@ -1347,14 +1440,24 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     ),
     (15, "--since and --change together are a misinvocation of the module's own", since_and_change),
     (16, "an unknown ref is a configuration failure, never a skip", unknown_ref),
-    (17, "trailers read beside Co-Authored-By, a repeated key, one note each", trailer_among_others),
+    (
+        17,
+        "trailers read beside Co-Authored-By, a repeated key, one note each; a signed commit's note on one"
+        " line",
+        trailer_among_others,
+    ),
     (
         18,
         "a colon-less line hides the paragraph: red, and the fix teaches the rule",
         colonless_line_hides_paragraph,
     ),
     (19, "the body's line in any case with any dash; an unreadable body", body_forms),
-    (20, "T3 for a declaration naming no pair, T4 for one without a reason, beside T2", t3_and_t4),
+    (
+        20,
+        "T3 for a declaration naming no pair, T4 for one without a reason, beside T2; the same in a signed"
+        " commit",
+        t3_and_t4,
+    ),
     (21, "a declaration for a pair the change does not touch earns its note", untouched_pair_note),
     (22, "declaration_key: the dial's key is read and the default is not", declaration_key_dial),
     (23, "overlapping pairs both apply, each satisfied its own way", overlapping_pairs),
