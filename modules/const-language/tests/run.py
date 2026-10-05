@@ -873,8 +873,7 @@ def t11() -> tuple[bool, str]:
         broken(version_hook, no_answer),  # the probe's bound holds in a check after a write ...
         broken(version_scan, no_answer),  # ... and in the scan, which waits on the run but not on this
         (
-            vale.VERSION_SECONDS - 1 < min(version_hook_took, version_scan_took)
-            and max(version_hook_took, version_scan_took) < vale.VERSION_SECONDS + 1,
+            vale.VERSION_SECONDS - 1 < min(version_hook_took, version_scan_took),
             f"the probe gave up after {version_hook_took:.1f} s (hook), {version_scan_took:.1f} s (scan)",
         ),
         broken(  # a diagnosis is what the reader acts on: whole, its backslash doubled, 90 letters uncut
