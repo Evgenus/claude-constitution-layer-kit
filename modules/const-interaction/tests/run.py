@@ -1358,6 +1358,20 @@ def t13() -> tuple[bool, str]:
             ("rm", "-rf", "b"),
         ],
         "bash -c +x 'rm -rf b'": [("bash", "-c", "+x", "rm -rf b"), ("rm", "-rf", "b")],
+        # zsh and ksh take a valued letter's value attached when the cluster goes on (`-oerrexit`), bash
+        # takes the next word; a cluster with a valued letter not last is read both ways, and the strings
+        # of either reading are read, each once, in the order they stand
+        "zsh -oerrexit -c 'rm -rf b'": [("zsh", "-oerrexit", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "ksh -opipefail -c 'rm -rf b'": [("ksh", "-opipefail", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "zsh -c -oerrexit 'rm -rf b'": [("zsh", "-c", "-oerrexit", "rm -rf b"), ("rm", "-rf", "b")],
+        "zsh -eoerrexit -c 'rm -rf b'": [("zsh", "-eoerrexit", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "zsh -oerrexit -c 'rm -rf b' arg0": [
+            ("zsh", "-oerrexit", "-c", "rm -rf b", "arg0"),
+            ("rm", "-rf", "b"),
+        ],
+        "bash -co pipefail 'rm -rf b'": [("bash", "-co", "pipefail", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -ce -x 'rm -rf b'": [("bash", "-ce", "-x", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -oc 'rm -rf b'": [("bash", "-oc", "rm -rf b")],
         # every command flag met yields a string, each read in the order it stands: its attached value, else
         # the next word when that is no option and no other option's value, else the first operand after the
         # options; a word taken as a string is no operand, so a POSIX shell's one string is read once
