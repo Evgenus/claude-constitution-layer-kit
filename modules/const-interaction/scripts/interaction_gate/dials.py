@@ -99,9 +99,9 @@ def _reader_lists(own: Mapping[str, object]) -> tuple[ReaderLists, tuple[Dropped
         ReaderDial.SHELLS, own.get(ReaderDial.SHELLS), SHELL_FIELDS, DEFAULT_SHELLS
     )
     shells = tuple(entry for entry in listed if isinstance(entry, Shell))
-    wrapper_commands = {wrapper.command for wrapper in wrappers}
+    wrapper_words = {wrapper.command[0] for wrapper in wrappers}  # a wrapper strips from its first word
     for shell in shells:
-        if (shell.command,) in wrapper_commands:
+        if shell.command in wrapper_words:
             raise ConfigurationFailure(messages.c5_reader_both(shell.command))
     return ReaderLists(wrappers, shells), (*changed_wrappers, *changed_shells)
 
@@ -255,10 +255,16 @@ def _count(dial: ReaderDial, index: int, item: dict[str, object], field: ReaderF
 
 
 def _entries(value: object, reader: ReaderLists) -> tuple[Entry, ...]:
-    """Absent: the defaults. An empty list: nothing is gated, said at session start. Anything else
-    is a list of well-formed entries, or a configuration failure naming the first bad one; an entry
-    is read through the wrappers and shells `reader` holds, the lists being loaded."""
+    """Absent: the defaults, each read through the wrappers and shells `reader` holds as a written entry
+    is, or a configuration failure naming the first the reader dials make it read as other than itself.
+    An empty list: nothing is gated, said at session start. Anything else is a list of well-formed
+    entries, or a configuration failure naming the first bad one; an entry is read through the wrappers
+    and shells `reader` holds, the lists being loaded."""
     if value is None:
+        for default in DEFAULT_DESTRUCTIVE:
+            read = tokens.reading(default.command, reader)
+            if read != list(default.command):
+                raise ConfigurationFailure(messages.c5_default_unread(default.command, read))
         return DEFAULT_DESTRUCTIVE
     if not isinstance(value, list):
         raise ConfigurationFailure(messages.c5_destructive())

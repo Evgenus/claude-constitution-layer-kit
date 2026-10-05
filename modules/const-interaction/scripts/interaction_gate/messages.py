@@ -200,21 +200,41 @@ def _words(words: Sequence[str], echo: Callable[[str], str]) -> str:
     return "[" + ", ".join(echo(word) for word in words) + "]"
 
 
+def _read_as(read: Sequence[str] | None) -> str:
+    """What the gate does with the words of an entry: `read` is None where they hand a string on to be
+    split again."""
+    if read is None:
+        return "has no reading, since it hands a string on to be split again"
+    if not read or "" in read:  # nothing, or an empty word, as `x/` reduces to: no command to write back
+        return "is read by the gate as nothing"
+    return f"is read by the gate as {_words(read, echoed)}"
+
+
 def c5_entry_unread(index: int, command: Sequence[str], read: Sequence[str] | None) -> Broken:
     """An entry whose words the reader does not read as themselves: it is compared by its reading,
     so it could never match. `read` is None where the words hand a string on to be split again."""
-    written = _words(command, echoed)
     never = "the gate compares the reading, so this entry can never match"
     if read is None:
-        detail = f"command {written} has no reading, since it hands a string on to be split again"
         fix = f"write the command the shell runs instead, such as command: [rm]; {never}"
-    elif not read or "" in read:  # nothing, or an empty word, as `x/` reduces to: no command to write back
-        detail = f"command {written} is read by the gate as nothing"
+    elif not read or "" in read:
         fix = f"write the command the wrapper or shell runs instead, such as command: [rm]; {never}"
     else:
-        detail = f"command {written} is read by the gate as {_words(read, echoed)}"
         fix = f"write command: {_words(read, escaped)}; {never}"
+    detail = f"command {_words(command, echoed)} {_read_as(read)}"
     return _c5(f"{_ns()}.destructive entry {index}: {detail}", fix)
+
+
+def c5_default_unread(command: Sequence[str], read: Sequence[str] | None) -> Broken:
+    """A default entry that the reader dials make the gate read as something else, so that with the key
+    absent it would never match. `command` is the default's own words, `read` its reading."""
+    ns = _ns()
+    return _c5(
+        f"{ns}.destructive is absent, so its default entry, command {_words(command, echoed)},"
+        f" {_read_as(read)}, which the lists of {ns}.wrappers and {ns}.shells cause",
+        f"remove or change the entry of {ns}.wrappers or {ns}.shells whose command starts with"
+        f" '{escaped(command[0])}', or write {ns}.destructive out with commands the gate reads as written;"
+        " the gate compares the reading, so the default entry would never match",
+    )
 
 
 def c5_verbosity() -> Broken:
@@ -381,14 +401,18 @@ def c5_reader_option(
         )
     never = "which the reader never matches, since it"
     if fault is OptionFault.LETTERS:
-        letters = [f"'{escaped(option[0] + letter)}'" for letter in option[1:]]
+        each, none = (
+            ("each letter that takes a value", "a letter that takes none")
+            if field is ReaderField.WITH_VALUE
+            else ("each letter that is a command flag", "any other letter")
+        )
         return _reader(
             dial,
             index,
             f"{holds}, a short option of more than one letter, {never} reads a short cluster one letter at"
             " a time",
-            f"write each letter as an option of its own, {', '.join(letters[:-1])} and {letters[-1]}, or a"
-            " long option as --name",
+            f"write as an option of its own, as '{option[0]}<letter>', {each}; {none} needs no entry; a long"
+            " option is written --name",
         )
     return _reader(
         dial,

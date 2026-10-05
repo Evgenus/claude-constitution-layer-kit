@@ -325,12 +325,14 @@ def _options(
 
 def _shell_strings(rest: list[str], with_value: tuple[str, ...], command_flags: tuple[str, ...]) -> list[str]:
     """The command strings of a shell, in the order they stand, `rest` being the words after its name.
-    The options are walked with the one option rule: a word that starts with `-` or `+`, `--` the last
-    of them, a short cluster read letter by letter (`-oc posix`: `-o` takes `posix`). Every command flag
-    met yields a string: its attached value (`--command=x`), else the next word when that is not an option
-    and is no other option's value, else the first operand after the options. A word taken as a string is
-    taken off `rest`, so the one string of `bash -c "…"` is the next word and never the operand as well,
-    and several command flags that found no word share the one operand. The walk goes on after a string
+    The options are walked as a shell reads them: a word that starts with `-` or `+`, `--` the last of
+    them, a short cluster read letter by letter, each valued letter taking the next word in order, its
+    place in the cluster no matter (`-oc posix`, `-oe pipefail`: `-o` takes the word), where a wrapper's
+    cluster ends at its first valued letter (`_option`). Every command flag met yields a string: its
+    attached value (`--command=x`), else the next word when that is not an option and is no other
+    option's value, else the first operand after the options. A word taken as a string is taken off
+    `rest`, so the one string of `bash -c "…"` is the next word and never the operand as well, and
+    several command flags that found no word share the one operand. The walk goes on after a string
     (`fish -C "…" -c "…"` has two); the words after it end are arguments, not read, and with no command
     flag the first operand is a script file and nothing is read."""
     strings: list[str] = []
@@ -350,9 +352,12 @@ def _shell_strings(rest: list[str], with_value: tuple[str, ...], command_flags: 
             else:
                 _option(word, rest, with_value, ())
         else:
-            letters = "".join(letter for letter in word[1:] if word[0] + letter not in command_flags)
-            wants = len(letters) < len(word) - 1
-            _option(word[0] + letters, rest, with_value, ())  # its valued letters take their words first
+            for letter in word[1:]:  # every valued letter takes the next word, whatever its place
+                flag = word[0] + letter
+                if flag in command_flags:
+                    wants = True
+                elif flag in with_value and rest:
+                    rest.pop(0)
         if wants:
             if rest and not rest[0].startswith(("-", "+")):
                 strings.append(rest.pop(0))
@@ -371,8 +376,8 @@ def _option(
     A short word's letters are read in order, and the first whose `-x` or `+x` is a known option ends
     the reading, its value the rest of the word, else the next word — `-uSHELL` names a variable,
     `-iu SHELL` is a flag and an option with its value. The value of a command option is its command
-    string, handed back; None for every other option. A shell's options go through it with no command
-    flags, its own are read by `_shell_strings`."""
+    string, handed back; None for every other option. A shell's long options go through it with no
+    command flags, its short clusters and command flags are read by `_shell_strings`."""
     if word.startswith("--"):
         name, equals, attached = word.partition("=")
         if name in command_flags:

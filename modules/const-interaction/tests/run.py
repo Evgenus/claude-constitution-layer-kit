@@ -312,6 +312,8 @@ def t6() -> tuple[bool, str]:
         passed("kubectl get pods delete", entries=1, dials_patch=kubectl),
         passed("kubectl -n prod get pods", entries=1, dials_patch=kubectl),
         passed("kubectl -n prod -- delete pod x", entries=1, dials_patch=kubectl),
+        # an option written with `=` takes no value after it: `get` ends the walk, `delete` is no verb here
+        passed("kubectl --context=prod get delete", entries=1, dials_patch=kubectl),
         asked('echo "a<<EOF"\ngit push -f', d1("", "git push", "-f", "git push -f"), subcommands=2),
         asked('echo "a<<EOF"\ngit push -f\nEOF', d1("", "git push", "-f", "git push -f"), subcommands=3),
         asked("cat <<EOF\ngit push -f", d1("", "git push", "-f", "git push -f"), subcommands=2),
@@ -774,24 +776,27 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             w
             + "entry 1: with_value holds '-cx', a short option of more than one letter, "
             + never
-            + "reads a short cluster one letter at a time — fix: write each letter as an option of its own,"
-            " '-c' and '-x', or a long option as --name",
+            + "reads a short cluster one letter at a time — fix: write as an option of its own, as"
+            " '-<letter>', each letter that takes a value; a letter that takes none needs no entry; a long"
+            " option is written --name",
         ),
         (
             own(wrappers=[{"command": ["uv"], "with_value": ["-abc"]}]),
             w
             + "entry 1: with_value holds '-abc', a short option of more than one letter, "
             + never
-            + "reads a short cluster one letter at a time — fix: write each letter as an option of its own,"
-            " '-a', '-b' and '-c', or a long option as --name",
+            + "reads a short cluster one letter at a time — fix: write as an option of its own, as"
+            " '-<letter>', each letter that takes a value; a letter that takes none needs no entry; a long"
+            " option is written --name",
         ),
         (  # a shell's command flag is read the same way
             own(shells=[{"command": ["elvish"], "command_flags": ["+ab"]}]),
             s
             + "entry 1: command_flags holds '+ab', a short option of more than one letter, "
             + never
-            + "reads a short cluster one letter at a time — fix: write each letter as an option of its own,"
-            " '+a' and '+b', or a long option as --name",
+            + "reads a short cluster one letter at a time — fix: write as an option of its own, as"
+            " '+<letter>', each letter that is a command flag; any other letter needs no entry; a long option"
+            " is written --name",
         ),
         (
             own(wrappers=[{"command": ["uv"], "command_flags": ["--c=x"]}]),
@@ -893,6 +898,31 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             " a wrapper or a shell, never both: the reader strips a wrapper before it reads a shell — fix:"
             " give it to one of the two dials: remove its entry from the other, where a default is removed"
             " by an entry with command: [bash] and drop: true",
+        ),
+        (  # judged on a wrapper's first word: `bash -c` strips both words, the shell's string is never read
+            own(wrappers=[{"command": ["bash", "-c"]}]),
+            prefix + "const-interaction.wrappers and const-interaction.shells both name 'bash', and a word is"
+            " a wrapper or a shell, never both: the reader strips a wrapper before it reads a shell — fix:"
+            " give it to one of the two dials: remove its entry from the other, where a default is removed"
+            " by an entry with command: [bash] and drop: true",
+        ),
+        *(  # the default entries are read through the lists too, the key being absent: one that a wrapper
+            # takes the first word of is refused, what is left of it or nothing named as its reading
+            (
+                own(wrappers=[{"command": wrapper}]),
+                prefix + f"const-interaction.destructive is absent, so its default entry, command [{entry}],"
+                f" is read by the gate as {reading}, which the lists of const-interaction.wrappers and"
+                " const-interaction.shells cause — fix: remove or change the entry of"
+                " const-interaction.wrappers or const-interaction.shells whose command starts with"
+                f" '{first}', or write const-interaction.destructive out with commands the gate reads as"
+                " written; the gate compares the reading, so the default entry would never match",
+            )
+            for wrapper, entry, reading, first in (
+                (["git"], "git, push", "[push]", "git"),
+                (["git", "push"], "git, push", "nothing", "git"),
+                (["rm"], "rm", "nothing", "rm"),
+                (["git", "stash"], "git, stash, drop", "[drop]", "git"),
+            )
         ),
         (  # `destructive` is read through the lists given: a wrapper added hides its words
             own(
@@ -1317,6 +1347,17 @@ def t13() -> tuple[bool, str]:
         "bash -c 'rm -rf b' arg0 arg1": [("bash", "-c", "rm -rf b", "arg0", "arg1"), ("rm", "-rf", "b")],
         "bash script.sh -c x": [("bash", "script.sh", "-c", "x")],
         "bash -c -- 'rm -rf b'": [("bash", "-c", "--", "rm -rf b"), ("rm", "-rf", "b")],
+        # a shell's valued letters each take the next word, whatever their place in the cluster; a word that
+        # starts with `+` is an option too, so it is no string
+        "bash -oe pipefail -c 'rm -rf b'": [
+            ("bash", "-oe", "pipefail", "-c", "rm -rf b"),
+            ("rm", "-rf", "b"),
+        ],
+        "bash -oO pipefail extglob -c 'rm -rf b'": [
+            ("bash", "-oO", "pipefail", "extglob", "-c", "rm -rf b"),
+            ("rm", "-rf", "b"),
+        ],
+        "bash -c +x 'rm -rf b'": [("bash", "-c", "+x", "rm -rf b"), ("rm", "-rf", "b")],
         # every command flag met yields a string, each read in the order it stands: its attached value, else
         # the next word when that is no option and no other option's value, else the first operand after the
         # options; a word taken as a string is no operand, so a POSIX shell's one string is read once
