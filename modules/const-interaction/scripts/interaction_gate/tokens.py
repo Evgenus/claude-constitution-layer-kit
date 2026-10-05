@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 import shlex
+from collections.abc import Sequence
 
 from .model import Subcommand
 
@@ -114,6 +115,15 @@ def split(command: str) -> list[Subcommand]:
     found: list[Subcommand] = []
     _collect(_drop_heredocs(command), found)
     return found
+
+
+def reading(words: Sequence[str]) -> list[str] | None:
+    """The words as the gate reads a piece that starts with them: none left out, or the words that
+    stay. None where the reading hands a string on to be split again, as `bash -c "…"` and `env -S "…"`
+    do. The dials loader asks it of an entry's command: one this does not give back as written can
+    never match."""
+    rest, inner = _normalise(list(words))
+    return None if inner is not None else rest
 
 
 def _collect(text: str, found: list[Subcommand]) -> None:

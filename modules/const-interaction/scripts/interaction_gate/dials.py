@@ -10,7 +10,7 @@ from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_p
 from const_gate.errors import ConfigurationFailure
 from const_gate.messages import echoed
 
-from . import messages
+from . import messages, tokens
 from .model import (
     DEFAULT_DESTRUCTIVE,
     DEFAULT_HANDLES,
@@ -75,6 +75,9 @@ def _entries(value: object) -> tuple[Entry, ...]:
         command = texts(item.get("command"))
         if not command or any(" " in word for word in command):
             raise ConfigurationFailure(messages.c5_entry(index, "command must be a non-empty list of words"))
+        read = tokens.reading(command)
+        if read != list(command):
+            raise ConfigurationFailure(messages.c5_entry_unread(index, command, read))
         raw_flags = item.get("flags", [])
         flags = texts(raw_flags) if raw_flags != [] else ()
         if raw_flags != [] and (not flags or any(not flag.startswith("-") or " " in flag for flag in flags)):

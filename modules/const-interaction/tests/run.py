@@ -382,6 +382,22 @@ def t7() -> tuple[bool, str]:
         messages.d1_destructive(Entry(("dropdb",), (), "first", "a"), Subcommand((), "dropdb prod"), ""),
         dials_patch=two,
     )
+    # an entry written as a base name matches the program by any path (the reduction stays); an entry
+    # with an option in it reads as itself and loads
+    deploy = own(destructive=[{"command": ["deploy.sh"], "teach": teach, "alternative": alternative}])
+    deploy_entry = Entry(("deploy.sh",), (), teach, alternative)
+    by_path = all_of(
+        *(
+            asked(
+                text,
+                messages.d1_destructive(deploy_entry, Subcommand((), text), ""),
+                dials_patch=deploy,
+            )
+            for text in ("./scripts/deploy.sh prod", "/abs/scripts/deploy.sh prod", "deploy.sh prod")
+        )
+    )
+    optioned = own(destructive=[{"command": ["git", "-C"], "teach": teach, "alternative": alternative}])
+    option_entry = passed("ls", entries=1, dials_patch=optioned)
     # an option and its value, or a runner the entry names, stand between an entry's words and hide none
     entries = [
         {"command": ["kubectl", "delete"]},
@@ -408,6 +424,8 @@ def t7() -> tuple[bool, str]:
         cluster,
         equality,
         first_only,
+        by_path,
+        option_entry,
         between("kubectl -n prod delete pod x", "kubectl delete"),
         between("kubectl --context=prod delete pod x", "kubectl delete"),
         between("kubectl --namespace prod delete pod x", "kubectl delete"),
@@ -471,6 +489,11 @@ def t9() -> tuple[bool, str]:
     return all_of((red_ok, f"scan red: {red.stdout.strip()[:120]}"), green_ok, skip_ok, mis_ok)
 
 
+def unread(words: list[str]) -> dict[str, object]:
+    """One entry of `destructive` with these command words, well formed in every other field."""
+    return own(destructive=[{"command": words, "teach": "t", "alternative": "a"}])
+
+
 def t10() -> tuple[bool, str]:
     """This module's C5 lines typed by hand, each exit 1."""
     prefix = "BROKEN: constitution.yaml: "
@@ -532,6 +555,61 @@ def t10() -> tuple[bool, str]:
             prefix + "const-interaction.destructive entry 1: teach must be a non-empty text — fix: write the"
             " entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard to"
             " reverse>, alternative: <the reversible way>",
+        ),
+        (  # a program's path is dropped by the reading: the base name is the entry to write
+            unread(["./scripts/deploy.sh"]),
+            prefix + "const-interaction.destructive entry 1: command [./scripts/deploy.sh] is read by the"
+            " gate as [deploy.sh] — fix: write command: [deploy.sh]; the gate compares the reading, so this"
+            " entry can never match",
+        ),
+        (
+            unread(["/usr/bin/rm"]),
+            prefix + "const-interaction.destructive entry 1: command [/usr/bin/rm] is read by the gate as"
+            " [rm] — fix: write command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # a wrapper, an assignment and a shell word are dropped
+            unread(["sudo", "rm"]),
+            prefix + "const-interaction.destructive entry 1: command [sudo, rm] is read by the gate as [rm]"
+            " — fix: write command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (
+            unread(["FOO=1", "x"]),
+            prefix + "const-interaction.destructive entry 1: command [FOO=1, x] is read by the gate as [x]"
+            " — fix: write command: [x]; the gate compares the reading, so this entry can never match",
+        ),
+        (
+            unread(["exec", "x"]),
+            prefix + "const-interaction.destructive entry 1: command [exec, x] is read by the gate as [x]"
+            " — fix: write command: [x]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # nothing is left of a wrapper alone: the fix names what to write instead
+            unread(["sudo"]),
+            prefix + "const-interaction.destructive entry 1: command [sudo] is read by the gate as nothing"
+            " — fix: write the command the wrapper or shell runs instead, such as command: [rm]; the gate"
+            " compares the reading, so this entry can never match",
+        ),
+        (  # a shell told to run a string hands it on: there is no reading of these words
+            unread(["bash", "-c", "x"]),
+            prefix + "const-interaction.destructive entry 1: command [bash, -c, x] has no reading, since it"
+            " hands a string on to be split again — fix: write the command the shell runs instead, such as"
+            " command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # the earlier checks come first: a malformed entry is refused as malformed
+            own(destructive=[{"command": ["sudo rm"], "teach": "t", "alternative": "a"}]),
+            prefix + "const-interaction.destructive entry 1: command must be a non-empty list of words — fix:"
+            " write the entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard"
+            " to reverse>, alternative: <the reversible way>",
+        ),
+        (  # an entry's words stand echoed, a line break escaped and a long word cut
+            unread(["x\ny/" + "z" * 100]),
+            prefix
+            + "const-interaction.destructive entry 1: command [x\\ny/"
+            + "z" * 76
+            + "… [104 characters]] is read by the gate as ["
+            + "z" * 80
+            + "… [100 characters]] — fix: write command: ["
+            + "z" * 100
+            + "]; the gate compares the reading, so this entry can never match",
         ),
         (
             own(handles=[]),
@@ -729,12 +807,44 @@ def t13() -> tuple[bool, str]:
         "{ git push -f; }": [("git", "push", "-f")],
         "FOO=1": [],
     }
+    # the reading of an entry's own words, the dials loader's test: every default entry reads as
+    # itself; a path, a wrapper, an assignment, a shell word and a wrapper alone do not; a shell told
+    # to run a string, or `env -S`, has no reading; an option in an entry stays
+    unread = [
+        [entry.command, tokens.reading(entry.command)]
+        for entry in DEFAULT_DESTRUCTIVE
+        if tokens.reading(entry.command) != list(entry.command)
+    ]
+    entry_readings = {
+        ("git", "-C"): ["git", "-C"],
+        ("deploy.sh",): ["deploy.sh"],
+        ("./scripts/deploy.sh",): ["deploy.sh"],
+        ("/usr/bin/rm",): ["rm"],
+        ("sudo", "rm"): ["rm"],
+        ("FOO=1", "x"): ["x"],
+        ("exec", "x"): ["x"],
+        ("sudo",): [],
+        ("bash", "-c", "x"): None,
+        ("env", "-S", "x"): None,
+    }
+    off = {
+        words: tokens.reading(words)
+        for words, reading in entry_readings.items()
+        if tokens.reading(words) != reading
+    }
+    if unread or off:
+        return False, f"defaults not read as themselves: {unread}; entry readings wrong: {off}"
     wrong = {
         text: [s.words for s in tokens.split(text)]
         for text, words in readings.items()
         if [s.words for s in tokens.split(text)] != words
     }
-    return (not wrong), f"{len(readings)} readings hold" if not wrong else f"wrong: {wrong}"
+    return (not wrong), (
+        f"{len(readings)} readings and {len(entry_readings)} entry readings hold, {ENTRIES} defaults read as"
+        " themselves"
+        if not wrong
+        else f"wrong: {wrong}"
+    )
 
 
 # ---------------------------------------------------------------- the list-handles scan
@@ -1142,7 +1252,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (10, "this module's C5 lines typed by hand, each exit 1", t10),
     (11, "an event the gate is not wired to, and a shell event without a command", t11),
     (12, "golden lines: D1 typed whole", t12),
-    (13, "the tokeniser's readings typed by hand", t13),
+    (13, "the tokeniser's readings typed by hand, and an entry's own", t13),
     (20, "red→green: a plain list is red with L1 typed whole; handled lists are green", t20),
     (
         21,

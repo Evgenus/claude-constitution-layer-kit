@@ -11,6 +11,8 @@ without holding any other document: no text here cites one.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
+
 from const_gate import identity
 from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
@@ -171,6 +173,27 @@ def c5_entry(index: int, detail: str) -> Broken:
         "write the entry as command: [<words>], flags: [<flags>] (optional), teach: <why the act is hard to"
         " reverse>, alternative: <the reversible way>",
     )
+
+
+def _words(words: Sequence[str], echo: Callable[[str], str]) -> str:
+    return "[" + ", ".join(echo(word) for word in words) + "]"
+
+
+def c5_entry_unread(index: int, command: Sequence[str], read: Sequence[str] | None) -> Broken:
+    """An entry whose words the reader does not read as themselves: it is compared by its reading,
+    so it could never match. `read` is None where the words hand a string on to be split again."""
+    written = _words(command, echoed)
+    never = "the gate compares the reading, so this entry can never match"
+    if read is None:
+        detail = f"command {written} has no reading, since it hands a string on to be split again"
+        fix = f"write the command the shell runs instead, such as command: [rm]; {never}"
+    elif not read:
+        detail = f"command {written} is read by the gate as nothing"
+        fix = f"write the command the wrapper or shell runs instead, such as command: [rm]; {never}"
+    else:
+        detail = f"command {written} is read by the gate as {_words(read, echoed)}"
+        fix = f"write command: {_words(read, escaped)}; {never}"
+    return _c5(f"{_ns()}.destructive entry {index}: {detail}", fix)
 
 
 def c5_verbosity() -> Broken:
