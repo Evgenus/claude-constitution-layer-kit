@@ -653,6 +653,15 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             )
             for word in ("if", "FOO=1", "{")
         ),
+        *(  # and before it looks for a shell: a shell entry of such a word never matches either
+            (
+                own(shells=[{"command": [word]}]),  # no command_flags either: this refusal comes first
+                s + f"entry 1: command starts with '{word}', which is a shell word or an assignment, and the"
+                " reader takes both off before it looks for a shell, so the entry can never match — fix:"
+                " remove the entry; a shell is named by the program that runs the string",
+            )
+            for word in ("if", "FOO=1")
+        ),
         (
             own(wrappers=[{"command": ["uv"], "with_value": ["--with"], "command_flags": ["--with"]}]),
             w + "entry 1: with_value and command_flags both hold '--with', and the reader tries command_flags"
@@ -1544,8 +1553,8 @@ def t30() -> tuple[bool, str]:
             "1. a\\nb \\\\ " + "v" * 100 + " / c\\\\d\\r\\n" + "w" * 100 + "\n"
         )
     )
-    # a dropped default is named by one line, in the dials' order, the wrappers' dial first; a replaced
-    # one, an added one, an empty list and no dial name nothing
+    # a dropped default and a replaced one are each named by one line, in the dials' order, the wrappers'
+    # dial first; an added one, an empty list and no dial name nothing
     sudo_line = (
         "const-interaction: the wrapper sudo is dropped, so a command behind it is no longer examined —"
         " const-interaction.wrappers in constitution.yaml drops it\n"
@@ -1557,6 +1566,14 @@ def t30() -> tuple[bool, str]:
     dash_line = (
         "const-interaction: the shell dash is dropped, so a command it is told to run is no longer examined"
         " — const-interaction.shells in constitution.yaml drops it\n"
+    )
+    sudo_replaced = (
+        "const-interaction: the wrapper sudo is replaced, so its options are those written for it, not the"
+        " defaults — const-interaction.wrappers in constitution.yaml replaces it\n"
+    )
+    bash_replaced = (
+        "const-interaction: the shell bash is replaced, so its options are those written for it, not the"
+        " defaults — const-interaction.shells in constitution.yaml replaces it\n"
     )
     drops = SESSION.run_gate(
         session_json(
@@ -1580,12 +1597,43 @@ def t30() -> tuple[bool, str]:
         session_json(prepared(own(destructive=[], wrappers=[{"command": ["sudo"], "drop": True}])))
     )
     zero_drop_ok = zero_drop.stdout == RULES + verbosity + zero + "\n" + sudo_line
+    replaced = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[{"command": ["sudo"]}],
+                    shells=[{"command": ["bash"], "command_flags": ["-c"]}],
+                )
+            )
+        )
+    )
+    replaced_ok = replaced.code == 0 and replaced.stdout == RULES + verbosity + sudo_replaced + bash_replaced
+    # drops and replacements together, each as its entry stands in its list, the added entries silent
+    mixed = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[
+                        {"command": ["nohup"], "drop": True},
+                        {"command": ["uv"], "with_value": ["-p"]},
+                        {"command": ["sudo"], "with_value": ["-u"]},
+                    ],
+                    shells=[
+                        {"command": ["fish"], "command_flags": ["-c"]},
+                        {"command": ["bash"], "command_flags": ["-c"]},
+                        {"command": ["dash"], "drop": True},
+                    ],
+                )
+            )
+        )
+    )
+    mixed_ok = mixed.stdout == RULES + verbosity + nohup_line + sudo_replaced + bash_replaced + dash_line
     quiet = SESSION.run_gate(
         session_json(
             prepared(
                 own(
-                    wrappers=[{"command": ["sudo"]}, {"command": ["uv"]}],
-                    shells=[{"command": ["bash"], "command_flags": ["-c"]}],
+                    wrappers=[{"command": ["uv"]}],
+                    shells=[{"command": ["fish"], "command_flags": ["-c"]}],
                 )
             )
         )
@@ -1604,10 +1652,20 @@ def t30() -> tuple[bool, str]:
             "a drop after the zero line" if zero_drop_ok else f"got: {zero_drop.stdout[-400:]}",
         ),
         (
+            replaced_ok,
+            "a replaced wrapper and a replaced shell, one line each"
+            if replaced_ok
+            else f"got: {replaced.stdout[-500:]}",
+        ),
+        (
+            mixed_ok,
+            "drops and replacements in the dials' order, the additions silent"
+            if mixed_ok
+            else f"got: {mixed.stdout[-700:]}",
+        ),
+        (
             quiet_ok,
-            "no line for a replacement, an addition or an empty list"
-            if quiet_ok
-            else f"got: {quiet.stdout[-300:]}",
+            "no line for an addition or an empty list" if quiet_ok else f"got: {quiet.stdout[-300:]}",
         ),
         (
             long_ok,

@@ -66,7 +66,7 @@ class InteractionDials:
     boundary_examples: tuple[Pair, ...]
     verbosity: Verbosity
     reader: ReaderLists  # the default wrappers and shells, merged with those of the dials of that name
-    dropped: tuple[Dropped, ...]  # the defaults those dials removed, in the dials' order
+    changed: tuple[Dropped | Replaced, ...]  # the defaults those dials removed or replaced, as they stand
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,6 +232,15 @@ class ReaderLists:
 @dataclass(frozen=True, slots=True)
 class Dropped:
     """A default the dials removed: the dial it stood in (`wrappers` or `shells`) and its command."""
+
+    dial: str
+    command: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Replaced:
+    """A default the dials replaced whole by an entry of its command: the dial it stood in and its
+    command. The entry's fields are the ones written, none of the default's kept."""
 
     dial: str
     command: tuple[str, ...]

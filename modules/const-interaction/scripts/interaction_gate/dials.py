@@ -23,6 +23,7 @@ from .model import (
     OptionFault,
     Pair,
     ReaderLists,
+    Replaced,
     Shell,
     Verbosity,
     Wrapper,
@@ -61,7 +62,7 @@ def parse(own: Mapping[str, object]) -> InteractionDials:
             re.compile(handle)
         except re.error as exc:
             raise ConfigurationFailure(messages.c5_handle_pattern(handle, str(exc))) from exc
-    reader, dropped = _reader_lists(own)  # first: an entry of `destructive` is read through these lists
+    reader, changed = _reader_lists(own)  # first: an entry of `destructive` is read through these lists
     return InteractionDials(
         destructive=_entries(own.get("destructive"), reader),
         territories=territories,
@@ -69,22 +70,22 @@ def parse(own: Mapping[str, object]) -> InteractionDials:
         boundary_examples=_pairs(own.get("boundary_examples")),
         verbosity=_verbosity(own.get("verbosity")),
         reader=reader,
-        dropped=dropped,
+        changed=changed,
     )
 
 
-def _reader_lists(own: Mapping[str, object]) -> tuple[ReaderLists, tuple[Dropped, ...]]:
+def _reader_lists(own: Mapping[str, object]) -> tuple[ReaderLists, tuple[Dropped | Replaced, ...]]:
     """The wrappers and the shells of the reader: the defaults, each list the dials give applied to them
-    by command, and the defaults dropped. A word is a wrapper or a shell, never both."""
-    listed, dropped_wrappers = _merged("wrappers", own.get("wrappers"), WRAPPER_FIELDS, DEFAULT_WRAPPERS)
+    by command, and the defaults dropped or replaced. A word is a wrapper or a shell, never both."""
+    listed, changed_wrappers = _merged("wrappers", own.get("wrappers"), WRAPPER_FIELDS, DEFAULT_WRAPPERS)
     wrappers = tuple(entry for entry in listed if isinstance(entry, Wrapper))
-    listed, dropped_shells = _merged("shells", own.get("shells"), SHELL_FIELDS, DEFAULT_SHELLS)
+    listed, changed_shells = _merged("shells", own.get("shells"), SHELL_FIELDS, DEFAULT_SHELLS)
     shells = tuple(entry for entry in listed if isinstance(entry, Shell))
     wrapper_commands = {wrapper.command for wrapper in wrappers}
     for shell in shells:
         if (shell.command,) in wrapper_commands:
             raise ConfigurationFailure(messages.c5_reader_both(shell.command))
-    return ReaderLists(wrappers, shells), (*dropped_wrappers, *dropped_shells)
+    return ReaderLists(wrappers, shells), (*changed_wrappers, *changed_shells)
 
 
 def _words_of(entry: Wrapper | Shell) -> tuple[str, ...]:
@@ -93,16 +94,17 @@ def _words_of(entry: Wrapper | Shell) -> tuple[str, ...]:
 
 def _merged(
     dial: str, value: object, fields: tuple[str, ...], defaults: Sequence[Wrapper | Shell]
-) -> tuple[list[Wrapper | Shell], tuple[Dropped, ...]]:
+) -> tuple[list[Wrapper | Shell], tuple[Dropped | Replaced, ...]]:
     """Absent: the defaults. A list: each entry applied to the defaults by its command — one of a
     default's command replaces that default whole, a new command is added, `drop: true` removes the
-    default — or a configuration failure naming the first bad entry. An empty list leaves the defaults."""
+    default — or a configuration failure naming the first bad entry. An empty list leaves the defaults.
+    The defaults dropped and the defaults replaced come back together, in the order of their entries."""
     merged = list(defaults)
     if value is None:
         return merged, ()
     if not isinstance(value, list):
         raise ConfigurationFailure(messages.c5_reader_list(dial))
-    dropped: list[Dropped] = []
+    changed: list[Dropped | Replaced] = []
     bare: list[tuple[int, str]] = []  # the shells given without a command flag, with their entry numbers
     seen: dict[tuple[str, ...], int] = {}
     for index, item in enumerate(value, 1):
@@ -124,7 +126,7 @@ def _merged(
             if not any(_words_of(default) == command for default in defaults):
                 names = [" ".join(_words_of(default)) for default in defaults]
                 raise ConfigurationFailure(messages.c5_reader_drop_unknown(dial, index, command, names))
-            dropped.append(Dropped(dial, command))
+            changed.append(Dropped(dial, command))
             merged = [entry for entry in merged if _words_of(entry) != command]
             continue
         built: Wrapper | Shell = (
@@ -137,9 +139,10 @@ def _merged(
             merged.append(built)
         else:
             merged[place] = built
+            changed.append(Replaced(dial, command))
     if bare:  # judged after the loop: the twice check of a later entry is the first line of a list
         raise ConfigurationFailure(messages.c5_reader_no_flags(*bare[0]))
-    return merged, tuple(dropped)
+    return merged, tuple(changed)
 
 
 def _reader_command(dial: str, index: int, item: dict[str, object]) -> tuple[str, ...]:
@@ -154,10 +157,15 @@ def _reader_command(dial: str, index: int, item: dict[str, object]) -> tuple[str
     return command
 
 
+def _refuse_stripped_first_word(dial: str, index: int, word: str) -> None:
+    """An entry whose first word the reader would take off before it looks for a wrapper or a shell
+    never matches."""
+    if tokens.ASSIGNMENT.match(word) or word in tokens.SHELL_WORDS:
+        raise ConfigurationFailure(messages.c5_reader_first_word(dial, index, word))
+
+
 def _wrapper(dial: str, index: int, item: dict[str, object], command: tuple[str, ...]) -> Wrapper:
-    """A wrapper whose first word the reader would take off before it looks for one never matches."""
-    if tokens.ASSIGNMENT.match(command[0]) or command[0] in tokens.SHELL_WORDS:
-        raise ConfigurationFailure(messages.c5_reader_first_word(index, command[0]))
+    _refuse_stripped_first_word(dial, index, command[0])
     with_value = _options(dial, index, item, "with_value")
     positionals = _count(dial, index, item, "positionals")
     numbers = _count(dial, index, item, "numbers")
@@ -169,6 +177,7 @@ def _wrapper(dial: str, index: int, item: dict[str, object], command: tuple[str,
 
 
 def _shell(dial: str, index: int, item: dict[str, object], command: tuple[str, ...]) -> Shell:
+    _refuse_stripped_first_word(dial, index, command[0])
     with_value = _options(dial, index, item, "with_value")
     command_flags = _options(dial, index, item, "command_flags")
     _refuse_shared_option(dial, index, with_value, command_flags)

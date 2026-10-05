@@ -101,6 +101,16 @@ def s1_dropped(dial: str, command: Sequence[str]) -> str:
     )
 
 
+def s1_replaced(dial: str, command: Sequence[str]) -> str:
+    """One default the dials replaced, said at every session start: which, what its options now are,
+    and where it is set."""
+    kind = "wrapper" if dial == "wrappers" else "shell"
+    return (
+        f"{_ns()}: the {kind} {escaped(' '.join(command))} is replaced, so its options are those written for"
+        f" it, not the defaults — {_ns()}.{dial} in {DIALS_FILE} replaces it"
+    )
+
+
 def s1_no_dials(root: str) -> str:
     return (
         f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the destructive-command gate examines nothing there"
@@ -290,13 +300,15 @@ def c5_reader_shell_words(index: int, command: Sequence[str]) -> Broken:
     )
 
 
-def c5_reader_first_word(index: int, word: str) -> Broken:
+def c5_reader_first_word(dial: str, index: int, word: str) -> Broken:
+    kind = _KINDS[dial]
+    named = "the program that runs the command" if dial == "wrappers" else "the program that runs the string"
     return _reader(
-        "wrappers",
+        dial,
         index,
         f"command starts with '{echoed(word)}', which is a shell word or an assignment, and the reader takes"
-        " both off before it looks for a wrapper, so the entry can never match",
-        "remove the entry; a wrapper is named by the program that runs the command",
+        f" both off before it looks for a {kind}, so the entry can never match",
+        f"remove the entry; a {kind} is named by {named}",
     )
 
 
