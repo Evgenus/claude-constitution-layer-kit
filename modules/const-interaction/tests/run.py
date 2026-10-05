@@ -338,6 +338,7 @@ def t6() -> tuple[bool, str]:
             'bash --rcfile /dev/null -c "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2
         ),
         asked('bash -c -- "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("bash -ce 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
         asked('echo $(echo ")"; git push -f)', d1("", "git push", "-f", "git push -f"), subcommands=3),
         asked('echo "$(echo ")"; git push -f)"', d1("", "git push", "-f", "git push -f"), subcommands=3),
         asked(
@@ -827,6 +828,18 @@ def t13() -> tuple[bool, str]:
         "(cd x && rm -r y)": [("cd", "x"), ("rm", "-r", "y")],
         "sudo -u root rm -r x": [("rm", "-r", "x")],
         "exec -a x rm -r y": [("rm", "-r", "y")],
+        # a shell's command flag is a mode: the string is the first operand after the options, whatever
+        # letters share the cluster; the words after it are arguments, not read; no mode, no string
+        "bash -ce 'rm -rf b'": [("bash", "-ce", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -cl 'rm -rf b'": [("bash", "-cl", "rm -rf b"), ("rm", "-rf", "b")],
+        "sh -ec 'rm -rf b'": [("sh", "-ec", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -oc posix 'rm -rf b'": [("bash", "-oc", "posix", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -c -e 'rm -rf b'": [("bash", "-c", "-e", "rm -rf b"), ("rm", "-rf", "b")],
+        "bash -c 'rm -rf b' arg0 arg1": [("bash", "-c", "rm -rf b", "arg0", "arg1"), ("rm", "-rf", "b")],
+        "bash script.sh -c x": [("bash", "script.sh", "-c", "x")],
+        # `--` ends the options of a wrapper and of a shell: what follows it is the command, or a file
+        "nice -- -n 5 rm -rf b": [("-n", "5", "rm", "-rf", "b")],
+        "sh -- -lc 'rm -rf b'": [("sh", "--", "-lc", "rm -rf b")],
         "git push \\\n -f": [("git", "push", "-f")],
         "ls &> /dev/null; rm -r x": [("ls", "&>", "/dev/null"), ("rm", "-r", "x")],
         "{ git push -f; }": [("git", "push", "-f")],

@@ -265,7 +265,7 @@ def _normalise(words: list[str], lists: ReaderLists) -> tuple[list[str], str | N
     if shell is None:
         return rest, None
     arguments = rest[1:]
-    string = _options(arguments, shell.with_value, shell.command_flags, ("-", "+"))
+    string = _shell_string(arguments, shell.with_value, shell.command_flags)
     return rest, string  # the words after the string are the shell's arguments: not read
 
 
@@ -322,6 +322,34 @@ def _options(
     return None
 
 
+def _shell_string(rest: list[str], with_value: tuple[str, ...], command_flags: tuple[str, ...]) -> str | None:
+    """The command string of a shell, `rest` being the words after its name. A shell's command flag
+    is a mode, never a valued flag: the options are walked with the one option rule — a word that
+    starts with `-` or `+`, `--` the last of them — and a short cluster that holds a command-flag letter
+    sets the mode, its other letters read as usual (`-oc posix`: `-o` takes `posix`); a long command
+    flag given as a word sets the mode, and one given as `--name=value` hands its value back at once.
+    After the options, the first operand is the string when the mode is set, and the words after it are
+    arguments, not read; with no mode the operand is a script file and nothing is read."""
+    mode = False
+    while rest and rest[0].startswith(("-", "+")):
+        word = rest.pop(0)
+        if word == "--":
+            break
+        if word.startswith("--"):
+            name, equals, attached = word.partition("=")
+            if name in command_flags:
+                if equals:
+                    return attached
+                mode = True
+                continue
+        else:
+            letters = "".join(letter for letter in word[1:] if word[0] + letter not in command_flags)
+            mode = mode or len(letters) < len(word) - 1
+            word = word[0] + letters
+        _option(word, rest, with_value, ())
+    return rest[0] if mode and rest else None
+
+
 def _option(
     word: str, rest: list[str], with_value: tuple[str, ...], command_flags: tuple[str, ...]
 ) -> str | None:
@@ -330,7 +358,8 @@ def _option(
     A short word's letters are read in order, and the first whose `-x` or `+x` is a known option ends
     the reading, its value the rest of the word, else the next word — `-uSHELL` names a variable,
     `-iu SHELL` is a flag and an option with its value. The value of a command option is its command
-    string, handed back; None for every other option."""
+    string, handed back; None for every other option. A shell's options go through it with no command
+    flags, its own are a mode (`_shell_string`)."""
     if word.startswith("--"):
         name, equals, attached = word.partition("=")
         if name in command_flags:
@@ -350,8 +379,8 @@ def _option(
 
 
 def _value(rest: list[str]) -> str | None:
-    """The next word, taken, as the value of a command option; a `--` before it is skipped, when a
-    word follows it: `bash -c -- "…"`."""
+    """The next word, taken, as the value of a wrapper's command option; a `--` before it is skipped,
+    when a word follows it: `flock -c -- "…"`."""
     if len(rest) > 1 and rest[0] == "--":
         rest.pop(0)
     return rest.pop(0) if rest else None
