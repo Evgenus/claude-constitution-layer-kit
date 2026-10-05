@@ -116,7 +116,7 @@ Every candidate passed green before (res-0012, E2).
 
 **Choice.** B, by the decider, in chat on 2026-10-05. In the same message the decider asked whether these patterns could go into a dial a user extends; section 6 holds that question.
 
-**R5.** The defaults hold the twelve wrappers the reader had, `exec` as a wrapper, and the set of option B. Each entry of that set names the page it was read from and its date: shells `fish`, with `-c`, `--command`, `-C` and `--init-command` as its command flags, `ash`, `mksh`, `yash`, `posh`, `csh`, `tcsh`; wrappers `busybox`, `setsid`, `ionice`, `taskset`, `caffeinate`, `flock` with `-c` after its lock file, `chrt`.
+**R5.** The defaults hold the twelve wrappers the reader had, `exec` as a wrapper, and the set of option B. The module document names the page each entry of that set was read from and the date it was read: shells `fish`, with `-c`, `--command`, `-C` and `--init-command` as its command flags, `ash`, `mksh`, `yash`, `posh`, `csh`, `tcsh`; wrappers `busybox`, `setsid`, `ionice`, `taskset`, `caffeinate`, `flock` with `-c` after its lock file, `chrt`.
 
 ## 6. Whether a user can extend the lists
 

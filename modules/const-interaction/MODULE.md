@@ -147,7 +147,7 @@ The default entries of `destructive` — fourteen, each with the text D1 teaches
 13. `git gc` with `--prune=now` — teaches: "pruning now deletes every unreachable object at once, including those the reflog would have let you recover" — alternative: "run git gc without --prune=now, which keeps recent unreachable objects"
 14. `rm` with `-r` or `-R` or `--recursive` — teaches: "a recursive rm deletes a directory tree outside git; nothing brings it back" — alternative: "use git rm for tracked files, or move the directory to a scratch location first"
 
-The default wrappers — twenty, as the code has them, each option written as the command line has it. Each that takes an option names its source with the date it was read, the five util-linux ones on 2026-10-05; a page's own date, where one is given, is the page's. A long option whose value is the next word is listed as its page spells it: an abbreviation of it, which GNU accepts, is not read as it.
+The default wrappers — twenty, as the code has them, each option written as the command line has it. Each from item 2 on names its source and the date it was read, the five util-linux ones on 2026-10-05; a page's own date, where one is given, is the page's. A long option whose value is the next word is listed as its page spells it: an abbreviation of it, which GNU accepts, is not read as it.
 
 1. `time`, `nohup`, `command`, `builtin` and `noglob` — no field: none takes an option with a value.
 2. `exec` — `with_value`: `-a`. bash(1), the shell builtins, as shipped with macOS 26 (bash 3.2.57), read 2026-10-05: `exec [-cl] [-a name] [command [arguments]]`.
@@ -160,7 +160,7 @@ The default wrappers — twenty, as the code has them, each option written as th
 9. `setsid` — no field. The util-linux page of 2026-05-24 (man7.org, util-linux 2.43.devel, each of the five pages below dated in its footer): `-c`, `-f` and `-w` take no value.
 10. `ionice` — `with_value`: `-c -n --class --classdata`. Page of 2026-05-24; `-p`, `-P` and `-u` take ids and run no command, so they are not listed.
 11. `taskset` — `positionals`: 1, the mask or, with `-c`, the CPU list. Page of 2026-05-24.
-12. `caffeinate` — `with_value`: `-t -w`. macOS 26's own `man caffeinate`, dated 2012-11-09.
+12. `caffeinate` — `with_value`: `-t -w`. macOS 26's own `man caffeinate`, dated 2012-11-09, read 2026-10-05.
 13. `flock` — `with_value`: `-E -w --conflict-exit-code --wait --timeout --start --length`; `positionals`: 1, the lock file; `command_flags`: `-c --command`, read after the lock file as `env -S`'s string is. Page of 2026-05-24.
 14. `chrt` — `with_value`: `-T -P -D -U -X --sched-runtime --sched-period --sched-deadline --clamp-min --clamp-max`; `numbers`: 1, since the priority is optional from util-linux 2.42. Page of 2026-08-03.
 
