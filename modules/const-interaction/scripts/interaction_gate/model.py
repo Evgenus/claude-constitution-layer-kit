@@ -65,6 +65,8 @@ class InteractionDials:
     handles: tuple[str, ...]
     boundary_examples: tuple[Pair, ...]
     verbosity: Verbosity
+    reader: ReaderLists  # the default wrappers and shells, merged with those of the dials of that name
+    dropped: tuple[Dropped, ...]  # the defaults those dials removed, in the dials' order
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,8 +212,9 @@ class Wrapper:
 @dataclass(frozen=True, slots=True)
 class Shell:
     """A program whose option reads a command string: `command` is its one word, `with_value` the
-    options whose value is the next word, `command_flags` the options whose value is the string to
-    read. The words after the string are its arguments and are not read."""
+    options whose value is the next word, `command_flags` the options that set the mode of reading a
+    string — a mode, never a valued flag: the string is the first word after the options, and the
+    words after it are the program's arguments and are not read."""
 
     command: str
     with_value: tuple[str, ...] = ()
@@ -224,6 +227,26 @@ class ReaderLists:
 
     wrappers: tuple[Wrapper, ...]
     shells: tuple[Shell, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Dropped:
+    """A default the dials removed: the dial it stood in (`wrappers` or `shells`) and its command."""
+
+    dial: str
+    command: tuple[str, ...]
+
+
+class OptionFault(StrEnum):
+    """Why an option of a wrapper or a shell, as the dials give it, can never be matched by the
+    reader."""
+
+    NOT_A_LIST = "not a list"  # the field is no non-empty list of non-blank texts
+    WHITE_SPACE = "white space"  # an option is one word of the command line
+    NO_SIGN = "no sign"  # it does not start as the reader's options do: `-`, for a shell also `+`
+    LONE_SIGN = "lone sign"  # `-`, `--`, `+`: it names nothing
+    LETTERS = "letters"  # a short option of more than one letter: a cluster is read a letter at a time
+    EQUALS = "equals"  # a long option holding `=`: it is compared by the name before it
 
 
 def _flags(text: str) -> tuple[str, ...]:
@@ -278,9 +301,10 @@ DEFAULT_WRAPPERS: tuple[Wrapper, ...] = (
     Wrapper(("timeout",), with_value=_flags("-s -k --signal --kill-after"), positionals=1),
 )
 
-# The default shells: the programs whose `-c` string is read as commands. Bash's own options that
-# take a value stand for every shell alike: `-o` and `-O` with their `+` forms (`bash -o pipefail
-# -c …`, `-eo pipefail`, `+o posix`, `-O extglob`) and the long `--rcfile` and `--init-file`.
+# The default shells: the programs whose `-c` string is read as commands. `-c` is a mode the shell is
+# put in, not an option with a value: the string is the first word after the options. Bash's own
+# options that take a value stand for every shell alike: `-o` and `-O` with their `+` forms (`bash -o
+# pipefail -c …`, `-eo pipefail`, `+o posix`, `-O extglob`) and the long `--rcfile` and `--init-file`.
 DEFAULT_SHELLS: tuple[Shell, ...] = tuple(
     Shell(name, with_value=_flags("-o -O +o +O --rcfile --init-file"), command_flags=("-c",))
     for name in ("bash", "sh", "zsh", "dash", "ksh")

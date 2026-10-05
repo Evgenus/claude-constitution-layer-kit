@@ -430,7 +430,51 @@ def t7() -> tuple[bool, str]:
         finding = messages.d1_destructive(wanted, Subcommand((), text), matched)
         return asked(text, finding, dials_patch=shaped)
 
+    # The reader's lists are dials, merged with the defaults by command. A wrapper added by its words
+    # reads through to the command; a default dropped is read as a program, so an entry may name it; a
+    # default given again replaces the default whole, a field it omits taking its empty value, not the
+    # default's; a shell added has its command string read; an empty list leaves the defaults.
+    uv_run = own(wrappers=[{"command": ["uv", "run"], "with_value": ["--with"]}])
+    no_sudo = own(wrappers=[{"command": ["sudo"], "drop": True}])
+    bare_sudo = own(wrappers=[{"command": ["sudo"]}])
+    fish = own(shells=[{"command": ["fish"], "command_flags": ["-c"]}])
+    sudo_own = own(
+        wrappers=[{"command": ["sudo"], "drop": True}],
+        destructive=[{"command": ["sudo"], "teach": teach, "alternative": alternative}],
+    )
+    sudo_entry = Entry(("sudo",), (), teach, alternative)
+    rm_of = d1("", "rm", "-r", "uv run --with x rm -rf b")
+    git_push = d1("", "git push", "-f", "git push -f")
+    reader = all_of(
+        passed("uv run --with x rm -rf b"),  # no dial: the default wrappers do not know uv
+        asked("uv run --with x rm -rf b", rm_of, dials_patch=uv_run),
+        passed("uv run pytest -k rm", dials_patch=uv_run),
+        asked("nohup rm -rf b", d1("", "rm", "-r", "nohup rm -rf b"), dials_patch=uv_run),  # defaults stay
+        passed("sudo rm -rf b", dials_patch=no_sudo),  # a dropped wrapper is read as a program
+        asked(
+            "sudo rm -rf b",
+            messages.d1_destructive(sudo_entry, Subcommand((), "sudo rm -rf b"), ""),
+            dials_patch=sudo_own,
+        ),
+        passed(
+            "sudo -u root rm -rf b", dials_patch=bare_sudo
+        ),  # `-u` takes no value now: `root` is the program
+        asked("sudo rm -rf b", d1("", "rm", "-r", "sudo rm -rf b"), dials_patch=bare_sudo),
+        asked("sudo -u root rm -rf b", d1("", "rm", "-r", "sudo -u root rm -rf b")),  # the default's `-u`
+        passed("fish -c 'git push -f'"),  # no dial: fish is no default shell
+        asked("fish -c 'git push -f'", git_push, subcommands=2, dials_patch=fish),
+        passed("bash -c 'git push -f'", dials_patch=own(shells=[{"command": ["bash"]}])),  # no `-c` now
+        passed("sh -c 'git push -f'", dials_patch=own(shells=[{"command": ["sh"], "drop": True}])),
+        asked("sh -c 'git push -f'", git_push, subcommands=2, dials_patch=own(shells=[])),
+        asked("sudo rm -rf b", d1("", "rm", "-r", "sudo rm -rf b"), dials_patch=own(wrappers=[], shells=[])),
+        passed(  # a collision is judged on the merged lists: bash a wrapper, the default shell dropped
+            "ls",
+            dials_patch=own(wrappers=[{"command": ["bash"]}], shells=[{"command": ["bash"], "drop": True}]),
+        ),
+        passed("ls", dials_patch=own(wrappers=[{"command": ["uv"], "with_value": [], "command_flags": []}])),
+    )
     return all_of(
+        reader,
         empty,
         own_hit,
         own_miss,
@@ -507,6 +551,277 @@ def unread(words: list[str]) -> dict[str, object]:
     return own(destructive=[{"command": words, "teach": "t", "alternative": "a"}])
 
 
+def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
+    """The C5 lines of the dials `wrappers` and `shells`, each typed by hand: the shape of a list and
+    of an entry, a field the entry does not have, a bad command, a bad option, a bad count, `drop` in
+    each of its three misuses, one command twice, a word both a wrapper and a shell, and `destructive`
+    read through the lists given."""
+    wrapper_shape = (
+        "command: [<words>] and, all optional, with_value: [<options>], positionals: <count>, numbers:"
+        " <count>, command_flags: [<options>]; or as command: [<words>] with drop: true to remove a default"
+    )
+    shell_shape = (
+        "command: [<word>] and, all optional, with_value: [<options>], command_flags: [<options>]; or as"
+        " command: [<word>] with drop: true to remove a default"
+    )
+    keep = "; leave the key out for the defaults, an empty list leaves them as they are"
+    each = 'write one entry per "- " item as '
+    w, s = prefix + "const-interaction.wrappers ", prefix + "const-interaction.shells "
+    command_why = (
+        "; a program is read by its base name, so a word with a '/' can never match, and a word with white"
+        " space is two words"
+    )
+    wrapper_command = (
+        w + "entry 1: command must be a non-empty list of words, none empty, none holding white space or a"
+        " '/' — fix: write the words of the program as list items, such as command: [uv, run]" + command_why
+    )
+    shell_command = (
+        s + "entry 1: command must be a list of one word, not empty, holding no white space and no '/' —"
+        " fix: write the shell's name as the one item, such as command: [fish]" + command_why
+    )
+    unknown = "a misspelt field would be ignored in silence, so none is: write "
+    never = "which the reader never matches, since it "
+    sign = (
+        "entry 1: {field} holds '{option}', which is no option, a lone sign naming nothing — fix: remove it;"
+    )
+    sign += " the reader already ends a program's options at '--'"
+    cases: list[tuple[dict[str, object], str]] = [
+        (own(wrappers="sudo"), w + "must be a list of entries — fix: " + each + wrapper_shape + keep),
+        (own(shells="bash"), s + "must be a list of entries — fix: " + each + shell_shape + keep),
+        (
+            own(wrappers=["sudo"]),
+            w + "entry 1: it is not a mapping — fix: write the entry as " + wrapper_shape,
+        ),
+        (own(shells=[["bash"]]), s + "entry 1: it is not a mapping — fix: write the entry as " + shell_shape),
+        (
+            own(wrappers=[{"command": ["uv"], "flags": ["-x"]}]),
+            w + "entry 1: 'flags' is no field of a wrapper entry — fix: " + unknown + "command, with_value,"
+            " positionals, numbers, command_flags or drop",
+        ),
+        (  # a wrapper's fields are not a shell's
+            own(shells=[{"command": ["fish"], "positionals": 1}]),
+            s + "entry 1: 'positionals' is no field of a shell entry — fix: " + unknown + "command,"
+            " with_value, command_flags or drop",
+        ),
+        (  # a line break in the key is shown escaped: the line stays one line
+            own(wrappers=[{"command": ["uv"], "a\nb": 1}]),
+            w + "entry 1: 'a\\nb' is no field of a wrapper entry — fix: " + unknown + "command, with_value,"
+            " positionals, numbers, command_flags or drop",
+        ),
+        *((own(wrappers=[entry]), wrapper_command) for entry in unread_commands(["uv run"], ["/usr/bin/uv"])),
+        *((own(shells=[entry]), shell_command) for entry in unread_commands(["a b"], ["/bin/fish"])),
+        (
+            own(shells=[{"command": ["fish", "x"]}]),
+            s + "entry 1: command [fish, x] has more than one word, and a shell is one word — fix: write one"
+            " entry for each shell, command: [<word>]",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": "-u"}]),
+            w + "entry 1: with_value must be a list of options — fix: write the options as list items, each"
+            " as the command line has it, such as -u or --user; to take none, leave the field out",
+        ),
+        (
+            own(shells=[{"command": ["fish"], "command_flags": "-c"}]),
+            s + "entry 1: command_flags must be a list of options — fix: write the options as list items,"
+            " each as the command line has it, such as -o, +o or --rcfile; to take none, leave the field out",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": [""]}]),
+            w + "entry 1: with_value must be a list of options — fix: write the options as list items, each"
+            " as the command line has it, such as -u or --user; to take none, leave the field out",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["-a b"]}]),
+            w + "entry 1: with_value holds '-a b', which holds white space, and an option is one word of the"
+            " command line — fix: write each option as an item of its own, such as -u or --user",
+        ),
+        (  # an option is echoed on one line, a break escaped
+            own(wrappers=[{"command": ["uv"], "with_value": ["-a\nb"]}]),
+            w + "entry 1: with_value holds '-a\\nb', which holds white space, and an option is one word of"
+            " the command line — fix: write each option as an item of its own, such as -u or --user",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["u"]}]),
+            w + "entry 1: with_value holds 'u', which does not start with '-', so it is no option — fix:"
+            " write it as the command line has it, with its dash, such as -u or --user",
+        ),
+        (  # a wrapper's options are the words that start with '-': a '+' never matches
+            own(wrappers=[{"command": ["uv"], "command_flags": ["+c"]}]),
+            w + "entry 1: command_flags holds '+c', which does not start with '-', so it is no option — fix:"
+            " write it as the command line has it, with its dash, such as -u or --user",
+        ),
+        (
+            own(shells=[{"command": ["fish"], "with_value": ["o"]}]),
+            s + "entry 1: with_value holds 'o', which starts with neither '-' nor '+', so it is no option —"
+            " fix: write it as the command line has it, with its sign, such as -o, +o or --rcfile",
+        ),
+        *(
+            (
+                own(wrappers=[{"command": ["uv"], field: [option]}]),
+                w + sign.format(field=field, option=option),
+            )
+            for field, option in (("command_flags", "--"), ("with_value", "-"))
+        ),
+        (
+            own(shells=[{"command": ["fish"], "with_value": ["+"]}]),
+            s + sign.format(field="with_value", option="+"),
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["-cx"]}]),
+            w
+            + "entry 1: with_value holds '-cx', a short option of more than one letter, "
+            + never
+            + "reads a short cluster one letter at a time — fix: write each letter as an option of its own,"
+            " '-c' and '-x', or a long option as --name",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["-abc"]}]),
+            w
+            + "entry 1: with_value holds '-abc', a short option of more than one letter, "
+            + never
+            + "reads a short cluster one letter at a time — fix: write each letter as an option of its own,"
+            " '-a', '-b' and '-c', or a long option as --name",
+        ),
+        (  # a shell's command flag is read the same way
+            own(shells=[{"command": ["fish"], "command_flags": ["+ab"]}]),
+            s
+            + "entry 1: command_flags holds '+ab', a short option of more than one letter, "
+            + never
+            + "reads a short cluster one letter at a time — fix: write each letter as an option of its own,"
+            " '+a' and '+b', or a long option as --name",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "command_flags": ["--c=x"]}]),
+            w + "entry 1: command_flags holds '--c=x', " + never + "compares a long option by its name"
+            " before the '=' — fix: write '--c'",
+        ),
+        (  # the option is cut at 80 characters in the headline, whole in the fix
+            own(wrappers=[{"command": ["uv"], "with_value": ["--" + "x" * 100 + "=1"]}]),
+            w
+            + "entry 1: with_value holds '--"
+            + "x" * 78
+            + "… [104 characters]', "
+            + never
+            + "compares a long option by its name before the '=' — fix: write '--"
+            + "x" * 100
+            + "'",
+        ),
+        *(
+            (
+                own(wrappers=[{"command": ["uv"], field: value}]),
+                w + f"entry 1: {field} must be a whole number of words, 0 or more, and true and false are no"
+                f" number — fix: write {field}: 1, or another whole number, or leave the field out for 0",
+            )
+            for field, value in (("positionals", -1), ("numbers", True), ("positionals", "1"))
+        ),
+        (
+            own(wrappers=[{"command": ["sudo"], "drop": False}]),
+            w + "entry 1: drop must be true, its one value — fix: write drop: true beside command to remove"
+            " the default of that command, or leave the field out",
+        ),
+        (
+            own(shells=[{"command": ["sh"], "drop": "yes"}]),
+            s + "entry 1: drop must be true, its one value — fix: write drop: true beside command to remove"
+            " the default of that command, or leave the field out",
+        ),
+        (  # the first field beside it, in sorted order
+            own(wrappers=[{"command": ["sudo"], "drop": True, "with_value": ["-u"], "positionals": 1}]),
+            w + "entry 1: drop: true stands with command alone, and positionals stands beside it, which"
+            " would be ignored in silence — fix: remove positionals to drop the default, or remove drop to"
+            " replace the default with the fields",
+        ),
+        (  # it comes before the check of the field's own value
+            own(shells=[{"command": ["sh"], "drop": True, "with_value": ["o"]}]),
+            s + "entry 1: drop: true stands with command alone, and with_value stands beside it, which would"
+            " be ignored in silence — fix: remove with_value to drop the default, or remove drop to replace"
+            " the default with the fields",
+        ),
+        (
+            own(wrappers=[{"command": ["suod"], "drop": True}]),
+            w + "entry 1: drop names [suod], which is no default wrapper, and a misspelt name would drop"
+            " nothing in silence — fix: write the command of a default wrapper (time, nohup, command,"
+            " builtin, noglob, exec, xargs, sudo, doas, env, nice, stdbuf, timeout) or remove the entry",
+        ),
+        (
+            own(shells=[{"command": ["fish"], "drop": True}]),
+            s + "entry 1: drop names [fish], which is no default shell, and a misspelt name would drop"
+            " nothing in silence — fix: write the command of a default shell (bash, sh, zsh, dash, ksh) or"
+            " remove the entry",
+        ),
+        (  # the word is echoed cut at 80 characters, its backslash doubled
+            own(wrappers=[{"command": ["x\\y" + "z" * 100], "drop": True}]),
+            w + "entry 1: drop names [x\\\\y" + "z" * 77 + "… [103 characters]], which is no default wrapper,"
+            " and a misspelt name would drop nothing in silence — fix: write the command of a default"
+            " wrapper (time, nohup, command, builtin, noglob, exec, xargs, sudo, doas, env, nice, stdbuf,"
+            " timeout) or remove the entry",
+        ),
+        (
+            own(wrappers=[{"command": ["uv"]}, {"command": ["uv"], "with_value": ["-p"]}]),
+            w + "entry 2: command [uv] stands in entry 1 already, and two entries of one command would leave"
+            " one of them unread in silence — fix: keep one entry per command, with every field it needs;"
+            " entries of one command are never merged",
+        ),
+        (  # a drop and a replacement of one command are two entries of it
+            own(wrappers=[{"command": ["sudo"], "drop": True}, {"command": ["sudo"], "with_value": ["-u"]}]),
+            w + "entry 2: command [sudo] stands in entry 1 already, and two entries of one command would"
+            " leave one of them unread in silence — fix: keep one entry per command, with every field it"
+            " needs; entries of one command are never merged",
+        ),
+        (
+            own(shells=[{"command": ["fish"]}, {"command": ["fish"]}]),
+            s + "entry 2: command [fish] stands in entry 1 already, and two entries of one command would"
+            " leave one of them unread in silence — fix: keep one entry per command, with every field it"
+            " needs; entries of one command are never merged",
+        ),
+        (
+            own(wrappers=[{"command": ["fish"]}], shells=[{"command": ["fish"], "command_flags": ["-c"]}]),
+            prefix + "const-interaction.wrappers and const-interaction.shells both name 'fish', and a word is"
+            " a wrapper or a shell, never both: the reader strips a wrapper before it reads a shell — fix:"
+            " give it to one of the two dials: remove its entry from the other, where a default is removed"
+            " by an entry with command: [fish] and drop: true",
+        ),
+        (  # judged on the merged lists: bash is a default shell
+            own(wrappers=[{"command": ["bash"]}]),
+            prefix + "const-interaction.wrappers and const-interaction.shells both name 'bash', and a word is"
+            " a wrapper or a shell, never both: the reader strips a wrapper before it reads a shell — fix:"
+            " give it to one of the two dials: remove its entry from the other, where a default is removed"
+            " by an entry with command: [bash] and drop: true",
+        ),
+        (  # `destructive` is read through the lists given: a wrapper added hides its words
+            own(
+                wrappers=[{"command": ["uv", "run"], "with_value": ["--with"]}],
+                destructive=[
+                    {"command": ["uv", "run", "rm"], "flags": ["-r"], "teach": "t", "alternative": "a"}
+                ],
+            ),
+            prefix + "const-interaction.destructive entry 1: command [uv, run, rm] is read by the gate as"
+            " [rm] — fix: write command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # a shell added hands its string on
+            own(
+                shells=[{"command": ["fish"], "command_flags": ["-c"]}],
+                destructive=[{"command": ["fish", "-c", "x"], "teach": "t", "alternative": "a"}],
+            ),
+            prefix + "const-interaction.destructive entry 1: command [fish, -c, x] has no reading, since it"
+            " hands a string on to be split again — fix: write the command the shell runs instead, such as"
+            " command: [rm]; the gate compares the reading, so this entry can never match",
+        ),
+        (  # the reader's dials are read before `destructive`
+            own(wrappers="sudo", destructive="rm"),
+            w + "must be a list of entries — fix: " + each + wrapper_shape + keep,
+        ),
+    ]
+    return cases
+
+
+def unread_commands(*words: list[str]) -> list[dict[str, object]]:
+    """Entries whose `command` is no usable list: missing, empty, not a list, a blank word, and each of
+    the given word lists."""
+    entries: list[dict[str, object]] = [{}, {"command": []}, {"command": "uv"}, {"command": ["uv", ""]}]
+    entries.extend({"command": listed} for listed in words)
+    return entries
+
+
 def t10() -> tuple[bool, str]:
     """This module's C5 lines typed by hand, each exit 1."""
     prefix = "BROKEN: constitution.yaml: "
@@ -522,8 +837,8 @@ def t10() -> tuple[bool, str]:
         (
             own(marker="x"),
             prefix + "const-interaction.marker is no dial of this module — fix: a misspelt dial would be"
-            " ignored in silence, so none is: write one of severity, log_dir, destructive, territories,"
-            " handles, boundary_examples, verbosity",
+            " ignored in silence, so none is: write one of severity, log_dir, destructive, wrappers, shells,"
+            " territories, handles, boundary_examples, verbosity",
         ),
         (
             own(destructive="rm"),
@@ -689,11 +1004,29 @@ def t10() -> tuple[bool, str]:
             " out",
         ),
     ]
+    cases.extend(reader_dial_cases(prefix))
     checks = []
     for patch, line in cases:
         result, _ = gate_on(command("ls"), dials_patch=patch)
         ok, evidence = broken_first_line(result, line)
         checks.append((ok and shared.c11_broken_count() in result.stderr, evidence))
+    # every entry point refuses a bad reader dial, with the same line first: the scan of a command, the
+    # scan of the lists and the session start, besides the hook above
+    bad_reader = own(wrappers="sudo")
+    bad_line = (
+        prefix + 'const-interaction.wrappers must be a list of entries — fix: write one entry per "- " item'
+        " as command: [<words>] and, all optional, with_value: [<options>], positionals: <count>, numbers:"
+        " <count>, command_flags: [<options>]; or as command: [<words>] with drop: true to remove a default;"
+        " leave the key out for the defaults, an empty list leaves them as they are"
+    )
+    bad_root = prepared(bad_reader)
+    for entry_point, run in (
+        ("the command scan", H.run_gate("", args=["--scan", str(bad_root), "--command", "ls"])),
+        ("the list scan", LISTS.run_gate("", args=["--scan", str(bad_root)])),
+        ("the session start", SESSION.run_gate(session_json(bad_root))),
+    ):
+        ok, evidence = broken_first_line(run, bad_line)
+        checks.append((ok, f"{entry_point}: {evidence}"))
     # the verbosity fix is prose that says "the one value today": a second value fails here, and
     # points at that prose
     one_value = len(Verbosity) == 1 and f"write verbosity: {Verbosity.TRIGGERED.value} — the one value" in (
@@ -1151,7 +1484,71 @@ def t30() -> tuple[bool, str]:
             "1. a\\nb \\\\ " + "v" * 100 + " / c\\\\d\\r\\n" + "w" * 100 + "\n"
         )
     )
+    # a dropped default is named by one line, in the dials' order, the wrappers' dial first; a replaced
+    # one, an added one, an empty list and no dial name nothing
+    sudo_line = (
+        "const-interaction: the wrapper sudo is dropped, so a command behind it is no longer examined —"
+        " const-interaction.wrappers in constitution.yaml drops it\n"
+    )
+    nohup_line = (
+        "const-interaction: the wrapper nohup is dropped, so a command behind it is no longer examined —"
+        " const-interaction.wrappers in constitution.yaml drops it\n"
+    )
+    dash_line = (
+        "const-interaction: the shell dash is dropped, so a command it is told to run is no longer examined"
+        " — const-interaction.shells in constitution.yaml drops it\n"
+    )
+    drops = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[
+                        {"command": ["sudo"], "drop": True},
+                        {"command": ["uv"], "with_value": ["-p"]},
+                        {"command": ["nohup"], "drop": True},
+                    ],
+                    shells=[
+                        {"command": ["dash"], "drop": True},
+                        {"command": ["fish"], "command_flags": ["-c"]},
+                    ],
+                )
+            )
+        )
+    )
+    drops_ok = drops.code == 0 and drops.stdout == RULES + verbosity + sudo_line + nohup_line + dash_line
+    zero_drop = SESSION.run_gate(
+        session_json(prepared(own(destructive=[], wrappers=[{"command": ["sudo"], "drop": True}])))
+    )
+    zero_drop_ok = zero_drop.stdout == RULES + verbosity + zero + "\n" + sudo_line
+    quiet = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[{"command": ["sudo"]}, {"command": ["uv"]}],
+                    shells=[{"command": ["bash"], "command_flags": ["-c"]}],
+                )
+            )
+        )
+    )
+    empty_lists = SESSION.run_gate(session_json(prepared(own(wrappers=[], shells=[]))))
+    quiet_ok = quiet.stdout == RULES + verbosity and empty_lists.stdout == RULES + verbosity
     return all_of(
+        (
+            drops_ok,
+            "one line per dropped default, the wrappers' first"
+            if drops_ok
+            else f"got: {drops.stdout[-500:]}",
+        ),
+        (
+            zero_drop_ok,
+            "a drop after the zero line" if zero_drop_ok else f"got: {zero_drop.stdout[-400:]}",
+        ),
+        (
+            quiet_ok,
+            "no line for a replacement, an addition or an empty list"
+            if quiet_ok
+            else f"got: {quiet.stdout[-300:]}",
+        ),
         (
             long_ok,
             "a pair with breaks, a backslash and 100 characters, whole"

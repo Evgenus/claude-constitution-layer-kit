@@ -17,7 +17,7 @@ from const_gate import identity
 from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import COMMAND_FLAG, Entry, Key, Subcommand, Verbosity
+from .model import COMMAND_FLAG, Entry, Key, OptionFault, Subcommand, Verbosity
 
 
 def _ns() -> str:
@@ -88,6 +88,17 @@ def f9_lists_tail(documents: int, handles: int, scanned: int) -> str:
 
 def s1_empty() -> str:
     return f"{_ns()}: no command is gated — {_ns()}.destructive is an empty list in {DIALS_FILE}"
+
+
+def s1_dropped(dial: str, command: Sequence[str]) -> str:
+    """One default the dials dropped, said at every session start: which, what the gate no longer
+    examines, and where it is set."""
+    kind = "wrapper" if dial == "wrappers" else "shell"
+    behind = "a command behind it" if dial == "wrappers" else "a command it is told to run"
+    return (
+        f"{_ns()}: the {kind} {escaped(' '.join(command))} is dropped, so {behind} is no longer examined —"
+        f" {_ns()}.{dial} in {DIALS_FILE} drops it"
+    )
 
 
 def s1_no_dials(root: str) -> str:
@@ -208,6 +219,187 @@ def c5_boundary_examples() -> Broken:
     return _c5(
         f"{_ns()}.boundary_examples must be a list of pairs {{violates: <text>, complies: <text>}}",
         'write one pair per "- " item with exactly those two fields, or leave the key out',
+    )
+
+
+# ---------------------------------------------------------------- the dials of the reader (C5)
+
+_SHAPES = {
+    "wrappers": "command: [<words>] and, all optional, with_value: [<options>], positionals: <count>,"
+    " numbers: <count>, command_flags: [<options>]; or as command: [<words>] with drop: true to remove a"
+    " default",
+    "shells": "command: [<word>] and, all optional, with_value: [<options>], command_flags: [<options>];"
+    " or as command: [<word>] with drop: true to remove a default",
+}
+_FIELDS = {
+    "wrappers": "command, with_value, positionals, numbers, command_flags or drop",
+    "shells": "command, with_value, command_flags or drop",
+}
+_KINDS = {"wrappers": "wrapper", "shells": "shell"}
+_OPTION_EXAMPLES = {"wrappers": "-u or --user", "shells": "-o, +o or --rcfile"}
+_BASE_NAME = (
+    "a program is read by its base name, so a word with a '/' can never match, and a word with white space"
+    " is two words"
+)
+
+
+def _reader(dial: str, index: int, detail: str, fix: str) -> Broken:
+    return _c5(f"{_ns()}.{dial} entry {index}: {detail}", fix)
+
+
+def c5_reader_list(dial: str) -> Broken:
+    return _c5(
+        f"{_ns()}.{dial} must be a list of entries",
+        f'write one entry per "- " item as {_SHAPES[dial]}; leave the key out for the defaults, an empty'
+        " list leaves them as they are",
+    )
+
+
+def c5_reader_entry(dial: str, index: int, detail: str) -> Broken:
+    return _reader(dial, index, detail, f"write the entry as {_SHAPES[dial]}")
+
+
+def c5_reader_unknown(dial: str, index: int, field: str) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"'{echoed(field)}' is no field of a {_KINDS[dial]} entry",
+        f"a misspelt field would be ignored in silence, so none is: write {_FIELDS[dial]}",
+    )
+
+
+def c5_reader_command(dial: str, index: int) -> Broken:
+    if dial == "wrappers":
+        detail = "command must be a non-empty list of words, none empty, none holding white space or a '/'"
+        fix = "write the words of the program as list items, such as command: [uv, run]"
+    else:
+        detail = "command must be a list of one word, not empty, holding no white space and no '/'"
+        fix = "write the shell's name as the one item, such as command: [fish]"
+    return _reader(dial, index, detail, f"{fix}; {_BASE_NAME}")
+
+
+def c5_reader_shell_words(index: int, command: Sequence[str]) -> Broken:
+    return _reader(
+        "shells",
+        index,
+        f"command {_words(command, echoed)} has more than one word, and a shell is one word",
+        "write one entry for each shell, command: [<word>]",
+    )
+
+
+def c5_reader_option(dial: str, index: int, field: str, option: str, fault: OptionFault) -> Broken:
+    """An option the reader could never match, and the reason: `option` is what the dials gave."""
+    example = _OPTION_EXAMPLES[dial]
+    if fault is OptionFault.NOT_A_LIST:
+        return _reader(
+            dial,
+            index,
+            f"{field} must be a list of options",
+            "write the options as list items, each as the command line has it, such as"
+            f" {example}; to take none, leave the field out",
+        )
+    holds = f"{field} holds '{echoed(option)}'"
+    if fault is OptionFault.WHITE_SPACE:
+        return _reader(
+            dial,
+            index,
+            f"{holds}, which holds white space, and an option is one word of the command line",
+            f"write each option as an item of its own, such as {example}",
+        )
+    if fault is OptionFault.NO_SIGN:
+        if dial == "wrappers":
+            return _reader(
+                dial,
+                index,
+                f"{holds}, which does not start with '-', so it is no option",
+                f"write it as the command line has it, with its dash, such as {example}",
+            )
+        return _reader(
+            dial,
+            index,
+            f"{holds}, which starts with neither '-' nor '+', so it is no option",
+            f"write it as the command line has it, with its sign, such as {example}",
+        )
+    if fault is OptionFault.LONE_SIGN:
+        return _reader(
+            dial,
+            index,
+            f"{holds}, which is no option, a lone sign naming nothing",
+            "remove it; the reader already ends a program's options at '--'",
+        )
+    never = "which the reader never matches, since it"
+    if fault is OptionFault.LETTERS:
+        letters = [f"'{escaped(option[0] + letter)}'" for letter in option[1:]]
+        return _reader(
+            dial,
+            index,
+            f"{holds}, a short option of more than one letter, {never} reads a short cluster one letter at"
+            " a time",
+            f"write each letter as an option of its own, {', '.join(letters[:-1])} and {letters[-1]}, or a"
+            " long option as --name",
+        )
+    return _reader(
+        dial,
+        index,
+        f"{holds}, {never} compares a long option by its name before the '='",
+        f"write '{escaped(option.partition('=')[0])}'",
+    )
+
+
+def c5_reader_count(dial: str, index: int, field: str) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"{field} must be a whole number of words, 0 or more, and true and false are no number",
+        f"write {field}: 1, or another whole number, or leave the field out for 0",
+    )
+
+
+def c5_reader_drop_value(dial: str, index: int) -> Broken:
+    return _reader(
+        dial,
+        index,
+        "drop must be true, its one value",
+        "write drop: true beside command to remove the default of that command, or leave the field out",
+    )
+
+
+def c5_reader_drop_beside(dial: str, index: int, field: str) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"drop: true stands with command alone, and {field} stands beside it, which would be ignored in"
+        " silence",
+        f"remove {field} to drop the default, or remove drop to replace the default with the fields",
+    )
+
+
+def c5_reader_drop_unknown(dial: str, index: int, command: Sequence[str], defaults: Sequence[str]) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"drop names {_words(command, echoed)}, which is no default {_KINDS[dial]}, and a misspelt name would"
+        " drop nothing in silence",
+        f"write the command of a default {_KINDS[dial]} ({', '.join(defaults)}) or remove the entry",
+    )
+
+
+def c5_reader_twice(dial: str, index: int, command: Sequence[str], first: int) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"command {_words(command, echoed)} stands in entry {first} already, and two entries of one command"
+        " would leave one of them unread in silence",
+        "keep one entry per command, with every field it needs; entries of one command are never merged",
+    )
+
+
+def c5_reader_both(word: str) -> Broken:
+    return _c5(
+        f"{_ns()}.wrappers and {_ns()}.shells both name '{echoed(word)}', and a word is a wrapper or a shell,"
+        " never both: the reader strips a wrapper before it reads a shell",
+        "give it to one of the two dials: remove its entry from the other, where a default is removed by an"
+        f" entry with command: [{escaped(word)}] and drop: true",
     )
 
 
