@@ -238,8 +238,8 @@ _FIELDS = {
 _KINDS = {"wrappers": "wrapper", "shells": "shell"}
 _OPTION_EXAMPLES = {"wrappers": "-u or --user", "shells": "-o, +o or --rcfile"}
 _BASE_NAME = (
-    "a program is read by its base name, so a word with a '/' can never match, and a word with white space"
-    " is two words"
+    "a program is read by its base name, so a first word with a '/' can never match, and a word with white"
+    " space is two words"
 )
 
 
@@ -270,7 +270,10 @@ def c5_reader_unknown(dial: str, index: int, field: str) -> Broken:
 
 def c5_reader_command(dial: str, index: int) -> Broken:
     if dial == "wrappers":
-        detail = "command must be a non-empty list of words, none empty, none holding white space or a '/'"
+        detail = (
+            "command must be a non-empty list of words, none empty, none holding white space, the first with"
+            " no '/'"
+        )
         fix = "write the words of the program as list items, such as command: [uv, run]"
     else:
         detail = "command must be a list of one word, not empty, holding no white space and no '/'"
@@ -284,6 +287,37 @@ def c5_reader_shell_words(index: int, command: Sequence[str]) -> Broken:
         index,
         f"command {_words(command, echoed)} has more than one word, and a shell is one word",
         "write one entry for each shell, command: [<word>]",
+    )
+
+
+def c5_reader_first_word(index: int, word: str) -> Broken:
+    return _reader(
+        "wrappers",
+        index,
+        f"command starts with '{echoed(word)}', which is a shell word or an assignment, and the reader takes"
+        " both off before it looks for a wrapper, so the entry can never match",
+        "remove the entry; a wrapper is named by the program that runs the command",
+    )
+
+
+def c5_reader_no_flags(index: int, word: str) -> Broken:
+    return _reader(
+        "shells",
+        index,
+        f"the shell '{echoed(word)}' has no command_flags, so it reads no string, since only a command flag"
+        " tells the reader that the first operand is one",
+        "give the shell its command flag, such as command_flags: [-c], or remove the entry; a default shell"
+        f" is removed by an entry with command: [{escaped(word)}] and drop: true",
+    )
+
+
+def c5_reader_both_fields(dial: str, index: int, option: str) -> Broken:
+    return _reader(
+        dial,
+        index,
+        f"with_value and command_flags both hold '{echoed(option)}', and the reader tries command_flags"
+        " first, so its place in with_value is never used",
+        "keep it in one of the two, in command_flags if its value is a command to read, in with_value if not",
     )
 
 

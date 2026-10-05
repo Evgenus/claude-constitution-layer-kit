@@ -463,7 +463,19 @@ def t7() -> tuple[bool, str]:
         asked("sudo -u root rm -rf b", d1("", "rm", "-r", "sudo -u root rm -rf b")),  # the default's `-u`
         passed("fish -c 'git push -f'"),  # no dial: fish is no default shell
         asked("fish -c 'git push -f'", git_push, subcommands=2, dials_patch=fish),
-        passed("bash -c 'git push -f'", dials_patch=own(shells=[{"command": ["bash"]}])),  # no `-c` now
+        passed(  # a replacing entry takes its fields as given: `-c` is no command flag now
+            "bash -c 'git push -f'", dials_patch=own(shells=[{"command": ["bash"], "command_flags": ["-x"]}])
+        ),
+        asked(  # a later word of a wrapper is compared as written, a '/' in it loads and can match
+            "uv ./run rm -rf b",
+            d1("", "rm", "-r", "uv ./run rm -rf b"),
+            dials_patch=own(wrappers=[{"command": ["uv", "./run"]}]),
+        ),
+        asked(  # a wrapper with a command flag reads the string after it
+            "nix develop -c 'rm -rf b'",
+            d1("", "rm", "-r", "rm -rf b"),
+            dials_patch=own(wrappers=[{"command": ["nix", "develop"], "command_flags": ["-c"]}]),
+        ),
         passed("sh -c 'git push -f'", dials_patch=own(shells=[{"command": ["sh"], "drop": True}])),
         asked("sh -c 'git push -f'", git_push, subcommands=2, dials_patch=own(shells=[])),
         asked("sudo rm -rf b", d1("", "rm", "-r", "sudo rm -rf b"), dials_patch=own(wrappers=[], shells=[])),
@@ -543,7 +555,23 @@ def t9() -> tuple[bool, str]:
     )
     mis = H.run_gate("", args=["--command", "ls"])
     mis_ok = expect(mis, 1, "BROKEN: misinvocation: --command applies to --scan", "stderr")
-    return all_of((red_ok, f"scan red: {red.stdout.strip()[:120]}"), green_ok, skip_ok, mis_ok)
+    # the split of the scan reads the wrappers the dials give: `uv` is no default wrapper, so the command
+    # behind `uv run --with x` is examined only when the scan splits with the loaded lists
+    uv_root = prepared(own(wrappers=[{"command": ["uv", "run"], "with_value": ["--with"]}]))
+    uv_text = "uv run --with x rm -rf b"
+    through = H.run_gate("", args=["--scan", str(uv_root), "--command", uv_text])
+    through_ok = through.code == 2 and red_lines(through.stdout) == [
+        f"RED: destructive command: '{uv_text}' matches the entry rm with -r",
+        tail,
+    ]
+    through_said = f"scan through a wrapper dial: exit {through.code}: {through.stdout.strip()[:160]}"
+    return all_of(
+        (red_ok, f"scan red: {red.stdout.strip()[:120]}"),
+        green_ok,
+        skip_ok,
+        mis_ok,
+        (through_ok, through_said),
+    )
 
 
 def unread(words: list[str]) -> dict[str, object]:
@@ -568,12 +596,13 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
     each = 'write one entry per "- " item as '
     w, s = prefix + "const-interaction.wrappers ", prefix + "const-interaction.shells "
     command_why = (
-        "; a program is read by its base name, so a word with a '/' can never match, and a word with white"
-        " space is two words"
+        "; a program is read by its base name, so a first word with a '/' can never match, and a word with"
+        " white space is two words"
     )
     wrapper_command = (
-        w + "entry 1: command must be a non-empty list of words, none empty, none holding white space or a"
-        " '/' — fix: write the words of the program as list items, such as command: [uv, run]" + command_why
+        w + "entry 1: command must be a non-empty list of words, none empty, none holding white space, the"
+        " first with no '/' — fix: write the words of the program as list items, such as command: [uv, run]"
+        + command_why
     )
     shell_command = (
         s + "entry 1: command must be a list of one word, not empty, holding no white space and no '/' —"
@@ -614,6 +643,37 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             own(shells=[{"command": ["fish", "x"]}]),
             s + "entry 1: command [fish, x] has more than one word, and a shell is one word — fix: write one"
             " entry for each shell, command: [<word>]",
+        ),
+        *(  # the reader takes a shell word or an assignment off before it looks for a wrapper
+            (
+                own(wrappers=[{"command": [word]}]),
+                w + f"entry 1: command starts with '{word}', which is a shell word or an assignment, and the"
+                " reader takes both off before it looks for a wrapper, so the entry can never match — fix:"
+                " remove the entry; a wrapper is named by the program that runs the command",
+            )
+            for word in ("if", "FOO=1", "{")
+        ),
+        (
+            own(wrappers=[{"command": ["uv"], "with_value": ["--with"], "command_flags": ["--with"]}]),
+            w + "entry 1: with_value and command_flags both hold '--with', and the reader tries command_flags"
+            " first, so its place in with_value is never used — fix: keep it in one of the two, in"
+            " command_flags if its value is a command to read, in with_value if not",
+        ),
+        (
+            own(shells=[{"command": ["fish"], "with_value": ["-o"], "command_flags": ["-o"]}]),
+            s + "entry 1: with_value and command_flags both hold '-o', and the reader tries command_flags"
+            " first, so its place in with_value is never used — fix: keep it in one of the two, in"
+            " command_flags if its value is a command to read, in with_value if not",
+        ),
+        *(  # a shell with no command flag reads no string: only a command flag sets the mode
+            (
+                own(shells=[entry]),
+                s + f"entry 1: the shell '{word}' has no command_flags, so it reads no string, since only a"
+                " command flag tells the reader that the first operand is one — fix: give the shell its"
+                " command flag, such as command_flags: [-c], or remove the entry; a default shell is removed"
+                f" by an entry with command: [{word}] and drop: true",
+            )
+            for word, entry in (("fish", {"command": ["fish"]}), ("bash", {"command": ["bash"]}))
         ),
         (
             own(wrappers=[{"command": ["uv"], "with_value": "-u"}]),

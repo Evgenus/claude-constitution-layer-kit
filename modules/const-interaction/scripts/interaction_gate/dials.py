@@ -103,6 +103,7 @@ def _merged(
     if not isinstance(value, list):
         raise ConfigurationFailure(messages.c5_reader_list(dial))
     dropped: list[Dropped] = []
+    bare: list[tuple[int, str]] = []  # the shells given without a command flag, with their entry numbers
     seen: dict[tuple[str, ...], int] = {}
     for index, item in enumerate(value, 1):
         if not isinstance(item, dict):
@@ -129,19 +130,24 @@ def _merged(
         built: Wrapper | Shell = (
             _wrapper(dial, index, item, command) if dial == "wrappers" else _shell(dial, index, item, command)
         )
+        if isinstance(built, Shell) and not built.command_flags:
+            bare.append((index, built.command))
         place = next((at for at, entry in enumerate(merged) if _words_of(entry) == command), None)
         if place is None:
             merged.append(built)
         else:
             merged[place] = built
+    if bare:  # judged after the loop: the twice check of a later entry is the first line of a list
+        raise ConfigurationFailure(messages.c5_reader_no_flags(*bare[0]))
     return merged, tuple(dropped)
 
 
 def _reader_command(dial: str, index: int, item: dict[str, object]) -> tuple[str, ...]:
-    """The words of an entry's `command`: a non-empty list, no word empty, holding white space or a
-    `/` — a program is read by its base name, so such a word can never match — and for a shell one word."""
+    """The words of an entry's `command`: a non-empty list, no word empty or holding white space, the
+    first with no `/` — the reader reduces only the program to its base name, so a first word with a `/`
+    can never match, while a later word is compared as written — and for a shell one word."""
     command = texts(item.get("command"))
-    if not command or any("/" in word or any(letter.isspace() for letter in word) for word in command):
+    if not command or "/" in command[0] or any(any(letter.isspace() for letter in word) for word in command):
         raise ConfigurationFailure(messages.c5_reader_command(dial, index))
     if dial == "shells" and len(command) != 1:
         raise ConfigurationFailure(messages.c5_reader_shell_words(index, command))
@@ -149,21 +155,33 @@ def _reader_command(dial: str, index: int, item: dict[str, object]) -> tuple[str
 
 
 def _wrapper(dial: str, index: int, item: dict[str, object], command: tuple[str, ...]) -> Wrapper:
+    """A wrapper whose first word the reader would take off before it looks for one never matches."""
+    if tokens.ASSIGNMENT.match(command[0]) or command[0] in tokens.SHELL_WORDS:
+        raise ConfigurationFailure(messages.c5_reader_first_word(index, command[0]))
+    with_value = _options(dial, index, item, "with_value")
+    positionals = _count(dial, index, item, "positionals")
+    numbers = _count(dial, index, item, "numbers")
+    command_flags = _options(dial, index, item, "command_flags")
+    _refuse_shared_option(dial, index, with_value, command_flags)
     return Wrapper(
-        command,
-        with_value=_options(dial, index, item, "with_value"),
-        positionals=_count(dial, index, item, "positionals"),
-        numbers=_count(dial, index, item, "numbers"),
-        command_flags=_options(dial, index, item, "command_flags"),
+        command, with_value=with_value, positionals=positionals, numbers=numbers, command_flags=command_flags
     )
 
 
 def _shell(dial: str, index: int, item: dict[str, object], command: tuple[str, ...]) -> Shell:
-    return Shell(
-        command[0],
-        with_value=_options(dial, index, item, "with_value"),
-        command_flags=_options(dial, index, item, "command_flags"),
-    )
+    with_value = _options(dial, index, item, "with_value")
+    command_flags = _options(dial, index, item, "command_flags")
+    _refuse_shared_option(dial, index, with_value, command_flags)
+    return Shell(command[0], with_value=with_value, command_flags=command_flags)
+
+
+def _refuse_shared_option(
+    dial: str, index: int, with_value: tuple[str, ...], command_flags: tuple[str, ...]
+) -> None:
+    """An option in both fields has one of its two places dead: the reader tries command_flags first."""
+    shared = next((option for option in with_value if option in command_flags), None)
+    if shared is not None:
+        raise ConfigurationFailure(messages.c5_reader_both_fields(dial, index, shared))
 
 
 def _options(dial: str, index: int, item: dict[str, object], field: str) -> tuple[str, ...]:
