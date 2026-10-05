@@ -312,7 +312,7 @@ DEFAULT_WRAPPERS: tuple[Wrapper, ...] = (
     # The wrappers below, read 2026-10-05, each from the page it names; a long flag whose value is the next
     # word is listed as its page spells it, as above. The util-linux pages are man7.org's, man-pages/man1/
     # <name>.1.html, of util-linux 2.43.devel, each dated in its footer.
-    # busybox: BusyBox's page (busybox.net/downloads/BusyBox.html, served with a date of 2009-10-02),
+    # busybox: BusyBox's page (https://busybox.net/downloads/BusyBox.html, served with a date of 2009-10-02),
     # `busybox <applet> [arguments...]`: no option of its own, the applet follows.
     Wrapper(("busybox",)),
     # setsid: page of 2026-05-24, `setsid [options] program [arguments]`; -c, -f, -w take no value.
@@ -358,8 +358,8 @@ DEFAULT_SHELLS: tuple[Shell, ...] = (
         Shell(name, with_value=_flags("-o -O +o +O --rcfile --init-file"), command_flags=("-c",))
         for name in ("bash", "sh", "zsh", "dash", "ksh")
     ),
-    # The shells below, read 2026-10-05, each from the page it names.
-    # fish: fishshell.com/docs/current/cmds/fish.html, fish 4.9.3 (the page marks itself as an old version
+    # The shells below, read 2026-10-05, each from the page it names. fish:
+    # https://fishshell.com/docs/current/cmds/fish.html, fish 4.9.3 (the page marks itself as an old version
     # and links the same address as the latest release; 4.9.3 is the latest on GitHub): -c/--command and
     # -C/--init-command run a string; -d/--debug, -o/--debug-output, -p/--profile, --profile-startup and
     # -f/--features take a value, the page spelling the long ones with `=`, its examples with a space.
@@ -368,22 +368,23 @@ DEFAULT_SHELLS: tuple[Shell, ...] = (
         with_value=_flags("-d -o -p -f --debug --debug-output --profile --profile-startup --features"),
         command_flags=_flags("-c --command -C --init-command"),
     ),
-    # ash: BusyBox's page lists it as an applet and gives no usage; its usage line is in shell/ash.c of
-    # BusyBox (github.com/mirror/busybox, the file last changed 2024-07-13): `[-il] [-|+Cabefmnuvx]
-    # [-|+o OPT]... [-c 'SCRIPT' [ARG0 ARGS] | FILE ARGS | -s ARGS]`.
+    # ash: BusyBox's page lists it as an applet and gives no usage; its usage line is in
+    # https://github.com/mirror/busybox/blob/master/shell/ash.c (the file last changed 2024-07-13):
+    # `[-il] [-|+Cabefmnuvx] [-|+o OPT]... [-c 'SCRIPT' [ARG0 ARGS] | FILE ARGS | -s ARGS]`.
     Shell("ash", with_value=_flags("-o +o"), command_flags=("-c",)),
-    # mksh: mirbsd.org/htman/i386/man1/mksh.htm, page of 2026-01-25, `mksh [-+abCefhiklmnprUuvXx] [-+o option]
-    # [-T [!]tty|-] -c cmd [arg0 ...]`: -o, +o and -T take a value.
+    # mksh: https://www.mirbsd.org/htman/i386/man1/mksh.htm, page of 2026-01-25,
+    # `mksh [-+abCefhiklmnprUuvXx] [-+o option] [-T [!]tty|-] -c cmd [arg0 ...]`: -o, +o and -T take a value.
     Shell("mksh", with_value=_flags("-o +o -T"), command_flags=("-c",)),
-    # yash: magicant.github.io/yash/doc/invoke.html (updated 2025-04-21) and _set.html (updated
+    # yash: https://magicant.github.io/yash/doc/invoke.html (updated 2025-04-21) and _set.html (updated
     # 2025-11-29): -c (--cmdline) runs its first operand; -o and +o take a name, the options of `set`.
     Shell("yash", with_value=_flags("-o +o"), command_flags=_flags("-c --cmdline")),
-    # posh: manpages.debian.org/trixie/posh/posh.1.en.html, posh 0.14.1, `posh [+-aCefilnuvx] [+-o option]
-    # [[-c command-string [command-name] | -s | file] [argument...]]`: -o and +o take a value.
+    # posh: https://manpages.debian.org/trixie/posh/posh.1.en.html, posh 0.14.1, `posh [+-aCefilnuvx] [+-o
+    # option] [[-c command-string [command-name] | -s | file] [argument...]]`: -o and +o take a value.
     Shell("posh", with_value=_flags("-o +o"), command_flags=("-c",)),
-    # csh and tcsh: manpages.debian.org/trixie/tcsh/tcsh.1.en.html, tcsh 6.24.13, `tcsh [-bcdefFimnqstvVxX]
-    # [-Dname[=value]] [arg] ...`; FreeBSD 15.1's csh(1), man.freebsd.org, is the same text. No option takes
-    # the next word as its value (`-D` is attached); -c reads the following argument as the commands.
+    # csh and tcsh: https://manpages.debian.org/trixie/tcsh/tcsh.1.en.html, tcsh 6.24.13, `tcsh
+    # [-bcdefFimnqstvVxX] [-Dname[=value]] [arg] ...`; FreeBSD 15.1's csh(1), man.freebsd.org, is the same
+    # text. No option takes the next word as its value (`-D` is attached); -c reads the following argument as
+    # the commands.
     Shell("csh", command_flags=("-c",)),
     Shell("tcsh", command_flags=("-c",)),
 )
