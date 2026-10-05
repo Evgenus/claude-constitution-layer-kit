@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
@@ -44,7 +45,7 @@ from harness import (  # noqa: E402
     expect,
     red_lines,
 )
-from referencing_gate import messages, start  # noqa: E402
+from referencing_gate import lychee, messages, start  # noqa: E402
 from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -753,6 +754,14 @@ def path_with(lychee_script: str | None) -> dict[str, str]:
     return {"PATH": str(directory)}
 
 
+def path_with_unstartable_lychee() -> dict[str, str]:
+    """An executable lychee whose interpreter line names no program: found on PATH, raises OSError."""
+    env = path_with(None)
+    (Path(env["PATH"]) / "lychee").write_text("#!/no/such/interpreter\n")
+    (Path(env["PATH"]) / "lychee").chmod(0o755)
+    return env
+
+
 def scan_with(env: dict[str, str]) -> Result:
     consumer = H.fresh_consumer()
     consumer.write(SOURCE, source("See [x](gone.md)."))
@@ -775,6 +784,7 @@ def link_checker_unusable() -> tuple[bool, str]:
                 messages.x2_lychee_too_old("0.24.2", "lychee 0.23.0"),
             ),
             broken(scan_with(path_with("exit 0\n")), messages.x2_lychee_too_old("0.24.2", "")),
+            broken(scan_with(path_with_unstartable_lychee()), messages.x2_lychee_too_old("0.24.2", "")),
             broken(
                 scan_with(path_with(usage)), messages.x3_no_report("exit 2", "error: unexpected argument")
             ),
@@ -802,7 +812,8 @@ def link_checker_unusable() -> tuple[bool, str]:
                 " checked for resolving",
             ),
         ],
-        "below the floor, a version nobody can read, and exit 2 with no report: each exit 1, never a finding",
+        "below the floor, a version nobody can read, a binary that cannot be started, and exit 2 with no"
+        " report: each exit 1, never a finding",
     )
 
 
@@ -1421,9 +1432,15 @@ CHAT_RULE = (
 )
 
 
+# Seconds a handler keeps beyond its waits: the interpreter's start, git, the module's own reading.
+LEFT_FOR_THE_REST = 5
+
+
 def hooks_file() -> tuple[bool, str]:
     """Three handlers, each in the exec form with an explicit timeout; both tool events run the
-    gate's one entry point, which tells them apart by the event's name."""
+    gate's one entry point, which tells them apart by the event's name. A tool handler's timeout
+    holds what its check after a write waits on, one wait after the other (the version probe, then
+    the run), and LEFT_FOR_THE_REST; the session-start printer runs no child process."""
     hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())["hooks"]
     gate = ["${CLAUDE_PLUGIN_ROOT}/scripts/check-references.sh"]
     wanted = {
@@ -1431,7 +1448,13 @@ def hooks_file() -> tuple[bool, str]:
         "PostToolUse": ("Write|Edit", gate),
         "SessionStart": (None, ["${CLAUDE_PLUGIN_ROOT}/scripts/print-chat-rule.sh"]),
     }
+    waits = {
+        "PreToolUse": lychee.VERSION_SECONDS + lychee.HOOK_SECONDS,
+        "PostToolUse": lychee.VERSION_SECONDS + lychee.HOOK_SECONDS,
+        "SessionStart": 0,
+    }
     problems = [name for name in wanted if name not in hooks] + [name for name in hooks if name not in wanted]
+    tied: list[str] = []
     for name, (matcher, args) in wanted.items():
         for group in hooks.get(name, []):
             handler = group["hooks"][0]
@@ -1445,8 +1468,20 @@ def hooks_file() -> tuple[bool, str]:
             )
             if not right:
                 problems.append(f"{name}: {group}")
-    return not problems, "three handlers, exec form, timeouts, scripts present" if not problems else str(
-        problems
+            elif waits[name]:
+                needed = waits[name] + LEFT_FOR_THE_REST
+                if handler["timeout"] < needed:
+                    problems.append(
+                        f"{name}: timeout {handler['timeout']} s is under the {needed} s it needs:"
+                        f" version probe {lychee.VERSION_SECONDS} s + run {lychee.HOOK_SECONDS} s"
+                        f" + {LEFT_FOR_THE_REST} s left"
+                    )
+                else:
+                    tied.append(f"{name} {handler['timeout']} s >= {needed} s")
+    return not problems, (
+        "three handlers, exec form, scripts present, timeouts that hold the waits: " + ", ".join(tied)
+        if not problems
+        else str(problems)
     )
 
 
@@ -2120,16 +2155,64 @@ def older_heading_link_not_repeated() -> tuple[bool, str]:
 
 def a_link_checker_that_hangs() -> tuple[bool, str]:
     """A checker that never answers is a configuration failure inside the hook's timeout, never
-    a hook the platform gives up on: the version probe and the run have a budget each."""
+    a hook the platform gives up on: the version probe and the run have a budget each. The run's
+    budget belongs to the check after a write: the scan waits for a slow checker, as long as it takes.
+    The three runs go side by side, so the item costs the longest of them, about 21 s."""
     sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
     slow_version = f'case "$1" in --version) {sleep} 8; echo "lychee 0.24.2";; *) exit 0;; esac\n'
+    # answers --version at once; any other call is 1 s past the hook's 20 s, then an empty report
+    report = '{"error_map": {}}'
+    slow_run = f"case \"$1\" in --version) echo 'lychee 0.24.2';; *) {sleep} 21; echo '{report}';; esac\n"
     consumer = H.fresh_consumer()
     consumer.write(SOURCE, source("See [x](gone.md)."))
-    began = time.monotonic()
-    result = H.run_gate("", args=["--scan", str(consumer.root)], env=path_with(slow_version))
-    took = time.monotonic() - began
-    ok = result.code == 1 and "BROKEN: " in result.stderr and 4 < took < 8
-    return ok, f"exit {result.code} after {took:.1f} s: {result.stderr[:160]}"
+    in_the_scan, in_the_hook = H.fresh_consumer(), H.fresh_consumer()
+    for tree in (in_the_scan, in_the_hook):
+        tree.write("constitution.yaml", dials_text())
+        tree.write(TARGET, TARGET_TEXT)
+        tree.write(SOURCE, source("See [x](t.md)."))
+    event = event_json(in_the_hook.root, Write(SOURCE, source("See [x](t.md).")), event=AFTER)
+
+    def timed(stdin: str, args: list[str], script: str) -> tuple[Result, float]:
+        began = time.monotonic()
+        return H.run_gate(stdin, args=args, env=path_with(script)), time.monotonic() - began
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        probe = pool.submit(timed, "", ["--scan", str(consumer.root)], slow_version)
+        scanned = pool.submit(timed, "", ["--scan", str(in_the_scan.root)], slow_run)
+        hooked = pool.submit(timed, event, [], slow_run)
+    result, took = probe.result()
+    scan, scan_took = scanned.result()
+    hook, hook_took = hooked.result()
+    # typed by hand: the first line for a version probe that gave no answer in its 5 s, then the count line
+    probe_typed = (
+        "BROKEN: lychee gave no report: no answer in 5 s — fix: this is a defect of the gate's invocation"
+        " or of the installed lychee, not of the repository; run lychee --version and report both to"
+        " whoever maintains the plugin — until then no reference is checked for resolving"
+    )
+    on_the_version = broken_typed(result, probe_typed)
+    # typed by hand: the first line of the check after a write that waited its 20 s, then the count line
+    hand_typed = (
+        "BROKEN: lychee gave no report: no answer in 20 s, the most a check after a write waits — fix: a"
+        " large tree can take lychee longer than that; run the scan, which waits for lychee as long as it"
+        " takes — until then no reference is checked for resolving"
+    )
+    return all_of(
+        [
+            (
+                on_the_version[0] and result.code == 1 and 4 < took < 8,
+                f"the version: exit {result.code} after {took:.1f} s: {on_the_version[1]}",
+            ),
+            expect(scan, 0, shared.g1_green_scan(messages.f9_scan_tail(5, 1, 5, 0, 0, 0)), "stdout"),
+            (
+                scan_took > 20,
+                f"the scan stopped after {scan_took:.1f} s: {scan.stdout[:160]}{scan.stderr[:160]}",
+            ),
+            broken_typed(hook, hand_typed),
+            (hook_took > 19, f"the check after a write gave up after {hook_took:.1f} s"),
+        ],
+        f"the version probe fails in {took:.1f} s; the scan waits {scan_took:.1f} s for a slow checker and"
+        f" is green; the check after a write gives up after {hook_took:.1f} s with its own line",
+    )
 
 
 def mover_refuses_what_would_leave_coverage() -> tuple[bool, str]:
@@ -2536,7 +2619,10 @@ ASSERTIONS = [
         45, "a negated pattern takes a tree out of the territory: !dir/**, not !dir/", a_tree_taken_out
     ),
     Assertion(
-        70, "hooks.json: three handlers in the exec form, explicit timeouts, scripts present", hooks_file
+        70,
+        "hooks.json: three handlers in the exec form, scripts present, explicit timeouts that hold the"
+        " budgets each tool handler waits on",
+        hooks_file,
     ),
     Assertion(71, "the always-on rule is printed as typed here, and nothing else", chat_rule),
     Assertion(
@@ -2664,7 +2750,7 @@ ASSERTIONS = [
     ),
     Assertion(
         79,
-        "a link checker that hangs is a configuration failure inside the hook's timeout",
+        "a link checker that hangs is a configuration failure inside the hook's timeout; the scan has none",
         a_link_checker_that_hangs,
     ),
     Assertion(

@@ -23,17 +23,22 @@ from .model import Link, LinkKind, Switch
 
 
 def examine(
-    root: Path, texts: Mapping[str, str], heading_anchors: Switch, about: str | None = None
+    root: Path,
+    texts: Mapping[str, str],
+    heading_anchors: Switch,
+    seconds: float | None,
+    about: str | None = None,
 ) -> tuple[dict[str, list[tuple[int, Finding]]], int]:
     """The findings of each covered document, in reading order, and the links examined. `texts`
     holds the covered documents as they stand on disk. With `about`, only the findings that involve
-    that document: its own links, and other documents' links into it."""
+    that document: its own links, and other documents' links into it. `seconds` is the checker's budget
+    for the run, None for no limit."""
     masked = {rel: mask(text) for rel, text in texts.items()}  # once per document: it is the costly step
     links = {rel: find_links(text, masked[rel]) for rel, text in texts.items()}
     anchors = {rel: explicit_anchors(masked[rel]) for rel in texts}
     found: dict[str, list[tuple[int, Finding]]] = {rel: [] for rel in texts}
     broken: set[tuple[str, str, str | None]] = set()
-    for b in lychee.find_breaks(root, sorted(texts)):
+    for b in lychee.find_breaks(root, sorted(texts), seconds):
         broken.add((b.source, b.target, b.fragment))
         if about is not None and about not in (b.source, b.target):
             continue
