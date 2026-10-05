@@ -48,7 +48,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         allowed = _allowed(matcher, dials, [rel])
     if not covered:
         return pipeline.skip(output, messages.g1_skip_not_covered(rel))
-    verdict = examine({rel: target.text}, dials, allowed)
+    verdict = examine({rel: target.text}, dials, allowed, vale.HOOK_SECONDS)
     if not verdict.findings:
         return pipeline.green_hook(output, messages.g1_covered(), verdict.notes, target.event_name)
     shown = pipeline.within_the_cap(verdict.findings)
@@ -83,7 +83,7 @@ def scan_mode(output: Output, start: Path) -> int:
         if text is None:  # a file git lists and nobody can read: a count that skipped it would lie
             raise ConfigurationFailure(shared.c12_unreadable(rel))
         texts[rel] = text
-    verdict = examine(texts, dials, allowed)
+    verdict = examine(texts, dials, allowed, None)
     tail = messages.f9_tail(
         len(covered), dials.grade_ceiling, dials.sentence_words, len(dials.departures), len(paths)
     )
@@ -99,10 +99,13 @@ def _allowed(matcher: Matcher, dials: LanguageDials, rels: Sequence[str]) -> dic
     return allowed
 
 
-def examine(texts: dict[str, str], dials: LanguageDials, allowed: dict[str, set[Rule]]) -> Verdict:
+def examine(
+    texts: dict[str, str], dials: LanguageDials, allowed: dict[str, set[Rule]], seconds: float | None
+) -> Verdict:
     """Every document prepared and checked in one Vale run; the findings and notes in document
     and line order, a Vale comment outside a fence or a code span a finding wherever it stands; a
-    hit of a rule that a departure allows for its document is neither."""
+    hit of a rule that a departure allows for its document is neither. `seconds` is each Vale run's
+    budget, None for no limit: the hook gives its own, the scan none, and there is no default."""
     binary = vale.preflight()
     findings: list[Finding] = []
     notes: list[str] = []
@@ -120,7 +123,8 @@ def examine(texts: dict[str, str], dials: LanguageDials, allowed: dict[str, set[
         tree.mkdir()
         for name, rel in named.items():
             (tree / name).write_text(prepared[rel].text, encoding="utf-8")
-        hits = {named[name]: found for name, found in vale.run(binary, config, tree, list(named)).items()}
+        ran = vale.run(binary, config, tree, list(named), seconds)
+        hits = {named[name]: found for name, found in ran.items()}
     for rel in sorted(prepared):
         lines = prepared[rel].text.split("\n")
         placed: list[tuple[int, int, Finding | str]] = []

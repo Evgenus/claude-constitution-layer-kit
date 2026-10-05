@@ -17,6 +17,7 @@ from const_gate.errors import ConfigurationFailure
 from . import messages
 from .model import STYLE, VALE_FLOOR, VALE_RULE_NAME, Hit, Rule, Version
 
+HOOK_SECONDS = 10  # the run's budget in a check after a write, the scan has none; under hooks.json's timeout
 CHUNK = 200  # files per run, so an argument list stays far under any platform's limit
 VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 RULE_OF = {f"{STYLE}.{name}": rule for rule, name in VALE_RULE_NAME.items()}
@@ -44,18 +45,25 @@ def preflight() -> Path:
     return Path(found)
 
 
-def run(binary: Path, config: Path, tree: Path, rels: Sequence[str]) -> dict[str, list[Hit]]:
-    """Vale over the named files under `tree`, in chunks; {rel: hits} for the files with any."""
+def run(
+    binary: Path, config: Path, tree: Path, rels: Sequence[str], seconds: float | None
+) -> dict[str, list[Hit]]:
+    """Vale over the named files under `tree`, in chunks; {rel: hits} for the files with any. `seconds`
+    is the budget of each run, None for no limit: the caller chooses, there is no default."""
     hits: dict[str, list[Hit]] = {}
     for start in range(0, len(rels), CHUNK):
         chunk = rels[start : start + CHUNK]
-        done = subprocess.run(
-            [str(binary), f"--config={config}", "--no-global", "--output=JSON", "--no-exit", *chunk],
-            cwd=tree,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            done = subprocess.run(
+                [str(binary), f"--config={config}", "--no-global", "--output=JSON", "--no-exit", *chunk],
+                cwd=tree,
+                capture_output=True,
+                text=True,
+                timeout=seconds,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as late:
+            raise ConfigurationFailure(messages.c12_vale_too_slow(late.timeout)) from late
         if done.returncode != 0:
             raise ConfigurationFailure(messages.c12_vale_failed(_failure(done)))
         try:

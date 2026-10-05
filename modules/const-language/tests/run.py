@@ -19,9 +19,12 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import stat
 import sys
+import time
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
@@ -48,7 +51,7 @@ from harness import (  # noqa: E402
     stop_json,
 )
 from language_gate import dials as own_dials  # noqa: E402
-from language_gate import messages, rules, start  # noqa: E402
+from language_gate import messages, rules, start, vale  # noqa: E402
 from language_gate.model import Departure, Rule  # noqa: E402
 from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
@@ -761,8 +764,10 @@ def fake_vale(directory: Path, script: str) -> Path:
 def t11() -> tuple[bool, str]:
     """Absence of the binary, each line typed by hand: no vale on PATH is C2 with the install
     command; an old vale is C2 with its version; a vale that cannot run is C12 with its own first
-    line; a vale with no version line, or one whose --version exits 1, is C12 — and every fake was
-    asked what the gate says."""
+    line; a vale with no version line, or one whose --version exits 1, is C12; a vale whose run
+    outlasts the hook's budget is C12 in the check after a write, naming the budget and the scan,
+    while the scan waits and is green — the two side by side, so the item costs the budget plus
+    a second — and every fake was asked what the gate says."""
     none = H.scratch_dir()
     for tool in ("python3", "git", "sh", "dirname"):
         source = (
@@ -805,7 +810,40 @@ def t11() -> tuple[bool, str]:
     repair = (
         "run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"
     )
+    # answers --version at once, with the floor; its run is a second past the hook's budget, then `{}`
+    sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
+    past = int(vale.HOOK_SECONDS) + 1
+    slow_run = fake_vale(
+        H.scratch_dir(),
+        f'case "$1" in --version) echo "vale version 3.23.0";; *) {sleep} {past}; echo \'{{}}\';; esac',
+    )
+    in_the_hook = prepared(files={DOC: PLAIN})
+    in_the_scan = prepared(files={DOC: PLAIN})
+    on_path = {"PATH": str(slow_run)}
+
+    def timed_hook() -> tuple[Result, float]:
+        began = time.monotonic()
+        event = event_json(in_the_hook, Write(DOC, "unused"), event="PostToolUse")
+        return H.run_gate(event, env=on_path), time.monotonic() - began
+
+    def timed_scan() -> tuple[Result, float]:
+        began = time.monotonic()
+        return H.run_gate("", args=["--scan", str(in_the_scan)], env=on_path), time.monotonic() - began
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        hooked = pool.submit(timed_hook)
+        scanned = pool.submit(timed_scan)
+    hook, hook_took = hooked.result()
+    scan_slow, scan_took = scanned.result()
+    too_slow = "BROKEN: vale gave no answer in 10 s, the most a check after a write waits — fix: a document of normal size takes vale well under a second, so the likely cause is a vale that hangs; run vale by hand to repair it, and the scan waits for vale as long as it takes — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     return all_of(
+        broken(hook, too_slow),
+        (hook_took > 9, f"the check after a write gave up after {hook_took:.1f} s"),
+        expect(scan_slow, 0, green_scan(4), "stdout"),
+        (
+            scan_took > vale.HOOK_SECONDS,
+            f"the scan stopped after {scan_took:.1f} s, within the hook's budget",
+        ),
         broken(  # a diagnosis is what the reader acts on: whole, its backslash doubled, 90 letters uncut
             odd[0],
             ("BROKEN: vale did not report its version (a\\\\b " + "w" * 90 + ") — fix: " + repair),
@@ -1323,7 +1361,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (8, "after the write the file on disk is judged; a missing file skips; a Stop event is C12", t8),
     (9, "levels: a rule at warning notes; all off refused; unknown rule and level are C5", t9),
     (10, "this module's C5 lines typed by hand, each exit 1", t10),
-    (11, "vale absent, old, failing, mute or exiting 1: C2 and C12 typed by hand; the fakes were asked", t11),
+    (
+        11,
+        "vale absent, old, failing, mute, slow or exiting 1: C2 and C12 typed by hand; the fakes asked",
+        t11,
+    ),
     (
         12,
         "the cap after a write: the first findings that fit in 8,000 characters; the scan lists all",
