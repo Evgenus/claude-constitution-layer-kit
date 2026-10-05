@@ -46,7 +46,16 @@ from harness import (  # noqa: E402
     red_lines,
 )
 from interaction_gate import messages, start, tokens  # noqa: E402
-from interaction_gate.model import DEFAULT_DESTRUCTIVE, Entry, Subcommand, Verbosity  # noqa: E402
+from interaction_gate.model import (  # noqa: E402
+    DEFAULT_DESTRUCTIVE,
+    DEFAULT_READER_LISTS,
+    Entry,
+    ReaderLists,
+    Shell,
+    Subcommand,
+    Verbosity,
+    Wrapper,
+)
 from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
@@ -230,6 +239,8 @@ def t5() -> tuple[bool, str]:
         asked("/usr/bin/env git push -f", d1("", "git push", "-f", "/usr/bin/env git push -f")),
         asked('bash -lc "git push -f"', d1("", "git push", "-f", "git push -f"), subcommands=2),
         asked("exec git push -f", d1("", "git push", "-f", "exec git push -f")),
+        # exec is a wrapper whose own option -a takes a value, bash's manual: it stood in front of the verb
+        asked("exec -a x rm -r y", d1("", "rm", "-r", "exec -a x rm -r y")),
         asked("if true; then git push -f; fi", d1("", "git push", "-f", "then git push -f"), subcommands=2),
         asked("git push -f 2>&1", d1("", "git push", "-f", "git push -f 2>&1")),
         # git's options before the verb are skipped by the entry's matching, as for every program
@@ -282,6 +293,7 @@ def t6() -> tuple[bool, str]:
         asked('env -S "git push -f"', d1("", "git push", "-f", "git push -f")),
         asked('env -i -S "git push -f"', d1("", "git push", "-f", "git push -f")),
         asked('env --split-string="git push -f"', d1("", "git push", "-f", "git push -f")),
+        asked('env --split-string "git push -f"', d1("", "git push", "-f", "git push -f")),
         asked('env -S "git push" -f', d1("", "git push", "-f", "git push -f")),
         asked("env -S'git push -f'", d1("", "git push", "-f", "git push -f")),
         asked("env -iS 'git push -f'", d1("", "git push", "-f", "git push -f")),
@@ -588,6 +600,18 @@ def t10() -> tuple[bool, str]:
             " — fix: write the command the wrapper or shell runs instead, such as command: [rm]; the gate"
             " compares the reading, so this entry can never match",
         ),
+        (  # a word ending in a slash reads as an empty word, no command: the empty reading's fix
+            unread(["x/"]),
+            prefix + "const-interaction.destructive entry 1: command [x/] is read by the gate as nothing"
+            " — fix: write the command the wrapper or shell runs instead, such as command: [rm]; the gate"
+            " compares the reading, so this entry can never match",
+        ),
+        (
+            unread(["/"]),
+            prefix + "const-interaction.destructive entry 1: command [/] is read by the gate as nothing"
+            " — fix: write the command the wrapper or shell runs instead, such as command: [rm]; the gate"
+            " compares the reading, so this entry can never match",
+        ),
         (  # a shell told to run a string hands it on: there is no reading of these words
             unread(["bash", "-c", "x"]),
             prefix + "const-interaction.destructive entry 1: command [bash, -c, x] has no reading, since it"
@@ -802,6 +826,7 @@ def t13() -> tuple[bool, str]:
         "echo 'unbalanced && rm -r x": [("echo", "'unbalanced", "&&", "rm", "-r", "x")],
         "(cd x && rm -r y)": [("cd", "x"), ("rm", "-r", "y")],
         "sudo -u root rm -r x": [("rm", "-r", "x")],
+        "exec -a x rm -r y": [("rm", "-r", "y")],
         "git push \\\n -f": [("git", "push", "-f")],
         "ls &> /dev/null; rm -r x": [("ls", "&>", "/dev/null"), ("rm", "-r", "x")],
         "{ git push -f; }": [("git", "push", "-f")],
@@ -811,9 +836,9 @@ def t13() -> tuple[bool, str]:
     # itself; a path, a wrapper, an assignment, a shell word and a wrapper alone do not; a shell told
     # to run a string, or `env -S`, has no reading; an option in an entry stays
     unread = [
-        [entry.command, tokens.reading(entry.command)]
+        [entry.command, tokens.reading(entry.command, DEFAULT_READER_LISTS)]
         for entry in DEFAULT_DESTRUCTIVE
-        if tokens.reading(entry.command) != list(entry.command)
+        if tokens.reading(entry.command, DEFAULT_READER_LISTS) != list(entry.command)
     ]
     entry_readings = {
         ("git", "-C"): ["git", "-C"],
@@ -824,13 +849,14 @@ def t13() -> tuple[bool, str]:
         ("FOO=1", "x"): ["x"],
         ("exec", "x"): ["x"],
         ("sudo",): [],
+        ("x/",): [""],
         ("bash", "-c", "x"): None,
         ("env", "-S", "x"): None,
     }
     off = {
-        words: tokens.reading(words)
+        words: tokens.reading(words, DEFAULT_READER_LISTS)
         for words, reading in entry_readings.items()
-        if tokens.reading(words) != reading
+        if tokens.reading(words, DEFAULT_READER_LISTS) != reading
     }
     if unread or off:
         return False, f"defaults not read as themselves: {unread}; entry readings wrong: {off}"
@@ -851,6 +877,7 @@ def t13() -> tuple[bool, str]:
         "nice",
         "stdbuf",
         "timeout",
+        "exec",
     )
     # env's `-S` and `--split-string` are no flags of this table: item 6 holds the string they name
     valued_flags = {
@@ -863,12 +890,15 @@ def t13() -> tuple[bool, str]:
         "nice": "-n --adjustment",
         "stdbuf": "-i -o -e --input --output --error",
         "timeout": "-s -k --signal --kill-after",
+        "exec": "-a",  # added with its move to a wrapper: bash's manual, `exec [-cl] [-a name] [command]`
     }
     positional = {"timeout": " 5"}  # `timeout <duration> <command>`: one word before the command
     shells = ("bash", "sh", "zsh", "dash", "ksh")
     shell_options = (  # (shell, the options before `-c`)
         ("bash", "-o pipefail "),
         ("bash", "-O extglob "),
+        ("bash", "+O extglob "),
+        ("bash", "-eO extglob "),
         ("bash", "+o posix "),
         ("bash", "-eo pipefail "),
         ("bash", "--rcfile f "),
@@ -891,13 +921,48 @@ def t13() -> tuple[bool, str]:
     }
     pinned = {**wrapper_texts, **flag_texts, **shell_texts}
     wrong = {
-        text: [s.words for s in tokens.split(text)]
+        text: [s.words for s in tokens.split(text, DEFAULT_READER_LISTS)]
         for text, words in {**readings, **pinned}.items()
-        if [s.words for s in tokens.split(text)] != words
+        if [s.words for s in tokens.split(text, DEFAULT_READER_LISTS)] != words
     }
+    # The fields no default uses, on lists of their own: a wrapper of two words, the longest match
+    # winning over its first word alone; `numbers`, skipped only when a number; a command option after
+    # a positional word and before it; a shell's long command option, its value attached or the next word.
+    own_lists = ReaderLists(
+        (
+            Wrapper(("uv",)),
+            Wrapper(("uv", "run"), with_value=("--with", "-p")),
+            Wrapper(("chrt",), with_value=("-T",), numbers=1),
+            Wrapper(("flock",), positionals=1, command_flags=("-c", "--command")),
+        ),
+        (Shell("yash", command_flags=("--cmdline",)),),
+    )
+    rm_read = [rm]
+    own_readings = {
+        "uv run --with x rm -rf b": rm_read,
+        "/bin/uv run -p 3.12 rm -rf b": rm_read,
+        "uv run rm -rf b": rm_read,
+        "uv tool rm -rf b": [("tool", "rm", "-rf", "b")],
+        "chrt 10 rm -rf b": rm_read,
+        "chrt -T 5 10 rm -rf b": rm_read,
+        "chrt rm -rf b": rm_read,
+        "chrt 10 20 rm -rf b": [("20", "rm", "-rf", "b")],
+        "flock /tmp/l rm -rf b": rm_read,
+        "flock /tmp/l -c 'rm -rf b'": rm_read,
+        "flock -c 'rm -rf b'": rm_read,
+        "flock /tmp/l --command 'rm -rf b' x": [("rm", "-rf", "b", "x")],
+        "yash --cmdline 'rm -rf b'": [("yash", "--cmdline", "rm -rf b"), rm],
+        "yash --cmdline='rm -rf b'": [("yash", "--cmdline=rm -rf b"), rm],
+    }
+    own_wrong = {
+        text: [s.words for s in tokens.split(text, own_lists)]
+        for text, words in own_readings.items()
+        if [s.words for s in tokens.split(text, own_lists)] != words
+    }
+    wrong.update(own_wrong)
     return (not wrong), (
-        f"{len(readings)} readings, {len(pinned)} wrapper and shell readings and {len(entry_readings)} entry"
-        f" readings hold, {ENTRIES} defaults read as themselves"
+        f"{len(readings)} readings, {len(pinned)} wrapper and shell readings, {len(own_readings)} on lists"
+        f" of their own and {len(entry_readings)} entry readings hold, {ENTRIES} defaults read as themselves"
         if not wrong
         else f"wrong: {wrong}"
     )

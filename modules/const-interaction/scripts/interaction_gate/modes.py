@@ -14,7 +14,7 @@ from const_gate.pipeline import Skip
 
 from . import checks, messages, tokens
 from . import dials as own_dials
-from .model import COMMAND_FLAG, InteractionDials, Subcommand
+from .model import COMMAND_FLAG, DEFAULT_READER_LISTS, InteractionDials, Subcommand
 
 
 def hook_mode(output: Output, stdin: TextIO) -> int:
@@ -24,7 +24,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     dials = own_dials.parse(target.dials.own)  # validated at each read, in every mode
     if target.event_name != PRE_WRITE or target.tool_name != SHELL or target.command is None:
         raise ConfigurationFailure(messages.c12_event(target.event_name, target.tool_name))
-    subcommands = tokens.split(target.command)
+    subcommands = tokens.split(target.command, DEFAULT_READER_LISTS)
     if not dials.destructive:
         return pipeline.green_event(output, messages.g1_nothing_gated())
     findings = _findings(dials, subcommands)
@@ -56,7 +56,7 @@ def scan_with(output: Output, start: Path, values: cli.Values) -> int:
     command = values.get(COMMAND_FLAG)
     if command is None:
         return pipeline.skip(output, messages.g1_skip_no_command())
-    subcommands = tokens.split(command)
+    subcommands = tokens.split(command, DEFAULT_READER_LISTS)
     tail = messages.f9_command_tail(len(dials.destructive), len(subcommands))
     return pipeline.report_scan(output, _findings(dials, subcommands), (), tail)
 

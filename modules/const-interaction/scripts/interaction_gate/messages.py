@@ -187,7 +187,7 @@ def c5_entry_unread(index: int, command: Sequence[str], read: Sequence[str] | No
     if read is None:
         detail = f"command {written} has no reading, since it hands a string on to be split again"
         fix = f"write the command the shell runs instead, such as command: [rm]; {never}"
-    elif not read:
+    elif not read or "" in read:  # nothing, or an empty word, as `x/` reduces to: no command to write back
         detail = f"command {written} is read by the gate as nothing"
         fix = f"write the command the wrapper or shell runs instead, such as command: [rm]; {never}"
     else:

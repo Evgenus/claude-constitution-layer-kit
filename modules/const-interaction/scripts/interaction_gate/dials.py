@@ -14,6 +14,7 @@ from . import messages, tokens
 from .model import (
     DEFAULT_DESTRUCTIVE,
     DEFAULT_HANDLES,
+    DEFAULT_READER_LISTS,
     DEFAULT_TERRITORIES,
     Entry,
     InteractionDials,
@@ -75,7 +76,7 @@ def _entries(value: object) -> tuple[Entry, ...]:
         command = texts(item.get("command"))
         if not command or any(" " in word for word in command):
             raise ConfigurationFailure(messages.c5_entry(index, "command must be a non-empty list of words"))
-        read = tokens.reading(command)
+        read = tokens.reading(command, DEFAULT_READER_LISTS)
         if read != list(command):
             raise ConfigurationFailure(messages.c5_entry_unread(index, command, read))
         raw_flags = item.get("flags", [])

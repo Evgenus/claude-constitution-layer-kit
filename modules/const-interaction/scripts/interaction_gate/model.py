@@ -189,3 +189,101 @@ DEFAULT_DESTRUCTIVE: tuple[Entry, ...] = (
         "use git rm for tracked files, or move the directory to a scratch location first",
     ),
 )
+
+
+@dataclass(frozen=True, slots=True)
+class Wrapper:
+    """A program that runs another program, stripped from the front of a command with its own
+    options. `command` is its words, the first read by its base name. `with_value` are the options
+    whose value is the next word; `positionals` the plain words always skipped before the command
+    (`timeout 5`); `numbers` how many more words are skipped, each only when it is a number;
+    `command_flags` the options whose value is a command string, read again, the words after that
+    value appended to it (`env -S`)."""
+
+    command: tuple[str, ...]
+    with_value: tuple[str, ...] = ()
+    positionals: int = 0
+    numbers: int = 0
+    command_flags: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class Shell:
+    """A program whose option reads a command string: `command` is its one word, `with_value` the
+    options whose value is the next word, `command_flags` the options whose value is the string to
+    read. The words after the string are its arguments and are not read."""
+
+    command: str
+    with_value: tuple[str, ...] = ()
+    command_flags: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ReaderLists:
+    """The wrappers and the shells the shell reader knows."""
+
+    wrappers: tuple[Wrapper, ...]
+    shells: tuple[Shell, ...]
+
+
+def _flags(text: str) -> tuple[str, ...]:
+    return tuple(text.split())
+
+
+# The default wrappers. Per wrapper, the options that take the next word as a value: `nice -n 5`,
+# `sudo -u root`, `xargs -I {}`; a `--flag=value` is one word and needs no entry.
+# Sources, read 2026-09-25: sudo's upstream man page (sudo.ws; -r, -t and their long forms are
+# SELinux-only and absent from the macOS page); the xargs pages of macOS 26 (BSD) and of GNU
+# findutils; env of macOS 26 and GNU coreutils, with FreeBSD's -L and -U; doas of OpenBSD; nice,
+# stdbuf and timeout of GNU coreutils. A long flag whose value is the next word is listed as the
+# page spells it — an abbreviation of it, which GNU getopt_long accepts, is not read as it, since
+# telling one apart needs every flag of the program; `--flag=value` is one word and needs no
+# entry; a GNU flag whose value is optional (`--max-lines[=N]`, `--eof[=STR]`) takes it attached
+# only and is left out on purpose, since given bare it takes no word. env's -S and --split-string
+# hold a command, so they are its `command_flags`, not `with_value`. `timeout` is told its duration
+# before the command: one positional word. `time`, `nohup`, `command`, `builtin` and `noglob` take
+# no option that has a value. `exec`, read 2026-10-05 in bash(1), the shell builtins, as shipped
+# with macOS 26 (bash 3.2.57), synopsis `exec [-cl] [-a name] [command [arguments]]`: -c and -l take
+# no value, -a takes the name, so only `-a` is listed; it was a shell word before, which left
+# `exec -a x rm -r y` read as `-a x rm -r y`.
+DEFAULT_WRAPPERS: tuple[Wrapper, ...] = (
+    Wrapper(("time",)),
+    Wrapper(("nohup",)),
+    Wrapper(("command",)),
+    Wrapper(("builtin",)),
+    Wrapper(("noglob",)),
+    Wrapper(("exec",), with_value=("-a",)),
+    Wrapper(
+        ("xargs",),
+        with_value=_flags(
+            "-I -J -d -P -s -n -L -a -E -R -S --max-args --max-procs --max-chars --arg-file --delimiter"
+            " --process-slot-var"
+        ),
+    ),
+    Wrapper(
+        ("sudo",),
+        with_value=_flags(
+            "-u -g -C -p -h -U -r -t -D -R -T -a -c --user --group --close-from --prompt --host"
+            " --other-user --role --type --chdir --chroot --command-timeout --auth-type --login-class"
+        ),
+    ),
+    Wrapper(("doas",), with_value=_flags("-u -C -a")),
+    Wrapper(
+        ("env",),
+        with_value=_flags("-C -u -P -L -U --chdir --unset"),
+        command_flags=_flags("-S --split-string"),
+    ),
+    Wrapper(("nice",), with_value=_flags("-n --adjustment")),
+    Wrapper(("stdbuf",), with_value=_flags("-i -o -e --input --output --error")),
+    Wrapper(("timeout",), with_value=_flags("-s -k --signal --kill-after"), positionals=1),
+)
+
+# The default shells: the programs whose `-c` string is read as commands. Bash's own options that
+# take a value stand for every shell alike: `-o` and `-O` with their `+` forms (`bash -o pipefail
+# -c …`, `-eo pipefail`, `+o posix`, `-O extglob`) and the long `--rcfile` and `--init-file`.
+DEFAULT_SHELLS: tuple[Shell, ...] = tuple(
+    Shell(name, with_value=_flags("-o -O +o +O --rcfile --init-file"), command_flags=("-c",))
+    for name in ("bash", "sh", "zsh", "dash", "ksh")
+)
+
+DEFAULT_READER_LISTS = ReaderLists(DEFAULT_WRAPPERS, DEFAULT_SHELLS)
