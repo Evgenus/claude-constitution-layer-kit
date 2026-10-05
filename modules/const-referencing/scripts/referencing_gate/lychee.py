@@ -108,7 +108,9 @@ def _binary() -> str:
         said = subprocess.run(
             [binary, "--version"], capture_output=True, text=True, timeout=VERSION_SECONDS, check=False
         ).stdout
-    except (OSError, subprocess.TimeoutExpired):
+    except subprocess.TimeoutExpired as late:
+        raise ConfigurationFailure(messages.x3_no_report(f"no answer in {VERSION_SECONDS} s", "")) from late
+    except OSError:
         said = ""
     version = _VERSION.search(said)
     if version is None or tuple(int(part) for part in version.groups()) < FLOOR:

@@ -754,6 +754,14 @@ def path_with(lychee_script: str | None) -> dict[str, str]:
     return {"PATH": str(directory)}
 
 
+def path_with_unstartable_lychee() -> dict[str, str]:
+    """An executable lychee whose interpreter line names no program: found on PATH, raises OSError."""
+    env = path_with(None)
+    (Path(env["PATH"]) / "lychee").write_text("#!/no/such/interpreter\n")
+    (Path(env["PATH"]) / "lychee").chmod(0o755)
+    return env
+
+
 def scan_with(env: dict[str, str]) -> Result:
     consumer = H.fresh_consumer()
     consumer.write(SOURCE, source("See [x](gone.md)."))
@@ -776,6 +784,7 @@ def link_checker_unusable() -> tuple[bool, str]:
                 messages.x2_lychee_too_old("0.24.2", "lychee 0.23.0"),
             ),
             broken(scan_with(path_with("exit 0\n")), messages.x2_lychee_too_old("0.24.2", "")),
+            broken(scan_with(path_with_unstartable_lychee()), messages.x2_lychee_too_old("0.24.2", "")),
             broken(
                 scan_with(path_with(usage)), messages.x3_no_report("exit 2", "error: unexpected argument")
             ),
@@ -803,7 +812,8 @@ def link_checker_unusable() -> tuple[bool, str]:
                 " checked for resolving",
             ),
         ],
-        "below the floor, a version nobody can read, and exit 2 with no report: each exit 1, never a finding",
+        "below the floor, a version nobody can read, a binary that cannot be started, and exit 2 with no"
+        " report: each exit 1, never a finding",
     )
 
 
@@ -2149,7 +2159,13 @@ def a_link_checker_that_hangs() -> tuple[bool, str]:
     result, took = probe.result()
     scan, scan_took = scanned.result()
     hook, hook_took = hooked.result()
-    on_the_version = result.code == 1 and "BROKEN: " in result.stderr and 4 < took < 8
+    # typed by hand: the first line for a version probe that gave no answer in its 5 s, then the count line
+    probe_typed = (
+        "BROKEN: lychee gave no report: no answer in 5 s — fix: this is a defect of the gate's invocation"
+        " or of the installed lychee, not of the repository; run lychee --version and report both to"
+        " whoever maintains the plugin — until then no reference is checked for resolving"
+    )
+    on_the_version = broken_typed(result, probe_typed)
     # typed by hand: the first line of the check after a write that waited its 20 s, then the count line
     hand_typed = (
         "BROKEN: lychee gave no report: no answer in 20 s, the most a check after a write waits — fix: a"
@@ -2158,7 +2174,10 @@ def a_link_checker_that_hangs() -> tuple[bool, str]:
     )
     return all_of(
         [
-            (on_the_version, f"the version: exit {result.code} after {took:.1f} s: {result.stderr[:160]}"),
+            (
+                on_the_version[0] and result.code == 1 and 4 < took < 8,
+                f"the version: exit {result.code} after {took:.1f} s: {on_the_version[1]}",
+            ),
             expect(scan, 0, shared.g1_green_scan(messages.f9_scan_tail(5, 1, 5, 0, 0, 0)), "stdout"),
             (
                 scan_took > 20,
