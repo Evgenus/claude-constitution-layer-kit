@@ -308,15 +308,81 @@ DEFAULT_WRAPPERS: tuple[Wrapper, ...] = (
     Wrapper(("nice",), with_value=_flags("-n --adjustment")),
     Wrapper(("stdbuf",), with_value=_flags("-i -o -e --input --output --error")),
     Wrapper(("timeout",), with_value=_flags("-s -k --signal --kill-after"), positionals=1),
+    # The wrappers below, read 2026-10-05, each from the page it names; a long flag whose value is the next
+    # word is listed as its page spells it, as above. The util-linux pages are man7.org's, man-pages/man1/
+    # <name>.1.html, of util-linux 2.43.devel, each dated in its footer.
+    # busybox: BusyBox's page (busybox.net/downloads/BusyBox.html, served with a date of 2009-10-02),
+    # `busybox <applet> [arguments...]`: no option of its own, the applet follows.
+    Wrapper(("busybox",)),
+    # setsid: page of 2026-05-24, `setsid [options] program [arguments]`; -c, -f, -w take no value.
+    Wrapper(("setsid",)),
+    # ionice: page of 2026-05-24; -c/--class and -n/--classdata take a value, -t takes none; -p, -P and -u
+    # take ids and run no command, so they are not listed.
+    Wrapper(("ionice",), with_value=_flags("-c -n --class --classdata")),
+    # taskset: page of 2026-05-24, `taskset [options] mask command [argument...]`: one positional word, the
+    # mask, or with -c the CPU list; -a, -c, -p take no value.
+    Wrapper(("taskset",), positionals=1),
+    # caffeinate: macOS 26's own `man caffeinate`, dated 2012-11-09, `caffeinate [-disu] [-t timeout] [-w pid]
+    # [utility arguments...]`: -t and -w take a value.
+    Wrapper(("caffeinate",), with_value=_flags("-t -w")),
+    # flock: page of 2026-05-24, `flock [options] file|directory command [arguments]` or `-c command`: -E
+    # (--conflict-exit-code), -w (--wait, --timeout), --start and --length take a value; one positional
+    # word, the lock file; -c/--command is read after it too, as `env -S`'s string is.
+    Wrapper(
+        ("flock",),
+        with_value=_flags("-E -w --conflict-exit-code --wait --timeout --start --length"),
+        positionals=1,
+        command_flags=_flags("-c --command"),
+    ),
+    # chrt: page of 2026-08-03, `chrt [options] [priority] command [argument...]`: -T, -P, -D, -U, -X with
+    # --sched-runtime, --sched-period, --sched-deadline, --clamp-min, --clamp-max take a value; the priority
+    # is optional since util-linux 2.42, so one number is skipped when there is one.
+    Wrapper(
+        ("chrt",),
+        with_value=_flags(
+            "-T -P -D -U -X --sched-runtime --sched-period --sched-deadline --clamp-min --clamp-max"
+        ),
+        numbers=1,
+    ),
 )
 
 # The default shells: the programs whose `-c` string is read as commands. `-c` is a mode the shell is
 # put in, not an option with a value: the string is the first word after the options. Bash's own
-# options that take a value stand for every shell alike: `-o` and `-O` with their `+` forms (`bash -o
+# options that take a value stand for the first five alike: `-o` and `-O` with their `+` forms (`bash -o
 # pipefail -c …`, `-eo pipefail`, `+o posix`, `-O extglob`) and the long `--rcfile` and `--init-file`.
-DEFAULT_SHELLS: tuple[Shell, ...] = tuple(
-    Shell(name, with_value=_flags("-o -O +o +O --rcfile --init-file"), command_flags=("-c",))
-    for name in ("bash", "sh", "zsh", "dash", "ksh")
+DEFAULT_SHELLS: tuple[Shell, ...] = (
+    *(
+        Shell(name, with_value=_flags("-o -O +o +O --rcfile --init-file"), command_flags=("-c",))
+        for name in ("bash", "sh", "zsh", "dash", "ksh")
+    ),
+    # The shells below, read 2026-10-05, each from the page it names.
+    # fish: fishshell.com/docs/current/cmds/fish.html, fish 4.9.3 (the page marks itself as an old version
+    # and links the same address as the latest release; 4.9.3 is the latest on GitHub): -c/--command and
+    # -C/--init-command run a string; -d/--debug, -o/--debug-output, -p/--profile, --profile-startup and
+    # -f/--features take a value, the page spelling the long ones with `=`, its examples with a space.
+    Shell(
+        "fish",
+        with_value=_flags("-d -o -p -f --debug --debug-output --profile --profile-startup --features"),
+        command_flags=_flags("-c --command -C --init-command"),
+    ),
+    # ash: BusyBox's page lists it as an applet and gives no usage; its usage line is in shell/ash.c of
+    # BusyBox (github.com/mirror/busybox, the file last changed 2024-07-13): `[-il] [-|+Cabefmnuvx]
+    # [-|+o OPT]... [-c 'SCRIPT' [ARG0 ARGS] | FILE ARGS | -s ARGS]`.
+    Shell("ash", with_value=_flags("-o +o"), command_flags=("-c",)),
+    # mksh: mirbsd.org/htman/i386/man1/mksh.htm, page of 2026-01-25, `mksh [-+abCefhiklmnprUuvXx] [-+o option]
+    # [-T [!]tty|-] -c cmd [arg0 ...]`: -o, +o and -T take a value.
+    Shell("mksh", with_value=_flags("-o +o -T"), command_flags=("-c",)),
+    # yash: magicant.github.io/yash/doc/invoke.html (updated 2025-04-21) and _set.html (updated
+    # 2025-11-29): -c (--cmdline) runs its first operand; -o and +o take a name, the options of `set`.
+    Shell("yash", with_value=_flags("-o +o"), command_flags=_flags("-c --cmdline")),
+    # posh: manpages.debian.org/trixie/posh/posh.1.en.html, posh 0.14.1, `posh [+-aCefilnuvx] [+-o option]
+    # [[-c command-string [command-name] | -s | file] [argument...]]`: -o and +o take a value.
+    Shell("posh", with_value=_flags("-o +o"), command_flags=("-c",)),
+    # csh and tcsh: manpages.debian.org/trixie/tcsh/tcsh.1.en.html, tcsh 6.24.13, `tcsh [-bcdefFimnqstvVxX]
+    # [-Dname[=value]] [arg] ...`; FreeBSD 15.1's csh(1), man.freebsd.org, is the same text. No option takes
+    # the next word as its value (`-D` is attached); -c reads the following argument as the commands.
+    Shell("csh", command_flags=("-c",)),
+    Shell("tcsh", command_flags=("-c",)),
 )
 
 DEFAULT_READER_LISTS = ReaderLists(DEFAULT_WRAPPERS, DEFAULT_SHELLS)

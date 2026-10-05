@@ -258,6 +258,33 @@ def t5() -> tuple[bool, str]:
         asked("git --namespace n push -f", d1("", "git push", "-f", "git --namespace n push -f")),
         # git's page gives the value of --exec-path as optional: the verb stands right after it
         asked("git --exec-path push -f", d1("", "git push", "-f", "git --exec-path push -f")),
+        # the wrappers of the defaults whose pages the kit read on 2026-10-05, each in the forms of its page
+        *(
+            asked(f"{form} rm -rf build", d1("", "rm", "-r", f"{form} rm -rf build"))
+            for form in (
+                "busybox",
+                "setsid -f",
+                "ionice -c3",
+                "ionice -c 3",
+                "taskset 0x3",
+                "taskset -c 0,1",
+                "caffeinate -t 5",
+                "flock /tmp/l",
+                "flock -w 5 /tmp/l",
+                "chrt 10",
+                "chrt -f 10",
+            )
+        ),
+        # flock's `-c` after the lock file: the string it names is the command, read again
+        asked("flock /tmp/l -c 'rm -rf build'", d1("", "rm", "-r", "rm -rf build")),
+        # the shells of the defaults, `-c` and the forms of their pages: the string is read as commands
+        *(
+            asked(f"{shell} -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2)
+            for shell in ("fish", "ash", "mksh", "yash", "posh", "csh", "tcsh")
+        ),
+        asked("fish --command='git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("yash --cmdline 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
+        asked("mksh -T /dev/tty2 -c 'git push -f'", d1("", "git push", "-f", "git push -f"), subcommands=2),
     )
 
 
@@ -437,7 +464,7 @@ def t7() -> tuple[bool, str]:
     uv_run = own(wrappers=[{"command": ["uv", "run"], "with_value": ["--with"]}])
     no_sudo = own(wrappers=[{"command": ["sudo"], "drop": True}])
     bare_sudo = own(wrappers=[{"command": ["sudo"]}])
-    fish = own(shells=[{"command": ["fish"], "command_flags": ["-c"]}])
+    elvish = own(shells=[{"command": ["elvish"], "command_flags": ["-c"]}])
     sudo_own = own(
         wrappers=[{"command": ["sudo"], "drop": True}],
         destructive=[{"command": ["sudo"], "teach": teach, "alternative": alternative}],
@@ -461,8 +488,8 @@ def t7() -> tuple[bool, str]:
         ),  # `-u` takes no value now: `root` is the program
         asked("sudo rm -rf b", d1("", "rm", "-r", "sudo rm -rf b"), dials_patch=bare_sudo),
         asked("sudo -u root rm -rf b", d1("", "rm", "-r", "sudo -u root rm -rf b")),  # the default's `-u`
-        passed("fish -c 'git push -f'"),  # no dial: fish is no default shell
-        asked("fish -c 'git push -f'", git_push, subcommands=2, dials_patch=fish),
+        passed("elvish -c 'git push -f'"),  # no dial: elvish is no default shell
+        asked("elvish -c 'git push -f'", git_push, subcommands=2, dials_patch=elvish),
         passed(  # a replacing entry takes its fields as given: `-c` is no command flag now
             "bash -c 'git push -f'", dials_patch=own(shells=[{"command": ["bash"], "command_flags": ["-x"]}])
         ),
@@ -628,7 +655,7 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             " positionals, numbers, command_flags or drop",
         ),
         (  # a wrapper's fields are not a shell's
-            own(shells=[{"command": ["fish"], "positionals": 1}]),
+            own(shells=[{"command": ["elvish"], "positionals": 1}]),
             s + "entry 1: 'positionals' is no field of a shell entry — fix: " + unknown + "command,"
             " with_value, command_flags or drop",
         ),
@@ -638,11 +665,11 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             " positionals, numbers, command_flags or drop",
         ),
         *((own(wrappers=[entry]), wrapper_command) for entry in unread_commands(["uv run"], ["/usr/bin/uv"])),
-        *((own(shells=[entry]), shell_command) for entry in unread_commands(["a b"], ["/bin/fish"])),
+        *((own(shells=[entry]), shell_command) for entry in unread_commands(["a b"], ["/bin/elvish"])),
         (
-            own(shells=[{"command": ["fish", "x"]}]),
-            s + "entry 1: command [fish, x] has more than one word, and a shell is one word — fix: write one"
-            " entry for each shell, command: [<word>]",
+            own(shells=[{"command": ["elvish", "x"]}]),
+            s + "entry 1: command [elvish, x] has more than one word, and a shell is one word — fix: write"
+            " one entry for each shell, command: [<word>]",
         ),
         *(  # the reader takes a shell word or an assignment off before it looks for a wrapper
             (
@@ -669,7 +696,7 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             " command_flags if its value is a command to read, in with_value if not",
         ),
         (
-            own(shells=[{"command": ["fish"], "with_value": ["-o"], "command_flags": ["-o"]}]),
+            own(shells=[{"command": ["elvish"], "with_value": ["-o"], "command_flags": ["-o"]}]),
             s + "entry 1: with_value and command_flags both hold '-o', and the reader tries command_flags"
             " first, so its place in with_value is never used — fix: keep it in one of the two, in"
             " command_flags if its value is a command to read, in with_value if not",
@@ -682,7 +709,7 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
                 " command flag, such as command_flags: [-c], or remove the entry; a default shell is removed"
                 f" by an entry with command: [{word}] and drop: true",
             )
-            for word, entry in (("fish", {"command": ["fish"]}), ("bash", {"command": ["bash"]}))
+            for word, entry in (("elvish", {"command": ["elvish"]}), ("bash", {"command": ["bash"]}))
         ),
         (
             own(wrappers=[{"command": ["uv"], "with_value": "-u"}]),
@@ -690,7 +717,7 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             " as the command line has it, such as -u or --user; to take none, leave the field out",
         ),
         (
-            own(shells=[{"command": ["fish"], "command_flags": "-c"}]),
+            own(shells=[{"command": ["elvish"], "command_flags": "-c"}]),
             s + "entry 1: command_flags must be a list of options — fix: write the options as list items,"
             " each as the command line has it, such as -o, +o or --rcfile; to take none, leave the field out",
         ),
@@ -720,7 +747,7 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             " write it as the command line has it, with its dash, such as -u or --user",
         ),
         (
-            own(shells=[{"command": ["fish"], "with_value": ["o"]}]),
+            own(shells=[{"command": ["elvish"], "with_value": ["o"]}]),
             s + "entry 1: with_value holds 'o', which starts with neither '-' nor '+', so it is no option —"
             " fix: write it as the command line has it, with its sign, such as -o, +o or --rcfile",
         ),
@@ -732,7 +759,7 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             for field, option in (("command_flags", "--"), ("with_value", "-"))
         ),
         (
-            own(shells=[{"command": ["fish"], "with_value": ["+"]}]),
+            own(shells=[{"command": ["elvish"], "with_value": ["+"]}]),
             s + sign.format(field="with_value", option="+"),
         ),
         (
@@ -752,7 +779,7 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             " '-a', '-b' and '-c', or a long option as --name",
         ),
         (  # a shell's command flag is read the same way
-            own(shells=[{"command": ["fish"], "command_flags": ["+ab"]}]),
+            own(shells=[{"command": ["elvish"], "command_flags": ["+ab"]}]),
             s
             + "entry 1: command_flags holds '+ab', a short option of more than one letter, "
             + never
@@ -809,20 +836,21 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             own(wrappers=[{"command": ["suod"], "drop": True}]),
             w + "entry 1: drop names [suod], which is no default wrapper, and a misspelt name would drop"
             " nothing in silence — fix: write the command of a default wrapper (time, nohup, command,"
-            " builtin, noglob, exec, xargs, sudo, doas, env, nice, stdbuf, timeout) or remove the entry",
+            " builtin, noglob, exec, xargs, sudo, doas, env, nice, stdbuf, timeout, busybox, setsid, ionice,"
+            " taskset, caffeinate, flock, chrt) or remove the entry",
         ),
         (
-            own(shells=[{"command": ["fish"], "drop": True}]),
-            s + "entry 1: drop names [fish], which is no default shell, and a misspelt name would drop"
-            " nothing in silence — fix: write the command of a default shell (bash, sh, zsh, dash, ksh) or"
-            " remove the entry",
+            own(shells=[{"command": ["elvish"], "drop": True}]),
+            s + "entry 1: drop names [elvish], which is no default shell, and a misspelt name would drop"
+            " nothing in silence — fix: write the command of a default shell (bash, sh, zsh, dash, ksh, fish,"
+            " ash, mksh, yash, posh, csh, tcsh) or remove the entry",
         ),
         (  # the word is echoed cut at 80 characters, its backslash doubled
             own(wrappers=[{"command": ["x\\y" + "z" * 100], "drop": True}]),
             w + "entry 1: drop names [x\\\\y" + "z" * 77 + "… [103 characters]], which is no default wrapper,"
             " and a misspelt name would drop nothing in silence — fix: write the command of a default"
             " wrapper (time, nohup, command, builtin, noglob, exec, xargs, sudo, doas, env, nice, stdbuf,"
-            " timeout) or remove the entry",
+            " timeout, busybox, setsid, ionice, taskset, caffeinate, flock, chrt) or remove the entry",
         ),
         (
             own(wrappers=[{"command": ["uv"]}, {"command": ["uv"], "with_value": ["-p"]}]),
@@ -837,17 +865,20 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
             " needs; entries of one command are never merged",
         ),
         (
-            own(shells=[{"command": ["fish"]}, {"command": ["fish"]}]),
-            s + "entry 2: command [fish] stands in entry 1 already, and two entries of one command would"
+            own(shells=[{"command": ["elvish"]}, {"command": ["elvish"]}]),
+            s + "entry 2: command [elvish] stands in entry 1 already, and two entries of one command would"
             " leave one of them unread in silence — fix: keep one entry per command, with every field it"
             " needs; entries of one command are never merged",
         ),
         (
-            own(wrappers=[{"command": ["fish"]}], shells=[{"command": ["fish"], "command_flags": ["-c"]}]),
-            prefix + "const-interaction.wrappers and const-interaction.shells both name 'fish', and a word is"
-            " a wrapper or a shell, never both: the reader strips a wrapper before it reads a shell — fix:"
+            own(
+                wrappers=[{"command": ["elvish"]}],
+                shells=[{"command": ["elvish"], "command_flags": ["-c"]}],
+            ),
+            prefix + "const-interaction.wrappers and const-interaction.shells both name 'elvish', and a word"
+            " is a wrapper or a shell, never both: the reader strips a wrapper before it reads a shell — fix:"
             " give it to one of the two dials: remove its entry from the other, where a default is removed"
-            " by an entry with command: [fish] and drop: true",
+            " by an entry with command: [elvish] and drop: true",
         ),
         (  # judged on the merged lists: bash is a default shell
             own(wrappers=[{"command": ["bash"]}]),
@@ -868,10 +899,10 @@ def reader_dial_cases(prefix: str) -> list[tuple[dict[str, object], str]]:
         ),
         (  # a shell added hands its string on
             own(
-                shells=[{"command": ["fish"], "command_flags": ["-c"]}],
-                destructive=[{"command": ["fish", "-c", "x"], "teach": "t", "alternative": "a"}],
+                shells=[{"command": ["elvish"], "command_flags": ["-c"]}],
+                destructive=[{"command": ["elvish", "-c", "x"], "teach": "t", "alternative": "a"}],
             ),
-            prefix + "const-interaction.destructive entry 1: command [fish, -c, x] has no reading, since it"
+            prefix + "const-interaction.destructive entry 1: command [elvish, -c, x] has no reading, since it"
             " hands a string on to be split again — fix: write the command the shell runs instead, such as"
             " command: [rm]; the gate compares the reading, so this entry can never match",
         ),
@@ -1230,6 +1261,44 @@ def t13() -> tuple[bool, str]:
         "(cd x && rm -r y)": [("cd", "x"), ("rm", "-r", "y")],
         "sudo -u root rm -r x": [("rm", "-r", "x")],
         "exec -a x rm -r y": [("rm", "-r", "y")],
+        # the wrappers added on 2026-10-05, each to the command: busybox has no option of its own, taskset
+        # and flock one word before it, chrt an optional number, ionice two valued options in two forms
+        "busybox rm -rf b": [("rm", "-rf", "b")],
+        "setsid -f rm -rf b": [("rm", "-rf", "b")],
+        "ionice -c3 rm -rf b": [("rm", "-rf", "b")],
+        "ionice -c 3 rm -rf b": [("rm", "-rf", "b")],
+        "ionice --class 3 --classdata 7 rm -rf b": [("rm", "-rf", "b")],
+        "taskset 0x3 rm -rf b": [("rm", "-rf", "b")],
+        "taskset -c 0,1 rm -rf b": [("rm", "-rf", "b")],
+        "caffeinate -t 5 rm -rf b": [("rm", "-rf", "b")],
+        "caffeinate -dimsu rm -rf b": [("rm", "-rf", "b")],
+        "flock /tmp/l rm -rf b": [("rm", "-rf", "b")],
+        "flock -w 5 /tmp/l rm -rf b": [("rm", "-rf", "b")],
+        "flock -n -E 9 /tmp/l rm -rf b": [("rm", "-rf", "b")],
+        "chrt 10 rm -rf b": [("rm", "-rf", "b")],
+        "chrt -f 10 rm -rf b": [("rm", "-rf", "b")],
+        "chrt -i rm -rf b": [("rm", "-rf", "b")],
+        "chrt --sched-period 100 -d 0 rm -rf b": [("rm", "-rf", "b")],
+        # flock's `-c` (`--command`) names a string a shell runs: read again, before the lock file or after it
+        "flock /tmp/l -c 'rm -rf b'": [("rm", "-rf", "b")],
+        "flock -c 'rm -rf b' /tmp/l": [("rm", "-rf", "b", "/tmp/l")],
+        "flock --command 'rm -rf b' /tmp/l": [("rm", "-rf", "b", "/tmp/l")],
+        # the shells added on 2026-10-05: `-c` a mode, its string the first operand; fish's `-C` and its
+        # long forms too, yash's `--cmdline`, mksh's `-T` takes the next word, fish's `-d` too
+        "fish -c 'rm -rf b'": [("fish", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "fish --command='rm -rf b'": [("fish", "--command=rm -rf b"), ("rm", "-rf", "b")],
+        "fish -C 'rm -rf b'": [("fish", "-C", "rm -rf b"), ("rm", "-rf", "b")],
+        "fish --init-command='rm -rf b'": [("fish", "--init-command=rm -rf b"), ("rm", "-rf", "b")],
+        "fish -d x -c 'rm -rf b'": [("fish", "-d", "x", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "ash -c 'rm -rf b'": [("ash", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "mksh -T /dev/tty2 -c 'rm -rf b'": [
+            ("mksh", "-T", "/dev/tty2", "-c", "rm -rf b"),
+            ("rm", "-rf", "b"),
+        ],
+        "yash --cmdline 'rm -rf b'": [("yash", "--cmdline", "rm -rf b"), ("rm", "-rf", "b")],
+        "posh -c 'rm -rf b'": [("posh", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "csh -c 'rm -rf b'": [("csh", "-c", "rm -rf b"), ("rm", "-rf", "b")],
+        "tcsh -c 'rm -rf b'": [("tcsh", "-c", "rm -rf b"), ("rm", "-rf", "b")],
         # a shell's command flag is a mode: the string is the first operand after the options, whatever
         # letters share the cluster; the words after it are arguments, not read; no mode, no string
         "bash -ce 'rm -rf b'": [("bash", "-ce", "rm -rf b"), ("rm", "-rf", "b")],
@@ -1275,10 +1344,11 @@ def t13() -> tuple[bool, str]:
     }
     if unread or off:
         return False, f"defaults not read as themselves: {unread}; entry readings wrong: {off}"
-    # The reader's wrappers and shells as they stood before their lists moved into dials, typed by hand
-    # and never derived from tokens.py: a table derived from the code would move with it and guard
-    # nothing. Every wrapper name, every valued flag of every wrapper (a flag takes the next word `v`),
-    # every shell, and every option of a shell that takes a value, each read to `rm -rf b`.
+    # The reader's default wrappers and shells, as they stood before their lists moved into dials and the
+    # ones added since, typed by hand and never derived from tokens.py: a table derived from the code
+    # would move with it and guard nothing. Every wrapper name, every valued flag of every wrapper (a flag
+    # takes the next word `v`), every shell, and every option of a shell that takes a value, each read to
+    # `rm -rf b`.
     wrapper_names = (
         "time",
         "nohup",
@@ -1293,6 +1363,14 @@ def t13() -> tuple[bool, str]:
         "stdbuf",
         "timeout",
         "exec",
+        # added on 2026-10-05, from the pages their entries cite
+        "busybox",
+        "setsid",
+        "ionice",
+        "taskset",
+        "caffeinate",
+        "flock",
+        "chrt",
     )
     # env's `-S` and `--split-string` are no flags of this table: item 6 holds the string they name
     valued_flags = {
@@ -1306,9 +1384,15 @@ def t13() -> tuple[bool, str]:
         "stdbuf": "-i -o -e --input --output --error",
         "timeout": "-s -k --signal --kill-after",
         "exec": "-a",  # added with its move to a wrapper: bash's manual, `exec [-cl] [-a name] [command]`
+        # added on 2026-10-05; flock's `-c` and `--command` are command flags, held by their own readings
+        "ionice": "-c -n --class --classdata",
+        "caffeinate": "-t -w",
+        "flock": "-E -w --conflict-exit-code --wait --timeout --start --length",
+        "chrt": "-T -P -D -U -X --sched-runtime --sched-period --sched-deadline --clamp-min --clamp-max",
     }
-    positional = {"timeout": " 5"}  # `timeout <duration> <command>`: one word before the command
-    shells = ("bash", "sh", "zsh", "dash", "ksh")
+    # `timeout <duration> <command>`, `taskset <mask> <command>`, `flock <file> <command>`: one word before it
+    positional = {"timeout": " 5", "taskset": " 0x3", "flock": " /tmp/l"}
+    shells = ("bash", "sh", "zsh", "dash", "ksh", "fish", "ash", "mksh", "yash", "posh", "csh", "tcsh")
     shell_options = (  # (shell, the options before `-c`)
         ("bash", "-o pipefail "),
         ("bash", "-O extglob "),
@@ -1320,6 +1404,25 @@ def t13() -> tuple[bool, str]:
         ("bash", "--init-file f "),
         ("zsh", "--rcfile f "),
         ("ksh", "--init-file f "),
+        # added on 2026-10-05: the options of each page that take the next word
+        ("fish", "-d x "),
+        ("fish", "-o x "),
+        ("fish", "-p x "),
+        ("fish", "-f x "),
+        ("fish", "--debug x "),
+        ("fish", "--debug-output x "),
+        ("fish", "--profile x "),
+        ("fish", "--profile-startup x "),
+        ("fish", "--features x "),
+        ("ash", "-o pipefail "),
+        ("ash", "+o posix "),
+        ("mksh", "-o posix "),
+        ("mksh", "+o posix "),
+        ("mksh", "-T /dev/tty2 "),
+        ("yash", "-o posix "),
+        ("yash", "+o posix "),
+        ("posh", "-o posix "),
+        ("posh", "+o posix "),
     )
     rm = ("rm", "-rf", "b")
     wrapper_texts = {f"{name}{positional.get(name, '')} rm -rf b": [rm] for name in wrapper_names}
@@ -1586,7 +1689,7 @@ def t30() -> tuple[bool, str]:
                     ],
                     shells=[
                         {"command": ["dash"], "drop": True},
-                        {"command": ["fish"], "command_flags": ["-c"]},
+                        {"command": ["elvish"], "command_flags": ["-c"]},
                     ],
                 )
             )
@@ -1619,7 +1722,7 @@ def t30() -> tuple[bool, str]:
                         {"command": ["sudo"], "with_value": ["-u"]},
                     ],
                     shells=[
-                        {"command": ["fish"], "command_flags": ["-c"]},
+                        {"command": ["elvish"], "command_flags": ["-c"]},
                         {"command": ["bash"], "command_flags": ["-c"]},
                         {"command": ["dash"], "drop": True},
                     ],
@@ -1633,7 +1736,7 @@ def t30() -> tuple[bool, str]:
             prepared(
                 own(
                     wrappers=[{"command": ["uv"]}],
-                    shells=[{"command": ["fish"], "command_flags": ["-c"]}],
+                    shells=[{"command": ["elvish"], "command_flags": ["-c"]}],
                 )
             )
         )
