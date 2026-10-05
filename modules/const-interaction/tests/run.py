@@ -1739,6 +1739,21 @@ def t30() -> tuple[bool, str]:
         session_json(prepared(own(destructive=[], wrappers=[{"command": ["sudo"], "drop": True}])))
     )
     zero_drop_ok = zero_drop.stdout == RULES + verbosity + zero + "\n" + sudo_line
+    # the drop and replace lines stand before the pairs
+    ordered = SESSION.run_gate(
+        session_json(
+            prepared(
+                own(
+                    wrappers=[{"command": ["sudo"], "drop": True}],
+                    boundary_examples=[{"violates": "an essay", "complies": "the word"}],
+                )
+            )
+        )
+    )
+    ordered_ok = ordered.stdout == RULES + verbosity + sudo_line + (
+        "Boundary examples of this project (const-interaction.boundary_examples), each violates / complies:\n"
+        "1. an essay / the word\n"
+    )
     replaced = SESSION.run_gate(
         session_json(
             prepared(
@@ -1792,6 +1807,10 @@ def t30() -> tuple[bool, str]:
         (
             zero_drop_ok,
             "a drop after the zero line" if zero_drop_ok else f"got: {zero_drop.stdout[-400:]}",
+        ),
+        (
+            ordered_ok,
+            "a drop line before the pairs" if ordered_ok else f"got: {ordered.stdout[-500:]}",
         ),
         (
             replaced_ok,
