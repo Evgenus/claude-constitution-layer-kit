@@ -178,6 +178,16 @@ def x3_no_report(what: str, first_line: str) -> Broken:
     )
 
 
+def x3_too_slow(seconds: float) -> Broken:
+    """The run's budget in a check after a write ran out: lychee is not at fault, the tree is large."""
+    return Broken(
+        ToolKey.X3,
+        f"lychee gave no report: no answer in {seconds:g} s, the most a check after a write waits",
+        "a large tree can take lychee longer than that; run the scan, which waits for lychee as long as it"
+        " takes — until then no reference is checked for resolving",
+    )
+
+
 # ---------------------------------------------------------------- green, skip and count lines
 
 

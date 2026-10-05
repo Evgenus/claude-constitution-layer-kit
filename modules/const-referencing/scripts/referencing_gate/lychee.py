@@ -28,9 +28,8 @@ from . import messages
 
 TOOL = "lychee"
 FLOOR = (0, 24, 2)
-SECONDS = 20  # with the version probe below the hook's timeout: a checker that hangs is a failure
-# with a message, never a hook the platform gives up on and lets through
-VERSION_SECONDS = 5
+HOOK_SECONDS = 20  # the run's budget in a check after a write; the scan passes none
+VERSION_SECONDS = 5  # the probe's, in every mode; with HOOK_SECONDS under the handler's timeout in hooks.json
 CONFIG = Path(__file__).resolve().parent.parent / "lychee.toml"
 _VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 _NO_FRAGMENT = "Cannot find fragment"
@@ -56,8 +55,9 @@ class Break:
     words: str  # the checker's own, for a kind this module has no text for
 
 
-def find_breaks(root: Path, inputs: Sequence[str]) -> list[Break]:
-    """Every unresolved link of the inputs, repository-relative paths of files that exist."""
+def find_breaks(root: Path, inputs: Sequence[str], seconds: float | None) -> list[Break]:
+    """Every unresolved link of the inputs, repository-relative paths of files that exist. `seconds`
+    is the run's budget, None for no limit: the caller chooses, there is no default."""
     binary = _binary()
     if not inputs:
         return []
@@ -82,11 +82,11 @@ def find_breaks(root: Path, inputs: Sequence[str]) -> list[Break]:
                 cwd=elsewhere,
                 capture_output=True,
                 text=True,
-                timeout=SECONDS,
+                timeout=seconds,
                 check=False,
             )
         except subprocess.TimeoutExpired as late:
-            raise ConfigurationFailure(messages.x3_no_report(f"no answer in {SECONDS} s", "")) from late
+            raise ConfigurationFailure(messages.x3_too_slow(late.timeout)) from late
     breaks = _parse(root, done.stdout)
     if done.returncode not in (0, 2) or breaks is None:
         first = (done.stderr.strip().splitlines() or [""])[0]

@@ -20,7 +20,7 @@ from const_gate.repository import list_markdown, read_text
 from const_gate.territory import Matcher
 
 from . import dials as own_dials
-from . import lint, mentions, messages, tree
+from . import lint, lychee, mentions, messages, tree
 from .model import Ids, Lane, ReferencingDials, Switch
 
 SHOWN_AFTER_WRITE = 20  # findings printed after one write; the count line carries the total
@@ -63,7 +63,7 @@ def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -
     if covered is None:
         raise ConfigurationFailure(messages.c5_governed_only_without_root())
     texts = {path: _text(target.root, path) for path in covered}
-    found, links = tree.examine(target.root, texts, dials.heading_anchors, about=rel)
+    found, links = tree.examine(target.root, texts, dials.heading_anchors, lychee.HOOK_SECONDS, about=rel)
     findings = [finding for path in sorted(found) for _, finding in found[path]]
     if not findings:
         if rel not in covered:
@@ -90,7 +90,7 @@ def scan_mode(output: Output, start: Path) -> int:
         ids = ids_of(texts)
         others = mentions.other_files(target.root) if dials.mentions else []
         named, read = mentions.examine(target.root, others, dials.mentions, ids, matcher)
-    in_tree, _ = tree.examine(target.root, texts, dials.heading_anchors)
+    in_tree, _ = tree.examine(target.root, texts, dials.heading_anchors, None)
     findings: list[Finding] = []
     links = 0
     for rel in covered:

@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
@@ -2120,16 +2121,55 @@ def older_heading_link_not_repeated() -> tuple[bool, str]:
 
 def a_link_checker_that_hangs() -> tuple[bool, str]:
     """A checker that never answers is a configuration failure inside the hook's timeout, never
-    a hook the platform gives up on: the version probe and the run have a budget each."""
+    a hook the platform gives up on: the version probe and the run have a budget each. The run's
+    budget belongs to the check after a write: the scan waits for a slow checker, as long as it takes.
+    The three runs go side by side, so the item costs the longest of them, about 21 s."""
     sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
     slow_version = f'case "$1" in --version) {sleep} 8; echo "lychee 0.24.2";; *) exit 0;; esac\n'
+    # answers --version at once; any other call is 1 s past the hook's 20 s, then an empty report
+    report = '{"error_map": {}}'
+    slow_run = f"case \"$1\" in --version) echo 'lychee 0.24.2';; *) {sleep} 21; echo '{report}';; esac\n"
     consumer = H.fresh_consumer()
     consumer.write(SOURCE, source("See [x](gone.md)."))
-    began = time.monotonic()
-    result = H.run_gate("", args=["--scan", str(consumer.root)], env=path_with(slow_version))
-    took = time.monotonic() - began
-    ok = result.code == 1 and "BROKEN: " in result.stderr and 4 < took < 8
-    return ok, f"exit {result.code} after {took:.1f} s: {result.stderr[:160]}"
+    in_the_scan, in_the_hook = H.fresh_consumer(), H.fresh_consumer()
+    for tree in (in_the_scan, in_the_hook):
+        tree.write("constitution.yaml", dials_text())
+        tree.write(TARGET, TARGET_TEXT)
+        tree.write(SOURCE, source("See [x](t.md)."))
+    event = event_json(in_the_hook.root, Write(SOURCE, source("See [x](t.md).")), event=AFTER)
+
+    def timed(stdin: str, args: list[str], script: str) -> tuple[Result, float]:
+        began = time.monotonic()
+        return H.run_gate(stdin, args=args, env=path_with(script)), time.monotonic() - began
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        probe = pool.submit(timed, "", ["--scan", str(consumer.root)], slow_version)
+        scanned = pool.submit(timed, "", ["--scan", str(in_the_scan.root)], slow_run)
+        hooked = pool.submit(timed, event, [], slow_run)
+    result, took = probe.result()
+    scan, scan_took = scanned.result()
+    hook, hook_took = hooked.result()
+    on_the_version = result.code == 1 and "BROKEN: " in result.stderr and 4 < took < 8
+    # typed by hand: the first line of the check after a write that waited its 20 s, then the count line
+    hand_typed = (
+        "BROKEN: lychee gave no report: no answer in 20 s, the most a check after a write waits — fix: a"
+        " large tree can take lychee longer than that; run the scan, which waits for lychee as long as it"
+        " takes — until then no reference is checked for resolving"
+    )
+    return all_of(
+        [
+            (on_the_version, f"the version: exit {result.code} after {took:.1f} s: {result.stderr[:160]}"),
+            expect(scan, 0, shared.g1_green_scan(messages.f9_scan_tail(5, 1, 5, 0, 0, 0)), "stdout"),
+            (
+                scan_took > 20,
+                f"the scan stopped after {scan_took:.1f} s: {scan.stdout[:160]}{scan.stderr[:160]}",
+            ),
+            broken_typed(hook, hand_typed),
+            (hook_took > 19, f"the check after a write gave up after {hook_took:.1f} s"),
+        ],
+        f"the version probe fails in {took:.1f} s; the scan waits {scan_took:.1f} s for a slow checker and"
+        f" is green; the check after a write gives up after {hook_took:.1f} s with its own line",
+    )
 
 
 def mover_refuses_what_would_leave_coverage() -> tuple[bool, str]:
@@ -2664,7 +2704,7 @@ ASSERTIONS = [
     ),
     Assertion(
         79,
-        "a link checker that hangs is a configuration failure inside the hook's timeout",
+        "a link checker that hangs is a configuration failure inside the hook's timeout; the scan has none",
         a_link_checker_that_hangs,
     ),
     Assertion(
