@@ -139,7 +139,7 @@ Each pair reads *violates / complies*. The gate's own lines are numbers; the bou
 |---|---|---|
 | E1 | `check-budgets` after a write: B1, N2; this module's dials validated at each read, the C5 texts of [§6](#t6), and `log_dir` by the shared code | `gate`, severity dial `severity`; under the shipped wiring no write is refused — a finding reaches the model after the write, as a block at `block` and as context at `warn` |
 | E2 | `check-budgets --scan`: the same over every held document, N3 for a stale departure, N4 for every ceiling | `gate`, always exit 2 on a finding, whatever `severity`; an excess at level warning is a note and never red |
-| E3 | `check-budgets --scan --since <date>`: the history report | `advisory`: it shapes the reviewer's number (rule B-a), blocks nothing and exits 0 on any data; it judges nothing and says so in its closing line |
+| E3 | `check-budgets --scan --since <date>`: the history report, not a tree scan | `advisory`: it shapes the reviewer's number (rule B-a), blocks nothing and exits 0 on any data; it judges nothing and says so in its closing line |
 | E4 | `session-start`: the line of the always-on content | `advisory`, blocks nothing |
 | E5 | the skill `set-ceilings`: B-a to B-e | `advisory` |
 

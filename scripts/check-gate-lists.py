@@ -55,14 +55,13 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
-from kit_module_doc import DocumentError, section
+from kit_module_doc import DocumentError, Fault, Problem, enforcement
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 GATE_LIST = "scripts/gate-list.sh"
 WORKFLOW = ".github/workflows/gates.yml"
 READS_LIST = ("sh scripts/gate-list.sh --json", "sh scripts/gate-list.sh --run")
-DECLARED = re.compile(r"`([a-z][a-z0-9-]*?(?:\.py)?) --scan`")
 KINDS = ("install", "fixtures", "lint", "types")  # the entries the list gives each of its MODULES
 OF_MODULE = re.compile(rf"({'|'.join(KINDS)})-(.+)")
 WHY = "a scan the kit does not run holds nothing, and the lists are where the kit says what it runs"
@@ -75,6 +74,28 @@ WHY_STRAY = (
 )
 ITEM_FILTER = re.compile(r"(?<![\w-])--item(?![\w-])")  # the runners' filter, `--item <n>` or `--item=<n>`
 WHY_FILTER = "the gate list and CI run every item of every runner, so that their green is a full pass"
+WHY_FORM = "a scan the check cannot read is never held in the gate list and CI"
+
+
+FORM_WHAT = {  # what a problem of the enforcement section says; its text is the first cell or the span
+    Fault.FIRST_CELL: "a row of its enforcement table opens with {}, not E<n>",
+    Fault.SPAN: "its enforcement table names `--scan` in a form the check cannot read: {}",
+    Fault.UNMARKED: (
+        "its enforcement table has a flag after `--scan` in {}, and the words `not a tree scan` are not in"
+        " the artifact cell of its row"
+    ),
+    Fault.PROSE: "{} declares a scan outside the enforcement table",
+}
+_FORM_SPAN_FIX = (
+    "write it `<entry> --scan`, or, for a mode that is no tree scan, `<entry> --scan --<flag> …`"
+    " with the words `not a tree scan` in its row"
+)
+FORM_FIX = {
+    Fault.FIRST_CELL: "open the row with E<n>, its number in the table",
+    Fault.SPAN: _FORM_SPAN_FIX,
+    Fault.UNMARKED: _FORM_SPAN_FIX,
+    Fault.PROSE: "move it into a row of the enforcement table, or write it another way",
+}
 
 
 class Broken(Exception):
@@ -88,6 +109,7 @@ class Where(StrEnum):
     MISSING = "list's modules"
     STRAY = "module folders"
     FILTER = "item filter"
+    FORM = "enforcement table"
 
 
 @dataclass(frozen=True)
@@ -98,7 +120,8 @@ class Finding:
     runner: str = ""  # the list's entry that runs the scan
     job: str = ""  # the job that entry stands in, empty for none
     names: tuple[str, ...] = field(default=())  # the list's entries of a module
-    line: int = 0  # an item filter: its line in the file, `module` holding the file's path
+    line: int = 0  # an item filter or a form: its line in the file, `module` holding the file's path
+    fault: Fault = Fault.SPAN  # a form: what is wrong; `entry` then holds the first cell or the span
 
     def render(self) -> str:
         spans = ", ".join(f"`{name}`" for name in self.names)
@@ -132,6 +155,12 @@ class Finding:
                 f" the items named\n  why: {WHY_FILTER}\n  fix: remove the `--item` option and its numbers"
                 f" from line {self.line} of {self.module}"
             )
+        elif self.where is Where.FORM:
+            shown = f"`{self.entry}`" if self.entry else "nothing"
+            return (
+                f"RED: {self.module}:{self.line}: {FORM_WHAT[self.fault].format(shown)}"
+                f"\n  why: {WHY_FORM}\n  fix: {FORM_FIX[self.fault]}"
+            )
         elif self.where is Where.MISSING:
             what = f"the list lacks its entries {spans}"
             why = WHY_MISSING
@@ -160,13 +189,12 @@ def read(root: Path, path: str) -> str:
         raise Broken(f"{path} cannot be read ({bad.strerror}) — fix: make it readable") from bad
 
 
-def declared_scans(text: str, path: str = "the module document") -> list[str]:
+def declared_scans(text: str, path: str = "the module document") -> tuple[list[str], list[Problem]]:
+    """The scans a module document declares and what is wrong with the form of its enforcement section."""
     try:
-        enforcement = section(text, "t9", path)
+        return enforcement(text, path)
     except DocumentError as bad:
         raise Broken(str(bad)) from bad
-    rows = [line for _, line in enforcement if line.startswith("| E")]
-    return sorted({m[1] for row in rows for m in DECLARED.finditer(row)})
 
 
 def listed(root: Path, *args: str) -> str:
@@ -273,7 +301,9 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
     scans = 0
     for module in modules:
         document = f"modules/{module}/MODULE.md"
-        for entry in declared_scans(read(root, document), document):
+        entries, problems = declared_scans(read(root, document), document)
+        findings += [Finding(document, Where.FORM, p.text, line=p.line, fault=p.fault) for p in problems]
+        for entry in entries:
             scans += 1
             findings += check_scan(module, entry, gates, jobs, ci)
     findings += check_modules(modules, listed(root, "--names", "all").split())
@@ -307,6 +337,159 @@ class Case:
     jobs: dict[str, str] = field(default_factory=dict)
     folders: tuple[str, ...] = ("const-x", "const-quiet")
     listed: tuple[str, ...] | None = None  # the list's MODULES; None: the folders
+    document: str = ""  # const-x's module document; empty: the self-test's own
+
+
+def form_probes() -> bool:
+    """The forms of the enforcement table, over one whole set of probes in one loop: each is the rows of
+    a `t9` section, the scans it declares and the problems it holds, each as (line, fault); the section's
+    anchor is line 1, its first row line 2. A probe that fails prints what it got."""
+    explain = "`x --scan --command <text>`"
+    marked = f"{explain}: not a tree scan"
+
+    def row(artifact: str, handle: str = "E2", kind: str = "`gate`") -> str:
+        return f"| {handle} | {artifact} | {kind} |"
+
+    probes: dict[str, tuple[list[str], list[str], list[tuple[int, Fault]]]] = {
+        "an indented row is read": ([f"   {row('`x --scan`')}"], ["x"], []),
+        "a bold handle is read": ([row("`x --scan`", "**E2**")], ["x"], []),
+        "no space after the bar is read": (["|E2 | `x --scan` | `gate` |"], ["x"], []),
+        "no space round any cell is read": (["|E2|`x --scan`|`gate`|"], ["x"], []),
+        "a `.py` entry is declared as written": ([row("`x.py --scan`: all")], ["x.py"], []),
+        "a row with two scans declares both": ([row("`y --scan`, `x --scan`")], ["x", "y"], []),
+        "`sh scripts/x.sh --scan` is a problem": ([row("`sh scripts/x.sh --scan`")], [], [(2, Fault.SPAN)]),
+        "`python3 scripts/x.py --scan` is a problem": (
+            [row("`python3 scripts/x.py --scan`")],
+            [],
+            [(2, Fault.SPAN)],
+        ),
+        "`x.py --scan [DIR]` is a problem": ([row("`x.py --scan [DIR]`")], [], [(2, Fault.SPAN)]),
+        "the entry and the flag in two spans is a problem": (
+            [row("`x.py` `--scan`")],
+            [],
+            [(2, Fault.SPAN)],
+        ),
+        "a word after the flag is a problem": ([row("`x --scan all`")], [], [(2, Fault.SPAN)]),
+        "a space after the flag is a problem": ([row("`x --scan `")], [], [(2, Fault.SPAN)]),
+        "a capital in the entry is a problem": ([row("`X --scan`")], [], [(2, Fault.SPAN)]),
+        "a span in the kind cell is read as one in the artifact cell": (
+            [row("`x`", kind="`sh x.sh --scan`")],
+            [],
+            [(2, Fault.SPAN)],
+        ),
+        "a first cell `G2` is a problem, its scan still read": (
+            [row("`x --scan`", "G2")],
+            ["x"],
+            [(2, Fault.FIRST_CELL)],
+        ),
+        "a first cell `Example` is a problem": ([row("`x`", "Example")], [], [(2, Fault.FIRST_CELL)]),
+        "an empty first cell is a problem": (["|  | `x` | `gate` |"], [], [(2, Fault.FIRST_CELL)]),
+        "a first cell `E` with no number is a problem": ([row("`x`", "E")], [], [(2, Fault.FIRST_CELL)]),
+        "a first cell `E1a` is a problem": ([row("`x`", "E1a")], [], [(2, Fault.FIRST_CELL)]),
+        "a first cell `e1` is a problem": ([row("`x`", "e1")], [], [(2, Fault.FIRST_CELL)]),
+        "a first cell `**E1` is a problem": ([row("`x`", "**E1")], [], [(2, Fault.FIRST_CELL)]),
+        "a flag after `--scan` with the mark is no scan and no problem": (
+            [row(marked)],
+            [],
+            [],
+        ),
+        "a flag after `--scan` without the mark is a problem": (
+            [row(explain)],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "the words only inside a code span are no mark": (
+            [row(f"{explain}: `not a tree scan`")],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "the words in another cell of the row are no mark": (
+            [row(explain, kind="not a tree scan")],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "the words in another row are no mark": (
+            [row(marked), row(explain, "E3")],
+            [],
+            [(3, Fault.UNMARKED)],
+        ),
+        "the words one word short are no mark": (
+            [row(f"{explain}: not a scan")],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "`x --scan --since <date>` with the mark is no scan": (
+            [row("`x --scan --since <date>`: the history report, not a tree scan")],
+            [],
+            [],
+        ),
+        "two flags and a word with the mark are no scan": (
+            [row("`x --scan --all --since today`: not a tree scan")],
+            [],
+            [],
+        ),
+        "a flag with no argument and the mark is no scan": (
+            [row("`x.py --scan --all`: not a tree scan")],
+            [],
+            [],
+        ),
+        "the mark beside a declared scan leaves it declared": (
+            [row("`x --scan`, `y --scan --since <date>`: not a tree scan")],
+            ["x"],
+            [],
+        ),
+        "a declared scan beside an unmarked flag form is read, the other a problem": (
+            [row("`x --scan`, `y --scan --since <date>`")],
+            ["x"],
+            [(2, Fault.UNMARKED)],
+        ),
+        "a header and its separator are skipped": (
+            ["| # | artifact | kind |", "|---|---|---|", row("`x --scan`")],
+            ["x"],
+            [],
+        ),
+        "an aligned separator is skipped": (
+            ["| # | artifact | kind |", "|:--|:-:|--:|", row("`x --scan`")],
+            ["x"],
+            [],
+        ),
+        "a table with no header reads every row": (
+            [row("`x --scan`"), row("`y --scan`", "E3")],
+            ["x", "y"],
+            [],
+        ),
+        "a row below the header is read as a row": (
+            ["| # | artifact | kind |", "|---|---|---|", row("`x`", "G1")],
+            [],
+            [(4, Fault.FIRST_CELL)],
+        ),
+        "no table, `t9` directly followed by `t10`": ([], [], []),
+        "a scan named in prose is a problem": (
+            [row("`y`"), "", "It runs `x --scan` here."],
+            [],
+            [(4, Fault.PROSE)],
+        ),
+        "a `.py` scan named in prose is a problem": (["Run `x.py --scan`."], [], [(2, Fault.PROSE)]),
+        "`--scan --command` in prose, with no entry, is no problem": (
+            ["Backstop: the explain, `--scan --command`, shows it."],
+            [],
+            [],
+        ),
+        "another mode named in prose is no problem": (
+            ["See `x --scan --since <date>` and `sh x.sh --scan`."],
+            [],
+            [],
+        ),
+    }
+    ok = True
+    for name, (rows, scans, faults) in probes.items():
+        text = '<a id="t9"></a>\n' + "".join(f"{line}\n" for line in rows) + '<a id="t10"></a>\n'
+        got_scans, problems = declared_scans(text)
+        got_faults = [(p.line, p.fault) for p in problems]
+        if (got_scans, got_faults) != (scans, faults):
+            ok = False
+            print(f"        probe {name!r}: got {got_scans} and {got_faults}, wanted {scans} and {faults}")
+    return ok
 
 
 def self_test() -> int:
@@ -323,11 +506,18 @@ def self_test() -> int:
     module_text = (
         '<a id="t9"></a>\n## 9\n\n| # | artifact | kind |\n|---|---|---|\n'
         "| E1 | hook + `check-x` (hook mode) | `gate` |\n| E2 | `check-x --scan`: all | `gate` |\n"
-        "| E3 | `check-x --scan --since <date>` | `advisory` |\n\n"
-        "A sibling's `check-y --scan` is not this module's.\n\n<a id=\"t10\"></a>\n"
+        "| E3 | `check-x --scan --since <date>`: the report, not a tree scan | `advisory` |\n\n"
+        "A sibling's `check-y` is not this module's.\n\n<a id=\"t10\"></a>\n"
     )
-    quiet_text = '<a id="t9"></a>\n| E1 | `explain --scan --command <text>` | `gate` |\n<a id="t10"></a>\n'
+    quiet_text = (
+        '<a id="t9"></a>\n| E1 | `explain --scan --command <text>`: not a tree scan | `gate` |\n'
+        '<a id="t10"></a>\n'
+    )
     scan = "sh modules/const-x/scripts/check-x.sh --scan"
+
+    def scans_of(text: str) -> list[str]:
+        return declared_scans(text)[0]
+
     reads = f'jobs:\n  list:\n    run: {READS_LIST[0]}\n  check:\n    run: {READS_LIST[1]} "$JOB"\n'
     report_lines = [  # typed by hand: a message function cannot check itself
         "RED: const-x: its scan `check-x --scan` is not in the CI list",
@@ -387,7 +577,7 @@ def self_test() -> int:
         )
 
     def build(root: Path, case: Case) -> None:
-        documents = {"const-x": module_text, "const-quiet": quiet_text}
+        documents = {"const-x": case.document or module_text, "const-quiet": quiet_text}
         for path, text in (
             *((f"modules/{m}/MODULE.md", documents.get(m, quiet_text)) for m in case.folders),
             (GATE_LIST, script(case)),
@@ -456,6 +646,13 @@ def self_test() -> int:
             ),
             [Where.FILTER],
         ),
+        "a row of the enforcement table the check cannot read is a finding of its own": (
+            Case(
+                {"x": scan},
+                document='<a id="t9"></a>\n| G2 | `check-x --scan` | `gate` |\n<a id="t10"></a>\n',
+            ),
+            [Where.FORM],
+        ),
         "--item only in comments, and --items, filter nothing": (
             Case(
                 {"x": scan},
@@ -481,30 +678,28 @@ def self_test() -> int:
         ok = check_kit(root)[0] == []
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a scan declared as `<entry>.py --scan` is held by its python3 line")
-    ok = declared_scans(module_text) == ["check-x"] and declared_scans(quiet_text) == []
+    ok = scans_of(module_text) == ["check-x"] and scans_of(quiet_text) == []
     ok = ok and "runs `python3 modules/const-y/scripts/check-y.py --scan`" in (
         Finding("const-y", Where.GATE, "check-y.py").render()
     )
-    ok = ok and declared_scans(module_text.replace("`check-x --scan`", "`check-x.py --scan`")) == [
-        "check-x.py"
-    ]
+    ok = ok and scans_of(module_text.replace("`check-x --scan`", "`check-x.py --scan`")) == ["check-x.py"]
     failed += 0 if ok else 1
     print(
         f"[{'ok' if ok else 'FAIL'}] a span with more after the flag is no scan;"
         " a .py entry is taught by python3"
     )
     last_section = '## 9 <a id="t9"></a> is prose here\n\n<a id="t9"></a>\n| E1 | `check-x --scan` |\n'
-    ok = declared_scans(last_section) == ["check-x"]  # the last section reads to the end of the file
-    ok = ok and declared_scans('<a id="t9"></a>\n<a id="t10"></a>\n| E1 | `check-x --scan` |\n') == []
-    ok = ok and declared_scans('  <a id="t9"></a>  \n| E1 | `check-x --scan` |\n') == ["check-x"]
+    ok = scans_of(last_section) == ["check-x"]  # the last section reads to the end of the file
+    ok = ok and scans_of('<a id="t9"></a>\n<a id="t10"></a>\n| E1 | `check-x --scan` |\n') == []
+    ok = ok and scans_of('  <a id="t9"></a>  \n| E1 | `check-x --scan` |\n') == ["check-x"]
     # an anchor of another id, alone on its line, ends no section: the E-row after it is still read
     other_id = (
         '<a id="t9"></a>\n<a id="x"></a>\n| E1 | `check-x --scan` |\n'
         '<a id="r2"></a>\n| E2 | `check-y --scan` |\n'
     )
-    ok = ok and declared_scans(other_id) == ["check-x", "check-y"]
+    ok = ok and scans_of(other_id) == ["check-x", "check-y"]
     try:  # nor does it count as doubled: two of one id are no error
-        ok = ok and declared_scans(other_id.replace('<a id="r2"></a>', '<a id="x"></a>')) == [
+        ok = ok and scans_of(other_id.replace('<a id="r2"></a>', '<a id="x"></a>')) == [
             "check-x",
             "check-y",
         ]
@@ -516,8 +711,42 @@ def self_test() -> int:
         " last, is empty when the end anchor follows at once, an anchor inside prose is plain text, and an"
         " anchor of another id alone on its line neither ends it nor counts as doubled"
     )
+    ok = form_probes()
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the enforcement table's forms, over the whole set of probes")
+    form_text = (
+        '<a id="t9"></a>\n| E1 | `check-x --scan` | `gate` |\n| G2 | `sh scripts/x.sh --scan` | `gate` |\n'
+        "| E3 | `x --scan --since <date>` | `gate` |\n|  | none | `gate` |\n"
+        'Declared in `y.py --scan` here.\n<a id="t10"></a>\n'
+    )
+    form_why = "  why: a scan the check cannot read is never held in the gate list and CI"
+    form_fix = (
+        "  fix: write it `<entry> --scan`, or, for a mode that is no tree scan,"
+        " `<entry> --scan --<flag> …` with the words `not a tree scan` in its row"
+    )
+    form_lines = [  # typed by hand
+        "RED: modules/const-x/MODULE.md:3: a row of its enforcement table opens with `G2`, not E<n>",
+        form_why,
+        "  fix: open the row with E<n>, its number in the table",
+        "RED: modules/const-x/MODULE.md:3: its enforcement table names `--scan` in a form the check cannot"
+        " read: `sh scripts/x.sh --scan`",
+        form_why,
+        form_fix,
+        "RED: modules/const-x/MODULE.md:4: its enforcement table has a flag after `--scan` in"
+        " `x --scan --since <date>`, and the words `not a tree scan` are not in the artifact cell of its row",
+        form_why,
+        form_fix,
+        "RED: modules/const-x/MODULE.md:5: a row of its enforcement table opens with nothing, not E<n>",
+        form_why,
+        "  fix: open the row with E<n>, its number in the table",
+        "RED: modules/const-x/MODULE.md:6: `y.py --scan` declares a scan outside the enforcement table",
+        form_why,
+        "  fix: move it into a row of the enforcement table, or write it another way",
+        "RED: 5 finding(s) — 2 module document(s) examined, 1 declared scan(s)",
+    ]
     for name, case, lines in (
         ("one finding", Case({"x": scan}, workflow="jobs: {}\n"), report_lines),
+        ("the findings of a table the check cannot read", Case({"x": scan}, document=form_text), form_lines),
         (
             "the job and module findings",
             Case({"x": scan}, jobs={"x": "kit"}, listed=("const-x", "const-gone")),
@@ -598,7 +827,7 @@ def self_test() -> int:
                 ok = said in str(broken) and "fix:" in str(broken)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 13
+    total = len(cases) + 15
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

@@ -47,7 +47,6 @@ import contextlib
 import io
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -56,12 +55,11 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from kit_module_doc import DocumentError, section
+from kit_module_doc import DocumentError, enforcement
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 MARKETPLACE = "constitution-kit"
-DECLARED = re.compile(r"`([a-z][a-z0-9-]*?(?:\.py)?) --scan`")
 WHY = "a module must install and operate on a bare repository with its defaults alone (requirement A12.1)"
 NOTE = "docs/note.md"
 FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
@@ -147,11 +145,12 @@ def declared_scans(plugin: Path) -> list[str]:
             f"{document} does not exist — fix: restore the module's document, which declares its scans"
         )
     try:
-        enforcement = section(document.read_text(encoding="utf-8"), "t9", str(document))
-    except DocumentError as bad:
+        scans, _ = enforcement(
+            document.read_text(encoding="utf-8"), str(document)
+        )  # check-gate-lists reports
+    except DocumentError as bad:  # the problems, once; this check runs the scans that read
         raise Broken(str(bad)) from bad
-    rows = [line for _, line in enforcement if line.startswith("| E")]
-    return sorted({m[1] for row in rows for m in DECLARED.finditer(row)})
+    return scans
 
 
 def sample_event(hook: Hook, repo: Path) -> dict[str, object]:
@@ -474,6 +473,12 @@ def self_test() -> int:
             "t9-on-heading": module_text.replace('<a id="t9"></a>\n', '## 9 <a id="t9"></a>\n'),
             "t9-twice": module_text.replace('<a id="t9"></a>\n', '<a id="t9"></a>\n<a id="t9"></a>\n'),
             "t10-twice": module_text.replace("| E2", '<a id="t10"></a>\n| E2'),
+            "indented-scan-red": module_text.replace("| E1 |", "   | E1 |"),
+            "explain-marked": module_text.replace(
+                '<a id="t10"></a>',
+                "| E3 | `check-y --scan --since <date>`: the report, not a tree scan | `advisory` |\n"
+                '<a id="t10"></a>',
+            ),
         }.get(change, module_text)
         if change != "no-document":
             (source / "MODULE.md").write_text(document, encoding="utf-8")
@@ -490,7 +495,8 @@ def self_test() -> int:
             f'grep -q \'"hook_event_name": "PreToolUse"\' || exit 3\n{hook}\n', encoding="utf-8"
         )
         (source / "scripts" / "check-x.sh").write_text(
-            f"exit {2 if change in ('scan-red', 'copy-without-document') else 0}\n", encoding="utf-8"
+            f"exit {2 if change in ('scan-red', 'copy-without-document', 'indented-scan-red') else 0}\n",
+            encoding="utf-8",
         )
         (source / "scripts" / "check-p.py").write_text(
             f"raise SystemExit({2 if change == 'py-scan-red' else 0})\n", encoding="utf-8"
@@ -593,6 +599,8 @@ def self_test() -> int:
         "a hook given another event than its own is a finding": ("no-event", "exits 3"),
         "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
         "a Python scan that is red is a finding": ("py-scan-red", "check-p.py --scan"),
+        "a red scan in an indented row is run, and is a finding": ("indented-scan-red", "check-x --scan"),
+        "an explain with the mark is no scan, so none is run for it": ("explain-marked", ""),
     }
     for name, (change, wanted) in cases.items():
         got = [f.what for f in findings_of(change)]
@@ -633,6 +641,25 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line, never a scan left unrun")
         if not ok:
             print(f"        got: {line}")
+    with tempfile.TemporaryDirectory() as tmp:  # what a row reads as, its problems left to check-gate-lists
+        plugin = Path(tmp)
+        declares: dict[str, list[str]] = {
+            "   | E1 | `check-x --scan` | `gate` |\n": ["check-x"],
+            "|**E1**|`check-x --scan`|`gate`|\n": ["check-x"],
+            "| G1 | `check-x --scan` | `gate` |\n": ["check-x"],
+            "| E1 | `check-x --scan --command <t>`: the explain, not a tree scan | `gate` |\n": [],
+            "| E1 | `check-x --scan --command <t>` | `gate` |\n": [],
+            "| E1 | `sh scripts/x.sh --scan` | `gate` |\n": [],
+            "Run `check-x --scan` here.\n": [],
+        }
+        ok = True
+        for text_row, expected in declares.items():
+            (plugin / "MODULE.md").write_text(
+                f'<a id="t9"></a>\n{text_row}<a id="t10"></a>\n', encoding="utf-8"
+            )
+            ok = ok and declared_scans(plugin) == expected
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a module's scans are the rows it declares, read whatever their form")
     report_lines = [  # typed by hand: a message function cannot check itself
         "RED: const-x: its scan `check-x --scan` exits 2 on a bare repository (no output)",
         f"  why: {WHY}",
@@ -669,7 +696,7 @@ def self_test() -> int:
         ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
-    total = len(cases) + len(unreadable) + 3
+    total = len(cases) + len(unreadable) + 4
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

@@ -231,7 +231,7 @@ Each pair reads *violates / complies*; the pairs are the definition and are carr
 | # | artifact | kind |
 |---|---|---|
 | E1 | `PreToolUse` hook on `Bash` + `check-destructive` (hook mode): D1 | `gate`, severity dial `severity` (`block` default: the `ask` decision, the user's yes at the platform's prompt, a denial where none can be shown; `warn` reports and lets the command run) |
-| E2 | `check-destructive --scan --command <text>` | `gate`, the explain: always exit 2 on a match, ignores `severity` |
+| E2 | `check-destructive --scan --command <text>`: the explain, not a tree scan | `gate`, the explain: always exit 2 on a match, ignores `severity` |
 | E3 | `check-list-handles --scan`: L1 | `gate`, always exit 2 on a finding, no hook mode |
 | E4 | `SessionStart` hook + `rules.txt` + `session-start`: I-a to I-i, the visible zero, the pairs | `advisory` |
 
