@@ -237,7 +237,7 @@ def self_test() -> int:
         new_shared(root_of(link))
         (link.parent.parent / "tests" / "new.py").write_text("", encoding="utf-8")
 
-    def hookless(path: str, text: str, keep: str | None = None) -> Callable[[Path], None]:
+    def hookless(path: str, text: str | bytes, keep: str | None = None) -> Callable[[Path], None]:
         """No hook; the links gone, bar the one kept; one script written at `path` under scripts/."""
 
         def damage(link: Path) -> None:
@@ -252,9 +252,21 @@ def self_test() -> int:
                     (module / each).unlink()
             script = module / "scripts" / path
             script.parent.mkdir(parents=True, exist_ok=True)
-            script.write_text(text, encoding="utf-8")
+            if isinstance(text, bytes):
+                script.write_bytes(text)
+            else:
+                script.write_text(text, encoding="utf-8")
 
         return damage
+
+    def beside_dangling_script(damage: Callable[[Path], None]) -> Callable[[Path], None]:
+        """The damage, then a script scripts/x.py that is a dangling symbolic link."""
+
+        def both(link: Path) -> None:
+            damage(link)
+            os.symlink("no_such_script.py", link.parent / "x.py")
+
+        return both
 
     def hidden_folders(link: Path) -> None:
         """Folders of modules/ that start with . or _ and hold a hook, with no link: no module."""
@@ -298,6 +310,18 @@ def self_test() -> int:
         ),
         "a hookless module with `import const_gate` in scripts/x.py, its links missing": (
             hookless("x.py", "import const_gate\n"),
+            owed,
+        ),
+        "a hookless module importing the shared code in scripts/lib/const_gate/, its links missing": (
+            hookless("lib/const_gate/x.py", "from const_gate import cli\n"),
+            owed,  # only the folder scripts/const_gate at the top is the link; a nested one is read
+        ),
+        "a hookless module with a dangling scripts/x.py beside a script importing the shared code": (
+            beside_dangling_script(hookless("y.py", "import const_gate\n")),
+            owed,
+        ),
+        "a hookless module with non-UTF-8 bytes in a script before its import, its links missing": (
+            hookless("x.py", b"# caf\xe9\nimport const_gate\n"),
             owed,
         ),
         "a hookless module with an indented import inside a function, its links missing": (
@@ -378,6 +402,11 @@ def self_test() -> int:
             EXIT_GREEN,
             ("GREEN:", "0 link(s) in 0 module(s) examined"),
         ),
+        "a dangling scripts/x.py alone owes nothing": (
+            beside_dangling_script(hookless("empty.txt", "")),
+            EXIT_GREEN,
+            ("GREEN:", "0 link(s) in 0 module(s) examined"),
+        ),
         "an import inside a folder scripts/const_gate of its own is not read": (
             hookless("const_gate/x.py", "from const_gate import cli\n"),
             EXIT_GREEN,
@@ -444,6 +473,26 @@ def self_test() -> int:
         ok = green_before and code_after == code and all(word in out.getvalue() for word in words)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the right link is green, {name} reads exit {code}")
+    # the order of the findings, held whole: no row of `reads` compares order, which asks the one list
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        fresh(root)
+        shutil.rmtree(root / "modules" / "const-sample")
+        for module in ("const-b", "const-a"):  # made in the order the sorted one is not
+            (root / "modules" / module / "hooks").mkdir(parents=True)
+            (root / "modules" / module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code_after = run(root)
+    heads = [line for line in out.getvalue().splitlines() if line.startswith("RED: modules/")]
+    expected = [
+        f"RED: modules/{module}/{link} is missing"
+        for module in ("const-a", "const-b")
+        for link in ("scripts/const_gate", "tests/consumer.py", "tests/harness.py", "tests/shared_items.py")
+    ]
+    ok = code_after == EXIT_RED and heads == expected
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] findings by module, the gate package, then the shared files by name")
     for name, folder, is_owed, why in names:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -461,7 +510,7 @@ def self_test() -> int:
         failed += 0 if ok else 1
         shown, verdict = name + ("/" if folder else ""), "owed" if is_owed else "not owed"
         print(f"[{'ok' if ok else 'FAIL'}] shared/tests/{shown} is {verdict}: {why}")
-    total = len(wrong) + len(reads) + len(names)
+    total = len(wrong) + len(reads) + 1 + len(names)
     print(f"{total - failed}/{total} red→green cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
