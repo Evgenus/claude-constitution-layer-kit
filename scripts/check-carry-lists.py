@@ -845,6 +845,19 @@ def fake_old_git(tools: Path, real: str) -> Path:
     return log
 
 
+def fake_logging_git(tools: Path, real: str) -> Path:
+    """A git first on PATH that logs each call's arguments, as it hands them on, to the returned file and
+    runs the real git unchanged."""
+    log = tools / "git.log"
+    script = tools / "git"
+    script.write_text(
+        f'#!/bin/sh\nprintf \'%s\\n\' "$*" >> {shlex.quote(str(log))}\nexec {shlex.quote(real)} "$@"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return log
+
+
 def lists(root: Path, record: Path) -> tuple[list[Finding], list[str]]:
     return check_list(root, load_catalog(root), record)
 
@@ -1282,34 +1295,48 @@ def self_test() -> int:
             examined(layout) == (0, 1) and examined(layout, cut) == (1, 1),
             f"{name} is read: its record is found, green whole and red with its carry list cut",
         )
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp).resolve()
-        sample_kit(root)
-        (root / folder / "README.md").write_text("text\n", encoding="utf-8")
-        said = ""
-        try:
-            check_kit(root)
-        except CouldNotRun as bad:
-            said = str(bad)
-    judge(
-        f"{folder}/README.md" in said,
-        "a file in the records' folder the width cannot number cannot be checked",
-    )
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp).resolve()
-        git(root, "init", "-q")
-        sample_kit(root)
-        base = commit(root, "the base")
-        (root / folder / "README.md").write_text("text\n", encoding="utf-8")
-        said = ""
-        try:
-            compute_scope(root, base, None)
-        except CouldNotRun as bad:
-            said = str(bad)
-    judge(
-        f"{folder}/README.md" in said,
-        "the scope: a file in the records' folder the width cannot number cannot be scoped",
-    )
+
+    def stray_said(strays: tuple[str, ...], scoped: bool) -> str:
+        """What the check or the scope says when these files stand in the sample kit's records' folder."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            git(root, "init", "-q")
+            sample_kit(root)
+            base = commit(root, "the base")
+            for stray in strays:
+                (root / folder / stray).write_text("text\n", encoding="utf-8")
+            try:
+                if scoped:
+                    compute_scope(root, base, None)
+                else:
+                    check_kit(root)
+            except CouldNotRun as bad:
+                return str(bad)
+        return ""
+
+    arabic = "dec-٠٠٣١-sample.md"  # 0031 in Arabic-Indic digits
+    # the strays, and the first of them in sorted order, the one the failure names; the last row holds
+    # six, so that a listing in the folder's own order, which is the filesystem's and no promise, is
+    # unlikely to put the sorted first first: a failure naming the first it finds is red on most
+    stray_cases: dict[str, tuple[tuple[str, ...], str]] = {
+        "a file in the records' folder the width cannot number cannot be {}": (("README.md",), "README.md"),
+        "a record named with non-ASCII digits is a stray, never a gated record: it cannot be {}": (
+            (arabic,),
+            arabic,
+        ),
+        "of several files the width cannot number, the first in sorted order is named: they cannot be {}": (
+            ("Zed.md", "README.md", arabic, "TODO.md", "NOTES.md", "dec-31-short.md"),
+            "NOTES.md",
+        ),
+    }
+    for name, (strays, first) in stray_cases.items():
+        for scoped, verb in ((False, "checked"), (True, "scoped")):
+            said = stray_said(strays, scoped)
+            others = [stray for stray in strays if stray != first]
+            judge(
+                f"{folder}/{first} " in said and not any(f"{folder}/{other} " in said for other in others),
+                ("the scope: " if scoped else "") + name.format(verb),
+            )
 
     newest = f"dec-{THRESHOLD + 2:05d}-newer"
     rows = f'<a id="t4"></a>\n## 4. Decisions\n\n1. [x](../../{both.folder}/{both.sample}.md)\n'
@@ -1330,6 +1357,26 @@ def self_test() -> int:
         and cited == ({newest: "added", both.sample: "cited"}, {}),
         "the scope of a catalog in docs/records of width 5: a record added and a record cited, found there",
     )
+    # a record the change edits is read in full; that another record, unedited, links to its file is no
+    # reason to read that one for regression: the records' own folder is not among the files that count
+    for layout in (DEFAULT_LAYOUT, moved_to):
+        other_record = f"dec-{THRESHOLD + 5:04d}-links"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            git(root, "init", "-q")
+            path = sample_kit(root, layout=layout)
+            (root / layout.folder / f"{other_record}.md").write_text(
+                GOOD_RECORD.replace(SAMPLE, other_record) + f"\nSee [the sample]({path.name}).\n",
+                encoding="utf-8",
+            )
+            base = commit(root, "the base: two records, the second linking the first")
+            path.write_text(GOOD_RECORD.replace(SAMPLE, layout.sample) + "\n", encoding="utf-8")
+            edited_scope = compute_scope(root, base, None)
+        judge(
+            edited_scope == ({layout.sample: "edited"}, {}),
+            f"the scope in {layout.folder}: an edited record is in full, and a record linking its file "
+            "is not read for regression",
+        )
     accept = f"yes\n\nAccepted: {both.sample}\n"
     for name, at, red in (
         ("an audit at the record's commit", "{pinned}", False),
@@ -1357,20 +1404,6 @@ def self_test() -> int:
         "in a catalog of docs/records, pending intent in another record is red: the folder is the dials'",
     )
 
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp).resolve()
-        sample_kit(root)
-        arabic = "dec-\u0660\u0660\u0663\u0661-sample.md"  # 0031 in Arabic-Indic digits
-        (root / folder / arabic).write_text(GOOD_RECORD, encoding="utf-8")
-        said = ""
-        try:
-            check_kit(root)
-        except CouldNotRun as bad:
-            said = str(bad)
-    judge(
-        f"{folder}/{arabic}" in said, "a record named with non-ASCII digits is a stray, never a gated record"
-    )
-
     right_receipt = (
         "yes\n\nAccepted: {id}\nCarry-Audit: at {at}; 3 records; 0 findings, 0 fixed, 0 justified\n"
     )
@@ -1393,6 +1426,29 @@ def self_test() -> int:
         "the folder moved since the audit: the record is found at the audit commit wherever it stood, green",
     )
     judge(cached, "the files of an audit commit are read once per commit")
+    # two records whose receipts name the same audit commit: its listing is asked of git once
+    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as tools:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root)
+        (root / folder / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
+        pinned = commit(root, "the records land")
+        for accepted_id in (SAMPLE, newer):
+            commit(root, right_receipt.format(id=accepted_id, at=pinned[:12]))
+        git_calls = fake_logging_git(Path(tools).resolve(), real or "git")
+        search = os.environ["PATH"]
+        os.environ["PATH"] = f"{Path(tools).resolve()}{os.pathsep}{search}"
+        try:
+            shared = check_kit(root)
+        finally:
+            os.environ["PATH"] = search
+        listings_read = [
+            line for line in git_calls.read_text(encoding="utf-8").splitlines() if " ls-tree " in line
+        ]
+    judge(
+        shared[0] == [] and shared[1] == [] and shared[2] == 2 and len(listings_read) == 1,
+        "two records with receipts at the same audit commit: the listing of that commit is read once",
+    )
     renamed = f"dec-{THRESHOLD + 4:04d}-renamed"
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
