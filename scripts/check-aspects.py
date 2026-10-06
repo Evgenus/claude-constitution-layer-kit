@@ -35,8 +35,8 @@ check could not run (BROKEN, exit 1), with the fix, on
   - a module folder with no MODULE.md (a folder whose name opens with a dot or an underscore is no
     module and is skipped), and a module document whose rows section (anchor `t3`) or acceptance
     section (anchor `t10`) is missing or stands twice, or whose next section's anchor is missing
-    once any later one stands (`t4` after `t3`, `t11` after `t10`), each read by
-    `kit_module_doc.section`.
+    once any later one stands (`t4` after `t3`, `t11` after `t10`), or stands elsewhere, with another
+    anchor, or none, after this one (`t11` before `t10`), each read by `kit_module_doc.section`.
 A table line of those two sections is read whatever its indent: a line whose stripped form starts
 with `|`. The last cell of any table line it reads, the matrix's rows too, is read whether or not
 the line closes with a bar (`kit_module_doc.cells`).
@@ -1007,6 +1007,34 @@ def self_test() -> int:
         f"[{'ok' if ok else 'FAIL'}] a document without its t12 anchor, or without t11 and t12, is read:"
         " the acceptance section reads to the end when no anchor stands above it"
     )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        build(root, GOOD_TABLE)
+        module_file = root / "modules" / "const-sample" / "MODULE.md"
+        original = module_file.read_text(encoding="utf-8")
+        blocks: list[list[str]] = [[]]  # the document cut before each section anchor
+        for line in original.splitlines(keepends=True):
+            if re.fullmatch(r'<a id="t\d+"></a>', line.strip()):
+                blocks.append([])
+            blocks[-1].append(line)
+        names = [block[0].strip() for block in blocks[1:]]
+        at10, at11 = names.index('<a id="t10"></a>') + 1, names.index('<a id="t11"></a>') + 1
+        blocks[at10], blocks[at11] = blocks[at11], blocks[at10]  # the sections t11 and t10 trade places
+        module_file.write_text("".join("".join(block) for block in blocks), encoding="utf-8")
+        try:
+            check_structure(root)
+            before = None
+        except Broken as bad:
+            before = str(bad)
+        blocks[1:] = sorted(blocks[1:], key=lambda block: int(re.findall(r"\d+", block[0])[0]))  # the fix
+        module_file.write_text("".join("".join(block) for block in blocks), encoding="utf-8")
+        ok = before is not None and "the anchor after" in before and not check_structure(root)[2]
+        ok = ok and module_file.read_text(encoding="utf-8") == original
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] a document whose t11 section stands before t10, put in the template's"
+        " order as the fix says, is read"
+    )
     path = "modules/const-sample/MODULE.md"
     text = module_text(GOOD_TABLE)
     unreadable = {  # case: the document, its text, what the BROKEN line says
@@ -1035,7 +1063,15 @@ def self_test() -> int:
             text.replace('<a id="t10"></a>\n', "@@")
             .replace('<a id="t11"></a>\n', '<a id="t10"></a>\n')
             .replace("@@", '<a id="t11"></a>\n'),
-            f'{path} has no anchor <a id="t11"></a> after <a id="t10"></a>',
+            f'{path}: the anchor after <a id="t10"></a> is <a id="t12"></a>, not <a id="t11"></a> — fix: put'
+            " the sections in the template's order, t1 to t12, each anchor alone on the line above its"
+            " section's heading",
+        ),
+        "the t10 anchor last, t11 standing before it": (
+            path,
+            text.replace('<a id="t10"></a>\n', "") + '<a id="t10"></a>\n',
+            f'{path}: no anchor follows <a id="t10"></a>, and <a id="t11"></a> stands before it — fix: put'
+            " the sections in the template's order, t1 to t12",
         ),
         "text on the line of the t10 anchor": (
             path,
@@ -1516,7 +1552,8 @@ def self_test() -> int:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
     total = (
         len(red)
-        + 5  # the row no module holds, the indented rows, the carrier row, the unclosed rows, t12 gone
+        + 6  # the row no module holds, the indented rows, the carrier row, the unclosed rows, t12 gone, the
+        # sections put in the template's order
         + len(destinations)
         + len(reports)
         + len(read_as_before)

@@ -4,19 +4,21 @@ the scans and the table form of its enforcement section.
 A module document (template `MODULE.md`) puts the anchor `<a id="tN"></a>` alone on the line above
 the heading of its section N. `section` reads one section by that anchor, so that a heading's number,
 its wording or its place never decides what is read, and it fails loud where a read would otherwise
-go quietly wrong: an anchor gone, an anchor twice, or the next section's anchor gone, `DocumentError`
-with the fix.
+go quietly wrong: an anchor gone, an anchor twice, the next section's anchor gone, or another anchor
+standing after it, `DocumentError` with the fix.
 
 Only a line whose stripped form is exactly the anchor counts; the same anchor written inside other
 text, as in prose that shows it or on the heading's own line, is plain text and no anchor, so a
 document that has it nowhere else lacks the anchor. The section ends at the next such anchor, or at
 the end of the file. When the document holds any anchor numbered above the section's, the next one
 must be the next number: a section whose end anchor is gone, or out of order, is no section the
-check can read, and never runs on into the one after it. A section whose anchor is the highest of
-the document reads to the end of the file. `enforcement` reads the section of anchor `t9` for the
-scans it declares and the problems with its form, which check-gate-lists reports; check-bare-install
-uses the scans alone. There is no runner of its own: each check that reads through it proves it in its
-own `--self-test`.
+check can read, and never runs on into the one after it. The message tells the two apart: the next
+number gone from the document, whose fix is to restore it, and the next number standing elsewhere,
+with another anchor, or none, after this one, whose fix is to put the sections in the template's
+order. A section whose anchor is the highest of the document reads to the end of the file.
+`enforcement` reads the section of anchor `t9` for the scans it declares and the problems with its
+form, which check-gate-lists reports; check-bare-install uses the scans alone. There is no runner of
+its own: each check that reads through it proves it in its own `--self-test`.
 """
 
 from __future__ import annotations
@@ -58,9 +60,19 @@ def section(text: str, anchor: str, path: str) -> list[tuple[int, str]]:
     mine = int(anchor.removeprefix("t"))
     after = f"t{mine + 1}"
     if any(int(name.removeprefix("t")) > mine for name in stands) and (not later or later[0][1] != after):
+        if after not in stands:
+            raise DocumentError(
+                f'{path} has no anchor <a id="{after}"></a> after <a id="{anchor}"></a>'
+                " — fix: restore it, alone on its line"
+            )
+        what = (
+            f'the anchor after <a id="{anchor}"></a> is <a id="{later[0][1]}"></a>, not <a id="{after}"></a>'
+            if later
+            else f'no anchor follows <a id="{anchor}"></a>, and <a id="{after}"></a> stands before it'
+        )
         raise DocumentError(
-            f'{path} has no anchor <a id="{after}"></a> after <a id="{anchor}"></a>'
-            " — fix: restore it, alone on its line"
+            f"{path}: {what} — fix: put the sections in the template's order, t1 to t12, each anchor"
+            " alone on the line above its section's heading"
         )
     end = later[0][0] if later else len(lines) + 1
     return [(number, lines[number - 1]) for number in range(start + 1, end)]

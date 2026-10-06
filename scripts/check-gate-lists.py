@@ -14,8 +14,10 @@ first cell is anything else; a span in a row that holds `--scan` in any other fo
 `--scan` in a cell without the words; a span in the declared form in the section's prose, outside
 the table (any other span there is not read). A row whose first cell is off has its spans read all
 the same, and every row's last cell is read whether or not the row closes with a bar. A module
-document whose enforcement section has no end, `t10`, while a later anchor stands, is no document
-the check can read (BROKEN), since the section would run on into the acceptance table. For each
+document whose enforcement section has no end, `t10` gone while a later anchor stands, or whose
+`t10` stands elsewhere while another anchor, or none, follows `t9`, is no document the check can read
+(BROKEN), since the section would run on into the acceptance table; the first message says to restore
+`t10`, the second to put the sections in the template's order. For each
 declared scan:
   - the gate list, the entries `sh scripts/gate-list.sh --names gate` prints, has one whose
     commands (`--show <entry>`) run `modules/<module>/scripts/<entry>.sh --scan` or `….py --scan`;
@@ -1105,6 +1107,34 @@ def self_test() -> int:
     print(f"[{'ok' if ok else 'FAIL'}] the report of a kit whose checks all run is its literal green line")
     if not ok:
         print(printed.getvalue())
+
+    blocks: list[list[str]] = [[]]  # the document cut before each section anchor
+    for line in module_text.splitlines(keepends=True):
+        if re.fullmatch(r'<a id="t\d+"></a>', line.strip()):
+            blocks.append([])
+        blocks[-1].append(line)
+    order = [block[0].strip() for block in blocks[1:]]
+    at10, at11 = order.index('<a id="t10"></a>') + 1, order.index('<a id="t11"></a>') + 1
+    blocks[at10], blocks[at11] = blocks[at11], blocks[at10]  # the sections t11 and t10 trade places
+    swapped = "".join("".join(block) for block in blocks)
+    with tempfile.TemporaryDirectory() as tmp:  # t11 before t10: BROKEN; the fix applied, by number: read
+        root = Path(tmp).resolve()
+        build(root, Case({"x": scan}, document=swapped))
+        try:
+            check_kit(root)
+            before = None
+        except Broken as bad:
+            before = str(bad)
+        blocks[1:] = sorted(blocks[1:], key=lambda block: int(re.findall(r"\d+", block[0])[0]))  # the fix
+        build_text = "".join("".join(block) for block in blocks)
+        (root / "modules/const-x/MODULE.md").write_text(build_text, encoding="utf-8")
+        ok = before is not None and "the anchor after" in before
+        ok = ok and build_text == module_text and check_kit(root)[0] == []
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] a document whose t11 section stands before t10, put in the"
+        " template's order as the fix says, is read"
+    )
     for name, change, said in (
         ("a list script that fails", "LIST", f"{GATE_LIST} --names gate exited"),
         ("jobs that are no JSON list", "JSON", f"{GATE_LIST} --json printed no list of job names"),
@@ -1136,7 +1166,15 @@ def self_test() -> int:
         (
             "a module document whose t11 anchor stands before t10",
             "T11-BEFORE-T10",
-            'modules/const-x/MODULE.md has no anchor <a id="t10"></a> after <a id="t9"></a>',
+            'modules/const-x/MODULE.md: the anchor after <a id="t9"></a> is <a id="t11"></a>, not'
+            ' <a id="t10"></a> — fix: put the sections in the template\'s order, t1 to t12, each anchor'
+            " alone on the line above its section's heading",
+        ),
+        (
+            "a module document whose t9 anchor is its last",
+            "T9-LAST",
+            'modules/const-x/MODULE.md: no anchor follows <a id="t9"></a>, and <a id="t10"></a> stands'
+            " before it — fix: put the sections in the template's order, t1 to t12",
         ),
         ("a module folder without its document", "NO-DOC", "modules/empty has no MODULE.md"),
         ("a tree that is no git repository", "NO-REPO", "git ls-files scripts exited"),
@@ -1165,12 +1203,13 @@ def self_test() -> int:
                 )
             if change == "NO-T9":
                 (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
-            if change in ("T9-ON-HEADING", "T9-TWICE", "T10-TWICE", "NO-T10", "T11-BEFORE-T10"):
+            if change in ("T9-ON-HEADING", "T9-TWICE", "T10-TWICE", "NO-T10", "T11-BEFORE-T10", "T9-LAST"):
                 broken_text = {
                     "T9-ON-HEADING": module_text.replace('<a id="t9"></a>\n## 9', '## 9 <a id="t9"></a>'),
                     "T9-TWICE": module_text.replace("## 9\n", '## 9\n<a id="t9"></a>\n', 1),
                     "T10-TWICE": module_text.replace("| E2 |", '<a id="t10"></a>\n| E2 |', 1),
                     "NO-T10": module_text.replace('<a id="t10"></a>\n', ""),
+                    "T9-LAST": module_text.replace('<a id="t9"></a>\n', "") + '<a id="t9"></a>\n',
                     "T11-BEFORE-T10": module_text.replace('<a id="t10"></a>\n', "@@")
                     .replace('<a id="t11"></a>\n', '<a id="t10"></a>\n')
                     .replace("@@", '<a id="t11"></a>\n'),
@@ -1190,7 +1229,7 @@ def self_test() -> int:
                 os.environ["PATH"] = path
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 23
+    total = len(cases) + 25
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
