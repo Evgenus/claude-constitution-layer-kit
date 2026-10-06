@@ -271,7 +271,7 @@ def c12_no_trunk(trunk: str, remote: str, root: str) -> Broken:
         SharedKey.C12,
         f"the trunk '{echoed(trunk)}' is neither a local branch nor {echoed(remote)}/{echoed(trunk)} in"
         f" {escaped(root)}",
-        f"fetch it (git fetch {echoed(remote)} {echoed(trunk)}), set {_ns()}.trunk to the branch changes"
+        f"fetch it (git fetch {escaped(remote)} {escaped(trunk)}), set {_ns()}.trunk to the branch changes"
         f" land on and {_ns()}.trunk_remote to the remote that holds it, or run the scan with --since <ref>",
     )
 

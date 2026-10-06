@@ -193,11 +193,30 @@ PAIR_FIX = (
     " — fix: write the pair as {name: <kebab>, code: [<gitignore patterns of the code it describes>],"
     " docs: [<paths of the documents that describe it>]}"
 )
-NO_TRUNK = (  # the C12 of a trunk found nowhere, typed whole; the fill-ins are the values it echoes
-    "BROKEN: the trunk '{trunk}' is neither a local branch nor {remote}/{trunk} in {root} — fix: fetch it"
-    " (git fetch {remote} {trunk}), set const-task-close.trunk to the branch changes land on and"
-    " const-task-close.trunk_remote to the remote that holds it, or run the scan with --since <ref>"
+# the C12 of a trunk found nowhere, typed whole in its two halves: the pointer half shows the trunk and the
+# remote as echoed values are shown, the fix half, a command to type, holds them whole, escaped
+NO_TRUNK_SAYS = "BROKEN: the trunk '{trunk}' is neither a local branch nor {remote}/{trunk} in {root}"
+NO_TRUNK_FIX = (
+    " — fix: fetch it (git fetch {fetch_remote} {fetch_trunk}), set const-task-close.trunk to the branch"
+    " changes land on and const-task-close.trunk_remote to the remote that holds it, or run the scan with"
+    " --since <ref>"
 )
+
+
+def no_trunk(
+    root: object,
+    trunk: str = "main",
+    remote: str = "origin",
+    fetch_trunk: str | None = None,
+    fetch_remote: str | None = None,
+) -> str:
+    """The C12 line; the fetch command takes the values as the pointer shows them unless told they differ."""
+    return NO_TRUNK_SAYS.format(trunk=trunk, remote=remote, root=root) + NO_TRUNK_FIX.format(
+        fetch_trunk=fetch_trunk if fetch_trunk is not None else trunk,
+        fetch_remote=fetch_remote if fetch_remote is not None else remote,
+    )
+
+
 UNKNOWN_DIAL_FIX = (
     " is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write"
     " one of severity, log_dir, coverage, trunk, trunk_remote, declaration_key, working_files"
@@ -452,18 +471,18 @@ def trunk_dial() -> tuple[bool, str]:
     named = red_scan(scan(r.root), t2())
     r2 = repo(with_map(trunk="nowhere"))
     branch(r2.root)
-    missing = broken(scan(r2.root), NO_TRUNK.format(trunk="nowhere", remote="origin", root=r2.root))
+    missing = broken(scan(r2.root), no_trunk(r2.root, trunk="nowhere"))
     r3 = repo(with_map(trunk="no\nwhere"))
     branch(r3.root)
     odd = broken(  # a line break in the dial's value stays on one line, shown escaped, typed by hand
-        scan(r3.root), NO_TRUNK.format(trunk="no\\nwhere", remote="origin", root=r3.root)
+        scan(r3.root), no_trunk(r3.root, trunk="no\\nwhere")
     )
     parent = H.scratch_dir()  # a root of over 80 characters, a break and a backslash: whole
     r4 = repo(with_map(trunk="nowhere"), parent=parent)
     branch(r4.root)
     whole = broken(
         scan(r4.root),
-        NO_TRUNK.format(trunk="nowhere", remote="origin", root=f"{parent}/{WEIRD_DIR_SHOWN}"),
+        no_trunk(f"{parent}/{WEIRD_DIR_SHOWN}", trunk="nowhere"),
     )
     return all_of(
         [named, missing, odd, whole, *fresher_trunk()],
@@ -627,7 +646,7 @@ def trunk_remote_dial() -> list[tuple[bool, str]]:
 
     # 11: a clone made with `-o upstream`: without the dial the default remote is asked for, and said
     c = only_remote("upstream")
-    case("11 upstream, no dial", broken(scan(c), NO_TRUNK.format(trunk="main", remote="origin", root=c)))
+    case("11 upstream, no dial", broken(scan(c), no_trunk(c)))
     # 12: the dial names it: the base comes from upstream/main
     c = only_remote("upstream", trunk_remote="upstream")
     case("12 upstream, dial", red_over(scan(c), tail(1, 1, short(c, "upstream/main"), short(c))))
@@ -653,11 +672,18 @@ def trunk_remote_dial() -> list[tuple[bool, str]]:
     case("15 remote with a slash", green_scan(scan(c), tail(1, 1, short(c, "a/b/main"), short(c))))
     # 16: a remote git does not know: the C12 names it with the trunk
     c = only_remote("origin", trunk_remote="nosuch")
-    case("16 unknown remote", broken(scan(c), NO_TRUNK.format(trunk="main", remote="nosuch", root=c)))
-    # 17: a remote name of over 80 characters is cut as an echoed value is, the count of its characters said
+    case("16 unknown remote", broken(scan(c), no_trunk(c, remote="nosuch")))
+    # 17: a remote name of over 80 characters is cut in the pointer, as an echoed value is, its characters
+    # counted, and whole in the fetch command, which must run
     c = only_remote("origin", trunk_remote="u" * 90)
     cut = "u" * 80 + "… [90 characters]"
-    case("17 long remote", broken(scan(c), NO_TRUNK.format(trunk="main", remote=cut, root=c)))
+    case("17 long remote", broken(scan(c), no_trunk(c, remote=cut, fetch_remote="u" * 90)))
+    # 18: a trunk of 90 characters with a backslash: cut in the pointer, whole in the command, the backslash
+    # doubled in both
+    c = only_remote("origin", trunk="t" * 79 + "\\" + "z" * 10)
+    pointed = "t" * 79 + "\\\\" + "… [90 characters]"
+    fetched = "t" * 79 + "\\\\" + "z" * 10
+    case("18 long trunk", broken(scan(c), no_trunk(c, trunk=pointed, fetch_trunk=fetched)))
     return results
 
 
@@ -1336,6 +1362,11 @@ def dial_failures() -> tuple[bool, str]:
         (own(trunk_remote="x\ty"), TRUNK_REMOTE),
         (own(trunk_remote="x\ny"), TRUNK_REMOTE),  # a line break: the failure stays one line
         (own(trunk_remote="x\x07y"), TRUNK_REMOTE),  # a control character
+        (own(trunk_remote="\x7f"), TRUNK_REMOTE),  # DEL
+        (own(trunk_remote="a\x85b"), TRUNK_REMOTE),  # a C1 control character
+        (own(trunk_remote=" x"), TRUNK_REMOTE),  # the first character is held by a class of its own:
+        (own(trunk_remote="\x07x"), TRUNK_REMOTE),  # white space, a control character and a tab,
+        (own(trunk_remote="\tx"), TRUNK_REMOTE),  # each of them first
         (
             own(declaration_key="No Doc"),
             DIAL + "declaration_key must be a trailer key: letters, digits and hyphens — fix: set"
