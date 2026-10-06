@@ -78,9 +78,10 @@ def _commit(root: Path, ref: str) -> str | None:
     return os.fsdecode(done.stdout).strip() if done.returncode == 0 else None
 
 
-def trunk_tips(root: Path, trunk: str) -> tuple[str | None, str | None]:
-    """The trunk as a local branch and as origin's tracking branch; None for each that is absent."""
-    return _commit(root, f"refs/heads/{trunk}"), _commit(root, f"refs/remotes/origin/{trunk}")
+def trunk_tips(root: Path, trunk: str, remote: str) -> tuple[str | None, str | None]:
+    """The trunk as a local branch and as the named remote's tracking branch; None for each that is
+    absent."""
+    return _commit(root, f"refs/heads/{trunk}"), _commit(root, f"refs/remotes/{remote}/{trunk}")
 
 
 def fresher(root: Path, local: str | None, tracked: str | None) -> str | None:

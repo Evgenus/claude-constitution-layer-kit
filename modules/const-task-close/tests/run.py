@@ -193,9 +193,14 @@ PAIR_FIX = (
     " — fix: write the pair as {name: <kebab>, code: [<gitignore patterns of the code it describes>],"
     " docs: [<paths of the documents that describe it>]}"
 )
+NO_TRUNK = (  # the C12 of a trunk found nowhere, typed whole; the fill-ins are the values it echoes
+    "BROKEN: the trunk '{trunk}' is neither a local branch nor {remote}/{trunk} in {root} — fix: fetch it"
+    " (git fetch {remote} {trunk}), set const-task-close.trunk to the branch changes land on and"
+    " const-task-close.trunk_remote to the remote that holds it, or run the scan with --since <ref>"
+)
 UNKNOWN_DIAL_FIX = (
     " is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write"
-    " one of severity, log_dir, coverage, trunk, declaration_key, working_files"
+    " one of severity, log_dir, coverage, trunk, trunk_remote, declaration_key, working_files"
 )
 SHALLOW = "a shallow clone may need its history fetched (git fetch --unshallow)"
 # a path or a folder name over 80 characters with a line break and a backslash: the echo rule's value
@@ -421,7 +426,19 @@ def tool_event_is_not_wired() -> tuple[bool, str]:
 
 def hook_validates_dials() -> tuple[bool, str]:
     r = repo(own(coverag=[]))
-    return broken(hook(r.root), DIAL + "coverag" + UNKNOWN_DIAL_FIX)
+    bad = repo(own(trunk_remote="-x"))
+    good = hook(repo(own(trunk_remote="upstream")).root)
+    return all_of(
+        [
+            broken(hook(r.root), DIAL + "coverag" + UNKNOWN_DIAL_FIX),
+            broken(hook(bad.root), TRUNK_REMOTE),
+            (
+                good.code == 0 and not good.stderr,
+                f"a good trunk_remote in the hook: exit {good.code}: {good.stderr}",
+            ),
+        ],
+        "the hook refuses an unknown dial and a bad trunk_remote, and lets a good one through",
+    )
 
 
 # ------------------------------------------------------------------ the scan's range
@@ -435,54 +452,63 @@ def trunk_dial() -> tuple[bool, str]:
     named = red_scan(scan(r.root), t2())
     r2 = repo(with_map(trunk="nowhere"))
     branch(r2.root)
-    missing = broken(
-        scan(r2.root),
-        f"BROKEN: the trunk 'nowhere' is neither a local branch nor origin/nowhere in {r2.root} — fix:"
-        " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
-    )
+    missing = broken(scan(r2.root), NO_TRUNK.format(trunk="nowhere", remote="origin", root=r2.root))
     r3 = repo(with_map(trunk="no\nwhere"))
     branch(r3.root)
     odd = broken(  # a line break in the dial's value stays on one line, shown escaped, typed by hand
-        scan(r3.root),
-        f"BROKEN: the trunk 'no\\nwhere' is neither a local branch nor origin/no\\nwhere in {r3.root} — fix:"
-        " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
+        scan(r3.root), NO_TRUNK.format(trunk="no\\nwhere", remote="origin", root=r3.root)
     )
     parent = H.scratch_dir()  # a root of over 80 characters, a break and a backslash: whole
     r4 = repo(with_map(trunk="nowhere"), parent=parent)
     branch(r4.root)
     whole = broken(
         scan(r4.root),
-        f"BROKEN: the trunk 'nowhere' is neither a local branch nor origin/nowhere in {parent}/"
-        + WEIRD_DIR_SHOWN
-        + " — fix: set const-task-close.trunk to the branch changes land on, or run the scan with --since"
-        " <ref>",
+        NO_TRUNK.format(trunk="nowhere", remote="origin", root=f"{parent}/{WEIRD_DIR_SHOWN}"),
     )
     return all_of(
         [named, missing, odd, whole, *fresher_trunk()],
-        "the trunk dial names the base, the fresher of a local and a tracked trunk; an unknown trunk is a"
-        " configuration failure",
+        "the trunk dial names the base, the fresher of a local and a tracked trunk, tracked on the remote the"
+        " trunk_remote dial names; an unknown trunk or remote is a configuration failure",
     )
 
 
-def clone_of(upstream: Path) -> Path:
-    """A clone of the repository, its remote the default `origin`, in a fresh folder."""
+def clone_of(upstream: Path, remote: str = "origin") -> Path:
+    """A clone of the repository, its remote named as asked — `origin` unless git is told otherwise — in
+    a fresh folder."""
     clone = H.scratch_dir() / "clone"
-    done = git(upstream, "clone", "-q", str(upstream), str(clone))
+    done = git(upstream, "clone", "-q", "-o", remote, str(upstream), str(clone))
     assert done.returncode == 0, done.stderr
     return clone
 
 
-def landed_upstream() -> Path:
+def landed_upstream(remote: str = "origin", **dials: object) -> Path:
     """A clone whose local main is stale: the upstream repository has two more commits, fetched and not
     merged — `landed code` touches code alone, `landed readme` a README alone. The clone's main has
-    `older code` at its tip, a code-only commit too, pushed before the clone was made."""
-    up = repo(with_map())
+    `older code` at its tip, a code-only commit too, pushed before the clone was made. Its remote has
+    the name asked, and the dials, those of this module, are the upstream's, which the clone carries."""
+    up = repo(with_map(**dials))
     commit(up.root, "older code", {"src/a.py": "x = 2\n"})
-    clone = clone_of(up.root)
+    clone = clone_of(up.root, remote)
     commit(up.root, "landed code", {"src/a.py": "x = 9\n"})
     commit(up.root, "landed readme", {"README": "hi\n"})
-    done = git(clone, "fetch", "-q", "origin")
+    done = git(clone, "fetch", "-q", remote)
     assert done.returncode == 0, done.stderr
+    return clone
+
+
+def forked(**dials: object) -> Path:
+    """A fork's clone: `origin` is the fork, stale, and `upstream` the project, fresh — a code-only commit
+    landed there and fetched; a branch is cut from `upstream/main` and takes a README commit, and the
+    local main is gone. The dials are those of this module, carried by both."""
+    project = repo(with_map(**dials))
+    fork = clone_of(project.root)
+    clone = clone_of(fork)
+    git(clone, "remote", "add", "upstream", str(project.root))
+    commit(project.root, "landed code", {"src/a.py": "x = 9\n"})
+    assert git(clone, "fetch", "-q", "upstream").returncode == 0
+    git(clone, "checkout", "-q", "-b", "work/z", "upstream/main")
+    git(clone, "branch", "-D", "main")
+    commit(clone, "readme only", {"README": "hello\n"})
     return clone
 
 
@@ -569,6 +595,58 @@ def fresher_trunk() -> list[tuple[bool, str]]:
     commit(c, "readme only", {"README": "hello\n"})
     unsaid = fake_git(real, "merge-base", when="--is-ancestor")
     case("10 ancestry unanswered", red_over(scan(c, env=unsaid), tail(1, 3, short(c, "main"), short(c))))
+    results.extend(trunk_remote_dial())
+    return results
+
+
+def trunk_remote_dial() -> list[tuple[bool, str]]:
+    """Where the tracked trunk is looked for: the remote the dial names, `origin` when it names none."""
+    results: list[tuple[bool, str]] = []
+
+    def case(label: str, outcome: tuple[bool, str]) -> None:
+        results.append((outcome[0], f"{label}: {outcome[1]}"))
+
+    def only_remote(remote: str, **dials: object) -> Path:
+        """A clone whose remote is named as asked, no local main, a code-only commit on a branch."""
+        c = clone_of(repo(with_map(**dials)).root, remote)
+        branch(c)
+        git(c, "branch", "-D", "main")
+        commit(c, "code only", {"src/a.py": "x = 2\n"})
+        return c
+
+    # 11: a clone made with `-o upstream`: without the dial the default remote is asked for, and said
+    c = only_remote("upstream")
+    case("11 upstream, no dial", broken(scan(c), NO_TRUNK.format(trunk="main", remote="origin", root=c)))
+    # 12: the dial names it: the base comes from upstream/main
+    c = only_remote("upstream", trunk_remote="upstream")
+    case("12 upstream, dial", red_over(scan(c), tail(1, 1, short(c, "upstream/main"), short(c))))
+    # 13: a fork, origin stale and upstream fresh: the dial picks upstream, the default origin
+    c = forked(trunk_remote="upstream")
+    case("13a fork, dial upstream", green_scan(scan(c), tail(1, 1, short(c, "upstream/main"), short(c))))
+    c = forked()
+    case("13b fork, default origin", red_over(scan(c), tail(1, 2, short(c, "origin/main"), short(c))))
+    # 14: the fresher rule holds through the dial: a stale local main, a fresher upstream/main
+    c = landed_upstream("upstream", trunk_remote="upstream")
+    git(c, "checkout", "-q", "-b", "work/z", "upstream/main")
+    commit(c, "readme only", {"README": "hello\n"})
+    case("14 stale local, dial", green_scan(scan(c), tail(1, 1, short(c, "upstream/main"), short(c))))
+    # 15: a remote whose name holds a slash, added by `git remote add`: found
+    up = repo(with_map(trunk_remote="a/b"))
+    c = clone_of(up.root)
+    commit(up.root, "landed code", {"src/a.py": "x = 9\n"})
+    assert git(c, "remote", "add", "a/b", str(up.root)).returncode == 0
+    assert git(c, "fetch", "-q", "a/b").returncode == 0
+    git(c, "checkout", "-q", "-b", "work/z", "a/b/main")
+    git(c, "branch", "-D", "main")
+    commit(c, "readme only", {"README": "hello\n"})
+    case("15 remote with a slash", green_scan(scan(c), tail(1, 1, short(c, "a/b/main"), short(c))))
+    # 16: a remote git does not know: the C12 names it with the trunk
+    c = only_remote("origin", trunk_remote="nosuch")
+    case("16 unknown remote", broken(scan(c), NO_TRUNK.format(trunk="main", remote="nosuch", root=c)))
+    # 17: a remote name of over 80 characters is cut as an echoed value is, the count of its characters said
+    c = only_remote("origin", trunk_remote="u" * 90)
+    cut = "u" * 80 + "… [90 characters]"
+    case("17 long remote", broken(scan(c), NO_TRUNK.format(trunk="main", remote=cut, root=c)))
     return results
 
 
@@ -1170,6 +1248,10 @@ TRUNK = (
     DIAL + "trunk must be a non-empty string — fix: set trunk: <the branch changes land on>, or remove the"
     " line for main"
 )
+TRUNK_REMOTE = (
+    DIAL + "trunk_remote must be a remote's name: one word, not beginning with a dash — fix: set"
+    " trunk_remote: <the remote that holds the trunk, as git remote lists it>, or remove the line for origin"
+)
 
 
 def dial_failures() -> tuple[bool, str]:
@@ -1235,6 +1317,14 @@ def dial_failures() -> tuple[bool, str]:
         ),
         (own(trunk=""), TRUNK),
         (own(trunk=3), TRUNK),
+        (own(trunk_remote=""), TRUNK_REMOTE),
+        (own(trunk_remote=3), TRUNK_REMOTE),
+        (own(trunk_remote=["origin"]), TRUNK_REMOTE),
+        (own(trunk_remote="-x"), TRUNK_REMOTE),
+        (own(trunk_remote="a b"), TRUNK_REMOTE),
+        (own(trunk_remote="x\ty"), TRUNK_REMOTE),
+        (own(trunk_remote="x\ny"), TRUNK_REMOTE),  # a line break: the failure stays one line
+        (own(trunk_remote="x\x07y"), TRUNK_REMOTE),  # a control character
         (
             own(declaration_key="No Doc"),
             DIAL + "declaration_key must be a trailer key: letters, digits and hyphens — fix: set"
@@ -1299,7 +1389,13 @@ def working_files_note() -> tuple[bool, str]:
 
 
 def misspelt_dial() -> tuple[bool, str]:
-    return broken(scan(repo(own(covrage=[])).root), DIAL + "covrage" + UNKNOWN_DIAL_FIX)
+    return all_of(
+        [
+            broken(scan(repo(own(covrage=[])).root), DIAL + "covrage" + UNKNOWN_DIAL_FIX),
+            broken(scan(repo(own(trunk_remot="upstream")).root), DIAL + "trunk_remot" + UNKNOWN_DIAL_FIX),
+        ],
+        "a misspelt dial, the remote's among them, is a configuration failure listing every dial",
+    )
 
 
 # ------------------------------------------------------------------ texts and shape
@@ -1707,8 +1803,8 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (9, "a tool event is a configuration failure: the gate is wired to Stop", tool_event_is_not_wired),
     (
         10,
-        "the trunk dial names the base, the fresher of a local and a tracked trunk; an unknown trunk is a"
-        " configuration failure",
+        "the trunk dial names the base, the fresher of a local and a tracked trunk, tracked on the remote the"
+        " trunk_remote dial names; an unknown trunk or remote is a configuration failure",
         trunk_dial,
     ),
     (11, "--since names the base: a tag, a relative ref", since_ref),
@@ -1763,7 +1859,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (28, "dial failures: each C5 text, a docs path with a trailing slash among them, exit 1", dial_failures),
     (29, "a pattern git would misread, in code and in working_files", unreadable_patterns),
     (30, "working_files: tracked matches are a note, untracked ones are not", working_files_note),
-    (31, "a misspelt dial is a configuration failure", misspelt_dial),
+    (31, "a misspelt dial, trunk_remote among them, is a configuration failure", misspelt_dial),
     (
         32,
         "golden lines of T1–T4, X1, X2, the trailing-slash C5, the count forms and the ellipsis of T1 and"
@@ -1777,7 +1873,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         " example accepted as it stands",
         skills_and_install_note,
     ),
-    (35, "the hook validates the dials too", hook_validates_dials),
+    (35, "the hook validates the dials too, trunk_remote among them", hook_validates_dials),
     (36, "an orphan branch is unborn; a HEAD git cannot read is a configuration failure", broken_head),
     (37, "two histories with no common commit: the range failure says so in words", unrelated_histories),
     (

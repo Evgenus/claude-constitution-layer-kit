@@ -1,6 +1,6 @@
 """This module's own dials, parsed once from its namespace as the shared reader hands it over:
-`coverage`, a list of `{name, code, docs}`; `trunk`; `declaration_key`; `working_files`. A key
-that is none of the six this module reads is a configuration failure, never a setting ignored."""
+`coverage`, a list of `{name, code, docs}`; `trunk`; `trunk_remote`; `declaration_key`; `working_files`. A key
+that is none of the seven this module reads is a configuration failure, never a setting ignored."""
 
 from __future__ import annotations
 
@@ -11,9 +11,18 @@ from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_p
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
-from .model import DEFAULT_KEY, DEFAULT_TRUNK, KEY_RE, NAME_RE, Pair, TaskCloseDials
+from .model import (
+    DEFAULT_KEY,
+    DEFAULT_REMOTE,
+    DEFAULT_TRUNK,
+    KEY_RE,
+    NAME_RE,
+    REMOTE_RE,
+    Pair,
+    TaskCloseDials,
+)
 
-KEYS = (*GATE_KEYS, "coverage", "trunk", "declaration_key", "working_files")
+KEYS = (*GATE_KEYS, "coverage", "trunk", "trunk_remote", "declaration_key", "working_files")
 PAIR_KEYS = {"name", "code", "docs"}
 
 
@@ -27,6 +36,7 @@ def parse(own: Mapping[str, object]) -> TaskCloseDials:
     return TaskCloseDials(
         coverage=coverage,
         trunk=_trunk(own.get("trunk")),
+        trunk_remote=_remote(own.get("trunk_remote")),
         declaration_key=_key(own.get("declaration_key")),
         working_files=working_files,
     )
@@ -99,6 +109,15 @@ def _trunk(value: object) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ConfigurationFailure(messages.c5_trunk())
     return value.strip()
+
+
+def _remote(value: object) -> str:
+    """The remote that holds the trunk, as written: whether git knows it is learned at the lookup."""
+    if value is None:
+        return DEFAULT_REMOTE
+    if not isinstance(value, str) or not REMOTE_RE.fullmatch(value):
+        raise ConfigurationFailure(messages.c5_trunk_remote())
+    return value
 
 
 def _key(value: object) -> str:

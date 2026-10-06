@@ -9,7 +9,11 @@ from enum import StrEnum
 
 NAME_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")  # a pair's name, kebab-case; used with fullmatch
 KEY_RE = re.compile(r"[A-Za-z0-9-]+")  # a trailer key as git reads one; used with fullmatch
+# a remote's name: one word, no white space or control character, not beginning with a dash; git allows a
+# slash in one, and whether git knows it is learned at the lookup; used with fullmatch
+REMOTE_RE = re.compile(r"[^\s\x00-\x1f\x7f-\x9f-][^\s\x00-\x1f\x7f-\x9f]*")
 DEFAULT_TRUNK = "main"
+DEFAULT_REMOTE = "origin"
 DEFAULT_KEY = "No-Doc-Impact"
 BODY = "the body"  # where a declaration read from the --body file stands
 SHOWN_PATHS = 3  # how many of the paths a finding lists before "…"
@@ -42,6 +46,7 @@ class TaskCloseDials:
 
     coverage: tuple[Pair, ...]
     trunk: str
+    trunk_remote: str
     declaration_key: str
     working_files: tuple[str, ...]
 

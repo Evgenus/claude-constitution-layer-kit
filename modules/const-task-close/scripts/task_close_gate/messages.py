@@ -17,7 +17,16 @@ from const_gate import identity
 from const_gate.messages import echoed, escaped
 from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
 
-from .model import DEFAULT_KEY, DEFAULT_TRUNK, SHOWN_LINES, SHOWN_PATHS, Declaration, Key, Pair
+from .model import (
+    DEFAULT_KEY,
+    DEFAULT_REMOTE,
+    DEFAULT_TRUNK,
+    SHOWN_LINES,
+    SHOWN_PATHS,
+    Declaration,
+    Key,
+    Pair,
+)
 
 _PAIR = "{name: <kebab>, code: [<patterns>], docs: [<paths>]}"
 _PAIR_FULL = (
@@ -211,6 +220,15 @@ def c5_trunk() -> Broken:
     )
 
 
+def c5_trunk_remote() -> Broken:
+    return Broken(
+        SharedKey.C5,
+        f"{DIALS_FILE}: {_ns()}.trunk_remote must be a remote's name: one word, not beginning with a dash",
+        "set trunk_remote: <the remote that holds the trunk, as git remote lists it>, or remove the line for"
+        f" {DEFAULT_REMOTE}",
+    )
+
+
 def c5_declaration_key() -> Broken:
     return Broken(
         SharedKey.C5,
@@ -248,12 +266,13 @@ def c12_unknown_ref(flag: str, ref: str, root: str, detail: str) -> Broken:
     )
 
 
-def c12_no_trunk(trunk: str, root: str) -> Broken:
+def c12_no_trunk(trunk: str, remote: str, root: str) -> Broken:
     return Broken(
         SharedKey.C12,
-        f"the trunk '{echoed(trunk)}' is neither a local branch nor origin/{echoed(trunk)} in"
+        f"the trunk '{echoed(trunk)}' is neither a local branch nor {echoed(remote)}/{echoed(trunk)} in"
         f" {escaped(root)}",
-        f"set {_ns()}.trunk to the branch changes land on, or run the scan with --since <ref>",
+        f"fetch it (git fetch {echoed(remote)} {echoed(trunk)}), set {_ns()}.trunk to the branch changes"
+        f" land on and {_ns()}.trunk_remote to the remote that holds it, or run the scan with --since <ref>",
     )
 
 
