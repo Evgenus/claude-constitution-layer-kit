@@ -16,6 +16,9 @@ from .model import BODY, Declaration, Range
 
 # `<pair> — <reason>`: an em or en dash, spaced or not, or one or two hyphens spaced on both sides
 NO_COMMON_ANCESTOR = "the two histories share no commit"
+DASH_REF = "a ref cannot begin with a dash"
+# a git that does not know a trailer option prints the placeholder itself, with exit 0
+UNKNOWN_PLACEHOLDER = "%(trailers"
 DASH = re.compile(r"^(.*?)(?:\s*[—–]\s*|\s+--?\s+)(.*)$", re.DOTALL)
 
 
@@ -30,7 +33,9 @@ def status_lines(root: Path) -> list[str]:
 
 def resolve(root: Path, flag: str, ref: str) -> str:
     """The full hash a ref names, or the configuration failure that says it names none."""
-    done = git(["rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}"], cwd=root)
+    if ref.startswith("-"):  # git would read it as an option; no ref of this repository begins so
+        raise ConfigurationFailure(messages.c12_unknown_ref(flag, ref, str(root), DASH_REF))
+    done = git(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], cwd=root)
     if done.returncode != 0:
         detail = first_line(done.stderr) if done.stderr.strip() else "no such ref"
         raise ConfigurationFailure(messages.c12_unknown_ref(flag, ref, str(root), detail))
@@ -67,13 +72,29 @@ def current_branch(root: Path) -> str | None:
     return os.fsdecode(done.stdout).strip() if done.returncode == 0 else None
 
 
-def trunk_tip(root: Path, trunk: str) -> str | None:
-    """The trunk as a local branch, else as origin's; None when it is neither."""
-    for ref in (f"refs/heads/{trunk}", f"refs/remotes/origin/{trunk}"):
-        done = git(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], cwd=root)
-        if done.returncode == 0:
-            return os.fsdecode(done.stdout).strip()
-    return None
+def _commit(root: Path, ref: str) -> str | None:
+    """The commit a full ref name points at; None when the ref does not exist."""
+    done = git(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], cwd=root)
+    return os.fsdecode(done.stdout).strip() if done.returncode == 0 else None
+
+
+def trunk_tips(root: Path, trunk: str, remote: str) -> tuple[str | None, str | None]:
+    """The trunk as a local branch and as the named remote's tracking branch; None for each that is
+    absent."""
+    return _commit(root, f"refs/heads/{trunk}"), _commit(root, f"refs/remotes/{remote}/{trunk}")
+
+
+def fresher(root: Path, local: str | None, tracked: str | None) -> str | None:
+    """The trunk's tip: the one that exists when only one does, None when neither; when both do, the
+    tracked one if the local one is its ancestor — a stale local trunk would put other people's landed
+    commits into the range — else the local one, which may hold trunk commits not yet pushed, or whose
+    ancestry git cannot answer."""
+    if local is None or tracked is None:
+        return local or tracked
+    # exit 0: an ancestor (equal included); 1: not; any other exit, a shallow clone missing objects
+    # among them, is no answer, and the local one stays
+    done = git(["merge-base", "--is-ancestor", local, tracked], cwd=root)
+    return tracked if done.returncode == 0 else local
 
 
 def merge_base(root: Path, a: str, b: str) -> str:
@@ -132,8 +153,14 @@ def trailers(root: Path, rng: Range, key: str) -> list[Declaration]:
     """Every value of the key among the range's commit messages, newest commit first, as git
     reads trailers: the message's last paragraph, every line `Key: value`."""
     where = [f"{rng.base}..{rng.tip}"] if rng.base is not None else ["-1", rng.tip]
-    done = git(
-        ["log", f"--format=%h%x00%(trailers:key={key},valueonly,unfold,separator=%x1f)%x01", *where],
+    done = git(  # log.showSignature=true would print a signature check before each formatted line
+        [
+            "-c",
+            "log.showSignature=false",
+            "log",
+            f"--format=%h%x00%(trailers:key={key},valueonly,unfold,separator=%x1f)%x01",
+            *where,
+        ],
         cwd=root,
     )
     if done.returncode != 0:
@@ -145,10 +172,21 @@ def trailers(root: Path, rng: Range, key: str) -> list[Declaration]:
         if "\x00" not in record:
             continue
         commit, values = record.strip("\n").split("\x00", 1)
+        if values.startswith(UNKNOWN_PLACEHOLDER):  # a trailer's own text may quote it, not begin so
+            raise ConfigurationFailure(messages.c12_old_git(_version_line(root)))
         for value in values.split("\x1f"):
             if value.strip():
                 found.append(declaration(f"commit {commit.strip()}", value.strip()))
     return found
+
+
+def _version_line(root: Path) -> str:
+    """git's own first line of `git version`, or the way it failed to say it."""
+    done = git(["version"], cwd=root)
+    if done.returncode != 0:
+        return f"git version failed: {first_line(done.stderr)}"
+    lines = os.fsdecode(done.stdout).strip().splitlines()
+    return lines[0] if lines else "git version printed nothing"
 
 
 def body_declarations(text: str, key: str) -> list[Declaration]:

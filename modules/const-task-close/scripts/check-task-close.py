@@ -11,16 +11,19 @@ Modes:    no arguments  read one Stop event on stdin and judge the working tree 
                         current directory) against the coverage map: --since names the base
                         and the change is what the head adds since their merge-base;
                         --change names one landed commit and the change is its first-parent
-                        diff; neither: the base is the trunk the dial names, or, on the trunk
+                        diff; neither: the base is the trunk the dials name — the remote's
+                        tracking branch when git finds the local branch its ancestor or
+                        equal to it, or finds none, else the local branch — or, on the trunk
                         itself, the last landed change. --body gives the pull request's
                         description as a file, read for declarations beside the commits'
                         trailers. The check for CI on a pull request, and before a merge.
 Reads:    from the event: hook_event_name, cwd, session_id, stop_hook_active. From
           constitution.yaml: this module's dials const-task-close.coverage (a list of
-          {name, code, docs}), .trunk (a branch name; default main), .declaration_key (a
-          trailer key; default No-Doc-Impact), .working_files (patterns), .severity (block |
-          warn) and .log_dir; the file as a whole is validated as every gate does. No policy
-          is read; no envelope is judged.
+          {name, code, docs}), .trunk (a branch name; default main), .trunk_remote (a
+          remote's name; default origin), .declaration_key (a trailer key; default
+          No-Doc-Impact), .working_files (patterns), .severity (block | warn) and .log_dir; the
+          file as a whole is validated as every gate does. No policy is read; no envelope is
+          judged.
 The check: in the scan, every pair whose code patterns match a path of the range, its own
           documents excepted, has one of its documents among the range's paths, or a
           declaration — the trailer "<key>: <pair> — <reason>" on a commit of the range, or
@@ -50,7 +53,7 @@ FLOOR = (3, 12)
 TOO_OLD = (
     "BROKEN: const-task-close needs Python %d.%d or newer, found %d.%d — fix: install a"
     " current Python 3 (https://www.python.org/downloads/) and put it first on PATH"
-    " — until then Markdown writes pass unchecked\n"
+    " — until then neither the tree at turn end nor a change's documents are checked\n"
     "BROKEN: the check could not run — 0 documents examined\n"
 )
 
@@ -64,7 +67,8 @@ NO_SHARED_CODE = (
     "BROKEN: const-task-close is installed without its shared code (scripts/const_gate is missing"
     " or is not a directory) — fix: install the plugin from its marketplace, or load it from a"
     " full checkout of the repository it comes from; a copy of the plugin's folder must be made"
-    " with links followed (cp -RL) — until then Markdown writes pass unchecked\n"
+    " with links followed (cp -RL)"
+    " — until then neither the tree at turn end nor a change's documents are checked\n"
     "BROKEN: the check could not run — 0 documents examined\n"
 )
 

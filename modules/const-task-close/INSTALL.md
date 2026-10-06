@@ -37,6 +37,7 @@ silently skipped.
          code: ["Makefile", "scripts/**"]
          docs: ["docs/design/build.md"]
      trunk: main                # the branch changes land on; the base of a bare scan
+     trunk_remote: origin       # the remote whose tracking branch of the trunk is read beside the local one
      declaration_key: No-Doc-Impact   # the trailer key of a no-impact declaration
      working_files: []          # patterns of a task's working files; tracked matches are listed at the scan
      severity: block            # block (default) | warn — the turn-end hook only
@@ -83,7 +84,9 @@ silently skipped.
    blocked turn ends and warnings leave no trace in git. By default it lives in the platform's
    per-plugin data directory. Set `log_dir` to keep it inside the repository; the directory must
    be git-ignored, and the gate refuses to run otherwise.
-8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green. The fixtures need
+   git 2.45 or newer, since item 36 builds a repository in each ref store; on an older git that item
+   is red and the rest run.
 9. CLAUDE.md pointer: none. The skills `/const-task-close:close-task` and
    `/const-task-close:commit-before-edit` load on their own when a task is being finished or a
    batch of edits begins; the hook's message names the second.

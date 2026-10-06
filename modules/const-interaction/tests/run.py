@@ -2075,6 +2075,85 @@ def t41() -> tuple[bool, str]:
     )
 
 
+SHELL_CLOSING = "until then shell commands pass unchecked"
+LISTS_CLOSING = "until then no list is scanned"
+
+
+def t42() -> tuple[bool, str]:
+    """Each gate's install-failure lines close with its own clause, never the write gates' "until then
+    Markdown writes pass unchecked" — the shell gate's `until then shell commands pass unchecked`, the list
+    check's `until then no list is scanned`: C1 (no python3, the POSIX entry), C2 (PyYAML missing, the
+    shell gate in its hook mode, the list check in its scan), C14 (an interpreter below the floor, run by
+    a version it is told it has) and C15 (a copy without the shared code), each first line typed whole;
+    and each gate's two entry files hold its clause exactly three times, once per entry text (C1, C14,
+    C15), and "Markdown writes" nowhere."""
+    root = prepared()
+    problems: list[str] = []
+    tools = H.scratch_dir()  # a PATH holding only sh and dirname: no python3
+    for tool in ("sh", "dirname"):
+        found = shutil.which(tool)
+        assert found, tool
+        (tools / tool).symlink_to(found)
+    shadow = H.scratch_dir()  # PyYAML hidden: the shared C2, its closing clause the identity's
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    lowered = (  # an entry file run as an interpreter of 3.11 would run it
+        "import sys; sys.version_info = (3, 11, 0); path = sys.argv[1]; "
+        "exec(compile(open(path).read(), path, 'exec'), {'__name__': '__main__', '__file__': path})"
+    )
+    plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
+    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("const_gate"))
+    gates: tuple[tuple[str, Harness, str, str, list[str]], ...] = (
+        ("shell gate", H, SHELL_CLOSING, bash_json(root, "ls"), []),
+        ("list check", LISTS, LISTS_CLOSING, "", ["--scan", str(root)]),
+    )
+    for name, harness, clause, stdin, args in gates:
+
+        def line_of(label: str, result: Result, whole: str, name: str = name) -> None:
+            first = result.stderr.splitlines()[0] if result.stderr else ""
+            if result.code != 1 or first != whole or "Markdown writes" in result.stdout + result.stderr:
+                problems.append(f"{name} {label}: exit {result.code}: {result.stderr.strip()[:400]}")
+
+        line_of(
+            "C1",
+            harness.run_gate(stdin, args, env={"PATH": str(tools)}),
+            "BROKEN: const-interaction needs python3 — fix: install Python 3.12 or newer"
+            f" (https://www.python.org/downloads/) — {clause}",
+        )
+        line_of(
+            "C2",
+            harness.run_gate(stdin, args, env={"PYTHONPATH": str(shadow)}),
+            "BROKEN: const-interaction needs PyYAML — fix: run: python3 -m pip install -r"
+            f" '{MODULE_ROOT / 'requirements.txt'}' — {clause}",
+        )
+        line_of(
+            "C14",
+            harness.run_gate(stdin, args, command=[sys.executable, "-c", lowered, str(harness.entry)]),
+            "BROKEN: const-interaction needs Python 3.12 or newer, found 3.11 — fix: install a current"
+            f" Python 3 (https://www.python.org/downloads/) and put it first on PATH — {clause}",
+        )
+        line_of(
+            "C15",
+            harness.run_gate(
+                stdin, args, command=[harness.sh, str(plugin / "scripts" / harness.wrapper.name)]
+            ),
+            "BROKEN: const-interaction is installed without its shared code (scripts/const_gate is missing"
+            " or is not a directory) — fix: install the plugin from its marketplace, or load it from a full"
+            " checkout of the repository it comes from; a copy of the plugin's folder must be made with"
+            f" links followed (cp -RL) — {clause}",
+        )
+        sources = "".join(
+            (SCRIPTS / entry).read_text(encoding="utf-8")
+            for entry in (harness.wrapper.name, harness.entry.name)
+        )
+        if sources.count(clause) != 3 or "Markdown writes" in sources:
+            problems.append(
+                f"{name} entry files: the clause {sources.count(clause)} times, wanted 3; or Markdown writes"
+            )
+    return not problems, "; ".join(
+        problems
+    ) or "C1, C2, C14 and C15 of the shell gate and of the list check close with each gate's own clause"
+
+
 # ---------------------------------------------------------------- the runner
 
 RED_LONG = "git push --force " + "x" * (12_000 - len("git push --force "))
@@ -2137,6 +2216,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (33, "the printer's absence paths: PyYAML missing is C2, python3 missing is C1, the rules kept", t33),
     (40, "the hooks file's shape", t40),
     (41, "the install note names no kit document; the manifest; the example accepted", t41),
+    (
+        42,
+        "C1, C2, C14 and C15 of the shell gate and of the list check close with each gate's own clause",
+        t42,
+    ),
 ]
 
 

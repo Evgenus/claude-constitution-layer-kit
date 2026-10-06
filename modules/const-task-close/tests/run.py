@@ -32,6 +32,7 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
+from const_gate.errors import ConfigurationFailure  # noqa: E402
 from const_gate.model import Finding  # noqa: E402
 from consumer import Consumer  # noqa: E402
 from harness import (  # noqa: E402
@@ -45,7 +46,7 @@ from harness import (  # noqa: E402
     stop_json,
 )
 from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
-from task_close_gate import messages, start  # noqa: E402
+from task_close_gate import dials, messages, start  # noqa: E402
 from task_close_gate.model import BODY, Declaration, Pair  # noqa: E402
 
 identity.declare(start.GATE)  # the messages not typed by hand are built by the functions the gate uses
@@ -99,10 +100,18 @@ def repo(
     raw: str | None = None,
     files: Mapping[str, str] | None = None,
     parent: Path | None = None,
+    ref_format: str | None = None,
 ) -> Consumer:
     """A consumer on branch main with the dials and the map's documents committed; with a parent, the
-    repository lives in the folder WEIRD_DIR below it."""
-    consumer = H.fresh_consumer() if parent is None else Consumer(parent / WEIRD_DIR).build()
+    repository lives in the folder WEIRD_DIR below it; with a ref_format, "files" or "reftable", the
+    repository is created with that ref store named, whatever git defaults to."""
+    named = {"GIT_DEFAULT_REF_FORMAT": ref_format} if ref_format else {}
+    os.environ.update(named)  # the one `git init` of Consumer.build reads it; git before 2.45 ignores it
+    try:
+        consumer = H.fresh_consumer() if parent is None else Consumer(parent / WEIRD_DIR).build()
+    finally:
+        for key in named:
+            del os.environ[key]
     git(consumer.root, "branch", "-M", "main")
     consumer.write("constitution.yaml", raw if raw is not None else dials_text(patch))
     for rel, text in {"docs/core.md": "# core\n", "src/a.py": "x = 1\n", **(files or {})}.items():
@@ -185,9 +194,33 @@ PAIR_FIX = (
     " — fix: write the pair as {name: <kebab>, code: [<gitignore patterns of the code it describes>],"
     " docs: [<paths of the documents that describe it>]}"
 )
+# the C12 of a trunk found nowhere, typed whole in its two halves: the pointer half shows the trunk and the
+# remote as echoed values are shown, the fix half, a command to type, holds them whole, escaped
+NO_TRUNK_SAYS = "BROKEN: the trunk '{trunk}' is neither a local branch nor {remote}/{trunk} in {root}"
+NO_TRUNK_FIX = (
+    " — fix: fetch it (git fetch {fetch_remote} {fetch_trunk}), set const-task-close.trunk to the branch"
+    " changes land on and const-task-close.trunk_remote to the remote that holds it, or run the scan with"
+    " --since <ref>"
+)
+
+
+def no_trunk(
+    root: object,
+    trunk: str = "main",
+    remote: str = "origin",
+    fetch_trunk: str | None = None,
+    fetch_remote: str | None = None,
+) -> str:
+    """The C12 line; the fetch command takes the values as the pointer shows them unless told they differ."""
+    return NO_TRUNK_SAYS.format(trunk=trunk, remote=remote, root=root) + NO_TRUNK_FIX.format(
+        fetch_trunk=fetch_trunk if fetch_trunk is not None else trunk,
+        fetch_remote=fetch_remote if fetch_remote is not None else remote,
+    )
+
+
 UNKNOWN_DIAL_FIX = (
     " is no dial of this module — fix: a misspelt dial would be ignored in silence, so none is: write"
-    " one of severity, log_dir, coverage, trunk, declaration_key, working_files"
+    " one of severity, log_dir, coverage, trunk, trunk_remote, declaration_key, working_files"
 )
 SHALLOW = "a shallow clone may need its history fetched (git fetch --unshallow)"
 # a path or a folder name over 80 characters with a line break and a backslash: the echo rule's value
@@ -413,7 +446,19 @@ def tool_event_is_not_wired() -> tuple[bool, str]:
 
 def hook_validates_dials() -> tuple[bool, str]:
     r = repo(own(coverag=[]))
-    return broken(hook(r.root), DIAL + "coverag" + UNKNOWN_DIAL_FIX)
+    bad = repo(own(trunk_remote="-x"))
+    good = hook(repo(own(trunk_remote="upstream")).root)
+    return all_of(
+        [
+            broken(hook(r.root), DIAL + "coverag" + UNKNOWN_DIAL_FIX),
+            broken(hook(bad.root), TRUNK_REMOTE),
+            (
+                good.code == 0 and not good.stderr,
+                f"a good trunk_remote in the hook: exit {good.code}: {good.stderr}",
+            ),
+        ],
+        "the hook refuses an unknown dial and a bad trunk_remote, and lets a good one through",
+    )
 
 
 # ------------------------------------------------------------------ the scan's range
@@ -427,32 +472,246 @@ def trunk_dial() -> tuple[bool, str]:
     named = red_scan(scan(r.root), t2())
     r2 = repo(with_map(trunk="nowhere"))
     branch(r2.root)
-    missing = broken(
-        scan(r2.root),
-        f"BROKEN: the trunk 'nowhere' is neither a local branch nor origin/nowhere in {r2.root} — fix:"
-        " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
-    )
+    missing = broken(scan(r2.root), no_trunk(r2.root, trunk="nowhere"))
     r3 = repo(with_map(trunk="no\nwhere"))
     branch(r3.root)
     odd = broken(  # a line break in the dial's value stays on one line, shown escaped, typed by hand
-        scan(r3.root),
-        f"BROKEN: the trunk 'no\\nwhere' is neither a local branch nor origin/no\\nwhere in {r3.root} — fix:"
-        " set const-task-close.trunk to the branch changes land on, or run the scan with --since <ref>",
+        scan(r3.root), no_trunk(r3.root, trunk="no\\nwhere")
     )
     parent = H.scratch_dir()  # a root of over 80 characters, a break and a backslash: whole
     r4 = repo(with_map(trunk="nowhere"), parent=parent)
     branch(r4.root)
     whole = broken(
         scan(r4.root),
-        f"BROKEN: the trunk 'nowhere' is neither a local branch nor origin/nowhere in {parent}/"
-        + WEIRD_DIR_SHOWN
-        + " — fix: set const-task-close.trunk to the branch changes land on, or run the scan with --since"
-        " <ref>",
+        no_trunk(f"{parent}/{WEIRD_DIR_SHOWN}", trunk="nowhere"),
     )
     return all_of(
-        [named, missing, odd, whole],
-        "the trunk dial names the base; an unknown trunk is a configuration failure",
+        [named, missing, odd, whole, *fresher_trunk()],
+        "the trunk dial names the base, the fresher of a local and a tracked trunk, tracked on the remote the"
+        " trunk_remote dial names; an unknown trunk or remote is a configuration failure",
     )
+
+
+def clone_of(upstream: Path, remote: str = "origin") -> Path:
+    """A clone of the repository, its remote named as asked — `origin` unless git is told otherwise — in
+    a fresh folder."""
+    clone = H.scratch_dir() / "clone"
+    done = git(upstream, "clone", "-q", "-o", remote, str(upstream), str(clone))
+    assert done.returncode == 0, done.stderr
+    return clone
+
+
+def landed_upstream(remote: str = "origin", **dials: object) -> Path:
+    """A clone whose local main is stale: the upstream repository has two more commits, fetched and not
+    merged — `landed code` touches code alone, `landed readme` a README alone. The clone's main has
+    `older code` at its tip, a code-only commit too, pushed before the clone was made. Its remote has
+    the name asked, and the dials, those of this module, are the upstream's, which the clone carries."""
+    up = repo(with_map(**dials))
+    commit(up.root, "older code", {"src/a.py": "x = 2\n"})
+    clone = clone_of(up.root, remote)
+    commit(up.root, "landed code", {"src/a.py": "x = 9\n"})
+    commit(up.root, "landed readme", {"README": "hi\n"})
+    done = git(clone, "fetch", "-q", remote)
+    assert done.returncode == 0, done.stderr
+    return clone
+
+
+def forked(**dials: object) -> Path:
+    """A fork's clone: `origin` is the fork, stale, and `upstream` the project, fresh — a code-only commit
+    landed there and fetched; a branch is cut from `upstream/main` and takes a README commit, and the
+    local main is gone. The dials are those of this module, carried by both."""
+    project = repo(with_map(**dials))
+    fork = clone_of(project.root)
+    clone = clone_of(fork)
+    git(clone, "remote", "add", "upstream", str(project.root))
+    commit(project.root, "landed code", {"src/a.py": "x = 9\n"})
+    assert git(clone, "fetch", "-q", "upstream").returncode == 0
+    git(clone, "checkout", "-q", "-b", "work/z", "upstream/main")
+    git(clone, "branch", "-D", "main")
+    commit(clone, "readme only", {"README": "hello\n"})
+    return clone
+
+
+def red_over(result: Result, line: str) -> tuple[bool, str]:
+    """T2 for `src/a.py`, and the count line of the red whole."""
+    ok, evidence = red_scan(result, t2())
+    counted = f"RED: 1 finding(s) — {line}" in result.stdout.splitlines()
+    return ok and counted, evidence if counted else f"wanted the count line {line!r}: {result.stdout}"
+
+
+def fresher_trunk() -> list[tuple[bool, str]]:
+    """Where the base is when the trunk is a local branch, the remote's tracking branch, or both: the
+    one ahead when one is behind the other, the local one otherwise; and what is on the trunk."""
+    real = shutil.which("git")
+    if real is None:
+        return [(False, "no git on PATH for the fake git to hand its other calls to")]
+    results: list[tuple[bool, str]] = []
+
+    def case(label: str, outcome: tuple[bool, str]) -> None:
+        results.append((outcome[0], f"{label}: {outcome[1]}"))
+
+    # 1: no local trunk, origin's only — the path of a CI checkout of a pull request
+    c = clone_of(repo(with_map()).root)
+    branch(c)
+    git(c, "branch", "-D", "main")
+    commit(c, "code only", {"src/a.py": "x = 2\n"})
+    case("1 origin only", red_over(scan(c), tail(1, 1, short(c, "origin/main"), short(c))))
+    # 2: a stale local main behind origin/main, a branch cut from origin/main: only its own commit
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "origin/main")
+    commit(c, "readme only", {"README": "hello\n"})
+    case("2 stale local", green_scan(scan(c), tail(1, 1, short(c, "origin/main"), short(c))))
+    # 3: local main ahead of origin/main by an unpushed trunk commit, the branch cut from it
+    c = clone_of(repo(with_map()).root)
+    commit(c, "unpushed trunk code", {"src/a.py": "x = 2\n"})
+    branch(c)
+    commit(c, "readme only", {"README": "hello\n"})
+    case("3 local ahead", green_scan(scan(c), tail(1, 1, short(c, "main"), short(c))))
+    # 4: split, each with a commit of its own: the local one, since it may hold what is not pushed yet
+    c = landed_upstream()
+    commit(c, "unpushed trunk code", {"src/b.py": "y = 1\n"})
+    branch(c)
+    commit(c, "readme only", {"README": "hello\n"})
+    case("4 split", green_scan(scan(c), tail(1, 1, short(c, "main"), short(c))))
+    # 5: detached at the stale local tip is on the trunk — the last landed change, never an empty range
+    c = landed_upstream()
+    git(c, "checkout", "-q", "--detach", "main")
+    case(
+        "5 detached at the stale local tip",
+        red_over(scan(c), tail(1, 1, short(c, "main~1"), short(c, "main"))),
+    )
+    # 6: detached at the tracked tip is on the trunk too, whatever the local one says
+    c = landed_upstream()
+    git(c, "checkout", "-q", "--detach", "origin/main")
+    case(
+        "6 detached at the tracked tip",
+        green_scan(scan(c), tail(1, 1, short(c, "origin/main~1"), short(c, "origin/main"))),
+    )
+    # 6b: the same while the local trunk is ahead, an unpushed commit on it: the tracked tip, not the chosen
+    # one, is what makes HEAD the trunk — before the fresher rule this was a green over 0 commits
+    up = repo(with_map())
+    commit(up.root, "older code", {"src/a.py": "x = 2\n"})
+    c = clone_of(up.root)
+    commit(c, "unpushed trunk code", {"src/b.py": "y = 1\n"})
+    git(c, "checkout", "-q", "--detach", "origin/main")
+    case(
+        "6b detached at the tracked tip, local ahead",
+        red_over(scan(c), tail(1, 1, short(c, "origin/main~1"), short(c, "origin/main"))),
+    )
+    # 7: detached elsewhere: the base is the merge-base with the fresher trunk
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "origin/main")
+    commit(c, "readme only", {"README": "hello\n"})
+    git(c, "checkout", "-q", "--detach")
+    case(
+        "7a detached, cut from the tracked tip",
+        green_scan(scan(c), tail(1, 1, short(c, "origin/main"), short(c))),
+    )
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "main")
+    commit(c, "readme only", {"README": "hello\n"})
+    git(c, "checkout", "-q", "--detach")
+    case("7b detached, cut from the stale tip", green_scan(scan(c), tail(1, 1, short(c, "main"), short(c))))
+    # 8: on the branch named like the trunk: the last landed change, stale or not
+    c = landed_upstream()
+    case("8 on main", red_over(scan(c), tail(1, 1, short(c, "main~1"), short(c, "main"))))
+    # 9: the two equal: either is the trunk
+    c = clone_of(repo(with_map()).root)
+    branch(c)
+    commit(c, "code only", {"src/a.py": "x = 2\n"})
+    case("9 equal", red_over(scan(c), tail(1, 1, short(c, "main"), short(c))))
+    # 10: git cannot say whether the local trunk is an ancestor: the local one, as before, no failure
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "origin/main")
+    commit(c, "readme only", {"README": "hello\n"})
+    unsaid = fake_git(real, "merge-base", when="--is-ancestor")
+    case("10 ancestry unanswered", red_over(scan(c, env=unsaid), tail(1, 3, short(c, "main"), short(c))))
+    # 11: a branch freshly cut at a trunk tip, no commit of its own, is not on the trunk: an empty range,
+    # never the last landed change — at the local tip (the two equal), at the stale local tip, and at the
+    # tracked tip while the local one is stale
+    c = clone_of(repo(with_map()).root)
+    branch(c)
+    case(
+        "11a fresh branch at the tip, local equal tracked",
+        green_scan(scan(c), tail(1, 0, short(c), short(c))),
+    )
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "main")
+    case(
+        "11b fresh branch at the stale local tip",
+        green_scan(scan(c), tail(1, 0, short(c, "main"), short(c, "main"))),
+    )
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "origin/main")
+    case(
+        "11c fresh branch at the tracked tip, local stale",
+        green_scan(scan(c), tail(1, 0, short(c, "origin/main"), short(c, "origin/main"))),
+    )
+    results.extend(trunk_remote_dial())
+    return results
+
+
+def trunk_remote_dial() -> list[tuple[bool, str]]:
+    """Where the tracked trunk is looked for: the remote the dial names, `origin` when it names none."""
+    results: list[tuple[bool, str]] = []
+
+    def case(label: str, outcome: tuple[bool, str]) -> None:
+        results.append((outcome[0], f"{label}: {outcome[1]}"))
+
+    def only_remote(remote: str, **dials: object) -> Path:
+        """A clone whose remote is named as asked, no local main, a code-only commit on a branch."""
+        c = clone_of(repo(with_map(**dials)).root, remote)
+        branch(c)
+        git(c, "branch", "-D", "main")
+        commit(c, "code only", {"src/a.py": "x = 2\n"})
+        return c
+
+    # 11: a clone made with `-o upstream`: without the dial the default remote is asked for, and said
+    c = only_remote("upstream")
+    case("11 upstream, no dial", broken(scan(c), no_trunk(c)))
+    # 12: the dial names it: the base comes from upstream/main
+    c = only_remote("upstream", trunk_remote="upstream")
+    case("12 upstream, dial", red_over(scan(c), tail(1, 1, short(c, "upstream/main"), short(c))))
+    # 13: a fork, origin stale and upstream fresh: the dial picks upstream, the default origin
+    c = forked(trunk_remote="upstream")
+    case("13a fork, dial upstream", green_scan(scan(c), tail(1, 1, short(c, "upstream/main"), short(c))))
+    c = forked()
+    case("13b fork, default origin", red_over(scan(c), tail(1, 2, short(c, "origin/main"), short(c))))
+    # 14: the fresher rule holds through the dial: a stale local main, a fresher upstream/main
+    c = landed_upstream("upstream", trunk_remote="upstream")
+    git(c, "checkout", "-q", "-b", "work/z", "upstream/main")
+    commit(c, "readme only", {"README": "hello\n"})
+    case("14 stale local, dial", green_scan(scan(c), tail(1, 1, short(c, "upstream/main"), short(c))))
+    # 15: a remote whose name holds a slash, added by `git remote add`: found
+    up = repo(with_map(trunk_remote="a/b"))
+    c = clone_of(up.root)
+    commit(up.root, "landed code", {"src/a.py": "x = 9\n"})
+    assert git(c, "remote", "add", "a/b", str(up.root)).returncode == 0
+    assert git(c, "fetch", "-q", "a/b").returncode == 0
+    git(c, "checkout", "-q", "-b", "work/z", "a/b/main")
+    git(c, "branch", "-D", "main")
+    commit(c, "readme only", {"README": "hello\n"})
+    case("15 remote with a slash", green_scan(scan(c), tail(1, 1, short(c, "a/b/main"), short(c))))
+    # 16: a remote git does not know: the C12 names it with the trunk
+    c = only_remote("origin", trunk_remote="nosuch")
+    case("16 unknown remote", broken(scan(c), no_trunk(c, remote="nosuch")))
+    # 17: a remote name of over 80 characters is cut in the pointer, as an echoed value is, its characters
+    # counted, and whole in the fetch command, which must run
+    c = only_remote("origin", trunk_remote="u" * 90)
+    cut = "u" * 80 + "… [90 characters]"
+    case("17 long remote", broken(scan(c), no_trunk(c, remote=cut, fetch_remote="u" * 90)))
+    # 18: a trunk of 90 characters with a backslash: cut in the pointer, whole in the command, the backslash
+    # doubled in both
+    c = only_remote("origin", trunk="t" * 79 + "\\" + "z" * 10)
+    pointed = "t" * 79 + "\\\\" + "… [90 characters]"
+    fetched = "t" * 79 + "\\\\" + "z" * 10
+    case("18 long trunk", broken(scan(c), no_trunk(c, trunk=pointed, fetch_trunk=fetched)))
+    # 19: a remote with a backslash, which the dial's pattern accepts and git refuses as a remote's name
+    # (`git remote add` says it is not valid), so it names no remote: the backslash is doubled in the
+    # pointer, by `echoed`, and in the fetch command, by `escaped`
+    c = only_remote("origin", trunk_remote="a\\b")
+    case("19 remote with a backslash", broken(scan(c), no_trunk(c, remote="a\\\\b")))
+    return results
 
 
 def since_ref() -> tuple[bool, str]:
@@ -561,10 +820,158 @@ def unknown_ref() -> tuple[bool, str]:
         + "w" * 90
         + f" — fix: name a commit, branch or tag this repository has; {SHALLOW}",
     )
-    return all_of([since, change, odd, diagnosed], "an unknown ref is a configuration failure for both flags")
+    return all_of(
+        [since, change, odd, diagnosed, dash_refs(r.root, real), refs_that_resolve()],
+        "an unknown ref is a configuration failure for both flags; a ref that begins with a dash is one"
+        " before git is asked, and the refs git resolves still resolve",
+    )
+
+
+def logging_git(
+    real: str, old: bool = False, version_fails: str | None = None, version_says: str | None = None
+) -> tuple[dict[str, str], Path]:
+    """A git first on PATH that logs each call's arguments, as it hands them on, to the returned file
+    and execs the real one by its path. As an old git, it gives every `%(trailers:` the scan asks an
+    option no git knows, as a git of before the options does not know its own; with `version_fails`,
+    `git version` fails with that line, and with `version_says` it prints that line and succeeds."""
+    folder = H.scratch_dir()
+    log = folder / "git.log"
+    script = folder / "git"
+    rewrite = (
+        "    *'%(trailers:'*) a=$(printf '%s' \"$a\" | sed 's/%(trailers:/%(trailers:nosuchopt,/');;\n"
+        if old
+        else ""
+    )
+    failing = (
+        f"if [ \"$1\" = version ]; then printf '%s\\n' {shlex.quote(version_fails)} >&2; exit 128; fi\n"
+        if version_fails is not None
+        else ""
+    )
+    if version_says is not None:
+        failing += f"if [ \"$1\" = version ]; then printf '%s\\n' {shlex.quote(version_says)}; exit 0; fi\n"
+    script.write_text(
+        "#!/bin/sh\n"
+        f"{failing}"
+        'for a in "$@"; do\n'
+        "  shift\n"
+        '  case "$a" in\n'
+        f"{rewrite}"
+        "  esac\n"
+        '  set -- "$@" "$a"\n'
+        "done\n"
+        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
+        f'exec {shlex.quote(real)} "$@"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    log.write_text("", encoding="utf-8")
+    return {"PATH": f"{script.parent}{os.pathsep}{os.environ['PATH']}"}, log
+
+
+def dash_refs(root: Path, real: str) -> tuple[bool, str]:
+    """A ref that begins with a dash is refused with its reason before git is asked, in both flags and
+    in each form that reaches the gate (`--since=-x`; `--since -1`, which the parser reads as a value);
+    a fake git logs every call, and a control run proves the log holds the ref git is asked about."""
+    env, log = logging_git(real)
+    scan(root, "--since", "nope", env=env)
+    if "nope^{commit}" not in log.read_text(encoding="utf-8"):
+        return False, f"the fake git's log does not hold the call that resolves a ref: {log.read_text()!r}"
+    for flag, ref, args in (
+        ("--since", "--all", ["--since=--all"]),
+        ("--since", "-x", ["--since=-x"]),
+        ("--change", "-1", ["--change=-1"]),
+        ("--since", "-1", ["--since", "-1"]),
+        ("--change", "-", ["--change", "-"]),
+    ):
+        log.write_text("", encoding="utf-8")
+        verdict = broken(
+            scan(root, *args, env=env),
+            f"BROKEN: {flag} names '{ref}', which git cannot resolve in {root}: a ref cannot begin with a"
+            f" dash — fix: name a commit, branch or tag this repository has; {SHALLOW}",
+        )
+        if not verdict[0]:
+            return verdict
+        asked = log.read_text(encoding="utf-8")
+        if f"{ref}^{{commit}}" in asked:
+            return False, f"git was asked to resolve {ref!r}: {asked!r}"
+    return True, "a ref that begins with a dash is refused with its reason, git never asked"
+
+
+def refs_that_resolve() -> tuple[bool, str]:
+    """The refs git resolves are resolved as ever: a branch, a tag, a relative ref, the reflog's
+    previous branch, a full hash, and --change HEAD; each examines the one code-only commit."""
+    r = repo(with_map())
+    git(r.root, "tag", "start")
+    base = git(r.root, "rev-parse", "HEAD").stdout.strip()
+    branch(r.root)
+    commit(r.root, "code only", {"src/a.py": "x = 2\n"})
+    checkout(r.root, "main")
+    checkout(r.root, "work/x")  # @{-1} is now main
+    for args in (
+        ("--since", "main"),
+        ("--since", "start"),
+        ("--since", "HEAD~1"),
+        ("--since", "HEAD^"),
+        ("--since", "@{-1}"),
+        ("--since", base),
+        ("--change", "HEAD"),
+    ):
+        verdict = red_scan(scan(r.root, *args), t2())
+        if not verdict[0]:
+            return False, f"{' '.join(args)}: {verdict[1]}"
+    return True, "a branch, a tag, HEAD~1, HEAD^, @{-1}, a full hash and --change HEAD resolve"
 
 
 # ------------------------------------------------------------------ declarations
+
+
+def fake_gpg(root: Path) -> Path:
+    """Signs every later commit of the repository through a fake `gpg.program` and turns
+    `log.showSignature` on; the fake logs each call to the returned file and, to verify, says its
+    human text on stderr as gpg does, which git log prints before the formatted line."""
+    folder = H.scratch_dir()
+    log = folder / "gpg.log"
+    program = folder / "gpg"
+    program.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
+        "cat > /dev/null\n"
+        'case "$*" in\n'
+        "  *--verify*)\n"
+        "    printf 'gpg: Good signature from \"fake signer\"\\n' >&2\n"
+        "    printf '[GNUPG:] GOODSIG 0123456789ABCDEF fake signer\\n'\n"
+        "    printf '[GNUPG:] VALIDSIG 0123456789ABCDEF 2026-10-06 1 0 4 0 1 8 00 0123456789ABCDEF\\n';;\n"
+        "  *)\n"
+        "    printf '[GNUPG:] SIG_CREATED D 1 8 00 1 0123456789ABCDEF 1\\n' >&2\n"
+        "    printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n';;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    program.chmod(0o755)
+    for key, value in (
+        ("gpg.format", "openpgp"),
+        ("gpg.program", str(program)),
+        ("user.signingkey", "FIXTURE"),
+        ("commit.gpgsign", "true"),
+        ("log.showSignature", "true"),
+    ):
+        assert git(root, "config", key, value).returncode == 0
+    return log
+
+
+def signed_gate(root: Path, result: Result, log: Path) -> str:
+    """What is wrong with a scan of a signed range, or "": the repository's own git log verifies the
+    signature through the fake and prints its text, so the case cannot pass for want of a signature
+    check, and no text of the check reached the scan's output."""
+    shown = git(root, "log", "-1", "--format=%h")
+    calls = log.read_text(encoding="utf-8") if log.exists() else ""
+    if "--verify" not in calls:
+        return f"git never called the fake to verify: {calls!r}"
+    if "fake signer" not in shown.stdout + shown.stderr:
+        return f"git log did not print the check: {shown.stdout}{shown.stderr}"
+    if "fake signer" in result.stdout + result.stderr:
+        return f"the signature check reached the output: {result.stdout}{result.stderr}"
+    return ""
 
 
 def trailer_among_others() -> tuple[bool, str]:
@@ -591,10 +998,117 @@ def trailer_among_others() -> tuple[bool, str]:
         messages.n1_declared(declared(where, "cli", "two"), True),
     ]
     ok = result.code == 0 and all(note in result.stdout for note in notes)
-    return (
-        ok,
-        "both trailers read beside Co-Authored-By, one note each" if ok else result.stdout + result.stderr,
+    if not ok:
+        return False, result.stdout + result.stderr
+    return all_of(
+        [signed_note(), old_git_is_a_failure_of_git()],
+        "both trailers read beside Co-Authored-By, one note each; a signed commit's note on one line;"
+        " a git that does not know the trailer options is a configuration failure naming it",
     )
+
+
+def signed_note() -> tuple[bool, str]:
+    """A signed commit under log.showSignature=true: the note's label is `commit <short>` on one line,
+    as for an unsigned commit, and the scan prints that note and the count line, nothing more."""
+    r = repo(with_map())
+    branch(r.root)
+    log = fake_gpg(r.root)
+    where = "commit " + commit(r.root, "renamed\n\n" + trailer("core", "a rename only"), {"src/a.py": "2\n"})
+    result = scan(r.root)
+    note = messages.n1_declared(declared(where, "core", "a rename only"), True)
+    count = "GREEN: const-task-close: " + tail(1, 1, short(r.root, "main"), short(r.root))
+    wrong = signed_gate(r.root, result, log)
+    ok = result.code == 0 and not wrong and result.stdout.splitlines() == [*note.splitlines(), count]
+    if ok:
+        return (
+            True,
+            "both trailers read beside Co-Authored-By, one note each; a signed commit's note on one line",
+        )
+    return (
+        False,
+        wrong or f"exit {result.code}, wanted {note!r} then {count!r}: {result.stdout}{result.stderr}",
+    )
+
+
+def old_git_is_a_failure_of_git() -> tuple[bool, str]:
+    """A git that prints the trailer placeholder as text, as one that does not know the options does,
+    makes the scan a configuration failure naming git's version line — never a red for a declaration
+    nobody wrote; when `git version` itself fails, the failure says so in the version's place; its
+    line, said or failed, is cut at 80 characters and its backslashes escaped like any echoed value. A
+    declaration that merely quotes the placeholder is read as ever."""
+    real = shutil.which("git")
+    if real is None:
+        return False, "no git on PATH for the fake git to hand its calls to"
+    r = repo(with_map())
+    branch(r.root)
+    commit(r.root, "renamed\n\n" + trailer("core", "a rename only"), {"src/a.py": "2\n"})
+    env, log = logging_git(real, old=True)
+    result = scan(r.root, env=env)
+    version = subprocess.run([real, "version"], capture_output=True, text=True, check=False)
+    fix = "install a newer git (https://git-scm.com/downloads)"
+    options = "git does not know the trailer options this check reads (key, valueonly, unfold, separator)"
+    old = broken(result, f"BROKEN: {options}: {version.stdout.splitlines()[0]} — fix: {fix}")
+    if not old[0]:
+        return old
+    if "nosuchopt" not in log.read_text(encoding="utf-8"):
+        return False, f"the fake git never gave the placeholder its unknown option: {log.read_text()!r}"
+    if "names no pair" in result.stdout + result.stderr or "RED" in result.stdout + result.stderr:
+        return False, f"a red beside the failure: {result.stdout}{result.stderr}"
+    env, _ = logging_git(real, old=True, version_fails="fatal: planted version failure")
+    silent = broken(
+        scan(r.root, env=env),
+        f"BROKEN: {options}: git version failed: fatal: planted version failure — fix: {fix}",
+    )
+    if not silent[0]:
+        return silent
+    # a version line of over 80 characters holding backslashes reaches the failure cut and escaped,
+    # said or failed alike: the cut at 80 characters with the count, each backslash doubled
+    said = r"git version 1.8.3.1 built at C:\tools\git on a host with a rather long name,"
+    said += " 2014-01-01 (the 1.8 line)"
+    env, _ = logging_git(real, old=True, version_says=said)
+    echoed_said = broken(
+        scan(r.root, env=env),
+        rf"BROKEN: {options}: git version 1.8.3.1 built at C:\\tools\\git on a host with a rather long name,"
+        f" 201… [102 characters] — fix: {fix}",
+    )
+    if not echoed_said[0]:
+        return echoed_said
+    lost = r"fatal: cannot exec C:\tools\git\git.exe on a host with a rather long name,"
+    lost += " so the version is unknown"
+    env, _ = logging_git(real, old=True, version_fails=lost)
+    echoed_lost = broken(
+        scan(r.root, env=env),
+        rf"BROKEN: {options}: git version failed: fatal: cannot exec C:\\tools\\git\\git.exe on a host"
+        f" with a rat… [120 characters] — fix: {fix}",
+    )
+    if not echoed_lost[0]:
+        return echoed_lost
+    q = repo(with_map())
+    branch(q.root)
+    reason = "the %(trailers placeholder, quoted"
+    where = "commit " + commit(q.root, "quoted\n\n" + trailer("core", reason), {"src/a.py": "2\n"})
+    quoted = scan(q.root)
+    note = messages.n1_declared(declared(where, "core", reason), True)
+    count = "GREEN: const-task-close: " + tail(1, 1, short(q.root, "main"), short(q.root))
+    if quoted.code != 0 or quoted.stdout.splitlines() != [*note.splitlines(), count]:
+        return (
+            False,
+            f"a declaration quoting the placeholder: exit {quoted.code}: {quoted.stdout}{quoted.stderr}",
+        )
+    # a later declaration of the same commit that begins with the placeholder is read as ever: only the
+    # start of the commit's whole trailer field is old git's, so it is a declaration naming no pair
+    p = repo(with_map())
+    branch(p.root)
+    second = "%(trailers starts the second"
+    where = "commit " + commit(
+        p.root, "two\n\n" + trailer("core", "a rename only") + f"\n{KEY}: {second}\n", {"src/a.py": "2\n"}
+    )
+    later = red_scan(
+        scan(p.root), messages.t3_names_no_pair(Declaration(where, second, second, ""), KEY, ["core"])
+    )
+    if not later[0]:
+        return later
+    return True, "the placeholder as text is a failure naming git, its line echoed; quoted it is read"
 
 
 def colonless_line_hides_paragraph() -> tuple[bool, str]:
@@ -645,7 +1159,29 @@ def t3_and_t4() -> tuple[bool, str]:
         Declaration(where, "nosuch — reason", "nosuch", "reason"), KEY, ["core"]
     )
     no_reason = messages.t4_no_reason(Declaration(where, "core", "core", ""), KEY)
-    return red_scan(result, no_pair, no_reason, t2())
+    unsigned = red_scan(result, no_pair, no_reason, t2())
+    if not unsigned[0]:
+        return unsigned
+    return signed_red()
+
+
+def signed_red() -> tuple[bool, str]:
+    """The same declarations in a signed commit under log.showSignature=true: the red names
+    `commit <short>` on one line."""
+    r = repo(with_map())
+    branch(r.root)
+    log = fake_gpg(r.root)
+    where = "commit " + commit(
+        r.root, "wrong\n\n" + f"{KEY}: nosuch — reason\n{KEY}: core\n", {"src/a.py": "2\n"}
+    )
+    result = scan(r.root)
+    no_pair = messages.t3_names_no_pair(
+        Declaration(where, "nosuch — reason", "nosuch", "reason"), KEY, ["core"]
+    )
+    no_reason = messages.t4_no_reason(Declaration(where, "core", "core", ""), KEY)
+    wrong = signed_gate(r.root, result, log)
+    ok, evidence = red_scan(result, no_pair, no_reason, t2())
+    return ok and not wrong, evidence if ok and not wrong else wrong or evidence
 
 
 def untouched_pair_note() -> tuple[bool, str]:
@@ -789,6 +1325,44 @@ TRUNK = (
     DIAL + "trunk must be a non-empty string — fix: set trunk: <the branch changes land on>, or remove the"
     " line for main"
 )
+TRUNK_REMOTE = (
+    DIAL + "trunk_remote must be a remote's name: one word, not beginning with a dash — fix: set"
+    " trunk_remote: <the remote that holds the trunk, as git remote lists it>, or remove the line for origin"
+)
+
+
+def remote_check_whole_set() -> tuple[bool, str]:
+    """The check on `trunk_remote`, over every code point of C0, DEL and C1, in the first position and in a
+    later one, and over the neighbours just outside each range. Called in process, through the dial parser,
+    since 130 values each as a gate run would cost minutes for what is one regular expression; the cases of
+    `dial_failures` that run the gate end to end hold the C5 text and exit 1 through the real entry point."""
+    controls = [chr(c) for c in (*range(0x00, 0x20), 0x7F, *range(0x80, 0xA0))]
+    refused = [f"{c}x" for c in controls] + [f"x{c}" for c in controls]
+    refused += [" x", "x ", "\xa0x", "x\xa0"]  # white space just outside C0 and C1 is refused as well
+    outside = "!~\xa1"  # just outside the ranges, these three are not
+    accepted = [f"{c}x" for c in outside] + [f"x{c}" for c in outside]
+    if len(controls) != 65 or len(refused) != 134:
+        return False, f"the set is wrong: {len(controls)} controls, {len(refused)} refused values"
+    failures = []
+    for value in refused:
+        try:
+            dials.parse({"trunk_remote": value})
+        except ConfigurationFailure as failure:
+            if "trunk_remote must be a remote's name" not in str(failure):
+                failures.append(f"{value!r} is refused with {failure}")
+        else:
+            failures.append(f"{value!r} is accepted")
+    for value in accepted:
+        try:
+            got = dials.parse({"trunk_remote": value}).trunk_remote
+        except ConfigurationFailure as failure:
+            failures.append(f"{value!r} is refused with {failure}")
+        else:
+            if got != value:
+                failures.append(f"{value!r} comes back as {got!r}")
+    return not failures, failures[0] if failures else (
+        f"{len(refused)} values refused and {len(accepted)} accepted, in process"
+    )
 
 
 def dial_failures() -> tuple[bool, str]:
@@ -854,6 +1428,22 @@ def dial_failures() -> tuple[bool, str]:
         ),
         (own(trunk=""), TRUNK),
         (own(trunk=3), TRUNK),
+        (own(trunk_remote=""), TRUNK_REMOTE),
+        (own(trunk_remote=3), TRUNK_REMOTE),
+        (own(trunk_remote=["origin"]), TRUNK_REMOTE),
+        (own(trunk_remote="-x"), TRUNK_REMOTE),
+        (own(trunk_remote="a b"), TRUNK_REMOTE),
+        (own(trunk_remote="x\ty"), TRUNK_REMOTE),
+        (own(trunk_remote="x\ny"), TRUNK_REMOTE),  # a line break: the failure stays one line
+        (own(trunk_remote="x\x07y"), TRUNK_REMOTE),  # a control character
+        (own(trunk_remote="\x7f"), TRUNK_REMOTE),  # DEL
+        (own(trunk_remote="a\x00b"), TRUNK_REMOTE),  # the first of C0
+        (own(trunk_remote="a\x1fb"), TRUNK_REMOTE),  # the last of C0
+        (own(trunk_remote="a\x85b"), TRUNK_REMOTE),  # a C1 control character
+        (own(trunk_remote="a\x9fb"), TRUNK_REMOTE),  # the last of C1
+        (own(trunk_remote=" x"), TRUNK_REMOTE),  # the first character is held by a class of its own:
+        (own(trunk_remote="\x07x"), TRUNK_REMOTE),  # white space, a control character and a tab,
+        (own(trunk_remote="\tx"), TRUNK_REMOTE),  # each of them first
         (
             own(declaration_key="No Doc"),
             DIAL + "declaration_key must be a trailer key: letters, digits and hyphens — fix: set"
@@ -866,6 +1456,7 @@ def dial_failures() -> tuple[bool, str]:
         ),
     ]
     results = [broken(scan(repo(patch).root), failure) for patch, failure in cases]
+    results.append(remote_check_whole_set())
     # a backslash is a separator only where the platform says so: there `..\x.md` leaves the repository,
     # elsewhere it is one file name and stays inside (it was refused everywhere before)
     escaping = scan(repo(own(coverage=[{**CORE, "docs": ["..\\x.md"]}])).root)
@@ -918,7 +1509,13 @@ def working_files_note() -> tuple[bool, str]:
 
 
 def misspelt_dial() -> tuple[bool, str]:
-    return broken(scan(repo(own(covrage=[])).root), DIAL + "covrage" + UNKNOWN_DIAL_FIX)
+    return all_of(
+        [
+            broken(scan(repo(own(covrage=[])).root), DIAL + "covrage" + UNKNOWN_DIAL_FIX),
+            broken(scan(repo(own(trunk_remot="upstream")).root), DIAL + "trunk_remot" + UNKNOWN_DIAL_FIX),
+        ],
+        "a misspelt dial, the remote's among them, is a configuration failure listing every dial",
+    )
 
 
 # ------------------------------------------------------------------ texts and shape
@@ -1085,21 +1682,80 @@ def skills_and_install_note() -> tuple[bool, str]:
     )
 
 
+def wrong_store(root: Path, wanted: str) -> tuple[bool, str] | None:
+    """None when the repository is in the wanted ref store; else the red of the half that needed it —
+    a git before 2.45 knows neither the option nor the variable, and the half is red, never a crash."""
+    found = git(root, "rev-parse", "--show-ref-format")
+    store = found.stdout.strip() if found.returncode == 0 else f"unreadable ({found.stderr.strip()})"
+    if store == wanted:
+        return None
+    return (
+        False,
+        f"this half needs the {wanted} ref store, found: {store} — git 2.45 or newer is needed for this half",
+    )
+
+
+def zeroed_ref_half(failure: str) -> tuple[bool, str]:
+    """A ref file of forty zeros, written by hand, in a repository of the files store."""
+    zero = repo(with_map(), ref_format="files")
+    if (red := wrong_store(zero.root, "files")) is not None:
+        return red
+    (zero.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
+    result = scan(zero.root)
+    ok = result.code == 1 and result.stderr.startswith(failure)
+    return (
+        ok,
+        "exit 1, the range failure" if ok else f"files store, zeroed ref: {result.code}: {result.stderr}",
+    )
+
+
+def missing_object_half(failure: str) -> tuple[bool, str]:
+    """A ref to a commit whose object is gone, made through git alone, in a repository of the
+    reftable store."""
+    gone = repo(with_map(), ref_format="reftable")
+    if (red := wrong_store(gone.root, "reftable")) is not None:
+        return red
+    tree = git(gone.root, "write-tree")
+    dangling = git(gone.root, "commit-tree", "-m", "gone", tree.stdout.strip())
+    sha = dangling.stdout.strip()
+    update = git(gone.root, "update-ref", "refs/heads/main", sha)
+    if tree.returncode or dangling.returncode or update.returncode:
+        return (
+            False,
+            "reftable store, the missing object could not be made: "
+            f"{tree.stderr}{dangling.stderr}{update.stderr}",
+        )
+    loose = gone.root / ".git" / "objects" / sha[:2] / sha[2:]
+    if not loose.exists():
+        return False, f"reftable store, the commit {sha} is not a loose object to delete"
+    loose.unlink()
+    result = scan(gone.root)
+    ok = result.code == 1 and result.stderr.startswith(failure)
+    return (
+        ok,
+        "exit 1, the range failure"
+        if ok
+        else f"reftable store, missing object: {result.code}: {result.stderr}",
+    )
+
+
 def broken_head() -> tuple[bool, str]:
     """A HEAD git cannot read is a configuration failure, never 'nothing landed'; an orphan branch
-    in a repository with commits is unborn, and nothing landed on it."""
+    in a repository with commits is unborn, and nothing landed on it. Two broken HEADs, each in a
+    repository whose ref store the item chose: a zeroed ref file, written by hand, in the files store; a
+    ref to a commit whose object is gone, made through git alone, in the reftable store."""
     r = repo(with_map())
     git(r.root, "checkout", "-q", "--orphan", "fresh")
     orphan = green_scan(scan(r.root), rooted(1, "HEAD"))
-    git(r.root, "checkout", "-q", "main")
-    (r.root / ".git" / "refs" / "heads" / "main").write_text("0" * 40 + "\n", encoding="utf-8")
-    result = scan(r.root)
-    ok = result.code == 1 and result.stderr.startswith("BROKEN: git could not read the range HEAD..HEAD in ")
-    zeroed = (
-        ok,
-        "exit 1, the range failure with git's own line" if ok else f"{result.code}: {result.stderr}",
+    failure = "BROKEN: git could not read the range HEAD..HEAD in "
+
+    zeroed = zeroed_ref_half(failure)
+    missing = missing_object_half(failure)
+    return all_of(
+        [orphan, zeroed, missing],
+        "an orphan branch is unborn; a zeroed ref file in the files store and a ref to a missing object"
+        " in the reftable store are each a configuration failure, exit 1 with git's own line",
     )
-    return all_of([orphan, zeroed], "an orphan branch is unborn; a zeroed ref is a configuration failure")
 
 
 def directory_named_as_document() -> tuple[bool, str]:
@@ -1147,6 +1803,96 @@ def fake_git(real: str, failing: str, said: str | None = None, when: str = "") -
     )
     script.chmod(0o755)
     return {"PATH": f"{script.parent}{os.pathsep}{os.environ['PATH']}"}
+
+
+CLOSING = "until then neither the tree at turn end nor a change's documents are checked"
+
+
+def closing_is_the_gates_own() -> tuple[bool, str]:
+    """Every install-failure line closes with this gate's own clause, never the write gates' "until then
+    Markdown writes pass unchecked": C1 (no python3, the POSIX entry), C2 (PyYAML missing, in the scan
+    and in the hook), C14 (an interpreter below the floor, run by a version it is told it has) and C15
+    (a copy without the shared code), each line typed whole; C12.11 (a library that raises otherwise, in
+    the scan and in the hook) keeps the shared default "until it is fixed this check does not run"; and
+    the entry files' source holds the clause exactly three times, once per entry text (C1, C14, C15), and
+    "Markdown writes" nowhere."""
+    r = repo(with_map())
+    problems: list[str] = []
+
+    def line_of(label: str, result: Result, whole: str | None = None, ends: str = CLOSING) -> None:
+        first = result.stderr.splitlines()[0] if result.stderr else ""
+        right = first == whole if whole is not None else first.endswith(" — " + ends)
+        if result.code != 1 or not right or "Markdown writes" in result.stdout + result.stderr:
+            problems.append(f"{label}: exit {result.code}: {result.stderr.strip()[:400]}")
+
+    tools = H.scratch_dir()  # a PATH holding only sh, dirname and git: no python3
+    for tool in ("sh", "dirname", "git"):
+        found = shutil.which(tool)
+        assert found, tool
+        os.symlink(found, tools / tool)
+    line_of(
+        "C1",
+        H.run_gate(stop_json(r.root), env={"PATH": str(tools)}),
+        "BROKEN: const-task-close needs python3 — fix: install Python 3.12 or newer"
+        f" (https://www.python.org/downloads/) — {CLOSING}",
+    )
+    shadow = H.scratch_dir()  # PyYAML hidden: the shared C2, its closing clause the identity's
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    for label, result in (
+        ("C2 scan", scan(r.root, env={"PYTHONPATH": str(shadow)})),
+        ("C2 hook", hook(r.root, env={"PYTHONPATH": str(shadow)})),
+    ):
+        line_of(
+            label,
+            result,
+            "BROKEN: const-task-close needs PyYAML — fix: run: python3 -m pip install -r"
+            f" '{SCRIPTS.parent / 'requirements.txt'}' — {CLOSING}",
+        )
+    broken_yaml = H.scratch_dir()  # a library that fails otherwise: C12.11 keeps the shared default clause
+    (broken_yaml / "yaml.py").write_text("raise RuntimeError('simulated defect')\n", encoding="utf-8")
+    for label, result in (
+        ("C12.11 scan", scan(r.root, env={"PYTHONPATH": str(broken_yaml)})),
+        ("C12.11 hook", hook(r.root, env={"PYTHONPATH": str(broken_yaml)})),
+    ):
+        line_of(
+            label,
+            result,
+            "BROKEN: unexpected failure inside the checker: RuntimeError: simulated defect — fix: this is a"
+            " defect of the gate, not of the repository; report it, with the traceback below, to whoever"
+            " maintains the plugin — until it is fixed this check does not run",
+        )
+    entry = SCRIPTS / "check-task-close.py"  # the entry file run as an interpreter of 3.11 would run it
+    lowered = (
+        "import sys; sys.version_info = (3, 11, 0); path = sys.argv[1]; "
+        "exec(compile(open(path).read(), path, 'exec'), {'__name__': '__main__', '__file__': path})"
+    )
+    line_of(
+        "C14",
+        H.run_gate("", command=[sys.executable, "-c", lowered, str(entry)]),
+        "BROKEN: const-task-close needs Python 3.12 or newer, found 3.11 — fix: install a current Python 3"
+        f" (https://www.python.org/downloads/) and put it first on PATH — {CLOSING}",
+    )
+    plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
+    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("const_gate"))
+    line_of(
+        "C15",
+        H.run_gate(stop_json(r.root), command=[H.sh, str(plugin / "scripts" / "check-task-close.sh")]),
+        "BROKEN: const-task-close is installed without its shared code (scripts/const_gate is missing or is"
+        " not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout"
+        " of the repository it comes from; a copy of the plugin's folder must be made with links followed"
+        f" (cp -RL) — {CLOSING}",
+    )
+    sources = "".join(
+        (SCRIPTS / name).read_text(encoding="utf-8")
+        for name in ("check-task-close.sh", "check-task-close.py")
+    )
+    if sources.count(CLOSING) != 3 or "Markdown writes" in sources:
+        problems.append(
+            f"entry files: the clause {sources.count(CLOSING)} times, wanted 3; or Markdown writes"
+        )
+    return not problems, "; ".join(
+        problems
+    ) or "C1, C2 (scan and hook), C14 and C15 close with the gate's own clause; C12.11 keeps the default"
 
 
 def unreadable_tree() -> tuple[bool, str]:
@@ -1265,7 +2011,12 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (7, "an ignored file is not dirty; a modified tracked file is", ignored_is_clean),
     (8, "a cwd below the root finds the repository", cwd_below_root),
     (9, "a tool event is a configuration failure: the gate is wired to Stop", tool_event_is_not_wired),
-    (10, "the trunk dial names the base; an unknown trunk is a configuration failure", trunk_dial),
+    (
+        10,
+        "the trunk dial names the base, the fresher of a local and a tracked trunk, tracked on the remote the"
+        " trunk_remote dial names; an unknown trunk or remote is a configuration failure",
+        trunk_dial,
+    ),
     (11, "--since names the base: a tag, a relative ref", since_ref),
     (12, "--change: a merge by its first-parent diff, a plain commit alone", change_merge_and_commit),
     (
@@ -1279,15 +2030,30 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         nothing_landed_before,
     ),
     (15, "--since and --change together are a misinvocation of the module's own", since_and_change),
-    (16, "an unknown ref is a configuration failure, never a skip", unknown_ref),
-    (17, "trailers read beside Co-Authored-By, a repeated key, one note each", trailer_among_others),
+    (
+        16,
+        "an unknown ref is a configuration failure, never a skip; a ref that begins with a dash is one,"
+        " before git is asked",
+        unknown_ref,
+    ),
+    (
+        17,
+        "trailers read beside Co-Authored-By, a repeated key, one note each; a signed commit's note on one"
+        " line; a git too old for the trailer options is a configuration failure naming git",
+        trailer_among_others,
+    ),
     (
         18,
         "a colon-less line hides the paragraph: red, and the fix teaches the rule",
         colonless_line_hides_paragraph,
     ),
     (19, "the body's line in any case with any dash; an unreadable body", body_forms),
-    (20, "T3 for a declaration naming no pair, T4 for one without a reason, beside T2", t3_and_t4),
+    (
+        20,
+        "T3 for a declaration naming no pair, T4 for one without a reason, beside T2; the same in a signed"
+        " commit",
+        t3_and_t4,
+    ),
     (21, "a declaration for a pair the change does not touch earns its note", untouched_pair_note),
     (22, "declaration_key: the dial's key is read and the default is not", declaration_key_dial),
     (23, "overlapping pairs both apply, each satisfied its own way", overlapping_pairs),
@@ -1303,7 +2069,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (28, "dial failures: each C5 text, a docs path with a trailing slash among them, exit 1", dial_failures),
     (29, "a pattern git would misread, in code and in working_files", unreadable_patterns),
     (30, "working_files: tracked matches are a note, untracked ones are not", working_files_note),
-    (31, "a misspelt dial is a configuration failure", misspelt_dial),
+    (31, "a misspelt dial, trunk_remote among them, is a configuration failure", misspelt_dial),
     (
         32,
         "golden lines of T1–T4, X1, X2, the trailing-slash C5, the count forms and the ellipsis of T1 and"
@@ -1317,7 +2083,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         " example accepted as it stands",
         skills_and_install_note,
     ),
-    (35, "the hook validates the dials too", hook_validates_dials),
+    (35, "the hook validates the dials too, trunk_remote among them", hook_validates_dials),
     (36, "an orphan branch is unborn; a HEAD git cannot read is a configuration failure", broken_head),
     (37, "two histories with no common commit: the range failure says so in words", unrelated_histories),
     (
@@ -1330,6 +2096,12 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         39,
         "git failing on the working tree is a configuration failure, in the hook and in the scan",
         unreadable_tree,
+    ),
+    (
+        40,
+        "the install-failure lines, C1, C2, C14 and C15, close with this gate's own clause, never the write"
+        " gates', C12.11 keeps the default; the entry files hold it three times",
+        closing_is_the_gates_own,
     ),
 ]
 

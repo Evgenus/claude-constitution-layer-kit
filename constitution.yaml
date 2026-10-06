@@ -148,6 +148,7 @@ const-task-close:                     # task close as one act: a change that tou
   severity: block                     # values: block | warn — the turn-end hook: block asks the model to commit once; the kit's rule is never to end a turn dirty
   log_dir: local/gate-logs
   trunk: main                         # the branch changes land on: the base of a bare scan on a work/* branch; on main, the last landed change
+  trunk_remote: origin                # values: the name of a git remote — the one whose tracking branch of the trunk is read beside the local one, and the trunk when git finds the local one its ancestor or equal to it, or finds none; default origin
   declaration_key: No-Doc-Impact      # the trailer key: "No-Doc-Impact: <pair name> — <reason>" on a commit of the change; the kit's CI gives the scan no pull request description, so the description form is not read here
   working_files: []                   # the kit tracks no working files: local/ is git-ignored and scratch work lives outside the repository
   coverage:                           # the code territories the kit's current-state documents describe; a change touching one updates the document or declares no impact

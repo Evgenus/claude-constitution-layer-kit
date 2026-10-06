@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import sys
 import textwrap
 from collections.abc import Callable, Sequence
@@ -933,6 +934,71 @@ def t18() -> tuple[bool, str]:
     )
 
 
+CLOSING = "until then no document is scanned for style"
+
+
+def t20() -> tuple[bool, str]:
+    """Every install-failure line closes with this gate's own clause, never the write gates' "until then
+    Markdown writes pass unchecked": C1 (no python3, the POSIX entry), C2 (PyYAML missing, in the scan),
+    C14 (an interpreter below the floor, run by a version it is told it has) and C15 (a copy without the
+    shared code), each first line typed whole; and the entry files' source holds the clause exactly three
+    times, once per entry text (C1, C14, C15), and "Markdown writes" nowhere."""
+    root = prepared()
+    args = ["--scan", str(root)]
+    problems: list[str] = []
+
+    def line_of(label: str, result: Result, whole: str) -> None:
+        first = result.stderr.splitlines()[0] if result.stderr else ""
+        if result.code != 1 or first != whole or "Markdown writes" in result.stdout + result.stderr:
+            problems.append(f"{label}: exit {result.code}: {result.stderr.strip()[:400]}")
+
+    tools = H.scratch_dir()  # a PATH holding only sh and dirname: no python3
+    for tool in ("sh", "dirname"):
+        found = shutil.which(tool)
+        assert found, tool
+        (tools / tool).symlink_to(found)
+    line_of(
+        "C1",
+        H.run_gate("", args, env={"PATH": str(tools)}),
+        "BROKEN: const-styling needs python3 — fix: install Python 3.12 or newer"
+        f" (https://www.python.org/downloads/) — {CLOSING}",
+    )
+    shadow = H.scratch_dir()  # PyYAML hidden: the shared C2, its closing clause the identity's
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    line_of(
+        "C2",
+        H.run_gate("", args, env={"PYTHONPATH": str(shadow)}),
+        "BROKEN: const-styling needs PyYAML — fix: run: python3 -m pip install -r"
+        f" '{MODULE_ROOT / 'requirements.txt'}' — {CLOSING}",
+    )
+    lowered = (  # the entry file run as an interpreter of 3.11 would run it
+        "import sys; sys.version_info = (3, 11, 0); path = sys.argv[1]; "
+        "exec(compile(open(path).read(), path, 'exec'), {'__name__': '__main__', '__file__': path})"
+    )
+    line_of(
+        "C14",
+        H.run_gate("", args, command=[sys.executable, "-c", lowered, str(H.entry)]),
+        "BROKEN: const-styling needs Python 3.12 or newer, found 3.11 — fix: install a current Python 3"
+        f" (https://www.python.org/downloads/) and put it first on PATH — {CLOSING}",
+    )
+    plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
+    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("const_gate"))
+    line_of(
+        "C15",
+        H.run_gate("", args, command=[H.sh, str(plugin / "scripts" / H.wrapper.name)]),
+        "BROKEN: const-styling is installed without its shared code (scripts/const_gate is missing or is"
+        " not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout"
+        " of the repository it comes from; a copy of the plugin's folder must be made with links followed"
+        f" (cp -RL) — {CLOSING}",
+    )
+    sources = "".join((SCRIPTS / name).read_text(encoding="utf-8") for name in (H.wrapper.name, H.entry.name))
+    if sources.count(CLOSING) != 3 or "Markdown writes" in sources:
+        problems.append(
+            f"entry files: the clause {sources.count(CLOSING)} times, wanted 3; or Markdown writes"
+        )
+    return not problems, "; ".join(problems) or "C1, C2, C14 and C15 close with the gate's own clause"
+
+
 # ---------------------------------------------------------------- the twelve red→green cases
 
 
@@ -1007,6 +1073,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (17, "the shipped guide passes its own scan with ten entries; the skill's description size", t17),
     (18, "the install note, skill and guide name no kit document; manifest; example accepted", t18),
     (19, "golden lines: the why and the fix of every finding typed whole", t19),
+    (20, "C1, C2, C14 and C15 close with the gate's own clause, and the entry files carry it", t20),
 ]
 
 SUBJECT = Subject(
