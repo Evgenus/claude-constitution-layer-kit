@@ -84,7 +84,9 @@ silently skipped.
    blocked turn ends and warnings leave no trace in git. By default it lives in the platform's
    per-plugin data directory. Set `log_dir` to keep it inside the repository; the directory must
    be git-ignored, and the gate refuses to run otherwise.
-8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green. The fixtures need
+   git 2.45 or newer, since item 36 builds a repository in each ref store; on an older git that item
+   is red and the rest run.
 9. CLAUDE.md pointer: none. The skills `/const-task-close:close-task` and
    `/const-task-close:commit-before-edit` load on their own when a task is being finished or a
    batch of edits begins; the hook's message names the second.
