@@ -63,7 +63,7 @@ The session recommended A: today's documents follow it, and the clause makes the
 
 The four classes — **kernel §n**, **Mx**, **binding**, **template** — stand in the preamble of the requirements document, and all 69 cells open with one of them. The question was where the check gets the set.
 
-- **A. Typed in the check, tied to the preamble**: the four classes and their patterns a constant; every run reads the preamble's bold class names and fails to run when they are not exactly the four.
+- **A. Typed in the check, tied to the preamble**: the four classes and their patterns a constant; the plain run reads the preamble's bold class names and fails to run when they are not exactly the four.
   - **Pros:** an outright list in the code, tested over the whole set; the tie turns any change of the preamble red until both agree; the patterns written once, where they are used.
   - **Cons:** two places to edit when a class is added, held together by the tie; one more read of prose.
 - **B. Read from the preamble at each run.**
@@ -82,7 +82,7 @@ The session recommended A: the patterns must be typed somewhere in any case, and
 The type-check entries now take every kit script by glob, so a new kit check is typed; nothing held that it is run. All eleven kit checks run today. The question was whether to hold it.
 
 - **A. Leave it logged**, its signal a kit check found missing from CI.
-  - **Pros:** no growth; the kit's rule against machinery for failures no one has hit; CLAUDE.md untouched, so the audit does not grow.
+  - **Pros:** no growth; the kit's rule against machinery for failures no consumer has hit; CLAUDE.md untouched, so the audit does not grow.
   - **Cons:** the hand list of kit checks stays unguarded; a forgotten check would look shipped and run nowhere.
 - **B. Fold it in**: check-gate-lists red when a tracked kit check is run by no entry of the gate group; CLAUDE.md's sentence on what it holds gains the clause.
   - **Pros:** every kit check held in CI by a check, not by care; it closes the last hand list the audit found; the fix can teach the exact line to add.
@@ -121,9 +121,9 @@ The inventory of every place a kit check reads a document found three more cases
   - **Pros:** check-aspects agrees with check-gate-lists on module folders.
   - **Cons:** it answers one part of the question "which folders are modules" in one script while the other answers stay apart; a loud inconsistency, not a silent green.
 
-The session recommended B. The decider chose C in chat on 2026-10-06.
+The session recommended B: both silent greens sit in functions the change already rewrites and cost one test case each, while the module listing is loud and belongs with a single answer to "which folders are modules" in a later change. The decider chose C in chat on 2026-10-06.
 
-**R7.** `scripts/check-aspects.py` reads the rows of a module's rows section and acceptance table whatever their indent, fails to run on a matrix anchor that stands on two lines, skips a folder of `modules/` whose name starts with `.` or `_`, and fails to run on one that holds no module document. Kit tooling at routine stakes.
+**R7.** `scripts/check-aspects.py` reads the rows of a module's rows section and acceptance table whatever their indent, fails to run when the same matrix anchor stands on two lines, skips a folder of `modules/` whose name starts with `.` or `_`, and fails to run on one that holds no module document. Kit tooling at routine stakes.
 
 ## Applied
 
@@ -132,9 +132,9 @@ The commits of this branch apply every item. The commits before the one that add
 ## Carry list
 
 1. R1 — history only: how this change was recorded and landed.
-2. R2 — [the module template](../../module-template/MODULE.md#t9), section 9, its sentences on the form of a declared scan; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI", on what `scripts/check-gate-lists.py` holds; [the reader](../../scripts/kit_module_doc.py), its docstring of `enforcement`; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring. The amendment in part of R2 of dec-0056-portability-grep-and-gate-lists is history.
+2. R2 — [the module template](../../module-template/MODULE.md#t9), section 9, its sentences on the form of a declared scan; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI", on what `scripts/check-gate-lists.py` holds; [the reader](../../scripts/kit_module_doc.py), its docstring of `enforcement`; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring; [rule 12 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r12), what holds the table's form. The amendment in part of R2 of dec-0056-portability-grep-and-gate-lists is history.
 3. R3 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t9), its row E2 of section 9; [`const-doc-budgets`](../../modules/const-doc-budgets/MODULE.md#t9), its row E3 of section 9.
-4. R4 — [check-aspects](../../scripts/check-aspects.py), its docstring, its red list and its modes. The red added beside R7 of dec-0054-acceptance-items-name-their-rows is history.
+4. R4 — [check-aspects](../../scripts/check-aspects.py), its docstring, its red list and its modes; [rule 9 of plc-0007-requirements](../policies/plc-0007-requirements.md#r9), its exceptions to review. The red added beside R7 of dec-0054-acceptance-items-name-their-rows is history.
 5. R5 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI"; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring.
 6. R6 — [GATE.md §2](../../shared/GATE.md#g2), item 7; [check-shared-links](../../scripts/check-shared-links.py), its docstring.
-7. R7 — [check-aspects](../../scripts/check-aspects.py), its docstring.
+7. R7 — [check-aspects](../../scripts/check-aspects.py), its docstring; [rule 9 of plc-0007-requirements](../policies/plc-0007-requirements.md#r9), for the matrix's lines and anchors.

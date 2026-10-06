@@ -27,7 +27,7 @@ The documents are read in the forms their rules state, and a read that cannot be
 check could not run (BROKEN, exit 1), with the fix, on
   - a matrix line that holds `<a id="aN-M"></a>` or `<a id="aN"></a>` and is not in the form
     `| <a id="aN-M"></a>AN.M | … |` of a row, four cells, or `| <a id="aN"></a>**AN — Title**` of an
-    aspect, a prose line that shows the anchor included; a row or an aspect anchor on two lines; a
+    aspect, a prose line that shows the anchor included; the same row or aspect anchor on two lines; a
     matrix with no row;
   - a preamble without the sentence "Destination classes: …", or one whose bold names are not exactly
     the four classes the check types, so that the typed set never drifts from the preamble (every
@@ -239,7 +239,7 @@ def off_form(number: int, line: str) -> Broken | None:
 
 def read_matrix(root: Path) -> dict[str, Row]:
     """The rows of the matrix. A line that holds an aspect's or a row's anchor is read in the one form
-    `ASPECT` or `ROW` states, or the check is BROKEN; so is an anchor on two lines. A line that holds
+    `ASPECT` or `ROW` states, or the check is BROKEN; so is the same anchor on two lines. A line that holds
     no such anchor, prose and a link to `#a1-4` among them, is read as before."""
     rows: dict[str, Row] = {}
     stands: dict[str, int] = {}
