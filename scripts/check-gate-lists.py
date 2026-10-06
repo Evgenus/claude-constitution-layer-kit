@@ -497,10 +497,24 @@ def self_test() -> int:
     ok = declared_scans(last_section) == ["check-x"]  # the last section reads to the end of the file
     ok = ok and declared_scans('<a id="t9"></a>\n<a id="t10"></a>\n| E1 | `check-x --scan` |\n') == []
     ok = ok and declared_scans('  <a id="t9"></a>  \n| E1 | `check-x --scan` |\n') == ["check-x"]
+    # an anchor of another id, alone on its line, ends no section: the E-row after it is still read
+    other_id = (
+        '<a id="t9"></a>\n<a id="x"></a>\n| E1 | `check-x --scan` |\n'
+        '<a id="r2"></a>\n| E2 | `check-y --scan` |\n'
+    )
+    ok = ok and declared_scans(other_id) == ["check-x", "check-y"]
+    try:  # nor does it count as doubled: two of one id are no error
+        ok = ok and declared_scans(other_id.replace('<a id="r2"></a>', '<a id="x"></a>')) == [
+            "check-x",
+            "check-y",
+        ]
+    except Broken:
+        ok = False
     failed += 0 if ok else 1
     print(
         f"[{'ok' if ok else 'FAIL'}] the enforcement section reads to the end of the file when it is the"
-        " last, is empty when the end anchor follows at once, and an anchor inside prose is plain text"
+        " last, is empty when the end anchor follows at once, an anchor inside prose is plain text, and an"
+        " anchor of another id alone on its line neither ends it nor counts as doubled"
     )
     for name, case, lines in (
         ("one finding", Case({"x": scan}, workflow="jobs: {}\n"), report_lines),

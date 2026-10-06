@@ -775,14 +775,18 @@ def self_test() -> int:
     print(f"[{'ok' if ok else 'FAIL'}] a row the matrix gives a module that no rows section holds is red")
     with tempfile.TemporaryDirectory() as tmp:  # a table line is read whatever its indent
         root = Path(tmp).resolve()
-        indented_rows = f"  | {LINK_1} | r |\n\t| {LINK_3} | r |\n"
-        build(root, GOOD_TABLE + f"  | T9 | fixture | {LINK_1} | x |\n", rows=indented_rows)
+        indented_rows = f"  | {LINK_1} | r |\n\t|{LINK_3} | r |\n"  # the second row: no space after the bar
+        build(
+            root,
+            GOOD_TABLE + f"  | T9 | fixture | {LINK_1} | x |\n\t|T8 | fixture | {LINK_1} | x |\n",
+            rows=indented_rows,
+        )
         _, modules, findings = check_structure(root)
-    ok = not findings and len(modules[0].items) == 6 and sorted(modules[0].held.values()) == [6, 7]
+    ok = not findings and len(modules[0].items) == 7 and sorted(modules[0].held.values()) == [6, 7]
     failed += 0 if ok else 1
     print(
-        f"[{'ok' if ok else 'FAIL'}] an indented row of the rows section and an indented acceptance item"
-        " are read, never dropped"
+        f"[{'ok' if ok else 'FAIL'}] an indented row of the rows section and an indented acceptance item,"
+        " each also with no space after the bar, are read, never dropped"
     )
     path = "modules/const-sample/MODULE.md"
     text = module_text(GOOD_TABLE)

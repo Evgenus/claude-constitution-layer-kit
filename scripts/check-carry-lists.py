@@ -1034,6 +1034,13 @@ def self_test() -> int:
         f'<a id="t3"></a>\n## 3. Rows\n\n## 4. Notes\n\nnothing is cited here\n\n<a id="t4"></a>\n'
         f"## 5. Decisions\n\n{cites}"
     )
+    other = f"dec-{THRESHOLD + 4:04d}-other"
+    cites_other = f"1. [y](../../{folder}/{other}.md)\n"
+    ends_doc = f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t5"></a>\n## 5. Next\n\n{cites_other}'
+    sub_heading_doc = (  # the section ends at the next anchor, not at the next "## " heading
+        f'<a id="t4"></a>\n## 4. Decisions\n\nthe records:\n\n## Some sub-heading\n\n{cites}\n'
+        f'<a id="t5"></a>\n## 5. Next\n\n{cites_other}'
+    )
 
     def add_record(root: Path) -> None:
         (root / folder / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
@@ -1075,6 +1082,18 @@ def self_test() -> int:
             {SAMPLE: "cited"},
             {},
         ),
+        "a record cited in the section after the decisions, under anchor t5, is not in full": (
+            cite_in(ends_doc),
+            "m",
+            {SAMPLE: "cited"},
+            {},
+        ),
+        'a record cited below a "## " sub-heading of the decisions section is in full': (
+            cite_in(sub_heading_doc),
+            "m",
+            {SAMPLE: "cited"},
+            {},
+        ),
     }
     for name, (change, module, full_wanted, regression_wanted) in scopes.items():
         with tempfile.TemporaryDirectory() as tmp:
@@ -1094,6 +1113,14 @@ def self_test() -> int:
         ),
         "whose decisions anchor stands twice": (
             f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t4"></a>\n',
+            "holds the anchor",
+        ),
+        "whose rows anchor stands twice, above the decisions": (
+            f'<a id="t3"></a>\n## 3. Rows\n\n<a id="t3"></a>\n\n<a id="t4"></a>\n## 4. Decisions\n\n{cites}',
+            "holds the anchor",
+        ),
+        "whose acceptance anchor stands twice, below the decisions": (
+            f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t9"></a>\n\n<a id="t9"></a>\n',
             "holds the anchor",
         ),
     }
