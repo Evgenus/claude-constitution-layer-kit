@@ -43,6 +43,7 @@ A change lands in the code and the page that describes the code stays as it was.
 6. [dec-0006-accumulating-set-first](../../docs/decisions/dec-0006-accumulating-set-first.md) — the kit as consumer zero; the reorder that brings this module here is R6 of [dec-0036-task-close-module-rulings](../../docs/decisions/dec-0036-task-close-module-rulings.md).
 7. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 8. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
+9. [dec-0067-task-close-trunk-remote-and-own-closing-clauses](../../docs/decisions/dec-0067-task-close-trunk-remote-and-own-closing-clauses.md) — the trunk on the remote `trunk_remote` names and the fresher tip, which reverses in part R5 of the first record above; the trailer read past signature lines and an old git; this gate's own closing clause and the shared rule for every gate that is no write gate.
 
 <a id="t5"></a>
 ## 5. Invariant
