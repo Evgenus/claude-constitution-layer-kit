@@ -73,7 +73,7 @@ The four classes — **kernel §n**, **Mx**, **binding**, **template** — stand
   - **Pros:** one piece less; no new read of prose.
   - **Cons:** a destination worded another way still takes its row out of the check with no word; the closed set stays held by review alone.
 
-The session recommended A: the patterns must be typed somewhere in any case, and the tie keeps the typed list from drifting without a red. The decider chose A in chat on 2026-10-06.
+The session recommended A: the patterns must be typed somewhere in any case, and the tie keeps the typed list from drifting without a red. The decider chose A in chat on 2026-10-06. The change built the tie into every run of the check, `--run` included, where the option as put named the plain run; R4 states what was built.
 
 **R4.** `scripts/check-aspects.py` types the closed set of destination classes — `kernel §n`, `Mx`, `binding`, `template` — with their patterns, matched at the start of a Destination cell, a link read for its text. A cell that opens with none is red, beside the reds R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md) lists; dec-0054 is not touched. Every run reads the bold names of the preamble's sentence "Destination classes: …" and fails to run when the sentence is missing or its names are not exactly the four.
 
