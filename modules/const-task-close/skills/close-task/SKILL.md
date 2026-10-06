@@ -32,7 +32,8 @@ sh "${CLAUDE_PLUGIN_ROOT}/scripts/check-task-close.sh" --scan
 ```
 
 On a branch it examines the commits since the trunk (`trunk` under `const-task-close`, `main` by
-default); `--since <ref>` names another base; `--change <commit>` examines one landed change, a
+default, found as the local branch or as that branch on the remote `trunk_remote` names, `origin` by
+default; the fresher when both exist); `--since <ref>` names another base; `--change <commit>` examines one landed change, a
 merge by its first-parent diff. Read the verdict: each `RED` line names a pair, the code paths the
 change touched, and the documents that did not move. Exit 0 with a count of pairs is green; exit 2
 is a finding — fix the pair each `RED` names, or declare no impact for it; exit 1 is a

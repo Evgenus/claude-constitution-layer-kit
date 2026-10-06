@@ -37,6 +37,7 @@ silently skipped.
          code: ["Makefile", "scripts/**"]
          docs: ["docs/design/build.md"]
      trunk: main                # the branch changes land on; the base of a bare scan
+     trunk_remote: origin       # the remote whose tracking branch of the trunk is read beside the local one
      declaration_key: No-Doc-Impact   # the trailer key of a no-impact declaration
      working_files: []          # patterns of a task's working files; tracked matches are listed at the scan
      severity: block            # block (default) | warn — the turn-end hook only
