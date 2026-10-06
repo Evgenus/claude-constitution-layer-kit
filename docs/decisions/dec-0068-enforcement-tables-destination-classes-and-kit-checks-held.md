@@ -19,7 +19,7 @@ An audit of the kit's hardcoded logic on 2026-10-02 found that several of the ki
 
 The same audit found more such cases that change no rule: a decisions section found by its number; the carry-list check's own copy of the records' folder and width; the matrix's rows, anchors and module folders read without a guard; the shared-links check's list of shared test files typed by hand; the type-check entries typed by hand. The change fixes them too, at routine stakes, each noted in its commit: one kit reader, `scripts/kit_module_doc.py`, finds a module document's section by its anchor and fails loud on a missing or doubled one; the carry-list check reads the `dec` catalog of `constitution.yaml`; the shared-links check derives its list from `shared/tests/`; the type-check entries use globs.
 
-The change is on one branch. No module's code changes, and the two module documents it edits belong to drafts, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). The decider kept the audit's recommended fixes when reading the change's plan on 2026-10-06. Seven questions were put to the decider in chat that day, one per message, each with lettered options and one recommendation, the pick a letter; sections 1 to 6 hold them.
+The change is on one branch. No module's code changes, and the two module documents it edits belong to drafts, so no version is bumped ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)). The decider kept the audit's recommended fixes when reading the change's plan on 2026-10-06. Eight questions were put to the decider in chat that day, one per message, each with lettered options and one recommendation, the pick a letter; sections 1 to 7 hold them, the last raised by the change's own carry audit.
 
 ## 1. One pull request and one record
 
@@ -37,7 +37,7 @@ The rulings on the table's form, the destination classes and the kit checks have
 
 The session recommended A: no consumer exists and the kit trips none of these cases today, so B's speed buys nothing anyone uses. The decider chose A in chat on 2026-10-06.
 
-**R1.** One pull request and one record for the rulings of sections 2 to 4; the rest of the change routine, noted in its commits.
+**R1.** One pull request and one record for the rulings of sections 2 to 4 and 7; the rest of the change routine, noted in its commits.
 
 ## 2. A mode that is no tree scan
 
@@ -125,6 +125,24 @@ The session recommended B: both silent greens sit in functions the change alread
 
 **R7.** `scripts/check-aspects.py` reads the rows of a module's rows section and acceptance table whatever their indent, fails to run when the same matrix anchor stands on two lines, skips a folder of `modules/` whose name starts with `.` or `_`, and fails to run on one that holds no module document. Kit tooling at routine stakes.
 
+## 7. A qualifier before a destination class
+
+[Rule 7 of plc-0007-requirements](../policies/plc-0007-requirements.md#r7) said a class may carry a qualifier before or after it. Its examples are enforcement classes, but the sentence covered both closed sets. The check of R4 classes a Destination cell at its start, so a cell with a qualifier before its class would be red against the policy's words. All 69 cells put the class first, and the module check R7 of dec-0054 rules also reads a module's number at the cell's start.
+
+- **A. Narrow rule 7 for destinations**: a destination class opens its cell, its qualifiers after it; the check unchanged.
+  - **Pros:** it matches all 69 cells and both checks that read the cell, so neither can go quiet; one clause in a policy the change already edits; no code change.
+  - **Cons:** it narrows a policy's allowance; a writer who wants a qualifier first must reorder the cell.
+- **B. Read the class anywhere in the cell**, as rule 7 allowed.
+  - **Pros:** the policy stays as written; the check follows its words.
+  - **Cons:** the module check of dec-0054 still reads at the start, so a cell with a qualifier first would be classed and still missed by it, a silent narrowing; fixing that check too is one more piece and touches dec-0054's ruling.
+- **C. Justify, change nothing**, reading "qualifier before" as the enforcement classes' alone.
+  - **Pros:** no work.
+  - **Cons:** it rests on a reading, not the rule's words; a future cell with a qualifier first meets a red that contradicts the policy.
+
+The session recommended A: it is the only option that keeps both checks of the cell loud and in agreement at no code cost, and it writes down what all 69 cells do. The decider chose A in chat on 2026-10-06.
+
+**R8.** A destination class opens its Destination cell, its qualifiers after it; an enforcement class may carry a qualifier before or after it. This narrows rule 7 of plc-0007-requirements for destinations, in the same change.
+
 ## Applied
 
 The commits of this branch apply every item. The commits before the one that adds this record changed the code, the tests and the documents; the message of each commit names what it changed and the sentences it added, with the code or test line that makes each true. The commit that adds this record adds a row for it in section 4 of const-interaction's and const-doc-budgets' module documents, and corrects three docstrings its review found loose. The record is born `inactive`.
@@ -138,3 +156,4 @@ The commits of this branch apply every item. The commits before the one that add
 5. R5 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI"; [check-gate-lists](../../scripts/check-gate-lists.py), its docstring.
 6. R6 — [GATE.md §2](../../shared/GATE.md#g2), item 7; [check-shared-links](../../scripts/check-shared-links.py), its docstring.
 7. R7 — [check-aspects](../../scripts/check-aspects.py), its docstring; [rule 9 of plc-0007-requirements](../policies/plc-0007-requirements.md#r9), for the matrix's lines and anchors.
+8. R8 — [rule 7 of plc-0007-requirements](../policies/plc-0007-requirements.md#r7), its clause on a destination class.
