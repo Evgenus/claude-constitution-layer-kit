@@ -81,6 +81,8 @@ RUNNER_TIMEOUT = 1800  # seconds; the slowest runner takes a few minutes
 
 ASPECT = re.compile(r'^\| <a id="(a\d+)"></a>\*\*(A\d+ — [^*]+)\*\*')
 ROW = re.compile(r'^\| <a id="(a\d+-\d+)"></a>(A\d+\.\d+) \|')
+ASPECT_ANCHOR = re.compile(r'<a id="(a\d+)"></a>')
+ROW_ANCHOR = re.compile(r'<a id="(a\d+-\d+)"></a>')
 CELL_SPLIT = re.compile(r"(?<!\\)\|")
 ROW_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()\s]*)\)")
 LINK_TEXT = re.compile(r"\[([^\[\]]*)\]\([^()]*\)")
@@ -181,22 +183,54 @@ def cells(line: str) -> list[str]:
     return [p.strip() for p in parts[1:-1]]
 
 
+def off_form(number: int, line: str) -> Broken | None:
+    """The BROKEN for a line that holds an aspect's or a row's anchor and is not in the form of `ASPECT`
+    or `ROW`; None for a line that holds neither, whatever else it says."""
+    for found, kind, form in (
+        (ASPECT_ANCHOR.search(line), "an aspect's", '| <a id="aN"></a>**AN — Title**'),
+        (ROW_ANCHOR.search(line), "a row's", '| <a id="aN-M"></a>AN.M | …'),
+    ):
+        if found is not None:
+            return Broken(
+                f"{SPEC}:{number}: the line holds {kind} anchor {found[0]} but is not in the matrix's form"
+                f" — why: a line off its form drops out of the matrix without a word — fix: write it as"
+                f" `{form}`, the line opening with `| ` at its start and no space between the anchor and"
+                " what follows it"
+            )
+    return None
+
+
 def read_matrix(root: Path) -> dict[str, Row]:
+    """The rows of the matrix. A line that holds an aspect's or a row's anchor is read in the one form
+    `ASPECT` or `ROW` states, or the check is BROKEN; so is an anchor on two lines. A line that holds
+    no such anchor, prose and a link to `#a1-4` among them, is read as before."""
     rows: dict[str, Row] = {}
+    stands: dict[str, int] = {}
     aspect = ""
-    for line in read(root, SPEC).splitlines():
-        if heading := ASPECT.match(line):
+    for number, line in enumerate(read(root, SPEC).splitlines(), start=1):
+        heading, row = ASPECT.match(line), ROW.match(line)
+        if heading is None and row is None:
+            if (bad := off_form(number, line)) is not None:
+                raise bad
+            continue
+        anchor = heading[1] if heading is not None else row[1]  # type: ignore[index]
+        if anchor in stands:
+            raise Broken(
+                f'{SPEC} holds the anchor <a id="{anchor}"></a> twice, lines {stands[anchor]} and {number}'
+                " — why: the second would overwrite the first in the matrix"
+                " — fix: keep the one anchor, on its own row or aspect"
+            )
+        stands[anchor] = number
+        if heading is not None:
             aspect = heading[2].strip()
-        elif ROW.match(line):
+        else:
             parts = cells(line)
             if len(parts) != 4:
                 raise Broken(
                     f"{SPEC}: the row {line[:40]}… has {len(parts)} cells, not 4 — fix: restore the"
                     " matrix's four columns"
                 )
-            anchor = ROW.match(line)[1]  # type: ignore[index]
-            handle = ROW.match(line)[2]  # type: ignore[index]
-            rows[anchor] = Row(anchor, handle, aspect, plain(parts[2]), plain(parts[3]))
+            rows[row[1]] = Row(row[1], row[2], aspect, plain(parts[2]), plain(parts[3]))  # type: ignore[index]
     if not rows:
         raise Broken(f"{SPEC} holds no matrix row — fix: run the check from a checkout of the kit")
     return rows
@@ -409,7 +443,11 @@ def modules_of(root: Path) -> list[Path]:
     base = root / "modules"
     if not base.is_dir():
         raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
-    return sorted(d for d in base.iterdir() if d.is_dir() and (d / "MODULE.md").is_file())
+    directories = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
+    for directory in directories:
+        if not (directory / "MODULE.md").is_file():
+            raise Broken(f"modules/{directory.name} has no MODULE.md — fix: restore the module document")
+    return directories
 
 
 def check_structure(
@@ -687,9 +725,11 @@ def harness_runner(argv: list[str]) -> str:
     )
 
 
-def build(root: Path, table: str, rows: str | None = None, runner: str | None = None) -> None:
+def build(
+    root: Path, table: str, rows: str | None = None, runner: str | None = None, matrix: str = MATRIX
+) -> None:
     (root / "docs").mkdir(parents=True, exist_ok=True)
-    (root / SPEC).write_text(MATRIX, encoding="utf-8")
+    (root / SPEC).write_text(matrix, encoding="utf-8")
     module = root / "modules" / "const-sample"
     (module / ".claude-plugin").mkdir(parents=True, exist_ok=True)
     (module / ".claude-plugin" / "plugin.json").write_text(
@@ -790,36 +830,131 @@ def self_test() -> int:
     )
     path = "modules/const-sample/MODULE.md"
     text = module_text(GOOD_TABLE)
-    unreadable = {  # case: the document, what the BROKEN line says
-        "no t3 anchor": (text.replace('<a id="t3"></a>\n', ""), f'{path} has no anchor <a id="t3"></a>'),
-        "no t10 anchor": (text.replace('<a id="t10"></a>\n', ""), f'{path} has no anchor <a id="t10"></a>'),
+    unreadable = {  # case: the document, its text, what the BROKEN line says
+        "no t3 anchor": (
+            path,
+            text.replace('<a id="t3"></a>\n', ""),
+            f'{path} has no anchor <a id="t3"></a>',
+        ),
+        "no t10 anchor": (
+            path,
+            text.replace('<a id="t10"></a>\n', ""),
+            f'{path} has no anchor <a id="t10"></a>',
+        ),
         "text on the line of the t10 anchor": (
+            path,
             text.replace('<a id="t10"></a>\n## 10.', '## 10. <a id="t10"></a>'),
             f'{path} has no anchor <a id="t10"></a>',
         ),
         "a t3 anchor twice": (
+            path,
             text.replace("| row |", '<a id="t3"></a>\n| row |'),
             f'{path} holds the anchor <a id="t3"></a> twice, lines 1 and 4',
         ),
         "a second t4 anchor inside the rows section": (
+            path,
             text.replace(f"| {LINK_3} |", f'<a id="t4"></a>\n| {LINK_3} |'),
             f'{path} holds the anchor <a id="t4"></a> twice, lines 7 and 10',
         ),
     }
-    for name, (broken_text, said) in unreadable.items():
+    # the matrix, line 6 the row A1.1 (a module holds it), line 7 the row A1.2 (none does), line 5 the
+    # aspect: every way its line can leave the form `ROW` or `ASPECT` states, each on both rows
+    row_line = {1: MATRIX.splitlines()[5], 2: MATRIX.splitlines()[6]}
+    aspect_line = MATRIX.splitlines()[4]
+    row_forms: dict[str, Callable[[str, int], str]] = {  # case: the line's edit
+        "a space after the anchor": lambda x, n: x.replace(f'"></a>A1.{n}', f'"></a> A1.{n}'),
+        "no space after the first pipe": lambda x, n: x.replace("| <a", "|<a", 1),
+        "an indent of one space": lambda x, n: f" {x}",
+        "a tab indent": lambda x, n: f"\t{x}",
+        "a linked handle": lambda x, n: x.replace(f"A1.{n} |", f"[A1.{n}](#a1-{n}) |", 1),
+        "a bold handle": lambda x, n: x.replace(f"A1.{n} |", f"**A1.{n}** |", 1),
+        "no space before the pipe after the handle": lambda x, n: x.replace(f"A1.{n} |", f"A1.{n}|", 1),
+        "the handle before the anchor": lambda x, n: x.replace(
+            f'<a id="a1-{n}"></a>A1.{n}', f'A1.{n} <a id="a1-{n}"></a>'
+        ),
+    }
+    for form, edit in row_forms.items():
+        for n, line in row_line.items():
+            unreadable[f"A1.{n}'s line with {form}"] = (
+                SPEC,
+                MATRIX.replace(line, edit(line, n)),
+                f'{SPEC}:{n + 5}: the line holds a row\'s anchor <a id="a1-{n}"></a> but is not in the'
+                " matrix's form",
+            )
+    aspect_forms = {
+        "a space after the anchor": aspect_line.replace("></a>**", "></a> **"),
+        "no space after the first pipe": aspect_line.replace("| <a", "|<a", 1),
+        "an indent": f"  {aspect_line}",
+        "no bold": aspect_line.replace("**", ""),
+        "a bold left open": aspect_line.replace("Sample**", "Sample"),
+    }
+    for form, edited in aspect_forms.items():
+        unreadable[f"the aspect line with {form}"] = (
+            SPEC,
+            MATRIX.replace(aspect_line, edited),
+            f"{SPEC}:5: the line holds an aspect's anchor <a id=\"a1\"></a> but is not in the matrix's form",
+        )
+    unreadable["a row anchor on two lines"] = (
+        SPEC,
+        MATRIX + row_line[2] + "\n",
+        f'{SPEC} holds the anchor <a id="a1-2"></a> twice, lines 7 and 9',
+    )
+    unreadable["a row anchor on two lines, a row a module holds"] = (
+        SPEC,
+        MATRIX.replace(row_line[1], row_line[1] + "\n" + row_line[1]),
+        f'{SPEC} holds the anchor <a id="a1-1"></a> twice, lines 6 and 7',
+    )
+    unreadable["an aspect anchor on two lines"] = (
+        SPEC,
+        MATRIX + aspect_line + "\n",
+        f'{SPEC} holds the anchor <a id="a1"></a> twice, lines 5 and 9',
+    )
+    unreadable["a folder of modules/ with no MODULE.md"] = (
+        "modules/const-empty/README.md",
+        "a folder with no module document\n",
+        "modules/const-empty has no MODULE.md — fix: restore the module document",
+    )
+    for name, (document, broken_text, said) in unreadable.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE)
-            (root / path).write_text(broken_text, encoding="utf-8")
+            (root / document).parent.mkdir(parents=True, exist_ok=True)
+            (root / document).write_text(broken_text, encoding="utf-8")
             try:
                 check_structure(root)
                 ok, got = False, "no BROKEN"
             except Broken as bad:
                 ok, got = str(bad).startswith(said) and "— fix:" in str(bad), str(bad)
         failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] a module document with {name} is one BROKEN line naming it")
+        print(f"[{'ok' if ok else 'FAIL'}] a kit tree with {name} is one BROKEN line naming it")
         if not ok:
             print(f"        got: {got}")
+    prose = "See [A1.2](#a1-2) and [A1.1](../docs/requirements.md#a1-1); an aspect is [A1](#a1).\n"
+    with tempfile.TemporaryDirectory() as tmp:  # what holds no anchor of a row or an aspect is read as before
+        root = Path(tmp).resolve()
+        build(root, GOOD_TABLE, matrix=MATRIX + "\n" + prose + '<a id="const-sample"></a>\n## A module\n')
+        matrix, _, findings = check_structure(root)
+    ok = not findings and sorted(matrix) == ["a1-1", "a1-2", "a1-3"]
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a prose line that links a row and a module's own anchor are no anchor")
+    skipped = {  # case: the folders added beside const-sample, each holding a MODULE.md and no manifest
+        "a folder starting with an underscore": "_draft",
+        "a folder starting with a dot": ".hidden",
+    }
+    for name, folder in skipped.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            (root / "modules" / folder).mkdir()
+            (root / "modules" / folder / "MODULE.md").write_text("a draft\n", encoding="utf-8")
+            (root / "modules" / "README.md").write_text("a file, no folder\n", encoding="utf-8")
+            try:
+                _, modules, findings = check_structure(root)
+                ok = not findings and [m.name for m in modules] == ["const-sample"]
+            except Broken:
+                ok = False
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name} of modules/ is no module, and is skipped")
     literal = [  # typed by hand: a message function cannot check itself
         "RED: modules/const-sample/MODULE.md:22: the rows cell of item T9 is 'A1.1'",
         "  why: a row's result comes only from the items that name it,"
@@ -1021,7 +1156,7 @@ def self_test() -> int:
         )
         if not ok:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
-    total = len(red) + 4 + len(unreadable) + len(runs) + len(broken) + len(filtered)
+    total = len(red) + 5 + len(unreadable) + len(skipped) + len(runs) + len(broken) + len(filtered)
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
