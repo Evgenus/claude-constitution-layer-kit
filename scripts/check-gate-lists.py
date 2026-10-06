@@ -47,6 +47,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -75,6 +76,10 @@ WHY_STRAY = (
 ITEM_FILTER = re.compile(r"(?<![\w-])--item(?![\w-])")  # the runners' filter, `--item <n>` or `--item=<n>`
 WHY_FILTER = "the gate list and CI run every item of every runner, so that their green is a full pass"
 WHY_FORM = "a scan the check cannot read is never held in the gate list and CI"
+KIT_CHECK = re.compile(
+    r"scripts/check-[^/]+\.py"
+)  # a tracked path, whole: a check stands at the top of scripts/
+WHY_CHECK = "a kit check no entry runs is never run in CI, and its green says nothing"
 
 
 FORM_WHAT = {  # what a problem of the enforcement section says; its text is the first cell or the span
@@ -110,6 +115,7 @@ class Where(StrEnum):
     STRAY = "module folders"
     FILTER = "item filter"
     FORM = "enforcement table"
+    CHECK = "kit checks"
 
 
 @dataclass(frozen=True)
@@ -154,6 +160,12 @@ class Finding:
                 f"RED: {self.module}:{self.line}: it runs a fixture runner with `--item`, which runs only"
                 f" the items named\n  why: {WHY_FILTER}\n  fix: remove the `--item` option and its numbers"
                 f" from line {self.line} of {self.module}"
+            )
+        elif self.where is Where.CHECK:  # `module` holds the check's path
+            return (
+                f"RED: {self.module} is run by no entry of the gate group\n  why: {WHY_CHECK}"
+                f"\n  fix: add an entry to GATES in {GATE_LIST} and an arm in commands() that runs"
+                f" `python3 {self.module}`, with its `--self-test` where it has one"
             )
         elif self.where is Where.FORM:
             shown = f"`{self.entry}`" if self.entry else "nothing"
@@ -217,6 +229,29 @@ def gate_list(root: Path) -> dict[str, str]:
     return {name: listed(root, "--show", name) for name in listed(root, "--names", "gate").split()}
 
 
+def tracked_checks(root: Path) -> list[str]:
+    """The kit checks git tracks: `scripts/check-*.py` at the top of scripts/; an untracked file is none."""
+    env = {**os.environ, "GIT_CEILING_DIRECTORIES": str(root.parent)}  # the repository is `root` itself
+    try:
+        done = subprocess.run(
+            ["git", "ls-files", "-z", "--", "scripts"],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as bad:
+        raise Broken(f"git cannot be run ({bad.strerror}) — fix: install git") from bad
+    if done.returncode != 0:
+        said = done.stderr.strip().splitlines()
+        raise Broken(
+            f"git ls-files scripts exited {done.returncode} ({said[-1] if said else 'no output'})"
+            " — fix: run the check from a clone of the kit"
+        )
+    return sorted(path for path in done.stdout.split("\0") if KIT_CHECK.fullmatch(path))
+
+
 def jobs_of(root: Path) -> dict[str, str]:
     """Each entry of the list, with the job `--json` and `--names <job>` put it in."""
     try:
@@ -271,6 +306,18 @@ def check_scan(
     return findings
 
 
+def check_checks(checks: list[str], gates: dict[str, str]) -> list[Finding]:
+    """A tracked kit check that no line of the gate group runs as `python3 scripts/check-<x>.py`, with or
+    without arguments: the lines are `--show`'s, comments aside, and a path under modules/ is no kit check."""
+    code = [code_of(line) for commands in gates.values() for line in commands.splitlines()]
+    findings: list[Finding] = []
+    for check in checks:
+        runs = re.compile(rf"(?<![\w/.-])python3 {re.escape(check)}(?![\w.-])")
+        if not any(runs.search(line) for line in code):
+            findings.append(Finding(check, Where.CHECK))
+    return findings
+
+
 def check_modules(modules: list[str], entries: list[str]) -> list[Finding]:
     """The list's modules, read from its entries of each kind, against the module folders."""
     named: dict[str, list[str]] = {}
@@ -287,7 +334,7 @@ def check_modules(modules: list[str], entries: list[str]) -> list[Finding]:
     return findings
 
 
-def check_kit(root: Path) -> tuple[list[Finding], int, int]:
+def check_kit(root: Path) -> tuple[list[Finding], int, int, int]:
     base = root / "modules"
     if not base.is_dir():
         raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
@@ -308,11 +355,13 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
             findings += check_scan(module, entry, gates, jobs, ci)
     findings += check_modules(modules, listed(root, "--names", "all").split())
     findings += item_filters(root)
-    return findings, len(modules), scans
+    checks = tracked_checks(root)
+    findings += check_checks(checks, gates)
+    return findings, len(modules), scans, len(checks)
 
 
-def report(findings: list[Finding], modules: int, scans: int) -> int:
-    counts = f"{modules} module document(s) examined, {scans} declared scan(s)"
+def report(findings: list[Finding], modules: int, scans: int, checks: int) -> int:
+    counts = f"{modules} module document(s) examined, {scans} declared scan(s), {checks} kit check(s)"
     if findings:
         for finding in findings:
             print(finding.render())
@@ -320,7 +369,8 @@ def report(findings: list[Finding], modules: int, scans: int) -> int:
         return EXIT_RED
     print(
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the"
-        " list's modules are the module folders, and neither list filters a runner's items"
+        " list's modules are the module folders, neither list filters a runner's items, and every kit"
+        " check is run by an entry of the gate group"
         f" — {counts}"
     )
     return EXIT_GREEN
@@ -338,6 +388,9 @@ class Case:
     folders: tuple[str, ...] = ("const-x", "const-quiet")
     listed: tuple[str, ...] | None = None  # the list's MODULES; None: the folders
     document: str = ""  # const-x's module document; empty: the self-test's own
+    scripts: dict[str, bool] = field(default_factory=dict)  # a file of the tree, a path: git tracks it
+    comment: str = ""  # a comment line at the head of the list script
+    repo: bool = True  # the tree is a git repository
 
 
 def form_probes() -> bool:
@@ -524,7 +577,7 @@ def self_test() -> int:
         "  why: a scan the kit does not run holds nothing, and the lists are where the kit says what it runs",
         f"  fix: let {WORKFLOW} build its jobs from `{READS_LIST[0]}` and run each with"
         f" `{READS_LIST[1]} <job>`",
-        "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s)",
+        "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     placed_lines = [
         "RED: const-x: its scan `check-x --scan`, the entry `x`, runs in the CI job `kit`, not in its own",
@@ -542,14 +595,14 @@ def self_test() -> int:
         " nothing",
         "  fix: remove `const-gone` from MODULES in scripts/gate-list.sh, or restore modules/const-gone"
         " with its MODULE.md",
-        "RED: 3 finding(s) — 2 module document(s) examined, 1 declared scan(s)",
+        "RED: 3 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     filter_lines = [
         "RED: .github/workflows/gates.yml:7: it runs a fixture runner with `--item`, which runs only the"
         " items named",
         "  why: the gate list and CI run every item of every runner, so that their green is a full pass",
         "  fix: remove the `--item` option and its numbers from line 7 of .github/workflows/gates.yml",
-        "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s)",
+        "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
 
     def script(case: Case) -> str:
@@ -557,18 +610,18 @@ def self_test() -> int:
         own = {
             f"{kind}-{m}": m for m in (case.folders if case.listed is None else case.listed) for kind in KINDS
         }
-        extras = {**case.extras, **dict.fromkeys(own, "true")}
+        extras = {**dict.fromkeys((n for n in own if n not in case.gates), "true"), **case.extras}
         jobs = {**{name: "kit" for name in {**case.gates, **extras}}, "x": "const-x", **own, **case.jobs}
         names = {"gate": list(case.gates), "all": [*case.gates, *extras]}
         for name, job in jobs.items():
             names.setdefault(job, []).append(name)
         groups = "".join(f"            {key}) set -- {' '.join(value)} ;;\n" for key, value in names.items())
         arms = "".join(
-            f"            {name}) echo '{cmd}' ;;\n" for name, cmd in {**case.gates, **extras}.items()
+            f"            {name}) echo '{cmd}' ;;\n" for name, cmd in {**extras, **case.gates}.items()
         )
         listing = json.dumps(sorted(set(jobs.values())))
         return (
-            '#!/bin/sh\ncase "$1" in\n'
+            f'#!/bin/sh\n{f"# {case.comment}" if case.comment else ""}\ncase "$1" in\n'
             f'    --names) case "$2" in\n{groups}            *) exit 1 ;;\n        esac\n'
             '        for n in "$@"; do echo "$n"; done ;;\n'
             f"    --json) echo '{listing}' ;;\n"
@@ -585,6 +638,15 @@ def self_test() -> int:
         ):
             (root / path).parent.mkdir(parents=True, exist_ok=True)
             (root / path).write_text(text, encoding="utf-8")
+        for path in case.scripts:
+            (root / path).parent.mkdir(parents=True, exist_ok=True)
+            (root / path).write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        if case.repo:  # `git add` for the tracked files alone, so an untracked one is no kit check
+            git = ["git", "-c", "init.defaultBranch=main"]
+            subprocess.run([*git, "init", "-q"], cwd=root, check=True)
+            tracked = [path for path, yes in case.scripts.items() if yes]
+            if tracked:
+                subprocess.run(["git", "add", "--", *tracked], cwd=root, check=True)
 
     def findings_of(case: Case) -> list[Finding]:
         with tempfile.TemporaryDirectory() as tmp:
@@ -593,6 +655,9 @@ def self_test() -> int:
             return check_kit(root)[0]
 
     trailing = f"\t# {READS_LIST[1]}\n"
+    new = "scripts/check-new.py"
+    tracked = {new: True}
+    run_new = f"python3 {new}"
     failed = 0
     cases: dict[str, tuple[Case, list[Where]]] = {
         "a gate runs the scan in its module's job, CI reads the list, a module with none needs none": (
@@ -661,11 +726,82 @@ def self_test() -> int:
             ),
             [],
         ),
+        "a tracked kit check an entry of the gate group runs": (
+            Case({"x": scan, "new": f"{run_new}\n{run_new} --self-test"}, scripts=tracked),
+            [],
+        ),
+        "a tracked kit check no entry runs": (Case({"x": scan}, scripts=tracked), [Where.CHECK]),
+        "the same file untracked is no kit check": (Case({"x": scan}, scripts={new: False}), []),
+        "a kit check run only by its --self-test": (
+            Case({"x": scan, "new": f"{run_new} --self-test"}, scripts=tracked),
+            [],
+        ),
+        "a kit check run only by --module in an install entry of the gate group": (
+            Case({"x": scan, "install-const-x": f"{run_new} --module const-x"}, scripts=tracked),
+            [],
+        ),
+        "a kit check run only by the extra entry lint": (
+            Case({"x": scan}, {"lint": run_new}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a kit check run only by a fixtures entry": (
+            Case({"x": scan}, {"fixtures-const-x": f"{run_new} --self-test"}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a kit check named in a comment of the list script only": (
+            Case({"x": scan}, comment=run_new, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a kit check named after a # in a gate's command only": (
+            Case({"x": scan, "noted": f"true  # {run_new}"}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a kit check no entry runs, beside one whose name it opens": (
+            Case(
+                {"x": scan, "newer": "python3 scripts/check-newer.py"},
+                scripts={**tracked, "scripts/check-newer.py": True},
+            ),
+            [Where.CHECK],
+        ),
+        "a module's script of that name is no run of the kit check": (
+            Case({"x": scan, "new": "python3 modules/const-x/scripts/check-new.py --scan"}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a library and a helper no entry runs are no kit checks": (
+            Case({"x": scan}, scripts={"scripts/kit_module_doc.py": True, "scripts/helper.py": True}),
+            [],
+        ),
     }
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
+    names = {  # which tracked path is a kit check: the name filter over its whole set
+        "scripts/check-x.py": True,
+        "scripts/check-x.sh": False,
+        "scripts/check_x.py": False,
+        "scripts/checkx.py": False,
+        "scripts/check-.py": False,
+        "scripts/Check-x.py": False,
+        "scripts/check-x.pyc": False,
+        "scripts/check-x.py.bak": False,
+        "scripts/kit_module_doc.py": False,
+        "scripts/helper.py": False,
+        "scripts/sub/check-y.py": False,  # a script under a folder is none: only the top of scripts/ counts
+        "scripts/check-sub/z.py": False,  # nor is one in a folder whose name opens `check-`
+        "modules/const-x/scripts/check-x.py": False,
+    }
+    ok = True
+    for path, is_check in names.items():
+        got = [f.module for f in findings_of(Case({"x": scan}, scripts={path: True}))]
+        if got != ([path] if is_check else []):
+            ok = False
+            print(f"        name {path!r}: got {got}, a kit check is {is_check}")
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] only `scripts/check-<x>.py` at the top of scripts/ is a kit check,"
+        " over the whole set of names"
+    )
     with tempfile.TemporaryDirectory() as tmp:  # a scan declared by its Python file, run by python3
         root = Path(tmp).resolve()
         p = "python3 modules/const-p/scripts/check-p.py --scan"
@@ -742,9 +878,28 @@ def self_test() -> int:
         "RED: modules/const-x/MODULE.md:6: `y.py --scan` declares a scan outside the enforcement table",
         form_why,
         "  fix: move it into a row of the enforcement table, or write it another way",
-        "RED: 5 finding(s) — 2 module document(s) examined, 1 declared scan(s)",
+        "RED: 5 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+    ]
+    two_lines = [  # typed by hand
+        "RED: scripts/check-a.py is run by no entry of the gate group",
+        "  why: a kit check no entry runs is never run in CI, and its green says nothing",
+        "  fix: add an entry to GATES in scripts/gate-list.sh and an arm in commands() that runs"
+        " `python3 scripts/check-a.py`, with its `--self-test` where it has one",
+        "RED: scripts/check-b.py is run by no entry of the gate group",
+        "  why: a kit check no entry runs is never run in CI, and its green says nothing",
+        "  fix: add an entry to GATES in scripts/gate-list.sh and an arm in commands() that runs"
+        " `python3 scripts/check-b.py`, with its `--self-test` where it has one",
+        "RED: 2 finding(s) — 2 module document(s) examined, 1 declared scan(s), 3 kit check(s)",
     ]
     for name, case, lines in (
+        (
+            "two kit checks no entry runs, in sorted order",
+            Case(
+                {"x": scan, "c": "python3 scripts/check-c.py"},
+                scripts={f"scripts/check-{n}.py": True for n in ("b", "c", "a")},
+            ),
+            two_lines,
+        ),
         ("one finding", Case({"x": scan}, workflow="jobs: {}\n"), report_lines),
         ("the findings of a table the check cannot read", Case({"x": scan}, document=form_text), form_lines),
         (
@@ -772,6 +927,22 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] the report of {name} is its literal text, exit 2")
         if not ok:
             print(printed.getvalue())
+    with tempfile.TemporaryDirectory() as tmp:  # the green line, with every kit check run
+        root = Path(tmp).resolve()
+        build(root, Case({"x": scan, "new": run_new}, scripts=tracked))
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = report(*check_kit(root))
+    green_line = (
+        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's"
+        " modules are the module folders, neither list filters a runner's items, and every kit check is run"
+        " by an entry of the gate group — 2 module document(s) examined, 1 declared scan(s), 1 kit check(s)"
+    )
+    ok = code == EXIT_GREEN and printed.getvalue().splitlines() == [green_line]
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the report of a kit whose checks all run is its literal green line")
+    if not ok:
+        print(printed.getvalue())
     for name, change, said in (
         ("a list script that fails", "LIST", f"{GATE_LIST} --names gate exited"),
         ("jobs that are no JSON list", "JSON", f"{GATE_LIST} --json printed no list of job names"),
@@ -796,10 +967,12 @@ def self_test() -> int:
             'modules/const-x/MODULE.md holds the anchor <a id="t10"></a> twice, lines 7 and 13',
         ),
         ("a module folder without its document", "NO-DOC", "modules/empty has no MODULE.md"),
+        ("a tree that is no git repository", "NO-REPO", "git ls-files scripts exited"),
+        ("a git that cannot be run", "NO-GIT", "git cannot be run"),
     ):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, Case({"x": scan}))
+            build(root, Case({"x": scan}, repo=change != "NO-REPO"))
             if change == "LIST":
                 (root / GATE_LIST).write_text(
                     "#!/bin/sh\necho 'BROKEN: no list' >&2\nexit 1\n", encoding="utf-8"
@@ -820,14 +993,19 @@ def self_test() -> int:
                 (root / "modules/const-x/MODULE.md").write_text(broken_text, encoding="utf-8")
             if change == "NO-DOC":
                 (root / "modules/empty").mkdir()
+            path = os.environ["PATH"]
+            if change == "NO-GIT":
+                os.environ["PATH"] = ""
             try:
-                check_kit(root)
+                tracked_checks(root) if change == "NO-GIT" else check_kit(root)
                 ok = False
             except Broken as broken:
                 ok = said in str(broken) and "fix:" in str(broken)
+            finally:
+                os.environ["PATH"] = path
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 15
+    total = len(cases) + 20
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
