@@ -39,6 +39,7 @@ A document a project keeps grows with every change that touches it, and nobody m
 6. [dec-0042-interaction-module-rulings](../../docs/decisions/dec-0042-interaction-module-rulings.md) — a gate whose own dial leaves it examining nothing says so in one line at session start.
 7. [dec-0045-frozen-documents-stay-in-the-style-scan](../../docs/decisions/dec-0045-frozen-documents-stay-in-the-style-scan.md) and [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — a frozen document stays in a gate's territory, and what it cannot meet is a departure with its reason.
 8. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
+9. [dec-0068-enforcement-tables-destination-classes-and-kit-checks-held](../../docs/decisions/dec-0068-enforcement-tables-destination-classes-and-kit-checks-held.md) — the history report's row of the enforcement table says it is no tree scan, so the kit's gate list does not hold it as a declared scan.
 
 <a id="t5"></a>
 ## 5. Invariant

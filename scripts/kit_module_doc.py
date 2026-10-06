@@ -91,8 +91,9 @@ def enforcement(text: str, path: str) -> tuple[list[str], list[Problem]]:
     and the row's spans are read all the same; a code span in a row that holds
     `--scan` reads `<entry> --scan`, which declares the scan, or `<entry> --scan --<flag> …` in a row
     whose artifact cell, the cell that holds the span, also holds the words `not a tree scan` outside
-    any code span, which declares none; any other such span is a problem; outside the table, a span in
-    the declared form is a problem and any other is ignored."""
+    any code span, which declares none; any other such span is a problem; a span in the declared form
+    stays declared when the mark stands beside it, since the mark only licenses the form with a flag;
+    outside the table, a span in the declared form is a problem and any other is ignored."""
     body = section(text, "t9", path)
     headers = {
         number

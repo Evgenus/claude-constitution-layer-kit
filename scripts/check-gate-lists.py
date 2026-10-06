@@ -36,8 +36,10 @@ No line of the list script or of the workflow, comments aside, passes a fixture 
 so the gate list and CI always run every item.
 Every `scripts/check-*.py` that git tracks at the top of `scripts/` (`git ls-files`; an untracked
 file, a library such as `kit_module_doc.py` and a file in a folder are none) is run by an entry of the
-gate group: a code line of that entry's `--show`, comments aside, holds `python3 scripts/check-<x>.py`,
-with or without arguments. The kit root must be the git repository itself.
+gate group: a code line of that entry's `--show`, comments aside, holds `python3 scripts/check-<x>.py`
+as whole words, with or without arguments — not after a name or path character, so `xpython3` and
+`/usr/bin/python3` are no run, and not before one, so `check-<x>.py.bak` is none. The kit root must be
+the git repository itself.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree, itself a git repository: a scan missing

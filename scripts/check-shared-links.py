@@ -14,8 +14,10 @@ tests/<name>. The check is a failure to run (BROKEN) when shared/const_gate/ is 
 shared/tests/ lacks one of the three files shared/GATE.md names (the FLOOR), so that a list read from
 the folders cannot shrink in silence. A module under modules/ — a folder whose name starts with neither
 `.` nor `_` — owes the links when it has hooks/hooks.json, when a line of a `.py` file under its
-scripts/, at any depth, imports const_gate (the link scripts/const_gate is not entered; a comment, a
-string, a shell script and a `__pycache__` are no import), or when it already has one of the links.
+scripts/, at any depth, begins, after white space, with `from const_gate` or `import const_gate` (the
+link scripts/const_gate is not entered; a comment, a string on one line, a shell script and a
+`__pycache__` are no import, while such a line inside a string of several lines counts), or when it
+already has one of the links.
 A module of skills alone owes none. Findings come by module, the gate package first, then the shared
 files by name.
 
