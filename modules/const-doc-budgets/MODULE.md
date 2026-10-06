@@ -39,6 +39,7 @@ A document a project keeps grows with every change that touches it, and nobody m
 6. [dec-0042-interaction-module-rulings](../../docs/decisions/dec-0042-interaction-module-rulings.md) — a gate whose own dial leaves it examining nothing says so in one line at session start.
 7. [dec-0045-frozen-documents-stay-in-the-style-scan](../../docs/decisions/dec-0045-frozen-documents-stay-in-the-style-scan.md) and [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — a frozen document stays in a gate's territory, and what it cannot meet is a departure with its reason.
 8. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
+9. [dec-0068-enforcement-tables-destination-classes-and-kit-checks-held](../../docs/decisions/dec-0068-enforcement-tables-destination-classes-and-kit-checks-held.md) — the history report's row of the enforcement table says it is no tree scan, so the kit's gate list does not hold it as a declared scan.
 
 <a id="t5"></a>
 ## 5. Invariant
@@ -139,7 +140,7 @@ Each pair reads *violates / complies*. The gate's own lines are numbers; the bou
 |---|---|---|
 | E1 | `check-budgets` after a write: B1, N2; this module's dials validated at each read, the C5 texts of [§6](#t6), and `log_dir` by the shared code | `gate`, severity dial `severity`; under the shipped wiring no write is refused — a finding reaches the model after the write, as a block at `block` and as context at `warn` |
 | E2 | `check-budgets --scan`: the same over every held document, N3 for a stale departure, N4 for every ceiling | `gate`, always exit 2 on a finding, whatever `severity`; an excess at level warning is a note and never red |
-| E3 | `check-budgets --scan --since <date>`: the history report | `advisory`: it shapes the reviewer's number (rule B-a), blocks nothing and exits 0 on any data; it judges nothing and says so in its closing line |
+| E3 | `check-budgets --scan --since <date>`: the history report, not a tree scan | `advisory`: it shapes the reviewer's number (rule B-a), blocks nothing and exits 0 on any data; it judges nothing and says so in its closing line |
 | E4 | `session-start`: the line of the always-on content | `advisory`, blocks nothing |
 | E5 | the skill `set-ceilings`: B-a to B-e | `advisory` |
 

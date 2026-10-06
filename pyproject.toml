@@ -8,22 +8,19 @@
 #   python3 -m ruff format --check modules scripts shared && python3 -m ruff check modules scripts shared
 #   (cd shared && mypy --strict const_gate)
 #   (cd modules/<name>/scripts && mypy --strict <package>)
+#   (cd modules/<name>/scripts && mypy --strict *.py)   (the entry files beside the packages)
 #   (cd modules/<name>/tests && MYPYPATH=../scripts mypy --strict *.py)
 #   python3 scripts/check-shared-links.py && python3 scripts/check-shared-links.py --self-test
 #   python3 scripts/check-carry-lists.py && python3 scripts/check-carry-lists.py --self-test
 #   python3 scripts/check-yaml-style.py && python3 scripts/check-yaml-style.py --self-test   (block style of constitution.yaml; --fix rewrites it)
 #   python3 scripts/check-module-links.py && python3 scripts/check-module-links.py --self-test   (a module linked outside module prose)
-#   (cd scripts && mypy --strict check-module-links.py)
 #   python3 scripts/check-aspects.py && python3 scripts/check-aspects.py --self-test   (every acceptance item names its rows; --run reports each row)
-#   (cd scripts && mypy --strict check-aspects.py)
 #   python3 scripts/check-portability.py && python3 scripts/check-portability.py --self-test   (the A12.1 grep over the installed components)
-#   python3 scripts/check-gate-lists.py && python3 scripts/check-gate-lists.py --self-test   (every declared module scan in the list's gate group; the workflow calls the list)
-#   (cd scripts && mypy --strict check-portability.py check-gate-lists.py)
-#   (cd scripts && mypy --strict check-carry-lists.py check-shared-links.py check-yaml-style.py check-bare-install.py check-dials-schema.py)
+#   python3 scripts/check-gate-lists.py && python3 scripts/check-gate-lists.py --self-test   (every declared module scan in the list's gate group, the form of each module's enforcement table, every tracked scripts/check-*.py at the top of scripts/ run by an entry of the gate group; the workflow calls the list)
 #   python3 scripts/check-schema-mirror.py   (the gates' mirror never more lenient than the kernel schemas)
 #   python3 scripts/check-dials-schema.py && python3 scripts/check-dials-schema.py --self-test   (the kit's constitution.yaml against the kernel's dials schema)
 #   python3 scripts/check-bare-install.py --self-test && python3 scripts/check-bare-install.py --module <name>   (A12: installed alone on a bare repo; needs claude)
-#   (cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts mypy --strict check-schema-mirror.py)
+#   (cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts mypy --strict *.py)   (every kit script, one run)
 # And for the kit's own branch-first gate — the first is red in a clone until sh scripts/setup-clone.sh has run once:
 #   sh scripts/setup-clone.sh --check && sh scripts/git-hooks/tests/run.sh
 [tool.ruff]

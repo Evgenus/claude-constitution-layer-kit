@@ -18,7 +18,29 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
   - an item that names a row its module's rows section does not hold;
   - a row a module's rows section holds that no item of that module names;
   - a row the matrix gives a module (its destination opens with M and a number) that no
-    module's rows section holds.
+    module's rows section holds;
+  - a row whose destination opens with none of the four classes `kernel §<n>`, `M<n>`, `binding`,
+    `template`, typed here once with their patterns and matched at the start of the cell, its links
+    read for their text, a name that goes on in a word or a digit that is not ASCII being none.
+
+The documents are read in the forms their rules state, and a read that cannot be sure is no pass: the
+check could not run (BROKEN, exit 1), with the fix, on
+  - a matrix line that holds `<a id="aN-M"></a>` or `<a id="aN"></a>` and is not in the form
+    `| <a id="aN-M"></a>AN.M | … |` of a row, four cells, or `| <a id="aN"></a>**AN — Title**` of an
+    aspect, a prose line that shows the anchor included; two lines that open with the same row or aspect
+    anchor; a
+    matrix with no row;
+  - a preamble without the sentence "Destination classes: …", or one whose bold names are not exactly
+    the four classes the check types, so that the typed set never drifts from the preamble (every
+    run reads it, `--run --module` too);
+  - a module folder with no MODULE.md (a folder whose name opens with a dot or an underscore is no
+    module and is skipped), and a module document whose rows section (anchor `t3`) or acceptance
+    section (anchor `t10`) is missing or stands twice, or whose next section's anchor is missing
+    once any later one stands (`t4` after `t3`, `t11` after `t10`), or stands elsewhere, with another
+    anchor, or none, after this one (`t11` before `t10`), each read by `kit_module_doc.section`.
+A table line of those two sections is read whatever its indent: a line whose stripped form starts
+with `|`. The last cell of any table line it reads, the matrix's rows too, is read whether or not
+the line closes with a bar (`kit_module_doc.cells`).
 
 The report, `--run`, also runs each module's `tests/run.py` and reads its item lines, which
 the shared harness prints as `[ok]` or `[FAIL]`, the number, the kind in round brackets and the
@@ -53,8 +75,13 @@ Modes:  no arguments         the gate;
         --run --module NAME  the same for one module: its findings alone, its rows' verdicts from
                              its items alone;
         --self-test          prove the check on a throwaway tree: each finding red→green, the
-                             report of one finding as literal lines, a full run green and red,
-                             a runner that cannot be read as a BROKEN line.
+                             openings of a destination over a whole set (classed or red), indented
+                             table lines read, a matrix line off its form, a doubled anchor, a
+                             preamble that is missing or names other classes, a module document
+                             without or with a doubled anchor and a folder without its document
+                             each a BROKEN line, a folder opening `.` or `_` skipped, the report
+                             of one finding as literal lines, a full run green and red, a runner
+                             that cannot be read as a BROKEN line.
 Exit:   0 green; 2 a finding or a red item; 1 the check could not run.
 """
 
@@ -72,6 +99,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from kit_module_doc import DocumentError, cells, section
+
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SPEC = "docs/requirements.md"
@@ -79,7 +108,8 @@ RUNNER_TIMEOUT = 1800  # seconds; the slowest runner takes a few minutes
 
 ASPECT = re.compile(r'^\| <a id="(a\d+)"></a>\*\*(A\d+ — [^*]+)\*\*')
 ROW = re.compile(r'^\| <a id="(a\d+-\d+)"></a>(A\d+\.\d+) \|')
-CELL_SPLIT = re.compile(r"(?<!\\)\|")
+ASPECT_ANCHOR = re.compile(r'<a id="(a\d+)"></a>')
+ROW_ANCHOR = re.compile(r'<a id="(a\d+-\d+)"></a>')
 ROW_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()\s]*)\)")
 LINK_TEXT = re.compile(r"\[([^\[\]]*)\]\([^()]*\)")
 HANDLE = r"[A-Z]?\d+[a-z]?"
@@ -90,6 +120,19 @@ ITEM_LIKE = re.compile(r"^\[(?:ok|FAIL)\]")
 LAST_LINE = re.compile(r"^(\d+)/(\d+) acceptance items green — ")
 DONE = re.compile(r"\bdone (\d{4}-\d{2}-\d{2})\b")
 MODULE_DEST = re.compile(r"^M\d+\b")
+# The closed set of destination classes, typed once: the name the preamble of the matrix writes in bold,
+# and the pattern that classes a cell, read through `plain()`, at the cell's start (rule 7 of
+# plc-0007-requirements). The tie to the preamble is `check_classes`.
+DEST_CLASSES: dict[str, re.Pattern[str]] = {
+    "kernel §n": re.compile(r"^kernel §[0-9]+\b"),
+    "Mx": re.compile(r"^M[0-9]+\b"),
+    "binding": re.compile(r"^binding\b"),
+    "template": re.compile(r"^template\b"),
+}
+CLASSES_SENTENCE = "Destination classes:"
+CODE_SPAN = re.compile(r"`[^`\n]*`")
+SENTENCE_END = re.compile(r"\.(?:\s|$)")
+BOLD_SPAN = re.compile(r"\*\*([^*]+)\*\*")
 ACCEPTANCE_HEADER = ["item", "kind", "rows", "what it proves"]
 
 WHY_TAG = "a row's result comes only from the items that name it, so every item says which rows it proves"
@@ -99,6 +142,10 @@ WHY_HANDLES = (
 WHY_KIND = "the kind says whether a run examines the item, and a kind outside the set cannot be judged"
 WHY_SCOPE = "a module implements exactly the rows its rows section holds (law 4 of CLAUDE.md)"
 WHY_RUN = "a row is green only where a run examined it, so every item the runner prints must be in the table"
+WHY_CLASSES = (
+    "the destination classes are a closed set, defined once in the preamble (rule 7 of"
+    " plc-0007-requirements), and a destination outside it takes its row out of every check that reads it"
+)
 
 
 class Broken(Exception):
@@ -174,40 +221,93 @@ def plain(cell: str) -> str:
     return LINK_TEXT.sub(r"\1", cell).replace("**", "").strip()
 
 
-def cells(line: str) -> list[str]:
-    parts = CELL_SPLIT.split(line.strip())
-    return [p.strip() for p in parts[1:-1]]
+def off_form(number: int, line: str) -> Broken | None:
+    """The BROKEN for a line that holds an aspect's or a row's anchor and is not in the form of `ASPECT`
+    or `ROW`; None for a line that holds neither, whatever else it says."""
+    for found, kind, form in (
+        (ASPECT_ANCHOR.search(line), "an aspect's", '| <a id="aN"></a>**AN — Title**'),
+        (ROW_ANCHOR.search(line), "a row's", '| <a id="aN-M"></a>AN.M | …'),
+    ):
+        if found is not None:
+            return Broken(
+                f"{SPEC}:{number}: the line holds {kind} anchor {found[0]} but is not in the matrix's form"
+                f" — why: a line off its form drops out of the matrix without a word — fix: write it as"
+                f" `{form}`, the line opening with `| ` at its start and no space between the anchor and"
+                " what follows it"
+            )
+    return None
 
 
 def read_matrix(root: Path) -> dict[str, Row]:
+    """The rows of the matrix. A line that holds an aspect's or a row's anchor is read in the one form
+    `ASPECT` or `ROW` states, or the check is BROKEN; so are two lines that open with the same anchor. A
+    line that holds
+    no such anchor, prose and a link to `#a1-4` among them, is read as before."""
     rows: dict[str, Row] = {}
+    stands: dict[str, int] = {}
     aspect = ""
-    for line in read(root, SPEC).splitlines():
-        if heading := ASPECT.match(line):
+    for number, line in enumerate(read(root, SPEC).splitlines(), start=1):
+        heading, row = ASPECT.match(line), ROW.match(line)
+        if heading is None and row is None:
+            if (bad := off_form(number, line)) is not None:
+                raise bad
+            continue
+        anchor = heading[1] if heading is not None else row[1]  # type: ignore[index]
+        if anchor in stands:
+            raise Broken(
+                f'{SPEC} holds the anchor <a id="{anchor}"></a> twice, lines {stands[anchor]} and {number}'
+                " — why: the second would overwrite the first in the matrix"
+                " — fix: keep the one anchor, on its own row or aspect"
+            )
+        stands[anchor] = number
+        if heading is not None:
             aspect = heading[2].strip()
-        elif ROW.match(line):
+        else:
             parts = cells(line)
             if len(parts) != 4:
                 raise Broken(
                     f"{SPEC}: the row {line[:40]}… has {len(parts)} cells, not 4 — fix: restore the"
                     " matrix's four columns"
                 )
-            anchor = ROW.match(line)[1]  # type: ignore[index]
-            handle = ROW.match(line)[2]  # type: ignore[index]
-            rows[anchor] = Row(anchor, handle, aspect, plain(parts[2]), plain(parts[3]))
+            rows[row[1]] = Row(row[1], row[2], aspect, plain(parts[2]), plain(parts[3]))  # type: ignore[index]
     if not rows:
         raise Broken(f"{SPEC} holds no matrix row — fix: run the check from a checkout of the kit")
     return rows
 
 
-def section(lines: list[str], anchor: str, after: str) -> list[tuple[int, str]]:
-    start = next((i for i, text in enumerate(lines) if text.strip() == f'<a id="{anchor}"></a>'), None)
-    if start is None:
-        return []
-    end = next(
-        (i for i in range(start + 1, len(lines)) if lines[i].strip() == f'<a id="{after}"></a>'), len(lines)
-    )
-    return [(i + 1, lines[i]) for i in range(start + 1, end)]
+def preamble_classes(text: str) -> list[str] | None:
+    """The bold names of the sentence that opens "Destination classes:", sorted and each once; None when
+    no such sentence stands. The sentence runs to the first full stop that ends a word, code spans
+    taken out first (one holds `constitution.yaml`); a bold span before it or after its end is no class."""
+    start = text.find(CLASSES_SENTENCE)
+    if start < 0:
+        return None
+    rest = CODE_SPAN.sub("", text[start + len(CLASSES_SENTENCE) :])
+    end = SENTENCE_END.search(rest)
+    sentence = rest[: end.start()] if end else rest
+    return sorted({name.strip() for name in BOLD_SPAN.findall(sentence)})
+
+
+def check_classes(root: Path) -> None:
+    """BROKEN unless the preamble's bold class names are exactly the classes `DEST_CLASSES` types."""
+    found = preamble_classes(read(root, SPEC))
+    typed = sorted(DEST_CLASSES)
+    quoted = ", ".join(f"'{name}'" for name in typed)
+    if found is None:
+        raise Broken(
+            f'{SPEC} holds no sentence that opens "{CLASSES_SENTENCE}" — why: the check types the classes'
+            f" {quoted} and holds them to the preamble's sentence, so a preamble it cannot read is a"
+            " tie it cannot check — fix: restore the sentence in the preamble, or change the preamble"
+            " and the check's classes together"
+        )
+    if found != typed:
+        named = ", ".join(f"'{name}'" for name in found) or "none"
+        raise Broken(
+            f'{SPEC} names the destination classes {named} in its "{CLASSES_SENTENCE}" sentence, and this'
+            f" check types {quoted} — why: the classes are a closed set defined once in the preamble"
+            " (rule 7 of plc-0007-requirements), and the check's patterns are typed here, so the two"
+            " must say the same names — fix: change the preamble and the check's classes together"
+        )
 
 
 def row_anchors(cell: str) -> tuple[list[str], str]:
@@ -260,7 +360,7 @@ def kind_of(cell: str) -> str | None:
 def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: list[Finding]) -> Module:
     name = directory.name
     path = f"modules/{name}/MODULE.md"
-    lines = read(root, path).splitlines()
+    text = read(root, path)
     manifest = directory / ".claude-plugin" / "plugin.json"
     try:
         version = str(json.loads(manifest.read_text(encoding="utf-8")).get("version", "?"))
@@ -268,9 +368,14 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
         raise Broken(
             f"modules/{name}/.claude-plugin/plugin.json cannot be read ({bad}) — fix: restore the manifest"
         ) from bad
+    try:
+        rows_section, acceptance_section = section(text, "t3", path), section(text, "t10", path)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
     held: dict[str, int] = {}
-    for number, line in section(lines, "t3", "t4"):
-        if not line.startswith("| "):
+    for number, raw in rows_section:
+        line = raw.strip()
+        if not line.startswith("|"):
             continue
         first = cells(line)[0] if cells(line) else ""
         for link in ROW_LINK.finditer(first):
@@ -278,8 +383,8 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
             if path_part.endswith(SPEC) and anchor in matrix:
                 held.setdefault(anchor, number)
     module = Module(name, path, version, held, [])
-    table = [(n, text) for n, text in section(lines, "t10", "t11") if text.startswith("|")]
-    header = next(((n, cells(text)) for n, text in table if cells(text) and cells(text)[0] == "item"), None)
+    table = [(n, raw.strip()) for n, raw in acceptance_section if raw.strip().startswith("|")]
+    header = next(((n, cells(line)) for n, line in table if cells(line) and cells(line)[0] == "item"), None)
     if header is None or header[1] != ACCEPTANCE_HEADER:
         findings.append(
             Finding(
@@ -412,13 +517,18 @@ def modules_of(root: Path) -> list[Path]:
     base = root / "modules"
     if not base.is_dir():
         raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
-    return sorted(d for d in base.iterdir() if d.is_dir() and (d / "MODULE.md").is_file())
+    directories = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
+    for directory in directories:
+        if not (directory / "MODULE.md").is_file():
+            raise Broken(f"modules/{directory.name} has no MODULE.md — fix: restore the module document")
+    return directories
 
 
 def check_structure(
     root: Path, only: str | None = None
 ) -> tuple[dict[str, Row], list[Module], list[Finding]]:
     matrix = read_matrix(root)
+    check_classes(root)
     findings: list[Finding] = []
     modules = [read_module(root, d, matrix, findings) for d in modules_of(root)]
     held_anywhere = {a for m in modules for a in m.held}
@@ -431,6 +541,18 @@ def check_structure(
                     f"{row.handle} is given to a module, and no module's rows section holds it",
                     WHY_SCOPE,
                     "add the row to the rows section of the module that implements it",
+                )
+            )
+        if not any(form.match(row.destination) for form in DEST_CLASSES.values()):
+            findings.append(
+                Finding(
+                    SPEC,
+                    0,
+                    f"{row.handle} has the destination '{row.destination}', a destination the check"
+                    " cannot class",
+                    WHY_CLASSES,
+                    "open the cell with one of the four classes — `kernel §<n>`, `M<n>`, `binding`,"
+                    " `template` — or add a class to the preamble and to this check together",
                 )
             )
     if only is not None:
@@ -625,8 +747,16 @@ def gate(root: Path) -> int:
 
 # --- self-test ---------------------------------------------------------------------------------
 
-MATRIX = """# R
-
+# The preamble's sentence as the requirements document writes it, a period inside a code span of it;
+# the paragraph's first bold span stands before it and a sentence follows it.
+PREAMBLE = (
+    "**Traceability matrix** — every aspect decomposed into requirement parts. Destination classes:"
+    " **kernel §n** (shared semantics), **Mx** (module, with artifact kind), **binding** (per-project"
+    " `constitution.yaml` — never module content), **template** (authoring law). An authoring session"
+    " for module X takes exactly its rows."
+)
+MATRIX = f"""# R
+{PREAMBLE}
 | Part | Requirement | Destination | Recommended enforcement |
 |---|---|---|---|
 | <a id="a1"></a>**A1 — Sample** | | | |
@@ -644,7 +774,7 @@ def module_text(acceptance: str, rows: str = f"| {LINK_1} | r |\n| {LINK_3} | r 
         + rows
         + '\n<a id="t4"></a>\n## 4\n\n<a id="t10"></a>\n## 10. Acceptance\n\n'
         + acceptance
-        + '\n<a id="t11"></a>\n## 11\n'
+        + '\n<a id="t11"></a>\n## 11\n\n<a id="t12"></a>\n## 12\n'
     )
 
 
@@ -690,9 +820,11 @@ def harness_runner(argv: list[str]) -> str:
     )
 
 
-def build(root: Path, table: str, rows: str | None = None, runner: str | None = None) -> None:
+def build(
+    root: Path, table: str, rows: str | None = None, runner: str | None = None, matrix: str = MATRIX
+) -> None:
     (root / "docs").mkdir(parents=True, exist_ok=True)
-    (root / SPEC).write_text(MATRIX, encoding="utf-8")
+    (root / SPEC).write_text(matrix, encoding="utf-8")
     module = root / "modules" / "const-sample"
     (module / ".claude-plugin").mkdir(parents=True, exist_ok=True)
     (module / ".claude-plugin" / "plugin.json").write_text(
@@ -708,7 +840,9 @@ def self_test() -> int:
     """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
     and green with the good table; the report of one finding as literal lines; a full run green,
     one red with a red item, one red for an item the runner did not print and one it printed
-    unnamed; a runner out of form and one whose count disagrees as BROKEN."""
+    unnamed; a runner out of form and one whose count disagrees as BROKEN; the destination classes,
+    the form of the matrix and of the module documents, and the tie to the preamble, each over its
+    whole set of cases."""
     header = "| item | kind | rows | what it proves |\n|---|---|---|---|\n"
     red: dict[str, tuple[str, str | None]] = {  # case: its table (or rows section), what the finding says
         "no rows column": (
@@ -750,6 +884,10 @@ def self_test() -> int:
             header + f"| T1 | fixture | {LINK_1} | x |\n",
             "named by no acceptance item",
         ),
+        "an indented item whose rows cell is no link": (
+            GOOD_TABLE + "  | T9 | fixture | A1.1 | x |\n",
+            "the rows cell of item T9",
+        ),
     }
     failed = 0
     for name, (table, said) in red.items():
@@ -772,6 +910,429 @@ def self_test() -> int:
     )
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a row the matrix gives a module that no rows section holds is red")
+    destinations = {  # the whole set of openings: the cell, whether the check classes it
+        "M1 hook": True,
+        "M47 skill + hook": True,
+        "**M1** skill": True,
+        "[kernel §2](../kernel/CONVENTIONS.md#k2)": True,
+        "kernel §12": True,
+        "[kernel §2](../kernel/CONVENTIONS.md#k2) + template": True,
+        "binding": True,
+        "binding (thresholds)": True,
+        "template": True,
+        "module `const-x` skill": False,
+        "kernel": False,
+        "kernel §": False,
+        "kernel §n": False,
+        "kernel§2": False,  # a space is part of the class, `kernel §`
+        "M 1 hook": False,  # so is the number's place: `M` directly before its digits
+        "kernel §2x": False,  # the class ends at a word boundary: a digit run that goes on in letters is none
+        "Mx": False,
+        "M": False,
+        "m1": False,
+        "M1x": False,
+        "bindings": False,
+        "templates": False,
+        "Template": False,
+        "": False,
+        "—": False,
+        "K2": False,
+        "M١ hook": False,  # an Arabic-Indic digit, not an ASCII one
+        "kernel §٢": False,
+    }
+    for cell, classed in destinations.items():
+        seen: list[list[str]] = []
+        for old in ("M1 hook", "[kernel §2](../kernel/CONVENTIONS.md#k2)"):
+            with tempfile.TemporaryDirectory() as tmp:  # A1.1 a module holds, A1.2 none holds
+                root = Path(tmp).resolve()
+                build(root, GOOD_TABLE, matrix=MATRIX.replace(f"| {old} |", f"| {cell} |"))
+                seen.append([f.what for f in check_structure(root)[2]])
+        on_held, on_unheld = seen
+        refused = f"has the destination '{cell.replace('**', '')}', a destination the check cannot class"
+        given = ["A1.2 is given to a module, and no module's rows section holds it"]
+        if classed:  # a row given to a module that no module holds stays red beside it (R7)
+            ok = not on_held and on_unheld == (
+                given if cell in ("M1 hook", "M47 skill + hook", "**M1** skill") else []
+            )
+        else:
+            # R7's own red (MODULE_DEST, read as before, takes any digit) is held by its case above
+            unheld_red = [what for what in on_unheld if what != given[0]]
+            ok = on_held == [f"A1.1 {refused}"] and unheld_red == [f"A1.2 {refused}"]
+        failed += 0 if ok else 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] the destination '{cell}' is"
+            f" {'classed' if classed else 'red as one the check cannot class'},"
+            " on a row a module holds and on one none holds"
+        )
+        if not ok:
+            print(f"        got: {seen}")
+    with tempfile.TemporaryDirectory() as tmp:  # a table line is read whatever its indent
+        root = Path(tmp).resolve()
+        indented_rows = f"  | {LINK_1} | r |\n\t|{LINK_3} | r |\n"  # the second row: no space after the bar
+        build(
+            root,
+            GOOD_TABLE + f"  | T9 | fixture | {LINK_1} | x |\n\t|T8 | fixture | {LINK_1} | x |\n",
+            rows=indented_rows,
+        )
+        _, modules, findings = check_structure(root)
+    ok = not findings and len(modules[0].items) == 7 and sorted(modules[0].held.values()) == [6, 7]
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] an indented row of the rows section and an indented acceptance item,"
+        " each also with no space after the bar, are read, never dropped"
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # the last cell is read when the line has no closing bar
+        root = Path(tmp).resolve()
+        unclosed_rows = f"| {LINK_1} | r\n| {LINK_3}\n"  # the second row is one cell, `| link`
+        build(root, GOOD_TABLE + f"| T7 | fixture | {LINK_1} | x\n", rows=unclosed_rows)
+        _, modules, findings = check_structure(root)
+    ok = not findings and len(modules[0].items) == 6 and sorted(modules[0].held.values()) == [6, 7]
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] a row of the rows section and an acceptance item with no closing bar"
+        " are read to their last cell, never dropped or short of one"
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # no anchor stands above the last one: it reads to the end
+        root = Path(tmp).resolve()
+        build(root, GOOD_TABLE)
+        module_file = root / "modules" / "const-sample" / "MODULE.md"
+        text_now = module_file.read_text(encoding="utf-8").replace('<a id="t12"></a>\n', "")
+        module_file.write_text(text_now, encoding="utf-8")
+        findings = check_structure(root)[2]
+        module_file.write_text(
+            text_now[: text_now.index('<a id="t11"></a>')], encoding="utf-8"
+        )  # t11, t12 gone
+        findings += check_structure(root)[2]
+    ok = not findings
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] a document without its t12 anchor, or without t11 and t12, is read:"
+        " the acceptance section reads to the end when no anchor stands above it"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        build(root, GOOD_TABLE)
+        module_file = root / "modules" / "const-sample" / "MODULE.md"
+        original = module_file.read_text(encoding="utf-8")
+        blocks: list[list[str]] = [[]]  # the document cut before each section anchor
+        for line in original.splitlines(keepends=True):
+            if re.fullmatch(r'<a id="t\d+"></a>', line.strip()):
+                blocks.append([])
+            blocks[-1].append(line)
+        names = [block[0].strip() for block in blocks[1:]]
+        at10, at11 = names.index('<a id="t10"></a>') + 1, names.index('<a id="t11"></a>') + 1
+        blocks[at10], blocks[at11] = blocks[at11], blocks[at10]  # the sections t11 and t10 trade places
+        module_file.write_text("".join("".join(block) for block in blocks), encoding="utf-8")
+        try:
+            check_structure(root)
+            before = None
+        except Broken as bad:
+            before = str(bad)
+        blocks[1:] = sorted(blocks[1:], key=lambda block: int(re.findall(r"\d+", block[0])[0]))  # the fix
+        module_file.write_text("".join("".join(block) for block in blocks), encoding="utf-8")
+        ok = before is not None and "the anchor after" in before and not check_structure(root)[2]
+        ok = ok and module_file.read_text(encoding="utf-8") == original
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] a document whose t11 section stands before t10, put in the template's"
+        " order as the fix says, is read"
+    )
+    path = "modules/const-sample/MODULE.md"
+    text = module_text(GOOD_TABLE)
+    unreadable = {  # case: the document, its text, what the BROKEN line says
+        "no t3 anchor": (
+            path,
+            text.replace('<a id="t3"></a>\n', ""),
+            f'{path} has no anchor <a id="t3"></a>',
+        ),
+        "no t10 anchor": (
+            path,
+            text.replace('<a id="t10"></a>\n', ""),
+            f'{path} has no anchor <a id="t10"></a>',
+        ),
+        "no t4 anchor, t10 standing after it": (
+            path,
+            text.replace('<a id="t4"></a>\n', ""),
+            f'{path} has no anchor <a id="t4"></a> after <a id="t3"></a>',
+        ),
+        "no t11 anchor, t12 standing after it": (
+            path,
+            text.replace('<a id="t11"></a>\n', ""),
+            f'{path} has no anchor <a id="t11"></a> after <a id="t10"></a>',
+        ),
+        "the t11 anchor before the t10 anchor": (
+            path,
+            text.replace('<a id="t10"></a>\n', "@@")
+            .replace('<a id="t11"></a>\n', '<a id="t10"></a>\n')
+            .replace("@@", '<a id="t11"></a>\n'),
+            f'{path}: the anchor after <a id="t10"></a> is <a id="t12"></a>, not <a id="t11"></a> — fix: put'
+            " the sections in the template's order, t1 to t12, each anchor alone on the line above its"
+            " section's heading",
+        ),
+        "the t10 anchor last, t11 standing before it": (
+            path,
+            text.replace('<a id="t10"></a>\n', "") + '<a id="t10"></a>\n',
+            f'{path}: no anchor follows <a id="t10"></a>, and <a id="t11"></a> stands before it — fix: put'
+            " the sections in the template's order, t1 to t12",
+        ),
+        "text on the line of the t10 anchor": (
+            path,
+            text.replace('<a id="t10"></a>\n## 10.', '## 10. <a id="t10"></a>'),
+            f'{path} has no anchor <a id="t10"></a>',
+        ),
+        "a t3 anchor twice": (
+            path,
+            text.replace("| row |", '<a id="t3"></a>\n| row |'),
+            f'{path} holds the anchor <a id="t3"></a> twice, lines 1 and 4',
+        ),
+        "a second t4 anchor inside the rows section": (
+            path,
+            text.replace(f"| {LINK_3} |", f'<a id="t4"></a>\n| {LINK_3} |'),
+            f'{path} holds the anchor <a id="t4"></a> twice, lines 7 and 10',
+        ),
+    }
+    # the matrix, line 6 the row A1.1 (a module holds it), line 7 the row A1.2 (none does), line 5 the
+    # aspect: every way its line can leave the form `ROW` or `ASPECT` states, each on both rows
+    row_line = {1: MATRIX.splitlines()[5], 2: MATRIX.splitlines()[6]}
+    aspect_line = MATRIX.splitlines()[4]
+    row_forms: dict[str, Callable[[str, int], str]] = {  # case: the line's edit
+        "a space after the anchor": lambda x, n: x.replace(f'"></a>A1.{n}', f'"></a> A1.{n}'),
+        "no space after the first pipe": lambda x, n: x.replace("| <a", "|<a", 1),
+        "an indent of one space": lambda x, n: f" {x}",
+        "a tab indent": lambda x, n: f"\t{x}",
+        "a linked handle": lambda x, n: x.replace(f"A1.{n} |", f"[A1.{n}](#a1-{n}) |", 1),
+        "a bold handle": lambda x, n: x.replace(f"A1.{n} |", f"**A1.{n}** |", 1),
+        "no space before the pipe after the handle": lambda x, n: x.replace(f"A1.{n} |", f"A1.{n}|", 1),
+        "the handle before the anchor": lambda x, n: x.replace(
+            f'<a id="a1-{n}"></a>A1.{n}', f'A1.{n} <a id="a1-{n}"></a>'
+        ),
+    }
+    for form, edit in row_forms.items():
+        for n, line in row_line.items():
+            unreadable[f"A1.{n}'s line with {form}"] = (
+                SPEC,
+                MATRIX.replace(line, edit(line, n)),
+                f'{SPEC}:{n + 5}: the line holds a row\'s anchor <a id="a1-{n}"></a> but is not in the'
+                " matrix's form",
+            )
+    aspect_forms = {
+        "a space after the anchor": aspect_line.replace("></a>**", "></a> **"),
+        "no space after the first pipe": aspect_line.replace("| <a", "|<a", 1),
+        "an indent": f"  {aspect_line}",
+        "no bold": aspect_line.replace("**", ""),
+        "a bold left open": aspect_line.replace("Sample**", "Sample"),
+    }
+    for form, edited in aspect_forms.items():
+        unreadable[f"the aspect line with {form}"] = (
+            SPEC,
+            MATRIX.replace(aspect_line, edited),
+            f"{SPEC}:5: the line holds an aspect's anchor <a id=\"a1\"></a> but is not in the matrix's form",
+        )
+    unreadable["a row anchor on two lines"] = (
+        SPEC,
+        MATRIX + row_line[2] + "\n",
+        f'{SPEC} holds the anchor <a id="a1-2"></a> twice, lines 7 and 9',
+    )
+    unreadable["a row anchor on two lines, a row a module holds"] = (
+        SPEC,
+        MATRIX.replace(row_line[1], row_line[1] + "\n" + row_line[1]),
+        f'{SPEC} holds the anchor <a id="a1-1"></a> twice, lines 6 and 7',
+    )
+    unreadable["an aspect anchor on two lines"] = (
+        SPEC,
+        MATRIX + aspect_line + "\n",
+        f'{SPEC} holds the anchor <a id="a1"></a> twice, lines 5 and 9',
+    )
+    unreadable["a row anchor on two lines, under two handles"] = (
+        SPEC,
+        MATRIX + row_line[2].replace("A1.2", "A1.5") + "\n",
+        f'{SPEC} holds the anchor <a id="a1-2"></a> twice, lines 7 and 9',
+    )
+    unreadable["a row anchor on two lines, a row a module holds, under two handles"] = (
+        SPEC,
+        MATRIX.replace(row_line[1], row_line[1] + "\n" + row_line[1].replace("A1.1", "A1.5")),
+        f'{SPEC} holds the anchor <a id="a1-1"></a> twice, lines 6 and 7',
+    )
+    unreadable["an aspect anchor on two lines, under two titles"] = (
+        SPEC,
+        MATRIX + aspect_line.replace("Sample", "Other") + "\n",
+        f'{SPEC} holds the anchor <a id="a1"></a> twice, lines 5 and 9',
+    )
+    unreadable["a prose line that quotes a row's anchor"] = (
+        SPEC,
+        MATRIX + 'The form is `<a id="a1-1"></a>A1.1`.\n',
+        f"{SPEC}:9: the line holds a row's anchor <a id=\"a1-1\"></a> but is not in the matrix's form",
+    )
+    unreadable["a prose line that quotes an aspect's anchor"] = (
+        SPEC,
+        MATRIX + 'The form is `<a id="a1"></a>**A1 — Sample**`.\n',
+        f"{SPEC}:9: the line holds an aspect's anchor <a id=\"a1\"></a> but is not in the matrix's form",
+    )
+    unreadable["a folder of modules/ with no MODULE.md"] = (
+        "modules/const-empty/README.md",
+        "a folder with no module document\n",
+        "modules/const-empty has no MODULE.md — fix: restore the module document",
+    )
+    classes_text = PREAMBLE[PREAMBLE.index(CLASSES_SENTENCE) : PREAMBLE.index(" An authoring")]
+    typed_names = "'Mx', 'binding', 'kernel §n', 'template'"
+    names_found = f'{SPEC} names the destination classes %s in its "Destination classes:" sentence, and this'
+
+    def preamble_as(edited: str) -> str:
+        return MATRIX.replace(PREAMBLE, edited)
+
+    unreadable["the preamble's classes sentence missing"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace(classes_text, "")),
+        f'{SPEC} holds no sentence that opens "Destination classes:" — why: the check types the classes'
+        f" {typed_names} and holds them to the preamble's sentence, so a preamble it cannot read is a tie"
+        " it cannot check — fix: restore the sentence in the preamble, or change the preamble and the"
+        " check's classes together",
+    )
+    unreadable["the preamble's classes sentence reworded"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace(CLASSES_SENTENCE, "Destination kinds:")),
+        f'{SPEC} holds no sentence that opens "Destination classes:" — why: ',
+    )
+    unreadable["a fifth bold class in the preamble's sentence"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace("(authoring law).", "(authoring law), **extra** (a fifth).")),
+        names_found % "'Mx', 'binding', 'extra', 'kernel §n', 'template'",
+    )
+    unreadable["one of the four renamed in the preamble"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace("**Mx**", "**Mn**")),
+        f"{SPEC} names the destination classes 'Mn', 'binding', 'kernel §n', 'template' in its \"Destination"
+        f' classes:" sentence, and this check types {typed_names} — why: the classes are a closed set'
+        " defined once in the preamble (rule 7 of plc-0007-requirements), and the check's patterns are"
+        " typed here, so the two must say the same names — fix: change the preamble and the check's"
+        " classes together",
+    )
+    unreadable["one of the four missing from the preamble"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace(", **template** (authoring law)", "")),
+        names_found % "'Mx', 'binding', 'kernel §n'",
+    )
+    unreadable["a class of the preamble not in bold"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace("**binding**", "binding")),
+        names_found % "'Mx', 'kernel §n', 'template'",
+    )
+    fix_forms = {  # the fix of an off-form line names the form of its own kind, never the other's
+        "A1.1's line with a space after the anchor": 'write it as `| <a id="aN-M"></a>AN.M | …`',
+        "A1.2's line with a tab indent": 'write it as `| <a id="aN-M"></a>AN.M | …`',
+        "the aspect line with a space after the anchor": 'write it as `| <a id="aN"></a>**AN — Title**`',
+        "the aspect line with an indent": 'write it as `| <a id="aN"></a>**AN — Title**`',
+    }
+    for name, (document, broken_text, said) in unreadable.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            (root / document).parent.mkdir(parents=True, exist_ok=True)
+            (root / document).write_text(broken_text, encoding="utf-8")
+            ok = True
+            got: list[str] = []
+            for only in (None, "const-sample"):  # the plain run's reading, and the full run of one module
+                try:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        if only is None:
+                            check_structure(root)
+                        else:
+                            full_run(root, only)
+                    ok = False
+                    got.append("no BROKEN" if only is None else "no BROKEN under --module")
+                except Broken as bad:
+                    ok = ok and str(bad).startswith(said) and "— fix:" in str(bad)
+                    ok = ok and (name not in fix_forms or f"— fix: {fix_forms[name]}" in str(bad))
+                    got.append(str(bad))
+        failed += 0 if ok else 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] a kit tree with {name} is one BROKEN line naming it,"
+            " in the plain run and in the run of one module"
+        )
+        if not ok:
+            print(f"        got: {got}")
+    prose = "See [A1.2](#a1-2) and [A1.1](../docs/requirements.md#a1-1); an aspect is [A1](#a1).\n"
+    read_as_before = {  # case: the matrix, the rows it gives; what holds no anchor of a row or an aspect
+        "a prose line that links a row and a module's own anchor are no anchor": (
+            MATRIX + "\n" + prose + '<a id="const-sample"></a>\n## A module\n',
+            ["a1-1", "a1-2", "a1-3"],
+        ),
+        "a handle that stands under two anchors is two rows": (  # each keyed by its anchor
+            MATRIX.replace(row_line[2], row_line[2] + "\n" + row_line[2].replace("a1-2", "a1-9")),
+            ["a1-1", "a1-2", "a1-3", "a1-9"],
+        ),
+    }
+    reordered = (
+        "Destination classes: **template** (authoring law), **binding** (per-project), **Mx** (module),"
+        " **kernel §n** (shared semantics)."
+    )
+    read_as_before.update(  # the sentence read as the four names whatever stands round it
+        {
+            "the preamble's four classes in another order": (
+                preamble_as(PREAMBLE.replace(classes_text, reordered)),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a bold span before the preamble's sentence is no class": (
+                preamble_as(PREAMBLE.replace("requirement parts.", "requirement parts, **each** homed.")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a period inside a code span of the preamble's sentence does not end it": (
+                preamble_as(PREAMBLE.replace("(shared semantics)", "(shared `a.b. c` semantics)")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a period inside a word of the preamble's sentence, outside a code span, does not end it": (
+                preamble_as(PREAMBLE.replace("(shared semantics)", "(shared semantics, as in v1.2)")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a class written twice in bold in the sentence is one name": (  # the names are a set
+                preamble_as(PREAMBLE.replace("(authoring law).", "(authoring law), **binding** (again).")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a bold class with a space inside its stars is the class, the name stripped": (
+                preamble_as(PREAMBLE.replace("**Mx**", "** Mx **")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a bold word in the sentence after the classes is no class": (
+                preamble_as(PREAMBLE.replace("module X", "module **X**")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a bold word in the paragraph after the classes is no class": (
+                preamble_as(
+                    PREAMBLE + "\n\n**Enforcement classes** — the set: **gate** (a), **advisory** (b)."
+                ),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+        }
+    )
+    for name, (matrix_text, anchors) in read_as_before.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, matrix=matrix_text)
+            try:
+                matrix, _, findings = check_structure(root)
+                ok = not findings and sorted(matrix) == anchors
+            except Broken:
+                ok = False
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+    skipped = {  # case: the folders added beside const-sample, each holding a MODULE.md and no manifest
+        "a folder starting with an underscore": "_draft",
+        "a folder starting with a dot": ".hidden",
+    }
+    for name, folder in skipped.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            (root / "modules" / folder).mkdir()
+            (root / "modules" / folder / "MODULE.md").write_text("a draft\n", encoding="utf-8")
+            (root / "modules" / "README.md").write_text("a file, no folder\n", encoding="utf-8")
+            try:
+                _, modules, findings = check_structure(root)
+                ok = not findings and [m.name for m in modules] == ["const-sample"]
+            except Broken:
+                ok = False
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name} of modules/ is no module, and is skipped")
     literal = [  # typed by hand: a message function cannot check itself
         "RED: modules/const-sample/MODULE.md:22: the rows cell of item T9 is 'A1.1'",
         "  why: a row's result comes only from the items that name it,"
@@ -780,17 +1341,35 @@ def self_test() -> int:
         " or write `none` for an item that proves no row of the module",
         "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined",
     ]
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp).resolve()
-        build(root, red["a bare handle in the rows cell"][0])
-        printed = io.StringIO()
-        with contextlib.redirect_stdout(printed):
-            code = gate(root)
-    ok = code == EXIT_RED and printed.getvalue().splitlines() == literal
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] the report of one finding is its literal text, exit 2")
-    if not ok:
-        print(printed.getvalue())
+    literal_class = [  # the same, for a destination the check cannot class
+        "RED: docs/requirements.md: A1.2 has the destination 'kernel', a destination the check cannot class",
+        "  why: the destination classes are a closed set, defined once in the preamble (rule 7 of"
+        " plc-0007-requirements), and a destination outside it takes its row out of every check that"
+        " reads it",
+        "  fix: open the cell with one of the four classes — `kernel §<n>`, `M<n>`, `binding`, `template` —"
+        " or add a class to the preamble and to this check together",
+        "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined",
+    ]
+    reports = {  # case: the table, the matrix, the lines the gate prints
+        "of a finding in a module's document": (red["a bare handle in the rows cell"][0], MATRIX, literal),
+        "of a destination the check cannot class": (
+            GOOD_TABLE,
+            MATRIX.replace("[kernel §2](../kernel/CONVENTIONS.md#k2)", "kernel"),
+            literal_class,
+        ),
+    }
+    for name, (table, matrix_text, want_lines) in reports.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, table, matrix=matrix_text)
+            printed = io.StringIO()
+            with contextlib.redirect_stdout(printed):
+                code = gate(root)
+        ok = code == EXIT_RED and printed.getvalue().splitlines() == want_lines
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] the report {name} is its literal text, exit 2")
+        if not ok:
+            print(printed.getvalue())
     runs: dict[
         str, tuple[list[str], int, int, str]
     ] = {  # case: runner lines, its exit, the check's exit, a line to find
@@ -973,7 +1552,19 @@ def self_test() -> int:
         )
         if not ok:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
-    total = len(red) + 3 + len(runs) + len(broken) + len(filtered)
+    total = (
+        len(red)
+        + 6  # the row no module holds, the indented rows, the carrier row, the unclosed rows, t12 gone, the
+        # sections put in the template's order
+        + len(destinations)
+        + len(reports)
+        + len(read_as_before)
+        + len(unreadable)
+        + len(skipped)
+        + len(runs)
+        + len(broken)
+        + len(filtered)
+    )
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

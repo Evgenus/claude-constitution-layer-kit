@@ -97,6 +97,7 @@ commands() {
                         for p in modules/"$m"/scripts/*_gate; do
                             [ "${p##*/}" != const_gate ] && [ -d "$p" ] && echo "cd modules/$m/scripts && python3 -m mypy --strict ${p##*/}"
                         done
+                        echo "cd modules/$m/scripts && python3 -m mypy --strict *.py"
                         echo "cd modules/$m/tests && MYPYPATH=../scripts python3 -m mypy --strict *.py" ;;
                 esac
                 return 0
@@ -109,8 +110,7 @@ commands() {
             echo "python3 -m ruff check scripts shared" ;;
         types)
             echo "cd shared && python3 -m mypy --strict const_gate"
-            echo "cd scripts && python3 -m mypy --strict check-carry-lists.py check-shared-links.py check-yaml-style.py check-module-links.py check-aspects.py check-portability.py check-gate-lists.py check-bare-install.py check-install-guide.py check-dials-schema.py"
-            echo "cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts python3 -m mypy --strict check-schema-mirror.py" ;;
+            echo "cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts python3 -m mypy --strict *.py" ;;
         *) return 1 ;;
     esac
 }
