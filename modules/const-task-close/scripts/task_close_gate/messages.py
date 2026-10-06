@@ -274,6 +274,15 @@ def c12_body_unreadable(path: str, error: str) -> Broken:
     )
 
 
+def c12_old_git(version: str) -> Broken:
+    return Broken(
+        SharedKey.C12,
+        f"git does not know the trailer options this check reads (key, valueonly, unfold, separator):"
+        f" {echoed(version)}",
+        "install a newer git (https://git-scm.com/downloads)",
+    )
+
+
 def c12_range(base_short: str, tip_short: str, root: str, detail: str) -> Broken:
     return Broken(
         SharedKey.C12,

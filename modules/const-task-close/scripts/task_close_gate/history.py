@@ -16,6 +16,9 @@ from .model import BODY, Declaration, Range
 
 # `<pair> — <reason>`: an em or en dash, spaced or not, or one or two hyphens spaced on both sides
 NO_COMMON_ANCESTOR = "the two histories share no commit"
+DASH_REF = "a ref cannot begin with a dash"
+# a git that does not know a trailer option prints the placeholder itself, with exit 0
+UNKNOWN_PLACEHOLDER = "%(trailers"
 DASH = re.compile(r"^(.*?)(?:\s*[—–]\s*|\s+--?\s+)(.*)$", re.DOTALL)
 
 
@@ -30,7 +33,9 @@ def status_lines(root: Path) -> list[str]:
 
 def resolve(root: Path, flag: str, ref: str) -> str:
     """The full hash a ref names, or the configuration failure that says it names none."""
-    done = git(["rev-parse", "--verify", "--quiet", "--end-of-options", f"{ref}^{{commit}}"], cwd=root)
+    if ref.startswith("-"):  # git would read it as an option; no ref of this repository begins so
+        raise ConfigurationFailure(messages.c12_unknown_ref(flag, ref, str(root), DASH_REF))
+    done = git(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"], cwd=root)
     if done.returncode != 0:
         detail = first_line(done.stderr) if done.stderr.strip() else "no such ref"
         raise ConfigurationFailure(messages.c12_unknown_ref(flag, ref, str(root), detail))
@@ -151,10 +156,21 @@ def trailers(root: Path, rng: Range, key: str) -> list[Declaration]:
         if "\x00" not in record:
             continue
         commit, values = record.strip("\n").split("\x00", 1)
+        if values.startswith(UNKNOWN_PLACEHOLDER):  # a trailer's own text may quote it, not begin so
+            raise ConfigurationFailure(messages.c12_old_git(_version_line(root)))
         for value in values.split("\x1f"):
             if value.strip():
                 found.append(declaration(f"commit {commit.strip()}", value.strip()))
     return found
+
+
+def _version_line(root: Path) -> str:
+    """git's own first line of `git version`, or the way it failed to say it."""
+    done = git(["version"], cwd=root)
+    if done.returncode != 0:
+        return f"git version failed: {first_line(done.stderr)}"
+    lines = os.fsdecode(done.stdout).strip().splitlines()
+    return lines[0] if lines else "git version printed nothing"
 
 
 def body_declarations(text: str, key: str) -> list[Declaration]:

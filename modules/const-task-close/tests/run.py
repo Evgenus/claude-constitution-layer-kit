@@ -569,7 +569,104 @@ def unknown_ref() -> tuple[bool, str]:
         + "w" * 90
         + f" — fix: name a commit, branch or tag this repository has; {SHALLOW}",
     )
-    return all_of([since, change, odd, diagnosed], "an unknown ref is a configuration failure for both flags")
+    return all_of(
+        [since, change, odd, diagnosed, dash_refs(r.root, real), refs_that_resolve()],
+        "an unknown ref is a configuration failure for both flags; a ref that begins with a dash is one"
+        " before git is asked, and the refs git resolves still resolve",
+    )
+
+
+def logging_git(
+    real: str, old: bool = False, version_fails: str | None = None
+) -> tuple[dict[str, str], Path]:
+    """A git first on PATH that logs each call's arguments, as it hands them on, to the returned file
+    and execs the real one by its path. As an old git, it gives every `%(trailers:` the scan asks an
+    option no git knows, as a git of before the options does not know its own; with `version_fails`,
+    `git version` fails with that line."""
+    folder = H.scratch_dir()
+    log = folder / "git.log"
+    script = folder / "git"
+    rewrite = (
+        "    *'%(trailers:'*) a=$(printf '%s' \"$a\" | sed 's/%(trailers:/%(trailers:nosuchopt,/');;\n"
+        if old
+        else ""
+    )
+    failing = (
+        f"if [ \"$1\" = version ]; then printf '%s\\n' {shlex.quote(version_fails)} >&2; exit 128; fi\n"
+        if version_fails is not None
+        else ""
+    )
+    script.write_text(
+        "#!/bin/sh\n"
+        f"{failing}"
+        'for a in "$@"; do\n'
+        "  shift\n"
+        '  case "$a" in\n'
+        f"{rewrite}"
+        "  esac\n"
+        '  set -- "$@" "$a"\n'
+        "done\n"
+        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
+        f'exec {shlex.quote(real)} "$@"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    log.write_text("", encoding="utf-8")
+    return {"PATH": f"{script.parent}{os.pathsep}{os.environ['PATH']}"}, log
+
+
+def dash_refs(root: Path, real: str) -> tuple[bool, str]:
+    """A ref that begins with a dash is refused with its reason before git is asked, in both flags and
+    in each form that reaches the gate (`--since=-x`; `--since -1`, which the parser reads as a value);
+    a fake git logs every call, and a control run proves the log holds the ref git is asked about."""
+    env, log = logging_git(real)
+    scan(root, "--since", "nope", env=env)
+    if "nope^{commit}" not in log.read_text(encoding="utf-8"):
+        return False, f"the fake git's log does not hold the call that resolves a ref: {log.read_text()!r}"
+    for flag, ref, args in (
+        ("--since", "--all", ["--since=--all"]),
+        ("--since", "-x", ["--since=-x"]),
+        ("--change", "-1", ["--change=-1"]),
+        ("--since", "-1", ["--since", "-1"]),
+        ("--change", "-", ["--change", "-"]),
+    ):
+        log.write_text("", encoding="utf-8")
+        verdict = broken(
+            scan(root, *args, env=env),
+            f"BROKEN: {flag} names '{ref}', which git cannot resolve in {root}: a ref cannot begin with a"
+            f" dash — fix: name a commit, branch or tag this repository has; {SHALLOW}",
+        )
+        if not verdict[0]:
+            return verdict
+        asked = log.read_text(encoding="utf-8")
+        if f"{ref}^{{commit}}" in asked:
+            return False, f"git was asked to resolve {ref!r}: {asked!r}"
+    return True, "a ref that begins with a dash is refused with its reason, git never asked"
+
+
+def refs_that_resolve() -> tuple[bool, str]:
+    """The refs git resolves are resolved as ever: a branch, a tag, a relative ref, the reflog's
+    previous branch, a full hash, and --change HEAD; each examines the one code-only commit."""
+    r = repo(with_map())
+    git(r.root, "tag", "start")
+    base = git(r.root, "rev-parse", "HEAD").stdout.strip()
+    branch(r.root)
+    commit(r.root, "code only", {"src/a.py": "x = 2\n"})
+    checkout(r.root, "main")
+    checkout(r.root, "work/x")  # @{-1} is now main
+    for args in (
+        ("--since", "main"),
+        ("--since", "start"),
+        ("--since", "HEAD~1"),
+        ("--since", "HEAD^"),
+        ("--since", "@{-1}"),
+        ("--since", base),
+        ("--change", "HEAD"),
+    ):
+        verdict = red_scan(scan(r.root, *args), t2())
+        if not verdict[0]:
+            return False, f"{' '.join(args)}: {verdict[1]}"
+    return True, "a branch, a tag, HEAD~1, HEAD^, @{-1}, a full hash and --change HEAD resolve"
 
 
 # ------------------------------------------------------------------ declarations
@@ -650,7 +747,11 @@ def trailer_among_others() -> tuple[bool, str]:
     ok = result.code == 0 and all(note in result.stdout for note in notes)
     if not ok:
         return False, result.stdout + result.stderr
-    return signed_note()
+    return all_of(
+        [signed_note(), old_git_is_a_failure_of_git()],
+        "both trailers read beside Co-Authored-By, one note each; a signed commit's note on one line;"
+        " a git that does not know the trailer options is a configuration failure naming it",
+    )
 
 
 def signed_note() -> tuple[bool, str]:
@@ -674,6 +775,51 @@ def signed_note() -> tuple[bool, str]:
         False,
         wrong or f"exit {result.code}, wanted {note!r} then {count!r}: {result.stdout}{result.stderr}",
     )
+
+
+def old_git_is_a_failure_of_git() -> tuple[bool, str]:
+    """A git that prints the trailer placeholder as text, as one that does not know the options does,
+    makes the scan a configuration failure naming git's version line — never a red for a declaration
+    nobody wrote; when `git version` itself fails, the failure says so in the version's place. A
+    declaration that merely quotes the placeholder is read as ever."""
+    real = shutil.which("git")
+    if real is None:
+        return False, "no git on PATH for the fake git to hand its calls to"
+    r = repo(with_map())
+    branch(r.root)
+    commit(r.root, "renamed\n\n" + trailer("core", "a rename only"), {"src/a.py": "2\n"})
+    env, log = logging_git(real, old=True)
+    result = scan(r.root, env=env)
+    version = subprocess.run([real, "version"], capture_output=True, text=True, check=False)
+    fix = "install a newer git (https://git-scm.com/downloads)"
+    options = "git does not know the trailer options this check reads (key, valueonly, unfold, separator)"
+    old = broken(result, f"BROKEN: {options}: {version.stdout.splitlines()[0]} — fix: {fix}")
+    if not old[0]:
+        return old
+    if "nosuchopt" not in log.read_text(encoding="utf-8"):
+        return False, f"the fake git never gave the placeholder its unknown option: {log.read_text()!r}"
+    if "names no pair" in result.stdout + result.stderr or "RED" in result.stdout + result.stderr:
+        return False, f"a red beside the failure: {result.stdout}{result.stderr}"
+    env, _ = logging_git(real, old=True, version_fails="fatal: planted version failure")
+    silent = broken(
+        scan(r.root, env=env),
+        f"BROKEN: {options}: git version failed: fatal: planted version failure — fix: {fix}",
+    )
+    if not silent[0]:
+        return silent
+    q = repo(with_map())
+    branch(q.root)
+    reason = "the %(trailers placeholder, quoted"
+    where = "commit " + commit(q.root, "quoted\n\n" + trailer("core", reason), {"src/a.py": "2\n"})
+    quoted = scan(q.root)
+    note = messages.n1_declared(declared(where, "core", reason), True)
+    count = "GREEN: const-task-close: " + tail(1, 1, short(q.root, "main"), short(q.root))
+    if quoted.code != 0 or quoted.stdout.splitlines() != [*note.splitlines(), count]:
+        return (
+            False,
+            f"a declaration quoting the placeholder: exit {quoted.code}: {quoted.stdout}{quoted.stderr}",
+        )
+    return True, "the placeholder as text is a failure naming git; quoted in a declaration it is read"
 
 
 def colonless_line_hides_paragraph() -> tuple[bool, str]:
@@ -1439,11 +1585,16 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         nothing_landed_before,
     ),
     (15, "--since and --change together are a misinvocation of the module's own", since_and_change),
-    (16, "an unknown ref is a configuration failure, never a skip", unknown_ref),
+    (
+        16,
+        "an unknown ref is a configuration failure, never a skip; a ref that begins with a dash is one,"
+        " before git is asked",
+        unknown_ref,
+    ),
     (
         17,
         "trailers read beside Co-Authored-By, a repeated key, one note each; a signed commit's note on one"
-        " line",
+        " line; a git too old for the trailer options is a configuration failure naming git",
         trailer_among_others,
     ),
     (
