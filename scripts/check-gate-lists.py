@@ -829,6 +829,27 @@ def self_test() -> int:
             Case({"x": scan}, scripts={"scripts/kit_module_doc.py": True, "scripts/helper.py": True}),
             [],
         ),
+        # the word bounds of the run match, one gate entry whose only command line is the form named
+        "a name that continues past .py (check-new.py.bak) is no run of the kit check": (
+            Case({"x": scan, "new": f"{run_new}.bak"}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a name that continues past .py (check-new.pyc) is no run of the kit check": (
+            Case({"x": scan, "new": f"{run_new}c"}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a word that ends in python3 (xpython3) is no run of the kit check": (
+            Case({"x": scan, "new": f"x{run_new}"}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "an absolute python3 (/usr/bin/python3), as the code stands, is no run of the kit check": (
+            Case({"x": scan, "new": f"/usr/bin/{run_new}"}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a run after other commands on its line (cd x && python3 ...) is a run of the kit check": (
+            Case({"x": scan, "new": f"cd x && {run_new}"}, scripts=tracked),
+            [],
+        ),
     }
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
@@ -1027,11 +1048,20 @@ def self_test() -> int:
         ),
         ("a module folder without its document", "NO-DOC", "modules/empty has no MODULE.md"),
         ("a tree that is no git repository", "NO-REPO", "git ls-files scripts exited"),
+        (  # the folder around the tree is a repository: its index is never read for the kit's
+            "a tree that is no git repository, inside a folder that is one",
+            "NESTED-NO-REPO",
+            "git ls-files scripts exited",
+        ),
         ("a git that cannot be run", "NO-GIT", "git cannot be run"),
     ):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, Case({"x": scan}, repo=change != "NO-REPO"))
+            if change == "NESTED-NO-REPO":  # the temp folder is a repository, the kit tree a folder in it
+                subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+                root = root / "kit"
+                root.mkdir()
+            build(root, Case({"x": scan}, repo=change not in ("NO-REPO", "NESTED-NO-REPO")))
             if change == "LIST":
                 (root / GATE_LIST).write_text(
                     "#!/bin/sh\necho 'BROKEN: no list' >&2\nexit 1\n", encoding="utf-8"
@@ -1064,7 +1094,7 @@ def self_test() -> int:
                 os.environ["PATH"] = path
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 20
+    total = len(cases) + 21
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
