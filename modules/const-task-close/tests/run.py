@@ -1734,8 +1734,10 @@ def closing_is_the_gates_own() -> tuple[bool, str]:
     """Every install-failure line closes with this gate's own clause, never the write gates' "until then
     Markdown writes pass unchecked": C1 (no python3, the POSIX entry), C2 (PyYAML missing, in the scan
     and in the hook), C14 (an interpreter below the floor, run by a version it is told it has) and C15
-    (a copy without the shared code), each line typed whole; and the entry files' source holds the clause
-    exactly three times, once per entry text (C1, C14, C15), and "Markdown writes" nowhere."""
+    (a copy without the shared code), each line typed whole; C12.11 (a library that raises otherwise, in
+    the scan and in the hook) keeps the shared default "until it is fixed this check does not run"; and
+    the entry files' source holds the clause exactly three times, once per entry text (C1, C14, C15), and
+    "Markdown writes" nowhere."""
     r = repo(with_map())
     problems: list[str] = []
 
@@ -1762,12 +1764,25 @@ def closing_is_the_gates_own() -> tuple[bool, str]:
         ("C2 scan", scan(r.root, env={"PYTHONPATH": str(shadow)})),
         ("C2 hook", hook(r.root, env={"PYTHONPATH": str(shadow)})),
     ):
-        first = result.stderr.splitlines()[0] if result.stderr else ""
-        if not first.startswith(
-            "BROKEN: const-task-close needs PyYAML — fix: run: python3 -m pip install -r '"
-        ):
-            problems.append(f"{label}: not the library's C2: {first[:200]}")
-        line_of(label, result)
+        line_of(
+            label,
+            result,
+            "BROKEN: const-task-close needs PyYAML — fix: run: python3 -m pip install -r"
+            f" '{SCRIPTS.parent / 'requirements.txt'}' — {CLOSING}",
+        )
+    broken_yaml = H.scratch_dir()  # a library that fails otherwise: C12.11 keeps the shared default clause
+    (broken_yaml / "yaml.py").write_text("raise RuntimeError('simulated defect')\n", encoding="utf-8")
+    for label, result in (
+        ("C12.11 scan", scan(r.root, env={"PYTHONPATH": str(broken_yaml)})),
+        ("C12.11 hook", hook(r.root, env={"PYTHONPATH": str(broken_yaml)})),
+    ):
+        line_of(
+            label,
+            result,
+            "BROKEN: unexpected failure inside the checker: RuntimeError: simulated defect — fix: this is a"
+            " defect of the gate, not of the repository; report it, with the traceback below, to whoever"
+            " maintains the plugin — until it is fixed this check does not run",
+        )
     entry = SCRIPTS / "check-task-close.py"  # the entry file run as an interpreter of 3.11 would run it
     lowered = (
         "import sys; sys.version_info = (3, 11, 0); path = sys.argv[1]; "
@@ -1780,8 +1795,7 @@ def closing_is_the_gates_own() -> tuple[bool, str]:
         f" (https://www.python.org/downloads/) and put it first on PATH — {CLOSING}",
     )
     plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
-    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True)
-    (plugin / "scripts" / "const_gate").unlink()
+    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("const_gate"))
     line_of(
         "C15",
         H.run_gate(stop_json(r.root), command=[H.sh, str(plugin / "scripts" / "check-task-close.sh")]),
@@ -1800,7 +1814,7 @@ def closing_is_the_gates_own() -> tuple[bool, str]:
         )
     return not problems, "; ".join(
         problems
-    ) or "C1, C2 (scan and hook), C14 and C15 close with the gate's own clause"
+    ) or "C1, C2 (scan and hook), C14 and C15 close with the gate's own clause; C12.11 keeps the default"
 
 
 def unreadable_tree() -> tuple[bool, str]:
@@ -2008,7 +2022,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (
         40,
         "the install-failure lines, C1, C2, C14 and C15, close with this gate's own clause, never the write"
-        " gates'; the entry files hold it three times",
+        " gates', C12.11 keeps the default; the entry files hold it three times",
         closing_is_the_gates_own,
     ),
 ]
