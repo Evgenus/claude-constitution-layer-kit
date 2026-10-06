@@ -11,8 +11,9 @@ Modes:    no arguments  read one Stop event on stdin and judge the working tree 
                         current directory) against the coverage map: --since names the base
                         and the change is what the head adds since their merge-base;
                         --change names one landed commit and the change is its first-parent
-                        diff; neither: the base is the trunk the dials name — a local branch
-                        or the remote's tracking branch, the fresher — or, on the trunk
+                        diff; neither: the base is the trunk the dials name — the remote's
+                        tracking branch when git finds the local branch its ancestor or
+                        equal to it, or finds none, else the local branch — or, on the trunk
                         itself, the last landed change. --body gives the pull request's
                         description as a file, read for declarations beside the commits'
                         trailers. The check for CI on a pull request, and before a merge.
