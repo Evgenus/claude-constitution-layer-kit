@@ -32,6 +32,7 @@ sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the
 
 from const_gate import identity  # noqa: E402
 from const_gate import messages as shared  # noqa: E402
+from const_gate.errors import ConfigurationFailure  # noqa: E402
 from const_gate.model import Finding  # noqa: E402
 from consumer import Consumer  # noqa: E402
 from harness import (  # noqa: E402
@@ -45,7 +46,7 @@ from harness import (  # noqa: E402
     stop_json,
 )
 from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
-from task_close_gate import messages, start  # noqa: E402
+from task_close_gate import dials, messages, start  # noqa: E402
 from task_close_gate.model import BODY, Declaration, Pair  # noqa: E402
 
 identity.declare(start.GATE)  # the messages not typed by hand are built by the functions the gate uses
@@ -1296,6 +1297,40 @@ TRUNK_REMOTE = (
 )
 
 
+def remote_check_whole_set() -> tuple[bool, str]:
+    """The check on `trunk_remote`, over every code point of C0, DEL and C1, in the first position and in a
+    later one, and over the neighbours just outside each range. Called in process, through the dial parser,
+    since 130 values each as a gate run would cost minutes for what is one regular expression; the cases of
+    `dial_failures` that run the gate end to end hold the C5 text and exit 1 through the real entry point."""
+    controls = [chr(c) for c in (*range(0x00, 0x20), 0x7F, *range(0x80, 0xA0))]
+    refused = [f"{c}x" for c in controls] + [f"x{c}" for c in controls]
+    refused += [" x", "x ", "\xa0x", "x\xa0"]  # white space just outside C0 and C1 is refused as well
+    outside = "!~\xa1"  # just outside the ranges, these three are not
+    accepted = [f"{c}x" for c in outside] + [f"x{c}" for c in outside]
+    if len(controls) != 65 or len(refused) != 134:
+        return False, f"the set is wrong: {len(controls)} controls, {len(refused)} refused values"
+    failures = []
+    for value in refused:
+        try:
+            dials.parse({"trunk_remote": value})
+        except ConfigurationFailure as failure:
+            if "trunk_remote must be a remote's name" not in str(failure):
+                failures.append(f"{value!r} is refused with {failure}")
+        else:
+            failures.append(f"{value!r} is accepted")
+    for value in accepted:
+        try:
+            got = dials.parse({"trunk_remote": value}).trunk_remote
+        except ConfigurationFailure as failure:
+            failures.append(f"{value!r} is refused with {failure}")
+        else:
+            if got != value:
+                failures.append(f"{value!r} comes back as {got!r}")
+    return not failures, failures[0] if failures else (
+        f"{len(refused)} values refused and {len(accepted)} accepted, in process"
+    )
+
+
 def dial_failures() -> tuple[bool, str]:
     cases: list[tuple[dict[str, object], str]] = [
         (
@@ -1387,6 +1422,7 @@ def dial_failures() -> tuple[bool, str]:
         ),
     ]
     results = [broken(scan(repo(patch).root), failure) for patch, failure in cases]
+    results.append(remote_check_whole_set())
     # a backslash is a separator only where the platform says so: there `..\x.md` leaves the repository,
     # elsewhere it is one file name and stays inside (it was refused everywhere before)
     escaping = scan(repo(own(coverage=[{**CORE, "docs": ["..\\x.md"]}])).root)
