@@ -909,6 +909,31 @@ def self_test() -> int:
         MATRIX + aspect_line + "\n",
         f'{SPEC} holds the anchor <a id="a1"></a> twice, lines 5 and 9',
     )
+    unreadable["a row anchor on two lines, under two handles"] = (
+        SPEC,
+        MATRIX + row_line[2].replace("A1.2", "A1.5") + "\n",
+        f'{SPEC} holds the anchor <a id="a1-2"></a> twice, lines 7 and 9',
+    )
+    unreadable["a row anchor on two lines, a row a module holds, under two handles"] = (
+        SPEC,
+        MATRIX.replace(row_line[1], row_line[1] + "\n" + row_line[1].replace("A1.1", "A1.5")),
+        f'{SPEC} holds the anchor <a id="a1-1"></a> twice, lines 6 and 7',
+    )
+    unreadable["an aspect anchor on two lines, under two titles"] = (
+        SPEC,
+        MATRIX + aspect_line.replace("Sample", "Other") + "\n",
+        f'{SPEC} holds the anchor <a id="a1"></a> twice, lines 5 and 9',
+    )
+    unreadable["a prose line that quotes a row's anchor"] = (
+        SPEC,
+        MATRIX + 'The form is `<a id="a1-1"></a>A1.1`.\n',
+        f"{SPEC}:9: the line holds a row's anchor <a id=\"a1-1\"></a> but is not in the matrix's form",
+    )
+    unreadable["a prose line that quotes an aspect's anchor"] = (
+        SPEC,
+        MATRIX + 'The form is `<a id="a1"></a>**A1 — Sample**`.\n',
+        f"{SPEC}:9: the line holds an aspect's anchor <a id=\"a1\"></a> but is not in the matrix's form",
+    )
     unreadable["a folder of modules/ with no MODULE.md"] = (
         "modules/const-empty/README.md",
         "a folder with no module document\n",
@@ -930,13 +955,27 @@ def self_test() -> int:
         if not ok:
             print(f"        got: {got}")
     prose = "See [A1.2](#a1-2) and [A1.1](../docs/requirements.md#a1-1); an aspect is [A1](#a1).\n"
-    with tempfile.TemporaryDirectory() as tmp:  # what holds no anchor of a row or an aspect is read as before
-        root = Path(tmp).resolve()
-        build(root, GOOD_TABLE, matrix=MATRIX + "\n" + prose + '<a id="const-sample"></a>\n## A module\n')
-        matrix, _, findings = check_structure(root)
-    ok = not findings and sorted(matrix) == ["a1-1", "a1-2", "a1-3"]
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] a prose line that links a row and a module's own anchor are no anchor")
+    read_as_before = {  # case: the matrix, the rows it gives; what holds no anchor of a row or an aspect
+        "a prose line that links a row and a module's own anchor are no anchor": (
+            MATRIX + "\n" + prose + '<a id="const-sample"></a>\n## A module\n',
+            ["a1-1", "a1-2", "a1-3"],
+        ),
+        "a handle that stands under two anchors is two rows": (  # each keyed by its anchor
+            MATRIX.replace(row_line[2], row_line[2] + "\n" + row_line[2].replace("a1-2", "a1-9")),
+            ["a1-1", "a1-2", "a1-3", "a1-9"],
+        ),
+    }
+    for name, (matrix_text, anchors) in read_as_before.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, matrix=matrix_text)
+            try:
+                matrix, _, findings = check_structure(root)
+                ok = not findings and sorted(matrix) == anchors
+            except Broken:
+                ok = False
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
     skipped = {  # case: the folders added beside const-sample, each holding a MODULE.md and no manifest
         "a folder starting with an underscore": "_draft",
         "a folder starting with a dot": ".hidden",
@@ -1156,7 +1195,16 @@ def self_test() -> int:
         )
         if not ok:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
-    total = len(red) + 5 + len(unreadable) + len(skipped) + len(runs) + len(broken) + len(filtered)
+    total = (
+        len(red)
+        + 4
+        + len(read_as_before)
+        + len(unreadable)
+        + len(skipped)
+        + len(runs)
+        + len(broken)
+        + len(filtered)
+    )
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
