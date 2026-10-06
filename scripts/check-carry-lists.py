@@ -29,7 +29,9 @@ script can hold:
 What it cannot see, and leaves to the reader of the audit: a ruling item the author never gave a
 handle; whether the linked text states the rule; whether the audit the receipt names was run.
 
-Records numbered below the threshold were written before the rule and are not examined.
+Records numbered below the threshold were written before the rule and are not examined. The records'
+folder and the width of their numbers are read from the `dec` entry of `const-catalogs.catalogs` in
+constitution.yaml at the kit root; a file in that folder the width cannot number is a failure to run.
 
 Modes:  no arguments            check the lists and the receipts;
         --scope BASE [MODULE]   print the records a closing audit must read for the change since
@@ -66,9 +68,11 @@ except ImportError:
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 
-DECISIONS = "docs/decisions"
+DIALS = "constitution.yaml"
+NAMESPACE = "const-catalogs"  # the dials namespace of the module that numbers the records
+PREFIX = "dec"  # the catalog whose items are the decision records (rule 3 of plc-0004)
+DEFAULT_WIDTH, MAX_WIDTH = 4, 9  # the catalog module's own: a width is a whole number from 1 to 9
 THRESHOLD = 30  # the record that landed this check; earlier records predate the rule
-STEM = re.compile(r"^dec-(\d{4})-[a-z0-9-]+$")
 LAST_SECTION = "Carry list"
 UNKNOWN_PLACEHOLDER = "%(trailers"  # what a git that does not know a trailer option prints instead
 UNGOVERNED_HOMES = (
@@ -105,13 +109,107 @@ class Finding:
 
 
 class CouldNotRun(Exception):
-    """The check cannot give a verdict: no git, a shallow clone, no records directory."""
+    """The check cannot give a verdict: no git, a shallow clone, no records folder, no readable catalog."""
 
 
-def gated_records(kit: Path) -> list[Path]:
+@dataclass(frozen=True)
+class Catalog:
+    """Where the records are and how their names are numbered, as the dials file declares."""
+
+    folder: str  # relative to the kit, no slash at either end
+    width: int
+    stem: re.Pattern[str]  # dec-<width digits>-<slug>, the number its one group
+
+
+FOLDER_PATTERN = re.compile(r"/?([^*?\[\]!\\\s]+)/\*\*")  # a territory of one folder, whole
+
+
+def folder_of(territory: object) -> str | None:
+    """The folder of a territory that is exactly one pattern `<folder>/**`; None for any other."""
+    if not isinstance(territory, list) or len(territory) != 1 or not isinstance(territory[0], str):
+        return None
+    found = FOLDER_PATTERN.fullmatch(territory[0])
+    if found is None or territory[0].startswith("#"):
+        return None
+    folder = found.group(1)
+    return None if any(part in ("", ".", "..") for part in folder.split("/")) else folder
+
+
+def width_of(entry: dict[object, object]) -> int | None:
+    """The width of a catalog entry, as the catalog module accepts it: absent is the default, else a
+    whole number from 1 to the maximum — YAML's true is an int to Python, and no width."""
+    value = entry.get("width", DEFAULT_WIDTH)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value if 1 <= value <= MAX_WIDTH else None
+
+
+def load_catalog(kit: Path) -> Catalog:
+    """The `dec` entry of the dials file, and the guard that every markdown file in its folder is numbered."""
+    try:
+        dials = yaml.safe_load((kit / DIALS).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        raise CouldNotRun(
+            f"{DIALS} cannot be read ({exc}) — fix: restore the dials file at the kit root, "
+            "which declares where the records are and how they are numbered"
+        ) from exc
+    namespace = dials.get(NAMESPACE) if isinstance(dials, dict) else None
+    entries = namespace.get("catalogs") if isinstance(namespace, dict) else None
+    if not isinstance(entries, list):
+        raise CouldNotRun(
+            f"{DIALS} has no {NAMESPACE}.catalogs list, so the records' folder and number width cannot "
+            f"be read — fix: declare the {PREFIX} catalog under {NAMESPACE}.catalogs"
+        )
+    if not all(isinstance(entry, dict) for entry in entries):
+        raise CouldNotRun(
+            f"{NAMESPACE}.catalogs in {DIALS} holds an entry that is no mapping, and the catalog module "
+            "refuses the file for it — fix: write each entry as prefix, width and territory"
+        )
+    mine = [entry for entry in entries if entry.get("prefix") == PREFIX]
+    if not mine:
+        raise CouldNotRun(
+            f"{DIALS} declares no catalog with prefix {PREFIX}, so the records cannot be found — "
+            f"fix: add the entry to {NAMESPACE}.catalogs, its territory the records' folder as '<folder>/**'"
+        )
+    if len(mine) > 1:
+        raise CouldNotRun(
+            f"{DIALS} declares prefix {PREFIX} twice, and the catalog module refuses it, so which one holds "
+            f"the records is not told — fix: keep one {PREFIX} entry in {NAMESPACE}.catalogs"
+        )
+    width = width_of(mine[0])
+    if width is None:
+        raise CouldNotRun(
+            f"the {PREFIX} catalog in {DIALS} has a width that is not a whole number from 1 to {MAX_WIDTH}, "
+            "so this check cannot number the records — "
+            f"fix: set width to the digits of the records' names, or leave it out for {DEFAULT_WIDTH}"
+        )
+    folder = folder_of(mine[0].get("territory"))
+    if folder is None:
+        raise CouldNotRun(
+            f"the {PREFIX} catalog in {DIALS} has no single territory '<folder>/**', so this check cannot "
+            "tell where the records are — "
+            "fix: give it one territory pattern of that form, a folder with no glob character in it"
+        )
+    catalog = Catalog(folder, width, re.compile(rf"^{PREFIX}-(\d{{{width}}})-[a-z0-9-]+$"))
+    if not (kit / folder).is_dir():
+        raise CouldNotRun(
+            f"{kit} has no {folder}/ directory, the folder the {PREFIX} catalog of {DIALS} declares — "
+            f"fix: correct the {PREFIX} catalog's territory in {DIALS}, or restore the folder"
+        )
+    strays = sorted(path.name for path in (kit / folder).glob("*.md") if not catalog.stem.match(path.stem))
+    if strays:
+        raise CouldNotRun(
+            f"{folder}/{strays[0]} does not have the form {PREFIX}-<{width} digits>-<slug> the {PREFIX} "
+            "catalog declares, and a file this check cannot number it cannot examine — "
+            f"fix: make the catalog's width in {DIALS} and the records' names agree"
+        )
+    return catalog
+
+
+def gated_records(kit: Path, catalog: Catalog) -> list[Path]:
     records = []
-    for path in sorted((kit / DECISIONS).glob("*.md")):
-        match = STEM.match(path.stem)
+    for path in sorted((kit / catalog.folder).glob("*.md")):
+        match = catalog.stem.match(path.stem)
         if match and int(match.group(1)) >= THRESHOLD:
             records.append(path)
     return records
@@ -142,7 +240,9 @@ CARRY_IT = (
 PEND_IT = "link the step of the task-record that holds the intent — the plan, never a decision record"
 
 
-def home_problem(kit: Path, record: Path, target: str, pending: bool = False) -> tuple[str, str] | None:
+def home_problem(
+    kit: Path, catalog: Catalog, record: Path, target: str, pending: bool = False
+) -> tuple[str, str] | None:
     """Why this link may not be the home of a rule — of pending intent — and the fix; None when it may."""
     general = PEND_IT if pending else CARRY_IT
     if re.match(r"^[a-z][a-z0-9+.-]*:", target):
@@ -167,7 +267,7 @@ def home_problem(kit: Path, record: Path, target: str, pending: bool = False) ->
     envelope, _ = split_frontmatter(path.read_text(encoding="utf-8")) if path.suffix == ".md" else ({}, "")
     kind = envelope.get("type")
     if pending:
-        if kind == "task-record" and not shown.startswith(DECISIONS + "/"):
+        if kind == "task-record" and not shown.startswith(catalog.folder + "/"):
             return None
         return (
             f"{shown} is no task-record outside the records' folder, and pending intent rides only in one",
@@ -207,7 +307,7 @@ def carry_entries(body: str) -> list[str]:
     return entries
 
 
-def check_list(kit: Path, record: Path) -> tuple[list[Finding], list[str]]:
+def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding], list[str]]:
     shown = record.relative_to(kit).as_posix()
     _, text = split_frontmatter(record.read_text(encoding="utf-8"))
     headings = list(HEADING.finditer(text))
@@ -276,7 +376,7 @@ def check_list(kit: Path, record: Path) -> tuple[list[Finding], list[str]]:
                 )
             )
         for target in targets:
-            problem = home_problem(kit, record, target, pending)
+            problem = home_problem(kit, catalog, record, target, pending)
             if problem:
                 where = "is pending nowhere" if pending else "is carried nowhere that binds"
                 findings.append(
@@ -374,7 +474,7 @@ AGAIN = (
 )
 
 
-def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Finding]:
+def check_receipt(kit: Path, catalog: Catalog, record_id: str, acceptance: Acceptance) -> list[Finding]:
     where = f"commit {acceptance.commit[:7]} accepts {record_id}"
     if not acceptance.receipts:
         return [
@@ -426,7 +526,7 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
                     "stands on" + AGAIN,
                 )
             )
-        elif git(kit, "cat-file", "-e", f"{at}:{DECISIONS}/{record_id}.md").returncode != 0:
+        elif git(kit, "cat-file", "-e", f"{at}:{catalog.folder}/{record_id}.md").returncode != 0:
             findings.append(
                 Finding(
                     f"{where} on an audit at {at}, where the record did not exist yet",
@@ -444,15 +544,12 @@ def check_receipt(kit: Path, record_id: str, acceptance: Acceptance) -> list[Fin
 
 
 def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
-    if not (kit / DECISIONS).is_dir():
-        raise CouldNotRun(
-            f"{kit} has no {DECISIONS}/ directory — fix: run the script from a checkout of the kit"
-        )
-    records = gated_records(kit)
+    catalog = load_catalog(kit)
+    records = gated_records(kit, catalog)
     findings: list[Finding] = []
     notes: list[str] = []
     for record in records:
-        found, noted = check_list(kit, record)
+        found, noted = check_list(kit, catalog, record)
         findings.extend(found)
         notes.extend(noted)
     accepted = acceptances(kit) if records else []
@@ -463,8 +560,8 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
         if not mine:
             notes.append(f'NOTE: {record.stem} awaits its yes — no commit carries "Accepted: {record.stem}"')
         else:
-            findings.extend(check_receipt(kit, record.stem, mine[0]))
-    present = {path.stem for path in (kit / DECISIONS).glob("*.md")}
+            findings.extend(check_receipt(kit, catalog, record.stem, mine[0]))
+    present = {path.stem for path in (kit / catalog.folder).glob("*.md")}
     for acceptance in accepted:
         for stem in acceptance.accepted:
             if stem not in present:
@@ -507,22 +604,23 @@ def cited_files(kit: Path, document: Path, text: str) -> set[str]:
 
 def compute_scope(kit: Path, base: str, module: str | None) -> tuple[dict[str, str], dict[str, list[str]]]:
     """The records a closing audit reads in full, each with the reason, and those it reads for regression."""
+    catalog = load_catalog(kit)
     if git(kit, "rev-parse", "--verify", "-q", f"{base}^{{commit}}").returncode != 0:
         raise CouldNotRun(f"{base} names no commit — fix: pass the commit the change started from")
 
     def names(*args: str) -> set[str]:
         return set(git(kit, *args).stdout.split())
 
-    in_records = ("--", DECISIONS)
+    in_records = ("--", catalog.folder)
     added = names("diff", "--name-only", "--diff-filter=A", "--no-renames", base, *in_records)
     added |= names("ls-files", "--others", "--exclude-standard", *in_records)
     edited = names("diff", "--name-only", "--diff-filter=M", "--no-renames", base, *in_records)
     touched = names("diff", "--name-only", "--no-renames", base) | names(
         "ls-files", "--others", "--exclude-standard"
     )
-    touched = {t for t in touched if not t.startswith(DECISIONS + "/")}
-    full = {Path(p).stem: "edited" for p in edited if STEM.match(Path(p).stem)}
-    full |= {Path(p).stem: "added" for p in added if STEM.match(Path(p).stem)}
+    touched = {t for t in touched if not t.startswith(catalog.folder + "/")}
+    full = {Path(p).stem: "edited" for p in edited if catalog.stem.match(Path(p).stem)}
+    full |= {Path(p).stem: "added" for p in added if catalog.stem.match(Path(p).stem)}
     if module:
         document = kit / "modules" / module / "MODULE.md"
         if not document.is_file():
@@ -535,11 +633,11 @@ def compute_scope(kit: Path, base: str, module: str | None) -> tuple[dict[str, s
         except DocumentError as bad:
             raise CouldNotRun(str(bad)) from bad
         for cited in cited_files(kit, document, "\n".join(line for _, line in decisions)):
-            if cited.startswith(DECISIONS + "/"):
+            if cited.startswith(catalog.folder + "/"):
                 full.setdefault(Path(cited).stem, "cited")
     regression: dict[str, list[str]] = {}
-    for record in sorted((kit / DECISIONS).glob("*.md")):
-        if record.stem in full or not STEM.match(record.stem):
+    for record in sorted((kit / catalog.folder).glob("*.md")):
+        if record.stem in full or not catalog.stem.match(record.stem):
             continue
         hits = sorted(cited_files(kit, record, record.read_text(encoding="utf-8")) & touched)
         if hits:
@@ -561,7 +659,32 @@ def scope(kit: Path, base: str, module: str | None) -> int:
 # self-test
 # ---------------------------------------------------------------------------------------------
 
-SAMPLE = f"dec-{THRESHOLD + 1:04d}-sample"  # built, so that no file names a record that does not exist
+
+@dataclass(frozen=True)
+class Layout:
+    """Where a sample kit keeps its records and how it numbers them, as its dials file says."""
+
+    folder: str = "docs/decisions"
+    width: int = 4
+
+    @property
+    def sample(self) -> str:
+        # built, so that no file names a record that does not exist
+        return f"dec-{THRESHOLD + 1:0{self.width}d}-sample"
+
+    def dials(self) -> str:
+        return dials_file(f"{self.width}", f'["{self.folder}/**"]')
+
+
+def dials_file(width: str | None, territory: str, *, entries: int = 1) -> str:
+    """A dials file with `entries` catalog entries of prefix dec; width and territory are YAML as written,
+    and a width of None is left out."""
+    entry = "    - prefix: dec\n" + ("" if width is None else f"      width: {width}\n")
+    return "const-catalogs:\n  catalogs:\n" + (entry + f"      territory: {territory}\n") * entries
+
+
+DEFAULT_LAYOUT = Layout()
+SAMPLE = DEFAULT_LAYOUT.sample
 GOOD_RECORD = f"""---
 id: {SAMPLE}
 type: task-record
@@ -587,8 +710,15 @@ decider: someone
 """
 
 
-def sample_kit(root: Path, record: str = GOOD_RECORD) -> Path:
-    for folder in (DECISIONS, "docs/policies", "docs/research", ".claude/skills/s", "modules/m", "scripts"):
+def sample_kit(root: Path, record: str = GOOD_RECORD, layout: Layout = DEFAULT_LAYOUT) -> Path:
+    for folder in (
+        layout.folder,
+        "docs/policies",
+        "docs/research",
+        ".claude/skills/s",
+        "modules/m",
+        "scripts",
+    ):
         (root / folder).mkdir(parents=True, exist_ok=True)
     envelopes = {
         "docs/policies/p.md": "id: p\ntype: current-state\nstatus: active",
@@ -602,7 +732,8 @@ def sample_kit(root: Path, record: str = GOOD_RECORD) -> Path:
         (root / name).write_text(f"---\n{envelope}\n---\n", encoding="utf-8")
     for name in ("README.md", "CLAUDE.md", "modules/m/INSTALL.md", "scripts/x.py"):
         (root / name).write_text("text\n", encoding="utf-8")
-    path = root / DECISIONS / f"{SAMPLE}.md"
+    (root / DIALS).write_text(layout.dials(), encoding="utf-8")
+    path = root / layout.folder / f"{layout.sample}.md"
     path.write_text(record, encoding="utf-8")
     return path
 
@@ -694,7 +825,12 @@ def fake_old_git(tools: Path, real: str) -> Path:
     return log
 
 
+def lists(root: Path, record: Path) -> tuple[list[Finding], list[str]]:
+    return check_list(root, load_catalog(root), record)
+
+
 def self_test() -> int:
+    folder = DEFAULT_LAYOUT.folder
     home = "../policies/p.md"
     wrong_lists: dict[str, Callable[[str], str]] = {
         "no carry list": lambda t: t[: t.index("## Carry list")],
@@ -729,22 +865,22 @@ def self_test() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             record = sample_kit(root)
-            green_before = not check_list(root, record)[0]
+            green_before = not lists(root, record)[0]
             record.write_text(damage(GOOD_RECORD), encoding="utf-8")
-            red_after = bool(check_list(root, record)[0])
+            red_after = bool(lists(root, record)[0])
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the right list is green, {name} is red")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        found, noted = check_list(root, sample_kit(root, GOOD_RECORD.replace("(../plan.md)", "(../done.md)")))
+        found, noted = lists(root, sample_kit(root, GOOD_RECORD.replace("(../plan.md)", "(../done.md)")))
     ok = not found and len(noted) == 1
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] pending intent in a task-record that has closed is green, with a note")
     for name, target in right_homes.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            ok = not check_list(root, sample_kit(root, GOOD_RECORD.replace(home, target)))[0]
+            ok = not lists(root, sample_kit(root, GOOD_RECORD.replace(home, target)))[0]
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a home in {name} is green")
 
@@ -871,7 +1007,7 @@ def self_test() -> int:
     newer = f"dec-{THRESHOLD + 2:04d}-newer"
     moved = f"dec-{THRESHOLD + 3:04d}-moved"
     policy = "---\nid: p\ntype: current-state\nstatus: active\n---\nmore\n"
-    cites = f"1. [x](../../{DECISIONS}/{SAMPLE}.md)\n"
+    cites = f"1. [x](../../{folder}/{SAMPLE}.md)\n"
     module_doc = f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}'
     renumbered_doc = f'<a id="t3"></a>\n## 4. Rows\n\n<a id="t4"></a>\n## 5. Decisions\n\n{cites}'
     stray_doc = (
@@ -880,14 +1016,14 @@ def self_test() -> int:
     )
 
     def add_record(root: Path) -> None:
-        (root / DECISIONS / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
+        (root / folder / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
         (root / "docs/policies/p.md").write_text(policy, encoding="utf-8")
 
     def edit_record(root: Path) -> None:
-        (root / DECISIONS / f"{SAMPLE}.md").write_text(GOOD_RECORD + "\n", encoding="utf-8")
+        (root / folder / f"{SAMPLE}.md").write_text(GOOD_RECORD + "\n", encoding="utf-8")
 
     def rename_record(root: Path) -> None:
-        (root / DECISIONS / f"{SAMPLE}.md").rename(root / DECISIONS / f"{moved}.md")
+        (root / folder / f"{SAMPLE}.md").rename(root / folder / f"{moved}.md")
         git(root, "add", "-A")  # staged, so that git sees a rename: without --no-renames the case is red
 
     def cite_in(text: str) -> Callable[[Path], None]:
@@ -956,7 +1092,222 @@ def self_test() -> int:
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the scope: a module document {name} cannot be scoped")
 
-    total = len(wrong_lists) + 1 + len(right_homes) + len(receipts) + len(scopes) + len(unscopable) + 3
+    # the records' folder and number width are the dials file's, read and never assumed
+    extra = 0
+
+    def judge(ok: bool, text: str) -> None:
+        nonlocal failed, extra
+        extra += 1
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {text}")
+
+    def run_on_dials(dials: str | None) -> tuple[str, int]:
+        """What the check says when the sample kit's dials file is this text (None: no file), empty when it
+        runs, and how many records it examined."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            git(root, "init", "-q")
+            sample_kit(root)
+            if dials is None:
+                (root / DIALS).unlink()
+            else:
+                (root / DIALS).write_text(dials, encoding="utf-8")
+            try:
+                return "", check_kit(root)[2]
+            except CouldNotRun as bad:
+                return str(bad), 0
+
+    def examined(layout: Layout, damage: Callable[[str], str] = lambda text: text) -> tuple[int, int]:
+        """The findings and the records of the check over a sample kit of this layout, its record damaged."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            git(root, "init", "-q")
+            sample_kit(root, damage(GOOD_RECORD.replace(SAMPLE, layout.sample)), layout)
+            findings, _, records = check_kit(root)
+        return len(findings), records
+
+    in_folder = f'["{folder}/**"]'
+    refused: dict[str, tuple[str | None, tuple[str, ...]]] = {
+        "no dials file": (None, (f"{DIALS} cannot be read", "restore the dials file")),
+        "a dials file that is no YAML": ("const-catalogs: [\n", ("cannot be read",)),
+        "a dials file that is no mapping": ("just text\n", (f"no {NAMESPACE}.catalogs list",)),
+        "no const-catalogs namespace": ("other:\n  catalogs: []\n", (f"no {NAMESPACE}.catalogs list",)),
+        "catalogs that is no list": (f"{NAMESPACE}:\n  catalogs: dec\n", (f"no {NAMESPACE}.catalogs list",)),
+        "an empty catalogs list": (
+            f"{NAMESPACE}:\n  catalogs: []\n",
+            ("declares no catalog with prefix dec",),
+        ),
+        "an entry that is no mapping": (f"{NAMESPACE}:\n  catalogs:\n    - dec\n", ("no mapping",)),
+        "an rfc catalog and no dec one": (
+            dials_file("4", in_folder).replace("prefix: dec", "prefix: rfc"),
+            ("declares no catalog with prefix dec", "add the entry"),
+        ),
+        "two dec catalogs": (
+            dials_file("4", in_folder, entries=2),
+            ("prefix dec twice", "keep one dec entry"),
+        ),
+        "a catalog width of 5 where the records have four digits": (
+            Layout(width=5).dials(),
+            (
+                f"{folder}/{SAMPLE}.md",
+                "make the catalog's width in constitution.yaml and the records' names agree",
+            ),
+        ),
+        "a catalog folder that is not where the records are": (
+            Layout("docs/records").dials(),
+            (
+                "no docs/records/ directory",
+                "correct the dec catalog's territory in constitution.yaml, or restore the folder",
+            ),
+        ),
+    }
+    for written in ("true", "false", "0", "10", "-1", '"4"', "4.0", "null", "[4]"):
+        refused[f"a catalog width of {written}"] = (
+            dials_file(written, in_folder),
+            (f"a whole number from 1 to {MAX_WIDTH}", "digits of the records' names"),
+        )
+    for territory in (
+        '["docs/decisions/**", "docs/records/**"]',
+        '["docs/decisions/*.md"]',
+        '"docs/decisions/**"',
+        '["docs/**/decisions/**"]',
+        '["**"]',
+        '["docs/../x/**"]',
+        '["docs/decisions/"]',
+        '["#docs/**"]',
+        "[]",
+        "null",
+    ):
+        refused[f"a catalog territory of {territory}"] = (
+            dials_file("4", territory),
+            ("no single territory '<folder>/**'", "one territory pattern of that form"),
+        )
+    for name, (dials, fragments) in refused.items():
+        said = run_on_dials(dials)[0]
+        ok = bool(said) and all(fragment in said for fragment in fragments) and "— fix:" in said
+        judge(ok, f"{name} cannot be checked, never a silent green")
+
+    widths_ok = True
+    for width in range(1, MAX_WIDTH + 1):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            (root / folder).mkdir(parents=True)
+            (root / DIALS).write_text(dials_file(str(width), in_folder), encoding="utf-8")
+            try:
+                stem = load_catalog(root).stem
+            except CouldNotRun:
+                widths_ok = False
+                continue
+        digits = "1" * width
+        widths_ok = widths_ok and bool(stem.match(f"dec-{digits}-x")) and not stem.match(f"dec-{digits}1-x")
+    judge(
+        widths_ok,
+        f"every catalog width from 1 to {MAX_WIDTH} is accepted, and numbers by exactly that many digits",
+    )
+    alias = (
+        'anchors:\n  territory: &decisions\n    - "/docs/decisions/**"\n'
+        f"{NAMESPACE}:\n  catalogs:\n    - prefix: dec\n      territory: *decisions\n"
+    )
+    judge(
+        run_on_dials(dials_file(None, in_folder)) == ("", 1),
+        "a catalog with no width numbers by four digits: the record is found",
+    )
+    judge(
+        run_on_dials(alias) == ("", 1),
+        "a territory by alias, with a leading slash, is read: the record is found",
+    )
+
+    width5, moved_to, both = Layout(width=5), Layout("docs/records"), Layout("docs/records", 5)
+
+    def cut(text: str) -> str:
+        return text[: text.index("## Carry list")]
+
+    for name, layout in (
+        ("a catalog of width 5", width5),
+        ("a catalog in docs/records", moved_to),
+    ):
+        judge(
+            examined(layout) == (0, 1) and examined(layout, cut) == (1, 1),
+            f"{name} is read: its record is found, green whole and red with its carry list cut",
+        )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        sample_kit(root)
+        (root / folder / "README.md").write_text("text\n", encoding="utf-8")
+        said = ""
+        try:
+            check_kit(root)
+        except CouldNotRun as bad:
+            said = str(bad)
+    judge(
+        f"{folder}/README.md" in said,
+        "a file in the records' folder the width cannot number cannot be checked",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root)
+        base = commit(root, "the base")
+        (root / folder / "README.md").write_text("text\n", encoding="utf-8")
+        said = ""
+        try:
+            compute_scope(root, base, None)
+        except CouldNotRun as bad:
+            said = str(bad)
+    judge(
+        f"{folder}/README.md" in said,
+        "the scope: a file in the records' folder the width cannot number cannot be scoped",
+    )
+
+    newest = f"dec-{THRESHOLD + 2:05d}-newer"
+    rows = f'<a id="t4"></a>\n## 4. Decisions\n\n1. [x](../../{both.folder}/{both.sample}.md)\n'
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root, GOOD_RECORD.replace(SAMPLE, both.sample), both)
+        base = commit(root, "the base")
+        (root / both.folder / f"{newest}.md").write_text(
+            GOOD_RECORD.replace(SAMPLE, newest), encoding="utf-8"
+        )
+        (root / "docs/policies/p.md").write_text(policy, encoding="utf-8")
+        added = compute_scope(root, base, None)
+        (root / "modules/m/MODULE.md").write_text(rows, encoding="utf-8")
+        cited = compute_scope(root, base, "m")
+    judge(
+        added == ({newest: "added"}, {both.sample: ["docs/policies/p.md"]})
+        and cited == ({newest: "added", both.sample: "cited"}, {}),
+        "the scope of a catalog in docs/records of width 5: a record added and a record cited, found there",
+    )
+    accept = f"yes\n\nAccepted: {both.sample}\n"
+    for name, at, red in (
+        ("an audit at the record's commit", "{pinned}", False),
+        ("an audit pinned before the record existed", "{before}", True),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            git(root, "init", "-q")
+            before = commit(root, "before the record")
+            sample_kit(root, GOOD_RECORD.replace(SAMPLE, both.sample), both)
+            pinned = commit(root, "the record lands")
+            at = at.format(pinned=pinned[:12], before=before[:12])
+            commit(root, accept + f"Carry-Audit: at {at}; 3 records; 0 findings, 0 fixed, 0 justified\n")
+            findings, notes, _ = check_kit(root)
+        judge(
+            bool(findings) == red and not notes,
+            f"in a catalog of docs/records, width 5: {name} is {'red' if red else 'green'}",
+        )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        pending = GOOD_RECORD.replace(SAMPLE, both.sample).replace("(../plan.md)", f"({both.sample}.md)")
+        found, _ = lists(root, sample_kit(root, pending, both))
+    judge(
+        len(found) == 1 and "pending nowhere" in found[0].headline,
+        "in a catalog of docs/records, pending intent in another record is red: the folder is the dials'",
+    )
+
+    total = (
+        len(wrong_lists) + 1 + len(right_homes) + len(receipts) + len(scopes) + len(unscopable) + 3 + extra
+    )
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
