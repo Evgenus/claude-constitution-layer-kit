@@ -626,6 +626,27 @@ def fresher_trunk() -> list[tuple[bool, str]]:
     commit(c, "readme only", {"README": "hello\n"})
     unsaid = fake_git(real, "merge-base", when="--is-ancestor")
     case("10 ancestry unanswered", red_over(scan(c, env=unsaid), tail(1, 3, short(c, "main"), short(c))))
+    # 11: a branch freshly cut at a trunk tip, no commit of its own, is not on the trunk: an empty range,
+    # never the last landed change — at the local tip (the two equal), at the stale local tip, and at the
+    # tracked tip while the local one is stale
+    c = clone_of(repo(with_map()).root)
+    branch(c)
+    case(
+        "11a fresh branch at the tip, local equal tracked",
+        green_scan(scan(c), tail(1, 0, short(c), short(c))),
+    )
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "main")
+    case(
+        "11b fresh branch at the stale local tip",
+        green_scan(scan(c), tail(1, 0, short(c, "main"), short(c, "main"))),
+    )
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "origin/main")
+    case(
+        "11c fresh branch at the tracked tip, local stale",
+        green_scan(scan(c), tail(1, 0, short(c, "origin/main"), short(c, "origin/main"))),
+    )
     results.extend(trunk_remote_dial())
     return results
 
@@ -1074,6 +1095,19 @@ def old_git_is_a_failure_of_git() -> tuple[bool, str]:
             False,
             f"a declaration quoting the placeholder: exit {quoted.code}: {quoted.stdout}{quoted.stderr}",
         )
+    # a later declaration of the same commit that begins with the placeholder is read as ever: only the
+    # start of the commit's whole trailer field is old git's, so it is a declaration naming no pair
+    p = repo(with_map())
+    branch(p.root)
+    second = "%(trailers starts the second"
+    where = "commit " + commit(
+        p.root, "two\n\n" + trailer("core", "a rename only") + f"\n{KEY}: {second}\n", {"src/a.py": "2\n"}
+    )
+    later = red_scan(
+        scan(p.root), messages.t3_names_no_pair(Declaration(where, second, second, ""), KEY, ["core"])
+    )
+    if not later[0]:
+        return later
     return True, "the placeholder as text is a failure naming git, its line echoed; quoted it is read"
 
 
