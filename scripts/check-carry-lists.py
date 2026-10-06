@@ -43,7 +43,10 @@ Exit:   0 green; 2 a finding; 1 the check could not run.
 from __future__ import annotations
 
 import argparse
+import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -65,6 +68,7 @@ DECISIONS = "docs/decisions"
 THRESHOLD = 30  # the record that landed this check; earlier records predate the rule
 STEM = re.compile(r"^dec-(\d{4})-[a-z0-9-]+$")
 LAST_SECTION = "Carry list"
+UNKNOWN_PLACEHOLDER = "%(trailers"  # what a git that does not know a trailer option prints instead
 UNGOVERNED_HOMES = (
     "CLAUDE.md",
     ".claude/skills/",
@@ -332,7 +336,9 @@ def acceptances(kit: Path) -> list[Acceptance]:
         "%H%x00%(trailers:key=Accepted,valueonly,separator=%x1f)"
         "%x00%(trailers:key=Carry-Audit,valueonly,separator=%x1f)%x01"
     )
-    log = git(kit, "log", "--topo-order", f"--format={form}")
+    # no signature lines: with log.showSignature=true git prints the check before the formatted line,
+    # and the first field, the commit, would hold it
+    log = git(kit, "-c", "log.showSignature=false", "log", "--topo-order", f"--format={form}")
     if log.returncode != 0:
         raise CouldNotRun(
             f"git log failed: {log.stderr.strip()} — fix: run the script from a checkout of the kit"
@@ -340,6 +346,17 @@ def acceptances(kit: Path) -> list[Acceptance]:
     found = []
     for chunk in log.stdout.split("\x01"):
         parts = chunk.strip("\n").split("\x00")
+        if len(parts) == 3 and any(field.startswith(UNKNOWN_PLACEHOLDER) for field in parts[1:]):
+            # a git too old for the trailer options prints each placeholder as text, at the start
+            # of the second and third fields; a trailer value that merely quotes it does not begin so
+            version = git(kit, "version")
+            lines = (version.stdout if version.returncode == 0 else version.stderr).strip().splitlines()
+            said = lines[0] if lines else ""
+            raise CouldNotRun(
+                "git does not know the trailer options this check reads (key, valueonly, separator): "
+                + (said if version.returncode == 0 else f"git version failed: {said}")
+                + " — fix: install a newer git (https://git-scm.com/downloads)"
+            )
         if len(parts) != 3 or not parts[1].strip():
             continue
         ids = [i.strip() for value in parts[1].split("\x1f") for i in value.split(",") if i.strip()]
@@ -610,6 +627,75 @@ def commit(root: Path, message: str) -> str:
     return git(root, "rev-parse", "HEAD").stdout.strip()
 
 
+def fake_signer(root: Path, tools: Path) -> Path:
+    """Signs later `git merge -S` of the repository through a fake `gpg.program` and turns
+    `log.showSignature` on; the fake logs each call to the returned file and, to verify, says its human
+    text on stderr as gpg does, which git log prints before the formatted line."""
+    log = tools / "gpg.log"
+    program = tools / "gpg"
+    program.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
+        "cat > /dev/null\n"
+        'case "$*" in\n'
+        "  *--verify*)\n"
+        "    printf 'gpg: Good signature from \"fake signer\"\\n' >&2\n"
+        "    printf '[GNUPG:] GOODSIG 0123456789ABCDEF fake signer\\n'\n"
+        "    printf '[GNUPG:] VALIDSIG 0123456789ABCDEF 2026-10-06 1 0 4 0 1 8 00 0123456789ABCDEF\\n';;\n"
+        "  *)\n"
+        "    printf '[GNUPG:] SIG_CREATED D 1 8 00 1 0123456789ABCDEF 1\\n' >&2\n"
+        "    printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n';;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    program.chmod(0o755)
+    for key, value in (
+        ("gpg.format", "openpgp"),
+        ("gpg.program", str(program)),
+        ("user.signingkey", "FIXTURE"),
+        ("log.showSignature", "true"),
+    ):
+        if git(root, "config", key, value).returncode != 0:
+            raise CouldNotRun(f"git config {key} failed in the self-test — fix: check the git installation")
+    return log
+
+
+def signed_merge(root: Path, message: str) -> None:
+    """A merge commit signed through the fake, as the forge signs the merge of a pull request."""
+    who = ("-c", "user.name=self-test", "-c", "user.email=self-test@example.invalid")
+    git(root, "checkout", "-q", "-b", "side")
+    commit(root, "the side of the merge")
+    git(root, "checkout", "-q", "-")
+    done = git(root, *who, "merge", "--no-ff", "-S", "-m", message, "side")
+    if done.returncode != 0:
+        raise CouldNotRun(
+            f"git merge -S failed in the self-test: {done.stderr.strip()} — fix: check the git installation"
+        )
+
+
+def fake_old_git(tools: Path, real: str) -> Path:
+    """A git first on PATH that logs each call's arguments, as it hands them on, to the returned file and
+    gives every `%(trailers:` an option no git knows, as a git of before the options does not know its own:
+    the real git then prints the placeholder as text, with exit 0."""
+    log = tools / "git.log"
+    script = tools / "git"
+    script.write_text(
+        "#!/bin/sh\n"
+        'for a in "$@"; do\n'
+        "  shift\n"
+        '  case "$a" in\n'
+        "    *'%(trailers:'*) a=$(printf '%s' \"$a\" | sed 's/%(trailers:/%(trailers:nosuchopt,/g');;\n"
+        "  esac\n"
+        '  set -- "$@" "$a"\n'
+        "done\n"
+        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
+        f'exec {shlex.quote(real)} "$@"\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return log
+
+
 def self_test() -> int:
     home = "../policies/p.md"
     wrong_lists: dict[str, Callable[[str], str]] = {
@@ -716,6 +802,71 @@ def self_test() -> int:
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a record awaiting its yes is a note; {name}")
 
+    # the acceptance read asks git log without signature lines: a signed merge, with log.showSignature
+    # on, is read as the unsigned right receipt is — green — and git was asked to verify it
+    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as tools:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        commit(root, "before the record")
+        sample_kit(root)
+        pinned = commit(root, "the record lands")
+        signing = fake_signer(root, Path(tools).resolve())
+        signed_merge(root, right.format(at=pinned[:12]))
+        shown = git(root, "log", "-1", "--format=%h")
+        calls = signing.read_text(encoding="utf-8") if signing.exists() else ""
+        findings, notes, _ = check_kit(root)
+    asked = "--verify" in calls and "fake signer" in shown.stdout + shown.stderr
+    ok = asked and not findings and not notes
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] a signed acceptance merge under showSignature is read as an unsigned one"
+    )
+
+    # a git too old for the trailer options prints the placeholders as text: the check cannot run, and
+    # says which git; a receipt that merely quotes the placeholder is read as ever
+    real = shutil.which("git")
+    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as tools:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        commit(root, "before the record")
+        sample_kit(root)
+        pinned = commit(root, "the record lands")
+        commit(root, right.format(at=pinned[:12]))
+        (root / "scripts" / "check-carry-lists.py").write_text(Path(__file__).read_text(encoding="utf-8"))
+        old_log = fake_old_git(Path(tools).resolve(), real or "git")
+        env = {**os.environ, "PATH": f"{Path(tools).resolve()}{os.pathsep}{os.environ['PATH']}"}
+        ran = subprocess.run(
+            [sys.executable, str(root / "scripts" / "check-carry-lists.py")],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+        )
+        version = subprocess.run([real or "git", "version"], capture_output=True, text=True, check=False)
+        asked_for_options = old_log.exists() and "nosuchopt" in old_log.read_text(encoding="utf-8")
+        wanted = [
+            "BROKEN: git does not know the trailer options this check reads (key, valueonly, separator): "
+            f"{version.stdout.splitlines()[0]} — fix: install a newer git (https://git-scm.com/downloads)",
+            "BROKEN: the check could not run — 0 records examined",
+        ]
+    ok = asked_for_options and ran.returncode == EXIT_BROKEN and ran.stdout.splitlines() == wanted
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a git that prints the trailer placeholders as text is named, exit 1")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        commit(root, "before the record")
+        sample_kit(root)
+        pinned = commit(root, "the record lands")
+        commit(root, right.format(at=pinned[:12]) + "Carry-Audit: the %(trailers placeholder, quoted\n")
+        try:
+            findings, _, _ = check_kit(root)
+            ok = any("cannot be read" in finding.headline for finding in findings)
+        except CouldNotRun:
+            ok = False
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a receipt that quotes the placeholder is read, not a git too old")
+
     newer = f"dec-{THRESHOLD + 2:04d}-newer"
     moved = f"dec-{THRESHOLD + 3:04d}-moved"
     policy = "---\nid: p\ntype: current-state\nstatus: active\n---\nmore\n"
@@ -773,7 +924,7 @@ def self_test() -> int:
         f"[{'ok' if ok else 'FAIL'}] the scope: a module document with no decisions section cannot be scoped"
     )
 
-    total = len(wrong_lists) + 1 + len(right_homes) + len(receipts) + len(scopes) + 1
+    total = len(wrong_lists) + 1 + len(right_homes) + len(receipts) + len(scopes) + 1 + 3
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
