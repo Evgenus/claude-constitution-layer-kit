@@ -118,7 +118,9 @@ class Catalog:
 
     folder: str  # relative to the kit, no slash at either end
     width: int
-    stem: re.Pattern[str]  # dec-<width digits>-<slug>, the number its one group
+    # dec-<width digits>-<slug>, the number its one group; ASCII digits only, as the catalog module's own
+    # pattern (modules/const-catalogs/scripts/catalogs_gate/model.py, line 79) reads them
+    stem: re.Pattern[str]
 
 
 FOLDER_PATTERN = re.compile(r"/?([^*?\[\]!\\\s]+)/\*\*")  # a territory of one folder, whole
@@ -183,6 +185,12 @@ def load_catalog(kit: Path) -> Catalog:
             "so this check cannot number the records — "
             f"fix: set width to the digits of the records' names, or leave it out for {DEFAULT_WIDTH}"
         )
+    if 10**width - 1 < THRESHOLD:
+        raise CouldNotRun(
+            f"the {PREFIX} catalog in {DIALS} has width {width}, which cannot number a record at "
+            f"{THRESHOLD}, the first this check examines, so it would examine nothing — "
+            f"fix: set width to at least {len(str(THRESHOLD))}, the digits of the records' names"
+        )
     folder = folder_of(mine[0].get("territory"))
     if folder is None:
         raise CouldNotRun(
@@ -190,7 +198,7 @@ def load_catalog(kit: Path) -> Catalog:
             "tell where the records are — "
             "fix: give it one territory pattern of that form, a folder with no glob character in it"
         )
-    catalog = Catalog(folder, width, re.compile(rf"^{PREFIX}-(\d{{{width}}})-[a-z0-9-]+$"))
+    catalog = Catalog(folder, width, re.compile(rf"^{PREFIX}-([0-9]{{{width}}})-[a-z0-9-]+$"))
     if not (kit / folder).is_dir():
         raise CouldNotRun(
             f"{kit} has no {folder}/ directory, the folder the {PREFIX} catalog of {DIALS} declares — "
@@ -474,7 +482,18 @@ AGAIN = (
 )
 
 
-def check_receipt(kit: Path, catalog: Catalog, record_id: str, acceptance: Acceptance) -> list[Finding]:
+def files_at(kit: Path, listings: dict[str, set[str]], commit: str) -> set[str]:
+    """The file names of every folder of a commit's tree, read once per commit."""
+    if commit not in listings:
+        listed = git(kit, "ls-tree", "-r", "--name-only", f"{commit}^{{commit}}")
+        names = listed.stdout.splitlines() if listed.returncode == 0 else []
+        listings[commit] = {Path(name).name for name in names}
+    return listings[commit]
+
+
+def check_receipt(
+    kit: Path, listings: dict[str, set[str]], record_id: str, acceptance: Acceptance
+) -> list[Finding]:
     where = f"commit {acceptance.commit[:7]} accepts {record_id}"
     if not acceptance.receipts:
         return [
@@ -526,7 +545,7 @@ def check_receipt(kit: Path, catalog: Catalog, record_id: str, acceptance: Accep
                     "stands on" + AGAIN,
                 )
             )
-        elif git(kit, "cat-file", "-e", f"{at}:{catalog.folder}/{record_id}.md").returncode != 0:
+        elif f"{record_id}.md" not in files_at(kit, listings, at):
             findings.append(
                 Finding(
                     f"{where} on an audit at {at}, where the record did not exist yet",
@@ -553,6 +572,7 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
         findings.extend(found)
         notes.extend(noted)
     accepted = acceptances(kit) if records else []
+    listings: dict[str, set[str]] = {}  # the files of each audit commit, read once, whatever the folder then
     for record in records:
         mine = [
             a for a in accepted if record.stem in a.accepted
@@ -560,7 +580,7 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
         if not mine:
             notes.append(f'NOTE: {record.stem} awaits its yes — no commit carries "Accepted: {record.stem}"')
         else:
-            findings.extend(check_receipt(kit, catalog, record.stem, mine[0]))
+            findings.extend(check_receipt(kit, listings, record.stem, mine[0]))
     present = {path.stem for path in (kit / catalog.folder).glob("*.md")}
     for acceptance in accepted:
         for stem in acceptance.accepted:
@@ -1182,13 +1202,17 @@ def self_test() -> int:
             dials_file("4", territory),
             ("no single territory '<folder>/**'", "one territory pattern of that form"),
         )
+    refused["a catalog width of 1, too narrow for a record at the threshold"] = (
+        dials_file("1", in_folder),
+        ("width 1", f"a record at {THRESHOLD}", "set width to at least 2"),
+    )
     for name, (dials, fragments) in refused.items():
         said = run_on_dials(dials)[0]
         ok = bool(said) and all(fragment in said for fragment in fragments) and "— fix:" in said
         judge(ok, f"{name} cannot be checked, never a silent green")
 
     widths_ok = True
-    for width in range(1, MAX_WIDTH + 1):
+    for width in range(len(str(THRESHOLD)), MAX_WIDTH + 1):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             (root / folder).mkdir(parents=True)
@@ -1202,7 +1226,8 @@ def self_test() -> int:
         widths_ok = widths_ok and bool(stem.match(f"dec-{digits}-x")) and not stem.match(f"dec-{digits}1-x")
     judge(
         widths_ok,
-        f"every catalog width from 1 to {MAX_WIDTH} is accepted, and numbers by exactly that many digits",
+        f"every catalog width from {len(str(THRESHOLD))} to {MAX_WIDTH} is accepted, "
+        "and numbers by exactly that many digits",
     )
     alias = (
         'anchors:\n  territory: &decisions\n    - "/docs/decisions/**"\n'
@@ -1303,6 +1328,56 @@ def self_test() -> int:
     judge(
         len(found) == 1 and "pending nowhere" in found[0].headline,
         "in a catalog of docs/records, pending intent in another record is red: the folder is the dials'",
+    )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        sample_kit(root)
+        arabic = "dec-\u0660\u0660\u0663\u0661-sample.md"  # 0031 in Arabic-Indic digits
+        (root / folder / arabic).write_text(GOOD_RECORD, encoding="utf-8")
+        said = ""
+        try:
+            check_kit(root)
+        except CouldNotRun as bad:
+            said = str(bad)
+    judge(
+        f"{folder}/{arabic}" in said, "a record named with non-ASCII digits is a stray, never a gated record"
+    )
+
+    right_receipt = (
+        "yes\n\nAccepted: {id}\nCarry-Audit: at {at}; 3 records; 0 findings, 0 fixed, 0 justified\n"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root)
+        pinned = commit(root, "the record lands")
+        commit(root, right_receipt.format(id=SAMPLE, at=pinned[:12]))
+        (root / folder).rename(root / "docs/records")
+        (root / DIALS).write_text(Layout("docs/records").dials(), encoding="utf-8")
+        commit(root, "the records move")
+        moved_after = check_kit(root)
+        listings: dict[str, set[str]] = {}
+        files_at(root, listings, pinned)
+        listings[pinned] = {"cached.md"}
+        cached = files_at(root, listings, pinned) == {"cached.md"}
+    judge(
+        moved_after[0] == [] and moved_after[1] == [] and moved_after[2] == 1,
+        "the folder moved since the audit: the record is found at the audit commit wherever it stood, green",
+    )
+    judge(cached, "the files of an audit commit are read once per commit")
+    renamed = f"dec-{THRESHOLD + 4:04d}-renamed"
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root)
+        pinned = commit(root, "the record lands")
+        (root / folder / f"{SAMPLE}.md").rename(root / folder / f"{renamed}.md")
+        commit(root, right_receipt.format(id=renamed, at=pinned[:12]))
+        findings, _, _ = check_kit(root)
+    judge(
+        len(findings) == 1 and "did not exist yet" in findings[0].headline,
+        "a record that stood under another id at the audit commit did not exist yet there: red",
     )
 
     total = (
