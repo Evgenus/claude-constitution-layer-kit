@@ -93,11 +93,14 @@ def _locate_range(
         return history.make_range(
             root, history.merge_base(root, history.resolve(root, SINCE, since), tip), tip
         )
-    trunk = history.trunk_tip(root, dials.trunk)
+    local, tracked = history.trunk_tips(root, dials.trunk)
+    trunk = history.fresher(root, local, tracked)
     if trunk is None:
         raise ConfigurationFailure(messages.c12_no_trunk(dials.trunk, str(root)))
+    # a detached HEAD at either tip is on the trunk: at a stale local tip it would otherwise be a green
+    # over an empty range, the fresher tip being ahead of it
     on_trunk = history.current_branch(root) == dials.trunk or (
-        history.current_branch(root) is None and trunk == tip
+        history.current_branch(root) is None and tip in (local, tracked)
     )
     if on_trunk:  # the last landed change, as --change HEAD would examine it
         return history.make_range(root, history.first_parent(root, tip), tip)

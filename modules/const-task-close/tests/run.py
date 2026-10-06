@@ -458,9 +458,118 @@ def trunk_dial() -> tuple[bool, str]:
         " <ref>",
     )
     return all_of(
-        [named, missing, odd, whole],
-        "the trunk dial names the base; an unknown trunk is a configuration failure",
+        [named, missing, odd, whole, *fresher_trunk()],
+        "the trunk dial names the base, the fresher of a local and a tracked trunk; an unknown trunk is a"
+        " configuration failure",
     )
+
+
+def clone_of(upstream: Path) -> Path:
+    """A clone of the repository, its remote the default `origin`, in a fresh folder."""
+    clone = H.scratch_dir() / "clone"
+    done = git(upstream, "clone", "-q", str(upstream), str(clone))
+    assert done.returncode == 0, done.stderr
+    return clone
+
+
+def landed_upstream() -> Path:
+    """A clone whose local main is stale: the upstream repository has two more commits, fetched and not
+    merged — `landed code` touches code alone, `landed readme` a README alone. The clone's main has
+    `older code` at its tip, a code-only commit too, pushed before the clone was made."""
+    up = repo(with_map())
+    commit(up.root, "older code", {"src/a.py": "x = 2\n"})
+    clone = clone_of(up.root)
+    commit(up.root, "landed code", {"src/a.py": "x = 9\n"})
+    commit(up.root, "landed readme", {"README": "hi\n"})
+    done = git(clone, "fetch", "-q", "origin")
+    assert done.returncode == 0, done.stderr
+    return clone
+
+
+def red_over(result: Result, line: str) -> tuple[bool, str]:
+    """T2 for `src/a.py`, and the count line of the red whole."""
+    ok, evidence = red_scan(result, t2())
+    counted = f"RED: 1 finding(s) — {line}" in result.stdout.splitlines()
+    return ok and counted, evidence if counted else f"wanted the count line {line!r}: {result.stdout}"
+
+
+def fresher_trunk() -> list[tuple[bool, str]]:
+    """Where the base is when the trunk is a local branch, the remote's tracking branch, or both: the
+    one ahead when one is behind the other, the local one otherwise; and what is on the trunk."""
+    real = shutil.which("git")
+    if real is None:
+        return [(False, "no git on PATH for the fake git to hand its other calls to")]
+    results: list[tuple[bool, str]] = []
+
+    def case(label: str, outcome: tuple[bool, str]) -> None:
+        results.append((outcome[0], f"{label}: {outcome[1]}"))
+
+    # 1: no local trunk, origin's only — the path of a CI checkout of a pull request
+    c = clone_of(repo(with_map()).root)
+    branch(c)
+    git(c, "branch", "-D", "main")
+    commit(c, "code only", {"src/a.py": "x = 2\n"})
+    case("1 origin only", red_over(scan(c), tail(1, 1, short(c, "origin/main"), short(c))))
+    # 2: a stale local main behind origin/main, a branch cut from origin/main: only its own commit
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "origin/main")
+    commit(c, "readme only", {"README": "hello\n"})
+    case("2 stale local", green_scan(scan(c), tail(1, 1, short(c, "origin/main"), short(c))))
+    # 3: local main ahead of origin/main by an unpushed trunk commit, the branch cut from it
+    c = clone_of(repo(with_map()).root)
+    commit(c, "unpushed trunk code", {"src/a.py": "x = 2\n"})
+    branch(c)
+    commit(c, "readme only", {"README": "hello\n"})
+    case("3 local ahead", green_scan(scan(c), tail(1, 1, short(c, "main"), short(c))))
+    # 4: split, each with a commit of its own: the local one, since it may hold what is not pushed yet
+    c = landed_upstream()
+    commit(c, "unpushed trunk code", {"src/b.py": "y = 1\n"})
+    branch(c)
+    commit(c, "readme only", {"README": "hello\n"})
+    case("4 split", green_scan(scan(c), tail(1, 1, short(c, "main"), short(c))))
+    # 5: detached at the stale local tip is on the trunk — the last landed change, never an empty range
+    c = landed_upstream()
+    git(c, "checkout", "-q", "--detach", "main")
+    case(
+        "5 detached at the stale local tip",
+        red_over(scan(c), tail(1, 1, short(c, "main~1"), short(c, "main"))),
+    )
+    # 6: detached at the tracked tip is on the trunk too, whatever the local one says
+    c = landed_upstream()
+    git(c, "checkout", "-q", "--detach", "origin/main")
+    case(
+        "6 detached at the tracked tip",
+        green_scan(scan(c), tail(1, 1, short(c, "origin/main~1"), short(c, "origin/main"))),
+    )
+    # 7: detached elsewhere: the base is the merge-base with the fresher trunk
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "origin/main")
+    commit(c, "readme only", {"README": "hello\n"})
+    git(c, "checkout", "-q", "--detach")
+    case(
+        "7a detached, cut from the tracked tip",
+        green_scan(scan(c), tail(1, 1, short(c, "origin/main"), short(c))),
+    )
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "main")
+    commit(c, "readme only", {"README": "hello\n"})
+    git(c, "checkout", "-q", "--detach")
+    case("7b detached, cut from the stale tip", green_scan(scan(c), tail(1, 1, short(c, "main"), short(c))))
+    # 8: on the branch named like the trunk: the last landed change, stale or not
+    c = landed_upstream()
+    case("8 on main", red_over(scan(c), tail(1, 1, short(c, "main~1"), short(c, "main"))))
+    # 9: the two equal: either is the trunk
+    c = clone_of(repo(with_map()).root)
+    branch(c)
+    commit(c, "code only", {"src/a.py": "x = 2\n"})
+    case("9 equal", red_over(scan(c), tail(1, 1, short(c, "main"), short(c))))
+    # 10: git cannot say whether the local trunk is an ancestor: the local one, as before, no failure
+    c = landed_upstream()
+    git(c, "checkout", "-q", "-b", "work/z", "origin/main")
+    commit(c, "readme only", {"README": "hello\n"})
+    unsaid = fake_git(real, "merge-base", when="--is-ancestor")
+    case("10 ancestry unanswered", red_over(scan(c, env=unsaid), tail(1, 3, short(c, "main"), short(c))))
+    return results
 
 
 def since_ref() -> tuple[bool, str]:
@@ -1571,7 +1680,12 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (7, "an ignored file is not dirty; a modified tracked file is", ignored_is_clean),
     (8, "a cwd below the root finds the repository", cwd_below_root),
     (9, "a tool event is a configuration failure: the gate is wired to Stop", tool_event_is_not_wired),
-    (10, "the trunk dial names the base; an unknown trunk is a configuration failure", trunk_dial),
+    (
+        10,
+        "the trunk dial names the base, the fresher of a local and a tracked trunk; an unknown trunk is a"
+        " configuration failure",
+        trunk_dial,
+    ),
     (11, "--since names the base: a tag, a relative ref", since_ref),
     (12, "--change: a merge by its first-parent diff, a plain commit alone", change_merge_and_commit),
     (
