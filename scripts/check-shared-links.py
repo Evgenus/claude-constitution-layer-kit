@@ -25,7 +25,7 @@ import re
 import shutil
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -166,6 +166,23 @@ def run(kit: Path) -> int:
         print("BROKEN: the check could not run — 0 links examined")
         return EXIT_BROKEN
     return report(*result)
+
+
+@contextlib.contextmanager
+def listed_in_reverse() -> Iterator[None]:
+    """For the cases inside, `Path.iterdir` yields its entries sorted by name and reversed, whatever the
+    filesystem lists: a case that holds an order is then red on every filesystem for a check that does not
+    sort, never by the chance of a listing that happens to be unsorted. Restored on leaving."""
+    real = Path.iterdir
+
+    def reversed_iterdir(self: Path) -> Iterator[Path]:
+        return iter(sorted(real(self), key=lambda path: path.name, reverse=True))
+
+    Path.iterdir = reversed_iterdir  # type: ignore[method-assign,assignment]
+    try:
+        yield
+    finally:
+        Path.iterdir = real  # type: ignore[method-assign]
 
 
 def self_test() -> int:
@@ -478,11 +495,12 @@ def self_test() -> int:
         root = Path(tmp).resolve()
         fresh(root)
         shutil.rmtree(root / "modules" / "const-sample")
-        for module in ("const-b", "const-a"):  # made in the order the sorted one is not
+        for module in ("const-a", "const-b"):
             (root / "modules" / module / "hooks").mkdir(parents=True)
             (root / "modules" / module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
         out = io.StringIO()
-        with contextlib.redirect_stdout(out):
+        # modules/ and shared/tests/ are listed reversed, whatever the filesystem lists
+        with contextlib.redirect_stdout(out), listed_in_reverse():
             code_after = run(root)
     heads = [line for line in out.getvalue().splitlines() if line.startswith("RED: modules/")]
     expected = [

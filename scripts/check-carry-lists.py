@@ -45,6 +45,7 @@ Exit:   0 green; 2 a finding; 1 the check could not run.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import re
 import shlex
@@ -52,7 +53,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -858,6 +859,23 @@ def fake_logging_git(tools: Path, real: str) -> Path:
     return log
 
 
+@contextlib.contextmanager
+def listed_in_reverse() -> Iterator[None]:
+    """For the cases inside, `Path.glob` yields what it finds sorted by name and reversed, whatever the
+    filesystem lists: a case that holds an order is then red on every filesystem for a check that does not
+    sort, never by the chance of a listing that happens to be unsorted. Restored on leaving."""
+    real = Path.glob
+
+    def reversed_glob(self: Path, pattern: str) -> Iterator[Path]:
+        return iter(sorted(real(self, pattern), key=lambda path: path.name, reverse=True))
+
+    Path.glob = reversed_glob  # type: ignore[method-assign,assignment]
+    try:
+        yield
+    finally:
+        Path.glob = real  # type: ignore[method-assign]
+
+
 def lists(root: Path, record: Path) -> tuple[list[Finding], list[str]]:
     return check_list(root, load_catalog(root), record)
 
@@ -1315,9 +1333,10 @@ def self_test() -> int:
         return ""
 
     arabic = "dec-٠٠٣١-sample.md"  # 0031 in Arabic-Indic digits
-    # the strays, and the first of them in sorted order, the one the failure names; the last row holds
-    # six, so that a listing in the folder's own order, which is the filesystem's and no promise, is
-    # unlikely to put the sorted first first: a failure naming the first it finds is red on most
+    # the strays, and the first of them in sorted order, the one the failure names; the folder is listed
+    # in reverse order for these cases (listed_in_reverse), so that the sorted first is listed last, on
+    # every filesystem: a failure naming the first it lists is red, and the order of the filesystem,
+    # which is no promise, holds nothing here
     stray_cases: dict[str, tuple[tuple[str, ...], str]] = {
         "a file in the records' folder the width cannot number cannot be {}": (("README.md",), "README.md"),
         "a record named with non-ASCII digits is a stray, never a gated record: it cannot be {}": (
@@ -1331,7 +1350,8 @@ def self_test() -> int:
     }
     for name, (strays, first) in stray_cases.items():
         for scoped, verb in ((False, "checked"), (True, "scoped")):
-            said = stray_said(strays, scoped)
+            with listed_in_reverse():
+                said = stray_said(strays, scoped)
             others = [stray for stray in strays if stray != first]
             judge(
                 f"{folder}/{first} " in said and not any(f"{folder}/{other} " in said for other in others),

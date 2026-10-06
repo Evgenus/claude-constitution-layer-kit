@@ -900,6 +900,7 @@ def self_test() -> int:
         "kernel": False,
         "kernel §": False,
         "kernel §n": False,
+        "kernel §2x": False,  # the class ends at a word boundary: a digit run that goes on in letters is none
         "Mx": False,
         "M": False,
         "m1": False,
@@ -1115,13 +1116,25 @@ def self_test() -> int:
             build(root, GOOD_TABLE)
             (root / document).parent.mkdir(parents=True, exist_ok=True)
             (root / document).write_text(broken_text, encoding="utf-8")
-            try:
-                check_structure(root)
-                ok, got = False, "no BROKEN"
-            except Broken as bad:
-                ok, got = str(bad).startswith(said) and "— fix:" in str(bad), str(bad)
+            ok = True
+            got: list[str] = []
+            for only in (None, "const-sample"):  # the plain run's reading, and the full run of one module
+                try:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        if only is None:
+                            check_structure(root)
+                        else:
+                            full_run(root, only)
+                    ok = False
+                    got.append("no BROKEN" if only is None else "no BROKEN under --module")
+                except Broken as bad:
+                    ok = ok and str(bad).startswith(said) and "— fix:" in str(bad)
+                    got.append(str(bad))
         failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] a kit tree with {name} is one BROKEN line naming it")
+        print(
+            f"[{'ok' if ok else 'FAIL'}] a kit tree with {name} is one BROKEN line naming it,"
+            " in the plain run and in the run of one module"
+        )
         if not ok:
             print(f"        got: {got}")
     prose = "See [A1.2](#a1-2) and [A1.1](../docs/requirements.md#a1-1); an aspect is [A1](#a1).\n"
@@ -1151,6 +1164,18 @@ def self_test() -> int:
             ),
             "a period inside a code span of the preamble's sentence does not end it": (
                 preamble_as(PREAMBLE.replace("(shared semantics)", "(shared `a.b. c` semantics)")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a period inside a word of the preamble's sentence, outside a code span, does not end it": (
+                preamble_as(PREAMBLE.replace("(shared semantics)", "(shared semantics, as in v1.2)")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a class written twice in bold in the sentence is one name": (  # the names are a set
+                preamble_as(PREAMBLE.replace("(authoring law).", "(authoring law), **binding** (again).")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a bold class with a space inside its stars is the class, the name stripped": (
+                preamble_as(PREAMBLE.replace("**Mx**", "** Mx **")),
                 ["a1-1", "a1-2", "a1-3"],
             ),
             "a bold word in the sentence after the classes is no class": (
