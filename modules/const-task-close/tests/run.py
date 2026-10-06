@@ -684,6 +684,11 @@ def trunk_remote_dial() -> list[tuple[bool, str]]:
     pointed = "t" * 79 + "\\\\" + "… [90 characters]"
     fetched = "t" * 79 + "\\\\" + "z" * 10
     case("18 long trunk", broken(scan(c), no_trunk(c, trunk=pointed, fetch_trunk=fetched)))
+    # 19: a remote with a backslash, which the dial's pattern accepts and git refuses as a remote's name
+    # (`git remote add` says it is not valid), so it names no remote: the backslash is doubled in the
+    # pointer, by `echoed`, and in the fetch command, by `escaped`
+    c = only_remote("origin", trunk_remote="a\\b")
+    case("19 remote with a backslash", broken(scan(c), no_trunk(c, remote="a\\\\b")))
     return results
 
 
@@ -1363,7 +1368,10 @@ def dial_failures() -> tuple[bool, str]:
         (own(trunk_remote="x\ny"), TRUNK_REMOTE),  # a line break: the failure stays one line
         (own(trunk_remote="x\x07y"), TRUNK_REMOTE),  # a control character
         (own(trunk_remote="\x7f"), TRUNK_REMOTE),  # DEL
+        (own(trunk_remote="a\x00b"), TRUNK_REMOTE),  # the first of C0
+        (own(trunk_remote="a\x1fb"), TRUNK_REMOTE),  # the last of C0
         (own(trunk_remote="a\x85b"), TRUNK_REMOTE),  # a C1 control character
+        (own(trunk_remote="a\x9fb"), TRUNK_REMOTE),  # the last of C1
         (own(trunk_remote=" x"), TRUNK_REMOTE),  # the first character is held by a class of its own:
         (own(trunk_remote="\x07x"), TRUNK_REMOTE),  # white space, a control character and a tab,
         (own(trunk_remote="\tx"), TRUNK_REMOTE),  # each of them first
