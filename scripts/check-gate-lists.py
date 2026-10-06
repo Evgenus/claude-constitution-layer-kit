@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """Kit check: every scan a module declares stands in the kit's gate list, in its CI list and in its
-module's job, and the list's modules are exactly the module folders.
+module's job, the list's modules are exactly the module folders, and every kit check is run by an
+entry of the gate group.
 
-A module declares its scan in its document's enforcement section (template §9): a code span in a
-row of that section that reads exactly `<entry> --scan`, or `<entry>.py --scan` — nothing after
-the flag, so an explain mode (`--scan --command …`) or a report (`--scan --since …`) is no tree
-scan. For each declared scan:
+A module declares its scan in its document's enforcement section (template §9, anchor `t9`), read
+by `kit_module_doc.enforcement` row by row, whatever a row's indent: a line whose stripped form
+starts with `|`, the header and the separator skipped. A row opens `E<n>` or `**E<n>**`. A code span
+in a row that reads exactly `<entry> --scan`, or `<entry>.py --scan`, declares a scan. A span
+`<entry> --scan --<flag> …`, an explain mode (`--scan --command …`) or a report (`--scan --since …`),
+is no tree scan and declares none, when the cell that holds it also holds the words `not a tree scan`
+outside a code span. Each of these is a finding of the form, with the line, why and fix: a row whose
+first cell is anything else; a span in a row that holds `--scan` in any other form; a flag after
+`--scan` in a cell without the words; a span in the declared form in the section's prose, outside
+the table (any other span there is not read). A row whose first cell is off has its spans read all
+the same. For each declared scan:
   - the gate list, the entries `sh scripts/gate-list.sh --names gate` prints, has one whose
     commands (`--show <entry>`) run `modules/<module>/scripts/<entry>.sh --scan` or `….py --scan`;
   - one such entry stands in the module's own job, the entries `--names <module>` prints for a job
@@ -26,18 +34,31 @@ dec-0058-ci-runs-each-check-in-parallel and dec-0061-ci-runs-one-job-per-module)
 No line of the list script or of the workflow, comments aside, passes a fixture runner's filter,
 `--item <n>` or `--item=<n>`: a filtered run runs only the items named and is never a full pass,
 so the gate list and CI always run every item.
+Every `scripts/check-*.py` that git tracks at the top of `scripts/` (`git ls-files`; an untracked
+file, a library such as `kit_module_doc.py` and a file in a folder are none) is run by an entry of the
+gate group: a code line of that entry's `--show`, comments aside, holds `python3 scripts/check-<x>.py`,
+with or without arguments. The kit root must be the git repository itself.
 
 Modes:  no arguments   check the kit;
-        --self-test    prove the check on a throwaway tree: a scan missing from the gate list, or
-                       from a workflow that does not read the list, red; a scan in both green; an
-                       extra entry no gate; a span with more after the flag no scan; a scan whose
-                       entry falls into `kit` or another module's job red; a module folder the list
-                       leaves out, and a listed module with no folder, red; an `--item` in the
-                       list or the workflow red, and one in a comment green; the report of each kind
-                       of finding as literal lines with exit 2; a list that cannot be read, jobs
-                       that are no JSON list, a module document without its enforcement anchor and
-                       a module folder without its document, each a BROKEN line; a `.py` scan held
-                       by its python3 line and taught by it.
+        --self-test    prove the check on a throwaway tree, itself a git repository: a scan missing
+                       from the gate list, or from a workflow that does not read the list, red; a
+                       scan in both green; an extra entry no gate; a span with a flag after `--scan`
+                       and the words no scan; a scan whose entry falls into `kit` or another
+                       module's job red; a module folder the list leaves out, and a listed module
+                       with no folder, red; an `--item` in the list or the workflow red, and one in
+                       a comment green; the forms of the enforcement table over one whole set of
+                       probes (indent, bold, first cells, span forms, the words, an escaped bar);
+                       a tracked check no entry of the gate group runs red, also when only an
+                       extra entry, a fixtures entry or a comment names it, one a gate entry runs
+                       green, with arguments too, the same file untracked, a library and a
+                       module's script of that name no check, and the name filter over a whole
+                       set of names; the report of each kind of finding, the form's and the
+                       checks' included, as literal lines with exit 2, and of a green kit as its
+                       literal line; a list that cannot be read, jobs that are no JSON list, a
+                       module document without its enforcement anchor, with it on a heading or
+                       twice, a module folder without its document, a tree that is no repository
+                       and a git that cannot be run, each a BROKEN line; a `.py` scan held by its
+                       python3 line and taught by it.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -584,13 +605,15 @@ def self_test() -> int:
     """Red→green on a throwaway tree: a scan missing from the gate group, and one in a kit whose
     workflow does not read the list or names it only in a comment line or a trailing comment, are red
     with one finding each and green once listed and read;
-    an extra entry is no gate; a span with more after the flag is no scan; a module with no scan
-    needs no entry; a scan whose entry falls into `kit` or into another module's job is red; a module
-    folder the list's modules leave out, and a listed module with no folder, are red; the report of
-    each kind of finding is its literal text with exit 2; a list script that fails, jobs that are no
-    JSON list, a module document without its enforcement anchor and a module folder without its
-    document are each a teaching BROKEN line; a scan declared as `<entry>.py --scan` is held by its
-    python3 line and taught by it."""
+    an extra entry is no gate; a span with a flag after `--scan` and the words is no scan; a module
+    with no scan needs no entry; a scan whose entry falls into `kit` or into another module's job is
+    red; a module folder the list's modules leave out, and a listed module with no folder, are red; a
+    tracked kit check no entry of the gate group runs is red; the forms of the enforcement table are
+    held by `form_probes`; the report of each kind of finding is its literal text with exit 2; a list
+    script that fails, jobs that are no JSON list, a module document without its enforcement anchor
+    or with it twice, a module folder without its document, a tree that is no repository and a git
+    that cannot be run are each a teaching BROKEN line; a scan declared as `<entry>.py --scan` is held
+    by its python3 line and taught by it."""
     module_text = (
         '<a id="t9"></a>\n## 9\n\n| # | artifact | kind |\n|---|---|---|\n'
         "| E1 | hook + `check-x` (hook mode) | `gate` |\n| E2 | `check-x --scan`: all | `gate` |\n"

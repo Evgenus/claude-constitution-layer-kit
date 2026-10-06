@@ -19,10 +19,12 @@ script can hold:
                rewritten: once that task-record closes, the check says so in a note.
   the receipt  the commit that accepts a record — trailer "Accepted: <record id>" — also carries
                "Carry-Audit: at <commit>; <n> records; <f> findings, <x> fixed, <j> justified";
-               the commit named is an ancestor at which the record already existed, n is above
-               zero, x + j = f. The newest acceptance of a record is the one that counts, so a
-               wrong receipt is mended by accepting again, in the merge commit of a new pull
-               request. A record no commit accepts yet awaits its yes: a note, never a finding —
+               the commit named is an ancestor at which the record already existed — a file of
+               its id, `<id>.md`, in any folder of that commit's tree, so that a folder moved
+               since leaves the old receipts true — n is above zero, x + j = f. The newest
+               acceptance of a record is the one that counts, so a wrong receipt is mended by
+               accepting again, in the merge commit of a new pull request. A record no commit
+               accepts yet awaits its yes: a note, never a finding —
                a gate is not red for waiting on a person. An "Accepted:" id that names no record
                is a note too: deleted since, or misspelt.
 
@@ -31,14 +33,21 @@ handle; whether the linked text states the rule; whether the audit the receipt n
 
 Records numbered below the threshold were written before the rule and are not examined. The records'
 folder and the width of their numbers are read from the `dec` entry of `const-catalogs.catalogs` in
-constitution.yaml at the kit root; a file in that folder the width cannot number is a failure to run.
+constitution.yaml at the kit root: its territory must be exactly one pattern `<folder>/**`, its width
+(absent is 4) a whole number from 1 to 9 that can number the threshold, and the entry stands once. A
+dials file, an entry or a folder that cannot be read, a width or a territory that is off, and a file
+of `*.md` in that folder that does not have the form `dec-<width digits>-<slug>` — never skipped —
+are each a failure to run, with the fix.
 
 Modes:  no arguments            check the lists and the receipts;
         --scope BASE [MODULE]   print the records a closing audit must read for the change since
                                 BASE: in full — those the change adds or edits and those the module's
-                                decisions section cites; for regression — those that cite a file
-                                the change touched;
-        --self-test             prove each finding red and the right record green, on throwaway trees.
+                                decisions section, found by its anchor `t4`, cites; for regression —
+                                those that cite a file the change touched;
+        --self-test             prove each finding red and the right record green, on throwaway trees:
+                                the catalog's folder and width over their whole sets, a stray file,
+                                a receipt whose record stood in another folder, the scope in each
+                                layout and a decisions section that ends at the next anchor.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -624,7 +633,9 @@ def cited_files(kit: Path, document: Path, text: str) -> set[str]:
 
 
 def compute_scope(kit: Path, base: str, module: str | None) -> tuple[dict[str, str], dict[str, list[str]]]:
-    """The records a closing audit reads in full, each with the reason, and those it reads for regression."""
+    """The records a closing audit reads in full, each with the reason, and those it reads for regression;
+    a module's decisions section is the one under its anchor `t4`, and a document without it, or with
+    it twice, is a failure to run."""
     catalog = load_catalog(kit)
     if git(kit, "rev-parse", "--verify", "-q", f"{base}^{{commit}}").returncode != 0:
         raise CouldNotRun(f"{base} names no commit — fix: pass the commit the change started from")

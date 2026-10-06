@@ -18,7 +18,25 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
   - an item that names a row its module's rows section does not hold;
   - a row a module's rows section holds that no item of that module names;
   - a row the matrix gives a module (its destination opens with M and a number) that no
-    module's rows section holds.
+    module's rows section holds;
+  - a row whose destination opens with none of the four classes `kernel §<n>`, `M<n>`, `binding`,
+    `template`, typed here once with their patterns and matched at the start of the cell, its links
+    read for their text, a name that goes on in a word or a digit that is not ASCII being none.
+
+The documents are read in the forms their rules state, and a read that cannot be sure is no pass: the
+check could not run (BROKEN, exit 1), with the fix, on
+  - a matrix line that holds `<a id="aN-M"></a>` or `<a id="aN"></a>` and is not in the form
+    `| <a id="aN-M"></a>AN.M | … |` of a row, four cells, or `| <a id="aN"></a>**AN — Title**` of an
+    aspect, a prose line that shows the anchor included; a row or an aspect anchor on two lines; a
+    matrix with no row;
+  - a preamble without the sentence "Destination classes: …", or one whose bold names are not exactly
+    the four classes the check types, so that the typed set never drifts from the preamble (every
+    run reads it, `--run --module` too);
+  - a module folder with no MODULE.md (a folder whose name opens with a dot or an underscore is no
+    module and is skipped), and a module document whose rows section (anchor `t3`) or acceptance
+    section (anchor `t10`) is missing or stands twice, each read by `kit_module_doc.section`.
+A table line of those two sections is read whatever its indent: a line whose stripped form starts
+with `|`.
 
 The report, `--run`, also runs each module's `tests/run.py` and reads its item lines, which
 the shared harness prints as `[ok]` or `[FAIL]`, the number, the kind in round brackets and the
@@ -53,8 +71,13 @@ Modes:  no arguments         the gate;
         --run --module NAME  the same for one module: its findings alone, its rows' verdicts from
                              its items alone;
         --self-test          prove the check on a throwaway tree: each finding red→green, the
-                             report of one finding as literal lines, a full run green and red,
-                             a runner that cannot be read as a BROKEN line.
+                             openings of a destination over a whole set (classed or red), indented
+                             table lines read, a matrix line off its form, a doubled anchor, a
+                             preamble that is missing or names other classes, a module document
+                             without or with a doubled anchor and a folder without its document
+                             each a BROKEN line, a folder opening `.` or `_` skipped, the report
+                             of one finding as literal lines, a full run green and red, a runner
+                             that cannot be read as a BROKEN line.
 Exit:   0 green; 2 a finding or a red item; 1 the check could not run.
 """
 
@@ -818,7 +841,9 @@ def self_test() -> int:
     """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
     and green with the good table; the report of one finding as literal lines; a full run green,
     one red with a red item, one red for an item the runner did not print and one it printed
-    unnamed; a runner out of form and one whose count disagrees as BROKEN."""
+    unnamed; a runner out of form and one whose count disagrees as BROKEN; the destination classes,
+    the form of the matrix and of the module documents, and the tie to the preamble, each over its
+    whole set of cases."""
     header = "| item | kind | rows | what it proves |\n|---|---|---|---|\n"
     red: dict[str, tuple[str, str | None]] = {  # case: its table (or rows section), what the finding says
         "no rows column": (

@@ -8,10 +8,24 @@ are symbolic links to it, relative ones, so that they survive a clone into any d
 platform copies what such a link points at into an installed plugin, so an installed module
 carries the code; inside the kit there is one copy to read, to fix and to review.
 
+The links a module owes are derived from the folders, never typed apart from them: scripts/const_gate,
+and each `.py` file at the top of shared/tests/ whose name starts with neither `.` nor `_`, as
+tests/<name>. The check is a failure to run (BROKEN) when shared/const_gate/ is no directory or when
+shared/tests/ lacks one of the three files shared/GATE.md names (the FLOOR), so that a list read from
+the folders cannot shrink in silence. A module under modules/ — a folder whose name starts with neither
+`.` nor `_` — owes the links when it has hooks/hooks.json, when a line of a `.py` file under its
+scripts/, at any depth, imports const_gate (the link scripts/const_gate is not entered; a comment, a
+string, a shell script and a `__pycache__` are no import), or when it already has one of the links.
+A module of skills alone owes none. Findings come by module, the gate package first, then the shared
+files by name.
+
 Modes:  no arguments   check every module under modules/;
         --self-test    prove the check on a throwaway tree: red for a missing link, a copy, a dangling
                        link, a link leading elsewhere, an absolute one, a text file left by a
-                       checkout without symlink support; green for the right link.
+                       checkout without symlink support, and a shared test file no module links,
+                       in one module and in two; green for the right link, a `.`, `_`, README or
+                       folder in shared/tests/ no one owes, and the imports read over their cases;
+                       BROKEN for a missing gate package or a missing floor file.
 Exit:   0 green; 2 a link is wrong; 1 the check could not run.
 """
 
@@ -186,7 +200,9 @@ def listed_in_reverse() -> Iterator[None]:
 
 
 def self_test() -> int:
-    """Red→green on a throwaway kit: each wrong state must be red, the right link green."""
+    """Red→green on a throwaway kit: each wrong state must be red, the right link green; what a module
+    owes follows the folders (a new shared test file is owed at once, a name that starts `.` or `_` or is
+    no `.py` file is not), and the shared code missing its floor is BROKEN."""
     owed = 1 + len(FLOOR)  # the links a module owes on a fresh tree
 
     def root_of(link: Path) -> Path:

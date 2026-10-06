@@ -1,14 +1,18 @@
-"""Kit tooling, never shipped in a module: where a kit check reads a section of a module document.
+"""Kit tooling, never shipped in a module: how a kit check reads a section of a module document, and
+the scans and the table form of its enforcement section.
 
 A module document (template `MODULE.md`) puts the anchor `<a id="tN"></a>` alone on the line above
 the heading of its section N. `section` reads one section by that anchor, so that a heading's number,
 its wording or its place never decides what is read, and it fails loud where a read would otherwise
-go quietly wrong: an anchor gone, an anchor twice, or an anchor with text on its line.
+go quietly wrong: an anchor gone or an anchor twice, `DocumentError` with the fix.
 
 Only a line whose stripped form is exactly the anchor counts; the same anchor written inside other
-text, as in prose that shows it, is plain text and no anchor. The section ends at the next such
-anchor, whatever its number, or at the end of the file. There is no runner of its own: each check
-that reads through it proves it in its own `--self-test`.
+text, as in prose that shows it or on the heading's own line, is plain text and no anchor, so a
+document that has it nowhere else lacks the anchor. The section ends at the next such anchor,
+whatever its number, or at the end of the file. `enforcement` reads the section of anchor `t9` for
+the scans it declares and the problems with its form, which check-gate-lists reports; check-bare-install
+uses the scans alone. There is no runner of its own: each check that reads through it proves it in its
+own `--self-test`.
 """
 
 from __future__ import annotations
@@ -83,7 +87,8 @@ def cells(line: str) -> list[str]:
 def enforcement(text: str, path: str) -> tuple[list[str], list[Problem]]:
     """The scans a module document declares, sorted, and what is wrong with its enforcement section
     (anchor `t9`): a table line is a line whose stripped form starts with `|`, the separator and the
-    header line above it skipped; a row opens with `E<n>` or `**E<n>**`; a code span in a row that holds
+    header line above it skipped; a row opens with `E<n>` or `**E<n>**`, any other first cell is a problem
+    and the row's spans are read all the same; a code span in a row that holds
     `--scan` reads `<entry> --scan`, which declares the scan, or `<entry> --scan --<flag> …` in a row
     whose artifact cell, the cell that holds the span, also holds the words `not a tree scan` outside
     any code span, which declares none; any other such span is a problem; outside the table, a span in

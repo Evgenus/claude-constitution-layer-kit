@@ -25,7 +25,10 @@ For the module named, in throwaway folders that the check removes:
      exec form on a sample event of its kind with CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on
      the bare repository, and its JSON on standard output neither blocks, denies, asks nor stops;
      every scan the source declares in its enforcement section (template §9), run from the copy,
-     exits 0 there.
+     exits 0 there. The scans are read by `kit_module_doc.enforcement`, whatever a row's indent
+     or bold; an explain mode that carries the words `not a tree scan` is none. The problems with
+     the form of the table are check-gate-lists', reported once and not here; a document without
+     its `t9` anchor, or with it twice, is a configuration failure, never a scan left unrun.
 A red is a finding against the module, and so is an install Claude Code refuses; a missing
 `claude` or `git`, or a marketplace the CLI cannot add, is a configuration failure. The run holds
 the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
@@ -34,6 +37,8 @@ Needs no Claude account login: plugin install reads none; git needs a private re
 Modes:  --module <name> [--from <source>]  check one module of the kit;
         --self-test      prove step 3 on throwaway source and copy folders, no install: each branch
                          of the link, hooks-file, hook and scan checks red once, a green copy green,
+                         a source document that cannot be read (none, no `t9`, `t9` on a heading or
+                         twice, `t10` twice) a BROKEN line, the scans read from rows of each form,
                          and the report of one finding as literal lines with exit 2; and step 2's
                          reading of the install record, and of a module's source at a commit from
                          the kit's history (const-meta-types at HEAD, its links reaching shared/).
@@ -452,7 +457,8 @@ def self_test() -> int:
     of the link check — a link inside the module, left a link, missing, with files lost, added or
     changed, a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
     the hooks-file, hook and scan checks, and a red scan the source declares where the copy lost its
-    document, are each a finding; the report of one finding is its literal text, exit 2."""
+    document, are each a finding; a source document that cannot be read is a teaching BROKEN line, and
+    the scans are read from rows of each form; the report of one finding is its literal text, exit 2."""
     module_text = (
         '<a id="t9"></a>\n| E1 | `check-x --scan`: all | `gate` |\n| E2 | `check-p.py --scan` | `gate` |\n'
         '<a id="t10"></a>\n'
