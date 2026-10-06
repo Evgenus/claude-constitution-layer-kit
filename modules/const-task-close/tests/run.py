@@ -686,12 +686,12 @@ def unknown_ref() -> tuple[bool, str]:
 
 
 def logging_git(
-    real: str, old: bool = False, version_fails: str | None = None
+    real: str, old: bool = False, version_fails: str | None = None, version_says: str | None = None
 ) -> tuple[dict[str, str], Path]:
     """A git first on PATH that logs each call's arguments, as it hands them on, to the returned file
     and execs the real one by its path. As an old git, it gives every `%(trailers:` the scan asks an
     option no git knows, as a git of before the options does not know its own; with `version_fails`,
-    `git version` fails with that line."""
+    `git version` fails with that line, and with `version_says` it prints that line and succeeds."""
     folder = H.scratch_dir()
     log = folder / "git.log"
     script = folder / "git"
@@ -705,6 +705,8 @@ def logging_git(
         if version_fails is not None
         else ""
     )
+    if version_says is not None:
+        failing += f"if [ \"$1\" = version ]; then printf '%s\\n' {shlex.quote(version_says)}; exit 0; fi\n"
     script.write_text(
         "#!/bin/sh\n"
         f"{failing}"
@@ -889,7 +891,8 @@ def signed_note() -> tuple[bool, str]:
 def old_git_is_a_failure_of_git() -> tuple[bool, str]:
     """A git that prints the trailer placeholder as text, as one that does not know the options does,
     makes the scan a configuration failure naming git's version line — never a red for a declaration
-    nobody wrote; when `git version` itself fails, the failure says so in the version's place. A
+    nobody wrote; when `git version` itself fails, the failure says so in the version's place; its
+    line, said or failed, is cut at 80 characters and its backslashes escaped like any echoed value. A
     declaration that merely quotes the placeholder is read as ever."""
     real = shutil.which("git")
     if real is None:
@@ -916,6 +919,28 @@ def old_git_is_a_failure_of_git() -> tuple[bool, str]:
     )
     if not silent[0]:
         return silent
+    # a version line of over 80 characters holding backslashes reaches the failure cut and escaped,
+    # said or failed alike: the cut at 80 characters with the count, each backslash doubled
+    said = r"git version 1.8.3.1 built at C:\tools\git on a host with a rather long name,"
+    said += " 2014-01-01 (the 1.8 line)"
+    env, _ = logging_git(real, old=True, version_says=said)
+    echoed_said = broken(
+        scan(r.root, env=env),
+        rf"BROKEN: {options}: git version 1.8.3.1 built at C:\\tools\\git on a host with a rather long name,"
+        f" 201… [102 characters] — fix: {fix}",
+    )
+    if not echoed_said[0]:
+        return echoed_said
+    lost = r"fatal: cannot exec C:\tools\git\git.exe on a host with a rather long name,"
+    lost += " so the version is unknown"
+    env, _ = logging_git(real, old=True, version_fails=lost)
+    echoed_lost = broken(
+        scan(r.root, env=env),
+        rf"BROKEN: {options}: git version failed: fatal: cannot exec C:\\tools\\git\\git.exe on a host"
+        f" with a rat… [120 characters] — fix: {fix}",
+    )
+    if not echoed_lost[0]:
+        return echoed_lost
     q = repo(with_map())
     branch(q.root)
     reason = "the %(trailers placeholder, quoted"
@@ -928,7 +953,7 @@ def old_git_is_a_failure_of_git() -> tuple[bool, str]:
             False,
             f"a declaration quoting the placeholder: exit {quoted.code}: {quoted.stdout}{quoted.stderr}",
         )
-    return True, "the placeholder as text is a failure naming git; quoted in a declaration it is read"
+    return True, "the placeholder as text is a failure naming git, its line echoed; quoted it is read"
 
 
 def colonless_line_hides_paragraph() -> tuple[bool, str]:
