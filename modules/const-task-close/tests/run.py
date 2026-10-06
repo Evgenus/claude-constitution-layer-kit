@@ -1696,6 +1696,82 @@ def fake_git(real: str, failing: str, said: str | None = None, when: str = "") -
     return {"PATH": f"{script.parent}{os.pathsep}{os.environ['PATH']}"}
 
 
+CLOSING = "until then neither the tree at turn end nor a change's documents are checked"
+
+
+def closing_is_the_gates_own() -> tuple[bool, str]:
+    """Every install-failure line closes with this gate's own clause, never the write gates' "until then
+    Markdown writes pass unchecked": C1 (no python3, the POSIX entry), C2 (PyYAML missing, in the scan
+    and in the hook), C14 (an interpreter below the floor, run by a version it is told it has) and C15
+    (a copy without the shared code), each line typed whole; and the entry files' source holds the clause
+    exactly three times, once per entry text (C1, C14, C15), and "Markdown writes" nowhere."""
+    r = repo(with_map())
+    problems: list[str] = []
+
+    def line_of(label: str, result: Result, whole: str | None = None, ends: str = CLOSING) -> None:
+        first = result.stderr.splitlines()[0] if result.stderr else ""
+        right = first == whole if whole is not None else first.endswith(" — " + ends)
+        if result.code != 1 or not right or "Markdown writes" in result.stdout + result.stderr:
+            problems.append(f"{label}: exit {result.code}: {result.stderr.strip()[:400]}")
+
+    tools = H.scratch_dir()  # a PATH holding only sh, dirname and git: no python3
+    for tool in ("sh", "dirname", "git"):
+        found = shutil.which(tool)
+        assert found, tool
+        os.symlink(found, tools / tool)
+    line_of(
+        "C1",
+        H.run_gate(stop_json(r.root), env={"PATH": str(tools)}),
+        "BROKEN: const-task-close needs python3 — fix: install Python 3.12 or newer"
+        f" (https://www.python.org/downloads/) — {CLOSING}",
+    )
+    shadow = H.scratch_dir()  # PyYAML hidden: the shared C2, its closing clause the identity's
+    (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
+    for label, result in (
+        ("C2 scan", scan(r.root, env={"PYTHONPATH": str(shadow)})),
+        ("C2 hook", hook(r.root, env={"PYTHONPATH": str(shadow)})),
+    ):
+        first = result.stderr.splitlines()[0] if result.stderr else ""
+        if not first.startswith(
+            "BROKEN: const-task-close needs PyYAML — fix: run: python3 -m pip install -r '"
+        ):
+            problems.append(f"{label}: not the library's C2: {first[:200]}")
+        line_of(label, result)
+    entry = SCRIPTS / "check-task-close.py"  # the entry file run as an interpreter of 3.11 would run it
+    lowered = (
+        "import sys; sys.version_info = (3, 11, 0); path = sys.argv[1]; "
+        "exec(compile(open(path).read(), path, 'exec'), {'__name__': '__main__', '__file__': path})"
+    )
+    line_of(
+        "C14",
+        H.run_gate("", command=[sys.executable, "-c", lowered, str(entry)]),
+        "BROKEN: const-task-close needs Python 3.12 or newer, found 3.11 — fix: install a current Python 3"
+        f" (https://www.python.org/downloads/) and put it first on PATH — {CLOSING}",
+    )
+    plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
+    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True)
+    (plugin / "scripts" / "const_gate").unlink()
+    line_of(
+        "C15",
+        H.run_gate(stop_json(r.root), command=[H.sh, str(plugin / "scripts" / "check-task-close.sh")]),
+        "BROKEN: const-task-close is installed without its shared code (scripts/const_gate is missing or is"
+        " not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout"
+        " of the repository it comes from; a copy of the plugin's folder must be made with links followed"
+        f" (cp -RL) — {CLOSING}",
+    )
+    sources = "".join(
+        (SCRIPTS / name).read_text(encoding="utf-8")
+        for name in ("check-task-close.sh", "check-task-close.py")
+    )
+    if sources.count(CLOSING) != 3 or "Markdown writes" in sources:
+        problems.append(
+            f"entry files: the clause {sources.count(CLOSING)} times, wanted 3; or Markdown writes"
+        )
+    return not problems, "; ".join(
+        problems
+    ) or "C1, C2 (scan and hook), C14 and C15 close with the gate's own clause"
+
+
 def unreadable_tree() -> tuple[bool, str]:
     """git failing on the working tree is a configuration failure in both modes, never a clean tree:
     the hook's git status, the scan's git ls-files."""
@@ -1897,6 +1973,12 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         39,
         "git failing on the working tree is a configuration failure, in the hook and in the scan",
         unreadable_tree,
+    ),
+    (
+        40,
+        "the install-failure lines, C1, C2, C14 and C15, close with this gate's own clause, never the write"
+        " gates'; the entry files hold it three times",
+        closing_is_the_gates_own,
     ),
 ]
 

@@ -14,6 +14,8 @@ GATE = Identity(
     namespace="const-task-close",
     gate="check-task-close",
     plugin_root=Path(__file__).resolve().parents[2],
+    # what a failure to install leaves unchecked: the turn-end tree and a change's documents, not a write
+    until_installed="until then neither the tree at turn end nor a change's documents are checked",
 )
 
 ARGUMENTS = (

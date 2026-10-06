@@ -52,7 +52,7 @@ FLOOR = (3, 12)
 TOO_OLD = (
     "BROKEN: const-task-close needs Python %d.%d or newer, found %d.%d — fix: install a"
     " current Python 3 (https://www.python.org/downloads/) and put it first on PATH"
-    " — until then Markdown writes pass unchecked\n"
+    " — until then neither the tree at turn end nor a change's documents are checked\n"
     "BROKEN: the check could not run — 0 documents examined\n"
 )
 
@@ -66,7 +66,8 @@ NO_SHARED_CODE = (
     "BROKEN: const-task-close is installed without its shared code (scripts/const_gate is missing"
     " or is not a directory) — fix: install the plugin from its marketplace, or load it from a"
     " full checkout of the repository it comes from; a copy of the plugin's folder must be made"
-    " with links followed (cp -RL) — until then Markdown writes pass unchecked\n"
+    " with links followed (cp -RL)"
+    " — until then neither the tree at turn end nor a change's documents are checked\n"
     "BROKEN: the check could not run — 0 documents examined\n"
 )
 
