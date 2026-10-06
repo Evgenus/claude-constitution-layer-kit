@@ -13,7 +13,10 @@ outside a code span. Each of these is a finding of the form, with the line, why 
 first cell is anything else; a span in a row that holds `--scan` in any other form; a flag after
 `--scan` in a cell without the words; a span in the declared form in the section's prose, outside
 the table (any other span there is not read). A row whose first cell is off has its spans read all
-the same. For each declared scan:
+the same, and every row's last cell is read whether or not the row closes with a bar. A module
+document whose enforcement section has no end, `t10`, while a later anchor stands, is no document
+the check can read (BROKEN), since the section would run on into the acceptance table. For each
+declared scan:
   - the gate list, the entries `sh scripts/gate-list.sh --names gate` prints, has one whose
     commands (`--show <entry>`) run `modules/<module>/scripts/<entry>.sh --scan` or `….py --scan`;
   - one such entry stands in the module's own job, the entries `--names <module>` prints for a job
@@ -58,7 +61,8 @@ Modes:  no arguments   check the kit;
                        checks' included, as literal lines with exit 2, and of a green kit as its
                        literal line; a list that cannot be read, jobs that are no JSON list, a
                        module document without its enforcement anchor, with it on a heading or
-                       twice, a module folder without its document, a tree that is no repository
+                       twice, without its end anchor with a later one standing, or with `t11` before
+                       it, a module folder without its document, a tree that is no repository
                        and a git that cannot be run, each a BROKEN line; a `.py` scan held by its
                        python3 line and taught by it.
 Exit:   0 green; 2 a finding; 1 the check could not run.
@@ -110,7 +114,7 @@ FORM_WHAT = {  # what a problem of the enforcement section says; its text is the
     Fault.SPAN: "its enforcement table names `--scan` in a form the check cannot read: {}",
     Fault.UNMARKED: (
         "its enforcement table has a flag after `--scan` in {}, and the words `not a tree scan` are not in"
-        " the artifact cell of its row"
+        " the cell that holds the span, outside a code span"
     ),
     Fault.PROSE: "{} declares a scan outside the enforcement table",
 }
@@ -448,7 +452,7 @@ def form_probes() -> bool:
         "a word after the flag is a problem": ([row("`x --scan all`")], [], [(2, Fault.SPAN)]),
         "a space after the flag is a problem": ([row("`x --scan `")], [], [(2, Fault.SPAN)]),
         "a capital in the entry is a problem": ([row("`X --scan`")], [], [(2, Fault.SPAN)]),
-        "a span in the kind cell is read as one in the artifact cell": (
+        "a span in the kind cell is read like one in any other cell": (
             [row("`x`", kind="`sh x.sh --scan`")],
             [],
             [(2, Fault.SPAN)],
@@ -554,6 +558,59 @@ def form_probes() -> bool:
             ["x"],
             [(2, Fault.UNMARKED)],
         ),
+        "no closing bar, the span in the last cell is read": (
+            ["| E2 | `gate` | `x --scan`"],
+            ["x"],
+            [],
+        ),
+        "no closing bar, the span in the second and last cell is read": (["| E2 | `x --scan`"], ["x"], []),
+        "no closing bar, a flag after `--scan` without the mark is a problem": (
+            ["| E2 | `gate` | `x --scan --command <t>`"],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "no closing bar, a flag after `--scan` with the mark is no scan and no problem": (
+            ["| E2 | `gate` | `x --scan --command <t>`: not a tree scan"],
+            [],
+            [],
+        ),
+        "no closing bar, a span of another form in the last cell is a problem": (
+            ["| E2 | `gate` | `sh x.sh --scan`"],
+            [],
+            [(2, Fault.SPAN)],
+        ),
+        "a row that closes with a bar reads its last cell as before": (
+            ["| E2 | `gate` | `x --scan` |", "| E3 | `gate` | `y --scan` |  "],
+            ["x", "y"],
+            [],
+        ),
+        "a one-cell line with no closing bar is a row, `E2` its first cell": (["| E2"], [], []),
+        "a one-cell line with no closing bar, `G2`, is a first-cell problem": (
+            ["| G2"],
+            [],
+            [(2, Fault.FIRST_CELL)],
+        ),
+        "a line of one bar has no cell, so no first cell": (["|"], [], [(2, Fault.FIRST_CELL)]),
+        "a flag with a hyphen and a digit, with the mark, is no scan and no problem": (
+            [row("`x --scan --since-2 <d>`: not a tree scan")],
+            [],
+            [],
+        ),
+        "a flag with a hyphen inside, with the mark, is no scan and no problem": (
+            [row("`x --scan --a-b`: not a tree scan")],
+            [],
+            [],
+        ),
+        "a flag with a hyphen and a digit, without the mark, is an unmarked problem": (
+            [row("`x --scan --since-2 <d>`")],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "a `--scan` span in a first cell that is no `E<n>` is a problem and is read": (
+            ["| `x --scan` | `gate` |"],
+            ["x"],
+            [(2, Fault.FIRST_CELL)],
+        ),
         "a header and its separator are skipped": (
             ["| # | artifact | kind |", "|---|---|---|", row("`x --scan`")],
             ["x"],
@@ -620,7 +677,9 @@ def self_test() -> int:
         '<a id="t9"></a>\n## 9\n\n| # | artifact | kind |\n|---|---|---|\n'
         "| E1 | hook + `check-x` (hook mode) | `gate` |\n| E2 | `check-x --scan`: all | `gate` |\n"
         "| E3 | `check-x --scan --since <date>`: the report, not a tree scan | `advisory` |\n\n"
-        "A sibling's `check-y` is not this module's.\n\n<a id=\"t10\"></a>\n"
+        "A sibling's `check-y` is not this module's.\n\n<a id=\"t10\"></a>\n## 10\n\n"
+        "| item | kind | rows | what it proves |\n|---|---|---|---|\n| T1 | fixture | none | x |\n\n"
+        '<a id="t11"></a>\n## 11\n\n<a id="t12"></a>\n## 12\n'
     )
     quiet_text = (
         '<a id="t9"></a>\n| E1 | `explain --scan --command <text>`: not a tree scan | `gate` |\n'
@@ -852,6 +911,22 @@ def self_test() -> int:
             Case({"x": scan, "new": f"cd x && {run_new}"}, scripts=tracked),
             [],
         ),
+        "a name that follows a dot (.python3) is no run of the kit check": (
+            Case({"x": scan, "new": f".{run_new}"}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a name that continues with a hyphen (check-new.py-x) is no run of the kit check": (
+            Case({"x": scan, "new": f"{run_new}-x"}, scripts=tracked),
+            [Where.CHECK],
+        ),
+        "a check named with a metacharacter (check-a+b.py) is run by its own line": (
+            Case({"x": scan, "new": "python3 scripts/check-a+b.py"}, scripts={"scripts/check-a+b.py": True}),
+            [],
+        ),
+        "a check named with a metacharacter (check-a+b.py) is no run by the line of check-aab.py": (
+            Case({"x": scan, "new": "python3 scripts/check-aab.py"}, scripts={"scripts/check-a+b.py": True}),
+            [Where.CHECK],
+        ),
     }
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
@@ -915,6 +990,9 @@ def self_test() -> int:
         '<a id="r2"></a>\n| E2 | `check-y --scan` |\n'
     )
     ok = ok and scans_of(other_id) == ["check-x", "check-y"]
+    # no anchor above the section's: it reads to the end, whether t12 is gone or t11 and t12 both
+    ok = ok and scans_of(module_text.replace('<a id="t12"></a>\n', "")) == ["check-x"]
+    ok = ok and scans_of(module_text[: module_text.index('<a id="t11"></a>')]) == ["check-x"]
     try:  # nor does it count as doubled: two of one id are no error
         ok = ok and scans_of(other_id.replace('<a id="r2"></a>', '<a id="x"></a>')) == [
             "check-x",
@@ -925,8 +1003,9 @@ def self_test() -> int:
     failed += 0 if ok else 1
     print(
         f"[{'ok' if ok else 'FAIL'}] the enforcement section reads to the end of the file when it is the"
-        " last, is empty when the end anchor follows at once, an anchor inside prose is plain text, and an"
-        " anchor of another id alone on its line neither ends it nor counts as doubled"
+        " last, is empty when the end anchor follows at once, an anchor inside prose is plain text, an"
+        " anchor of another id alone on its line neither ends it nor counts as doubled, and it is read when"
+        " no anchor stands above it, t11 and t12, or t12, gone"
     )
     ok = form_probes()
     failed += 0 if ok else 1
@@ -951,7 +1030,8 @@ def self_test() -> int:
         form_why,
         form_fix,
         "RED: modules/const-x/MODULE.md:4: its enforcement table has a flag after `--scan` in"
-        " `x --scan --since <date>`, and the words `not a tree scan` are not in the artifact cell of its row",
+        " `x --scan --since <date>`, and the words `not a tree scan` are not in the cell that holds the span,"
+        " outside a code span",
         form_why,
         form_fix,
         "RED: modules/const-x/MODULE.md:5: a row of its enforcement table opens with nothing, not E<n>",
@@ -1048,6 +1128,16 @@ def self_test() -> int:
             "T10-TWICE",
             'modules/const-x/MODULE.md holds the anchor <a id="t10"></a> twice, lines 7 and 13',
         ),
+        (
+            "a module document without its end anchor, t11 and t12 standing",
+            "NO-T10",
+            'modules/const-x/MODULE.md has no anchor <a id="t10"></a> after <a id="t9"></a>',
+        ),
+        (
+            "a module document whose t11 anchor stands before t10",
+            "T11-BEFORE-T10",
+            'modules/const-x/MODULE.md has no anchor <a id="t10"></a> after <a id="t9"></a>',
+        ),
         ("a module folder without its document", "NO-DOC", "modules/empty has no MODULE.md"),
         ("a tree that is no git repository", "NO-REPO", "git ls-files scripts exited"),
         (  # the folder around the tree is a repository: its index is never read for the kit's
@@ -1075,11 +1165,15 @@ def self_test() -> int:
                 )
             if change == "NO-T9":
                 (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
-            if change in ("T9-ON-HEADING", "T9-TWICE", "T10-TWICE"):
+            if change in ("T9-ON-HEADING", "T9-TWICE", "T10-TWICE", "NO-T10", "T11-BEFORE-T10"):
                 broken_text = {
                     "T9-ON-HEADING": module_text.replace('<a id="t9"></a>\n## 9', '## 9 <a id="t9"></a>'),
                     "T9-TWICE": module_text.replace("## 9\n", '## 9\n<a id="t9"></a>\n', 1),
                     "T10-TWICE": module_text.replace("| E2 |", '<a id="t10"></a>\n| E2 |', 1),
+                    "NO-T10": module_text.replace('<a id="t10"></a>\n', ""),
+                    "T11-BEFORE-T10": module_text.replace('<a id="t10"></a>\n', "@@")
+                    .replace('<a id="t11"></a>\n', '<a id="t10"></a>\n')
+                    .replace("@@", '<a id="t11"></a>\n'),
                 }[change]
                 (root / "modules/const-x/MODULE.md").write_text(broken_text, encoding="utf-8")
             if change == "NO-DOC":
@@ -1096,7 +1190,7 @@ def self_test() -> int:
                 os.environ["PATH"] = path
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 21
+    total = len(cases) + 23
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

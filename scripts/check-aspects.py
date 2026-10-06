@@ -34,9 +34,12 @@ check could not run (BROKEN, exit 1), with the fix, on
     run reads it, `--run --module` too);
   - a module folder with no MODULE.md (a folder whose name opens with a dot or an underscore is no
     module and is skipped), and a module document whose rows section (anchor `t3`) or acceptance
-    section (anchor `t10`) is missing or stands twice, each read by `kit_module_doc.section`.
+    section (anchor `t10`) is missing or stands twice, or whose next section's anchor is missing
+    once any later one stands (`t4` after `t3`, `t11` after `t10`), each read by
+    `kit_module_doc.section`.
 A table line of those two sections is read whatever its indent: a line whose stripped form starts
-with `|`.
+with `|`. The last cell of any table line it reads, the matrix's rows too, is read whether or not
+the line closes with a bar (`kit_module_doc.cells`).
 
 The report, `--run`, also runs each module's `tests/run.py` and reads its item lines, which
 the shared harness prints as `[ok]` or `[FAIL]`, the number, the kind in round brackets and the
@@ -95,7 +98,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from kit_module_doc import DocumentError, section
+from kit_module_doc import DocumentError, cells, section
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -106,7 +109,6 @@ ASPECT = re.compile(r'^\| <a id="(a\d+)"></a>\*\*(A\d+ — [^*]+)\*\*')
 ROW = re.compile(r'^\| <a id="(a\d+-\d+)"></a>(A\d+\.\d+) \|')
 ASPECT_ANCHOR = re.compile(r'<a id="(a\d+)"></a>')
 ROW_ANCHOR = re.compile(r'<a id="(a\d+-\d+)"></a>')
-CELL_SPLIT = re.compile(r"(?<!\\)\|")
 ROW_LINK = re.compile(r"\[([^\[\]]*)\]\(([^()\s]*)\)")
 LINK_TEXT = re.compile(r"\[([^\[\]]*)\]\([^()]*\)")
 HANDLE = r"[A-Z]?\d+[a-z]?"
@@ -216,11 +218,6 @@ def read(root: Path, path: str) -> str:
 
 def plain(cell: str) -> str:
     return LINK_TEXT.sub(r"\1", cell).replace("**", "").strip()
-
-
-def cells(line: str) -> list[str]:
-    parts = CELL_SPLIT.split(line.strip())
-    return [p.strip() for p in parts[1:-1]]
 
 
 def off_form(number: int, line: str) -> Broken | None:
@@ -775,7 +772,7 @@ def module_text(acceptance: str, rows: str = f"| {LINK_1} | r |\n| {LINK_3} | r 
         + rows
         + '\n<a id="t4"></a>\n## 4\n\n<a id="t10"></a>\n## 10. Acceptance\n\n'
         + acceptance
-        + '\n<a id="t11"></a>\n## 11\n'
+        + '\n<a id="t11"></a>\n## 11\n\n<a id="t12"></a>\n## 12\n'
     )
 
 
@@ -925,6 +922,8 @@ def self_test() -> int:
         "kernel": False,
         "kernel §": False,
         "kernel §n": False,
+        "kernel§2": False,  # a space is part of the class, `kernel §`
+        "M 1 hook": False,  # so is the number's place: `M` directly before its digits
         "kernel §2x": False,  # the class ends at a word boundary: a digit run that goes on in letters is none
         "Mx": False,
         "M": False,
@@ -980,6 +979,34 @@ def self_test() -> int:
         f"[{'ok' if ok else 'FAIL'}] an indented row of the rows section and an indented acceptance item,"
         " each also with no space after the bar, are read, never dropped"
     )
+    with tempfile.TemporaryDirectory() as tmp:  # the last cell is read when the line has no closing bar
+        root = Path(tmp).resolve()
+        unclosed_rows = f"| {LINK_1} | r\n| {LINK_3}\n"  # the second row is one cell, `| link`
+        build(root, GOOD_TABLE + f"| T7 | fixture | {LINK_1} | x\n", rows=unclosed_rows)
+        _, modules, findings = check_structure(root)
+    ok = not findings and len(modules[0].items) == 6 and sorted(modules[0].held.values()) == [6, 7]
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] a row of the rows section and an acceptance item with no closing bar"
+        " are read to their last cell, never dropped or short of one"
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # no anchor stands above the last one: it reads to the end
+        root = Path(tmp).resolve()
+        build(root, GOOD_TABLE)
+        module_file = root / "modules" / "const-sample" / "MODULE.md"
+        text_now = module_file.read_text(encoding="utf-8").replace('<a id="t12"></a>\n', "")
+        module_file.write_text(text_now, encoding="utf-8")
+        findings = check_structure(root)[2]
+        module_file.write_text(
+            text_now[: text_now.index('<a id="t11"></a>')], encoding="utf-8"
+        )  # t11, t12 gone
+        findings += check_structure(root)[2]
+    ok = not findings
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] a document without its t12 anchor, or without t11 and t12, is read:"
+        " the acceptance section reads to the end when no anchor stands above it"
+    )
     path = "modules/const-sample/MODULE.md"
     text = module_text(GOOD_TABLE)
     unreadable = {  # case: the document, its text, what the BROKEN line says
@@ -992,6 +1019,23 @@ def self_test() -> int:
             path,
             text.replace('<a id="t10"></a>\n', ""),
             f'{path} has no anchor <a id="t10"></a>',
+        ),
+        "no t4 anchor, t10 standing after it": (
+            path,
+            text.replace('<a id="t4"></a>\n', ""),
+            f'{path} has no anchor <a id="t4"></a> after <a id="t3"></a>',
+        ),
+        "no t11 anchor, t12 standing after it": (
+            path,
+            text.replace('<a id="t11"></a>\n', ""),
+            f'{path} has no anchor <a id="t11"></a> after <a id="t10"></a>',
+        ),
+        "the t11 anchor before the t10 anchor": (
+            path,
+            text.replace('<a id="t10"></a>\n', "@@")
+            .replace('<a id="t11"></a>\n', '<a id="t10"></a>\n')
+            .replace("@@", '<a id="t11"></a>\n'),
+            f'{path} has no anchor <a id="t11"></a> after <a id="t10"></a>',
         ),
         "text on the line of the t10 anchor": (
             path,
@@ -1135,6 +1179,12 @@ def self_test() -> int:
         preamble_as(PREAMBLE.replace("**binding**", "binding")),
         names_found % "'Mx', 'kernel §n', 'template'",
     )
+    fix_forms = {  # the fix of an off-form line names the form of its own kind, never the other's
+        "A1.1's line with a space after the anchor": 'write it as `| <a id="aN-M"></a>AN.M | …`',
+        "A1.2's line with a tab indent": 'write it as `| <a id="aN-M"></a>AN.M | …`',
+        "the aspect line with a space after the anchor": 'write it as `| <a id="aN"></a>**AN — Title**`',
+        "the aspect line with an indent": 'write it as `| <a id="aN"></a>**AN — Title**`',
+    }
     for name, (document, broken_text, said) in unreadable.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1154,6 +1204,7 @@ def self_test() -> int:
                     got.append("no BROKEN" if only is None else "no BROKEN under --module")
                 except Broken as bad:
                     ok = ok and str(bad).startswith(said) and "— fix:" in str(bad)
+                    ok = ok and (name not in fix_forms or f"— fix: {fix_forms[name]}" in str(bad))
                     got.append(str(bad))
         failed += 0 if ok else 1
         print(
@@ -1465,7 +1516,7 @@ def self_test() -> int:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
     total = (
         len(red)
-        + 3  # the row no module holds, the indented rows, the carrier row
+        + 5  # the row no module holds, the indented rows, the carrier row, the unclosed rows, t12 gone
         + len(destinations)
         + len(reports)
         + len(read_as_before)

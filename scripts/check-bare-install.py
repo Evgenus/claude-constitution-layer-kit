@@ -26,9 +26,11 @@ For the module named, in throwaway folders that the check removes:
      the bare repository, and its JSON on standard output neither blocks, denies, asks nor stops;
      every scan the source declares in its enforcement section (template §9), run from the copy,
      exits 0 there. The scans are read by `kit_module_doc.enforcement`, whatever a row's indent
-     or bold; an explain mode that carries the words `not a tree scan` is none. The problems with
-     the form of the table are check-gate-lists', reported once and not here; a document without
-     its `t9` anchor, or with it twice, is a configuration failure, never a scan left unrun.
+     or bold, the last cell of a row whether or not the row closes with a bar; an explain mode that
+     carries the words `not a tree scan` is none. The problems with the form of the table are
+     check-gate-lists', reported once and not here; a document without its `t9` anchor, or with it
+     twice, or without `t10` while a later anchor stands, is a configuration failure, never a scan
+     left unrun.
 A red is a finding against the module, and so is an install Claude Code refuses; a missing
 `claude` or `git`, or a marketplace the CLI cannot add, is a configuration failure. The run holds
 the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
@@ -38,7 +40,8 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
         --self-test      prove step 3 on throwaway source and copy folders, no install: each branch
                          of the link, hooks-file, hook and scan checks red once, a green copy green,
                          a source document that cannot be read (none, no `t9`, `t9` on a heading or
-                         twice, `t10` twice) a BROKEN line, the scans read from rows of each form,
+                         twice, `t10` twice or gone with `t11` standing) a BROKEN line, the scans
+                         read from rows of each form, a last cell with no closing bar included,
                          and the report of one finding as literal lines with exit 2; and step 2's
                          reading of the install record, and of a module's source at a commit from
                          the kit's history (const-meta-types at HEAD, its links reaching shared/).
@@ -479,6 +482,7 @@ def self_test() -> int:
             "t9-on-heading": module_text.replace('<a id="t9"></a>\n', '## 9 <a id="t9"></a>\n'),
             "t9-twice": module_text.replace('<a id="t9"></a>\n', '<a id="t9"></a>\n<a id="t9"></a>\n'),
             "t10-twice": module_text.replace("| E2", '<a id="t10"></a>\n| E2'),
+            "t10-missing": module_text.replace('<a id="t10"></a>\n', '<a id="t11"></a>\n'),
             "indented-scan-red": module_text.replace("| E1 |", "   | E1 |"),
             "explain-marked": module_text.replace(
                 '<a id="t10"></a>',
@@ -632,6 +636,10 @@ def self_test() -> int:
             "t9-twice",
             'holds the anchor <a id="t9"></a> twice, lines 1 and 2 — fix: keep the one before',
         ),
+        "a source whose t10 anchor is gone while t11 stands": (
+            "t10-missing",
+            'has no anchor <a id="t10"></a> after <a id="t9"></a> — fix: restore it',
+        ),
         "a source with a second t10 anchor above an E-row": (
             "t10-twice",
             'holds the anchor <a id="t10"></a> twice, lines 3 and 5 — fix: keep the one before',
@@ -655,6 +663,9 @@ def self_test() -> int:
             "| G1 | `check-x --scan` | `gate` |\n": ["check-x"],
             "| E1 | `check-x --scan --command <t>`: the explain, not a tree scan | `gate` |\n": [],
             "| E1 | `check-x --scan --command <t>` | `gate` |\n": [],
+            "| E1 | `gate` | `check-x --scan`\n": ["check-x"],  # no closing bar: the last cell is read
+            "| E1 | `check-x.py --scan`\n": ["check-x.py"],
+            "| E1 | `gate` | `check-x --scan --command <t>`: not a tree scan\n": [],
             "| E1 | `sh scripts/x.sh --scan` | `gate` |\n": [],
             "Run `check-x --scan` here.\n": [],
         }

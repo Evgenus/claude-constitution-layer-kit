@@ -47,7 +47,8 @@ Modes:  no arguments            check the lists and the receipts;
         --self-test             prove each finding red and the right record green, on throwaway trees:
                                 the catalog's folder and width over their whole sets, a stray file,
                                 a receipt whose record stood in another folder, the scope in each
-                                layout and a decisions section that ends at the next anchor.
+                                layout and a decisions section that ends at the next anchor, with
+                                that anchor gone a failure to run.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -634,8 +635,8 @@ def cited_files(kit: Path, document: Path, text: str) -> set[str]:
 
 def compute_scope(kit: Path, base: str, module: str | None) -> tuple[dict[str, str], dict[str, list[str]]]:
     """The records a closing audit reads in full, each with the reason, and those it reads for regression;
-    a module's decisions section is the one under its anchor `t4`, and a document without it, or with
-    it twice, is a failure to run."""
+    a module's decisions section is the one under its anchor `t4`, and a document without it, with it
+    twice, or without its end anchor `t5` while a later one stands, is a failure to run."""
     catalog = load_catalog(kit)
     if git(kit, "rev-parse", "--verify", "-q", f"{base}^{{commit}}").returncode != 0:
         raise CouldNotRun(f"{base} names no commit — fix: pass the commit the change started from")
@@ -1161,6 +1162,10 @@ def self_test() -> int:
             f'<a id="t3"></a>\n## 3. Rows\n\n<a id="t3"></a>\n\n<a id="t4"></a>\n## 4. Decisions\n\n{cites}',
             "holds the anchor",
         ),
+        "whose decisions section's end anchor is gone, a later one standing": (
+            f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t6"></a>\n## 6\n',
+            'has no anchor <a id="t5"></a> after <a id="t4"></a>',
+        ),
         "whose acceptance anchor stands twice, below the decisions": (
             f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t9"></a>\n\n<a id="t9"></a>\n',
             "holds the anchor",
@@ -1262,6 +1267,10 @@ def self_test() -> int:
         '["docs/**/decisions/**"]',
         '["**"]',
         '["docs/../x/**"]',
+        '["docs//decisions/**"]',
+        '["./docs/decisions/**"]',
+        '["docs/decisions//**"]',
+        "[3]",
         '["docs/decisions/"]',
         '["#docs/**"]',
         "[]",
@@ -1280,6 +1289,20 @@ def self_test() -> int:
         ok = bool(said) and all(fragment in said for fragment in fragments) and "— fix:" in said
         judge(ok, f"{name} cannot be checked, never a silent green")
 
+    with tempfile.TemporaryDirectory() as tmp:  # a dials file that is no UTF-8 text: a teaching line
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root)
+        (root / DIALS).write_bytes(b"const-catalogs:\n  # \xff\xfe\n")
+        try:
+            check_kit(root)
+            said = ""
+        except CouldNotRun as bad:
+            said = str(bad)
+    judge(
+        f"{DIALS} cannot be read" in said and "utf-8" in said and "— fix:" in said,
+        "a dials file that is not UTF-8 text cannot be checked, never a traceback",
+    )
     widths_ok = True
     for width in range(len(str(THRESHOLD)), MAX_WIDTH + 1):
         with tempfile.TemporaryDirectory() as tmp:

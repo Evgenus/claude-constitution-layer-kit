@@ -4,13 +4,17 @@ the scans and the table form of its enforcement section.
 A module document (template `MODULE.md`) puts the anchor `<a id="tN"></a>` alone on the line above
 the heading of its section N. `section` reads one section by that anchor, so that a heading's number,
 its wording or its place never decides what is read, and it fails loud where a read would otherwise
-go quietly wrong: an anchor gone or an anchor twice, `DocumentError` with the fix.
+go quietly wrong: an anchor gone, an anchor twice, or the next section's anchor gone, `DocumentError`
+with the fix.
 
 Only a line whose stripped form is exactly the anchor counts; the same anchor written inside other
 text, as in prose that shows it or on the heading's own line, is plain text and no anchor, so a
-document that has it nowhere else lacks the anchor. The section ends at the next such anchor,
-whatever its number, or at the end of the file. `enforcement` reads the section of anchor `t9` for
-the scans it declares and the problems with its form, which check-gate-lists reports; check-bare-install
+document that has it nowhere else lacks the anchor. The section ends at the next such anchor, or at
+the end of the file. When the document holds any anchor numbered above the section's, the next one
+must be the next number: a section whose end anchor is gone, or out of order, is no section the
+check can read, and never runs on into the one after it. A section whose anchor is the highest of
+the document reads to the end of the file. `enforcement` reads the section of anchor `t9` for the
+scans it declares and the problems with its form, which check-gate-lists reports; check-bare-install
 uses the scans alone. There is no runner of its own: each check that reads through it proves it in its
 own `--self-test`.
 """
@@ -30,7 +34,9 @@ class DocumentError(Exception):
 
 def section(text: str, anchor: str, path: str) -> list[tuple[int, str]]:
     """The lines (1-based number, text) after the line of `anchor` up to, not including, the next
-    section anchor of any number, or to the end of the text; `path` names the document in a message."""
+    section anchor, or to the end of the text; `path` names the document in a message. When the document
+    holds an anchor numbered above this one, the next anchor must be the next number, else
+    `DocumentError`: a section never runs on into the next but one."""
     lines = text.splitlines()
     stands: dict[str, list[int]] = {}
     for number, line in enumerate(lines, start=1):
@@ -48,8 +54,15 @@ def section(text: str, anchor: str, path: str) -> list[tuple[int, str]]:
                 " — fix: keep the one before its section's heading"
             )
     start = stands[anchor][0]
-    later = sorted(number for numbers in stands.values() for number in numbers if number > start)
-    end = later[0] if later else len(lines) + 1
+    later = sorted((number, name) for name, numbers in stands.items() for number in numbers if number > start)
+    mine = int(anchor.removeprefix("t"))
+    after = f"t{mine + 1}"
+    if any(int(name.removeprefix("t")) > mine for name in stands) and (not later or later[0][1] != after):
+        raise DocumentError(
+            f'{path} has no anchor <a id="{after}"></a> after <a id="{anchor}"></a>'
+            " — fix: restore it, alone on its line"
+        )
+    end = later[0][0] if later else len(lines) + 1
     return [(number, lines[number - 1]) for number in range(start + 1, end)]
 
 
@@ -58,7 +71,7 @@ class Fault(StrEnum):
 
     FIRST_CELL = "first cell"  # a table row that opens with anything but `E<n>` or `**E<n>**`
     SPAN = "span"  # a table row's code span that holds `--scan` in a form the check cannot read
-    UNMARKED = "unmarked"  # a flag after `--scan` in a row whose artifact cell lacks the mark
+    UNMARKED = "unmarked"  # a flag after `--scan` in a cell, the one that holds the span, that lacks the mark
     PROSE = "prose"  # a span in the declared form outside the table
 
 
@@ -80,8 +93,12 @@ MARK = re.compile(r"\bnot a tree scan\b")  # the words that make a flag after `-
 
 
 def cells(line: str) -> list[str]:
-    """The cells of a table line, outer bars dropped, each stripped."""
-    return [part.strip() for part in CELL_SPLIT.split(line.strip())[1:-1]]
+    """The cells of a table line, the bar that opens it and the one that closes it dropped, each cell
+    stripped; the last cell is read whether or not the line closes with a bar."""
+    parts = CELL_SPLIT.split(line.strip())[1:]
+    if parts and not parts[-1]:  # the line closed with a bar: nothing follows it
+        parts.pop()
+    return [part.strip() for part in parts]
 
 
 def enforcement(text: str, path: str) -> tuple[list[str], list[Problem]]:
@@ -90,8 +107,8 @@ def enforcement(text: str, path: str) -> tuple[list[str], list[Problem]]:
     header line above it skipped; a row opens with `E<n>` or `**E<n>**`, any other first cell is a problem
     and the row's spans are read all the same; a code span in a row that holds
     `--scan` reads `<entry> --scan`, which declares the scan, or `<entry> --scan --<flag> …` in a row
-    whose artifact cell, the cell that holds the span, also holds the words `not a tree scan` outside
-    any code span, which declares none; any other such span is a problem; a span in the declared form
+    where the cell that holds the span, whatever its column, also holds the words `not a tree scan`
+    outside any code span, which declares none; any other such span is a problem; a span in the declared form
     stays declared when the mark stands beside it, since the mark only licenses the form with a flag;
     outside the table, a span in the declared form is a problem and any other is ignored."""
     body = section(text, "t9", path)

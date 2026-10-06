@@ -363,6 +363,14 @@ def self_test() -> int:
             hookless("lib/f.py", "def f() -> None:\n    from const_gate import cli\n"),
             owed,
         ),
+        "a hookless module with an import line indented by a tab, its links missing": (
+            hookless("lib/g.py", "def g() -> None:\n\tfrom const_gate import cli\n"),
+            owed,
+        ),
+        "a hookless module with `import` and the name apart by a tab, its links missing": (
+            hookless("lib/h.py", "import\tconst_gate\n"),
+            owed,
+        ),
         "a hookless module with `from const_gate.cli import y`, its links missing": (
             hookless("y.py", "from const_gate.cli import y\n"),
             owed,
