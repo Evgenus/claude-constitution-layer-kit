@@ -123,7 +123,7 @@ The inventory of every place a kit check reads a document found three more cases
 
 The session recommended B: both silent greens sit in functions the change already rewrites and cost one test case each, while the module listing is loud and belongs with a single answer to "which folders are modules" in a later change. The decider chose C in chat on 2026-10-06.
 
-**R7.** `scripts/check-aspects.py` reads the rows of a module's rows section and acceptance table whatever their indent, fails to run when the same matrix anchor stands on two lines, skips a folder of `modules/` whose name starts with `.` or `_`, and fails to run on one that holds no module document. Kit tooling at routine stakes.
+**R7.** `scripts/check-aspects.py` reads the rows of a module's rows section and acceptance table whatever their indent, fails to run when two lines of the matrix open with the same row or aspect anchor, skips a folder of `modules/` whose name starts with `.` or `_`, and fails to run on one that holds no module document. Kit tooling at routine stakes.
 
 ## 7. A qualifier before a destination class
 
@@ -141,7 +141,7 @@ The session recommended B: both silent greens sit in functions the change alread
 
 The session recommended A: it is the only option that keeps both checks of the cell loud and in agreement at no code cost, and it writes down what all 69 cells do. The decider chose A in chat on 2026-10-06.
 
-**R8.** A destination class opens its Destination cell, its qualifiers after it; an enforcement class may carry a qualifier before or after it. This narrows rule 7 of plc-0007-requirements for destinations, in the same change.
+**R8.** A Destination cell opens with a destination class, its qualifiers after it, the template still free to stand beside another class as the rest of rule 7 says; an enforcement class may carry a qualifier before or after it. This narrows rule 7 of plc-0007-requirements for destinations, in the same change.
 
 ## Applied
 
