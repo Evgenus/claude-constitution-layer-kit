@@ -94,6 +94,19 @@ ITEM_LIKE = re.compile(r"^\[(?:ok|FAIL)\]")
 LAST_LINE = re.compile(r"^(\d+)/(\d+) acceptance items green — ")
 DONE = re.compile(r"\bdone (\d{4}-\d{2}-\d{2})\b")
 MODULE_DEST = re.compile(r"^M\d+\b")
+# The closed set of destination classes, typed once: the name the preamble of the matrix writes in bold,
+# and the pattern that classes a cell, read through `plain()`, at the cell's start (rule 7 of
+# plc-0007-requirements). The tie to the preamble is `check_classes`.
+DEST_CLASSES: dict[str, re.Pattern[str]] = {
+    "kernel §n": re.compile(r"^kernel §[0-9]+\b"),
+    "Mx": re.compile(r"^M[0-9]+\b"),
+    "binding": re.compile(r"^binding\b"),
+    "template": re.compile(r"^template\b"),
+}
+CLASSES_SENTENCE = "Destination classes:"
+CODE_SPAN = re.compile(r"`[^`\n]*`")
+SENTENCE_END = re.compile(r"\.(?:\s|$)")
+BOLD_SPAN = re.compile(r"\*\*([^*]+)\*\*")
 ACCEPTANCE_HEADER = ["item", "kind", "rows", "what it proves"]
 
 WHY_TAG = "a row's result comes only from the items that name it, so every item says which rows it proves"
@@ -103,6 +116,10 @@ WHY_HANDLES = (
 WHY_KIND = "the kind says whether a run examines the item, and a kind outside the set cannot be judged"
 WHY_SCOPE = "a module implements exactly the rows its rows section holds (law 4 of CLAUDE.md)"
 WHY_RUN = "a row is green only where a run examined it, so every item the runner prints must be in the table"
+WHY_CLASSES = (
+    "the destination classes are a closed set, defined once in the preamble (rule 7 of"
+    " plc-0007-requirements), and a destination outside it takes its row out of every check that reads it"
+)
 
 
 class Broken(Exception):
@@ -234,6 +251,41 @@ def read_matrix(root: Path) -> dict[str, Row]:
     if not rows:
         raise Broken(f"{SPEC} holds no matrix row — fix: run the check from a checkout of the kit")
     return rows
+
+
+def preamble_classes(text: str) -> list[str] | None:
+    """The bold names of the sentence that opens "Destination classes:", sorted and each once; None when
+    no such sentence stands. The sentence runs to the first full stop that ends a word, code spans
+    taken out first (one holds `constitution.yaml`); a bold span before it or after its end is no class."""
+    start = text.find(CLASSES_SENTENCE)
+    if start < 0:
+        return None
+    rest = CODE_SPAN.sub("", text[start + len(CLASSES_SENTENCE) :])
+    end = SENTENCE_END.search(rest)
+    sentence = rest[: end.start()] if end else rest
+    return sorted({name.strip() for name in BOLD_SPAN.findall(sentence)})
+
+
+def check_classes(root: Path) -> None:
+    """BROKEN unless the preamble's bold class names are exactly the classes `DEST_CLASSES` types."""
+    found = preamble_classes(read(root, SPEC))
+    typed = sorted(DEST_CLASSES)
+    quoted = ", ".join(f"'{name}'" for name in typed)
+    if found is None:
+        raise Broken(
+            f'{SPEC} holds no sentence that opens "{CLASSES_SENTENCE}" — why: the check types the classes'
+            f" {quoted} and holds them to the preamble's sentence, so a preamble it cannot read is a"
+            " tie it cannot check — fix: restore the sentence in the preamble, or change the preamble"
+            " and the check's classes together"
+        )
+    if found != typed:
+        named = ", ".join(f"'{name}'" for name in found) or "none"
+        raise Broken(
+            f'{SPEC} names the destination classes {named} in its "{CLASSES_SENTENCE}" sentence, and this'
+            f" check types {quoted} — why: the classes are a closed set defined once in the preamble"
+            " (rule 7 of plc-0007-requirements), and the check's patterns are typed here, so the two"
+            " must say the same names — fix: change the preamble and the check's classes together"
+        )
 
 
 def row_anchors(cell: str) -> tuple[list[str], str]:
@@ -454,6 +506,7 @@ def check_structure(
     root: Path, only: str | None = None
 ) -> tuple[dict[str, Row], list[Module], list[Finding]]:
     matrix = read_matrix(root)
+    check_classes(root)
     findings: list[Finding] = []
     modules = [read_module(root, d, matrix, findings) for d in modules_of(root)]
     held_anywhere = {a for m in modules for a in m.held}
@@ -466,6 +519,18 @@ def check_structure(
                     f"{row.handle} is given to a module, and no module's rows section holds it",
                     WHY_SCOPE,
                     "add the row to the rows section of the module that implements it",
+                )
+            )
+        if not any(form.match(row.destination) for form in DEST_CLASSES.values()):
+            findings.append(
+                Finding(
+                    SPEC,
+                    0,
+                    f"{row.handle} has the destination '{row.destination}', a destination the check"
+                    " cannot class",
+                    WHY_CLASSES,
+                    "open the cell with one of the four classes — `kernel §<n>`, `M<n>`, `binding`,"
+                    " `template` — or add a class to the preamble and to this check together",
                 )
             )
     if only is not None:
@@ -660,8 +725,16 @@ def gate(root: Path) -> int:
 
 # --- self-test ---------------------------------------------------------------------------------
 
-MATRIX = """# R
-
+# The preamble's sentence as the requirements document writes it, a period inside a code span of it;
+# the paragraph's first bold span stands before it and a sentence follows it.
+PREAMBLE = (
+    "**Traceability matrix** — every aspect decomposed into requirement parts. Destination classes:"
+    " **kernel §n** (shared semantics), **Mx** (module, with artifact kind), **binding** (per-project"
+    " `constitution.yaml` — never module content), **template** (authoring law). An authoring session"
+    " for module X takes exactly its rows."
+)
+MATRIX = f"""# R
+{PREAMBLE}
 | Part | Requirement | Destination | Recommended enforcement |
 |---|---|---|---|
 | <a id="a1"></a>**A1 — Sample** | | | |
@@ -813,6 +886,59 @@ def self_test() -> int:
     )
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a row the matrix gives a module that no rows section holds is red")
+    destinations = {  # the whole set of openings: the cell, whether the check classes it
+        "M1 hook": True,
+        "M47 skill + hook": True,
+        "**M1** skill": True,
+        "[kernel §2](../kernel/CONVENTIONS.md#k2)": True,
+        "kernel §12": True,
+        "[kernel §2](../kernel/CONVENTIONS.md#k2) + template": True,
+        "binding": True,
+        "binding (thresholds)": True,
+        "template": True,
+        "module `const-x` skill": False,
+        "kernel": False,
+        "kernel §": False,
+        "kernel §n": False,
+        "Mx": False,
+        "M": False,
+        "m1": False,
+        "M1x": False,
+        "bindings": False,
+        "templates": False,
+        "Template": False,
+        "": False,
+        "—": False,
+        "K2": False,
+        "M١ hook": False,  # an Arabic-Indic digit, not an ASCII one
+        "kernel §٢": False,
+    }
+    for cell, classed in destinations.items():
+        seen: list[list[str]] = []
+        for old in ("M1 hook", "[kernel §2](../kernel/CONVENTIONS.md#k2)"):
+            with tempfile.TemporaryDirectory() as tmp:  # A1.1 a module holds, A1.2 none holds
+                root = Path(tmp).resolve()
+                build(root, GOOD_TABLE, matrix=MATRIX.replace(f"| {old} |", f"| {cell} |"))
+                seen.append([f.what for f in check_structure(root)[2]])
+        on_held, on_unheld = seen
+        refused = f"has the destination '{cell.replace('**', '')}', a destination the check cannot class"
+        given = ["A1.2 is given to a module, and no module's rows section holds it"]
+        if classed:  # a row given to a module that no module holds stays red beside it (R7)
+            ok = not on_held and on_unheld == (
+                given if cell in ("M1 hook", "M47 skill + hook", "**M1** skill") else []
+            )
+        else:
+            # R7's own red (MODULE_DEST, read as before, takes any digit) is held by its case above
+            unheld_red = [what for what in on_unheld if what != given[0]]
+            ok = on_held == [f"A1.1 {refused}"] and unheld_red == [f"A1.2 {refused}"]
+        failed += 0 if ok else 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] the destination '{cell}' is"
+            f" {'classed' if classed else 'red as one the check cannot class'},"
+            " on a row a module holds and on one none holds"
+        )
+        if not ok:
+            print(f"        got: {seen}")
     with tempfile.TemporaryDirectory() as tmp:  # a table line is read whatever its indent
         root = Path(tmp).resolve()
         indented_rows = f"  | {LINK_1} | r |\n\t|{LINK_3} | r |\n"  # the second row: no space after the bar
@@ -939,6 +1065,50 @@ def self_test() -> int:
         "a folder with no module document\n",
         "modules/const-empty has no MODULE.md — fix: restore the module document",
     )
+    classes_text = PREAMBLE[PREAMBLE.index(CLASSES_SENTENCE) : PREAMBLE.index(" An authoring")]
+    typed_names = "'Mx', 'binding', 'kernel §n', 'template'"
+    names_found = f'{SPEC} names the destination classes %s in its "Destination classes:" sentence, and this'
+
+    def preamble_as(edited: str) -> str:
+        return MATRIX.replace(PREAMBLE, edited)
+
+    unreadable["the preamble's classes sentence missing"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace(classes_text, "")),
+        f'{SPEC} holds no sentence that opens "Destination classes:" — why: the check types the classes'
+        f" {typed_names} and holds them to the preamble's sentence, so a preamble it cannot read is a tie"
+        " it cannot check — fix: restore the sentence in the preamble, or change the preamble and the"
+        " check's classes together",
+    )
+    unreadable["the preamble's classes sentence reworded"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace(CLASSES_SENTENCE, "Destination kinds:")),
+        f'{SPEC} holds no sentence that opens "Destination classes:" — why: ',
+    )
+    unreadable["a fifth bold class in the preamble's sentence"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace("(authoring law).", "(authoring law), **extra** (a fifth).")),
+        names_found % "'Mx', 'binding', 'extra', 'kernel §n', 'template'",
+    )
+    unreadable["one of the four renamed in the preamble"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace("**Mx**", "**Mn**")),
+        f"{SPEC} names the destination classes 'Mn', 'binding', 'kernel §n', 'template' in its \"Destination"
+        f' classes:" sentence, and this check types {typed_names} — why: the classes are a closed set'
+        " defined once in the preamble (rule 7 of plc-0007-requirements), and the check's patterns are"
+        " typed here, so the two must say the same names — fix: change the preamble and the check's"
+        " classes together",
+    )
+    unreadable["one of the four missing from the preamble"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace(", **template** (authoring law)", "")),
+        names_found % "'Mx', 'binding', 'kernel §n'",
+    )
+    unreadable["a class of the preamble not in bold"] = (
+        SPEC,
+        preamble_as(PREAMBLE.replace("**binding**", "binding")),
+        names_found % "'Mx', 'kernel §n', 'template'",
+    )
     for name, (document, broken_text, said) in unreadable.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -965,6 +1135,36 @@ def self_test() -> int:
             ["a1-1", "a1-2", "a1-3", "a1-9"],
         ),
     }
+    reordered = (
+        "Destination classes: **template** (authoring law), **binding** (per-project), **Mx** (module),"
+        " **kernel §n** (shared semantics)."
+    )
+    read_as_before.update(  # the sentence read as the four names whatever stands round it
+        {
+            "the preamble's four classes in another order": (
+                preamble_as(PREAMBLE.replace(classes_text, reordered)),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a bold span before the preamble's sentence is no class": (
+                preamble_as(PREAMBLE.replace("requirement parts.", "requirement parts, **each** homed.")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a period inside a code span of the preamble's sentence does not end it": (
+                preamble_as(PREAMBLE.replace("(shared semantics)", "(shared `a.b. c` semantics)")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a bold word in the sentence after the classes is no class": (
+                preamble_as(PREAMBLE.replace("module X", "module **X**")),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+            "a bold word in the paragraph after the classes is no class": (
+                preamble_as(
+                    PREAMBLE + "\n\n**Enforcement classes** — the set: **gate** (a), **advisory** (b)."
+                ),
+                ["a1-1", "a1-2", "a1-3"],
+            ),
+        }
+    )
     for name, (matrix_text, anchors) in read_as_before.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1002,17 +1202,35 @@ def self_test() -> int:
         " or write `none` for an item that proves no row of the module",
         "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined",
     ]
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp).resolve()
-        build(root, red["a bare handle in the rows cell"][0])
-        printed = io.StringIO()
-        with contextlib.redirect_stdout(printed):
-            code = gate(root)
-    ok = code == EXIT_RED and printed.getvalue().splitlines() == literal
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] the report of one finding is its literal text, exit 2")
-    if not ok:
-        print(printed.getvalue())
+    literal_class = [  # the same, for a destination the check cannot class
+        "RED: docs/requirements.md: A1.2 has the destination 'kernel', a destination the check cannot class",
+        "  why: the destination classes are a closed set, defined once in the preamble (rule 7 of"
+        " plc-0007-requirements), and a destination outside it takes its row out of every check that"
+        " reads it",
+        "  fix: open the cell with one of the four classes — `kernel §<n>`, `M<n>`, `binding`, `template` —"
+        " or add a class to the preamble and to this check together",
+        "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined",
+    ]
+    reports = {  # case: the table, the matrix, the lines the gate prints
+        "of a finding in a module's document": (red["a bare handle in the rows cell"][0], MATRIX, literal),
+        "of a destination the check cannot class": (
+            GOOD_TABLE,
+            MATRIX.replace("[kernel §2](../kernel/CONVENTIONS.md#k2)", "kernel"),
+            literal_class,
+        ),
+    }
+    for name, (table, matrix_text, want_lines) in reports.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, table, matrix=matrix_text)
+            printed = io.StringIO()
+            with contextlib.redirect_stdout(printed):
+                code = gate(root)
+        ok = code == EXIT_RED and printed.getvalue().splitlines() == want_lines
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] the report {name} is its literal text, exit 2")
+        if not ok:
+            print(printed.getvalue())
     runs: dict[
         str, tuple[list[str], int, int, str]
     ] = {  # case: runner lines, its exit, the check's exit, a line to find
@@ -1197,7 +1415,9 @@ def self_test() -> int:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
     total = (
         len(red)
-        + 4
+        + 3  # the row no module holds, the indented rows, the carrier row
+        + len(destinations)
+        + len(reports)
         + len(read_as_before)
         + len(unreadable)
         + len(skipped)
