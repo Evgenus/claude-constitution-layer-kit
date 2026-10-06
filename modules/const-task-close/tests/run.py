@@ -567,6 +567,17 @@ def fresher_trunk() -> list[tuple[bool, str]]:
         "6 detached at the tracked tip",
         green_scan(scan(c), tail(1, 1, short(c, "origin/main~1"), short(c, "origin/main"))),
     )
+    # 6b: the same while the local trunk is ahead, an unpushed commit on it: the tracked tip, not the chosen
+    # one, is what makes HEAD the trunk — before the fresher rule this was a green over 0 commits
+    up = repo(with_map())
+    commit(up.root, "older code", {"src/a.py": "x = 2\n"})
+    c = clone_of(up.root)
+    commit(c, "unpushed trunk code", {"src/b.py": "y = 1\n"})
+    git(c, "checkout", "-q", "--detach", "origin/main")
+    case(
+        "6b detached at the tracked tip, local ahead",
+        red_over(scan(c), tail(1, 1, short(c, "origin/main~1"), short(c, "origin/main"))),
+    )
     # 7: detached elsewhere: the base is the merge-base with the fresher trunk
     c = landed_upstream()
     git(c, "checkout", "-q", "-b", "work/z", "origin/main")
