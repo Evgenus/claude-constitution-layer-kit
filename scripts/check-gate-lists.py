@@ -93,7 +93,7 @@ FORM_WHAT = {  # what a problem of the enforcement section says; its text is the
 }
 _FORM_SPAN_FIX = (
     "write it `<entry> --scan`, or, for a mode that is no tree scan, `<entry> --scan --<flag> …`"
-    " with the words `not a tree scan` in its row"
+    " with the words `not a tree scan` in the same cell as the span, outside the code span"
 )
 FORM_FIX = {
     Fault.FIRST_CELL: "open the row with E<n>, its number in the table",
@@ -470,6 +470,41 @@ def form_probes() -> bool:
             [row(f"{explain}: not a scan")],
             [],
             [(2, Fault.UNMARKED)],
+        ),
+        "the mark in capitals is no mark": (
+            [row(f"{explain}: Not a tree scan")],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "the mark with a longer last word is no mark": (
+            [row(f"{explain}: not a tree scanner")],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "the mark at the end of a longer first word is no mark": (
+            [row(f"{explain}: cannot a tree scan")],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "the mark inside parentheses is a mark": (
+            [row(f"{explain} (not a tree scan)")],
+            [],
+            [],
+        ),
+        "an explain's argument that starts with `-` is a problem": (
+            [row("`x --scan --command -y`: not a tree scan")],
+            [],
+            [(2, Fault.SPAN)],
+        ),
+        "an escaped bar in the span keeps it in its cell, so the unmarked flag is found": (
+            [row("`x --scan --command <a\\|b>`")],
+            [],
+            [(2, Fault.UNMARKED)],
+        ),
+        "an escaped bar before the mark keeps the mark in the cell of the span": (
+            [row("`x --scan --command <text>`: the a\\|b form, not a tree scan")],
+            [],
+            [],
         ),
         "`x --scan --since <date>` with the mark is no scan": (
             [row("`x --scan --since <date>`: the history report, not a tree scan")],
@@ -858,7 +893,8 @@ def self_test() -> int:
     form_why = "  why: a scan the check cannot read is never held in the gate list and CI"
     form_fix = (
         "  fix: write it `<entry> --scan`, or, for a mode that is no tree scan,"
-        " `<entry> --scan --<flag> …` with the words `not a tree scan` in its row"
+        " `<entry> --scan --<flag> …` with the words `not a tree scan` in the same cell as the span,"
+        " outside the code span"
     )
     form_lines = [  # typed by hand
         "RED: modules/const-x/MODULE.md:3: a row of its enforcement table opens with `G2`, not E<n>",
