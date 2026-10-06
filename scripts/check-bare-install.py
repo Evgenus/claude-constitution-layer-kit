@@ -56,6 +56,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from kit_module_doc import DocumentError, section
+
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 MARKETPLACE = "constitution-kit"
@@ -141,15 +143,14 @@ def hooks_of(plugin: Path) -> list[Hook]:
 def declared_scans(plugin: Path) -> list[str]:
     document = plugin / "MODULE.md"
     if not document.is_file():
-        return []
-    lines = document.read_text(encoding="utf-8").splitlines()
-    start = next((i for i, line in enumerate(lines) if line.strip() == '<a id="t9"></a>'), None)
-    if start is None:
-        return []
-    end = next(
-        (i for i in range(start + 1, len(lines)) if lines[i].strip() == '<a id="t10"></a>'), len(lines)
-    )
-    rows = [line for line in lines[start:end] if line.startswith("| E")]
+        raise Broken(
+            f"{document} does not exist — fix: restore the module's document, which declares its scans"
+        )
+    try:
+        enforcement = section(document.read_text(encoding="utf-8"), "t9", str(document))
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+    rows = [line for _, line in enforcement if line.startswith("| E")]
     return sorted({m[1] for row in rows for m in DECLARED.finditer(row)})
 
 
@@ -468,7 +469,14 @@ def self_test() -> int:
         (source / "hooks").mkdir(parents=True)
         (source / "scripts").mkdir()
         (source / "hooks" / "hooks.json").write_text(json.dumps(hooks), encoding="utf-8")
-        (source / "MODULE.md").write_text(module_text, encoding="utf-8")
+        document = {
+            "no-t9": "no anchor\n",
+            "t9-on-heading": module_text.replace('<a id="t9"></a>\n', '## 9 <a id="t9"></a>\n'),
+            "t9-twice": module_text.replace('<a id="t9"></a>\n', '<a id="t9"></a>\n<a id="t9"></a>\n'),
+            "t10-twice": module_text.replace("| E2", '<a id="t10"></a>\n| E2'),
+        }.get(change, module_text)
+        if change != "no-document":
+            (source / "MODULE.md").write_text(document, encoding="utf-8")
         hook = {
             "hook-exit-1": "exit 1",
             "hook-exit-2": "exit 2",
@@ -598,6 +606,33 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
         if not ok:
             print(f"        got: {got}")
+    anchor = "on a line of its own — fix: restore the template's anchor, alone on its line"
+    unreadable = {  # the source's document: its change, what the BROKEN line says
+        "a source with no MODULE.md": ("no-document", "MODULE.md does not exist — fix: restore"),
+        "a source whose document has no t9 anchor": ("no-t9", f'has no anchor <a id="t9"></a> {anchor}'),
+        "a source whose t9 anchor has text on its line": (
+            "t9-on-heading",
+            f'has no anchor <a id="t9"></a> {anchor}',
+        ),
+        "a source whose t9 anchor stands twice": (
+            "t9-twice",
+            'holds the anchor <a id="t9"></a> twice, lines 1 and 2 — fix: keep the one before',
+        ),
+        "a source with a second t10 anchor above an E-row": (
+            "t10-twice",
+            'holds the anchor <a id="t10"></a> twice, lines 3 and 5 — fix: keep the one before',
+        ),
+    }
+    for name, (change, said) in unreadable.items():
+        try:
+            findings_of(change)
+            ok, line = False, "no BROKEN"
+        except Broken as broken:
+            ok, line = said in str(broken), str(broken)
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line, never a scan left unrun")
+        if not ok:
+            print(f"        got: {line}")
     report_lines = [  # typed by hand: a message function cannot check itself
         "RED: const-x: its scan `check-x --scan` exits 2 on a bare repository (no output)",
         f"  why: {WHY}",
@@ -634,7 +669,7 @@ def self_test() -> int:
         ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
-    total = len(cases) + 3
+    total = len(cases) + len(unreadable) + 3
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

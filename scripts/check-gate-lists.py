@@ -55,6 +55,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from kit_module_doc import DocumentError, section
+
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 GATE_LIST = "scripts/gate-list.sh"
@@ -159,14 +161,11 @@ def read(root: Path, path: str) -> str:
 
 
 def declared_scans(text: str, path: str = "the module document") -> list[str]:
-    lines = text.splitlines()
-    start = next((i for i, line in enumerate(lines) if line.strip() == '<a id="t9"></a>'), None)
-    if start is None:
-        raise Broken(f"{path} has no enforcement section, anchor t9 — fix: restore the anchor")
-    end = next(
-        (i for i in range(start + 1, len(lines)) if lines[i].strip() == '<a id="t10"></a>'), len(lines)
-    )
-    rows = [line for line in lines[start:end] if line.startswith("| E")]
+    try:
+        enforcement = section(text, "t9", path)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+    rows = [line for _, line in enforcement if line.startswith("| E")]
     return sorted({m[1] for row in rows for m in DECLARED.finditer(row)})
 
 
@@ -494,6 +493,15 @@ def self_test() -> int:
         f"[{'ok' if ok else 'FAIL'}] a span with more after the flag is no scan;"
         " a .py entry is taught by python3"
     )
+    last_section = '## 9 <a id="t9"></a> is prose here\n\n<a id="t9"></a>\n| E1 | `check-x --scan` |\n'
+    ok = declared_scans(last_section) == ["check-x"]  # the last section reads to the end of the file
+    ok = ok and declared_scans('<a id="t9"></a>\n<a id="t10"></a>\n| E1 | `check-x --scan` |\n') == []
+    ok = ok and declared_scans('  <a id="t9"></a>  \n| E1 | `check-x --scan` |\n') == ["check-x"]
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] the enforcement section reads to the end of the file when it is the"
+        " last, is empty when the end anchor follows at once, and an anchor inside prose is plain text"
+    )
     for name, case, lines in (
         ("one finding", Case({"x": scan}, workflow="jobs: {}\n"), report_lines),
         (
@@ -524,7 +532,26 @@ def self_test() -> int:
     for name, change, said in (
         ("a list script that fails", "LIST", f"{GATE_LIST} --names gate exited"),
         ("jobs that are no JSON list", "JSON", f"{GATE_LIST} --json printed no list of job names"),
-        ("a module document without its anchor", "NO-T9", "modules/const-x/MODULE.md has no enforcement"),
+        (
+            "a module document without its anchor",
+            "NO-T9",
+            'modules/const-x/MODULE.md has no anchor <a id="t9"></a> on a line of its own',
+        ),
+        (
+            "a module document whose anchor has text on its line",
+            "T9-ON-HEADING",
+            'modules/const-x/MODULE.md has no anchor <a id="t9"></a> on a line of its own',
+        ),
+        (
+            "a module document whose enforcement anchor stands twice",
+            "T9-TWICE",
+            'modules/const-x/MODULE.md holds the anchor <a id="t9"></a> twice, lines 1 and 3',
+        ),
+        (
+            "a module document with a second end anchor above its E-row",
+            "T10-TWICE",
+            'modules/const-x/MODULE.md holds the anchor <a id="t10"></a> twice, lines 7 and 13',
+        ),
         ("a module folder without its document", "NO-DOC", "modules/empty has no MODULE.md"),
     ):
         with tempfile.TemporaryDirectory() as tmp:
@@ -541,6 +568,13 @@ def self_test() -> int:
                 )
             if change == "NO-T9":
                 (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
+            if change in ("T9-ON-HEADING", "T9-TWICE", "T10-TWICE"):
+                broken_text = {
+                    "T9-ON-HEADING": module_text.replace('<a id="t9"></a>\n## 9', '## 9 <a id="t9"></a>'),
+                    "T9-TWICE": module_text.replace("## 9\n", '## 9\n<a id="t9"></a>\n', 1),
+                    "T10-TWICE": module_text.replace("| E2 |", '<a id="t10"></a>\n| E2 |', 1),
+                }[change]
+                (root / "modules/const-x/MODULE.md").write_text(broken_text, encoding="utf-8")
             if change == "NO-DOC":
                 (root / "modules/empty").mkdir()
             try:
@@ -550,7 +584,7 @@ def self_test() -> int:
                 ok = said in str(broken) and "fix:" in str(broken)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 9
+    total = len(cases) + 13
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

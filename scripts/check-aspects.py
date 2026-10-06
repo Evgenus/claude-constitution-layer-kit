@@ -72,6 +72,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from kit_module_doc import DocumentError, section
+
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SPEC = "docs/requirements.md"
@@ -200,16 +202,6 @@ def read_matrix(root: Path) -> dict[str, Row]:
     return rows
 
 
-def section(lines: list[str], anchor: str, after: str) -> list[tuple[int, str]]:
-    start = next((i for i, text in enumerate(lines) if text.strip() == f'<a id="{anchor}"></a>'), None)
-    if start is None:
-        return []
-    end = next(
-        (i for i in range(start + 1, len(lines)) if lines[i].strip() == f'<a id="{after}"></a>'), len(lines)
-    )
-    return [(i + 1, lines[i]) for i in range(start + 1, end)]
-
-
 def row_anchors(cell: str) -> tuple[list[str], str]:
     """The row anchors a cell links, and whatever else it holds besides separators."""
     anchors: list[str] = []
@@ -260,7 +252,7 @@ def kind_of(cell: str) -> str | None:
 def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: list[Finding]) -> Module:
     name = directory.name
     path = f"modules/{name}/MODULE.md"
-    lines = read(root, path).splitlines()
+    text = read(root, path)
     manifest = directory / ".claude-plugin" / "plugin.json"
     try:
         version = str(json.loads(manifest.read_text(encoding="utf-8")).get("version", "?"))
@@ -268,9 +260,14 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
         raise Broken(
             f"modules/{name}/.claude-plugin/plugin.json cannot be read ({bad}) — fix: restore the manifest"
         ) from bad
+    try:
+        rows_section, acceptance_section = section(text, "t3", path), section(text, "t10", path)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
     held: dict[str, int] = {}
-    for number, line in section(lines, "t3", "t4"):
-        if not line.startswith("| "):
+    for number, raw in rows_section:
+        line = raw.strip()
+        if not line.startswith("|"):
             continue
         first = cells(line)[0] if cells(line) else ""
         for link in ROW_LINK.finditer(first):
@@ -278,8 +275,8 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
             if path_part.endswith(SPEC) and anchor in matrix:
                 held.setdefault(anchor, number)
     module = Module(name, path, version, held, [])
-    table = [(n, text) for n, text in section(lines, "t10", "t11") if text.startswith("|")]
-    header = next(((n, cells(text)) for n, text in table if cells(text) and cells(text)[0] == "item"), None)
+    table = [(n, raw.strip()) for n, raw in acceptance_section if raw.strip().startswith("|")]
+    header = next(((n, cells(line)) for n, line in table if cells(line) and cells(line)[0] == "item"), None)
     if header is None or header[1] != ACCEPTANCE_HEADER:
         findings.append(
             Finding(
@@ -750,6 +747,10 @@ def self_test() -> int:
             header + f"| T1 | fixture | {LINK_1} | x |\n",
             "named by no acceptance item",
         ),
+        "an indented item whose rows cell is no link": (
+            GOOD_TABLE + "  | T9 | fixture | A1.1 | x |\n",
+            "the rows cell of item T9",
+        ),
     }
     failed = 0
     for name, (table, said) in red.items():
@@ -772,6 +773,49 @@ def self_test() -> int:
     )
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a row the matrix gives a module that no rows section holds is red")
+    with tempfile.TemporaryDirectory() as tmp:  # a table line is read whatever its indent
+        root = Path(tmp).resolve()
+        indented_rows = f"  | {LINK_1} | r |\n\t| {LINK_3} | r |\n"
+        build(root, GOOD_TABLE + f"  | T9 | fixture | {LINK_1} | x |\n", rows=indented_rows)
+        _, modules, findings = check_structure(root)
+    ok = not findings and len(modules[0].items) == 6 and sorted(modules[0].held.values()) == [6, 7]
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] an indented row of the rows section and an indented acceptance item"
+        " are read, never dropped"
+    )
+    path = "modules/const-sample/MODULE.md"
+    text = module_text(GOOD_TABLE)
+    unreadable = {  # case: the document, what the BROKEN line says
+        "no t3 anchor": (text.replace('<a id="t3"></a>\n', ""), f'{path} has no anchor <a id="t3"></a>'),
+        "no t10 anchor": (text.replace('<a id="t10"></a>\n', ""), f'{path} has no anchor <a id="t10"></a>'),
+        "text on the line of the t10 anchor": (
+            text.replace('<a id="t10"></a>\n## 10.', '## 10. <a id="t10"></a>'),
+            f'{path} has no anchor <a id="t10"></a>',
+        ),
+        "a t3 anchor twice": (
+            text.replace("| row |", '<a id="t3"></a>\n| row |'),
+            f'{path} holds the anchor <a id="t3"></a> twice, lines 1 and 4',
+        ),
+        "a second t4 anchor inside the rows section": (
+            text.replace(f"| {LINK_3} |", f'<a id="t4"></a>\n| {LINK_3} |'),
+            f'{path} holds the anchor <a id="t4"></a> twice, lines 7 and 10',
+        ),
+    }
+    for name, (broken_text, said) in unreadable.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            (root / path).write_text(broken_text, encoding="utf-8")
+            try:
+                check_structure(root)
+                ok, got = False, "no BROKEN"
+            except Broken as bad:
+                ok, got = str(bad).startswith(said) and "— fix:" in str(bad), str(bad)
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] a module document with {name} is one BROKEN line naming it")
+        if not ok:
+            print(f"        got: {got}")
     literal = [  # typed by hand: a message function cannot check itself
         "RED: modules/const-sample/MODULE.md:22: the rows cell of item T9 is 'A1.1'",
         "  why: a row's result comes only from the items that name it,"
@@ -973,7 +1017,7 @@ def self_test() -> int:
         )
         if not ok:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
-    total = len(red) + 3 + len(runs) + len(broken) + len(filtered)
+    total = len(red) + 4 + len(unreadable) + len(runs) + len(broken) + len(filtered)
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

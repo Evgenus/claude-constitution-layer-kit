@@ -54,6 +54,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from kit_module_doc import DocumentError, section
+
 try:
     import yaml
 except ImportError:
@@ -528,15 +530,11 @@ def compute_scope(kit: Path, base: str, module: str | None) -> tuple[dict[str, s
                 f"modules/{module}/MODULE.md does not exist, so the records it cites cannot be read — "
                 "fix: name a module under modules/"
             )
-        section = re.search(
-            r"^## 4\. .*?(?=^## |\Z)", document.read_text(encoding="utf-8"), re.MULTILINE | re.DOTALL
-        )
-        if section is None:
-            raise CouldNotRun(
-                f"modules/{module}/MODULE.md has no section 4, and a scope that silently leaves out the "
-                "records a module cites is too narrow — fix: fill the template's decisions section"
-            )
-        for cited in cited_files(kit, document, section.group(0)):
+        try:
+            decisions = section(document.read_text(encoding="utf-8"), "t4", f"modules/{module}/MODULE.md")
+        except DocumentError as bad:
+            raise CouldNotRun(str(bad)) from bad
+        for cited in cited_files(kit, document, "\n".join(line for _, line in decisions)):
             if cited.startswith(DECISIONS + "/"):
                 full.setdefault(Path(cited).stem, "cited")
     regression: dict[str, list[str]] = {}
@@ -832,7 +830,10 @@ def self_test() -> int:
         sample_kit(root)
         pinned = commit(root, "the record lands")
         commit(root, right.format(at=pinned[:12]))
-        (root / "scripts" / "check-carry-lists.py").write_text(Path(__file__).read_text(encoding="utf-8"))
+        for script in ("check-carry-lists.py", "kit_module_doc.py"):  # the check and the reader it imports
+            (root / "scripts" / script).write_text(
+                (Path(__file__).parent / script).read_text(encoding="utf-8"), encoding="utf-8"
+            )
         old_log = fake_old_git(Path(tools).resolve(), real or "git")
         env = {**os.environ, "PATH": f"{Path(tools).resolve()}{os.pathsep}{os.environ['PATH']}"}
         ran = subprocess.run(
@@ -870,7 +871,13 @@ def self_test() -> int:
     newer = f"dec-{THRESHOLD + 2:04d}-newer"
     moved = f"dec-{THRESHOLD + 3:04d}-moved"
     policy = "---\nid: p\ntype: current-state\nstatus: active\n---\nmore\n"
-    module_doc = f"## 4. Decisions\n\n1. [x](../../{DECISIONS}/{SAMPLE}.md)\n"
+    cites = f"1. [x](../../{DECISIONS}/{SAMPLE}.md)\n"
+    module_doc = f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}'
+    renumbered_doc = f'<a id="t3"></a>\n## 4. Rows\n\n<a id="t4"></a>\n## 5. Decisions\n\n{cites}'
+    stray_doc = (
+        f'<a id="t3"></a>\n## 3. Rows\n\n## 4. Notes\n\nnothing is cited here\n\n<a id="t4"></a>\n'
+        f"## 5. Decisions\n\n{cites}"
+    )
 
     def add_record(root: Path) -> None:
         (root / DECISIONS / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
@@ -883,8 +890,11 @@ def self_test() -> int:
         (root / DECISIONS / f"{SAMPLE}.md").rename(root / DECISIONS / f"{moved}.md")
         git(root, "add", "-A")  # staged, so that git sees a rename: without --no-renames the case is red
 
-    def cite_record(root: Path) -> None:
-        (root / "modules/m/MODULE.md").write_text(module_doc, encoding="utf-8")
+    def cite_in(text: str) -> Callable[[Path], None]:
+        def write(root: Path) -> None:
+            (root / "modules/m/MODULE.md").write_text(text, encoding="utf-8")
+
+        return write
 
     # name -> (the change, the module, full wanted, regression wanted)
     scopes: dict[str, tuple[Callable[[Path], None], str | None, dict[str, str], dict[str, list[str]]]] = {
@@ -896,7 +906,19 @@ def self_test() -> int:
         ),
         "an edited record in full": (edit_record, None, {SAMPLE: "edited"}, {}),
         "a renamed record in full, under its new name": (rename_record, None, {moved: "added"}, {}),
-        "a record the module cites in full": (cite_record, "m", {SAMPLE: "cited"}, {}),
+        "a record the module cites in full": (cite_in(module_doc), "m", {SAMPLE: "cited"}, {}),
+        "a record cited under anchor t4 in full, its section numbered 5 and the rows 4": (
+            cite_in(renumbered_doc),
+            "m",
+            {SAMPLE: "cited"},
+            {},
+        ),
+        "a record cited under anchor t4 in full, a stray section 4 above it": (
+            cite_in(stray_doc),
+            "m",
+            {SAMPLE: "cited"},
+            {},
+        ),
     }
     for name, (change, module, full_wanted, regression_wanted) in scopes.items():
         with tempfile.TemporaryDirectory() as tmp:
@@ -908,23 +930,33 @@ def self_test() -> int:
             ok = compute_scope(root, base, module) == (full_wanted, regression_wanted)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the scope: {name}")
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp).resolve()
-        git(root, "init", "-q")
-        sample_kit(root)
-        base = commit(root, "the base")
-        (root / "modules/m/MODULE.md").write_text("## 3. Rows\n", encoding="utf-8")
-        try:
-            compute_scope(root, base, "m")
-            ok = False
-        except CouldNotRun:
-            ok = True
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] the scope: a module document with no decisions section cannot be scoped"
-    )
+    unscopable = {  # the module document, and what its scope cannot be read from
+        "with no decisions section": ('<a id="t3"></a>\n## 3. Rows\n', "has no anchor"),
+        "whose decisions anchor has text on its line": (
+            f'<a id="t3"></a>\n## 3. Rows\n\n## 4. Decisions <a id="t4"></a>\n\n{cites}',
+            "has no anchor",
+        ),
+        "whose decisions anchor stands twice": (
+            f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t4"></a>\n',
+            "holds the anchor",
+        ),
+    }
+    for name, (text, said) in unscopable.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            git(root, "init", "-q")
+            sample_kit(root)
+            base = commit(root, "the base")
+            (root / "modules/m/MODULE.md").write_text(text, encoding="utf-8")
+            try:
+                compute_scope(root, base, "m")
+                ok = False
+            except CouldNotRun as bad:
+                ok = said in str(bad) and "modules/m/MODULE.md" in str(bad) and "— fix:" in str(bad)
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] the scope: a module document {name} cannot be scoped")
 
-    total = len(wrong_lists) + 1 + len(right_homes) + len(receipts) + len(scopes) + 1 + 3
+    total = len(wrong_lists) + 1 + len(right_homes) + len(receipts) + len(scopes) + len(unscopable) + 3
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
