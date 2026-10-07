@@ -19,8 +19,8 @@
 # job means the tree, or the change, breaks that module's rule, not that the module's code is broken;
 # the annotation names the entry.
 # The install-<module> gates and the guide gate need Claude Code's `claude` on PATH and no Claude account
-# login; an install from a private remote needs git's credentials for it, and the guide, which installs
-# from a clone of the working folder, needs none.
+# login; each installs from the change's GitHub branch, a private remote, so each needs git's credentials
+# for it.
 # --run runs every command of the entry, and every entry of the job, even after a red one and prints
 # each command's exit; it exits 0 when every command did, else 2 when every failing command exited 2
 # (a finding), else 1; an entry with no commands is a BROKEN line and exit 1. A job's run in GitHub

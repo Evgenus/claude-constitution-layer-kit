@@ -15,7 +15,9 @@ committed is not run; the source the marketplace block registers pointed at the 
 argument of its `claude plugin marketplace add` replaced by the environment's
 CONSTITUTION_KIT_INSTALL_FROM, `<owner>/<repo>#<branch>` (the kit's CI names the change's GitHub
 repository and branch), else by the working folder's origin on GitHub at the branch checked out,
-which must hold HEAD, so the install comes from the commit the clone holds; and the named blocks
+which must be at HEAD. In CI the clone is the job's checkout of the change, a pull request's merge
+commit, and the source its head branch: the marketplace claim holds that both give the same
+modules at the same versions. And the named blocks
 run in the guide's order, each written to a file and
 sourced by a fresh `bash -eu` in the folder the block before it ended in, the first in the home
 folder, so a block that relies on a variable another block set fails on it, unset. A block's exit is
@@ -25,7 +27,9 @@ block does is held by the claims below, not by its exit.
 Beside every block's exit 0, the check holds at each name:
   new-repo     the block ends in a git repository: the project.
   marketplace  the configuration's plugins/known_marketplaces.json knows `constitution-kit`, from
-               a GitHub source: a local folder would run in place, never from the cache.
+               a GitHub source naming the source's repository: a local folder would run in place,
+               never from the cache; and the platform's clone of the marketplace holds the same
+               modules at the same manifest versions as the kit's clone.
   install      every module of the kit stands in the plugin cache at its manifest version and is
                enabled in the project's .claude/settings.json; and a headless session in the
                project, trusted in the configuration, reports each module's path in the plugin
@@ -43,9 +47,9 @@ Beside every block's exit 0, the check holds at each name:
                update leaves a draft's change at an unchanged version untaken is not run: the
                platform fetches a GitHub marketplace from GitHub alone, so the run cannot put a
                change where it looks; the guide states it as an observed platform fact.
-  reinstall    every module stands in the plugin cache at its version and is enabled, and each file
-               of its copy there is the file of the platform's clone of the marketplace, byte for
-               byte: the install copied what the marketplace holds.
+  reinstall    every module stands in the plugin cache at its version and is enabled, and its copy
+               there holds the same files as the module in the platform's clone of the marketplace,
+               read through its links, byte for byte: the install copied what the marketplace holds.
   uninstall    no module is enabled in the project's settings or recorded for the project in the
                configuration's plugins/installed_plugins.json.
 The first finding of the run ends it, since every later block builds on the one before. A finding
@@ -72,7 +76,10 @@ Modes:  no arguments   check the kit's guide;
                        kernel copy that copies nothing, one that leaves the license out, a commit
                        that leaves the tree dirty, an update that drops a module, a reinstall whose
                        copy differs from the marketplace, an uninstall that keeps the plugin enabled;
-                       the source taken from the environment, and a kit with no origin on GitHub a
+                       a marketplace from another repository, one whose modules differ from the
+                       kit's, a reinstall copy that lacks a file of the marketplace; the source
+                       taken from the environment, from origin at the branch's HEAD, and a kit with no
+                       origin on GitHub, a detached HEAD and an origin behind HEAD each a
                        configuration failure; the
                        report of one finding as literal lines with exit 2; the kit's modules, the
                        folders of `kit_module_doc.module_folders` with their manifest versions: a
@@ -385,6 +392,7 @@ class Run:
     env: dict[str, str]
     modules: dict[str, str]
     cwd: Path
+    source: str
     project: Path | None = None
 
     def cache(self, module: str) -> Path:
@@ -424,12 +432,25 @@ def session_paths(state: Run, project: Path) -> tuple[dict[str, str], str]:
     return {}, last_line(said)
 
 
+def files_through_links(folder: Path) -> dict[str, Path]:
+    """Every file under a folder by its relative path, links to folders followed, caches left out."""
+    found: dict[str, Path] = {}
+    for where, folders, files in os.walk(folder, followlinks=True):
+        folders[:] = [f for f in folders if f != "__pycache__"]
+        for name in files:
+            path = Path(where) / name
+            if path.is_file():
+                found[str(path.relative_to(folder))] = path
+    return found
+
+
 def differing(cache: Path, market: Path) -> str:
-    """The first file of the cached copy that is not the marketplace clone's file, or the empty string."""
-    for path in sorted(p for p in cache.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
-        twin = market / path.relative_to(cache)
-        if not twin.is_file() or twin.read_bytes() != path.read_bytes():
-            return str(path.relative_to(cache))
+    """The first file that the cached copy and the marketplace clone's module do not hold alike, read
+    through their links, or the empty string."""
+    held, wanted = files_through_links(cache), files_through_links(market)
+    for name in sorted(held.keys() | wanted.keys()):
+        if name not in held or name not in wanted or held[name].read_bytes() != wanted[name].read_bytes():
+            return name
     return ""
 
 
@@ -452,6 +473,15 @@ def claim(state: Run, name: str) -> str:
         kind = source.get("source") if isinstance(source, dict) else None
         if kind != "github":
             return f"the marketplace is registered from a {kind} source, not from GitHub"
+        repo = source.get("repo") if isinstance(source, dict) else None
+        if repo != state.source.split("#")[0]:
+            return f"the marketplace is registered from {repo}, not from {state.source.split('#')[0]}"
+        try:
+            market = modules_of(state.config / "plugins" / "marketplaces" / MARKETPLACE)
+        except Broken as bad:
+            return f"the platform's clone of the marketplace cannot be read ({bad})"
+        if market != state.modules:
+            return f"the marketplace holds {market}, the kit's clone {state.modules}"
         return ""
     if name in ("install", "reinstall", "update"):
         on = enabled(project)
@@ -464,7 +494,7 @@ def claim(state: Run, name: str) -> str:
             for module in state.modules:
                 odd = differing(state.cache(module), state.market(module))
                 if odd:
-                    return f"{module}'s cached {odd} is not the marketplace's file"
+                    return f"{module}'s {odd} is not alike in the cache and the marketplace"
         if name == "install":
             paths, last = session_paths(state, project)
             for module in state.modules:
@@ -587,7 +617,7 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
             code, said = run(argv, where, env)
             if code != 0:
                 raise Broken(f"the kit could not be cloned ({last_line(said)}) — fix: check the clone")
-        state = Run(home, clone, config, env, modules_of(clone), home)
+        state = Run(home, clone, config, env, modules_of(clone), home, source)
         ran = 0
         for block in named:
             if block.name == "dials":
@@ -679,8 +709,11 @@ if args[:3] == ["plugin", "marketplace", "add"]:
         print("fake claude: no such repository " + args[3], file=sys.stderr)
         sys.exit(4)
     else:
-        source = {"source": "github", "repo": args[3].split("#")[0]}
+        repo = "other/kit" if mutant == "marketplace-other-repo" else args[3].split("#")[0]
+        source = {"source": "github", "repo": repo}
     subprocess.run(["git", "clone", "--quiet", os.environ["FAKE_SOURCE"], str(market)], check=True)
+    if mutant == "marketplace-fewer-modules":
+        shutil.rmtree(market / "modules" / "const-beta")
     save(known, {"constitution-kit": {"source": source}})
 elif args[:3] == ["plugin", "marketplace", "update"]:
     pass
@@ -697,6 +730,8 @@ elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
     shutil.copytree(market / "modules" / module, cache)
     if mutant == "reinstall-stale" and (config / "fake.reinstall").exists():
         (cache / "stale.txt").write_text("an old copy\\n")
+    if mutant == "reinstall-lacks" and (config / "fake.reinstall").exists():
+        (cache / "MODULE.md").unlink()
     record = load(installed)
     record.setdefault("plugins", {})[args[2]] = [{"scope": "project", "projectPath": str(Path.cwd())}]
     save(installed, record)
@@ -984,6 +1019,18 @@ def self_test() -> int:
                 "after check=marketplace: the marketplace is registered from a directory source",
             ),
             (
+                "a marketplace from another repository red",
+                {},
+                "marketplace-other-repo",
+                "after check=marketplace: the marketplace is registered from other/kit, not from toy/kit",
+            ),
+            (
+                "a marketplace whose modules differ from the kit's red",
+                {},
+                "marketplace-fewer-modules",
+                "after check=marketplace: the marketplace holds {'const-alpha': '0.0.1'}",
+            ),
+            (
                 "a block that reads another block's variable red",
                 {
                     "new-repo": "KIT=~/dev/constitution-kit && mkdir -p ~/dev/my-project && "
@@ -1038,7 +1085,15 @@ def self_test() -> int:
                 "a reinstall whose copy differs from the marketplace red",
                 {},
                 "reinstall-stale",
-                "after check=reinstall: const-alpha's cached stale.txt is not the marketplace's file",
+                "after check=reinstall: const-alpha's stale.txt is not alike in the cache and the "
+                "marketplace",
+            ),
+            (
+                "a reinstall copy that lacks a file of the marketplace red",
+                {},
+                "reinstall-lacks",
+                "after check=reinstall: const-alpha's MODULE.md is not alike in the cache and the "
+                "marketplace",
             ),
             (
                 "an uninstall that keeps the plugin red",
@@ -1129,6 +1184,46 @@ def self_test() -> int:
             "a kit with no origin on GitHub is a configuration failure",
             originless.startswith("the kit has no origin on GitHub to install from — fix:"),
             originless,
+        )
+        originals = {k: v for k, v in git.items() if k != FROM_ENV}
+        remote = root / "github.com" / "toy" / "kit.git"  # a local origin whose URL reads as GitHub's
+        run(["git", "clone", "--quiet", "--bare", str(kit), str(remote)], root, originals)
+        run(["git", "remote", "add", "origin", str(remote)], kit, originals)
+        branch = run(["git", "symbolic-ref", "--short", "HEAD"], kit, originals, joined=False)[1]
+        found = source_of(kit, originals)
+        case("the source taken from origin at the branch's HEAD", found == f"toy/kit#{branch}", found)
+
+        def refused(argv: list[str]) -> str:
+            run(argv, kit, originals)
+            try:
+                return f"no Broken: {source_of(kit, originals)}"
+            except Broken as broken:
+                return str(broken)
+
+        behind = refused(
+            [
+                "git",
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@t",
+                "commit",
+                "--quiet",
+                "--allow-empty",
+                "-m",
+                "x",
+            ]
+        )
+        case(
+            "an origin behind HEAD is a configuration failure",
+            behind.startswith(f"origin's {branch} is not at HEAD, so the install would not come from"),
+            behind,
+        )
+        detached = refused(["git", "checkout", "--quiet", "--detach"])
+        case(
+            "a detached HEAD is a configuration failure",
+            detached.startswith("HEAD is detached, so no branch to install from — fix:"),
+            detached,
         )
 
     printed = io.StringIO()

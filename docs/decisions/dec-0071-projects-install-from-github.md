@@ -36,7 +36,7 @@ Recommendation: A, since only the GitHub form gives a project a frozen copy per 
 
 **R1.** A project installs the kit's modules from its GitHub repository: the install guide's bootstrap registers `Evgenus/constitution-kit` as the marketplace, and its prerequisites name read access to the repository beside the local clone, which serves the kernel copy and the scans.
 
-**R2.** Registering a local clone as the marketplace is live mode: a session runs each module from the clone's working files in place, every edit and every branch checked out there reaching the project at its next hook. It serves the kit's own development and a module's live proof, never a project's working install.
+**R2.** Registering a local clone as the marketplace is live mode: a session runs each module from the clone's working files in place, so every edit and every branch checked out there reaches the project, a hook script at its next run and the rest at the next session or reload. It serves the kit's own development and a module's live proof — a project that is the proof may load the modules so while the proof runs, and switches to the GitHub install when it ends — never a project's working install.
 
 ## 2. What the guide's check holds of the GitHub form
 
@@ -54,11 +54,11 @@ Building the check showed one claim it could no longer run. It had held that an 
 
 Recommendation: A, since it tests the form projects use and adds the claim that matters most; the session recommended it. The decider chose A in chat on 2026-10-07.
 
-**R3.** The install guide's check points the guide's `claude plugin marketplace add` at the change: the environment's `CONSTITUTION_KIT_INSTALL_FROM`, `<owner>/<repo>#<branch>`, else the kit's origin on GitHub at the branch checked out, which must already hold HEAD; a source it cannot point is a configuration failure with its fix. The kit's CI gives its `install-guide` job the change's repository and branch and the git credentials the module jobs have.
+**R3.** The install guide's check points the guide's `claude plugin marketplace add` at the change: the environment's `CONSTITUTION_KIT_INSTALL_FROM`, `<owner>/<repo>#<branch>`, else the kit's origin on GitHub at the branch checked out, which must be at HEAD; a source it cannot point is a configuration failure with its fix. The kit's CI gives its `install-guide` job the change's repository and branch and the git credentials the module jobs have. This replaces, in R6 of [dec-0062-install-guide-governed-kind](dec-0062-install-guide-governed-kind.md), that the job needs no git credentials because the check installs from a clone of the working folder.
 
-**R4.** The check holds that the marketplace is registered from a GitHub source, and that a headless session in the trusted project reports each module's path in the plugin cache. The path is reported before the model is called, so the run needs no login.
+**R4.** The check holds that the marketplace is registered from a GitHub source naming the source's repository, that the platform's clone of it holds the same modules at the same versions as the kit's clone — in CI the clone is the job's checkout of the change and the source its head branch — and that a headless session in the trusted project reports each module's path in the plugin cache. The path is reported before the model is called, so the run needs no login.
 
-**R5.** For update the check holds that every module stays in the plugin cache at its manifest version and enabled; for reinstall, that each file of a module's cached copy is the file of the platform's clone of the marketplace. That an update leaves a draft's change at an unchanged version untaken is a platform fact the guide states with the version and the date it was seen, and no run of the check exercises it.
+**R5.** For update the check holds that every module stays in the plugin cache at its manifest version and enabled; for reinstall, that a module's cached copy holds the same files as the module in the platform's clone of the marketplace, read through its links, byte for byte. That an update leaves a draft's change at an unchanged version untaken is a platform fact the guide states with the version and the date it was seen, and no run of the check exercises it. This replaces, in R4 of dec-0062-install-guide-governed-kind, the probe the check committed into its clone of the kit to show that the update leaves the cached draft as it was and the reinstall takes the change.
 
 ## Applied
 
@@ -67,7 +67,7 @@ The commits of this branch apply every item: the check and the workflow, the gui
 ## Carry list
 
 1. R1 — [the install guide](../../INSTALL.md), its prerequisites and step 2 of [§2](../../INSTALL.md#s2).
-2. R2 — [the install guide](../../INSTALL.md), step 2 of [§2](../../INSTALL.md#s2) and the live mode of [§3](../../INSTALL.md#s3); [kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3.
-3. R3 — [the install guide's check](../../scripts/check-install-guide.py), its docstring; [the CI workflow](../../.github/workflows/gates.yml), the steps of the `install-guide` job.
+2. R2 — [the install guide](../../INSTALL.md), its opening, step 2 of [§2](../../INSTALL.md#s2) and the live mode of [§3](../../INSTALL.md#s3); [kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3.
+3. R3 — [the install guide's check](../../scripts/check-install-guide.py), its docstring; [the CI workflow](../../.github/workflows/gates.yml), the steps of the `install-guide` job; [the gate list](../../scripts/gate-list.sh), its header. The narrowing of R6 of dec-0062-install-guide-governed-kind is history.
 4. R4 — [the install guide's check](../../scripts/check-install-guide.py), its docstring; [kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3.
-5. R5 — [the install guide's check](../../scripts/check-install-guide.py), its docstring; [the install guide](../../INSTALL.md), [§4](../../INSTALL.md#s4).
+5. R5 — [the install guide's check](../../scripts/check-install-guide.py), its docstring; [the install guide](../../INSTALL.md), [§4](../../INSTALL.md#s4). The narrowing of R4 of dec-0062-install-guide-governed-kind is history.
