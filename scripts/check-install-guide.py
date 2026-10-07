@@ -485,9 +485,7 @@ def claim(state: Run, name: str) -> str:
         kind = source.get("source") if isinstance(source, dict) else None
         if kind != "github":
             raise Misfit(
-                f"the marketplace is registered from a {kind} source, not from GitHub",
-                "register the kit from GitHub, `claude plugin marketplace add <owner>/<repo>`: a marketplace "
-                "added from a local folder runs that folder's working files in place, never the frozen copy",
+                f"the marketplace is registered from a {kind} source, not from GitHub", fix_for("install")
             )
         repo = source.get("repo") if isinstance(source, dict) else None
         wanted = state.source.split("#")[0]
@@ -557,8 +555,8 @@ def claim(state: Run, name: str) -> str:
 def fix_for(name: str) -> str:
     if name == "marketplace":
         return (
-            "make the block register the kit's GitHub repository, `claude plugin marketplace add "
-            "<owner>/<repo>`, and let git clone it here: a private repository needs git's credentials"
+            "give git a credential for github.com — `gh auth setup-git`, or an SSH key — and make the block "
+            "register the kit's repository, `claude plugin marketplace add <owner>/<repo>`"
         )
     if name == "install":
         return (
@@ -613,7 +611,8 @@ def carry_credentials(env: dict[str, str], gitconfig: Path) -> None:
         )
         if code != 0:
             raise Broken(
-                f"the credential setting {key} could not be carried ({last_line(wrote)}) — fix: check git"
+                f"the credential setting {key} could not be carried ({last_line(wrote)}) — "
+                "fix: correct that entry in the global git configuration"
             )
 
 
@@ -1186,7 +1185,7 @@ def self_test() -> int:
             taught, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
             case(
                 f"{mutant} teaches its own fix, one fix",
-                len(taught) == 1 and taught[0].fix.startswith(fix) and taught[0].fix.count("fix:") == 0,
+                len(taught) == 1 and taught[0].fix.startswith(fix) and taught[0].render().count("fix:") == 1,
                 " | ".join(f"{f.what} / {f.fix}" for f in taught),
             )
         mended, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "marketplace-fewer-modules"})
