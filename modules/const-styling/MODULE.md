@@ -41,6 +41,7 @@ Every document decides its own style at the moment of writing, and decides it di
 7. [dec-0046-language-module-rulings](../../docs/decisions/dec-0046-language-module-rulings.md) — the twelve signatures do not graduate to Vale; the path is kept for rules about words.
 8. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — a trace of a default in an accepted record or a frozen comparison is removed by a wording edit its policy allows where one removes it, and declared as a departure where none does.
 9. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
+10. [dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names](../../docs/decisions/dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md) — a kit document's name in an installed component is held by the kit's portability check, so item T18 no longer holds a list of kit words of its own.
 
 <a id="t5"></a>
 ## 5. Invariant
@@ -105,7 +106,7 @@ The advisory rules beside it, each `advisory` in its own text, stated in the gui
 | C12 | this module's own: the scan as a hook, `BROKEN: this check has no hook mode: it scans a tree and judges no single write — fix: run it with --scan [<dir>]; the plugin wires it to no event` | — | — |
 | C1, C2, C14, C15 | the shared texts, each closing with this gate's own clause in place of a write gate's: `until then no document is scanned for style` | — | — |
 
-**Installed components reference nothing in the kit.** The skill, the guide's text, the scripts, the error texts, the fixtures and the install note name no kit document, which `scripts/check-portability.py` in the kit holds for the installed components; where the skill needs the kernel's definitions it says "the project's decision path" and "the project's constitution". The reasoning lives here and in [§4](#t4).
+**Installed components reference nothing in the kit.** The skill, the guide's text, the scripts, the error texts and the install note name no kit document, which `scripts/check-portability.py` in the kit holds for the installed components; where the skill needs the kernel's definitions it says "the project's decision path" and "the project's constitution". The reasoning lives here and in [§4](#t4).
 
 <a id="t7"></a>
 ## 7. Dials

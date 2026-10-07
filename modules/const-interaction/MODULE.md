@@ -50,7 +50,8 @@ A short, vague request is answered by a page: a yes/no question opens with three
 8. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — the kit's list scan covers its accepted records and frozen comparisons, a plain item in one taking a bold lead as a wording edit.
 9. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 10. [dec-0066-interaction-reader-dials-and-entry-matching](../../docs/decisions/dec-0066-interaction-reader-dials-and-entry-matching.md) — the reader's wrappers and shells as the dials `wrappers` and `shells`, an entry's words apart by options, an entry the reader cannot produce refused, git's own skip dropped, the `PowerShell` tool left as a limit.
-11. [dec-0068-enforcement-tables-destination-classes-and-kit-checks-held](../../docs/decisions/dec-0068-enforcement-tables-destination-classes-and-kit-checks-held.md) — the explain's row of the enforcement table says it is no tree scan, so the kit's gate list does not hold it as a declared scan.
+11. [dec-0068-enforcement-tables-destination-classes-and-kit-checks-held](../../docs/decisions/dec-0068-enforcement-tables-destination-classes-and-kit-checks-held.md) — the explain's row of the enforcement table says it is no tree scan, so the kit's gate list does not hold it as a declared scan
+12. [dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names](../../docs/decisions/dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md) — a kit document's name in an installed component is held by the kit's portability check, so item T41 no longer holds a list of kit words of its own..
 
 <a id="t5"></a>
 ## 5. Invariant
@@ -115,7 +116,7 @@ The advisory rules beside it, each `advisory` in its own text and carried always
 | C12 | this module's own: `BROKEN: hook input names the event '{name}' on tool '{tool}', which this gate is not wired to — fix: wire the gate to PreToolUse with the matcher Bash, as the plugin's hooks file does; to see what the dial does to a command by hand run it with --scan --command '<text>'`; the list scan as a hook: `BROKEN: this check has no hook mode: it scans a tree and judges no single write — fix: run it with --scan [<dir>]; the plugin wires it to no event`; the printer's closing line: `BROKEN: the session-start line could not be printed — the gate's state is unknown` | — | — |
 | C1, C2, C14, C15 | the shared texts, each closing with its gate's own clause in place of a write gate's: the shell gate's `until then shell commands pass unchecked`, the list check's `until then no list is scanned` | — | — |
 
-**Installed components reference nothing in the kit.** The rules text, the hooks, the scripts, the error texts, the fixtures and the install note name no kit document, which `scripts/check-portability.py` in the kit holds for the installed components; where the rules need the kernel's definitions they say "the stakes triage of the project's constitution". The reasoning lives here and in [§4](#t4).
+**Installed components reference nothing in the kit.** The rules text, the hooks, the scripts, the error texts and the install note name no kit document, which `scripts/check-portability.py` in the kit holds for the installed components; where the rules need the kernel's definitions they say "the stakes triage of the project's constitution". The reasoning lives here and in [§4](#t4).
 
 <a id="t7"></a>
 ## 7. Dials
