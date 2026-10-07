@@ -59,7 +59,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from kit_module_doc import DocumentError, module_folders
+from kit_module_doc import DocumentError, module_folders, own_packages
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -112,17 +112,8 @@ def own_links_of(kit: Path, module: Path) -> dict[str, str]:
     """The links the module's fixture runner owes to the module's own packages, link inside the module ->
     its package in the kit: each folder at the top of scripts/, itself no link, that holds an __init__.py,
     whose name starts with neither . nor _, save the shared const_gate, which links_of() covers."""
-    scripts = module / "scripts"
     base = module.relative_to(kit).as_posix()
-    names = sorted(
-        path.name
-        for path in (scripts.iterdir() if scripts.is_dir() else [])
-        if not path.is_symlink()
-        and path.name != GATE_LINK[0].split("/")[1]
-        and not path.name.startswith((".", "_"))
-        and (path / "__init__.py").is_file()
-    )
-    return {f"tests/{name}": f"{base}/scripts/{name}" for name in names}
+    return {f"tests/{path.name}": f"{base}/scripts/{path.name}" for path in own_packages(module)}
 
 
 def imports_shared_code(module: Path) -> bool:

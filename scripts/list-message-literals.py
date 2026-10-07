@@ -8,8 +8,8 @@ judge; it decides nothing, and exits 0 whatever it finds.
 
 For each function of shared/const_gate/messages.py and of the messages.py of each package of a
 module — every folder at the top of modules/<m>/scripts/, itself no link, that holds an
-__init__.py, whose name starts with neither . nor _, save const_gate, as the kit's
-check-shared-links derives them — docstrings aside, it takes the constant text the function
+__init__.py, whose name starts with neither . nor _, save const_gate, as kit_module_doc's
+own_packages derives them — docstrings aside, it takes the constant text the function
 holds — string literals, f-string parts and the module's string constants, split where a value is
 filled in — and asks whether one piece of at least 15 characters, its edge punctuation trimmed,
 stands inside a string of the fixtures that run it: the module's tests/run.py for a module's
@@ -40,6 +40,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from kit_module_doc import own_packages
+
 KIT = Path(__file__).resolve().parent.parent
 LENGTH = 15  # the shortest piece of a message's text the list looks for
 TRIM = " .,:;'\"(){}[]—-"
@@ -69,22 +71,6 @@ def parsed(path: Path, fix: str) -> ast.Module:
         raise Broken(
             f"{path.relative_to(KIT)} cannot be read or parsed ({bad}) — fix: make it valid UTF-8 Python"
         ) from None
-
-
-def packages(module: Path) -> list[Path]:
-    """The module's own packages, derived as the kit's check-shared-links derives them."""
-    scripts = module / "scripts"
-    if not scripts.is_dir():
-        return []
-    return sorted(
-        path
-        for path in scripts.iterdir()
-        if not path.is_symlink()
-        and path.is_dir()
-        and not path.name.startswith((".", "_"))
-        and path.name != "const_gate"
-        and (path / "__init__.py").is_file()
-    )
 
 
 def is_docstring(node: ast.stmt) -> bool:
@@ -236,7 +222,7 @@ def main(argv: list[str]) -> int:
     listed = 0
     try:
         for module in modules:
-            for package in packages(module):
+            for package in own_packages(module):
                 fix = (
                     f"put the package's messages in {package.name}/messages.py, as rule 2 of template §6 asks"
                 )
