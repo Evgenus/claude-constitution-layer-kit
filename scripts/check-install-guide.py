@@ -79,7 +79,8 @@ Modes:  no arguments   check the kit's guide;
                        a marketplace from another repository, one whose modules differ from the
                        kit's, its fix the branch brought to the clone, a reinstall copy that lacks a
                        file of the marketplace, the toy modules' links into a toy shared/ read through
-                       on both sides; the source
+                       on both sides; the outer credential helpers carried into the run, nothing
+                       else of the outer configuration; the source
                        taken from the environment, from origin at the branch's HEAD, and a kit with no
                        origin on GitHub, a detached HEAD and an origin behind HEAD each a
                        configuration failure; the
@@ -584,6 +585,23 @@ def source_of(kit: Path, env: dict[str, str]) -> str:
     return f"{found.group(1)}#{branch}"
 
 
+def credentials(env: dict[str, str]) -> str:
+    """The outer git configuration's credential settings, as lines of the run's own configuration: the
+    run replaces HOME and the global configuration, and a private repository's clone needs the helper
+    the machine or the CI job set up, and nothing else of that configuration."""
+    code, said = run(
+        ["git", "config", "--global", "--get-regexp", r"^credential\."], Path.cwd(), env, joined=False
+    )
+    lines = []
+    for line in said.splitlines() if code == 0 else []:
+        key, _, value = line.partition(" ")
+        section, _, name = key.rpartition(".")
+        head, _, sub = section.partition(".")
+        lines.append(f'[{head} "{sub}"]\n' if sub else f"[{head}]\n")
+        lines.append(f"\t{name} = {json.dumps(value)}\n")
+    return "".join(lines)
+
+
 def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Finding], str]:
     """The guide's findings, its marks first and then its run, and what was examined."""
     named, findings = blocks_of(guide)
@@ -611,7 +629,7 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
         config.mkdir(parents=True)
         (home / ".gitconfig").write_text(
             "[user]\n\tname = install-guide\n\temail = install-guide@example.invalid\n"
-            "[init]\n\tdefaultBranch = main\n[commit]\n\tgpgsign = false\n",
+            "[init]\n\tdefaultBranch = main\n[commit]\n\tgpgsign = false\n" + credentials(base_env),
             encoding="utf-8",
         )
         env = base_env | {
@@ -1206,7 +1224,25 @@ def self_test() -> int:
             len(sourceless) == 1 and "runs no `claude plugin marketplace add <source>`" in sourceless[0].what,
             whats(sourceless),
         )
-        given = source_of(kit, {FROM_ENV: "owner/repo#work/x"} | git)
+        outer = root / "outer.gitconfig"  # as `gh auth setup-git` leaves it, with an alias beside
+        outer.write_text(
+            '[credential "https://github.com"]\n\thelper =\n\thelper = !gh auth git-credential\n'
+            "[alias]\n\tco = checkout\n",
+            encoding="utf-8",
+        )
+        carried = root / "carried.gitconfig"
+        carried.write_text(credentials(git | {"GIT_CONFIG_GLOBAL": str(outer)}), encoding="utf-8")
+        read_back = run(["git", "config", "--file", str(carried), "--list"], root, git, joined=False)[1]
+        case(
+            "the outer credential helpers carried into the run's configuration, and nothing else",
+            read_back.splitlines()
+            == [
+                "credential.https://github.com.helper=",
+                "credential.https://github.com.helper=!gh auth git-credential",
+            ],
+            read_back,
+        )
+        given = source_of(kit, git | {FROM_ENV: "owner/repo#work/x"})
         case("the source taken from the environment", given == "owner/repo#work/x", given)
         try:
             source_of(kit, {k: v for k, v in git.items() if k != FROM_ENV})
