@@ -232,7 +232,9 @@ CASES = [
         "R1: an envelope that is YAML but no mapping of fields is blocked",
         Write(RECORD_A, "---\n- stakes\n- decider\n---\n"),
         VALID,
-        messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.INVALID, shared.detail_not_a_mapping()),
+        messages.r1_no_readable_envelope(
+            RECORD_A, EnvelopeState.INVALID, "the block is not a mapping of field: value"
+        ),
         GREEN_WHAT,
         SETUP,
     ),

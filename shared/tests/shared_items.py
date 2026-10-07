@@ -197,10 +197,18 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return broken_as_typed(result, line)
 
     def dials_bad_severity() -> tuple[bool, str]:
-        return broken(s.gate_on(s.valid, dials_patch=s.own(severity="loud"))[0], messages.c5_severity())
+        line = (  # typed by hand
+            f"BROKEN: constitution.yaml: {ns}.severity must be block or warn — fix: under {ns}, set severity:"
+            " block or severity: warn, or remove that line"
+        )
+        return broken_as_typed(s.gate_on(s.valid, dials_patch=s.own(severity="loud"))[0], line)
 
     def dials_own_namespace() -> tuple[bool, str]:
-        return broken(s.gate_on(s.valid, dials_patch={ns: "x"})[0], messages.c5_own_namespace_not_mapping())
+        line = (  # typed by hand
+            f"BROKEN: constitution.yaml: namespace '{ns}' must be a mapping of this module's dials — fix:"
+            " write this module's dials under it as a mapping, or remove the key"
+        )
+        return broken_as_typed(s.gate_on(s.valid, dials_patch={ns: "x"})[0], line)
 
     def dials_comment_pattern() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, dials_patch={"notes-policy": {"territory": ["#docs/notes/**"]}})
@@ -221,9 +229,17 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return broken(s.gate_on(s.valid, dials_patch={ns: None})[0], messages.c5_own_namespace_not_mapping())
 
     def dials_other_pairs() -> tuple[bool, str]:
-        pairs: list[tuple[dict[str, object], Broken]] = [
-            ({"root_policy": "/absolute/root.md"}, messages.c5_root_policy_path()),
-            ({"territory_dialect": ""}, messages.c5_dialect_empty()),
+        pairs: list[tuple[dict[str, object], Broken | str]] = [  # a string is a line typed by hand
+            (
+                {"root_policy": "/absolute/root.md"},
+                "BROKEN: constitution.yaml: root_policy must be a repository-relative path — fix:"
+                " root_policy: <path of the root policy, relative to the repository root>",
+            ),
+            (
+                {"territory_dialect": ""},
+                "BROKEN: constitution.yaml: territory_dialect must be a non-empty string — fix: remove the"
+                " key, or set territory_dialect: gitignore — the one dialect supported",
+            ),
             ({"notes-policy": "docs/notes/**"}, messages.c5_namespace_not_mapping("notes-policy")),
             ({"notes-policy": {"territory": "docs/notes/**"}}, messages.c5_territory_shape("notes-policy")),
             # a list holding a blank string is no list of non-empty strings
@@ -231,7 +247,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 {"notes-policy": {"territory": ["docs/notes/**", " "]}},
                 messages.c5_territory_shape("notes-policy"),
             ),
-            (s.own(log_dir="/absolute/logs"), messages.c5_log_dir()),
+            (
+                s.own(log_dir="/absolute/logs"),
+                f"BROKEN: constitution.yaml: {ns}.log_dir must be a repository-relative directory — fix:"
+                f" under {ns}, set log_dir: <a git-ignored directory>, or remove that line",
+            ),
             # a path that leaves the repository by `..`, written plain or after a step down
             ({"root_policy": "../root.md"}, messages.c5_root_policy_path()),
             ({"root_policy": "docs/../../root.md"}, messages.c5_root_policy_path()),
@@ -239,7 +259,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             (s.own(log_dir="logs/../../logs"), messages.c5_log_dir()),
             ({"root_policy": " "}, messages.c5_root_policy_path()),
         ]
-        results = [broken(s.gate_on(s.valid, dials_patch=patch)[0], failure) for patch, failure in pairs]
+        results = [
+            broken_as_typed(s.gate_on(s.valid, dials_patch=patch)[0], failure)
+            if isinstance(failure, str)
+            else broken(s.gate_on(s.valid, dials_patch=patch)[0], failure)
+            for patch, failure in pairs
+        ]
         failed = [evidence for ok, evidence in results if not ok]
         # the same dials written the long way read as written the short way: the verdict is the plain
         # run's, never a refusal — `./` and `//` dropped, a step down and back up undone
@@ -397,7 +422,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
 
     def input_not_an_object() -> tuple[bool, str]:
-        return broken(h.run_gate("[1, 2]"), messages.c12_input(messages.detail_not_an_object()))
+        detail = "it is JSON, but the top level is not an object"  # typed by hand
+        return broken(h.run_gate("[1, 2]"), messages.c12_input(detail))
 
     def malformed_event() -> tuple[bool, str]:
         event = json.dumps({"tool_name": "Write", "tool_input": ["not", "an", "object"]})
@@ -420,7 +446,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         lets the write through."""
         text = "---\nid: " + "[" * 600 + "\n---\n"
         result, _ = s.gate_on(Write(s.valid.target, text))  # a path where the envelope is the only defect
-        return expect(result, 2, messages.detail_nested_too_deeply(), "stderr")
+        return expect(result, 2, "brackets are nested too deeply to read", "stderr")  # typed by hand
 
     def other_tool() -> tuple[bool, str]:
         event = json.dumps({"tool_name": "Read", "tool_input": {"file_path": "x.md"}})
@@ -508,7 +534,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def no_root_policy() -> tuple[bool, str]:
         result, _ = s.gate_on(s.red, raw_dials="notes-policy:\n  territory: ['docs/notes/**']\n")
-        return expect(result, 0, messages.g1_green_skip(messages.g1_skip_no_root()), "stdout")
+        reason = "constitution.yaml has no root_policy: nothing is claimed"  # typed by hand
+        return expect(result, 0, messages.g1_green_skip(reason), "stdout")
 
     def byte_order_mark() -> tuple[bool, str]:
         result, _ = s.gate_on(Write(s.valid.target, "\ufeff" + s.valid.text))
@@ -622,7 +649,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             ok = (
                 set(answer) == {"systemMessage"}
                 and s.red_finding.render() in answer["systemMessage"]
-                and answer["systemMessage"].startswith(messages.w1_warn_stop("").rstrip())
+                and answer["systemMessage"].startswith(f"{ns} (warn):\n")  # typed by hand
             )
             return (
                 ok,
@@ -631,8 +658,10 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         context = answer["hookSpecificOutput"]["additionalContext"]
         ok = (
             s.red_finding.render() in context
-            and messages.w1_warn_note() in context
-            and answer["systemMessage"] == messages.w1_warn_system(s.red_finding.headline)
+            and f"{ns}: severity is warn: the write proceeds, but the finding stands and recurs on every"
+            " write until fixed"
+            in context  # typed by hand, as the system line below
+            and answer["systemMessage"] == f"{ns} (warn): {s.red_finding.headline}"
         )
         return ok, "exit 0, finding in additionalContext and systemMessage" if ok else f"bad: {answer}"
 
