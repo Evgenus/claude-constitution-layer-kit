@@ -51,6 +51,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-catalog-item.sh", "check-catalog-item.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 
@@ -319,7 +320,11 @@ def all_of(results: list[tuple[bool, str]], summary: str) -> tuple[bool, str]:
 def no_catalog_listed() -> tuple[bool, str]:
     """With no catalog listed, any name passes — and the count line says why."""
     result, _ = gate_on(Write(at("first"), NO_ENVELOPE), dials_patch={NAMESPACE: {}})
-    return expect(result, 0, shared.g1_green_skip(messages.g1_skip_no_catalog()), "stdout")
+    skip = (  # typed by hand
+        "const-catalogs.catalogs lists no catalog, so no document is known to be numbered — to declare"
+        f" one, write {DECLARATION} in constitution.yaml"
+    )
+    return expect(result, 0, shared.g1_green_skip(skip), "stdout")
 
 
 def no_catalog_listed_scan() -> tuple[bool, str]:
@@ -406,26 +411,41 @@ def a_misspelt_dial() -> tuple[bool, str]:
     )
 
 
+# the declaration two lines teach, the skip and the C5: its frame and the entry's form, typed once
+DECLARATION = (
+    "const-catalogs: {catalogs: [{prefix: <lowercase letters and digits>, territory: [<patterns of the"
+    " paths where the numbered documents live>], width: 4}]}"
+)
+
+
 def catalogs_not_a_list() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"catalogs": entry()}})
-    return broken(result, messages.c5_catalogs_not_a_list())
+    return broken_typed(  # typed by hand
+        result,
+        "BROKEN: constitution.yaml: const-catalogs.catalogs must be a list of catalogs — fix: write it as"
+        f" {DECLARATION}, or remove the key",
+    )
 
 
 def entry_shapes() -> tuple[bool, str]:
     """Each malformed entry is named by its position and by what is wrong with it."""
     shapes: list[tuple[object, str]] = [
-        ("itm", messages.entry_not_a_mapping()),
+        ("itm", "is not a mapping of prefix, territory and width"),  # typed by hand
         (entry(start=1), messages.entry_unknown_key("start")),
-        ({"territory": TERRITORY}, messages.entry_prefix()),
+        (
+            {"territory": TERRITORY},
+            # typed by hand
+            "needs a prefix of lowercase letters and digits — in quotes when it is all digits",
+        ),
         (entry("ITM"), messages.entry_prefix()),
         (entry("it-m"), messages.entry_prefix()),
         (entry("itm\n"), messages.entry_prefix()),
         ({"prefix": 7, "territory": TERRITORY}, messages.entry_prefix()),
-        ({"prefix": "itm"}, messages.entry_territory()),
+        ({"prefix": "itm"}, "needs a territory: a non-empty list of path patterns"),  # typed by hand
         (entry(territory=[]), messages.entry_territory()),
         (entry(territory=[""]), messages.entry_territory()),
         ({"prefix": "itm", "territory": "docs/items/**"}, messages.entry_territory()),
-        (entry(width=0), messages.entry_width()),
+        (entry(width=0), "has a width that is not a whole number from 1 to 9"),  # typed by hand
         (entry(width=10), messages.entry_width()),
         (entry(width="4"), messages.entry_width()),
         (entry(width=True), messages.entry_width()),
@@ -466,7 +486,12 @@ TWICE = catalogs(entry(), entry(territory=["docs/more/**"], width=3))
 
 
 def prefix_listed_twice() -> tuple[bool, str]:
-    return broken(gate_on(VALID, dials_patch=TWICE)[0], messages.c5_prefix_listed_twice("itm"))
+    return broken_typed(  # typed by hand
+        gate_on(VALID, dials_patch=TWICE)[0],
+        "BROKEN: constitution.yaml: const-catalogs.catalogs lists prefix 'itm' twice — fix: one prefix names"
+        " one catalog, or a number would cite two kinds: join the two entries' territories in one entry, or"
+        " give one of them another prefix — before it has items, since an id never changes",
+    )
 
 
 def prefix_listed_twice_scan() -> tuple[bool, str]:
@@ -822,8 +847,11 @@ def number_the_width_cannot_write() -> tuple[bool, str]:
 def full_catalog_is_named() -> tuple[bool, str]:
     files = {at("itm-9-ninth"): item("itm-9-ninth")}
     result = scan_of(files, catalogs(entry(width=1)))
-    tail = messages.f9_scan_tail(1, 4, [reach(9, catalog=Catalog("itm", 1, tuple(TERRITORY)))])
-    ok = result.code == 0 and tail in result.stdout and "(full:" in tail
+    tail = (  # typed by hand
+        "1 catalogued item(s) examined, 4 Markdown file(s) scanned, 1 catalog(s): itm up to itm-9"
+        " (full: the width can write no higher number)"
+    )
+    ok = result.code == 0 and tail in result.stdout
     return ok, f"exit {result.code}: {tail}"
 
 
@@ -1091,7 +1119,7 @@ def session_start_skips_and_failures() -> tuple[bool, str]:
         bad.code == 1
         and bad.stdout == ""
         and bad.stderr.startswith("BROKEN: constitution.yaml is not valid YAML")
-        and messages.s1_could_not_run() in bad.stderr
+        and COULD_NOT_RUN in bad.stderr
     )
     broken_name = "d\n" + "e" * 100  # a folder name holding a line break, over 80 characters
     wide_dir = H.scratch_dir() / broken_name
@@ -1132,6 +1160,11 @@ def session_start_skips_and_failures() -> tuple[bool, str]:
         ],
         "no dials and no repository said; malformed dials exit 1 with C4; an argument is a misinvocation",
     )
+
+
+COULD_NOT_RUN = (
+    "BROKEN: the session-start line could not be printed — the gate's state is unknown"  # typed by hand
+)
 
 
 def session_start_absence_paths() -> tuple[bool, str]:

@@ -47,6 +47,7 @@ from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-references.sh", "check-references.py", start.GATE.namespace)
 
 NAMESPACE = start.GATE.namespace
@@ -123,8 +124,9 @@ def scan_of(files: dict[str, str], dials_patch: dict[str, object] | None = None)
     return H.run_gate("", args=["--scan", str(consumer.root)])
 
 
-def broken(result: Result, failure: Broken) -> tuple[bool, str]:
-    return broken_typed(result, failure.render())
+def broken(result: Result, failure: Broken | str) -> tuple[bool, str]:
+    """The failure as the module builds it, or, given a string, as the item typed it by hand."""
+    return broken_typed(result, failure if isinstance(failure, str) else failure.render())
 
 
 def broken_typed(result: Result, line: str) -> tuple[bool, str]:
@@ -452,20 +454,46 @@ def dial_failures() -> tuple[bool, str]:
         compiler_words = str(compiler)
     else:
         return False, "the pattern 'REQ-([' compiled; the fixture needs one the compiler refuses"
-    wrong: list[tuple[dict[str, object], Broken]] = [
-        (own(territories="*.md"), messages.c5_territories()),
+    lane_fix = (  # the fix every lane failure ends in, typed by hand
+        "write the entry as {pattern: <regular expression>, names: <what the form cites>, fix: <the link"
+        " form to write>}; home: [<patterns>] is optional"
+    )
+    wrong: list[tuple[dict[str, object], Broken | str]] = [
+        (  # typed by hand
+            own(territories="*.md"),
+            "BROKEN: constitution.yaml: const-referencing.territories must be a non-empty list of path"
+            " patterns — fix: write it as const-referencing: {territories: ['*.md']}, or remove the key:"
+            " every Markdown file is then covered",
+        ),
         (own(territories=[]), messages.c5_territories()),
         (own(territories=["*.md", 3]), messages.c5_territories()),
         (own(bare_ids="maybe"), messages.c5_switch("bare_ids")),
         (own(bare_ids=True), messages.c5_switch("bare_ids")),
         (own(local_paths="off"), messages.c5_switch("local_paths")),
-        (own(lanes={"pattern": "x"}), messages.c5_lanes_not_a_list()),
-        (own(lanes=["REQ"]), messages.c5_lane(1, messages.lane_not_a_mapping())),
+        (  # typed by hand
+            own(lanes={"pattern": "x"}),
+            "BROKEN: constitution.yaml: const-referencing.lanes must be a list of lanes — fix: write it as"
+            " const-referencing: {lanes: [{pattern: <regular expression>, names: <what the form cites>,"
+            " fix: <the link form to write>}]}, or remove the key",
+        ),
+        (  # typed by hand
+            own(lanes=["REQ"]),
+            "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes is not a mapping of pattern,"
+            f" names, fix and home — fix: {lane_fix}",
+        ),
         (own(lanes=[LANE, {**LANE, "why": "mine"}]), messages.c5_lane(2, messages.lane_unknown_key("why"))),
-        (own(lanes=[dropped]), messages.c5_lane(1, messages.lane_needs("fix"))),
+        (  # typed by hand
+            own(lanes=[dropped]),
+            "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes needs fix: a non-empty string"
+            f" — fix: {lane_fix}",
+        ),
         (lane(names="  "), messages.c5_lane(1, messages.lane_needs("names"))),
         (lane(pattern=7), messages.c5_lane(1, messages.lane_needs("pattern"))),
-        (lane(home="docs/reqs.md"), messages.c5_lane(1, messages.lane_home())),
+        (  # typed by hand
+            lane(home="docs/reqs.md"),
+            "BROKEN: constitution.yaml: entry 1 of const-referencing.lanes has a home that is not a list"
+            f" of path patterns — fix: {lane_fix}",
+        ),
         (
             lane(pattern="REQ-(["),
             messages.c5_lane(1, messages.lane_pattern(compiler_words)),
@@ -884,7 +912,11 @@ def governed_only_without_root() -> tuple[bool, str]:
     """governed_only with no root policy is a configuration failure in every mode — as the mover
     refuses — never a skip that lets a write through with nothing examined; by default none is needed."""
     rootless = yaml.safe_dump({NAMESPACE: {"governed_only": True}})
-    failure = messages.c5_governed_only_without_root()
+    failure = (  # typed by hand
+        "BROKEN: constitution.yaml: const-referencing.governed_only is set and no root_policy is named, so"
+        " nobody can say which documents a policy governs — fix: name the root policy, or remove"
+        " governed_only"
+    )
     before, root = gate_on(VALID, raw_dials=rootless)
     consumer = H.fresh_consumer()
     consumer.write("constitution.yaml", rootless)
@@ -928,17 +960,38 @@ def mentions_outside_markdown() -> tuple[bool, str]:
 
 def mention_dial_failures() -> tuple[bool, str]:
     unclosed = messages.lane_pattern("missing ), unterminated subpattern at position 5")
-    wrong: list[tuple[dict[str, object], Broken]] = [
-        (own(governed_only="yes"), messages.c5_governed_only()),
+    mention_fix = (  # the fix every mention failure ends in, typed by hand
+        "write the entry as {pattern: <regular expression whose whole match is a document's id>};"
+        " files: [<patterns>] is optional"
+    )
+    wrong: list[tuple[dict[str, object], Broken | str]] = [
+        (  # typed by hand
+            own(governed_only="yes"),
+            "BROKEN: constitution.yaml: const-referencing.governed_only must be true or false — fix: write"
+            " governed_only: true to cover only documents a policy governs, or remove the key",
+        ),
         (own(heading_anchors="sometimes"), messages.c5_switch("heading_anchors")),
-        (own(mentions={"pattern": "x"}), messages.c5_mentions_not_a_list()),
-        (own(mentions=["note"]), messages.c5_mention(1, messages.mention_not_a_mapping())),
+        (  # typed by hand
+            own(mentions={"pattern": "x"}),
+            "BROKEN: constitution.yaml: const-referencing.mentions must be a list of mention patterns —"
+            " fix: write it as const-referencing: {mentions: [{pattern: <regular expression whose whole"
+            " match is a document's id>}]}, or remove the key",
+        ),
+        (  # typed by hand
+            own(mentions=["note"]),
+            "BROKEN: constitution.yaml: entry 1 of const-referencing.mentions is not a mapping of pattern"
+            f" and files — fix: {mention_fix}",
+        ),
         (
             own(mentions=[{**MENTION, "names": "x"}]),
             messages.c5_mention(1, messages.mention_unknown_key("names")),
         ),
         (own(mentions=[{"files": ["src/**"]}]), messages.c5_mention(1, messages.lane_needs("pattern"))),
-        (own(mentions=[{**MENTION, "files": "src"}]), messages.c5_mention(1, messages.mention_files())),
+        (  # typed by hand
+            own(mentions=[{**MENTION, "files": "src"}]),
+            "BROKEN: constitution.yaml: entry 1 of const-referencing.mentions has files that is not a list"
+            f" of path patterns — fix: {mention_fix}",
+        ),
         (own(mentions=[{"pattern": "note-("}]), messages.c5_mention(1, unclosed)),
     ]
     results = [broken(gate_on(VALID, dials_patch=patch)[0], failure) for patch, failure in wrong]
@@ -1572,7 +1625,12 @@ def mover_asks_before_it_moves() -> tuple[bool, str]:
                 messages.v4_nothing_changed() in done.stderr and porcelain(no_lychee) == before,
                 "no lychee: the tree changed",
             ),
-            broken_first_line(refused, messages.v5_no_root_policy().render()),
+            broken_first_line(  # typed by hand
+                refused,
+                "BROKEN: const-referencing.governed_only is set and constitution.yaml names no root_policy,"
+                " so nobody can say which documents a move must repair — fix: name the root policy, or"
+                " remove governed_only",
+            ),
             (
                 porcelain(rootless) == state and (rootless.root / OLD).exists(),
                 "no root policy: the tree changed",
@@ -1595,9 +1653,13 @@ def mover_says_when_it_stopped_midway() -> tuple[bool, str]:
         env=merged,
         check=False,
     )
+    stopped = (  # typed by hand
+        "BROKEN: the act stopped midway — what the lines above name was moved or rewritten, and the check"
+        " of the whole tree has not run: look at git status, repair the cause, then run the scan"
+    )
     ok = (
         done.returncode == 1
-        and messages.v4_stopped_midway() in done.stderr
+        and stopped in done.stderr
         and messages.v4_nothing_changed() not in done.stderr
         and (consumer.root / NEW).exists()
     )

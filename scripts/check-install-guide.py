@@ -79,13 +79,14 @@ Modes:  no arguments   check the kit's guide;
                        a marketplace from another repository, one whose modules differ from the kit's and
                        the fix it teaches, each marketplace and install finding's own fix and the fix of a
                        marketplace and an install block that exits 1, a session that loads no module and
-                       one that reports no start, a reinstall copy that lacks a file of the marketplace,
-                       the toy modules' links into a toy shared/ read through on both sides; the outer
-                       credential settings carried into the run as git reads them, includes followed,
-                       nothing else of the outer configuration, and the carried helper reaching the run's
-                       git; the source taken from the environment, from origin at the branch's HEAD, and a
-                       kit with no origin on GitHub, a detached HEAD and an origin behind HEAD each a
-                       configuration failure; the
+                       one that reports no start, its own reason quoted, a reinstall copy that lacks a
+                       file of the marketplace, the toy modules' links into a toy shared/ read through on
+                       both sides; the outer credential settings carried into the run as git reads them,
+                       includes followed, nothing else of the outer configuration, and the carried helper
+                       reaching the run's git; the toy kit left as it was, and a green guide's marks with
+                       a `text` fence needing none; the source taken from the environment, from origin at
+                       the branch's HEAD, and a kit with no origin on GitHub, a detached HEAD and an
+                       origin behind HEAD each a configuration failure; the
                        report of one finding as literal lines with exit 2; the kit's modules, the
                        folders of `kit_module_doc.module_folders` with their manifest versions: a
                        folder `.x` or `_x` and a plain file skipped, a name without `const-` listed,
@@ -296,7 +297,8 @@ def run(
         ) from bad
     except subprocess.TimeoutExpired:
         return 124, f"timed out after {timeout} s"
-    return done.returncode, (done.stdout + done.stderr if joined else done.stdout).strip()
+    both = done.stdout + ("\n" if done.stdout and done.stderr else "") + done.stderr  # never one line of two
+    return done.returncode, (both if joined else done.stdout).strip()
 
 
 def last_line(said: str) -> str:
@@ -574,9 +576,10 @@ IN_PLACE = (
 def fix_for(name: str) -> str:
     if name == "marketplace":
         return (
-            f"let git clone the source the check registers — {FROM_ENV} naming a branch that exists, "
-            "or origin at HEAD — with a credential for github.com while the repository is private, as "
-            "`gh auth setup-git` sets one up; and make the block's other commands succeed"
+            f"let git clone the source the block is given — {FROM_ENV}, `<owner>/<repo>#<branch>`, else the "
+            "clone's origin at the branch checked out, naming a "
+            "repository and branch that exist — with a credential for github.com while the repository is "
+            "private, as `gh auth setup-git` sets one up; and make the block's other commands succeed"
         )
     if name == "install":
         return (
@@ -1205,7 +1208,7 @@ def self_test() -> int:
             (
                 "a marketplace block that exits 1",
                 {"marketplace": "false && claude plugin marketplace add toy/kit"},
-                "let git clone the source the check registers",
+                "let git clone the source the block is given",
             ),
             ("an install block that exits 1", {"install": "false"}, "make the block install each module"),
         ):
@@ -1220,7 +1223,8 @@ def self_test() -> int:
             "a session that reports no start says why, and teaches to reproduce it",
             len(stopped) == 1
             and stopped[0].what.endswith("reported no start (Error: the session could not start)")
-            and stopped[0].fix.startswith("run §2 steps 1 to 3 in a project of your own, then `claude -p ok"),
+            and stopped[0].fix.startswith("run §2 steps 1 to 3 in a project of your own, then `claude -p ok")
+            and stopped[0].render().count("fix:") == 1,
             " | ".join(f"{f.what} / {f.fix}" for f in stopped),
         )
         never, _ = run_guide(

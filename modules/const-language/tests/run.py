@@ -55,6 +55,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-language.sh", "check-language.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
 SKILL = MODULE_ROOT / "skills" / "plain-language" / "SKILL.md"
@@ -159,7 +160,8 @@ def green_scan(
 
 
 def green_hook() -> str:
-    return f"GREEN: {NAMESPACE}: 1 document examined, {messages.g1_covered()}"
+    # typed by hand: the covered line is not built by the message function
+    return f"GREEN: {NAMESPACE}: 1 document examined, covered by {NAMESPACE}.territories"
 
 
 def context(result: Result) -> Result:

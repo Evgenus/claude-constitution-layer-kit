@@ -40,6 +40,7 @@ from shared_items import NO_ENVELOPE, Subject, shared_assertions
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-governed-document.sh", "check-governed-document.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
 
@@ -215,7 +216,8 @@ CASES = [
         "F11: the root policy with an envelope opened and never closed is a blocked write",
         Write(ROOT_POLICY, "---\nid: root-policy\ntype: current-state\n\n# Root\n"),
         Write(ROOT_POLICY, envelope("root-policy", "current-state")),
-        messages.f11_root_unreadable(ROOT_POLICY, messages.f11_detail_unterminated()),
+        # typed by hand: the detail is not built by the message function
+        messages.f11_root_unreadable(ROOT_POLICY, "opened with '---' but never closed"),
         "governed by root-policy",
     ),
     Case(

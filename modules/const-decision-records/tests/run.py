@@ -47,6 +47,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-decision-record.sh", "check-decision-record.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 
@@ -174,7 +175,7 @@ CASES = [
         "R2: a decider of blanks only is blocked",
         Write(RECORD_A, record(decider="  ")),
         VALID,
-        messages.r2_invalid_fields(RECORD_A, [messages.r2_decider_empty()]),
+        messages.r2_invalid_fields(RECORD_A, ["decider empty"]),  # typed by hand
         GREEN_WHAT,
         SETUP,
     ),
@@ -232,7 +233,9 @@ CASES = [
         "R1: an envelope that is YAML but no mapping of fields is blocked",
         Write(RECORD_A, "---\n- stakes\n- decider\n---\n"),
         VALID,
-        messages.r1_no_readable_envelope(RECORD_A, EnvelopeState.INVALID, shared.detail_not_a_mapping()),
+        messages.r1_no_readable_envelope(
+            RECORD_A, EnvelopeState.INVALID, "the block is not a mapping of field: value"
+        ),
         GREEN_WHAT,
         SETUP,
     ),
@@ -287,7 +290,12 @@ def own(**dials: object) -> dict[str, object]:
 def dial_unset() -> tuple[bool, str]:
     """With no record policy named, a free-form record passes — and the count line says why."""
     result, _ = gate_on(Write(RECORD_A, NO_ENVELOPE), dials_patch={NAMESPACE: {}})
-    return expect(result, 0, shared.g1_green_skip(messages.g1_skip_no_record_policies()), "stdout")
+    skip = (  # typed by hand
+        f"{NAMESPACE}.record_policies names no policy, so no document is known to be a decision record"
+        f" — to switch the check on, write {NAMESPACE}: {{record_policies: [<id of the policy that governs"
+        " decision records>]} in constitution.yaml"
+    )
+    return expect(result, 0, shared.g1_green_skip(skip), "stdout")
 
 
 def dial_unset_scan() -> tuple[bool, str]:
@@ -463,7 +471,12 @@ def policy_named_twice() -> tuple[bool, str]:
 
 def dials_bad_record_policies() -> tuple[bool, str]:
     result, _ = gate_on(VALID, dials_patch={NAMESPACE: {"record_policies": "records-policy"}})
-    return broken_first_line(result, messages.c5_record_policies().render())
+    line = (  # typed by hand
+        f"BROKEN: constitution.yaml: {NAMESPACE}.record_policies must be a list of kebab-case policy ids"
+        f" — fix: write {NAMESPACE}: {{record_policies: [<id of the policy that governs decision"
+        " records>]}, or remove the key"
+    )
+    return broken_first_line(result, line)
 
 
 def dials_record_policy_not_kebab() -> tuple[bool, str]:
@@ -757,12 +770,14 @@ def session_start_skips_and_failures() -> tuple[bool, str]:
         " there"
     )
     no_repo_ok = no_repo.code == 0 and no_repo.stdout == no_repo_line + "\n"
+    # typed by hand
+    could_not_run = "BROKEN: the session-start line could not be printed — the gate's state is unknown"
     bad = SESSION.run_gate(session_json(session_root(raw_dials="root-policy: [\n")))
     bad_ok = (
         bad.code == 1
         and bad.stdout == ""
         and bad.stderr.startswith("BROKEN: constitution.yaml is not valid YAML")
-        and messages.s1_could_not_run() in bad.stderr
+        and could_not_run in bad.stderr
     )
     broken_name = "d\n" + "e" * 100  # a folder name holding a line break, over 80 characters
     wide_dir = H.scratch_dir() / broken_name

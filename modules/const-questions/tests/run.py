@@ -43,6 +43,7 @@ from shared_items import PatternDial, Subject, shared_assertions
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-open-questions.sh", "check-open-questions.py", start.GATE.namespace)
 
 NAMESPACE = start.GATE.namespace
@@ -118,7 +119,8 @@ def broken(result: Result, failure: Broken) -> tuple[bool, str]:
 
 def passes(action: Write | Edit, **kwargs: object) -> tuple[bool, str]:
     result, _ = gate_on(action, **kwargs)  # type: ignore[arg-type]
-    return expect(result, 0, shared.g1_green_hook(messages.g1_covered()), "stdout")
+    # typed by hand: what the green line says the document is
+    return expect(result, 0, shared.g1_green_hook("a covered document"), "stdout")
 
 
 def blocked(action: Write | Edit, finding: Finding, **kwargs: object) -> tuple[bool, str]:

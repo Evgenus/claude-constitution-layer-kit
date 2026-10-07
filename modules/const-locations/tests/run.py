@@ -36,6 +36,7 @@ from shared_items import Subject, shared_assertions
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 identity.declare(start.GENERATOR)  # the expected messages are built by the same functions the generator uses
+# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "new-document.sh", "new-document.py", start.GENERATOR.namespace)
 NAMESPACE = start.GENERATOR.namespace
 
@@ -785,8 +786,10 @@ def dry_run() -> tuple[bool, str]:
     result = run(consumer, "--kind", "notes-policy", "--stem", "a", "--dry-run")
     lines = [
         messages.l1_home(NOTE, "notes-policy", "docs/notes/**"),
-        messages.l2_no_template("notes-policy"),
-        messages.l4_dry_run(),
+        # typed by hand
+        f"TEMPLATE: none — notes-policy names no template in {NAMESPACE}.templates; the envelope alone is"
+        " written, and the body is the title's heading",
+        "0 documents created — dry run: the lines above are what a write would use",
     ]
     # a template path of over 80 characters with a break and a backslash: the TEMPLATE line shows it whole
     odd = prepared(

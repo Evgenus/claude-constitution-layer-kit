@@ -1079,12 +1079,14 @@ def t20() -> tuple[bool, str]:
     dials exit 1 with C4 first and nothing on stdout; a ceiling at error on 14 days is this module's C5; an
     argument is a misinvocation; PyYAML missing is C2 and python3 missing is C1, each with the printer's
     clause."""
+    # typed by hand
+    could_not_run = "BROKEN: the session-start line could not be printed — the gate's state is unknown"
     bad = SESSION.run_gate(session_json(prepared(raw_dials="root-policy: [\n")))
     bad_ok = (
         bad.code == 1
         and bad.stdout == ""
         and bad.stderr.startswith("BROKEN: constitution.yaml is not valid YAML")
-        and messages.z1_could_not_run() in bad.stderr
+        and could_not_run in bad.stderr
     )
     short = {**NOTES, "window": {"from": "2026-08-01", "to": "2026-08-15"}}
     refused = SESSION.run_gate(session_json(prepared(own(ceilings=[short]))))
