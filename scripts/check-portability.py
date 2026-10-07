@@ -693,6 +693,16 @@ def self_test_names() -> tuple[int, int]:
             "plc-00001",  # plc declares no width: the default, 4
             "adr-0007",
             "ADR-0007",
+            "module.md",  # the fixed names are a plain match, case as written
+            "gate.md",
+            "Kernel/",
+            "Requirements.md",
+            "conventions.md",
+            "Rollout-plan",
+            "MODULExmd",  # and the dot of a name is a dot, no wildcard
+            "requirementsXmd",
+            "CONVENTIONS_md",
+            "GATExmd",
         ):
             ok = all(seen(root, path, f"See {written} here.\n") == [] for path in (note, skill))
             case(ok, f"{written} is no name of the kit, green in an install note and in a skill")
@@ -721,22 +731,27 @@ def self_test_names() -> tuple[int, int]:
                 f"{path} is not read: only {SHARED}/ is",
             )
         found = seen(
-            root, note, "~/a dec-0049 GATE.md MODULE.md\nplc-0001 rollout-plan\nMODULE.md GATE.md res-0012\n"
+            root,
+            note,
+            "MODULE.md\n~/x\n~/a dec-0049 GATE.md MODULE.md\n"
+            "plc-0001 rollout-plan\nMODULE.md GATE.md res-0012\n",
         )
         case(
             found
             == [
-                (note, 1, "tilde", "~/"),
-                (note, 1, "kit_id", "dec-0049"),
-                (note, 1, "kit_file", "GATE.md"),
                 (note, 1, "kit_file", "MODULE.md"),
-                (note, 2, "kit_id", "plc-0001"),
-                (note, 2, "kit_file", "rollout-plan"),
-                (note, 3, "kit_file", "MODULE.md"),
+                (note, 2, "tilde", "~/"),
+                (note, 3, "tilde", "~/"),
+                (note, 3, "kit_id", "dec-0049"),
                 (note, 3, "kit_file", "GATE.md"),
-                (note, 3, "kit_id", "res-0012"),
+                (note, 3, "kit_file", "MODULE.md"),
+                (note, 4, "kit_id", "plc-0001"),
+                (note, 4, "kit_file", "rollout-plan"),
+                (note, 5, "kit_file", "MODULE.md"),
+                (note, 5, "kit_file", "GATE.md"),
+                (note, 5, "kit_id", "res-0012"),
             ],
-            "the findings go by line, a place before the names of its line, the names by column",
+            "the findings go by line whatever the form, a place before the names of its line, then by column",
         )
     with tempfile.TemporaryDirectory() as tmp:  # the modules in reverse: the findings still go by name
         root = Path(tmp).resolve()
@@ -792,6 +807,15 @@ def self_test_names() -> tuple[int, int]:
             root = Path(tmp).resolve()
             fresh(root, dials)
             case(seen(root, note, f"See {text}.\n") == expect, name)
+    with tempfile.TemporaryDirectory() as tmp:  # width 9, the upper bound the catalog module accepts
+        root = Path(tmp).resolve()
+        fresh(root, width_five.replace("width: 5", "width: 9"))
+        case(
+            broken_line(root) is None  # `and` stops here on a BROKEN: one FAIL line, no abort
+            and seen(root, note, "See dec-000000049 and dec-00000049 and dec-0000000049.\n")
+            == [(note, 1, "kit_id", "dec-000000049")],
+            "width 9, the upper bound, is no BROKEN line and reads dec-000000049 red, 8 and 10 digits green",
+        )
     with tempfile.TemporaryDirectory() as tmp:  # a prefix added to the dials, no code change
         root = Path(tmp).resolve()
         fresh(root)
