@@ -31,7 +31,8 @@ then in tests/, then the shared files by name, then the module's own packages by
 
 Modes:  no arguments   check every module under modules/;
         --self-test    prove the check on a throwaway tree: red for a missing link, a copy, a dangling
-                       link, a link leading elsewhere, an absolute one, a text file left by a
+                       link, a link leading elsewhere or to its source through another link, an
+                       absolute one, a text file left by a
                        checkout without symlink support, and a shared test file no module links,
                        in one module and in two; a missing, copied or misdirected link to the
                        module's own package; green for the right link, a `.`, `_`, README or
@@ -177,6 +178,10 @@ def check_link(kit: Path, module: Path, link: str, source: str, why: str = WHY) 
         return Finding(f"{shown} is a dangling link to {os.readlink(path)}", f"remove it; {make}", why)
     if path.resolve() != target.resolve():
         return Finding(f"{shown} leads to {os.readlink(path)}, not to {source}", f"remove it; {make}", why)
+    if os.path.normpath(os.readlink(path)) != wanted:
+        return Finding(
+            f"{shown} reaches {source} through {os.readlink(path)}, not straight", f"remove it; {make}", why
+        )
     return None
 
 
@@ -414,6 +419,11 @@ def self_test() -> int:
 
         return damage
 
+    def runner_gate_through_scripts(link: Path) -> None:
+        """tests/const_gate made a link to ../scripts/const_gate: it resolves to the source, not straight."""
+        (link.parent.parent / "tests" / "const_gate").unlink(missing_ok=True)
+        os.symlink("../scripts/const_gate", link.parent.parent / "tests" / "const_gate")
+
     def own_package_copied(link: Path) -> None:
         """The module's own package, copied into tests/ instead of linked."""
         own_package()(link)
@@ -440,6 +450,7 @@ def self_test() -> int:
             1,
         ),
         "the module's own package with no link in tests/": (own_package(), 1),
+        "the runner's gate package linked through scripts/const_gate": (runner_gate_through_scripts, 1),
         "the module's own package copied into tests/": (own_package_copied, 1),
         "the module's own package linked to the shared gate package": (
             own_package(linked="../../../shared/const_gate"),
