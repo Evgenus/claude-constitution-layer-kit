@@ -31,8 +31,9 @@ pass over the very folder it owes a verdict on. check-gate-lists proves it direc
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
 imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
 that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save the shared `const_gate`.
-check-shared-links, check-resolved-paths and list-message-literals read it; the gate list's
-`types-<module>` entry derives the same set in shell. check-shared-links proves it in its `--self-test`.
+check-shared-links, check-bare-install, check-resolved-paths and list-message-literals read it; the
+gate list's `types-<module>` entry derives the same set in shell. check-shared-links proves it in its
+`--self-test`.
 """
 
 from __future__ import annotations

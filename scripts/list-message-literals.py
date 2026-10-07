@@ -24,10 +24,13 @@ typed. So a function it lists may be covered, and one it passes may not be.
 
 Modes:  no arguments   list for the kit;
         --module <m>   list for one module, the shared messages left out.
-Exit:   0 always, save 1, with a BROKEN line and its fix, when the kit's folders cannot be read,
-        the arguments are misused, --module names no module, a package holds no messages.py, a
-        module with a package has no tests/run.py, the shared messages module is gone, or a file it
-        reads cannot be read or does not parse.
+A package with no messages.py is listed too, for the review to judge against rule 2 of the
+template's §6, one messages module per package.
+
+Exit:   0 always, save 1, with a BROKEN line and its fix, when the list cannot be made: the kit's
+        folders cannot be read, the arguments are misused, --module names no module, a module with
+        messages has no tests/run.py, the shared messages module is gone, or a file it reads cannot
+        be read or does not parse.
 Its name is list-, never check-: the kit's check-gate-lists holds every scripts/check-*.py to the
 gate group, and this script is no check.
 """
@@ -223,9 +226,13 @@ def main(argv: list[str]) -> int:
     try:
         for module in modules:
             for package in own_packages(module):
-                fix = (
-                    f"put the package's messages in {package.name}/messages.py, as rule 2 of template §6 asks"
-                )
+                if not (package / "messages.py").is_file():
+                    print(
+                        f"{module.name}: {package.name} holds no messages.py — rule 2 of template §6 asks one"
+                    )
+                    listed += 1
+                    continue
+                fix = "restore the package's messages module"
                 found = verdicts(package / "messages.py", fix, [module / "tests" / "run.py"])
                 listed += report(module.name, found)
         if not args.module:

@@ -9,7 +9,8 @@ that derives a path from `__file__` without resolving it finds one thing under i
 another in a hook run. Resolving it first gives the file's own place in both.
 
 The files read: every `.py` file, at any depth, of each module's own packages, as `own_packages` of
-`kit_module_doc` derives them, of `shared/const_gate/`, and at the top of `shared/tests/`; a
+`kit_module_doc` derives them, of `shared/const_gate/`, and at the top of `shared/tests/` whose name
+starts with neither `.` nor `_`, as for the links of item 7 of kit-shared-gate-code §2; a
 `__pycache__` is never read, nor a folder that is a link. Each use of the name `__file__` must stand
 as the one argument of a call of `Path` — the name, or `pathlib.Path` — whose result is at once
 resolved, `.resolve()`; any other use is a finding: `Path(__file__).parent`, `os.path.dirname(__file__)`,
@@ -21,7 +22,8 @@ Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a resolved read green in a module's package,
                        in the shared package and through `pathlib.Path`; `.parent`, `os.path`,
                        `.absolute()`, an unresolved `Path` and the bare name each a finding; a folder
-                       with no `__init__.py`, a `_` folder, a link and an entry file not read; the
+                       with no `__init__.py`, a `_` folder, a `_` shared test file, three links and an
+                       entry file not read; the
                        report of one finding as literal lines with exit 2; a file that does not
                        parse and a module folder without its document each a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
@@ -81,7 +83,14 @@ def files_of(kit: Path) -> tuple[list[Path], int]:
     tests = kit / "shared" / "tests"
     if tests.is_dir():
         files.extend(
-            sorted(p for p in tests.iterdir() if p.suffix == ".py" and p.is_file() and not p.is_symlink())
+            sorted(
+                p
+                for p in tests.iterdir()
+                if p.suffix == ".py"
+                and p.is_file()
+                and not p.is_symlink()
+                and not p.name.startswith((".", "_"))
+            )
         )
     return sorted(files), len(roots) + 1
 
@@ -150,8 +159,10 @@ def report(findings: list[Finding], files: int, packages: int) -> int:
 
 
 def toy_kit(root: Path, start: str, shared: str = "") -> None:
-    """One module const-a with its package a_gate, its entry file, a non-package folder, a `_` folder and
-    a link; the shared package and one shared test file."""
+    """One module const-a with its package a_gate, its entry file, a non-package folder, a `_` folder,
+    and links to an outside package from scripts/, from inside a_gate and from shared/tests/; the
+    shared package, one shared test file and a `_` file beside it. Every file the check must not read
+    holds an unresolved read, so reading one turns a green case red."""
     module = root / "modules" / "const-a"
     (module / "scripts" / "a_gate").mkdir(parents=True)
     (module / "MODULE.md").write_text("# const-a\n", encoding="utf-8")
@@ -170,7 +181,14 @@ def toy_kit(root: Path, start: str, shared: str = "") -> None:
     (root / "shared" / "const_gate" / "where.py").write_text(shared, encoding="utf-8")
     (root / "shared" / "tests" / "harness.py").write_text("", encoding="utf-8")
     (module / "scripts" / "const_gate").symlink_to(Path("..", "..", "..", "shared", "const_gate"))
-    (module / "scripts" / "linked").symlink_to(Path("data"))
+    (root / "shared" / "tests" / "_private.py").write_text(unread, encoding="utf-8")
+    outside = root / "elsewhere" / "pkg"
+    outside.mkdir(parents=True)
+    (outside / "__init__.py").write_text("", encoding="utf-8")
+    (outside / "x.py").write_text(unread, encoding="utf-8")
+    (module / "scripts" / "linked").symlink_to(Path("..", "..", "..", "elsewhere", "pkg"))
+    (module / "scripts" / "a_gate" / "inner").symlink_to(Path("..", "..", "..", "..", "elsewhere", "pkg"))
+    (root / "shared" / "tests" / "linked.py").symlink_to(Path("..", "..", "elsewhere", "pkg", "x.py"))
 
 
 def self_test() -> int:

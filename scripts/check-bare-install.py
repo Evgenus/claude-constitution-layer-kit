@@ -20,8 +20,9 @@ For the module named, in throwaway folders that the check removes:
      install whose record names no commit with the working folder;
   3. what the kit's source of the module declares, held in that copy: no link of the source
      leads inside the module, save the fixture runner's link tests/<package> -> ../scripts/<package>
-     to a package of the module's own (a folder of scripts/, itself no link, holding an __init__.py,
-     its name starting with neither `.` nor `_`, save const_gate), which arrives as a link leading to that
+     to a package of the module's own (as own_packages of kit_module_doc derives them: a folder of
+     scripts/, itself no link, holding an __init__.py, its name starting with neither `.` nor `_`,
+     save const_gate), which arrives as a link leading to that
      package in the copy — the platform keeps a link that stays inside the plugin; every
      other link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
@@ -67,7 +68,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from kit_module_doc import DocumentError, enforcement
+from kit_module_doc import DocumentError, enforcement, own_packages
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -219,17 +220,13 @@ def files_under(folder: Path) -> set[str]:
 
 def runner_link(source: Path, link: Path) -> bool:
     """The fixture runner's link to a package of the module's own: tests/<name> leading to the folder
-    scripts/<name> of the source, itself no link, which holds an __init__.py, its name starting with
-    neither . nor _, save the shared const_gate."""
+    scripts/<name> of the source, one of the packages own_packages of kit_module_doc derives."""
     where = link.relative_to(source)
-    name = where.name
+    package = source / "scripts" / where.name
     return (
-        where.parts == ("tests", name)
-        and name != "const_gate"
-        and not name.startswith((".", "_"))
-        and link.resolve() == (source / "scripts" / name).resolve()
-        and not (source / "scripts" / name).is_symlink()
-        and (source / "scripts" / name / "__init__.py").is_file()
+        where.parts == ("tests", where.name)
+        and link.resolve() == package.resolve()
+        and package in own_packages(source)
     )
 
 

@@ -41,7 +41,7 @@ The decider chose B in chat on 2026-10-08. The session keeps its objection: the 
 
 **R2.** The kit's `scripts/check-resolved-paths.py`, kit tooling never shipped in a module, holds R1: it reads every `.py` file of each module's own packages, of `shared/const_gate/` and at the top of `shared/tests/`, and turns red, with why and fix, on each use of `__file__` not of that form. It is an entry of the gate list's gate group, in the job `kit`, with its `--self-test` as its fixture.
 
-**R3.** A module's own packages have one derivation in Python, `own_packages` of `scripts/kit_module_doc.py`, which `scripts/check-shared-links.py`, `scripts/check-resolved-paths.py` and `scripts/list-message-literals.py` read; the gate list's entry `types-<module>` derives the same set in shell.
+**R3.** A module's own packages have one derivation in Python, `own_packages` of `scripts/kit_module_doc.py`, which `scripts/check-shared-links.py`, `scripts/check-bare-install.py`, `scripts/check-resolved-paths.py` and `scripts/list-message-literals.py` read; the gate list's entry `types-<module>` derives the same set in shell.
 
 ## Applied
 
