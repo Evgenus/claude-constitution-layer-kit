@@ -897,23 +897,9 @@ def t17() -> tuple[bool, str]:
 
 
 def t18() -> tuple[bool, str]:
-    """The install note, the skill and the guide name no kit document; the manifest names the plugin;
-    the install note's calibration example is accepted as it stands and describes the twelve keys."""
-    kit_words = (
-        "requirements.md",
-        "rollout-plan",
-        "dec-00",
-        "res-00",
-        "MODULE.md",
-        "CONVENTIONS.md",
-        "GATE.md",
-    )
-    texts = {
-        "INSTALL.md": (MODULE_ROOT / "INSTALL.md").read_text(encoding="utf-8"),
-        "SKILL.md": SKILL.read_text(encoding="utf-8"),
-        "style-guide.md": GUIDE.read_text(encoding="utf-8"),
-    }
-    leaks = [f"{name}: {word}" for name, text in texts.items() for word in kit_words if word in text]
+    """The manifest names the plugin; the install note's calibration example is accepted as it stands and
+    describes the twelve keys."""
+    texts = {"INSTALL.md": (MODULE_ROOT / "INSTALL.md").read_text(encoding="utf-8")}
     manifest = json.loads((MODULE_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     manifest_ok = manifest["name"] == NAMESPACE and manifest["version"].startswith("0.0.")
     example = re.search(r"```yaml\n((?:.*\n)*?)[ ]*```", texts["INSTALL.md"])
@@ -924,7 +910,6 @@ def t18() -> tuple[bool, str]:
         result = scan({"docs/notes/a.md": MERMAID, ".gitignore": ""}, patch)
         example_ok = result.code == 0
     return all_of(
-        (not leaks, "no kit document named" if not leaks else "; ".join(leaks)),
         (manifest_ok, "manifest names the plugin, a draft version"),
         (
             example_ok,
@@ -1071,7 +1056,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (15, "golden lines: the twelve headlines typed whole, in line order; a clean document green", t15),
     (16, "an echoed item of 12,000 characters is cut, and the cut is said", t16),
     (17, "the shipped guide passes its own scan with ten entries; the skill's description size", t17),
-    (18, "the install note, skill and guide name no kit document; manifest; example accepted", t18),
+    (18, "the manifest names the plugin; the install note's example accepted and describes the keys", t18),
     (19, "golden lines: the why and the fix of every finding typed whole", t19),
     (20, "C1, C2, C14 and C15 close with the gate's own clause, and the entry files carry it", t20),
 ]

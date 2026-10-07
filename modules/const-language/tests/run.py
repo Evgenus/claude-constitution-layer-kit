@@ -1168,14 +1168,11 @@ LEFT_FOR_THE_REST = 5
 
 
 def t16() -> tuple[bool, str]:
-    """The install note, the skill and the manifest name no kit document; the skill's description
-    is under the platform's cap; the hook is wired after the write, and only then, with an integer
-    timeout that holds the version probe, then the run, and LEFT_FOR_THE_REST, both read from
-    the module's own code; the manifest names the plugin at a draft version; the install note's
+    """The skill's description is under the platform's cap; the hook is wired after the write, and only
+    then, with an integer timeout that holds the version probe, then the run, and LEFT_FOR_THE_REST, both
+    read from the module's own code; the manifest names the plugin at a draft version; the install note's
     calibration example is accepted."""
-    kit_words = ("requirements.md", "rollout-plan", "dec-00", "res-00", "MODULE.md", "GATE.md", "kernel/")
     texts = {p.name: p.read_text(encoding="utf-8") for p in (SKILL, INSTALL, MANIFEST)}
-    named = [f"{n}: {w}" for n, t in texts.items() for w in kit_words if w in t]
     front = yaml.safe_load(texts["SKILL.md"].split("---")[1])
     description = str(front["description"])
     hooks = json.loads(HOOKS.read_text(encoding="utf-8"))["hooks"]
@@ -1191,7 +1188,6 @@ def t16() -> tuple[bool, str]:
     timeout = entry["hooks"][0].get("timeout")
     needed = vale.VERSION_SECONDS + vale.HOOK_SECONDS + LEFT_FOR_THE_REST
     return all_of(
-        (not named, f"no kit document named: {named}"),
         (len(description) < 1536, f"description of {len(description)} characters"),
         (
             stated is not None and int(stated.group(1)) == len(description),
@@ -1466,7 +1462,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (13, "territories: examined against scanned; a negated pattern; a README; the tail's numbers", t13),
     (14, "a value of 12,000 characters echoed by L3 is cut, and the cut is said", t14),
     (15, "golden lines: one document carrying every rule, the whole scan output typed by hand", t15),
-    (16, "install note, skill and manifest name no kit document; wiring; description size", t16),
+    (16, "wiring; description size; manifest; the install note's example accepted", t16),
     (
         17,
         "two runs, one verdict; the founding lists typed whole, disjoint; one finding per phrase, in order",

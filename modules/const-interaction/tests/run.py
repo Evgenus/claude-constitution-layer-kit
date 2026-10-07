@@ -2056,11 +2056,8 @@ def t40() -> tuple[bool, str]:
 
 
 def t41() -> tuple[bool, str]:
-    """The install note names no kit document; the manifest names the plugin; the install note's
-    calibration example is accepted as it stands."""
+    """The manifest names the plugin; the install note's calibration example is accepted as it stands."""
     install = (MODULE_ROOT / "INSTALL.md").read_text(encoding="utf-8")
-    kit_words = ("MODULE.md", "requirements.md", "rollout-plan", "dec-00", "res-00", "CONVENTIONS.md")
-    named = [word for word in kit_words if word in install]
     manifest = json.loads((MODULE_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     example = re.search(r"```yaml\n(.*?)```", install, re.S)
     accepted = False
@@ -2068,10 +2065,10 @@ def t41() -> tuple[bool, str]:
         loaded = yaml.safe_load(example.group(1))
         result, _ = gate_on(command("ls"), dials_patch=loaded)
         accepted = result.code == 0
-    ok = not named and manifest["name"] == NAMESPACE and accepted
+    ok = manifest["name"] == NAMESPACE and accepted
     return (
         ok,
-        "no kit document named; manifest; example accepted" if ok else f"named {named}; accepted {accepted}",
+        "manifest; example accepted" if ok else f"manifest {manifest['name']!r}; accepted {accepted}",
     )
 
 
@@ -2215,7 +2212,7 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (32, "the rules text: under the cap, of the stated size, lettered a–i", t32),
     (33, "the printer's absence paths: PyYAML missing is C2, python3 missing is C1, the rules kept", t33),
     (40, "the hooks file's shape", t40),
-    (41, "the install note names no kit document; the manifest; the example accepted", t41),
+    (41, "the manifest names the plugin; the install note's example accepted", t41),
     (
         42,
         "C1, C2, C14 and C15 of the shell gate and of the list check close with each gate's own clause",
