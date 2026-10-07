@@ -77,14 +77,14 @@ Modes:  no arguments   check the kit's guide;
                        that leaves the tree dirty, an update that drops a module, a reinstall whose
                        copy differs from the marketplace, an uninstall that keeps the plugin enabled;
                        a marketplace from another repository, one whose modules differ from the kit's and
-                       the fix it teaches, each marketplace finding's own fix, a reinstall copy that lacks
-                       a file of the marketplace, the toy modules' links into a toy shared/ read through
-                       on both sides; the outer credential settings carried into the run as git reads
-                       them, includes followed, nothing else of the outer configuration, and the carried
-                       helper reaching the run's git; the source
+                       the fix it teaches, each marketplace and install finding's own fix, a session that
+                       loads no module, a reinstall copy that lacks a file of the marketplace, the toy
+                       modules' links into a toy shared/ read through on both sides; the outer credential
+                       settings carried into the run as git reads them, includes followed, nothing else of
+                       the outer configuration, and the carried helper reaching the run's git; the source
                        taken from the environment, from origin at the branch's HEAD, and a kit with no
-                       origin on GitHub, a detached HEAD and an origin behind HEAD each a
-                       configuration failure; the
+                       origin on GitHub, a detached HEAD and an origin behind HEAD each a configuration
+                       failure; the
                        report of one finding as literal lines with exit 2; the kit's modules, the
                        folders of `kit_module_doc.module_folders` with their manifest versions: a
                        folder `.x` or `_x` and a plain file skipped, a name without `const-` listed,
@@ -527,7 +527,11 @@ def claim(state: Run, name: str) -> str:
                 where = paths.get(module)
                 if where is None:
                     said = last or "its start reported none"
-                    return f"a session in the project loads no {module} ({said})"
+                    raise Misfit(
+                        f"a session in the project loads no {module} ({said})",
+                        "open a session in the project and read the Errors tab of `/plugin`: a module cached "
+                        "and enabled that a session does not load failed to load there",
+                    )
                 if Path(where).resolve() != state.cache(module).resolve():
                     raise Misfit(f"a session runs {module} from {where}, not from the plugin cache", IN_PLACE)
         return ""
@@ -564,12 +568,12 @@ def fix_for(name: str) -> str:
     if name == "marketplace":
         return (
             "give git a credential for github.com, as `gh auth setup-git` sets one up, so the block's "
-            "`claude plugin marketplace add <owner>/<repo>` can clone the private repository"
+            "`claude plugin marketplace add <owner>/<repo>` can clone the repository while it is private"
         )
     if name == "install":
         return (
             "make the block install each module at project scope, "
-            "`claude plugin install <module>@constitution-kit --scope project`"
+            f"`claude plugin install <module>@{MARKETPLACE} --scope project`"
         )
     return (
         f"make the block named check={name} do what the guide says it does, "
@@ -830,7 +834,7 @@ elif args[:1] == ["-p"]:
         for key, on in load(settings).get("enabledPlugins", {}).items():
             module = key.split("@")[0]
             where = market / "modules" / module if mutant == "session-in-place" else cache_of(module)
-            if on:
+            if on and mutant != "session-loads-nothing":
                 found.append({"name": module, "path": str(where), "source": key})
     print(json.dumps({"type": "system", "subtype": "init", "plugins": found}))
     print(json.dumps({"type": "result", "subtype": "success", "result": "Not logged in"}))
@@ -1186,12 +1190,21 @@ def self_test() -> int:
                 len(findings) == 1 and findings[0].what.startswith(expected),
                 f"{whats(findings)} ({examined})",
             )
+        never, _ = run_guide(
+            toy_guide(marketplace="true || claude plugin marketplace add toy/kit"), kit, base
+        )
+        case(
+            "a marketplace never added teaches to register the repository",
+            len(never) == 1 and never[0].fix.startswith("make the block register the kit's repository"),
+            " | ".join(f.fix for f in never),
+        )
         for mutant, fix in (
             ("marketplace-other-repo", "make the block register the source it is given"),
             ("marketplace-unreadable", "bring the source branch to the kit's clone"),
             ("marketplace-directory", "register the kit from GitHub"),
             ("session-in-place", "register the kit from GitHub"),
             ("install-no-enable", "make the block install each module at project scope"),
+            ("session-loads-nothing", "open a session in the project and read the Errors tab"),
         ):
             taught, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
             case(
