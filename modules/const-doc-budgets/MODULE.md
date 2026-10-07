@@ -68,7 +68,7 @@ The advisory rules beside it, each `advisory` in its own text, stated in the ski
 | skill | `skills/set-ceilings/SKILL.md` | The procedure: the advisory rules B-a to B-e — a ceiling set from the report, a finding read, a document split, a departure declared, a ceiling raised to error after 30 days — and what the gate does not judge. Its description is phrased by the activities, so it triggers when a ceiling is set or a finding arrives and never every turn; a listing of 610 characters, under the platform's cap of 1,536. |
 | install note | `INSTALL.md` | Requirements, the hook and the scan, zero-configuration behaviour, the four dials with a worked example, the report, the scan in CI, adoption, the output log, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10). |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `budgets_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
 | command | none | the scan and the report are lines of a terminal or of CI; nothing here is an act a human initiates through the platform. |
 | agent | none | no delegation boundary: the measurement is deterministic and the cut is the writer's. |
 

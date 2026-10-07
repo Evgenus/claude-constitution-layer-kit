@@ -12,8 +12,8 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    The scan reads every covered document. The skill, `plain-language`, is offered to the model
    before prose is written and when a finding is read. A copy of this plugin's folder made outside
    the repository it comes from must follow links (`cp -RL`): `scripts/const_gate`, and
-   `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are links to code the plugin
-   shares with its siblings, and an install from the marketplace copies what they point at. A
+   `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are links to code the plugin
+   shares with its siblings, and an install from the marketplace copies what they point at; `tests/language_gate` is a link to this plugin's own `scripts/language_gate`, which an install from the marketplace keeps as a link. A
    checkout made without symlink support leaves one-line text files in their place
    (`git config core.symlinks true`, then check out again).
 2. **What is checked.** The prose of a covered document — the envelope, headings, code spans,

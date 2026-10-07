@@ -10,9 +10,9 @@ reported by the check with the fix on its first line; nothing is silently skippe
    document a ceiling holds and hands an excess back to the model; it never refuses a write. The
    skill, `set-ceilings`, is offered to the model when a ceiling is set and when a finding is read.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/const_gate`, and `harness.py`, `consumer.py` and `shared_items.py` in
+   (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in
    `tests/`, are links to code the plugin shares with its siblings, and an install from the
-   marketplace copies what they point at. A checkout made without symlink support leaves one-line
+   marketplace copies what they point at; `tests/budgets_gate` is a link to this plugin's own `scripts/budgets_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line
    text files in their place (`git config core.symlinks true`, then check out again).
 2. **What is measured.** The length of a document in characters, as the project's conventions
    define one: Unicode code points of the file read as UTF-8, a CRLF counted as one, the whole

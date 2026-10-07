@@ -28,17 +28,12 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
-
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from const_gate import identity  # noqa: E402
-from const_gate import messages as shared  # noqa: E402
-from const_gate.model import Finding  # noqa: E402
-from const_gate.repository import list_markdown  # noqa: E402
-from consumer import Consumer  # noqa: E402
-from harness import (  # noqa: E402
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.model import Finding
+from const_gate.repository import list_markdown
+from consumer import Consumer
+from harness import (
     Assertion,
     Case,
     Edit,
@@ -51,10 +46,13 @@ from harness import (  # noqa: E402
     red_lines,
     stop_json,
 )
-from language_gate import dials as own_dials  # noqa: E402
-from language_gate import messages, rules, start, vale  # noqa: E402
-from language_gate.model import Departure, Rule  # noqa: E402
-from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
+from language_gate import dials as own_dials
+from language_gate import messages, rules, start, vale
+from language_gate.model import Departure, Rule
+from shared_items import PatternDial, Subject, shared_assertions
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-language.sh", "check-language.py", start.GATE.namespace)

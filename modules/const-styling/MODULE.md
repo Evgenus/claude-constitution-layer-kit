@@ -72,7 +72,7 @@ The advisory rules beside it, each `advisory` in its own text, stated in the gui
 | dependencies | `requirements.txt` | PyYAML. |
 | install note | `INSTALL.md` | Requirements, the guide's creation, zero-configuration behaviour, the four dials with a worked example and the twelve keys, the scan, the departure rule, the output log, what the module does not check, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10). |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `styling_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
 | hook | none | the scan judges a tree, never one write: a hook on `Write` would block the guide that defines the signatures and the template that shows them (b5 of the comparison); no dial of this module leaves the scan examining nothing, so no `SessionStart` line is due — an empty `territories` is refused. |
 | command | none | the scan is a line of CI; the guide is created once, by hand or through a sibling's command. |
 | agent | none | a style choice is the writer's own, not a delegation. |

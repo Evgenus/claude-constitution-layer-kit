@@ -25,15 +25,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
-
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from const_gate import identity  # noqa: E402
-from const_gate import messages as shared  # noqa: E402
-from const_gate.model import Broken, Finding  # noqa: E402
-from consumer import Consumer, document  # noqa: E402
-from harness import (  # noqa: E402
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.model import Broken, Finding
+from consumer import Consumer, document
+from harness import (
     Assertion,
     Case,
     Edit,
@@ -45,8 +41,10 @@ from harness import (  # noqa: E402
     expect,
     red_lines,
 )
-from referencing_gate import lychee, messages, start  # noqa: E402
-from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions  # noqa: E402
+from referencing_gate import lychee, messages, start
+from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-references.sh", "check-references.py", start.GATE.namespace)

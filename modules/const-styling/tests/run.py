@@ -25,14 +25,9 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import yaml
-
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from const_gate import identity  # noqa: E402
-from consumer import Consumer  # noqa: E402
-from harness import (  # noqa: E402
+from const_gate import identity
+from consumer import Consumer
+from harness import (
     Assertion,
     Case,
     Harness,
@@ -43,9 +38,12 @@ from harness import (  # noqa: E402
     expect,
     red_lines,
 )
-from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
-from styling_gate import messages, start  # noqa: E402
-from styling_gate.model import Hit, Signature  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions
+from styling_gate import messages, start
+from styling_gate.model import Hit, Signature
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-style.sh", "check-style.py", start.GATE.namespace, scan_only=True)

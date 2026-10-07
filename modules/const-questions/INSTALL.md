@@ -13,9 +13,9 @@ file, each with the fix on the first line; nothing is silently skipped.
    a Markdown file the document as it will be after the write is checked for open-question
    markers, and a finding blocks the write. A copy
    of this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/const_gate`, and `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
+   `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at. A checkout made without symlink support leaves one-line text files in their
+   what they point at; `tests/questions_gate` is a link to this plugin's own `scripts/questions_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in their
    place (`git config core.symlinks true`, then check out again).
 2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
    namespace: every Markdown file git lists is covered, and the markers looked for are `[decide:`, `TODO`,

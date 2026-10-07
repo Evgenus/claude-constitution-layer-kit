@@ -27,18 +27,13 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
-
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from budgets_gate import messages, start  # noqa: E402
-from budgets_gate.model import Key, characters, rule_of_thumb  # noqa: E402
-from const_gate import identity  # noqa: E402
-from const_gate import messages as shared  # noqa: E402
-from const_gate.model import Finding  # noqa: E402
-from consumer import Consumer  # noqa: E402
-from harness import (  # noqa: E402
+from budgets_gate import messages, start
+from budgets_gate.model import Key, characters, rule_of_thumb
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.model import Finding
+from consumer import Consumer
+from harness import (
     Assertion,
     Case,
     Edit,
@@ -48,7 +43,10 @@ from harness import (  # noqa: E402
     broken_first_line,
     event_json,
 )
-from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the shared texts the items compare are built for this gate's name
 H = Harness(SCRIPTS, "check-budgets.sh", "check-budgets.py", start.GATE.namespace)

@@ -10,9 +10,9 @@ reported by the scan with the fix on its first line; nothing is silently skipped
    template is written, and reads the project's style guide. The scan reads the covered Markdown
    files for twelve traces of the defaults and reports each that no departure allows. A copy of
    this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/const_gate`, and `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
+   `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at. A checkout made without symlink support leaves one-line text files in their
+   what they point at; `tests/styling_gate` is a link to this plugin's own `scripts/styling_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in their
    place (`git config core.symlinks true`, then check out again).
 2. **The style guide.** Create the project's guide from `skills/style-defaults/style-guide.md`:
    fill its envelope, put it with the project's documents, and name its path in

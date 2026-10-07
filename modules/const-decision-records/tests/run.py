@@ -22,19 +22,14 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
-
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from const_gate import identity  # noqa: E402
-from const_gate import messages as shared  # noqa: E402
-from const_gate.envelope import yaml_error_line  # noqa: E402
-from const_gate.model import EnvelopeState  # noqa: E402
-from consumer import Consumer, envelope  # noqa: E402
-from decision_records_gate import messages, start  # noqa: E402
-from decision_records_gate.model import Stakes  # noqa: E402
-from harness import (  # noqa: E402
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.envelope import yaml_error_line
+from const_gate.model import EnvelopeState
+from consumer import Consumer, envelope
+from decision_records_gate import messages, start
+from decision_records_gate.model import Stakes
+from harness import (
     Assertion,
     Case,
     Edit,
@@ -46,7 +41,10 @@ from harness import (  # noqa: E402
     expect,
     red_lines,
 )
-from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
+from shared_items import NO_ENVELOPE, Subject, shared_assertions
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-decision-record.sh", "check-decision-record.py", start.GATE.namespace)

@@ -23,19 +23,17 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import yaml
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.model import Broken, Finding
+from consumer import ROOT_POLICY, Consumer, document, envelope
+from harness import Assertion, Edit, Harness, Result, Write, broken_first_line, expect
+from locations_gate import filling, messages, start
+from locations_gate.dials import KEYS
+from locations_gate.model import ActKey
+from shared_items import Subject, shared_assertions
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from const_gate import identity  # noqa: E402
-from const_gate import messages as shared  # noqa: E402
-from const_gate.model import Broken, Finding  # noqa: E402
-from consumer import ROOT_POLICY, Consumer, document, envelope  # noqa: E402
-from harness import Assertion, Edit, Harness, Result, Write, broken_first_line, expect  # noqa: E402
-from locations_gate import filling, messages, start  # noqa: E402
-from locations_gate.dials import KEYS  # noqa: E402
-from locations_gate.model import ActKey  # noqa: E402
-from shared_items import Subject, shared_assertions  # noqa: E402
 
 identity.declare(start.GENERATOR)  # the expected messages are built by the same functions the generator uses
 H = Harness(SCRIPTS, "new-document.sh", "new-document.py", start.GENERATOR.namespace)

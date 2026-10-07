@@ -24,16 +24,11 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import yaml
-
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from const_gate import identity  # noqa: E402
-from const_gate import messages as shared  # noqa: E402
-from const_gate.model import Broken, Finding  # noqa: E402
-from consumer import Consumer  # noqa: E402
-from harness import (  # noqa: E402
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.model import Broken, Finding
+from consumer import Consumer
+from harness import (
     Assertion,
     Harness,
     Result,
@@ -45,8 +40,8 @@ from harness import (  # noqa: E402
     expect,
     red_lines,
 )
-from interaction_gate import messages, start, tokens  # noqa: E402
-from interaction_gate.model import (  # noqa: E402
+from interaction_gate import messages, start, tokens
+from interaction_gate.model import (
     DEFAULT_DESTRUCTIVE,
     DEFAULT_READER_LISTS,
     Entry,
@@ -56,7 +51,10 @@ from interaction_gate.model import (  # noqa: E402
     Verbosity,
     Wrapper,
 )
-from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-destructive.sh", "check-destructive.py", start.GATE.namespace)

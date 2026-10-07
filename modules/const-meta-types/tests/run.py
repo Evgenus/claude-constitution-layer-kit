@@ -16,16 +16,12 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
-
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from const_gate import identity  # noqa: E402
-from const_gate import messages as shared  # noqa: E402
-from const_gate.envelope import parse_envelope, yaml_error_line  # noqa: E402
-from const_gate.model import Match, MetaType  # noqa: E402
-from consumer import ROOT_POLICY, document, envelope  # noqa: E402
-from harness import (  # noqa: E402
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.envelope import parse_envelope, yaml_error_line
+from const_gate.model import Match, MetaType
+from consumer import ROOT_POLICY, document, envelope
+from harness import (
     Assertion,
     Case,
     Edit,
@@ -37,9 +33,11 @@ from harness import (  # noqa: E402
     expect,
     red_lines,
 )
-from meta_types_gate import messages, start  # noqa: E402
-from meta_types_gate.checks import envelope_errors  # noqa: E402
-from shared_items import NO_ENVELOPE, Subject, shared_assertions  # noqa: E402
+from meta_types_gate import messages, start
+from meta_types_gate.checks import envelope_errors
+from shared_items import NO_ENVELOPE, Subject, shared_assertions
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-governed-document.sh", "check-governed-document.py", start.GATE.namespace)
