@@ -11,7 +11,12 @@ commit the run clones. First its marks, read from the text:
 Then the run, in throwaway folders the check removes: a home folder of its own, HOME and
 CLAUDE_CONFIG_DIR (<home>/.claude) under it and git's identity in a global configuration of its
 own; the kit cloned from the working folder's HEAD to ~/dev/constitution-kit, so what is not
-committed is not run; and the named blocks run in the guide's order, each written to a file and
+committed is not run; the source the marketplace block registers pointed at the change: the
+argument of its `claude plugin marketplace add` replaced by the environment's
+CONSTITUTION_KIT_INSTALL_FROM, `<owner>/<repo>#<branch>` (the kit's CI names the change's GitHub
+repository and branch), else by the working folder's origin on GitHub at the branch checked out,
+which must hold HEAD, so the install comes from the commit the clone holds; and the named blocks
+run in the guide's order, each written to a file and
 sourced by a fresh `bash -eu` in the folder the block before it ended in, the first in the home
 folder, so a block that relies on a variable another block set fails on it, unset. A block's exit is
 what `bash -eu` gives the sourcing: a block's last command decides it, and a command that fails
@@ -19,9 +24,13 @@ inside an `&&` list earlier in the block, other than the list's last, stops no b
 block does is held by the claims below, not by its exit.
 Beside every block's exit 0, the check holds at each name:
   new-repo     the block ends in a git repository: the project.
-  marketplace  the configuration's plugins/known_marketplaces.json knows `constitution-kit`.
+  marketplace  the configuration's plugins/known_marketplaces.json knows `constitution-kit`, from
+               a GitHub source: a local folder would run in place, never from the cache.
   install      every module of the kit stands in the plugin cache at its manifest version and is
-               enabled in the project's .claude/settings.json.
+               enabled in the project's .claude/settings.json; and a headless session in the
+               project, trusted in the configuration, reports each module's path in the plugin
+               cache — the frozen copy, never a clone's working files. The path is reported before
+               the model is called, so the session needs no login.
   kernel       the project's docs/constitution/ holds every file of the kit's kernel/, and the kit's
                LICENSE and NOTICE, byte for byte.
   dials        not run: written as the project's constitution.yaml, and with it what the reader
@@ -30,15 +39,21 @@ Beside every block's exit 0, the check holds at each name:
                the dials' first catalog.
   scan         the block's exit: every scan it runs exits 0.
   commit       the project's working tree is clean.
-  update       before it, the check commits a probe file into the first module of its clone; after
-               it, the cache does not hold the probe — the guide says a draft is not updated at an
-               unchanged version, and a red here means the platform no longer does as it says.
-  reinstall    the cache holds the probe.
+  update       every module stays in the plugin cache at its manifest version and enabled. That an
+               update leaves a draft's change at an unchanged version untaken is not run: the
+               platform fetches a GitHub marketplace from GitHub alone, so the run cannot put a
+               change where it looks; the guide states it as an observed platform fact.
+  reinstall    every module stands in the plugin cache at its version and is enabled, and each file
+               of its copy there is the file of the platform's clone of the marketplace, byte for
+               byte: the install copied what the marketplace holds.
   uninstall    no module is enabled in the project's settings or recorded for the project in the
                configuration's plugins/installed_plugins.json.
 The first finding of the run ends it, since every later block builds on the one before. A finding
 is red; a missing `claude`, `git` or `bash`, or a guide that cannot be read, is a configuration
-failure. Needs no Claude account login: the plugin commands read none.
+failure, and so is a source the check cannot point at the change: no origin on GitHub, a detached
+HEAD, or a branch whose origin copy is not at HEAD. Needs no Claude account login: the plugin
+commands read none, and the session stops before the model. Git needs a private repository's
+credentials.
 
 Modes:  no arguments   check the kit's guide;
         --self-test    prove the check with a toy kit, a toy guide and a fake `claude` that logs to
@@ -50,12 +65,15 @@ Modes:  no arguments   check the kit's guide;
                        configuration failure, to the guide's reader and to the run; a misplaced
                        dials mark red once, its fix a `yaml` fence; a run whose git writes a trace
                        to stderr green;
-                       the dials before the project red; each claim red once against a fake or a block
-                       that breaks it — a block that makes no repository, a marketplace never added,
-                       an install that enables nothing, a kernel copy that copies nothing, one that
-                       leaves the license out, a
-                       commit that leaves the tree dirty, an update that takes a draft's change, an
-                       install that keeps a stale copy, an uninstall that keeps the plugin enabled; the
+                       the dials before the project red; a marketplace block with no source to point
+                       red; each claim red once against a fake or a block that breaks it — a block
+                       that makes no repository, a marketplace never added, one added from a folder,
+                       an install that enables nothing, a session that runs a module in place, a
+                       kernel copy that copies nothing, one that leaves the license out, a commit
+                       that leaves the tree dirty, an update that drops a module, a reinstall whose
+                       copy differs from the marketplace, an uninstall that keeps the plugin enabled;
+                       the source taken from the environment, and a kit with no origin on GitHub a
+                       configuration failure; the
                        report of one finding as literal lines with exit 2; the kit's modules, the
                        folders of `kit_module_doc.module_folders` with their manifest versions: a
                        folder `.x` or `_x` and a plain file skipped, a name without `const-` listed,
@@ -114,7 +132,9 @@ DOES = {
 }
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 MARK = re.compile(r"(?:^|\s)check=(\S*)")
-PROBE = ".install-guide-probe"
+FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
+ADD = re.compile(r"(claude plugin marketplace add\s+)(\S+)")  # the source the marketplace block registers
+GITHUB_URL = re.compile(r"github\.com[:/]([^/\s]+/[^/\s]+?)(?:\.git)?/?$")
 LICENSE_FILES = ("LICENSE", "NOTICE")  # the kit's license and credit, copied beside the kernel
 RECORD_SLUG = "adopt-constitution-kernel"
 WHY = "a command nobody runs drifts from the platform unseen (rule 4 of plc-0011-install-guide)"
@@ -241,7 +261,14 @@ def run(
     standard output alone where the output is read as data."""
     try:
         done = subprocess.run(
-            argv, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout, check=False
+            argv,
+            cwd=cwd,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
         )
     except FileNotFoundError as bad:
         raise Broken(
@@ -363,6 +390,48 @@ class Run:
     def cache(self, module: str) -> Path:
         return self.config / "plugins" / "cache" / MARKETPLACE / module / self.modules[module]
 
+    def market(self, module: str) -> Path:
+        """The module in the platform's own clone of the marketplace."""
+        return self.config / "plugins" / "marketplaces" / MARKETPLACE / "modules" / module
+
+
+def session_paths(state: Run, project: Path) -> tuple[dict[str, str], str]:
+    """Each plugin's path as a headless session in the project reports it at start, the project trusted
+    in the configuration first, and the session's last line for a message."""
+    dot = state.config / ".claude.json"
+    data = read_json(dot)
+    projects = data.get("projects")
+    if not isinstance(projects, dict):
+        projects = data["projects"] = {}
+    for key in {str(project), str(project.resolve())}:
+        entry = projects.get(key)
+        projects[key] = (entry if isinstance(entry, dict) else {}) | {"hasTrustDialogAccepted": True}
+    dot.write_text(json.dumps(data), encoding="utf-8")
+    argv = ["claude", "-p", "Reply with the single word ok.", "--output-format", "stream-json"]
+    _, said = run([*argv, "--verbose", "--max-turns", "1"], project, state.env, timeout=300, joined=False)
+    for line in said.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(event, dict) and event.get("type") == "system" and event.get("subtype") == "init":
+            plugins = event.get("plugins")
+            return {
+                str(p.get("name")): str(p.get("path"))
+                for p in (plugins if isinstance(plugins, list) else [])
+                if isinstance(p, dict)
+            }, ""
+    return {}, last_line(said)
+
+
+def differing(cache: Path, market: Path) -> str:
+    """The first file of the cached copy that is not the marketplace clone's file, or the empty string."""
+    for path in sorted(p for p in cache.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
+        twin = market / path.relative_to(cache)
+        if not twin.is_file() or twin.read_bytes() != path.read_bytes():
+            return str(path.relative_to(cache))
+    return ""
+
 
 def claim(state: Run, name: str) -> str:
     """What fails of the guide's claim at a name, or the empty string."""
@@ -376,20 +445,35 @@ def claim(state: Run, name: str) -> str:
     if project is None:
         return "no block named check=new-repo made the project first"
     if name == "marketplace":
-        known = read_json(state.config / "plugins" / "known_marketplaces.json")
-        return "" if MARKETPLACE in known else f"the configuration knows no marketplace {MARKETPLACE}"
-    if name in ("install", "reinstall"):
+        known = read_json(state.config / "plugins" / "known_marketplaces.json").get(MARKETPLACE)
+        if not isinstance(known, dict):
+            return f"the configuration knows no marketplace {MARKETPLACE}"
+        source = known.get("source")
+        kind = source.get("source") if isinstance(source, dict) else None
+        if kind != "github":
+            return f"the marketplace is registered from a {kind} source, not from GitHub"
+        return ""
+    if name in ("install", "reinstall", "update"):
         on = enabled(project)
         for module in state.modules:
             if not state.cache(module).is_dir():
                 return f"{module} is not in the plugin cache at {state.modules[module]}"
             if f"{module}@{MARKETPLACE}" not in on:
                 return f"{module} is not enabled in the project's .claude/settings.json"
-        if name == "reinstall" and not (state.cache(next(iter(state.modules))) / PROBE).is_file():
-            return (
-                "the cache does not hold the kit's change, "
-                "so uninstalling and installing again took no draft's change"
-            )
+        if name == "reinstall":
+            for module in state.modules:
+                odd = differing(state.cache(module), state.market(module))
+                if odd:
+                    return f"{module}'s cached {odd} is not the marketplace's file"
+        if name == "install":
+            paths, last = session_paths(state, project)
+            for module in state.modules:
+                where = paths.get(module)
+                if where is None:
+                    said = last or "its start reported none"
+                    return f"a session in the project loads no {module} ({said})"
+                if Path(where).resolve() != state.cache(module).resolve():
+                    return f"a session runs {module} from {where}, not from the plugin cache"
         return ""
     if name == "kernel":
         source = state.kit / "kernel"
@@ -405,12 +489,6 @@ def claim(state: Run, name: str) -> str:
     if name == "commit":
         code, said = run(["git", "status", "--porcelain"], project, state.env, joined=False)
         return "" if code == 0 and not said else "the project's working tree is not clean after the commit"
-    if name == "update":
-        if (state.cache(next(iter(state.modules))) / PROBE).is_file():
-            return (
-                "the update took a draft's change at an unchanged version, which the guide says it does not"
-            )
-        return ""
     if name == "uninstall":
         left = sorted(
             {f"{m}@{MARKETPLACE}" for m in state.modules}
@@ -421,10 +499,10 @@ def claim(state: Run, name: str) -> str:
 
 
 def fix_for(name: str) -> str:
-    if name == "update":
+    if name in ("marketplace", "install"):
         return (
-            "the platform changed: rewrite the update section of the guide to what the platform now does, "
-            "and this claim of the check with it"
+            "register the kit from GitHub, `claude plugin marketplace add <owner>/<repo>`: a marketplace "
+            "added from a local folder runs that folder's working files in place, never the frozen copy"
         )
     return (
         f"make the block named check={name} do what the guide says it does, "
@@ -432,20 +510,28 @@ def fix_for(name: str) -> str:
     )
 
 
-def probe(state: Run) -> None:
-    module = next(iter(state.modules))
-    (state.kit / "modules" / module / PROBE).write_text(
-        "a change of the install-guide check\n", encoding="utf-8"
-    )
-    for argv in (
-        ["git", "add", "-A"],
-        ["git", "commit", "--quiet", "--no-verify", "-m", "install-guide probe"],
-    ):
-        code, said = run(argv, state.kit, state.env)
-        if code != 0:
-            raise Broken(
-                f"the probe could not be committed in the clone ({last_line(said)}) — fix: check git"
-            )
+def source_of(kit: Path, env: dict[str, str]) -> str:
+    """Where the marketplace block installs from: the environment's CONSTITUTION_KIT_INSTALL_FROM, else
+    the kit's origin on GitHub at the branch checked out, which must already hold HEAD."""
+    given = env.get(FROM_ENV, "").strip()
+    if given:
+        return given
+    teach = f"or set {FROM_ENV}=<owner>/<repo>#<branch>"
+    code, url = run(["git", "remote", "get-url", "origin"], kit, env, joined=False)
+    found = GITHUB_URL.search(url) if code == 0 else None
+    if not found:
+        raise Broken(f"the kit has no origin on GitHub to install from — fix: add one, {teach}")
+    code, branch = run(["git", "symbolic-ref", "--quiet", "--short", "HEAD"], kit, env, joined=False)
+    if code != 0 or not branch:
+        raise Broken(f"HEAD is detached, so no branch to install from — fix: check out a branch, {teach}")
+    _, head = run(["git", "rev-parse", "HEAD"], kit, env, joined=False)
+    code, remote = run(["git", "ls-remote", "origin", f"refs/heads/{branch}"], kit, env, joined=False)
+    if code != 0 or not head or not remote.startswith(head):
+        raise Broken(
+            f"origin's {branch} is not at HEAD, so the install would not come from what the clone holds — "
+            f"fix: push the branch (git push), {teach}"
+        )
+    return f"{found.group(1)}#{branch}"
 
 
 def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Finding], str]:
@@ -453,6 +539,17 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
     named, findings = blocks_of(guide)
     if findings:
         return findings, f"{len(named)} named block(s), not run"
+    for block in named:
+        if block.name == "marketplace" and not ADD.search(block.text):
+            return [
+                Finding(
+                    block.line,
+                    "the block named check=marketplace runs no `claude plugin marketplace add <source>` "
+                    "the check can point at the change",
+                    "register the kit with `claude plugin marketplace add <owner>/<repo>`",
+                )
+            ], f"{len(named)} named block(s), not run"
+    source = source_of(kit, base_env)
     for tool in ("git", "bash", "claude"):
         if shutil.which(tool, path=base_env.get("PATH")) is None:
             raise Broken(
@@ -502,12 +599,13 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
                     ], f"{ran} block(s) run"
                 fixture(state.project, block.text)
                 continue
-            if block.name == "update":
-                probe(state)
+            text = block.text
+            if block.name == "marketplace":
+                text = ADD.sub(lambda m: m.group(1) + source, text, count=1)
             script = Path(scratch) / f"{block.name}.sh"
             where = Path(scratch) / f"{block.name}.cwd"
             body = Path(scratch) / f"{block.name}.block.sh"
-            body.write_text(block.text, encoding="utf-8")
+            body.write_text(text, encoding="utf-8")
             script.write_text(f'. "{body}"\npwd > "{where}"\n', encoding="utf-8")
             code, said = run(["bash", "-eu", str(script)], state.cwd, env)
             ran += 1
@@ -521,7 +619,7 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
                 return [
                     Finding(block.line, f"after check={block.name}: {failed}", fix_for(block.name))
                 ], f"{ran} block(s) run"
-        return [], f"{ran} block(s) run, {len(state.modules)} module(s)"
+        return [], f"{ran} block(s) run, {len(state.modules)} module(s), from {source}"
 
 
 def committed_guide(kit: Path, env: dict[str, str]) -> str:
@@ -549,8 +647,10 @@ def report(findings: list[Finding], examined: str) -> int:
 
 
 FAKE = '''#!/usr/bin/env python3
-"""A fake claude for the self-test: the plugin commands the guide runs, logged to a file."""
-import json, os, shutil, sys
+"""A fake claude for the self-test: the plugin commands the guide runs and a session's start, logged
+to a file. A marketplace added from `<owner>/<repo>#<branch>` is a GitHub one, cloned from the toy kit
+the environment names; one added from a path is a local folder."""
+import json, os, shutil, subprocess, sys
 from pathlib import Path
 mutant = os.environ.get("FAKE_MUTANT", "")
 config = Path(os.environ["CLAUDE_CONFIG_DIR"])
@@ -560,30 +660,43 @@ plugins = config / "plugins"
 plugins.mkdir(parents=True, exist_ok=True)
 known = plugins / "known_marketplaces.json"
 installed = plugins / "installed_plugins.json"
+market = plugins / "marketplaces" / "constitution-kit"
 settings = Path.cwd() / ".claude" / "settings.json"
 def load(path):
     return json.loads(path.read_text()) if path.is_file() else {}
 def save(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data))
+def cache_of(module):
+    manifest = market / "modules" / module / ".claude-plugin" / "plugin.json"
+    version = json.loads(manifest.read_text())["version"]
+    return plugins / "cache" / "constitution-kit" / module / version
 args = sys.argv[1:]
 if args[:3] == ["plugin", "marketplace", "add"]:
-    source = {"source": "directory", "path": str(Path(args[3]).resolve())}
+    if Path(os.path.expanduser(args[3])).exists() or mutant == "marketplace-directory":
+        source = {"source": "directory", "path": args[3]}
+    elif args[3] != os.environ["CONSTITUTION_KIT_INSTALL_FROM"]:
+        print("fake claude: no such repository " + args[3], file=sys.stderr)
+        sys.exit(4)
+    else:
+        source = {"source": "github", "repo": args[3].split("#")[0]}
+    subprocess.run(["git", "clone", "--quiet", os.environ["FAKE_SOURCE"], str(market)], check=True)
     save(known, {"constitution-kit": {"source": source}})
 elif args[:3] == ["plugin", "marketplace", "update"]:
     pass
 elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
     module = args[2].split("@")[0]
-    if args[1] == "update" and mutant != "update-takes":
+    if args[1] == "update":
+        if mutant == "update-drops":
+            shutil.rmtree(cache_of(module).parent, ignore_errors=True)
         print("already at the latest version")
         sys.exit(0)
-    kit = Path(load(known)["constitution-kit"]["source"]["path"])
-    version = json.loads((kit / "modules" / module / ".claude-plugin" / "plugin.json").read_text())["version"]
-    cache = plugins / "cache" / "constitution-kit" / module / version
-    if cache.exists() and mutant != "reinstall-stale":
+    cache = cache_of(module)
+    if cache.exists():
         shutil.rmtree(cache)
-    if not cache.exists():
-        shutil.copytree(kit / "modules" / module, cache)
+    shutil.copytree(market / "modules" / module, cache)
+    if mutant == "reinstall-stale" and (config / "fake.reinstall").exists():
+        (cache / "stale.txt").write_text("an old copy\\n")
     record = load(installed)
     record.setdefault("plugins", {})[args[2]] = [{"scope": "project", "projectPath": str(Path.cwd())}]
     save(installed, record)
@@ -592,6 +705,7 @@ elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
         data.setdefault("enabledPlugins", {})[args[2]] = True
         save(settings, data)
 elif args[:2] == ["plugin", "uninstall"]:
+    (config / "fake.reinstall").write_text("")
     if mutant != "uninstall-keeps":
         record = load(installed)
         record.get("plugins", {}).pop(args[2], None)
@@ -599,9 +713,20 @@ elif args[:2] == ["plugin", "uninstall"]:
         data = load(settings)
         data.get("enabledPlugins", {}).pop(args[2], None)
         save(settings, data)
-        if mutant != "reinstall-stale":
-            module = args[2].split("@")[0]
-            shutil.rmtree(plugins / "cache" / "constitution-kit" / module, ignore_errors=True)
+        module = args[2].split("@")[0]
+        shutil.rmtree(plugins / "cache" / "constitution-kit" / module, ignore_errors=True)
+elif args[:1] == ["-p"]:
+    trusted = load(config / ".claude.json").get("projects", {}).get(str(Path.cwd()), {})
+    found = []
+    if trusted.get("hasTrustDialogAccepted"):
+        for key, on in load(settings).get("enabledPlugins", {}).items():
+            module = key.split("@")[0]
+            where = market / "modules" / module if mutant == "session-in-place" else cache_of(module)
+            if on:
+                found.append({"name": module, "path": str(where), "source": key})
+    print(json.dumps({"type": "system", "subtype": "init", "plugins": found}))
+    print(json.dumps({"type": "result", "subtype": "success", "result": "Not logged in"}))
+    sys.exit(1)
 else:
     print("fake claude: unknown command " + " ".join(args), file=sys.stderr)
     sys.exit(3)
@@ -619,7 +744,7 @@ def toy_guide(**replace: str) -> str:
     blocks = {
         "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && git init --quiet && "
         'git commit --quiet --allow-empty -m "Initial commit"',
-        "marketplace": "claude plugin marketplace add ~/dev/constitution-kit",
+        "marketplace": "claude plugin marketplace add toy/kit",
         "install": "for m in ~/dev/constitution-kit/modules/const-*; do "
         'claude plugin install "$(basename "$m")@constitution-kit" --scope project; done',
         "kernel": "mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/\n"
@@ -831,7 +956,11 @@ def self_test() -> int:
         fake.mkdir()
         (fake / "claude").write_text(FAKE, encoding="utf-8")
         (fake / "claude").chmod(0o755)
-        base = os.environ | {"PATH": f"{fake}{os.pathsep}{os.environ.get('PATH', '')}"}
+        base = os.environ | {
+            "PATH": f"{fake}{os.pathsep}{os.environ.get('PATH', '')}",
+            FROM_ENV: "toy/kit#main",
+            "FAKE_SOURCE": str(kit),
+        }
         green, examined = run_guide(toy_guide(), kit, base)
         case("a green toy run green", not green, f"{whats(green)} ({examined})")
         runs: list[tuple[str, dict[str, str], str, str]] = [
@@ -844,19 +973,33 @@ def self_test() -> int:
             ),
             (
                 "a marketplace never added red",
-                {"marketplace": "true"},
+                {"marketplace": "true || claude plugin marketplace add toy/kit"},
                 "",
                 "after check=marketplace: the configuration knows no marketplace",
             ),
             (
+                "a marketplace added from a folder red",
+                {},
+                "marketplace-directory",
+                "after check=marketplace: the marketplace is registered from a directory source",
+            ),
+            (
                 "a block that reads another block's variable red",
                 {
-                    "marketplace": 'KIT=~/dev/constitution-kit && claude plugin marketplace add "$KIT"',
+                    "new-repo": "KIT=~/dev/constitution-kit && mkdir -p ~/dev/my-project && "
+                    "cd ~/dev/my-project && git init --quiet && "
+                    'git commit --quiet --allow-empty -m "Initial commit"',
                     "kernel": 'echo "$KIT" && mkdir -p docs/constitution && '
                     "cp -r ~/dev/constitution-kit/kernel/. docs/constitution/",
                 },
                 "",
                 "the block named check=kernel exited",
+            ),
+            (
+                "a session that runs a module in place red",
+                {},
+                "session-in-place",
+                "after check=install: a session runs const-alpha from",
             ),
             (
                 "an install that enables nothing red",
@@ -886,16 +1029,16 @@ def self_test() -> int:
                 "after check=commit: the project's working tree",
             ),
             (
-                "an update that takes a draft's change red",
+                "an update that drops a module red",
                 {},
-                "update-takes",
-                "after check=update: the update took a draft's change",
+                "update-drops",
+                "after check=update: const-alpha is not in the plugin cache",
             ),
             (
-                "an install that keeps a stale copy red",
+                "a reinstall whose copy differs from the marketplace red",
                 {},
                 "reinstall-stale",
-                "after check=reinstall: the cache does not hold",
+                "after check=reinstall: const-alpha's cached stale.txt is not the marketplace's file",
             ),
             (
                 "an uninstall that keeps the plugin red",
@@ -967,11 +1110,25 @@ def self_test() -> int:
         )
         traced, examined = run_guide(toy_guide(), kit, base | {"GIT_TRACE": "2"})
         case("a run whose git writes a trace to stderr green", not traced, f"{whats(traced)} ({examined})")
-        logged = (root / "kit").exists()
+        _, status = run(["git", "status", "--porcelain"], kit, git, joined=False)
+        case("the toy kit is left as it was: the run works on a clone", not status, status)
+        sourceless, _ = run_guide(toy_guide(marketplace="claude plugin marketplace list"), kit, base)
         case(
-            "the toy kit is left as it was: the run works on a clone",
-            logged and not (kit / "modules" / "const-alpha" / PROBE).exists(),
-            "the probe reached the source",
+            "a marketplace block with no source to point red",
+            len(sourceless) == 1 and "runs no `claude plugin marketplace add <source>`" in sourceless[0].what,
+            whats(sourceless),
+        )
+        given = source_of(kit, {FROM_ENV: "owner/repo#work/x"} | git)
+        case("the source taken from the environment", given == "owner/repo#work/x", given)
+        try:
+            source_of(kit, {k: v for k, v in git.items() if k != FROM_ENV})
+            originless = "no Broken"
+        except Broken as broken:
+            originless = str(broken)
+        case(
+            "a kit with no origin on GitHub is a configuration failure",
+            originless.startswith("the kit has no origin on GitHub to install from — fix:"),
+            originless,
         )
 
     printed = io.StringIO()

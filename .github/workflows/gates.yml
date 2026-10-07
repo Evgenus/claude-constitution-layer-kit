@@ -66,7 +66,7 @@ jobs:
         if: startsWith(matrix.job, 'const-') || matrix.job == 'install-guide'
         run: npm install --global --silent "@anthropic-ai/claude-code@2.1.282"
       - name: Git credentials, so Claude Code can clone the private repository
-        if: startsWith(matrix.job, 'const-')
+        if: startsWith(matrix.job, 'const-') || matrix.job == 'install-guide'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh auth setup-git
@@ -78,11 +78,12 @@ jobs:
         env:
           JOB: ${{ matrix.job }}
           # git's credential helper, set by `gh auth setup-git`, reads the token when Claude Code clones
-          GH_TOKEN: ${{ startsWith(matrix.job, 'const-') && github.token || '' }}
-          CLAUDE_CODE_PLUGIN_PREFER_HTTPS: ${{ startsWith(matrix.job, 'const-') && '1' || '' }}
-          # a module's install installs from the GitHub repository and branch of the change — the pull request's
-          # head, or main on a push — the copy a consumer's install writes; a fork the token cannot read fails
-          CONSTITUTION_KIT_INSTALL_FROM: ${{ startsWith(matrix.job, 'const-') && (github.event_name == 'pull_request' && format('{0}#{1}', github.event.pull_request.head.repo.full_name, github.head_ref) || format('{0}#{1}', github.repository, github.ref_name)) || '' }}
+          GH_TOKEN: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && github.token || '' }}
+          CLAUDE_CODE_PLUGIN_PREFER_HTTPS: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && '1' || '' }}
+          # a module's install, and the install guide's marketplace, install from the GitHub repository and branch
+          # of the change — the pull request's head, or main on a push — the copy a consumer's install writes; a
+          # fork the token cannot read fails
+          CONSTITUTION_KIT_INSTALL_FROM: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && (github.event_name == 'pull_request' && format('{0}#{1}', github.event.pull_request.head.repo.full_name, github.head_ref) || format('{0}#{1}', github.repository, github.ref_name)) || '' }}
         run: sh scripts/gate-list.sh --run "$JOB"
 
   gates:
