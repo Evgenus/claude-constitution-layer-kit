@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Kit check: every package the fixture runner imports through a link reads `__file__` only through
-`Path(__file__).resolve()` (template §6, rule 1; decision dec-0073-packages-resolve-their-own-file).
+"""Kit check, never shipped in a module: every package the fixture runner imports through a link
+reads `__file__` only through `Path(__file__).resolve()` (template §6, rule 1; decision
+dec-0073-packages-resolve-their-own-file).
 
 A module's runner imports the shared package, the shared test files and the module's own packages
 through relative links in its `tests/` (item 7 of kit-shared-gate-code §2). Python sets `__file__`
@@ -22,10 +23,11 @@ Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a resolved read green in a module's package,
                        in the shared package and through `pathlib.Path`; `.parent`, `os.path`,
                        `.absolute()`, an unresolved `Path` and the bare name each a finding; a folder
-                       with no `__init__.py`, a `_` folder, a `_` shared test file, three links and an
-                       entry file not read; the
-                       report of one finding as literal lines with exit 2; a file that does not
-                       parse and a module folder without its document each a BROKEN line.
+                       with no `__init__.py`, a `_` folder, a `_` shared test file, an entry file
+                       and four links (three to an outside package, and `const_gate` by its name)
+                       not read; the report of one finding as literal lines with exit 2; a file
+                       that does not parse and a module folder without its document each a
+                       BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 

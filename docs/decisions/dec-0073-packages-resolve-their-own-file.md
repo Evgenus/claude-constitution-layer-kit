@@ -45,7 +45,7 @@ The decider chose B in chat on 2026-10-08. The session keeps its objection: the 
 
 ## Applied
 
-The commit that creates this record applies every item: the clause in rule 1 of the template's section 6, the check with its self-test and its entry in the gate list and the routine's list, and the shared derivation. The record is born `inactive`.
+The commit that creates this record applies every item: the clause in rule 1 of the template's section 6, the check with its self-test and its entry in the gate list and the routine's list, and the shared derivation. The carry audit's fixes made `scripts/check-bare-install.py` a reader of that derivation too, and corrected R3 in place before the yes. The record is born `inactive`.
 
 ## Carry list
 

@@ -22,11 +22,11 @@ What it cannot see: whether the typed line is compared with that function's outp
 hold the text as input), text built at run time, and a branch of a function whose other piece is
 typed. So a function it lists may be covered, and one it passes may not be.
 
-Modes:  no arguments   list for the kit;
-        --module <m>   list for one module, the shared messages left out.
 A package with no messages.py is listed too, for the review to judge against rule 2 of the
 template's §6, one messages module per package.
 
+Modes:  no arguments   list for the kit;
+        --module <m>   list for one module, the shared messages left out.
 Exit:   0 always, save 1, with a BROKEN line and its fix, when the list cannot be made: the kit's
         folders cannot be read, the arguments are misused, --module names no module, a module with
         messages has no tests/run.py, the shared messages module is gone, or a file it reads cannot
@@ -232,8 +232,7 @@ def main(argv: list[str]) -> int:
                     )
                     listed += 1
                     continue
-                fix = "restore the package's messages module"
-                found = verdicts(package / "messages.py", fix, [module / "tests" / "run.py"])
+                found = verdicts(package / "messages.py", "", [module / "tests" / "run.py"])
                 listed += report(module.name, found)
         if not args.module:
             fixtures = [KIT / p for p in SHARED_TESTS] + [m / "tests" / "run.py" for m in modules]
@@ -244,7 +243,7 @@ def main(argv: list[str]) -> int:
     except Broken as broken:
         print(f"BROKEN: {broken}")
         return 1
-    print(f"{listed} function(s) for the review to judge — a list, never a verdict")
+    print(f"{listed} item(s) for the review to judge — a list, never a verdict")
     return 0
 
 
