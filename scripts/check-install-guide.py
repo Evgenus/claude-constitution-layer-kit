@@ -77,11 +77,12 @@ Modes:  no arguments   check the kit's guide;
                        that leaves the tree dirty, an update that drops a module, a reinstall whose
                        copy differs from the marketplace, an uninstall that keeps the plugin enabled;
                        a marketplace from another repository, one whose modules differ from the kit's and
-                       the fix it teaches, each marketplace and install finding's own fix, a session that
-                       loads no module, a reinstall copy that lacks a file of the marketplace, the toy
-                       modules' links into a toy shared/ read through on both sides; the outer credential
-                       settings carried into the run as git reads them, includes followed, nothing else of
-                       the outer configuration, and the carried helper reaching the run's git; the source
+                       the fix it teaches, each marketplace and install finding's own fix and the fix of
+                       each block that exits 1, a session that loads no module and one that reports no
+                       start, a reinstall copy that lacks a file of the marketplace, the toy modules'
+                       links into a toy shared/ read through on both sides; the outer credential settings
+                       carried into the run as git reads them, includes followed, nothing else of the
+                       outer configuration, and the carried helper reaching the run's git; the source
                        taken from the environment, from origin at the branch's HEAD, and a kit with no
                        origin on GitHub, a detached HEAD and an origin behind HEAD each a configuration
                        failure; the
@@ -415,9 +416,9 @@ class Run:
         return self.config / "plugins" / "marketplaces" / MARKETPLACE / "modules" / module
 
 
-def session_paths(state: Run, project: Path) -> tuple[dict[str, str], str]:
+def session_paths(state: Run, project: Path) -> tuple[dict[str, str] | None, str]:
     """Each plugin's path as a headless session in the project reports it at start, the project trusted
-    in the configuration first, and the session's last line for a message."""
+    in the configuration first — None when the session reported no start — and its last line."""
     dot = state.config / ".claude.json"
     data = read_json(dot)
     projects = data.get("projects")
@@ -441,7 +442,7 @@ def session_paths(state: Run, project: Path) -> tuple[dict[str, str], str]:
                 for p in (plugins if isinstance(plugins, list) else [])
                 if isinstance(p, dict)
             }, ""
-    return {}, last_line(said)
+    return None, last_line(said)
 
 
 def files_through_links(folder: Path) -> dict[str, Path]:
@@ -523,14 +524,20 @@ def claim(state: Run, name: str) -> str:
                     return f"{module}'s {odd} is not alike in the cache and the marketplace"
         if name == "install":
             paths, last = session_paths(state, project)
+            if paths is None:
+                raise Misfit(
+                    f"a session in the project reported no start ({last})",
+                    "run §2 steps 1 to 3 in a project of your own, then `claude -p ok --output-format "
+                    "stream-json --verbose` there, and read why it stops before its start event",
+                )
             for module in state.modules:
                 where = paths.get(module)
                 if where is None:
-                    said = last or "its start reported none"
                     raise Misfit(
-                        f"a session in the project loads no {module} ({said})",
-                        "open a session in the project and read the Errors tab of `/plugin`: a module cached "
-                        "and enabled that a session does not load failed to load there",
+                        f"a session in the project loads no {module}",
+                        "run §2 steps 1 to 3 in a project of your own and read the Errors tab of `/plugin` "
+                        "in a session there: a module cached and enabled that a session does not load "
+                        "failed to load",
                     )
                 if Path(where).resolve() != state.cache(module).resolve():
                     raise Misfit(f"a session runs {module} from {where}, not from the plugin cache", IN_PLACE)
@@ -567,8 +574,9 @@ IN_PLACE = (
 def fix_for(name: str) -> str:
     if name == "marketplace":
         return (
-            "give git a credential for github.com, as `gh auth setup-git` sets one up, so the block's "
-            "`claude plugin marketplace add <owner>/<repo>` can clone the repository while it is private"
+            "make the block's `claude plugin marketplace add <owner>/<repo>` name the kit's repository "
+            "and let git clone it — while the repository is private, give git a credential for "
+            "github.com, as `gh auth setup-git` sets one up"
         )
     if name == "install":
         return (
@@ -827,6 +835,9 @@ elif args[:2] == ["plugin", "uninstall"]:
         save(settings, data)
         module = args[2].split("@")[0]
         shutil.rmtree(plugins / "cache" / "constitution-kit" / module, ignore_errors=True)
+elif args[:1] == ["-p"] and mutant == "session-no-start":
+    print("Error: the session could not start", file=sys.stderr)
+    sys.exit(1)
 elif args[:1] == ["-p"]:
     trusted = load(config / ".claude.json").get("projects", {}).get(str(Path.cwd()), {})
     found = []
@@ -1190,6 +1201,20 @@ def self_test() -> int:
                 len(findings) == 1 and findings[0].what.startswith(expected),
                 f"{whats(findings)} ({examined})",
             )
+        for name, replace, fix in (
+            (
+                "a marketplace block that exits 1",
+                {"marketplace": "false && claude plugin marketplace add toy/kit"},
+                "make the block's `claude plugin marketplace add <owner>/<repo>` name the kit's repository",
+            ),
+            ("an install block that exits 1", {"install": "false"}, "make the block install each module"),
+        ):
+            exited, _ = run_guide(toy_guide(**replace), kit, base)
+            case(
+                f"{name} teaches its block's fix",
+                len(exited) == 1 and "exited 1" in exited[0].what and exited[0].fix.startswith(fix),
+                " | ".join(f"{f.what} / {f.fix}" for f in exited),
+            )
         never, _ = run_guide(
             toy_guide(marketplace="true || claude plugin marketplace add toy/kit"), kit, base
         )
@@ -1204,7 +1229,8 @@ def self_test() -> int:
             ("marketplace-directory", "register the kit from GitHub"),
             ("session-in-place", "register the kit from GitHub"),
             ("install-no-enable", "make the block install each module at project scope"),
-            ("session-loads-nothing", "open a session in the project and read the Errors tab"),
+            ("session-loads-nothing", "run §2 steps 1 to 3 in a project of your own and read the Errors tab"),
+            ("session-no-start", "run §2 steps 1 to 3 in a project of your own, then `claude -p ok"),
         ):
             taught, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
             case(
