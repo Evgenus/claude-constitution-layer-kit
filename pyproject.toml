@@ -23,7 +23,9 @@
 #   python3 scripts/check-dials-schema.py && python3 scripts/check-dials-schema.py --self-test   (the kit's constitution.yaml against the kernel's dials schema)
 #   python3 scripts/check-bare-install.py --self-test && python3 scripts/check-bare-install.py --module <name>   (A12: installed alone on a bare repo; needs claude)
 #   (cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts mypy --strict *.py)   (every kit script, one run)
-# And for the kit's own branch-first gate — the first is red in a clone until sh scripts/setup-clone.sh has run once:
+# And for the kit's own branch-first gate — the first sets the clone's settings, once per clone; the second is red
+# in a clone until the first has run:
+#   sh scripts/setup-clone.sh
 #   sh scripts/setup-clone.sh --check && sh scripts/git-hooks/tests/run.sh
 [tool.ruff]
 line-length = 110
