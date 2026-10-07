@@ -47,7 +47,7 @@ SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
-# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
+# — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-decision-record.sh", "check-decision-record.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 

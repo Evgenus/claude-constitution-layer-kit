@@ -36,7 +36,7 @@ from shared_items import Subject, shared_assertions
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 identity.declare(start.GENERATOR)  # the expected messages are built by the same functions the generator uses
-# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
+# — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "new-document.sh", "new-document.py", start.GENERATOR.namespace)
 NAMESPACE = start.GENERATOR.namespace
 
