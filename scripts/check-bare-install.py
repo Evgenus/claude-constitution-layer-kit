@@ -219,8 +219,8 @@ def files_under(folder: Path) -> set[str]:
 
 def runner_link(source: Path, link: Path) -> bool:
     """The fixture runner's link to a package of the module's own: tests/<name> leading to the folder
-    scripts/<name> of the source, which holds an __init__.py, its name starting with neither . nor _,
-    save the shared const_gate."""
+    scripts/<name> of the source, itself no link, which holds an __init__.py, its name starting with
+    neither . nor _, save the shared const_gate."""
     where = link.relative_to(source)
     name = where.name
     return (
@@ -252,9 +252,9 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
                         module,
                         f"the runner's link {where} did not arrive as a link to its package in the installed"
                         " copy",
-                        "keep tests/<package> a relative link to ../scripts/<package>, a real folder; if the"
-                        " install no longer keeps it, record that and fall back to option B of section 2 of"
-                        " dec-0070-runners-import-through-links-in-tests: one sys.path line for scripts/",
+                        f"keep {where} a relative link to ../scripts/{where.name}, a real folder of the"
+                        " module; if the platform's install no longer keeps such a link, record that as a"
+                        " decision before changing the runner",
                     )
                 )
             continue
@@ -562,8 +562,13 @@ def self_test() -> int:
                 "runner-link-const-gate": "const_gate",
                 "runner-link-underscore": "_own_gate",
             }.get(change, "own_gate")
-            (source / "scripts" / package).mkdir()
-            if change != "runner-link-no-package":
+            if change == "runner-link-to-a-link":  # scripts/own_gate a link out of the module, as const_gate
+                (root / "outside_gate").mkdir()
+                (root / "outside_gate" / "__init__.py").write_text("", encoding="utf-8")
+                (source / "scripts" / package).symlink_to(root / "outside_gate")
+            else:
+                (source / "scripts" / package).mkdir()
+            if change not in ("runner-link-no-package", "runner-link-to-a-link"):
                 (source / "scripts" / package / "__init__.py").write_text("", encoding="utf-8")
             holder = "skills" if change == "runner-link-outside-tests" else "tests"
             (source / holder).mkdir()
@@ -574,6 +579,8 @@ def self_test() -> int:
                 (copy / holder / package).symlink_to(f"../scripts/{package}")
             elif change == "runner-link-copied":
                 shutil.copytree(source / "scripts" / package, copy / "tests" / package)
+            elif change == "runner-link-to-a-link":
+                (copy / "tests" / package).symlink_to(f"../scripts/{package}")
             elif change == "runner-link-dangling":
                 shutil.rmtree(copy / "scripts" / package)
                 (copy / "tests" / package).symlink_to(f"../scripts/{package}")
@@ -663,6 +670,10 @@ def self_test() -> int:
         "a link to a package of the module's own from outside tests/ leads inside the module": (
             "runner-link-outside-tests",
             "the link skills/own_gate is left a link",
+        ),
+        "a link of tests/ to a folder of scripts/ that is itself a link is no runner's link": (
+            "runner-link-to-a-link",
+            "the link tests/own_gate is left a link",
         ),
         "a link of tests/ to a real folder scripts/const_gate leads inside the module": (
             "runner-link-const-gate",
