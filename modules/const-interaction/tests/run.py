@@ -148,7 +148,10 @@ def asked(text: str, finding: Finding, subcommands: int = 1, **kwargs: object) -
 
 def passed(text: str, subcommands: int = 1, entries: int = ENTRIES, **kwargs: object) -> tuple[bool, str]:
     result, _ = gate_on(command(text), **kwargs)  # type: ignore[arg-type]
-    line = shared.g1_green_event(messages.g1_command_passed(entries, subcommands))
+    # typed by hand
+    line = shared.g1_green_event(
+        f"1 command examined: {subcommands} subcommand(s) against {entries} entries, none matched"
+    )
     return expect(result, 0, line, "stdout")
 
 
@@ -405,7 +408,10 @@ def t7() -> tuple[bool, str]:
     flag inside a cluster; a long flag by equality only; an entry's words apart by options; the
     reader's dials `wrappers` and `shells`, merged with the defaults by command."""
     result, _ = gate_on(command(FORCE_PUSH), dials_patch=own(destructive=[]))
-    empty = expect(result, 0, shared.g1_green_event(messages.g1_nothing_gated()), "stdout")
+    nothing_gated = (  # typed by hand
+        f"1 command examined against 0 entries — {NAMESPACE}.destructive is empty, nothing is gated"
+    )
+    empty = expect(result, 0, shared.g1_green_event(nothing_gated), "stdout")
     teach, alternative = "a dropped database is gone", "dump it first"
     with_own = own(destructive=[{"command": ["dropdb"], "teach": teach, "alternative": alternative}])
     own_hit = asked(
