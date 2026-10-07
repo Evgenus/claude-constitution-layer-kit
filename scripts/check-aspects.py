@@ -21,7 +21,14 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
     module's rows section holds;
   - a row whose destination opens with none of the four classes `kernel §<n>`, `M<n>`, `binding`,
     `template`, typed here once with their patterns and matched at the start of the cell, its links
-    read for their text, a name that goes on in a word or a digit that is not ASCII being none.
+    read for their text, a name that goes on in a word or a digit that is not ASCII being none;
+  - a shared acceptance item whose number does not follow the one before it, the numbers of
+    `shared/tests/shared_items.py` standing unique and rising from 101 (an item's number is never
+    reissued, rule 4 of plc-0009-shared-code), and a handle `S<n>` or a range `S<n>–S<m>` (a hyphen
+    too) of the table of `shared/GATE.md` section 5, anchor `g5` to the next `g<n>` anchor or the
+    end of the file, that names a number the list does not hold, a range whose end is not above
+    its start included. Every run holds them, `--run --module` too, and the counts line says
+    how many shared items were read.
 
 The documents are read in the forms their rules state, and a read that cannot be sure is no pass: the
 check could not run (BROKEN, exit 1), with the fix, on
@@ -33,6 +40,10 @@ check could not run (BROKEN, exit 1), with the fix, on
   - a preamble without the sentence "Destination classes: …", or one whose bold names are not exactly
     the four classes the check types, so that the typed set never drifts from the preamble (every
     run reads it, `--run --module` too);
+  - `shared/tests/shared_items.py`, read by `ast` and never by import, without the function
+    `shared_assertions`, or the list `items` in it, or with an entry that is no tuple opening
+    with an int literal (a string, a float, a boolean, a negative number); and `shared/GATE.md`
+    without its anchor `g5` alone on a line, or with it twice;
   - a module folder with no MODULE.md (a folder whose name opens with a dot or an underscore is no
     module and is skipped), and a module document whose rows section (anchor `t3`) or acceptance
     section (anchor `t10`) is missing or stands twice, or whose next section's anchor is missing
@@ -72,8 +83,8 @@ marked `none` are listed per module outside every row; a red one still makes the
 
 Modes:  no arguments         the gate;
         --run                the gate, then every runner and the per-row report;
-        --run --module NAME  the same for one module: its findings alone, its rows' verdicts from
-                             its items alone;
+        --run --module NAME  the same for one module: its findings alone, and those of the shared
+                             items, its rows' verdicts from its items alone;
         --self-test          prove the check on a throwaway tree: each finding red→green, the
                              openings of a destination over a whole set (classed or red), indented
                              table lines read, a matrix line off its form, a doubled anchor, a
@@ -81,15 +92,19 @@ Modes:  no arguments         the gate;
                              without or with a doubled anchor and a folder without its document
                              each a BROKEN line, a folder opening `.` or `_` skipped, the report
                              of one finding as literal lines, a full run green and red, a runner
-                             that cannot be read as a BROKEN line.
+                             that cannot be read as a BROKEN line; the shared items over their
+                             whole set of cases: numbers and ranges of the table green and red,
+                             a file or form it cannot read BROKEN, the report as literal lines.
 Exit:   0 green; 2 a finding or a red item; 1 the check could not run.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 import io
+import itertools
 import json
 import re
 import subprocess
@@ -145,6 +160,26 @@ WHY_RUN = "a row is green only where a run examined it, so every item the runner
 WHY_CLASSES = (
     "the destination classes are a closed set, defined once in the preamble (rule 7 of"
     " plc-0007-requirements), and a destination outside it takes its row out of every check that reads it"
+)
+
+# The shared acceptance items (shared/GATE.md section 5): the pinned numbers of the list, read by `ast`,
+# and the handles of the section's table, from its anchor to the next `g<n>` anchor or the file's end.
+SHARED_ITEMS = "shared/tests/shared_items.py"
+SHARED_GATE = "shared/GATE.md"
+SHARED_FUNCTION, SHARED_LIST, SHARED_FIRST = "shared_assertions", "items", 101
+SHARED_ANCHOR = '<a id="g5"></a>'
+GATE_ANCHOR = re.compile(r'^<a id="g\d+"></a>$')
+# `S<n>` or a range `S<n>–S<m>` (an en dash, or a hyphen), not part of a longer word or a dotted name
+SHARED_HANDLE = re.compile(r"(?<![A-Za-z0-9_.])S(\d+)(?:[–-]S?(\d+))?(?![A-Za-z0-9_])")
+SHARED_SHOWN = 5  # the numbers a finding names before it counts the rest
+WHY_SHARED_NUMBERS = (
+    "an item's number is never reissued (rule 4 of docs/policies/plc-0009-shared-code.md), so the list"
+    " holds each number once, in rising order from 101, and the tables that name an item by its"
+    " number keep naming the same item"
+)
+WHY_SHARED_TABLE = (
+    "the table of shared/GATE.md section 5 is where the kit says what each shared item proves, so every"
+    " number it names must be an item the list holds"
 )
 
 
@@ -308,6 +343,170 @@ def check_classes(root: Path) -> None:
             " (rule 7 of plc-0007-requirements), and the check's patterns are typed here, so the two"
             " must say the same names — fix: change the preamble and the check's classes together"
         )
+
+
+def shared_numbers(root: Path) -> list[tuple[int, int]]:
+    """(number, line) of each entry of the list `items` inside `shared_assertions` in the shared test
+    file, read by `ast`, never by import. BROKEN when the file, the function, the list or a numbered
+    entry cannot be found: an entry is a tuple whose first element is an int literal (a boolean, a
+    string, a float and a negative number are none)."""
+    text = read(root, SHARED_ITEMS)
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as bad:
+        raise Broken(
+            f"{SHARED_ITEMS} cannot be parsed ({bad.msg}, line {bad.lineno}) — why: the check reads the"
+            " shared items' numbers by `ast`, never by import — fix: repair the file's syntax"
+        ) from bad
+    where = f"in {SHARED_ITEMS}"
+    reading = "the check reads the numbers of the shared items from there, by `ast`, never by import"
+    functions = [
+        node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == SHARED_FUNCTION
+    ]
+    if len(functions) != 1:
+        raise Broken(
+            f"{SHARED_ITEMS} holds {'no' if not functions else str(len(functions))} top-level"
+            f" {'function' if len(functions) < 2 else 'functions'} {SHARED_FUNCTION}"
+            f" — why: {reading} — fix: keep one function {SHARED_FUNCTION}, or change the check's reading"
+            " and the file together"
+        )
+    lists: list[ast.expr | None] = []
+    for node in functions[0].body:
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            named, value = node.target.id, node.value
+        elif (
+            isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+        ):
+            named, value = node.targets[0].id, node.value
+        else:
+            continue
+        if named == SHARED_LIST:
+            lists.append(value)
+    if len(lists) != 1:
+        raise Broken(
+            f"{SHARED_FUNCTION} {where} assigns the list `{SHARED_LIST}`"
+            f" {'nowhere' if not lists else 'twice'} in its own body — why: {reading}"
+            f" — fix: keep one `{SHARED_LIST}: list[…] = […]` among the function's own statements"
+        )
+    listed = lists[0]
+    if not isinstance(listed, ast.List):
+        raise Broken(
+            f"`{SHARED_LIST}` of {SHARED_FUNCTION} {where} is no list literal — why: {reading}"
+            f" — fix: write it as a list of `(number, title, check)` tuples"
+        )
+    if not listed.elts:
+        raise Broken(
+            f"`{SHARED_LIST}` of {SHARED_FUNCTION} {where} holds no entry — why: {reading}"
+            f" — fix: restore the shared items, each a `(number, title, check)` tuple"
+        )
+    found: list[tuple[int, int]] = []
+    for entry in listed.elts:
+        number = entry.elts[0] if isinstance(entry, ast.Tuple) and entry.elts else None
+        if not (isinstance(number, ast.Constant) and type(number.value) is int):
+            raise Broken(
+                f"{SHARED_ITEMS}:{entry.lineno}: an entry of `{SHARED_LIST}` is no tuple opening with an int"
+                f" literal — why: {reading}, and an item with no number of its own is numbered by its"
+                ' place, which moves — fix: write the entry as `(<number>, "<title>", <check>)`'
+            )
+        found.append((number.value, entry.lineno))
+    return found
+
+
+def gate_section(root: Path) -> list[tuple[int, str]]:
+    """The lines (1-based number in the file, text) of GATE.md's section 5: after the line that is
+    its anchor alone to the next anchor `g<n>` alone on a line, or to the end of the file. BROKEN
+    when the anchor stands nowhere or twice."""
+    lines = read(root, SHARED_GATE).splitlines()
+    at = [number for number, line in enumerate(lines, start=1) if line.strip() == SHARED_ANCHOR]
+    if len(at) != 1:
+        raise Broken(
+            f"{SHARED_GATE} holds the anchor {SHARED_ANCHOR}"
+            f" {'nowhere on a line of its own' if not at else 'twice'}"
+            " — why: the check reads the table of the shared items from that anchor to the next one, and"
+            f" a section it cannot find is a table it cannot hold — fix: keep {SHARED_ANCHOR} alone on the"
+            " line above the heading of section 5"
+        )
+    end = next(
+        (
+            number
+            for number in range(at[0] + 1, len(lines) + 1)
+            if GATE_ANCHOR.match(lines[number - 1].strip())
+        ),
+        len(lines) + 1,
+    )
+    return [(number, lines[number - 1]) for number in range(at[0] + 1, end)]
+
+
+def check_shared(root: Path) -> tuple[list[Finding], int]:
+    """The findings of the shared acceptance items and how many items were read. Both files are read
+    first, so a file that cannot be read is BROKEN whatever else is red. RED: a number that does not
+    rise above the one before it, the first number if not 101, and in the table of GATE.md section 5
+    every handle or range that names a number the list does not hold, and every range whose end is
+    not above its start."""
+    entries = shared_numbers(root)
+    section_lines = gate_section(root)
+    findings: list[Finding] = []
+    previous: int | None = None
+    for number, line in entries:
+        if previous is None and number != SHARED_FIRST:
+            findings.append(
+                Finding(
+                    SHARED_ITEMS,
+                    line,
+                    f"the first shared item is numbered {number}, not {SHARED_FIRST}",
+                    WHY_SHARED_NUMBERS,
+                    f"number the first item {SHARED_FIRST}, and a new item with the next free number, at the"
+                    " end of the list",
+                )
+            )
+        elif previous is not None and number <= previous:
+            findings.append(
+                Finding(
+                    SHARED_ITEMS,
+                    line,
+                    f"the shared item numbered {number} follows {previous}, and the numbers are not unique"
+                    " and rising",
+                    WHY_SHARED_NUMBERS,
+                    "give the new item the next free number, at the end of the list, and put a moved item"
+                    " back in its place; a removed item's number stays free",
+                )
+            )
+        previous = number
+    held = {number for number, _ in entries}
+    for line, text in section_lines:
+        for found in SHARED_HANDLE.finditer(text):
+            first = int(found[1])
+            last = int(found[2]) if found[2] is not None else first
+            if last <= first and found[2] is not None:
+                findings.append(
+                    Finding(
+                        SHARED_GATE,
+                        line,
+                        f"the range {found[0]} ends at or below its start",
+                        WHY_SHARED_TABLE,
+                        "write one handle for one item, or a range with its lower number first, `S<n>–S<m>`",
+                    )
+                )
+                continue
+            missing = (number for number in range(first, last + 1) if number not in held)
+            shown = [f"S{number}" for number in itertools.islice(missing, SHARED_SHOWN + 1)]
+            if shown:
+                count = last - first + 1 - sum(1 for number in held if first <= number <= last)
+                more = f" and {count - SHARED_SHOWN} more" if count > SHARED_SHOWN else ""
+                findings.append(
+                    Finding(
+                        SHARED_GATE,
+                        line,
+                        f"the range {found[0]} names {', '.join(shown[:SHARED_SHOWN])}{more},"
+                        " which the list of shared items does not hold"
+                        if found[2] is not None
+                        else f"the handle {found[0]} names an item the list of shared items does not hold",
+                        WHY_SHARED_TABLE,
+                        f"change the {'range' if found[2] is not None else 'handle'} to numbers"
+                        f" {SHARED_ITEMS} holds, or give the item that number in the list",
+                    )
+                )
+    return findings, len(entries)
 
 
 def row_anchors(cell: str) -> tuple[list[str], str]:
@@ -526,9 +725,12 @@ def modules_of(root: Path) -> list[Path]:
 
 def check_structure(
     root: Path, only: str | None = None
-) -> tuple[dict[str, Row], list[Module], list[Finding]]:
+) -> tuple[dict[str, Row], list[Module], list[Finding], int]:
+    """The matrix, the modules, the findings and the number of shared items read; the shared items'
+    findings and their BROKEN stand in every run, one module's too, as the tie to the preamble does."""
     matrix = read_matrix(root)
     check_classes(root)
+    shared_findings, shared = check_shared(root)
     findings: list[Finding] = []
     modules = [read_module(root, d, matrix, findings) for d in modules_of(root)]
     held_anywhere = {a for m in modules for a in m.held}
@@ -564,14 +766,14 @@ def check_structure(
         findings = [
             f for f in findings if f.path == modules[0].path
         ]  # the matrix's own findings are the gate's
-    return matrix, modules, findings
+    return matrix, modules, findings + shared_findings, shared
 
 
-def counts(matrix: dict[str, Row], modules: list[Module]) -> str:
+def counts(matrix: dict[str, Row], modules: list[Module], shared: int) -> str:
     items = sum(len(m.items) for m in modules)
     return (
         f"{len(matrix)} row(s) of the matrix, {len(modules)} module document(s),"
-        f" {items} acceptance item(s) examined"
+        f" {items} acceptance item(s) examined, {shared} shared item(s)"
     )
 
 
@@ -657,7 +859,7 @@ def item_line(item: Item) -> str:
 def full_run(
     root: Path, only: str | None, runner: Callable[[Path, Module], dict[int, bool]] = run_runner
 ) -> int:
-    matrix, modules, findings = check_structure(root, only)
+    matrix, modules, findings, shared = check_structure(root, only)
     read_items = 0
     for module in modules:
         results = runner(root, module)
@@ -724,23 +926,23 @@ def full_run(
     if findings or red:
         print(
             f"RED: {len(findings)} finding(s), {'a red item' if red else 'no red item'} — {summary}"
-            f" — {counts(matrix, modules)}; {runs}"
+            f" — {counts(matrix, modules, shared)}; {runs}"
         )
         return EXIT_RED
-    print(f"GREEN: every item read is green — {summary} — {counts(matrix, modules)}; {runs}")
+    print(f"GREEN: every item read is green — {summary} — {counts(matrix, modules, shared)}; {runs}")
     return EXIT_GREEN
 
 
 def gate(root: Path) -> int:
-    matrix, modules, findings = check_structure(root)
+    matrix, modules, findings, shared = check_structure(root)
     for finding in findings:
         print(finding.render())
     if findings:
-        print(f"RED: {len(findings)} finding(s) — {counts(matrix, modules)}")
+        print(f"RED: {len(findings)} finding(s) — {counts(matrix, modules, shared)}")
         return EXIT_RED
     print(
         "GREEN: every acceptance item names its rows, and every row a module holds has an item"
-        f" — {counts(matrix, modules)}"
+        f" — {counts(matrix, modules, shared)}"
     )
     return EXIT_GREEN
 
@@ -820,9 +1022,44 @@ def harness_runner(argv: list[str]) -> str:
     )
 
 
+def entries(*numbers: int) -> list[str]:
+    """The source of the entries of the shared list, each `(<n>, "<title>", check)`."""
+    return [f'({n}, "item {n}", check)' for n in numbers]
+
+
+def shared_source(entry_lines: list[str], head: str = "", tail: str = "") -> str:
+    """A shared test file: the function `shared_assertions`, its list `items` holding the entries."""
+    body = "".join(f"        {line},\n" for line in entry_lines)
+    return f"{head}def shared_assertions(s, first):\n    items = [\n{body}    ]\n    return items\n{tail}"
+
+
+def gate_text(rows: list[str], after: str = "") -> str:
+    """GATE.md as the check reads it: a handle before the anchor, which is read by no one, then the
+    section of the anchor `g5` with one table row per entry of `rows`, then `after`."""
+    table = "".join(f"| {row} | proves |\n" for row in rows)
+    return (
+        "# Gate\n\n## 1. Earlier\n\nan old handle S900–S999, S5, read by no one.\n\n"
+        f"{SHARED_ANCHOR}\n## 5. Shared acceptance items\n\nprose.\n\n| item | what it proves |\n|---|---|\n"
+        f"{table}| K1 | kit check, not in the list |\n\nclosing prose.\n{after}"
+    )
+
+
+SHARED_GOOD = shared_source(entries(101, 102, 103))
+GATE_GOOD = gate_text(["S101–S102", "S103"])
+
+
 def build(
-    root: Path, table: str, rows: str | None = None, runner: str | None = None, matrix: str = MATRIX
+    root: Path,
+    table: str,
+    rows: str | None = None,
+    runner: str | None = None,
+    matrix: str = MATRIX,
+    shared: str = SHARED_GOOD,
+    gate: str = GATE_GOOD,
 ) -> None:
+    (root / "shared" / "tests").mkdir(parents=True, exist_ok=True)
+    (root / SHARED_ITEMS).write_text(shared, encoding="utf-8")
+    (root / SHARED_GATE).write_text(gate, encoding="utf-8")
     (root / "docs").mkdir(parents=True, exist_ok=True)
     (root / SPEC).write_text(matrix, encoding="utf-8")
     module = root / "modules" / "const-sample"
@@ -834,6 +1071,509 @@ def build(
     (module / "MODULE.md").write_text(text, encoding="utf-8")
     (module / "tests").mkdir(exist_ok=True)
     (module / "tests" / "run.py").write_text(runner or fake_runner(GREEN_RUN, 0), encoding="utf-8")
+
+
+WHY_NUMBERS_TYPED = (
+    "an item's number is never reissued (rule 4 of docs/policies/plc-0009-shared-code.md), so the list"
+    " holds each number once, in rising order from 101, and the tables that name an item by its number"
+    " keep naming the same item"
+)
+WHY_TABLE_TYPED = (
+    "the table of shared/GATE.md section 5 is where the kit says what each shared item proves, so every"
+    " number it names must be an item the list holds"
+)
+FIX_FOLLOWS_TYPED = (
+    "give the new item the next free number, at the end of the list, and put a moved item back in its"
+    " place; a removed item's number stays free"
+)
+
+
+def shared_follows(number: int, before: int) -> str:
+    return f"the shared item numbered {number} follows {before}, and the numbers are not unique and rising"
+
+
+def shared_names(text: str, names: str) -> str:
+    return f"the range {text} names {names}, which the list of shared items does not hold"
+
+
+def self_test_shared() -> tuple[int, int]:
+    """The shared acceptance items, over their whole set of cases, each on a throwaway tree: the numbers
+    green and red (a swap, a duplicate, a start above 101, a reversed list, two swaps apart, the last two
+    of 64), the table of GATE.md section 5 green and red (a range, a handle, a hyphen range, a range
+    that ends at its start, more missing numbers than are named, a section read to the end of the file,
+    another section not read), a file or a form it cannot read as a BROKEN line in the plain run and in
+    the run of one module, and the report as literal lines. Returns (failed, total)."""
+    failed = 0
+    total = 0
+    n64 = entries(*range(101, 165))
+    green: dict[str, tuple[list[str], str, int]] = {  # case: the entries, the GATE.md text, items read
+        "101 to 164 in the file's order": (n64, gate_text(["S101–S164"]), 64),
+        "101 to 164 with a hyphen range": (n64, gate_text(["S101-S164"]), 64),
+        "a gap kept rising, 101 and 103": (entries(101, 103), gate_text(["S101", "S103"]), 2),
+        "steps of more than one": (entries(101, 105, 164), gate_text(["S101", "S105", "S164"]), 3),
+        "one item, 101": (entries(101), gate_text(["S101"]), 1),
+        "rows of the table in no order": (entries(101, 102, 103), gate_text(["S103", "S101–S102"]), 3),
+        "a number of the list that no row names (completeness is not asked)": (
+            entries(101, 102, 103),
+            gate_text(["S101", "S103"]),
+            3,
+        ),
+        "a name that merely ends in S, a dotted name and a word after a handle": (
+            entries(101, 102),
+            gate_text(["S101–S102", "CAS170", "x.S171", "S172x", "K164"]),
+            2,
+        ),
+        "a handle in another section, before the anchor": (entries(101), gate_text(["S101"]), 1),
+        "a handle after the next anchor": (
+            entries(101),
+            gate_text(["S101"], '<a id="g6"></a>\n## 6. Later\n\nS170 and S101–S190.\n'),
+            1,
+        ),
+        "a handle on the last line, held": (entries(101, 102), gate_text(["S101"], "S102"), 2),
+    }
+    for name, (entry_lines, doc, items_read) in green.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, shared=shared_source(entry_lines), gate=doc)
+            found, read_count = check_shared(root)
+        ok = not found and read_count == items_read
+        failed += 0 if ok else 1
+        total += 1
+        print(f"[{'ok' if ok else 'FAIL'}] shared items: {name} is green, {items_read} read")
+        if not ok:
+            print(f"        got: {[f.render() for f in found]}, {read_count} read")
+    decoys = {  # case: a list `items` or a function standing where the check must not read
+        "a list `items` outside the function, out of order": shared_source(
+            entries(101, 102, 103), head="items = [(103, 'x', None), (102, 'y', None)]\n"
+        ),
+        "a list `items` in another function, out of order": shared_source(
+            entries(101, 102, 103),
+            tail="\n\ndef other():\n    items = [(103, 'x', None), (102, 'y', None)]\n",
+        ),
+        "a list `items` in a function inside it, out of order": SHARED_GOOD.replace(
+            "    return items",
+            "    def inner():\n        items = [(103, 'x', None), (102, 'y', None)]\n\n    return items",
+        ),
+        "a second list of another name beside it, out of order": shared_source(
+            entries(101, 102, 103), head="other = [(103, 'x', None), (102, 'y', None)]\n"
+        ),
+    }
+    for name, source in decoys.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, shared=source)
+            found, read_count = check_shared(root)
+        ok = not found and read_count == 3
+        failed += 0 if ok else 1
+        total += 1
+        print(f"[{'ok' if ok else 'FAIL'}] shared items: {name} is not read, the function's own list is")
+    # case: the entries, the GATE.md text, what each finding says, the text of the line that each names
+    red: dict[str, tuple[list[str], str, list[tuple[str, str]]]] = {
+        "a swap, 102 after 103": (
+            entries(101, 103, 102),
+            gate_text(["S101–S103"]),
+            [(shared_follows(102, 103), "(102,")],
+        ),
+        "a duplicate, 102 after 102": (
+            entries(101, 102, 102),
+            gate_text(["S101–S102"]),
+            [(shared_follows(102, 102), "(102,")],
+        ),
+        "a list that starts at 102": (
+            entries(102, 103),
+            gate_text(["S102–S103"]),
+            [("the first shared item is numbered 102, not 101", "(102,")],
+        ),
+        "a list that starts at 100": (
+            entries(100, 101),
+            gate_text(["S100–S101"]),
+            [("the first shared item is numbered 100, not 101", "(100,")],
+        ),
+        "a reversed list": (
+            entries(103, 102, 101),
+            gate_text(["S101–S103"]),
+            [
+                ("the first shared item is numbered 103, not 101", "(103,"),
+                (shared_follows(102, 103), "(102,"),
+                (shared_follows(101, 102), "(101,"),
+            ],
+        ),
+        "two swaps apart, 103 after 105 and 102 after 104": (
+            entries(101, 105, 103, 104, 102),
+            gate_text(["S101–S105"]),
+            [(shared_follows(103, 105), "(103,"), (shared_follows(102, 104), "(102,")],
+        ),
+        "the last two of 64 swapped": (
+            [*entries(*range(101, 163)), *entries(164, 163)],
+            gate_text(["S101–S164"]),
+            [(shared_follows(163, 164), "(163,")],
+        ),
+        "a range naming 165": (
+            n64,
+            gate_text(["S101–S165"]),
+            [(shared_names("S101–S165", "S165"), "S101–S165")],
+        ),
+        "a hyphen range naming 165": (
+            n64,
+            gate_text(["S101-S165"]),
+            [(shared_names("S101-S165", "S165"), "S101-S165")],
+        ),
+        "a single handle S170": (
+            n64,
+            gate_text(["S101–S164", "S170"]),
+            [("the handle S170 names an item the list of shared items does not hold", "| S170 |")],
+        ),
+        "a range whose end is below its start": (
+            n64,
+            gate_text(["S110–S101"]),
+            [("the range S110–S101 ends at or below its start", "S110–S101")],
+        ),
+        "a hyphen range whose end is below its start": (
+            n64,
+            gate_text(["S110-S101"]),
+            [("the range S110-S101 ends at or below its start", "S110-S101")],
+        ),
+        "a range that ends where it starts": (
+            n64,
+            gate_text(["S110–S110"]),
+            [("the range S110–S110 ends at or below its start", "S110–S110")],
+        ),
+        "a range that starts below the list": (
+            entries(101, 102),
+            gate_text(["S100–S102"]),
+            [(shared_names("S100–S102", "S100"), "S100–S102")],
+        ),
+        "a range across a gap": (
+            entries(101, 103),
+            gate_text(["S101–S103"]),
+            [(shared_names("S101–S103", "S102"), "S101–S103")],
+        ),
+        "a range that names more numbers than the finding shows": (
+            n64,
+            gate_text(["S101–S175"]),
+            [(shared_names("S101–S175", "S165, S166, S167, S168, S169 and 6 more"), "S101–S175")],
+        ),
+        "a range of exactly five missing numbers": (
+            n64,
+            gate_text(["S101–S169"]),
+            [(shared_names("S101–S169", "S165, S166, S167, S168, S169"), "S101–S169")],
+        ),
+        "a handle on the last line of the file, no anchor after it": (
+            n64,
+            gate_text(["S101–S164"], "S170"),
+            [("the handle S170 names an item the list of shared items does not hold", "S170")],
+        ),
+        "a handle in the section's last line before the next anchor": (
+            n64,
+            gate_text(["S101–S164"], "S170\n" + '<a id="g6"></a>\nS101\n'),
+            [("the handle S170 names an item the list of shared items does not hold", "S170")],
+        ),
+        "a swap and a range naming 104 together": (
+            entries(101, 103, 102),
+            gate_text(["S101–S104"]),
+            [(shared_follows(102, 103), "(102,"), (shared_names("S101–S104", "S104"), "S101–S104")],
+        ),
+        "a handle in a code span and in bold": (
+            entries(101),
+            gate_text(["`S101`, **S102**, `S103–S104`"]),
+            [
+                ("the handle S102 names an item the list of shared items does not hold", "**S102**"),
+                (shared_names("S103–S104", "S103, S104"), "`S103–S104`"),
+            ],
+        ),
+    }
+    for name, (entry_lines, doc, wanted) in red.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, shared=shared_source(entry_lines), gate=doc)
+            found, _ = check_shared(root)
+            _, _, structure, _ = check_structure(root)
+            printed = io.StringIO()
+            with contextlib.redirect_stdout(printed):
+                code = full_run(root, "const-sample")
+        sources = {
+            SHARED_ITEMS: shared_source(entry_lines).splitlines(),
+            SHARED_GATE: doc.splitlines(),
+        }
+        ok = [f.what for f in found] == [what for what, _ in wanted] and structure == found
+        ok = ok and len(found) == len(wanted)
+        for finding, (_, at) in zip(found, wanted, strict=False):
+            ok = ok and finding.path in sources and finding.line > 0
+            ok = ok and at in sources[finding.path][finding.line - 1]
+            ok = ok and finding.why in (WHY_NUMBERS_TYPED, WHY_TABLE_TYPED)
+            ok = ok and bool(finding.fix)
+        ok = ok and code == EXIT_RED and all(f.render() in printed.getvalue() for f in found)
+        failed += 0 if ok else 1
+        total += 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] shared items: {name} is red with {len(wanted)} finding(s),"
+            " each on its line, in the plain run and in the run of one module"
+        )
+        if not ok:
+            print(f"        got: {[(f.path, f.line, f.what) for f in found]}")
+    # the whole set of numbers a red list can start with, and of the steps that keep it red
+    for start in (0, 1, 100, 102, 164):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, shared=shared_source(entries(start, start + 1)), gate=gate_text(["S101"]))
+            found, _ = check_shared(root)
+        starts = [f for f in found if f.what.startswith("the first shared item")]
+        ok = len(starts) == 1 and starts[0].what == f"the first shared item is numbered {start}, not 101"
+        failed += 0 if ok else 1
+        total += 1
+        print(f"[{'ok' if ok else 'FAIL'}] shared items: a list that starts at {start} is red")
+    for before, after in ((101, 101), (102, 101), (164, 163), (110, 109), (110, 110)):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(
+                root,
+                GOOD_TABLE,
+                shared=shared_source(entries(*range(101, before + 1), after)),
+                gate=gate_text([f"S101–S{before}" if before > 101 else "S101"]),
+            )
+            found, _ = check_shared(root)
+        ok = [f.what for f in found] == [shared_follows(after, before)]
+        failed += 0 if ok else 1
+        total += 1
+        print(f"[{'ok' if ok else 'FAIL'}] shared items: {after} after {before} is the one red step")
+    drop = {  # case: the file taken from the tree
+        "the shared test file missing": (SHARED_ITEMS, f"{SHARED_ITEMS} cannot be read"),
+        "GATE.md missing": (SHARED_GATE, f"{SHARED_GATE} cannot be read"),
+    }
+    # case: the entries, the text, what the BROKEN line says; a text of None is the file's own good one
+    anchor_words = f"{SHARED_GATE} holds the anchor {SHARED_ANCHOR}"
+    nowhere = f"{anchor_words} nowhere on a line of its own — why: "
+    in_file = f"in {SHARED_ITEMS}"
+    function_none = f"{SHARED_ITEMS} holds no top-level function shared_assertions — why: "
+    entry_bad = "is no tuple opening with an int literal — why: "
+    bad_entries: dict[str, str] = {  # case: the bad entry; each in a list of good ones, line 5
+        "a bare name for an entry": "check",
+        "a string number": '("101", "t", check)',
+        "a float number": '(101.0, "t", check)',
+        "a boolean number": '(True, "t", check)',
+        "a negative number": '(-1, "t", check)',
+        "a number given by a sum": '(100 + 1, "t", check)',
+        "a number given by a name": '(FIRST, "t", check)',
+        "an empty tuple": "()",
+        "a number that is no first element": '("t", 101, check)',
+        "a starred entry": "*more",
+    }
+    broken: dict[str, tuple[str | None, str | None, str]] = {
+        "a syntax error in the shared test file": (
+            "def shared_assertions(:\n",
+            None,
+            f"{SHARED_ITEMS} cannot be parsed (",
+        ),
+        "no function shared_assertions": ("items = [(101, 'a', None)]\n", None, function_none),
+        "shared_assertions inside a class": (
+            "class K:\n    def shared_assertions(s, first):\n        items = [(101, 'a', None)]\n",
+            None,
+            function_none,
+        ),
+        "shared_assertions twice": (
+            SHARED_GOOD + "\n" + SHARED_GOOD,
+            None,
+            f"{SHARED_ITEMS} holds 2 top-level functions shared_assertions — why: ",
+        ),
+        "the list under another name": (
+            SHARED_GOOD.replace("items", "entries"),
+            None,
+            f"shared_assertions {in_file} assigns the list `items` nowhere in its own body — why: ",
+        ),
+        "the list in a nested function only": (
+            "def shared_assertions(s, first):\n    def inner():\n        items = [(101, 'a', None)]\n"
+            "    return inner\n",
+            None,
+            f"shared_assertions {in_file} assigns the list `items` nowhere in its own body — why: ",
+        ),
+        "the list assigned twice": (
+            SHARED_GOOD.replace("    return items", "    items = [(101, 'a', None)]\n    return items"),
+            None,
+            f"shared_assertions {in_file} assigns the list `items` twice in its own body — why: ",
+        ),
+        "the list built by a call": (
+            "def shared_assertions(s, first):\n    items = make()\n    return items\n",
+            None,
+            f"`items` of shared_assertions {in_file} is no list literal — why: ",
+        ),
+        "an empty list": (
+            shared_source([]),
+            None,
+            f"`items` of shared_assertions {in_file} holds no entry — why: ",
+        ),
+        "the anchor g5 missing": (None, GATE_GOOD.replace(SHARED_ANCHOR + "\n", ""), nowhere),
+        "the anchor g5 renamed g4": (None, GATE_GOOD.replace("g5", "g4"), nowhere),
+        "the anchor g5 written in prose, not alone": (
+            None,
+            GATE_GOOD.replace(SHARED_ANCHOR + "\n", f"see {SHARED_ANCHOR} here\n"),
+            nowhere,
+        ),
+        "the anchor g5 twice": (
+            None,
+            GATE_GOOD.replace("prose.\n", f"prose.\n{SHARED_ANCHOR}\n", 1),
+            f"{anchor_words} twice — why: ",
+        ),
+    }
+    for entry, source in bad_entries.items():
+        broken[f"{entry} in the list"] = (
+            shared_source([*entries(101, 102), source, *entries(104)]),
+            None,
+            f"{SHARED_ITEMS}:5: an entry of `items` {entry_bad}",
+        )
+    broken["an unnumbered entry in a list that is also out of order, BROKEN and no RED"] = (
+        shared_source([*entries(103, 101), "check"]),
+        gate_text(["S101–S190"]),
+        f"{SHARED_ITEMS}:5: an entry of `items` {entry_bad}",
+    )
+    broken["a bad GATE.md anchor beside a list out of order, BROKEN and no RED"] = (
+        shared_source(entries(103, 101)),
+        GATE_GOOD.replace(SHARED_ANCHOR + "\n", ""),
+        nowhere,
+    )
+    for name, (shared_text, gate_text_or_none, said) in broken.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, shared=shared_text or SHARED_GOOD, gate=gate_text_or_none or GATE_GOOD)
+            ok = True
+            got: list[str] = []
+            for only in (None, "const-sample"):
+                try:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        if only is None:
+                            check_structure(root)
+                        else:
+                            full_run(root, only)
+                    ok = False
+                    got.append("no BROKEN")
+                except Broken as bad:
+                    ok = ok and str(bad).startswith(said) and "— fix: " in str(bad)
+                    got.append(str(bad))
+        failed += 0 if ok else 1
+        total += 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] shared items: {name} is one BROKEN line naming it,"
+            " in the plain run and in the run of one module"
+        )
+        if not ok:
+            print(f"        got: {got}")
+    for name, (gone, said) in drop.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            (root / gone).unlink()
+            ok = True
+            for only in (None, "const-sample"):
+                try:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        if only is None:
+                            check_structure(root)
+                        else:
+                            full_run(root, only)
+                    ok = False
+                except Broken as bad:
+                    ok = ok and str(bad).startswith(said) and "— fix: " in str(bad)
+        failed += 0 if ok else 1
+        total += 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] shared items: {name} is one BROKEN line naming it,"
+            " in the plain run and in the run of one module"
+        )
+    literal = {  # typed by hand: a message function cannot check itself
+        "a swap": (
+            shared_source(entries(101, 103, 102)),
+            gate_text(["S101–S103"]),
+            [
+                "RED: shared/tests/shared_items.py:5: the shared item numbered 102 follows 103, and the"
+                " numbers are not unique and rising",
+                f"  why: {WHY_NUMBERS_TYPED}",
+                f"  fix: {FIX_FOLLOWS_TYPED}",
+                "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
+                " examined, 3 shared item(s)",
+            ],
+        ),
+        "a start above 101": (
+            shared_source(entries(102, 103)),
+            gate_text(["S102–S103"]),
+            [
+                "RED: shared/tests/shared_items.py:3: the first shared item is numbered 102, not 101",
+                f"  why: {WHY_NUMBERS_TYPED}",
+                "  fix: number the first item 101, and a new item with the next free number, at the end of"
+                " the list",
+                "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
+                " examined, 2 shared item(s)",
+            ],
+        ),
+        "a range naming 165": (
+            shared_source(n64),
+            gate_text(["S101–S165"]),
+            [
+                "RED: shared/GATE.md:14: the range S101–S165 names S165, which the list of shared items does"
+                " not hold",
+                f"  why: {WHY_TABLE_TYPED}",
+                "  fix: change the range to numbers shared/tests/shared_items.py holds, or give the item that"
+                " number in the list",
+                "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
+                " examined, 64 shared item(s)",
+            ],
+        ),
+        "a handle S170": (
+            shared_source(n64),
+            gate_text(["S101–S164", "S170"]),
+            [
+                "RED: shared/GATE.md:15: the handle S170 names an item the list of shared items does not"
+                " hold",
+                f"  why: {WHY_TABLE_TYPED}",
+                "  fix: change the handle to numbers shared/tests/shared_items.py holds, or give the item"
+                " that number in the list",
+                "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
+                " examined, 64 shared item(s)",
+            ],
+        ),
+        "a range that ends below its start": (
+            shared_source(n64),
+            gate_text(["S110–S101"]),
+            [
+                "RED: shared/GATE.md:14: the range S110–S101 ends at or below its start",
+                f"  why: {WHY_TABLE_TYPED}",
+                "  fix: write one handle for one item, or a range with its lower number first, `S<n>–S<m>`",
+                "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
+                " examined, 64 shared item(s)",
+            ],
+        ),
+    }
+    for name, (source, doc, want_lines) in literal.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, shared=source, gate=doc)
+            printed = io.StringIO()
+            with contextlib.redirect_stdout(printed):
+                code = gate(root)
+        ok = code == EXIT_RED and printed.getvalue().splitlines() == want_lines
+        failed += 0 if ok else 1
+        total += 1
+        print(f"[{'ok' if ok else 'FAIL'}] shared items: the report of {name} is its literal text, exit 2")
+        if not ok:
+            print(printed.getvalue())
+    with tempfile.TemporaryDirectory() as tmp:  # the green line, and the full run's, say how many were read
+        root = Path(tmp).resolve()
+        build(root, GOOD_TABLE)
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = gate(root)
+        full = io.StringIO()
+        with contextlib.redirect_stdout(full):
+            full_code = full_run(root, None)
+    ok = code == EXIT_GREEN and printed.getvalue().splitlines() == [
+        "GREEN: every acceptance item names its rows, and every row a module holds has an item"
+        " — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined, 3 shared item(s)"
+    ]
+    ok = ok and full_code == EXIT_GREEN and ", 3 shared item(s); " in full.getvalue().splitlines()[-1]
+    failed += 0 if ok else 1
+    total += 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] shared items: the green lines of the gate and of a full run count them"
+    )
+    return failed, total
 
 
 def self_test() -> int:
@@ -974,7 +1714,7 @@ def self_test() -> int:
             GOOD_TABLE + f"  | T9 | fixture | {LINK_1} | x |\n\t|T8 | fixture | {LINK_1} | x |\n",
             rows=indented_rows,
         )
-        _, modules, findings = check_structure(root)
+        _, modules, findings, _ = check_structure(root)
     ok = not findings and len(modules[0].items) == 7 and sorted(modules[0].held.values()) == [6, 7]
     failed += 0 if ok else 1
     print(
@@ -985,7 +1725,7 @@ def self_test() -> int:
         root = Path(tmp).resolve()
         unclosed_rows = f"| {LINK_1} | r\n| {LINK_3}\n"  # the second row is one cell, `| link`
         build(root, GOOD_TABLE + f"| T7 | fixture | {LINK_1} | x\n", rows=unclosed_rows)
-        _, modules, findings = check_structure(root)
+        _, modules, findings, _ = check_structure(root)
     ok = not findings and len(modules[0].items) == 6 and sorted(modules[0].held.values()) == [6, 7]
     failed += 0 if ok else 1
     print(
@@ -1309,7 +2049,7 @@ def self_test() -> int:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE, matrix=matrix_text)
             try:
-                matrix, _, findings = check_structure(root)
+                matrix, _, findings, _ = check_structure(root)
                 ok = not findings and sorted(matrix) == anchors
             except Broken:
                 ok = False
@@ -1327,7 +2067,7 @@ def self_test() -> int:
             (root / "modules" / folder / "MODULE.md").write_text("a draft\n", encoding="utf-8")
             (root / "modules" / "README.md").write_text("a file, no folder\n", encoding="utf-8")
             try:
-                _, modules, findings = check_structure(root)
+                _, modules, findings, _ = check_structure(root)
                 ok = not findings and [m.name for m in modules] == ["const-sample"]
             except Broken:
                 ok = False
@@ -1339,7 +2079,8 @@ def self_test() -> int:
         " so every item says which rows it proves",
         "  fix: link each row the item proves, [A1.4](../../docs/requirements.md#a1-4),"
         " or write `none` for an item that proves no row of the module",
-        "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined",
+        "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined,"
+        " 3 shared item(s)",
     ]
     literal_class = [  # the same, for a destination the check cannot class
         "RED: docs/requirements.md: A1.2 has the destination 'kernel', a destination the check cannot class",
@@ -1348,7 +2089,8 @@ def self_test() -> int:
         " reads it",
         "  fix: open the cell with one of the four classes — `kernel §<n>`, `M<n>`, `binding`, `template` —"
         " or add a class to the preamble and to this check together",
-        "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined",
+        "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined,"
+        " 3 shared item(s)",
     ]
     reports = {  # case: the table, the matrix, the lines the gate prints
         "of a finding in a module's document": (red["a bare handle in the rows cell"][0], MATRIX, literal),
@@ -1552,6 +2294,7 @@ def self_test() -> int:
         )
         if not ok:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
+    shared_cases = self_test_shared()
     total = (
         len(red)
         + 6  # the row no module holds, the indented rows, the carrier row, the unclosed rows, t12 gone, the
@@ -1564,7 +2307,9 @@ def self_test() -> int:
         + len(runs)
         + len(broken)
         + len(filtered)
+        + shared_cases[1]
     )
+    failed += shared_cases[0]
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
