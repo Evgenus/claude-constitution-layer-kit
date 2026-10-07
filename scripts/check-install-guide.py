@@ -76,11 +76,12 @@ Modes:  no arguments   check the kit's guide;
                        kernel copy that copies nothing, one that leaves the license out, a commit
                        that leaves the tree dirty, an update that drops a module, a reinstall whose
                        copy differs from the marketplace, an uninstall that keeps the plugin enabled;
-                       a marketplace from another repository, one whose modules differ from the
-                       kit's, its fix the branch brought to the clone, a reinstall copy that lacks a
-                       file of the marketplace, the toy modules' links into a toy shared/ read through
-                       on both sides; the outer credential helpers carried into the run, nothing
-                       else of the outer configuration; the source
+                       a marketplace from another repository, one whose modules differ from the kit's and
+                       the fix it teaches, each marketplace finding's own fix, a reinstall copy that lacks
+                       a file of the marketplace, the toy modules' links into a toy shared/ read through
+                       on both sides; the outer credential settings carried into the run as git reads
+                       them, includes followed, nothing else of the outer configuration, and the carried
+                       helper reaching the run's git; the source
                        taken from the environment, from origin at the branch's HEAD, and a kit with no
                        origin on GitHub, a detached HEAD and an origin behind HEAD each a
                        configuration failure; the
@@ -483,7 +484,11 @@ def claim(state: Run, name: str) -> str:
         source = known.get("source")
         kind = source.get("source") if isinstance(source, dict) else None
         if kind != "github":
-            return f"the marketplace is registered from a {kind} source, not from GitHub"
+            raise Misfit(
+                f"the marketplace is registered from a {kind} source, not from GitHub",
+                "register the kit from GitHub, `claude plugin marketplace add <owner>/<repo>`: a marketplace "
+                "added from a local folder runs that folder's working files in place, never the frozen copy",
+            )
         repo = source.get("repo") if isinstance(source, dict) else None
         wanted = state.source.split("#")[0]
         if repo != wanted:
@@ -550,7 +555,12 @@ def claim(state: Run, name: str) -> str:
 
 
 def fix_for(name: str) -> str:
-    if name in ("marketplace", "install"):
+    if name == "marketplace":
+        return (
+            "make the block register the kit's GitHub repository, `claude plugin marketplace add "
+            "<owner>/<repo>`, and let git clone it here: a private repository needs git's credentials"
+        )
+    if name == "install":
         return (
             "register the kit from GitHub, `claude plugin marketplace add <owner>/<repo>`: a marketplace "
             "added from a local folder runs that folder's working files in place, never the frozen copy"
@@ -585,21 +595,26 @@ def source_of(kit: Path, env: dict[str, str]) -> str:
     return f"{found.group(1)}#{branch}"
 
 
-def credentials(env: dict[str, str]) -> str:
-    """The outer git configuration's credential settings, as lines of the run's own configuration: the
-    run replaces HOME and the global configuration, and a private repository's clone needs the helper
-    the machine or the CI job set up, and nothing else of that configuration."""
-    code, said = run(
-        ["git", "config", "--global", "--get-regexp", r"^credential\."], Path.cwd(), env, joined=False
-    )
-    lines = []
-    for line in said.splitlines() if code == 0 else []:
-        key, _, value = line.partition(" ")
-        section, _, name = key.rpartition(".")
-        head, _, sub = section.partition(".")
-        lines.append(f'[{head} "{sub}"]\n' if sub else f"[{head}]\n")
-        lines.append(f"\t{name} = {json.dumps(value)}\n")
-    return "".join(lines)
+def carry_credentials(env: dict[str, str], gitconfig: Path) -> None:
+    """Add the outer git configuration's credential settings, includes followed, to the run's own
+    configuration, git writing each entry so that it reads back the same: the run replaces HOME and the
+    global configuration, and a private repository's clone needs the helper the machine or the CI job set
+    up, and nothing else of that configuration. A key git holds with no value is a true boolean."""
+    argv = ["git", "config", "--global", "--includes", "-z", "--get-regexp", r"^credential\."]
+    code, said = run(argv, Path.cwd(), env, joined=False)
+    for entry in said.split("\0") if code == 0 else []:
+        if not entry:
+            continue
+        key, newline, value = entry.partition("\n")
+        code, wrote = run(
+            ["git", "config", "--file", str(gitconfig), "--add", key, value if newline else "true"],
+            Path.cwd(),
+            env,
+        )
+        if code != 0:
+            raise Broken(
+                f"the credential setting {key} could not be carried ({last_line(wrote)}) — fix: check git"
+            )
 
 
 def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Finding], str]:
@@ -629,9 +644,10 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
         config.mkdir(parents=True)
         (home / ".gitconfig").write_text(
             "[user]\n\tname = install-guide\n\temail = install-guide@example.invalid\n"
-            "[init]\n\tdefaultBranch = main\n[commit]\n\tgpgsign = false\n" + credentials(base_env),
+            "[init]\n\tdefaultBranch = main\n[commit]\n\tgpgsign = false\n",
             encoding="utf-8",
         )
+        carry_credentials(base_env, home / ".gitconfig")
         env = base_env | {
             "HOME": str(home),
             "CLAUDE_CONFIG_DIR": str(config),
@@ -746,6 +762,12 @@ args = sys.argv[1:]
 if args[:3] == ["plugin", "marketplace", "add"]:
     if Path(os.path.expanduser(args[3])).exists() or mutant == "marketplace-directory":
         source = {"source": "directory", "path": args[3]}
+    elif os.environ.get("FAKE_NEEDS_HELPER") and "!gh auth git-credential" not in subprocess.run(
+        ["git", "config", "--global", "--get-all", "credential.https://github.com.helper"],
+        capture_output=True, text=True,
+    ).stdout:
+        print("fatal: unable to get password from user", file=sys.stderr)
+        sys.exit(1)
     elif args[3] != os.environ["CONSTITUTION_KIT_INSTALL_FROM"]:
         print("fake claude: no such repository " + args[3], file=sys.stderr)
         sys.exit(4)
@@ -755,6 +777,8 @@ if args[:3] == ["plugin", "marketplace", "add"]:
     subprocess.run(["git", "clone", "--quiet", os.environ["FAKE_SOURCE"], str(market)], check=True)
     if mutant == "marketplace-fewer-modules":
         shutil.rmtree(market / "modules" / "const-beta")
+    if mutant == "marketplace-unreadable":
+        (market / "modules" / "const-beta" / "MODULE.md").unlink()
     save(known, {"constitution-kit": {"source": source}})
 elif args[:3] == ["plugin", "marketplace", "update"]:
     pass
@@ -1154,6 +1178,17 @@ def self_test() -> int:
                 len(findings) == 1 and findings[0].what.startswith(expected),
                 f"{whats(findings)} ({examined})",
             )
+        for mutant, fix in (
+            ("marketplace-other-repo", "make the block register the source it is given"),
+            ("marketplace-unreadable", "bring the source branch to the kit's clone"),
+            ("marketplace-directory", "register the kit from GitHub"),
+        ):
+            taught, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
+            case(
+                f"{mutant} teaches its own fix, one fix",
+                len(taught) == 1 and taught[0].fix.startswith(fix) and taught[0].fix.count("fix:") == 0,
+                " | ".join(f"{f.what} / {f.fix}" for f in taught),
+            )
         mended, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "marketplace-fewer-modules"})
         case(
             "a marketplace whose modules differ teaches to bring the branch to the clone",
@@ -1224,24 +1259,31 @@ def self_test() -> int:
             len(sourceless) == 1 and "runs no `claude plugin marketplace add <source>`" in sourceless[0].what,
             whats(sourceless),
         )
-        outer = root / "outer.gitconfig"  # as `gh auth setup-git` leaves it, with an alias beside
+        outer = root / "outer.gitconfig"  # gh's helpers, the forms a hand-written file breaks, an alias
+        (root / "more.gitconfig").write_text('[credential]\n\tusername = "José"\n', encoding="utf-8")
         outer.write_text(
             '[credential "https://github.com"]\n\thelper =\n\thelper = !gh auth git-credential\n'
+            '[credential "https://x y"]\n\thelper = "a \\"quoted\\" \\\\ value"\n'
+            '[credential]\n\tuseHttpPath\n\tmultiline = "one\\ntwo"\n'
+            f"[include]\n\tpath = {root / 'more.gitconfig'}\n"
             "[alias]\n\tco = checkout\n",
             encoding="utf-8",
         )
         carried = root / "carried.gitconfig"
-        carried.write_text(credentials(git | {"GIT_CONFIG_GLOBAL": str(outer)}), encoding="utf-8")
-        read_back = run(["git", "config", "--file", str(carried), "--list"], root, git, joined=False)[1]
+        carried.write_text("", encoding="utf-8")
+        carry_credentials(git | {"GIT_CONFIG_GLOBAL": str(outer)}, carried)
+        want = ["config", "--includes", "-z", "--get-regexp", r"^credential\."]
+        had = run(["git", *want[:1], "--file", str(outer), *want[1:]], root, git, joined=False)[1]
+        got = run(["git", *want[:1], "--file", str(carried), *want[1:]], root, git, joined=False)[1]
         case(
-            "the outer credential helpers carried into the run's configuration, and nothing else",
-            read_back.splitlines()
-            == [
-                "credential.https://github.com.helper=",
-                "credential.https://github.com.helper=!gh auth git-credential",
-            ],
-            read_back,
+            "the outer credential settings carried as git reads them, includes followed, nothing else",
+            got == had.replace("credential.usehttppath\0", "credential.usehttppath\ntrue\0")
+            and "alias" not in carried.read_text(encoding="utf-8"),
+            f"{had!r} / {got!r}",
         )
+        helped = base | {"GIT_CONFIG_GLOBAL": str(outer), "FAKE_NEEDS_HELPER": "1"}
+        wired, examined = run_guide(toy_guide(), kit, helped)
+        case("the carried helper reaches the run's git", not wired, f"{whats(wired)} ({examined})")
         given = source_of(kit, git | {FROM_ENV: "owner/repo#work/x"})
         case("the source taken from the environment", given == "owner/repo#work/x", given)
         try:
