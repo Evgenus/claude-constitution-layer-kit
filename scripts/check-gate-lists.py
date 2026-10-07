@@ -334,15 +334,10 @@ class Finding:
         manifest = f"modules/{m}/.claude-plugin/plugin.json"
         enable = f"{json.dumps(f'{m}@{tag}')}: true"
         named = m.removesuffix(f"@{tag}")  # a stray's folder name: the entry's name, the key's before `@`
-        # modules/<named> could become a module folder only as one path part, neither `.` nor `..`, opening
-        # with neither `.` nor `_`; for any other name, "" included, the removal is the one fix
-        possible = bool(named) and "/" not in named and not named.startswith((".", "_"))
-        make = (
-            f", or make modules/{named} a module folder (a folder whose name opens with neither `.` nor `_`,"
-            " holding its MODULE.md)"
-            if possible
-            else ""
-        )
+        # modules/<named> could become a module folder, and pass every hold, only when it bears a module's
+        # name, `const-<aspect>`; for any other name, "" included, the removal is the one fix
+        possible = NAME.fullmatch(named) is not None
+        make = f", or make modules/{named} a module folder holding its MODULE.md" if possible else ""
         if self.where is Where.NAME:
             if not m.startswith("const") and NAME.fullmatch(f"const-{m}"):
                 rename = f"to modules/const-{m}"
@@ -1345,17 +1340,18 @@ def messy_case(scan: str, reverse: bool) -> Case:
 
 
 def strays_case(scan: str) -> Case:
-    """One tree whose marketplace and settings name six things that are no module folder: a folder that is
-    missing, one opening with `_`, one opening with `.`, a plain file, a name of two path parts and the
-    empty name; the folders that exist but are no module's carry a MODULE.md, the file a plain one."""
+    """One tree whose marketplace and settings name seven things that are no module folder: a module's
+    name whose folder is missing, a plain file of a module's name, a missing folder of another name, one
+    opening with `_`, one opening with `.`, a name of two path parts and the empty name; the folders that
+    exist but are no module's carry a MODULE.md, the file a plain one."""
     market, settings, tag = MARKETPLACE_FILE, SETTINGS_FILE, REGISTRY_TAG
-    names = ("", ".x", "_x", "a/b", "gone", "plain")
+    names = ("", ".x", "_x", "a/b", "const-gone", "const-plain", "gone")
     files = registry_tree(("const-x", "const-quiet"), tag)
     files[market]["plugins"] += [{"name": name, "source": f"./modules/{name}"} for name in names]
     files[settings]["enabledPlugins"].update({f"{name}@{tag}": True for name in names})
     return Case(
         {"x": scan},
-        scripts={"modules/_x/MODULE.md": False, "modules/.x/MODULE.md": False, "modules/plain": False},
+        scripts={"modules/_x/MODULE.md": False, "modules/.x/MODULE.md": False, "modules/const-plain": False},
         files=files,
     )
 
@@ -1961,10 +1957,7 @@ def self_test() -> int:
         "  why: the settings enable exactly the module folders, and a key that names no module folder enables"
         " a plugin no module backs"
     )
-    make_fix = (  # the fix of a stray whose name a folder can bear, `{}` the folder's name
-        ", or make modules/{} a module folder (a folder whose name opens with neither `.` nor `_`, holding"
-        " its MODULE.md)"
-    )
+    make_fix = ", or make modules/{} a module folder holding its MODULE.md"  # a stray named `const-<aspect>`
     market = ".claude-plugin/marketplace.json"
     settings = ".claude/settings.json"
     renamed = "and name its manifest, marketplace entry, settings key and entry in MODULES the same"
@@ -2176,12 +2169,17 @@ def self_test() -> int:
         "RED: a/b: the marketplace has an entry for it, but modules/a/b is no module folder",
         stray_why,
         f'  fix: remove the entry named "a/b" from plugins in {market}',
+        "RED: const-gone: the marketplace has an entry for it, but modules/const-gone is no module folder",
+        stray_why,
+        f'  fix: remove the entry named "const-gone" from plugins in {market}'
+        + make_fix.format("const-gone"),
+        "RED: const-plain: the marketplace has an entry for it, but modules/const-plain is no module folder",
+        stray_why,
+        f'  fix: remove the entry named "const-plain" from plugins in {market}'
+        + make_fix.format("const-plain"),
         "RED: gone: the marketplace has an entry for it, but modules/gone is no module folder",
         stray_why,
-        f'  fix: remove the entry named "gone" from plugins in {market}' + make_fix.format("gone"),
-        "RED: plain: the marketplace has an entry for it, but modules/plain is no module folder",
-        stray_why,
-        f'  fix: remove the entry named "plain" from plugins in {market}' + make_fix.format("plain"),
+        f'  fix: remove the entry named "gone" from plugins in {market}',
         "RED: .x@kit-test: the kit's settings enable it, but modules/.x is no module folder",
         key_why,
         f'  fix: remove the key ".x@kit-test" from enabledPlugins in {settings}',
@@ -2194,19 +2192,25 @@ def self_test() -> int:
         "RED: a/b@kit-test: the kit's settings enable it, but modules/a/b is no module folder",
         key_why,
         f'  fix: remove the key "a/b@kit-test" from enabledPlugins in {settings}',
+        "RED: const-gone@kit-test: the kit's settings enable it, but modules/const-gone is no module folder",
+        key_why,
+        f'  fix: remove the key "const-gone@kit-test" from enabledPlugins in {settings}'
+        + make_fix.format("const-gone"),
+        "RED: const-plain@kit-test: the kit's settings enable it, but modules/const-plain is no module"
+        " folder",
+        key_why,
+        f'  fix: remove the key "const-plain@kit-test" from enabledPlugins in {settings}'
+        + make_fix.format("const-plain"),
         "RED: gone@kit-test: the kit's settings enable it, but modules/gone is no module folder",
         key_why,
-        f'  fix: remove the key "gone@kit-test" from enabledPlugins in {settings}' + make_fix.format("gone"),
-        "RED: plain@kit-test: the kit's settings enable it, but modules/plain is no module folder",
-        key_why,
-        f'  fix: remove the key "plain@kit-test" from enabledPlugins in {settings}'
-        + make_fix.format("plain"),
-        "RED: 12 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+        f'  fix: remove the key "gone@kit-test" from enabledPlugins in {settings}',
+        "RED: 14 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     for name, case, lines in (
         (
-            "a marketplace entry and a settings key naming a folder that is missing, `_x`, `.x`, `a/b`,"
-            " a plain file or nothing, each told by the literal why and fix",
+            "a marketplace entry and a settings key naming a module's missing folder or plain file, another"
+            " missing folder, `_x`, `.x`, `a/b` or nothing, each told by the literal why and fix — the"
+            " folder offered only to a module's name",
             strays_case(scan),
             strays_lines,
         ),

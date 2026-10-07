@@ -2,7 +2,7 @@
 # Kit tooling, never shipped in a module: the one list of the kit's checks. CI builds one job per
 # job from it (.github/workflows/gates.yml), the gate-list-runner agent runs it locally, and
 # scripts/check-gate-lists.py holds that every scan a module declares stands in it, in that module's job,
-# and that MODULES names exactly the folders under modules/, each named const-<aspect>, named so by its
+# and that MODULES names exactly the module folders, each named const-<aspect>, named so by its
 # manifest, listed once in the marketplace and enabled in the kit's settings, neither naming a plugin
 # that is no module folder.
 #   sh scripts/gate-list.sh --names [gate|extra|all|<job>]  the entries, one per line, in order (default all)
