@@ -18,7 +18,7 @@ first line; nothing is silently skipped.
    this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
    `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at. A checkout made without symlink support leaves one-line text files in their
+   what they point at; `tests/interaction_gate` is a link to this plugin's own `scripts/interaction_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in their
    place (`git config core.symlinks true`, then check out again).
 2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
    namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,

@@ -14,7 +14,7 @@ skipped.
    A copy of this plugin's folder made outside the repository it comes from must follow links
    (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at. A checkout made without symlink support leaves one-line text files in
+   what they point at; `tests/decision_records_gate` is a link to this plugin's own `scripts/decision_records_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in
    their place (`git config core.symlinks true`, then check out again). A plugin without it says so on
    the first `Write` or `Edit` and checks nothing until repaired.
 2. **Switch the check on: name the record policy.** A document is a decision record because

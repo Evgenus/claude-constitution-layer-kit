@@ -19,7 +19,11 @@ For the module named, in throwaway folders that the check removes:
      fetched when absent; an install from a local folder is compared with that folder, and a remote
      install whose record names no commit with the working folder;
   3. what the kit's source of the module declares, held in that copy: no link of the source
-     leads inside the module; every link arrives as a real file, or a real directory, with the
+     leads inside the module, save the fixture runner's link tests/<package> -> ../scripts/<package>
+     to a package of the module's own (a folder of scripts/ holding an __init__.py, its name
+     starting with neither `.` nor `_`, save const_gate), which arrives as a link leading to that
+     package in the copy — the platform keeps a link that stays inside the plugin; every
+     other link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
      the source's hooks file; every hook of the source's hooks/hooks.json, run from the copy in
      exec form on a sample event of its kind with CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on
@@ -213,15 +217,45 @@ def files_under(folder: Path) -> set[str]:
     }
 
 
+def runner_link(source: Path, link: Path) -> bool:
+    """The fixture runner's link to a package of the module's own: tests/<name> leading to the folder
+    scripts/<name> of the source, which holds an __init__.py, its name starting with neither . nor _,
+    save the shared const_gate."""
+    where = link.relative_to(source)
+    name = where.name
+    return (
+        where.parts == ("tests", name)
+        and name != "const_gate"
+        and not name.startswith((".", "_"))
+        and link.resolve() == (source / "scripts" / name).resolve()
+        and not (source / "scripts" / name).is_symlink()
+        and (source / "scripts" / name / "__init__.py").is_file()
+    )
+
+
 def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
-    """No link of the source leads inside the module; every link arrives as a real file, or a real
-    directory, with the same files byte for byte; the copy holds no link the source lacks."""
+    """No link of the source leads inside the module, save the runner's link to a package of the
+    module's own, which arrives as a link leading to that package in the copy; every other link
+    arrives as a real file, or a real directory, with the same files byte for byte; the copy holds no
+    link the source lacks."""
     findings: list[Finding] = []
     links = sorted(p for p in source.rglob("*") if p.is_symlink())
     for link in links:
         where = link.relative_to(source)
         place = plugin / where
         target = link.resolve()
+        if runner_link(source, link):
+            if place.resolve() != (plugin / "scripts" / where.name).resolve():
+                findings.append(
+                    Finding(
+                        module,
+                        f"the runner's link {where} did not arrive as a link to its package in the installed"
+                        " copy",
+                        "the fixtures import the module's own package through it — read limit 3 of"
+                        " shared/GATE.md §4 again against the platform's install",
+                    )
+                )
+            continue
         inside = target.is_relative_to(source.resolve())
         fix = (
             "replace the link inside the module with the file it points at"
@@ -457,7 +491,8 @@ def report(module: str, findings: list[Finding], examined: str) -> int:
 
 def self_test() -> int:
     """Red→green on throwaway source and copy folders, no install: a green copy is green; each branch
-    of the link check — a link inside the module, left a link, missing, with files lost, added or
+    of the link check — a link inside the module, the runner's link to its own package arrived as a
+    directory, leading elsewhere or missing, a link left a link, missing, with files lost, added or
     changed, a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
     the hooks-file, hook and scan checks, and a red scan the source declares where the copy lost its
     document, are each a finding; a source document that cannot be read is a teaching BROKEN line, and
@@ -519,6 +554,24 @@ def self_test() -> int:
         if change == "inner-link":
             shutil.rmtree(copy / "scripts" / "again")
             (copy / "scripts" / "again").symlink_to(copy / "hooks")
+        if change.startswith("runner-link"):
+            package = "own_gate" if change != "runner-link-no-package" else "data"
+            (source / "scripts" / package).mkdir()
+            if change != "runner-link-no-package":
+                (source / "scripts" / package / "__init__.py").write_text("", encoding="utf-8")
+            holder = "skills" if change == "runner-link-outside-tests" else "tests"
+            (source / holder).mkdir()
+            (source / holder / package).symlink_to(f"../scripts/{package}")
+            shutil.copytree(source / "scripts" / package, copy / "scripts" / package)
+            (copy / holder).mkdir()
+            if change == "runner-link-outside-tests":
+                (copy / holder / package).symlink_to(f"../scripts/{package}")
+            elif change == "runner-link-copied":
+                shutil.copytree(source / "scripts" / package, copy / "tests" / package)
+            elif change == "runner-link-elsewhere":
+                (copy / "tests" / package).symlink_to("../hooks")
+            elif change != "runner-link-missing":
+                (copy / "tests" / package).symlink_to(f"../scripts/{package}")
         if change == "inner-link-copied":
             (source / "scripts" / "again").symlink_to(source / "hooks")
             shutil.copytree(source / "hooks", copy / "scripts" / "again")
@@ -577,6 +630,30 @@ def self_test() -> int:
         "a link inside the module that arrived as a real directory is a finding": (
             "inner-link-copied",
             "leads inside the module",
+        ),
+        "the runner's link to a package of the module's own, kept a link to it, is green": (
+            "runner-link",
+            "",
+        ),
+        "the runner's link that arrived as a real directory is a finding": (
+            "runner-link-copied",
+            "the runner's link tests/own_gate did not arrive as a link to its package",
+        ),
+        "the runner's link that arrived leading elsewhere is a finding": (
+            "runner-link-elsewhere",
+            "the runner's link tests/own_gate did not arrive as a link to its package",
+        ),
+        "the runner's link missing from the copy is a finding": (
+            "runner-link-missing",
+            "the runner's link tests/own_gate did not arrive as a link to its package",
+        ),
+        "a link to a package of the module's own from outside tests/ leads inside the module": (
+            "runner-link-outside-tests",
+            "the link skills/own_gate is left a link",
+        ),
+        "a link of tests/ to a folder of scripts/ with no __init__.py leads inside the module": (
+            "runner-link-no-package",
+            "the link tests/data is left a link",
         ),
         "a link to a file that arrived with other bytes is a finding": ("link-other-bytes", "other bytes"),
         "a copy without its hooks file is a finding": ("no-hooks-file", "no hooks/hooks.json"),

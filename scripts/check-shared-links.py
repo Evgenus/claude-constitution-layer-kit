@@ -4,13 +4,13 @@ link leads to the one source; its fixture runner reaches the module's own packag
 
 The shared code has one source in the kit: shared/const_gate/ for the gates, shared/tests/
 for the fixture harness. A module's scripts/const_gate and tests/const_gate, and the harness files
-in its tests/, are symbolic links to it, relative ones, so that they survive a clone into any
-directory. The platform copies what such a link points at into an installed plugin, so an installed
-module carries the code; inside the kit there is one copy to read, to fix and to review. The runner,
-tests/run.py, imports from its own folder, which Python puts first on the import path, so it reaches
-each package of the module's scripts/ through a link tests/<package> -> ../scripts/<package>: no
-code edits the import path, and the runner never imports a copy that has drifted from what the gate
-runs.
+in its tests/, are symbolic links to it, relative ones leading straight to it, never through another
+link, so that they survive a clone into any directory. The platform copies what such a link points at
+into an installed plugin, so an installed module carries the code; inside the kit there is one copy to
+read, to fix and to review. The runner, tests/run.py, imports from its own folder, which Python puts
+first on the import path, so it reaches each package of the module's scripts/ through a link
+tests/<package> -> ../scripts/<package>: it never edits its own import path, and never imports a
+copy that has drifted from what the gate runs.
 
 The links a module owes are derived from the folders, never typed apart from them: scripts/const_gate
 and tests/const_gate, each `.py` file at the top of shared/tests/ whose name starts with neither `.`

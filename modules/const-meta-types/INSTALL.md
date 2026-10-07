@@ -10,7 +10,7 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    A copy of this plugin's folder made outside the repository it comes from must follow links
    (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at. A checkout made without symlink support leaves one-line text files in
+   what they point at; `tests/meta_types_gate` is a link to this plugin's own `scripts/meta_types_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in
    their place (`git config core.symlinks true`, then check out again). A plugin without it says so on
    the first `Write` or `Edit` and checks nothing until repaired.
 2. Optional calibration in the project's `constitution.yaml`; defaults apply otherwise —
