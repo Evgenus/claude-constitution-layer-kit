@@ -26,12 +26,12 @@ minus one: `found 3.N` and `an interpreter of 3.N`, not followed by a digit nor 
 found, the source, why a floor copied apart drifts and the fix.
 
 Not read: a symbolic link, mode 120000, whatever it points at, a dangling one too, since its target is
-read through its own listing, once; `docs/decisions/` and `docs/research/` at the kit root, where
-records and frozen comparisons keep their words; a file git sees as binary, which is git's own test, a
-NUL byte among its first 8000 bytes; and every version that is no copy of the floor, `uv run -p 3.N`,
-a tool's own `FLOOR`, a measured `Python 3.N.M`. One form the check cannot tell from a copy is read as
-one: the arguments of a call, `f(3, N)`. A file git sees as text that is not UTF-8 is BROKEN with the
-fix, never a crash and never a skip, and so is a file git lists that the working tree lacks.
+read through its own listing, once; a submodule, mode 160000; `docs/decisions/` and `docs/research/` at
+the kit root, where records and frozen comparisons keep their words; a file git sees as binary, which is
+git's own test, a NUL byte among its first 8000 bytes; and every version that is no copy of the floor,
+`uv run -p 3.N`, a tool's own `FLOOR`, a measured `Python 3.N.M`. One form the check cannot tell from a
+copy is read as one: the arguments of a call, `f(3, N)`. A file git sees as text that is not UTF-8 is
+BROKEN with the fix, never a crash and never a skip, and so is a file git lists that the working tree lacks.
 
 Each entry holds its clause in three places, which the Identity names a fourth time. An entry is a
 file `modules/<module>/scripts/<stem>.py` directly under the `scripts/` of a module folder, as
@@ -54,7 +54,7 @@ the clause found, the clause the Identity names and where, why and the fix. BROK
 at all, a missing `.sh`, no or two Identities for a gate, a clause that is no string literal, an
 `identity.py` that is missing, unreadable or without its default, which is read on every run, even when
 every Identity names its own clause, a text that is missing or no string constant, a `TOO_OLD` with
-no second line, a first line with no ` — fix: ` part, and a file that is not Python.
+no second line or an empty one, a first line with no ` — fix: ` part, and a file that is not Python.
 
 Findings are sorted by path, then line, then column, whatever order git lists the files in. The green
 line gives the mentions and the number of files that hold them, and the entries read.

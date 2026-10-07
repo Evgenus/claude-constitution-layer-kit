@@ -12,7 +12,7 @@ from . import identity, messages
 from .errors import ConfigurationFailure
 
 # The floor's one source, read by no gate at run time: each entry file keeps its own literal, since it must
-# parse on any Python 3; shared item 112 and the kit's check-copies hold every copy to it.
+# parse on any Python 3; every copy is held to this one.
 FLOOR = (3, 12)
 
 # distribution name in requirements.txt -> the module it provides; what the shared code itself needs

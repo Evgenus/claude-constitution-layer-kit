@@ -24,10 +24,10 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
     read for their text, a name that goes on in a word or a digit that is not ASCII being none;
   - a shared acceptance item whose number does not follow the one before it, the numbers of
     `shared/tests/shared_items.py` standing unique and rising from 101 (an item's number is never
-    reissued, rule 4 of plc-0009-shared-code), and a handle `S<n>` or a range `S<n>–S<m>` (a hyphen
-    too) of the table of `shared/GATE.md` section 5, anchor `g5` to the next `g<n>` anchor or the
-    end of the file, that names a number the list does not hold, a range whose end is not above
-    its start included. Every run holds them, `--run --module` too, and the counts line says
+    reissued, rule 4 of plc-0009-shared-code), and every `S<n>` handle and range `S<n>–S<m>` (a hyphen
+    too) in section 5 of `shared/GATE.md`, its table and its prose, anchor `g5` to the next `g<n>`
+    anchor or the end of the file, that names a number the list does not hold, a range whose end is
+    not above its start included. Every run holds them, `--run --module` too, and the counts line says
     how many shared items were read.
 
 The documents are read in the forms their rules state, and a read that cannot be sure is no pass: the
@@ -445,9 +445,9 @@ def gate_section(root: Path) -> list[tuple[int, str]]:
 def check_shared(root: Path) -> tuple[list[Finding], int]:
     """The findings of the shared acceptance items and how many items were read. Both files are read
     first, so a file that cannot be read is BROKEN whatever else is red. RED: a number that does not
-    rise above the one before it, the first number if not 101, and in the table of GATE.md section 5
-    every handle or range that names a number the list does not hold, and every range whose end is
-    not above its start."""
+    rise above the one before it, the first number if not 101, and in section 5 of GATE.md, its table
+    and its prose, every handle or range that names a number the list does not hold, and every range
+    whose end is not above its start."""
     entries = shared_numbers(root)
     section_lines = gate_section(root)
     findings: list[Finding] = []
@@ -460,8 +460,8 @@ def check_shared(root: Path) -> tuple[list[Finding], int]:
                     line,
                     f"the first shared item is numbered {number}, not {SHARED_FIRST}",
                     WHY_SHARED_NUMBERS,
-                    f"number the first item {SHARED_FIRST}, and a new item with the next free number, at the"
-                    " end of the list",
+                    f"number the first item {SHARED_FIRST}, and give a new item a number no item has had, at"
+                    " the end of the list",
                 )
             )
         elif previous is not None and number <= previous:
@@ -472,8 +472,8 @@ def check_shared(root: Path) -> tuple[list[Finding], int]:
                     f"the shared item numbered {number} follows {previous}, and the numbers are not unique"
                     " and rising",
                     WHY_SHARED_NUMBERS,
-                    "give the new item the next free number, at the end of the list, and put a moved item"
-                    " back in its place; a removed item's number stays free",
+                    "give a new item a number no item has had, at the end of the list, and put a moved item"
+                    " back in its place; a removed item's number is never given again",
                 )
             )
         previous = number
@@ -1085,8 +1085,8 @@ WHY_TABLE_TYPED = (
     " number it names must be an item the list holds"
 )
 FIX_FOLLOWS_TYPED = (
-    "give the new item the next free number, at the end of the list, and put a moved item back in its"
-    " place; a removed item's number stays free"
+    "give a new item a number no item has had, at the end of the list, and put a moved item back in its"
+    " place; a removed item's number is never given again"
 )
 
 
@@ -1519,8 +1519,8 @@ def self_test_shared() -> tuple[int, int]:
             [
                 "RED: shared/tests/shared_items.py:3: the first shared item is numbered 102, not 101",
                 f"  why: {WHY_NUMBERS_TYPED}",
-                "  fix: number the first item 101, and a new item with the next free number, at the end of"
-                " the list",
+                "  fix: number the first item 101, and give a new item a number no item has had, at the end"
+                " of the list",
                 "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
                 " examined, 2 shared item(s)",
             ],

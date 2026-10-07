@@ -4,8 +4,8 @@ each module's runner through that module's real entry point.
 
 A module hands over a Subject: its harness, a function that runs its gate on a prepared
 consumer, one write it passes and one it blocks. Each item carries its number in the file, from
-101 on, and the number a module gives must equal the first, so a module's own items and the
-shared ones never collide.
+101 on, the numbers unique and rising, and the number a module gives must equal the first
+(`shared_assertions` raises a ValueError for either).
 """
 
 from __future__ import annotations

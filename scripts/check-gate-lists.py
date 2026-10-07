@@ -42,13 +42,13 @@ module that has one lacks its folder (decisions dec-0056-portability-grep-and-ga
 dec-0058-ci-runs-each-check-in-parallel and dec-0061-ci-runs-one-job-per-module).
 Each of those folders is also held against the three files that name a module, one RED finding with
 why and fix for each copy that disagrees, listed by folder and then by file, the entries and keys that
-name no folder by name:
+name no module folder by name:
   - its name matches `const-[a-z0-9]+(-[a-z0-9]+)*` in full, kernel §7;
   - `modules/<m>/.claude-plugin/plugin.json` is a JSON object, and its `name` is the string `<m>`;
   - `.claude-plugin/marketplace.json` is a JSON object with a `name`, a non-empty string, the
     marketplace's name, read there and typed nowhere in this check, and a list `plugins`: for each
     folder exactly one entry, an object, whose `name` is `<m>` and whose `source` is the string
-    `./modules/<m>`; no entry names anything that is no folder, and an entry's other keys, the
+    `./modules/<m>`; no entry names anything that is no module folder, and an entry's other keys, the
     marketplace's other keys and its `owner` are the platform's and are never read;
   - `.claude/settings.json` is a JSON object: under `enabledPlugins` the key `<m>@<marketplace name>`
     is `true`, the JSON boolean and nothing else, for each folder, a committed `false` included, the one
@@ -170,15 +170,16 @@ WHY_TWICE = (
     "a plugin's name must lead to one source, and with two entries it is open which one an install reads"
 )
 WHY_MARKET_STRAY = (
-    "the marketplace lists exactly the module folders, and an entry of a missing folder is an install"
-    " that fails"
+    "the marketplace lists exactly the module folders, and an entry that names no module folder is a"
+    " plugin no module backs"
 )
 WHY_ENABLED = (
     "the kit's sessions load only the plugins its committed settings enable, and the one switch-off,"
     " `false`, belongs in a clone's .claude/settings.local.json"
 )
 WHY_ENABLED_STRAY = (
-    "the settings enable exactly the module folders, and a key of a missing folder enables nothing"
+    "the settings enable exactly the module folders, and a key that names no module folder enables a"
+    " plugin no module backs"
 )
 WHY_KNOWN = (
     "a session finds the kit's plugins only through a marketplace its settings declare, and the enabled"
@@ -332,7 +333,14 @@ class Finding:
         m, said, tag = self.module, self.said, self.tag
         manifest = f"modules/{m}/.claude-plugin/plugin.json"
         enable = f"{json.dumps(f'{m}@{tag}')}: true"
-        restore = f"restore modules/{m.removesuffix(f'@{tag}')} with its MODULE.md"
+        named = m.removesuffix(f"@{tag}")  # a stray's folder name: the entry's name, the key's before `@`
+        # no folder is named "", so for that name the removal is the one fix
+        make = (
+            f", or make modules/{named} a module folder (a folder whose name opens with neither `.` nor `_`,"
+            " holding its MODULE.md)"
+            if named
+            else ""
+        )
         if self.where is Where.NAME:
             if not m.startswith("const") and NAME.fullmatch(f"const-{m}"):
                 rename = f"to modules/const-{m}"
@@ -376,7 +384,7 @@ class Finding:
             return f"the marketplace has {said} entries for it", WHY_TWICE, fix
         if self.where is Where.MARKET_STRAY:
             what = f"the marketplace has an entry for it, but modules/{m} is no module folder"
-            fix = f"remove the entry named {json.dumps(m)} from plugins in {MARKETPLACE_FILE}, or {restore}"
+            fix = f"remove the entry named {json.dumps(m)} from plugins in {MARKETPLACE_FILE}{make}"
             return what, WHY_MARKET_STRAY, fix
         if self.where is Where.SETTINGS:
             what = (
@@ -386,10 +394,8 @@ class Finding:
             )
             return what, WHY_ENABLED, f"set {enable} under enabledPlugins in {SETTINGS_FILE}"
         if self.where is Where.SETTINGS_STRAY:
-            what = (
-                f"the kit's settings enable it, but modules/{m.removesuffix(f'@{tag}')} is no module folder"
-            )
-            fix = f"remove the key {json.dumps(m)} from enabledPlugins in {SETTINGS_FILE}, or {restore}"
+            what = f"the kit's settings enable it, but modules/{named} is no module folder"
+            fix = f"remove the key {json.dumps(m)} from enabledPlugins in {SETTINGS_FILE}{make}"
             return what, WHY_ENABLED_STRAY, fix
         declared = f'{json.dumps(m)}: {{"source": {json.dumps(DIRECTORY_SOURCE)}}}'
         if self.where is Where.KNOWN_MISSING:
@@ -1336,6 +1342,22 @@ def messy_case(scan: str, reverse: bool) -> Case:
     return Case({"x": scan}, folders=folders, files=backwards(files) if reverse else files)
 
 
+def strays_case(scan: str) -> Case:
+    """One tree whose marketplace and settings name five things that are no module folder: a folder that is
+    missing, one opening with `_`, one opening with `.`, a plain file, and the empty name; the folders
+    that exist but are no module's carry a MODULE.md, the file a plain one."""
+    market, settings, tag = MARKETPLACE_FILE, SETTINGS_FILE, REGISTRY_TAG
+    names = ("", ".x", "_x", "gone", "plain")
+    files = registry_tree(("const-x", "const-quiet"), tag)
+    files[market]["plugins"] += [{"name": name, "source": f"./modules/{name}"} for name in names]
+    files[settings]["enabledPlugins"].update({f"{name}@{tag}": True for name in names})
+    return Case(
+        {"x": scan},
+        scripts={"modules/_x/MODULE.md": False, "modules/.x/MODULE.md": False, "modules/plain": False},
+        files=files,
+    )
+
+
 def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     """The files the check cannot read, each a matching registry with one file or key spoilt: the first
     line of the BROKEN report, which names the file and how to fix it."""
@@ -1783,6 +1805,36 @@ def self_test() -> int:
         f"[{'ok' if ok else 'FAIL'}] only `const-<aspect>` in full is a module's name,"
         " over the whole set of names"
     )
+    name_report = (  # the NAME finding's whole report, typed by hand, `{fix}` what is said after "rename"
+        "RED: {m}: a module folder's name is not const-<aspect>\n"
+        "  why: the kernel names every module `const-<aspect>`, lowercase kebab-case, and the CI gives a job"
+        " Claude Code by that prefix\n"
+        "  fix: rename modules/{m} {fix}, and name its manifest, marketplace entry, settings key and entry in"
+        " MODULES the same"
+    )
+    to_aspect = "to a name `const-<aspect>`, lowercase letters and digits joined by single hyphens"
+    renames = {  # a name `const-<name>` would be is offered only to a name that does not open with `const`
+        "glossary": "to modules/const-glossary",
+        "const": to_aspect,  # not `const-const`: it opens with `const`
+        "constx": to_aspect,  # nor `const-constx`
+        "Glossary": to_aspect,  # `const-Glossary` is no name either
+        "g_s": to_aspect,
+    }
+    ok = True
+    for folder, fix in renames.items():
+        got = [
+            f.render()
+            for f in findings_of(Case({"x": scan}, folders=("const-x", folder)))
+            if f.where is Where.NAME
+        ]
+        if got != [name_report.format(m=folder, fix=fix)]:
+            ok = False
+            print(f"        folder {folder!r}: got {got}, wanted the rename {fix!r}")
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] the rename told for a folder name offers `const-<name>` only to a name"
+        " that does not open with `const` and would then be a module's name"
+    )
     with tempfile.TemporaryDirectory() as tmp:  # a scan declared by its Python file, run by python3
         root = Path(tmp).resolve()
         p = "python3 modules/const-p/scripts/check-p.py --scan"
@@ -1896,15 +1948,20 @@ def self_test() -> int:
         " module's folder loads another plugin or none"
     )
     stray_why = (
-        "  why: the marketplace lists exactly the module folders, and an entry of a missing folder is an"
-        " install that fails"
+        "  why: the marketplace lists exactly the module folders, and an entry that names no module folder is"
+        " a plugin no module backs"
     )
     enabled_why = (
         "  why: the kit's sessions load only the plugins its committed settings enable, and the one"
         " switch-off, `false`, belongs in a clone's .claude/settings.local.json"
     )
     key_why = (
-        "  why: the settings enable exactly the module folders, and a key of a missing folder enables nothing"
+        "  why: the settings enable exactly the module folders, and a key that names no module folder enables"
+        " a plugin no module backs"
+    )
+    make_fix = (  # the fix of every stray but one whose name is empty, `{}` the folder's name
+        ", or make modules/{} a module folder (a folder whose name opens with neither `.` nor `_`, holding"
+        " its MODULE.md)"
     )
     market = ".claude-plugin/marketplace.json"
     settings = ".claude/settings.json"
@@ -1944,8 +2001,8 @@ def self_test() -> int:
                 f"RED: const-{stray}: the marketplace has an entry for it, but modules/const-{stray} is no"
                 " module folder",
                 stray_why,
-                f'  fix: remove the entry named "const-{stray}" from plugins in {market}, or restore'
-                f" modules/const-{stray} with its MODULE.md",
+                f'  fix: remove the entry named "const-{stray}" from plugins in {market}'
+                + make_fix.format(f"const-{stray}"),
             )
         ),
         'RED: const-m: the kit\'s settings set "const-m@kit-test" to false, not true',
@@ -1959,12 +2016,12 @@ def self_test() -> int:
         f'  fix: set "const-s@kit-test": true under enabledPlugins in {settings}',
         "RED: const-away@kit-test: the kit's settings enable it, but modules/const-away is no module folder",
         key_why,
-        f'  fix: remove the key "const-away@kit-test" from enabledPlugins in {settings}, or restore'
-        " modules/const-away with its MODULE.md",
+        f'  fix: remove the key "const-away@kit-test" from enabledPlugins in {settings}'
+        + make_fix.format("const-away"),
         "RED: const-gone@kit-test: the kit's settings enable it, but modules/const-gone is no module folder",
         key_why,
-        f'  fix: remove the key "const-gone@kit-test" from enabledPlugins in {settings}, or restore'
-        " modules/const-gone with its MODULE.md",
+        f'  fix: remove the key "const-gone@kit-test" from enabledPlugins in {settings}'
+        + make_fix.format("const-gone"),
         "RED: kit-test: the kit's settings declare the marketplace with source"
         ' {"path": "./x", "source": "directory"}, not source {"source": "directory", "path": "."}',
         "  why: the kit loads its own modules from its own folder, so any other source loads another"
@@ -2104,7 +2161,47 @@ def self_test() -> int:
         f" `{run_new}`, with its `--self-test` where it has one",
         "RED: 4 finding(s) — 2 module document(s) examined, 1 declared scan(s), 1 kit check(s)",
     ]
+    strays_lines = [  # typed by hand; the empty name has no folder to make, so its one fix is the removal
+        "RED: : the marketplace has an entry for it, but modules/ is no module folder",
+        stray_why,
+        f'  fix: remove the entry named "" from plugins in {market}',
+        "RED: .x: the marketplace has an entry for it, but modules/.x is no module folder",
+        stray_why,
+        f'  fix: remove the entry named ".x" from plugins in {market}' + make_fix.format(".x"),
+        "RED: _x: the marketplace has an entry for it, but modules/_x is no module folder",
+        stray_why,
+        f'  fix: remove the entry named "_x" from plugins in {market}' + make_fix.format("_x"),
+        "RED: gone: the marketplace has an entry for it, but modules/gone is no module folder",
+        stray_why,
+        f'  fix: remove the entry named "gone" from plugins in {market}' + make_fix.format("gone"),
+        "RED: plain: the marketplace has an entry for it, but modules/plain is no module folder",
+        stray_why,
+        f'  fix: remove the entry named "plain" from plugins in {market}' + make_fix.format("plain"),
+        "RED: .x@kit-test: the kit's settings enable it, but modules/.x is no module folder",
+        key_why,
+        f'  fix: remove the key ".x@kit-test" from enabledPlugins in {settings}' + make_fix.format(".x"),
+        "RED: @kit-test: the kit's settings enable it, but modules/ is no module folder",
+        key_why,
+        f'  fix: remove the key "@kit-test" from enabledPlugins in {settings}',
+        "RED: _x@kit-test: the kit's settings enable it, but modules/_x is no module folder",
+        key_why,
+        f'  fix: remove the key "_x@kit-test" from enabledPlugins in {settings}' + make_fix.format("_x"),
+        "RED: gone@kit-test: the kit's settings enable it, but modules/gone is no module folder",
+        key_why,
+        f'  fix: remove the key "gone@kit-test" from enabledPlugins in {settings}' + make_fix.format("gone"),
+        "RED: plain@kit-test: the kit's settings enable it, but modules/plain is no module folder",
+        key_why,
+        f'  fix: remove the key "plain@kit-test" from enabledPlugins in {settings}'
+        + make_fix.format("plain"),
+        "RED: 10 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+    ]
     for name, case, lines in (
+        (
+            "a marketplace entry and a settings key naming a folder that is missing, `_x`, `.x`, a plain file"
+            " or nothing, each told by the literal why and fix",
+            strays_case(scan),
+            strays_lines,
+        ),
         (
             "every kind of finding about the files that name a module, written in order",
             messy_case(scan, reverse=False),
@@ -2309,7 +2406,7 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] {name} is its literal BROKEN line, exit 1")
         if not ok:
             print(printed.getvalue())
-    total = len(cases) + len(unreadable) + 27 + 7
+    total = len(cases) + len(unreadable) + 29 + 7
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
