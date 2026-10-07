@@ -9,11 +9,11 @@ judge; it decides nothing, and exits 0 whatever it finds.
 For each function of shared/const_gate/messages.py and of each modules/<m>/scripts/<x>_gate/
 messages.py, docstrings aside, it takes the constant text the function holds — string literals,
 f-string parts and the module's string constants, split where a value is filled in — and asks
-whether one piece of at least 15 characters, its edge punctuation trimmed, stands inside a string
-of the fixtures that run it: the module's tests/run.py for a module's messages; every runner and
-shared/tests/ for the shared ones. A string of a fixture is a literal, an f-string or a `+` chain,
-docstrings aside. A function with no piece that long is listed apart: its text is too short to
-find, and the review reads it whole.
+whether one piece of at least 15 characters, its edge punctuation trimmed, stands inside a string of
+the fixtures that run it: the module's tests/run.py for a module's messages; every module's
+tests/run.py, shared/tests/shared_items.py and shared/tests/harness.py for the shared ones. A string
+of a fixture is a literal, an f-string or a `+` chain, docstrings aside. A function with no piece
+that long is listed apart: its text is too short to find, and the review reads it whole.
 
 What it cannot see: whether the typed line is compared with that function's output (a fixture may
 hold the text as input), text built at run time, and a branch of a function whose other piece is
@@ -21,7 +21,10 @@ typed. So a function it lists may be covered, and one it passes may not be.
 
 Modes:  no arguments   list for the kit;
         --module <m>   list for one module, the shared messages left out.
-Exit:   0 always, save 1 when the kit's folders cannot be read.
+Exit:   0 always, save 1 when the kit's folders cannot be read, the arguments are misused, or
+        --module names no module.
+Its name is list-, never check-: the kit's check-gate-lists holds every scripts/check-*.py to the
+gate group, and this script is no check.
 """
 
 from __future__ import annotations

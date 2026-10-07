@@ -47,6 +47,7 @@ from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
+# — and each is also typed by hand once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-references.sh", "check-references.py", start.GATE.namespace)
 
 NAMESPACE = start.GATE.namespace

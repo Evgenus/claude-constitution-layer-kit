@@ -576,7 +576,8 @@ IN_PLACE = (
 def fix_for(name: str) -> str:
     if name == "marketplace":
         return (
-            f"let git clone the source the block is given — {FROM_ENV}, `<owner>/<repo>#<branch>`, naming a "
+            f"let git clone the source the block is given — {FROM_ENV}, `<owner>/<repo>#<branch>`, else the "
+            "clone's origin at the branch checked out, naming a "
             "repository and branch that exist — with a credential for github.com while the repository is "
             "private, as `gh auth setup-git` sets one up; and make the block's other commands succeed"
         )
