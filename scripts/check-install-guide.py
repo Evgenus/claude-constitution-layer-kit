@@ -77,15 +77,15 @@ Modes:  no arguments   check the kit's guide;
                        that leaves the tree dirty, an update that drops a module, a reinstall whose
                        copy differs from the marketplace, an uninstall that keeps the plugin enabled;
                        a marketplace from another repository, one whose modules differ from the kit's and
-                       the fix it teaches, each marketplace and install finding's own fix and the fix of
-                       each block that exits 1, a session that loads no module and one that reports no
-                       start, a reinstall copy that lacks a file of the marketplace, the toy modules'
-                       links into a toy shared/ read through on both sides; the outer credential settings
-                       carried into the run as git reads them, includes followed, nothing else of the
-                       outer configuration, and the carried helper reaching the run's git; the source
-                       taken from the environment, from origin at the branch's HEAD, and a kit with no
-                       origin on GitHub, a detached HEAD and an origin behind HEAD each a configuration
-                       failure; the
+                       the fix it teaches, each marketplace and install finding's own fix and the fix of a
+                       marketplace and an install block that exits 1, a session that loads no module and
+                       one that reports no start, a reinstall copy that lacks a file of the marketplace,
+                       the toy modules' links into a toy shared/ read through on both sides; the outer
+                       credential settings carried into the run as git reads them, includes followed,
+                       nothing else of the outer configuration, and the carried helper reaching the run's
+                       git; the source taken from the environment, from origin at the branch's HEAD, and a
+                       kit with no origin on GitHub, a detached HEAD and an origin behind HEAD each a
+                       configuration failure; the
                        report of one finding as literal lines with exit 2; the kit's modules, the
                        folders of `kit_module_doc.module_folders` with their manifest versions: a
                        folder `.x` or `_x` and a plain file skipped, a name without `const-` listed,
@@ -429,7 +429,7 @@ def session_paths(state: Run, project: Path) -> tuple[dict[str, str] | None, str
         projects[key] = (entry if isinstance(entry, dict) else {}) | {"hasTrustDialogAccepted": True}
     dot.write_text(json.dumps(data), encoding="utf-8")
     argv = ["claude", "-p", "Reply with the single word ok.", "--output-format", "stream-json"]
-    _, said = run([*argv, "--verbose", "--max-turns", "1"], project, state.env, timeout=300, joined=False)
+    _, said = run([*argv, "--verbose", "--max-turns", "1"], project, state.env, timeout=300)
     for line in said.splitlines():
         try:
             event = json.loads(line)
@@ -574,9 +574,9 @@ IN_PLACE = (
 def fix_for(name: str) -> str:
     if name == "marketplace":
         return (
-            "make the block's `claude plugin marketplace add <owner>/<repo>` name the kit's repository "
-            "and let git clone it — while the repository is private, give git a credential for "
-            "github.com, as `gh auth setup-git` sets one up"
+            f"let git clone the source the check registers — {FROM_ENV} naming a branch that exists, "
+            "or origin at HEAD — with a credential for github.com while the repository is private, as "
+            "`gh auth setup-git` sets one up; and make the block's other commands succeed"
         )
     if name == "install":
         return (
@@ -1205,7 +1205,7 @@ def self_test() -> int:
             (
                 "a marketplace block that exits 1",
                 {"marketplace": "false && claude plugin marketplace add toy/kit"},
-                "make the block's `claude plugin marketplace add <owner>/<repo>` name the kit's repository",
+                "let git clone the source the check registers",
             ),
             ("an install block that exits 1", {"install": "false"}, "make the block install each module"),
         ):
@@ -1215,6 +1215,14 @@ def self_test() -> int:
                 len(exited) == 1 and "exited 1" in exited[0].what and exited[0].fix.startswith(fix),
                 " | ".join(f"{f.what} / {f.fix}" for f in exited),
             )
+        stopped, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "session-no-start"})
+        case(
+            "a session that reports no start says why, and teaches to reproduce it",
+            len(stopped) == 1
+            and stopped[0].what.endswith("reported no start (Error: the session could not start)")
+            and stopped[0].fix.startswith("run §2 steps 1 to 3 in a project of your own, then `claude -p ok"),
+            " | ".join(f"{f.what} / {f.fix}" for f in stopped),
+        )
         never, _ = run_guide(
             toy_guide(marketplace="true || claude plugin marketplace add toy/kit"), kit, base
         )
@@ -1230,7 +1238,6 @@ def self_test() -> int:
             ("session-in-place", "register the kit from GitHub"),
             ("install-no-enable", "make the block install each module at project scope"),
             ("session-loads-nothing", "run §2 steps 1 to 3 in a project of your own and read the Errors tab"),
-            ("session-no-start", "run §2 steps 1 to 3 in a project of your own, then `claude -p ok"),
         ):
             taught, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
             case(
