@@ -480,13 +480,15 @@ def claim(state: Run, name: str) -> str:
     if name == "marketplace":
         known = read_json(state.config / "plugins" / "known_marketplaces.json").get(MARKETPLACE)
         if not isinstance(known, dict):
-            return f"the configuration knows no marketplace {MARKETPLACE}"
+            raise Misfit(
+                f"the configuration knows no marketplace {MARKETPLACE}",
+                "make the block register the kit's repository, "
+                "`claude plugin marketplace add <owner>/<repo>`",
+            )
         source = known.get("source")
         kind = source.get("source") if isinstance(source, dict) else None
         if kind != "github":
-            raise Misfit(
-                f"the marketplace is registered from a {kind} source, not from GitHub", fix_for("install")
-            )
+            raise Misfit(f"the marketplace is registered from a {kind} source, not from GitHub", IN_PLACE)
         repo = source.get("repo") if isinstance(source, dict) else None
         wanted = state.source.split("#")[0]
         if repo != wanted:
@@ -527,7 +529,7 @@ def claim(state: Run, name: str) -> str:
                     said = last or "its start reported none"
                     return f"a session in the project loads no {module} ({said})"
                 if Path(where).resolve() != state.cache(module).resolve():
-                    return f"a session runs {module} from {where}, not from the plugin cache"
+                    raise Misfit(f"a session runs {module} from {where}, not from the plugin cache", IN_PLACE)
         return ""
     if name == "kernel":
         source = state.kit / "kernel"
@@ -552,16 +554,22 @@ def claim(state: Run, name: str) -> str:
     return ""
 
 
+IN_PLACE = (
+    "register the kit from GitHub, `claude plugin marketplace add <owner>/<repo>`: a marketplace added from "
+    "a local folder runs that folder's working files in place, never the frozen copy"
+)
+
+
 def fix_for(name: str) -> str:
     if name == "marketplace":
         return (
-            "give git a credential for github.com — `gh auth setup-git`, or an SSH key — and make the block "
-            "register the kit's repository, `claude plugin marketplace add <owner>/<repo>`"
+            "give git a credential for github.com, as `gh auth setup-git` sets one up, so the block's "
+            "`claude plugin marketplace add <owner>/<repo>` can clone the private repository"
         )
     if name == "install":
         return (
-            "register the kit from GitHub, `claude plugin marketplace add <owner>/<repo>`: a marketplace "
-            "added from a local folder runs that folder's working files in place, never the frozen copy"
+            "make the block install each module at project scope, "
+            "`claude plugin install <module>@constitution-kit --scope project`"
         )
     return (
         f"make the block named check={name} do what the guide says it does, "
@@ -612,7 +620,8 @@ def carry_credentials(env: dict[str, str], gitconfig: Path) -> None:
         if code != 0:
             raise Broken(
                 f"the credential setting {key} could not be carried ({last_line(wrote)}) — "
-                "fix: correct that entry in the global git configuration"
+                "fix: correct that entry in the global git configuration, "
+                "or in the file it includes that holds it"
             )
 
 
@@ -1181,6 +1190,8 @@ def self_test() -> int:
             ("marketplace-other-repo", "make the block register the source it is given"),
             ("marketplace-unreadable", "bring the source branch to the kit's clone"),
             ("marketplace-directory", "register the kit from GitHub"),
+            ("session-in-place", "register the kit from GitHub"),
+            ("install-no-enable", "make the block install each module at project scope"),
         ):
             taught, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
             case(
