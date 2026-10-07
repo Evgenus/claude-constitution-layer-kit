@@ -232,7 +232,8 @@ def main(argv: list[str]) -> int:
                     )
                     listed += 1
                     continue
-                found = verdicts(package / "messages.py", "", [module / "tests" / "run.py"])
+                fix = "restore the package's messages.py"
+                found = verdicts(package / "messages.py", fix, [module / "tests" / "run.py"])
                 listed += report(module.name, found)
         if not args.module:
             fixtures = [KIT / p for p in SHARED_TESTS] + [m / "tests" / "run.py" for m in modules]

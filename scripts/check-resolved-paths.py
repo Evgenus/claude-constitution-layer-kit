@@ -24,10 +24,9 @@ Modes:  no arguments   check the kit;
                        in the shared package and through `pathlib.Path`; `.parent`, `os.path`,
                        `.absolute()`, an unresolved `Path` and the bare name each a finding; a folder
                        with no `__init__.py`, a `_` folder, a `_` shared test file, an entry file
-                       and four links (three to an outside package, and `const_gate` by its name)
-                       not read; the report of one finding as literal lines with exit 2; a file
-                       that does not parse and a module folder without its document each a
-                       BROKEN line.
+                       and three links to an outside package not read; the report of one finding
+                       as literal lines with exit 2; a file that does not parse and a module
+                       folder without its document each a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
