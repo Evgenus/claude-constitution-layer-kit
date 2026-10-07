@@ -52,7 +52,8 @@ printed` (S1): its three first lines carry no clause, and its Identity's clause 
 it is (template §6, rule 3; GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
 the clause found, the clause the Identity names and where, why and the fix. BROKEN, with the fix: no entry
 at all, a missing `.sh`, no or two Identities for a gate, a clause that is no string literal, an
-unreadable `identity.py` with no default, a text that is missing or no string constant, a `TOO_OLD` with
+`identity.py` that is missing, unreadable or without its default, which is read on every run, even when
+every Identity names its own clause, a text that is missing or no string constant, a `TOO_OLD` with
 no second line, a first line with no ` — fix: ` part, and a file that is not Python.
 
 Findings are sorted by path, then line, then column, whatever order git lists the files in. The green
@@ -65,8 +66,9 @@ Modes:  no arguments   check the kit;
                        literal lines; every form of the two lists, right green and one above and one
                        below red, and each form's closing guard green; records, comparisons, links, a
                        binary file, and the forms that are no copy green, with the edges of the binary
-                       test; the source with no floor, a float, a string, three numbers, another major,
-                       a nested one, an unreadable or a missing file, a file that is not UTF-8, git
+                       test, typed as numbers; the source with no floor, a float, a string, three numbers,
+                       another major, a nested one, an unreadable or a missing file, a file that is not
+                       UTF-8, git
                        missing and no repository, each a literal BROKEN line; the source moved with
                        every copy left, red on each of them; the order of the findings under an
                        adversarial listing; the misinvocation. The clauses, over the four kinds of entry,
@@ -74,7 +76,10 @@ Modes:  no arguments   check the kit;
                        generator: each of the three texts of each kind changed alone red, the whole set
                        in one loop, with literal reports; an Identity's clause changed alone red three
                        times, a generator's green; the default of `identity.py` changed red for the
-                       gates on it alone; two Identities, none, no `.sh`, a text missing, no string
+                       gates on it alone, the keyword and the default read wherever each stands among
+                       others; the first echo that needs python3 read as C1, a tab after `echo` too, and
+                       a line whose fix dash has no space before it no fix part; the shell files executable,
+                       as the kit's are; two Identities, none, no `.sh`, a text missing, no string
                        constant, one line, no fix part and the other BROKEN cases as literal lines;
                        entries outside any module not read.
 Exit:   0 green; 2 a finding; 1 the check could not run.
@@ -709,6 +714,7 @@ def put_entry(root: Path, spec: Spec, minor: int = BASE, given: dict[str, str | 
     python = entry_python(spec.module, minor, clauses["too_old"], clauses["no_shared"], spec.closing)
     put(root, spec.file("too_old"), python)
     put(root, spec.file("sh"), entry_shell(spec.module, spec.stem, minor, clauses["sh"], spec.closing))
+    (root / spec.file("sh")).chmod(0o755)  # the kit's entry files are executable: git lists them as 100755
 
 
 def put_identity(root: Path, spec: Spec, clause: str | None, name: str = "start.py", gate: str = "") -> None:
@@ -723,11 +729,17 @@ def put_identity(root: Path, spec: Spec, clause: str | None, name: str = "start.
     )
 
 
-def identity_source(default: str) -> str:
+def identity_source(default: str, fixed_first: bool = False, other_first: str | None = None) -> str:
+    """The shared identity of the fixture: `fixed_first` puts the `until_fixed` field before
+    `until_installed`; `other_first` puts a class of another name, holding an `until_installed` field with
+    that default, before `class Identity`."""
+    fixed = "    until_fixed: str = 'until it is fixed'\n"
+    installed = f"    until_installed: str = {default!r}\n"
+    other = "" if other_first is None else f"class Other:\n    until_installed: str = {other_first!r}\n\n\n"
     return (
-        '"""The identity."""\n\nfrom dataclasses import dataclass\n\n\n@dataclass(frozen=True)\n'
+        '"""The identity."""\n\nfrom dataclasses import dataclass\n\n\n' + other + "@dataclass(frozen=True)\n"
         "class Identity:\n    namespace: str\n    libraries: str = 'none'\n"  # a default before, one after
-        f"    until_installed: str = {default!r}\n    until_fixed: str = 'until it is fixed'\n"
+         + (fixed + installed if fixed_first else installed + fixed)
     )
 
 
@@ -1086,6 +1098,9 @@ def self_test_not_read(cases: Cases) -> None:
         ),
         ("a NUL as the first byte after them", old.encode() + b" " * (GIT_BINARY - len(old)) + b"\0", True),
         ("bytes that are no UTF-8 behind a NUL", b"\0\xff\xfe" + old.encode(), False),
+        # the same edges typed as numbers, so that a moved GIT_BINARY cannot move them with it
+        ("a NUL at byte offset 7999, the 8000th", old.encode() + b" " * (7999 - len(old)) + b"\0", False),
+        ("a NUL at byte offset 8000, the 8001st", old.encode() + b" " * (8000 - len(old)) + b"\0", True),
     ):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1306,6 +1321,25 @@ def self_test_clauses(cases: Cases) -> None:
         wrong == [(SPECS[0].file("too_old"), 18)] and right == [],
         "TOO_OLD assigned twice: the last assignment is the text",
     )
+    with tempfile.TemporaryDirectory() as tmp:  # the kit's entry files are executable, mode 100755
+        root = Path(tmp).resolve()
+        fresh(root)
+        modes = {path: mode for mode, path in listed(root)}
+        executable = [modes[spec.file("sh")] for spec in SPECS]
+        put(
+            root,
+            SPECS[0].file("sh"),  # a floor mention one minor up, and a clause reworded, in an executable file
+            entry_shell("const-a", "check-a", OVER, CHANGED, GATE_CLOSING),
+        )
+        result = check_kit(root)
+    cases.check(
+        executable == ["100755"] * BASE_ENTRIES
+        and [(f.path, f.line, f.column, f.what.startswith("C1")) for f in result.findings]
+        == [(SPECS[0].file("sh"), 4, 1, True), (SPECS[0].file("sh"), 4, 54, False)]
+        and result.mentions == BASE_MENTIONS
+        and result.entries == BASE_ENTRIES,
+        "an executable shell entry, mode 100755, is read: its C1 is checked and its floor mention counted",
+    )
 
 
 def self_test_clause_reports(cases: Cases) -> None:
@@ -1489,6 +1523,74 @@ def self_test_identities(cases: Cases) -> None:
             stage(root)
             result = check_kit(root)
         cases.check(result.findings == [], f"{name} is read, the default clause applying")
+    self_test_c1_line(cases)
+    self_test_which_clause(cases)
+
+
+def self_test_c1_line(cases: Cases) -> None:
+    """Which echo of the `.sh` is C1: the first `BROKEN: ... needs python3 ...`, a tab after `echo` read."""
+    head = "#!/bin/sh\nif true; then\n"
+    right = f'"BROKEN: const-a needs python3 — fix: x — {DEFAULT_CLAUSE}"'
+    wrong = '"BROKEN: const-a needs python3 — fix: x — wrong"'
+    for name, text in (
+        (
+            "a BROKEN echo without needs python3 before the real C1",
+            f'{head}  echo "BROKEN: const-a could not start — fix: x — wrong" >&2\n  echo {right} >&2\nfi\n',
+        ),
+        (
+            "a tab after echo in the C1 line, before a spaced echo with another clause",
+            f"{head}  echo\t{right} >&2\n  echo {wrong} >&2\nfi\n",
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            put(root, SPECS[0].file("sh"), text)
+            result = check_kit(root)
+        cases.check(
+            result.findings == [] and result.entries == BASE_ENTRIES,
+            f"{name}: the line that needs python3 is C1, green",
+        )
+
+
+def self_test_which_clause(cases: Cases) -> None:
+    """Which text is an Identity's clause: its `until_installed` keyword, wherever it stands among the
+    keywords, else the default of the `until_installed` field of `class Identity`, wherever that stands."""
+    other = SPECS[1]
+    wins: list[tuple[str, Spec, Build]] = [
+        (
+            "an Identity with until_fixed= before until_installed=: the clause is until_installed's",
+            other,
+            lambda r: put(
+                r,
+                f"modules/{other.module}/scripts/{other.package}/start.py",
+                f"GATE = Identity(gate={other.stem!r}, until_fixed='until it is fixed',"
+                f" until_installed={OWN_CLAUSE!r})\n",
+            ),
+        ),
+        (
+            "an identity.py with the until_fixed field before until_installed: the default is the latter's",
+            SPECS[0],
+            lambda r: put(r, IDENTITY, identity_source(DEFAULT_CLAUSE, fixed_first=True)),
+        ),
+        (
+            "an identity.py with another class holding until_installed before class Identity: the default"
+            " is Identity's",
+            SPECS[0],
+            lambda r: put(r, IDENTITY, identity_source(DEFAULT_CLAUSE, other_first=CHANGED)),
+        ),
+    ]
+    for name, spec, build in wins:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            build(root)
+            stage(root)
+            result = check_kit(root)
+        cases.check(
+            result.findings == [] and result.entries == BASE_ENTRIES,
+            f"{name}: {spec.stem} stays green",
+        )
 
 
 def broken_with(build: Build) -> str:
@@ -1503,6 +1605,12 @@ def broken_with(build: Build) -> str:
 def remove_entries(root: Path) -> None:
     for spec in SPECS:
         remove(root, spec.file("too_old"))
+
+
+def remove_identity_of_named(root: Path) -> None:
+    """The shared identity gone, with no gate left that needs its default."""
+    put_identity(root, SPECS[0], DEFAULT_CLAUSE)
+    remove(root, IDENTITY)
 
 
 def self_test_clause_broken(cases: Cases) -> None:
@@ -1572,6 +1680,12 @@ def self_test_clause_broken(cases: Cases) -> None:
             " the first such echo",
         ),
         (
+            "a shell file whose only BROKEN echo does not say it needs python3",
+            lambda r: put(r, shell, '#!/bin/sh\necho "BROKEN: const-a could not start — fix: x — y" >&2\n'),
+            f'{shell} has no echo "BROKEN: ... needs python3 ..." line — fix: restore the line that is C1,'
+            " the first such echo",
+        ),
+        (
             "an entry with no TOO_OLD",
             lambda r: put(r, entry, py_head + "NO_SHARED_CODE = 'a — fix: b'\n"),
             f"{entry} has no TOO_OLD" + no_constant.format("TOO_OLD"),
@@ -1633,6 +1747,16 @@ def self_test_clause_broken(cases: Cases) -> None:
             f"the first line of C1, the shell entry's line in {shell}:4" + no_fix,
         ),
         (
+            "a shell C1 line whose dash after the fix word has no space before it",
+            lambda r: put(
+                r,
+                shell,
+                '#!/bin/sh\n# c\nif true; then\n  echo "BROKEN: const-a needs python3— fix: x'
+                f' — {DEFAULT_CLAUSE}" >&2\nfi\n',
+            ),
+            f"the first line of C1, the shell entry's line in {shell}:4" + no_fix,
+        ),
+        (
             "an until_installed that is no literal",
             lambda r: put(
                 r,
@@ -1646,6 +1770,12 @@ def self_test_clause_broken(cases: Cases) -> None:
         (
             "a shared identity that is missing",
             lambda r: remove(r, IDENTITY),
+            f"{IDENTITY} is missing — fix: restore the shared identity, whose Identity holds the default"
+            " clause",
+        ),
+        (
+            "a shared identity that is missing, every Identity naming its own until_installed",
+            remove_identity_of_named,
             f"{IDENTITY} is missing — fix: restore the shared identity, whose Identity holds the default"
             " clause",
         ),
