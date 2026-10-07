@@ -96,8 +96,12 @@ commands() {
                         echo "python3 -m ruff format --check modules/$m"
                         echo "python3 -m ruff check modules/$m" ;;
                     types-*)
-                        for p in modules/"$m"/scripts/*_gate; do
-                            [ "${p##*/}" != const_gate ] && [ -d "$p" ] && echo "cd modules/$m/scripts && python3 -m mypy --strict ${p##*/}"
+                        # the module's own packages, as scripts/check-shared-links.py derives them: each folder at
+                        # the top of scripts/, itself no link, that holds an __init__.py, whose name starts with
+                        # neither . nor _ (the glob skips . already), save const_gate
+                        for p in modules/"$m"/scripts/*; do
+                            case "${p##*/}" in _* | const_gate) continue ;; esac
+                            [ -d "$p" ] && [ ! -L "$p" ] && [ -f "$p/__init__.py" ] && echo "cd modules/$m/scripts && python3 -m mypy --strict ${p##*/}"
                         done
                         echo "cd modules/$m/scripts && python3 -m mypy --strict *.py"
                         echo "cd modules/$m/tests && python3 -m mypy --strict *.py" ;;
