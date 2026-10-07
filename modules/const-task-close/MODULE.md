@@ -67,7 +67,7 @@ The advisory rules beside it, each `advisory` in its own text, are these. (T-a) 
 | skill | `skills/commit-before-edit/SKILL.md` | Rule T-c: commit before a batch of edits, after each coherent change, never end a turn dirty; the reason; the commands; what the turn-end hook does. Model-invocable. Advisory. |
 | install note | `INSTALL.md` | Requirements, the hook's behaviour under both severities, the map with a worked example, the declaration's two forms and the trailer paragraph's rule, the scan for CI with the base from the pull request's event, adoption through `warn`, what the module does not check, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10). |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `task_close_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
 | command | none | closing a task is asked for in words, and the skill carries it; the scan is a command line, not a slash command. |
 | agent | none | a close is one step of the dialog that did the work, not a delegation. |
 

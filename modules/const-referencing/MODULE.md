@@ -68,7 +68,7 @@ The advisory rules beside it, each `advisory` in its own text, are these. (F-a) 
 | skill | `skills/referencing/SKILL.md` | Rules F-a to F-e: the forms, choosing and placing an anchor, moving a document with the move act, repairing after a hand move, reading the list of prose mentions, running the scan after a shell edit. Model-invocable. Advisory. |
 | install note | `INSTALL.md` | Requirements with the install address for `lychee`, zero-configuration behaviour, a negated pattern that takes a tree out (`!dir/**`, not `!dir/` — tried), `lanes` with a worked example and the rule to write a pattern in single quotes (in double quotes YAML reads `\b` as a backspace — tried; the gate refuses such a pattern), `mentions`, adoption through `severity: warn` and `heading_anchors: allow`, the scan command for CI, what the module does not check, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10). |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `referencing_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
 | command | none | no act here is one a human types: a move is asked for in words, and the skill carries it. |
 | agent | none | a move is one step of the dialog that asked for it, not a delegation. |
 

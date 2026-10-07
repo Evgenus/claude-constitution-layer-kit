@@ -74,7 +74,7 @@ The advisory rules beside it, each `advisory` in its own text, stated in the ski
 | skill | `skills/plain-language/SKILL.md` | The procedure: the advisory rules L-a to L-e before writing, what the grade measures, how to read each finding, L-f in its steps on findings and adoption, what the check does not judge. Its description is phrased by the activities — writing or editing prose in a covered document, a finding after a write or in the scan, a phrase the project must keep, adoption, setting the thresholds — so it triggers at the moment of writing and never every turn; a description of 696 characters, under the platform's listing cap of 1,536. |
 | install note | `INSTALL.md` | Requirements with the binary's install routes, the hook and the scan, what is checked, zero-configuration behaviour, the nine dials with a worked example, the scan in CI, adoption, the output log, what the module does not check, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10). |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `language_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
 | command | none | the scan is a line of CI; nothing here is an act a human initiates. |
 | agent | none | no delegation boundary: the check is deterministic and the writing is the writer's. |
 

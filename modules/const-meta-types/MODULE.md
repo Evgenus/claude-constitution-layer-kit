@@ -59,7 +59,7 @@ A session opens a research note, a stale structure description, or a half-migrat
 | skill | `skills/choose-meta-type/SKILL.md` | The type-selection procedure ([A1.5](../../docs/requirements.md#a1-5)): the contrastive pairs of [§8](#t8), the split rule, envelope reminders, and the advice to run the scan after a shell edit. `paths: "**/*.md"`. Advisory. |
 | install note | `INSTALL.md` | Requirements, the two dials, the scan command for CI, where the output log goes, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10): this module's numbered case records and assertions, and the shared acceptance items, all driving the real entry point with real hook events. |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `meta_types_gate` from this module's `scripts/` | The fixtures of [§10](#t10): this module's numbered case records and assertions, and the shared acceptance items, all driving the real entry point with real hook events. |
 | command | none | no act here is one a human deliberately initiates; the scan is a shell command, documented in the install note. |
 | agent | none | no delegation boundary. |
 

@@ -78,7 +78,7 @@ The advisory rules beside it, each `advisory` in its own text and carried by the
 | skill | `skills/ask-or-decide/SKILL.md` | Rules Q-a to Q-i in plain words: the threshold with the seed pairs and the two dials, derivation, enum-first, defaults, restatement, the message shape, the tool and the fallback, the named blocker with the hook named as its marker half, the commit note; its description asks for the skill to be loaded before any message that puts a choice to the user. Model-invocable and user-invocable, the default; no `paths`, no `context: fork`: the decision lives in the dialog that raised it. Advisory. |
 | install note | `INSTALL.md` | Requirements, zero-configuration behaviour, the six dials with a worked example, adoption through `severity: warn`, the scan for CI, the output log, what the module does not check, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10). |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `questions_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
 | command | none | no act here is one a human deliberately types: a question arises in the dialog, and the scan is a line of CI. |
 | agent | none | a question is one step of the dialog that raised it, not a delegation. |
 

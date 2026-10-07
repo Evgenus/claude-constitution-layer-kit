@@ -85,7 +85,7 @@ The advisory rules beside it, each `advisory` in its own text and carried always
 | dependencies | `requirements.txt` | PyYAML. |
 | install note | `INSTALL.md` | Requirements, zero-configuration behaviour, the nine dials with a worked example, the gap of the `PowerShell` tool, adoption through `severity: warn`, the two scans, the output log, what the module does not check, the copy-into-guide fallback labelled manual and version-drifting, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10). |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `interaction_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
 | skill | none | the rules have no trigger — they govern every reply — so a skill's description would fire on "about to reply", every turn, and its body would never be reached (a9 of [res-0008-const-interaction](../../docs/research/res-0008-const-interaction.md)). |
 | command | none | no act here is one a human deliberately types: the scans are lines of CI, the explain a debugging aid. |
 | agent | none | a reply's shape is the reply's own, not a delegation. |

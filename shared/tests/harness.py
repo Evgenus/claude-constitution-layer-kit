@@ -9,8 +9,9 @@ one that always answers the same. An Assertion is an acceptance item with no fai
 (an exit-code property, a count, a log line); the two kinds are reported separately so they
 are never mistaken for each other.
 
-The runner that imports this file has already put the module's scripts directory on the
-import path — the runner only: no gate code ever edits the path.
+The runner that imports this file reaches the shared package and the module's own packages
+through links in its own folder, which Python puts first on the import path: no code edits
+the path, the runner included.
 """
 
 from __future__ import annotations

@@ -65,7 +65,7 @@ The advisory rules beside it, each `advisory` in its own text, are these. (R-a) 
 | skill (promotion) | `skills/promote-recurring-notes/SKILL.md` | Rule R-f: gather, cluster, promote, report. Names the git-native trailer count as the optional assist. Advisory. |
 | install note | `INSTALL.md` | Requirements, the one dial that switches the check on, the skill-read dials, the scan command for CI, where the output log goes, what the module does not check, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/` | The fixtures of [§10](#t10): this module's numbered case records and assertions, and the shared acceptance items, all driving the real entry point with real hook events. |
+| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `decision_records_gate` from this module's `scripts/` | The fixtures of [§10](#t10): this module's numbered case records and assertions, and the shared acceptance items, all driving the real entry point with real hook events. |
 | command | none | a command file is the legacy form of a skill on the platform and cannot carry the template beside it. |
 | agent | none | a record is the residue of a dialog — options argued, the decider's pick — that a subagent in its own context never saw. |
 | script for the promotion loop | none | git counts trailer values natively; a script would add nothing to one command. |

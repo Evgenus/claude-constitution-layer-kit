@@ -16,7 +16,7 @@ silently skipped.
    is the compound `git add -A && git commit …`, and a rule must match each part on its own, so
    both `Bash(git add *)` and `Bash(git commit *)` go in `permissions.allow` or `--allowedTools`;
    or set `severity: warn`. A copy of this plugin's folder made outside the repository it comes
-   from must follow links (`cp -RL`): `scripts/const_gate`, and `harness.py`, `consumer.py` and
+   from must follow links (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and
    `shared_items.py` in `tests/`, are links to code the plugin shares with its siblings, and an
    install from the marketplace copies what they point at. A checkout made without symlink
    support leaves one-line text files in their place (`git config core.symlinks true`, then check

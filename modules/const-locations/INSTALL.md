@@ -8,7 +8,7 @@ silently skipped.
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
    session). No hooks: the plugin ships two skills and one script, and nothing here blocks a
    write. A copy of this plugin's folder made outside the repository it comes from must follow
-   links (`cp -RL`): `scripts/const_gate`, and `harness.py`, `consumer.py` and
+   links (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and
    `shared_items.py` in `tests/`, are links to code the plugin shares with its siblings, and an
    install from the marketplace copies what they point at. A checkout made without symlink
    support leaves one-line text files in their place (`git config core.symlinks true`, then

@@ -100,7 +100,7 @@ commands() {
                             [ "${p##*/}" != const_gate ] && [ -d "$p" ] && echo "cd modules/$m/scripts && python3 -m mypy --strict ${p##*/}"
                         done
                         echo "cd modules/$m/scripts && python3 -m mypy --strict *.py"
-                        echo "cd modules/$m/tests && MYPYPATH=../scripts python3 -m mypy --strict *.py" ;;
+                        echo "cd modules/$m/tests && python3 -m mypy --strict *.py" ;;
                 esac
                 return 0
             done
