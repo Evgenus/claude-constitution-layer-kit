@@ -41,7 +41,7 @@ The decider chose the links in chat on 2026-10-07 ("apply that change for all mo
 
 **R1.** Each module that uses the shared code has, in `tests/`, the relative link `const_gate` → `shared/const_gate`, and for each folder at the top of its `scripts/` that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save `const_gate`, the relative link `tests/<package>` → `../scripts/<package>`. These links widen the list of item 2 of dec-0025-shared-gate-code-linked, whose ruling otherwise stands.
 
-**R2.** The runner imports the shared package, the module's own packages and the shared test files through those links, from its own folder; no code edits the import path, the runner included, and its imports stand at the top with no `E402` marker. The constants `SCRIPTS` and `MODULE_ROOT` stay, as paths to the module's files.
+**R2.** The runner imports the shared package, the module's own packages and the shared test files through those links, from its own folder; no code edits the import path, the runner included, and its imports stand at the top with no `E402` marker.
 
 **R3.** `scripts/check-shared-links.py` holds the links of R1, derived from the folders: a missing link, a copy, a plain file, a dangling, absolute or misdirected link is red. A finding on a link to the module's own package says why in its own words: the runner must import the code the gate runs.
 
