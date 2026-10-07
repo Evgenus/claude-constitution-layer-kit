@@ -117,7 +117,7 @@ The scan reports it, usually at a pull request: two branches each took the next 
 
 - **Machine surfaces.** Where a machine reads the reference — an envelope field, a link target — write the **full
   name**: `<prefix>-<number>-<slug>`. It stays unambiguous whatever happens to the number.
-- **In prose** the bare form is fine, in either case: `DEC-0007`, `dec-0007`. It resolves by the
+- **In prose** the bare form is fine, in either case: `ADR-0007`, `adr-0007`. It resolves by the
   command in section 5.
 - **Cite by number** only what has landed on the main branch.
 

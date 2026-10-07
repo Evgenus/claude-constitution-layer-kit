@@ -2,7 +2,9 @@
 # Kit tooling, never shipped in a module: the one list of the kit's checks. CI builds one job per
 # job from it (.github/workflows/gates.yml), the gate-list-runner agent runs it locally, and
 # scripts/check-gate-lists.py holds that every scan a module declares stands in it, in that module's job,
-# and that MODULES names exactly the folders under modules/.
+# and that MODULES names exactly the module folders, each named const-<aspect>, named so by its
+# manifest, listed once in the marketplace and enabled in the kit's settings, neither naming a plugin
+# that is no module folder.
 #   sh scripts/gate-list.sh --names [gate|extra|all|<job>]  the entries, one per line, in order (default all)
 #   sh scripts/gate-list.sh --json                     every job as one JSON array, for CI's matrix
 #   sh scripts/gate-list.sh --show <entry>             the commands of one entry, one per line
@@ -31,7 +33,7 @@ MODULES="const-catalogs const-decision-records const-doc-budgets const-interacti
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links yaml-style module-links aspects portability gate-lists
-schema-mirror dials-schema bare-install guide $(for m in $MODULES; do printf 'install-%s ' "$m"; done)task-close"
+schema-mirror copies dials-schema bare-install guide $(for m in $MODULES; do printf 'install-%s ' "$m"; done)task-close"
 EXTRAS="branch-gate $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types"
 
 job() {
@@ -76,7 +78,7 @@ commands() {
         language) echo "sh modules/const-language/scripts/check-language.sh --scan" ;;
         budgets) echo "sh modules/const-doc-budgets/scripts/check-budgets.sh --scan" ;;
         list-handles) echo "sh modules/const-interaction/scripts/check-list-handles.sh --scan" ;;
-        carry-lists | shared-links | yaml-style | module-links | aspects | portability | gate-lists | dials-schema)
+        carry-lists | shared-links | yaml-style | module-links | aspects | portability | gate-lists | copies | dials-schema)
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
         schema-mirror) echo "python3 scripts/check-schema-mirror.py" ;;

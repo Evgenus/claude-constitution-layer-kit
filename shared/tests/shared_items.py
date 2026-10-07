@@ -3,8 +3,9 @@ external tool, hook input, paths, the warn channel, the output log — written o
 each module's runner through that module's real entry point.
 
 A module hands over a Subject: its harness, a function that runs its gate on a prepared
-consumer, one write it passes and one it blocks. Items are numbered from the number the
-module gives, so a module's own items and the shared ones never collide.
+consumer, one write it passes and one it blocks. Each item carries its number in the file, from
+101 on, the numbers unique and rising, and the number a module gives must equal the first
+(`shared_assertions` raises a ValueError for either).
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ import json
 import os
 import shlex
 import shutil
-import subprocess
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -281,22 +281,35 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return expect(result, 1, f"BROKEN: {ns} needs python3", "stderr")
 
     def python_below_floor() -> tuple[bool, str]:
-        search = os.pathsep.join([os.environ.get("PATH", ""), os.defpath])
-        for name in ("python3", "python3.11", "python3.10", "python3.9"):
-            for directory in search.split(os.pathsep):
-                found = shutil.which(name, path=directory)
-                if not found:
-                    continue
-                old = subprocess.run(
-                    [found, "-c", "import sys; print(sys.version_info < (3, 12))"],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                ).stdout.strip()
-                if old == "True":
-                    result = h.run_gate("{}", command=[found, str(h.entry)])
-                    return expect(result, 1, f"BROKEN: {ns} needs Python 3.12 or newer", "stderr")
-        return True, "NOT EXERCISED: no interpreter below 3.12 on this machine — 0 interpreters examined"
+        """The entry file run, under the interpreter at hand, as one a minor below the floor would run it:
+        a shim sets `sys.version_info` to that minor, puts the entry's folder first on the path as a real
+        run does, and runs the entry as `__main__`. The line is C14's, up to its clause."""
+        floor, below = preflight.FLOOR, (preflight.FLOOR[0], preflight.FLOOR[1] - 1)
+        line = (
+            f"BROKEN: {ns} needs Python {floor[0]}.{floor[1]} or newer, found {below[0]}.{below[1]}"
+            " — fix: install a current Python 3 (https://www.python.org/downloads/) and put it first on PATH"
+        )
+        shim = (
+            "import os, runpy, sys\n"
+            "entry, below = sys.argv[1], tuple(int(n) for n in sys.argv[2].split('.'))\n"
+            "sys.version_info = (*below, 0, 'final', 0)\n"
+            "sys.argv = [entry]\n"
+            "sys.path.insert(0, os.path.dirname(entry))\n"
+            "runpy.run_path(entry, run_name='__main__')\n"
+        )
+        result = h.run_gate(
+            "{}", command=[sys.executable, "-c", shim, str(h.entry), f"{below[0]}.{below[1]}"]
+        )
+        first = result.stderr.splitlines()[0] if result.stderr else ""
+        ok = result.code == 1 and (first == line or first.startswith(line + " — "))
+        if ok:
+            return True, f"exit 1 under a faked Python {below[0]}.{below[1]}, first stderr line: {first}"
+        return False, (
+            f"wanted exit 1 under a faked Python {below[0]}.{below[1]} with first stderr line {line!r},"
+            f" at its end or followed by ' — ' and a clause; got exit {result.code}, first stderr line"
+            f" {first!r}, stderr ends {result.stderr.strip()[-200:]!r},"
+            f" stdout {result.stdout.strip()[:200]!r}"
+        )
 
     def git_absent() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, env={"PATH": bin_with("python3", "dirname")})
@@ -1210,125 +1223,159 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             else "; ".join(failed)[:600]
         )
 
-    items: list[tuple[str, Callable[[], tuple[bool, str]]]] = [
-        ("exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
-        ("C4b: a dials file that is not a mapping", dials_not_mapping),
-        ("C5: a severity outside block | warn", dials_bad_severity),
-        ("C5: the module's own namespace must be a mapping", dials_own_namespace),
-        ("C5: a territory pattern git would read as a comment", dials_comment_pattern),
-        ("C5: an unsupported territory dialect", dials_unsupported_dialect),
-        ("C6: the root policy file is missing", root_missing),
-        ("C7: the root policy on disk has no readable id", root_without_id),
-        ("C8: the root policy claims no territory", root_claims_nothing),
-        ("C9: the root policy lies outside its own territory", root_outside_own_territory),
-        ("absence: python3", python_absent),
-        ("absence: an interpreter below the floor", python_below_floor),
-        ("absence: git", git_absent),
-        ("absence: a declared library (PyYAML)", library_absent),
+    items: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
+        (101, "exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
+        (102, "C4b: a dials file that is not a mapping", dials_not_mapping),
+        (103, "C5: a severity outside block | warn", dials_bad_severity),
+        (104, "C5: the module's own namespace must be a mapping", dials_own_namespace),
+        (105, "C5: a territory pattern git would read as a comment", dials_comment_pattern),
+        (106, "C5: an unsupported territory dialect", dials_unsupported_dialect),
+        (107, "C6: the root policy file is missing", root_missing),
+        (108, "C7: the root policy on disk has no readable id", root_without_id),
+        (109, "C8: the root policy claims no territory", root_claims_nothing),
+        (110, "C9: the root policy lies outside its own territory", root_outside_own_territory),
+        (111, "absence: python3", python_absent),
+        (112, "absence: an interpreter below the floor", python_below_floor),
+        (113, "absence: git", git_absent),
+        (114, "absence: a declared library (PyYAML)", library_absent),
         (
+            115,
             "absence: the shared code, as an install that dropped its link would leave the plugin",
             shared_code_absent,
         ),
-        ("a failing git is a configuration failure, never a green skip", git_failing),
-        ("misinvocation exits 1: argparse's exit 2 is overridden", misinvocation),
+        (116, "a failing git is a configuration failure, never a green skip", git_failing),
+        (117, "misinvocation exits 1: argparse's exit 2 is overridden", misinvocation),
         (
+            118,
             "--help is a misinvocation like any other: no exit path past the guard and the log",
             help_is_not_special,
         ),
-        ("an abbreviated flag is a misinvocation, not a scan logged as a hook run", abbreviated_flag),
-        ("unparseable hook input is a configuration failure, not an empty event", unparseable_input),
-        ("hook input that is JSON but no object says so", input_not_an_object),
-        ("a Write event without its documented fields is a configuration failure", malformed_event),
-        ("an event for a tool the gates do not judge is a visible skip", other_tool),
-        ("--scan on a path that does not exist is a configuration failure", scan_missing_path),
-        ("examined count: a non-Markdown file prints 0 and exits 0", not_markdown),
-        ("a relative file_path is resolved against the event's cwd", relative_path),
-        ("a file outside any git repository is a visible skip", outside_any_repository),
-        ("no dials file: a visible skip", no_dials_file),
-        ("a dials file with no root_policy: a visible skip", no_root_policy),
-        ("an Edit whose old_string is absent is a visible skip; the tool reports it", edit_unappliable),
-        ("severity warn: exit 0 with the whole finding as JSON for the model and the user", severity_warn),
-        ("output log: each print is one record, in the plugin data directory", log_in_plugin_data),
-        ("output log: the log_dir dial routes the whole run to a git-ignored directory", log_in_ignored_dir),
-        ("output log: a log_dir that git does not ignore is a configuration failure", log_dir_not_ignored),
-        ("output log: rotation past the size limit", log_rotates),
-        ("output log: a logging failure never changes the verdict", log_failure_keeps_verdict),
-        ("declared dependencies: requirements.txt equals the preflight table", declared_libraries),
-        ("C5: the module's own namespace given as null", dials_own_namespace_null),
+        (119, "an abbreviated flag is a misinvocation, not a scan logged as a hook run", abbreviated_flag),
+        (120, "unparseable hook input is a configuration failure, not an empty event", unparseable_input),
+        (121, "hook input that is JSON but no object says so", input_not_an_object),
+        (122, "a Write event without its documented fields is a configuration failure", malformed_event),
+        (123, "an event for a tool the gates do not judge is a visible skip", other_tool),
+        (124, "--scan on a path that does not exist is a configuration failure", scan_missing_path),
+        (125, "examined count: a non-Markdown file prints 0 and exits 0", not_markdown),
+        (126, "a relative file_path is resolved against the event's cwd", relative_path),
+        (127, "a file outside any git repository is a visible skip", outside_any_repository),
+        (128, "no dials file: a visible skip", no_dials_file),
+        (129, "a dials file with no root_policy: a visible skip", no_root_policy),
+        (130, "an Edit whose old_string is absent is a visible skip; the tool reports it", edit_unappliable),
         (
+            131,
+            "severity warn: exit 0 with the whole finding as JSON for the model and the user",
+            severity_warn,
+        ),
+        (132, "output log: each print is one record, in the plugin data directory", log_in_plugin_data),
+        (
+            133,
+            "output log: the log_dir dial routes the whole run to a git-ignored directory",
+            log_in_ignored_dir,
+        ),
+        (
+            134,
+            "output log: a log_dir that git does not ignore is a configuration failure",
+            log_dir_not_ignored,
+        ),
+        (135, "output log: rotation past the size limit", log_rotates),
+        (136, "output log: a logging failure never changes the verdict", log_failure_keeps_verdict),
+        (137, "declared dependencies: requirements.txt equals the preflight table", declared_libraries),
+        (138, "C5: the module's own namespace given as null", dials_own_namespace_null),
+        (
+            139,
             "C5: root_policy, an empty dialect, a namespace and a territory of the wrong shape, log_dir;"
             " the dials written the long way, and the dialect written out, read as plain",
             dials_other_pairs,
         ),
         (
+            140,
             "absence, the other way round: the scripts copied with links followed run",
             copy_with_links_followed,
         ),
         (
+            141,
             "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after",
             unexpected_failure,
         ),
-        ("an Edit event without its documented fields is a configuration failure", edit_without_fields),
-        ("a stdout that cannot encode the dash still carries the count line", stdout_cannot_encode),
+        (142, "an Edit event without its documented fields is a configuration failure", edit_without_fields),
+        (143, "a stdout that cannot encode the dash still carries the count line", stdout_cannot_encode),
         (
+            144,
             "an envelope nested past the parser's depth is blocked, never a crash that lets it through",
             deeply_nested_envelope,
         ),
-        ("--scan outside any repository is a configuration failure", scan_outside_repository),
-        ("--scan=DIR and a scan from a subdirectory examine the same repository", scan_forms),
-        ("a byte-order mark before the envelope is not part of it", byte_order_mark),
-        ("a file-level negated pattern takes the file out, and the skip names why", negated_pattern),
-        ("a document where policies live with no readable id earns a note", policy_without_id_note),
-        ("an Edit with an empty old_string on an existing file is a visible skip", edit_empty_old_string),
+        (145, "--scan outside any repository is a configuration failure", scan_outside_repository),
+        (146, "--scan=DIR and a scan from a subdirectory examine the same repository", scan_forms),
+        (147, "a byte-order mark before the envelope is not part of it", byte_order_mark),
+        (148, "a file-level negated pattern takes the file out, and the skip names why", negated_pattern),
+        (149, "a document where policies live with no readable id earns a note", policy_without_id_note),
         (
+            150,
+            "an Edit with an empty old_string on an existing file is a visible skip",
+            edit_empty_old_string,
+        ),
+        (
+            151,
             "an echoed value a page long is cut, and the cut is said: the verdict stays a message",
             long_value_is_cut,
         ),
-        ("C12.1: git failing to list the files is a configuration failure", ls_files_fails),
-        ("C12.2: git failing to make the scratch repository is a configuration failure", init_fails),
+        (152, "C12.1: git failing to list the files is a configuration failure", ls_files_fails),
+        (153, "C12.2: git failing to make the scratch repository is a configuration failure", init_fails),
         (
+            154,
             "C12.3: git check-ignore failing, not merely matching nothing, is a configuration failure",
             check_ignore_fails,
         ),
-        ("C12.7: a dials file the process cannot read is a configuration failure", dials_unreadable),
+        (155, "C12.7: a dials file the process cannot read is a configuration failure", dials_unreadable),
         (
+            156,
             "C12.10: a document git lists and the scan cannot read is a configuration failure",
             document_unreadable,
         ),
         (
+            157,
             "C4: a dials file that is not UTF-8 is C4, its line and column named, never a defect of the gate",
             dials_not_utf8,
         ),
         (
+            158,
             "C12.10: a file where policies live that nobody can read is a configuration failure, never a"
             " policy with no id",
             policy_unreadable,
         ),
         (
+            159,
             "a green hook run with notes hands them to the model as JSON, one without notes stays plain",
             notes_reach_the_model,
         ),
         (
+            160,
             "C5: a key with a line break, a page long, in the module's namespace is one line, cut",
             unknown_dial_is_one_line,
         ),
         (
+            161,
             "C5.7: a pattern git would misread in a dial of the module's own is one line, naming it",
             pattern_in_own_dial_is_one_line,
         ),
-        ("a file named just .md is Markdown to the hook as to the scan", file_named_md),
+        (162, "a file named just .md is Markdown to the hook as to the scan", file_named_md),
         (
+            163,
             "the findings shown after a write: the first always, then what fits, never more than most",
             cap_keeps_the_first,
         ),
         (
+            164,
             "a `---` line with trailing whitespace opens and closes the envelope, and a line-break character"
             " other than \\n, \\r\\n or \\r makes no delimiter",
             envelope_delimiters,
         ),
     ]
-    # Numbers are positions in the whole list, so an item keeps its number in every module; a gate
-    # that resolves no policy leaves gaps where the items about policies stand.
+    # Each item carries its number, so it keeps that number in every module and when the list is
+    # reordered; a gate that resolves no policy leaves gaps where the items about policies stand. A new
+    # item takes the next number after the last, and a removed item leaves its number free: a number
+    # is never reissued (rule 4 of plc-0009-shared-code). The numbers are held below, on every build.
     about_policies = {
         root_missing,
         root_without_id,
@@ -1397,9 +1444,17 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         negated_pattern,
         file_named_md,
     }
+    numbers = [number for number, _, _ in items]
+    for before, after in zip(numbers, numbers[1:], strict=False):
+        if after <= before:
+            raise ValueError(
+                f"shared item number {after} follows {before}: the numbers must be unique and rising"
+            )
+    if first != numbers[0]:
+        raise ValueError(f"shared items start at number {numbers[0]}, but first={first} was asked")
     return [
-        Assertion(first + n, title, check)
-        for n, (title, check) in enumerate(items)
+        Assertion(number, title, check)
+        for number, title, check in items
         if (s.resolves_policies or check not in about_policies)
         and (s.judges_envelopes or check not in (deeply_nested_envelope, envelope_delimiters))
         and (s.event_driven or check not in about_events)

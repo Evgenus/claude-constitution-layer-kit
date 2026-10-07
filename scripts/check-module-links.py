@@ -7,7 +7,11 @@ The form read is the word "module" or "modules", with a small or a capital m, a 
 module's name in a code span; a name standing alone, or any name after the first of "modules `a` and `b`", is
 left to review. The link lint of const-referencing cannot hold this: it matches its lanes on text
 whose code spans are blanked, and the module's name stands in one. So the kit checks it here, over
-the Markdown files git lists, the names being the directories under modules/.
+the Markdown files git lists, the names being the module folders of `kit_module_doc.module_folders`,
+the kit's one listing: every folder under modules/ whose name opens with neither `.` nor `_`, with
+or without `const-`, holding its MODULE.md — a folder without it, and a tree with no modules/, are
+BROKEN. A mention is read for `const-` names alone, so a folder named otherwise counts as a name
+known and is never matched.
 
 Not read: module prose (modules/, module-template/), where the plain form is the rule; every
 research comparison (docs/research/), frozen or not: a frozen one keeps the form it was frozen
@@ -21,7 +25,10 @@ Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway repository: red for the plain form in a
                        document, with the number of findings typed by hand; green for the link
                        and for every place not read; the report of one finding as literal lines
-                       with exit 2; a file that is not UTF-8 as a BROKEN line.
+                       with exit 2; the names known over the folders of modules/ (a folder `.x`
+                       or `_x` and a plain file not counted, a name without `const-` counted);
+                       a module folder without its MODULE.md, a tree with no modules/ and a
+                       file that is not UTF-8 as a BROKEN line.
 Exit:   0 green; 2 a plain mention; 1 the check could not run.
 """
 
@@ -37,6 +44,8 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+from kit_module_doc import DocumentError, module_folders
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -95,10 +104,10 @@ def listed_markdown(root: Path) -> list[str]:
 
 
 def module_names(root: Path) -> frozenset[str]:
-    modules = root / "modules"
-    if not modules.is_dir():
-        raise Broken(f"{root} has no modules/ directory — fix: run the script from a checkout of the kit")
-    return frozenset(m.name for m in modules.iterdir() if m.is_dir() and m.name.startswith("const-"))
+    try:
+        return frozenset(folder.name for folder in module_folders(root))
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
 
 
 def inside_link(line: str, position: int) -> bool:
@@ -265,6 +274,7 @@ def self_test() -> int:
                 f"git init failed in {root}: {said} — fix: repair what git names, then run the self-test"
             ) from failed
         (root / "modules" / "const-sample").mkdir(parents=True)
+        (root / "modules" / "const-sample" / "MODULE.md").write_text("A module.\n", encoding="utf-8")
         (root / "docs").mkdir()
         (root / SPEC).write_text('<a id="const-sample"></a>\n', encoding="utf-8")
 
@@ -318,7 +328,57 @@ def self_test() -> int:
             )
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a file that is not UTF-8 is a teaching BROKEN line, never a traceback")
-    total = len(red) + len(green) + 2
+    # the names known, one per module folder of the kit's one listing: what stands under modules/
+    names_known: dict[str, tuple[dict[str, str], set[str]]] = {  # case: files written, the names known
+        "a folder `.x` and a folder `_x` are skipped silently": (
+            {"modules/.x/MODULE.md": "A module.\n", "modules/_x/MODULE.md": "A module.\n"},
+            {"const-sample"},
+        ),
+        "a folder named without const- is a name known, and its plain mention is not read": (
+            {"modules/glossary/MODULE.md": "A module.\n"},
+            {"const-sample", "glossary"},
+        ),
+        "a plain file of modules/ is no name": ({"modules/const-file": "not a folder\n"}, {"const-sample"}),
+    }
+    for name, (files, known) in names_known.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            for path, text in files.items():
+                write(root, path, text)
+            # a mention is read for `const-` names alone: each known name without it stands in a
+            # plain mention of a document outside module prose, which is no finding
+            plain_mentions = [f"See module `{n}`.\n" for n in sorted(known) if not n.startswith("const-")]
+            if plain_mentions:
+                write(root, "docs/policies/g.md", "".join(plain_mentions))
+            ok = module_names(root) == known and check_kit(root)[2] == len(known)
+            ok = ok and not check_kit(root)[0]
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+    with tempfile.TemporaryDirectory() as tmp:  # no MODULE.md: BROKEN, where the folder was a name before
+        root = Path(tmp).resolve()
+        fresh(root)
+        (root / "modules" / "const-ghost").mkdir()
+        try:
+            check_kit(root)
+            ok = False
+        except Broken as broken:
+            ok = str(broken) == "modules/const-ghost has no MODULE.md — fix: restore the module document"
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a module folder without its MODULE.md is a teaching BROKEN line")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        try:
+            check_kit(root)
+            ok = False
+        except Broken as broken:
+            ok = (
+                str(broken)
+                == f"{root} has no modules/ directory — fix: run the check from a checkout of the kit"
+            )
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a tree with no modules/ is a teaching BROKEN line")
+    total = len(red) + len(green) + 2 + len(names_known) + 2
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

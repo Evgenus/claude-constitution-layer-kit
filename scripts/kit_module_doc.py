@@ -19,6 +19,14 @@ order. A section whose anchor is the highest of the document reads to the end of
 `enforcement` reads the section of anchor `t9` for the scans it declares and the problems with its
 form, which check-gate-lists reports; check-bare-install uses the scans alone. There is no runner of
 its own: each check that reads through it proves it in its own `--self-test`.
+
+`module_folders` is the kit's one listing of its module folders, which every kit check that walks
+them reads: the folders directly under `<root>/modules/` whose name opens with neither `.` nor `_`,
+sorted by name, a plain file standing there none and a name without `const-` no exception, each
+holding its `MODULE.md`. No `modules/` directory, and a folder without its document, are a
+`DocumentError` with the fix, never a shorter list: a check that walks the modules would otherwise
+pass over the very folder it owes a verdict on. check-gate-lists proves it directly in its own
+`--self-test`, every other check through the cases of its own.
 """
 
 from __future__ import annotations
@@ -26,12 +34,31 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 
 ANCHOR = re.compile(r'^<a id="(t\d+)"></a>$')
 
 
 class DocumentError(Exception):
-    """A section of a module document cannot be read; the message says why and how to fix it."""
+    """A module document, or the folder that holds it, cannot be read; the message says why and how to
+    fix it."""
+
+
+def module_folders(root: Path) -> list[Path]:
+    """The module folders of the kit at `root`, sorted by name: each directory directly under
+    `modules/` whose name opens with neither `.` nor `_`, and each holds a `MODULE.md` file, else
+    `DocumentError` naming the first folder, in sorted order, that lacks it. A caller that needs a
+    narrower set filters the list, never lists again."""
+    base = root / "modules"
+    if not base.is_dir():
+        raise DocumentError(
+            f"{root} has no modules/ directory — fix: run the check from a checkout of the kit"
+        )
+    folders = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
+    for folder in folders:
+        if not (folder / "MODULE.md").is_file():
+            raise DocumentError(f"modules/{folder.name} has no MODULE.md — fix: restore the module document")
+    return folders
 
 
 def section(text: str, anchor: str, path: str) -> list[tuple[int, str]]:

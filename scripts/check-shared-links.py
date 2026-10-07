@@ -12,10 +12,12 @@ The links a module owes are derived from the folders, never typed apart from the
 and each `.py` file at the top of shared/tests/ whose name starts with neither `.` nor `_`, as
 tests/<name>. The check is a failure to run (BROKEN) when shared/const_gate/ is no directory or when
 shared/tests/ lacks one of the three files shared/GATE.md names (the FLOOR), so that a list read from
-the folders cannot shrink in silence. A module under modules/ — a folder whose name starts with neither
-`.` nor `_` — owes the links when it has hooks/hooks.json, when a line of a `.py` file under its
-scripts/, at any depth, begins, after white space, with `from const_gate` or `import const_gate` (the
-link scripts/const_gate is not entered; a comment, a string on one line, a shell script and a
+the folders cannot shrink in silence. The modules are the folders of `kit_module_doc.module_folders`, the
+kit's one listing — each folder under modules/ whose name starts with neither `.` nor `_` and holds its
+MODULE.md, a folder without it a BROKEN whether it uses the shared code or not. A module owes the links
+when it has hooks/hooks.json, when a line of a `.py` file under its scripts/, at any depth, begins,
+after white space, with `from const_gate` or `import const_gate` (the link scripts/const_gate is not
+entered; a comment, a string on one line, a shell script and a
 `__pycache__` are no import, while such a line inside a string of several lines counts), or when it
 already has one of the links.
 A module of skills alone owes none. Findings come by module, the gate package first, then the shared
@@ -27,7 +29,9 @@ Modes:  no arguments   check every module under modules/;
                        checkout without symlink support, and a shared test file no module links,
                        in one module and in two; green for the right link, a `.`, `_`, README or
                        folder in shared/tests/ no one owes, and the imports read over their cases;
-                       BROKEN for a missing gate package or a missing floor file.
+                       a folder `.x` or `_x` skipped, a plain file of modules/ and a name without
+                       `const-` by the listing's rule; BROKEN for a missing gate package or a
+                       missing floor file, a folder without its MODULE.md and no modules/.
 Exit:   0 green; 2 a link is wrong; 1 the check could not run.
 """
 
@@ -44,6 +48,8 @@ import tempfile
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+
+from kit_module_doc import DocumentError, module_folders
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -144,11 +150,11 @@ def check_link(kit: Path, module: Path, link: str, source: str) -> Finding | Non
 
 def check_kit(kit: Path) -> tuple[list[Finding], int, int]:
     links = links_of(kit)
-    modules = sorted(
-        m
-        for m in (kit / "modules").iterdir()
-        if m.is_dir() and not m.name.startswith((".", "_")) and uses_shared_code(m, links)
-    )
+    try:
+        folders = module_folders(kit)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+    modules = [m for m in folders if uses_shared_code(m, links)]
     findings = [
         finding
         for module in modules
@@ -214,6 +220,7 @@ def self_test() -> int:
         module = root / "modules" / name
         (module / "hooks").mkdir(parents=True)
         (module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+        (module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
         for link, source in links_of(root).items():
             (module / link).parent.mkdir(parents=True, exist_ok=True)
             os.symlink(os.path.relpath(root / source, (module / link).parent), module / link)
@@ -316,6 +323,29 @@ def self_test() -> int:
         (tests / "__pycache__").mkdir()
         (tests / "__pycache__" / "inner.py").write_text("", encoding="utf-8")
 
+    def unlinked_module(name: str, document: bool = True) -> Callable[[Path], None]:
+        """A folder of modules/ that has a hook and none of the links, its MODULE.md written or not."""
+
+        def damage(link: Path) -> None:
+            folder = root_of(link) / "modules" / name
+            (folder / "hooks").mkdir(parents=True)
+            (folder / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+            if document:
+                (folder / "MODULE.md").write_text("A module.\n", encoding="utf-8")
+
+        return damage
+
+    def plain_file(link: Path) -> None:
+        """A plain file of modules/ named like a module."""
+        (root_of(link) / "modules" / "const-file").write_text("not a folder\n", encoding="utf-8")
+
+    def skills_only_without_document(link: Path) -> None:
+        """A folder of skills alone, owing no link, with no MODULE.md."""
+        (root_of(link) / "modules" / "const-skills" / "skills").mkdir(parents=True)
+
+    def modules_gone(link: Path) -> None:
+        shutil.rmtree(root_of(link) / "modules")
+
     def without_harness(link: Path) -> None:
         (root_of(link) / "shared" / "tests" / "harness.py").unlink()
 
@@ -382,6 +412,10 @@ def self_test() -> int:
         "a hookless module that has only one link": (hookless("empty.txt", "", keep="consumer.py"), owed - 1),
         "a shared test file no module links": (new_file_unlinked, 1),
         "a shared test file no one of two linking modules links": (new_file_in_two_modules, 2),
+        "a folder named without const- that uses the shared code, its links missing": (
+            unlinked_module("glossary"),
+            owed,  # the listing has no name rule: the folder owes the links like any module
+        ),
         "a copy": (as_copy, 1),
         "a text file": (as_text_file, 1),
         "a dangling link": (as_dangling, 1),
@@ -407,6 +441,11 @@ def self_test() -> int:
         ),
         "folders . and _ of modules/ holding a hook skipped": (
             hidden_folders,
+            EXIT_GREEN,
+            ("GREEN:", "4 link(s) in 1 module(s) examined"),
+        ),
+        "a plain file of modules/ named like a module is no module": (
+            plain_file,
             EXIT_GREEN,
             ("GREEN:", "4 link(s) in 1 module(s) examined"),
         ),
@@ -474,6 +513,30 @@ def self_test() -> int:
             EXIT_BROKEN,
             ("BROKEN: shared/tests/ lacks harness.py, consumer.py, shared_items.py, which",),
         ),
+        "a hooked folder without its MODULE.md": (
+            unlinked_module("const-ghost", document=False),
+            EXIT_BROKEN,
+            (
+                "BROKEN: modules/const-ghost has no MODULE.md — fix: restore the module document",
+                "BROKEN: the check could not run — 0 links examined",
+            ),
+        ),
+        "a folder of skills alone without its MODULE.md": (
+            skills_only_without_document,
+            EXIT_BROKEN,
+            (
+                "BROKEN: modules/const-skills has no MODULE.md — fix: restore the module document",
+                "BROKEN: the check could not run — 0 links examined",
+            ),
+        ),
+        "no modules/ directory": (
+            modules_gone,
+            EXIT_BROKEN,
+            (
+                "has no modules/ directory — fix: run the script from a checkout of the kit",
+                "BROKEN: the check could not run — 0 links examined",
+            ),
+        ),
         "shared/tests/ gone": (
             tests_gone,
             EXIT_BROKEN,
@@ -524,6 +587,7 @@ def self_test() -> int:
         for module in ("const-a", "const-b"):
             (root / "modules" / module / "hooks").mkdir(parents=True)
             (root / "modules" / module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+            (root / "modules" / module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
         out = io.StringIO()
         # modules/ and shared/tests/ are listed reversed, whatever the filesystem lists
         with contextlib.redirect_stdout(out), listed_in_reverse():

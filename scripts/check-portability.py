@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Kit check: no installed component of a module names a place in someone's project.
+"""Kit check: no installed component of a module names a place in someone's project, nor a document of
+the kit.
 
 The grep of requirement A12.1, as the row words it since decision
 dec-0056-portability-grep-and-gate-lists. It reads the installed components of every module —
@@ -7,7 +8,10 @@ the files git lists under `skills/`, `hooks/`, `scripts/`, `commands/`, `agents/
 note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md` nor `tests/` —
 and the shared gate code under `shared/const_gate/`, which every module installs as its
 `scripts/const_gate`. A symbolic link is read at its source, once. A module is every folder under
-`modules/` whose name opens with neither a dot nor an underscore.
+`modules/` whose name opens with neither a dot nor an underscore, as `kit_module_doc.module_folders`
+lists them for every kit check: a plain file there is none, a name without `const-` is one, and a
+module folder without its `MODULE.md` is no tree the check can read (BROKEN), nor is a tree with no
+`modules/`.
 
 A finding is one of these forms, outside a public URL:
   - a path under a home directory: `/Users/…`, `/home/…`, `~/`, `$HOME/…`, `${HOME}/…` or a
@@ -20,9 +24,34 @@ A finding is one of these forms, outside a public URL:
     are findings.
     `constitution.yaml`, the one repository path a module may name, has no slash and so is never
     one.
-Not read: in Markdown, fenced blocks and inline code, which show an example to adapt, not a
-location. There is no exemption marker; an interpreter line is read as any other, so
+Not read, by the forms above: in Markdown, fenced blocks and inline code, which show an example to
+adapt, not a location. There is no exemption marker; an interpreter line is read as any other, so
 `#!/usr/bin/env` passes and a home path there does not.
+
+One more form, over the same files and the same shared code, a kit document's name; each is a
+finding, with its why and its fix:
+  - a fixed file name of the kit, a plain match, upper and lower case as written, no word bounds:
+    `MODULE.md`, `requirements.md`, `rollout-plan`, `CONVENTIONS.md`, `GATE.md`, `kernel/`;
+  - an id of a catalog the kit declares under `const-catalogs.catalogs` in its `constitution.yaml`,
+    `<prefix>-<digits>`, the prefix and the number of digits read from the dials and never typed here:
+    `width` as the catalog module reads it, an integer from 1 to 9, 4 when the entry has none. Matched
+    in either case (`dec-0049`, `DEC-0049`), since the catalog module's skill says a bare id in prose
+    resolves in either case; at word bounds: no letter, digit or `_` just before the prefix, none
+    just after the digits, so a letter after the digits starts a slug only after a hyphen
+    (`dec-0049-module-links-held-by-a-kit-check` is a name; `dec-0049x`, `dec-00490`, `dec-49` and
+    `xdec-0049` are not).
+    A prefix the kit does not declare, in a consumer's example, is no name.
+It is read in every line, a fenced block and a code span too, since the forms of A12.1 read every
+installed text; a public URL is no exception either. The kit's own `MODULE.md` is no installed
+component and is not read, and neither are `tests/` or `shared/GATE.md` — of `shared/`, only
+`shared/const_gate/`, which each module installs as its `scripts/const_gate`, is read. A prefix is
+looked for only where the dials declare it: a `constitution.yaml` that is missing, is no YAML, lacks
+a `const-catalogs` mapping or its `catalogs` list, or holds an entry that the catalog module would
+refuse for a prefix (a lowercase word of letters and digits, listed once) or a width, is BROKEN, never
+a pass — stricter than the catalog module, which reads a namespace or a list that is absent as no
+catalogs, since the kit always declares them and a check that looked for nothing would pass in
+silence; `catalogs: []` declares none and is read so. PyYAML reads the file: without it the check
+exits 1 with the install command.
 
 A heuristic, as the row says: the bare-repository run on defaults stays the gate of record. Not
 seen here — a folder named with neither an extension nor a glob, a system path such as `/srv/…`,
@@ -33,7 +62,16 @@ Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: each form red with its count typed
                        by hand and green once fixed; every place not read stays green; the report
                        of one finding as literal lines with exit 2; a module folder not named
-                       `const-` read as a module; a file that is not UTF-8 as a BROKEN line.
+                       `const-` read as a module, a folder `.x` or `_x` and a plain file of
+                       `modules/` not; a module folder without its `MODULE.md`, a tree with no
+                       `modules/` and a file that is not UTF-8 as a BROKEN line; the modules
+                       read sorted by name, whatever order the folder lists; the kit documents' names:
+                       each fixed name and each id form typed by hand, in an install note and in a
+                       skill, red or green; the width, its default and a prefix added to the dials,
+                       read from the dials file; fenced code, a code span and a URL read, a test,
+                       the module document and `shared/GATE.md` not; the order of the findings; the
+                       report as literal lines; each dials file that cannot be read, and PyYAML
+                       missing, as a BROKEN line with its literal text.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -42,17 +80,33 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import os
 import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+
+from kit_module_doc import DocumentError, module_folders
+
+try:
+    import yaml
+except ImportError:
+    print("BROKEN: PyYAML is not installed — fix: python3 -m pip install pyyaml")
+    print("BROKEN: the check could not run — 0 files examined")
+    sys.exit(1)
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 INSTALLED = ("skills/", "hooks/", "scripts/", "commands/", "agents/", "INSTALL.md", ".claude-plugin/")
 SHARED = "shared/const_gate"
+DIALS = "constitution.yaml"
+NAMESPACE = "const-catalogs"  # the dials namespace that declares the kit's numbered kinds
+DEFAULT_WIDTH, MAX_WIDTH = 4, 9  # the catalog module's own: a width is a whole number from 1 to 9
+PREFIX = re.compile(r"[a-z0-9]+")  # the catalog module's own form of a prefix, used with fullmatch
+FIXED_NAMES = ("MODULE.md", "requirements.md", "rollout-plan", "CONVENTIONS.md", "GATE.md", "kernel/")
 
 URL = re.compile(r"https?://[^\s)>\"'`]+")
 HOME = re.compile(
@@ -75,13 +129,23 @@ FIXES = {
     "file": "link a public URL, or name the document in words",
     "relative": "write it `${CLAUDE_PLUGIN_ROOT}`-relative if it is the plugin's, read it from the dials"
     " file if it is the project's, or show it in a fenced example",
+    "kit_file": "say in words what the document holds, or drop the mention",
+    "kit_id": "say in words what the item holds, or drop the mention; an example of a project's own id"
+    " takes a prefix that const-catalogs.catalogs in the kit's constitution.yaml does not declare",
 }
 WHAT = {
     "home": "a path under a home directory",
     "tilde": "a path under `~/`",
     "file": "a `file:/` link",
     "relative": "a relative path that is no file of the plugin",
+    "kit_file": "a file name of the kit",
+    "kit_id": "an id of a catalog the kit declares",
 }
+WHY_KIT = (
+    "a module installs into any project, where the kit's own documents do not exist, so it names none"
+    " of them (law 2 of CLAUDE.md)"
+)
+WHYS = {"kit_file": WHY_KIT, "kit_id": WHY_KIT}  # the other forms give WHY
 
 
 class Broken(Exception):
@@ -98,9 +162,17 @@ class Finding:
     def render(self) -> str:
         return (
             f"RED: {self.path}:{self.line}: {WHAT[self.kind]}, '{self.text}'\n"
-            f"  why: {WHY}\n"
+            f"  why: {WHYS.get(self.kind, WHY)}\n"
             f"  fix: {FIXES[self.kind]}"
         )
+
+
+@dataclass(frozen=True)
+class Catalog:
+    """A numbered kind of the kit, as its dials declare it: the prefix and the digits of an id."""
+
+    prefix: str
+    width: int
 
 
 def listed(root: Path, where: str) -> list[str]:
@@ -127,8 +199,106 @@ def read(root: Path, path: str) -> str:
         raise Broken(f"{path} cannot be read ({bad.strerror}) — fix: make it readable") from bad
 
 
-def examine(path: str, text: str, plugins: list[Path]) -> list[Finding]:
-    """The findings of one file; `plugins` are the roots against which a relative path is looked up."""
+def catalogs_of(root: Path) -> tuple[Catalog, ...]:
+    """The numbered kinds the kit declares in its dials file, each prefix and width as the catalog module
+    reads them. Anything the catalog module would refuse in a prefix or a width, and a namespace or a list
+    it would read as no catalogs, is BROKEN here, with the fix."""
+    try:
+        text = (root / DIALS).read_text(encoding="utf-8")
+    except FileNotFoundError as missing:
+        raise Broken(
+            f"{DIALS} is missing — fix: restore the dials file at the kit root, which declares the"
+            f" numbered kinds whose ids no module names"
+        ) from missing
+    except UnicodeDecodeError as bad:
+        raise Broken(
+            f"{DIALS} is not UTF-8 ({bad.reason} at byte {bad.start}) — fix: save it as UTF-8"
+        ) from bad
+    except OSError as bad:
+        raise Broken(f"{DIALS} cannot be read ({bad.strerror}) — fix: make it readable") from bad
+    try:
+        dials = yaml.safe_load(text)
+    except (yaml.YAMLError, ValueError) as bad:
+        first = (str(bad).splitlines() or ["no message"])[0]
+        raise Broken(f"{DIALS} is not YAML ({first}) — fix: repair the file") from bad
+    namespace = dials.get(NAMESPACE) if isinstance(dials, dict) else None
+    if not isinstance(namespace, dict):
+        raise Broken(
+            f"{DIALS} has no {NAMESPACE} mapping, so the kit's numbered kinds cannot be read — fix: declare"
+            f" them under {NAMESPACE}.catalogs"
+        )
+    entries = namespace.get("catalogs")
+    if not isinstance(entries, list):
+        raise Broken(
+            f"{NAMESPACE}.catalogs in {DIALS} is absent or no list, so the kit's numbered kinds cannot be"
+            " read — fix: write it as a list of entries with a prefix, `[]` where the kit has none"
+        )
+    catalogs: list[Catalog] = []
+    for position, entry in enumerate(entries, start=1):
+        where = f"{NAMESPACE}.catalogs entry {position} in {DIALS}"
+        if not isinstance(entry, dict):
+            raise Broken(f"{where} is no mapping — fix: write it as prefix, width and territory")
+        prefix = entry.get("prefix")
+        if not isinstance(prefix, str) or not PREFIX.fullmatch(prefix):
+            raise Broken(
+                f"{where} has no prefix of lowercase letters and digits, which the catalog module"
+                " refuses — fix: write the entry's prefix as one"
+            )
+        width = entry.get("width", DEFAULT_WIDTH)
+        # YAML's true is an int to Python, and no width
+        if isinstance(width, bool) or not isinstance(width, int) or not 1 <= width <= MAX_WIDTH:
+            raise Broken(
+                f"{where} has a width that is not a whole number from 1 to {MAX_WIDTH}, which the catalog"
+                " module refuses — fix: write the width as one, or leave it out for 4"
+            )
+        if any(earlier.prefix == prefix for earlier in catalogs):
+            raise Broken(
+                f"{where} lists the prefix '{prefix}' a second time, which the catalog module refuses — fix:"
+                " list each prefix once"
+            )
+        catalogs.append(Catalog(prefix, width))
+    return tuple(catalogs)
+
+
+def either_case(word: str) -> str:
+    """A pattern for a lowercase word of letters and digits in either case, spelt out letter by letter:
+    the ignore-case flag would let a few non-ASCII letters stand for an ASCII one."""
+    return "".join(f"[{c}{c.upper()}]" if c.isalpha() else c for c in word)
+
+
+def id_pattern(catalogs: tuple[Catalog, ...]) -> re.Pattern[str] | None:
+    """An id of any declared catalog: its prefix in either case, a hyphen, exactly `width` digits, at word
+    bounds on both sides; a slug after a hyphen is not part of the match."""
+    if not catalogs:
+        return None
+    ids = "|".join(f"{either_case(c.prefix)}-[0-9]{{{c.width}}}" for c in catalogs)
+    return re.compile(rf"(?<!\w)(?:{ids})(?!\w)")
+
+
+def kit_names(path: str, text: str, ids: re.Pattern[str] | None) -> list[Finding]:
+    """The kit documents a file names, in every line, a fenced block and a code span too: by line, and
+    within a line by column, whichever form it is."""
+    findings: list[Finding] = []
+    for number, line in enumerate(text.splitlines(), start=1):
+        hits = [
+            (m.start(), "kit_file", m[0]) for name in FIXED_NAMES for m in re.finditer(re.escape(name), line)
+        ]
+        if ids:
+            hits.extend((m.start(), "kit_id", m[0]) for m in ids.finditer(line))
+        findings.extend(Finding(path, number, kind, named) for _, kind, named in sorted(hits))
+    return findings
+
+
+def examine(path: str, text: str, plugins: list[Path], ids: re.Pattern[str] | None) -> list[Finding]:
+    """The findings of one file; `plugins` are the roots against which a relative path is looked up, `ids`
+    the pattern of the kit's catalog ids. Each line's places first, then its kit documents."""
+    findings = places(path, text, plugins)
+    findings.extend(kit_names(path, text, ids))
+    return sorted(findings, key=lambda found: found.line)  # stable: the order within a line stays
+
+
+def places(path: str, text: str, plugins: list[Path]) -> list[Finding]:
+    """The findings of the forms that name a place in a project."""
     findings: list[Finding] = []
     markdown = path.endswith(".md")
     fence: str | None = None
@@ -163,10 +333,11 @@ def examine(path: str, text: str, plugins: list[Path]) -> list[Finding]:
 
 
 def check_kit(root: Path) -> tuple[list[Finding], int, int]:
-    base = root / "modules"
-    if not base.is_dir():
-        raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
-    modules = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
+    try:
+        modules = module_folders(root)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+    ids = id_pattern(catalogs_of(root))
     findings: list[Finding] = []
     files = 0
     for module in modules:
@@ -176,11 +347,11 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
             if not inside.startswith(INSTALLED) or (root / path).is_symlink() or not (root / path).is_file():
                 continue
             files += 1
-            findings.extend(examine(path, read(root, path), [module]))
+            findings.extend(examine(path, read(root, path), [module], ids))
     for path in listed(root, SHARED):
         if (root / path).is_file():
             files += 1
-            findings.extend(examine(path, read(root, path), modules))
+            findings.extend(examine(path, read(root, path), modules, ids))
     return findings, files, len(modules)
 
 
@@ -193,6 +364,67 @@ def report(findings: list[Finding], files: int, modules: int) -> int:
         return EXIT_RED
     print(f"GREEN: no installed component names a place in a project — {counts}")
     return EXIT_GREEN
+
+
+@contextlib.contextmanager
+def listed_in_reverse() -> Iterator[None]:
+    """For the cases inside, `Path.iterdir` yields its entries sorted by name and reversed, whatever the
+    filesystem lists: a case that holds an order is then red on every filesystem for a check that does not
+    sort, never by the chance of a listing that happens to be unsorted. Restored on leaving."""
+    real = Path.iterdir
+
+    def reversed_iterdir(self: Path) -> Iterator[Path]:
+        return iter(sorted(real(self), key=lambda path: path.name, reverse=True))
+
+    Path.iterdir = reversed_iterdir  # type: ignore[method-assign,assignment]
+    try:
+        yield
+    finally:
+        Path.iterdir = real  # type: ignore[method-assign]
+
+
+KIT_DIALS = """\
+const-catalogs:
+  catalogs:
+    - prefix: dec
+      width: 4
+      territory:
+        - "docs/decisions/**"
+    - prefix: plc
+      territory:
+        - "docs/policies/**"
+    - prefix: res
+      width: 4
+      territory:
+        - "docs/research/**"
+"""  # the kit's three catalogs; plc leaves its width out, which reads as the default 4
+
+
+def write(root: Path, path: str, text: str | bytes) -> None:
+    (root / path).parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(text, bytes):
+        (root / path).write_bytes(text)
+    else:
+        (root / path).write_text(text, encoding="utf-8")
+    subprocess.run(["git", "add", path], cwd=root, check=True, capture_output=True)
+
+
+def fresh(root: Path, dials: str | bytes | None = KIT_DIALS) -> None:
+    """A throwaway kit: one module with a skill and an install note, the shared code, the dials file."""
+    try:
+        subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+    except (OSError, subprocess.CalledProcessError) as failed:
+        raise Broken(f"git init failed in {root} — fix: install git, then run the self-test") from failed
+    write(root, "modules/const-x/MODULE.md", "A module.\n")
+    write(root, "modules/const-x/skills/s/SKILL.md", "A skill.\n")
+    write(root, "modules/const-x/INSTALL.md", "Install.\n")
+    write(root, f"{SHARED}/model.py", "Y = 2\n")
+    if dials is not None:
+        write(root, DIALS, dials)
+
+
+def at(path: str) -> str:
+    return f"{SHARED}/state.py" if path == "SHARED" else f"modules/const-x/{path}"
 
 
 def self_test() -> int:
@@ -256,10 +488,11 @@ def self_test() -> int:
             1,
         ),
         "a project path in the shared code": ("SHARED", "X = 1\n", "X = 'var/data/state.json'\n", 1),
+        "a kit file name in the shared code": ("SHARED", "X = 1\n", "# the rules are in GATE.md\n", 1),
     }
     green: dict[str, tuple[str, str]] = {  # case: file, text with a form the check does not read
-        "the module document": ("MODULE.md", "See /home/ann/notes.md and docs/x.md.\n"),
-        "a test": ("tests/run.py", "PATH = '/Users/someone/a.md'\n"),
+        "the module document": ("MODULE.md", "See /home/ann/notes.md, docs/x.md, dec-0049 and GATE.md.\n"),
+        "a test": ("tests/run.py", "PATH = '/Users/someone/a.md'\nNAMES = 'MODULE.md dec-0049'\n"),
         "a system interpreter line": ("scripts/gate.sh", "#!/usr/bin/env sh\necho ok\n"),
         "a fenced example": ("INSTALL.md", "```yaml\npaths:\n  - docs/records/*.md\n```\n"),
         "inline code": ("skills/s/SKILL.md", "Name `docs/**` in the dial.\n"),
@@ -277,23 +510,6 @@ def self_test() -> int:
         "  fix: name the place in words, or read it from the dials file",
         "RED: 1 finding(s) — 3 installed file(s) of 1 module(s) and the shared code examined",
     ]
-
-    def fresh(root: Path) -> None:
-        try:
-            subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
-        except (OSError, subprocess.CalledProcessError) as failed:
-            raise Broken(f"git init failed in {root} — fix: install git, then run the self-test") from failed
-        write(root, "modules/const-x/skills/s/SKILL.md", "A skill.\n")
-        write(root, "modules/const-x/INSTALL.md", "Install.\n")
-        write(root, f"{SHARED}/model.py", "Y = 2\n")
-
-    def write(root: Path, path: str, text: str) -> None:
-        (root / path).parent.mkdir(parents=True, exist_ok=True)
-        (root / path).write_text(text, encoding="utf-8")
-        subprocess.run(["git", "add", path], cwd=root, check=True, capture_output=True)
-
-    def at(path: str) -> str:
-        return f"{SHARED}/state.py" if path == "SHARED" else f"modules/const-x/{path}"
 
     failed = 0
     for name, (path, good, bad, count) in red.items():
@@ -319,10 +535,62 @@ def self_test() -> int:
     with tempfile.TemporaryDirectory() as tmp:  # a module folder of another name is read too
         root = Path(tmp).resolve()
         fresh(root)
+        write(root, "modules/other/MODULE.md", "A module.\n")
         write(root, "modules/other/INSTALL.md", "Clone into ~/kit.\n")
         ok = [f.path for f in check_kit(root)[0]] == ["modules/other/INSTALL.md"]
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a module folder not named const- is read as a module")
+    # the module folders, as the kit's one listing gives them: each class of what stands under modules/
+    for name, extra in (
+        ("a folder `.x` and a folder `_x` of modules/ are skipped silently", ("modules/.x", "modules/_x")),
+        ("a plain file of modules/ is no module", ("modules/const-file",)),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            for path in extra:
+                if path.endswith("file"):
+                    write(root, path, "Clone into ~/kit.\n")
+                else:
+                    write(root, f"{path}/INSTALL.md", "Clone into ~/kit.\n")
+            result = check_kit(root)
+        ok = result[0] == [] and result[2] == 1
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+    with tempfile.TemporaryDirectory() as tmp:  # no MODULE.md: BROKEN, where the folder was read before
+        root = Path(tmp).resolve()
+        fresh(root)
+        write(root, "modules/other/INSTALL.md", "Install.\n")
+        try:
+            check_kit(root)
+            ok = False
+        except Broken as broken:
+            ok = str(broken) == "modules/other has no MODULE.md — fix: restore the module document"
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a module folder without its MODULE.md is a teaching BROKEN line")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        try:
+            check_kit(root)
+            ok = False
+        except Broken as broken:
+            ok = (
+                str(broken)
+                == f"{root} has no modules/ directory — fix: run the check from a checkout of the kit"
+            )
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a tree with no modules/ is a teaching BROKEN line")
+    with tempfile.TemporaryDirectory() as tmp:  # the findings follow the folders sorted by name
+        root = Path(tmp).resolve()
+        fresh(root)
+        for module in ("const-b", "const-a"):
+            write(root, f"modules/{module}/MODULE.md", "A module.\n")
+            write(root, f"modules/{module}/INSTALL.md", "Clone into ~/kit.\n")
+        with listed_in_reverse():  # modules/ is listed reversed, whatever the filesystem lists
+            found = [f.path for f in check_kit(root)[0]]
+    ok = found == ["modules/const-a/INSTALL.md", "modules/const-b/INSTALL.md"]
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the modules are read sorted by name, whatever order the folder lists")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
@@ -346,9 +614,352 @@ def self_test() -> int:
             ok = str(broken).startswith("modules/const-x/INSTALL.md is not UTF-8") and "fix:" in str(broken)
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a file that is not UTF-8 is a teaching BROKEN line, never a traceback")
-    total = len(red) + len(green) + 3
+    named, named_failed = self_test_names()
+    total = len(red) + len(green) + 8 + named
+    failed += named_failed
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
+
+
+def self_test_names() -> tuple[int, int]:
+    """The kit documents' names, case by case: every fixed name and every id form typed by hand, each in an
+    install note and in a skill; what is no name; the width, the default and a prefix added to the dials
+    read from the dials file; fenced code, a code span and a URL read; what is not read; the order of
+    the findings; the report as literal lines; each dials file that cannot be read, with its literal line;
+    PyYAML missing. Returns the number of cases and of those that failed."""
+    cases = failed = 0
+    note, skill = at("INSTALL.md"), at("skills/s/SKILL.md")
+
+    def case(ok: bool, text: str) -> None:
+        nonlocal cases, failed
+        cases += 1
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {text}")
+
+    def seen(root: Path, path: str, text: str) -> list[tuple[str, int, str, str]]:
+        """The findings with `path` holding `text` and the install note and the skill clean."""
+        write(root, note, "Install.\n")
+        write(root, skill, "A skill.\n")
+        write(root, path, text)
+        return [(f.path, f.line, f.kind, f.text) for f in check_kit(root)[0]]
+
+    def broken_line(root: Path) -> str | None:
+        try:
+            check_kit(root)
+        except Broken as broken:
+            return str(broken)
+        return None
+
+    fixed = ("MODULE.md", "requirements.md", "rollout-plan", "CONVENTIONS.md", "GATE.md", "kernel/")
+    case(
+        set(fixed) == set(FIXED_NAMES) and len(FIXED_NAMES) == len(fixed),
+        "the self-test types the six fixed names of the check, no more and no fewer",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        fresh(root)
+        for name in fixed:
+            ok = all(
+                seen(root, path, f"See {name} for more.\n") == [(path, 1, "kit_file", name)]
+                for path in (note, skill)
+            )
+            case(ok, f"{name} is red in an install note and in a skill, once")
+        for written, matched in (
+            ("dec-0049", "dec-0049"),
+            ("DEC-0049", "DEC-0049"),
+            ("Dec-0049", "Dec-0049"),
+            ("dec-0049-module-links-held-by-a-kit-check", "dec-0049"),
+            ("plc-0001", "plc-0001"),
+            ("PLC-0001-x", "PLC-0001"),
+            ("res-0012", "res-0012"),
+            ("x-dec-0049", "dec-0049"),
+            ("(see dec-0049.)", "dec-0049"),
+        ):
+            ok = all(
+                seen(root, path, f"See {written} here.\n") == [(path, 1, "kit_id", matched)]
+                for path in (note, skill)
+            )
+            case(ok, f"{written} is red in an install note and in a skill, as '{matched}'")
+        for written in (
+            "dec-49",
+            "dec-00490",
+            "xdec-0049",
+            "dec-0049x",
+            "_dec-0049",
+            "dec-0049_x",
+            "1dec-0049",
+            "édec-0049",
+            "dec 0049",
+            "plc-00001",  # plc declares no width: the default, 4
+            "adr-0007",
+            "ADR-0007",
+            "module.md",  # the fixed names are a plain match, case as written
+            "gate.md",
+            "Kernel/",
+            "Requirements.md",
+            "conventions.md",
+            "Rollout-plan",
+            "MODULExmd",  # and the dot of a name is a dot, no wildcard
+            "requirementsXmd",
+            "CONVENTIONS_md",
+            "GATExmd",
+        ):
+            ok = all(seen(root, path, f"See {written} here.\n") == [] for path in (note, skill))
+            case(ok, f"{written} is no name of the kit, green in an install note and in a skill")
+        found = seen(root, note, "```\nsee dec-0049\n```\nand `GATE.md` and `kernel/`.\n")
+        case(
+            found
+            == [
+                (note, 2, "kit_id", "dec-0049"),
+                (note, 4, "kit_file", "GATE.md"),
+                (note, 4, "kit_file", "kernel/"),
+            ],
+            "a fenced block and a code span are read like any other text",
+        )
+        found = seen(root, note, "https://example.org/dec-0049/MODULE.md\n")
+        case(
+            found == [(note, 1, "kit_id", "dec-0049"), (note, 1, "kit_file", "MODULE.md")],
+            "a public URL is no exception",
+        )
+        for path in ("MODULE.md", "tests/run.py"):
+            case(
+                seen(root, at(path), "MODULE.md dec-0049 GATE.md\n") == [], f"{path} of a module is not read"
+            )
+        for path in ("shared/GATE.md", "shared/tests/run.py"):
+            case(
+                seen(root, path, "MODULE.md dec-0049 GATE.md\n") == [],
+                f"{path} is not read: only {SHARED}/ is",
+            )
+        found = seen(
+            root,
+            note,
+            "MODULE.md\n~/x\n~/a dec-0049 GATE.md MODULE.md\n"
+            "plc-0001 rollout-plan\nMODULE.md GATE.md res-0012\n",
+        )
+        case(
+            found
+            == [
+                (note, 1, "kit_file", "MODULE.md"),
+                (note, 2, "tilde", "~/"),
+                (note, 3, "tilde", "~/"),
+                (note, 3, "kit_id", "dec-0049"),
+                (note, 3, "kit_file", "GATE.md"),
+                (note, 3, "kit_file", "MODULE.md"),
+                (note, 4, "kit_id", "plc-0001"),
+                (note, 4, "kit_file", "rollout-plan"),
+                (note, 5, "kit_file", "MODULE.md"),
+                (note, 5, "kit_file", "GATE.md"),
+                (note, 5, "kit_id", "res-0012"),
+            ],
+            "the findings go by line whatever the form, a place before the names of its line, then by column",
+        )
+    with tempfile.TemporaryDirectory() as tmp:  # the modules in reverse: the findings still go by name
+        root = Path(tmp).resolve()
+        fresh(root)
+        for module in ("const-b", "const-a"):
+            write(root, f"modules/{module}/MODULE.md", "A module.\n")
+            write(root, f"modules/{module}/INSTALL.md", "See dec-0049.\n")
+        with listed_in_reverse():
+            paths = [f.path for f in check_kit(root)[0]]
+    case(
+        paths == ["modules/const-a/INSTALL.md", "modules/const-b/INSTALL.md"],
+        "a name in two modules is reported by module name, whatever order the folder lists",
+    )
+    width_five = (
+        'const-catalogs:\n  catalogs:\n    - prefix: dec\n      width: 5\n      territory: ["d/**"]\n'
+    )
+    for name, dials, text, expect in (
+        ("width 5 makes dec-00049 red", width_five, "dec-00049", [(note, 1, "kit_id", "dec-00049")]),
+        ("width 5 makes dec-0049 green", width_five, "dec-0049", []),
+        ("width 5 makes dec-000490 green", width_five, "dec-000490", []),
+        (
+            "an entry with no width reads 4: dec-0049 red",
+            "const-catalogs:\n  catalogs:\n    - prefix: dec\n",
+            "dec-0049",
+            [(note, 1, "kit_id", "dec-0049")],
+        ),
+        (
+            "an entry with no width reads 4: dec-00490 green",
+            "const-catalogs:\n  catalogs:\n    - prefix: dec\n",
+            "dec-00490",
+            [],
+        ),
+        (
+            "`catalogs: []` declares no id: dec-0049 green",
+            "const-catalogs:\n  catalogs: []\n",
+            "dec-0049",
+            [],
+        ),
+        (
+            "`catalogs: []` leaves the fixed names red",
+            "const-catalogs:\n  catalogs: []\n",
+            "MODULE.md",
+            [(note, 1, "kit_file", "MODULE.md")],
+        ),
+        (
+            "a prefix with a digit, in either case: W3C-0001 red",
+            "const-catalogs:\n  catalogs:\n    - prefix: w3c\n",
+            "W3C-0001",
+            [(note, 1, "kit_id", "W3C-0001")],
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root, dials)
+            case(seen(root, note, f"See {text}.\n") == expect, name)
+    with tempfile.TemporaryDirectory() as tmp:  # width 9, the upper bound the catalog module accepts
+        root = Path(tmp).resolve()
+        fresh(root, width_five.replace("width: 5", "width: 9"))
+        case(
+            broken_line(root) is None  # `and` stops here on a BROKEN: one FAIL line, no abort
+            and seen(root, note, "See dec-000000049 and dec-00000049 and dec-0000000049.\n")
+            == [(note, 1, "kit_id", "dec-000000049")],
+            "width 9, the upper bound, is no BROKEN line and reads dec-000000049 red, 8 and 10 digits green",
+        )
+    with tempfile.TemporaryDirectory() as tmp:  # a prefix added to the dials, no code change
+        root = Path(tmp).resolve()
+        fresh(root)
+        before = seen(root, note, "See rfc-0001.\n")
+        write(root, DIALS, KIT_DIALS + '    - prefix: rfc\n      territory: ["docs/rfc/**"]\n')
+        after = seen(root, note, "See rfc-0001.\n")
+    case(
+        before == [] and after == [(note, 1, "kit_id", "rfc-0001")],
+        "rfc-0001 is green until the dials declare rfc, then red",
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # the report of two findings, typed by hand
+        root = Path(tmp).resolve()
+        fresh(root)
+        write(root, note, "See MODULE.md and dec-0049-module-links-held-by-a-kit-check.\n")
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = report(*check_kit(root))
+    why = (
+        "  why: a module installs into any project, where the kit's own documents do not exist, so it names"
+        " none of them (law 2 of CLAUDE.md)"
+    )
+    literal = [
+        "RED: modules/const-x/INSTALL.md:1: a file name of the kit, 'MODULE.md'",
+        why,
+        "  fix: say in words what the document holds, or drop the mention",
+        "RED: modules/const-x/INSTALL.md:1: an id of a catalog the kit declares, 'dec-0049'",
+        why,
+        "  fix: say in words what the item holds, or drop the mention; an example of a project's own id takes"
+        " a prefix that const-catalogs.catalogs in the kit's constitution.yaml does not declare",
+        "RED: 2 finding(s) — 3 installed file(s) of 1 module(s) and the shared code examined",
+    ]
+    case(
+        code == EXIT_RED and printed.getvalue().splitlines() == literal,
+        "the report of a file name and an id is its literal text, exit 2",
+    )
+    if printed.getvalue().splitlines() != literal:
+        print(printed.getvalue())
+    where = "const-catalogs.catalogs entry"
+    absent = (
+        "const-catalogs.catalogs in constitution.yaml is absent or no list, so the kit's numbered kinds"
+        " cannot be read — fix: write it as a list of entries with a prefix, `[]` where the kit has none"
+    )
+    no_namespace = (
+        "constitution.yaml has no const-catalogs mapping, so the kit's numbered kinds cannot be read — fix:"
+        " declare them under const-catalogs.catalogs"
+    )
+    no_prefix = (
+        f"{where} 1 in constitution.yaml has no prefix of lowercase letters and digits, which the catalog"
+        " module refuses — fix: write the entry's prefix as one"
+    )
+    no_width = (
+        f"{where} 1 in constitution.yaml has a width that is not a whole number from 1 to 9, which the"
+        " catalog module refuses — fix: write the width as one, or leave it out for 4"
+    )
+    one = "const-catalogs:\n  catalogs:\n"
+    for name, content, expect in (
+        (
+            "a dials file that is missing",
+            None,
+            "constitution.yaml is missing — fix: restore the dials file at the kit root, which declares the"
+            " numbered kinds whose ids no module names",
+        ),
+        (
+            "a dials file that is not UTF-8",
+            b"\xe9\n",
+            "constitution.yaml is not UTF-8 (invalid continuation byte at byte 0) — fix: save it as UTF-8",
+        ),
+        (
+            "a dials file that is no YAML",
+            "\tx: 1\n",
+            "constitution.yaml is not YAML (while scanning for the next token) — fix: repair the file",
+        ),
+        (
+            "a dials file whose YAML is a date no calendar has",
+            "a: 2020-13-45\n",
+            "constitution.yaml is not YAML (month must be in 1..12) — fix: repair the file",
+        ),
+        ("a dials file that is a list", "- a\n", no_namespace),
+        ("a dials file with no const-catalogs", "other: {}\n", no_namespace),
+        ("a const-catalogs namespace with no value", "const-catalogs:\n", no_namespace),
+        ("a const-catalogs namespace that is a list", "const-catalogs: [1]\n", no_namespace),
+        ("a namespace with no catalogs", "const-catalogs:\n  severity: block\n", absent),
+        ("catalogs with no value", "const-catalogs:\n  catalogs:\n", absent),
+        ("catalogs that is a word", "const-catalogs:\n  catalogs: dec\n", absent),
+        (
+            "an entry that is a word",
+            one + "    - dec\n",
+            f"{where} 1 in constitution.yaml is no mapping — fix: write it as prefix, width and territory",
+        ),
+        ("an entry with no prefix", one + "    - width: 4\n", no_prefix),
+        ("a prefix in capitals", one + "    - prefix: DEC\n", no_prefix),
+        ("a prefix that is a number", one + "    - prefix: 7\n", no_prefix),
+        ("a prefix with a hyphen", one + "    - prefix: a-b\n", no_prefix),
+        ("an empty prefix", one + '    - prefix: ""\n', no_prefix),
+        (
+            "a bad prefix and a bad width: the prefix first",
+            one + "    - prefix: A\n      width: 0\n",
+            no_prefix,
+        ),
+        ("a width of true", one + "    - prefix: dec\n      width: true\n", no_width),
+        ("a width of 0", one + "    - prefix: dec\n      width: 0\n", no_width),
+        ("a width of 10", one + "    - prefix: dec\n      width: 10\n", no_width),
+        ("a width that is a word", one + "    - prefix: dec\n      width: '4'\n", no_width),
+        ("a width of 4.0", one + "    - prefix: dec\n      width: 4.0\n", no_width),
+        ("a width with no value", one + "    - prefix: dec\n      width:\n", no_width),
+        (
+            "a prefix listed twice",
+            one + "    - prefix: res\n    - prefix: dec\n    - prefix: dec\n",
+            f"{where} 3 in constitution.yaml lists the prefix 'dec' a second time, which the catalog module"
+            " refuses — fix: list each prefix once",
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root, content)
+            case(broken_line(root) == expect, f"{name} is a teaching BROKEN line")
+    with tempfile.TemporaryDirectory() as tmp:  # the dials file is read after the module folders
+        root = Path(tmp).resolve()
+        fresh(root, None)
+        write(root, "modules/other/INSTALL.md", "Install.\n")
+        case(
+            broken_line(root) == "modules/other has no MODULE.md — fix: restore the module document",
+            "a missing dials file and a module without MODULE.md: the module is reported",
+        )
+    with tempfile.TemporaryDirectory() as tmp:  # PyYAML missing: a `yaml` that raises ImportError comes first
+        (Path(tmp) / "yaml.py").write_text("raise ImportError('PyYAML is hidden')\n", encoding="utf-8")
+        done = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve())],
+            env={**os.environ, "PYTHONPATH": tmp},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    case(
+        done.returncode == EXIT_BROKEN
+        and done.stdout.splitlines()
+        == [
+            "BROKEN: PyYAML is not installed — fix: python3 -m pip install pyyaml",
+            "BROKEN: the check could not run — 0 files examined",
+        ]
+        and done.stderr == "",
+        "PyYAML missing is a BROKEN line with the install command, exit 1, no traceback",
+    )
+    return cases, failed
 
 
 def main(argv: list[str]) -> int:
