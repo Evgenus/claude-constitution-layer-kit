@@ -245,7 +245,8 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
         place = plugin / where
         target = link.resolve()
         if runner_link(source, link):
-            if place.resolve() != (plugin / "scripts" / where.name).resolve():
+            package = plugin / "scripts" / where.name
+            if not place.exists() or not package.is_dir() or place.resolve() != package.resolve():
                 findings.append(
                     Finding(
                         module,
@@ -568,6 +569,9 @@ def self_test() -> int:
                 (copy / holder / package).symlink_to(f"../scripts/{package}")
             elif change == "runner-link-copied":
                 shutil.copytree(source / "scripts" / package, copy / "tests" / package)
+            elif change == "runner-link-dangling":
+                shutil.rmtree(copy / "scripts" / package)
+                (copy / "tests" / package).symlink_to(f"../scripts/{package}")
             elif change == "runner-link-elsewhere":
                 (copy / "tests" / package).symlink_to("../hooks")
             elif change != "runner-link-missing":
@@ -641,6 +645,10 @@ def self_test() -> int:
         ),
         "the runner's link that arrived leading elsewhere is a finding": (
             "runner-link-elsewhere",
+            "the runner's link tests/own_gate did not arrive as a link to its package",
+        ),
+        "the runner's link kept, its package missing from the copy, is a finding": (
+            "runner-link-dangling",
             "the runner's link tests/own_gate did not arrive as a link to its package",
         ),
         "the runner's link missing from the copy is a finding": (
