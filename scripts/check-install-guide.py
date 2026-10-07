@@ -56,7 +56,12 @@ Modes:  no arguments   check the kit's guide;
                        leaves the license out, a
                        commit that leaves the tree dirty, an update that takes a draft's change, an
                        install that keeps a stale copy, an uninstall that keeps the plugin enabled; the
-                       report of one finding as literal lines with exit 2.
+                       report of one finding as literal lines with exit 2; the kit's modules, the
+                       folders of `kit_module_doc.module_folders` with their manifest versions: a
+                       folder `.x` or `_x` and a plain file skipped, a name without `const-` listed,
+                       the list sorted whatever order the folder lists, and a folder without its
+                       MODULE.md, a tree with no modules/, a modules/ with no folder and a manifest
+                       with no version each a BROKEN.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -72,10 +77,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+from kit_module_doc import DocumentError, module_folders
 
 KIT = Path(__file__).resolve().parent.parent
 GUIDE = "INSTALL.md"
@@ -250,9 +257,15 @@ def last_line(said: str) -> str:
 
 
 def modules_of(kit: Path) -> dict[str, str]:
-    """Each module of the kit with its manifest version."""
+    """Each module of the kit with its manifest version, the folders those of the kit's one listing,
+    `kit_module_doc.module_folders`: a plain file there is none, a name without `const-` is one, a
+    folder without its MODULE.md, and a tree with no modules/, are BROKEN."""
     found: dict[str, str] = {}
-    for folder in sorted((kit / "modules").glob("const-*")):
+    try:
+        folders = module_folders(kit)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+    for folder in folders:
         manifest = folder / ".claude-plugin" / "plugin.json"
         try:
             found[folder.name] = str(json.loads(manifest.read_text(encoding="utf-8"))["version"])
@@ -640,6 +653,7 @@ def toy_kit(root: Path) -> Path:
     for module in ("const-alpha", "const-beta"):
         manifest = kit / "modules" / module / ".claude-plugin"
         manifest.mkdir(parents=True)
+        (kit / "modules" / module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
         (manifest / "plugin.json").write_text(
             json.dumps({"name": module, "version": "0.0.1"}), encoding="utf-8"
         )
@@ -651,6 +665,23 @@ def toy_kit(root: Path) -> Path:
     ):
         run(argv, kit, env)
     return kit
+
+
+@contextlib.contextmanager
+def listed_in_reverse() -> Iterator[None]:
+    """For the cases inside, `Path.iterdir` yields its entries sorted by name and reversed, whatever the
+    filesystem lists: a case that holds an order is then red on every filesystem for a check that does not
+    sort, never by the chance of a listing that happens to be unsorted. Restored on leaving."""
+    real = Path.iterdir
+
+    def reversed_iterdir(self: Path) -> Iterator[Path]:
+        return iter(sorted(real(self), key=lambda path: path.name, reverse=True))
+
+    Path.iterdir = reversed_iterdir  # type: ignore[method-assign,assignment]
+    try:
+        yield
+    finally:
+        Path.iterdir = real  # type: ignore[method-assign]
 
 
 def self_test() -> int:
@@ -716,6 +747,82 @@ def self_test() -> int:
     )
     _, clean = blocks_of(toy_guide() + "\n```text\nnot a command\n```\n")
     case("a green guide gives no mark finding; a `text` fence needs no mark", not clean, whats(clean))
+
+    def broken_said(kit: Path) -> str:
+        try:
+            modules_of(kit)
+        except Broken as broken:
+            return str(broken)
+        return "no Broken"
+
+    with tempfile.TemporaryDirectory(prefix="install-guide-listings-") as listings:
+        count = 0
+
+        def tree(*folders: str, files: tuple[str, ...] = (), documents: bool = True) -> Path:
+            """A tree whose modules/ holds each folder, with a manifest of version 1.0 and, unless
+            `documents` is off, its MODULE.md, and each plain file; `modules/` is made even for none."""
+            nonlocal count
+            count += 1
+            root = Path(listings) / f"tree-{count}"
+            (root / "modules").mkdir(parents=True)
+            for folder in folders:
+                (root / "modules" / folder / ".claude-plugin").mkdir(parents=True)
+                manifest = root / "modules" / folder / ".claude-plugin" / "plugin.json"
+                manifest.write_text(json.dumps({"version": "1.0"}), encoding="utf-8")
+                if documents:
+                    (root / "modules" / folder / "MODULE.md").write_text("A module.\n", encoding="utf-8")
+            for name in files:
+                (root / "modules" / name).write_text("not a folder\n", encoding="utf-8")
+            return root
+
+        hidden = list(modules_of(tree("const-b", ".x", "_x", "const-a")))
+        case(
+            "a folder `.x` and a folder `_x` are skipped silently",
+            hidden == ["const-a", "const-b"],
+            str(hidden),
+        )
+        mixed = list(modules_of(tree("glossary", "const-a")))
+        case("a folder named without const- is a module", mixed == ["const-a", "glossary"], str(mixed))
+        plain = list(modules_of(tree("const-a", files=("const-file",))))
+        case("a plain file of modules/ is no module, and no BROKEN", plain == ["const-a"], str(plain))
+        with listed_in_reverse():  # modules/ is listed reversed, whatever the filesystem lists
+            ordered = list(modules_of(tree("const-b", "const-c", "const-a")))
+        case(
+            "the modules are sorted by name, whatever order the folder lists",
+            ordered == ["const-a", "const-b", "const-c"],
+            str(ordered),
+        )
+        said = broken_said(tree("const-ghost", documents=False))
+        case(
+            "a module folder without its MODULE.md is a teaching BROKEN line",
+            said == "modules/const-ghost has no MODULE.md — fix: restore the module document",
+            said,
+        )
+        no_modules = Path(listings) / "no-modules"
+        no_modules.mkdir()
+        said = broken_said(no_modules)
+        case(
+            "a tree with no modules/ is a teaching BROKEN line",
+            said == f"{no_modules} has no modules/ directory — fix: run the check from a checkout of the kit",
+            said,
+        )
+        empty = tree(files=("const-file",))
+        said = broken_said(empty)
+        case(
+            "a modules/ with no module folder is BROKEN, as the check always said",
+            said == f"no module under {empty / 'modules'} — fix: run the check from a clone of the kit",
+            said,
+        )
+        versionless = tree("const-a")
+        (versionless / "modules" / "const-a" / ".claude-plugin" / "plugin.json").write_text(
+            "{}", encoding="utf-8"
+        )
+        said = broken_said(versionless)
+        case(
+            "a manifest with no version is BROKEN, its version read as always",
+            said.endswith("gives no version ('version') — fix: restore the module's manifest"),
+            said,
+        )
 
     with tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch:
         root = Path(scratch)

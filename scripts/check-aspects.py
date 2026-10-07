@@ -44,11 +44,13 @@ check could not run (BROKEN, exit 1), with the fix, on
     `shared_assertions`, or the list `items` in it, or with an entry that is no tuple opening
     with an int literal (a string, a float, a boolean, a negative number); and `shared/GATE.md`
     without its anchor `g5` alone on a line, or with it twice;
-  - a module folder with no MODULE.md (a folder whose name opens with a dot or an underscore is no
-    module and is skipped), and a module document whose rows section (anchor `t3`) or acceptance
-    section (anchor `t10`) is missing or stands twice, or whose next section's anchor is missing
-    once any later one stands (`t4` after `t3`, `t11` after `t10`), or stands elsewhere, with another
-    anchor, or none, after this one (`t11` before `t10`), each read by `kit_module_doc.section`.
+  - a module folder with no MODULE.md, or no modules/ at all (the folders are those of
+    `kit_module_doc.module_folders`, the kit's one listing: sorted by name, a folder whose name opens
+    with a dot or an underscore and a plain file no module, a name without `const-` one), and a module
+    document whose rows section (anchor `t3`) or acceptance section (anchor `t10`) is missing or stands
+    twice, or whose next section's anchor is missing once any later one stands (`t4` after `t3`, `t11`
+    after `t10`), or stands elsewhere, with another anchor, or none, after this one (`t11` before
+    `t10`), each read by `kit_module_doc.section`.
 A table line of those two sections is read whatever its indent: a line whose stripped form starts
 with `|`. The last cell of any table line it reads, the matrix's rows too, is read whether or not
 the line closes with a bar (`kit_module_doc.cells`).
@@ -90,7 +92,9 @@ Modes:  no arguments         the gate;
                              table lines read, a matrix line off its form, a doubled anchor, a
                              preamble that is missing or names other classes, a module document
                              without or with a doubled anchor and a folder without its document
-                             each a BROKEN line, a folder opening `.` or `_` skipped, the report
+                             each a BROKEN line, no modules/ too, a folder opening `.` or `_`
+                             skipped, a name without `const-` listed, sorted whatever order the
+                             folder lists, the report
                              of one finding as literal lines, a full run green and red, a runner
                              that cannot be read as a BROKEN line; the shared items over their
                              whole set of cases: numbers and ranges of the table green and red,
@@ -107,14 +111,15 @@ import io
 import itertools
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from kit_module_doc import DocumentError, cells, section
+from kit_module_doc import DocumentError, cells, module_folders, section
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -713,14 +718,11 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
 
 
 def modules_of(root: Path) -> list[Path]:
-    base = root / "modules"
-    if not base.is_dir():
-        raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
-    directories = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
-    for directory in directories:
-        if not (directory / "MODULE.md").is_file():
-            raise Broken(f"modules/{directory.name} has no MODULE.md — fix: restore the module document")
-    return directories
+    """The module folders, through the kit's one listing; its error is this check's BROKEN."""
+    try:
+        return module_folders(root)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
 
 
 def check_structure(
@@ -1576,6 +1578,23 @@ def self_test_shared() -> tuple[int, int]:
     return failed, total
 
 
+@contextlib.contextmanager
+def listed_in_reverse() -> Iterator[None]:
+    """For the cases inside, `Path.iterdir` yields its entries sorted by name and reversed, whatever the
+    filesystem lists: a case that holds an order is then red on every filesystem for a check that does not
+    sort, never by the chance of a listing that happens to be unsorted. Restored on leaving."""
+    real = Path.iterdir
+
+    def reversed_iterdir(self: Path) -> Iterator[Path]:
+        return iter(sorted(real(self), key=lambda path: path.name, reverse=True))
+
+    Path.iterdir = reversed_iterdir  # type: ignore[method-assign,assignment]
+    try:
+        yield
+    finally:
+        Path.iterdir = real  # type: ignore[method-assign]
+
+
 def self_test() -> int:
     """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
     and green with the good table; the report of one finding as literal lines; a full run green,
@@ -2073,6 +2092,38 @@ def self_test() -> int:
                 ok = False
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} of modules/ is no module, and is skipped")
+    # the kit's one listing: a name without `const-` is a module, and the modules come sorted by name
+    listed = {  # case: the reading of a tree that holds const-sample and a copy of it named `glossary`
+        "a folder named without const- is a module": False,
+        "the modules are read sorted by name, whatever order the folder lists": True,
+    }
+    for name, reversed_listing in listed.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            shutil.copytree(root / "modules" / "const-sample", root / "modules" / "glossary")
+            try:
+                with listed_in_reverse() if reversed_listing else contextlib.nullcontext():
+                    _, modules, findings, _ = check_structure(root)
+                ok = not findings and [m.name for m in modules] == ["const-sample", "glossary"]
+            except Broken:
+                ok = False
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        build(root, GOOD_TABLE)
+        shutil.rmtree(root / "modules")
+        try:
+            check_structure(root)
+            ok = False
+        except Broken as why:
+            ok = (
+                str(why)
+                == f"{root} has no modules/ directory — fix: run the check from a checkout of the kit"
+            )
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a tree with no modules/ is a teaching BROKEN line")
     literal = [  # typed by hand: a message function cannot check itself
         "RED: modules/const-sample/MODULE.md:22: the rows cell of item T9 is 'A1.1'",
         "  why: a row's result comes only from the items that name it,"
@@ -2304,6 +2355,8 @@ def self_test() -> int:
         + len(read_as_before)
         + len(unreadable)
         + len(skipped)
+        + len(listed)
+        + 1  # no modules/
         + len(runs)
         + len(broken)
         + len(filtered)

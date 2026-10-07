@@ -7,7 +7,10 @@ the files git lists under `skills/`, `hooks/`, `scripts/`, `commands/`, `agents/
 note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md` nor `tests/` —
 and the shared gate code under `shared/const_gate/`, which every module installs as its
 `scripts/const_gate`. A symbolic link is read at its source, once. A module is every folder under
-`modules/` whose name opens with neither a dot nor an underscore.
+`modules/` whose name opens with neither a dot nor an underscore, as `kit_module_doc.module_folders`
+lists them for every kit check: a plain file there is none, a name without `const-` is one, and a
+module folder without its `MODULE.md` is no tree the check can read (BROKEN), nor is a tree with no
+`modules/`.
 
 A finding is one of these forms, outside a public URL:
   - a path under a home directory: `/Users/…`, `/home/…`, `~/`, `$HOME/…`, `${HOME}/…` or a
@@ -33,7 +36,10 @@ Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: each form red with its count typed
                        by hand and green once fixed; every place not read stays green; the report
                        of one finding as literal lines with exit 2; a module folder not named
-                       `const-` read as a module; a file that is not UTF-8 as a BROKEN line.
+                       `const-` read as a module, a folder `.x` or `_x` and a plain file of
+                       `modules/` not; a module folder without its `MODULE.md`, a tree with no
+                       `modules/` and a file that is not UTF-8 as a BROKEN line; the modules
+                       read sorted by name, whatever order the folder lists.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -46,8 +52,11 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+
+from kit_module_doc import DocumentError, module_folders
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -163,10 +172,10 @@ def examine(path: str, text: str, plugins: list[Path]) -> list[Finding]:
 
 
 def check_kit(root: Path) -> tuple[list[Finding], int, int]:
-    base = root / "modules"
-    if not base.is_dir():
-        raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
-    modules = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
+    try:
+        modules = module_folders(root)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
     findings: list[Finding] = []
     files = 0
     for module in modules:
@@ -193,6 +202,23 @@ def report(findings: list[Finding], files: int, modules: int) -> int:
         return EXIT_RED
     print(f"GREEN: no installed component names a place in a project — {counts}")
     return EXIT_GREEN
+
+
+@contextlib.contextmanager
+def listed_in_reverse() -> Iterator[None]:
+    """For the cases inside, `Path.iterdir` yields its entries sorted by name and reversed, whatever the
+    filesystem lists: a case that holds an order is then red on every filesystem for a check that does not
+    sort, never by the chance of a listing that happens to be unsorted. Restored on leaving."""
+    real = Path.iterdir
+
+    def reversed_iterdir(self: Path) -> Iterator[Path]:
+        return iter(sorted(real(self), key=lambda path: path.name, reverse=True))
+
+    Path.iterdir = reversed_iterdir  # type: ignore[method-assign,assignment]
+    try:
+        yield
+    finally:
+        Path.iterdir = real  # type: ignore[method-assign]
 
 
 def self_test() -> int:
@@ -283,6 +309,7 @@ def self_test() -> int:
             subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
         except (OSError, subprocess.CalledProcessError) as failed:
             raise Broken(f"git init failed in {root} — fix: install git, then run the self-test") from failed
+        write(root, "modules/const-x/MODULE.md", "A module.\n")
         write(root, "modules/const-x/skills/s/SKILL.md", "A skill.\n")
         write(root, "modules/const-x/INSTALL.md", "Install.\n")
         write(root, f"{SHARED}/model.py", "Y = 2\n")
@@ -319,10 +346,62 @@ def self_test() -> int:
     with tempfile.TemporaryDirectory() as tmp:  # a module folder of another name is read too
         root = Path(tmp).resolve()
         fresh(root)
+        write(root, "modules/other/MODULE.md", "A module.\n")
         write(root, "modules/other/INSTALL.md", "Clone into ~/kit.\n")
         ok = [f.path for f in check_kit(root)[0]] == ["modules/other/INSTALL.md"]
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a module folder not named const- is read as a module")
+    # the module folders, as the kit's one listing gives them: each class of what stands under modules/
+    for name, extra in (
+        ("a folder `.x` and a folder `_x` of modules/ are skipped silently", ("modules/.x", "modules/_x")),
+        ("a plain file of modules/ is no module", ("modules/const-file",)),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            for path in extra:
+                if path.endswith("file"):
+                    write(root, path, "Clone into ~/kit.\n")
+                else:
+                    write(root, f"{path}/INSTALL.md", "Clone into ~/kit.\n")
+            result = check_kit(root)
+        ok = result[0] == [] and result[2] == 1
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+    with tempfile.TemporaryDirectory() as tmp:  # no MODULE.md: BROKEN, where the folder was read before
+        root = Path(tmp).resolve()
+        fresh(root)
+        write(root, "modules/other/INSTALL.md", "Install.\n")
+        try:
+            check_kit(root)
+            ok = False
+        except Broken as broken:
+            ok = str(broken) == "modules/other has no MODULE.md — fix: restore the module document"
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a module folder without its MODULE.md is a teaching BROKEN line")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        try:
+            check_kit(root)
+            ok = False
+        except Broken as broken:
+            ok = (
+                str(broken)
+                == f"{root} has no modules/ directory — fix: run the check from a checkout of the kit"
+            )
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a tree with no modules/ is a teaching BROKEN line")
+    with tempfile.TemporaryDirectory() as tmp:  # the findings follow the folders sorted by name
+        root = Path(tmp).resolve()
+        fresh(root)
+        for module in ("const-b", "const-a"):
+            write(root, f"modules/{module}/MODULE.md", "A module.\n")
+            write(root, f"modules/{module}/INSTALL.md", "Clone into ~/kit.\n")
+        with listed_in_reverse():  # modules/ is listed reversed, whatever the filesystem lists
+            found = [f.path for f in check_kit(root)[0]]
+    ok = found == ["modules/const-a/INSTALL.md", "modules/const-b/INSTALL.md"]
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the modules are read sorted by name, whatever order the folder lists")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
@@ -346,7 +425,7 @@ def self_test() -> int:
             ok = str(broken).startswith("modules/const-x/INSTALL.md is not UTF-8") and "fix:" in str(broken)
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a file that is not UTF-8 is a teaching BROKEN line, never a traceback")
-    total = len(red) + len(green) + 3
+    total = len(red) + len(green) + 8
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

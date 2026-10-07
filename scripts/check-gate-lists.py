@@ -31,7 +31,10 @@ declared scan:
     is the workflow's own text, held by review and by its run; that each entry falls in one of the
     jobs `--json` prints is the list script's own, its jobs read from its entries, not this check's.
 Every folder under `modules/` whose name opens with neither a dot nor an underscore is a module
-and must hold its `MODULE.md`. A module that declares no scan is examined and needs no scan entry.
+and must hold its `MODULE.md`: `kit_module_doc.module_folders`, the kit's one listing, which every
+kit check that walks the modules reads, gives them sorted by name and fails when `modules/` or a
+`MODULE.md` is missing, as a BROKEN here, and the self-test proves it over every class of entry
+(`folder_probes`). A module that declares no scan is examined and needs no scan entry.
 The list's modules, its `MODULES`, are read from its entries `install-<module>`, `fixtures-<module>`,
 `lint-<module>` and `types-<module>` in `--names all`: each module folder has all four, and no
 module that has one lacks its folder (decisions dec-0056-portability-grep-and-gate-lists,
@@ -78,14 +81,16 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
-from kit_module_doc import DocumentError, Fault, Problem, enforcement
+from kit_module_doc import DocumentError, Fault, Problem, enforcement, module_folders
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -364,16 +369,12 @@ def check_modules(modules: list[str], entries: list[str]) -> list[Finding]:
 
 
 def check_kit(root: Path) -> tuple[list[Finding], int, int, int]:
-    base = root / "modules"
-    if not base.is_dir():
-        raise Broken(f"{root} has no modules/ directory — fix: run the check from a checkout of the kit")
+    try:
+        modules = [folder.name for folder in module_folders(root)]
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
     gates, jobs, ci = gate_list(root), jobs_of(root), ci_reads_list(root)
     findings: list[Finding] = []
-    directories = sorted(d for d in base.iterdir() if d.is_dir() and not d.name.startswith((".", "_")))
-    for directory in directories:
-        if not (directory / "MODULE.md").is_file():
-            raise Broken(f"modules/{directory.name} has no MODULE.md — fix: restore the module document")
-    modules = [d.name for d in directories]
     scans = 0
     for module in modules:
         document = f"modules/{module}/MODULE.md"
@@ -420,6 +421,130 @@ class Case:
     scripts: dict[str, bool] = field(default_factory=dict)  # a file of the tree, a path: git tracks it
     comment: str = ""  # a comment line at the head of the list script
     repo: bool = True  # the tree is a git repository
+
+
+@contextlib.contextmanager
+def listed_in_reverse() -> Iterator[None]:
+    """For the cases inside, `Path.iterdir` yields its entries sorted by name and reversed, whatever the
+    filesystem lists: a case that holds an order is then red on every filesystem for a check that does not
+    sort, never by the chance of a listing that happens to be unsorted. Restored on leaving."""
+    real = Path.iterdir
+
+    def reversed_iterdir(self: Path) -> Iterator[Path]:
+        return iter(sorted(real(self), key=lambda path: path.name, reverse=True))
+
+    Path.iterdir = reversed_iterdir  # type: ignore[method-assign,assignment]
+    try:
+        yield
+    finally:
+        Path.iterdir = real  # type: ignore[method-assign]
+
+
+def folder_probes() -> bool:
+    """`kit_module_doc.module_folders`, the kit's one listing, over every class of what can stand under
+    `modules/`, in one loop, the listing having no self-test of its own (the other checks that read
+    through it prove their own mapping). A probe is a throwaway `modules/` of folders each with its
+    MODULE.md, folders without one, plain files, and a MODULE.md that is a folder; `modules` None leaves
+    it out, "file" makes it a plain file; the folders the listing gives, or the message of its error,
+    with `{root}` for the tree. The listing is handed adversarial order, entries reversed. A probe that
+    fails prints what it got."""
+    gone = "{root} has no modules/ directory — fix: run the check from a checkout of the kit"
+    undocumented = "modules/{} has no MODULE.md — fix: restore the module document"
+    # name: documented folders, folders with no MODULE.md, plain files, folders whose MODULE.md is a folder
+    probes: dict[str, tuple[list[str], list[str], list[str], list[str], str | None, list[str] | str]] = {
+        "a folder `.x` and a folder `_x` are skipped silently, with a MODULE.md or without": (
+            [".x", "_x", "const-a"],
+            [".y", "_y"],
+            [],
+            [],
+            "dir",
+            ["const-a"],
+        ),
+        "a plain file of modules/ is not listed, whatever its name": (
+            ["const-a"],
+            [],
+            ["const-file", ".hidden", "zzz"],
+            [],
+            "dir",
+            ["const-a"],
+        ),
+        "a folder named without `const-` is listed": (
+            ["glossary", "const-a"],
+            [],
+            [],
+            [],
+            "dir",
+            ["const-a", "glossary"],
+        ),
+        "a name that only starts like the prefix is listed": (
+            ["const", "const-"],
+            [],
+            [],
+            [],
+            "dir",
+            ["const", "const-"],
+        ),
+        "the folders are sorted by name, whatever order the folder lists": (
+            ["const-b", "const-c", "const-a", "x-d"],
+            [],
+            [],
+            [],
+            "dir",
+            ["const-a", "const-b", "const-c", "x-d"],
+        ),
+        "a folder without its MODULE.md is an error naming the folder": (
+            ["const-a"],
+            ["const-ghost"],
+            [],
+            [],
+            "dir",
+            undocumented.format("const-ghost"),
+        ),
+        "the first folder without its MODULE.md, in sorted order, is named": (
+            ["const-a"],
+            ["const-z", "const-b"],
+            [],
+            [],
+            "dir",
+            undocumented.format("const-b"),
+        ),
+        "a MODULE.md that is a folder is no document": (
+            [],
+            [],
+            [],
+            ["const-a"],
+            "dir",
+            undocumented.format("const-a"),
+        ),
+        "no modules/ directory is an error naming the tree": ([], [], [], [], None, gone),
+        "modules/ a plain file is no directory": ([], [], [], [], "file", gone),
+    }
+    ok = True
+    for name, (documented, bare, files, trap, modules, wanted) in probes.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            if modules == "file":
+                (root / "modules").write_text("not a folder\n", encoding="utf-8")
+            elif modules == "dir":
+                (root / "modules").mkdir()
+            for folder in (*documented, *bare, *trap):
+                (root / "modules" / folder).mkdir()
+            for folder in documented:
+                (root / "modules" / folder / "MODULE.md").write_text("A module.\n", encoding="utf-8")
+            for folder in trap:
+                (root / "modules" / folder / "MODULE.md").mkdir()
+            for file in files:
+                (root / "modules" / file).write_text("not a folder\n", encoding="utf-8")
+            try:
+                with listed_in_reverse():
+                    got: list[str] | str = [d.name for d in module_folders(root)]
+            except DocumentError as bad:
+                got = str(bad)
+            want = wanted.replace("{root}", str(root)) if isinstance(wanted, str) else wanted
+        if got != want:
+            ok = False
+            print(f"        {name}: got {got!r}, wanted {want!r}")
+    return ok
 
 
 def form_probes() -> bool:
@@ -1012,6 +1137,11 @@ def self_test() -> int:
     ok = form_probes()
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the enforcement table's forms, over the whole set of probes")
+    ok = folder_probes()
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] the module folders of the kit's one listing, over every class of entry"
+    )
     form_text = (
         '<a id="t9"></a>\n| E1 | `check-x --scan` | `gate` |\n| G2 | `sh scripts/x.sh --scan` | `gate` |\n'
         "| E3 | `x --scan --since <date>` | `gate` |\n|  | none | `gate` |\n"
@@ -1177,6 +1307,11 @@ def self_test() -> int:
             " before it — fix: put the sections in the template's order, t1 to t12",
         ),
         ("a module folder without its document", "NO-DOC", "modules/empty has no MODULE.md"),
+        (
+            "a tree with no modules/",
+            "NO-MODULES",
+            "has no modules/ directory — fix: run the check from a checkout of the kit",
+        ),
         ("a tree that is no git repository", "NO-REPO", "git ls-files scripts exited"),
         (  # the folder around the tree is a repository: its index is never read for the kit's
             "a tree that is no git repository, inside a folder that is one",
@@ -1217,6 +1352,8 @@ def self_test() -> int:
                 (root / "modules/const-x/MODULE.md").write_text(broken_text, encoding="utf-8")
             if change == "NO-DOC":
                 (root / "modules/empty").mkdir()
+            if change == "NO-MODULES":
+                shutil.rmtree(root / "modules")
             path = os.environ["PATH"]
             if change == "NO-GIT":
                 os.environ["PATH"] = ""
@@ -1229,7 +1366,7 @@ def self_test() -> int:
                 os.environ["PATH"] = path
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    total = len(cases) + 25
+    total = len(cases) + 27
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
