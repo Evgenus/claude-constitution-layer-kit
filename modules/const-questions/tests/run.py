@@ -118,7 +118,8 @@ def broken(result: Result, failure: Broken) -> tuple[bool, str]:
 
 def passes(action: Write | Edit, **kwargs: object) -> tuple[bool, str]:
     result, _ = gate_on(action, **kwargs)  # type: ignore[arg-type]
-    return expect(result, 0, shared.g1_green_hook(messages.g1_covered()), "stdout")
+    # typed by hand: what the green line says the document is
+    return expect(result, 0, shared.g1_green_hook("a covered document"), "stdout")
 
 
 def blocked(action: Write | Edit, finding: Finding, **kwargs: object) -> tuple[bool, str]:

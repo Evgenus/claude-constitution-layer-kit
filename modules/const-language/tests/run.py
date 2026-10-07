@@ -159,7 +159,8 @@ def green_scan(
 
 
 def green_hook() -> str:
-    return f"GREEN: {NAMESPACE}: 1 document examined, {messages.g1_covered()}"
+    # typed by hand: the covered line is not built by the message function
+    return f"GREEN: {NAMESPACE}: 1 document examined, covered by {NAMESPACE}.territories"
 
 
 def context(result: Result) -> Result:

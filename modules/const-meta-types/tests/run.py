@@ -215,7 +215,8 @@ CASES = [
         "F11: the root policy with an envelope opened and never closed is a blocked write",
         Write(ROOT_POLICY, "---\nid: root-policy\ntype: current-state\n\n# Root\n"),
         Write(ROOT_POLICY, envelope("root-policy", "current-state")),
-        messages.f11_root_unreadable(ROOT_POLICY, messages.f11_detail_unterminated()),
+        # typed by hand: the detail is not built by the message function
+        messages.f11_root_unreadable(ROOT_POLICY, "opened with '---' but never closed"),
         "governed by root-policy",
     ),
     Case(

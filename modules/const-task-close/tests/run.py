@@ -356,7 +356,8 @@ def spec_tree() -> tuple[bool, str]:
     red = expect(hook(r.root), 2, messages.t1_dirty_tree(RED_LINES).render(), "stderr")
     counted = expect(hook(r.root), 2, messages.f9_count_hook(1), "stderr")
     (r.root / "scratch.txt").unlink()
-    green = expect(hook(r.root), 0, shared.g1_green_event(messages.g1_clean()), "stdout")
+    # typed by hand: the clean line is not built by the message function
+    green = expect(hook(r.root), 0, shared.g1_green_event("the working tree examined, clean"), "stdout")
     # git quotes a path with a line break and doubles its backslash; the line is cut at 80 characters with
     # the cut said, and escaped again: it only points at what `git status` shows
     odd = repo(own())
