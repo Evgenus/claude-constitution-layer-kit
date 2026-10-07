@@ -334,7 +334,7 @@ def self_test() -> int:
             {"modules/.x/MODULE.md": "A module.\n", "modules/_x/MODULE.md": "A module.\n"},
             {"const-sample"},
         ),
-        "a folder named without const- is a name known": (
+        "a folder named without const- is a name known, and its plain mention is not read": (
             {"modules/glossary/MODULE.md": "A module.\n"},
             {"const-sample", "glossary"},
         ),
@@ -346,7 +346,13 @@ def self_test() -> int:
             fresh(root)
             for path, text in files.items():
                 write(root, path, text)
+            # a mention is read for `const-` names alone: each known name without it stands in a
+            # plain mention of a document outside module prose, which is no finding
+            plain_mentions = [f"See module `{n}`.\n" for n in sorted(known) if not n.startswith("const-")]
+            if plain_mentions:
+                write(root, "docs/policies/g.md", "".join(plain_mentions))
             ok = module_names(root) == known and check_kit(root)[2] == len(known)
+            ok = ok and not check_kit(root)[0]
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
     with tempfile.TemporaryDirectory() as tmp:  # no MODULE.md: BROKEN, where the folder was a name before

@@ -1132,6 +1132,16 @@ def self_test_shared() -> tuple[int, int]:
             1,
         ),
         "a handle on the last line, held": (entries(101, 102), gate_text(["S101"], "S102"), 2),
+        "the next anchor indented by spaces, a handle after it not read": (
+            entries(101),
+            gate_text(["S101"], '   <a id="g6"></a>\nS170\n'),
+            1,
+        ),
+        "the next anchor after a tab and before spaces, a handle after it not read": (
+            entries(101),
+            gate_text(["S101"], '\t<a id="g6"></a>  \nS170\n'),
+            1,
+        ),
     }
     for name, (entry_lines, doc, items_read) in green.items():
         with tempfile.TemporaryDirectory() as tmp:
@@ -1268,6 +1278,16 @@ def self_test_shared() -> tuple[int, int]:
         "a handle in the section's last line before the next anchor": (
             n64,
             gate_text(["S101–S164"], "S170\n" + '<a id="g6"></a>\nS101\n'),
+            [("the handle S170 names an item the list of shared items does not hold", "S170")],
+        ),
+        "the anchor g5 indented by spaces and followed by spaces, its handles read": (
+            n64,
+            gate_text(["S101–S164"], "S170\n").replace(SHARED_ANCHOR, f"   {SHARED_ANCHOR}   "),
+            [("the handle S170 names an item the list of shared items does not hold", "S170")],
+        ),
+        "the anchor g5 after a tab, its handles read": (
+            n64,
+            gate_text(["S101–S164"], "S170\n").replace(SHARED_ANCHOR, f"\t{SHARED_ANCHOR}"),
             [("the handle S170 names an item the list of shared items does not hold", "S170")],
         ),
         "a swap and a range naming 104 together": (

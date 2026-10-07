@@ -729,6 +729,7 @@ class Case:
     folders: tuple[str, ...] = ("const-x", "const-quiet")
     listed: tuple[str, ...] | None = None  # the list's MODULES; None: the folders
     document: str = ""  # const-x's module document; empty: the self-test's own
+    documents: dict[str, str] = field(default_factory=dict)  # another folder's module document, by name
     scripts: dict[str, bool] = field(default_factory=dict)  # a file of the tree, a path: git tracks it
     comment: str = ""  # a comment line at the head of the list script
     repo: bool = True  # the tree is a git repository
@@ -1449,7 +1450,8 @@ def self_test() -> int:
     that cannot be run are each a teaching BROKEN line; a scan declared as `<entry>.py --scan` is held
     by its python3 line and taught by it; the files that name a module are held by `registry_cases`
     (a copy changed one at a time), the name over a whole set of names, the reports of `messy_case`
-    written in order and backwards, and `broken_cases` (each file the check cannot read, its literal
+    written in order and backwards, the scans' and the list's findings of three folders in the folders'
+    sorted order, and `broken_cases` (each file the check cannot read, its literal
     BROKEN line with exit 1)."""
     module_text = (
         '<a id="t9"></a>\n## 9\n\n| # | artifact | kind |\n|---|---|---|\n'
@@ -1527,7 +1529,7 @@ def self_test() -> int:
         )
 
     def build(root: Path, case: Case) -> None:
-        documents = {"const-x": case.document or module_text, "const-quiet": quiet_text}
+        documents = {"const-x": case.document or module_text, "const-quiet": quiet_text, **case.documents}
         for path, text in (
             *((f"modules/{m}/MODULE.md", documents.get(m, quiet_text)) for m in case.folders),
             (GATE_LIST, script(case)),
@@ -2044,6 +2046,32 @@ def self_test() -> int:
     if not ok:
         print(printed.getvalue())
 
+    scan_why = (
+        "  why: a scan the kit does not run holds nothing, and the lists are where the kit says what it runs"
+    )
+    missing_why = "  why: a module the list leaves out is never installed, run, linted or typed in CI"
+    ordered_lines = [  # the scans' findings by folder, then the list's, `const-z` being no scan's
+        "RED: const-x: its scan `check-x --scan` is not in the gate list",
+        scan_why,
+        "  fix: add an entry to the gate group of scripts/gate-list.sh that runs"
+        " `sh modules/const-x/scripts/check-x.sh --scan`",
+        "RED: const-y: its scan `check-w --scan` is not in the gate list",
+        scan_why,
+        "  fix: add an entry to the gate group of scripts/gate-list.sh that runs"
+        " `sh modules/const-y/scripts/check-w.sh --scan`",
+        *(
+            line
+            for m in ("x", "y", "z")
+            for line in (
+                f"RED: const-{m}: the list lacks its entries `install-const-{m}`, `fixtures-const-{m}`,"
+                f" `lint-const-{m}`, `types-const-{m}`",
+                missing_why,
+                f"  fix: add `const-{m}` to MODULES in scripts/gate-list.sh, which gives each module its"
+                " install, fixtures, lint and types entries",
+            )
+        ),
+        "RED: 5 finding(s) — 3 module document(s) examined, 2 declared scan(s), 0 kit check(s)",
+    ]
     for name, case, lines in (
         (
             "every kind of finding about the files that name a module, written in order",
@@ -2066,6 +2094,16 @@ def self_test() -> int:
                 ),
             ),
             absent_lines,
+        ),
+        (
+            "findings of three folders written in the opposite order, the scans' and the list's together",
+            Case(
+                {"other": "true"},
+                folders=("const-z", "const-y", "const-x"),
+                listed=(),
+                documents={"const-y": module_text.replace("check-x", "check-w")},
+            ),
+            ordered_lines,
         ),
     ):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2228,7 +2266,7 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] {name} is its literal BROKEN line, exit 1")
         if not ok:
             print(printed.getvalue())
-    total = len(cases) + len(unreadable) + 27 + 5
+    total = len(cases) + len(unreadable) + 27 + 6
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
