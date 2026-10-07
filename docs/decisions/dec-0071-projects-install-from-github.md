@@ -34,7 +34,7 @@ Two questions followed, put to the decider in chat that day, one per message.
 
 Recommendation: A, since only the GitHub form gives a project a frozen copy per version; the session recommended it. The decider chose A in chat on 2026-10-07.
 
-**R1.** A project installs the kit's modules from its GitHub repository: the install guide's bootstrap registers `Evgenus/constitution-kit` as the marketplace, and its prerequisites name read access to the repository beside the local clone, which serves the kernel copy and the scans.
+**R1.** A project installs the kit's modules from its GitHub repository: the install guide's bootstrap registers `Evgenus/constitution-kit` as the marketplace, and its prerequisites name read access to the repository beside the local clone, from which the guide's commands take the module names, the kernel copy, the scans and the fixtures. A draft's live proof still loads the modules from the kit's path, as rule 4 of [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r4) says, and its project switches to the GitHub install when the proof ends.
 
 **R2.** Registering a local clone as the marketplace is live mode: a session runs each module from the clone's working files in place, so every edit and every branch checked out there reaches the project, a hook script at its next run and the rest at the next session or reload. It serves the kit's own development and a module's live proof — a project that is the proof may load the modules so while the proof runs, and switches to the GitHub install when it ends — never a project's working install.
 
@@ -66,7 +66,7 @@ The commits of this branch apply every item: the check and the workflow, the gui
 
 ## Carry list
 
-1. R1 — [the install guide](../../INSTALL.md), its prerequisites and step 2 of [§2](../../INSTALL.md#s2).
+1. R1 — [the install guide](../../INSTALL.md), its opening, its prerequisites and step 2 of [§2](../../INSTALL.md#s2); [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r4), rule 4, for the live proof's load from the kit's path.
 2. R2 — [the install guide](../../INSTALL.md), its opening, step 2 of [§2](../../INSTALL.md#s2) and the live mode of [§3](../../INSTALL.md#s3); [kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3.
 3. R3 — [the install guide's check](../../scripts/check-install-guide.py), its docstring; [the CI workflow](../../.github/workflows/gates.yml), the steps of the `install-guide` job; [the gate list](../../scripts/gate-list.sh), its header. The narrowing of R6 of dec-0062-install-guide-governed-kind is history.
 4. R4 — [the install guide's check](../../scripts/check-install-guide.py), its docstring; [kit-shared-gate-code §4](../../shared/GATE.md#g4), limit 3.

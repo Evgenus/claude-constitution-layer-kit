@@ -77,7 +77,9 @@ Modes:  no arguments   check the kit's guide;
                        that leaves the tree dirty, an update that drops a module, a reinstall whose
                        copy differs from the marketplace, an uninstall that keeps the plugin enabled;
                        a marketplace from another repository, one whose modules differ from the
-                       kit's, a reinstall copy that lacks a file of the marketplace; the source
+                       kit's, its fix the branch brought to the clone, a reinstall copy that lacks a
+                       file of the marketplace, the toy modules' links into a toy shared/ read through
+                       on both sides; the source
                        taken from the environment, from origin at the branch's HEAD, and a kit with no
                        origin on GitHub, a detached HEAD and an origin behind HEAD each a
                        configuration failure; the
@@ -150,6 +152,14 @@ TIMEOUT = 900
 
 class Broken(Exception):
     """The check could not run; the message says why and how to fix it."""
+
+
+class Misfit(Exception):
+    """A claim that failed with a fix of its own, not the one its name teaches."""
+
+    def __init__(self, what: str, fix: str) -> None:
+        super().__init__(what)
+        self.what, self.fix = what, fix
 
 
 @dataclass(frozen=True)
@@ -474,14 +484,24 @@ def claim(state: Run, name: str) -> str:
         if kind != "github":
             return f"the marketplace is registered from a {kind} source, not from GitHub"
         repo = source.get("repo") if isinstance(source, dict) else None
-        if repo != state.source.split("#")[0]:
-            return f"the marketplace is registered from {repo}, not from {state.source.split('#')[0]}"
+        wanted = state.source.split("#")[0]
+        if repo != wanted:
+            raise Misfit(
+                f"the marketplace is registered from {repo}, not from {wanted}",
+                f"make the block register the source it is given, {FROM_ENV} or the clone's origin, "
+                "and nothing after it",
+            )
+        mend = (
+            "bring the source branch to the kit's clone — merge main into it and push — or point "
+            f"{FROM_ENV} at the branch the clone holds"
+        )
         try:
             market = modules_of(state.config / "plugins" / "marketplaces" / MARKETPLACE)
         except Broken as bad:
-            return f"the platform's clone of the marketplace cannot be read ({bad})"
+            said = str(bad).split(" — fix:")[0]
+            raise Misfit(f"the platform's clone of the marketplace cannot be read ({said})", mend) from bad
         if market != state.modules:
-            return f"the marketplace holds {market}, the kit's clone {state.modules}"
+            raise Misfit(f"the marketplace holds {market}, the kit's clone {state.modules}", mend)
         return ""
     if name in ("install", "reinstall", "update"):
         on = enabled(project)
@@ -542,7 +562,7 @@ def fix_for(name: str) -> str:
 
 def source_of(kit: Path, env: dict[str, str]) -> str:
     """Where the marketplace block installs from: the environment's CONSTITUTION_KIT_INSTALL_FROM, else
-    the kit's origin on GitHub at the branch checked out, which must already hold HEAD."""
+    the kit's origin on GitHub at the branch checked out, which must be at HEAD."""
     given = env.get(FROM_ENV, "").strip()
     if given:
         return given
@@ -644,10 +664,13 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
             if code != 0:
                 what = f"the block named check={block.name} exited {code} — {last_line(said)}"
                 return [Finding(block.line, what, fix_for(block.name))], f"{ran} block(s) run"
-            failed = claim(state, block.name)
+            try:
+                failed, fix = claim(state, block.name), fix_for(block.name)
+            except Misfit as misfit:
+                failed, fix = misfit.what, misfit.fix
             if failed:
                 return [
-                    Finding(block.line, f"after check={block.name}: {failed}", fix_for(block.name))
+                    Finding(block.line, f"after check={block.name}: {failed}", fix)
                 ], f"{ran} block(s) run"
         return [], f"{ran} block(s) run, {len(state.modules)} module(s), from {source}"
 
@@ -810,7 +833,11 @@ def toy_kit(root: Path) -> Path:
     (kit / "kernel" / "CONVENTIONS.md").write_text("# Kernel\n", encoding="utf-8")
     for name in LICENSE_FILES:
         (kit / name).write_text(f"toy {name}\n", encoding="utf-8")
+    (kit / "shared" / "gate").mkdir(parents=True)
+    (kit / "shared" / "gate" / "code.py").write_text("x = 1\n", encoding="utf-8")
     for module in ("const-alpha", "const-beta"):
+        (kit / "modules" / module / "scripts").mkdir(parents=True)
+        (kit / "modules" / module / "scripts" / "gate").symlink_to("../../../shared/gate")
         manifest = kit / "modules" / module / ".claude-plugin"
         manifest.mkdir(parents=True)
         (kit / "modules" / module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
@@ -1109,6 +1136,12 @@ def self_test() -> int:
                 len(findings) == 1 and findings[0].what.startswith(expected),
                 f"{whats(findings)} ({examined})",
             )
+        mended, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "marketplace-fewer-modules"})
+        case(
+            "a marketplace whose modules differ teaches to bring the branch to the clone",
+            len(mended) == 1 and mended[0].fix.startswith("bring the source branch to the kit's clone"),
+            " | ".join(f.fix for f in mended),
+        )
         dials = toy_guide().split("Step dials:")
         moved = dials[0].replace(
             "# Toy guide\n", "# Toy guide\n\nStep dials:" + dials[1].split("Step scan:")[0], 1
