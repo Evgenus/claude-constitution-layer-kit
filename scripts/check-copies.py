@@ -769,8 +769,8 @@ def fresh(root: Path, minor: int = BASE, floor: int | None = None) -> None:
         f'[tool.ruff]\ntarget-version = "py3{minor}"\n\n[tool.mypy]\npython_version = "3.{minor}"\n',
     )
     put(root, ".github/workflows/gates.yml", f'steps:\n  - with:\n      python-version: "3.{minor}"\n')
-    put(root, "docs/decisions/dec-0001-old.md", f"The floor was Python 3.{OLD} once.\n")
-    put(root, "docs/research/res-0001-survey.md", f"A survey on Python 3.{OLD}, frozen.\n")
+    put(root, "docs/decisions/adr-0001-old.md", f"The floor was Python 3.{OLD} once.\n")
+    put(root, "docs/research/rfc-0001-survey.md", f"A survey on Python 3.{OLD}, frozen.\n")
     for spec in SPECS:
         put(
             root,
@@ -1042,8 +1042,8 @@ def self_test_guards(cases: Cases) -> None:
 def self_test_not_read(cases: Cases) -> None:
     old = f"Python 3.{OLD} and (3, {OLD})\n"
     for path, name in (
-        ("docs/decisions/dec-0002-old.md", "a record under docs/decisions/"),
-        ("docs/research/res-0002-old.md", "a comparison under docs/research/"),
+        ("docs/decisions/adr-0002-old.md", "a record under docs/decisions/"),
+        ("docs/research/rfc-0002-old.md", "a comparison under docs/research/"),
     ):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1069,7 +1069,7 @@ def self_test_not_read(cases: Cases) -> None:
     with tempfile.TemporaryDirectory() as tmp:  # links: not read, whatever they point at
         root = Path(tmp).resolve()
         fresh(root)
-        link(root, "modules/const-a/linked.md", "../../docs/research/res-0001-survey.md")
+        link(root, "modules/const-a/linked.md", "../../docs/research/rfc-0001-survey.md")
         link(root, "modules/const-a/dangling.md", "nowhere.md")
         link(root, "modules/const-a/INSTALL-copy.md", "INSTALL.md")
         result = check_kit(root)
