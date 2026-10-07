@@ -334,11 +334,13 @@ class Finding:
         manifest = f"modules/{m}/.claude-plugin/plugin.json"
         enable = f"{json.dumps(f'{m}@{tag}')}: true"
         named = m.removesuffix(f"@{tag}")  # a stray's folder name: the entry's name, the key's before `@`
-        # no folder is named "", so for that name the removal is the one fix
+        # modules/<named> could become a module folder only as one path part, neither `.` nor `..`, opening
+        # with neither `.` nor `_`; for any other name, "" included, the removal is the one fix
+        possible = bool(named) and "/" not in named and not named.startswith((".", "_"))
         make = (
             f", or make modules/{named} a module folder (a folder whose name opens with neither `.` nor `_`,"
             " holding its MODULE.md)"
-            if named
+            if possible
             else ""
         )
         if self.where is Where.NAME:
@@ -1343,11 +1345,11 @@ def messy_case(scan: str, reverse: bool) -> Case:
 
 
 def strays_case(scan: str) -> Case:
-    """One tree whose marketplace and settings name five things that are no module folder: a folder that is
-    missing, one opening with `_`, one opening with `.`, a plain file, and the empty name; the folders
-    that exist but are no module's carry a MODULE.md, the file a plain one."""
+    """One tree whose marketplace and settings name six things that are no module folder: a folder that is
+    missing, one opening with `_`, one opening with `.`, a plain file, a name of two path parts and the
+    empty name; the folders that exist but are no module's carry a MODULE.md, the file a plain one."""
     market, settings, tag = MARKETPLACE_FILE, SETTINGS_FILE, REGISTRY_TAG
-    names = ("", ".x", "_x", "gone", "plain")
+    names = ("", ".x", "_x", "a/b", "gone", "plain")
     files = registry_tree(("const-x", "const-quiet"), tag)
     files[market]["plugins"] += [{"name": name, "source": f"./modules/{name}"} for name in names]
     files[settings]["enabledPlugins"].update({f"{name}@{tag}": True for name in names})
@@ -1959,7 +1961,7 @@ def self_test() -> int:
         "  why: the settings enable exactly the module folders, and a key that names no module folder enables"
         " a plugin no module backs"
     )
-    make_fix = (  # the fix of every stray but one whose name is empty, `{}` the folder's name
+    make_fix = (  # the fix of a stray whose name a folder can bear, `{}` the folder's name
         ", or make modules/{} a module folder (a folder whose name opens with neither `.` nor `_`, holding"
         " its MODULE.md)"
     )
@@ -2161,16 +2163,19 @@ def self_test() -> int:
         f" `{run_new}`, with its `--self-test` where it has one",
         "RED: 4 finding(s) — 2 module document(s) examined, 1 declared scan(s), 1 kit check(s)",
     ]
-    strays_lines = [  # typed by hand; the empty name has no folder to make, so its one fix is the removal
+    strays_lines = [  # typed by hand; a name that no folder can bear has the removal for its one fix
         "RED: : the marketplace has an entry for it, but modules/ is no module folder",
         stray_why,
         f'  fix: remove the entry named "" from plugins in {market}',
         "RED: .x: the marketplace has an entry for it, but modules/.x is no module folder",
         stray_why,
-        f'  fix: remove the entry named ".x" from plugins in {market}' + make_fix.format(".x"),
+        f'  fix: remove the entry named ".x" from plugins in {market}',
         "RED: _x: the marketplace has an entry for it, but modules/_x is no module folder",
         stray_why,
-        f'  fix: remove the entry named "_x" from plugins in {market}' + make_fix.format("_x"),
+        f'  fix: remove the entry named "_x" from plugins in {market}',
+        "RED: a/b: the marketplace has an entry for it, but modules/a/b is no module folder",
+        stray_why,
+        f'  fix: remove the entry named "a/b" from plugins in {market}',
         "RED: gone: the marketplace has an entry for it, but modules/gone is no module folder",
         stray_why,
         f'  fix: remove the entry named "gone" from plugins in {market}' + make_fix.format("gone"),
@@ -2179,13 +2184,16 @@ def self_test() -> int:
         f'  fix: remove the entry named "plain" from plugins in {market}' + make_fix.format("plain"),
         "RED: .x@kit-test: the kit's settings enable it, but modules/.x is no module folder",
         key_why,
-        f'  fix: remove the key ".x@kit-test" from enabledPlugins in {settings}' + make_fix.format(".x"),
+        f'  fix: remove the key ".x@kit-test" from enabledPlugins in {settings}',
         "RED: @kit-test: the kit's settings enable it, but modules/ is no module folder",
         key_why,
         f'  fix: remove the key "@kit-test" from enabledPlugins in {settings}',
         "RED: _x@kit-test: the kit's settings enable it, but modules/_x is no module folder",
         key_why,
-        f'  fix: remove the key "_x@kit-test" from enabledPlugins in {settings}' + make_fix.format("_x"),
+        f'  fix: remove the key "_x@kit-test" from enabledPlugins in {settings}',
+        "RED: a/b@kit-test: the kit's settings enable it, but modules/a/b is no module folder",
+        key_why,
+        f'  fix: remove the key "a/b@kit-test" from enabledPlugins in {settings}',
         "RED: gone@kit-test: the kit's settings enable it, but modules/gone is no module folder",
         key_why,
         f'  fix: remove the key "gone@kit-test" from enabledPlugins in {settings}' + make_fix.format("gone"),
@@ -2193,12 +2201,12 @@ def self_test() -> int:
         key_why,
         f'  fix: remove the key "plain@kit-test" from enabledPlugins in {settings}'
         + make_fix.format("plain"),
-        "RED: 10 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+        "RED: 12 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     for name, case, lines in (
         (
-            "a marketplace entry and a settings key naming a folder that is missing, `_x`, `.x`, a plain file"
-            " or nothing, each told by the literal why and fix",
+            "a marketplace entry and a settings key naming a folder that is missing, `_x`, `.x`, `a/b`,"
+            " a plain file or nothing, each told by the literal why and fix",
             strays_case(scan),
             strays_lines,
         ),
