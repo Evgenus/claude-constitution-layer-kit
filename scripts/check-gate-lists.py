@@ -1324,7 +1324,10 @@ def messy_case(scan: str, reverse: bool) -> Case:
         if entry["name"] == "const-s":
             plugins.append(dict(entry))
             break
-    plugins += [{"name": name, "source": f"./modules/{name}"} for name in ("const-gone", "const-away")]
+    # six strays, written in neither their sorted order nor its reverse, nor in the order `backwards` gives
+    # them: no chance order of a set is likelier than 1 in 720 to be the sorted one, so a sort holds it
+    strays = ("const-gone", "const-away", "const-zed", "const-mid", "const-bar", "const-old")
+    plugins += [{"name": name, "source": f"./modules/{name}"} for name in strays]
     enabled: dict[str, Any] = files[settings]["enabledPlugins"]
     enabled.update({f"const-m@{tag}": False, f"const-s@{tag}": "true", "other@elsewhere": True})
     enabled.update({f"const-gone@{tag}": True, f"const-away@{tag}": True})
@@ -1763,10 +1766,15 @@ def self_test() -> int:
         "const-a.b": False,
         "const-ä": False,
         "const-٣": False,  # an Arabic-Indic digit is no digit here
+        "const-a\n": False,  # a newline at the end is no name: `$` lets it stand
     }
     ok = True
     for folder, is_module in folder_names.items():
-        held = [(f.where, f.module) for f in findings_of(Case({"x": scan}, folders=("const-x", folder)))]
+        # the list's names are read split on whitespace, so a name with a newline cannot stand in MODULES:
+        # it is left out of `listed`, and of its findings only the name's own is held
+        newline = "\n" in folder
+        case = Case({"x": scan}, folders=("const-x", folder), listed=("const-x",) if newline else None)
+        held = [(f.where, f.module) for f in findings_of(case) if f.where is Where.NAME or not newline]
         if held != ([] if is_module else [(Where.NAME, folder)]):
             ok = False
             print(f"        folder {folder!r}: got {held}, a module name is {is_module}")
@@ -1929,14 +1937,17 @@ def self_test() -> int:
         " reads",
         f'  fix: remove all but one entry named "const-s" from plugins in {market}, the one whose source is'
         ' "./modules/const-s"',
-        "RED: const-away: the marketplace has an entry for it, but modules/const-away is no module folder",
-        stray_why,
-        f'  fix: remove the entry named "const-away" from plugins in {market}, or restore modules/const-away'
-        " with its MODULE.md",
-        "RED: const-gone: the marketplace has an entry for it, but modules/const-gone is no module folder",
-        stray_why,
-        f'  fix: remove the entry named "const-gone" from plugins in {market}, or restore modules/const-gone'
-        " with its MODULE.md",
+        *(  # the six strays of the marketplace, by name
+            line
+            for stray in ("away", "bar", "gone", "mid", "old", "zed")
+            for line in (
+                f"RED: const-{stray}: the marketplace has an entry for it, but modules/const-{stray} is no"
+                " module folder",
+                stray_why,
+                f'  fix: remove the entry named "const-{stray}" from plugins in {market}, or restore'
+                f" modules/const-{stray} with its MODULE.md",
+            )
+        ),
         'RED: const-m: the kit\'s settings set "const-m@kit-test" to false, not true',
         enabled_why,
         f'  fix: set "const-m@kit-test": true under enabledPlugins in {settings}',
@@ -1960,7 +1971,7 @@ def self_test() -> int:
         " marketplace or none",
         f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {settings} to'
         ' {"source": "directory", "path": "."}',
-        "RED: 15 finding(s) — 6 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+        "RED: 19 finding(s) — 6 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     known_why = (
         "  why: a session finds the kit's plugins only through a marketplace its settings declare, and the"
@@ -2029,7 +2040,10 @@ def self_test() -> int:
             print(printed.getvalue())
     with tempfile.TemporaryDirectory() as tmp:  # the green line, with every kit check run
         root = Path(tmp).resolve()
-        build(root, Case({"x": scan, "new": run_new}, scripts=tracked))
+        green_files = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
+        # a key of another marketplace stands and is no enabled plugin of the kit: the count has two
+        green_files[SETTINGS_FILE]["enabledPlugins"]["other@elsewhere"] = True
+        build(root, Case({"x": scan, "new": run_new}, scripts=tracked, files=green_files))
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
@@ -2072,6 +2086,24 @@ def self_test() -> int:
         ),
         "RED: 5 finding(s) — 3 module document(s) examined, 2 declared scan(s), 0 kit check(s)",
     ]
+    without_quiet = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
+    without_quiet[MARKETPLACE_FILE]["plugins"].pop(1)  # const-quiet: the marketplace leaves it out
+    kinds_lines = [  # the list's modules, then the registry files, then the item filters, then the kit checks
+        "RED: const-quiet: the list lacks its entries `install-const-quiet`, `fixtures-const-quiet`,"
+        " `lint-const-quiet`, `types-const-quiet`",
+        missing_why,
+        "  fix: add `const-quiet` to MODULES in scripts/gate-list.sh, which gives each module its install,"
+        " fixtures, lint and types entries",
+        "RED: const-quiet: the marketplace has no entry for it",
+        "  why: a module the marketplace leaves out cannot be installed, by the kit's CI or by a consumer",
+        f'  fix: add {{"name": "const-quiet", "source": "./modules/const-quiet"}} to plugins in {market}',
+        *filter_lines[:-1],
+        "RED: scripts/check-new.py is run by no entry of the gate group",
+        "  why: a kit check no entry runs is never run in CI, and its green says nothing",
+        "  fix: add an entry to GATES in scripts/gate-list.sh and an arm in commands() that runs"
+        f" `{run_new}`, with its `--self-test` where it has one",
+        "RED: 4 finding(s) — 2 module document(s) examined, 1 declared scan(s), 1 kit check(s)",
+    ]
     for name, case, lines in (
         (
             "every kind of finding about the files that name a module, written in order",
@@ -2104,6 +2136,17 @@ def self_test() -> int:
                 documents={"const-y": module_text.replace("check-x", "check-w")},
             ),
             ordered_lines,
+        ),
+        (
+            "a list's module, a marketplace entry, an item filter and a kit check, in the order of the kinds",
+            Case(
+                {"x": scan},
+                workflow=f"{reads}  filtered:\n    run: python3 modules/const-x/tests/run.py --item 3\n",
+                listed=("const-x",),
+                scripts=tracked,
+                files=without_quiet,
+            ),
+            kinds_lines,
         ),
     ):
         with tempfile.TemporaryDirectory() as tmp:
@@ -2266,7 +2309,7 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] {name} is its literal BROKEN line, exit 1")
         if not ok:
             print(printed.getvalue())
-    total = len(cases) + len(unreadable) + 27 + 6
+    total = len(cases) + len(unreadable) + 27 + 7
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
