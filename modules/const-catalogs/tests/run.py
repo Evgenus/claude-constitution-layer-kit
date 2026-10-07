@@ -26,20 +26,15 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import yaml
-
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from catalogs_gate import messages, start  # noqa: E402
-from catalogs_gate.history import HOOK_SECONDS  # noqa: E402
-from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read  # noqa: E402
-from const_gate import identity  # noqa: E402
-from const_gate import messages as shared  # noqa: E402
-from const_gate.envelope import yaml_error_line  # noqa: E402
-from const_gate.model import Broken, EnvelopeState, Finding  # noqa: E402
-from consumer import ROOT_POLICY, Consumer  # noqa: E402
-from harness import (  # noqa: E402
+from catalogs_gate import messages, start
+from catalogs_gate.history import HOOK_SECONDS
+from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.envelope import yaml_error_line
+from const_gate.model import Broken, EnvelopeState, Finding
+from consumer import ROOT_POLICY, Consumer
+from harness import (
     Assertion,
     Case,
     Edit,
@@ -50,7 +45,10 @@ from harness import (  # noqa: E402
     event_json,
     expect,
 )
-from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions  # noqa: E402
+from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+MODULE_ROOT = SCRIPTS.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 H = Harness(SCRIPTS, "check-catalog-item.sh", "check-catalog-item.py", start.GATE.namespace)

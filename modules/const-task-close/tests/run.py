@@ -26,16 +26,12 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import yaml
-
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-sys.path.insert(0, str(SCRIPTS))  # the runner only: no gate code ever edits the path
-
-from const_gate import identity  # noqa: E402
-from const_gate import messages as shared  # noqa: E402
-from const_gate.errors import ConfigurationFailure  # noqa: E402
-from const_gate.model import Finding  # noqa: E402
-from consumer import Consumer  # noqa: E402
-from harness import (  # noqa: E402
+from const_gate import identity
+from const_gate import messages as shared
+from const_gate.errors import ConfigurationFailure
+from const_gate.model import Finding
+from consumer import Consumer
+from harness import (
     Assertion,
     Edit,
     Harness,
@@ -45,9 +41,11 @@ from harness import (  # noqa: E402
     expect,
     stop_json,
 )
-from shared_items import PatternDial, Subject, shared_assertions  # noqa: E402
-from task_close_gate import dials, messages, start  # noqa: E402
-from task_close_gate.model import BODY, Declaration, Pair  # noqa: E402
+from shared_items import PatternDial, Subject, shared_assertions
+from task_close_gate import dials, messages, start
+from task_close_gate.model import BODY, Declaration, Pair
+
+SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
 identity.declare(start.GATE)  # the messages not typed by hand are built by the functions the gate uses
 H = Harness(SCRIPTS, "check-task-close.sh", "check-task-close.py", start.GATE.namespace)
