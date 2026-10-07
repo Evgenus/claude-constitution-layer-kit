@@ -13,7 +13,6 @@ import json
 import os
 import shlex
 import shutil
-import subprocess
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -281,22 +280,35 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return expect(result, 1, f"BROKEN: {ns} needs python3", "stderr")
 
     def python_below_floor() -> tuple[bool, str]:
-        search = os.pathsep.join([os.environ.get("PATH", ""), os.defpath])
-        for name in ("python3", "python3.11", "python3.10", "python3.9"):
-            for directory in search.split(os.pathsep):
-                found = shutil.which(name, path=directory)
-                if not found:
-                    continue
-                old = subprocess.run(
-                    [found, "-c", "import sys; print(sys.version_info < (3, 12))"],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                ).stdout.strip()
-                if old == "True":
-                    result = h.run_gate("{}", command=[found, str(h.entry)])
-                    return expect(result, 1, f"BROKEN: {ns} needs Python 3.12 or newer", "stderr")
-        return True, "NOT EXERCISED: no interpreter below 3.12 on this machine — 0 interpreters examined"
+        """The entry file run, under the interpreter at hand, as one a minor below the floor would run it:
+        a shim sets `sys.version_info` to that minor, puts the entry's folder first on the path as a real
+        run does, and runs the entry as `__main__`. The line is C14's, up to its clause."""
+        floor, below = preflight.FLOOR, (preflight.FLOOR[0], preflight.FLOOR[1] - 1)
+        line = (
+            f"BROKEN: {ns} needs Python {floor[0]}.{floor[1]} or newer, found {below[0]}.{below[1]}"
+            " — fix: install a current Python 3 (https://www.python.org/downloads/) and put it first on PATH"
+        )
+        shim = (
+            "import os, runpy, sys\n"
+            "entry, below = sys.argv[1], tuple(int(n) for n in sys.argv[2].split('.'))\n"
+            "sys.version_info = (*below, 0, 'final', 0)\n"
+            "sys.argv = [entry]\n"
+            "sys.path.insert(0, os.path.dirname(entry))\n"
+            "runpy.run_path(entry, run_name='__main__')\n"
+        )
+        result = h.run_gate(
+            "{}", command=[sys.executable, "-c", shim, str(h.entry), f"{below[0]}.{below[1]}"]
+        )
+        first = result.stderr.splitlines()[0] if result.stderr else ""
+        ok = result.code == 1 and (first == line or first.startswith(line + " — "))
+        if ok:
+            return True, f"exit 1 under a faked Python {below[0]}.{below[1]}, first stderr line: {first}"
+        return False, (
+            f"wanted exit 1 under a faked Python {below[0]}.{below[1]} with first stderr line {line!r},"
+            f" at its end or followed by ' — ' and a clause; got exit {result.code}, first stderr line"
+            f" {first!r}, stderr ends {result.stderr.strip()[-200:]!r},"
+            f" stdout {result.stdout.strip()[:200]!r}"
+        )
 
     def git_absent() -> tuple[bool, str]:
         result, _ = s.gate_on(s.valid, env={"PATH": bin_with("python3", "dirname")})

@@ -1,7 +1,7 @@
 """The cheap check that runs on every invocation, before anything is imported that could
 fail halfway: every library declared in the plugin's requirements file must import.
-(The interpreter floor is checked earlier still, by the entry file, in syntax any
-Python 3 can parse.)"""
+(The interpreter floor is checked earlier still, by each entry file against its own
+literal, in syntax any Python 3 can parse; `FLOOR` below is the one source of that value.)"""
 
 from __future__ import annotations
 
@@ -10,6 +10,10 @@ from pathlib import Path
 
 from . import identity, messages
 from .errors import ConfigurationFailure
+
+# The floor's one source, read by no gate at run time: each entry file keeps its own literal, since it must
+# parse on any Python 3; shared item 112 and the kit's check-copies hold every copy to it.
+FLOOR = (3, 12)
 
 # distribution name in requirements.txt -> the module it provides; what the shared code itself needs
 SHARED: dict[str, str] = {"PyYAML": "yaml"}
