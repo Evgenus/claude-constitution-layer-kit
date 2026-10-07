@@ -10,8 +10,8 @@ one that always answers the same. An Assertion is an acceptance item with no fai
 are never mistaken for each other.
 
 The runner that imports this file reaches the shared package and the module's own packages
-through links in its own folder, which Python puts first on the import path: no file a module
-ships edits the import path of its own process, the runner included.
+through links in its own folder, which Python puts first on the import path: no Python file a
+module ships edits the import path of its own process, the runner included.
 """
 
 from __future__ import annotations

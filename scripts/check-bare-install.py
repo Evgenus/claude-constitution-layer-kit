@@ -20,8 +20,8 @@ For the module named, in throwaway folders that the check removes:
      install whose record names no commit with the working folder;
   3. what the kit's source of the module declares, held in that copy: no link of the source
      leads inside the module, save the fixture runner's link tests/<package> -> ../scripts/<package>
-     to a package of the module's own (a folder of scripts/ holding an __init__.py, its name
-     starting with neither `.` nor `_`, save const_gate), which arrives as a link leading to that
+     to a package of the module's own (a folder of scripts/, itself no link, holding an __init__.py,
+     its name starting with neither `.` nor `_`, save const_gate), which arrives as a link leading to that
      package in the copy — the platform keeps a link that stays inside the plugin; every
      other link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
@@ -252,8 +252,9 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
                         module,
                         f"the runner's link {where} did not arrive as a link to its package in the installed"
                         " copy",
-                        "the fixtures import the module's own package through it — read limit 3 of"
-                        " shared/GATE.md §4 again against the platform's install",
+                        "keep tests/<package> a relative link to ../scripts/<package>, a real folder; if the"
+                        " install no longer keeps it, record that and fall back to option B of section 2 of"
+                        " dec-0070-runners-import-through-links-in-tests: one sys.path line for scripts/",
                     )
                 )
             continue
@@ -493,7 +494,7 @@ def report(module: str, findings: list[Finding], examined: str) -> int:
 def self_test() -> int:
     """Red→green on throwaway source and copy folders, no install: a green copy is green; each branch
     of the link check — a link inside the module, the runner's link to its own package arrived as a
-    directory, leading elsewhere or missing, a link left a link, missing, with files lost, added or
+    directory, leading elsewhere, dangling or missing, a link left a link, missing, with files lost, added or
     changed, a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
     the hooks-file, hook and scan checks, and a red scan the source declares where the copy lost its
     document, are each a finding; a source document that cannot be read is a teaching BROKEN line, and
@@ -556,7 +557,11 @@ def self_test() -> int:
             shutil.rmtree(copy / "scripts" / "again")
             (copy / "scripts" / "again").symlink_to(copy / "hooks")
         if change.startswith("runner-link"):
-            package = "own_gate" if change != "runner-link-no-package" else "data"
+            package = {
+                "runner-link-no-package": "data",
+                "runner-link-const-gate": "const_gate",
+                "runner-link-underscore": "_own_gate",
+            }.get(change, "own_gate")
             (source / "scripts" / package).mkdir()
             if change != "runner-link-no-package":
                 (source / "scripts" / package / "__init__.py").write_text("", encoding="utf-8")
@@ -658,6 +663,14 @@ def self_test() -> int:
         "a link to a package of the module's own from outside tests/ leads inside the module": (
             "runner-link-outside-tests",
             "the link skills/own_gate is left a link",
+        ),
+        "a link of tests/ to a real folder scripts/const_gate leads inside the module": (
+            "runner-link-const-gate",
+            "the link tests/const_gate is left a link",
+        ),
+        "a link of tests/ to a package named with a leading _ leads inside the module": (
+            "runner-link-underscore",
+            "the link tests/_own_gate is left a link",
         ),
         "a link of tests/ to a folder of scripts/ with no __init__.py leads inside the module": (
             "runner-link-no-package",

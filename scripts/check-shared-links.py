@@ -14,11 +14,11 @@ copy that has drifted from what the gate runs.
 
 The links a module owes are derived from the folders, never typed apart from them: scripts/const_gate
 and tests/const_gate, each `.py` file at the top of shared/tests/ whose name starts with neither `.`
-nor `_`, as tests/<name>, and each folder at the top of the module's scripts/ that holds an
-`__init__.py`, whose name starts with neither `.` nor `_`, save const_gate, as tests/<name>. The check
-is a failure to run (BROKEN) when shared/const_gate/ is no directory or when shared/tests/ lacks one of
-the three files shared/GATE.md names (the FLOOR), so that a list read from the folders cannot shrink in
-silence. The modules are the folders of `kit_module_doc.module_folders`, the
+nor `_`, as tests/<name>, and each folder at the top of the module's scripts/, itself no link, that
+holds an `__init__.py`, whose name starts with neither `.` nor `_`, save const_gate, as tests/<name>.
+The check is a failure to run (BROKEN) when shared/const_gate/ is no directory or when
+shared/tests/ lacks one of the three files shared/GATE.md names (the FLOOR), so that a list read from
+the folders cannot shrink in silence. The modules are the folders of `kit_module_doc.module_folders`, the
 kit's one listing — each folder under modules/ whose name starts with neither `.` nor `_` and holds its
 MODULE.md, a folder without it a BROKEN whether it uses the shared code or not. A module owes the links
 when it has hooks/hooks.json, when a line of a `.py` file under its scripts/, at any depth, begins,
@@ -109,14 +109,15 @@ def links_of(kit: Path) -> dict[str, str]:
 
 def own_links_of(kit: Path, module: Path) -> dict[str, str]:
     """The links the module's fixture runner owes to the module's own packages, link inside the module ->
-    its package in the kit: each folder at the top of scripts/ that holds an __init__.py, whose name starts
-    with neither . nor _, save the shared const_gate, which links_of() covers."""
+    its package in the kit: each folder at the top of scripts/, itself no link, that holds an __init__.py,
+    whose name starts with neither . nor _, save the shared const_gate, which links_of() covers."""
     scripts = module / "scripts"
     base = module.relative_to(kit).as_posix()
     names = sorted(
         path.name
         for path in (scripts.iterdir() if scripts.is_dir() else [])
-        if path.name != GATE_LINK[0].split("/")[1]
+        if not path.is_symlink()
+        and path.name != GATE_LINK[0].split("/")[1]
         and not path.name.startswith((".", "_"))
         and (path / "__init__.py").is_file()
     )
@@ -282,6 +283,11 @@ def self_test() -> int:
         link.unlink()
         link.mkdir()
 
+    def as_package_copy(link: Path) -> None:
+        """scripts/const_gate a real folder holding an __init__.py: a copy, and a package by its look."""
+        as_copy(link)
+        (link / "__init__.py").write_text("", encoding="utf-8")
+
     def as_text_file(link: Path) -> None:
         link.unlink()
         link.write_text("../../../shared/const_gate", encoding="utf-8")
@@ -424,6 +430,12 @@ def self_test() -> int:
         (link.parent.parent / "tests" / "const_gate").unlink(missing_ok=True)
         os.symlink("../scripts/const_gate", link.parent.parent / "tests" / "const_gate")
 
+    def own_package_through_alias(link: Path) -> None:
+        """The module's own package reached from tests/ through a second link in scripts/."""
+        own_package()(link)
+        os.symlink("sample_gate", link.parent / "alias")
+        os.symlink("../scripts/alias", link.parent.parent / "tests" / "sample_gate")
+
     def own_package_copied(link: Path) -> None:
         """The module's own package, copied into tests/ instead of linked."""
         own_package()(link)
@@ -439,9 +451,9 @@ def self_test() -> int:
             (scripts / name).mkdir()
             (scripts / name / "__init__.py").write_text("", encoding="utf-8")
         (scripts / "single.py").write_text("", encoding="utf-8")
-        (root_of(link) / "shared" / "const_gate" / "__init__.py").write_text(
-            "", encoding="utf-8"
-        )  # scripts/const_gate
+        shared_gate = root_of(link) / "shared" / "const_gate"
+        (shared_gate / "__init__.py").write_text("", encoding="utf-8")  # scripts/const_gate, a package
+        (scripts / "linked_gate").symlink_to(shared_gate)  # a link to a package, no package of its own
 
     wrong: dict[str, tuple[Callable[[Path], None], int]] = {  # the damage, and the findings it earns
         "a missing link": (as_missing, 1),
@@ -452,6 +464,7 @@ def self_test() -> int:
         "the module's own package with no link in tests/": (own_package(), 1),
         "the runner's gate package linked through scripts/const_gate": (runner_gate_through_scripts, 1),
         "the module's own package copied into tests/": (own_package_copied, 1),
+        "the module's own package linked through another link": (own_package_through_alias, 1),
         "the module's own package linked to the shared gate package": (
             own_package(linked="../../../shared/const_gate"),
             1,
@@ -513,6 +526,10 @@ def self_test() -> int:
             owed,  # the listing has no name rule: the folder owes the links like any module
         ),
         "a copy": (as_copy, 1),
+        "a copy that is a package, owed once as the gate package and never as one of its own": (
+            as_package_copy,
+            1,
+        ),
         "a text file": (as_text_file, 1),
         "a dangling link": (as_dangling, 1),
         "a link leading elsewhere": (as_elsewhere, 1),
