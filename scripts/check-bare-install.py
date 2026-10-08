@@ -147,6 +147,7 @@ import argparse
 import contextlib
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -186,6 +187,7 @@ LIST_WHERE = (
 # 2026-10-08): 600 seconds, but 30 on UserPromptSubmit, PreModelSwitch and PostModelSwitch, 10 on
 # MessageDisplay, and on SessionEnd the 1.5 seconds its hooks share, which one hook is waited for here.
 HOOK_TIMEOUT = 600.0
+HOOK_TYPES = ("command", "http", "mcp_tool", "prompt", "agent")  # the hooks reference's `type` values
 EVENT_HOOK_TIMEOUT = {
     "UserPromptSubmit": 30.0,
     "PreModelSwitch": 30.0,
@@ -248,30 +250,96 @@ def last_line(out: str, err: str) -> str:
 def hooks_of(plugin: Path) -> list[Hook]:
     """The hooks of a plugin's hooks/hooks.json, each with the seconds it is waited for: its own `timeout`,
     else the platform's default for a `command` hook on its event (`EVENT_HOOK_TIMEOUT`, else
-    `HOOK_TIMEOUT`)."""
+    `HOOK_TIMEOUT`). Every shape of the file the check cannot run is a Broken naming the file, the event and
+    the hook's place (group and hook, counted from 1), never another exception: a file that is no object
+    with a "hooks" object of events, each a list of groups, each an object with a "hooks" list of hook
+    objects and a "matcher", when present, that is a string; a hook with no `type` of the five the hooks
+    reference names; for a `command` hook, a "command" that is no string, "args" that are no list of
+    strings, a "timeout" that is no finite number (a boolean is none); and a valid hook of a type other
+    than `command`, which the check does not run and so cannot prove."""
     path = plugin / "hooks" / "hooks.json"
     if not path.is_file():
         return []
+    fix = (
+        "restore hooks/hooks.json to the shape the hooks reference gives,"
+        " so that the check can read each hook it runs"
+    )
+
+    def unreadable(detail: str) -> Broken:
+        return Broken(f"{path} is not a hooks file ({detail}) — fix: {fix}")
+
     try:
-        table = json.loads(path.read_text(encoding="utf-8"))["hooks"]
-    except (ValueError, KeyError, TypeError) as bad:
-        raise Broken(f"{path} is not a hooks file ({bad}) — fix: restore hooks/hooks.json") from bad
+        data: object = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, RecursionError) as bad:
+        raise unreadable(str(bad)) from bad
+    if not isinstance(data, dict):
+        raise unreadable(f"the top level is {shown(data)}, not a JSON object")
+    if "hooks" not in data:
+        raise unreadable('the top level has no "hooks" key')
+    table = data["hooks"]
+    if not isinstance(table, dict):
+        raise unreadable(f'"hooks" is {shown(table)}, not an object of events')
     found: list[Hook] = []
     for event, groups in table.items():
-        for group in groups:
-            for hook in group["hooks"]:
-                found.append(
-                    Hook(
-                        str(event),
-                        str(group.get("matcher", "")),
-                        str(hook["command"]),
-                        tuple(str(a) for a in hook.get("args", [])),
-                        float(hook["timeout"])
-                        if "timeout" in hook
-                        else EVENT_HOOK_TIMEOUT.get(str(event), HOOK_TIMEOUT),
+        if not isinstance(groups, list):
+            raise unreadable(f"event {shown(event)}: {shown(groups)} is no list of groups")
+        for number, group in enumerate(groups, 1):
+            in_group = f"event {shown(event)}, group {number}"
+            if not isinstance(group, dict):
+                raise unreadable(f"{in_group}: {shown(group)} is no object")
+            if "hooks" not in group:
+                raise unreadable(f'{in_group}: no "hooks" key')
+            if not isinstance(group["hooks"], list):
+                raise unreadable(f'{in_group}: "hooks" is {shown(group["hooks"])}, not a list')
+            matcher = group.get("matcher", "")
+            if not isinstance(matcher, str):
+                raise unreadable(f'{in_group}: "matcher" is {shown(matcher)}, not a string')
+            for place, hook in enumerate(group["hooks"], 1):
+                where = f"{in_group}, hook {place}"
+                if not isinstance(hook, dict):
+                    raise unreadable(f"{where}: {shown(hook)} is no object")
+                kind = hook.get("type")
+                if "type" not in hook:
+                    raise unreadable(f'{where}: "type" is absent')
+                if kind not in HOOK_TYPES:
+                    raise unreadable(f'{where}: "type" is {shown(kind)}, not one of {", ".join(HOOK_TYPES)}')
+                if kind != "command":
+                    raise Broken(
+                        f"{path} holds a hook of type {kind} ({where}) that check-bare-install does not run"
+                        f" — it runs only `command` hooks, and cannot prove a hook it does not run"
+                        f" — fix: make it a `command` hook, or teach `hooks_of` and `check_installed` in"
+                        f" {SCRIPT} to run a {kind} hook"
                     )
-                )
+                if "command" not in hook:
+                    raise unreadable(f'{where}: "command" is absent')
+                if not isinstance(hook["command"], str):
+                    raise unreadable(f'{where}: "command" is {shown(hook["command"])}, not a string')
+                args = hook.get("args", [])
+                if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
+                    raise unreadable(f'{where}: "args" is {shown(args)}, not a list of strings')
+                seconds = EVENT_HOOK_TIMEOUT.get(event, HOOK_TIMEOUT)
+                if "timeout" in hook:
+                    declared = declared_seconds(hook["timeout"])
+                    if declared is None:
+                        raise unreadable(
+                            f'{where}: "timeout" is {shown(hook["timeout"])}, not a finite number of seconds'
+                        )
+                    seconds = declared
+                found.append(Hook(event, matcher, hook["command"], tuple(args), seconds))
     return found
+
+
+def declared_seconds(timeout: object) -> float | None:
+    """A hook's declared `timeout` as seconds: a JSON number, an integer or a float, that is finite; a
+    boolean (an `int` in Python), a string, a list, a null, NaN, an infinity and an integer no float holds
+    are none. Zero and below are numbers, and stay as they are."""
+    if isinstance(timeout, bool) or not isinstance(timeout, int | float):
+        return None
+    try:
+        seconds = float(timeout)
+    except OverflowError:  # an integer of more than 308 digits
+        return None
+    return seconds if math.isfinite(seconds) else None
 
 
 def declared_scans(plugin: Path) -> list[str]:
@@ -1155,7 +1223,8 @@ def self_test() -> int:
 
     def hook_wait_cases() -> None:
         """A hook that declares no timeout is waited for as the platform gives its event; one that declares
-        a timeout, for that: read from the `Hook` that `hooks_of` builds, nothing is waited for."""
+        a timeout, for that: read from the `Hook` that `hooks_of` builds, nothing is waited for. A hooks
+        file `hooks_of` cannot run, in each shape, is one BROKEN line and never another exception."""
         with tempfile.TemporaryDirectory() as tmp:
             hooked = Path(tmp)
             (hooked / "hooks").mkdir()
@@ -1233,6 +1302,270 @@ def self_test() -> int:
                 and found == [],
                 f"{handed} {found}",
             )
+            # The shapes of a hooks file `hooks_of` reads: one table, each case a whole file and either the
+            # hooks it gives or the whole BROKEN line, typed by hand; nothing but `Broken` may be raised.
+            hooks_path = hooked / "hooks" / "hooks.json"
+            shape_fix = (  # typed by hand
+                " — fix: restore hooks/hooks.json to the shape the hooks reference gives, so that the check"
+                " can read each hook it runs"
+            )
+            at = "event 'PreToolUse', group 1, hook 1"
+
+            def single(hook: object, **group: object) -> str:
+                """A hooks file with one event, one group (with the keys of `group`) and one hook."""
+                return json.dumps({"hooks": {"PreToolUse": [{"hooks": [hook]} | group]}})
+
+            def whole(table: object) -> str:
+                """A hooks file of the table, as it stands."""
+                return json.dumps({"hooks": table})
+
+            def not_hooks(detail: str) -> str:
+                return f"BROKEN {hooks_path} is not a hooks file ({detail}){shape_fix}"
+
+            def not_run(kind: str) -> str:
+                return (
+                    f"BROKEN {hooks_path} holds a hook of type {kind} ({at}) that check-bare-install does"
+                    f" not run — it runs only `command` hooks, and cannot prove a hook it does not run —"
+                    f" fix: make it a `command` hook, or teach `hooks_of` and `check_installed` in"
+                    f" scripts/check-bare-install.py to run a {kind} hook"
+                )
+
+            cmd: dict[str, object] = {"type": "command", "command": "true"}
+            one = Hook("PreToolUse", "", "true", (), 600.0)
+            long_int = "1" + "0" * 400  # no float holds it
+            shapes: list[tuple[str, str | bytes, list[Hook] | str]] = [
+                ("a command hook runs", single(cmd), [one]),
+                ("an http hook is BROKEN, not a skip", single({"type": "http", "url": "u"}), not_run("http")),
+                (
+                    "an mcp_tool hook is BROKEN, not a skip",
+                    single({"type": "mcp_tool", "server": "s", "tool": "t"}),
+                    not_run("mcp_tool"),
+                ),
+                (
+                    "a prompt hook is BROKEN, not a skip",
+                    single({"type": "prompt", "prompt": "p"}),
+                    not_run("prompt"),
+                ),
+                (
+                    "an agent hook is BROKEN, not a skip",
+                    single({"type": "agent", "prompt": "p"}),
+                    not_run("agent"),
+                ),
+                (
+                    "a hook with no type",
+                    single({"command": "true"}),
+                    not_hooks(f'{at}: "type" is absent'),
+                ),
+                (
+                    "a hook of type shell",
+                    single({"type": "shell", "command": "true"}),
+                    not_hooks(
+                        f"""{at}: "type" is 'shell', not one of command, http, mcp_tool, prompt, agent"""
+                    ),
+                ),
+                (
+                    "a hook of a type that is no string",
+                    single({"type": ["command"], "command": "true"}),
+                    not_hooks(
+                        f"""{at}: "type" is ['command'], not one of command, http, mcp_tool, prompt, agent"""
+                    ),
+                ),
+                (
+                    "a command hook with no command",
+                    single({"type": "command"}),
+                    not_hooks(f'{at}: "command" is absent'),
+                ),
+                (
+                    "a command that is a number",
+                    single({"type": "command", "command": 7}),
+                    not_hooks(f'{at}: "command" is 7, not a string'),
+                ),
+                (
+                    "a command that is a list",
+                    single({"type": "command", "command": ["sh", "-c"]}),
+                    not_hooks(f"""{at}: "command" is ['sh', '-c'], not a string"""),
+                ),
+                ("args absent", single(cmd), [one]),
+                ("args an empty list", single(cmd | {"args": []}), [one]),
+                (
+                    "args a list of strings",
+                    single(cmd | {"args": ["a", "b"]}),
+                    [Hook("PreToolUse", "", "true", ("a", "b"), 600.0)],
+                ),
+                (
+                    "args a string",
+                    single(cmd | {"args": "x"}),
+                    not_hooks(f"""{at}: "args" is 'x', not a list of strings"""),
+                ),
+                (
+                    "args a list holding a number",
+                    single(cmd | {"args": ["a", 1]}),
+                    not_hooks(f"""{at}: "args" is ['a', 1], not a list of strings"""),
+                ),
+                (
+                    "args null",
+                    single(cmd | {"args": None}),
+                    not_hooks(f"""{at}: "args" is None, not a list of strings"""),
+                ),
+                ("timeout absent, the event's default", single(cmd), [one]),
+                ("timeout 5", single(cmd | {"timeout": 5}), [replace(one, timeout=5.0)]),
+                ("timeout 5.5", single(cmd | {"timeout": 5.5}), [replace(one, timeout=5.5)]),
+                (
+                    "timeout 0 is a number and accepted",
+                    single(cmd | {"timeout": 0}),
+                    [replace(one, timeout=0.0)],
+                ),
+                (
+                    "timeout -1 is a number and accepted",
+                    single(cmd | {"timeout": -1}),
+                    [replace(one, timeout=-1.0)],
+                ),
+                (
+                    "timeout the string 5",
+                    single(cmd | {"timeout": "5"}),
+                    not_hooks(f"""{at}: "timeout" is '5', not a finite number of seconds"""),
+                ),
+                (
+                    "timeout true",
+                    single(cmd | {"timeout": True}),
+                    not_hooks(f'{at}: "timeout" is True, not a finite number of seconds'),
+                ),
+                (
+                    "timeout false",
+                    single(cmd | {"timeout": False}),
+                    not_hooks(f'{at}: "timeout" is False, not a finite number of seconds'),
+                ),
+                (
+                    "timeout null",
+                    single(cmd | {"timeout": None}),
+                    not_hooks(f'{at}: "timeout" is None, not a finite number of seconds'),
+                ),
+                (
+                    "timeout NaN",
+                    single(cmd | {"timeout": float("nan")}),
+                    not_hooks(f'{at}: "timeout" is nan, not a finite number of seconds'),
+                ),
+                (
+                    "timeout Infinity",
+                    single(cmd | {"timeout": float("inf")}),
+                    not_hooks(f'{at}: "timeout" is inf, not a finite number of seconds'),
+                ),
+                (
+                    "timeout -Infinity",
+                    single(cmd | {"timeout": float("-inf")}),
+                    not_hooks(f'{at}: "timeout" is -inf, not a finite number of seconds'),
+                ),
+                (
+                    "timeout an integer no float holds",
+                    '{"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "true", "timeout": '
+                    + long_int
+                    + "}]}]}}",
+                    not_hooks(f'{at}: "timeout" is {long_int[:200]}…, not a finite number of seconds'),
+                ),
+                (
+                    "timeout a list",
+                    single(cmd | {"timeout": [5]}),
+                    not_hooks(f'{at}: "timeout" is [5], not a finite number of seconds'),
+                ),
+                (
+                    "a hooks key that is a list",
+                    '{"hooks": []}',
+                    not_hooks('"hooks" is [], not an object of events'),
+                ),
+                (
+                    "an event whose value is no list",
+                    whole({"PreToolUse": {}}),
+                    not_hooks("event 'PreToolUse': {} is no list of groups"),
+                ),
+                (
+                    "a group that is no object",
+                    whole({"PreToolUse": ["x"]}),
+                    not_hooks("event 'PreToolUse', group 1: 'x' is no object"),
+                ),
+                (
+                    "a group without hooks",
+                    whole({"PreToolUse": [{"matcher": "Write"}]}),
+                    not_hooks("event 'PreToolUse', group 1: no \"hooks\" key"),
+                ),
+                (
+                    "a group whose hooks are no list",
+                    whole({"PreToolUse": [{"hooks": {}}]}),
+                    not_hooks("event 'PreToolUse', group 1: \"hooks\" is {}, not a list"),
+                ),
+                (
+                    "a hook that is a string",
+                    whole({"PreToolUse": [{"hooks": ["true"]}]}),
+                    not_hooks(f"{at}: 'true' is no object"),
+                ),
+                (
+                    "a matcher that is a number",
+                    single(cmd, matcher=7),
+                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is 7, not a string"),
+                ),
+                ("a matcher that is a string", single(cmd, matcher="Write"), [replace(one, matcher="Write")]),
+                (
+                    "the second hook of the second group is named by its place",
+                    whole({"Stop": [{"hooks": [cmd]}, {"hooks": [cmd, {"type": "command"}]}]}),
+                    not_hooks("event 'Stop', group 2, hook 2: \"command\" is absent"),
+                ),
+                (
+                    "hooks come in the order of the file: events, groups, hooks",
+                    whole(
+                        {
+                            "Stop": [
+                                {"matcher": "m", "hooks": [cmd | {"command": "a"}, cmd | {"command": "b"}]},
+                                {"hooks": [cmd | {"command": "c"}]},
+                            ],
+                            "PreToolUse": [{"hooks": [cmd | {"command": "d"}]}],
+                        }
+                    ),
+                    [
+                        Hook("Stop", "m", "a", (), 600.0),
+                        Hook("Stop", "m", "b", (), 600.0),
+                        Hook("Stop", "", "c", (), 600.0),
+                        Hook("PreToolUse", "", "d", (), 600.0),
+                    ],
+                ),
+                (
+                    "a hooks file that is not JSON",
+                    "not json",
+                    not_hooks("Expecting value: line 1 column 1 (char 0)"),
+                ),
+                ("a top level that is a list", "[]", not_hooks("the top level is [], not a JSON object")),
+                ("a top level without hooks", "{}", not_hooks('the top level has no "hooks" key')),
+                (
+                    "a file that is not UTF-8",
+                    b"\xff",
+                    not_hooks("'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"),
+                ),
+                (
+                    "a value with a line break is quoted on one line",
+                    whole({"Pre\nTool": [{"hooks": [cmd | {"command": "a\nb", "timeout": "5\n6"}]}]}),
+                    not_hooks(
+                        "event 'Pre\\nTool', group 1, hook 1:"
+                        """ "timeout" is '5\\n6', not a finite number of seconds"""
+                    ),
+                ),
+                (
+                    "a file nested too deep to be read",
+                    "[" * 100000,
+                    not_hooks(
+                        "maximum recursion depth exceeded while decoding a JSON array from a unicode string"
+                    ),
+                ),
+            ]
+            for name, text, want in shapes:
+                if isinstance(text, bytes):
+                    hooks_path.write_bytes(text)
+                else:
+                    hooks_path.write_text(text, encoding="utf-8")
+                try:
+                    got_shape: list[Hook] | str = hooks_of(hooked)
+                except Broken as broken:
+                    got_shape = f"BROKEN {broken}"
+                except Exception as other:  # any other is the defect this table holds
+                    got_shape = f"raised {type(other).__name__}: {other}"
+                version_case(f"hooks file: {name}", got_shape == want, str(got_shape))
 
     hook_wait_cases()
     with tempfile.TemporaryDirectory() as tmp:  # the version check over every answer of `claude --version`
