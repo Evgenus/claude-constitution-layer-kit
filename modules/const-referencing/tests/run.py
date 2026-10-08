@@ -42,7 +42,15 @@ from harness import (
     red_lines,
 )
 from referencing_gate import lychee, messages, start
-from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions
+from shared_items import (
+    NO_ENVELOPE,
+    PatternDial,
+    Subject,
+    git_patch,
+    git_timeouts,
+    no_clock,
+    shared_assertions,
+)
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
@@ -1189,8 +1197,9 @@ def moving_consumer() -> Consumer:
     return consumer
 
 
-def mover(consumer: Consumer, *arguments: str, cwd: str = "") -> Result:
+def mover(consumer: Consumer, *arguments: str, cwd: str = "", env: dict[str, str] | None = None) -> Result:
     merged = {key: value for key, value in os.environ.items() if key != "CLAUDE_PLUGIN_DATA"}
+    merged.update(env or {})
     done = subprocess.run(
         [H.sh, str(MOVER), *arguments],
         cwd=consumer.root / cwd,
@@ -1220,7 +1229,8 @@ def move_red_green() -> tuple[bool, str]:
     by_git.git("mv", OLD, NEW)
     red = scan(by_git)
     acted = moving_consumer()
-    done = mover(acted, "notes/one.md", "moved/deep/first.md", cwd="docs")
+    patch, log = git_patch(H)  # the mover is an act: none of its git calls carries a clock
+    done = mover(acted, "notes/one.md", "moved/deep/first.md", cwd="docs", env=patch)
     first, two = (acted.root / NEW).read_text(), (acted.root / "docs/notes/two.md").read_text()
     checks = [
         expect(red, 2, messages.r5_no_target("docs/notes/two.md", 11, "one.md#k1").headline, "stdout"),
@@ -1232,9 +1242,12 @@ def move_red_green() -> tuple[bool, str]:
         (ONE_MOVED in first, f"the moved document's own links: {first}"),
         (TWO_REPAIRED in two and "[r]: ../moved/deep/first.md" in two, f"inbound links: {two}"),
         expect(scan(acted), 0, "GREEN: ", "stdout"),
+        no_clock(git_timeouts(log)),
     ]
     return all_of(
-        checks, "git mv alone leaves the scan red; the act leaves it green, fragments and code untouched"
+        checks,
+        "git mv alone leaves the scan red; the act leaves it green, fragments and code untouched, and no"
+        " git call of the mover has a clock",
     )
 
 

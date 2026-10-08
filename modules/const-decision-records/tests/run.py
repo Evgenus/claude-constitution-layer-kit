@@ -41,7 +41,14 @@ from harness import (
     expect,
     red_lines,
 )
-from shared_items import NO_ENVELOPE, Subject, shared_assertions
+from shared_items import (
+    NO_ENVELOPE,
+    Subject,
+    git_patch,
+    git_timeouts,
+    hook_budget,
+    shared_assertions,
+)
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 MODULE_ROOT = SCRIPTS.parent
@@ -712,7 +719,8 @@ ZERO_LINE = (
 def session_start_zero_line() -> tuple[bool, str]:
     """Nothing while a record policy is named; the zero line typed by hand when the dial is an empty
     list and when it is absent, of the size the module document states."""
-    named = SESSION.run_gate(session_json(session_root()))
+    patch, log = git_patch(SESSION)  # the printer is a hook: each of its git calls has the hook's budget
+    named = SESSION.run_gate(session_json(session_root()), env=patch)
     named_ok = named.code == 0 and named.stdout == "" and named.stderr == ""
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     match = re.search(r"one line of ([0-9,]+) characters saying that no document is examined", module_doc)
@@ -724,6 +732,7 @@ def session_start_zero_line() -> tuple[bool, str]:
     return all_of(
         [
             (named_ok, f"a named policy printed: {named.stdout!r} {named.stderr!r}"),
+            hook_budget(git_timeouts(log)),
             (empty_ok, f"an empty list got: {empty.stdout!r} {empty.stderr!r}"),
             (absent_ok, f"an absent dial got: {absent.stdout!r} {absent.stderr!r}"),
             (

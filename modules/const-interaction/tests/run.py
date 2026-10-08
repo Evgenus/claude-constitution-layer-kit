@@ -51,7 +51,14 @@ from interaction_gate.model import (
     Verbosity,
     Wrapper,
 )
-from shared_items import PatternDial, Subject, shared_assertions
+from shared_items import (
+    PatternDial,
+    Subject,
+    git_patch,
+    git_timeouts,
+    hook_budget,
+    shared_assertions,
+)
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 MODULE_ROOT = SCRIPTS.parent
@@ -1713,7 +1720,8 @@ def t30() -> tuple[bool, str]:
     """The rules first, whole; then nothing when the default list gates; the zero line when the
     dial is empty; the project's pairs numbered."""
     root = prepared()
-    plain = SESSION.run_gate(session_json(root))
+    patch, log = git_patch(SESSION)  # the printer is a hook: each of its git calls has the hook's budget
+    plain = SESSION.run_gate(session_json(root), env=patch)
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     verbosity = (
         "const-interaction: verbosity is triggered — the assumption block and the restatement appear only"
@@ -1900,6 +1908,7 @@ def t30() -> tuple[bool, str]:
             if plain_ok
             else f"got: {plain.stdout[-200:]}{plain.stderr}",
         ),
+        hook_budget(git_timeouts(log)),
         (empty_ok, "zero line after the rules" if empty_ok else f"got: {empty.stdout[-300:]}"),
         (pairs_ok, "pairs numbered" if pairs_ok else f"got: {pairs.stdout[-300:]}"),
     )

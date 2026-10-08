@@ -48,8 +48,10 @@ from harness import (
 NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
 
 # Run at the start of a gate's process, through a `sitecustomize` on PYTHONPATH — any module's entry
-# point, whatever its wrapper: it lowers the budget of git calls to the seconds the environment names, and
-# logs the `timeout=` of each git call as one line, the call after it.
+# point, whatever its wrapper. It logs the `timeout=` each git call is given, one line, the call after it;
+# and where the environment names a trigger and a lower budget, it lowers the budget of the one call whose
+# arguments hold the trigger — and only where the gate gave that call a budget at all, so that a gate with
+# none stays without one. Every other call keeps the real budget, so a loaded machine cannot trip it.
 GIT_PATCH = """\
 import os
 import subprocess
@@ -60,8 +62,8 @@ sys.path.insert(0, scripts)
 from const_gate import repository
 
 sys.path.remove(scripts)
-if os.environ.get("GIT_PATCH_SECONDS"):
-    repository.GIT_SECONDS = float(os.environ["GIT_PATCH_SECONDS"])
+lowered = os.environ.get("GIT_PATCH_SECONDS")
+trigger = os.environ.get("GIT_PATCH_TRIGGER")
 log, run = os.environ["GIT_PATCH_LOG"], subprocess.run
 
 
@@ -69,13 +71,52 @@ def spy(command, *args, **kwargs):
     if command[0] == "git":
         with open(log, "a") as out:
             out.write(repr(kwargs.get("timeout")) + " " + repr(command[1:]) + "\\n")
+        if lowered and trigger in command[1:] and kwargs.get("timeout") is not None:
+            repository.GIT_SECONDS = kwargs["timeout"] = float(lowered)
     return run(command, *args, **kwargs)
 
 
 subprocess.run = spy
 """
-HANG_SECONDS = 0.5  # the budget a hang case lowers it to, so that the case waits well under a second
-HANG_BOUND = 5.0  # what a hang case allows the whole run: past it the case reads "no answer", it never waits
+HANG_SECONDS = 0.5  # the budget of the one call a hang case lowers it for: the case waits well under a second
+# What a hang case allows the whole run, the gate's start-up included. It only stops an endless wait, so it is
+# far above anything a loaded machine takes; the assertion that matters is the line from the 0.5 s budget.
+HANG_BOUND = 20.0
+
+
+def git_patch(
+    h: Harness, seconds: float | None = None, trigger: str | None = None
+) -> tuple[dict[str, str], Path]:
+    """The environment that makes a gate's process log the `timeout=` of each git call it makes, and,
+    with `seconds` and a `trigger`, give the call whose arguments hold the trigger that many seconds;
+    with the log it writes."""
+    folder = h.scratch_dir()
+    (folder / "sitecustomize.py").write_text(GIT_PATCH, encoding="utf-8")
+    log = folder / "git-calls"
+    env = {
+        "PYTHONPATH": os.pathsep.join(filter(None, [str(folder), os.environ.get("PYTHONPATH")])),
+        "GIT_PATCH_SCRIPTS": str(h.scripts),
+        "GIT_PATCH_LOG": str(log),
+    }
+    if seconds is not None and trigger is not None:
+        env["GIT_PATCH_SECONDS"] = repr(seconds)
+        env["GIT_PATCH_TRIGGER"] = trigger
+    return env, log
+
+
+def git_timeouts(log: Path) -> list[str]:
+    """The `timeout=` of each git call the log holds, as `repr` wrote it: "None" for no clock."""
+    return [line.split(" ", 1)[0] for line in log.read_text().splitlines()] if log.exists() else []
+
+
+def hook_budget(calls: list[str]) -> tuple[bool, str]:
+    """Every git call of a process declared a hook carried the hook's budget, and there was one."""
+    return bool(calls) and set(calls) == {repr(repository.GIT_SECONDS)}, f"the git calls' timeouts: {calls}"
+
+
+def no_clock(calls: list[str]) -> tuple[bool, str]:
+    """Every git call of a scan or an act carried no timeout, and there was one."""
+    return bool(calls) and set(calls) == {"None"}, f"the git calls' timeouts: {calls}"
 
 
 class GateOn(Protocol):
@@ -839,7 +880,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         fake.chmod(0o755)
         env = {"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
         if hangs:
-            env.update(patched(HANG_SECONDS)[0])
+            env.update(git_patch(h, HANG_SECONDS, trigger)[0])
         with h.bounded(HANG_BOUND) if hangs else nullcontext():
             if through_scan:
                 _, root = s.gate_on(s.valid)
@@ -847,21 +888,6 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             else:
                 result, root = s.gate_on(s.valid, env=env)
         return broken_as_typed(result, line(root))
-
-    def patched(seconds: float | None) -> tuple[dict[str, str], Path]:
-        """The environment that makes a gate's process lower `repository.GIT_SECONDS` to `seconds` — the
-        budget as it is, where None — and log the `timeout=` of each git call it makes, with the log."""
-        folder = h.scratch_dir()
-        (folder / "sitecustomize.py").write_text(GIT_PATCH, encoding="utf-8")
-        log = folder / "git-calls"
-        env = {
-            "PYTHONPATH": os.pathsep.join(filter(None, [str(folder), os.environ.get("PYTHONPATH")])),
-            "GIT_PATCH_SCRIPTS": str(h.scripts),
-            "GIT_PATCH_LOG": str(log),
-        }
-        if seconds is not None:
-            env["GIT_PATCH_SECONDS"] = repr(seconds)
-        return env, log
 
     def ls_files_fails() -> tuple[bool, str]:
         return git_failing_at(
@@ -901,16 +927,32 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     # ---------------------------------------------------------------- the budget of a git call
 
-    def silent_git(subcommand: str, directory: str) -> str:
-        """C12.12 as the hang cases type it, for the budget they lower it to: the directory in the form a
-        person types it into the fix."""
+    def silent_git(subcommand: str, directory: str, call: str) -> str:
+        """C12.12 as the hang cases type it, for the budget they lower it to: a call in the person's
+        repository, the directory and the call as a person types them into the fix."""
         where = shlex.quote(directory)
         return (
             f"BROKEN: git gave no answer in {HANG_SECONDS:g} s to git {subcommand} in {directory}"
-            " — fix: a git that hangs is most often a core.fsmonitor hook, set in the repository's or in"
-            f" your own configuration, or a stalled file system: find the setting with git -C {where} config"
-            f" --show-origin --get core.fsmonitor, repair or unset it, and run git -C {where} {subcommand}"
-            " by hand until it answers; the scan, which gives git as long as it takes, checks the same tree"
+            " — fix: a git that hangs is a stalled file system or, for a call that reads the index, a"
+            " core.fsmonitor hook, set in the repository's or in your own configuration: find the setting"
+            f" with git -C {where} config --show-origin --get core.fsmonitor (no output means none is set),"
+            f" repair or unset it or the file system, and run git -C {where} {call} by hand until it"
+            " answers; the scan, which gives git as long as it takes, checks the same tree"
+        )
+
+    def silent_scratch(subcommand: str) -> str:
+        """C12.13 as the hang cases type it: a call in the scratch repository, which names the system's
+        temporary directory and the configuration outside any repository, and asks for nothing by hand
+        in the scratch repository."""
+        temporary = tempfile.gettempdir()
+        return (
+            f"BROKEN: git gave no answer in {HANG_SECONDS:g} s to git {subcommand} in a scratch folder under"
+            f" {temporary} — fix: the system's temporary directory ({temporary}; TMPDIR names it) may sit"
+            " on a stalled file system, or your git configuration outside any repository may hang git:"
+            " read it with git config --global --list --show-origin and git config --system --list"
+            " --show-origin, repair the setting, or free that file system or set TMPDIR to a folder on a"
+            " working one, then run again; the scan, which gives git as long as it takes, checks the same"
+            " tree"
         )
 
     def nearest_folder(root: Path) -> str:
@@ -923,9 +965,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     def git_calls(run: Callable[[dict[str, str]], object]) -> list[str]:
         """The `timeout=` of each git call `run` made, as logged by the patch in its environment."""
-        env, log = patched(None)
+        env, log = git_patch(h)
         run(env)
-        return [line.split(" ", 1)[0] for line in log.read_text().splitlines()] if log.exists() else []
+        return git_timeouts(log)
 
     def budget_by_mode() -> tuple[bool, str]:
         """The rule at its one decision point, in a process of its own for each mode: a hook gives git
@@ -951,6 +993,56 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             seen[mode] = json.loads(done.stdout) if done.returncode == 0 else done.stderr.strip()
         wanted: dict[str, object] = {"hook": repository.GIT_SECONDS, "scan": None, "act": None, "none": None}
         return seen == wanted, f"the budget by mode: {seen}"
+
+    def git_words() -> tuple[bool, str]:
+        """git's subcommand is the first argument that is no option and no option's value; the call as a
+        person runs it keeps the arguments, quoted, without `-z`, and reads `/dev/null` for a stdin."""
+        subcommands = {
+            ("status", "--porcelain"): "status",
+            ("-C", "/a b", "log", "-1"): "log",
+            ("-c", "core.x=y", "-c", "core.z=w", "diff"): "diff",
+            ("--git-dir=/g", "--work-tree=/w", "check-ignore", "-v"): "check-ignore",
+            ("--git-dir", "/g", "--work-tree", "/w", "ls-files"): "ls-files",
+            ("--namespace", "n", "--config-env", "a=B", "show-ref"): "show-ref",
+            ("--version",): "--version",
+        }
+        got = {args: repository.subcommand(list(args)) for args in subcommands}
+        words = [
+            (repository.by_hand(["ls-files", "-z", "--cached"]), "ls-files --cached"),
+            (repository.by_hand(["log", "--format=%H %s", "a b"]), "log '--format=%H %s' 'a b'"),
+            (repository.by_hand(["check-ignore", "--stdin"], b"x\0"), "check-ignore --stdin < /dev/null"),
+        ]
+        ok = got == subcommands and all(real == typed for real, typed in words)
+        return ok, f"subcommands {got}; the call as typed {[real for real, _ in words]}"
+
+    def declaration_is_one() -> tuple[bool, str]:
+        """A process is one gate in one mode: the same identity twice with different modes is a defect,
+        the same identity and mode twice is not."""
+        program = (
+            "import sys\n"
+            "from pathlib import Path\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from const_gate import identity\n"
+            "from const_gate.model import Mode\n"
+            "who = identity.Identity('x', 'y', Path('.'))\n"
+            "identity.declare(who, Mode.HOOK)\n"
+            "identity.declare(who, Mode.HOOK)\n"
+            "print('same twice: fine')\n"
+            "try:\n"
+            "    identity.declare(who, Mode.SCAN)\n"
+            "except RuntimeError as failure:\n"
+            "    print('other mode: RuntimeError', failure)\n"
+        )
+        done = subprocess.run(
+            [sys.executable, "-c", program, str(h.scripts)], capture_output=True, text=True, check=False
+        )
+        lines = done.stdout.splitlines()
+        ok = (
+            done.returncode == 0
+            and lines[:1] == ["same twice: fine"]
+            and (len(lines) == 2 and lines[1].startswith("other mode: RuntimeError"))
+        )
+        return ok, f"exit {done.returncode}: {lines or done.stderr.strip()[-200:]}"
 
     def handlers_outlive_git(plugin: Path) -> tuple[bool, str]:
         """Every handler of the plugin's hooks file that runs a script of the gate (one that names
@@ -1023,28 +1115,41 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             not at
         ) and above, f"at the budget: {at_said}; above it, and a print handler at 1 s: {above_said}"
 
+    def attempted(check: Callable[[], tuple[bool, str]]) -> tuple[bool, str]:
+        """One check of the item that cannot run is a red check with its error, and hides no other."""
+        try:
+            return check()
+        except Exception as error:  # noqa: BLE001 — any failure of the check is its red
+            return False, f"{check.__name__} raised {type(error).__name__}: {error}"
+
     def git_has_a_budget_in_a_hook() -> tuple[bool, str]:
         """N22: the shared `git` gives a call `GIT_SECONDS` in a hook and no clock in a scan or an act. In a
         hook a git that never answers — at the file list, at the scratch repository, at the repository's
         root — ends in the shared line `C12.12` with the count line after it; a git that answers is
         unchanged; and the plugin's handlers outlive the budget, so the line is the hook's last word."""
-        results: list[tuple[bool, str]] = [budget_by_mode(), the_tie_catches_a_short_handler()]
+        results: list[tuple[bool, str]] = [
+            attempted(check)
+            for check in (budget_by_mode, declaration_is_one, git_words, the_tie_catches_a_short_handler)
+        ]
         if s.event_driven and not s.scan_only:  # a gate with a hook run
-            where: dict[str, Callable[[Path], str]] = {
-                "rev-parse": nearest_folder,
-                "ls-files": lambda root: str(root),
-                "init": lambda _: tempfile.gettempdir(),
+            lines: dict[str, Callable[[Path], str]] = {
+                "rev-parse": lambda root: silent_git(
+                    "rev-parse", nearest_folder(root), "rev-parse --show-toplevel"
+                ),
+                "ls-files": lambda root: silent_git(
+                    "ls-files", str(root), "ls-files --cached --others --exclude-standard"
+                ),
+                "init": lambda _: silent_scratch("init"),
+                "check-ignore": lambda _: silent_scratch("check-ignore"),
             }
             reached = ["rev-parse"]
             if not no_file:
-                reached.append("init")
+                reached += ["init", "check-ignore"]
                 if s.hook_lists_files:  # the hook asks git for the file list
                     reached.append("ls-files")
 
             def hangs_at(trigger: str) -> tuple[bool, str]:
-                return git_failing_at(
-                    trigger, 0, lambda root: silent_git(trigger, where[trigger](root)), hangs=True
-                )
+                return git_failing_at(trigger, 0, lines[trigger], hangs=True)
 
             results += [hangs_at(trigger) for trigger in reached]
             budgeted = git_calls(lambda env: s.gate_on(s.valid, env=env))
@@ -1633,8 +1738,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ),
         (
             165,
-            "C12.12: a git that gives no answer in a hook ends in the shared line within the budget, a scan"
-            " and an act give git no clock, and the hook's handlers outlive the budget",
+            "C12.12, C12.13: a git that gives no answer in a hook ends in a shared line within the budget,"
+            " a scan and an act give git no clock, and the hook's handlers outlive the budget",
             git_has_a_budget_in_a_hook,
         ),
     ]

@@ -31,7 +31,7 @@ class Matcher:
             done = git(
                 ["init", "-q", f"--template={template}", str(self.tmp / "null")],
                 cwd=self.tmp,
-                named=Path(tempfile.gettempdir()),
+                scratch=True,
             )
         except ConfigurationFailure:  # no git, or a silent one: nobody else removes the scratch folder
             self._scratch.cleanup()
@@ -73,7 +73,7 @@ class Matcher:
             ],
             cwd=self.tree,
             stdin=("\0".join(paths) + "\0").encode("utf-8"),
-            named=Path(tempfile.gettempdir()),  # the scratch folder is gone when the line is read
+            scratch=True,
         )
         if result.returncode not in (0, 1):
             raise ConfigurationFailure(messages.c12_check_ignore(first_line(result.stderr)))

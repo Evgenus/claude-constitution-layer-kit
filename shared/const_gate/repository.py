@@ -4,7 +4,9 @@ for the text."""
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
+import tempfile
 from pathlib import Path
 
 from . import identity, messages
@@ -36,12 +38,22 @@ def subcommand(args: list[str]) -> str:
     return " ".join(args)  # no subcommand: say what was asked
 
 
+def by_hand(args: list[str], stdin: bytes | None = None) -> str:
+    """The call as a person can run it to see it hang or answer: the arguments as the gate passed them,
+    each quoted for a shell, the NUL-output flag `-z` dropped (it only changes how paths are written),
+    and `< /dev/null` where the gate fed the call a standard input, so that it never waits on a
+    terminal."""
+    shown = " ".join(shlex.quote(a) for a in args if a != "-z")
+    return shown + (" < /dev/null" if stdin is not None else "")
+
+
 def git(
-    args: list[str], cwd: Path, stdin: bytes | None = None, named: Path | None = None
+    args: list[str], cwd: Path, stdin: bytes | None = None, scratch: bool = False
 ) -> subprocess.CompletedProcess[bytes]:
-    """One git call. In a hook it has `GIT_SECONDS` to answer; past them it is a configuration failure
-    that names `named`, the directory the person can run git in by hand — `cwd` unless that is a scratch
-    folder the caller removes."""
+    """One git call. In a hook it has `GIT_SECONDS` to answer; past them it is a configuration failure.
+    `scratch`: the call runs in a null repository the caller made in the system's temporary directory,
+    which a person cannot run it in by hand; the failure then names that directory and the git
+    configuration outside any repository, not `cwd` and the call."""
     try:
         return subprocess.run(
             ["git", *args],
@@ -55,7 +67,10 @@ def git(
     except FileNotFoundError as exc:
         raise ConfigurationFailure(messages.c3_git_missing()) from exc
     except subprocess.TimeoutExpired as exc:
-        failure = messages.c12_git_silent(GIT_SECONDS, subcommand(args), str(named or cwd))
+        if scratch:
+            failure = messages.c12_git_silent_scratch(GIT_SECONDS, subcommand(args), tempfile.gettempdir())
+        else:
+            failure = messages.c12_git_silent(GIT_SECONDS, subcommand(args), str(cwd), by_hand(args, stdin))
         raise ConfigurationFailure(failure) from exc
 
 
