@@ -816,9 +816,11 @@ def init_paths(event: dict[str, object], note: Note) -> dict[str, str]:
         paths[name] = text_of(plugin, "path", what, INIT_EVENT, note, "session_paths")
     for name in names:
         if names.count(name) > 1:
+            at = [str(n) for n, other in enumerate(names, 1) if other == name]
+            both = "both" if len(at) == 2 else "all"
             raise Broken(
-                f"{INIT_EVENT} lists {names.count(name)} plugins named {name}"
-                + platform_fix(note, SCRIPT, "session_paths", "a reply")
+                f"{INIT_EVENT} gives plugins entries {', '.join(at[:-1])} and {at[-1]} {both} named"
+                f" {shown(name)}" + platform_fix(note, SCRIPT, "session_paths", "a reply")
             )
     return paths
 
@@ -1488,9 +1490,17 @@ elif args[:1] == ["-p"]:
         found.append(dict(found[0]))
     if mutant == "session-dup-diff":
         found.append(dict(found[0]) | {"path": "/elsewhere/" + found[0]["name"]})
+    if mutant == "session-dup-three":
+        found[:] = [found[0], found[1], dict(found[0]), dict(found[0]) | {"path": "/elsewhere"}]
+    if mutant == "session-dup-newline":
+        found[:] = [found[0] | {"name": "a\\nb"}, found[1] | {"name": "a\\nb"}]
     print("a line that is no JSON")  # skipped, as an event of another type is
     print(json.dumps({"type": "system", "subtype": "hook_started", "plugins": None}))
     print(json.dumps(event))
+    if mutant == "session-second-init-malformed":  # a later init event is never read
+        print(json.dumps(event | {"plugins": None}))
+    if mutant == "session-second-init-paths":
+        print(json.dumps(event | {"plugins": [p | {"path": "/elsewhere/" + p["name"]} for p in found]}))
     print(json.dumps({"type": "result", "subtype": "success", "result": "Not logged in"}))
     sys.exit(1)
 else:
@@ -3329,8 +3339,10 @@ def self_test() -> int:
             ("session-path-absent", f"{event} gives no path string for plugins entry 2 (path is absent)"),
             ("session-path-empty", f"{event} gives no path string for plugins entry 2 (path is '')"),
             ("session-path-number", f"{event} gives no path string for plugins entry 2 (path is 7)"),
-            ("session-dup-same", f"{event} lists 2 plugins named const-alpha"),
-            ("session-dup-diff", f"{event} lists 2 plugins named const-alpha"),
+            ("session-dup-same", f"{event} gives plugins entries 1 and 3 both named 'const-alpha'"),
+            ("session-dup-diff", f"{event} gives plugins entries 1 and 3 both named 'const-alpha'"),
+            ("session-dup-three", f"{event} gives plugins entries 1, 3 and 4 all named 'const-alpha'"),
+            ("session-dup-newline", f"{event} gives plugins entries 1 and 2 both named 'a\\nb'"),
         ):
             got = broke(mutant)
             case(
@@ -3344,6 +3356,13 @@ def self_test() -> int:
             not builtin,
             whats(builtin),
         )
+        for mutant in ("session-second-init-malformed", "session-second-init-paths"):
+            # the first init event is the one read: a second after a good first, malformed or with paths that
+            # differ, is never looked at
+            got = broke(mutant)
+            case(
+                f"{mutant}: the first init event is the one read, green", got == "no Broken: no finding", got
+            )
         never, _, _ = run_guide(
             toy_guide(marketplace="true || claude plugin marketplace add toy/kit"), kit, base
         )
