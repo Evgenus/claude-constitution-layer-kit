@@ -276,7 +276,7 @@ def hooks_of(plugin: Path) -> list[Hook]:
         text = path.read_text(encoding="utf-8")
     except OSError as bad:  # the file is there and cannot be read: no shape to restore
         raise Broken(
-            f"{path} cannot be read ({shown(bad.strerror)}) — fix: make it a readable file (its"
+            f"{path} cannot be read ({bad.strerror}) — fix: make it a readable file (its"
             f" permissions), or restore it with git checkout -- {path}, so that the check can read each"
             f" hook it runs"
         ) from bad
@@ -1364,7 +1364,7 @@ def self_test() -> int:
 
             def not_read(why: str) -> str:
                 return (
-                    f"BROKEN {hooks_path} cannot be read ('{why}') — fix: make it a readable file (its"
+                    f"BROKEN {hooks_path} cannot be read ({why}) — fix: make it a readable file (its"
                     f" permissions), or restore it with git checkout -- {hooks_path}, so that the check can"
                     f" read each hook it runs"
                 )
@@ -1640,7 +1640,8 @@ def self_test() -> int:
         """A git command of `bare_repository` that exits other than 0 is one BROKEN line naming it as
         `git <subcommand>` and a fix that can be followed (git ran, so "install git" is none); a missing
         git is `run`'s own line, unchanged. No existing case fits: the hook cases read a hooks file and the
-        version cases a `claude`, so this one table is new. Every line is typed by hand."""
+        version cases a `claude`, so this one table is new. Any exit other than 0 counts (1, 2, 124, 128),
+        and the line quotes the last line of the standard error, else of the standard output."""
         by_hand = "run {0} in a new repository by hand and read why it fails"
         init_line = (
             "BROKEN: git init failed in the bare repository (fatal: simulated) — fix: "
@@ -1656,22 +1657,28 @@ def self_test() -> int:
         )
         ran: list[list[str]] = []
 
-        def failing_at(word: str | None) -> Callable[..., tuple[int, str, str]]:
+        simulated = (1, "", "warning: x\nfatal: simulated")  # the exit, stdout and stderr of a failure
+
+        def failing_at(
+            word: str | None, failure: tuple[int, str, str]
+        ) -> Callable[..., tuple[int, str, str]]:
             def fake_run(
                 argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: float = 300
             ) -> tuple[int, str, str]:
-                """`run`, but nothing is run: every command exits 0, the one holding `word` exits 1."""
+                """`run`, but nothing is run: every command exits 0, the one with `word` gives `failure`."""
                 ran.append(argv)
-                return (1, "", "warning: x\nfatal: simulated") if word in argv else (0, "", "")
+                return failure if word in argv else (0, "", "")
 
             return fake_run
 
-        def line_of(word: str | None, path: str | None = None) -> str:
-            """The BROKEN line `bare_repository` raises with `run` failing at `word`, or `ok`; with `path`,
-            the real `run` and that PATH."""
+        def line_of(
+            word: str | None, path: str | None = None, failure: tuple[int, str, str] = simulated
+        ) -> str:
+            """The BROKEN line `bare_repository` raises with `run` giving `failure` at `word`, or `ok`; with
+            `path`, the real `run` and that PATH."""
             ran.clear()
             with tempfile.TemporaryDirectory() as tmp:
-                with mock.patch.dict(globals(), {"run": failing_at(word)} if path is None else {}):
+                with mock.patch.dict(globals(), {"run": failing_at(word, failure)} if path is None else {}):
                     with mock.patch.dict(os.environ, {} if path is None else {"PATH": path}):
                         try:
                             bare_repository(Path(tmp))
@@ -1688,6 +1695,36 @@ def self_test() -> int:
         ):
             got_line = line_of(word)
             version_case(f"bare repository: {name}", got_line == want, got_line)
+
+        def failed(name: str, said: str) -> str:
+            """The whole line of git command `name` failing with `said` as the last line it printed."""
+            return f"BROKEN: git {name} failed in the bare repository ({said}) — fix: " + by_hand.format(
+                f"git {name}"
+            )
+
+        # Any exit other than 0 is a failure (git's fatal is 128, `run`'s own timeout 124 with a message
+        # of its own), at each of the three commands; and the last line quoted is the standard error's,
+        # the standard output's only when the standard error is empty.
+        for name in ("init", "add", "commit"):
+            for code, said in ((128, "fatal: simulated"), (124, "timed out after 300 s"), (2, "error: x")):
+                got_line = line_of(name, failure=(code, "", said))
+                version_case(
+                    f"bare repository: `git {name}` exiting {code}",
+                    got_line == failed(name, said),
+                    got_line,
+                )
+            got_line = line_of(name, failure=(1, "out one\nout last", "err one\nerr last"))
+            version_case(
+                f"bare repository: `git {name}` printing on both streams quotes the standard error",
+                got_line == failed(name, "err last"),
+                got_line,
+            )
+            got_line = line_of(name, failure=(1, "out one\nout last", ""))
+            version_case(
+                f"bare repository: `git {name}` printing on the standard output alone quotes it",
+                got_line == failed(name, "out last"),
+                got_line,
+            )
         got_line = line_of(None)
         version_case(
             "bare repository: no failure: the three commands, in their order",
