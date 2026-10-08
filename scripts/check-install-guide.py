@@ -12,7 +12,7 @@ Then the run, in throwaway folders the check removes: a home folder of its own, 
 CLAUDE_CONFIG_DIR (<home>/.claude) under it and git's identity in a global configuration of its
 own; the environment's CLAUDE_CODE_PLUGIN_CACHE_DIR, set or empty, removed from the environment of the
 version command and of the whole run (`kit_module_doc.claude_env`), so that no `claude` command the check
-starts holds it unless a block exports it itself, the case the cache's fix names: with it Claude Code would
+starts holds it unless a block sets it itself, the case the cache's fix names on the pinned version: with it Claude Code would
 write the kit's marketplace, its plugin cache and its records under the folder it names, a person's own
 plugins root perhaps, and not into the run's empty configuration, and the plugins root is otherwise
 `plugins` in the run's CLAUDE_CONFIG_DIR; the kit cloned from the working
@@ -613,7 +613,8 @@ class Run:
         plugins on disk" of its loading page documents: `cache/<marketplace>/<plugin>/<version>/` under the
         plugins root, the manifest's version here. The root is `plugins` in the run's configuration folder:
         the run's environment holds no CLAUDE_CODE_PLUGIN_CACHE_DIR (`run_blocks` removes it), so the platform
-        is given no other root unless a block exports the variable itself, the case the cache's fix names."""
+        is given no other root unless a block sets the variable itself, the case the cache's fix names on the
+        pinned version."""
         return self.config / "plugins" / "cache" / self.marketplace / module / self.modules[module]
 
 
