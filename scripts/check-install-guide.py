@@ -54,7 +54,9 @@ Beside every block's exit 0, the check holds at each name:
                project's .claude/settings.json. The copy is `cache/<name>/<module>/<version>/` under
                the plugins root (`Run.cached`): <name> the marketplace's, <version> the manifest's,
                and the root `plugins` in the run's CLAUDE_CONFIG_DIR, the environment the run gives its
-               blocks holding no CLAUDE_CODE_PLUGIN_CACHE_DIR. The `installPath` and that path are compared
+               blocks holding none of the four variables `kit_module_doc.claude_env` removes, the plugins
+               root CLAUDE_CODE_PLUGIN_CACHE_DIR among them, unless a block sets one itself. The `installPath`
+               and that path are compared
                resolved, links and `..` followed: a copy kept in the marketplace's clone, in place, in
                the cache at another version, or in another marketplace's cache is a finding. And a
                headless session in the project, trusted in the configuration, reports each module's
@@ -108,13 +110,22 @@ entries of a module's id for the project, a field a claim reads (`source`, `inst
 `github` entry, `installPath`, `version`, `scope`, and `projectPath` of a project- or local-scope entry)
 that is no string or is empty, an `installLocation` that names no existing folder, a project's
 .claude/settings.json that is unreadable, no JSON object, or whose `enabledPlugins` is no object, and the
-headless session's `system/init` event whose `plugins` is no list of objects each with a `name` and a
-`path` that are strings and not empty, or lists a name twice. The fix of these alone is worded by
+headless session's `system/init` event, the first one of the stream being the one read, as the headless
+page documents it: `plugins`, an array of objects each with a `name` and a `path`, both strings and not
+empty. A `plugins` that is absent or no list, an entry that is no object, a `name` or `path` that is
+absent, no string or empty, and two entries of one name, whatever their paths, are each a failure to run
+(`init_paths`). The fix of these alone is worded by
 `kit_module_doc.platform_fix` from the state of the run, and is never a change to the guide: on the pinned
 version it is to update the kit's reader that the line names (`listed`, `platform_clone`,
 `project_entries`, `session_paths` or `enabled`), to what that version writes; off the pin, to run again
-on the pinned version. Every other configuration failure, such as a module document or
-manifest that cannot be read or a clone that cannot be made, prints a fix of its own. Needs no
+on the pinned version. Of the same event three things stay findings against the guide, red with a fix of
+their own, since the event is read whole: a well-formed `plugins` list that lacks a module of the kit, a
+module whose path is not its copy in the plugin cache, and a session whose stream holds no init event.
+Every other configuration failure prints a fix of its own: a module folder, document or manifest that
+cannot be read (`kit_module_doc.module_folders`; a manifest with no version), a dials example the check
+cannot read or place the first record by ("correct the guide's check=dials block"), a credential setting
+that cannot be carried into the run ("correct that entry in the global git configuration") and a clone
+that cannot be made ("check the clone"). Needs no
 Claude account login: the plugin commands read none, and the session stops before the model. Git needs a
 private repository's credentials.
 
@@ -128,7 +139,9 @@ ends at one of these steps, or at the version check itself, carry no note, since
 known. The version is compared with the one the working folder's scripts/claude-code.version pins, which the
 CI workflow installs from too; the clone carries the same file. It is the first word of the first non-blank
 line of the output of `claude --version`. The pinned version: the run goes on. Another readable version: a
-configuration failure, whose fix puts the pinned Claude Code first on PATH beside the person's own, unless
+configuration failure, whose fix (`kit_module_doc.put_first`) has the check run on the pinned Claude Code
+put first on PATH beside the person's own, which stays as it is: through `sh scripts/setup-claude.sh` and the
+gate list, `sh scripts/gate-list.sh --run guide`, first, an install by hand second, unless
 the environment's CONSTITUTION_KIT_ANY_CLAUDE is exactly `1`: the run then goes on, and each `RED:` finding
 headline, each `BROKEN:` line and the closing `GREEN:` or `RED:` line from then on ends with a note naming
 both versions. No readable version (the command fails, prints nothing, or opens with a word that is no
@@ -139,8 +152,8 @@ What the check reads of Claude Code, all as it writes it at the version scripts/
 From documented `--json` output: `claude plugin marketplace list --json`, per entry `name`, `source`, `repo`
 (of a `github` entry) and `installLocation`; `claude plugin list --json`, per entry `id`, `scope`,
 `version`, `installPath` and `projectPath` (required of a project- or local-scope entry). From documented
-files: the project's .claude/settings.json, its `enabledPlugins`; the `system/init` event of the headless
-session, its `plugins` with their `name` and `path`; and the trust flag
+files: the project's .claude/settings.json, its `enabledPlugins`; the first `system/init` event of the
+headless session's stream, its `plugins` with their `name` and `path`; and the trust flag
 `projects[<project>].hasTrustDialogAccepted` of <config>/.claude.json, which the check writes before the
 session, adding its key to whatever the file holds, documented for ~/.claude.json and put under
 CLAUDE_CONFIG_DIR, the folder that holds the platform's settings. From a documented layout: the plugin
@@ -240,6 +253,18 @@ Modes:  no arguments   check the kit's guide;
                        The lists that fail: a marketplace list and a plugin list that exit 1, 3 or 124 or
                        time out (the process mocked), a BROKEN with the fix `kit_module_doc.command_fix`
                        words, never a reader to update, on the pin and off it.
+                       The session's init event: each fault of `plugins` that the headless page does not
+                       document, a BROKEN that says what was found, the entry's place, the field and its
+                       value where there is one, with the fix naming `session_paths`, never a finding
+                       against the guide: `plugins` absent, null, an object or a string; an entry that is
+                       a string; a `name` or a `path` that is absent, empty or a number; two entries of
+                       one name, with the same path and with different ones, three of one name, and a name
+                       with a line break; one of them in a whole run through `main`, off the pin and on it,
+                       as literal lines; a built-in plugin, whose path is no folder, beside the modules
+                       green; a second init event after a good first, malformed or with other paths, never
+                       read; and the findings that stay: a well-formed list that holds a built-in plugin
+                       alone or loads no module, a session whose path is its module's folder in place, and
+                       a session that reports no start.
                        The BROKEN lines: a `repo` that is absent, empty or no string and an
                        `installLocation` that names no folder each a BROKEN and not a finding, a quotation
                        cut at 200 characters, the literal message of each BROKEN a reply or a settings file
@@ -627,9 +652,10 @@ class Run:
         """Where the platform copies a module of the kit's marketplace at install, in the layout that "Find
         plugins on disk" of its loading page documents: `cache/<marketplace>/<plugin>/<version>/` under the
         plugins root, the manifest's version here. The root is `plugins` in the run's configuration folder:
-        the run's environment holds no CLAUDE_CODE_PLUGIN_CACHE_DIR (`run_blocks` removes it), so the platform
-        is given no other root unless a block sets the variable itself, the case the cache's fix names on the
-        pinned version."""
+        the run's environment holds none of the four variables of `kit_module_doc.claude_env`, the plugins
+        root CLAUDE_CODE_PLUGIN_CACHE_DIR the one that names a root (`run_blocks` removes them), so the
+        platform is given no other root unless a block sets that variable itself, the case the cache's fix
+        names on the pinned version."""
         return self.config / "plugins" / "cache" / self.marketplace / module / self.modules[module]
 
 

@@ -54,19 +54,28 @@ skipped), when the command exits 0:
 check-install-guide proves `pinned_claude` in its `--self-test`, over the whole set; it and
 check-bare-install prove `claude_note` in theirs, over the whole set of answers of `claude --version`.
 `claude_note` returns a `Note`: the note as a string, and with it the pinned version and the one found.
+`put_first` is the kit's one wording of how to run on the pinned version beside the person's own `claude`,
+which stays as it is, that the fix of `claude_note` carries, and off the pin those of `platform_fix`,
+`command_fix` and the guide's `cache_fix`. It names two ways, the kit's own first and a hand install
+second: run `sh scripts/setup-claude.sh` in the kit's clone, which installs the pin into
+`.claude-code-pinned/` beside git's common directory, then the check through
+`sh scripts/gate-list.sh --run install-<module>` (`--run guide` for the guide's check), which puts that
+folder first on PATH for those entries alone; or install the pin beside one's own by hand
+(`npm install --prefix <folder> @anthropic-ai/claude-code@<pin>`) and put `<folder>/node_modules/.bin`
+first on PATH. Both checks prove it in theirs, as literal lines.
 `platform_fix` is the kit's one wording of the fix for a platform reply, record or settings file that the
 kit's reader does not read, which both checks end such a BROKEN line with; it reads the `Note`, so that the
 fix can be followed in either state. On the pinned version (the note empty) it says that version wrote what
 the reader does not read, names the script and its function, and tells to update that reader to what the
 pinned version writes. Off the pin (the opt-out set) it says the run is on the version found, not the
-pinned one, and tells to run it again on the pinned version, put first on PATH as `claude_note`'s own fix
-words it. Both checks prove it in theirs, in each state, as literal lines.
+pinned one, and tells to run it again on the pinned version, put first on PATH as `put_first` words it.
+Both checks prove it in theirs, in each state, as literal lines.
 `command_fix` is the kit's one wording of the fix for a documented `--json` list command that wrote no reply
 to read, which both checks end such a BROKEN line with, from the same `Note`: no reply was written, so it
 names no reader to update. A command that timed out (the run's exit 124): run the check again. A command that
 exited with another code than 0: run the command in the folder the caller names and read why it fails, then
 run the check again. Off the pin, either one has the check run again on the pinned version, put first on PATH
-as `claude_note`'s own fix words it. Both checks prove it in theirs, in each state, as literal lines.
+as `put_first` words it. Both checks prove it in theirs, in each state, as literal lines.
 `claude_env` is the kit's one shaping of the environment a check runs `claude` in: the environment given,
 less four variables, each whether set to a value or to nothing, the ones that steer where Claude Code finds,
 keeps or loads plugins, as its documentation and a probe of 2.1.282 show: CLAUDE_CODE_PLUGIN_CACHE_DIR, the
@@ -80,7 +89,8 @@ plugins root or plugin folders perhaps, so a check passes `claude_env` its envir
 command it runs, the version command included, and the plugins root is `plugins` in the check's own
 CLAUDE_CONFIG_DIR, unless a command the check runs sets one of the four itself, as a block of the install
 guide can. Every other variable reaches `claude` unchanged, save those the checks set themselves,
-CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER, and HOME and GIT_CONFIG_GLOBAL in the guide's run:
+CLAUDE_CONFIG_DIR, DISABLE_AUTOUPDATER (for the version command of both and the whole run of the guide),
+and HOME and GIT_CONFIG_GLOBAL in the guide's run:
 CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the clone of its private repository over
 HTTPS, every other CLAUDE_CODE_* variable, and the kit's own CONSTITUTION_KIT_* ones. The probe covered the
 pinned version only: a variable of this kind that a later version adds reaches `claude` until a bump of the
@@ -279,9 +289,11 @@ def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note
 
 
 def put_first(pinned: str) -> str:
-    """How to run on the pinned version beside one's own `claude`, which stays as it is: the kit's script
-    that installs it into the clone and the gate list that puts it first on PATH for the install entries
-    and the guide, then the same by hand."""
+    """How to run on the pinned version beside one's own `claude`, which stays as it is, in two ways, the
+    kit's own first: `sh scripts/setup-claude.sh`, which installs the pin into the clone's
+    `.claude-code-pinned/`, then the check through the gate list, `--run install-<module>` or `--run guide`,
+    which puts that folder first on PATH for those entries alone; second, an install by hand into a folder of
+    one's own with that folder's `node_modules/.bin` put first on PATH."""
     return (
         f"put Claude Code {pinned} first on PATH for this run: either run sh scripts/setup-claude.sh in the"
         " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"

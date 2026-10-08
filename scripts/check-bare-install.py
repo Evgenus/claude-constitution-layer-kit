@@ -6,7 +6,9 @@ dec-0059-bare-repo-install-in-ci).
 Before any other `claude` command the check asks `claude --version` (`kit_module_doc.claude_note`) and
 compares it with the version the kit pins in scripts/claude-code.version, which the CI workflow
 installs from too. The pinned version: the run goes on. Another readable version: a configuration
-failure, whose fix puts the pinned Claude Code first on PATH beside the person's own, unless the
+failure, whose fix (`kit_module_doc.put_first`) has the check run on the pinned Claude Code put first on
+PATH beside the person's own, which stays as it is: through `sh scripts/setup-claude.sh` and the gate list,
+`sh scripts/gate-list.sh --run install-<module>`, first, an install by hand second, unless the
 environment's CONSTITUTION_KIT_ANY_CLAUDE is exactly `1`: the run then goes on, and each `RED:` finding
 headline, each `BROKEN:` line and the closing `GREEN:` or `RED:` line ends with a note naming both
 versions. No readable version (the command fails, prints nothing, or opens with a word that is no
@@ -71,7 +73,9 @@ For the module named, in throwaway folders that the check removes:
      package in the copy — the platform keeps a link that stays inside the plugin; every
      other link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
-     the source's hooks file; every hook of the source's hooks/hooks.json, run from the copy in
+     the source's hooks file; every hook of the source's hooks/hooks.json, which is a `command` hook
+     (`hooks_of`: a hook of another type, `http`, `mcp_tool`, `prompt` or `agent`, is a failure to run, since
+     the check cannot prove a hook it does not run), run from the copy in
      exec form on a sample event of its kind with CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on
      the bare repository, and its JSON on standard output neither blocks, denies, asks nor stops,
      each waited for its own `timeout`, else the seconds the hooks reference gives a `command` hook
@@ -99,8 +103,20 @@ cannot be read as step 2 says (a record of a remote source that names no commit,
 id, included) is a configuration failure whose fix is worded by `kit_module_doc.platform_fix` from the
 state of the run: on the pinned version, to update the kit's reader that the line names (`install_scope`,
 `listed_install` or `installed_commit`), to what that version writes; off the pin, to run again on the
-pinned version. Every other configuration failure, such as a commit the kit's history lacks or a module
-document that cannot be read, prints a fix of its own. The run holds
+pinned version. A hooks file the check cannot run is a configuration failure that names the file and, for a
+fault inside it, the event and the place of the group and the hook, counted from 1, never another exception
+or a hook left unrun: a file that is no JSON, no object, or without a "hooks" object of events, an event that
+is no list of groups, a group that is no object with a "hooks" list of hook objects and, when it has one,
+a "matcher" string; a hook with no `type`, or one the hooks reference does not name, "restore
+hooks/hooks.json to the shape the hooks reference gives"; a `command` hook with no "command" string, whose
+"args", when it has them, are no list of strings, or whose "timeout", when it has one, is no finite number
+(a boolean is none), the same fix; a valid hook of a type other than `command`, "make it a `command`
+hook, or teach `hooks_of` and `check_installed` to run a hook of that type"; a hooks file that is there
+and cannot be read (its permissions, an I/O error), "make it a readable file, or restore it with git
+checkout". A missing hooks
+file, or a folder in its place, gives no hooks. Every other configuration failure prints a fix of its own:
+a commit the kit's history lacks and cannot fetch, a module document that cannot be read, a module the kit
+lacks, a source that names a branch of no repository, a marketplace file that gives no name. The run holds
 the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
 Needs no Claude account login: plugin install reads none; git needs a private remote's credentials.
 
@@ -110,6 +126,22 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          a source document that cannot be read (none, no `t9`, `t9` on a heading or
                          twice, `t10` twice or gone with `t11` standing) a BROKEN line, the scans
                          read from rows of each form, a last cell with no closing bar included,
+                         the hooks file in each shape `hooks_of` reads or cannot read, one table of
+                         whole files with the hooks they give or the whole BROKEN line, nothing else
+                         raised: a hook of each of the five types, `command` run and `http`, `mcp_tool`,
+                         `prompt` and `agent` each a BROKEN and not a skip; a hook with no `type`, of a
+                         name the reference does not give or of one that is no string; a `command` that
+                         is absent, a number or a list; `args` of each wrong shape; a `timeout` of 0, -1,
+                         5 and 5.5 accepted, and a string, a boolean, null, a list, NaN, an infinity and
+                         an integer no float holds each a BROKEN; a matcher that is no string; a file that
+                         is no JSON, no UTF-8, nested too deep, a list or lacking "hooks"; an event, a
+                         group or a hook of the wrong shape, named by its place; a hooks file that is
+                         there and cannot be read (a denied read, an I/O error, the read mocked), the
+                         line of its own; and a folder in its place, which gives no hooks; the git line
+                         of the bare repository, `git init`, `git add` and `git commit` each failing at
+                         the exits 1, 2, 124 and 128, the BROKEN named by the subcommand with the `-c`
+                         options skipped, the last line quoted from the standard error, else from the
+                         standard output, no failure, and a git missing from PATH, `run`'s own line;
                          and the report of one finding as literal lines with exit 2; and step 2
                          over a toy kit whose marketplace is named `toy-mp` (its name read from its
                          file, a file with no name a BROKEN) and a fake `claude` asked for
