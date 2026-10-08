@@ -11,6 +11,7 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Sequence
 
 from . import identity
@@ -379,6 +380,19 @@ def c12_git_failed(detail: str) -> Broken:
         SharedKey.C12,
         f"git could not answer where the repository is: {escaped(detail)}",
         "repair the git setup named in the message (configuration, ownership, installation)",
+    )
+
+
+def c12_git_silent(seconds: float, subcommand: str, directory: str) -> Broken:
+    where = shlex.quote(directory)
+    return Broken(
+        SharedKey.C12,
+        f"git gave no answer in {seconds:g} s to git {echoed(subcommand)} in {escaped(directory)}",
+        "a git that hangs is most often a core.fsmonitor hook, set in the repository's or in your own"
+        f" configuration, or a stalled file system: find the setting with git -C {escaped(where)} config"
+        " --show-origin --get core.fsmonitor, repair or unset it, and run"
+        f" git -C {escaped(where)} {echoed(subcommand)} by hand until it answers; the scan, which gives git"
+        " as long as it takes, checks the same tree",
     )
 
 

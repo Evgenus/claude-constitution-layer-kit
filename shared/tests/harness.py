@@ -22,10 +22,12 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -52,6 +54,9 @@ class Result:
     code: int
     stdout: str
     stderr: str
+
+
+NO_ANSWER = 124  # the code of a run that did not end within its bound, as timeout(1) gives it
 
 
 @dataclass(frozen=True)
@@ -155,6 +160,7 @@ class Harness:
         self.namespace = namespace
         self.scan_only = scan_only  # the gate has no hook mode: a case writes its document and scans
         self.sh = shutil.which("sh") or "sh"
+        self.bound: float | None = None  # set by `bounded`: the seconds a run may take
         self.scratch = Path(tempfile.mkdtemp(prefix=namespace + "-fixtures-"))
         atexit.register(shutil.rmtree, self.scratch, ignore_errors=True)
 
@@ -171,16 +177,46 @@ class Harness:
         merged = dict(os.environ)
         merged.pop("CLAUDE_PLUGIN_DATA", None)
         merged.update(env or {})
+        argv = [*(command or [self.sh, str(self.wrapper)]), *args]
+        if self.bound is not None:
+            return self.run_bounded(argv, stdin, merged, cwd, self.bound)
         done = subprocess.run(
-            [*(command or [self.sh, str(self.wrapper)]), *args],
-            input=stdin,
-            text=True,
-            capture_output=True,
-            env=merged,
-            check=False,
-            cwd=cwd,
+            argv, input=stdin, text=True, capture_output=True, env=merged, check=False, cwd=cwd
         )
         return Result(done.returncode, done.stdout, done.stderr)
+
+    @contextmanager
+    def bounded(self, seconds: float) -> Iterator[None]:
+        """Every `run_gate` inside the block ends within `seconds`: past them the run and everything it
+        started is killed, and the result is `NO_ANSWER` — a gate that never answers is a red item, not an
+        endless wait."""
+        self.bound = seconds
+        try:
+            yield
+        finally:
+            self.bound = None
+
+    def run_bounded(
+        self, argv: Sequence[str], stdin: str, env: Mapping[str, str], cwd: Path | None, seconds: float
+    ) -> Result:
+        process = subprocess.Popen(
+            argv,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=dict(env),
+            cwd=cwd,
+            start_new_session=True,  # its own process group: the kill reaches what the run started
+        )
+        try:
+            out, err = process.communicate(stdin, timeout=seconds)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            out, err = process.communicate()
+            line = f"NO ANSWER: the run did not end in {seconds:g} s and was killed with what it started\n"
+            return Result(NO_ANSWER, out, err + line)
+        return Result(process.returncode, out, err)
 
     def scratch_dir(self) -> Path:
         """A fresh directory under the runner's scratch root, removed when the runner exits."""

@@ -119,7 +119,7 @@ def guarded(
     mode, with no arguments to parse and a closing line saying the gate's state is not said.
     `could_not_run` is the line that closes a
     failure: a gate's says that nothing was examined, a generator's that nothing was changed."""
-    identity.declare(gate)  # first: every text, and the log's name, ask which gate this is
+    identity.declare(gate, mode)  # first: every text, the log's name and the git budget ask who and how
     output = Output(mode)
     try:
         return body(output)
