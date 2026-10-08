@@ -16,7 +16,7 @@ the variable says.
 For the module named, in throwaway folders that the check removes:
   1. a bare repository — `git init`, the kit's kernel copied to docs/constitution/ and committed,
      no constitution.yaml — and an empty Claude configuration folder (CLAUDE_CONFIG_DIR);
-  2. `claude plugin marketplace add <source>` and `claude plugin install <module>@<marketplace>`,
+  2. `claude plugin marketplace add <source>` and `claude plugin install <module>@<marketplace> --json`,
      the platform's own install, which writes a copy of the plugin into the configuration's cache.
      The marketplace's name is the one the kit's own .claude-plugin/marketplace.json gives, read by
      `kit_module_doc.marketplace_name` and typed nowhere in this check; a file that gives none is a
@@ -26,11 +26,16 @@ For the module named, in throwaway folders that the check removes:
      a push to it — the copy a consumer's install writes; a fork the job's token cannot read fails; git
      clones it with the machine's own credentials, which a private remote needs. The working
      folder, a local-directory marketplace, gives a copy no session runs (shared/GATE.md, limit 3).
-     The copy is compared with the kit's source at the commit the install came from, which Claude
-     Code's install record names (gitCommitSha, on the version scripts/claude-code.version pins),
-     read from the kit's git history and
-     fetched when absent; an install from a local folder is compared with that folder, and a remote
-     install whose record names no commit with the working folder;
+     The install's result is the last non-empty line of its standard output, one JSON object: an
+     `outcome` of "failed" is a refusal, which carries the result's `failureCode` and `message`; "ok" with
+     the exit 0 names the `scope` it wrote. The copy is the one entry of `claude plugin list --json`, run
+     in the bare repository with the same configuration, whose `id` is `<module>@<marketplace>` at that
+     scope, its `installPath` an existing folder. A remote source is compared with the kit's source at
+     the commit the install came from, which Claude Code's install record names (gitCommitSha, on the
+     version scripts/claude-code.version pins) in the entry of its `plugins` for the module whose
+     `installPath` is that copy's: the check's one read of the record, in one function; the source is
+     read from the kit's git history and fetched when absent. An install from a local
+     folder is compared with that folder and reads no record;
   3. what the kit's source of the module declares, held in that copy: no link of the source
      leads inside the module, save the fixture runner's link tests/<package> -> ../scripts/<package>
      to a package of the module's own (as own_packages of kit_module_doc derives them: a folder of
@@ -49,8 +54,10 @@ For the module named, in throwaway folders that the check removes:
      check-gate-lists', reported once and not here; a document without its `t9` anchor, or with it
      twice, or without `t10` while a later anchor stands, is a configuration failure, never a scan
      left unrun.
-A red is a finding against the module, and so is an install Claude Code refuses; a missing
-`claude` or `git`, or a marketplace the CLI cannot add, is a configuration failure. The run holds
+A red is a finding against the module, and so is an install Claude Code refuses (a result that says
+"failed"); a missing `claude` or `git`, a marketplace the CLI cannot add, an install that gives no
+result in its 300 s, and a result, a list or a record that cannot be read as step 2 says (a record of a
+remote source that names no commit included) are configuration failures. The run holds
 the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
 Needs no Claude account login: plugin install reads none; git needs a private remote's credentials.
 
@@ -60,11 +67,18 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          a source document that cannot be read (none, no `t9`, `t9` on a heading or
                          twice, `t10` twice or gone with `t11` standing) a BROKEN line, the scans
                          read from rows of each form, a last cell with no closing bar included,
-                         and the report of one finding as literal lines with exit 2; and step 2's
-                         reading of the install record over a toy kit whose marketplace is named
-                         `toy-mp` (its record found, another name's record no install, a file with no
-                         name a BROKEN, the install asking a fake `claude` for `<module>@toy-mp`), and
-                         of a module's source at a commit from the kit's history (const-meta-types at
+                         and the report of one finding as literal lines with exit 2; and step 2
+                         over a toy kit whose marketplace is named `toy-mp` (its name read from its
+                         file, a file with no name a BROKEN) and a fake `claude` asked for
+                         `<module>@toy-mp --json`: each reply of the install (ok, failed with and
+                         without a failureCode, no output, a human line, the JSON line not last, ok with
+                         exit 1, exit 124 and a timeout, a list, no scope, an outcome of no known
+                         word), of the list (empty, another scope, the id twice, no installPath, no
+                         folder, not a list, no JSON, the right entry among others in either order) and
+                         of the record (a commit, none, empty, no string, missing, no JSON, no entry
+                         of the copy; a local folder reading none), and the reports of a refusal and of
+                         configuration failures as literal lines, with and without the note; and of a
+                         module's source at a commit from the kit's history (const-meta-types at
                          HEAD, its links reaching shared/); and the version check over a fake `claude`
                          that answers `--version` with the pin, another version, a longer or shorter one,
                          no version, a failure, a crash and no answer, the variable unset and at each
@@ -81,12 +95,13 @@ import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from unittest import mock
 
@@ -97,6 +112,11 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 WHY = "a module must install and operate on a bare repository with its defaults alone (requirement A12.1)"
 NOTE = "docs/note.md"
 FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
+INSTALL_TIMEOUT = 300  # seconds the install is given, kit tuning and no platform fact
+REPLY_FIX = (
+    " — fix: check `claude --version` against scripts/claude-code.version: the kit reads Claude Code's"
+    " replies as that version writes them"
+)
 
 
 class Broken(Exception):
@@ -128,7 +148,7 @@ class Hook:
 
 
 def run(
-    argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: int = 300
+    argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: float = 300
 ) -> tuple[int, str, str]:
     """The exit, the standard output and the standard error of one command."""
     try:
@@ -426,16 +446,121 @@ def claude_noted(kit: Path, env: dict[str, str]) -> str:
         raise Broken(str(bad)) from bad
 
 
-def installed_entry(record: Path, module: str, marketplace: str) -> tuple[Path, str]:
-    """The installed copy's folder and the commit it came from ("" when the record names none),
-    from Claude Code's install record, the plugin keyed `<module>@<marketplace>`."""
-    try:
-        entry = json.loads(record.read_text(encoding="utf-8"))["plugins"][f"{module}@{marketplace}"][0]
-        return Path(entry["installPath"]), str(entry.get("gitCommitSha") or "")
-    except (OSError, ValueError, KeyError, IndexError, TypeError) as bad:
+def shown(value: object) -> str:
+    """A reply of Claude Code, or a field of it, as a message quotes it: its repr, at most 200 characters."""
+    text = repr(value)
+    return text if len(text) <= 200 else text[:200] + "…"
+
+
+def install_scope(key: str, code: int, out: str, timeout: float) -> str:
+    """The scope the install of `key` wrote, from the result of `claude plugin install --json`: the
+    last non-empty line of its standard output, one JSON object whose `outcome` is "ok" or "failed". The
+    run's own timeout (exit 124), no such line, an `outcome` of neither value, and "ok" with an exit other
+    than 0 or with no `scope` string are a Broken; "failed" is a Refused, carrying the result's
+    `failureCode` and `message` when present."""
+    command = f"`claude plugin install {key} --json`"
+    if code == 124:
         raise Broken(
-            f"{record} names no install of {module} ({bad}) — fix: check the Claude Code version"
-        ) from bad
+            f"{command} gave no result in {timeout:g} s — fix: run the check again, and check that git can"
+            " reach the source"
+        )
+    lines = [line for line in out.splitlines() if line.strip()]
+    if not lines:
+        raise Broken(f"{command} printed nothing on standard output (exit {code}){REPLY_FIX}")
+    try:
+        result = json.loads(lines[-1])
+    except ValueError:
+        result = None
+    if not isinstance(result, dict):
+        raise Broken(f"{command} ended with {shown(lines[-1])}, not one JSON object (exit {code}){REPLY_FIX}")
+    outcome = result.get("outcome")
+    if outcome == "failed":
+        said = [str(result[k]) for k in ("failureCode", "message") if isinstance(result.get(k), str)]
+        raise Refused(": ".join(s for s in said if s) or f"exit {code}")
+    if outcome != "ok":
+        what = "has no outcome" if "outcome" not in result else f"has the outcome {shown(outcome)}"
+        raise Broken(
+            f'{command} ended with an object that {what}, not "ok" or "failed" (exit {code}){REPLY_FIX}'
+        )
+    if code != 0:
+        raise Broken(f"{command} said ok and exited {code}{REPLY_FIX}")
+    scope = result.get("scope")
+    if not isinstance(scope, str):
+        what = "absent" if "scope" not in result else shown(scope)
+        raise Broken(f"{command} said ok without a scope string (scope is {what}){REPLY_FIX}")
+    return scope
+
+
+def listed_install(key: str, scope: str, repo: Path, env: dict[str, str]) -> Path:
+    """The installed copy's folder, from `claude plugin list --json` run in the bare repository: a JSON
+    list with exactly one entry whose `id` is `key` and whose `scope` is the one the install wrote, its
+    `installPath` a string naming an existing folder; anything else is a Broken saying what was found."""
+    command = "`claude plugin list --json`"
+    code, out, err = run(["claude", "plugin", "list", "--json"], repo, env)
+    if code != 0:
+        raise Broken(f"{command} exited {code} ({last_line(out, err)}){REPLY_FIX}")
+    try:
+        entries = json.loads(out)
+    except ValueError as bad:
+        raise Broken(f"{command} printed no JSON ({shown(out)}: {bad}){REPLY_FIX}") from bad
+    if not isinstance(entries, list):
+        raise Broken(f"{command} printed a JSON {type(entries).__name__}, not a list{REPLY_FIX}")
+    own = [e for e in entries if isinstance(e, dict) and e.get("id") == key and e.get("scope") == scope]
+    if len(own) != 1:
+        found = ", ".join(
+            f"{e.get('id')!r} at {e.get('scope')!r}" if isinstance(e, dict) else shown(e) for e in entries[:5]
+        )
+        listed = f"entries: {found}{', …' if len(entries) > 5 else ''}" if entries else "no entries"
+        what = f"lists {len(own)} entries" if own else "lists no entry"
+        raise Broken(
+            f"{command} {what} whose id is {key} at the scope {scope} the install wrote ({listed}){REPLY_FIX}"
+        )
+    path = own[0].get("installPath")
+    if not isinstance(path, str):
+        raise Broken(
+            f"{command} gives no installPath string for {key} at scope {scope} (installPath is"
+            f" {shown(path) if 'installPath' in own[0] else 'absent'}){REPLY_FIX}"
+        )
+    if not Path(path).is_dir():
+        raise Broken(f"{command} names an installPath that is no folder ({path}){REPLY_FIX}")
+    return Path(path)
+
+
+def installed_commit(config: Path, key: str, plugin: Path) -> str:
+    """The commit the install of `key` came from: the `gitCommitSha` of the entry of Claude Code's install
+    record, `<config>/plugins/installed_plugins.json`, under `plugins[key]` whose `installPath` is the
+    copy's folder that `claude plugin list --json` gave — the check's one read of a field the platform
+    does not document, and the one place that reads the record. A record that is missing, no JSON, without
+    that entry, or whose commit is absent, empty or no string is a Broken."""
+    record = config / "plugins" / "installed_plugins.json"
+
+    def unnamed(why: str) -> Broken:
+        return Broken(
+            f"the install record names no commit for {key} ({record}: {why}) — fix: check `claude --version`"
+            " against scripts/claude-code.version: the kit reads the record as that version writes it"
+        )
+
+    try:
+        data = json.loads(record.read_text(encoding="utf-8"))
+    except OSError as bad:
+        raise unnamed(f"cannot be read, {bad.strerror}") from bad
+    except ValueError as bad:
+        raise unnamed(f"is no JSON, {bad}") from bad
+    plugins = data.get("plugins") if isinstance(data, dict) else None
+    entries = plugins.get(key) if isinstance(plugins, dict) else None
+    if not isinstance(entries, list):
+        raise unnamed(f"holds no list under plugins[{key!r}]")
+    own = [e for e in entries if isinstance(e, dict) and isinstance(e.get("installPath"), str)]
+    entry = next((e for e in own if Path(e["installPath"]) == plugin), None)
+    if entry is None:
+        raise unnamed(f"holds no entry for {key} whose installPath is {plugin}")
+    sha = entry.get("gitCommitSha")
+    if not isinstance(sha, str) or not sha:
+        what = (
+            "absent" if "gitCommitSha" not in entry else "empty" if sha == "" else f"no string, {shown(sha)}"
+        )
+        raise unnamed(f"gitCommitSha is {what}")
+    return sha
 
 
 def source_at(commit: str, module: str, root: Path) -> Path:
@@ -467,7 +592,11 @@ def source_at(commit: str, module: str, root: Path) -> Path:
     return target / "modules" / module
 
 
-def install(module: str, root: Path, repo: Path, source: str, marketplace: str) -> tuple[Path, str]:
+def install(
+    module: str, root: Path, repo: Path, source: str, marketplace: str, timeout: float = INSTALL_TIMEOUT
+) -> Path:
+    """Add the marketplace and install the module at the default scope, in the bare repository and an
+    empty configuration folder `root/config`; the installed copy's folder, as `listed_install` finds it."""
     if source.startswith("#"):
         raise Broken(
             f"the source {source} names a branch of no repository — the pull request's head repository is"
@@ -483,10 +612,9 @@ def install(module: str, root: Path, repo: Path, source: str, marketplace: str) 
             f"`claude plugin marketplace add {source}` exited {code} ({last}) — fix: check the kit's"
             " marketplace.json, and that git can reach the source"
         )
-    code, out, err = run(["claude", "plugin", "install", f"{module}@{marketplace}"], repo, env)
-    if code != 0:
-        raise Refused(last_line(out, err) if out or err else f"exit {code}")
-    return installed_entry(config / "plugins" / "installed_plugins.json", module, marketplace)
+    key = f"{module}@{marketplace}"
+    code, out, _ = run(["claude", "plugin", "install", key, "--json"], repo, env, timeout=timeout)
+    return listed_install(key, install_scope(key, code, out, timeout), repo, env)
 
 
 def counted(source: Path) -> str:
@@ -503,7 +631,7 @@ def check_module(module: str, source: str) -> tuple[list[Finding], str]:
         root = Path(tmp).resolve()
         repo = bare_repository(root)
         try:
-            plugin, commit = install(module, root, repo, source, marketplace)
+            plugin = install(module, root, repo, source, marketplace)
         except Refused as refused:
             refusal_finding = Finding(
                 module,
@@ -515,7 +643,8 @@ def check_module(module: str, source: str) -> tuple[list[Finding], str]:
         if Path(source).exists():  # a local folder is copied as it stands, uncommitted edits included
             kit_source = Path(source).resolve() / "modules" / module
         else:
-            kit_source = source_at(commit, module, root) if commit else KIT / "modules" / module
+            commit = installed_commit(root / "config", f"{module}@{marketplace}", plugin)
+            kit_source = source_at(commit, module, root)
         return check_installed(module, kit_source, plugin, repo, root / "data"), counted(kit_source)
 
 
@@ -867,40 +996,12 @@ def self_test() -> int:
     print(f"[{'ok' if ok else 'FAIL'}] the green report ends with the note off the pin, and with none on it")
     if not ok:
         print(printed.getvalue())
-    with tempfile.TemporaryDirectory() as tmp:
-        # a toy kit whose marketplace is named toy-mp: the record's key is `<module>@toy-mp`, the name read
-        # from the kit's marketplace.json, never the real kit's
-        (Path(tmp) / "kit" / ".claude-plugin").mkdir(parents=True)
-        (Path(tmp) / "kit" / ".claude-plugin" / "marketplace.json").write_text(
-            '{"name": "toy-mp", "plugins": []}', encoding="utf-8"
-        )
-        name = kit_marketplace(Path(tmp) / "kit")
-        ok = name == "toy-mp"
-        record = Path(tmp) / "installed_plugins.json"
-        entry = {"installPath": "/cache/const-x/0.0.1", "gitCommitSha": "abc"}
-        record.write_text(json.dumps({"plugins": {"const-x@toy-mp": [entry]}}), encoding="utf-8")
-        ok = ok and installed_entry(record, "const-x", name) == (Path("/cache/const-x/0.0.1"), "abc")
-        del entry["gitCommitSha"]
-        record.write_text(json.dumps({"plugins": {"const-x@toy-mp": [entry]}}), encoding="utf-8")
-        ok = ok and installed_entry(record, "const-x", name) == (Path("/cache/const-x/0.0.1"), "")
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] the install record gives the copy's folder and its commit, or none")
-    with tempfile.TemporaryDirectory() as tmp:  # the record of another marketplace's name is no install here
+    with tempfile.TemporaryDirectory() as tmp:  # the marketplace's name is read from the kit's own file
         kit = Path(tmp) / "kit"
         (kit / ".claude-plugin").mkdir(parents=True)
         market = kit / ".claude-plugin" / "marketplace.json"
         market.write_text('{"name": "toy-mp", "plugins": []}', encoding="utf-8")
-        record = Path(tmp) / "installed_plugins.json"
-        entry = {"installPath": "/cache/const-x/0.0.1", "gitCommitSha": "abc"}
-        record.write_text(json.dumps({"plugins": {"const-x@constitution-kit": [entry]}}), encoding="utf-8")
-        try:
-            installed_entry(record, "const-x", kit_marketplace(kit))
-            said = "no Broken"
-        except Broken as broken:
-            said = str(broken)
-        ok = said == (
-            f"{record} names no install of const-x ('const-x@toy-mp') — fix: check the Claude Code version"
-        )
+        ok = kit_marketplace(kit) == "toy-mp"
         market.write_text(
             '{"plugins": []}', encoding="utf-8"
         )  # no name: a BROKEN of the shared reader's line
@@ -913,66 +1014,26 @@ def self_test() -> int:
             f'{market} has no "name" — fix: give the marketplace its name, at the top of the object'
         )
     failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] the marketplace is read from the kit's file, no other name is an install"
-    )
-    # a fake claude that logs its arguments (to FAKE_LOG, else to the configuration folder), answers
-    # `--version` with FAKE_SAYS (printf's escapes read) and the exit FAKE_EXIT, hangs on FAKE_HANG, and
-    # records an install
+    print(f"[{'ok' if ok else 'FAIL'}] the marketplace's name is read from the kit's file, none is BROKEN")
+    # a fake claude that logs its arguments (to FAKE_LOG, else to the configuration folder; to FAKE_CALLS
+    # too, with its folder and configuration, when set), answers `--version` with FAKE_SAYS (printf's escapes
+    # read) and the exit FAKE_EXIT, hangs on FAKE_HANG, or on an install on FAKE_HANG_INSTALL, and answers
+    # an install with the text FAKE_INSTALL_OUT and the exit FAKE_INSTALL_EXIT after writing the record
+    # FAKE_RECORD, a plugin list with FAKE_LIST_OUT and FAKE_LIST_EXIT, each text as it stands
     fake_claude = (
         '#!/bin/sh\necho "$*" >> "${FAKE_LOG:-$CLAUDE_CONFIG_DIR/fake.log}"\n'
+        '[ -n "$FAKE_CALLS" ] && echo "$* | $PWD | $CLAUDE_CONFIG_DIR" >> "$FAKE_CALLS"\n'
         '[ -n "$FAKE_HANG" ] && exec tail -f /dev/null\n'
         '[ "$1" = --version ] && { printf \'%b\' "$FAKE_SAYS"; exit "${FAKE_EXIT:-0}"; }\n'
-        '[ "$2" = install ] && [ -n "$FAKE_FAIL" ] && { echo "$FAKE_FAIL" >&2; exit 1; }\n'
-        '[ "$2" = install ] && mkdir -p "$CLAUDE_CONFIG_DIR/plugins" && printf \'{"plugins": {"%s": '
-        '[{"installPath": "/cache/x", "gitCommitSha": "abc"}]}}\' "$3" '
-        '> "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"\nexit 0\n'
+        '[ "$2" = install ] && [ -n "$FAKE_HANG_INSTALL" ] && exec tail -f /dev/null\n'
+        '[ "$2" = install ] && {\n'
+        '  [ -n "$FAKE_RECORD" ] && mkdir -p "$CLAUDE_CONFIG_DIR/plugins" &&\n'
+        '    printf \'%s\' "$FAKE_RECORD" > "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"\n'
+        '  printf \'%s\' "$FAKE_INSTALL_OUT"; exit "${FAKE_INSTALL_EXIT:-0}"; }\n'
+        '[ "$2" = list ] && { printf \'%s\' "$FAKE_LIST_OUT"; exit "${FAKE_LIST_EXIT:-0}"; }\n'
+        "exit 0\n"
     )
-    with tempfile.TemporaryDirectory() as tmp:  # the fake claude records the install it is asked for
-        bin_dir, repo = Path(tmp) / "bin", Path(tmp) / "repo"
-        bin_dir.mkdir()
-        repo.mkdir()
-        (bin_dir / "claude").write_text(fake_claude, encoding="utf-8")
-        (bin_dir / "claude").chmod(0o755)
-        (Path(tmp) / "work").mkdir()
-        with mock.patch.dict(os.environ, {"PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"}):
-            installed = install("const-x", Path(tmp) / "work", repo, "owner/repo", "toy-mp")
-        log = (Path(tmp) / "work" / "config" / "fake.log").read_text(encoding="utf-8").splitlines()
-        ok = installed == (Path("/cache/x"), "abc") and log == [
-            "plugin marketplace add owner/repo",
-            "plugin install const-x@toy-mp",
-        ]
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] the install asks Claude Code for the module at the marketplace's name")
-    with tempfile.TemporaryDirectory() as tmp:  # the check of a module reads the name from the kit it runs in
-        toy, bin_dir, fake_log = Path(tmp) / "kit", Path(tmp) / "bin", Path(tmp) / "claude.log"
-        (toy / ".claude-plugin").mkdir(parents=True)
-        (toy / ".claude-plugin" / "marketplace.json").write_text('{"name": "toy-mp"}', encoding="utf-8")
-        (toy / "modules" / "const-x" / ".claude-plugin").mkdir(parents=True)
-        (toy / "modules" / "const-x" / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
-        (toy / "kernel").mkdir()
-        (toy / "kernel" / "CONVENTIONS.md").write_text("A kernel.\n", encoding="utf-8")
-        bin_dir.mkdir()
-        (bin_dir / "claude").write_text(fake_claude, encoding="utf-8")
-        (bin_dir / "claude").chmod(0o755)
-        environ = {  # the install fails, so the run stops there with the name it asked for in the log
-            "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
-            "FAKE_LOG": str(fake_log),
-            "FAKE_FAIL": "no such plugin",
-        }
-        with mock.patch.dict(os.environ, environ), mock.patch.dict(globals(), {"KIT": toy}):
-            found, examined = check_module("const-x", "owner/repo")
-        log = fake_log.read_text(encoding="utf-8").splitlines()
-        ok = (
-            [f.what for f in found] == ["Claude Code refuses to install it (no such plugin)"]
-            and examined == "no install"
-            and log == ["plugin marketplace add owner/repo", "plugin install const-x@toy-mp"]
-        )
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] the check of a module installs it at the name its kit's file gives")
-    if not ok:
-        print(f"        got: {[f.what for f in found]} {examined} {log}")
-    extra = 0  # the cases of the version check, printed one by one
+    extra = 0  # the cases of the version check and of step 2, printed one by one
 
     def version_case(name: str, ok: bool, got: str) -> None:
         nonlocal failed, extra
@@ -1169,6 +1230,518 @@ def self_test() -> int:
             and ran == ["--version"],
             f"{status} {lines} {ran}",
         )
+    with (
+        tempfile.TemporaryDirectory() as tmp
+    ):  # step 2 over a toy kit, its marketplace named toy-mp, and a fake claude
+        base = Path(tmp).resolve()
+        toy, bin_dir, cache = base / "kit", base / "bin", base / "cache"
+        (toy / ".claude-plugin").mkdir(parents=True)
+        (toy / ".claude-plugin" / "marketplace.json").write_text('{"name": "toy-mp"}', encoding="utf-8")
+        (toy / "scripts").mkdir()
+        (toy / "scripts" / "claude-code.version").write_text("2.1.282\n", encoding="utf-8")
+        (toy / "kernel").mkdir()
+        (toy / "kernel" / "CONVENTIONS.md").write_text("A kernel.\n", encoding="utf-8")
+        toy_module = toy / "modules" / "const-x"
+        (toy_module / ".claude-plugin").mkdir(parents=True)
+        (toy_module / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+        (toy_module / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+        copy, other = cache / "const-x", cache / "other"
+        shutil.copytree(toy_module, copy)  # the installed copy; `other` is a folder that is not it
+        other.mkdir()
+        (cache / "a-file").write_text("not a folder\n", encoding="utf-8")
+        bin_dir.mkdir()
+        (bin_dir / "claude").write_text(fake_claude, encoding="utf-8")
+        (bin_dir / "claude").chmod(0o755)
+        fake_log, calls_log = base / "fake.log", base / "calls.log"
+        key = "const-x@toy-mp"
+        gone = 'Plugin "const-x" not found in any configured marketplace'
+        # what the platform replies, typed by hand
+        ok_line = json.dumps({"command": "install", "outcome": "ok", "message": "Installed", "scope": "user"})
+        failed_line = json.dumps(
+            {"command": "install", "outcome": "failed", "message": gone, "failureCode": "not_found"}
+        )
+
+        def listed(**over: object) -> dict[str, object]:
+            return {"id": key, "scope": "user", "installPath": str(copy)} | over
+
+        def recorded(*entries: dict[str, object]) -> str:
+            return json.dumps({"version": 2, "plugins": {key: list(entries)}})
+
+        def commit(**over: object) -> dict[str, object]:
+            return {"installPath": str(copy), "scope": "user", "gitCommitSha": "abc123"} | over
+
+        @dataclass(frozen=True)
+        class Scene:
+            """One run of the check over the fake claude: what its install, its list and the record say."""
+
+            out: str = ok_line
+            code: int = 0
+            listing: str = json.dumps([listed()])
+            list_code: int = 0
+            record: str = recorded(commit())
+            source: str = "remote"  # `remote`: a source that is no folder, `local`: the toy kit's folder
+
+        def environment(scene: Scene, says: str = "2.1.282 (Claude Code)\\n") -> dict[str, str]:
+            for log in (fake_log, calls_log):
+                log.unlink(missing_ok=True)
+            return {
+                "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+                "FAKE_SAYS": says,
+                "FAKE_LOG": str(fake_log),
+                "FAKE_CALLS": str(calls_log),
+                "FAKE_INSTALL_OUT": scene.out,
+                "FAKE_INSTALL_EXIT": str(scene.code),
+                "FAKE_LIST_OUT": scene.listing,
+                "FAKE_LIST_EXIT": str(scene.list_code),
+                "FAKE_RECORD": scene.record,
+            }
+
+        def where(scene: Scene) -> str:
+            return str(toy) if scene.source == "local" else "owner/repo"
+
+        def unrecord(text: str) -> str:  # the record's place is under a folder the run makes and removes
+            return re.sub(r"[^\s(]+/config/plugins/installed_plugins\.json", "<record>", text)
+
+        def drive(scene: Scene) -> tuple[str, list[str], list[str]]:
+            """What `check_module` does: `on` (the copy is compared), the finding, or the BROKEN line; the
+            commits the source was asked at, and the copies it was compared with."""
+            fetched: list[str] = []
+            compared: list[str] = []
+
+            def source_spy(at: str, name: str, root: Path) -> Path:
+                fetched.append(at)
+                return toy / "modules" / name
+
+            def installed_spy(name: str, src: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
+                compared.append(str(plugin))
+                return []
+
+            patched = {"KIT": toy, "source_at": source_spy, "check_installed": installed_spy}
+            with mock.patch.dict(os.environ, environment(scene)), mock.patch.dict(globals(), patched):
+                try:
+                    found, _ = check_module("const-x", where(scene))
+                except Broken as broken:
+                    return unrecord(f"BROKEN: {broken}"), fetched, compared
+            return "; ".join(f"RED: {f.what} | {f.fix}" for f in found) or "on", fetched, compared
+
+        def expect(name: str, scene: Scene, wanted: str, fetched: list[str] | None = None) -> None:
+            """`wanted` is what `drive` says, `fetched` the commits the source was asked at; when it goes on,
+            the copy compared is the installed one."""
+            got = drive(scene)
+            version_case(
+                name, got == (wanted, fetched or [], [str(copy)] if wanted == "on" else []), str(got)
+            )
+
+        install_command = f"`claude plugin install {key} --json`"
+        listing_command = "`claude plugin list --json`"
+        reply_fix = (  # typed by hand
+            " — fix: check `claude --version` against scripts/claude-code.version: the kit reads"
+            " Claude Code's replies as that version writes them"
+        )
+        refused = (
+            "RED: Claude Code refuses to install it ({}) | fix its manifest or its entry in marketplace.json"
+        )
+        no_object = "not one JSON object (exit {})"
+        bad_outcome = 'an object that {}, not "ok" or "failed" (exit 0)'
+        timed_out = (
+            " gave no result in {} s — fix: run the check again, and check that git can reach the source"
+        )
+        install_rows: list[tuple[str, str, int, str]] = [
+            ("an ok result, exit 0, goes on", ok_line, 0, "on"),
+            (
+                "an ok result after two other lines goes on: the last line is read",
+                f"A\nB\n{ok_line}",
+                0,
+                "on",
+            ),
+            ("an ok result with blank lines after it goes on", f"{ok_line}\n\n  \n", 0, "on"),
+            (
+                "a failed result with its failureCode is a refusal naming both",
+                failed_line,
+                1,
+                refused.format(f"not_found: {gone}"),
+            ),
+            (
+                "a failed result without a failureCode is a refusal naming its message",
+                json.dumps({"outcome": "failed", "message": gone}),
+                1,
+                refused.format(gone),
+            ),
+            (
+                "a failed result with exit 0 is a refusal",
+                failed_line,
+                0,
+                refused.format(f"not_found: {gone}"),
+            ),
+            (
+                "a failed result with neither field is a refusal naming the exit",
+                '{"outcome": "failed"}',
+                1,
+                refused.format("exit 1"),
+            ),
+            (
+                "an empty standard output, exit 1, is BROKEN",
+                "",
+                1,
+                f"BROKEN: {install_command} printed nothing on standard output (exit 1){reply_fix}",
+            ),
+            (
+                "an empty standard output, exit 0, is BROKEN",
+                "",
+                0,
+                f"BROKEN: {install_command} printed nothing on standard output (exit 0){reply_fix}",
+            ),
+            (
+                "the JSON line followed by a human line is BROKEN: the last line is no JSON",
+                f"{ok_line}\nInstalled const-x",
+                0,
+                f"BROKEN: {install_command} ended with 'Installed const-x', {no_object.format(0)}{reply_fix}",
+            ),
+            (
+                "a human line only, exit 0, is BROKEN",
+                "✔ Installed const-x",
+                0,
+                f"BROKEN: {install_command} ended with '✔ Installed const-x', "
+                + no_object.format(0)
+                + reply_fix,
+            ),
+            (
+                "a human line only, exit 1, is BROKEN",
+                "✘ Failed to install const-x",
+                1,
+                f"BROKEN: {install_command} ended with '✘ Failed to install const-x', "
+                + no_object.format(1)
+                + reply_fix,
+            ),
+            (
+                "an ok line with exit 1 is BROKEN",
+                ok_line,
+                1,
+                f"BROKEN: {install_command} said ok and exited 1{reply_fix}",
+            ),
+            (
+                "exit 124 with nothing printed is BROKEN, no refusal",
+                "",
+                124,
+                f"BROKEN: {install_command}{timed_out.format(300)}",
+            ),
+            ("exit 124 beats an ok line", ok_line, 124, f"BROKEN: {install_command}{timed_out.format(300)}"),
+            (
+                "exit 124 beats a failed line",
+                failed_line,
+                124,
+                f"BROKEN: {install_command}{timed_out.format(300)}",
+            ),
+            (
+                "a JSON list is BROKEN",
+                "[1, 2]",
+                0,
+                f"BROKEN: {install_command} ended with '[1, 2]', {no_object.format(0)}{reply_fix}",
+            ),
+            (
+                "an ok result without a scope is BROKEN",
+                json.dumps({"outcome": "ok"}),
+                0,
+                f"BROKEN: {install_command} said ok without a scope string (scope is absent){reply_fix}",
+            ),
+            (
+                "an ok result whose scope is a number is BROKEN",
+                json.dumps({"outcome": "ok", "scope": 5}),
+                0,
+                f"BROKEN: {install_command} said ok without a scope string (scope is 5){reply_fix}",
+            ),
+            (
+                "an object with no outcome is BROKEN",
+                json.dumps({"scope": "user"}),
+                0,
+                f"BROKEN: {install_command} ended with " + bad_outcome.format("has no outcome") + reply_fix,
+            ),
+            (
+                "an outcome of another word is BROKEN",
+                json.dumps({"outcome": "maybe", "scope": "user"}),
+                0,
+                f"BROKEN: {install_command} ended with "
+                + bad_outcome.format("has the outcome 'maybe'")
+                + reply_fix,
+            ),
+            (
+                "an outcome that is no string is BROKEN",
+                json.dumps({"outcome": True, "scope": "user"}),
+                0,
+                f"BROKEN: {install_command} ended with "
+                + bad_outcome.format("has the outcome True")
+                + reply_fix,
+            ),
+        ]
+        for name, out, code, wanted in install_rows:
+            expect(f"install replies: {name}", Scene(out=out, code=code, source="local"), wanted)
+        work, repo = base / "work", base / "repo"
+        work.mkdir()
+        repo.mkdir()
+        with mock.patch.dict(os.environ, environment(Scene()) | {"FAKE_HANG_INSTALL": "1"}):
+            try:
+                install("const-x", work, repo, "owner/repo", "toy-mp", timeout=0.3)
+                said_slow = "nothing raised"
+            except (Broken, Refused) as slow:
+                said_slow = f"{type(slow).__name__}: {slow}"
+        version_case(
+            "an install that gives no result within its timeout is BROKEN, no refusal",
+            said_slow == f"Broken: {install_command}{timed_out.format('0.3')}",
+            said_slow,
+        )
+        no_entry = "lists no entry whose id is " + key + " at the scope user the install wrote ({})"
+        no_path = "gives no installPath string for " + key + " at scope user (installPath is {})"
+        no_json = "printed no JSON ({!r}: Expecting value: line 1 column 1 (char 0))"
+        missing, a_file = str(cache / "missing"), str(cache / "a-file")
+        bare = {"id": key, "scope": "user"}
+        list_rows: list[tuple[str, str, str]] = [
+            ("an empty list", "[]", no_entry.format("no entries")),
+            (
+                "an entry at another scope only",
+                json.dumps([listed(scope="project")]),
+                no_entry.format("entries: 'const-x@toy-mp' at 'project'"),
+            ),
+            (
+                "two entries of the id at the install's scope",
+                json.dumps([listed(), listed(installPath=str(other))]),
+                "lists 2 entries whose id is " + key + " at the scope user the install wrote"
+                " (entries: 'const-x@toy-mp' at 'user', 'const-x@toy-mp' at 'user')",
+            ),
+            ("an entry without installPath", json.dumps([bare]), no_path.format("absent")),
+            ("an installPath that is a number", json.dumps([listed(installPath=7)]), no_path.format("7")),
+            (
+                "an installPath that is no folder",
+                json.dumps([listed(installPath=missing)]),
+                f"names an installPath that is no folder ({missing})",
+            ),
+            (
+                "an installPath that is a file",
+                json.dumps([listed(installPath=a_file)]),
+                f"names an installPath that is no folder ({a_file})",
+            ),
+            ("an object", '{"id": "x"}', "printed a JSON dict, not a list"),
+            ("text that is no JSON", "no plugins installed", no_json.format("no plugins installed")),
+            ("nothing", "", no_json.format("")),
+        ]
+        for name, listing, wanted in list_rows:
+            expect(
+                f"list replies: {name} is BROKEN",
+                Scene(listing=listing, source="local"),
+                f"BROKEN: {listing_command} {wanted}{reply_fix}",
+            )
+        good = json.dumps([listed()])
+        expect(
+            "list replies: a good list with exit 1 is BROKEN",
+            Scene(listing=good, list_code=1, source="local"),
+            f"BROKEN: {listing_command} exited 1 ({good}){reply_fix}",
+        )
+        on_project = json.dumps({"outcome": "ok", "scope": "project"})
+        picks: list[tuple[str, Scene]] = [
+            (
+                "the entry at the right scope, an entry at another scope first, is the one",
+                Scene(listing=json.dumps([listed(scope="project", installPath=str(other)), listed()])),
+            ),
+            (
+                "the entry at the right scope, an entry at another scope last, is the one",
+                Scene(listing=json.dumps([listed(), listed(scope="project", installPath=str(other))])),
+            ),
+            (
+                "the entry of the id, entries of other ids around it, is the one",
+                Scene(
+                    listing=json.dumps(
+                        [
+                            listed(id="const-y@toy-mp", installPath=str(other)),
+                            listed(id="const-x@other-mp", installPath=str(other)),
+                            listed(),
+                        ]
+                    )
+                ),
+            ),
+            (
+                "the entry at the scope the install wrote, not at `user`, is the one",
+                Scene(
+                    out=on_project,
+                    listing=json.dumps([listed(installPath=str(other)), listed(scope="project")]),
+                ),
+            ),
+        ]
+        for name, scene in picks:
+            expect(f"list replies: {name}", replace(scene, source="local"), "on")
+        unnamed = (  # typed by hand
+            "BROKEN: the install record names no commit for " + key + " (<record>: {}) — fix: check"
+            " `claude --version` against scripts/claude-code.version: the kit reads the record as that"
+            " version writes it"
+        )
+        no_list = f"holds no list under plugins['{key}']"
+        no_sha: dict[str, object] = {"installPath": str(copy)}
+        record_rows: list[tuple[str, str, str]] = [
+            ("a commit that is absent", recorded(no_sha), "gitCommitSha is absent"),
+            ("a commit that is empty", recorded(commit(gitCommitSha="")), "gitCommitSha is empty"),
+            (
+                "a commit that is a number",
+                recorded(commit(gitCommitSha=12345)),
+                "gitCommitSha is no string, 12345",
+            ),
+            ("a commit that is null", recorded(commit(gitCommitSha=None)), "gitCommitSha is no string, None"),
+            (
+                "a commit that is a list",
+                recorded(commit(gitCommitSha=["a"])),
+                "gitCommitSha is no string, ['a']",
+            ),
+            ("no record", "", "cannot be read, No such file or directory"),
+            ("a record that is no JSON", "not json", "is no JSON, Expecting value: line 1 column 1 (char 0)"),
+            ("a record that is a list", "[]", no_list),
+            ("a record without a plugins object", '{"version": 2}', no_list),
+            (
+                "a record of another marketplace's name",
+                json.dumps({"plugins": {"const-x@constitution-kit": [commit()]}}),
+                no_list,
+            ),
+            (
+                "a record whose entry for the id is an object",
+                json.dumps({"plugins": {key: commit()}}),
+                no_list,
+            ),
+            (
+                "an entry whose installPath is another folder",
+                recorded(commit(installPath=str(other))),
+                f"holds no entry for {key} whose installPath is {copy}",
+            ),
+            (
+                "entries that are no objects",
+                json.dumps({"plugins": {key: ["x", 7]}}),
+                f"holds no entry for {key} whose installPath is {copy}",
+            ),
+        ]
+        for name, text, why in record_rows:
+            expect(
+                f"the record: {name} is BROKEN for a remote source", Scene(record=text), unnamed.format(why)
+            )
+        expect("the record: a commit gives the source at that commit", Scene(), "on", ["abc123"])
+        wrong = commit(installPath=str(other), gitCommitSha="wrong0")
+        for name, entries in (
+            ("an entry of another installPath first", (wrong, commit(gitCommitSha="right1"))),
+            ("an entry of another installPath last", (commit(gitCommitSha="right1"), wrong)),
+        ):
+            expect(
+                f"the record: the entry of the installed copy is the one read, {name}",
+                Scene(record=recorded(*entries)),
+                "on",
+                ["right1"],
+            )
+        for name, text in (
+            ("no record", ""),
+            ("a record that is no JSON", "not json"),
+            ("a record without a commit", recorded(no_sha)),
+            ("a record of another install", recorded(commit(installPath=str(other)))),
+        ):
+            expect(
+                f"the record: a local folder is compared with itself, {name} is read by no one",
+                Scene(record=text, source="local"),
+                "on",
+            )
+        drive(Scene())
+        asked = fake_log.read_text(encoding="utf-8").splitlines()
+        calls = [line.split(" | ") for line in calls_log.read_text(encoding="utf-8").splitlines()]
+        version_case(
+            "a run asks the marketplace, the install with --json and the list with --json, in the bare"
+            " repository and the configuration folder of the run",
+            asked
+            == ["plugin marketplace add owner/repo", f"plugin install {key} --json", "plugin list --json"]
+            and len(calls) == 3
+            and calls[0][1:] == calls[1][1:] == calls[2][1:]
+            and calls[0][1].endswith("/repo")
+            and calls[0][2].endswith("/config"),
+            f"{asked} {calls}",
+        )
+
+        def lines_of(scene: Scene, says: str, optout: bool) -> tuple[int, list[str]]:
+            """The exit and the lines `main` prints for the toy kit's module over the fake claude."""
+            printed_lines = io.StringIO()
+            with (
+                mock.patch.dict(os.environ, environment(scene, says)),
+                mock.patch.dict(globals(), {"KIT": toy}),
+                contextlib.redirect_stdout(printed_lines),
+            ):
+                os.environ.pop("CONSTITUTION_KIT_ANY_CLAUDE", None)
+                if optout:
+                    os.environ["CONSTITUTION_KIT_ANY_CLAUDE"] = "1"
+                status = main(["--module", "const-x", "--from", where(scene)])
+            return status, [unrecord(line) for line in printed_lines.getvalue().splitlines()]
+
+        off, pinned = "2.1.286 (Claude Code)\\n", "2.1.282 (Claude Code)\\n"
+        stop = "BROKEN: the check could not run — 0 modules examined"
+        refused_lines = [  # typed by hand: a message function cannot check itself
+            f"RED: const-x: Claude Code refuses to install it (not_found: {gone}){{}}",
+            f"  why: {WHY}",
+            "  fix: fix its manifest or its entry in marketplace.json",
+            "RED: 1 finding(s) — no install, from owner/repo{}",
+        ]
+        reports: list[tuple[str, Scene, str, bool, int, list[str]]] = [
+            (
+                "a refusal, off the pin",
+                Scene(out=failed_line, code=1),
+                off,
+                True,
+                EXIT_RED,
+                [line.format(off_pin) for line in refused_lines],
+            ),
+            (
+                "a refusal, on the pin",
+                Scene(out=failed_line, code=1),
+                pinned,
+                False,
+                EXIT_RED,
+                [line.format("") for line in refused_lines],
+            ),
+            (
+                "an install that printed nothing, off the pin",
+                Scene(out=""),
+                off,
+                True,
+                EXIT_BROKEN,
+                [
+                    f"BROKEN: {install_command} printed nothing on standard output (exit 0)"
+                    + reply_fix
+                    + off_pin,
+                    stop + off_pin,
+                ],
+            ),
+            (
+                "an install that printed nothing, on the pin",
+                Scene(out=""),
+                pinned,
+                False,
+                EXIT_BROKEN,
+                [f"BROKEN: {install_command} printed nothing on standard output (exit 0){reply_fix}", stop],
+            ),
+            (
+                "an install record without a commit, off the pin",
+                Scene(record=recorded(no_sha)),
+                off,
+                True,
+                EXIT_BROKEN,
+                [unnamed.format("gitCommitSha is absent") + off_pin, stop + off_pin],
+            ),
+            (
+                "a list without the install, off the pin",
+                Scene(listing="[]"),
+                off,
+                True,
+                EXIT_BROKEN,
+                [
+                    f"BROKEN: {listing_command} {no_entry.format('no entries')}{reply_fix}{off_pin}",
+                    stop + off_pin,
+                ],
+            ),
+        ]
+        for name, scene, says, optout, status_wanted, lines_wanted in reports:
+            got_status, got_lines = lines_of(scene, says, optout)
+            version_case(
+                f"the report of {name} is its literal lines, the note at the end of each headline",
+                (got_status, got_lines) == (status_wanted, lines_wanted),
+                f"{got_status} {got_lines}",
+            )
     with tempfile.TemporaryDirectory() as tmp:  # the kit's own history: the source at the commit checked out
         head = run(["git", "rev-parse", "HEAD"], KIT, os.environ.copy())[1]
         root = Path(tmp).resolve()
@@ -1181,7 +1754,7 @@ def self_test() -> int:
         ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
-    total = len(cases) + len(unreadable) + 9 + extra
+    total = len(cases) + len(unreadable) + 6 + extra
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
