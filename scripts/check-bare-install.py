@@ -16,11 +16,14 @@ the variable says.
 What the check reads of Claude Code, all as it writes it at the version scripts/claude-code.version pins.
 From documented `--json` output: the last standard output line of `claude plugin install <key> --json`, its
 `outcome` and `scope`, and on a refusal its `failureCode` and `message`; `claude plugin list --json`, per
-entry `id`, `scope` and `installPath`. From documented files: none. From an undocumented place: one, the
-`gitCommitSha` of the entry of the install record, <config>/plugins/installed_plugins.json, read by
-`installed_commit` for a remote source alone; the file is documented and the field is not, so the value is
-taken only as a git object id. `claude plugin marketplace add` is read for its exit alone, and
-`claude --version` for its first word.
+entry `id`, `scope` and `installPath`. From a documented file: the install record,
+<config>/plugins/installed_plugins.json, which the plugin loading page documents as recording each install
+with its `scope`, `installPath` and `version`; `installed_commit` reads, for a remote source alone, of the
+entries under `plugins[<module>@<marketplace>]` their `installPath`, to find the copy's entry (the page
+names the record's fields and does not describe how the file nests them). From an undocumented place:
+one, the `gitCommitSha` of that entry, the one field read that no page documents, so the value is taken
+only as a git object id. `claude plugin marketplace add` is read for its exit, and on a failure its last
+output line is quoted; `claude --version` is read for its first word.
 
 For the module named, in throwaway folders that the check removes:
   1. a bare repository — `git init`, the kit's kernel copied to docs/constitution/ and committed,
@@ -69,12 +72,17 @@ For the module named, in throwaway folders that the check removes:
      twice, or without `t10` while a later anchor stands, is a configuration failure, never a scan
      left unrun.
 A red is a finding against the module, and so is an install Claude Code refuses (a result that says
-"failed"); a missing `claude` or `git`, a marketplace the CLI cannot add, an install that gives no
-result in its 300 s, and a result, a list or a record that cannot be read as step 2 says (a record of a
-remote source that names no commit, or one that is no object id, included) are configuration failures,
-whose fix, worded by `kit_module_doc.platform_fix` from the state of the run, is on the pinned version to
-update the kit's reader that the line names, to what that version writes, and off the pin to run again
-on the pinned version. The run holds
+"failed"). The configuration failures each print their own fix: a missing `claude` or `git`, "install it
+and put it on PATH", and a `git` command that fails in the bare repository, "install git"; a marketplace
+the CLI cannot add (`claude plugin marketplace add` exits other than 0), "check the kit's marketplace.json,
+and that git can reach the source"; an install that gives no result in its 300 s, "run the check again, and
+check that git can reach the source". A result, a list or a record that cannot be read as step 2 says (a
+record of a remote source that names no commit, or one that is no object id, included) is a configuration
+failure whose fix is worded by `kit_module_doc.platform_fix` from the state of the run: on the pinned
+version, to update the kit's reader that the line names (`install_scope`, `listed_install` or
+`installed_commit`), to what that version writes; off the pin, to run again on the pinned version. Every
+other configuration failure, such as a commit the kit's history lacks or a module document that cannot be
+read, prints a fix of its own. The run holds
 the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
 Needs no Claude account login: plugin install reads none; git needs a private remote's credentials.
 
@@ -98,8 +106,10 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          handed it; a local folder reading none), a reply or a value quoted whole up to 200
                          characters and cut after, a list of five entries named whole and one of six cut with
                          "…", the install's timeout the one `run` waits for, the wait of a hook with no
-                         timeout of its own by its event and of one with its own, each BROKEN's fix in each
-                         state, and the reports of a refusal, of a finding, of a green run and of
+                         timeout of its own by its event and of one with its own, and that `check_installed`
+                         hands that wait to `run` (spied, no hook run), the fix `platform_fix` words for an
+                         unreadable result, list and record, each on the pin and one of each off it, and the
+                         reports of a refusal, of a finding, of a green run and of
                          configuration failures, a file the run cannot read included, as literal lines
                          through `main`, with and without the note; and of a
                          module's source at a commit from the kit's history (const-meta-types at
@@ -1166,6 +1176,32 @@ def self_test() -> int:
                 "the hooks of a file are each waited for by their own event and timeout",
                 got == {"PreToolUse": 600.0, "SessionEnd": 1.5, "Stop": 7.0},
                 str(got),
+            )
+            # The wait `hooks_of` computes is the one `check_installed` hands `run`: `run` is spied, and
+            # answers at once, so that no hook runs and nothing is waited for.
+            (hooked / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+            (hooked / "repo").mkdir()
+            handed: dict[str, float] = {}
+
+            def run_spy(
+                argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: float = 300
+            ) -> tuple[int, str, str]:
+                """`run`, but the timeout of each hook is kept by its event, and the hook is not run."""
+                handed[json.loads(stdin)["hook_event_name"]] = timeout
+                return 0, "", ""
+
+            hook_waits(
+                {"PreToolUse": [bare_hook | {"timeout": 5}], "UserPromptSubmit": [bare_hook]}
+                | {"Stop": [bare_hook | {"timeout": 90}], "SessionEnd": [bare_hook]}
+            )
+            with mock.patch.dict(globals(), {"run": run_spy}):
+                found = check_installed("const-x", hooked, hooked, hooked / "repo", hooked / "data")
+            version_case(
+                "`check_installed` runs each hook with the wait `hooks_of` gives it: the declared timeout"
+                " (5, 90), else the event's (30, 1.5), no hook run",
+                handed == {"PreToolUse": 5.0, "UserPromptSubmit": 30.0, "Stop": 90.0, "SessionEnd": 1.5}
+                and found == [],
+                f"{handed} {found}",
             )
 
     hook_wait_cases()
