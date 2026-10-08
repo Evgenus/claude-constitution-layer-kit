@@ -12,7 +12,7 @@ In plain words: a numbered document, such as a decision record, carries its numb
 
 People cite decisions, tasks and incidents by number, "see D41". The numbers live wherever they were first typed: a register file, a heading, a chat message. Then the register moves, or an entry is renumbered, split or deleted. Every citation of the old number now points at nothing, or at something else, and nobody can tell which. Each citation written under a loose scheme is one more to repair when the scheme breaks. A number should mean one document for good.
 
-With the module installed, a number is taken once and kept. A new document in a numbered folder is refused until its name carries the next free number and its id matches. Two branches that took one number are caught by the scan before the merge. A citation by number then leads to one document, for as long as the project lives.
+With the module installed, a number is taken once and kept. A new document in a numbered folder is refused until its name carries a number no other item holds, and its id matches. The refusal names the next number to take. Two branches that took one number are caught by the scan before the merge. A citation by number then leads to one document, for as long as the project lives.
 
 <a id="a3"></a>
 ## How Claude behaves with it

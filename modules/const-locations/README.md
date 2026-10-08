@@ -5,14 +5,14 @@
 
 Documents born in their canonical home: a command derives the home from the policy's territory, proves it resolves to exactly that policy, and writes the document from the kind's template with a valid envelope; a skill for creating documents through it and one for introducing a new kind — policy first, then territory, then document.
 
-In plain words: a new document is created by a command, not by hand. The command reads where the project keeps that kind of document, puts the file there, and fills its header from the kind's template. One skill makes the session use the command; the other says what to do when no policy covers the new kind yet.
+In plain words: a new document is created through a command, and a skill has the session use it instead of writing by hand. The command reads where the project keeps that kind of document, puts the file there, and fills its header from the kind's template. One skill makes the session use the command; the other says what to do when no policy covers the new kind yet.
 
 <a id="a2"></a>
 ## Why use it
 
 A session is asked for a policy, a note or a record. It writes the file where the conversation happens to be looking: a new folder, the repository's root, beside the file it was reading. The file opens with whatever front matter the model saw last. It has a date field, an id that is not the file's name, or no status at all. Nothing ties it to a rule set, so nothing governs it. Its shape matches no sibling, so the next document of its kind copies it instead of the rule. Each one costs a move, an envelope repair and a link repair later, paid by someone who did not write it.
 
-With the module installed, a session creates a governed document through the command. The file lands in the folder its policy names, with a valid header and the right template. Only then does the session write the body. A kind that no policy covers gets its policy first, so no document is born without a rule set.
+With the module installed, a session creates a governed document through the command. The file lands in the folder its policy names, with a valid header and the right template. Only then does the session write the body. For a kind that no policy covers, the second skill has the session create the policy first. Nothing here refuses a write: a document written by hand is not seen.
 
 <a id="a3"></a>
 ## How Claude behaves with it

@@ -12,7 +12,7 @@ In plain words: a session asks only when it must, and asks well when it does. Th
 
 A session asks what it should have decided, and decides what it should have asked. Four questions arrive bundled in one message, each with no options and no recommendation. A question about where a scratch file goes blocks the work until it is answered. A request with two plausible readings is answered on one of them in silence. A delivered plan carries `TBD: who owns this` inside it. Once corrected, the opposite follows: every small uncertainty becomes a ceremony, until the person asked stops reading. Each correction is made in one session and lost with it.
 
-With the module installed, every session starts with the shape of a decision message in its context. A choice reaches the user as lettered options with one recommendation. The skill decides first whether to ask at all; a small call is made and noted in the commit. A document with an open-question marker is refused at the write, so a plan is delivered with its decisions resolved or its blocker named.
+With the module installed, every session starts with the shape of a decision message in its context. A choice reaches the user as lettered options with one recommendation. The skill decides first whether to ask at all; a small call is made and noted in the commit. A document with an open-question marker is refused at the write, so a plan is delivered with no marker left in it. Whether its decisions are resolved stays the skill's rule and the reviewer's.
 
 <a id="a3"></a>
 ## How Claude behaves with it

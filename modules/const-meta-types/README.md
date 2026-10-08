@@ -12,7 +12,7 @@ In plain words: every Markdown page in a folder that a policy governs starts wit
 
 A session opens an old research note, or a page about a design the project has since changed. It treats the page as the truth, because nothing on the page says what it is. Another document sits in a folder that two rule sets claim, or in one that none claims. The rules that apply to it are whatever the reader assumes. Nobody notices at the write. Every such document raises the cost of the repair that comes later.
 
-With the module installed, that cannot happen in silence. A page in a governed folder is refused at the write until its block says what the page is. A page that two policies claim, or none, is refused until the territories are fixed. A reader can then trust what a page says about itself, and a session knows which rules apply before it edits.
+With the module installed, that cannot happen in silence. A page in a governed folder is refused at the write until its block says what the page is. A page that two policies claim is refused until it declares one of them, or the territories are fixed. A page outside every territory is not examined. A reader can then trust what a page says about itself, and a session knows which rules apply before it edits.
 
 <a id="a3"></a>
 ## How Claude behaves with it
