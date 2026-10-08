@@ -52,6 +52,14 @@ its own, and reads the first word of the first line of the output, when the comm
                             fails, prints nothing, or opens with a word that is no version.
 check-install-guide proves `pinned_claude` in its `--self-test`, over the whole set; it and
 check-bare-install prove `claude_note` in theirs, over the whole set of answers of `claude --version`.
+`claude_note` returns a `Note`: the note as a string, and with it the pinned version and the one found.
+`platform_fix` is the kit's one wording of the fix for a platform reply, record or settings file that the
+kit's reader does not read, which both checks end such a BROKEN line with; it reads the `Note`, so that the
+fix can be followed in either state. On the pinned version (the note empty) it says that version wrote what
+the reader does not read, names the script and its function, and tells to update that reader to what the
+pinned version writes. Off the pin (the opt-out set) it says the run is on the version found, not the
+pinned one, and tells to run it again on the pinned version, put first on PATH as `claude_note`'s own fix
+words it. Both checks prove it in theirs, in each state, as literal lines.
 
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
 imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
@@ -77,6 +85,21 @@ CLAUDE_PIN = "scripts/claude-code.version"  # the kit's pin of the Claude Code v
 ANY_CLAUDE = "CONSTITUTION_KIT_ANY_CLAUDE"  # the variable that, exactly `1`, lets a check run off the pin
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")  # ASCII digits only: `\d` would take other scripts' digits
 PIN_FIX = "write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's only line"
+
+
+class Note(str):
+    """The note a check ends every headline line of its report with: "" on the pinned version, else
+    ` [claude <found>, not the pinned <pinned>: CONSTITUTION_KIT_ANY_CLAUDE=1]`. It is a string, and it
+    carries the pinned version and the one found ("" on the pin), which `platform_fix` words a fix from."""
+
+    pinned: str
+    found: str
+
+    def __new__(cls, pinned: str, found: str = "") -> Note:
+        text = f" [claude {found}, not the pinned {pinned}: {ANY_CLAUDE}=1]" if found else ""
+        note = super().__new__(cls, text)
+        note.pinned, note.found = pinned, found
+        return note
 
 
 class DocumentError(Exception):
@@ -152,11 +175,12 @@ def pinned_claude(root: Path) -> str:
     return version
 
 
-def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> str:
+def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note:
     """Ask the `claude` on PATH its version, before any other command of the check, and compare it with
-    the pin of the kit at `root`. Returns "" when it is the pinned version, and the note a check ends
-    every headline line of its report with, `[claude <found>, not the pinned <pinned>: <variable>=1]`,
-    when it is another readable version and `env` sets CONSTITUTION_KIT_ANY_CLAUDE to exactly `1`;
+    the pin of the kit at `root`. Returns the empty `Note` when it is the pinned version, and the note a
+    check ends every headline line of its report with, `[claude <found>, not the pinned <pinned>:
+    <variable>=1]`, when it is another readable version and `env` sets CONSTITUTION_KIT_ANY_CLAUDE to
+    exactly `1`;
     else `DocumentError` with the fix: the pin unreadable, `claude` missing, another version with the
     variable unset or of another value, or no readable version at all, the variable notwithstanding.
     The version is the first whitespace-separated word of the first line of the output, read when the
@@ -198,15 +222,38 @@ def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> str:
             " (`command -v claude`), and reinstall it"
         )
     if found == pinned:
-        return ""
+        return Note(pinned)
     if env.get(ANY_CLAUDE) == "1":
-        return f" [claude {found}, not the pinned {pinned}: {ANY_CLAUDE}=1]"
+        return Note(pinned, found)
     raise DocumentError(
         f"claude is {found}, and the kit's install checks read the platform as {pinned} writes it"
-        f" ({CLAUDE_PIN}) — fix: put Claude Code {pinned} first on PATH for this run, installed beside your"
-        f" own (npm install --prefix <folder> @anthropic-ai/claude-code@{pinned}, then"
-        f" PATH=<folder>/node_modules/.bin:$PATH), or set {ANY_CLAUDE}=1 to run on {found} with a note on"
+        f" ({CLAUDE_PIN}) — fix: {put_first(pinned)}, or set {ANY_CLAUDE}=1 to run on {found} with a note on"
         " every line"
+    )
+
+
+def put_first(pinned: str) -> str:
+    """How to run on the pinned version beside one's own `claude`, which stays as it is."""
+    return (
+        f"put Claude Code {pinned} first on PATH for this run, installed beside your own"
+        f" (npm install --prefix <folder> @anthropic-ai/claude-code@{pinned}, then"
+        " PATH=<folder>/node_modules/.bin:$PATH)"
+    )
+
+
+def platform_fix(note: Note, script: str, reader: str, wrote: str) -> str:
+    """The fix a check ends a BROKEN line with when `reader`, a function of `script`, cannot read what the
+    platform wrote (`wrote` says what: "a reply", "a record", "a settings file"), by the state `note`
+    records. On the pinned version: that version wrote what the reader does not read, so update the reader
+    to what it writes. Off the pin: the run is on the version found, so run it again on the pinned one."""
+    if note.found:
+        return (
+            f" — fix: this run is on {note.found}, not the pinned {note.pinned}: run it again on the pinned"
+            f" version, {put_first(note.pinned)}"
+        )
+    return (
+        f" — fix: Claude Code {note.pinned} wrote {wrote} that the kit's reader, `{reader}` in {script},"
+        f" does not read: update that reader to what {note.pinned} writes"
     )
 
 

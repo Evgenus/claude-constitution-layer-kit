@@ -66,10 +66,13 @@ HEAD, or a branch whose origin copy is not at HEAD, and a clone whose marketplac
 (missing, no JSON, no object, no "name", one that is no string or is empty), and a reply the claims cannot
 read as documented: a failed `--json` command, a reply that is no JSON or no list, an entry that is no
 object, two entries of the marketplace's name or two project-scope entries of a module's id for the
-project, a field a claim reads (`source`, `installLocation`, `installPath`, `version`, `scope`, and
-`projectPath` of a project- or local-scope entry) that is no string or is empty, and a project's
-.claude/settings.json that is unreadable, no JSON object, or whose `enabledPlugins` is no object. Their
-fix points at the Claude Code version against scripts/claude-code.version, never at the guide. Needs no
+project, a field a claim reads (`source`, `installLocation`, `repo` of a `github` entry, `installPath`,
+`version`, `scope`, and `projectPath` of a project- or local-scope entry) that is no string or is empty, an
+`installLocation` that names no existing folder, and a project's .claude/settings.json that is unreadable,
+no JSON object, or whose `enabledPlugins` is no object. Their fix, worded by `kit_module_doc.platform_fix`
+from the state of the run, is never a change to the guide: on the pinned version it is to update the
+kit's reader that the line names, to what that version writes; off the pin, to run again on the pinned
+version. Needs no
 Claude account login: the plugin commands read none, and the session stops before the model. Git needs a
 private repository's credentials.
 
@@ -130,13 +133,18 @@ Modes:  no arguments   check the kit's guide;
                        the pin, a finding's and a green one's, as literal lines; the fake answering
                        `plugin marketplace list --json` and `plugin list --json` from a state of its own, and
                        the two readers over whole sets of replies, an entry that is not the marketplace's
-                       or the module's for the project first and last, the literal message of each BROKEN;
+                       or the module's for the project first and last, a `repo` that is absent, empty or
+                       no string and an `installLocation` that names no folder each a BROKEN and not a
+                       finding, a quotation cut at 200 characters, the literal message of each BROKEN, its
+                       fix in each state of the run against the pin;
                        a reinstall that compares with the clone the run kept, else the one listed; a
                        project's settings.json of each shape; an install listed for no project, at user
                        scope, for another project or at another version, an uninstall that keeps the
                        plugin installed or enabled alone, each red; each wrong shape of a reply, in a run,
                        a BROKEN and never a finding against the guide, and one whole report of it through
-                       `main`, off the pin and on it.
+                       `main`, off the pin and on it, as of a green run, a finding and a file the blocks'
+                       run cannot read; the version command run in an empty configuration folder of its
+                       own with the auto-updater off.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -158,12 +166,21 @@ from pathlib import Path
 from unittest import mock
 
 import yaml
-from kit_module_doc import DocumentError, claude_note, marketplace_name, module_folders, pinned_claude
+from kit_module_doc import (
+    DocumentError,
+    Note,
+    claude_note,
+    marketplace_name,
+    module_folders,
+    pinned_claude,
+    platform_fix,
+)
 
 KIT = Path(__file__).resolve().parent.parent
 GUIDE = "INSTALL.md"
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 CLONE = Path("dev") / "constitution-kit"  # the guide's placeholder for the kit's clone, rule 4 of plc-0011
+SCRIPT = "scripts/check-install-guide.py"  # named in the fix of a reply the check's readers do not read
 NAMES = (
     "new-repo",
     "marketplace",
@@ -404,36 +421,29 @@ def read_json(path: Path) -> dict[str, object]:
     return data if isinstance(data, dict) else {}
 
 
-SETTINGS_FIX = (
-    " — fix: check `claude --version` against scripts/claude-code.version: the kit reads the settings"
-    " Claude Code writes as that version writes them"
-)
-
-
-def enabled(project: Path) -> set[str]:
+def enabled(project: Path, note: Note) -> set[str]:
     """The plugins `enabledPlugins` of the project's .claude/settings.json (documented) holds as true. No
     file, or no `enabledPlugins` in it, enables none; a file that cannot be read, is no JSON or no object,
     or an `enabledPlugins` that is no object, is a Broken: a fault of the platform's write, never empty."""
     path = project / ".claude" / "settings.json"
+    fix = platform_fix(note, SCRIPT, "enabled", "a settings file")
     try:
         text = path.read_text(encoding="utf-8")
     except FileNotFoundError:
         return set()
     except OSError as bad:
-        raise Broken(f"{path} cannot be read ({bad.strerror}){SETTINGS_FIX}") from bad
+        raise Broken(f"{path} cannot be read ({bad.strerror}){fix}") from bad
     try:
         data = json.loads(text)
     except ValueError as bad:
-        raise Broken(f"{path} is no JSON ({bad}){SETTINGS_FIX}") from bad
+        raise Broken(f"{path} is no JSON ({bad}){fix}") from bad
     if not isinstance(data, dict):
-        raise Broken(f"{path} is a JSON {type(data).__name__}, not an object{SETTINGS_FIX}")
+        raise Broken(f"{path} is a JSON {type(data).__name__}, not an object{fix}")
     if "enabledPlugins" not in data:
         return set()
     plugins = data["enabledPlugins"]
     if not isinstance(plugins, dict):
-        raise Broken(
-            f"{path} gives an enabledPlugins that is a {type(plugins).__name__}, not an object{SETTINGS_FIX}"
-        )
+        raise Broken(f"{path} gives an enabledPlugins that is a {type(plugins).__name__}, not an object{fix}")
     return {str(k) for k, v in plugins.items() if v is True}
 
 
@@ -494,6 +504,7 @@ class Run:
     cwd: Path
     source: str
     marketplace: str  # the name the kit's clone gives its marketplace, read once from its marketplace.json
+    note: Note  # the state of the run against the pin: the note a run off it ends its lines with, and the fix
     project: Path | None = None
     clone: Path | None = None  # the platform's clone of the marketplace, its installLocation, once read
 
@@ -502,47 +513,44 @@ class Run:
         return f"{module}@{self.marketplace}"
 
 
-REPLY_FIX = (
-    " — fix: check `claude --version` against scripts/claude-code.version: the kit reads Claude Code's"
-    " replies as that version writes them"
-)
-
-
 def shown(value: object) -> str:
     """A reply of Claude Code, or a field of it, as a message quotes it: its repr, at most 200 characters."""
     text = repr(value)
     return text if len(text) <= 200 else text[:200] + "…"
 
 
-def listed(argv: list[str], cwd: Path, env: dict[str, str]) -> list[dict[str, object]]:
+def listed(argv: list[str], cwd: Path, env: dict[str, str], note: Note) -> list[dict[str, object]]:
     """The entries of `claude <argv>`, a documented `--json` command that prints a JSON list of objects: a
     command that fails, a reply that is no JSON or no list, and an entry that is no object are each a Broken
     saying what was found, with the fix that points at the Claude Code version."""
     command = f"`claude {' '.join(argv)}`"
+    fix = platform_fix(note, SCRIPT, "listed", "a reply")
     code, out, err = run_apart(["claude", *argv], cwd, env)
     if code != 0:
-        raise Broken(f"{command} exited {code} ({last_line((err or out).strip())}){REPLY_FIX}")
+        raise Broken(f"{command} exited {code} ({last_line((err or out).strip())}){fix}")
     try:
         reply = json.loads(out)
     except ValueError as bad:
-        raise Broken(f"{command} printed no JSON ({shown(out)}: {bad}){REPLY_FIX}") from bad
+        raise Broken(f"{command} printed no JSON ({shown(out)}: {bad}){fix}") from bad
     if not isinstance(reply, list):
-        raise Broken(f"{command} printed a JSON {type(reply).__name__}, not a list{REPLY_FIX}")
+        raise Broken(f"{command} printed a JSON {type(reply).__name__}, not a list{fix}")
     entries: list[dict[str, object]] = []
     for entry in reply:
         if not isinstance(entry, dict):
-            raise Broken(f"{command} lists an entry that is no object ({shown(entry)}){REPLY_FIX}")
+            raise Broken(f"{command} lists an entry that is no object ({shown(entry)}){fix}")
         entries.append(entry)
     return entries
 
 
-def text_of(entry: dict[str, object], field: str, what: str, argv: list[str]) -> str:
-    """A field of an entry of `claude <argv>` that must be a string and not empty, or a Broken."""
+def text_of(entry: dict[str, object], field: str, what: str, argv: list[str], note: Note, reader: str) -> str:
+    """A field of an entry of `claude <argv>` that must be a string and not empty, or a Broken whose fix
+    names `reader`, the function that asked for the field and so knows what the platform writes."""
     value = entry.get(field)
     if not isinstance(value, str) or not value:
         found = shown(value) if field in entry else "absent"
         raise Broken(
-            f"`claude {' '.join(argv)}` gives no {field} string for {what} ({field} is {found}){REPLY_FIX}"
+            f"`claude {' '.join(argv)}` gives no {field} string for {what} ({field} is {found})"
+            + platform_fix(note, SCRIPT, reader, "a reply")
         )
     return value
 
@@ -555,9 +563,10 @@ def platform_clone(state: Run) -> Path:
     """The platform's clone of the kit's marketplace, the `installLocation` of the one entry of
     `claude plugin marketplace list --json` named as the kit's marketplace. The entry is a finding
     (Misfit) when there is none, when its `source` is not `github` or its `repo` not the source's
-    repository; two entries of the name, a `source` or an `installLocation` that is no string and
-    any wrong shape of the reply are a Broken."""
-    entries = listed(MARKETPLACES, state.cwd, state.env)
+    repository; two entries of the name, a `source`, an `installLocation` or, on a `github` entry, a `repo`
+    that is no string or is empty, an `installLocation` that names no existing folder and any wrong shape of
+    the reply are a Broken, the platform's reply being at fault and not the guide."""
+    entries = listed(MARKETPLACES, state.cwd, state.env, state.note)
     own = [e for e in entries if e.get("name") == state.marketplace]
     if not own:
         raise Misfit(
@@ -566,19 +575,29 @@ def platform_clone(state: Run) -> Path:
         )
     if len(own) > 1:
         raise Broken(
-            f"`claude {' '.join(MARKETPLACES)}` lists {len(own)} entries named {state.marketplace}{REPLY_FIX}"
+            f"`claude {' '.join(MARKETPLACES)}` lists {len(own)} entries named {state.marketplace}"
+            + platform_fix(state.note, SCRIPT, "platform_clone", "a reply")
         )
     entry = own[0]
-    source = text_of(entry, "source", state.marketplace, MARKETPLACES)
-    location = text_of(entry, "installLocation", state.marketplace, MARKETPLACES)
+
+    def field(name: str) -> str:
+        return text_of(entry, name, state.marketplace, MARKETPLACES, state.note, "platform_clone")
+
+    source, location = field("source"), field("installLocation")
     if source != "github":
         raise Misfit(f"the marketplace is registered from a {source} source, not from GitHub", IN_PLACE)
-    repo, wanted = entry.get("repo"), state.source.split("#")[0]
+    repo = field("repo")
+    wanted = state.source.split("#")[0]
     if repo != wanted:
         raise Misfit(
             f"the marketplace is registered from {repo}, not from {wanted}",
             f"make the block register the source it is given, {FROM_ENV} or the clone's origin, "
             "and nothing after it",
+        )
+    if not Path(location).is_dir():
+        raise Broken(
+            f"`claude {' '.join(MARKETPLACES)}` names an installLocation that is no folder ({location})"
+            + platform_fix(state.note, SCRIPT, "platform_clone", "a reply")
         )
     return Path(location)
 
@@ -592,14 +611,24 @@ def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]
     entries of one id for the project, are a Broken, whatever else the list holds."""
     here = {str(project), str(project.resolve())}
     found: dict[str, list[dict[str, str]]] = {module: [] for module in state.modules}
-    for entry in listed(PLUGINS, project, state.env):
+    for entry in listed(PLUGINS, project, state.env, state.note):
         for module in state.modules:
             key = state.key(module)
             if entry.get("id") != key:
                 continue
-            fields = {f: text_of(entry, f, key, PLUGINS) for f in ("installPath", "version", "scope")}
+            fields = {
+                f: text_of(entry, f, key, PLUGINS, state.note, "project_entries")
+                for f in ("installPath", "version", "scope")
+            }
             if fields["scope"] in ("project", "local"):
-                where = text_of(entry, "projectPath", f"{key} at scope {fields['scope']}", PLUGINS)
+                where = text_of(
+                    entry,
+                    "projectPath",
+                    f"{key} at scope {fields['scope']}",
+                    PLUGINS,
+                    state.note,
+                    "project_entries",
+                )
             else:
                 where = str(entry.get("projectPath", ""))
             if where in here:
@@ -609,7 +638,8 @@ def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]
         if at_project > 1:
             raise Broken(
                 f"`claude {' '.join(PLUGINS)}` lists {at_project} project-scope entries of "
-                f"{state.key(module)} for the project{REPLY_FIX}"
+                f"{state.key(module)} for the project"
+                + platform_fix(state.note, SCRIPT, "project_entries", "a reply")
             )
     return found
 
@@ -692,7 +722,7 @@ def claim(state: Run, name: str) -> str:
         state.clone = clone
         return ""
     if name in ("install", "reinstall", "update"):
-        mine, on = project_entries(state, project), enabled(project)
+        mine, on = project_entries(state, project), enabled(project, state.note)
         copies: dict[str, Path] = {}
         for module in state.modules:
             own = [e for e in mine[module] if e["scope"] == "project"]
@@ -746,7 +776,7 @@ def claim(state: Run, name: str) -> str:
         code, said = run(["git", "status", "--porcelain"], project, state.env, joined=False)
         return "" if code == 0 and not said else "the project's working tree is not clean after the commit"
     if name == "uninstall":
-        mine, on = project_entries(state, project), enabled(project)
+        mine, on = project_entries(state, project), enabled(project, state.note)
         left = sorted(state.key(m) for m in state.modules if mine[m] or state.key(m) in on)
         return f"{', '.join(left)} still installed for the project" if left else ""
     return ""
@@ -832,8 +862,8 @@ def unreadable_said(bad: OSError) -> str:
     )
 
 
-def claude_noted(kit: Path, env: dict[str, str]) -> str:
-    """The note for a run on another Claude Code than the kit pins, "" on the pinned one, from
+def claude_noted(kit: Path, env: dict[str, str]) -> Note:
+    """The note for a run on another Claude Code than the kit pins, empty on the pinned one, from
     `kit_module_doc.claude_note`; its refusal is a Broken with that function's line."""
     try:
         return claude_note(kit, env)
@@ -871,7 +901,7 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
             )
     note = claude_noted(kit, base_env)
     try:
-        found, examined = run_blocks(named, kit, base_env, source)
+        found, examined = run_blocks(named, kit, base_env, source, note)
     except Broken as bad:
         bad.note = note
         raise
@@ -883,7 +913,7 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
 
 
 def run_blocks(
-    named: list[Block], kit: Path, base_env: dict[str, str], source: str
+    named: list[Block], kit: Path, base_env: dict[str, str], source: str, note: Note
 ) -> tuple[list[Finding], str]:
     """The named blocks run in the guide's order in a home folder of their own, and what was examined."""
     with tempfile.TemporaryDirectory(prefix="install-guide-") as scratch:
@@ -923,7 +953,7 @@ def run_blocks(
             marketplace = marketplace_name(clone)
         except DocumentError as bad:
             raise Broken(str(bad)) from bad
-        state = Run(home, clone, config, env, modules_of(clone), home, source, marketplace)
+        state = Run(home, clone, config, env, modules_of(clone), home, source, marketplace, note)
         ran = 0
         for block in named:
             if block.name == "dials":
@@ -998,7 +1028,9 @@ and `plugin list --json` from that state, or with the text of the file FAKE_MKT 
 exit FAKE_MKT_EXIT or FAKE_LIST_EXIT. A marketplace added from `<owner>/<repo>#<branch>` is a GitHub one,
 cloned from the toy kit the environment names; one added from a path is a local folder. `--version`
 answers the pin of the toy kit, as the real one writes it, or FAKE_SAYS (escapes read) with the exit
-FAKE_EXIT. FAKE_MUTANT names the one thing it does wrong."""
+FAKE_EXIT; for `--version` it logs to FAKE_ENV, when set, its configuration folder, its auto-updater
+setting, how many entries the folder holds and whether it is a folder. FAKE_MUTANT names the one thing it
+does wrong."""
 import json, os, shutil, subprocess, sys
 from pathlib import Path
 mutant = os.environ.get("FAKE_MUTANT", "")
@@ -1006,6 +1038,12 @@ config = Path(os.environ["CLAUDE_CONFIG_DIR"])
 with open(os.environ.get("FAKE_LOG") or config / "fake.log", "a", encoding="utf-8") as log:
     log.write(" ".join(sys.argv[1:]) + "\\n")
 if sys.argv[1:] == ["--version"]:
+    if os.environ.get("FAKE_ENV"):
+        with open(os.environ["FAKE_ENV"], "a", encoding="utf-8") as seen:
+            seen.write("|".join([
+                str(config), os.environ.get("DISABLE_AUTOUPDATER", ""), str(len(os.listdir(config))),
+                "dir" if config.is_dir() else "",
+            ]) + "\\n")
     pin = (Path(os.environ["FAKE_SOURCE"]) / "scripts" / "claude-code.version").read_text().strip()
     said = os.environ.get("FAKE_SAYS")
     sys.stdout.write(pin + " (Claude Code)\\n" if said is None else said.encode().decode("unicode_escape"))
@@ -1078,6 +1116,8 @@ elif args == ["plugin", "marketplace", "list", "--json"]:
             first["installLocation"] += "-gone"
         if mutant == "mkt-no-source":
             first.pop("source")
+        if mutant == "mkt-no-repo":
+            first.pop("repo")
         if mutant == "mkt-source-number":
             first["source"] = 7
     other = {"name": "other-mp", "source": "github", "repo": "other/kit", "installLocation": "/nowhere/o"}
@@ -1293,6 +1333,21 @@ def self_test() -> int:
 
     def whats(findings: list[Finding]) -> str:
         return " | ".join(f.what for f in findings) or "no finding"
+
+    pin_note = Note("2.1.282")  # the state of a run on the pin: the note empty
+
+    def fix_of(reader: str, wrote: str = "a reply") -> str:  # typed by hand: a message function cannot
+        return (  # check itself
+            f" — fix: Claude Code 2.1.282 wrote {wrote} that the kit's reader, `{reader}` in"
+            " scripts/check-install-guide.py, does not read: update that reader to what 2.1.282 writes"
+        )
+
+    off_fix = (  # typed by hand: the run is on 2.1.286, not the pinned 2.1.282
+        " — fix: this run is on 2.1.286, not the pinned 2.1.282: run it again on the pinned version,"
+        " put Claude Code 2.1.282 first on PATH for this run, installed beside your own (npm install"
+        " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
+        " then PATH=<folder>/node_modules/.bin:$PATH)"
+    )
 
     marks = [
         (
@@ -1582,7 +1637,7 @@ def self_test() -> int:
             elif text is not None:
                 (project / ".claude" / "settings.json").write_text(text, encoding="utf-8")
             try:
-                return project, ",".join(sorted(enabled(project))) or "none"
+                return project, ",".join(sorted(enabled(project, pin_note))) or "none"
             except Broken as bad:
                 return project, str(bad)
 
@@ -1599,10 +1654,7 @@ def self_test() -> int:
         ):
             folder, got = settings_said(text)
             case(f"a project's settings file that {name} enables {enables}", got == enables, got)
-        settings_fix = (
-            " — fix: check `claude --version` against scripts/claude-code.version: the kit reads the settings"
-            " Claude Code writes as that version writes them"
-        )  # typed by hand
+        settings_fix = fix_of("enabled", "a settings file")
         for name, text, tail in (
             (
                 "is empty",
@@ -1683,6 +1735,11 @@ def self_test() -> int:
         # marketplace list --json` or `plugin list --json`, and the readers are held to each reply
         unit = root / "unit"
         (unit / "config").mkdir(parents=True)
+        platform_folder = unit / "platform" / "toy-mp"  # the platform's clone of the marketplace, a folder
+        platform_folder.mkdir(parents=True)
+        a_file = unit / "platform" / "a-file"  # a place that exists and is no folder
+        a_file.write_text("not a folder\n", encoding="utf-8")
+        gone_folder = unit / "platform" / "gone"  # a place that does not exist
         project_dir = unit / "project"
         project_dir.mkdir()
         linked_dir = unit / "linked"
@@ -1691,7 +1748,17 @@ def self_test() -> int:
 
         def unit_state(**extra: str) -> Run:
             env = base | {"CLAUDE_CONFIG_DIR": str(unit / "config"), "FAKE_LOG": str(unit / "fake.log")}
-            return Run(unit, kit, unit / "config", env | extra, modules_of(kit), unit, "toy/kit#main", TOY_MP)
+            return Run(
+                unit,
+                kit,
+                unit / "config",
+                env | extra,
+                modules_of(kit),
+                unit,
+                "toy/kit#main",
+                TOY_MP,
+                pin_note,
+            )
 
         def reply_file(text: str) -> str:
             nonlocal files
@@ -1702,10 +1769,19 @@ def self_test() -> int:
         def without(entry: dict[str, object], *fields: str) -> dict[str, object]:
             return {k: v for k, v in entry.items() if k not in fields}
 
-        reply_fix = (
-            " — fix: check `claude --version` against scripts/claude-code.version: the kit reads Claude"
-            " Code's replies as that version writes them"
-        )  # typed by hand
+        def reply_fix(rest: str, reader: str) -> str:
+            """The fix a BROKEN line ends with, by the function that reads: `reader`, which is
+            `platform_clone` or `project_entries`, for what it asks of an entry or finds in the list (two
+            entries of a name, a field that is no string, an installLocation that is no folder), and
+            `listed` for the rest, as `rest` says what was found."""
+            asked = (
+                "entries named",
+                "project-scope entries",
+                "gives no ",
+                "installLocation that is no folder",
+            )
+            return fix_of(reader if any(word in rest for word in asked) else "listed")
+
         mkt_command = "`claude plugin marketplace list --json`"
         listed_command = "`claude plugin list --json`"
         no_json = "Expecting value: line 1 column 1 (char 0)"
@@ -1724,12 +1800,12 @@ def self_test() -> int:
                 "name": TOY_MP,
                 "source": "github",
                 "repo": "toy/kit",
-                "installLocation": "/platform/toy-mp",
+                "installLocation": str(platform_folder),
             } | fields
 
         other = {"name": "other-mp", "source": "directory", "path": "/p", "installLocation": "/q"}
         stray = mkt(name="stray-mp", installLocation="/wrong")  # a GitHub entry of the right repository
-        clone_of = "clone /platform/toy-mp"
+        clone_of = f"clone {platform_folder}"
         for name, entries, result in (
             ("one entry", [mkt()], clone_of),
             ("another marketplace's entry first", [other, mkt()], clone_of),
@@ -1749,14 +1825,14 @@ def self_test() -> int:
                 "RED the marketplace is registered from other/kit, not from toy/kit",
             ),
             (
-                "no repository",
-                [without(mkt(), "repo")],
-                "RED the marketplace is registered from None, not from toy/kit",
+                "a directory source with no repository, whose clone is no folder: the source is the finding",
+                [without(mkt(source="directory", path="/p", installLocation=str(gone_folder)), "repo")],
+                "RED the marketplace is registered from a directory source, not from GitHub",
             ),
             (
-                "a repository that is a number",
-                [mkt(repo=7)],
-                "RED the marketplace is registered from 7, not from toy/kit",
+                "another repository, whose clone is no folder: the repository is the finding",
+                [mkt(repo="other/kit", installLocation=str(gone_folder))],
+                "RED the marketplace is registered from other/kit, not from toy/kit",
             ),
         ):
             got = mkt_said(json.dumps(entries))
@@ -1769,6 +1845,24 @@ def self_test() -> int:
                 f"printed no JSON ('garbled': {no_json})",
             ),
             ("empty", "", 0, f"printed no JSON ('': {no_json})"),
+            (
+                "text whose quotation is exactly 200 characters",
+                "x" * 198,
+                0,
+                f"printed no JSON ('{'x' * 198}': {no_json})",
+            ),
+            (
+                "text whose quotation is 201 characters, cut at 200 and ended with …",
+                "x" * 199,
+                0,
+                f"printed no JSON ('{'x' * 199}…: {no_json})",
+            ),
+            (
+                "text much longer than that, cut at 200 characters",
+                "garbled " * 40,
+                0,
+                f"printed no JSON ({('garbled ' * 40)!r:.200}…: {no_json})",
+            ),
             ("an object", "{}", 0, "printed a JSON dict, not a list"),
             ("a string", '"toy-mp"', 0, "printed a JSON str, not a list"),
             ("null", "null", 0, "printed a JSON NoneType, not a list"),
@@ -1844,11 +1938,63 @@ def self_test() -> int:
                 0,
                 "gives no installLocation string for toy-mp (installLocation is absent)",
             ),
+            (
+                "no repository on a GitHub entry",
+                json.dumps([without(mkt(), "repo")]),
+                0,
+                "gives no repo string for toy-mp (repo is absent)",
+            ),
+            (
+                "a repository that is a number",
+                json.dumps([mkt(repo=7)]),
+                0,
+                "gives no repo string for toy-mp (repo is 7)",
+            ),
+            (
+                "an empty repository",
+                json.dumps([mkt(repo="")]),
+                0,
+                "gives no repo string for toy-mp (repo is '')",
+            ),
+            (
+                "a repository that is null",
+                json.dumps([mkt(repo=None)]),
+                0,
+                "gives no repo string for toy-mp (repo is None)",
+            ),
+            (
+                "a repository that is a list",
+                json.dumps([mkt(repo=["toy/kit"])]),
+                0,
+                "gives no repo string for toy-mp (repo is ['toy/kit'])",
+            ),
+            (
+                "an installLocation that does not exist",
+                json.dumps([mkt(installLocation=str(gone_folder))]),
+                0,
+                f"names an installLocation that is no folder ({gone_folder})",
+            ),
+            (
+                "an installLocation that is a file",
+                json.dumps([mkt(installLocation=str(a_file))]),
+                0,
+                f"names an installLocation that is no folder ({a_file})",
+            ),
+            (
+                "an installLocation that does not exist, on an entry round another marketplace's",
+                json.dumps([other, mkt(installLocation=str(gone_folder)), stray]),
+                0,
+                f"names an installLocation that is no folder ({gone_folder})",
+            ),
             ("an exit 1 with a message", "boom", 1, "exited 1 (boom)"),
             ("an exit 3 with a valid reply", "[]", 3, "exited 3 ([])"),
         ):
             got = mkt_said(text, code)
-            case(f"marketplace list, {name}: BROKEN", got == f"BROKEN {mkt_command} {rest}{reply_fix}", got)
+            case(
+                f"marketplace list, {name}: BROKEN",
+                got == f"BROKEN {mkt_command} {rest}{reply_fix(rest, 'platform_clone')}",
+                got,
+            )
 
         def plug(module: str = "const-alpha", /, **fields: object) -> dict[str, object]:
             return {
@@ -1944,7 +2090,11 @@ def self_test() -> int:
             ("an exit 2 with a valid reply", json.dumps(both), 2, f"exited 2 ({json.dumps(both)})"),
         ):
             got = plugins_said(text, code)
-            case(f"plugin list, {name}: BROKEN", got == f"BROKEN {listed_command} {rest}{reply_fix}", got)
+            case(
+                f"plugin list, {name}: BROKEN",
+                got == f"BROKEN {listed_command} {rest}{reply_fix(rest, 'project_entries')}",
+                got,
+            )
         for field in ("installPath", "version", "scope"):
             for shape, entry, said in (
                 ("absent", without(plug(), field), "absent"),
@@ -1969,7 +2119,7 @@ def self_test() -> int:
                     got = plugins_said(json.dumps(entries))
                     case(
                         f"plugin list, {field} {shape} on {placed}: BROKEN",
-                        got == f"BROKEN {listed_command} {rest}{reply_fix}",
+                        got == f"BROKEN {listed_command} {rest}{fix_of('project_entries')}",
                         got,
                     )
         for scope in ("project", "local"):
@@ -1991,10 +2141,12 @@ def self_test() -> int:
                     got = plugins_said(json.dumps(entries))
                     case(
                         f"plugin list, a {scope}-scope entry with projectPath {shape}, {placed}: BROKEN",
-                        got == f"BROKEN {listed_command} {rest}{reply_fix}",
+                        got == f"BROKEN {listed_command} {rest}{fix_of('project_entries')}",
                         got,
                     )
-        twice = f"lists 2 project-scope entries of const-alpha@toy-mp for the project{reply_fix}"
+        twice = (
+            f"lists 2 project-scope entries of const-alpha@toy-mp for the project{fix_of('project_entries')}"
+        )
         for name, entries, rest in (
             ("two entries of the id", [plug(), plug()], twice),
             ("two entries round another module's", [plug(), plug("const-beta"), plug()], twice),
@@ -2008,7 +2160,8 @@ def self_test() -> int:
             (
                 "a shape fault of the second module before the two entries of the first",
                 [plug(), plug(), without(plug("const-beta"), "version")],
-                "gives no version string for const-beta@toy-mp (version is absent)" + reply_fix,
+                "gives no version string for const-beta@toy-mp (version is absent)"
+                + fix_of("project_entries"),
             ),
         ):
             got = plugins_said(json.dumps(entries))
@@ -2198,12 +2351,6 @@ def self_test() -> int:
                 "list-wrong-version",
                 "after check=install: const-alpha is installed at 9.9.9, not 0.0.1",
             ),
-            (
-                "a marketplace whose listed clone is no folder red",
-                {},
-                "mkt-clone-gone",
-                "after check=marketplace: the platform's clone of the marketplace cannot be read",
-            ),
         ]
         for name, replace, mutant, expected in runs:
             findings, examined, _ = run_guide(toy_guide(**replace), kit, base | {"FAKE_MUTANT": mutant})
@@ -2259,6 +2406,7 @@ def self_test() -> int:
                 f"{mkt_command} gives no installLocation string for toy-mp (installLocation is 7)",
             ),
             ("mkt-no-source", f"{mkt_command} gives no source string for toy-mp (source is absent)"),
+            ("mkt-no-repo", f"{mkt_command} gives no repo string for toy-mp (repo is absent)"),
             ("mkt-source-number", f"{mkt_command} gives no source string for toy-mp (source is 7)"),
             ("list-not-json", f"{listed_command} printed no JSON ('no plugins yet\\n': {no_json})"),
             ("list-not-list", f"{listed_command} printed a JSON dict, not a list"),
@@ -2290,9 +2438,19 @@ def self_test() -> int:
             got = broke(mutant)
             case(
                 f"{mutant}: a BROKEN pointing at the Claude Code version, never a finding against INSTALL.md",
-                got == rest + reply_fix,
+                got
+                == rest
+                + reply_fix(rest, "platform_clone" if mutant.startswith("mkt-") else "project_entries"),
                 got,
             )
+        got = broke("mkt-clone-gone")
+        case(
+            "mkt-clone-gone: an installLocation that is no folder is a BROKEN pointing at the Claude Code"
+            " version, never a finding against INSTALL.md",
+            got.startswith(f"{mkt_command} names an installLocation that is no folder (/")
+            and got.endswith(f"/.claude/fake-clone/toy-mp-gone){fix_of('platform_clone')}"),
+            got,
+        )
         got = broke("settings-corrupt-on-update")
         case(
             "settings.json the platform wrote as no JSON is a BROKEN at the update claim",
@@ -2495,6 +2653,36 @@ def self_test() -> int:
                 got,
             )
 
+        person = root / "person"  # the configuration folder of the person who runs the check
+        person.mkdir()
+        (person / "keep").write_text("the person's own configuration\n", encoding="utf-8")
+        env_log = root / "env.log"
+        for name, own in (
+            ("the person's CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER=0", True),
+            ("neither of the two variables", False),
+        ):
+            env_log.unlink(missing_ok=True)
+            env = says_env("2.1.282 (Claude Code)\\n", 0, None) | {"FAKE_ENV": str(env_log)}
+            env = {
+                k: v for k, v in env.items() if own or k not in ("CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER")
+            }
+            if own:
+                env |= {"CLAUDE_CONFIG_DIR": str(person), "DISABLE_AUTOUPDATER": "0"}
+            outcome(env)
+            seen_env = env_log.read_text(encoding="utf-8").splitlines() if env_log.exists() else []
+            config, updater, held, is_dir = (seen_env[0].split("|") + ["", "", "", ""])[:4]
+            case(
+                f"`claude --version` runs in an empty configuration folder of its own, auto-updater off,"
+                f" with {name}",
+                len(seen_env) == 1
+                and config not in ("", str(person))
+                and is_dir == "dir"
+                and held == "0"
+                and updater == "1"
+                and sorted(path.name for path in person.iterdir()) == ["keep"],
+                f"{seen_env} {sorted(path.name for path in person.iterdir())}",
+            )
+
         def stopped_run(env: dict[str, str], where: Path = kit) -> tuple[str, str]:
             """What `run_guide` over the toy guide ends in when it is Broken: its line and its note."""
             version_log.unlink(missing_ok=True)
@@ -2602,7 +2790,7 @@ def self_test() -> int:
             and logged() == ["--version"],
             f"{ended} {lines} {logged()}",
         )
-        unreadable_list = f"{listed_command} printed no JSON ('no plugins yet\\n': {no_json}){reply_fix}"
+        unreadable_head = f"{listed_command} printed no JSON ('no plugins yet\\n': {no_json})"
         ended, lines = whole_run(says_env(too_old, 0, "1") | {"FAKE_MUTANT": "list-not-json"})
         case(
             "a whole run on a reply of the wrong shape off the pin prints the two BROKEN lines, the note at"
@@ -2610,7 +2798,7 @@ def self_test() -> int:
             ended == EXIT_BROKEN
             and lines
             == [
-                "BROKEN: " + unreadable_list + noted.format("2.1.286"),
+                "BROKEN: " + unreadable_head + off_fix + noted.format("2.1.286"),
                 stop + noted.format("2.1.286"),
             ],
             f"{ended} {lines}",
@@ -2618,9 +2806,76 @@ def self_test() -> int:
         ended, lines = whole_run(base | {"FAKE_MUTANT": "list-not-json"})
         case(
             "a whole run on a reply of the wrong shape on the pin prints the two BROKEN lines, no note",
-            ended == EXIT_BROKEN and lines == ["BROKEN: " + unreadable_list, stop],
+            ended == EXIT_BROKEN and lines == ["BROKEN: " + unreadable_head + fix_of("listed"), stop],
             f"{ended} {lines}",
         )
+        green_line = (
+            "GREEN: the install guide runs and does what it says"
+            " — 9 block(s) run, 2 module(s), from toy/kit#main"
+        )
+        for name, env, note_wanted in (
+            ("off the pin", says_env(too_old, 0, "1"), noted.format("2.1.286")),
+            ("on the pin", base, ""),
+        ):
+            ended, lines = whole_run(env)
+            case(
+                f"a whole green run {name} prints one GREEN line, the note at the end of it",
+                ended == EXIT_GREEN and lines == [green_line + note_wanted],
+                f"{ended} {lines}",
+            )
+        red_main = toy_kit(root / "red-main")  # its guide committed, with a block that exits 1
+        (red_main / GUIDE).write_text(toy_guide(scan="false"), encoding="utf-8")
+        run(["git", "add", GUIDE], red_main, git)
+        run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "guide"],
+            red_main,
+            git,
+        )
+        scan_line = toy_guide(scan="false").splitlines().index("```bash check=scan") + 1
+        for name, env, note_wanted in (
+            ("off the pin", says_env(too_old, 0, "1", red_main), noted.format("2.1.286")),
+            ("on the pin", base | {"FAKE_SOURCE": str(red_main)}, ""),
+        ):
+            ended, lines = whole_run(env, red_main)
+            case(
+                f"a whole run {name} to a finding prints the RED lines, the note at the end of each headline",
+                ended == EXIT_RED
+                and lines
+                == [
+                    f"RED: INSTALL.md:{scan_line}: the block named check=scan exited 1 — no output"
+                    + note_wanted,
+                    f"  why: {WHY}",
+                    "  fix: make the block named check=scan do what the guide says it does,"
+                    " or correct the guide and the check",
+                    f"RED: 1 finding(s) — 5 block(s) run{note_wanted}",
+                ],
+                f"{ended} {lines}",
+            )
+
+        def unreadable_run(env: dict[str, str]) -> tuple[int, list[str]]:
+            """The lines `main` prints when the blocks' run meets a file it cannot read."""
+
+            def refuses(*args: object, **kwargs: object) -> object:
+                raise PermissionError(13, "Permission denied", "/the/file")
+
+            with mock.patch.dict(globals(), {"run_blocks": refuses}):
+                return whole_run(env)
+
+        unreadable_wanted = (  # typed by hand
+            "BROKEN: a file could not be read or written ([Errno 13] Permission denied: '/the/file')"
+            " — fix: make the kit's files readable and the system's temporary folder writable{}",
+            "BROKEN: the check could not run — 0 blocks run{}",
+        )
+        for name, env, note_wanted in (
+            ("off the pin", says_env(too_old, 0, "1"), noted.format("2.1.286")),
+            ("on the pin", base, ""),
+        ):
+            ended, lines = unreadable_run(env)
+            case(
+                f"a file the blocks' run cannot read, {name}: the two BROKEN lines, the note at each end",
+                ended == EXIT_BROKEN and lines == [line.format(note_wanted) for line in unreadable_wanted],
+                f"{ended} {lines}",
+            )
         try:
             committed_guide(root / "bin", os.environ | {"GIT_CEILING_DIRECTORIES": str(root)})
             bare = "no Broken"
