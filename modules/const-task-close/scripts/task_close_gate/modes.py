@@ -57,14 +57,19 @@ def scan_with(output: Output, start: Path, values: cli.Values) -> int:
     if since is not None and change is not None:
         raise ConfigurationFailure(messages.c12_since_and_change())
     body_text = _read_body(body) if body is not None else ""
-    rng = _locate_range(target, dials, since, change)
-    if rng is None:  # no commit yet: nothing landed, nothing to examine
-        tail = messages.f9_scan_tail(len(dials.coverage), 0, "HEAD", "HEAD", rooted=True)
-        return pipeline.report_scan(output, [], [], tail)
     with Matcher() as matcher:
         notes = checks.working_files_note(matcher, dials.working_files, history.tracked(target.root))
         if not dials.coverage:
+            # zero pairs: no range to examine, so no base to find — the trunk is not looked up, and a
+            # repository whose branch is not the trunk is green; a flag's ref is still resolved, an
+            # unknown one the configuration failure it is with a map
+            if since is not None or change is not None:
+                _locate_range(target, dials, since, change)
             return pipeline.report_scan(output, [], notes, messages.f9_scan_tail_empty())
+        rng = _locate_range(target, dials, since, change)
+        if rng is None:  # no commit yet: nothing landed, nothing to examine
+            tail = messages.f9_scan_tail(len(dials.coverage), 0, "HEAD", "HEAD", rooted=True)
+            return pipeline.report_scan(output, [], [], tail)
         _documents_exist(target.root, dials, rng)
         verdicts = checks.judge_pairs(matcher, dials.coverage, rng)
     declarations: list[Declaration] = [
