@@ -39,9 +39,9 @@ HOOKS. A hook's refusal is never bypassed. You make no edit in the kit, so none 
 SHELL RULES, strict:
 1. Each command is one synchronous foreground command that ends in under 600 seconds; one that
    may pass two minutes sets the tool's timeout, or the tool backgrounds it at 120 seconds.
-2. At most three test runners at once, in one command joined by `wait`.
-3. Never `run_in_background`, never `&` without `wait`, never a polling loop (`until`,
-   `while … sleep`), never `sleep`.
+2. At most three test runners at once, each its own foreground command.
+3. Never `run_in_background`, never `&` in any form, `&` with `wait` included, never a polling
+   loop (`until`, `while … sleep`), never `sleep`.
 4. Write only in the scratch directory the message names; never in `/tmp`, never in the kit.
    Delete nothing there, no `rm`: each copy goes in a fresh folder, `mktemp -d
    "<scratch>/<name>.XXXXXX"`, a mutated file is restored by copying the original over it, and
