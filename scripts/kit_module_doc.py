@@ -67,6 +67,13 @@ names no reader to update. A command that timed out (the run's exit 124): run th
 exited with another code than 0: run the command in the folder the caller names and read why it fails, then
 run the check again. Off the pin, either one has the check run again on the pinned version, put first on PATH
 as `claude_note`'s own fix words it. Both checks prove it in theirs, in each state, as literal lines.
+`claude_env` is the kit's one shaping of the environment a check runs `claude` in: the environment given,
+less CLAUDE_CODE_PLUGIN_CACHE_DIR. Claude Code writes the marketplace, the plugin cache and its install
+records under the folder that variable names (the loading page's "Find plugins on disk"), the person's own
+plugins root if that is what it holds, where the checks promise the empty configuration folder they make
+for the run; so a check passes `claude_env` its environment for every `claude` command it runs, the
+version command included, and the plugins root is always `plugins` in the check's own CLAUDE_CONFIG_DIR.
+Both checks prove it in theirs, with the variable set in the environment the person runs them in.
 
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
 imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
@@ -90,6 +97,7 @@ from pathlib import Path
 ANCHOR = re.compile(r'^<a id="(t\d+)"></a>$')
 CLAUDE_PIN = "scripts/claude-code.version"  # the kit's pin of the Claude Code version, from the kit's root
 ANY_CLAUDE = "CONSTITUTION_KIT_ANY_CLAUDE"  # the variable that, exactly `1`, lets a check run off the pin
+PLUGINS_ROOT_ENV = "CLAUDE_CODE_PLUGIN_CACHE_DIR"  # the plugins root of Claude Code, which `claude_env` drops
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")  # ASCII digits only: `\d` would take other scripts' digits
 PIN_FIX = "write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's only line"
 
@@ -182,6 +190,15 @@ def pinned_claude(root: Path) -> str:
     return version
 
 
+def claude_env(env: Mapping[str, str]) -> dict[str, str]:
+    """The environment a check runs every `claude` command in: `env` less CLAUDE_CODE_PLUGIN_CACHE_DIR,
+    whether it is set to a folder or to nothing. With it, Claude Code would write its marketplace, plugin
+    cache and install records under the folder it names, the person's own plugins root perhaps, and not
+    under `plugins` in the check's own empty configuration folder; without it, the plugins root is always
+    that one."""
+    return {key: value for key, value in env.items() if key != PLUGINS_ROOT_ENV}
+
+
 def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note:
     """Ask the `claude` on PATH its version, before any other command of the check, and compare it with
     the pin of the kit at `root`. Returns the empty `Note` when it is the pinned version, and the note a
@@ -193,12 +210,12 @@ def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note
     The version is the first whitespace-separated word of the first non-blank line of the output (the
     output is stripped first, so leading blank lines are skipped), read when the command exits 0 and the
     word is three numbers; a line break of either kind is white space, and the lines after that line are
-    not read. The command runs in `env`, in an empty configuration folder of
-    its own and with the auto-updater off, and one that has not answered in `timeout` seconds is no
-    version."""
+    not read. The command runs in `env` less CLAUDE_CODE_PLUGIN_CACHE_DIR (`claude_env`), in an empty
+    configuration folder of its own and with the auto-updater off, and one that has not answered in
+    `timeout` seconds is no version."""
     pinned = pinned_claude(root)
     with tempfile.TemporaryDirectory(prefix="claude-version-") as config:
-        asked = dict(env) | {"CLAUDE_CONFIG_DIR": config, "DISABLE_AUTOUPDATER": "1"}
+        asked = claude_env(env) | {"CLAUDE_CONFIG_DIR": config, "DISABLE_AUTOUPDATER": "1"}
         try:
             done = subprocess.run(
                 ["claude", "--version"],

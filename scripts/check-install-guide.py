@@ -10,10 +10,14 @@ commit the run clones. First its marks, read from the text:
   `check=<name>` where its language should stand is red too.
 Then the run, in throwaway folders the check removes: a home folder of its own, HOME and
 CLAUDE_CONFIG_DIR (<home>/.claude) under it and git's identity in a global configuration of its
-own; the kit cloned from the working folder's HEAD to ~/dev/constitution-kit, so what is not
-committed is not run; the source the marketplace block registers pointed at the change: the
-argument of its `claude plugin marketplace add` replaced by the environment's
-CONSTITUTION_KIT_INSTALL_FROM, `<owner>/<repo>#<branch>` (the kit's CI names the change's GitHub
+own; the environment's CLAUDE_CODE_PLUGIN_CACHE_DIR, set or empty, removed from the environment of the
+version command and of the whole run (`kit_module_doc.claude_env`), so that no `claude` command the check
+starts holds it: with it Claude Code would write the kit's marketplace, its plugin cache and its records
+under the folder it names, a person's own plugins root perhaps, and not into the run's empty configuration,
+and the plugins root is always `plugins` in the run's CLAUDE_CONFIG_DIR; the kit cloned from the working
+folder's HEAD to ~/dev/constitution-kit, so what is not committed is not run; the source the marketplace
+block registers pointed at the change: the argument of its `claude plugin marketplace add` replaced by the
+environment's CONSTITUTION_KIT_INSTALL_FROM, `<owner>/<repo>#<branch>` (the kit's CI names the change's GitHub
 repository and branch), else by the working folder's origin on GitHub at the branch checked out,
 which must be at HEAD. In CI the clone is the job's checkout of the change, a pull request's merge
 commit, and the source its head branch: the marketplace claim holds that both give the same
@@ -40,13 +44,17 @@ Beside every block's exit 0, the check holds at each name:
                module's copy in the plugin cache, an existing folder, and the module is enabled in the
                project's .claude/settings.json. The copy is `cache/<name>/<module>/<version>/` under
                the plugins root (`Run.cached`): <name> the marketplace's, <version> the manifest's,
-               and the root the run's CLAUDE_CODE_PLUGIN_CACHE_DIR when it is set and not empty, else
-               `plugins` in the run's CLAUDE_CONFIG_DIR. The `installPath` and that path are compared
+               and the root `plugins` in the run's CLAUDE_CONFIG_DIR, the run's environment holding no
+               CLAUDE_CODE_PLUGIN_CACHE_DIR. The `installPath` and that path are compared
                resolved, links and `..` followed: a copy kept in the marketplace's clone, in place, in
                the cache at another version, or in another marketplace's cache is a finding. And a
                headless session in the project, trusted in the configuration, reports each module's
                path as that cached copy — the frozen copy, never a clone's working files. The path is
-               reported before the model is called, so the session needs no login.
+               reported before the model is called, so the session needs no login. The fix of a copy
+               listed outside the cache (`cache_fix`), on the pinned version: make the block install from
+               the marketplace and set CLAUDE_CODE_PLUGIN_CACHE_DIR in no block, or, if the platform now
+               copies elsewhere, correct `Run.cached`; off the pin, where the reader is the pinned
+               version's and not this one's, to run the check again on the pinned version.
   kernel       the project's docs/constitution/ holds every file of the kit's kernel/, and the kit's
                LICENSE and NOTICE, byte for byte.
   dials        not run: written as the project's constitution.yaml, and with it what the reader
@@ -127,8 +135,9 @@ session, adding its key to whatever the file holds, documented for ~/.claude.jso
 CLAUDE_CONFIG_DIR, the folder that holds the platform's settings. From a documented layout: the plugin
 cache's path, `cache/<marketplace>/<plugin>/<version>/` under the plugins root ("Find plugins on disk" of the
 loading page), a path the check builds and compares with the `installPath` of the list; the root is
-`~/.claude/plugins` unless CLAUDE_CODE_PLUGIN_CACHE_DIR names it, which the check follows, and the root
-under CLAUDE_CONFIG_DIR, `plugins` in it, is that default read from the variable's own meaning. From an
+`~/.claude/plugins` unless CLAUDE_CODE_PLUGIN_CACHE_DIR names it, a variable the check removes from the
+environment it runs `claude` in, so the root under CLAUDE_CONFIG_DIR, `plugins` in it, is that default read
+from CLAUDE_CONFIG_DIR's own meaning. From an
 undocumented place: none, since the record files of Claude Code are not read, and the plugin cache is read
 only through the documented path of a module's copy; the files under an `installLocation` and under that
 copy are read as plain files.
@@ -186,7 +195,8 @@ Modes:  no arguments   check the kit's guide;
                        another version, a longer or shorter one, no version, blank lines before the
                        version, a failure and a crash, the variable unset, at each other value than `1`
                        and at `1`; the run stopped before the clone with only `--version` run; the version
-                       command run in an empty configuration folder of its own with the auto-updater off;
+                       command run in an empty configuration folder of its own, the auto-updater off and
+                       CLAUDE_CODE_PLUGIN_CACHE_DIR absent;
                        the reports of a run off the pin, a green one's and a finding's, as literal lines.
                        The platform's replies: the fake answering `plugin marketplace list --json` and
                        `plugin list --json` from a state of its own; the two readers over whole sets of
@@ -204,8 +214,13 @@ Modes:  no arguments   check the kit's guide;
                        places: in the marketplace's clone, in the right cache at another version, in
                        another marketplace's cache, at the module's folder without its version, below the
                        copy, each a finding, and a link to the copy or a path through `..` none; the cache's
-                       path under CLAUDE_CODE_PLUGIN_CACHE_DIR set, unset and set and empty, in the claim and
-                       in a whole run.
+                       path the same whatever CLAUDE_CODE_PLUGIN_CACHE_DIR the state's environment holds
+                       (set to a folder, set and empty), and that variable not followed by the claim, copies
+                       under the folder it names a finding; the fix of such a finding, `cache_fix`, on the
+                       pin and off it, and off it in a whole run with the opt-out; a whole run with the
+                       variable set in the person's environment, to a folder and empty: green, every
+                       `claude` command (the version, the plugin commands, the session) run with it
+                       absent, and the folder it names left empty.
                        The lists that fail: a marketplace list and a plugin list that exit 1, 3 or 124 or
                        time out (the process mocked), a BROKEN with the fix `kit_module_doc.command_fix`
                        words, never a reader to update, on the pin and off it.
@@ -239,14 +254,17 @@ from unittest import mock
 
 import yaml
 from kit_module_doc import (
+    PLUGINS_ROOT_ENV,
     DocumentError,
     Note,
+    claude_env,
     claude_note,
     command_fix,
     marketplace_name,
     module_folders,
     pinned_claude,
     platform_fix,
+    put_first,
 )
 
 KIT = Path(__file__).resolve().parent.parent
@@ -284,7 +302,7 @@ DOES = {
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 MARK = re.compile(r"(?:^|\s)check=(\S*)")
 FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
-CACHE_ENV = "CLAUDE_CODE_PLUGIN_CACHE_DIR"  # the plugins root, "Find plugins on disk" of the loading page
+CACHE_ENV = PLUGINS_ROOT_ENV  # the plugins root, "Find plugins on disk" of the loading page; the run drops it
 ADD = re.compile(r"(claude plugin marketplace add\s+)(\S+)")  # the source the marketplace block registers
 GITHUB_URL = re.compile(r"github\.com[:/]([^/\s]+/[^/\s]+?)(?:\.git)?/?$")
 LICENSE_FILES = ("LICENSE", "NOTICE")  # the kit's license and credit, copied beside the kernel
@@ -592,10 +610,10 @@ class Run:
     def cached(self, module: str) -> Path:
         """Where the platform copies a module of the kit's marketplace at install, in the layout that "Find
         plugins on disk" of its loading page documents: `cache/<marketplace>/<plugin>/<version>/` under the
-        plugins root, the manifest's version here. The root is the run's CLAUDE_CODE_PLUGIN_CACHE_DIR when it
-        is set and not empty, else `plugins` in the run's configuration folder."""
-        root = self.env.get(CACHE_ENV) or str(self.config / "plugins")
-        return Path(root) / "cache" / self.marketplace / module / self.modules[module]
+        plugins root, the manifest's version here. The root is `plugins` in the run's configuration folder:
+        the run's environment holds no CLAUDE_CODE_PLUGIN_CACHE_DIR (`run_blocks` removes it), so the platform
+        is given no other root."""
+        return self.config / "plugins" / "cache" / self.marketplace / module / self.modules[module]
 
 
 def shown(value: object) -> str:
@@ -832,7 +850,8 @@ def claim(state: Run, name: str) -> str:
             listed_at, copies[module] = own[0]["installPath"], state.cached(module)
             if Path(listed_at).resolve() != copies[module].resolve():
                 raise Misfit(
-                    f"{module} is not in the plugin cache at {copies[module]} but at {listed_at}", CACHE_FIX
+                    f"{module} is not in the plugin cache at {copies[module]} but at {listed_at}",
+                    cache_fix(state.note),
                 )
             if not copies[module].is_dir():
                 return f"{module} is not in the plugin cache at {copies[module]}"
@@ -887,11 +906,25 @@ def claim(state: Run, name: str) -> str:
 
 CACHE_FIX = (
     "make the block install each module from the marketplace, `claude plugin install "
-    f"<module>@<marketplace> --scope project`, and set {CACHE_ENV} in no block, only in the environment the "
-    "check runs in: the platform copies the module to <plugins root>/cache/<marketplace>/<module>/<version>, "
-    "where Claude Code's loading page documents it; if it now copies elsewhere, correct `Run.cached` of the "
-    "check"
+    f"<module>@<marketplace> --scope project`, and set {CACHE_ENV} in no block: the platform copies the "
+    "module to <plugins root>/cache/<marketplace>/<module>/<version>, where Claude Code's loading page "
+    "documents it; if it now copies elsewhere, correct `Run.cached` of the check"
 )
+
+
+def cache_fix(note: Note) -> str:
+    """The fix of a module listed outside the plugin cache, by the state `note` records. On the pinned
+    version, `CACHE_FIX`: the block, or the check's reader of that version's layout. Off the pin the reader
+    is the pinned version's, not this one's, so the fix is the run on the pinned version, put first on PATH
+    as `put_first` words it."""
+    if note.found:
+        return (
+            f"this run is on {note.found}, not the pinned {note.pinned}: run the check again on the pinned"
+            f" version, {put_first(note.pinned)}"
+        )
+    return CACHE_FIX
+
+
 IN_PLACE = (
     "register the kit from GitHub, `claude plugin marketplace add <owner>/<repo>`: a marketplace added from "
     "a local folder runs that folder's working files in place, never the frozen copy"
@@ -1036,7 +1069,7 @@ def run_blocks(
             encoding="utf-8",
         )
         carry_credentials(base_env, home / ".gitconfig")
-        env = base_env | {
+        env = claude_env(base_env) | {  # no CLAUDE_CODE_PLUGIN_CACHE_DIR: the root is <config>/plugins
             "HOME": str(home),
             "CLAUDE_CONFIG_DIR": str(config),
             "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
@@ -1143,13 +1176,18 @@ from `<owner>/<repo>#<branch>` is a GitHub one, cloned from the toy kit the envi
 from a path is a local folder. `--version` answers the pin of the toy kit, as the real one writes it, or
 FAKE_SAYS (escapes read) with the exit FAKE_EXIT; for `--version` it logs to FAKE_ENV, when set, its
 configuration folder, its auto-updater setting, how many entries the folder holds and whether it is a
-folder. FAKE_MUTANT names the one thing it does wrong."""
+folder. For every command it logs to FAKE_CACHE, when set, the arguments and the CLAUDE_CODE_PLUGIN_CACHE_DIR
+it holds, `absent` when unset. FAKE_MUTANT names the one thing it does wrong."""
 import json, os, shutil, subprocess, sys
 from pathlib import Path
 mutant = os.environ.get("FAKE_MUTANT", "")
 config = Path(os.environ["CLAUDE_CONFIG_DIR"])
 with open(os.environ.get("FAKE_LOG") or config / "fake.log", "a", encoding="utf-8") as log:
     log.write(" ".join(sys.argv[1:]) + "\\n")
+if os.environ.get("FAKE_CACHE"):
+    with open(os.environ["FAKE_CACHE"], "a", encoding="utf-8") as seen:
+        cache_dir = os.environ.get("CLAUDE_CODE_PLUGIN_CACHE_DIR", "absent")
+        seen.write(" ".join(sys.argv[1:]) + "|" + cache_dir + "\\n")
 if sys.argv[1:] == ["--version"]:
     if os.environ.get("FAKE_ENV"):
         with open(os.environ["FAKE_ENV"], "a", encoding="utf-8") as seen:
@@ -2543,17 +2581,35 @@ def self_test() -> int:
             got,
         )
 
-        def update_said(entries: list[dict[str, object]], root: Path | None = None) -> str:
+        def update_held(
+            entries: list[dict[str, object]],
+            config: Path | None = None,
+            note: Note = pin_note,
+            env: dict[str, str] | None = None,
+        ) -> str:
             """What the update claim, whose picks the install and the reinstall share, says of a list: its
-            finding, `RED` and the finding of a Misfit, or the empty string; the run's plugins root is
-            `root` when one is given, else the default."""
-            extra = {} if root is None else {CACHE_ENV: str(root)}
-            held = unit_state(FAKE_LIST=reply_file(json.dumps(entries)), **extra)
+            finding, `RED` and the finding of a Misfit, with its fix after ` | `, or the empty string; the
+            run's configuration folder is `config` when one is given, else the default, its plugins root
+            `plugins` in it, `env` is added to the run's environment and `note` is its state."""
+            held = unit_state(FAKE_LIST=reply_file(json.dumps(entries)), **(env or {}))
+            if config is not None:
+                held.config = config
+                held.env = held.env | {"CLAUDE_CONFIG_DIR": str(config)}
             held.project = project_dir
+            held.note = note
             try:
                 return claim(held, "update")
             except Misfit as misfit:
-                return f"RED {misfit.what}"
+                return f"RED {misfit.what} | {misfit.fix}"
+
+        def update_said(
+            entries: list[dict[str, object]],
+            config: Path | None = None,
+            note: Note = pin_note,
+            env: dict[str, str] | None = None,
+        ) -> str:
+            """`update_held` without the fix of a finding."""
+            return update_held(entries, config, note, env).split(" | ", 1)[0]
 
         def local(module: str) -> dict[str, object]:
             """A local-scope entry for the project the claim must not pick: another version, no folder."""
@@ -2584,13 +2640,16 @@ def self_test() -> int:
             got,
         )
         # the cache's copy is where the layout puts it, so the folder that fails is the cache's own
-        for name, plugins_root, as_file in (
-            ("a file", unit / "root-file", True),
-            ("no folder at all", unit / "root-none", False),
+        for name, own_config, as_file in (
+            ("a file", unit / "config-file", True),
+            ("no folder at all", unit / "config-none", False),
         ):
-            target = unit_state(**{CACHE_ENV: str(plugins_root)}).cached("const-alpha")
+            plugins_root = own_config / "plugins"
+            at_config = unit_state()
+            at_config.config = own_config
+            target = at_config.cached("const-alpha")
             case(
-                f"the copy of an installPath case, {name}, is under the root it names",
+                f"the copy of an installPath case, {name}, is under the plugins root of its configuration",
                 plugins_root in target.parents,
                 str(target),
             )
@@ -2599,7 +2658,7 @@ def self_test() -> int:
             if as_file:
                 target.parent.mkdir(parents=True)
                 target.write_text("not a folder\n", encoding="utf-8")
-            got = update_said([plug(installPath=str(target)), right_beta], plugins_root)
+            got = update_said([plug(installPath=str(target)), right_beta], own_config)
             case(
                 f"update claim, an installPath in the cache that is {name}: not in the plugin cache",
                 got == f"const-alpha is not in the plugin cache at {target}",
@@ -2615,24 +2674,40 @@ def self_test() -> int:
             alpha_cache == default_root / "cache" / TOY_MP / "const-alpha" / "0.0.1",
             str(alpha_cache),
         )
+        # the run drops CLAUDE_CODE_PLUGIN_CACHE_DIR from its environment, so the plugins root is the
+        # configuration folder's and `Run.cached` reads no variable, whatever the state's environment holds
         env_root = unit / "env-root"
-        env_state = unit_state(**{CACHE_ENV: str(env_root)})
-        case(
-            "the plugins root follows CLAUDE_CODE_PLUGIN_CACHE_DIR when it is set",
-            env_state.cached("const-alpha") == env_root / "cache" / TOY_MP / "const-alpha" / "0.0.1",
-            str(env_state.cached("const-alpha")),
-        )
-        case(
-            "the plugins root is the default when CLAUDE_CODE_PLUGIN_CACHE_DIR is set and empty",
-            unit_state(**{CACHE_ENV: ""}).cached("const-alpha") == alpha_cache,
-            str(unit_state(**{CACHE_ENV: ""}).cached("const-alpha")),
-        )
+        for name, value in (("set to a folder", str(env_root)), ("set and empty", "")):
+            held_by_env = unit_state(**{CACHE_ENV: value}).cached("const-alpha")
+            case(
+                "the plugins root is plugins in the configuration folder, whatever"
+                f" CLAUDE_CODE_PLUGIN_CACHE_DIR the environment holds ({name})",
+                held_by_env == alpha_cache,
+                str(held_by_env),
+            )
         cache_fix = (  # typed by hand: a message function cannot check itself
             "make the block install each module from the marketplace, `claude plugin install "
-            "<module>@<marketplace> --scope project`, and set CLAUDE_CODE_PLUGIN_CACHE_DIR in no block, only "
-            "in the environment the check runs in: the platform copies the module to <plugins root>/cache/"
-            "<marketplace>/<module>/<version>, where Claude Code's loading page documents it; if it now "
-            "copies elsewhere, correct `Run.cached` of the check"
+            "<module>@<marketplace> --scope project`, and set CLAUDE_CODE_PLUGIN_CACHE_DIR in no block: the "
+            "platform copies the module to <plugins root>/cache/<marketplace>/<module>/<version>, where "
+            "Claude Code's loading page documents it; if it now copies elsewhere, correct `Run.cached` of "
+            "the check"
+        )
+        off_cache_fix = (  # off the pin: the run on the pinned version, not a reader to correct
+            f"{off_what}: run the check again on the pinned version, {put_first}"
+        )
+        got = update_held([plug(installPath=str(alpha_cache.parent / "0.0.0")), right_beta])
+        case(
+            "update claim, an installPath outside the cache, on the pin: the cache's fix and its reader to"
+            " correct",
+            got.endswith(f" | {cache_fix}"),
+            got,
+        )
+        got = update_held([plug(installPath=str(alpha_cache.parent / "0.0.0")), right_beta], note=other_note)
+        case(
+            "update claim, an installPath outside the cache, off the pin: the run on the pinned version, no"
+            " reader to correct",
+            got.endswith(f" | {off_cache_fix}") and "Run.cached" not in got,
+            got,
         )
         outside = alpha_cache.parent / "0.0.0"  # the right cache, another version
         other_market = default_root / "cache" / "other-mp" / "const-alpha" / "0.0.1"
@@ -2660,39 +2735,49 @@ def self_test() -> int:
         case(
             "update claim, an installPath reaching the cache's copy through `..`: no finding", got == "", got
         )
-        env_copies = [plug(m, installPath=str(env_state.cached(m))) for m in ("const-alpha", "const-beta")]
-        for module in ("const-alpha", "const-beta"):
-            env_state.cached(module).mkdir(parents=True, exist_ok=True)
-        got = update_said(env_copies, env_root)
-        case("update claim, CLAUDE_CODE_PLUGIN_CACHE_DIR set, copies under it: no finding", got == "", got)
-        # the plugins root itself may be a link: the path listed and the path built are both resolved
-        real_root, linked_root = unit / "root-real", unit / "root-linked"
-        real_root.mkdir()
-        linked_root.symlink_to(real_root)
-        real_copies = [
-            plug(m, installPath=str(real_root / "cache" / TOY_MP / m / "0.0.1"))
+        env_copies = [
+            plug(m, installPath=str(env_root / "cache" / TOY_MP / m / "0.0.1"))
             for m in ("const-alpha", "const-beta")
         ]
         for module in ("const-alpha", "const-beta"):
-            (real_root / "cache" / TOY_MP / module / "0.0.1").mkdir(parents=True)
-        got = update_said(real_copies, linked_root)
+            (env_root / "cache" / TOY_MP / module / "0.0.1").mkdir(parents=True, exist_ok=True)
+        # the plugins root itself may be a link: the path listed and the path built are both resolved
+        real_config, linked_config = unit / "config-real", unit / "config-linked"
+        (real_config / "plugins").mkdir(parents=True)
+        linked_config.mkdir()
+        (linked_config / "plugins").symlink_to(real_config / "plugins")
+        real_copies = [
+            plug(m, installPath=str(real_config / "plugins" / "cache" / TOY_MP / m / "0.0.1"))
+            for m in ("const-alpha", "const-beta")
+        ]
+        for module in ("const-alpha", "const-beta"):
+            (real_config / "plugins" / "cache" / TOY_MP / module / "0.0.1").mkdir(parents=True)
+        got = update_said(real_copies, linked_config)
         case(
             "update claim, the plugins root a link, the installPath the real folder it leads to: no finding",
             got == "",
             got,
         )
-        got = update_said(copies_listed, env_root)
+        got = update_said(copies_listed, env={CACHE_ENV: str(env_root)})
         case(
-            "update claim, CLAUDE_CODE_PLUGIN_CACHE_DIR set, copies under the default root: not in the cache",
-            got == f"RED const-alpha is not in the plugin cache at {env_state.cached('const-alpha')} but at "
-            f"{alpha_cache}",
+            "update claim, CLAUDE_CODE_PLUGIN_CACHE_DIR in the state's environment, copies under the"
+            " configuration's plugins root: no finding, the variable is not followed",
+            got == "",
+            got,
+        )
+        got = update_said(env_copies, env={CACHE_ENV: str(env_root)})
+        case(
+            "update claim, CLAUDE_CODE_PLUGIN_CACHE_DIR in the state's environment, copies under the"
+            " variable's folder: not in the cache, the variable is not followed",
+            got == f"RED const-alpha is not in the plugin cache at {alpha_cache} but at "
+            f"{env_root / 'cache' / TOY_MP / 'const-alpha' / '0.0.1'}",
             got,
         )
         got = update_said(env_copies)
         case(
-            "update claim, copies under the variable's root with the variable unset: not in the cache",
+            "update claim, copies under a folder the environment does not name: not in the cache",
             got == f"RED const-alpha is not in the plugin cache at {alpha_cache} but at "
-            f"{env_state.cached('const-alpha')}",
+            f"{env_root / 'cache' / TOY_MP / 'const-alpha' / '0.0.1'}",
             got,
         )
         still_installed = (
@@ -2911,21 +2996,31 @@ def self_test() -> int:
                 f"{whats(decoyed)} ({decoyed_examined})",
             )
 
-        # the plugins root of a whole run follows CLAUDE_CODE_PLUGIN_CACHE_DIR: the fake copies there and the
-        # check looks there, whatever the root; set and empty is no root
+        # the person's CLAUDE_CODE_PLUGIN_CACHE_DIR never reaches a `claude` the run starts: the version
+        # command, the blocks' commands and the headless session all see it unset, the platform's copies are
+        # made under the run's own configuration, and the folder the variable names stays empty
         pc_root = unit / "plugins-root"
+        pc_root.mkdir()
         for name, value in (("set to a folder", str(pc_root)), ("set and empty", "")):
-            rooted, rooted_examined, _ = run_guide(toy_guide(), kit, base | {CACHE_ENV: value})
-            case(
-                f"CLAUDE_CODE_PLUGIN_CACHE_DIR {name}: a green run, the whole of it",
-                not rooted and rooted_examined == green_examined,
-                f"{whats(rooted)} ({rooted_examined})",
+            seen_log = unit / "cache-seen.log"
+            seen_log.unlink(missing_ok=True)
+            rooted, rooted_examined, _ = run_guide(
+                toy_guide(), kit, base | {CACHE_ENV: value, "FAKE_CACHE": str(seen_log)}
             )
-        case(
-            "CLAUDE_CODE_PLUGIN_CACHE_DIR set to a folder: the platform's copies were made under it",
-            (pc_root / "cache" / TOY_MP).is_dir(),
-            str(sorted(pc_root.rglob("*"))[:3]),
-        )
+            seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
+            first_words = {line.rsplit("|", 1)[0].split()[0] for line in seen}
+            case(
+                f"CLAUDE_CODE_PLUGIN_CACHE_DIR {name} in the person's environment: a green run, the whole of"
+                " it, every claude command (the version, the plugin commands, the session) run with it"
+                " absent, the folder it names empty",
+                not rooted
+                and rooted_examined == green_examined
+                and bool(seen)
+                and all(line.endswith("|absent") for line in seen)
+                and {"--version", "plugin", "-p"} <= first_words
+                and list(pc_root.iterdir()) == [],
+                f"{whats(rooted)} ({rooted_examined}) {seen[:4]} {sorted(p.name for p in pc_root.iterdir())}",
+            )
 
         # the folders in a whole run: the marketplace list where its block ended, not in the project, the
         # plugin list in the project, and neither in the run's home folder
@@ -3310,6 +3405,17 @@ def self_test() -> int:
             and logged().count("--version") == 1
             and len(logged()) > 1,
             f"{whats(off_findings)} ({off_examined}) {off_note!r} {logged()[:3]}",
+        )
+        in_place, _, _ = run_guide(
+            toy_guide(), kit, says_env(too_old, 0, "1") | {"FAKE_MUTANT": "install-in-place"}
+        )
+        case(
+            "an install listed in the marketplace's clone, on another version with the opt-out: one finding"
+            " against the cache, its fix the run on the pinned version and no reader to correct",
+            len(in_place) == 1
+            and in_place[0].what.startswith("after check=install: const-alpha is not in the plugin cache at ")
+            and in_place[0].fix == off_cache_fix,
+            " | ".join(f"{f.what} / {f.fix}" for f in in_place),
         )
         line, kept = stopped_run(says_env(too_old, 0, "1", nameless), nameless)
         case(
