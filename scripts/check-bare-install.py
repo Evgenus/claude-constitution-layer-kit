@@ -252,7 +252,9 @@ def last_line(out: str, err: str) -> str:
 def hooks_of(plugin: Path) -> list[Hook]:
     """The hooks of a plugin's hooks/hooks.json, each with the seconds it is waited for: its own `timeout`,
     else the platform's default for a `command` hook on its event (`EVENT_HOOK_TIMEOUT`, else
-    `HOOK_TIMEOUT`). Every shape of the file the check cannot run is a Broken naming the file, the event and
+    `HOOK_TIMEOUT`). A hooks file that is there and cannot be read (an `OSError`: its permissions, a folder
+    in its place, an I/O error) is a Broken of its own, with a fix to make it readable; a missing one gives
+    no hooks. Every shape of the file the check cannot run is a Broken naming the file, the event and
     the hook's place (group and hook, counted from 1), never another exception: a file that is no object
     with a "hooks" object of events, each a list of groups, each an object with a "hooks" list of hook
     objects and a "matcher", when present, that is a string; a hook with no `type` of the five the hooks
@@ -271,8 +273,18 @@ def hooks_of(plugin: Path) -> list[Hook]:
         return Broken(f"{path} is not a hooks file ({detail}) — fix: {fix}")
 
     try:
-        data: object = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, RecursionError) as bad:
+        text = path.read_text(encoding="utf-8")
+    except OSError as bad:  # the file is there and cannot be read: no shape to restore
+        raise Broken(
+            f"{path} cannot be read ({shown(bad.strerror)}) — fix: make it a readable file (its"
+            f" permissions), or restore it with git checkout -- {path}, so that the check can read each"
+            f" hook it runs"
+        ) from bad
+    except ValueError as bad:  # not UTF-8
+        raise unreadable(str(bad)) from bad
+    try:
+        data: object = json.loads(text)
+    except (ValueError, RecursionError) as bad:
         raise unreadable(str(bad)) from bad
     if not isinstance(data, dict):
         raise unreadable(f"the top level is {shown(data)}, not a JSON object")
@@ -1251,7 +1263,8 @@ def self_test() -> int:
     def hook_wait_cases() -> None:
         """A hook that declares no timeout is waited for as the platform gives its event; one that declares
         a timeout, for that: read from the `Hook` that `hooks_of` builds, nothing is waited for. A hooks
-        file `hooks_of` cannot run, in each shape, is one BROKEN line and never another exception."""
+        file `hooks_of` cannot run, in each shape, is one BROKEN line and never another exception; one that
+        is there and cannot be read (a denied read, a folder, an I/O error) has a line and fix of its own."""
         with tempfile.TemporaryDirectory() as tmp:
             hooked = Path(tmp)
             (hooked / "hooks").mkdir()
@@ -1349,6 +1362,13 @@ def self_test() -> int:
             def not_hooks(detail: str) -> str:
                 return f"BROKEN {hooks_path} is not a hooks file ({detail}){shape_fix}"
 
+            def not_read(why: str) -> str:
+                return (
+                    f"BROKEN {hooks_path} cannot be read ('{why}') — fix: make it a readable file (its"
+                    f" permissions), or restore it with git checkout -- {hooks_path}, so that the check can"
+                    f" read each hook it runs"
+                )
+
             def not_run(kind: str) -> str:
                 return (
                     f"BROKEN {hooks_path} holds a hook of type {kind} ({at}) that check-bare-install does"
@@ -1360,7 +1380,7 @@ def self_test() -> int:
             cmd: dict[str, object] = {"type": "command", "command": "true"}
             one = Hook("PreToolUse", "", "true", (), 600.0)
             long_int = "1" + "0" * 400  # no float holds it
-            shapes: list[tuple[str, str | bytes, list[Hook] | str]] = [
+            shapes: list[tuple[str, str | bytes | OSError, list[Hook] | str]] = [
                 ("a command hook runs", single(cmd), [one]),
                 ("an http hook is BROKEN, not a skip", single({"type": "http", "url": "u"}), not_run("http")),
                 (
@@ -1580,14 +1600,36 @@ def self_test() -> int:
                         "maximum recursion depth exceeded while decoding a JSON array from a unicode string"
                     ),
                 ),
+                # A file that is there and cannot be read: the read is made to raise (a chmod alone would
+                # not hold when run as root), and the line is its own, never the shape fix.
+                (
+                    "a hooks file that is denied",
+                    PermissionError(13, "Permission denied"),
+                    not_read("Permission denied"),
+                ),
+                (
+                    "a folder in the place of the hooks file",
+                    IsADirectoryError(21, "Is a directory"),
+                    not_read("Is a directory"),
+                ),
+                (
+                    "a hooks file with an I/O error",
+                    OSError(5, "Input/output error"),
+                    not_read("Input/output error"),
+                ),
             ]
             for name, text, want in shapes:
-                if isinstance(text, bytes):
+                reading: contextlib.AbstractContextManager[object] = contextlib.nullcontext()
+                if isinstance(text, OSError):
+                    hooks_path.write_text("{}", encoding="utf-8")  # the file is there; the read fails
+                    reading = mock.patch.object(Path, "read_text", side_effect=text)
+                elif isinstance(text, bytes):
                     hooks_path.write_bytes(text)
                 else:
                     hooks_path.write_text(text, encoding="utf-8")
                 try:
-                    got_shape: list[Hook] | str = hooks_of(hooked)
+                    with reading:
+                        got_shape: list[Hook] | str = hooks_of(hooked)
                 except Broken as broken:
                     got_shape = f"BROKEN {broken}"
                 except Exception as other:  # any other is the defect this table holds
