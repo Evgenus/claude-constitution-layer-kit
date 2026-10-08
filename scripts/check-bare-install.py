@@ -78,7 +78,8 @@ For the module named, in throwaway folders that the check removes:
      left unrun.
 A red is a finding against the module, and so is an install Claude Code refuses (a result that says
 "failed"). The configuration failures each print their own fix: a missing `claude` or `git`, "install it
-and put it on PATH", and a `git` command that fails in the bare repository, "install git"; a marketplace
+and put it on PATH", and a `git` command that fails in the bare repository, "run `git <subcommand>` in a
+new repository by hand and read why it fails"; a marketplace
 the CLI cannot add (`claude plugin marketplace add` exits other than 0), "check the kit's marketplace.json,
 and that git can reach the source"; an install that gives no result in its 300 s, "run the check again, and
 check that git can reach the source"; a `claude plugin list --json` that times out (its exit 124), "run the
@@ -155,6 +156,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from unittest import mock
@@ -549,6 +551,32 @@ def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: P
     return findings
 
 
+def git_command(argv: list[str]) -> str:
+    """The name of a git command: `git <subcommand>`, the subcommand being the first argument after `git`
+    that is neither an option nor the value of one. `-c` and `-C` take the next argument as their value (an
+    option joined to its value with `=` takes none); the commands of `bare_repository` use no other option
+    that does. An argv with no subcommand is named `git`."""
+    skip = False
+    for arg in argv[1:]:
+        if skip:
+            skip = False
+        elif arg in ("-c", "-C"):
+            skip = True
+        elif not arg.startswith("-"):
+            return f"git {arg}"
+    return "git"
+
+
+def git_failed(argv: list[str], out: str, err: str) -> Broken:
+    """The BROKEN line of a git command of `bare_repository` that exited other than 0. `run` has turned a
+    missing git into its own line, so git ran and "install git" would be no fix: run the command by hand."""
+    name = git_command(argv)
+    return Broken(
+        f"{name} failed in the bare repository ({last_line(out, err)}) — fix: run {name} in a new"
+        " repository by hand and read why it fails"
+    )
+
+
 def bare_repository(root: Path) -> Path:
     repo = root / "repo"
     repo.mkdir()
@@ -556,7 +584,7 @@ def bare_repository(root: Path) -> Path:
     for argv in (["git", "init", "-q", "-b", "main"],):
         code, out, err = run(argv, repo, env)
         if code != 0:
-            raise Broken(f"git init failed ({last_line(out, err)}) — fix: install git")
+            raise git_failed(argv, out, err)
     shutil.copytree(KIT / "kernel", repo / "docs" / "constitution")
     for argv in (
         ["git", "add", "-A"],
@@ -574,8 +602,7 @@ def bare_repository(root: Path) -> Path:
     ):
         code, out, err = run(argv, repo, env)
         if code != 0:
-            said = last_line(out, err)
-            raise Broken(f"{' '.join(argv[:2])} failed in the bare repository ({said}) — fix: install git")
+            raise git_failed(argv, out, err)
     return repo
 
 
@@ -1567,7 +1594,110 @@ def self_test() -> int:
                     got_shape = f"raised {type(other).__name__}: {other}"
                 version_case(f"hooks file: {name}", got_shape == want, str(got_shape))
 
+    def bare_repository_cases() -> None:
+        """A git command of `bare_repository` that exits other than 0 is one BROKEN line naming it as
+        `git <subcommand>` and a fix that can be followed (git ran, so "install git" is none); a missing
+        git is `run`'s own line, unchanged. No existing case fits: the hook cases read a hooks file and the
+        version cases a `claude`, so this one table is new. Every line is typed by hand."""
+        by_hand = "run {0} in a new repository by hand and read why it fails"
+        init_line = (
+            "BROKEN: git init failed in the bare repository (fatal: simulated) — fix: "
+            + by_hand.format("git init")
+        )
+        add_line = (
+            "BROKEN: git add failed in the bare repository (fatal: simulated) — fix: "
+            + by_hand.format("git add")
+        )
+        commit_line = (
+            "BROKEN: git commit failed in the bare repository (fatal: simulated) — fix: "
+            + by_hand.format("git commit")
+        )
+        ran: list[list[str]] = []
+
+        def failing_at(word: str | None) -> Callable[..., tuple[int, str, str]]:
+            def fake_run(
+                argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: float = 300
+            ) -> tuple[int, str, str]:
+                """`run`, but nothing is run: every command exits 0, the one holding `word` exits 1."""
+                ran.append(argv)
+                return (1, "", "warning: x\nfatal: simulated") if word in argv else (0, "", "")
+
+            return fake_run
+
+        def line_of(word: str | None, path: str | None = None) -> str:
+            """The BROKEN line `bare_repository` raises with `run` failing at `word`, or `ok`; with `path`,
+            the real `run` and that PATH."""
+            ran.clear()
+            with tempfile.TemporaryDirectory() as tmp:
+                with mock.patch.dict(globals(), {"run": failing_at(word)} if path is None else {}):
+                    with mock.patch.dict(os.environ, {} if path is None else {"PATH": path}):
+                        try:
+                            bare_repository(Path(tmp))
+                        except Broken as broken:
+                            return f"BROKEN: {broken}"
+                        except Exception as other:  # any other is the defect this table holds
+                            return f"raised {type(other).__name__}: {other}"
+            return "ok"
+
+        for name, word, want in (
+            ("`git init` failing", "init", init_line),
+            ("`git add` failing", "add", add_line),
+            ("the `git -c … commit` failing is `git commit`, never `git -c`", "commit", commit_line),
+        ):
+            got_line = line_of(word)
+            version_case(f"bare repository: {name}", got_line == want, got_line)
+        got_line = line_of(None)
+        version_case(
+            "bare repository: no failure: the three commands, in their order",
+            got_line == "ok"
+            and ran
+            == [
+                ["git", "init", "-q", "-b", "main"],
+                ["git", "add", "-A"],
+                [
+                    "git",
+                    "-c",
+                    "user.name=bare",
+                    "-c",
+                    "user.email=bare@example.invalid",
+                    "commit",
+                    "-q",
+                    "-m",
+                    "kernel",
+                ],
+            ],
+            f"{got_line} {ran}",
+        )
+        with tempfile.TemporaryDirectory() as none_here:
+            got_line = line_of(None, none_here)
+        version_case(
+            "bare repository: git missing from PATH is run's own line, unchanged",
+            got_line
+            == "BROKEN: git is not installed (No such file or directory) — fix: install it and put it"
+            " on PATH",
+            got_line,
+        )
+        for argv, named in (
+            (["git", "init", "-q", "-b", "main"], "git init"),
+            (["git", "add", "-A"], "git add"),
+            (["git", "-c", "user.name=a", "-c", "user.email=b", "commit", "-q"], "git commit"),
+            (["git", "-C", "x", "status"], "git status"),
+            (["git", "-c", "commit.gpgsign=false", "-C", "x", "-c", "a=b", "log"], "git log"),
+            (["git", "--git-dir=x", "status"], "git status"),
+            (["git", "--no-pager", "-p", "diff", "HEAD"], "git diff"),
+            (["git", "-c", "status"], "git"),
+            (["git", "-C"], "git"),
+            (["git", "--version"], "git"),
+            (["git"], "git"),
+        ):
+            try:
+                got_name = git_command(argv)
+            except Exception as other:  # any other is the defect this table holds
+                got_name = f"raised {type(other).__name__}: {other}"
+            version_case(f"bare repository: {argv} is named {named!r}", got_name == named, got_name)
+
     hook_wait_cases()
+    bare_repository_cases()
     with tempfile.TemporaryDirectory() as tmp:  # the version check over every answer of `claude --version`
         base_dir = Path(tmp)
         toy_kit, fake_dir, fake_log = base_dir / "kit", base_dir / "bin", base_dir / "claude.log"
