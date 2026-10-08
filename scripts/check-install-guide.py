@@ -65,11 +65,13 @@ failure, and so is a source the check cannot point at the change: no origin on G
 HEAD, or a branch whose origin copy is not at HEAD, and a clone whose marketplace.json gives no name
 (missing, no JSON, no object, no "name", one that is no string or is empty), and a reply the claims cannot
 read as documented: a failed `--json` command, a reply that is no JSON or no list, an entry that is no
-object, two entries of the marketplace's name or two project-scope entries of a module's id for the
-project, a field a claim reads (`source`, `installLocation`, `repo` of a `github` entry, `installPath`,
-`version`, `scope`, and `projectPath` of a project- or local-scope entry) that is no string or is empty, an
-`installLocation` that names no existing folder, and a project's .claude/settings.json that is unreadable,
-no JSON object, or whose `enabledPlugins` is no object. Their fix, worded by `kit_module_doc.platform_fix`
+object, an entry whose identifying field is no string or is empty (`name` in the marketplace list, `id`
+in the plugin list, of an entry of another marketplace or plugin too), two entries of the marketplace's
+name or two project-scope entries of a module's id for the project, a field a claim reads (`source`,
+`installLocation`, `repo` of a `github` entry, `installPath`, `version`, `scope`, and `projectPath` of a
+project- or local-scope entry) that is no string or is empty, an `installLocation` that names no existing
+folder, and a project's .claude/settings.json that is unreadable, no JSON object, or whose
+`enabledPlugins` is no object. Their fix, worded by `kit_module_doc.platform_fix`
 from the state of the run, is never a change to the guide: on the pinned version it is to update the
 kit's reader that the line names, to what that version writes; off the pin, to run again on the pinned
 version. Needs no
@@ -155,7 +157,16 @@ Modes:  no arguments   check the kit's guide;
                        The platform's replies: the fake answering `plugin marketplace list --json` and
                        `plugin list --json` from a state of its own; the two readers over whole sets of
                        replies, an entry that is not the marketplace's or the module's for the project
-                       first and last, a project's settings.json of each shape.
+                       first and last, a project's settings.json of each shape; an entry whose `name`
+                       (marketplace list) or `id` (plugin list) is absent, no string or empty, a BROKEN
+                       alone, first, between and last, whatever else the list holds; a valid list on
+                       standard output with a warning on standard error read as the list; the marketplace
+                       list run in the folder the block ended in and the plugin list in the project, in
+                       the readers and in a whole run; a list that times out, at a timeout the runner is
+                       given, a BROKEN and never an empty list (the process mocked, no wait); the update
+                       claim over a local-scope entry of the id before, after and round the project-scope
+                       one, the project-scope one picked, and over an `installPath` that is a file or no
+                       folder.
                        The BROKEN lines: a `repo` that is absent, empty or no string and an
                        `installLocation` that names no folder each a BROKEN and not a finding, a quotation
                        cut at 200 characters, the literal message of each BROKEN, its fix in each state of
@@ -581,11 +592,17 @@ def platform_clone(state: Run) -> Path:
     """The platform's clone of the kit's marketplace, the `installLocation` of the one entry of
     `claude plugin marketplace list --json` named as the kit's marketplace. The entry is a finding
     (Misfit) when there is none, when its `source` is not `github` or its `repo` not the source's
-    repository; two entries of the name, a `source`, an `installLocation` or, on a `github` entry, a `repo`
-    that is no string or is empty, an `installLocation` that names no existing folder and any wrong shape of
-    the reply are a Broken, the platform's reply being at fault and not the guide."""
+    repository; two entries of the name, an entry of any name whose `name` is no string or is empty (an entry
+    of another marketplace needs its `name` too, to be known as another), a `source`, an `installLocation`
+    or, on a `github` entry, a `repo` that is no string or is empty, an `installLocation` that names no
+    existing folder and any wrong shape of the reply are a Broken, the platform's reply being at fault and
+    not the guide."""
     entries = listed(MARKETPLACES, state.cwd, state.env, state.note)
-    own = [e for e in entries if e.get("name") == state.marketplace]
+    names = [
+        text_of(e, "name", f"the list's entry {n}", MARKETPLACES, state.note, "platform_clone")
+        for n, e in enumerate(entries, 1)
+    ]
+    own = [e for e, name in zip(entries, names, strict=True) if name == state.marketplace]
     if not own:
         raise Misfit(
             f"the configuration knows no marketplace {state.marketplace}",
@@ -625,14 +642,17 @@ def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]
     `id` is the module's and whose `projectPath` is the project (as given or resolved), at any scope: the
     user-scope entry of the id, which has no `projectPath`, and the entry of another project are none of
     them. Each is read whole, `installPath`, `version` and `scope` strings, and a project- or local-scope
-    entry a `projectPath` string too; a fault of shape in an entry of a module's id, and two project-scope
-    entries of one id for the project, are a Broken, whatever else the list holds."""
+    entry a `projectPath` string too; a fault of shape in an entry of a module's id, an entry of any id whose
+    `id` is no string or is empty (an entry of another plugin needs its `id` too, to be known as another),
+    and two project-scope entries of one id for the project, are a Broken, whatever else the list holds."""
     here = {str(project), str(project.resolve())}
     found: dict[str, list[dict[str, str]]] = {module: [] for module in state.modules}
-    for entry in listed(PLUGINS, project, state.env, state.note):
+    for position, entry in enumerate(listed(PLUGINS, project, state.env, state.note), 1):
+        nth = f"the list's entry {position}"
+        identity = text_of(entry, "id", nth, PLUGINS, state.note, "project_entries")
         for module in state.modules:
             key = state.key(module)
-            if entry.get("id") != key:
+            if identity != key:
                 continue
             fields = {
                 f: text_of(entry, f, key, PLUGINS, state.note, "project_entries")
@@ -1043,12 +1063,13 @@ to a file (FAKE_LOG, else the configuration folder's). It keeps its own state, t
 the plugins installed, in the configuration folder's fake-state.json, its clone of a marketplace under
 fake-clone/ and its copies of the plugins under fake-copies/, and answers `plugin marketplace list --json`
 and `plugin list --json` from that state, or with the text of the file FAKE_MKT or FAKE_LIST names, and the
-exit FAKE_MKT_EXIT or FAKE_LIST_EXIT. A marketplace added from `<owner>/<repo>#<branch>` is a GitHub one,
-cloned from the toy kit the environment names; one added from a path is a local folder. `--version`
-answers the pin of the toy kit, as the real one writes it, or FAKE_SAYS (escapes read) with the exit
-FAKE_EXIT; for `--version` it logs to FAKE_ENV, when set, its configuration folder, its auto-updater
-setting, how many entries the folder holds and whether it is a folder. FAKE_MUTANT names the one thing it
-does wrong."""
+exit FAKE_MKT_EXIT or FAKE_LIST_EXIT; the two list commands write FAKE_STDERR, when set, to standard error
+and append `<which>|<the folder they run in>` to the file FAKE_CWD names, when set. A marketplace added
+from `<owner>/<repo>#<branch>` is a GitHub one, cloned from the toy kit the environment names; one added
+from a path is a local folder. `--version` answers the pin of the toy kit, as the real one writes it, or
+FAKE_SAYS (escapes read) with the exit FAKE_EXIT; for `--version` it logs to FAKE_ENV, when set, its
+configuration folder, its auto-updater setting, how many entries the folder holds and whether it is a
+folder. FAKE_MUTANT names the one thing it does wrong."""
 import json, os, shutil, subprocess, sys
 from pathlib import Path
 mutant = os.environ.get("FAKE_MUTANT", "")
@@ -1090,6 +1111,12 @@ def reply(variable):
 def fail():
     print("boom", file=sys.stderr)
     sys.exit(1)
+def listing(which):
+    if os.environ.get("FAKE_CWD"):
+        with open(os.environ["FAKE_CWD"], "a", encoding="utf-8") as seen:
+            seen.write(which + "|" + str(Path.cwd()) + "\\n")
+    if os.environ.get("FAKE_STDERR"):
+        print(os.environ["FAKE_STDERR"], file=sys.stderr)
 args = sys.argv[1:]
 if args[:3] == ["plugin", "marketplace", "add"]:
     if Path(os.path.expanduser(args[3])).exists() or mutant == "marketplace-directory":
@@ -1117,6 +1144,7 @@ if args[:3] == ["plugin", "marketplace", "add"]:
 elif args[:3] == ["plugin", "marketplace", "update"]:
     pass
 elif args == ["plugin", "marketplace", "list", "--json"]:
+    listing("marketplace")
     reply("FAKE_MKT")
     entries = state()["marketplaces"]
     if mutant == "mkt-exit-1":
@@ -1132,6 +1160,8 @@ elif args == ["plugin", "marketplace", "list", "--json"]:
             first["installLocation"] = 7
         if mutant == "mkt-clone-gone":
             first["installLocation"] += "-gone"
+        if mutant == "mkt-title-for-name":
+            first["title"] = first.pop("name")
         if mutant == "mkt-no-source":
             first.pop("source")
         if mutant == "mkt-no-repo":
@@ -1149,6 +1179,7 @@ elif args == ["plugin", "marketplace", "list", "--json"]:
         entries = ["x", *entries]
     print(json.dumps({"marketplaces": entries} if mutant == "mkt-not-list" else entries))
 elif args == ["plugin", "list", "--json"]:
+    listing("plugins")
     reply("FAKE_LIST")
     entries = state()["plugins"]
     if mutant == "list-exit-1":
@@ -1168,7 +1199,7 @@ elif args == ["plugin", "list", "--json"]:
     for entry in entries:
         if mutant == "list-wrong-version":
             entry["version"] = "9.9.9"
-        for gone in ("projectPath", "installPath", "version", "scope"):
+        for gone in ("projectPath", "installPath", "version", "scope", "id"):
             if mutant == "list-without-" + gone:
                 entry.pop(gone)
     if mutant in ("list-user-first", "list-other-project-first"):
@@ -1804,8 +1835,8 @@ def self_test() -> int:
         listed_command = "`claude plugin list --json`"
         no_json = "Expecting value: line 1 column 1 (char 0)"
 
-        def mkt_said(text: str, code: int = 0) -> str:
-            state = unit_state(FAKE_MKT=reply_file(text), FAKE_MKT_EXIT=str(code))
+        def mkt_said(text: str, code: int = 0, **extra: str) -> str:
+            state = unit_state(FAKE_MKT=reply_file(text), FAKE_MKT_EXIT=str(code), **extra)
             try:
                 return f"clone {platform_clone(state)}"
             except Misfit as misfit:
@@ -1821,7 +1852,12 @@ def self_test() -> int:
                 "installLocation": str(platform_folder),
             } | fields
 
-        other = {"name": "other-mp", "source": "directory", "path": "/p", "installLocation": "/q"}
+        other: dict[str, object] = {
+            "name": "other-mp",
+            "source": "directory",
+            "path": "/p",
+            "installLocation": "/q",
+        }
         stray = mkt(name="stray-mp", installLocation="/wrong")  # a GitHub entry of the right repository
         clone_of = f"clone {platform_folder}"
         for name, entries, result in (
@@ -2024,8 +2060,8 @@ def self_test() -> int:
                 "projectPath": str(project_dir),
             } | fields
 
-        def plugins_said(text: str, code: int = 0, project: Path = project_dir) -> str:
-            state = unit_state(FAKE_LIST=reply_file(text), FAKE_LIST_EXIT=str(code))
+        def plugins_said(text: str, code: int = 0, project: Path = project_dir, **extra: str) -> str:
+            state = unit_state(FAKE_LIST=reply_file(text), FAKE_LIST_EXIT=str(code), **extra)
             try:
                 found = project_entries(state, project)
             except Broken as bad:
@@ -2074,7 +2110,6 @@ def self_test() -> int:
                 picks(alpha, beta),
                 project_dir,
             ),
-            ("an entry with no id", [{"scope": "project"}, *both], picks(alpha, beta), project_dir),
             (
                 "a project and a local entry of the id for the project",
                 [plug(), plug(scope="local", installPath="/copies/local-alpha")],
@@ -2184,6 +2219,116 @@ def self_test() -> int:
         ):
             got = plugins_said(json.dumps(entries))
             case(f"plugin list, {name}: BROKEN", got == f"BROKEN {listed_command} {rest}", got)
+        # every entry of either reply carries its identifying field as a string, an entry of another
+        # marketplace or plugin too: an entry without it is a reply of the wrong shape, never an entry to skip
+        for shape, entry, said in (
+            ("absent", without(mkt(), "name"), "absent"),
+            ("absent, a `title` where the name stands", without(mkt(), "name") | {"title": TOY_MP}, "absent"),
+            ("absent on an entry that is another marketplace's", without(other, "name"), "absent"),
+            ("a number", mkt(name=7), "7"),
+            ("empty", mkt(name=""), "''"),
+            ("null", mkt(name=None), "None"),
+        ):
+            for placed, entries, position in (
+                ("alone", [entry], 1),
+                ("first", [entry, mkt()], 1),
+                ("between", [other, entry, mkt()], 2),
+                ("last", [mkt(), entry], 2),
+            ):
+                rest = f"gives no name string for the list's entry {position} (name is {said})"
+                got = mkt_said(json.dumps(entries))
+                case(
+                    f"marketplace list, a name {shape}, {placed}: BROKEN",
+                    got == f"BROKEN {mkt_command} {rest}{fix_of('platform_clone')}",
+                    got,
+                )
+        id_faults: list[tuple[str, dict[str, object], str]] = [
+            ("absent", without(plug(), "id"), "absent"),
+            ("absent on an entry of nothing else", {"scope": "project"}, "absent"),
+            ("a number", plug(id=7), "7"),
+            ("empty", plug(id=""), "''"),
+            ("null", plug(id=None), "None"),
+        ]
+        for shape, entry, said in id_faults:
+            for placed, entries, position in (
+                ("alone", [entry], 1),
+                ("first", [entry, *both], 1),
+                ("between", [plug(), entry, plug("const-beta")], 2),
+                ("last", [*both, entry], 3),
+            ):
+                rest = f"gives no id string for the list's entry {position} (id is {said})"
+                got = plugins_said(json.dumps(entries))
+                case(
+                    f"plugin list, an id {shape}, {placed}: BROKEN",
+                    got == f"BROKEN {listed_command} {rest}{fix_of('project_entries')}",
+                    got,
+                )
+        # the list commands' output: standard output alone is the reply, a warning on standard error is not
+        warning = "warning: the plugin cache is out of date"
+        got = mkt_said(json.dumps([mkt()]), FAKE_STDERR=warning)
+        case(
+            "marketplace list, a valid list on standard output and a warning on standard error, exit 0: "
+            "the list is read",
+            got == clone_of,
+            got,
+        )
+        got = plugins_said(json.dumps(both), FAKE_STDERR=warning)
+        case(
+            "plugin list, a valid list on standard output and a warning on standard error, exit 0: "
+            "the list is read",
+            got == picks(alpha, beta),
+            got,
+        )
+        # the folder each list runs in: the marketplace list where the block ended, the plugin list in the
+        # project; neither in the run's home folder
+        block_end = unit / "block-end"
+        block_end.mkdir()
+        cwd_log = unit / "cwd.log"
+        where_state = unit_state(
+            FAKE_MKT=reply_file(json.dumps([mkt()])),
+            FAKE_LIST=reply_file(json.dumps(both)),
+            FAKE_CWD=str(cwd_log),
+        )
+        where_state.cwd = block_end
+        platform_clone(where_state)
+        project_entries(where_state, project_dir)
+        ran_in = dict(line.split("|", 1) for line in cwd_log.read_text(encoding="utf-8").splitlines())
+        case(
+            "marketplace list runs in the folder the block ended in",
+            Path(ran_in.get("marketplace", "none")).resolve() == block_end.resolve(),
+            str(ran_in),
+        )
+        case(
+            "plugin list runs in the project",
+            Path(ran_in.get("plugins", "none")).resolve() == project_dir.resolve(),
+            str(ran_in),
+        )
+        # a list that times out is a BROKEN, never an empty list: the timeout is the runner's exit 124
+        with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["claude"], 7)) as timing:
+            apart = run_apart(["claude", "plugin", "list", "--json"], unit, base, timeout=7)
+        case(
+            "a command that times out is exit 124 with no output and the reason, at the timeout it was given",
+            apart == (124, "", "timed out after 7 s") and timing.call_args.kwargs["timeout"] == 7,
+            f"{apart} {timing.call_args}",
+        )
+        for which, command, reader in (
+            ("marketplace", mkt_command, "platform_clone"),
+            ("plugin", listed_command, "project_entries"),
+        ):
+            with mock.patch(
+                "subprocess.run", side_effect=subprocess.TimeoutExpired(["claude"], TIMEOUT)
+            ) as timing:
+                got = (
+                    mkt_said(json.dumps([mkt()]))
+                    if which == "marketplace"
+                    else plugins_said(json.dumps(both))
+                )
+            case(
+                f"{which} list that times out: BROKEN, never an empty list, after the runner's timeout",
+                got == f"BROKEN {command} exited 124 (timed out after {TIMEOUT} s){fix_of('listed')}"
+                and timing.call_args.kwargs["timeout"] == TIMEOUT,
+                f"{got} ({reader}) {timing.call_args}",
+            )
         # the reinstall's comparison reads the platform's clone from the state, else from marketplace list
         wanted_clone, held_copy, other_clone = unit / "clone", unit / "copy", unit / "other-clone"
         for module in ("const-alpha", "const-beta"):
@@ -2227,6 +2372,48 @@ def self_test() -> int:
             got == "const-alpha's a.txt is not alike in the cache and the marketplace",
             got,
         )
+
+        def update_said(entries: list[dict[str, object]]) -> str:
+            """What the update claim, whose picks the install and the reinstall share, says of a list."""
+            held = unit_state(FAKE_LIST=reply_file(json.dumps(entries)))
+            held.project = project_dir
+            return claim(held, "update")
+
+        def local(module: str) -> dict[str, object]:
+            """A local-scope entry for the project the claim must not pick: another version, no folder."""
+            return plug(module, scope="local", version="9.9.9", installPath=str(gone_folder / module))
+
+        right_alpha, right_beta = copies_listed
+        got = update_said(copies_listed)
+        case("update claim, the project-scope entries alone: no finding", got == "", got)
+        for name, entries in (
+            ("before", [local("const-alpha"), *copies_listed]),
+            ("after", [*copies_listed, local("const-alpha")]),
+            (
+                "round each of two modules'",
+                [local("const-alpha"), right_alpha, local("const-alpha"), local("const-beta"), right_beta]
+                + [local("const-beta")],
+            ),
+        ):
+            got = update_said(entries)
+            case(
+                f"update claim, a local-scope entry of the id {name} the project-scope one: it is picked",
+                got == "",
+                got,
+            )
+        got = update_said([local("const-alpha"), right_beta])
+        case(
+            "update claim, only a local-scope entry for a module: not installed for the project",
+            got == "const-alpha is not installed for the project",
+            got,
+        )
+        for name, place in (("a file", a_file), ("no folder at all", gone_folder)):
+            got = update_said([plug(installPath=str(place)), right_beta])
+            case(
+                f"update claim, an installPath that is {name}: not in the plugin cache",
+                got == f"const-alpha is not in the plugin cache at {place}",
+                got,
+            )
         still_installed = (
             "after check=uninstall: const-alpha@toy-mp, const-beta@toy-mp still installed for the project"
         )
@@ -2401,6 +2588,35 @@ def self_test() -> int:
                 f"{whats(decoyed)} ({decoyed_examined})",
             )
 
+        # the folders in a whole run: the marketplace list where its block ended, not in the project, the
+        # plugin list in the project, and neither in the run's home folder
+        run_cwd = unit / "run-cwd.log"
+        installing = (
+            "cd ~/dev/my-project && for m in ~/dev/constitution-kit/modules/const-*; do "
+            f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
+        )
+        away_run, _, _ = run_guide(
+            toy_guide(
+                marketplace="mkdir -p ~/elsewhere && cd ~/elsewhere && claude plugin marketplace add toy/kit",
+                install=installing,
+            ),
+            kit,
+            base | {"FAKE_CWD": str(run_cwd)},
+        )
+        listed_in = [line.split("|", 1) for line in run_cwd.read_text(encoding="utf-8").splitlines()]
+        market_in = {where for which, where in listed_in if which == "marketplace"}
+        plugins_in = {where for which, where in listed_in if which == "plugins"}
+        case(
+            "a run whose marketplace block ends outside the project: green, the marketplace list run where "
+            "the block ended, the plugin list in the project",
+            not away_run
+            and len(market_in) == 1
+            and next(iter(market_in)).endswith("/elsewhere")
+            and len(plugins_in) == 1
+            and next(iter(plugins_in)).endswith("/dev/my-project"),
+            f"{whats(away_run)} {market_in} {plugins_in}",
+        )
+
         def broke(mutant: str) -> str:
             """The Broken a run over the toy guide ends in with the fake doing `mutant`, or its findings."""
             try:
@@ -2423,6 +2639,10 @@ def self_test() -> int:
                 "mkt-installLocation-number",
                 f"{mkt_command} gives no installLocation string for toy-mp (installLocation is 7)",
             ),
+            (
+                "mkt-title-for-name",
+                f"{mkt_command} gives no name string for the list's entry 1 (name is absent)",
+            ),
             ("mkt-no-source", f"{mkt_command} gives no source string for toy-mp (source is absent)"),
             ("mkt-no-repo", f"{mkt_command} gives no repo string for toy-mp (repo is absent)"),
             ("mkt-source-number", f"{mkt_command} gives no source string for toy-mp (source is 7)"),
@@ -2430,6 +2650,10 @@ def self_test() -> int:
             ("list-not-list", f"{listed_command} printed a JSON dict, not a list"),
             ("list-entry-not-object", f"{listed_command} lists an entry that is no object ('x')"),
             ("list-exit-1", f"{listed_command} exited 1 (boom)"),
+            (
+                "list-without-id",
+                f"{listed_command} gives no id string for the list's entry 1 (id is absent)",
+            ),
             (
                 "list-without-projectPath",
                 f"{listed_command} gives no projectPath string for const-alpha@toy-mp at scope project"
