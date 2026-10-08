@@ -68,13 +68,25 @@ exited with another code than 0: run the command in the folder the caller names 
 run the check again. Off the pin, either one has the check run again on the pinned version, put first on PATH
 as `claude_note`'s own fix words it. Both checks prove it in theirs, in each state, as literal lines.
 `claude_env` is the kit's one shaping of the environment a check runs `claude` in: the environment given,
-less CLAUDE_CODE_PLUGIN_CACHE_DIR. Claude Code writes the marketplace, the plugin cache and its install
-records under the folder that variable names (the loading page's "Find plugins on disk"), the person's own
-plugins root if that is what it holds, where the checks promise the empty configuration folder they make
-for the run; so a check passes `claude_env` its environment for every `claude` command it runs, the
-version command included, and the plugins root is `plugins` in the check's own CLAUDE_CONFIG_DIR, unless a
-command the check runs sets the variable itself, as a block of the install guide can.
-Both checks prove it in theirs, with the variable set in the environment the person runs them in.
+less four variables, each whether set to a value or to nothing, the ones that steer where Claude Code finds,
+keeps or loads plugins, as its documentation and a probe of 2.1.282 show: CLAUDE_CODE_PLUGIN_CACHE_DIR, the
+plugins root, under which it writes the marketplace, the plugin cache and its install records (the loading
+page's "Find plugins on disk"); CLAUDE_CODE_PLUGIN_SEED_DIR, read-only folders a session loads plugin caches
+from and whose marketplaces it lists; CLAUDE_CODE_PLUGIN_DIRS, plugin folders a session loads as
+`--plugin-dir` loads them, in place of the install of the same name; and CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE,
+undocumented, at which the install writes `<version>.zip`, a file, and `installPath` names it. Each would
+move what the checks read from the empty configuration folder they promise for the run, the person's own
+plugins root or plugin folders perhaps, so a check passes `claude_env` its environment for every `claude`
+command it runs, the version command included, and the plugins root is `plugins` in the check's own
+CLAUDE_CONFIG_DIR, unless a command the check runs sets one of the four itself, as a block of the install
+guide can. Every other variable reaches `claude` unchanged, save those the checks set themselves,
+CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER, and HOME and GIT_CONFIG_GLOBAL in the guide's run:
+CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the clone of its private repository over
+HTTPS, every other CLAUDE_CODE_* variable, and the kit's own CONSTITUTION_KIT_* ones. The probe covered the
+pinned version only: a variable of this kind that a later version adds reaches `claude` until a bump of the
+pin finds it, which review holds.
+Both checks prove it in theirs, with each of the four set in the environment the person runs them in, to a
+value and to nothing, and the kept ones set beside.
 
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
 imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
@@ -98,7 +110,13 @@ from pathlib import Path
 ANCHOR = re.compile(r'^<a id="(t\d+)"></a>$')
 CLAUDE_PIN = "scripts/claude-code.version"  # the kit's pin of the Claude Code version, from the kit's root
 ANY_CLAUDE = "CONSTITUTION_KIT_ANY_CLAUDE"  # the variable that, exactly `1`, lets a check run off the pin
-PLUGINS_ROOT_ENV = "CLAUDE_CODE_PLUGIN_CACHE_DIR"  # the plugins root of Claude Code, which `claude_env` drops
+PLUGINS_ROOT_ENV = "CLAUDE_CODE_PLUGIN_CACHE_DIR"  # the plugins root of Claude Code, the first of the four
+PLUGIN_PLACE_ENV = (  # what steers where Claude Code finds, keeps or loads plugins; `claude_env` drops it
+    PLUGINS_ROOT_ENV,
+    "CLAUDE_CODE_PLUGIN_SEED_DIR",  # read-only seed folders: a session loads plugin caches from them
+    "CLAUDE_CODE_PLUGIN_DIRS",  # plugin folders loaded as --plugin-dir loads them
+    "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE",  # undocumented: at `1` the install writes a zip file
+)
 VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")  # ASCII digits only: `\d` would take other scripts' digits
 PIN_FIX = "write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's only line"
 
@@ -192,12 +210,14 @@ def pinned_claude(root: Path) -> str:
 
 
 def claude_env(env: Mapping[str, str]) -> dict[str, str]:
-    """The environment a check runs every `claude` command in: `env` less CLAUDE_CODE_PLUGIN_CACHE_DIR,
-    whether it is set to a folder or to nothing. With it, Claude Code would write its marketplace, plugin
-    cache and install records under the folder it names, the person's own plugins root perhaps, and not
-    under `plugins` in the check's own empty configuration folder; without it, the plugins root is always
-    that one."""
-    return {key: value for key, value in env.items() if key != PLUGINS_ROOT_ENV}
+    """The environment a check runs every `claude` command in: `env` less the four variables of
+    `PLUGIN_PLACE_ENV` that steer where Claude Code finds, keeps or loads plugins, each whether it is set to
+    a value or to nothing: CLAUDE_CODE_PLUGIN_CACHE_DIR, CLAUDE_CODE_PLUGIN_SEED_DIR,
+    CLAUDE_CODE_PLUGIN_DIRS and CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE. With them, Claude Code would write its
+    marketplace, plugin cache and install records under the plugins root a person names, load a plugin from
+    a seed or a plugin folder, or install a zip file, and not read the empty configuration folder of the
+    check; without them, the plugins root is `plugins` in that one. Every other variable stays."""
+    return {key: value for key, value in env.items() if key not in PLUGIN_PLACE_ENV}
 
 
 def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note:
@@ -211,7 +231,7 @@ def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note
     The version is the first whitespace-separated word of the first non-blank line of the output (the
     output is stripped first, so leading blank lines are skipped), read when the command exits 0 and the
     word is three numbers; a line break of either kind is white space, and the lines after that line are
-    not read. The command runs in `env` less CLAUDE_CODE_PLUGIN_CACHE_DIR (`claude_env`), in an empty
+    not read. The command runs in `env` less the four variables of `claude_env`, in an empty
     configuration folder of its own and with the auto-updater off, and one that has not answered in
     `timeout` seconds is no version."""
     pinned = pinned_claude(root)

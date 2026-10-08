@@ -10,12 +10,20 @@ commit the run clones. First its marks, read from the text:
   `check=<name>` where its language should stand is red too.
 Then the run, in throwaway folders the check removes: a home folder of its own, HOME and
 CLAUDE_CONFIG_DIR (<home>/.claude) under it and git's identity in a global configuration of its
-own; the environment's CLAUDE_CODE_PLUGIN_CACHE_DIR, set or empty, removed from the environment of the
-version command and of the whole run (`kit_module_doc.claude_env`), so that no `claude` command the check
-starts holds it unless a block sets it itself, the case the cache's fix names on the pinned version: with
-it Claude Code would write the kit's marketplace, its plugin cache and its records under the folder it
-names, a person's own plugins root perhaps, and not into the run's empty configuration, and the plugins
-root is otherwise `plugins` in the run's CLAUDE_CONFIG_DIR; the kit cloned from the working
+own; the environment's CLAUDE_CODE_PLUGIN_CACHE_DIR, CLAUDE_CODE_PLUGIN_SEED_DIR, CLAUDE_CODE_PLUGIN_DIRS and
+CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, each set or empty, removed from the environment of the version command and
+of the whole run (`kit_module_doc.claude_env`), so that no `claude` command the check starts holds one
+unless a block sets it itself, the case the cache's fix names for the first on the pinned version. They steer
+where Claude Code finds, keeps or loads plugins, as its documentation and a probe of 2.1.282 show: the first
+would have it write the kit's marketplace, its plugin cache and its records under the folder it names, a
+person's own plugins root perhaps, and not into the run's empty configuration, and the plugins root is
+otherwise `plugins` in the run's CLAUDE_CONFIG_DIR; the second, a session load the kit's plugins from the
+cache of a read-only seed; the third, a session load a plugin folder in place of the install the claims
+read; the fourth, the install write a zip file where the claims read a folder. Every other variable reaches
+the version command and the run unchanged, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the
+clone of its private repository over HTTPS, and the kit's own CONSTITUTION_KIT_* ones included, save those
+the check sets itself, CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER for both, HOME and GIT_CONFIG_GLOBAL for
+the run; the kit cloned from the working
 folder's HEAD to ~/dev/constitution-kit, so what is not committed is not run; the source the marketplace
 block registers pointed at the change: the argument of its `claude plugin marketplace add` replaced by the
 environment's CONSTITUTION_KIT_INSTALL_FROM, `<owner>/<repo>#<branch>` (the kit's CI names the change's GitHub
@@ -139,8 +147,8 @@ CLAUDE_CONFIG_DIR, the folder that holds the platform's settings. From a documen
 cache's path, `cache/<marketplace>/<plugin>/<version>/` under the plugins root ("Find plugins on disk" of the
 loading page), a path the check builds and compares with the `installPath` of the list; the root is
 `~/.claude/plugins` unless CLAUDE_CODE_PLUGIN_CACHE_DIR names it, a variable the check removes from the
-environment it runs `claude` in, so the root under CLAUDE_CONFIG_DIR, `plugins` in it, is that default read
-from CLAUDE_CONFIG_DIR's own meaning. From an
+environment it runs `claude` in, with three more (`kit_module_doc.claude_env`), so the root under
+CLAUDE_CONFIG_DIR, `plugins` in it, is that default read from CLAUDE_CONFIG_DIR's own meaning. From an
 undocumented place: none, since the record files of Claude Code are not read, and the plugin cache is read
 only through the documented path of a module's copy; the files under an `installLocation` and under that
 copy are read as plain files.
@@ -199,7 +207,9 @@ Modes:  no arguments   check the kit's guide;
                        version, a failure and a crash, the variable unset, at each other value than `1`
                        and at `1`; the run stopped before the clone with only `--version` run; the version
                        command run in an empty configuration folder of its own, the auto-updater off and
-                       CLAUDE_CODE_PLUGIN_CACHE_DIR absent;
+                       the four variables of `claude_env` absent, each of them set to a folder or to `1`
+                       and set empty in the person's environment, CLAUDE_CODE_PLUGIN_PREFER_HTTPS and an
+                       unrelated variable kept;
                        the reports of a run off the pin, a green one's and a finding's, as literal lines.
                        The platform's replies: the fake answering `plugin marketplace list --json` and
                        `plugin list --json` from a state of its own; the two readers over whole sets of
@@ -221,9 +231,12 @@ Modes:  no arguments   check the kit's guide;
                        (set to a folder, set and empty), and that variable not followed by the claim, copies
                        under the folder it names a finding; the fix of such a finding, `cache_fix`, on the
                        pin and off it, and off it in a whole run with the opt-out; a whole run with the
-                       variable set in the person's environment, to a folder and empty: green, every
-                       `claude` command (the version, the plugin commands, the session) run with it
-                       absent, and the folder it names left empty.
+                       one of the four set in the person's environment, to a folder or `1` and empty:
+                       green, every `claude` command (the version, the plugin commands, the session) run
+                       with the four absent and the kept variables as set, and the folders the variables
+                       name left empty; a block that exports one of the four itself, the variable present
+                       for the commands of that block alone; CONSTITUTION_KIT_INSTALL_FROM still read
+                       with the four set.
                        The lists that fail: a marketplace list and a plugin list that exit 1, 3 or 124 or
                        time out (the process mocked), a BROKEN with the fix `kit_module_doc.command_fix`
                        words, never a reader to update, on the pin and off it.
@@ -305,7 +318,7 @@ DOES = {
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 MARK = re.compile(r"(?:^|\s)check=(\S*)")
 FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
-CACHE_ENV = PLUGINS_ROOT_ENV  # the plugins root, "Find plugins on disk" of the loading page; the run drops it
+CACHE_ENV = PLUGINS_ROOT_ENV  # the plugins root, "Find plugins on disk" of the loading page; one of the four
 ADD = re.compile(r"(claude plugin marketplace add\s+)(\S+)")  # the source the marketplace block registers
 GITHUB_URL = re.compile(r"github\.com[:/]([^/\s]+/[^/\s]+?)(?:\.git)?/?$")
 LICENSE_FILES = ("LICENSE", "NOTICE")  # the kit's license and credit, copied beside the kernel
@@ -1115,7 +1128,7 @@ def run_blocks(
             encoding="utf-8",
         )
         carry_credentials(base_env, home / ".gitconfig")
-        env = claude_env(base_env) | {  # no CLAUDE_CODE_PLUGIN_CACHE_DIR: the root is <config>/plugins
+        env = claude_env(base_env) | {  # none of the four: the plugins root is <config>/plugins
             "HOME": str(home),
             "CLAUDE_CONFIG_DIR": str(config),
             "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
@@ -1222,8 +1235,10 @@ from `<owner>/<repo>#<branch>` is a GitHub one, cloned from the toy kit the envi
 from a path is a local folder. `--version` answers the pin of the toy kit, as the real one writes it, or
 FAKE_SAYS (escapes read) with the exit FAKE_EXIT; for `--version` it logs to FAKE_ENV, when set, its
 configuration folder, its auto-updater setting, how many entries the folder holds and whether it is a
-folder. For every command it logs to FAKE_CACHE, when set, the arguments and the CLAUDE_CODE_PLUGIN_CACHE_DIR
-it holds, `absent` when unset. FAKE_MUTANT names the one thing it does wrong."""
+folder. For every command it logs to FAKE_CACHE, when set, the arguments, then, each after a `|` and in this
+order, the values of CLAUDE_CODE_PLUGIN_CACHE_DIR, CLAUDE_CODE_PLUGIN_SEED_DIR, CLAUDE_CODE_PLUGIN_DIRS,
+CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS and FAKE_KEEP it holds, `absent` when unset.
+FAKE_MUTANT names the one thing it does wrong."""
 import json, os, shutil, subprocess, sys
 from pathlib import Path
 mutant = os.environ.get("FAKE_MUTANT", "")
@@ -1232,8 +1247,11 @@ with open(os.environ.get("FAKE_LOG") or config / "fake.log", "a", encoding="utf-
     log.write(" ".join(sys.argv[1:]) + "\\n")
 if os.environ.get("FAKE_CACHE"):
     with open(os.environ["FAKE_CACHE"], "a", encoding="utf-8") as seen:
-        cache_dir = os.environ.get("CLAUDE_CODE_PLUGIN_CACHE_DIR", "absent")
-        seen.write(" ".join(sys.argv[1:]) + "|" + cache_dir + "\\n")
+        held = [os.environ.get(name, "absent") for name in (
+            "CLAUDE_CODE_PLUGIN_CACHE_DIR", "CLAUDE_CODE_PLUGIN_SEED_DIR", "CLAUDE_CODE_PLUGIN_DIRS",
+            "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE", "CLAUDE_CODE_PLUGIN_PREFER_HTTPS", "FAKE_KEEP",
+        )]
+        seen.write(" ".join(sys.argv[1:]) + "|" + "|".join(held) + "\\n")
 if sys.argv[1:] == ["--version"]:
     if os.environ.get("FAKE_ENV"):
         with open(os.environ["FAKE_ENV"], "a", encoding="utf-8") as seen:
@@ -1957,8 +1975,19 @@ def self_test() -> int:
         fake.mkdir()
         (fake / "claude").write_text(FAKE, encoding="utf-8")
         (fake / "claude").chmod(0o755)
+        # typed by hand, a constant cannot check itself: the four variables `claude_env` removes, each with
+        # what a person who sets it would set, a folder of the run's or `1`; the person's own are never the
+        # environment of these runs, nor are the two variables it keeps
+        four = {
+            "CLAUDE_CODE_PLUGIN_CACHE_DIR": "plugins-root",
+            "CLAUDE_CODE_PLUGIN_SEED_DIR": "plugins-seed",
+            "CLAUDE_CODE_PLUGIN_DIRS": "plugins-dirs",
+            "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE": "1",
+        }
         base = {
-            k: v for k, v in os.environ.items() if k != CACHE_ENV
+            k: v
+            for k, v in os.environ.items()
+            if k not in four and k not in ("CLAUDE_CODE_PLUGIN_PREFER_HTTPS", "FAKE_KEEP")
         } | {  # the plugins root is the fake's own
             "PATH": f"{fake}{os.pathsep}{os.environ.get('PATH', '')}",
             FROM_ENV: "toy/kit#main",
@@ -3074,30 +3103,67 @@ def self_test() -> int:
                 f"{whats(decoyed)} ({decoyed_examined})",
             )
 
-        # the person's CLAUDE_CODE_PLUGIN_CACHE_DIR never reaches a `claude` the run starts: the version
-        # command, the blocks' commands and the headless session all see it unset, the platform's copies are
-        # made under the run's own configuration, and the folder the variable names stays empty
-        pc_root = unit / "plugins-root"
-        pc_root.mkdir()
-        for name, value in (("set to a folder", str(pc_root)), ("set and empty", "")):
-            seen_log = unit / "cache-seen.log"
+        # none of the four variables reaches a `claude` the run starts, whichever the person sets and to what:
+        # the version command, the blocks' commands and the headless session all see the four unset, the
+        # platform's copies are made under the run's own configuration, and the folders the variables name
+        # stay empty; CLAUDE_CODE_PLUGIN_PREFER_HTTPS and FAKE_KEEP reach every command as the person set
+        # them, and CONSTITUTION_KIT_INSTALL_FROM, in `base`, is still read: the run is green from its source
+        kept_vars = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"}
+        seen_when_removed = "|absent|absent|absent|absent|1|1"  # the fake's log after a command's arguments
+        person_values: dict[str, tuple[str, str]] = {}
+        for variable, shape in four.items():
+            if shape != "1":
+                (unit / shape).mkdir()
+            person_values[variable] = (
+                ("set to 1", "1") if shape == "1" else ("set to a folder", str(unit / shape))
+            )
+        seen_log = unit / "cache-seen.log"
+        for variable, (what, set_value) in person_values.items():
+            for name, value in ((what, set_value), ("set and empty", "")):
+                seen_log.unlink(missing_ok=True)
+                rooted, rooted_examined, _ = run_guide(
+                    toy_guide(), kit, base | kept_vars | {variable: value, "FAKE_CACHE": str(seen_log)}
+                )
+                seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
+                first_words = {line.split("|")[0].split()[0] for line in seen}
+                case(
+                    f"{variable} {name} in the person's environment: a green run, the whole of it, every"
+                    " claude command (the version, the plugin commands, the session) run with the four"
+                    " absent and CLAUDE_CODE_PLUGIN_PREFER_HTTPS and FAKE_KEEP as set, the folders empty",
+                    not rooted
+                    and rooted_examined == green_examined
+                    and bool(seen)
+                    and all(line.endswith(seen_when_removed) for line in seen)
+                    and {"--version", "plugin", "-p"} <= first_words
+                    and all(list((unit / f).iterdir()) == [] for f in four.values() if f != "1"),
+                    f"{whats(rooted)} ({rooted_examined}) {seen[:4]}",
+                )
+        # a block that exports one of the four itself has it for its own commands, and no other command
+        for variable in four:
+            block_value = "1" if four[variable] == "1" else "$HOME/block-value"
             seen_log.unlink(missing_ok=True)
-            rooted, rooted_examined, _ = run_guide(
-                toy_guide(), kit, base | {CACHE_ENV: value, "FAKE_CACHE": str(seen_log)}
+            run_guide(
+                toy_guide(
+                    install=f"export {variable}={block_value} && "
+                    "for m in ~/dev/constitution-kit/modules/const-*; "
+                    f'do claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
+                ),
+                kit,
+                base | kept_vars | {"FAKE_CACHE": str(seen_log)},
             )
             seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
-            first_words = {line.rsplit("|", 1)[0].split()[0] for line in seen}
+            at_command = [(line.split("|")[0], line.split("|")[1:5]) for line in seen]
+            slot = list(four).index(variable)
+            holds = [i for i, (_, fields) in enumerate(at_command) if fields[slot] != "absent"]
+            installs = [i for i, (words, _) in enumerate(at_command) if words.startswith("plugin install")]
             case(
-                f"CLAUDE_CODE_PLUGIN_CACHE_DIR {name} in the person's environment: a green run, the whole of"
-                " it, every claude command (the version, the plugin commands, the session) run with it"
-                " absent, the folder it names empty",
-                not rooted
-                and rooted_examined == green_examined
-                and bool(seen)
-                and all(line.endswith("|absent") for line in seen)
-                and {"--version", "plugin", "-p"} <= first_words
-                and list(pc_root.iterdir()) == [],
-                f"{whats(rooted)} ({rooted_examined}) {seen[:4]} {sorted(p.name for p in pc_root.iterdir())}",
+                f"a block that exports {variable} itself: the variable reaches the two `plugin install`"
+                " commands of that block, one for each toy module, and no other claude command, and the"
+                " other three reach none",
+                len(installs) >= 2
+                and holds == installs[:2]
+                and all(f == "absent" for _, fields in at_command for i, f in enumerate(fields) if i != slot),
+                " | ".join(seen[:6]),
             )
 
         # the folders in a whole run: the marketplace list where its block ended, not in the project, the
@@ -3475,6 +3541,27 @@ def self_test() -> int:
                 and sorted(path.name for path in person.iterdir()) == ["keep"],
                 f"{seen_env} {sorted(path.name for path in person.iterdir())}",
             )
+
+        seen_log.unlink(missing_ok=True)
+        opted, opted_examined, opted_note = run_guide(
+            toy_guide(),
+            kit,
+            says_env(too_old, 0, "1")
+            | kept_vars
+            | {variable: set_value for variable, (_, set_value) in person_values.items()}
+            | {"FAKE_CACHE": str(seen_log)},
+        )
+        seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
+        case(
+            "all four set in the person's environment with CONSTITUTION_KIT_ANY_CLAUDE=1 on another version:"
+            " the opt-out is still read (a green run with its note), every claude command run with the four"
+            " absent",
+            not opted
+            and opted_note == noted.format("2.1.286")
+            and bool(seen)
+            and all(line.endswith(seen_when_removed) for line in seen),
+            f"{whats(opted)} ({opted_examined}) {opted_note!r} {seen[:4]}",
+        )
 
         def stopped_run(env: dict[str, str], where: Path = kit) -> tuple[str, str]:
             """What `run_guide` over the toy guide ends in when it is Broken: its line and its note."""
