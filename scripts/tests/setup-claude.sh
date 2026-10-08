@@ -17,9 +17,9 @@ failed=0
 cases=0
 NPM_LOG=$tmp/npm.log; CLAUDE_LOG=$tmp/claude.log; export NPM_LOG CLAUDE_LOG
 
-# the tools the script itself needs, and no npm: the PATH of the cases that miss one
+# the tools the script itself needs (ls for the fake claude), and no npm: the PATH of the cases that miss one
 mkdir "$tmp/bin" "$tmp/tools" "$tmp/nothing"
-for t in git sh dirname cat wc tr awk rm mktemp; do ln -s "$(command -v "$t")" "$tmp/tools/$t"; done
+for t in git sh dirname cat wc tr awk rm mktemp ls; do ln -s "$(command -v "$t")" "$tmp/tools/$t"; done
 
 cat >"$tmp/claude.template" <<'EOF'
 #!/bin/sh
@@ -228,8 +228,22 @@ run_in "$fails" sh scripts/setup-claude.sh --check now
 is "an argument beside --check is BROKEN" 1 "BROKEN: unknown argument '--check now' — fix: sh scripts/setup-claude.sh [--check]"
 run_in "$fails" env FAKE_NPM_FAIL=3 sh scripts/setup-claude.sh
 is "an npm that fails is BROKEN, with the command to run by hand" 1 "BROKEN: npm install exited 3 — fix: run npm install --prefix \"$fails/.claude-code-pinned\" --no-audit --no-fund \"@anthropic-ai/claude-code@2.1.282\" by hand and read why it fails"
+run_in "$fails" sh scripts/setup-claude.sh
+is "a good install, for the cases that follow to leave or fail to remove" 0 "$(green "$fails" 2.1.282)"
+mkdir "$tmp/failrm"
+printf '#!/bin/sh\nexit 1\n' >"$tmp/failrm/rm"
+chmod +x "$tmp/failrm/rm"
+: >"$NPM_LOG"
+run_in "$fails" env PATH="$tmp/failrm:$PATH" sh scripts/setup-claude.sh
+is "a folder that cannot be removed is BROKEN, with the fix" 1 "BROKEN: $fails/.claude-code-pinned could not be removed — fix: remove it by hand, then run sh scripts/setup-claude.sh again"
+holds "npm was never called" test ! -s "$NPM_LOG"
+holds "and the folder is as it was" test -x "$fails/.claude-code-pinned/node_modules/.bin/claude"
 run_in "$fails" env PATH="$tmp/tools" /bin/sh scripts/setup-claude.sh
 is "a missing npm is BROKEN" 1 "BROKEN: npm is not installed, and Claude Code is an npm package — fix: install Node.js with npm (https://nodejs.org/) and put npm on PATH"
+holds "the good install is still there: the folder is removed only once npm is found" test -x "$fails/.claude-code-pinned/node_modules/.bin/claude"
+run_in "$fails" env PATH="$tmp/tools" /bin/sh scripts/setup-claude.sh --check
+is "and --check is still green" 0 "$(green "$fails" 2.1.282)"
+rm -rf "$fails/.claude-code-pinned"
 run_in "$fails" env PATH="$tmp/tools" /bin/sh scripts/setup-claude.sh --check
 is "--check needs no npm: a clone with no folder is red, not BROKEN" 2 "$(red "$fails" 2.1.282 "$fails/.claude-code-pinned has no executable node_modules/.bin/claude")"
 run_in "$fails" env PATH="$tmp/nothing" /bin/sh scripts/setup-claude.sh
