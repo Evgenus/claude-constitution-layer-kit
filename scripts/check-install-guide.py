@@ -1178,19 +1178,24 @@ def self_test() -> int:
             said,
         )
 
-        def market_said(text: str | None) -> tuple[Path, str]:
-            """The folder of a kit whose .claude-plugin/marketplace.json holds `text` (no file for None),
-            and what `marketplace_name` gives over it: the name, or its DocumentError's message."""
+        def market_said(text: str | None, as_folder: bool = False) -> tuple[Path, str]:
+            """The folder of a kit whose .claude-plugin/marketplace.json holds `text` (no file for None,
+            a folder of that name for `as_folder`), and what `marketplace_name` gives over it: the name, or
+            its DocumentError's message, or the OSError a read of it let escape."""
             nonlocal count
             count += 1
             folder = Path(listings) / f"market-{count}"
             (folder / ".claude-plugin").mkdir(parents=True)
-            if text is not None:
+            if as_folder:
+                (folder / ".claude-plugin" / "marketplace.json").mkdir()
+            elif text is not None:
                 (folder / ".claude-plugin" / "marketplace.json").write_text(text, encoding="utf-8")
             try:
                 return folder, marketplace_name(folder)
             except DocumentError as bad:
                 return folder, str(bad)
+            except OSError as bad:
+                return folder, f"escaped {type(bad).__name__}: {bad}"
 
         folder, got = market_said('{"name": "toy-mp", "plugins": []}')
         case("the marketplace's name is the file's top-level name", got == "toy-mp", got)
@@ -1234,6 +1239,13 @@ def self_test() -> int:
                 got == f"{folder}/.claude-plugin/marketplace.json{tail}",
                 got,
             )
+        folder, got = market_said(None, as_folder=True)  # the file "unreadable" of the reader's docstring
+        case(
+            "a marketplace.json that is a folder, unreadable though it exists, is a teaching DocumentError",
+            got == f"{folder}/.claude-plugin/marketplace.json cannot be read (Is a directory) — fix: run the"
+            " check from a checkout of the kit, which holds the file",
+            got,
+        )
 
         def pin_said(content: bytes | None) -> tuple[Path, str]:
             """The folder of a kit whose scripts/claude-code.version holds `content` (no file for None),

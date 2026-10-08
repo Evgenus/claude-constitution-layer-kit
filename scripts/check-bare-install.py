@@ -923,6 +923,7 @@ def self_test() -> int:
         '#!/bin/sh\necho "$*" >> "${FAKE_LOG:-$CLAUDE_CONFIG_DIR/fake.log}"\n'
         '[ -n "$FAKE_HANG" ] && exec tail -f /dev/null\n'
         '[ "$1" = --version ] && { printf \'%b\' "$FAKE_SAYS"; exit "${FAKE_EXIT:-0}"; }\n'
+        '[ "$2" = install ] && [ -n "$FAKE_FAIL" ] && { echo "$FAKE_FAIL" >&2; exit 1; }\n'
         '[ "$2" = install ] && mkdir -p "$CLAUDE_CONFIG_DIR/plugins" && printf \'{"plugins": {"%s": '
         '[{"installPath": "/cache/x", "gitCommitSha": "abc"}]}}\' "$3" '
         '> "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"\nexit 0\n'
@@ -943,6 +944,34 @@ def self_test() -> int:
         ]
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the install asks Claude Code for the module at the marketplace's name")
+    with tempfile.TemporaryDirectory() as tmp:  # the check of a module reads the name from the kit it runs in
+        toy, bin_dir, fake_log = Path(tmp) / "kit", Path(tmp) / "bin", Path(tmp) / "claude.log"
+        (toy / ".claude-plugin").mkdir(parents=True)
+        (toy / ".claude-plugin" / "marketplace.json").write_text('{"name": "toy-mp"}', encoding="utf-8")
+        (toy / "modules" / "const-x" / ".claude-plugin").mkdir(parents=True)
+        (toy / "modules" / "const-x" / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+        (toy / "kernel").mkdir()
+        (toy / "kernel" / "CONVENTIONS.md").write_text("A kernel.\n", encoding="utf-8")
+        bin_dir.mkdir()
+        (bin_dir / "claude").write_text(fake_claude, encoding="utf-8")
+        (bin_dir / "claude").chmod(0o755)
+        environ = {  # the install fails, so the run stops there with the name it asked for in the log
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+            "FAKE_LOG": str(fake_log),
+            "FAKE_FAIL": "no such plugin",
+        }
+        with mock.patch.dict(os.environ, environ), mock.patch.dict(globals(), {"KIT": toy}):
+            found, examined = check_module("const-x", "owner/repo")
+        log = fake_log.read_text(encoding="utf-8").splitlines()
+        ok = (
+            [f.what for f in found] == ["Claude Code refuses to install it (no such plugin)"]
+            and examined == "no install"
+            and log == ["plugin marketplace add owner/repo", "plugin install const-x@toy-mp"]
+        )
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the check of a module installs it at the name its kit's file gives")
+    if not ok:
+        print(f"        got: {[f.what for f in found]} {examined} {log}")
     extra = 0  # the cases of the version check, printed one by one
 
     def version_case(name: str, ok: bool, got: str) -> None:
@@ -1152,7 +1181,7 @@ def self_test() -> int:
         ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
-    total = len(cases) + len(unreadable) + 8 + extra
+    total = len(cases) + len(unreadable) + 9 + extra
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
