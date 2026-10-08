@@ -43,13 +43,13 @@ A, chosen by the decider in chat on 2026-10-08, and narrowed there: user-facing,
 
 **R4.** The pages stand under a ceiling of the length gate, `module-readmes` over `modules/*/README.md`, at warning, set on the pages' first day as the longest page plus 10 %, rounded up to 1,000, with that day as its window, like the install guide's ceiling before it.
 
-**R5.** A module's `README.md` is reader prose like `MODULE.md`: outside the read list of the kit's portability check, which reads a module's installed components, and its docstring says so, held by a self-test case. The portability rule, [law 2 of CLAUDE.md](../../CLAUDE.md#law-2), holds for the page by review, and the guide's step 4 says so. A module's `README.md` is never the home of a ruling: the record policy's carry rule and the kit's carry-list check refuse it, as they refuse the root README.
+**R5.** A module's `README.md` is reader prose like `MODULE.md`: outside the read list of the kit's portability check, which reads a module's installed components, and its docstring says so, held by a self-test case. The portability rule, [law 2 of CLAUDE.md](../../CLAUDE.md#law-2), holds for the page by review, and the guide's step 4 says so. A module's `README.md` is never the home of a ruling: the record policy's carry rule and the kit's carry-list check refuse it, as they refuse the root README, and the carry-audit skill's readers count it as no home.
 
 **R6.** R3 narrows three earlier rulings, which stand as written: R7 and R11 of [dec-0005-reference-forms](dec-0005-reference-forms.md), that kit documents link a module to its specification anchor; R1 of [dec-0049-module-links-held-by-a-kit-check](dec-0049-module-links-held-by-a-kit-check.md), two places excepted, now three; and R1 of [dec-0051-module-citation-rule-in-the-guide](dec-0051-module-citation-rule-in-the-guide.md), the two exceptions in the reference bullet, now three.
 
 ## Applied
 
-The change that adds this record applies every item: the eleven pages, the template's page and the line in its plugin skeleton, the table and the map row of the root README, the two clauses of the kit guide, the ceiling, and the docstrings and the case of the two kit checks. Every module is a draft at `0.0.x`, so no version moves. The record grew while its change was made and was born `active`; the carry audit's fixes applied the last of it, and it is `inactive` from that commit.
+The change that adds this record applies every item: the eleven pages, the template's page and the line in its plugin skeleton, the table and the map row of the root README, the two clauses of the kit guide, the ceiling, the docstrings and the cases of the portability and module-links checks, and, from the carry audit's fixes, rule 2 of the record policy, the carry-audit skill's list of places, and the carry-list check's refusal with its docstring and case. Every module is a draft at `0.0.x`, so no version moves. The record grew while its change was made and was born `active`; the carry audit's fixes applied the last of it, and it is `inactive` from that commit.
 
 ## Carry list
 
@@ -57,5 +57,5 @@ The change that adds this record applies every item: the eleven pages, the templ
 2. R2 — [the template's page](../../module-template/README.md), its note; [the template's module document](../../module-template/MODULE.md), its plugin skeleton; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
 3. R3 — [the reference bullet of CLAUDE.md](../../CLAUDE.md#references); [the module-links check](../../scripts/check-module-links.py), its docstring.
 4. R4 — [the dials file](../../constitution.yaml), the ceiling `module-readmes` of `const-doc-budgets`.
-5. R5 — [the portability check](../../scripts/check-portability.py), its docstring and its self-test; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2), rule 2; [the carry-list check](../../scripts/check-carry-lists.py), its docstring and its self-test.
+5. R5 — [the portability check](../../scripts/check-portability.py), its docstring and its self-test; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r2), rule 2; [the carry-list check](../../scripts/check-carry-lists.py), its docstring and its self-test; [the carry-audit skill](../../.claude/skills/carry-audit/SKILL.md), its prompt A.
 6. R6 — history only: the narrowing of earlier rulings, which stand as written.

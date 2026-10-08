@@ -12,9 +12,9 @@ script can hold:
                only", or with "pending" and a link. A link leads where a rule can live — an active
                document of type current-state, CLAUDE.md, a skill of the kit, a module's or the
                template's own file, a file that is not markdown — a file, never a folder. The rollout
-               plan, a research comparison, another record and a README, the root's or a module's,
-               cannot: those are where
-               rulings were found hiding. "pending" is for intent that is not yet real, and its
+               plan, a research comparison, another record and a README cannot — the root's, where
+               rulings were found hiding, and a module's, a page for a reader that binds nothing.
+               "pending" is for intent that is not yet real, and its
                link leads to the task-record that holds the work to come — a plan, never a
                decision record — where the kernel says such intent rides. The entry is never
                rewritten: once that task-record closes, the check says so in a note.
@@ -295,9 +295,9 @@ def home_problem(
         )
     if path.suffix != ".md":
         return None
+    if re.fullmatch(r"modules/[^/]+/README\.md", shown):
+        return f"{shown} is a module's README, a page for a reader that binds nothing", general
     if kind is None:
-        if re.fullmatch(r"modules/[^/]+/README\.md", shown):
-            return f"{shown} is a module's README, a page for a reader that binds nothing", general
         if shown == UNGOVERNED_HOMES[0] or shown.startswith(UNGOVERNED_HOMES[1:]):
             return None
         return f"{shown} is not a governed document and holds no rules", general

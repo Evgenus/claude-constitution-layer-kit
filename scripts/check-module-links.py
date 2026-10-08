@@ -4,7 +4,7 @@
 Module prose says "module `const-x`"; every other kit document writes the same words as a link,
 module [`const-x`](<path to>/docs/requirements.md#const-x) — the reference rule of CLAUDE.md. The
 module table of the root README links a module to the module's own README.md instead, as that rule
-allows; a link is never read here, so the table needs no exception of its own.
+allows; a link's target is never checked here, so the table needs no exception of its own.
 The form read is the word "module" or "modules", with a small or a capital m, a space, and a
 module's name in a code span; a name standing alone, or any name after the first of "modules `a` and `b`", is
 left to review. The link lint of const-referencing cannot hold this: it matches its lanes on text
