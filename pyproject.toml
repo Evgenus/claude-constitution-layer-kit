@@ -22,13 +22,17 @@
 #   python3 scripts/check-schema-mirror.py   (the gates' mirror never more lenient than the kernel schemas)
 #   python3 scripts/check-dials-schema.py && python3 scripts/check-dials-schema.py --self-test   (the kit's constitution.yaml against the kernel's dials schema)
 #   python3 scripts/check-resolved-paths.py && python3 scripts/check-resolved-paths.py --self-test   (every package a runner imports through a link reads __file__ resolved)
-#   python3 scripts/check-bare-install.py --self-test && python3 scripts/check-bare-install.py --module <name>   (A12: installed alone on a bare repo; needs the claude scripts/claude-code.version pins, or CONSTITUTION_KIT_ANY_CLAUDE=1)
+#   python3 scripts/check-bare-install.py --self-test && python3 scripts/check-bare-install.py --module <name>   (A12: installed alone on a bare repo; needs the claude scripts/claude-code.version pins first on PATH — sh scripts/setup-claude.sh installs it, and sh scripts/gate-list.sh --run install-<name> puts it first — or CONSTITUTION_KIT_ANY_CLAUDE=1)
 #   python3 scripts/check-install-guide.py --self-test && python3 scripts/check-install-guide.py   (INSTALL.md's commands run and do what it says; the plain run needs the same claude, and the branch pushed)
 #   (cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts mypy --strict *.py)   (every kit script, one run)
 # And for the kit's own branch-first gate — the first sets the clone's settings, once per clone; the second is red
 # in a clone until the first has run:
 #   sh scripts/setup-clone.sh
 #   sh scripts/setup-clone.sh --check && sh scripts/git-hooks/tests/run.sh
+# And for the pinned Claude Code the install checks run on locally — the first installs it into the clone's
+# .claude-code-pinned/, once per clone and again after the pin moves; the second tells whether it answers the pin:
+#   sh scripts/setup-claude.sh
+#   sh scripts/setup-claude.sh --check && sh scripts/tests/setup-claude.sh
 [tool.ruff]
 line-length = 110
 target-version = "py312"
