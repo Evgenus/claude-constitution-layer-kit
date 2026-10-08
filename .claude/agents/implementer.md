@@ -28,9 +28,9 @@ redirect that writes around it. Edit Markdown only with Edit or Write.
 SHELL RULES, strict:
 1. Each command is one synchronous foreground command that ends in under 600 seconds; one that
    may pass two minutes sets the tool's timeout, or the tool backgrounds it at 120 seconds.
-2. At most three test runners at once, in one command joined by `wait`.
-3. Never `run_in_background`, never `&` without `wait`, never a polling loop (`until`,
-   `while … sleep`), never `sleep`.
+2. At most three test runners at once, each its own foreground command.
+3. Never `run_in_background`, never `&` in any form, `&` with `wait` included, never a polling
+   loop (`until`, `while … sleep`), never `sleep`.
 4. Write only inside the kit's tracked tree for the piece itself, and in the scratch directory
    the message names; never in `/tmp`, never at the repository root. Delete nothing in the
    scratch directory, no `rm`: make a fresh folder, `mktemp -d "<scratch>/<name>.XXXXXX"`, and
