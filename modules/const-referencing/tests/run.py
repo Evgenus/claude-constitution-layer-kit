@@ -2228,9 +2228,9 @@ OUT_OF_TIME_TYPED = (
 )
 
 # A run of the real entry point, `start.main`, with the budget's clock stood still and moved by hand: it
-# advances by the seconds the environment names for each document read, each masked, and once more
-# at the first masking. Nothing waits for real. The trace holds one word per read and per masking, and
-# what lychee's run was given as its timeout, with the clock at that moment.
+# advances by the seconds the environment names for each document read, each masked, once more
+# at the first masking, and once at the version probe. Nothing waits for real. The trace holds one word
+# per read and per masking, and what lychee's run was given as its timeout, with the clock then.
 BUDGET_DRIVER = """\
 import os
 import subprocess
@@ -2263,7 +2263,9 @@ def masking(text):
 
 
 def spy(command, *args, **kwargs):
-    if os.path.basename(str(command[0])) == "lychee" and command[1] != "--version":
+    if os.path.basename(str(command[0])) == "lychee" and command[1] == "--version":
+        now[0] += float(os.environ.get("PROBE_STEP", "0"))
+    elif os.path.basename(str(command[0])) == "lychee":
         note("run timeout=%r clock=%r" % (kwargs.get("timeout"), now[0]))
     return run(command, *args, **kwargs)
 
@@ -2329,6 +2331,16 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
             f"{count} documents read and masked, lychee called: {ran}; trace {trace}",
         )
     )
+    # the first of several documents masked passes it: the clock is read after each document, so the
+    # check stops there and the other documents are never masked
+    first, trace, ran, _, _ = on_a_patched_clock({"MASK_FIRST": "25"})
+    results.append(broken_typed(first, OUT_OF_TIME_TYPED))
+    results.append(
+        (
+            count > 1 and trace.count("mask") == 1 and trace.count("read") == count and ran == [],
+            f"{count} documents read, one masked, lychee never called: trace {trace}, lychee {ran}",
+        )
+    )
     # a read passes it before any masking starts (reading is counted)
     late, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "25"})
     results.append(broken_typed(late, OUT_OF_TIME_TYPED))
@@ -2364,6 +2376,17 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
             f"the run was given 0.5 s and ended after {took:.1f} s: {trace}",
         )
     )
+    # the version probe, which answers, passes the deadline: the run is given the floor, never 0 or less
+    spent_in_the_probe, trace, ran, _, _ = on_a_patched_clock(
+        {"PROBE_STEP": "25"}, run=f"exec {shutil.which('sleep') or '/bin/sleep'} 30"
+    )
+    results.append(broken_typed(spent_in_the_probe, TOO_SLOW_TYPED))
+    results.append(
+        (
+            "run timeout=0.01 clock=25.0" in trace,  # the fake's own log is a race with the kill
+            f"the run was given 0.01 s after the probe: trace {trace}",
+        )
+    )
     # the scan has no clock: a patched one that runs far away changes nothing, and the run has no timeout
     scanned, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "1000", "MASK_STEP": "1000"}, scan=True)
     far = [line for line in trace if line.startswith("run timeout=None clock=")]
@@ -2384,7 +2407,8 @@ def a_link_checker_that_hangs() -> tuple[bool, str]:
     a hook the platform gives up on: the version probe and the run have a budget each. The run's
     budget belongs to the check after a write, and it is one budget with the reading and the masking
     of the tree (`the_budget_is_one`): the scan waits for a slow checker, as long as it takes.
-    The three runs go side by side, so the item costs the longest of them, about 21 s."""
+    The three runs go side by side, the longest about 21 s, and the budget cases follow one after the
+    other: the item costs about 30 s."""
     sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
     slow_version = f'case "$1" in --version) {sleep} 8; echo "lychee 0.24.2";; *) exit 0;; esac\n'
     # answers --version at once; any other call is 1 s past the hook's 20 s, then an empty report
