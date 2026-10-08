@@ -10,14 +10,14 @@ In plain words: every Markdown page in a folder that a policy governs starts wit
 <a id="a2"></a>
 ## Why use it
 
-A session opens an old research note, or a page about a design the project has since changed. It treats the page as the truth, because nothing on the page says what it is. Another document sits in a folder that two rule sets claim, or in one that none claims. The rules that apply to it are whatever the reader assumes. Nobody notices at the write. Every such document raises the cost of the repair that comes later.
+A session opens an old research note, or a page about a design the project has since changed. It treats the page as the truth, because nothing on the page says what it is. Another document sits in a folder that two rule sets claim. The rules that apply to it are whichever the reader assumes. Nobody notices at the write. Every such document raises the cost of the repair that comes later.
 
-With the module installed, that cannot happen in silence. A page in a governed folder is refused at the write until its block says what the page is. A page that two policies claim is refused until it declares one of them, or the territories are fixed. A page outside every territory is not examined. A reader can then trust what a page says about itself, and a session knows which rules apply before it edits.
+With the module installed, that cannot happen in silence. A page in a governed folder is refused at the write until its block says what the page is. A page that two policies claim is refused until it declares one of them, or the territories are fixed. A page outside every territory, declaring no policy, is outside the module. A reader can then trust what a page says about itself, and a session knows which rules apply before it edits.
 
 <a id="a3"></a>
 ## How Claude behaves with it
 
-The project's `constitution.yaml` names a root policy and the folders each policy governs, its territory. A session that writes or edits a Markdown file inside a territory must give the file a short block at its top, the envelope. The block holds an `id`, a `type`, a `title` and a `status`. The type is one of three: `current-state` for how things are, `task-record` for where they should go, `non-authoritative` for a page that binds nothing. The write is refused when the block is missing or wrong, when the id is already taken, or when two policies claim the path. The refusal says what failed, why the rule exists, and the exact fix. The session makes the fix and writes again; nobody has to explain the rule. A file outside every territory is not examined, and the session is told so.
+The project's `constitution.yaml` names a root policy and the folders each policy governs, its territory. A session that writes or edits a Markdown file inside a territory must give the file a short block at its top, the envelope. The block holds an `id`, a `type`, a `title` and a `status`. The type is one of three: `current-state` for how things are, `task-record` for where they should go, `non-authoritative` for a page that binds nothing. The write is refused when the block is missing or wrong, when the id is already taken, or when two policies claim the path. The refusal says what failed, why the rule exists, and the exact fix. The session makes the fix and writes again; nobody has to explain the rule. A file outside every territory, declaring no policy, is not examined.
 
 ```text
 RED: docs/notes/plan.md: no frontmatter envelope

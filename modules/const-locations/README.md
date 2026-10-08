@@ -5,7 +5,7 @@
 
 Documents born in their canonical home: a command derives the home from the policy's territory, proves it resolves to exactly that policy, and writes the document from the kind's template with a valid envelope; a skill for creating documents through it and one for introducing a new kind — policy first, then territory, then document.
 
-In plain words: a new document is created through a command, and a skill has the session use it instead of writing by hand. The command reads where the project keeps that kind of document, puts the file there, and fills its header from the kind's template. One skill makes the session use the command; the other says what to do when no policy covers the new kind yet.
+In plain words: a new document is created through a command, and a skill asks the session to use it instead of writing by hand. The command reads where the project keeps that kind of document, puts the file there, and fills its header from the kind's template. The other skill says what to do when no policy covers the new kind yet.
 
 <a id="a2"></a>
 ## Why use it
