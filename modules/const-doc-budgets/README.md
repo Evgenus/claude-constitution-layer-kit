@@ -5,10 +5,14 @@
 
 A character ceiling per group of documents, measured after every write and in a scan: each ceiling names its documents by path patterns, its number and the days of data it was set from, and warns until 30 days of data stand behind it; a history report over git gives those data; a document that must stand over its ceiling is declared as a departure in the dials file. Plus a skill for setting a ceiling and reading a finding.
 
+In plain words: each group of documents gets a ceiling in characters, set from the group's own history. Every page is measured against it after a write and in a scan. A ceiling warns until 30 days of data stand behind it; then it may block. A page that must stand over its ceiling is declared in the dials file with its reason.
+
 <a id="a2"></a>
 ## Why use it
 
 A document a project keeps grows with every change that touches it. Nobody measures what that costs the reader, or the model that loads the document in every session. The kit saw its own session guide grow by a third in one week, and a reference page nearly double in another. Each change decides its own length. No one sees a kind of page getting longer until a reader gives up. A number per group of documents, set from what the group was seen to need, makes the growth visible at the write that causes it.
+
+With the module installed, growth is seen at the write that causes it. The session is told by how much a page is over, and splits or cuts it. The history report gives each group its number from data, never from a wish. The scan in CI shows every ceiling's margin, so a kind of page cannot creep past what its readers bear.
 
 <a id="a3"></a>
 ## How Claude behaves with it

@@ -5,10 +5,14 @@
 
 Answer in the shape the question has, the answer first; every assumption listed, every list item addressable; honesty over agreement; stop before a hard-to-reverse act and wait for a yes, with a gate on enumerated destructive commands.
 
+In plain words: nine rules for every reply are printed into every session, and one of them has a gate. The rules say how to answer: the answer first, assumptions listed, every item citable, findings never softened, no hard-to-reverse act without a yes. The gate stops a listed destructive shell command until you confirm it.
+
 <a id="a2"></a>
 ## Why use it
 
 A short question is answered by a page. A yes-or-no question opens with three paragraphs of context, and the word arrives at the end, if at all. The assumption that made the answer possible is never said, so the user cannot correct it. A list of findings has no handles, so the user quotes a sentence to point at one. A request that is wrong is carried out with a softened note. A failure is reported as done because nobody checked. And a forced push, a hard reset or a recursive delete stays one keystroke away from a session that never learned the rule.
+
+With the module installed, every session starts with the nine rules in its context. A yes-or-no question gets its word first. An assumption is written down where the user can correct it, and a list of findings carries handles. A forced push or a hard reset stops at a prompt that names the risk and the safer alternative. A scan finds the list items with no handle in the project's documents.
 
 <a id="a3"></a>
 ## How Claude behaves with it

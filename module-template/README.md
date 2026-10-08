@@ -5,12 +5,12 @@
 <a id="a1"></a>
 ## What it gives you
 
-One plain sentence: the manifest's `description`, copied as written, so that the two never differ.
+The manifest's `description`, copied as written, so that the two never differ. Then one short paragraph, opening "In plain words". It says what the module does in the reader's own words: what is checked, what is refused, what a skill brings.
 
 <a id="a2"></a>
 ## Why use it
 
-The problem in the user's own terms: what goes wrong in a project without the module, in two or three sentences. No kit vocabulary a reader has not been given.
+The problem in the user's own terms: what goes wrong in a project without the module, in two or three sentences. No kit vocabulary a reader has not been given. Then a second paragraph, opening "With the module installed". It says how the problem is resolved: what is refused, what is reported, what a session does differently, and what the reader gains.
 
 <a id="a3"></a>
 ## How Claude behaves with it

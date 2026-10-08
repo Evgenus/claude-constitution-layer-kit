@@ -5,10 +5,14 @@
 
 Write-time gate on decision records: a document governed by a record policy carries type task-record, stakes (process | product | architecture) and a decider. Plus skills for pricing and recording a decision, and for promoting recurring commit notes.
 
+In plain words: a page in the folder for decision records must say what was at stake and who decided, or it is not written. One skill helps decide whether a question deserves a record at all, and writes the record in a fixed shape. The other finds the small calls that keep coming back in commit messages and turns them into a rule.
+
 <a id="a2"></a>
 ## Why use it
 
 A session and its user argue a ruling through, with options, objections and a pick, and the ruling stays in the chat. The next session finds the code changed, sees no reason why, and reopens the question. In the same project a naming nit gets the ceremony of a structural choice, until nobody writes anything up. A page that calls itself a decision record but names no stakes and no decider is no better than the chat it came from.
+
+With the module installed, a record that names no stakes or no decider is refused at the write. The skill prices every decision first, so a cheap call stays a line in the commit and a real ruling gets its record. The next session reads the record, with its options and its reasoning, instead of reopening the question.
 
 <a id="a3"></a>
 ## How Claude behaves with it

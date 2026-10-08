@@ -807,14 +807,14 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-09-14
         to: 2026-09-29
-    - name: module-readmes   # set 2026-10-08 on the pages' first day: the longest then, 5,790 characters, plus 10 %, rounded up to 1,000
+    - name: module-readmes   # set 2026-10-09 on the pages' second day, their sections elaborated: the longest then, 6,510 characters, plus 10 %, rounded up to 1,000
       paths:
         - "modules/*/README.md"
-      max: 7000
+      max: 8000
       level: warning
       window:
         from: 2026-10-08
-        to: 2026-10-08
+        to: 2026-10-09
     - name: kit-agents
       paths:
         - "/.claude/agents/*.md"

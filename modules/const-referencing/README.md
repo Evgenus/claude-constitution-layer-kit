@@ -5,10 +5,14 @@
 
 References a machine can follow and a move can repair: one written form per kind of reference, anchors that do not depend on a heading's words, a check of the whole tree after every write and in the scan, and a mover that repairs the links a move breaks. Plus a skill for citing, anchoring and moving, and two always-on sentences about references in chat.
 
+In plain words: every reference in a document is a link a machine can follow. Every cited place has a fixed anchor that survives a reworded heading. The module checks links before and after a write, scans the whole tree, and moves a document while repairing every link to it. Two sentences at session start ask for the same in chat.
+
 <a id="a2"></a>
 ## Why use it
 
 A document is moved, a heading is reworded, a page is deleted. Every link that pointed there still reads as a link, and leads nowhere, or to a neighbour that happens to carry the old heading's words. Nobody notices at the edit, because the break is in other files. A reader finds it weeks later and can no longer tell what was meant. Beside the broken link stands the reference that never was one. A bare "see section 4", an id in backticks, a path that exists only on the author's machine. No tool can follow those, and a rename cannot find them.
+
+With the module installed, a bad reference form is refused at the write, and a link that leads nowhere is reported right after it. A document is moved by the mover, which repairs every link to it. The scan in CI turns red on any link or anchor that does not resolve, so a broken reference never reaches the main branch.
 
 <a id="a3"></a>
 ## How Claude behaves with it

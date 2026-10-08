@@ -5,10 +5,14 @@
 
 One style guide every governed document follows — diagrams, prose against lists and tables, list and table format, headings, code blocks, emphasis, callouts — with departures declared per territory or per document in the dials file with a reason; a scan reports the traces of the defaults that no departure allows. Plus a skill that applies the defaults before a diagram, a table, a formula or a template is written.
 
+In plain words: the project owns one style guide, copied from the text the module ships, and every document follows it. A skill brings the guide to the session before it draws a diagram or writes a table. A scan finds twelve traces of a broken default, such as a fenced block with no language. A departure is declared in the dials file with its reason.
+
 <a id="a2"></a>
 ## Why use it
 
 Every document decides its own style at the moment of writing, and decides it differently. One page sets a comparison in a table, the next in a list. One fenced block names no language while its sibling does. A record holds an argument in a two-column table. A template grows a second title, and every document born from it inherits one. The pages look uniform only while the same few hands write everything. The judgment that matters most, when prose, when a list, when a table, is one no linter reaches. The format defaults every linter reaches are never written down.
+
+With the module installed, the choice is made once, in the guide, and every session reads it at the moment of choice. The scan in CI reports each trace of a default that no departure allows, with the fix or the departure to declare. The pages then look alike whoever wrote them, and a departure is on record with its reason.
 
 <a id="a3"></a>
 ## How Claude behaves with it

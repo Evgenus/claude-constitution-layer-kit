@@ -5,10 +5,14 @@
 
 Task close as a single act: a change that touches code covered by current-state documents updates them or declares no impact; a close procedure that merges deltas, deletes working files and sets the record inactive; and a dirty tree at turn end warned or blocked.
 
+In plain words: when code changes, the page that describes it changes in the same change. Otherwise a line in a commit says why it does not. A skill closes a task as one act. At the end of every turn, uncommitted work is reported, so it is not lost.
+
 <a id="a2"></a>
 ## Why use it
 
 A change lands in the code, and the page that describes the code stays as it was. Nobody notices at the commit, because the page is in another file and still reads well. A reader finds it later, following the page into code that no longer does what it says. Now someone has to work out which of the two is true. A smaller loss of the same shape happens inside one session. Work done through the shell or a script is left uncommitted at the end of a turn. The chat's rewind cannot see it, and a later edit cannot be rolled back to it.
+
+With the module installed, the range check reads the branch before a merge. It turns red on a pair whose code changed while its documents did not, unless a commit declares no impact with a reason. At turn end a dirty tree is reported once, and the session commits. The page and the code then move together, and nothing done through the shell is lost.
 
 <a id="a3"></a>
 ## How Claude behaves with it

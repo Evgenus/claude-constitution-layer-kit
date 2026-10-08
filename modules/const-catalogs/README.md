@@ -5,10 +5,14 @@
 
 Numbered kinds: a catalogued document's file name and id are one name, `<prefix>-<nnnn>-<slug>`; a new item's number must be free, and no two items of a catalog share one. Catalogs are declared in this module's own dial. Plus a skill for taking a number, renumbering after a collision, listing and citing.
 
+In plain words: a numbered document, such as a decision record, carries its number in its file name and in its id. The module checks both at the write, refuses a number already taken, and finds two items under one number in a scan. The skill says how to take the next number and what to do when two branches took the same one.
+
 <a id="a2"></a>
 ## Why use it
 
 People cite decisions, tasks and incidents by number, "see D41". The numbers live wherever they were first typed: a register file, a heading, a chat message. Then the register moves, or an entry is renumbered, split or deleted. Every citation of the old number now points at nothing, or at something else, and nobody can tell which. Each citation written under a loose scheme is one more to repair when the scheme breaks. A number should mean one document for good.
+
+With the module installed, a number is taken once and kept. A new document in a numbered folder is refused until its name carries the next free number and its id matches. Two branches that took one number are caught by the scan before the merge. A citation by number then leads to one document, for as long as the project lives.
 
 <a id="a3"></a>
 ## How Claude behaves with it

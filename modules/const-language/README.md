@@ -5,10 +5,14 @@
 
 Plain prose in governed documents, checked by Vale after every write and in a scan: a Flesch–Kincaid grade ceiling, a words-per-sentence limit, idioms and formal phrases plain language avoids, formal words with a plain replacement, passive voice reported — every threshold and level a dial, a departure declared in the dials file and never marked in the document. Plus a skill that applies the rules while writing and reads a finding.
 
+In plain words: after every write of a Markdown page, Vale reads its prose and reports what a non-native reader would stumble on. That is a reading grade over the ceiling, a sentence over the limit, an idiom, a formal word with a plain one, or a passive. The numbers are dials, and a page that must stand as written is declared in the dials file.
+
 <a id="a2"></a>
 ## Why use it
 
 The documents a project keeps are read by people whose first language is not English. A model reads them too, in every session. Nobody measures what that reading costs. Each page decides its own density at the moment of writing. A reader who cannot follow a sixty-word sentence has no number to point at. A writer who was never told the limit cannot keep it. The kit measured its own pages before any rule existed. A third of them were above the tenth grade, and three sentences in ten were over twenty-five words.
+
+With the module installed, a session gets the findings right after it writes, with the plain word named, and rewrites before moving on. The scan in CI holds every page to the same numbers. A repository with many findings starts at the numbers its pages bear today and lowers them in steps. The prose gets plainer with every change.
 
 <a id="a3"></a>
 ## How Claude behaves with it
