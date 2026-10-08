@@ -78,7 +78,7 @@ The session recommended A: it never fires on the pinned version, and when it fir
 
 ## Applied
 
-The commits of this branch apply every item. The commits before the one that adds this record changed the code, the tests and the documents; the message of each commit names what it changed and the sentences it added, with the code or test line that makes each true. The record is born `inactive`.
+The commits of this branch apply every item. The commits before the one that adds this record changed the code, the tests and the documents; the commits after it are the carry audit's fixes, which corrected the code, the documents and this record before its yes. The message of each commit names what it changed and the sentences it added, with the code or test line that makes each true. The record is born `inactive`.
 
 ## Carry list
 
