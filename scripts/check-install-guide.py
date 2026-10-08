@@ -87,64 +87,82 @@ versions. No readable version (the command fails, prints nothing, or opens with 
 version) and a pin file that is missing, empty or no one version are configuration failures whatever
 the variable says. A guide whose marks are red is reported before any of this, since it runs no `claude`.
 
+What the check reads of Claude Code, all as it writes it at the version scripts/claude-code.version pins.
+From documented `--json` output: `claude plugin marketplace list --json`, per entry `name`, `source`, `repo`
+(of a `github` entry) and `installLocation`; `claude plugin list --json`, per entry `id`, `scope`,
+`version`, `installPath` and `projectPath` (required of a project- or local-scope entry). From documented
+files: the project's .claude/settings.json, its `enabledPlugins`; the `system/init` event of the headless
+session, its `plugins` with their `name` and `path`; and the trust flag
+`projects[<project>].hasTrustDialogAccepted` of <config>/.claude.json, which the check writes before the
+session, adding its key to whatever the file holds, documented for ~/.claude.json and put under
+CLAUDE_CONFIG_DIR, the folder that holds the platform's settings. From an undocumented place: none, since
+neither the plugin cache nor the record files of Claude Code are read; the files under an `installLocation`
+and an `installPath` that the output names are read as plain files.
+
 Modes:  no arguments   check the kit's guide;
-        --self-test    prove the check with a toy kit, a toy guide and a fake `claude` that logs to
-                       a file: each kind of mark finding red once from the text alone; a green toy run
-                       green; a mark where a fence's language should be red; a block that exits 1 red; a
-                       block that reads another block's variable red, though it would pass under
-                       `bash -e`; a guide not committed at HEAD a configuration failure, and the
+        --self-test    prove the check with a toy kit, a toy guide and a fake `claude` that logs to a
+                       file, in the groups that follow.
+                       The marks: each kind of mark finding red once from the text alone; a mark where a
+                       fence's language should be red; a misplaced dials mark red once, its fix a `yaml`
+                       fence; a green guide's marks, a `text` fence needing none.
+                       The guide as read: a guide not committed at HEAD a configuration failure, and the
                        committed one read whole, standard output alone; a folder that is no clone a
-                       configuration failure, to the guide's reader and to the run; a misplaced
-                       dials mark red once, its fix a `yaml` fence; a run whose git writes a trace
-                       to stderr green;
-                       the dials before the project red; a marketplace block with no source to point
-                       red; each claim red once against a fake or a block that breaks it — a block
-                       that makes no repository, a marketplace never added, one added from a folder,
-                       an install that enables nothing, a session that runs a module in place, a
-                       kernel copy that copies nothing, one that leaves the license out, a commit
-                       that leaves the tree dirty, an update that drops a module, a reinstall whose
-                       copy differs from the marketplace, an uninstall that keeps the plugin enabled;
-                       a marketplace from another repository, one whose modules differ from the kit's and
-                       the fix it teaches, each marketplace and install finding's own fix and the fix of a
-                       marketplace and an install block that exits 1, a session that loads no module and
-                       one that reports no start, its own reason quoted, a reinstall copy that lacks a
-                       file of the marketplace, the toy modules' links into a toy shared/ read through on
-                       both sides; the outer credential settings carried into the run as git reads them,
-                       includes followed, nothing else of the outer configuration, and the carried helper
-                       reaching the run's git; the toy kit left as it was, and a green guide's marks with
-                       a `text` fence needing none; the source taken from the environment, from origin at
-                       the branch's HEAD, and a kit with no origin on GitHub, a detached HEAD and an
-                       origin behind HEAD each a configuration failure; the
-                       report of one finding as literal lines with exit 2; the kit's modules, the
-                       folders of `kit_module_doc.module_folders` with their manifest versions: a
-                       folder `.x` or `_x` and a plain file skipped, a name without `const-` listed,
-                       the list sorted whatever order the folder lists, and a folder without its
-                       MODULE.md, a tree with no modules/, a modules/ with no folder and a manifest
-                       with no version each a BROKEN; the toy kit's marketplace named `toy-mp`, which
-                       the toy guide's commands and the fake follow, so the green run, each claim's
-                       text and the install fix use that name and no other; `kit_module_doc.marketplace_name`
-                       over a file naming `toy-mp` and each of the six files it cannot read, the literal
-                       message of each; a toy kit whose marketplace.json gives no name a BROKEN;
-                       `kit_module_doc.pinned_claude` over a pin file of each form, the literal message
-                       of each; the version check over a fake `claude` that answers `--version` with the
-                       toy kit's pin, another version, a longer or shorter one, no version, a failure and
-                       a crash, the variable unset, at each other value than `1` and at `1`, the run
-                       stopped before the clone with only `--version` run, and the reports of a run off
-                       the pin, a finding's and a green one's, as literal lines; the fake answering
-                       `plugin marketplace list --json` and `plugin list --json` from a state of its own, and
-                       the two readers over whole sets of replies, an entry that is not the marketplace's
-                       or the module's for the project first and last, a `repo` that is absent, empty or
-                       no string and an `installLocation` that names no folder each a BROKEN and not a
-                       finding, a quotation cut at 200 characters, the literal message of each BROKEN, its
-                       fix in each state of the run against the pin;
-                       a reinstall that compares with the clone the run kept, else the one listed; a
-                       project's settings.json of each shape; an install listed for no project, at user
-                       scope, for another project or at another version, an uninstall that keeps the
-                       plugin installed or enabled alone, each red; each wrong shape of a reply, in a run,
-                       a BROKEN and never a finding against the guide, and one whole report of it through
-                       `main`, off the pin and on it, as of a green run, a finding and a file the blocks'
-                       run cannot read; the version command run in an empty configuration folder of its
-                       own with the auto-updater off.
+                       configuration failure, to the guide's reader and to the run; the toy kit left as it
+                       was; a run whose git writes a trace to stderr green.
+                       The run: a green toy run green; a block that exits 1 red; a block that reads another
+                       block's variable red, though it would pass under `bash -e`; the dials before the
+                       project red; a marketplace block with no source to point red.
+                       Each claim red once against a fake or a block that breaks it: a block that makes no
+                       repository, a marketplace never added, one added from a folder, an install that
+                       enables nothing, a session that runs a module in place, a kernel copy that copies
+                       nothing, one that leaves the license out, a commit that leaves the tree dirty, an
+                       update that drops a module, a reinstall whose copy differs from the marketplace, an
+                       uninstall that keeps the plugin enabled.
+                       The installs and uninstalls as the platform lists them: an install listed for no
+                       project, at user scope, for another project or at another version, an uninstall that
+                       keeps the plugin installed or enabled alone, each red.
+                       The findings and their fixes: a marketplace from another repository, one whose
+                       modules differ from the kit's and the fix it teaches, each marketplace and install
+                       finding's own fix and the fix of a marketplace and an install block that exits 1, a
+                       session that loads no module and one that reports no start, its own reason quoted.
+                       The copies: a reinstall copy that lacks a file of the marketplace, the toy modules'
+                       links into a toy shared/ read through on both sides, a reinstall that compares with
+                       the clone the run kept, else the one listed.
+                       The source and the credentials: the outer credential settings carried into the run
+                       as git reads them, includes followed, nothing else of the outer configuration, and
+                       the carried helper reaching the run's git; the source taken from the environment,
+                       from origin at the branch's HEAD, and a kit with no origin on GitHub, a detached
+                       HEAD and an origin behind HEAD each a configuration failure.
+                       The report of one finding as literal lines with exit 2.
+                       The kit's modules, the folders of `kit_module_doc.module_folders` with their
+                       manifest versions: a folder `.x` or `_x` and a plain file skipped, a name without
+                       `const-` listed, the list sorted whatever order the folder lists, and a folder
+                       without its MODULE.md, a tree with no modules/, a modules/ with no folder and a
+                       manifest with no version each a BROKEN.
+                       The marketplace's name: the toy kit's marketplace named `toy-mp`, which the toy
+                       guide's commands and the fake follow, so the green run, each claim's text and the
+                       install fix use that name and no other; `kit_module_doc.marketplace_name` over a
+                       file naming `toy-mp` and each of the six files it cannot read, the literal message
+                       of each; a toy kit whose marketplace.json gives no name a BROKEN.
+                       The pin: `kit_module_doc.pinned_claude` over a pin file of each form, the literal
+                       message of each.
+                       The version check: a fake `claude` that answers `--version` with the toy kit's pin,
+                       another version, a longer or shorter one, no version, a failure and a crash, the
+                       variable unset, at each other value than `1` and at `1`; the run stopped before the
+                       clone with only `--version` run; the version command run in an empty configuration
+                       folder of its own with the auto-updater off; the reports of a run off the pin, a
+                       green one's and a finding's, as literal lines.
+                       The platform's replies: the fake answering `plugin marketplace list --json` and
+                       `plugin list --json` from a state of its own; the two readers over whole sets of
+                       replies, an entry that is not the marketplace's or the module's for the project
+                       first and last, a project's settings.json of each shape.
+                       The BROKEN lines: a `repo` that is absent, empty or no string and an
+                       `installLocation` that names no folder each a BROKEN and not a finding, a quotation
+                       cut at 200 characters, the literal message of each BROKEN, its fix in each state of
+                       the run against the pin.
+                       The wrong shapes: each wrong shape of a reply, in a run, a BROKEN and never a
+                       finding against the guide; one whole report of it through `main`, off the pin and on
+                       it, as of a green run, a finding and a file the blocks' run cannot read.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 

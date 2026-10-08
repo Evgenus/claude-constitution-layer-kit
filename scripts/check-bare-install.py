@@ -13,6 +13,15 @@ versions. No readable version (the command fails, prints nothing, or opens with 
 version) and a pin file that is missing, empty or no one version are configuration failures whatever
 the variable says.
 
+What the check reads of Claude Code, all as it writes it at the version scripts/claude-code.version pins.
+From documented `--json` output: the last standard output line of `claude plugin install <key> --json`, its
+`outcome` and `scope`, and on a refusal its `failureCode` and `message`; `claude plugin list --json`, per
+entry `id`, `scope` and `installPath`. From documented files: none. From an undocumented place: one, the
+`gitCommitSha` of the entry of the install record, <config>/plugins/installed_plugins.json, read by
+`installed_commit` for a remote source alone; the file is documented and the field is not, so the value is
+taken only as a git object id. `claude plugin marketplace add` is read for its exit alone, and
+`claude --version` for its first word.
+
 For the module named, in throwaway folders that the check removes:
   1. a bare repository — `git init`, the kit's kernel copied to docs/constitution/ and committed,
      no constitution.yaml — and an empty Claude configuration folder (CLAUDE_CONFIG_DIR);
@@ -48,7 +57,10 @@ For the module named, in throwaway folders that the check removes:
      same files byte for byte; the copy holds no link the source lacks; the copy holds
      the source's hooks file; every hook of the source's hooks/hooks.json, run from the copy in
      exec form on a sample event of its kind with CLAUDE_PLUGIN_ROOT set to the copy, exits 0 on
-     the bare repository, and its JSON on standard output neither blocks, denies, asks nor stops;
+     the bare repository, and its JSON on standard output neither blocks, denies, asks nor stops,
+     each waited for its own `timeout`, else the seconds the hooks reference gives a `command` hook
+     on its event: 600, but 30 on UserPromptSubmit, PreModelSwitch and PostModelSwitch, 10 on
+     MessageDisplay and 1.5 on SessionEnd;
      every scan the source declares in its enforcement section (template §9), run from the copy,
      exits 0 there. The scans are read by `kit_module_doc.enforcement`, whatever a row's indent
      or bold, the last cell of a row whether or not the row closes with a bar; an explain mode that
@@ -85,7 +97,8 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          characters, upper case, with a line break, cut at 200 characters, and git never
                          handed it; a local folder reading none), a reply or a value quoted whole up to 200
                          characters and cut after, a list of five entries named whole and one of six cut with
-                         "…", the install's timeout the one `run` waits for, each BROKEN's fix in each
+                         "…", the install's timeout the one `run` waits for, the wait of a hook with no
+                         timeout of its own by its event and of one with its own, each BROKEN's fix in each
                          state, and the reports of a refusal, of a finding, of a green run and of
                          configuration failures, a file the run cannot read included, as literal lines
                          through `main`, with and without the note; and of a
@@ -135,6 +148,18 @@ FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
 INSTALL_TIMEOUT = 300  # seconds the install is given, kit tuning and no platform fact
 OBJECT_ID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")  # a git object id as git writes one: SHA-1 or SHA-256
 SCRIPT = "scripts/check-bare-install.py"  # named in the fix of a reply the check's readers do not read
+# How long a `command` hook that declares no `timeout` is waited for: the platform's own default on its event
+# (the hooks reference, "Common fields" of a hook, and the sections of SessionEnd and MessageDisplay, read on
+# 2026-10-08): 600 seconds, but 30 on UserPromptSubmit, PreModelSwitch and PostModelSwitch, 10 on
+# MessageDisplay, and on SessionEnd the 1.5 seconds its hooks share, which one hook is waited for here.
+HOOK_TIMEOUT = 600.0
+EVENT_HOOK_TIMEOUT = {
+    "UserPromptSubmit": 30.0,
+    "PreModelSwitch": 30.0,
+    "PostModelSwitch": 30.0,
+    "MessageDisplay": 10.0,
+    "SessionEnd": 1.5,
+}
 
 
 class Broken(Exception):
@@ -162,7 +187,7 @@ class Hook:
     matcher: str
     command: str
     args: tuple[str, ...]
-    timeout: int
+    timeout: float
 
 
 def run(
@@ -188,6 +213,9 @@ def last_line(out: str, err: str) -> str:
 
 
 def hooks_of(plugin: Path) -> list[Hook]:
+    """The hooks of a plugin's hooks/hooks.json, each with the seconds it is waited for: its own `timeout`,
+    else the platform's default for a `command` hook on its event (`EVENT_HOOK_TIMEOUT`, else
+    `HOOK_TIMEOUT`)."""
     path = plugin / "hooks" / "hooks.json"
     if not path.is_file():
         return []
@@ -205,7 +233,9 @@ def hooks_of(plugin: Path) -> list[Hook]:
                         str(group.get("matcher", "")),
                         str(hook["command"]),
                         tuple(str(a) for a in hook.get("args", [])),
-                        int(hook.get("timeout", 60)),
+                        float(hook["timeout"])
+                        if "timeout" in hook
+                        else EVENT_HOOK_TIMEOUT.get(str(event), HOOK_TIMEOUT),
                     )
                 )
     return found
@@ -402,6 +432,8 @@ def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: P
             )
     for entry in declared_scans(source):
         script = plugin / "scripts" / (entry if entry.endswith(".py") else f"{entry}.sh")
+        # The scan runs as a consumer's machine would run it: `python3` found on PATH for a `.py` scan, `sh`
+        # for a shell one, not the interpreter this check runs in.
         argv = ["python3" if entry.endswith(".py") else "sh", str(script), "--scan"]
         code, out, err = run(argv, repo, env)
         if code != 0:
@@ -593,6 +625,9 @@ def source_at(commit: str, module: str, root: Path) -> Path:
     env = os.environ.copy()
     code, _, _ = run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], KIT, env)
     if code != 0:
+        # `origin` is the remote that the CI job's checkout and a person's clone of the kit both name for the
+        # repository they came from, where the commit the install came from is looked for. A clone with no
+        # `origin`, or one whose `origin` lacks the commit, fails here, and that failure is the BROKEN below.
         code, out, err = run(["git", "fetch", "-q", "origin", commit], KIT, env)
         if code != 0:
             raise Broken(
@@ -1078,6 +1113,62 @@ def self_test() -> int:
         if not ok:
             print(f"        got: {got}")
 
+    def hook_wait_cases() -> None:
+        """A hook that declares no timeout is waited for as the platform gives its event; one that declares
+        a timeout, for that: read from the `Hook` that `hooks_of` builds, nothing is waited for."""
+        with tempfile.TemporaryDirectory() as tmp:
+            hooked = Path(tmp)
+            (hooked / "hooks").mkdir()
+            bare_hook: dict[str, object] = {"type": "command", "command": "true"}
+
+            def hook_waits(hooks: dict[str, list[dict[str, object]]]) -> dict[str, float]:
+                """The seconds `hooks_of` gives each hook of a hooks file with one hook per event."""
+                table = {event: [{"hooks": [hook]}] for event, hook in ((e, h[0]) for e, h in hooks.items())}
+                (hooked / "hooks" / "hooks.json").write_text(json.dumps({"hooks": table}), encoding="utf-8")
+                return {hook.event: hook.timeout for hook in hooks_of(hooked)}
+
+            for event, seconds in (  # typed by hand from the hooks reference, as read on 2026-10-08
+                ("PreToolUse", 600.0),
+                ("PostToolUse", 600.0),
+                ("SessionStart", 600.0),
+                ("Stop", 600.0),
+                ("UserPromptSubmit", 30.0),
+                ("PreModelSwitch", 30.0),
+                ("PostModelSwitch", 30.0),
+                ("MessageDisplay", 10.0),
+                ("SessionEnd", 1.5),
+                ("SomeEventTheKitDoesNotKnow", 600.0),
+            ):
+                got = hook_waits({event: [bare_hook]})
+                version_case(
+                    f"a {event} hook that declares no timeout is waited for {seconds:g} s",
+                    got == {event: seconds} and all(isinstance(s, float) for s in got.values()),
+                    str(got),
+                )
+            for event, declared in (
+                ("PreToolUse", 5),
+                ("UserPromptSubmit", 90),
+                ("SessionEnd", 5),
+                ("MessageDisplay", 2.5),
+                ("SomeEventTheKitDoesNotKnow", 1),
+            ):
+                got = hook_waits({event: [bare_hook | {"timeout": declared}]})
+                version_case(
+                    f"a {event} hook that declares a timeout of {declared:g} is waited for {declared:g} s",
+                    got == {event: float(declared)},
+                    str(got),
+                )
+            got = hook_waits(
+                {event: [bare_hook] for event in ("PreToolUse", "SessionEnd")}
+                | {"Stop": [bare_hook | {"timeout": 7}]}
+            )
+            version_case(
+                "the hooks of a file are each waited for by their own event and timeout",
+                got == {"PreToolUse": 600.0, "SessionEnd": 1.5, "Stop": 7.0},
+                str(got),
+            )
+
+    hook_wait_cases()
     with tempfile.TemporaryDirectory() as tmp:  # the version check over every answer of `claude --version`
         base_dir = Path(tmp)
         toy_kit, fake_dir, fake_log = base_dir / "kit", base_dir / "bin", base_dir / "claude.log"
