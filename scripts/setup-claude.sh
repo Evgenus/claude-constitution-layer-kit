@@ -7,8 +7,9 @@
 #   sh scripts/setup-claude.sh --check   exit 0 when that folder's claude answers the pinned version, 2 when not
 # <main> is the folder that holds git's common directory, so every worktree of a clone shares the one copy.
 # The folder is git-ignored, and the install replaces it whole, so this is also the fix for any folder
-# --check finds red. Run it once per clone, and again after the pin moves. CI never runs it: the
-# workflow installs the pinned version globally, and the folder never exists there.
+# --check finds red. Run it once per clone, and again after the pin moves. CI never installs with it: the
+# workflow installs the pinned version globally, and the folder never exists there; only its fixture,
+# scripts/tests/setup-claude.sh, runs it, in the kit job, on throwaway repositories with a fake npm.
 # The pin is read as the file's bytes: exactly one version of three numbers, ASCII digits, with at most one
 # final line feed, as pinned_claude of scripts/kit_module_doc.py reads it; anything else is BROKEN.
 # Exit: 0 done / green; 1 BROKEN (a misuse, a missing tool, an unreadable pin, a failed install); 2 RED.

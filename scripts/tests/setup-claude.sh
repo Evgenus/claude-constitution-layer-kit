@@ -183,6 +183,18 @@ mkdir "$tmp/pin.dir"; rm "$pin_file"; ln -s "$tmp/pin.dir" "$pin_file"
 run_in "$pins" sh scripts/setup-claude.sh
 is "a folder in the pin file's place is BROKEN" 1 "BROKEN: $pin_file cannot be read — fix: $pin_fix"
 rm "$pin_file"
+# a file that is there and holds a good pin, with no permission to read it: root reads any file, so the
+# case is skipped there; the mode is restored at once
+printf '2.1.282\n' >"$pin_file"
+chmod 000 "$pin_file"
+if [ "$(id -u)" -eq 0 ]; then
+    echo "skip  an unreadable pin file is BROKEN (run as root, which reads any file)"
+else
+    run_in "$pins" sh scripts/setup-claude.sh
+    is "an unreadable pin file is BROKEN" 1 "BROKEN: $pin_file cannot be read — fix: $pin_fix"
+fi
+chmod 644 "$pin_file"
+rm "$pin_file"
 not_one="BROKEN: $pin_file is not one version — fix: $pin_fix"
 pin_form() {  # pin_form <label> <printf format of the file's bytes>
     printf "$2" >"$pin_file"

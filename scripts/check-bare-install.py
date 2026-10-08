@@ -90,7 +90,7 @@ For the module named, in throwaway folders that the check removes:
      left unrun.
 A red is a finding against the module, and so is an install Claude Code refuses (a result that says
 "failed"). The configuration failures each print their own fix: a missing `claude` or `git`, "install it
-and put it on PATH", and a `git` command that fails in the bare repository, "run `git <subcommand>` in a
+and put it on PATH", and a `git` command that fails in the bare repository, "run git <subcommand> in a
 new repository by hand and read why it fails"; a marketplace
 the CLI cannot add (`claude plugin marketplace add` exits other than 0), "check the kit's marketplace.json,
 and that git can reach the source"; an install that gives no result in its 300 s, "run the check again, and
@@ -111,11 +111,12 @@ a "matcher" string; a hook with no `type`, or one the hooks reference does not n
 hooks/hooks.json to the shape the hooks reference gives"; a `command` hook with no "command" string, whose
 "args", when it has them, are no list of strings, or whose "timeout", when it has one, is no finite number
 (a boolean is none), the same fix; a valid hook of a type other than `command`, "make it a `command`
-hook, or teach `hooks_of` and `check_installed` to run a hook of that type"; a hooks file that is there
-and cannot be read (its permissions, an I/O error), "make it a readable file, or restore it with git
-checkout"; a hooks file whose place cannot be looked up (its folder cannot be searched, an I/O error),
-"make its folder searchable". A missing hooks file or folder, or a folder in the file's place, gives no
-hooks. Every other configuration
+hook, or teach `hooks_of` and `check_installed` in scripts/check-bare-install.py to run a <type> hook";
+a hooks file that is there and cannot be read (its permissions, an I/O error), "make it a readable file,
+or restore it with git checkout"; a hooks file whose place cannot be looked up (its folder cannot be
+searched, an I/O error), "make its folder searchable". A missing hooks file or folder, a folder in the
+file's place (or a link to one), a dangling link or a link loop there, or a path through a file, gives no
+hooks; a link to a regular file is that file. Every other configuration
 failure prints a fix of its own, such as a commit the kit's history lacks and cannot fetch, a module
 document that cannot be read, a module the kit lacks, a source that names a branch of no repository, a
 marketplace file that gives no name. The run holds the case of an absent dials file; a module with
@@ -141,8 +142,11 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          there and cannot be read (a denied read, an I/O error, the read mocked), the
                          line of its own; a place that cannot be looked up (a hooks folder with no
                          permissions, real unless run as root, and the lookup mocked to a denial and
-                         an I/O error), the line naming the folder; and a folder in its place, which
-                         gives no hooks; the git line
+                         an I/O error), the line naming the folder; and a folder, a dangling link, a
+                         link loop, a link to a folder and a path through a file in its place, each
+                         real and each giving no hooks, a link to a regular file giving its hooks; the
+                         matcher of a group null, 0, false, an empty list or an empty object each a
+                         BROKEN, the empty string accepted; the git line
                          of the bare repository, `git init`, `git add` and `git commit` each failing at
                          the exits 1, 2, 124 and 128, the BROKEN named by the subcommand with the `-c`
                          options skipped, the last line quoted from the standard error, else from the
@@ -193,12 +197,14 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import errno
 import io
 import json
 import math
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -301,10 +307,13 @@ def hooks_of(plugin: Path) -> list[Hook]:
     else the platform's default for a `command` hook on its event (`EVENT_HOOK_TIMEOUT`, else
     `HOOK_TIMEOUT`). A hooks file that is a regular file and cannot be read (an `OSError`: its
     permissions, an I/O error) is a Broken of its own, with a fix to make it readable; so is a place
-    that cannot be looked up (an `OSError` from `Path.is_file`: its folder cannot be searched, an I/O
-    error), with a fix to make the folder searchable, since the file's permissions and `git checkout` do
-    not mend that. A missing hooks file or folder, or anything in its place that is no regular file (a
-    folder), gives no hooks, as does a path through a file or a dangling link. Every shape of the file
+    that cannot be looked up (an `OSError` from `Path.stat`, one that is no missing file, no path through
+    a file and no link loop: its folder cannot be searched, an I/O error), with a fix to make the folder
+    searchable, since the file's permissions and `git checkout` do not mend that; `Path.stat` and not
+    `Path.is_file` makes the lookup, since `is_file` returns False for such an error from release 3.14 of
+    the language on, and the answer would differ by version. A missing hooks file or folder, or anything in
+    its place that is no regular file (a folder, a link to one), gives no hooks, as does a path through a
+    file, a dangling link or a link loop; a link to a regular file is that file. Every shape of the file
     the check cannot run is a Broken naming the file, the event and the hook's place (group and hook,
     counted from 1), never another exception: a file that is no object with a "hooks" object of events,
     each a list of groups, each an object with a "hooks" list of hook objects and a "matcher", when
@@ -314,13 +323,18 @@ def hooks_of(plugin: Path) -> list[Hook]:
     check does not run and so cannot prove."""
     path = plugin / "hooks" / "hooks.json"
     try:
-        regular = path.is_file()  # False for a missing file, a folder, ENOTDIR, EBADF, ELOOP; else raises
-    except OSError as bad:  # the place cannot be looked up: no file to read, no shape to restore
+        mode = path.stat().st_mode  # follows a link; `is_file` hides a PermissionError from release 3.14 on
+    except (FileNotFoundError, NotADirectoryError):  # no file, a dangling link, a path through a file
+        return []
+    except OSError as bad:
+        if bad.errno == errno.ELOOP:  # a link loop leads to no file either
+            return []
+        # the place cannot be looked up: no file to read, no shape to restore
         raise Broken(
             f"{path} cannot be looked up ({bad.strerror}) — fix: make its folder {path.parent} searchable"
             f" (its permissions), so that the check can find hooks/hooks.json and read each hook it runs"
         ) from bad
-    if not regular:
+    if not stat.S_ISREG(mode):  # a folder in the file's place
         return []
     fix = (
         "restore hooks/hooks.json to the shape the hooks reference gives,"
@@ -1621,6 +1635,36 @@ def self_test() -> int:
                     single(cmd, matcher=7),
                     not_hooks("event 'PreToolUse', group 1: \"matcher\" is 7, not a string"),
                 ),
+                (
+                    "a matcher that is null",
+                    single(cmd, matcher=None),
+                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is None, not a string"),
+                ),
+                (
+                    "a matcher that is 0",
+                    single(cmd, matcher=0),
+                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is 0, not a string"),
+                ),
+                (
+                    "a matcher that is an empty list",
+                    single(cmd, matcher=[]),
+                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is [], not a string"),
+                ),
+                (
+                    "a matcher that is an empty object",
+                    single(cmd, matcher={}),
+                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is {}, not a string"),
+                ),
+                (
+                    "a matcher that is false",
+                    single(cmd, matcher=False),
+                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is False, not a string"),
+                ),
+                (
+                    "a matcher that is the empty string is a string and accepted",
+                    single(cmd, matcher=""),
+                    [one],
+                ),
                 ("a matcher that is a string", single(cmd, matcher="Write"), [replace(one, matcher="Write")]),
                 (
                     "the second hook of the second group is named by its place",
@@ -1714,8 +1758,10 @@ def self_test() -> int:
                     str(got_folder),
                 )
             # A hooks file whose place cannot be looked up (its folder cannot be searched, an I/O error):
-            # the lookup `Path.is_file` makes is made to raise, and the line is its own, since the file's
-            # permissions and `git checkout` do not mend a folder that cannot be searched.
+            # the lookup `Path.stat` makes is made to raise, and the line is its own, since the file's
+            # permissions and `git checkout` do not mend a folder that cannot be searched. `Path.is_file` is
+            # made to return False meanwhile, as it does from release 3.14 on, so that a lookup made by it
+            # fails here on every Python, as it does on 3.14 for the real folder below.
             not_found = (  # typed by hand; the folder is the one the fix names
                 "BROKEN {path} cannot be looked up ({why}) — fix: make its folder {folder} searchable (its"
                 " permissions), so that the check can find hooks/hooks.json and read each hook it runs"
@@ -1733,7 +1779,10 @@ def self_test() -> int:
                 ),
             ):
                 try:
-                    with mock.patch.object(Path, "is_file", side_effect=lookup):
+                    with (
+                        mock.patch.object(Path, "stat", side_effect=lookup),
+                        mock.patch.object(Path, "is_file", return_value=False),
+                    ):
                         got_lookup: list[Hook] | str = hooks_of(hooked)
                 except Broken as broken:
                     got_lookup = f"BROKEN {broken}"
@@ -1744,6 +1793,38 @@ def self_test() -> int:
                     got_lookup == not_found.format(path=hooks_path, why=why, folder=hooks_path.parent),
                     str(got_lookup),
                 )
+            # What stands at hooks/hooks.json, real and nothing mocked: a dangling link, a link to itself (a
+            # loop) and a path through a file are no hooks file, as a missing file is none; a link to a folder
+            # is no regular file; a link to a regular file is that file, read.
+            for name, kind, want_links in (
+                ("a dangling link", "dangling", []),
+                ("a link loop", "loop", []),
+                ("a path through a file", "through a file", []),
+                ("a link to a folder", "to a folder", []),
+                ("a link to a regular file", "to a file", [one]),
+            ):
+                with tempfile.TemporaryDirectory() as link_tmp:
+                    link_root = Path(link_tmp)
+                    link_place = link_root / "hooks" / "hooks.json"
+                    if kind == "through a file":
+                        (link_root / "hooks").write_text("", encoding="utf-8")  # hooks is a file
+                    else:
+                        (link_root / "hooks").mkdir()
+                        if kind == "dangling":
+                            link_place.symlink_to("nowhere.json")
+                        elif kind == "loop":
+                            link_place.symlink_to("hooks.json")  # itself
+                        elif kind == "to a folder":
+                            (link_root / "real").mkdir()
+                            link_place.symlink_to("../real")
+                        else:
+                            (link_root / "real.json").write_text(single(cmd), encoding="utf-8")
+                            link_place.symlink_to("../real.json")
+                    try:
+                        got_link: list[Hook] | str = hooks_of(link_root)
+                    except Exception as other:  # a Broken here too is the defect this case holds
+                        got_link = f"raised {type(other).__name__}: {other}"
+                    version_case(f"hooks file: {name} at its place", got_link == want_links, str(got_link))
             if os.geteuid() != 0:  # root searches any folder: there, the mocked cases above are the proof
                 with tempfile.TemporaryDirectory() as shut_tmp:
                     shut = Path(shut_tmp) / "hooks"

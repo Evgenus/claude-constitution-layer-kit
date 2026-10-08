@@ -94,7 +94,9 @@ and HOME and GIT_CONFIG_GLOBAL in the guide's run:
 CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the clone of its private repository over
 HTTPS, every other CLAUDE_CODE_* variable, and the kit's own CONSTITUTION_KIT_* ones. The probe covered the
 pinned version only: a variable of this kind that a later version adds reaches `claude` until a bump of the
-pin finds it, which review holds.
+pin finds it, which review holds. Moving the pin (scripts/claude-code.version) probes the new version's
+plugin variables again, against its documentation and its binary, and adds to PLUGIN_PLACE_ENV each that
+steers where Claude Code finds, keeps or loads plugins; review holds that this is done.
 Both checks prove it in theirs, with each of the four set in the environment the person runs them in, to a
 value and to nothing, and the kept ones set beside.
 
