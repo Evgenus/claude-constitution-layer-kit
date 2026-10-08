@@ -36,6 +36,23 @@ each a `DocumentError` with the fix. check-install-guide proves it in its `--sel
 whole set. check-gate-lists reads the file in its own way, for the entries and their lines, and not
 through it.
 
+`pinned_claude` and `claude_note` are the kit's one reading of the Claude Code version its two install
+checks run on. `pinned_claude` reads `scripts/claude-code.version` of the kit, which the CI workflow
+installs from too: one line, a version of three numbers, with at most one final line break; the file
+missing or unreadable, empty, or anything else (a carriage return, a byte-order mark, a second line, a
+word, a blank line after the version) is a `DocumentError` with the fix. `claude_note` runs
+`claude --version` before any other `claude` command of the check, in an empty configuration folder of
+its own, and reads the first word of the first line of the output, when the command exits 0:
+  the pinned version        the run goes on, the note is empty;
+  another readable version  `DocumentError` with the fix, unless the environment's
+                            CONSTITUTION_KIT_ANY_CLAUDE is exactly `1` (any other value, an empty one
+                            included, is strict): then the run goes on, and the note names both
+                            versions, for the check to end every headline line of its report with;
+  no readable version       `DocumentError` with the fix, the opt-out notwithstanding: a command that
+                            fails, prints nothing, or opens with a word that is no version.
+check-install-guide proves `pinned_claude` in its `--self-test`, over the whole set; it and
+check-bare-install prove `claude_note` in theirs, over the whole set of answers of `claude --version`.
+
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
 imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
 that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save the shared `const_gate`.
@@ -48,11 +65,18 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
 ANCHOR = re.compile(r'^<a id="(t\d+)"></a>$')
+CLAUDE_PIN = "scripts/claude-code.version"  # the kit's pin of the Claude Code version, from the kit's root
+ANY_CLAUDE = "CONSTITUTION_KIT_ANY_CLAUDE"  # the variable that, exactly `1`, lets a check run off the pin
+VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")  # ASCII digits only: `\d` would take other scripts' digits
+PIN_FIX = "write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's only line"
 
 
 class DocumentError(Exception):
@@ -108,6 +132,82 @@ def marketplace_name(root: Path) -> str:
     if not name:
         raise DocumentError(f'{path} gives an empty "name" — fix: write the marketplace\'s name in it')
     return name
+
+
+def pinned_claude(root: Path) -> str:
+    """The Claude Code version the kit at `root` pins: the text of `<root>/scripts/claude-code.version`,
+    with at most one final line break removed, must be exactly one version of three numbers, else
+    `DocumentError` with the fix. The file is read as bytes, so that a carriage return or a byte-order
+    mark is seen and not translated away."""
+    path = root / CLAUDE_PIN
+    try:
+        text = path.read_bytes().decode("utf-8", errors="replace")
+    except OSError as bad:
+        raise DocumentError(f"{path} cannot be read ({bad.strerror}) — fix: {PIN_FIX}") from bad
+    if not text:
+        raise DocumentError(f"{path} is empty — fix: {PIN_FIX}")
+    version = text.removesuffix("\n")
+    if not VERSION.fullmatch(version):
+        raise DocumentError(f"{path} is not one version ({text!r}) — fix: {PIN_FIX}")
+    return version
+
+
+def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> str:
+    """Ask the `claude` on PATH its version, before any other command of the check, and compare it with
+    the pin of the kit at `root`. Returns "" when it is the pinned version, and the note a check ends
+    every headline line of its report with, `[claude <found>, not the pinned <pinned>: <variable>=1]`,
+    when it is another readable version and `env` sets CONSTITUTION_KIT_ANY_CLAUDE to exactly `1`;
+    else `DocumentError` with the fix: the pin unreadable, `claude` missing, another version with the
+    variable unset or of another value, or no readable version at all, the variable notwithstanding.
+    The version is the first whitespace-separated word of the first line of the output, read when the
+    command exits 0 and the word is three numbers; a line break of either kind is white space, and the
+    lines after the first are not read. The command runs in `env`, in an empty configuration folder of
+    its own and with the auto-updater off, and one that has not answered in `timeout` seconds is no
+    version."""
+    pinned = pinned_claude(root)
+    with tempfile.TemporaryDirectory(prefix="claude-version-") as config:
+        asked = dict(env) | {"CLAUDE_CONFIG_DIR": config, "DISABLE_AUTOUPDATER": "1"}
+        try:
+            done = subprocess.run(
+                ["claude", "--version"],
+                cwd=root,
+                env=asked,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+                check=False,
+            )
+            code, out, err = done.returncode, done.stdout.strip(), done.stderr.strip()
+        except FileNotFoundError as bad:
+            raise DocumentError(
+                f"claude is not installed ({bad.strerror}) — fix: install it and put it on PATH"
+            ) from bad
+        except subprocess.TimeoutExpired:
+            code, out, err = 124, "", f"timed out after {timeout:g} s"
+    words = out.splitlines()[0].split() if out else []
+    found = words[0] if code == 0 and words and VERSION.fullmatch(words[0]) else ""
+    if not found:
+        said = out or err
+        last = said.splitlines()[-1] if said else "no output"
+        what = f"exited {code}" if code != 0 else "printed no version"
+        raise DocumentError(
+            f"`claude --version` {what} ({last}) — fix: check that `claude` on PATH is Claude Code"
+            " (`command -v claude`), and reinstall it"
+        )
+    if found == pinned:
+        return ""
+    if env.get(ANY_CLAUDE) == "1":
+        return f" [claude {found}, not the pinned {pinned}: {ANY_CLAUDE}=1]"
+    raise DocumentError(
+        f"claude is {found}, and the kit's install checks read the platform as {pinned} writes it"
+        f" ({CLAUDE_PIN}) — fix: put Claude Code {pinned} first on PATH for this run, installed beside your"
+        f" own (npm install --prefix <folder> @anthropic-ai/claude-code@{pinned}, then"
+        f" PATH=<folder>/node_modules/.bin:$PATH), or set {ANY_CLAUDE}=1 to run on {found} with a note on"
+        " every line"
+    )
 
 
 def own_packages(module: Path) -> list[Path]:

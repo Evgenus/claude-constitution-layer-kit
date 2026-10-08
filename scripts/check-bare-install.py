@@ -3,6 +3,16 @@
 defaults alone — requirements A12.1 to A12.3, kernel plus one module (decision
 dec-0059-bare-repo-install-in-ci).
 
+Before any other `claude` command the check asks `claude --version` (`kit_module_doc.claude_note`) and
+compares it with the version the kit pins in scripts/claude-code.version, which the CI workflow
+installs from too. The pinned version: the run goes on. Another readable version: a configuration
+failure, whose fix puts the pinned Claude Code first on PATH beside the person's own, unless the
+environment's CONSTITUTION_KIT_ANY_CLAUDE is exactly `1`: the run then goes on, and each `RED:` finding
+headline, each `BROKEN:` line and the closing `GREEN:` or `RED:` line ends with a note naming both
+versions. No readable version (the command fails, prints nothing, or opens with a word that is no
+version) and a pin file that is missing, empty or no one version are configuration failures whatever
+the variable says.
+
 For the module named, in throwaway folders that the check removes:
   1. a bare repository — `git init`, the kit's kernel copied to docs/constitution/ and committed,
      no constitution.yaml — and an empty Claude configuration folder (CLAUDE_CONFIG_DIR);
@@ -17,7 +27,8 @@ For the module named, in throwaway folders that the check removes:
      clones it with the machine's own credentials, which a private remote needs. The working
      folder, a local-directory marketplace, gives a copy no session runs (shared/GATE.md, limit 3).
      The copy is compared with the kit's source at the commit the install came from, which Claude
-     Code's install record names (gitCommitSha, on 2.1.282), read from the kit's git history and
+     Code's install record names (gitCommitSha, on the version scripts/claude-code.version pins),
+     read from the kit's git history and
      fetched when absent; an install from a local folder is compared with that folder, and a remote
      install whose record names no commit with the working folder;
   3. what the kit's source of the module declares, held in that copy: no link of the source
@@ -54,7 +65,12 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          `toy-mp` (its record found, another name's record no install, a file with no
                          name a BROKEN, the install asking a fake `claude` for `<module>@toy-mp`), and
                          of a module's source at a commit from the kit's history (const-meta-types at
-                         HEAD, its links reaching shared/).
+                         HEAD, its links reaching shared/); and the version check over a fake `claude`
+                         that answers `--version` with the pin, another version, a longer or shorter one,
+                         no version, a failure, a crash and no answer, the variable unset and at each
+                         other value than `1`, and at `1`, the pin file missing and `claude` missing,
+                         the run stopped with no other `claude` command run, and the reports of a run
+                         off the pin, a finding's and a green one's, as literal lines.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -74,7 +90,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from unittest import mock
 
-from kit_module_doc import DocumentError, enforcement, marketplace_name, own_packages
+from kit_module_doc import DocumentError, claude_note, enforcement, marketplace_name, own_packages
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -97,8 +113,9 @@ class Finding:
     what: str
     fix: str
 
-    def render(self) -> str:
-        return f"RED: {self.module}: {self.what}\n  why: {WHY}\n  fix: {self.fix}"
+    def render(self, note: str = "") -> str:
+        """The finding as lines, the note of a run off the pin at the end of its headline."""
+        return f"RED: {self.module}: {self.what}{note}\n  why: {WHY}\n  fix: {self.fix}"
 
 
 @dataclass(frozen=True)
@@ -400,6 +417,15 @@ def kit_marketplace(kit: Path) -> str:
         raise Broken(str(bad)) from bad
 
 
+def claude_noted(kit: Path, env: dict[str, str]) -> str:
+    """The note for a run on another Claude Code than the kit pins, "" on the pinned one, from
+    `kit_module_doc.claude_note`; its refusal is a Broken with that function's line."""
+    try:
+        return claude_note(kit, env)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+
+
 def installed_entry(record: Path, module: str, marketplace: str) -> tuple[Path, str]:
     """The installed copy's folder and the commit it came from ("" when the record names none),
     from Claude Code's install record, the plugin keyed `<module>@<marketplace>`."""
@@ -493,13 +519,13 @@ def check_module(module: str, source: str) -> tuple[list[Finding], str]:
         return check_installed(module, kit_source, plugin, repo, root / "data"), counted(kit_source)
 
 
-def report(module: str, findings: list[Finding], examined: str) -> int:
+def report(module: str, findings: list[Finding], examined: str, note: str = "") -> int:
     if findings:
         for finding in findings:
-            print(finding.render())
-        print(f"RED: {len(findings)} finding(s) — {examined}")
+            print(finding.render(note))
+        print(f"RED: {len(findings)} finding(s) — {examined}{note}")
         return EXIT_RED
-    print(f"GREEN: {module} installs and operates on a bare repository with its defaults — {examined}")
+    print(f"GREEN: {module} installs and operates on a bare repository with its defaults — {examined}{note}")
     return EXIT_GREEN
 
 
@@ -812,6 +838,35 @@ def self_test() -> int:
     print(f"[{'ok' if ok else 'FAIL'}] the report of one finding is its literal text, exit 2")
     if not ok:
         print(printed.getvalue())
+    off_pin = " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"  # typed by hand
+    noted_lines = [  # a run off the pin: the note ends the headline line, not the why: and fix: lines
+        f"RED: const-x: its scan `check-x --scan` exits 2 on a bare repository (no output){off_pin}",
+        f"  why: {WHY}",
+        "  fix: make the scan green, with a visible zero, where no constitution.yaml claims anything",
+        f"RED: 1 finding(s) — 1 hook(s), 2 scan(s){off_pin}",
+    ]
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        code = report("const-x", findings_of("scan-red"), "1 hook(s), 2 scan(s)", off_pin)
+    ok = code == EXIT_RED and printed.getvalue().splitlines() == noted_lines
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the report of a run off the pin ends each headline line with the note")
+    if not ok:
+        print(printed.getvalue())
+    green_lines = [  # typed by hand
+        "GREEN: const-x installs and operates on a bare repository with its defaults — 1 hook(s), 2 scan(s)"
+        " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]",
+        "GREEN: const-x installs and operates on a bare repository with its defaults — 1 hook(s), 2 scan(s)",
+    ]
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        code = report("const-x", [], "1 hook(s), 2 scan(s)", off_pin)
+        plain = report("const-x", [], "1 hook(s), 2 scan(s)")
+    ok = code == plain == EXIT_GREEN and printed.getvalue().splitlines() == green_lines
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the green report ends with the note off the pin, and with none on it")
+    if not ok:
+        print(printed.getvalue())
     with tempfile.TemporaryDirectory() as tmp:
         # a toy kit whose marketplace is named toy-mp: the record's key is `<module>@toy-mp`, the name read
         # from the kit's marketplace.json, never the real kit's
@@ -861,17 +916,22 @@ def self_test() -> int:
     print(
         f"[{'ok' if ok else 'FAIL'}] the marketplace is read from the kit's file, no other name is an install"
     )
-    with tempfile.TemporaryDirectory() as tmp:  # a fake claude that logs its arguments, records the install
+    # a fake claude that logs its arguments (to FAKE_LOG, else to the configuration folder), answers
+    # `--version` with FAKE_SAYS (printf's escapes read) and the exit FAKE_EXIT, hangs on FAKE_HANG, and
+    # records an install
+    fake_claude = (
+        '#!/bin/sh\necho "$*" >> "${FAKE_LOG:-$CLAUDE_CONFIG_DIR/fake.log}"\n'
+        '[ -n "$FAKE_HANG" ] && exec tail -f /dev/null\n'
+        '[ "$1" = --version ] && { printf \'%b\' "$FAKE_SAYS"; exit "${FAKE_EXIT:-0}"; }\n'
+        '[ "$2" = install ] && mkdir -p "$CLAUDE_CONFIG_DIR/plugins" && printf \'{"plugins": {"%s": '
+        '[{"installPath": "/cache/x", "gitCommitSha": "abc"}]}}\' "$3" '
+        '> "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"\nexit 0\n'
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # the fake claude records the install it is asked for
         bin_dir, repo = Path(tmp) / "bin", Path(tmp) / "repo"
         bin_dir.mkdir()
         repo.mkdir()
-        (bin_dir / "claude").write_text(
-            '#!/bin/sh\necho "$*" >> "$CLAUDE_CONFIG_DIR/fake.log"\n'
-            '[ "$2" = install ] && mkdir -p "$CLAUDE_CONFIG_DIR/plugins" && printf \'{"plugins": {"%s": '
-            '[{"installPath": "/cache/x", "gitCommitSha": "abc"}]}}\' "$3" '
-            '> "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"\nexit 0\n',
-            encoding="utf-8",
-        )
+        (bin_dir / "claude").write_text(fake_claude, encoding="utf-8")
         (bin_dir / "claude").chmod(0o755)
         (Path(tmp) / "work").mkdir()
         with mock.patch.dict(os.environ, {"PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"}):
@@ -883,6 +943,203 @@ def self_test() -> int:
         ]
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the install asks Claude Code for the module at the marketplace's name")
+    extra = 0  # the cases of the version check, printed one by one
+
+    def version_case(name: str, ok: bool, got: str) -> None:
+        nonlocal failed, extra
+        extra += 1
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+        if not ok:
+            print(f"        got: {got}")
+
+    with tempfile.TemporaryDirectory() as tmp:  # the version check over every answer of `claude --version`
+        base_dir = Path(tmp)
+        toy_kit, fake_dir, fake_log = base_dir / "kit", base_dir / "bin", base_dir / "claude.log"
+        (toy_kit / "scripts").mkdir(parents=True)
+        (toy_kit / "scripts" / "claude-code.version").write_text("2.1.282\n", encoding="utf-8")
+        fake_dir.mkdir()
+        (fake_dir / "claude").write_text(fake_claude, encoding="utf-8")
+        (fake_dir / "claude").chmod(0o755)
+        (base_dir / "empty").mkdir()
+        # the lines, typed by hand: a message function cannot check itself
+        strict = (
+            "claude is {0}, and the kit's install checks read the platform as 2.1.282 writes it"
+            " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run,"
+            " installed beside your own (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
+            " then PATH=<folder>/node_modules/.bin:$PATH), or set CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
+            " {0} with a note on every line"
+        )
+        noted = " [claude {0}, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"
+        reinstall = (
+            " — fix: check that `claude` on PATH is Claude Code (`command -v claude`), and reinstall it"
+        )
+
+        def claude_env(said: str, code: int, optout: str | None, path: str | None = None) -> dict[str, str]:
+            env = {k: v for k, v in os.environ.items() if k != "CONSTITUTION_KIT_ANY_CLAUDE"}
+            env |= {
+                "PATH": path if path is not None else f"{fake_dir}{os.pathsep}{env.get('PATH', '')}",
+                "FAKE_SAYS": said,
+                "FAKE_EXIT": str(code),
+                "FAKE_LOG": str(fake_log),
+            }
+            if optout is not None:
+                env["CONSTITUTION_KIT_ANY_CLAUDE"] = optout
+            return env
+
+        def outcome(env: dict[str, str], root: Path = toy_kit) -> str:
+            """What the check does before its install: the note it goes on with, or its BROKEN line."""
+            fake_log.unlink(missing_ok=True)
+            try:
+                return f"note:{claude_noted(root, env)}"
+            except Broken as broken:
+                return f"BROKEN: {broken}"
+
+        def logged() -> list[str]:
+            return fake_log.read_text(encoding="utf-8").splitlines() if fake_log.exists() else []
+
+        def stuck(what: str) -> str:
+            return f"BROKEN: `claude --version` {what}{reinstall}"
+
+        # what `--version` says, its exit, what the run does with the variable unset, and with it at 1
+        # (None: the same)
+        rows: list[tuple[str, int, str, str | None]] = [
+            ("2.1.282 (Claude Code)\\n", 0, "note:", None),
+            ("2.1.282 (Claude Code)\\r\\n", 0, "note:", None),  # CR is white space: the first word is read
+            ("2.1.282 (Claude Code)\\nextra\\n", 0, "note:", None),  # the first line alone is read
+            (
+                "2.1.286 (Claude Code)\\n",
+                0,
+                "BROKEN: " + strict.format("2.1.286"),
+                "note:" + noted.format("2.1.286"),
+            ),
+            (
+                "2.1.2820 (Claude Code)\\n",
+                0,
+                "BROKEN: " + strict.format("2.1.2820"),
+                "note:" + noted.format("2.1.2820"),
+            ),
+            (
+                "2.1.28 (Claude Code)\\n",
+                0,
+                "BROKEN: " + strict.format("2.1.28"),
+                "note:" + noted.format("2.1.28"),
+            ),
+            ("2.1.286", 0, "BROKEN: " + strict.format("2.1.286"), "note:" + noted.format("2.1.286")),
+            ("v2.1.282\\n", 0, stuck("printed no version (v2.1.282)"), None),
+            ("", 0, stuck("printed no version (no output)"), None),
+            ("", 1, stuck("exited 1 (no output)"), None),
+            ("2.1.282 (Claude Code)\\n", 1, stuck("exited 1 (2.1.282 (Claude Code))"), None),
+            ("2.1.286 (Claude Code)\\n", 1, stuck("exited 1 (2.1.286 (Claude Code))"), None),
+            ("", 139, stuck("exited 139 (no output)"), None),
+            (
+                "extra\\n2.1.282 (Claude Code)\\n",
+                0,
+                stuck("printed no version (2.1.282 (Claude Code))"),
+                None,
+            ),
+        ]
+
+        def kind(said_outcome: str) -> str:
+            if said_outcome == "note:":
+                return "the run goes on"
+            return "the run goes on with the note" if said_outcome.startswith("note:") else "BROKEN"
+
+        for says, exits, unset_out, one_out in rows:
+            at_one = unset_out if one_out is None else one_out
+            seen = [outcome(claude_env(says, exits, None)), outcome(claude_env(says, exits, "1"))]
+            ran = logged()  # the second run only: each run leaves the one line its own command logged
+            version_case(
+                f'`claude --version` printing "{says}" with exit {exits}: {kind(unset_out)} with the variable'
+                f" unset, {kind(at_one)} with it at 1",
+                seen == [unset_out, at_one] and ran == ["--version"],
+                f"{seen} {ran}",
+            )
+        too_old = "2.1.286 (Claude Code)\\n"
+        for value in ("", "0", "yes", "true", " 1", "1 ", "TRUE", "01"):
+            version_case(
+                f"CONSTITUTION_KIT_ANY_CLAUDE={value!r} is not the opt-out: the other version is BROKEN",
+                outcome(claude_env(too_old, 0, value)) == "BROKEN: " + strict.format("2.1.286"),
+                outcome(claude_env(too_old, 0, value)),
+            )
+        no_pin = base_dir / "empty"
+        said_no_pin = outcome(claude_env(too_old, 0, "1"), no_pin)
+        version_case(
+            "a kit with no pin file is BROKEN with the reader's line, and claude is not run",
+            said_no_pin
+            == f"BROKEN: {no_pin}/scripts/claude-code.version cannot be read (No such file or directory)"
+            " — fix: write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's"
+            " only line"
+            and logged() == [],
+            f"{said_no_pin} {logged()}",
+        )
+        said_no_claude = outcome(claude_env(too_old, 0, "1", path=str(no_pin)))
+        version_case(
+            "no claude on PATH is BROKEN, the opt-out notwithstanding",
+            said_no_claude
+            == "BROKEN: claude is not installed (No such file or directory) — fix: install it and put it on"
+            " PATH",
+            said_no_claude,
+        )
+        fake_log.unlink(missing_ok=True)
+        try:
+            claude_note(toy_kit, claude_env("", 0, "1") | {"FAKE_HANG": "1"}, timeout=0.2)
+            said_hung = "no DocumentError"
+        except DocumentError as hung:
+            said_hung = str(hung)
+        version_case(
+            "a claude that does not answer in time is no version, the opt-out notwithstanding",
+            said_hung == f"`claude --version` exited 124 (timed out after 0.2 s){reinstall}"
+            and logged() == ["--version"],
+            f"{said_hung} {logged()}",
+        )
+
+        def whole_run(
+            said: str, code: int, optout: str | None, *args: str
+        ) -> tuple[int, list[str], list[str]]:
+            """The exit and the lines `main` prints on the toy kit, and what the fake claude logged."""
+            fake_log.unlink(missing_ok=True)
+            printed_lines = io.StringIO()
+            with (
+                mock.patch.dict(os.environ, claude_env(said, code, optout)),
+                mock.patch.dict(globals(), {"KIT": toy_kit}),
+                contextlib.redirect_stdout(printed_lines),
+            ):
+                if optout is None:  # patch.dict adds to the environment, so the ambient variable goes by hand
+                    os.environ.pop("CONSTITUTION_KIT_ANY_CLAUDE", None)
+                status = main(["--module", "const-nope", *args])
+            return status, printed_lines.getvalue().splitlines(), logged()
+
+        stop = "BROKEN: the check could not run — 0 modules examined"
+        status, lines, ran = whole_run("2.1.286 (Claude Code)\\n", 0, None)
+        version_case(
+            "a run on another version stops at its first line, and no other claude command runs",
+            status == EXIT_BROKEN
+            and lines == ["BROKEN: " + strict.format("2.1.286"), stop]
+            and ran == ["--version"],
+            f"{status} {lines} {ran}",
+        )
+        status, lines, ran = whole_run("2.1.286 (Claude Code)\\n", 0, "1")
+        version_case(
+            "with the opt-out the run goes on, and each BROKEN line it ends with ends with the note",
+            status == EXIT_BROKEN
+            and lines
+            == [
+                "BROKEN: no module const-nope in the kit — fix: name a folder under modules/ that holds a"
+                " plugin" + noted.format("2.1.286"),
+                stop + noted.format("2.1.286"),
+            ]
+            and ran == ["--version"],
+            f"{status} {lines} {ran}",
+        )
+        status, lines, ran = whole_run("", 139, "1")
+        version_case(
+            "a crashed claude stops the run with no note, the opt-out notwithstanding",
+            status == EXIT_BROKEN
+            and lines == [f"BROKEN: `claude --version` exited 139 (no output){reinstall}", stop]
+            and ran == ["--version"],
+            f"{status} {lines} {ran}",
+        )
     with tempfile.TemporaryDirectory() as tmp:  # the kit's own history: the source at the commit checked out
         head = run(["git", "rev-parse", "HEAD"], KIT, os.environ.copy())[1]
         root = Path(tmp).resolve()
@@ -895,7 +1152,7 @@ def self_test() -> int:
         ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
-    total = len(cases) + len(unreadable) + 6
+    total = len(cases) + len(unreadable) + 8 + extra
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
@@ -912,6 +1169,7 @@ def main(argv: list[str]) -> int:
         print("BROKEN: misinvocation — fix: run with --module <name> [--from <source>], or with --self-test")
         print("BROKEN: the check could not run — 0 modules examined")
         return EXIT_BROKEN
+    note = ""  # set once the version is asked, and ends every headline line the run prints after it
     try:
         if args.self_test:
             return self_test()
@@ -919,15 +1177,16 @@ def main(argv: list[str]) -> int:
         source = args.source or os.environ.get(FROM_ENV) or str(KIT)
         if Path(source).exists():  # the install runs in another folder, so a local source is made absolute
             source = str(Path(source).resolve())
+        note = claude_noted(KIT, dict(os.environ))  # before any other `claude` command, once per run
         findings, examined = check_module(module, source)
-        return report(module, findings, f"{examined}, from {source}")
+        return report(module, findings, f"{examined}, from {source}", note)
     except Broken as broken:
-        print(f"BROKEN: {broken}")
-        print("BROKEN: the check could not run — 0 modules examined")
+        print(f"BROKEN: {broken}{note}")
+        print(f"BROKEN: the check could not run — 0 modules examined{note}")
         return EXIT_BROKEN
     except OSError as bad:
-        print(f"BROKEN: a file could not be read ({bad}) — fix: make the module's files readable")
-        print("BROKEN: the check could not run — 0 modules examined")
+        print(f"BROKEN: a file could not be read ({bad}) — fix: make the module's files readable{note}")
+        print(f"BROKEN: the check could not run — 0 modules examined{note}")
         return EXIT_BROKEN
 
 

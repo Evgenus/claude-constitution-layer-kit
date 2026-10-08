@@ -63,6 +63,17 @@ HEAD, or a branch whose origin copy is not at HEAD, and a clone whose marketplac
 login: the plugin commands read none, and the session stops before the model. Git needs a private
 repository's credentials.
 
+Before the clone, and before any block runs, once the marks are read and `claude` is found on PATH, the
+check asks `claude --version` (`kit_module_doc.claude_note`) and compares it with the version the
+working folder's scripts/claude-code.version pins, which the CI workflow installs from too; the clone
+carries the same file. The pinned version: the run goes on. Another readable version: a configuration
+failure, whose fix puts the pinned Claude Code first on PATH beside the person's own, unless the
+environment's CONSTITUTION_KIT_ANY_CLAUDE is exactly `1`: the run then goes on, and each `RED:` finding
+headline, each `BROKEN:` line and the closing `GREEN:` or `RED:` line ends with a note naming both
+versions. No readable version (the command fails, prints nothing, or opens with a word that is no
+version) and a pin file that is missing, empty or no one version are configuration failures whatever
+the variable says. A guide whose marks are red is reported before any of this, since it runs no `claude`.
+
 Modes:  no arguments   check the kit's guide;
         --self-test    prove the check with a toy kit, a toy guide and a fake `claude` that logs to
                        a file: each kind of mark finding red once from the text alone; a green toy run
@@ -100,7 +111,13 @@ Modes:  no arguments   check the kit's guide;
                        the toy guide's commands and the fake follow, so the green run, each claim's
                        text and the install fix use that name and no other; `kit_module_doc.marketplace_name`
                        over a file naming `toy-mp` and each of the six files it cannot read, the literal
-                       message of each; and a toy kit whose marketplace.json gives no name a BROKEN.
+                       message of each; a toy kit whose marketplace.json gives no name a BROKEN;
+                       `kit_module_doc.pinned_claude` over a pin file of each form, the literal message
+                       of each; the version check over a fake `claude` that answers `--version` with the
+                       toy kit's pin, another version, a longer or shorter one, no version, a failure and
+                       a crash, the variable unset, at each other value than `1` and at `1`, the run
+                       stopped before the clone with only `--version` run, and the reports of a run off
+                       the pin, a finding's and a green one's, as literal lines.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -119,9 +136,10 @@ import tempfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from unittest import mock
 
 import yaml
-from kit_module_doc import DocumentError, marketplace_name, module_folders
+from kit_module_doc import DocumentError, claude_note, marketplace_name, module_folders, pinned_claude
 
 KIT = Path(__file__).resolve().parent.parent
 GUIDE = "INSTALL.md"
@@ -163,7 +181,10 @@ TIMEOUT = 900
 
 
 class Broken(Exception):
-    """The check could not run; the message says why and how to fix it."""
+    """The check could not run; the message says why and how to fix it. `note` is the note of a run on
+    another Claude Code than the pin, set once the version is known, which ends each BROKEN line."""
+
+    note = ""
 
 
 class Misfit(Exception):
@@ -180,9 +201,10 @@ class Finding:
     what: str
     fix: str
 
-    def render(self) -> str:
+    def render(self, note: str = "") -> str:
+        """The finding as lines, the note of a run off the pin at the end of its headline."""
         where = f"{GUIDE}:{self.line}" if self.line else GUIDE
-        return f"RED: {where}: {self.what}\n  why: {WHY}\n  fix: {self.fix}"
+        return f"RED: {where}: {self.what}{note}\n  why: {WHY}\n  fix: {self.fix}"
 
 
 @dataclass(frozen=True)
@@ -649,27 +671,67 @@ def carry_credentials(env: dict[str, str], gitconfig: Path) -> None:
             )
 
 
-def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Finding], str]:
-    """The guide's findings, its marks first and then its run, and what was examined."""
+def unreadable_said(bad: OSError) -> str:
+    return (
+        f"a file could not be read or written ({bad}) — "
+        "fix: make the kit's files readable and the system's temporary folder writable"
+    )
+
+
+def claude_noted(kit: Path, env: dict[str, str]) -> str:
+    """The note for a run on another Claude Code than the kit pins, "" on the pinned one, from
+    `kit_module_doc.claude_note`; its refusal is a Broken with that function's line."""
+    try:
+        return claude_note(kit, env)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+
+
+def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Finding], str, str]:
+    """The guide's findings, its marks first and then its run, what was examined, and the note of a run
+    on another Claude Code than the kit pins ("" when no `claude` was asked or it is the pinned one). The
+    version is asked once the marks are read and `claude` is found on PATH, before the clone and before
+    any block runs, against the pin of the kit's working folder."""
     named, findings = blocks_of(guide)
     if findings:
-        return findings, f"{len(named)} named block(s), not run"
+        return findings, f"{len(named)} named block(s), not run", ""
     for block in named:
         if block.name == "marketplace" and not ADD.search(block.text):
-            return [
-                Finding(
-                    block.line,
-                    "the block named check=marketplace runs no `claude plugin marketplace add <source>` "
-                    "the check can point at the change",
-                    "register the kit with `claude plugin marketplace add <owner>/<repo>`",
-                )
-            ], f"{len(named)} named block(s), not run"
+            return (
+                [
+                    Finding(
+                        block.line,
+                        "the block named check=marketplace runs no `claude plugin marketplace add <source>` "
+                        "the check can point at the change",
+                        "register the kit with `claude plugin marketplace add <owner>/<repo>`",
+                    )
+                ],
+                f"{len(named)} named block(s), not run",
+                "",
+            )
     source = source_of(kit, base_env)
     for tool in ("git", "bash", "claude"):
         if shutil.which(tool, path=base_env.get("PATH")) is None:
             raise Broken(
                 f"{tool} is not on PATH — fix: install it; the check runs the guide's commands with it"
             )
+    note = claude_noted(kit, base_env)
+    try:
+        found, examined = run_blocks(named, kit, base_env, source)
+    except Broken as bad:
+        bad.note = note
+        raise
+    except OSError as bad:  # the note ends this BROKEN line too, so it is made here and not in main
+        unreadable = Broken(unreadable_said(bad))
+        unreadable.note = note
+        raise unreadable from bad
+    return found, examined, note
+
+
+def run_blocks(
+    named: list[Block], kit: Path, base_env: dict[str, str], source: str
+) -> tuple[list[Finding], str]:
+    """The named blocks run in the guide's order in a home folder of their own, and what was examined."""
     with tempfile.TemporaryDirectory(prefix="install-guide-") as scratch:
         home = Path(scratch) / "home"
         config = home / ".claude"
@@ -763,26 +825,33 @@ def committed_guide(kit: Path, env: dict[str, str]) -> str:
     return done.stdout
 
 
-def report(findings: list[Finding], examined: str) -> int:
+def report(findings: list[Finding], examined: str, note: str = "") -> int:
     if findings:
         for finding in findings:
-            print(finding.render())
-        print(f"RED: {len(findings)} finding(s) — {examined}")
+            print(finding.render(note))
+        print(f"RED: {len(findings)} finding(s) — {examined}{note}")
         return EXIT_RED
-    print(f"GREEN: the install guide runs and does what it says — {examined}")
+    print(f"GREEN: the install guide runs and does what it says — {examined}{note}")
     return EXIT_GREEN
 
 
 FAKE = '''#!/usr/bin/env python3
 """A fake claude for the self-test: the plugin commands the guide runs and a session's start, logged
-to a file. A marketplace added from `<owner>/<repo>#<branch>` is a GitHub one, cloned from the toy kit
-the environment names; one added from a path is a local folder."""
+to a file (FAKE_LOG, else the configuration folder's). A marketplace added from `<owner>/<repo>#<branch>`
+is a GitHub one, cloned from the toy kit the environment names; one added from a path is a local folder.
+`--version` answers the pin of the toy kit, as the real one writes it, or FAKE_SAYS (escapes read) with
+the exit FAKE_EXIT."""
 import json, os, shutil, subprocess, sys
 from pathlib import Path
 mutant = os.environ.get("FAKE_MUTANT", "")
 config = Path(os.environ["CLAUDE_CONFIG_DIR"])
-with open(config / "fake.log", "a", encoding="utf-8") as log:
+with open(os.environ.get("FAKE_LOG") or config / "fake.log", "a", encoding="utf-8") as log:
     log.write(" ".join(sys.argv[1:]) + "\\n")
+if sys.argv[1:] == ["--version"]:
+    pin = (Path(os.environ["FAKE_SOURCE"]) / "scripts" / "claude-code.version").read_text().strip()
+    said = os.environ.get("FAKE_SAYS")
+    sys.stdout.write(pin + " (Claude Code)\\n" if said is None else said.encode().decode("unicode_escape"))
+    sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
 plugins = config / "plugins"
 plugins.mkdir(parents=True, exist_ok=True)
 known = plugins / "known_marketplaces.json"
@@ -879,6 +948,7 @@ else:
 '''
 
 TOY_MP = "toy-mp"  # the toy kit's marketplace name, which its marketplace.json gives and the fake follows
+TOY_PIN = "2.1.282"  # the toy kit's pin of the Claude Code version, which the fake answers `--version` with
 TOY_DIALS = (
     'root_policy: docs/policies/root-policy.md\nroot-policy:\n  territory: ["docs/policies/**"]\n'
     'records:\n  territory: ["docs/records/**"]\n'
@@ -924,6 +994,8 @@ def toy_kit(root: Path, market: dict[str, object] | None = None) -> Path:
     (kit / ".claude-plugin" / "marketplace.json").write_text(
         json.dumps({"name": TOY_MP, "plugins": []} if market is None else market), encoding="utf-8"
     )
+    (kit / "scripts").mkdir()
+    (kit / "scripts" / "claude-code.version").write_text(TOY_PIN + "\n", encoding="utf-8")
     (kit / "kernel").mkdir(parents=True)
     (kit / "kernel" / "CONVENTIONS.md").write_text("# Kernel\n", encoding="utf-8")
     for name in LICENSE_FILES:
@@ -1163,6 +1235,87 @@ def self_test() -> int:
                 got,
             )
 
+        def pin_said(content: bytes | None) -> tuple[Path, str]:
+            """The folder of a kit whose scripts/claude-code.version holds `content` (no file for None),
+            and what `pinned_claude` gives over it: the version, or its DocumentError's message."""
+            nonlocal count
+            count += 1
+            folder = Path(listings) / f"pin-{count}"
+            (folder / "scripts").mkdir(parents=True)
+            if content is not None:
+                (folder / "scripts" / "claude-code.version").write_bytes(content)
+            try:
+                return folder, pinned_claude(folder)
+            except DocumentError as bad:
+                return folder, str(bad)
+
+        for name, one_line in (("without a final line break", b"2.1.282"), ("with one", b"2.1.282\n")):
+            folder, got = pin_said(one_line)
+            case(f"a pin file holding one version {name} gives the version", got == "2.1.282", got)
+        pin_fix = (
+            " — fix: write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's"
+            " only line"
+        )  # typed by hand
+        for name, content, tail in (
+            (
+                "missing",
+                None,
+                f" cannot be read (No such file or directory){pin_fix}",
+            ),
+            ("empty", b"", f" is empty{pin_fix}"),
+            ("holding CRLF", b"2.1.282\r\n", f" is not one version ('2.1.282\\r\\n'){pin_fix}"),
+            (
+                "holding a byte-order mark",
+                b"\xef\xbb\xbf2.1.282\n",
+                f" is not one version ('\\ufeff2.1.282\\n'){pin_fix}",
+            ),
+            (
+                "holding two lines",
+                b"2.1.282\n2.1.286\n",
+                f" is not one version ('2.1.282\\n2.1.286\\n'){pin_fix}",
+            ),
+            ("holding a word", b"latest\n", f" is not one version ('latest\\n'){pin_fix}"),
+            (
+                "holding a blank line after the version",
+                b"2.1.282\n\n",
+                f" is not one version ('2.1.282\\n\\n'){pin_fix}",
+            ),
+            ("holding a line break alone", b"\n", f" is not one version ('\\n'){pin_fix}"),
+            ("holding two numbers", b"2.1\n", f" is not one version ('2.1\\n'){pin_fix}"),
+            ("holding a fourth number", b"2.1.282.1\n", f" is not one version ('2.1.282.1\\n'){pin_fix}"),
+            (
+                "holding a v before the version",
+                b"v2.1.282\n",
+                f" is not one version ('v2.1.282\\n'){pin_fix}",
+            ),
+            (
+                "holding a space after the version",
+                b"2.1.282 \n",
+                f" is not one version ('2.1.282 \\n'){pin_fix}",
+            ),
+            (
+                "holding a space before the version",
+                b" 2.1.282\n",
+                f" is not one version (' 2.1.282\\n'){pin_fix}",
+            ),
+            (
+                "holding another script's digits",
+                "٢.١.٢٨٢\n".encode(),
+                f" is not one version ('٢.١.٢٨٢\\n'){pin_fix}",
+            ),
+            (
+                "holding bytes that are no UTF-8",
+                b"2.1.282\xff\n",
+                f" is not one version ('2.1.282�\\n'){pin_fix}",
+            ),
+        ):
+            folder, got = pin_said(content)
+            case(
+                f"a pin file {name} is a teaching DocumentError",
+                got == f"{folder}/scripts/claude-code.version{tail}",
+                got,
+            )
+
     with tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch:
         root = Path(scratch)
         kit = toy_kit(root)
@@ -1175,8 +1328,12 @@ def self_test() -> int:
             FROM_ENV: "toy/kit#main",
             "FAKE_SOURCE": str(kit),
         }
-        green, examined = run_guide(toy_guide(), kit, base)
-        case("a green toy run green", not green, f"{whats(green)} ({examined})")
+        green, examined, green_note = run_guide(toy_guide(), kit, base)
+        case(
+            "a green toy run on the pinned version green, with no note",
+            not green and green_note == "",
+            f"{whats(green)} ({examined}) {green_note!r}",
+        )
         nameless = toy_kit(root / "nameless", {"plugins": []})
         try:
             run_guide(toy_guide(), nameless, base | {"FAKE_SOURCE": str(nameless)})
@@ -1296,7 +1453,7 @@ def self_test() -> int:
             ),
         ]
         for name, replace, mutant, expected in runs:
-            findings, examined = run_guide(toy_guide(**replace), kit, base | {"FAKE_MUTANT": mutant})
+            findings, examined, _ = run_guide(toy_guide(**replace), kit, base | {"FAKE_MUTANT": mutant})
             case(
                 name,
                 len(findings) == 1 and findings[0].what.startswith(expected),
@@ -1318,13 +1475,13 @@ def self_test() -> int:
                 "`claude plugin install <module>@toy-mp --scope project`",  # typed by hand: the toy's name
             ),
         ):
-            exited, _ = run_guide(toy_guide(**replace), kit, base)
+            exited, _, _ = run_guide(toy_guide(**replace), kit, base)
             case(
                 f"{name} teaches its block's fix",
                 len(exited) == 1 and "exited 1" in exited[0].what and exited[0].fix == fix,
                 " | ".join(f"{f.what} / {f.fix}" for f in exited),
             )
-        stopped, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "session-no-start"})
+        stopped, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "session-no-start"})
         case(
             "a session that reports no start says why, and teaches to reproduce it",
             len(stopped) == 1
@@ -1333,7 +1490,7 @@ def self_test() -> int:
             and stopped[0].render().count("fix:") == 1,
             " | ".join(f"{f.what} / {f.fix}" for f in stopped),
         )
-        never, _ = run_guide(
+        never, _, _ = run_guide(
             toy_guide(marketplace="true || claude plugin marketplace add toy/kit"), kit, base
         )
         case(
@@ -1349,13 +1506,13 @@ def self_test() -> int:
             ("install-no-enable", "make the block install each module at project scope"),
             ("session-loads-nothing", "run §2 steps 1 to 3 in a project of your own and read the Errors tab"),
         ):
-            taught, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
+            taught, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
             case(
                 f"{mutant} teaches its own fix, one fix",
                 len(taught) == 1 and taught[0].fix.startswith(fix) and taught[0].render().count("fix:") == 1,
                 " | ".join(f"{f.what} / {f.fix}" for f in taught),
             )
-        mended, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "marketplace-fewer-modules"})
+        mended, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "marketplace-fewer-modules"})
         case(
             "a marketplace whose modules differ teaches to bring the branch to the clone",
             len(mended) == 1 and mended[0].fix.startswith("bring the source branch to the kit's clone"),
@@ -1365,7 +1522,7 @@ def self_test() -> int:
         moved = dials[0].replace(
             "# Toy guide\n", "# Toy guide\n\nStep dials:" + dials[1].split("Step scan:")[0], 1
         )
-        early, _ = run_guide(moved + "Step scan:" + dials[1].split("Step scan:")[1], kit, base)
+        early, _, _ = run_guide(moved + "Step scan:" + dials[1].split("Step scan:")[1], kit, base)
         case(
             "the dials before the project red",
             len(early) == 1 and early[0].what.startswith("the dials example comes before the project exists"),
@@ -1395,6 +1552,215 @@ def self_test() -> int:
         )
         read = committed_guide(kit, os.environ | {"GIT_TRACE": "2"})  # git writes its trace to stderr
         case("the committed guide is read whole, standard output alone", read == toy_guide(), read[:80])
+        # the version check, over every answer of `claude --version`; the lines are typed by hand
+        version_log = root / "version.log"
+        strict = (
+            "claude is {0}, and the kit's install checks read the platform as 2.1.282 writes it"
+            " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run,"
+            " installed beside your own (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
+            " then PATH=<folder>/node_modules/.bin:$PATH), or set CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
+            " {0} with a note on every line"
+        )
+        noted = " [claude {0}, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"
+        reinstall = (
+            " — fix: check that `claude` on PATH is Claude Code (`command -v claude`), and reinstall it"
+        )
+        no_opt_out = {k: v for k, v in base.items() if k != "CONSTITUTION_KIT_ANY_CLAUDE"}
+
+        def stuck(what: str) -> str:
+            return f"BROKEN: `claude --version` {what}{reinstall}"
+
+        def says_env(says: str, exits: int, optout: str | None, source: Path = kit) -> dict[str, str]:
+            env = no_opt_out | {
+                "FAKE_SAYS": says,
+                "FAKE_EXIT": str(exits),
+                "FAKE_LOG": str(version_log),
+                "FAKE_SOURCE": str(source),
+            }
+            if optout is not None:
+                env["CONSTITUTION_KIT_ANY_CLAUDE"] = optout
+            return env
+
+        def outcome(env: dict[str, str]) -> str:
+            """What the check does before its clone: the note it goes on with, or its BROKEN line."""
+            version_log.unlink(missing_ok=True)
+            try:
+                return f"note:{claude_noted(kit, env)}"
+            except Broken as broken:
+                return f"BROKEN: {broken}"
+
+        def logged() -> list[str]:
+            return version_log.read_text(encoding="utf-8").splitlines() if version_log.exists() else []
+
+        def kind(said_outcome: str) -> str:
+            if said_outcome == "note:":
+                return "the run goes on"
+            return "the run goes on with the note" if said_outcome.startswith("note:") else "BROKEN"
+
+        # what `--version` says, its exit, what the run does with the variable unset, and with it at 1
+        # (None: the same)
+        rows: list[tuple[str, int, str, str | None]] = [
+            ("2.1.282 (Claude Code)\\n", 0, "note:", None),
+            ("2.1.282 (Claude Code)\\r\\n", 0, "note:", None),  # CR is white space: the first word is read
+            ("2.1.282 (Claude Code)\\nextra\\n", 0, "note:", None),  # the first line alone is read
+            (
+                "2.1.286 (Claude Code)\\n",
+                0,
+                "BROKEN: " + strict.format("2.1.286"),
+                "note:" + noted.format("2.1.286"),
+            ),
+            (
+                "2.1.2820 (Claude Code)\\n",
+                0,
+                "BROKEN: " + strict.format("2.1.2820"),
+                "note:" + noted.format("2.1.2820"),
+            ),
+            (
+                "2.1.28 (Claude Code)\\n",
+                0,
+                "BROKEN: " + strict.format("2.1.28"),
+                "note:" + noted.format("2.1.28"),
+            ),
+            ("2.1.286", 0, "BROKEN: " + strict.format("2.1.286"), "note:" + noted.format("2.1.286")),
+            ("v2.1.282\\n", 0, stuck("printed no version (v2.1.282)"), None),
+            ("", 0, stuck("printed no version (no output)"), None),
+            ("", 1, stuck("exited 1 (no output)"), None),
+            ("2.1.282 (Claude Code)\\n", 1, stuck("exited 1 (2.1.282 (Claude Code))"), None),
+            ("2.1.286 (Claude Code)\\n", 1, stuck("exited 1 (2.1.286 (Claude Code))"), None),
+            ("", 139, stuck("exited 139 (no output)"), None),
+            (
+                "extra\\n2.1.282 (Claude Code)\\n",
+                0,
+                stuck("printed no version (2.1.282 (Claude Code))"),
+                None,
+            ),
+        ]
+        for says, exits, unset_out, one_out in rows:
+            at_one = unset_out if one_out is None else one_out
+            seen = [outcome(says_env(says, exits, None)), outcome(says_env(says, exits, "1"))]
+            ran = logged()  # the second run only: each run leaves the one line its own command logged
+            case(
+                f'`claude --version` printing "{says}" with exit {exits}: {kind(unset_out)} with the variable'
+                f" unset, {kind(at_one)} with it at 1",
+                seen == [unset_out, at_one] and ran == ["--version"],
+                f"{seen} {ran}",
+            )
+        too_old = "2.1.286 (Claude Code)\\n"
+        for value in ("", "0", "yes", "true", " 1", "1 ", "TRUE", "01"):
+            got = outcome(says_env(too_old, 0, value))
+            case(
+                f"CONSTITUTION_KIT_ANY_CLAUDE={value!r} is not the opt-out: the other version is BROKEN",
+                got == "BROKEN: " + strict.format("2.1.286"),
+                got,
+            )
+
+        def stopped_run(env: dict[str, str], where: Path = kit) -> tuple[str, str]:
+            """What `run_guide` over the toy guide ends in when it is Broken: its line and its note."""
+            version_log.unlink(missing_ok=True)
+            try:
+                run_guide(toy_guide(), where, env)
+            except Broken as broken:
+                return str(broken), broken.note
+            return "no Broken", ""
+
+        line, kept = stopped_run(says_env(too_old, 0, None))
+        case(
+            "a run on another version stops before the clone and any block: only --version is run",
+            line == strict.format("2.1.286") and kept == "" and logged() == ["--version"],
+            f"{line} {kept!r} {logged()}",
+        )
+        pinless = toy_kit(root / "pinless")
+        (pinless / "scripts" / "claude-code.version").unlink()
+        line, kept = stopped_run(says_env(too_old, 0, "1", pinless), pinless)
+        case(
+            "a kit with no pin file is BROKEN with the reader's line, before claude is run",
+            line
+            == f"{pinless}/scripts/claude-code.version cannot be read (No such file or directory){pin_fix}"
+            and kept == ""
+            and logged() == [],
+            f"{line} {kept!r} {logged()}",
+        )
+        line, kept = stopped_run(says_env("", 139, "1"))
+        case(
+            "a crashed claude stops the run before the clone, with no note, the opt-out notwithstanding",
+            line == stuck("exited 139 (no output)").removeprefix("BROKEN: ")
+            and kept == ""
+            and logged() == ["--version"],
+            f"{line} {kept!r} {logged()}",
+        )
+        version_log.unlink(missing_ok=True)
+        off_findings, off_examined, off_note = run_guide(toy_guide(), kit, says_env(too_old, 0, "1"))
+        case(
+            "with the opt-out a green run on another version goes on, asks the version once, and notes both",
+            not off_findings
+            and off_note == noted.format("2.1.286")
+            and logged()[0] == "--version"
+            and logged().count("--version") == 1
+            and len(logged()) > 1,
+            f"{whats(off_findings)} ({off_examined}) {off_note!r} {logged()[:3]}",
+        )
+        line, kept = stopped_run(says_env(too_old, 0, "1", nameless), nameless)
+        case(
+            "a BROKEN after the version is known carries the note",
+            line.endswith(
+                '/marketplace.json has no "name" — fix: give the marketplace its name, at the top of'
+                " the object"
+            )
+            and kept == noted.format("2.1.286"),
+            f"{line} {kept!r}",
+        )
+        nameless_main = toy_kit(
+            root / "nameless-main", {"plugins": []}
+        )  # its guide committed, as main reads it
+        (nameless_main / GUIDE).write_text(toy_guide(), encoding="utf-8")
+        run(["git", "add", GUIDE], nameless_main, git)
+        run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "guide"],
+            nameless_main,
+            git,
+        )
+
+        def whole_run(env: dict[str, str], where: Path = kit) -> tuple[int, list[str]]:
+            """The exit and the lines `main` prints over the toy kit, whose guide is committed."""
+            version_log.unlink(missing_ok=True)
+            printed_lines = io.StringIO()
+            with (
+                mock.patch.dict(os.environ, env, clear=True),
+                mock.patch.dict(globals(), {"KIT": where}),
+                contextlib.redirect_stdout(printed_lines),
+            ):
+                status = main([])
+            return status, printed_lines.getvalue().splitlines()
+
+        stop = "BROKEN: the check could not run — 0 blocks run"
+        ended, lines = whole_run(says_env(too_old, 0, None))
+        case(
+            "a whole run on another version prints the two BROKEN lines, and runs no other claude command",
+            ended == EXIT_BROKEN
+            and lines == ["BROKEN: " + strict.format("2.1.286"), stop]
+            and logged() == ["--version"],
+            f"{ended} {lines} {logged()}",
+        )
+        ended, lines = whole_run(says_env(too_old, 0, "1", nameless_main), nameless_main)
+        case(
+            "a whole run with the opt-out ends each BROKEN line it prints with the note",
+            ended == EXIT_BROKEN
+            and len(lines) == 2
+            and lines[0].endswith(
+                '/dev/constitution-kit/.claude-plugin/marketplace.json has no "name"'
+                " — fix: give the marketplace its name, at the top of the object" + noted.format("2.1.286")
+            )
+            and lines[1] == stop + noted.format("2.1.286"),
+            f"{ended} {lines}",
+        )
+        ended, lines = whole_run(says_env("", 139, "1"))
+        case(
+            "a whole run on a crashed claude prints no note, the opt-out notwithstanding",
+            ended == EXIT_BROKEN
+            and lines == [stuck("exited 139 (no output)"), stop]
+            and logged() == ["--version"],
+            f"{ended} {lines} {logged()}",
+        )
         try:
             committed_guide(root / "bin", os.environ | {"GIT_CEILING_DIRECTORIES": str(root)})
             bare = "no Broken"
@@ -1405,8 +1771,11 @@ def self_test() -> int:
             "is no git clone with a commit" in bare,
             bare,
         )
+        no_clone = root / "no-clone"  # holds the pin, which is asked before the clone, and no git history
+        (no_clone / "scripts").mkdir(parents=True)
+        (no_clone / "scripts" / "claude-code.version").write_text(TOY_PIN + "\n", encoding="utf-8")
         try:
-            run_guide(toy_guide(), root / "bin", base | {"GIT_CEILING_DIRECTORIES": str(root)})
+            run_guide(toy_guide(), no_clone, base | {"GIT_CEILING_DIRECTORIES": str(root)})
             unrun = "no Broken"
         except Broken as broken:
             unrun = str(broken)
@@ -1415,11 +1784,11 @@ def self_test() -> int:
             "is no git clone (" in unrun,
             unrun,
         )
-        traced, examined = run_guide(toy_guide(), kit, base | {"GIT_TRACE": "2"})
+        traced, examined, _ = run_guide(toy_guide(), kit, base | {"GIT_TRACE": "2"})
         case("a run whose git writes a trace to stderr green", not traced, f"{whats(traced)} ({examined})")
         _, status = run(["git", "status", "--porcelain"], kit, git, joined=False)
         case("the toy kit is left as it was: the run works on a clone", not status, status)
-        sourceless, _ = run_guide(toy_guide(marketplace="claude plugin marketplace list"), kit, base)
+        sourceless, _, _ = run_guide(toy_guide(marketplace="claude plugin marketplace list"), kit, base)
         case(
             "a marketplace block with no source to point red",
             len(sourceless) == 1 and "runs no `claude plugin marketplace add <source>`" in sourceless[0].what,
@@ -1448,7 +1817,7 @@ def self_test() -> int:
             f"{had!r} / {got!r}",
         )
         helped = base | {"GIT_CONFIG_GLOBAL": str(outer), "FAKE_NEEDS_HELPER": "1"}
-        wired, examined = run_guide(toy_guide(), kit, helped)
+        wired, examined, _ = run_guide(toy_guide(), kit, helped)
         case("the carried helper reaches the run's git", not wired, f"{whats(wired)} ({examined})")
         given = source_of(kit, git | {FROM_ENV: "owner/repo#work/x"})
         case("the source taken from the environment", given == "owner/repo#work/x", given)
@@ -1520,6 +1889,40 @@ def self_test() -> int:
         code == EXIT_RED and printed.getvalue() == literal,
         printed.getvalue(),
     )
+    off_pin = " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"  # typed by hand
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        code = report(
+            [Finding(12, "a `bash` block names no check", "write `check=<name>`")],
+            "3 named block(s), not run",
+            off_pin,
+        )
+    literal = (  # the note ends the headline lines, not the why: and fix: lines
+        f"RED: INSTALL.md:12: a `bash` block names no check{off_pin}\n"
+        f"  why: {WHY}\n"
+        "  fix: write `check=<name>`\n"
+        f"RED: 1 finding(s) — 3 named block(s), not run{off_pin}\n"
+    )
+    case(
+        "the report of a run off the pin ends each headline line with the note",
+        code == EXIT_RED and printed.getvalue() == literal,
+        printed.getvalue(),
+    )
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        code = report([], "9 block(s) run, 2 module(s), from toy/kit#main", off_pin)
+        plain_code = report([], "9 block(s) run, 2 module(s), from toy/kit#main")
+    literal = (  # typed by hand
+        "GREEN: the install guide runs and does what it says — 9 block(s) run, 2 module(s), from toy/kit#main"
+        " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]\n"
+        "GREEN: the install guide runs and does what it says — 9 block(s) run, 2 module(s),"
+        " from toy/kit#main\n"
+    )
+    case(
+        "the green report ends with the note off the pin, and with none on it",
+        code == plain_code == EXIT_GREEN and printed.getvalue() == literal,
+        printed.getvalue(),
+    )
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
@@ -1536,17 +1939,14 @@ def main(argv: list[str]) -> int:
     try:
         if args.self_test:
             return self_test()
-        findings, examined = run_guide(committed_guide(KIT, dict(os.environ)), KIT, dict(os.environ))
-        return report(findings, examined)
+        findings, examined, note = run_guide(committed_guide(KIT, dict(os.environ)), KIT, dict(os.environ))
+        return report(findings, examined, note)
     except Broken as broken:
-        print(f"BROKEN: {broken}")
-        print("BROKEN: the check could not run — 0 blocks run")
+        print(f"BROKEN: {broken}{broken.note}")
+        print(f"BROKEN: the check could not run — 0 blocks run{broken.note}")
         return EXIT_BROKEN
     except OSError as bad:
-        print(
-            f"BROKEN: a file could not be read or written ({bad}) — "
-            "fix: make the kit's files readable and the system's temporary folder writable"
-        )
+        print(f"BROKEN: {unreadable_said(bad)}")
         print("BROKEN: the check could not run — 0 blocks run")
         return EXIT_BROKEN
 
