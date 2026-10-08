@@ -5,8 +5,8 @@ the kit.
 The grep of requirement A12.1, as the row words it since decision
 dec-0056-portability-grep-and-gate-lists. It reads the installed components of every module —
 the files git lists under `skills/`, `hooks/`, `scripts/`, `commands/`, `agents/`, the install
-note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md`, a module's
-`README.md`, reader prose like `MODULE.md` and outside this read list, nor `tests/` —
+note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md`, never a module's
+`README.md`, which is reader prose like `MODULE.md` and held by review, nor `tests/` —
 and the shared gate code under `shared/const_gate/`, which every module installs as its
 `scripts/const_gate`. A symbolic link is read at its source, once. A module is every folder under
 `modules/` whose name opens with neither a dot nor an underscore, as `kit_module_doc.module_folders`

@@ -2,7 +2,9 @@
 """Kit check: a kit document outside module prose cites a module by a link to its specification.
 
 Module prose says "module `const-x`"; every other kit document writes the same words as a link,
-module [`const-x`](<path to>/docs/requirements.md#const-x) — the reference rule of CLAUDE.md.
+module [`const-x`](<path to>/docs/requirements.md#const-x) — the reference rule of CLAUDE.md. The
+module table of the root README links a module to the module's own README.md instead, as that rule
+allows; a link is never read here, so the table needs no exception of its own.
 The form read is the word "module" or "modules", with a small or a capital m, a space, and a
 module's name in a code span; a name standing alone, or any name after the first of "modules `a` and `b`", is
 left to review. The link lint of const-referencing cannot hold this: it matches its lanes on text
@@ -235,6 +237,7 @@ def self_test() -> int:
     }
     green: dict[str, tuple[str, str]] = {  # case: path, text with the plain form not read
         "module prose": ("modules/const-sample/MODULE.md", plain),
+        "a module's README": ("modules/const-sample/README.md", plain),
         "the module template": ("module-template/MODULE.md", plain),
         "a research comparison": ("docs/research/r.md", plain),
         "a template": ("templates/policy.md", plain),

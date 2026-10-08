@@ -12,7 +12,8 @@ script can hold:
                only", or with "pending" and a link. A link leads where a rule can live — an active
                document of type current-state, CLAUDE.md, a skill of the kit, a module's or the
                template's own file, a file that is not markdown — a file, never a folder. The rollout
-               plan, a research comparison, another record and the README cannot: those are where
+               plan, a research comparison, another record and a README, the root's or a module's,
+               cannot: those are where
                rulings were found hiding. "pending" is for intent that is not yet real, and its
                link leads to the task-record that holds the work to come — a plan, never a
                decision record — where the kernel says such intent rides. The entry is never
@@ -254,7 +255,7 @@ def split_frontmatter(text: str) -> tuple[dict[str, object], str]:
 
 CARRY_IT = (
     "write the rule into a current-state document and link that; a plan, a comparison, another record and "
-    'the README state no rule — intent that is not yet real is "pending" with a link to its task-record'
+    'a README state no rule — intent that is not yet real is "pending" with a link to its task-record'
 )
 PEND_IT = "link the step of the task-record that holds the intent — the plan, never a decision record"
 
@@ -295,6 +296,8 @@ def home_problem(
     if path.suffix != ".md":
         return None
     if kind is None:
+        if re.fullmatch(r"modules/[^/]+/README\.md", shown):
+            return f"{shown} is a module's README, a page for a reader that binds nothing", general
         if shown == UNGOVERNED_HOMES[0] or shown.startswith(UNGOVERNED_HOMES[1:]):
             return None
         return f"{shown} is not a governed document and holds no rules", general
@@ -763,7 +766,7 @@ def sample_kit(root: Path, record: str = GOOD_RECORD, layout: Layout = DEFAULT_L
     }
     for name, envelope in envelopes.items():
         (root / name).write_text(f"---\n{envelope}\n---\n", encoding="utf-8")
-    for name in ("README.md", "CLAUDE.md", "modules/m/INSTALL.md", "scripts/x.py"):
+    for name in ("README.md", "CLAUDE.md", "modules/m/INSTALL.md", "modules/m/README.md", "scripts/x.py"):
         (root / name).write_text("text\n", encoding="utf-8")
     (root / DIALS).write_text(layout.dials(), encoding="utf-8")
     path = root / layout.folder / f"{layout.sample}.md"
@@ -909,6 +912,7 @@ def self_test() -> int:
         "a home in a research comparison": lambda t: t.replace(home, "../research/r.md"),
         "a home in another record": lambda t: t.replace(home, f"{SAMPLE}.md"),
         "a home in the README": lambda t: t.replace(home, "../../README.md"),
+        "a home in a module's README": lambda t: t.replace(home, "../../modules/m/README.md"),
         "a home in a document that is not in force": lambda t: t.replace(home, "../policies/old.md"),
         "a folder as a home": lambda t: t.replace(home, "../../scripts"),
         "a home that does not exist": lambda t: t.replace(home, "../policies/none.md"),
