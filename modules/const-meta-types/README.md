@@ -36,7 +36,7 @@ The skill `choose-meta-type` loads on its own when a document is being created o
 
 **The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write.
 
-**Settings.** The module works with no configuration of its own. It reads the project's `constitution.yaml` for the root policy and the territories, which every module of the kit shares, and nothing else. Two dials can be tuned under its own name there. One sets how loud a finding is: refuse the write, or report it and let the write through. The second is the path for a repository full of old documents. The other names where the module keeps its log of everything it printed. With no `constitution.yaml`, or no root policy in it, nothing is claimed and nothing is checked, and the module says so.
+**Settings.** The module works with no configuration of its own. It reads the project's `constitution.yaml` for the root policy and the territories, which every module of the kit shares, and nothing else. Two dials can be tuned under its own name there. One sets how loud a finding is: refuse the write, or report it and let it through. Reporting is the path for a repository full of old documents. The other names where the module keeps its log of everything it printed. With no `constitution.yaml`, or no root policy in it, nothing is claimed and nothing is checked, and the module says so.
 
 <a id="a5"></a>
 ## Get it

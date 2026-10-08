@@ -12,12 +12,12 @@ In plain words: a numbered document, such as a decision record, carries its numb
 
 People cite decisions, tasks and incidents by number, "see D41". The numbers live wherever they were first typed: a register file, a heading, a chat message. Then the register moves, or an entry is renumbered, split or deleted. Every citation of the old number now points at nothing, or at something else, and nobody can tell which. Each citation written under a loose scheme is one more to repair when the scheme breaks. A number should mean one document for good.
 
-With the module installed, a number is taken once and kept. A new document in a numbered folder is refused until its name carries a number no other item holds, and its id matches. A refusal over the number names the next one to take. Two branches that took one number are caught by the scan before the merge. A citation by number then leads to one document, for as long as the project lives.
+With the module installed, a number is taken once and kept. A new document in a numbered folder is refused until its name carries a number no other item holds, and its id matches. A refusal over the number names the next one to take, while the width can still write one. Two branches that took one number are caught by the scan before the merge. A citation by number then leads to one document, for as long as the project lives.
 
 <a id="a3"></a>
 ## How Claude behaves with it
 
-The project declares its numbered kinds in `constitution.yaml`: a prefix, the folders where the kind lives, and how many digits a number has. A session that writes a Markdown file in one of those folders must name it `<prefix>-<number>-<slug>.md`. The number has exactly that many digits, and the file's `id` equals the name without `.md`. A new file must take a number no other item carries. Otherwise the write is refused, and the refusal names the next free number, so the session can take it and write again. While no catalog is declared, nothing is examined. The session is told so in one line at every session start.
+The project declares its numbered kinds in `constitution.yaml`: a prefix, the folders where the kind lives, and how many digits a number has. A session that writes a Markdown file in one of those folders must name it `<prefix>-<number>-<slug>.md`. The number has exactly that many digits, and the file's `id` equals the name without `.md`. A new file must take a number no other item carries. Otherwise the write is refused. The refusal names the next free number, while the width can still write one, so the session can take it and write again. While no catalog is declared, nothing is examined. The session is told so in one line at every session start.
 
 ```text
 RED: docs/records/second.md: file name 'second' is not rec-<4 digits>-<kebab-slug>, the form of catalog 'rec', whose territory holds this file
