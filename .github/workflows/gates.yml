@@ -64,7 +64,8 @@ jobs:
           node-version: "22"
       - name: Claude Code, for the bare-repo install and the install guide
         if: startsWith(matrix.job, 'const-') || matrix.job == 'install-guide'
-        run: npm install --global --silent "@anthropic-ai/claude-code@2.1.282"
+        # the version is scripts/claude-code.version, which both install checks ask `claude --version` against
+        run: npm install --global --silent "@anthropic-ai/claude-code@$(cat scripts/claude-code.version)"
       - name: Git credentials, so Claude Code can clone the private repository
         if: startsWith(matrix.job, 'const-') || matrix.job == 'install-guide'
         env:

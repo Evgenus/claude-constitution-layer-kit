@@ -28,6 +28,54 @@ holding its `MODULE.md`. No `modules/` directory, and a folder without its docum
 pass over the very folder it owes a verdict on. check-gate-lists proves it directly in its own
 `--self-test`, every other check through the cases of its own.
 
+`marketplace_name` is the kit's one reader of its marketplace's name, which check-bare-install (the
+kit it lives in) and check-install-guide (the guide's clone of the kit) read and type nowhere: the
+top-level "name" of `.claude-plugin/marketplace.json`, a non-empty string; the file missing or
+unreadable, not JSON, not an object, with no "name", a "name" that is no string, and an empty one are
+each a `DocumentError` with the fix. check-install-guide proves it in its `--self-test`, over the
+whole set. check-gate-lists reads the file in its own way, for the entries and their lines, and not
+through it.
+
+`pinned_claude` and `claude_note` are the kit's one reading of the Claude Code version its two install
+checks run on. `pinned_claude` reads `scripts/claude-code.version` of the kit, which the CI workflow
+installs from too: one line, a version of three numbers, with at most one final line break; the file
+missing or unreadable, empty, or anything else (a carriage return, a byte-order mark, a second line, a
+word, a blank line after the version) is a `DocumentError` with the fix. `claude_note` runs
+`claude --version` before any other `claude` command of the check, in an empty configuration folder of
+its own, and reads the first word of the first non-blank line of the output (leading blank lines are
+skipped), when the command exits 0:
+  the pinned version        the run goes on, the note is empty;
+  another readable version  `DocumentError` with the fix, unless the environment's
+                            CONSTITUTION_KIT_ANY_CLAUDE is exactly `1` (any other value, an empty one
+                            included, is strict): then the run goes on, and the note names both
+                            versions, for the check to end every headline line of its report with;
+  no readable version       `DocumentError` with the fix, the opt-out notwithstanding: a command that
+                            fails, prints nothing, or opens with a word that is no version.
+check-install-guide proves `pinned_claude` in its `--self-test`, over the whole set; it and
+check-bare-install prove `claude_note` in theirs, over the whole set of answers of `claude --version`.
+`claude_note` returns a `Note`: the note as a string, and with it the pinned version and the one found.
+`platform_fix` is the kit's one wording of the fix for a platform reply, record or settings file that the
+kit's reader does not read, which both checks end such a BROKEN line with; it reads the `Note`, so that the
+fix can be followed in either state. On the pinned version (the note empty) it says that version wrote what
+the reader does not read, names the script and its function, and tells to update that reader to what the
+pinned version writes. Off the pin (the opt-out set) it says the run is on the version found, not the
+pinned one, and tells to run it again on the pinned version, put first on PATH as `claude_note`'s own fix
+words it. Both checks prove it in theirs, in each state, as literal lines.
+`command_fix` is the kit's one wording of the fix for a documented `--json` list command that wrote no reply
+to read, which both checks end such a BROKEN line with, from the same `Note`: no reply was written, so it
+names no reader to update. A command that timed out (the run's exit 124): run the check again. A command that
+exited with another code than 0: run the command in the folder the caller names and read why it fails, then
+run the check again. Off the pin, either one has the check run again on the pinned version, put first on PATH
+as `claude_note`'s own fix words it. Both checks prove it in theirs, in each state, as literal lines.
+`claude_env` is the kit's one shaping of the environment a check runs `claude` in: the environment given,
+less CLAUDE_CODE_PLUGIN_CACHE_DIR. Claude Code writes the marketplace, the plugin cache and its install
+records under the folder that variable names (the loading page's "Find plugins on disk"), the person's own
+plugins root if that is what it holds, where the checks promise the empty configuration folder they make
+for the run; so a check passes `claude_env` its environment for every `claude` command it runs, the
+version command included, and the plugins root is `plugins` in the check's own CLAUDE_CONFIG_DIR, unless a
+command the check runs sets the variable itself, as a block of the install guide can.
+Both checks prove it in theirs, with the variable set in the environment the person runs them in.
+
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
 imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
 that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save the shared `const_gate`.
@@ -38,12 +86,36 @@ gate list's `types-<module>` entry derives the same set in shell. check-shared-l
 
 from __future__ import annotations
 
+import json
 import re
+import subprocess
+import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
 ANCHOR = re.compile(r'^<a id="(t\d+)"></a>$')
+CLAUDE_PIN = "scripts/claude-code.version"  # the kit's pin of the Claude Code version, from the kit's root
+ANY_CLAUDE = "CONSTITUTION_KIT_ANY_CLAUDE"  # the variable that, exactly `1`, lets a check run off the pin
+PLUGINS_ROOT_ENV = "CLAUDE_CODE_PLUGIN_CACHE_DIR"  # the plugins root of Claude Code, which `claude_env` drops
+VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")  # ASCII digits only: `\d` would take other scripts' digits
+PIN_FIX = "write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's only line"
+
+
+class Note(str):
+    """The note a check ends every headline line of its report with: "" on the pinned version, else
+    ` [claude <found>, not the pinned <pinned>: CONSTITUTION_KIT_ANY_CLAUDE=1]`. It is a string, and it
+    carries the pinned version and the one found ("" on the pin), which `platform_fix` words a fix from."""
+
+    pinned: str
+    found: str
+
+    def __new__(cls, pinned: str, found: str = "") -> Note:
+        text = f" [claude {found}, not the pinned {pinned}: {ANY_CLAUDE}=1]" if found else ""
+        note = super().__new__(cls, text)
+        note.pinned, note.found = pinned, found
+        return note
 
 
 class DocumentError(Exception):
@@ -66,6 +138,167 @@ def module_folders(root: Path) -> list[Path]:
         if not (folder / "MODULE.md").is_file():
             raise DocumentError(f"modules/{folder.name} has no MODULE.md — fix: restore the module document")
     return folders
+
+
+def marketplace_name(root: Path) -> str:
+    """The name of the marketplace the kit at `root` declares: the top-level "name" of
+    `<root>/.claude-plugin/marketplace.json`, which must be a non-empty string, else `DocumentError`
+    with the fix. The kit's install checks read the name here and type it nowhere. A caller that
+    needs the name of its own kit or of a clone passes that root."""
+    path = root / ".claude-plugin" / "marketplace.json"
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as bad:
+        raise DocumentError(
+            f"{path} cannot be read ({bad.strerror}) — fix: run the check from a checkout of the kit,"
+            " which holds the file"
+        ) from bad
+    except ValueError as bad:
+        raise DocumentError(f"{path} is not JSON ({bad}) — fix: restore the file as a JSON object") from bad
+    if not isinstance(document, dict):
+        raise DocumentError(
+            f'{path} is not a JSON object — fix: restore the file as an object with the marketplace\'s "name"'
+        )
+    if "name" not in document:
+        raise DocumentError(
+            f'{path} has no "name" — fix: give the marketplace its name, at the top of the object'
+        )
+    name = document["name"]
+    if not isinstance(name, str):
+        raise DocumentError(
+            f'{path} gives a "name" that is not a string — fix: write the name as a JSON string'
+        )
+    if not name:
+        raise DocumentError(f'{path} gives an empty "name" — fix: write the marketplace\'s name in it')
+    return name
+
+
+def pinned_claude(root: Path) -> str:
+    """The Claude Code version the kit at `root` pins: the text of `<root>/scripts/claude-code.version`,
+    with at most one final line break removed, must be exactly one version of three numbers, else
+    `DocumentError` with the fix. The file is read as bytes, so that a carriage return or a byte-order
+    mark is seen and not translated away."""
+    path = root / CLAUDE_PIN
+    try:
+        text = path.read_bytes().decode("utf-8", errors="replace")
+    except OSError as bad:
+        raise DocumentError(f"{path} cannot be read ({bad.strerror}) — fix: {PIN_FIX}") from bad
+    if not text:
+        raise DocumentError(f"{path} is empty — fix: {PIN_FIX}")
+    version = text.removesuffix("\n")
+    if not VERSION.fullmatch(version):
+        raise DocumentError(f"{path} is not one version ({text!r}) — fix: {PIN_FIX}")
+    return version
+
+
+def claude_env(env: Mapping[str, str]) -> dict[str, str]:
+    """The environment a check runs every `claude` command in: `env` less CLAUDE_CODE_PLUGIN_CACHE_DIR,
+    whether it is set to a folder or to nothing. With it, Claude Code would write its marketplace, plugin
+    cache and install records under the folder it names, the person's own plugins root perhaps, and not
+    under `plugins` in the check's own empty configuration folder; without it, the plugins root is always
+    that one."""
+    return {key: value for key, value in env.items() if key != PLUGINS_ROOT_ENV}
+
+
+def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note:
+    """Ask the `claude` on PATH its version, before any other command of the check, and compare it with
+    the pin of the kit at `root`. Returns the empty `Note` when it is the pinned version, and the note a
+    check ends every headline line of its report with, `[claude <found>, not the pinned <pinned>:
+    <variable>=1]`, when it is another readable version and `env` sets CONSTITUTION_KIT_ANY_CLAUDE to
+    exactly `1`;
+    else `DocumentError` with the fix: the pin unreadable, `claude` missing, another version with the
+    variable unset or of another value, or no readable version at all, the variable notwithstanding.
+    The version is the first whitespace-separated word of the first non-blank line of the output (the
+    output is stripped first, so leading blank lines are skipped), read when the command exits 0 and the
+    word is three numbers; a line break of either kind is white space, and the lines after that line are
+    not read. The command runs in `env` less CLAUDE_CODE_PLUGIN_CACHE_DIR (`claude_env`), in an empty
+    configuration folder of its own and with the auto-updater off, and one that has not answered in
+    `timeout` seconds is no version."""
+    pinned = pinned_claude(root)
+    with tempfile.TemporaryDirectory(prefix="claude-version-") as config:
+        asked = claude_env(env) | {"CLAUDE_CONFIG_DIR": config, "DISABLE_AUTOUPDATER": "1"}
+        try:
+            done = subprocess.run(
+                ["claude", "--version"],
+                cwd=root,
+                env=asked,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+                check=False,
+            )
+            code, out, err = done.returncode, done.stdout.strip(), done.stderr.strip()
+        except FileNotFoundError as bad:
+            raise DocumentError(
+                f"claude is not installed ({bad.strerror}) — fix: install it and put it on PATH"
+            ) from bad
+        except subprocess.TimeoutExpired:
+            code, out, err = 124, "", f"timed out after {timeout:g} s"
+    words = out.splitlines()[0].split() if out else []
+    found = words[0] if code == 0 and words and VERSION.fullmatch(words[0]) else ""
+    if not found:
+        said = out or err
+        last = said.splitlines()[-1] if said else "no output"
+        what = f"exited {code}" if code != 0 else "printed no version"
+        raise DocumentError(
+            f"`claude --version` {what} ({last}) — fix: check that `claude` on PATH is Claude Code"
+            " (`command -v claude`), and reinstall it"
+        )
+    if found == pinned:
+        return Note(pinned)
+    if env.get(ANY_CLAUDE) == "1":
+        return Note(pinned, found)
+    raise DocumentError(
+        f"claude is {found}, and the kit's install checks read the platform as {pinned} writes it"
+        f" ({CLAUDE_PIN}) — fix: {put_first(pinned)}, or set {ANY_CLAUDE}=1 to run on {found} with a note on"
+        " every headline line"
+    )
+
+
+def put_first(pinned: str) -> str:
+    """How to run on the pinned version beside one's own `claude`, which stays as it is."""
+    return (
+        f"put Claude Code {pinned} first on PATH for this run, installed beside your own"
+        f" (npm install --prefix <folder> @anthropic-ai/claude-code@{pinned}, then"
+        " PATH=<folder>/node_modules/.bin:$PATH)"
+    )
+
+
+def platform_fix(note: Note, script: str, reader: str, wrote: str) -> str:
+    """The fix a check ends a BROKEN line with when `reader`, a function of `script`, cannot read what the
+    platform wrote (`wrote` says what: "a reply", "a record", "a settings file"), by the state `note`
+    records. On the pinned version: that version wrote what the reader does not read, so update the reader
+    to what it writes. Off the pin: the run is on the version found, so run it again on the pinned one."""
+    if note.found:
+        return (
+            f" — fix: this run is on {note.found}, not the pinned {note.pinned}: run it again on the pinned"
+            f" version, {put_first(note.pinned)}"
+        )
+    return (
+        f" — fix: Claude Code {note.pinned} wrote {wrote} that the kit's reader, `{reader}` in {script},"
+        f" does not read: update that reader to what {note.pinned} writes"
+    )
+
+
+def command_fix(note: Note, command: str, where: str, timed_out: bool) -> str:
+    """The fix a check ends a BROKEN line with when `command`, a documented `--json` list command as a
+    person types it, wrote no reply to read: `timed_out` says it was cut short (the run's exit 124), else it
+    exited with a code other than 0. No reply was written, so no reader is to be updated. Timed out: run the
+    check again. Exited: run `command` in `where` and read why it fails, then run the check again. Off the
+    pin (`note.found` set) either one has the check run again on the pinned version, put first on PATH as
+    `put_first` words it."""
+    if note.found:
+        off = f"this run is on {note.found}, not the pinned {note.pinned}"
+        again = f"run the check again on the pinned version, {put_first(note.pinned)}"
+        if timed_out:
+            return f" — fix: {off}: {again}"
+        return f" — fix: run `{command}` in {where}, read why it fails; {off}, so then {again}"
+    if timed_out:
+        return " — fix: run the check again"
+    return f" — fix: run `{command}` in {where}, read why it fails, then run the check again"
 
 
 def own_packages(module: Path) -> list[Path]:
