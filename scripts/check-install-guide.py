@@ -26,18 +26,21 @@ inside an `&&` list earlier in the block, other than the list's last, stops no b
 block does is held by the claims below, not by its exit.
 Beside every block's exit 0, the check holds at each name:
   new-repo     the block ends in a git repository: the project.
-  marketplace  the configuration's plugins/known_marketplaces.json knows the kit's marketplace, by the
-               name the clone's .claude-plugin/marketplace.json gives, read once by
-               `kit_module_doc.marketplace_name` and typed nowhere: the later claims' `<module>@<name>`
-               keys, cache and marketplace-clone folders and install fix all use it; from
-               a GitHub source naming the source's repository: a local folder would run in place,
-               never from the cache; and the platform's clone of the marketplace holds the same
-               modules at the same manifest versions as the kit's clone.
-  install      every module of the kit stands in the plugin cache at its manifest version and is
-               enabled in the project's .claude/settings.json; and a headless session in the
-               project, trusted in the configuration, reports each module's path in the plugin
-               cache — the frozen copy, never a clone's working files. The path is reported before
-               the model is called, so the session needs no login.
+  marketplace  `claude plugin marketplace list --json`, run in the folder the block ended in, lists
+               exactly one entry named as the kit's marketplace, by the name the clone's
+               .claude-plugin/marketplace.json gives, read once by `kit_module_doc.marketplace_name`
+               and typed nowhere: the later claims' `<module>@<name>` ids and install fix all use
+               it; its `source` is github and its `repo` the source's repository: a local folder
+               would run in place, never from the cache; and its `installLocation`, the platform's
+               clone of the marketplace, holds the same modules at the same manifest versions as the
+               kit's clone.
+  install      `claude plugin list --json`, run in the project, lists each module of the kit once at
+               project scope for the project (`id` the module's `<module>@<name>`, `scope` project,
+               `projectPath` the project), its `version` the manifest's and its `installPath` an
+               existing folder, and the module is enabled in the project's .claude/settings.json;
+               and a headless session in the project, trusted in the configuration, reports each
+               module's path as that `installPath` — the frozen copy, never a clone's working
+               files. The path is reported before the model is called, so the session needs no login.
   kernel       the project's docs/constitution/ holds every file of the kit's kernel/, and the kit's
                LICENSE and NOTICE, byte for byte.
   dials        not run: written as the project's constitution.yaml, and with it what the reader
@@ -46,22 +49,29 @@ Beside every block's exit 0, the check holds at each name:
                the dials' first catalog.
   scan         the block's exit: every scan it runs exits 0.
   commit       the project's working tree is clean.
-  update       every module stays in the plugin cache at its manifest version and enabled. That an
-               update leaves a draft's change at an unchanged version untaken is not run: the
-               platform fetches a GitHub marketplace from GitHub alone, so the run cannot put a
-               change where it looks; the guide states it as an observed platform fact.
-  reinstall    every module stands in the plugin cache at its version and is enabled, and its copy
-               there holds the same files as the module in the platform's clone of the marketplace,
+  update       every module is listed as the install claim has it, at its manifest version, its
+               `installPath` a folder, and enabled. That an update leaves a draft's change at an
+               unchanged version untaken is not run: the platform fetches a GitHub marketplace from
+               GitHub alone, so the run cannot put a change where it looks; the guide states it as an
+               observed platform fact.
+  reinstall    every module is listed as the install claim has it, and the folder of its
+               `installPath` holds the same files as the module in the marketplace's `installLocation`,
                read through its links, byte for byte: the install copied what the marketplace holds.
-  uninstall    no module is enabled in the project's settings or recorded for the project in the
-               configuration's plugins/installed_plugins.json.
+  uninstall    no module is enabled in the project's settings or listed by `claude plugin list --json`
+               with the project as its `projectPath`, at any scope.
 The first finding of the run ends it, since every later block builds on the one before. A finding
 is red; a missing `claude`, `git` or `bash`, or a guide that cannot be read, is a configuration
 failure, and so is a source the check cannot point at the change: no origin on GitHub, a detached
 HEAD, or a branch whose origin copy is not at HEAD, and a clone whose marketplace.json gives no name
-(missing, no JSON, no object, no "name", one that is no string or is empty). Needs no Claude account
-login: the plugin commands read none, and the session stops before the model. Git needs a private
-repository's credentials.
+(missing, no JSON, no object, no "name", one that is no string or is empty), and a reply the claims cannot
+read as documented: a failed `--json` command, a reply that is no JSON or no list, an entry that is no
+object, two entries of the marketplace's name or two project-scope entries of a module's id for the
+project, a field a claim reads (`source`, `installLocation`, `installPath`, `version`, `scope`, and
+`projectPath` of a project- or local-scope entry) that is no string or is empty, and a project's
+.claude/settings.json that is unreadable, no JSON object, or whose `enabledPlugins` is no object. Their
+fix points at the Claude Code version against scripts/claude-code.version, never at the guide. Needs no
+Claude account login: the plugin commands read none, and the session stops before the model. Git needs a
+private repository's credentials.
 
 Before the clone, and before any block runs, once the marks are read and `claude` is found on PATH, the
 check asks `claude --version` (`kit_module_doc.claude_note`) and compares it with the version the
@@ -117,7 +127,16 @@ Modes:  no arguments   check the kit's guide;
                        toy kit's pin, another version, a longer or shorter one, no version, a failure and
                        a crash, the variable unset, at each other value than `1` and at `1`, the run
                        stopped before the clone with only `--version` run, and the reports of a run off
-                       the pin, a finding's and a green one's, as literal lines.
+                       the pin, a finding's and a green one's, as literal lines; the fake answering
+                       `plugin marketplace list --json` and `plugin list --json` from a state of its own, and
+                       the two readers over whole sets of replies, an entry that is not the marketplace's
+                       or the module's for the project first and last, the literal message of each BROKEN;
+                       a reinstall that compares with the clone the run kept, else the one listed; a
+                       project's settings.json of each shape; an install listed for no project, at user
+                       scope, for another project or at another version, an uninstall that keeps the
+                       plugin installed or enabled alone, each red; each wrong shape of a reply, in a run,
+                       a BROKEN and never a finding against the guide, and one whole report of it through
+                       `main`, off the pin and on it.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -305,13 +324,12 @@ def blocks_of(guide: str) -> tuple[list[Block], list[Finding]]:
     return [b for b in found if b.name in NAMES and seen.get(b.name) == b.line], findings
 
 
-def run(
-    argv: list[str], cwd: Path, env: dict[str, str], timeout: int = TIMEOUT, joined: bool = True
-) -> tuple[int, str]:
-    """The exit and the output of one command: standard output and error joined, for a message, or
-    standard output alone where the output is read as data."""
+def spawn(
+    argv: list[str], cwd: Path, env: dict[str, str], timeout: int
+) -> subprocess.CompletedProcess[str] | None:
+    """One command run to its end, None when it timed out; a missing program is a Broken."""
     try:
-        done = subprocess.run(
+        return subprocess.run(
             argv,
             cwd=cwd,
             env=env,
@@ -326,9 +344,30 @@ def run(
             f"{argv[0]} is not installed ({bad.strerror}) — fix: install it and put it on PATH"
         ) from bad
     except subprocess.TimeoutExpired:
+        return None
+
+
+def run(
+    argv: list[str], cwd: Path, env: dict[str, str], timeout: int = TIMEOUT, joined: bool = True
+) -> tuple[int, str]:
+    """The exit and the output of one command: standard output and error joined, for a message, or
+    standard output alone where the output is read as data."""
+    done = spawn(argv, cwd, env, timeout)
+    if done is None:
         return 124, f"timed out after {timeout} s"
     both = done.stdout + ("\n" if done.stdout and done.stderr else "") + done.stderr  # never one line of two
     return done.returncode, (both if joined else done.stdout).strip()
+
+
+def run_apart(
+    argv: list[str], cwd: Path, env: dict[str, str], timeout: int = TIMEOUT
+) -> tuple[int, str, str]:
+    """The exit, the standard output and the standard error of one command, apart: the output is read as
+    data and the error is for a message. A timeout is exit 124, no output and the reason as the error."""
+    done = spawn(argv, cwd, env, timeout)
+    if done is None:
+        return 124, "", f"timed out after {timeout} s"
+    return done.returncode, done.stdout, done.stderr
 
 
 def last_line(said: str) -> str:
@@ -356,6 +395,8 @@ def modules_of(kit: Path) -> dict[str, str]:
 
 
 def read_json(path: Path) -> dict[str, object]:
+    """A JSON object from a file, `{}` for a file that is missing, no JSON or no object: for the trust
+    write of `session_paths` alone, which adds its key to whatever the file holds and reads nothing of it."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -363,23 +404,37 @@ def read_json(path: Path) -> dict[str, object]:
     return data if isinstance(data, dict) else {}
 
 
+SETTINGS_FIX = (
+    " — fix: check `claude --version` against scripts/claude-code.version: the kit reads the settings"
+    " Claude Code writes as that version writes them"
+)
+
+
 def enabled(project: Path) -> set[str]:
-    plugins = read_json(project / ".claude" / "settings.json").get("enabledPlugins")
-    return {str(k) for k, v in plugins.items() if v is True} if isinstance(plugins, dict) else set()
-
-
-def recorded(config: Path, project: Path) -> set[str]:
-    plugins = read_json(config / "plugins" / "installed_plugins.json").get("plugins")
-    found: set[str] = set()
-    if isinstance(plugins, dict):
-        for key, entries in plugins.items():
-            for entry in entries if isinstance(entries, list) else []:
-                if isinstance(entry, dict) and str(entry.get("projectPath", "")) in (
-                    str(project),
-                    str(project.resolve()),
-                ):
-                    found.add(str(key))
-    return found
+    """The plugins `enabledPlugins` of the project's .claude/settings.json (documented) holds as true. No
+    file, or no `enabledPlugins` in it, enables none; a file that cannot be read, is no JSON or no object,
+    or an `enabledPlugins` that is no object, is a Broken: a fault of the platform's write, never empty."""
+    path = project / ".claude" / "settings.json"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return set()
+    except OSError as bad:
+        raise Broken(f"{path} cannot be read ({bad.strerror}){SETTINGS_FIX}") from bad
+    try:
+        data = json.loads(text)
+    except ValueError as bad:
+        raise Broken(f"{path} is no JSON ({bad}){SETTINGS_FIX}") from bad
+    if not isinstance(data, dict):
+        raise Broken(f"{path} is a JSON {type(data).__name__}, not an object{SETTINGS_FIX}")
+    if "enabledPlugins" not in data:
+        return set()
+    plugins = data["enabledPlugins"]
+    if not isinstance(plugins, dict):
+        raise Broken(
+            f"{path} gives an enabledPlugins that is a {type(plugins).__name__}, not an object{SETTINGS_FIX}"
+        )
+    return {str(k) for k, v in plugins.items() if v is True}
 
 
 def fixture(project: Path, dials: str) -> None:
@@ -440,13 +495,123 @@ class Run:
     source: str
     marketplace: str  # the name the kit's clone gives its marketplace, read once from its marketplace.json
     project: Path | None = None
+    clone: Path | None = None  # the platform's clone of the marketplace, its installLocation, once read
 
-    def cache(self, module: str) -> Path:
-        return self.config / "plugins" / "cache" / self.marketplace / module / self.modules[module]
+    def key(self, module: str) -> str:
+        """The id the platform lists a module of the kit's marketplace by."""
+        return f"{module}@{self.marketplace}"
 
-    def market(self, module: str) -> Path:
-        """The module in the platform's own clone of the marketplace."""
-        return self.config / "plugins" / "marketplaces" / self.marketplace / "modules" / module
+
+REPLY_FIX = (
+    " — fix: check `claude --version` against scripts/claude-code.version: the kit reads Claude Code's"
+    " replies as that version writes them"
+)
+
+
+def shown(value: object) -> str:
+    """A reply of Claude Code, or a field of it, as a message quotes it: its repr, at most 200 characters."""
+    text = repr(value)
+    return text if len(text) <= 200 else text[:200] + "…"
+
+
+def listed(argv: list[str], cwd: Path, env: dict[str, str]) -> list[dict[str, object]]:
+    """The entries of `claude <argv>`, a documented `--json` command that prints a JSON list of objects: a
+    command that fails, a reply that is no JSON or no list, and an entry that is no object are each a Broken
+    saying what was found, with the fix that points at the Claude Code version."""
+    command = f"`claude {' '.join(argv)}`"
+    code, out, err = run_apart(["claude", *argv], cwd, env)
+    if code != 0:
+        raise Broken(f"{command} exited {code} ({last_line((err or out).strip())}){REPLY_FIX}")
+    try:
+        reply = json.loads(out)
+    except ValueError as bad:
+        raise Broken(f"{command} printed no JSON ({shown(out)}: {bad}){REPLY_FIX}") from bad
+    if not isinstance(reply, list):
+        raise Broken(f"{command} printed a JSON {type(reply).__name__}, not a list{REPLY_FIX}")
+    entries: list[dict[str, object]] = []
+    for entry in reply:
+        if not isinstance(entry, dict):
+            raise Broken(f"{command} lists an entry that is no object ({shown(entry)}){REPLY_FIX}")
+        entries.append(entry)
+    return entries
+
+
+def text_of(entry: dict[str, object], field: str, what: str, argv: list[str]) -> str:
+    """A field of an entry of `claude <argv>` that must be a string and not empty, or a Broken."""
+    value = entry.get(field)
+    if not isinstance(value, str) or not value:
+        found = shown(value) if field in entry else "absent"
+        raise Broken(
+            f"`claude {' '.join(argv)}` gives no {field} string for {what} ({field} is {found}){REPLY_FIX}"
+        )
+    return value
+
+
+MARKETPLACES = ["plugin", "marketplace", "list", "--json"]
+PLUGINS = ["plugin", "list", "--json"]
+
+
+def platform_clone(state: Run) -> Path:
+    """The platform's clone of the kit's marketplace, the `installLocation` of the one entry of
+    `claude plugin marketplace list --json` named as the kit's marketplace. The entry is a finding
+    (Misfit) when there is none, when its `source` is not `github` or its `repo` not the source's
+    repository; two entries of the name, a `source` or an `installLocation` that is no string and
+    any wrong shape of the reply are a Broken."""
+    entries = listed(MARKETPLACES, state.cwd, state.env)
+    own = [e for e in entries if e.get("name") == state.marketplace]
+    if not own:
+        raise Misfit(
+            f"the configuration knows no marketplace {state.marketplace}",
+            "make the block register the kit's repository, `claude plugin marketplace add <owner>/<repo>`",
+        )
+    if len(own) > 1:
+        raise Broken(
+            f"`claude {' '.join(MARKETPLACES)}` lists {len(own)} entries named {state.marketplace}{REPLY_FIX}"
+        )
+    entry = own[0]
+    source = text_of(entry, "source", state.marketplace, MARKETPLACES)
+    location = text_of(entry, "installLocation", state.marketplace, MARKETPLACES)
+    if source != "github":
+        raise Misfit(f"the marketplace is registered from a {source} source, not from GitHub", IN_PLACE)
+    repo, wanted = entry.get("repo"), state.source.split("#")[0]
+    if repo != wanted:
+        raise Misfit(
+            f"the marketplace is registered from {repo}, not from {wanted}",
+            f"make the block register the source it is given, {FROM_ENV} or the clone's origin, "
+            "and nothing after it",
+        )
+    return Path(location)
+
+
+def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]]:
+    """For each module of the kit, the entries of `claude plugin list --json`, run in the project, whose
+    `id` is the module's and whose `projectPath` is the project (as given or resolved), at any scope: the
+    user-scope entry of the id, which has no `projectPath`, and the entry of another project are none of
+    them. Each is read whole, `installPath`, `version` and `scope` strings, and a project- or local-scope
+    entry a `projectPath` string too; a fault of shape in an entry of a module's id, and two project-scope
+    entries of one id for the project, are a Broken, whatever else the list holds."""
+    here = {str(project), str(project.resolve())}
+    found: dict[str, list[dict[str, str]]] = {module: [] for module in state.modules}
+    for entry in listed(PLUGINS, project, state.env):
+        for module in state.modules:
+            key = state.key(module)
+            if entry.get("id") != key:
+                continue
+            fields = {f: text_of(entry, f, key, PLUGINS) for f in ("installPath", "version", "scope")}
+            if fields["scope"] in ("project", "local"):
+                where = text_of(entry, "projectPath", f"{key} at scope {fields['scope']}", PLUGINS)
+            else:
+                where = str(entry.get("projectPath", ""))
+            if where in here:
+                found[module].append(fields)
+    for module, own in found.items():
+        at_project = sum(e["scope"] == "project" for e in own)
+        if at_project > 1:
+            raise Broken(
+                f"`claude {' '.join(PLUGINS)}` lists {at_project} project-scope entries of "
+                f"{state.key(module)} for the project{REPLY_FIX}"
+            )
+    return found
 
 
 def session_paths(state: Run, project: Path) -> tuple[dict[str, str] | None, str]:
@@ -512,47 +677,38 @@ def claim(state: Run, name: str) -> str:
     if project is None:
         return "no block named check=new-repo made the project first"
     if name == "marketplace":
-        known = read_json(state.config / "plugins" / "known_marketplaces.json").get(state.marketplace)
-        if not isinstance(known, dict):
-            raise Misfit(
-                f"the configuration knows no marketplace {state.marketplace}",
-                "make the block register the kit's repository, "
-                "`claude plugin marketplace add <owner>/<repo>`",
-            )
-        source = known.get("source")
-        kind = source.get("source") if isinstance(source, dict) else None
-        if kind != "github":
-            raise Misfit(f"the marketplace is registered from a {kind} source, not from GitHub", IN_PLACE)
-        repo = source.get("repo") if isinstance(source, dict) else None
-        wanted = state.source.split("#")[0]
-        if repo != wanted:
-            raise Misfit(
-                f"the marketplace is registered from {repo}, not from {wanted}",
-                f"make the block register the source it is given, {FROM_ENV} or the clone's origin, "
-                "and nothing after it",
-            )
+        clone = platform_clone(state)
         mend = (
             "bring the source branch to the kit's clone — merge main into it and push — or point "
             f"{FROM_ENV} at the branch the clone holds"
         )
         try:
-            market = modules_of(state.config / "plugins" / "marketplaces" / state.marketplace)
+            market = modules_of(clone)
         except Broken as bad:
             said = str(bad).split(" — fix:")[0]
             raise Misfit(f"the platform's clone of the marketplace cannot be read ({said})", mend) from bad
         if market != state.modules:
             raise Misfit(f"the marketplace holds {market}, the kit's clone {state.modules}", mend)
+        state.clone = clone
         return ""
     if name in ("install", "reinstall", "update"):
-        on = enabled(project)
+        mine, on = project_entries(state, project), enabled(project)
+        copies: dict[str, Path] = {}
         for module in state.modules:
-            if not state.cache(module).is_dir():
-                return f"{module} is not in the plugin cache at {state.modules[module]}"
-            if f"{module}@{state.marketplace}" not in on:
+            own = [e for e in mine[module] if e["scope"] == "project"]
+            if not own:
+                return f"{module} is not installed for the project"
+            if own[0]["version"] != state.modules[module]:
+                return f"{module} is installed at {own[0]['version']}, not {state.modules[module]}"
+            copies[module] = Path(own[0]["installPath"])
+            if not copies[module].is_dir():
+                return f"{module} is not in the plugin cache at {copies[module]}"
+            if state.key(module) not in on:
                 return f"{module} is not enabled in the project's .claude/settings.json"
         if name == "reinstall":
+            clone = state.clone or platform_clone(state)
             for module in state.modules:
-                odd = differing(state.cache(module), state.market(module))
+                odd = differing(copies[module], clone / "modules" / module)
                 if odd:
                     return f"{module}'s {odd} is not alike in the cache and the marketplace"
         if name == "install":
@@ -572,7 +728,7 @@ def claim(state: Run, name: str) -> str:
                         "in a session there: a module cached and enabled that a session does not load "
                         "failed to load",
                     )
-                if Path(where).resolve() != state.cache(module).resolve():
+                if Path(where).resolve() != copies[module].resolve():
                     raise Misfit(f"a session runs {module} from {where}, not from the plugin cache", IN_PLACE)
         return ""
     if name == "kernel":
@@ -590,10 +746,8 @@ def claim(state: Run, name: str) -> str:
         code, said = run(["git", "status", "--porcelain"], project, state.env, joined=False)
         return "" if code == 0 and not said else "the project's working tree is not clean after the commit"
     if name == "uninstall":
-        left = sorted(
-            {f"{m}@{state.marketplace}" for m in state.modules}
-            & (enabled(project) | recorded(state.config, project))
-        )
+        mine, on = project_entries(state, project), enabled(project)
+        left = sorted(state.key(m) for m in state.modules if mine[m] or state.key(m) in on)
         return f"{', '.join(left)} still installed for the project" if left else ""
     return ""
 
@@ -837,10 +991,14 @@ def report(findings: list[Finding], examined: str, note: str = "") -> int:
 
 FAKE = '''#!/usr/bin/env python3
 """A fake claude for the self-test: the plugin commands the guide runs and a session's start, logged
-to a file (FAKE_LOG, else the configuration folder's). A marketplace added from `<owner>/<repo>#<branch>`
-is a GitHub one, cloned from the toy kit the environment names; one added from a path is a local folder.
-`--version` answers the pin of the toy kit, as the real one writes it, or FAKE_SAYS (escapes read) with
-the exit FAKE_EXIT."""
+to a file (FAKE_LOG, else the configuration folder's). It keeps its own state, the marketplaces added and
+the plugins installed, in the configuration folder's fake-state.json, its clone of a marketplace under
+fake-clone/ and its copies of the plugins under fake-copies/, and answers `plugin marketplace list --json`
+and `plugin list --json` from that state, or with the text of the file FAKE_MKT or FAKE_LIST names, and the
+exit FAKE_MKT_EXIT or FAKE_LIST_EXIT. A marketplace added from `<owner>/<repo>#<branch>` is a GitHub one,
+cloned from the toy kit the environment names; one added from a path is a local folder. `--version`
+answers the pin of the toy kit, as the real one writes it, or FAKE_SAYS (escapes read) with the exit
+FAKE_EXIT. FAKE_MUTANT names the one thing it does wrong."""
 import json, os, shutil, subprocess, sys
 from pathlib import Path
 mutant = os.environ.get("FAKE_MUTANT", "")
@@ -852,24 +1010,30 @@ if sys.argv[1:] == ["--version"]:
     said = os.environ.get("FAKE_SAYS")
     sys.stdout.write(pin + " (Claude Code)\\n" if said is None else said.encode().decode("unicode_escape"))
     sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
-plugins = config / "plugins"
-plugins.mkdir(parents=True, exist_ok=True)
-known = plugins / "known_marketplaces.json"
-installed = plugins / "installed_plugins.json"
 name = json.loads(
     (Path(os.environ["FAKE_SOURCE"]) / ".claude-plugin" / "marketplace.json").read_text()
 )["name"]
-market = plugins / "marketplaces" / name
+clone = config / "fake-clone" / name
+copies = config / "fake-copies"
+store = config / "fake-state.json"
 settings = Path.cwd() / ".claude" / "settings.json"
 def load(path):
     return json.loads(path.read_text()) if path.is_file() else {}
 def save(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data))
+def state():
+    return {"marketplaces": [], "plugins": []} | load(store)
 def cache_of(module):
-    manifest = market / "modules" / module / ".claude-plugin" / "plugin.json"
-    version = json.loads(manifest.read_text())["version"]
-    return plugins / "cache" / name / module / version
+    manifest = clone / "modules" / module / ".claude-plugin" / "plugin.json"
+    return copies / module / json.loads(manifest.read_text())["version"]
+def reply(variable):
+    if variable in os.environ:
+        sys.stdout.write(Path(os.environ[variable]).read_text())
+        sys.exit(int(os.environ.get(variable + "_EXIT", "0")))
+def fail():
+    print("boom", file=sys.stderr)
+    sys.exit(1)
 args = sys.argv[1:]
 if args[:3] == ["plugin", "marketplace", "add"]:
     if Path(os.path.expanduser(args[3])).exists() or mutant == "marketplace-directory":
@@ -886,47 +1050,124 @@ if args[:3] == ["plugin", "marketplace", "add"]:
     else:
         repo = "other/kit" if mutant == "marketplace-other-repo" else args[3].split("#")[0]
         source = {"source": "github", "repo": repo}
-    subprocess.run(["git", "clone", "--quiet", os.environ["FAKE_SOURCE"], str(market)], check=True)
+    subprocess.run(["git", "clone", "--quiet", os.environ["FAKE_SOURCE"], str(clone)], check=True)
     if mutant == "marketplace-fewer-modules":
-        shutil.rmtree(market / "modules" / "const-beta")
+        shutil.rmtree(clone / "modules" / "const-beta")
     if mutant == "marketplace-unreadable":
-        (market / "modules" / "const-beta" / "MODULE.md").unlink()
-    save(known, {name: {"source": source}})
+        (clone / "modules" / "const-beta" / "MODULE.md").unlink()
+    data = state()
+    data["marketplaces"] = [{"name": name} | source | {"installLocation": str(clone)}]
+    save(store, data)
 elif args[:3] == ["plugin", "marketplace", "update"]:
     pass
+elif args == ["plugin", "marketplace", "list", "--json"]:
+    reply("FAKE_MKT")
+    entries = state()["marketplaces"]
+    if mutant == "mkt-exit-1":
+        fail()
+    if mutant == "mkt-not-json":
+        print("marketplaces: none")
+        sys.exit(0)
+    if entries:
+        first = entries[0]
+        if mutant == "mkt-no-installLocation":
+            first.pop("installLocation")
+        if mutant == "mkt-installLocation-number":
+            first["installLocation"] = 7
+        if mutant == "mkt-clone-gone":
+            first["installLocation"] += "-gone"
+        if mutant == "mkt-no-source":
+            first.pop("source")
+        if mutant == "mkt-source-number":
+            first["source"] = 7
+    other = {"name": "other-mp", "source": "github", "repo": "other/kit", "installLocation": "/nowhere/o"}
+    if mutant == "mkt-two":
+        entries = entries + entries
+    if mutant == "mkt-other-first":
+        entries = [other, *entries]
+    if mutant == "mkt-other-last":
+        entries = [*entries, other]
+    if mutant == "mkt-entry-not-object":
+        entries = ["x", *entries]
+    print(json.dumps({"marketplaces": entries} if mutant == "mkt-not-list" else entries))
+elif args == ["plugin", "list", "--json"]:
+    reply("FAKE_LIST")
+    entries = state()["plugins"]
+    if mutant == "list-exit-1":
+        fail()
+    if mutant == "list-not-json":
+        print("no plugins yet")
+        sys.exit(0)
+    modules = sorted(p.name for p in (clone / "modules").iterdir()) if (clone / "modules").is_dir() else []
+    elsewhere = [
+        {"id": f"{m}@{name}", "version": "9.9.9", "scope": "user", "installPath": "/nowhere/" + m}
+        for m in modules
+    ]
+    if mutant.startswith("list-other-project"):
+        elsewhere = [
+            e | {"scope": "project", "projectPath": "/elsewhere/project"} for e in elsewhere
+        ]
+    for entry in entries:
+        if mutant == "list-wrong-version":
+            entry["version"] = "9.9.9"
+        for gone in ("projectPath", "installPath", "version", "scope"):
+            if mutant == "list-without-" + gone:
+                entry.pop(gone)
+    if mutant in ("list-user-first", "list-other-project-first"):
+        entries = [*elsewhere, *entries]
+    if mutant in ("list-user-last", "list-other-project-last"):
+        entries = [*entries, *elsewhere]
+    if mutant == "list-two-for-project":
+        entries = [*entries, *entries]
+    if mutant == "list-entry-not-object":
+        entries = ["x", *entries]
+    print(json.dumps({"plugins": entries} if mutant == "list-not-list" else entries))
 elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
     module = args[2].split("@")[0]
     if args[1] == "update":
         if mutant == "update-drops":
-            shutil.rmtree(cache_of(module).parent, ignore_errors=True)
+            shutil.rmtree(cache_of(module), ignore_errors=True)
+        if mutant == "settings-corrupt-on-update":
+            settings.write_text("not json")
         print("already at the latest version")
         sys.exit(0)
     cache = cache_of(module)
     if cache.exists():
         shutil.rmtree(cache)
-    shutil.copytree(market / "modules" / module, cache)
+    shutil.copytree(clone / "modules" / module, cache)
     if mutant == "reinstall-stale" and (config / "fake.reinstall").exists():
         (cache / "stale.txt").write_text("an old copy\\n")
     if mutant == "reinstall-lacks" and (config / "fake.reinstall").exists():
         (cache / "MODULE.md").unlink()
-    record = load(installed)
-    record.setdefault("plugins", {})[args[2]] = [{"scope": "project", "projectPath": str(Path.cwd())}]
-    save(installed, record)
+    entry = {
+        "id": args[2], "version": cache.name, "scope": "project", "enabled": True,
+        "installPath": str(cache), "projectPath": str(Path.cwd()),
+    }
+    if mutant == "install-at-user-scope":
+        entry = {k: v for k, v in entry.items() if k != "projectPath"} | {"scope": "user"}
+    if mutant == "install-for-other-project":
+        entry["projectPath"] = "/elsewhere/project"
+    data = state()
+    data["plugins"] = [e for e in data["plugins"] if e["id"] != args[2]]
+    if mutant != "install-not-listed":
+        data["plugins"].append(entry)
+    save(store, data)
     if mutant != "install-no-enable":
         data = load(settings)
         data.setdefault("enabledPlugins", {})[args[2]] = True
         save(settings, data)
 elif args[:2] == ["plugin", "uninstall"]:
     (config / "fake.reinstall").write_text("")
-    if mutant != "uninstall-keeps":
-        record = load(installed)
-        record.get("plugins", {}).pop(args[2], None)
-        save(installed, record)
+    module = args[2].split("@")[0]
+    if mutant not in ("uninstall-keeps", "uninstall-keeps-installed"):
+        data = state()
+        data["plugins"] = [e for e in data["plugins"] if e["id"] != args[2]]
+        save(store, data)
+        shutil.rmtree(copies / module, ignore_errors=True)
+    if mutant not in ("uninstall-keeps", "uninstall-keeps-enabled"):
         data = load(settings)
         data.get("enabledPlugins", {}).pop(args[2], None)
         save(settings, data)
-        module = args[2].split("@")[0]
-        shutil.rmtree(plugins / "cache" / name / module, ignore_errors=True)
 elif args[:1] == ["-p"] and mutant == "session-no-start":
     print("Error: the session could not start", file=sys.stderr)
     sys.exit(1)
@@ -936,7 +1177,7 @@ elif args[:1] == ["-p"]:
     if trusted.get("hasTrustDialogAccepted"):
         for key, on in load(settings).get("enabledPlugins", {}).items():
             module = key.split("@")[0]
-            where = market / "modules" / module if mutant == "session-in-place" else cache_of(module)
+            where = clone / "modules" / module if mutant == "session-in-place" else cache_of(module)
             if on and mutant != "session-loads-nothing":
                 found.append({"name": module, "path": str(where), "source": key})
     print(json.dumps({"type": "system", "subtype": "init", "plugins": found}))
@@ -1328,6 +1569,83 @@ def self_test() -> int:
                 got,
             )
 
+        def settings_said(text: str | None, as_folder: bool = False) -> tuple[Path, str]:
+            """The project whose .claude/settings.json holds `text` (no file for None, a folder of that name
+            for `as_folder`), and what `enabled` gives over it: the plugins it enables, sorted and joined by
+            commas, or "none", or its Broken's message."""
+            nonlocal count
+            count += 1
+            project = Path(listings) / f"settings-{count}"
+            (project / ".claude").mkdir(parents=True)
+            if as_folder:
+                (project / ".claude" / "settings.json").mkdir()
+            elif text is not None:
+                (project / ".claude" / "settings.json").write_text(text, encoding="utf-8")
+            try:
+                return project, ",".join(sorted(enabled(project))) or "none"
+            except Broken as bad:
+                return project, str(bad)
+
+        for name, text, enables in (
+            ("is missing", None, "none"),
+            ("is an empty object", "{}", "none"),
+            ("holds no enabledPlugins", '{"theme": "dark"}', "none"),
+            ("holds an empty enabledPlugins", '{"enabledPlugins": {}}', "none"),
+            (
+                "holds true, false, a string and a number",
+                '{"enabledPlugins": {"c@m": "yes", "b@m": false, "a@m": true, "d@m": 1, "e@m": true}}',
+                "a@m,e@m",
+            ),
+        ):
+            folder, got = settings_said(text)
+            case(f"a project's settings file that {name} enables {enables}", got == enables, got)
+        settings_fix = (
+            " — fix: check `claude --version` against scripts/claude-code.version: the kit reads the settings"
+            " Claude Code writes as that version writes them"
+        )  # typed by hand
+        for name, text, tail in (
+            (
+                "is empty",
+                "",
+                f" is no JSON (Expecting value: line 1 column 1 (char 0)){settings_fix}",
+            ),
+            (
+                "is no JSON",
+                "not json",
+                f" is no JSON (Expecting value: line 1 column 1 (char 0)){settings_fix}",
+            ),
+            ("is a JSON list", "[]", f" is a JSON list, not an object{settings_fix}"),
+            ("is a JSON string", '"x"', f" is a JSON str, not an object{settings_fix}"),
+            ("is a JSON null", "null", f" is a JSON NoneType, not an object{settings_fix}"),
+            (
+                "holds an enabledPlugins list",
+                '{"enabledPlugins": ["a@m"]}',
+                f" gives an enabledPlugins that is a list, not an object{settings_fix}",
+            ),
+            (
+                "holds an enabledPlugins null",
+                '{"enabledPlugins": null}',
+                f" gives an enabledPlugins that is a NoneType, not an object{settings_fix}",
+            ),
+            (
+                "holds an enabledPlugins string",
+                '{"enabledPlugins": "a@m"}',
+                f" gives an enabledPlugins that is a str, not an object{settings_fix}",
+            ),
+        ):
+            folder, got = settings_said(text)
+            case(
+                f"a project's settings file that {name} is a teaching BROKEN",
+                got == f"{folder}/.claude/settings.json{tail}",
+                got,
+            )
+        folder, got = settings_said(None, as_folder=True)
+        case(
+            "a project's settings file that is a folder is a teaching BROKEN",
+            got == f"{folder}/.claude/settings.json cannot be read (Is a directory){settings_fix}",
+            got,
+        )
+
     with tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch:
         root = Path(scratch)
         kit = toy_kit(root)
@@ -1359,6 +1677,387 @@ def self_test() -> int:
                 " — fix: give the marketplace its name, at the top of the object"
             ),
             unnamed,
+        )
+        green_examined = examined
+        # the platform's replies, whole sets of them: the fake prints the text of a file as `plugin
+        # marketplace list --json` or `plugin list --json`, and the readers are held to each reply
+        unit = root / "unit"
+        (unit / "config").mkdir(parents=True)
+        project_dir = unit / "project"
+        project_dir.mkdir()
+        linked_dir = unit / "linked"
+        linked_dir.symlink_to(project_dir)
+        files = 0
+
+        def unit_state(**extra: str) -> Run:
+            env = base | {"CLAUDE_CONFIG_DIR": str(unit / "config"), "FAKE_LOG": str(unit / "fake.log")}
+            return Run(unit, kit, unit / "config", env | extra, modules_of(kit), unit, "toy/kit#main", TOY_MP)
+
+        def reply_file(text: str) -> str:
+            nonlocal files
+            files += 1
+            (unit / f"reply-{files}.txt").write_text(text, encoding="utf-8")
+            return str(unit / f"reply-{files}.txt")
+
+        def without(entry: dict[str, object], *fields: str) -> dict[str, object]:
+            return {k: v for k, v in entry.items() if k not in fields}
+
+        reply_fix = (
+            " — fix: check `claude --version` against scripts/claude-code.version: the kit reads Claude"
+            " Code's replies as that version writes them"
+        )  # typed by hand
+        mkt_command = "`claude plugin marketplace list --json`"
+        listed_command = "`claude plugin list --json`"
+        no_json = "Expecting value: line 1 column 1 (char 0)"
+
+        def mkt_said(text: str, code: int = 0) -> str:
+            state = unit_state(FAKE_MKT=reply_file(text), FAKE_MKT_EXIT=str(code))
+            try:
+                return f"clone {platform_clone(state)}"
+            except Misfit as misfit:
+                return f"RED {misfit.what}"
+            except Broken as bad:
+                return f"BROKEN {bad}"
+
+        def mkt(**fields: object) -> dict[str, object]:
+            return {
+                "name": TOY_MP,
+                "source": "github",
+                "repo": "toy/kit",
+                "installLocation": "/platform/toy-mp",
+            } | fields
+
+        other = {"name": "other-mp", "source": "directory", "path": "/p", "installLocation": "/q"}
+        stray = mkt(name="stray-mp", installLocation="/wrong")  # a GitHub entry of the right repository
+        clone_of = "clone /platform/toy-mp"
+        for name, entries, result in (
+            ("one entry", [mkt()], clone_of),
+            ("another marketplace's entry first", [other, mkt()], clone_of),
+            ("another marketplace's entry last", [mkt(), other], clone_of),
+            ("a GitHub entry of another name first", [stray, mkt()], clone_of),
+            ("a GitHub entry of another name last", [mkt(), stray], clone_of),
+            ("no entry", [], "RED the configuration knows no marketplace toy-mp"),
+            ("only another marketplace's", [other], "RED the configuration knows no marketplace toy-mp"),
+            (
+                "a directory source",
+                [mkt(source="directory", path="/p")],
+                "RED the marketplace is registered from a directory source, not from GitHub",
+            ),
+            (
+                "another repository",
+                [mkt(repo="other/kit")],
+                "RED the marketplace is registered from other/kit, not from toy/kit",
+            ),
+            (
+                "no repository",
+                [without(mkt(), "repo")],
+                "RED the marketplace is registered from None, not from toy/kit",
+            ),
+            (
+                "a repository that is a number",
+                [mkt(repo=7)],
+                "RED the marketplace is registered from 7, not from toy/kit",
+            ),
+        ):
+            got = mkt_said(json.dumps(entries))
+            case(f"marketplace list, {name}: {result.split(' ')[0]}", got == result, got)
+        for name, text, code, rest in (
+            (
+                "not JSON",
+                "garbled",
+                0,
+                f"printed no JSON ('garbled': {no_json})",
+            ),
+            ("empty", "", 0, f"printed no JSON ('': {no_json})"),
+            ("an object", "{}", 0, "printed a JSON dict, not a list"),
+            ("a string", '"toy-mp"', 0, "printed a JSON str, not a list"),
+            ("null", "null", 0, "printed a JSON NoneType, not a list"),
+            ("a number", "7", 0, "printed a JSON int, not a list"),
+            ("a string entry", '["x"]', 0, "lists an entry that is no object ('x')"),
+            ("a number entry last", json.dumps([mkt(), 7]), 0, "lists an entry that is no object (7)"),
+            ("a number entry first", json.dumps([7, mkt()]), 0, "lists an entry that is no object (7)"),
+            ("a null entry last", json.dumps([mkt(), None]), 0, "lists an entry that is no object (None)"),
+            ("two entries of the name", json.dumps([mkt(), mkt()]), 0, "lists 2 entries named toy-mp"),
+            (
+                "two entries of the name round another",
+                json.dumps([mkt(), other, mkt(repo="other/kit")]),
+                0,
+                "lists 2 entries named toy-mp",
+            ),
+            (
+                "no source",
+                json.dumps([without(mkt(), "source")]),
+                0,
+                "gives no source string for toy-mp (source is absent)",
+            ),
+            (
+                "a source that is a number",
+                json.dumps([mkt(source=7)]),
+                0,
+                "gives no source string for toy-mp (source is 7)",
+            ),
+            (
+                "an empty source",
+                json.dumps([mkt(source="")]),
+                0,
+                "gives no source string for toy-mp (source is '')",
+            ),
+            (
+                "a source that is null",
+                json.dumps([mkt(source=None)]),
+                0,
+                "gives no source string for toy-mp (source is None)",
+            ),
+            (
+                "no installLocation",
+                json.dumps([without(mkt(), "installLocation")]),
+                0,
+                "gives no installLocation string for toy-mp (installLocation is absent)",
+            ),
+            (
+                "an installLocation that is a number",
+                json.dumps([mkt(installLocation=7)]),
+                0,
+                "gives no installLocation string for toy-mp (installLocation is 7)",
+            ),
+            (
+                "an installLocation that is a list",
+                json.dumps([mkt(installLocation=["x"])]),
+                0,
+                "gives no installLocation string for toy-mp (installLocation is ['x'])",
+            ),
+            (
+                "an empty installLocation",
+                json.dumps([mkt(installLocation="")]),
+                0,
+                "gives no installLocation string for toy-mp (installLocation is '')",
+            ),
+            (
+                "no installLocation on a directory source, before the finding on its source",
+                json.dumps([without(mkt(source="directory", path="/p"), "installLocation")]),
+                0,
+                "gives no installLocation string for toy-mp (installLocation is absent)",
+            ),
+            (
+                "no installLocation on another repository's entry, before the finding on its repository",
+                json.dumps([without(mkt(repo="other/kit"), "installLocation")]),
+                0,
+                "gives no installLocation string for toy-mp (installLocation is absent)",
+            ),
+            ("an exit 1 with a message", "boom", 1, "exited 1 (boom)"),
+            ("an exit 3 with a valid reply", "[]", 3, "exited 3 ([])"),
+        ):
+            got = mkt_said(text, code)
+            case(f"marketplace list, {name}: BROKEN", got == f"BROKEN {mkt_command} {rest}{reply_fix}", got)
+
+        def plug(module: str = "const-alpha", /, **fields: object) -> dict[str, object]:
+            return {
+                "id": f"{module}@{TOY_MP}",
+                "version": "0.0.1",
+                "scope": "project",
+                "enabled": True,
+                "installPath": f"/copies/{module}",
+                "projectPath": str(project_dir),
+            } | fields
+
+        def plugins_said(text: str, code: int = 0, project: Path = project_dir) -> str:
+            state = unit_state(FAKE_LIST=reply_file(text), FAKE_LIST_EXIT=str(code))
+            try:
+                found = project_entries(state, project)
+            except Broken as bad:
+                return f"BROKEN {bad}"
+            return "; ".join(
+                f"{m}=" + ",".join(f"{e['scope']}:{e['version']}:{e['installPath']}" for e in found[m])
+                for m in sorted(found)
+            )
+
+        def picks(alpha: str = "", beta: str = "") -> str:
+            return f"const-alpha={alpha}; const-beta={beta}"
+
+        alpha, beta = "project:0.0.1:/copies/const-alpha", "project:0.0.1:/copies/const-beta"
+        alone = without(plug(scope="user", version="9.9.9", installPath="/nowhere/u"), "projectPath")
+        away = plug(version="9.9.9", installPath="/nowhere/o", projectPath="/elsewhere/project")
+        both = [plug(), plug("const-beta")]
+        for name, entries, result, where in (
+            ("no entries", [], picks(), project_dir),
+            ("both modules", both, picks(alpha, beta), project_dir),
+            ("a user-scope entry of the id first", [alone, *both], picks(alpha, beta), project_dir),
+            ("a user-scope entry of the id last", [*both, alone], picks(alpha, beta), project_dir),
+            (
+                "a user-scope entry between",
+                [plug(), alone, plug("const-beta")],
+                picks(alpha, beta),
+                project_dir,
+            ),
+            ("an entry for another project first", [away, *both], picks(alpha, beta), project_dir),
+            ("an entry for another project last", [*both, away], picks(alpha, beta), project_dir),
+            (
+                "an entry for another project and a user-scope one round the right one",
+                [away, alone, plug(), alone, away],
+                picks(alpha),
+                project_dir,
+            ),
+            ("two user-scope entries of the id", [alone, alone], picks(), project_dir),
+            (
+                "an entry of another marketplace first, whatever its fields",
+                [{"id": "const-alpha@other-mp", "scope": "project"}, *both],
+                picks(alpha, beta),
+                project_dir,
+            ),
+            (
+                "an entry of a module the kit has not, whatever its fields",
+                [{"id": f"const-ghost@{TOY_MP}", "scope": "project"}, *both],
+                picks(alpha, beta),
+                project_dir,
+            ),
+            ("an entry with no id", [{"scope": "project"}, *both], picks(alpha, beta), project_dir),
+            (
+                "a project and a local entry of the id for the project",
+                [plug(), plug(scope="local", installPath="/copies/local-alpha")],
+                picks(alpha + ",local:0.0.1:/copies/local-alpha"),
+                project_dir,
+            ),
+            (
+                "the project given by a link, the entry holding its resolved path",
+                [plug(projectPath=str(project_dir.resolve()))],
+                picks(alpha),
+                linked_dir,
+            ),
+            (
+                "the project given by a link, the entry holding the link's path",
+                [plug(projectPath=str(linked_dir))],
+                picks(alpha),
+                linked_dir,
+            ),
+        ):
+            got = plugins_said(json.dumps(entries), project=where)
+            case(f"plugin list, {name}", got == result, got)
+        for name, text, code, rest in (
+            ("not JSON", "garbled", 0, f"printed no JSON ('garbled': {no_json})"),
+            ("empty", "", 0, f"printed no JSON ('': {no_json})"),
+            ("an object", "{}", 0, "printed a JSON dict, not a list"),
+            ("null", "null", 0, "printed a JSON NoneType, not a list"),
+            ("a string entry", '["x"]', 0, "lists an entry that is no object ('x')"),
+            ("a number entry last", json.dumps([*both, 7]), 0, "lists an entry that is no object (7)"),
+            ("a number entry first", json.dumps([7, *both]), 0, "lists an entry that is no object (7)"),
+            ("an exit 1 with a message", "boom", 1, "exited 1 (boom)"),
+            ("an exit 2 with a valid reply", json.dumps(both), 2, f"exited 2 ({json.dumps(both)})"),
+        ):
+            got = plugins_said(text, code)
+            case(f"plugin list, {name}: BROKEN", got == f"BROKEN {listed_command} {rest}{reply_fix}", got)
+        for field in ("installPath", "version", "scope"):
+            for shape, entry, said in (
+                ("absent", without(plug(), field), "absent"),
+                ("a number", plug(**{field: 7}), "7"),
+                ("empty", plug(**{field: ""}), "''"),
+                ("null", plug(**{field: None}), "None"),
+            ):
+                rest = f"gives no {field} string for const-alpha@toy-mp ({field} is {said})"
+                # the user-scope entry of the id, which the check never takes, is read too: first and last
+                for placed, entries in (
+                    ("a project entry alone", [entry]),
+                    ("a project entry last", [plug("const-beta"), entry]),
+                    ("a project entry first", [entry, plug("const-beta")]),
+                    (
+                        "a user-scope entry last",
+                        [
+                            *both,
+                            without(entry, "projectPath") | ({} if field == "scope" else {"scope": "user"}),
+                        ],
+                    ),
+                ):
+                    got = plugins_said(json.dumps(entries))
+                    case(
+                        f"plugin list, {field} {shape} on {placed}: BROKEN",
+                        got == f"BROKEN {listed_command} {rest}{reply_fix}",
+                        got,
+                    )
+        for scope in ("project", "local"):
+            for shape, entry, said in (
+                ("absent", without(plug(scope=scope), "projectPath"), "absent"),
+                ("a number", plug(scope=scope, projectPath=7), "7"),
+                ("empty", plug(scope=scope, projectPath=""), "''"),
+                ("null", plug(scope=scope, projectPath=None), "None"),
+            ):
+                rest = (
+                    "gives no projectPath string for const-alpha@toy-mp"
+                    f" at scope {scope} (projectPath is {said})"
+                )
+                for placed, entries in (
+                    ("alone", [entry]),
+                    ("last", [*both, entry]),
+                    ("first", [entry, *both]),
+                ):
+                    got = plugins_said(json.dumps(entries))
+                    case(
+                        f"plugin list, a {scope}-scope entry with projectPath {shape}, {placed}: BROKEN",
+                        got == f"BROKEN {listed_command} {rest}{reply_fix}",
+                        got,
+                    )
+        twice = f"lists 2 project-scope entries of const-alpha@toy-mp for the project{reply_fix}"
+        for name, entries, rest in (
+            ("two entries of the id", [plug(), plug()], twice),
+            ("two entries round another module's", [plug(), plug("const-beta"), plug()], twice),
+            ("two entries round a user-scope one", [plug(), alone, plug()], twice),
+            ("three entries", [plug(), plug(), plug()], twice.replace("lists 2", "lists 3")),
+            (
+                "two entries of the second module",
+                [plug("const-beta"), plug(), plug("const-beta")],
+                twice.replace("const-alpha", "const-beta"),
+            ),
+            (
+                "a shape fault of the second module before the two entries of the first",
+                [plug(), plug(), without(plug("const-beta"), "version")],
+                "gives no version string for const-beta@toy-mp (version is absent)" + reply_fix,
+            ),
+        ):
+            got = plugins_said(json.dumps(entries))
+            case(f"plugin list, {name}: BROKEN", got == f"BROKEN {listed_command} {rest}", got)
+        # the reinstall's comparison reads the platform's clone from the state, else from marketplace list
+        wanted_clone, held_copy, other_clone = unit / "clone", unit / "copy", unit / "other-clone"
+        for module in ("const-alpha", "const-beta"):
+            for folder, text in (
+                (wanted_clone / "modules" / module, "same\n"),
+                (held_copy / module, "same\n"),
+                (other_clone / "modules" / module, "odd\n"),
+            ):
+                folder.mkdir(parents=True)
+                (folder / "a.txt").write_text(text, encoding="utf-8")
+        (project_dir / ".claude").mkdir()
+        (project_dir / ".claude" / "settings.json").write_text(
+            json.dumps({"enabledPlugins": {f"{m}@{TOY_MP}": True for m in ("const-alpha", "const-beta")}}),
+            encoding="utf-8",
+        )
+        copies_listed = [plug(m, installPath=str(held_copy / m)) for m in ("const-alpha", "const-beta")]
+        reinstalling = unit_state(
+            FAKE_LIST=reply_file(json.dumps(copies_listed)),
+            FAKE_MKT=reply_file(json.dumps([mkt(installLocation=str(wanted_clone))])),
+        )
+        reinstalling.project = project_dir
+        reinstalling.clone = None
+        got = claim(reinstalling, "reinstall")
+        case(
+            "a reinstall with no clone on the state reads it from marketplace list: alike, no finding",
+            got == "",
+            got,
+        )
+        (held_copy / "const-alpha" / "a.txt").write_text("changed\n", encoding="utf-8")
+        got = claim(reinstalling, "reinstall")
+        case(
+            "a reinstall with no clone on the state, a copy that differs from the listed clone's module",
+            got == "const-alpha's a.txt is not alike in the cache and the marketplace",
+            got,
+        )
+        (held_copy / "const-alpha" / "a.txt").write_text("same\n", encoding="utf-8")
+        reinstalling.clone = other_clone
+        got = claim(reinstalling, "reinstall")
+        case(
+            "a reinstall compares with the clone the state keeps, not with a fresh read",
+            got == "const-alpha's a.txt is not alike in the cache and the marketplace",
+            got,
+        )
+        still_installed = (
+            "after check=uninstall: const-alpha@toy-mp, const-beta@toy-mp still installed for the project"
         )
         runs: list[tuple[str, dict[str, str], str, str]] = [
             ("a block that exits 1 red", {"scan": "false"}, "", "the block named check=scan exited 1"),
@@ -1463,6 +2162,48 @@ def self_test() -> int:
                 "uninstall-keeps",
                 "after check=uninstall: const-alpha@toy-mp",
             ),
+            (
+                "an uninstall that keeps the plugin installed but not enabled red, through the list",
+                {},
+                "uninstall-keeps-installed",
+                still_installed,
+            ),
+            (
+                "an uninstall that keeps the plugin enabled but not installed red, through the settings",
+                {},
+                "uninstall-keeps-enabled",
+                still_installed,
+            ),
+            (
+                "an install the platform lists for no project red",
+                {},
+                "install-not-listed",
+                "after check=install: const-alpha is not installed for the project",
+            ),
+            (
+                "an install the platform lists at user scope red",
+                {},
+                "install-at-user-scope",
+                "after check=install: const-alpha is not installed for the project",
+            ),
+            (
+                "an install the platform lists for another project red",
+                {},
+                "install-for-other-project",
+                "after check=install: const-alpha is not installed for the project",
+            ),
+            (
+                "an install listed at another version than the manifest's red",
+                {},
+                "list-wrong-version",
+                "after check=install: const-alpha is installed at 9.9.9, not 0.0.1",
+            ),
+            (
+                "a marketplace whose listed clone is no folder red",
+                {},
+                "mkt-clone-gone",
+                "after check=marketplace: the platform's clone of the marketplace cannot be read",
+            ),
         ]
         for name, replace, mutant, expected in runs:
             findings, examined, _ = run_guide(toy_guide(**replace), kit, base | {"FAKE_MUTANT": mutant})
@@ -1471,6 +2212,94 @@ def self_test() -> int:
                 len(findings) == 1 and findings[0].what.startswith(expected),
                 f"{whats(findings)} ({examined})",
             )
+        dropped, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "update-drops"})
+        case(
+            "an update that drops a module red, naming the folder the platform lists for it",
+            len(dropped) == 1
+            and dropped[0].what.startswith("after check=update: const-alpha is not in the plugin cache at ")
+            and dropped[0].what.endswith("/.claude/fake-copies/const-alpha/0.0.1"),
+            whats(dropped),
+        )
+        # the decoys: entries the check must not take, first and last, and the run green
+        for mutant in (
+            "list-user-first",
+            "list-user-last",
+            "list-other-project-first",
+            "list-other-project-last",
+            "mkt-other-first",
+            "mkt-other-last",
+        ):
+            decoyed, decoyed_examined, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
+            case(
+                f"{mutant}: an entry that is not the module's, or the marketplace's, is skipped",
+                not decoyed and decoyed_examined == green_examined,
+                f"{whats(decoyed)} ({decoyed_examined})",
+            )
+
+        def broke(mutant: str) -> str:
+            """The Broken a run over the toy guide ends in with the fake doing `mutant`, or its findings."""
+            try:
+                found, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
+            except Broken as bad:
+                return str(bad)
+            return f"no Broken: {whats(found)}"
+
+        for mutant, rest in (
+            ("mkt-not-json", f"{mkt_command} printed no JSON ('marketplaces: none\\n': {no_json})"),
+            ("mkt-not-list", f"{mkt_command} printed a JSON dict, not a list"),
+            ("mkt-two", f"{mkt_command} lists 2 entries named toy-mp"),
+            ("mkt-entry-not-object", f"{mkt_command} lists an entry that is no object ('x')"),
+            ("mkt-exit-1", f"{mkt_command} exited 1 (boom)"),
+            (
+                "mkt-no-installLocation",
+                f"{mkt_command} gives no installLocation string for toy-mp (installLocation is absent)",
+            ),
+            (
+                "mkt-installLocation-number",
+                f"{mkt_command} gives no installLocation string for toy-mp (installLocation is 7)",
+            ),
+            ("mkt-no-source", f"{mkt_command} gives no source string for toy-mp (source is absent)"),
+            ("mkt-source-number", f"{mkt_command} gives no source string for toy-mp (source is 7)"),
+            ("list-not-json", f"{listed_command} printed no JSON ('no plugins yet\\n': {no_json})"),
+            ("list-not-list", f"{listed_command} printed a JSON dict, not a list"),
+            ("list-entry-not-object", f"{listed_command} lists an entry that is no object ('x')"),
+            ("list-exit-1", f"{listed_command} exited 1 (boom)"),
+            (
+                "list-without-projectPath",
+                f"{listed_command} gives no projectPath string for const-alpha@toy-mp at scope project"
+                " (projectPath is absent)",
+            ),
+            (
+                "list-without-installPath",
+                f"{listed_command} gives no installPath string for const-alpha@toy-mp"
+                " (installPath is absent)",
+            ),
+            (
+                "list-without-version",
+                f"{listed_command} gives no version string for const-alpha@toy-mp (version is absent)",
+            ),
+            (
+                "list-without-scope",
+                f"{listed_command} gives no scope string for const-alpha@toy-mp (scope is absent)",
+            ),
+            (
+                "list-two-for-project",
+                f"{listed_command} lists 2 project-scope entries of const-alpha@toy-mp for the project",
+            ),
+        ):
+            got = broke(mutant)
+            case(
+                f"{mutant}: a BROKEN pointing at the Claude Code version, never a finding against INSTALL.md",
+                got == rest + reply_fix,
+                got,
+            )
+        got = broke("settings-corrupt-on-update")
+        case(
+            "settings.json the platform wrote as no JSON is a BROKEN at the update claim",
+            got.startswith("/")
+            and got.endswith(f"/.claude/settings.json is no JSON ({no_json}){settings_fix}"),
+            got,
+        )
         for name, replace, fix in (
             (
                 "a marketplace block that exits 1",
@@ -1772,6 +2601,25 @@ def self_test() -> int:
             and lines == [stuck("exited 139 (no output)"), stop]
             and logged() == ["--version"],
             f"{ended} {lines} {logged()}",
+        )
+        unreadable_list = f"{listed_command} printed no JSON ('no plugins yet\\n': {no_json}){reply_fix}"
+        ended, lines = whole_run(says_env(too_old, 0, "1") | {"FAKE_MUTANT": "list-not-json"})
+        case(
+            "a whole run on a reply of the wrong shape off the pin prints the two BROKEN lines, the note at"
+            " the end of each",
+            ended == EXIT_BROKEN
+            and lines
+            == [
+                "BROKEN: " + unreadable_list + noted.format("2.1.286"),
+                stop + noted.format("2.1.286"),
+            ],
+            f"{ended} {lines}",
+        )
+        ended, lines = whole_run(base | {"FAKE_MUTANT": "list-not-json"})
+        case(
+            "a whole run on a reply of the wrong shape on the pin prints the two BROKEN lines, no note",
+            ended == EXIT_BROKEN and lines == ["BROKEN: " + unreadable_list, stop],
+            f"{ended} {lines}",
         )
         try:
             committed_guide(root / "bin", os.environ | {"GIT_CEILING_DIRECTORIES": str(root)})
