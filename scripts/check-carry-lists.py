@@ -13,9 +13,9 @@ script can hold:
                document of type current-state, CLAUDE.md, a skill of the kit, a module's or the
                template's own file, a file that is not markdown — a file, never a folder. The rollout
                plan, a research comparison, another record and a README cannot — the root's, where
-               rulings were found hiding, and a module's, a page for a reader that binds nothing.
-               "pending" is for intent that is not yet real, and its
-               link leads to the task-record that holds the work to come — a plan, never a
+               rulings were found hiding, and a module's, a page written for a reader, which binds
+               nothing, whatever envelope it is given. "pending" is for intent that is not yet real,
+               and its link leads to the task-record that holds the work to come — a plan, never a
                decision record — where the kernel says such intent rides. The entry is never
                rewritten: once that task-record closes, the check says so in a note.
   the receipt  the commit that accepts a record — trailer "Accepted: <record id>" — also carries
@@ -284,6 +284,8 @@ def home_problem(
             f"{shown} is a directory, and a rule is stated in a file",
             PEND_IT if pending else "link the file in it that states the item",
         )
+    if re.fullmatch(r"modules/[^/]+/README\.md", shown):
+        return f"{shown} is a module's README, a page written for a reader, and it binds nothing", general
     envelope, _ = split_frontmatter(path.read_text(encoding="utf-8")) if path.suffix == ".md" else ({}, "")
     kind = envelope.get("type")
     if pending:
@@ -295,8 +297,6 @@ def home_problem(
         )
     if path.suffix != ".md":
         return None
-    if re.fullmatch(r"modules/[^/]+/README\.md", shown):
-        return f"{shown} is a module's README, a page for a reader that binds nothing", general
     if kind is None:
         if shown == UNGOVERNED_HOMES[0] or shown.startswith(UNGOVERNED_HOMES[1:]):
             return None
@@ -753,6 +753,8 @@ def sample_kit(root: Path, record: str = GOOD_RECORD, layout: Layout = DEFAULT_L
         "docs/research",
         ".claude/skills/s",
         "modules/m",
+        "modules/n",
+        "modules/p",
         "scripts",
     ):
         (root / folder).mkdir(parents=True, exist_ok=True)
@@ -763,6 +765,8 @@ def sample_kit(root: Path, record: str = GOOD_RECORD, layout: Layout = DEFAULT_L
         "docs/done.md": "id: done\ntype: task-record\nstatus: inactive",
         "docs/research/r.md": "id: r\ntype: non-authoritative\nstatus: active",
         ".claude/skills/s/SKILL.md": "name: s\ndescription: a skill of the kit",
+        "modules/n/README.md": "id: n\ntype: current-state\nstatus: active",
+        "modules/p/README.md": "id: p-page\ntype: task-record\nstatus: active",
     }
     for name, envelope in envelopes.items():
         (root / name).write_text(f"---\n{envelope}\n---\n", encoding="utf-8")
@@ -913,6 +917,12 @@ def self_test() -> int:
         "a home in another record": lambda t: t.replace(home, f"{SAMPLE}.md"),
         "a home in the README": lambda t: t.replace(home, "../../README.md"),
         "a home in a module's README": lambda t: t.replace(home, "../../modules/m/README.md"),
+        "a home in a module's README given an envelope": lambda t: t.replace(
+            home, "../../modules/n/README.md"
+        ),
+        "pending intent in a module's README given a task-record envelope": lambda t: t.replace(
+            "(../plan.md)", "(../../modules/p/README.md)"
+        ),
         "a home in a document that is not in force": lambda t: t.replace(home, "../policies/old.md"),
         "a folder as a home": lambda t: t.replace(home, "../../scripts"),
         "a home that does not exist": lambda t: t.replace(home, "../policies/none.md"),
