@@ -98,11 +98,13 @@ identifying field is no string or is empty (`name` in the marketplace list, `id`
 entry of another marketplace or plugin too), two entries of the marketplace's name or two project-scope
 entries of a module's id for the project, a field a claim reads (`source`, `installLocation`, `repo` of a
 `github` entry, `installPath`, `version`, `scope`, and `projectPath` of a project- or local-scope entry)
-that is no string or is empty, an `installLocation` that names no existing folder, and a project's
-.claude/settings.json that is unreadable, no JSON object, or whose `enabledPlugins` is no object. The fix
-of these alone is worded by `kit_module_doc.platform_fix` from the state of the run, and is never a change
-to the guide: on the pinned version it is to update the kit's reader that the line names (`listed`,
-`platform_clone`, `project_entries` or `enabled`), to what that version writes; off the pin, to run again
+that is no string or is empty, an `installLocation` that names no existing folder, a project's
+.claude/settings.json that is unreadable, no JSON object, or whose `enabledPlugins` is no object, and the
+headless session's `system/init` event whose `plugins` is no list of objects each with a `name` and a
+`path` that are strings and not empty, or lists a name twice. The fix of these alone is worded by
+`kit_module_doc.platform_fix` from the state of the run, and is never a change to the guide: on the pinned
+version it is to update the kit's reader that the line names (`listed`, `platform_clone`,
+`project_entries`, `session_paths` or `enabled`), to what that version writes; off the pin, to run again
 on the pinned version. Every other configuration failure, such as a module document or
 manifest that cannot be read or a clone that cannot be made, prints a fix of its own. Needs no
 Claude account login: the plugin commands read none, and the session stops before the model. Git needs a
@@ -652,14 +654,20 @@ def listed(argv: list[str], cwd: Path, env: dict[str, str], note: Note) -> list[
     return entries
 
 
-def text_of(entry: dict[str, object], field: str, what: str, argv: list[str], note: Note, reader: str) -> str:
-    """A field of an entry of `claude <argv>` that must be a string and not empty, or a Broken whose fix
-    names `reader`, the function that asked for the field and so knows what the platform writes."""
+def command_of(argv: list[str]) -> str:
+    """A documented `--json` command as a message names it."""
+    return f"`claude {' '.join(argv)}`"
+
+
+def text_of(entry: dict[str, object], field: str, what: str, source: str, note: Note, reader: str) -> str:
+    """A field of an entry of a reply that must be a string and not empty, or a Broken whose fix names
+    `reader`, the function that asked for the field and so knows what the platform writes. `source` names
+    the reply as a message does: `command_of` of a list command, or the session's init event."""
     value = entry.get(field)
     if not isinstance(value, str) or not value:
         found = shown(value) if field in entry else "absent"
         raise Broken(
-            f"`claude {' '.join(argv)}` gives no {field} string for {what} ({field} is {found})"
+            f"{source} gives no {field} string for {what} ({field} is {found})"
             + platform_fix(note, SCRIPT, reader, "a reply")
         )
     return value
@@ -680,7 +688,7 @@ def platform_clone(state: Run) -> Path:
     not the guide."""
     entries = listed(MARKETPLACES, state.cwd, state.env, state.note)
     names = [
-        text_of(e, "name", f"the list's entry {n}", MARKETPLACES, state.note, "platform_clone")
+        text_of(e, "name", f"the list's entry {n}", command_of(MARKETPLACES), state.note, "platform_clone")
         for n, e in enumerate(entries, 1)
     ]
     own = [e for e, name in zip(entries, names, strict=True) if name == state.marketplace]
@@ -697,7 +705,7 @@ def platform_clone(state: Run) -> Path:
     entry = own[0]
 
     def field(name: str) -> str:
-        return text_of(entry, name, state.marketplace, MARKETPLACES, state.note, "platform_clone")
+        return text_of(entry, name, state.marketplace, command_of(MARKETPLACES), state.note, "platform_clone")
 
     source, location = field("source"), field("installLocation")
     if source != "github":
@@ -730,13 +738,13 @@ def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]
     found: dict[str, list[dict[str, str]]] = {module: [] for module in state.modules}
     for position, entry in enumerate(listed(PLUGINS, project, state.env, state.note), 1):
         nth = f"the list's entry {position}"
-        identity = text_of(entry, "id", nth, PLUGINS, state.note, "project_entries")
+        identity = text_of(entry, "id", nth, command_of(PLUGINS), state.note, "project_entries")
         for module in state.modules:
             key = state.key(module)
             if identity != key:
                 continue
             fields = {
-                f: text_of(entry, f, key, PLUGINS, state.note, "project_entries")
+                f: text_of(entry, f, key, command_of(PLUGINS), state.note, "project_entries")
                 for f in ("installPath", "version", "scope")
             }
             if fields["scope"] in ("project", "local"):
@@ -744,7 +752,7 @@ def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]
                     entry,
                     "projectPath",
                     f"{key} at scope {fields['scope']}",
-                    PLUGINS,
+                    command_of(PLUGINS),
                     state.note,
                     "project_entries",
                 )
@@ -763,9 +771,50 @@ def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]
     return found
 
 
+INIT_EVENT = "the headless session's `system/init` event"
+
+
+def init_paths(event: dict[str, object], note: Note) -> dict[str, str]:
+    """Each plugin's path by its name, from the `plugins` of the `system/init` event as the headless page
+    documents it: an array of objects, each with a `name` and a `path`. The event is a platform reply, and a
+    fault in it is a Broken, never an answer for the guide: a `plugins` that is absent or no list, an entry
+    that is no object, a `name` or `path` that is absent, no string or empty, and two entries of one name,
+    whatever their paths. An entry that is no module of the kit, a built-in plugin with a path that is no
+    folder among them, is an entry like the others; the caller finds a module that is not listed. The fix
+    of each Broken names `session_paths`, which asks for the event and so knows what the platform writes."""
+    plugins = event.get("plugins")
+    if not isinstance(plugins, list):
+        found = shown(plugins) if "plugins" in event else "absent"
+        raise Broken(
+            f"{INIT_EVENT} gives no plugins list (plugins is {found})"
+            + platform_fix(note, SCRIPT, "session_paths", "a reply")
+        )
+    names: list[str] = []
+    paths: dict[str, str] = {}
+    for n, plugin in enumerate(plugins, 1):
+        if not isinstance(plugin, dict):
+            raise Broken(
+                f"{INIT_EVENT} gives plugins entry {n} that is no object ({shown(plugin)})"
+                + platform_fix(note, SCRIPT, "session_paths", "a reply")
+            )
+        what = f"plugins entry {n}"
+        name = text_of(plugin, "name", what, INIT_EVENT, note, "session_paths")
+        names.append(name)
+        paths[name] = text_of(plugin, "path", what, INIT_EVENT, note, "session_paths")
+    for name in names:
+        if names.count(name) > 1:
+            raise Broken(
+                f"{INIT_EVENT} lists {names.count(name)} plugins named {name}"
+                + platform_fix(note, SCRIPT, "session_paths", "a reply")
+            )
+    return paths
+
+
 def session_paths(state: Run, project: Path) -> tuple[dict[str, str] | None, str]:
     """Each plugin's path as a headless session in the project reports it at start, the project trusted
-    in the configuration first — None when the session reported no start — and its last line."""
+    in the configuration first — None when the session reported no start, the first `system/init` event
+    being the one read, as the headless page documents one at the start of the stream — and its last line.
+    An event of another shape than the page documents is a Broken (`init_paths`)."""
     dot = state.config / ".claude.json"
     data = read_json(dot)
     projects = data.get("projects")
@@ -783,12 +832,7 @@ def session_paths(state: Run, project: Path) -> tuple[dict[str, str] | None, str
         except ValueError:
             continue
         if isinstance(event, dict) and event.get("type") == "system" and event.get("subtype") == "init":
-            plugins = event.get("plugins")
-            return {
-                str(p.get("name")): str(p.get("path"))
-                for p in (plugins if isinstance(plugins, list) else [])
-                if isinstance(p, dict)
-            }, ""
+            return init_paths(event, state.note), ""
     return None, last_line(said)
 
 
@@ -1396,7 +1440,39 @@ elif args[:1] == ["-p"]:
             where = clone / "modules" / module if mutant == "session-in-place" else cache_of(module)
             if on and mutant != "session-loads-nothing":
                 found.append({"name": module, "path": str(where), "source": key})
-    print(json.dumps({"type": "system", "subtype": "init", "plugins": found}))
+    event = {"type": "system", "subtype": "init", "plugins": found}
+    builtin = {"name": "agents-md", "path": "builtin", "source": "agents-md@builtin"}
+    if mutant == "session-builtin":
+        found.insert(0, builtin)
+    if mutant == "session-builtin-only":
+        found[:] = [builtin]
+    if mutant == "session-plugins-absent":
+        del event["plugins"]
+    if mutant == "session-plugins-null":
+        event["plugins"] = None
+    if mutant == "session-plugins-object":
+        event["plugins"] = {"name": "const-alpha"}
+    if mutant == "session-plugins-string":
+        event["plugins"] = "const-alpha"
+    if mutant == "session-entry-string":
+        found.insert(1, "const-beta")
+    if mutant.startswith("session-name-"):
+        if mutant == "session-name-absent":
+            del found[0]["name"]
+        else:
+            found[0]["name"] = "" if mutant == "session-name-empty" else 7
+    if mutant.startswith("session-path-"):
+        if mutant == "session-path-absent":
+            del found[1]["path"]
+        else:
+            found[1]["path"] = "" if mutant == "session-path-empty" else 7
+    if mutant == "session-dup-same":
+        found.append(dict(found[0]))
+    if mutant == "session-dup-diff":
+        found.append(dict(found[0]) | {"path": "/elsewhere/" + found[0]["name"]})
+    print("a line that is no JSON")  # skipped, as an event of another type is
+    print(json.dumps({"type": "system", "subtype": "hook_started", "plugins": None}))
+    print(json.dumps(event))
     print(json.dumps({"type": "result", "subtype": "success", "result": "Not logged in"}))
     sys.exit(1)
 else:
@@ -3167,6 +3243,41 @@ def self_test() -> int:
             and stopped[0].render().count("fix:") == 1,
             " | ".join(f"{f.what} / {f.fix}" for f in stopped),
         )
+        # the init event as the headless page documents it: `plugins` an array of objects each with a `name`
+        # and a `path` (both strings, not empty), one entry to a name. A fault in it is the platform's reply
+        # unread, a BROKEN, never a finding against the guide; a built-in plugin, whose path is no folder,
+        # is an entry like the others; the lines are typed by hand
+        event = "the headless session's `system/init` event"
+        for mutant, rest in (
+            ("session-plugins-absent", f"{event} gives no plugins list (plugins is absent)"),
+            ("session-plugins-null", f"{event} gives no plugins list (plugins is None)"),
+            (
+                "session-plugins-object",
+                f"{event} gives no plugins list (plugins is {{'name': 'const-alpha'}})",
+            ),
+            ("session-plugins-string", f"{event} gives no plugins list (plugins is 'const-alpha')"),
+            ("session-entry-string", f"{event} gives plugins entry 2 that is no object ('const-beta')"),
+            ("session-name-absent", f"{event} gives no name string for plugins entry 1 (name is absent)"),
+            ("session-name-empty", f"{event} gives no name string for plugins entry 1 (name is '')"),
+            ("session-name-number", f"{event} gives no name string for plugins entry 1 (name is 7)"),
+            ("session-path-absent", f"{event} gives no path string for plugins entry 2 (path is absent)"),
+            ("session-path-empty", f"{event} gives no path string for plugins entry 2 (path is '')"),
+            ("session-path-number", f"{event} gives no path string for plugins entry 2 (path is 7)"),
+            ("session-dup-same", f"{event} lists 2 plugins named const-alpha"),
+            ("session-dup-diff", f"{event} lists 2 plugins named const-alpha"),
+        ):
+            got = broke(mutant)
+            case(
+                f"{mutant}: a BROKEN pointing at the Claude Code version, never a finding against INSTALL.md",
+                got == rest + fix_of("session_paths"),
+                got,
+            )
+        builtin, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "session-builtin"})
+        case(
+            "a built-in plugin beside the modules in the init event: green, its path being no folder",
+            not builtin,
+            whats(builtin),
+        )
         never, _, _ = run_guide(
             toy_guide(marketplace="true || claude plugin marketplace add toy/kit"), kit, base
         )
@@ -3182,6 +3293,8 @@ def self_test() -> int:
             ("session-in-place", "register the kit from GitHub"),
             ("install-no-enable", "make the block install each module at project scope"),
             ("session-loads-nothing", "run §2 steps 1 to 3 in a project of your own and read the Errors tab"),
+            # a well-formed list that holds a built-in plugin and lacks the modules: the same finding
+            ("session-builtin-only", "run §2 steps 1 to 3 in a project of your own and read the Errors tab"),
         ):
             taught, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
             case(
@@ -3498,6 +3611,27 @@ def self_test() -> int:
         case(
             "a whole run on a reply of the wrong shape on the pin prints the two BROKEN lines, no note",
             ended == EXIT_BROKEN and lines == ["BROKEN: " + unreadable_head + fix_of("listed"), stop],
+            f"{ended} {lines}",
+        )
+        unreadable_event = (  # the init event's, typed by hand
+            "the headless session's `system/init` event gives no path string for plugins entry 2 (path is 7)"
+        )
+        ended, lines = whole_run(says_env(too_old, 0, "1") | {"FAKE_MUTANT": "session-path-number"})
+        case(
+            "a whole run on an init event of the wrong shape off the pin prints the two BROKEN lines, the"
+            " note at the end of each, the fix the run on the pinned version",
+            ended == EXIT_BROKEN
+            and lines
+            == [
+                "BROKEN: " + unreadable_event + off_fix + noted.format("2.1.286"),
+                stop + noted.format("2.1.286"),
+            ],
+            f"{ended} {lines}",
+        )
+        ended, lines = whole_run(base | {"FAKE_MUTANT": "session-path-number"})
+        case(
+            "a whole run on an init event of the wrong shape on the pin prints the two BROKEN lines, no note",
+            ended == EXIT_BROKEN and lines == ["BROKEN: " + unreadable_event + fix_of("session_paths"), stop],
             f"{ended} {lines}",
         )
         green_line = (
