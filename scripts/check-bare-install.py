@@ -113,7 +113,9 @@ hooks/hooks.json to the shape the hooks reference gives"; a `command` hook with 
 (a boolean is none), the same fix; a valid hook of a type other than `command`, "make it a `command`
 hook, or teach `hooks_of` and `check_installed` to run a hook of that type"; a hooks file that is there
 and cannot be read (its permissions, an I/O error), "make it a readable file, or restore it with git
-checkout". A missing hooks file, or a folder in its place, gives no hooks. Every other configuration
+checkout"; a hooks file whose place cannot be looked up (its folder cannot be searched, an I/O error),
+"make its folder searchable". A missing hooks file or folder, or a folder in the file's place, gives no
+hooks. Every other configuration
 failure prints a fix of its own, such as a commit the kit's history lacks and cannot fetch, a module
 document that cannot be read, a module the kit lacks, a source that names a branch of no repository, a
 marketplace file that gives no name. The run holds the case of an absent dials file; a module with
@@ -137,7 +139,10 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          is no JSON, no UTF-8, nested too deep, a list or lacking "hooks"; an event, a
                          group or a hook of the wrong shape, named by its place; a hooks file that is
                          there and cannot be read (a denied read, an I/O error, the read mocked), the
-                         line of its own; and a folder in its place, which gives no hooks; the git line
+                         line of its own; a place that cannot be looked up (a hooks folder with no
+                         permissions, real unless run as root, and the lookup mocked to a denial and
+                         an I/O error), the line naming the folder; and a folder in its place, which
+                         gives no hooks; the git line
                          of the bare repository, `git init`, `git add` and `git commit` each failing at
                          the exits 1, 2, 124 and 128, the BROKEN named by the subcommand with the `-c`
                          options skipped, the last line quoted from the standard error, else from the
@@ -295,8 +300,11 @@ def hooks_of(plugin: Path) -> list[Hook]:
     """The hooks of a plugin's hooks/hooks.json, each with the seconds it is waited for: its own `timeout`,
     else the platform's default for a `command` hook on its event (`EVENT_HOOK_TIMEOUT`, else
     `HOOK_TIMEOUT`). A hooks file that is a regular file and cannot be read (an `OSError`: its
-    permissions, an I/O error) is a Broken of its own, with a fix to make it readable; a missing one, or
-    anything in its place that is no regular file (a folder), gives no hooks. Every shape of the file
+    permissions, an I/O error) is a Broken of its own, with a fix to make it readable; so is a place
+    that cannot be looked up (an `OSError` from `Path.is_file`: its folder cannot be searched, an I/O
+    error), with a fix to make the folder searchable, since the file's permissions and `git checkout` do
+    not mend that. A missing hooks file or folder, or anything in its place that is no regular file (a
+    folder), gives no hooks, as does a path through a file or a dangling link. Every shape of the file
     the check cannot run is a Broken naming the file, the event and the hook's place (group and hook,
     counted from 1), never another exception: a file that is no object with a "hooks" object of events,
     each a list of groups, each an object with a "hooks" list of hook objects and a "matcher", when
@@ -305,7 +313,14 @@ def hooks_of(plugin: Path) -> list[Hook]:
     no finite number (a boolean is none); and a valid hook of a type other than `command`, which the
     check does not run and so cannot prove."""
     path = plugin / "hooks" / "hooks.json"
-    if not path.is_file():
+    try:
+        regular = path.is_file()  # False for a missing file, a folder, ENOTDIR, EBADF, ELOOP; else raises
+    except OSError as bad:  # the place cannot be looked up: no file to read, no shape to restore
+        raise Broken(
+            f"{path} cannot be looked up ({bad.strerror}) — fix: make its folder {path.parent} searchable"
+            f" (its permissions), so that the check can find hooks/hooks.json and read each hook it runs"
+        ) from bad
+    if not regular:
         return []
     fix = (
         "restore hooks/hooks.json to the shape the hooks reference gives,"
@@ -1320,7 +1335,8 @@ def self_test() -> int:
         """A hook that declares no timeout is waited for as the platform gives its event; one that declares
         a timeout, for that: read from the `Hook` that `hooks_of` builds, nothing is waited for. A hooks
         file `hooks_of` cannot run, in each shape, is one BROKEN line and never another exception; one that
-        is a regular file and cannot be read (a denied read, an I/O error) has a line and fix of its own."""
+        is a regular file and cannot be read (a denied read, an I/O error) has a line and fix of its own, and
+        so has one whose place cannot be looked up (a folder that cannot be searched, an I/O error)."""
         with tempfile.TemporaryDirectory() as tmp:
             hooked = Path(tmp)
             (hooked / "hooks").mkdir()
@@ -1697,6 +1713,57 @@ def self_test() -> int:
                     got_folder == [],
                     str(got_folder),
                 )
+            # A hooks file whose place cannot be looked up (its folder cannot be searched, an I/O error):
+            # the lookup `Path.is_file` makes is made to raise, and the line is its own, since the file's
+            # permissions and `git checkout` do not mend a folder that cannot be searched.
+            not_found = (  # typed by hand; the folder is the one the fix names
+                "BROKEN {path} cannot be looked up ({why}) — fix: make its folder {folder} searchable (its"
+                " permissions), so that the check can find hooks/hooks.json and read each hook it runs"
+            )
+            for name, lookup, why in (
+                (
+                    "a hooks folder that cannot be searched",
+                    PermissionError(13, "Permission denied"),
+                    "Permission denied",
+                ),
+                (
+                    "a hooks file whose lookup has an I/O error",
+                    OSError(5, "Input/output error"),
+                    "Input/output error",
+                ),
+            ):
+                try:
+                    with mock.patch.object(Path, "is_file", side_effect=lookup):
+                        got_lookup: list[Hook] | str = hooks_of(hooked)
+                except Broken as broken:
+                    got_lookup = f"BROKEN {broken}"
+                except Exception as other:  # any other is the defect this case holds
+                    got_lookup = f"raised {type(other).__name__}: {other}"
+                version_case(
+                    f"hooks file: {name}",
+                    got_lookup == not_found.format(path=hooks_path, why=why, folder=hooks_path.parent),
+                    str(got_lookup),
+                )
+            if os.geteuid() != 0:  # root searches any folder: there, the mocked cases above are the proof
+                with tempfile.TemporaryDirectory() as shut_tmp:
+                    shut = Path(shut_tmp) / "hooks"
+                    shut.mkdir()
+                    (shut / "hooks.json").write_text("{}", encoding="utf-8")
+                    shut.chmod(0o000)  # a real folder that cannot be searched; its mode is restored below
+                    try:
+                        got_shut: list[Hook] | str = hooks_of(Path(shut_tmp))
+                    except Broken as broken:
+                        got_shut = f"BROKEN {broken}"
+                    except Exception as other:  # any other is the defect this case holds
+                        got_shut = f"raised {type(other).__name__}: {other}"
+                    finally:
+                        shut.chmod(0o755)
+                    version_case(
+                        "hooks file: a real hooks folder with no permissions is the line naming the folder",
+                        got_shut
+                        == not_found.format(path=shut / "hooks.json", why="Permission denied", folder=shut),
+                        str(got_shut),
+                    )
 
     def bare_repository_cases() -> None:
         """A git command of `bare_repository` that exits other than 0 is one BROKEN line naming it as
