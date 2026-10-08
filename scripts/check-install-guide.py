@@ -12,9 +12,10 @@ Then the run, in throwaway folders the check removes: a home folder of its own, 
 CLAUDE_CONFIG_DIR (<home>/.claude) under it and git's identity in a global configuration of its
 own; the environment's CLAUDE_CODE_PLUGIN_CACHE_DIR, set or empty, removed from the environment of the
 version command and of the whole run (`kit_module_doc.claude_env`), so that no `claude` command the check
-starts holds it: with it Claude Code would write the kit's marketplace, its plugin cache and its records
-under the folder it names, a person's own plugins root perhaps, and not into the run's empty configuration,
-and the plugins root is always `plugins` in the run's CLAUDE_CONFIG_DIR; the kit cloned from the working
+starts holds it unless a block exports it itself, the case the cache's fix names: with it Claude Code would
+write the kit's marketplace, its plugin cache and its records under the folder it names, a person's own
+plugins root perhaps, and not into the run's empty configuration, and the plugins root is otherwise
+`plugins` in the run's CLAUDE_CONFIG_DIR; the kit cloned from the working
 folder's HEAD to ~/dev/constitution-kit, so what is not committed is not run; the source the marketplace
 block registers pointed at the change: the argument of its `claude plugin marketplace add` replaced by the
 environment's CONSTITUTION_KIT_INSTALL_FROM, `<owner>/<repo>#<branch>` (the kit's CI names the change's GitHub
@@ -44,8 +45,8 @@ Beside every block's exit 0, the check holds at each name:
                module's copy in the plugin cache, an existing folder, and the module is enabled in the
                project's .claude/settings.json. The copy is `cache/<name>/<module>/<version>/` under
                the plugins root (`Run.cached`): <name> the marketplace's, <version> the manifest's,
-               and the root `plugins` in the run's CLAUDE_CONFIG_DIR, the run's environment holding no
-               CLAUDE_CODE_PLUGIN_CACHE_DIR. The `installPath` and that path are compared
+               and the root `plugins` in the run's CLAUDE_CONFIG_DIR, the environment the run gives its
+               blocks holding no CLAUDE_CODE_PLUGIN_CACHE_DIR. The `installPath` and that path are compared
                resolved, links and `..` followed: a copy kept in the marketplace's clone, in place, in
                the cache at another version, or in another marketplace's cache is a finding. And a
                headless session in the project, trusted in the configuration, reports each module's
@@ -612,7 +613,7 @@ class Run:
         plugins on disk" of its loading page documents: `cache/<marketplace>/<plugin>/<version>/` under the
         plugins root, the manifest's version here. The root is `plugins` in the run's configuration folder:
         the run's environment holds no CLAUDE_CODE_PLUGIN_CACHE_DIR (`run_blocks` removes it), so the platform
-        is given no other root."""
+        is given no other root unless a block exports the variable itself, the case the cache's fix names."""
         return self.config / "plugins" / "cache" / self.marketplace / module / self.modules[module]
 
 

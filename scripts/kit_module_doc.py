@@ -72,7 +72,8 @@ less CLAUDE_CODE_PLUGIN_CACHE_DIR. Claude Code writes the marketplace, the plugi
 records under the folder that variable names (the loading page's "Find plugins on disk"), the person's own
 plugins root if that is what it holds, where the checks promise the empty configuration folder they make
 for the run; so a check passes `claude_env` its environment for every `claude` command it runs, the
-version command included, and the plugins root is always `plugins` in the check's own CLAUDE_CONFIG_DIR.
+version command included, and the plugins root is `plugins` in the check's own CLAUDE_CONFIG_DIR, unless a
+command the check runs sets the variable itself, as a block of the install guide can.
 Both checks prove it in theirs, with the variable set in the environment the person runs them in.
 
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
