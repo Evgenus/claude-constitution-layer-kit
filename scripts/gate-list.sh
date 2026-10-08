@@ -18,8 +18,10 @@
 # scan reads the whole tree, or for task-close the change's whole range, so a red scan on a module's
 # job means the tree, or the change, breaks that module's rule, not that the module's code is broken;
 # the annotation names the entry.
-# The install-<module> gates and the guide gate need Claude Code's `claude` on PATH and no Claude account
-# login; each installs from the change's GitHub branch, a private remote, so each needs git's credentials
+# The install-<module> gates and the guide gate need the `claude` that scripts/claude-code.version pins on
+# PATH and no Claude account login: on any other version they fail to run, unless CONSTITUTION_KIT_ANY_CLAUDE=1,
+# when they run with a note naming both versions on every headline line of their report after the version
+# check; each installs from the change's GitHub branch, a private remote, so each needs git's credentials
 # for it.
 # --run runs every command of the entry, and every entry of the job, even after a red one and prints
 # each command's exit; it exits 0 when every command did, else 2 when every failing command exited 2

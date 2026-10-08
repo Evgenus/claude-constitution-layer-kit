@@ -26,8 +26,11 @@ job's entries and `--run <job>` runs them all, when the message asks for a job b
 The entry `task-close` runs the range check with a bare `--scan`: on a work branch it examines the
 branch, on the trunk the last landed change; when the message names a landed merge, run
 `sh modules/const-task-close/scripts/check-task-close.sh --scan --change <merge>` instead.
-`language` needs `vale` 3.23.0 or newer on PATH, `references` `lychee` 0.24.2 or newer, and `guide`
-`claude`; a `BROKEN` line naming any is reported as such, never skipped.
+`language` needs `vale` 3.23.0 or newer on PATH, `references` `lychee` 0.24.2 or newer, and the
+install entries and `guide` the `claude` that `scripts/claude-code.version` pins; a `BROKEN` line naming
+any, a `claude` of another version included, is reported as such, never skipped. You never set
+`CONSTITUTION_KIT_ANY_CLAUDE` on your own: only when the message asks, and then say in the report that the
+run was made with it, and keep the note that ends each headline line.
 
 When the message asks, run the extra group too, `sh scripts/gate-list.sh --names extra`: the
 branch gate's fixture, each module's fixture runner (it writes temporary repositories in the
