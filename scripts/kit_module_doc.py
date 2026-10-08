@@ -27,6 +27,13 @@ holding its `MODULE.md`. No `modules/` directory, and a folder without its docum
 `DocumentError` with the fix, never a shorter list: a check that walks the modules would otherwise
 pass over the very folder it owes a verdict on. check-gate-lists proves it directly in its own
 `--self-test`, every other check through the cases of its own.
+
+`own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
+imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
+that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save the shared `const_gate`.
+check-shared-links, check-bare-install, check-resolved-paths and list-message-literals read it; the
+gate list's `types-<module>` entry derives the same set in shell. check-shared-links proves it in its
+`--self-test`.
 """
 
 from __future__ import annotations
@@ -59,6 +66,23 @@ def module_folders(root: Path) -> list[Path]:
         if not (folder / "MODULE.md").is_file():
             raise DocumentError(f"modules/{folder.name} has no MODULE.md — fix: restore the module document")
     return folders
+
+
+def own_packages(module: Path) -> list[Path]:
+    """The module's own packages, sorted by name: each folder at the top of `<module>/scripts/`, itself no
+    link, that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save `const_gate`. A
+    module with no `scripts/` has none."""
+    scripts = module / "scripts"
+    if not scripts.is_dir():
+        return []
+    return sorted(
+        path
+        for path in scripts.iterdir()
+        if not path.is_symlink()
+        and path.name != "const_gate"
+        and not path.name.startswith((".", "_"))
+        and (path / "__init__.py").is_file()
+    )
 
 
 def section(text: str, anchor: str, path: str) -> list[tuple[int, str]]:

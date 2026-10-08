@@ -33,7 +33,7 @@ MODULES="const-catalogs const-decision-records const-doc-budgets const-interacti
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links yaml-style module-links aspects portability gate-lists
-schema-mirror copies dials-schema bare-install guide $(for m in $MODULES; do printf 'install-%s ' "$m"; done)task-close"
+schema-mirror copies dials-schema resolved-paths bare-install guide $(for m in $MODULES; do printf 'install-%s ' "$m"; done)task-close"
 EXTRAS="branch-gate $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types"
 
 job() {
@@ -78,7 +78,7 @@ commands() {
         language) echo "sh modules/const-language/scripts/check-language.sh --scan" ;;
         budgets) echo "sh modules/const-doc-budgets/scripts/check-budgets.sh --scan" ;;
         list-handles) echo "sh modules/const-interaction/scripts/check-list-handles.sh --scan" ;;
-        carry-lists | shared-links | yaml-style | module-links | aspects | portability | gate-lists | copies | dials-schema)
+        carry-lists | shared-links | yaml-style | module-links | aspects | portability | gate-lists | copies | dials-schema | resolved-paths)
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
         schema-mirror) echo "python3 scripts/check-schema-mirror.py" ;;
@@ -96,8 +96,12 @@ commands() {
                         echo "python3 -m ruff format --check modules/$m"
                         echo "python3 -m ruff check modules/$m" ;;
                     types-*)
-                        for p in modules/"$m"/scripts/*_gate; do
-                            [ "${p##*/}" != const_gate ] && [ -d "$p" ] && echo "cd modules/$m/scripts && python3 -m mypy --strict ${p##*/}"
+                        # the module's own packages, as own_packages of scripts/kit_module_doc.py derives them: each folder at
+                        # the top of scripts/, itself no link, that holds an __init__.py, whose name starts with
+                        # neither . nor _ (the glob skips . already), save const_gate
+                        for p in modules/"$m"/scripts/*; do
+                            case "${p##*/}" in _* | const_gate) continue ;; esac
+                            [ -d "$p" ] && [ ! -L "$p" ] && [ -f "$p/__init__.py" ] && echo "cd modules/$m/scripts && python3 -m mypy --strict ${p##*/}"
                         done
                         echo "cd modules/$m/scripts && python3 -m mypy --strict *.py"
                         echo "cd modules/$m/tests && python3 -m mypy --strict *.py" ;;

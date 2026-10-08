@@ -6,12 +6,15 @@ run it, at least once as a line typed by hand: an expectation built by the messa
 cannot catch a defect in that function's text. This script lists the candidates for the review to
 judge; it decides nothing, and exits 0 whatever it finds.
 
-For each function of shared/const_gate/messages.py and of each modules/<m>/scripts/<x>_gate/
-messages.py, docstrings aside, it takes the constant text the function holds — string literals,
-f-string parts and the module's string constants, split where a value is filled in — and asks
-whether one piece of at least 15 characters, its edge punctuation trimmed, stands inside a string of
-the fixtures that run it: the module's tests/run.py for a module's messages; every module's
-tests/run.py, shared/tests/shared_items.py and shared/tests/harness.py for the shared ones. A string
+For each function of shared/const_gate/messages.py and of the messages.py of each package of a
+module — every folder at the top of modules/<m>/scripts/, itself no link, that holds an
+__init__.py, whose name starts with neither . nor _, save const_gate, as kit_module_doc's
+own_packages derives them — docstrings aside, it takes the constant text the function
+holds — string literals, f-string parts and the module's string constants, split where a value is
+filled in — and asks whether one piece of at least 15 characters, its edge punctuation trimmed,
+stands inside a string of the fixtures that run it: the module's tests/run.py for a module's
+messages; for the shared ones every module's tests/run.py, shared/tests/shared_items.py and the
+harness that runs those items, shared/tests/harness.py. A string
 of a fixture is a literal, an f-string or a `+` chain, docstrings aside. A function with no piece
 that long is listed apart: its text is too short to find, and the review reads it whole.
 
@@ -19,10 +22,15 @@ What it cannot see: whether the typed line is compared with that function's outp
 hold the text as input), text built at run time, and a branch of a function whose other piece is
 typed. So a function it lists may be covered, and one it passes may not be.
 
+A package with no messages.py is listed too, for the review to judge against rule 2 of the
+template's §6, one messages module per package.
+
 Modes:  no arguments   list for the kit;
         --module <m>   list for one module, the shared messages left out.
-Exit:   0 always, save 1 when the kit's folders cannot be read, the arguments are misused, or
-        --module names no module.
+Exit:   0 always, save 1, with a BROKEN line and its fix, when the list cannot be made: the kit's
+        folders cannot be read, the arguments are misused, --module names no module, a module with
+        messages has no tests/run.py, the shared messages module is gone, or a file it reads cannot
+        be read or does not parse.
 Its name is list-, never check-: the kit's check-gate-lists holds every scripts/check-*.py to the
 gate group, and this script is no check.
 """
@@ -35,11 +43,17 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from kit_module_doc import own_packages
+
 KIT = Path(__file__).resolve().parent.parent
 LENGTH = 15  # the shortest piece of a message's text the list looks for
 TRIM = " .,:;'\"(){}[]—-"
 SHARED = "shared/const_gate/messages.py"
 SHARED_TESTS = ("shared/tests/shared_items.py", "shared/tests/harness.py")
+
+
+class Broken(Exception):
+    """A file the list needs is missing or cannot be parsed: the message is its BROKEN line."""
 
 
 @dataclass(frozen=True)
@@ -48,6 +62,18 @@ class Verdict:
     line: int
     typed: str  # the piece found typed, or ""
     longest: str  # the longest piece the function holds
+
+
+def parsed(path: Path, fix: str) -> ast.Module:
+    """The file's syntax tree, or Broken naming the file and the fix."""
+    try:
+        return ast.parse(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise Broken(f"{path.relative_to(KIT)} is missing — fix: {fix}") from None
+    except (OSError, UnicodeDecodeError, SyntaxError, ValueError) as bad:
+        raise Broken(
+            f"{path.relative_to(KIT)} cannot be read or parsed ({bad}) — fix: make it valid UTF-8 Python"
+        ) from None
 
 
 def is_docstring(node: ast.stmt) -> bool:
@@ -108,9 +134,9 @@ def joined(parts: list[str | None]) -> list[str]:
     return runs
 
 
-def message_texts(path: Path) -> dict[str, tuple[int, list[str]]]:
+def message_texts(path: Path, fix: str) -> dict[str, tuple[int, list[str]]]:
     """Each function of a messages module: its line and the constant pieces of its text."""
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+    tree = parsed(path, fix)
     known = constants(tree)
     found: dict[str, tuple[int, list[str]]] = {}
     for node in tree.body:
@@ -128,7 +154,7 @@ def message_texts(path: Path) -> dict[str, tuple[int, list[str]]]:
 
 def fixture_strings(path: Path) -> list[str]:
     """Every string a fixture file holds, docstrings aside, a filled-in value read as a break."""
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+    tree = parsed(path, "restore the module's fixture runner")
     docstrings: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Module | ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
@@ -147,10 +173,10 @@ def fixture_strings(path: Path) -> list[str]:
     return out
 
 
-def verdicts(messages: Path, fixtures: list[Path]) -> list[Verdict]:
+def verdicts(messages: Path, fix: str, fixtures: list[Path]) -> list[Verdict]:
     strings = [text for path in fixtures for text in fixture_strings(path)]
     out = []
-    for name, (line, texts) in message_texts(messages).items():
+    for name, (line, texts) in message_texts(messages, fix).items():
         if not texts:
             continue  # a helper with no text of its own
         typed = ""
@@ -197,16 +223,28 @@ def main(argv: list[str]) -> int:
             print(f"BROKEN: no module {args.module} — fix: name a folder of modules/")
             return 1
     listed = 0
-    for module in modules:
-        packages = [p for p in (module / "scripts").glob("*_gate") if p.name != "const_gate"]
-        for package in packages:
-            if (package / "messages.py").is_file():
-                found = verdicts(package / "messages.py", [module / "tests" / "run.py"])
+    try:
+        for module in modules:
+            for package in own_packages(module):
+                if not (package / "messages.py").is_file():
+                    print(
+                        f"{module.name}: {package.name} holds no messages.py — rule 2 of template §6 asks one"
+                    )
+                    listed += 1
+                    continue
+                fix = "restore the package's messages.py"
+                found = verdicts(package / "messages.py", fix, [module / "tests" / "run.py"])
                 listed += report(module.name, found)
-    if not args.module:
-        fixtures = [KIT / p for p in SHARED_TESTS] + [m / "tests" / "run.py" for m in modules]
-        listed += report("shared", verdicts(KIT / SHARED, [f for f in fixtures if f.is_file()]))
-    print(f"{listed} function(s) for the review to judge — a list, never a verdict")
+        if not args.module:
+            fixtures = [KIT / p for p in SHARED_TESTS] + [m / "tests" / "run.py" for m in modules]
+            found = verdicts(
+                KIT / SHARED, "restore the shared messages module", [f for f in fixtures if f.is_file()]
+            )
+            listed += report("shared", found)
+    except Broken as broken:
+        print(f"BROKEN: {broken}")
+        return 1
+    print(f"{listed} item(s) for the review to judge — a list, never a verdict")
     return 0
 
 

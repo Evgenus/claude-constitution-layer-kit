@@ -1208,14 +1208,22 @@ def self_test() -> int:
             (
                 "a marketplace block that exits 1",
                 {"marketplace": "false && claude plugin marketplace add toy/kit"},
-                "let git clone the source the block is given",
+                "let git clone the source the block is given — CONSTITUTION_KIT_INSTALL_FROM, "
+                "`<owner>/<repo>#<branch>`, else the clone's origin at the branch checked out, naming a "
+                "repository and branch that exist — with a credential for github.com while the repository "
+                "is private, as `gh auth setup-git` sets one up; and make the block's other commands succeed",
             ),
-            ("an install block that exits 1", {"install": "false"}, "make the block install each module"),
+            (
+                "an install block that exits 1",
+                {"install": "false"},
+                "make the block install each module at project scope, "
+                "`claude plugin install <module>@constitution-kit --scope project`",
+            ),
         ):
             exited, _ = run_guide(toy_guide(**replace), kit, base)
             case(
                 f"{name} teaches its block's fix",
-                len(exited) == 1 and "exited 1" in exited[0].what and exited[0].fix.startswith(fix),
+                len(exited) == 1 and "exited 1" in exited[0].what and exited[0].fix == fix,
                 " | ".join(f"{f.what} / {f.fix}" for f in exited),
             )
         stopped, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "session-no-start"})
