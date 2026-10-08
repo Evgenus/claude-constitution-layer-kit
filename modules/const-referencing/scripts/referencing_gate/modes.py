@@ -56,14 +56,19 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
 
 def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -> int:
     """The written document need not be covered itself: covered documents may link into it, and
-    a write that takes an anchor away breaks them all the same."""
+    a write that takes an anchor away breaks them all the same. The covered texts are read, masked and
+    handed to the link checker within one budget, begun before the first is read."""
     rel = target.rel
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, list_markdown(target.root))
     if covered is None:
         raise ConfigurationFailure(messages.c5_governed_only_without_root())
-    texts = {path: _text(target.root, path) for path in covered}
-    found, links = tree.examine(target.root, texts, dials.heading_anchors, lychee.HOOK_SECONDS, about=rel)
+    budget = lychee.Budget.start(lychee.HOOK_SECONDS)  # one deadline for the reads, the masking and the run
+    texts: dict[str, str] = {}
+    for path in covered:
+        texts[path] = _text(target.root, path)
+        budget.check()
+    found, links = tree.examine(target.root, texts, dials.heading_anchors, budget, about=rel)
     findings = [finding for path in sorted(found) for _, finding in found[path]]
     if not findings:
         if rel not in covered:
