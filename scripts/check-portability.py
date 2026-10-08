@@ -5,7 +5,8 @@ the kit.
 The grep of requirement A12.1, as the row words it since decision
 dec-0056-portability-grep-and-gate-lists. It reads the installed components of every module —
 the files git lists under `skills/`, `hooks/`, `scripts/`, `commands/`, `agents/`, the install
-note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md` nor `tests/` —
+note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md`, a module's
+`README.md`, reader prose like `MODULE.md` and outside this read list, nor `tests/` —
 and the shared gate code under `shared/const_gate/`, which every module installs as its
 `scripts/const_gate`. A symbolic link is read at its source, once. A module is every folder under
 `modules/` whose name opens with neither a dot nor an underscore, as `kit_module_doc.module_folders`
@@ -43,8 +44,9 @@ finding, with its why and its fix:
     A prefix the kit does not declare, in a consumer's example, is no name.
 It is read in every line, a fenced block and a code span too, since the forms of A12.1 read every
 installed text; a public URL is no exception either. The kit's own `MODULE.md` is no installed
-component and is not read, and neither are `tests/` or `shared/GATE.md` — of `shared/`, only
-`shared/const_gate/`, which each module installs as its `scripts/const_gate`, is read. A prefix is
+component and is not read, and neither are a module's `README.md`, `tests/` or `shared/GATE.md` —
+of `shared/`, only `shared/const_gate/`, which each module installs as its `scripts/const_gate`, is
+read. A prefix is
 looked for only where the dials declare it: a `constitution.yaml` that is missing, is no YAML, lacks
 a `const-catalogs` mapping or its `catalogs` list, or holds an entry that the catalog module would
 refuse for a prefix (a lowercase word of letters and digits, listed once) or a width, is BROKEN, never
@@ -69,9 +71,9 @@ Modes:  no arguments   check the kit;
                        each fixed name and each id form typed by hand, in an install note and in a
                        skill, red or green; the width, its default and a prefix added to the dials,
                        read from the dials file; fenced code, a code span and a URL read, a test,
-                       the module document and `shared/GATE.md` not; the order of the findings; the
-                       report as literal lines; each dials file that cannot be read, and PyYAML
-                       missing, as a BROKEN line with its literal text.
+                       the module document, a module's README and `shared/GATE.md` not; the order of
+                       the findings; the report as literal lines; each dials file that cannot be read,
+                       and PyYAML missing, as a BROKEN line with its literal text.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -492,6 +494,7 @@ def self_test() -> int:
     }
     green: dict[str, tuple[str, str]] = {  # case: file, text with a form the check does not read
         "the module document": ("MODULE.md", "See /home/ann/notes.md, docs/x.md, dec-0049 and GATE.md.\n"),
+        "the module readme": ("README.md", "See /home/ann/notes.md, docs/x.md, dec-0049 and GATE.md.\n"),
         "a test": ("tests/run.py", "PATH = '/Users/someone/a.md'\nNAMES = 'MODULE.md dec-0049'\n"),
         "a system interpreter line": ("scripts/gate.sh", "#!/usr/bin/env sh\necho ok\n"),
         "a fenced example": ("INSTALL.md", "```yaml\npaths:\n  - docs/records/*.md\n```\n"),
@@ -721,7 +724,7 @@ def self_test_names() -> tuple[int, int]:
             found == [(note, 1, "kit_id", "dec-0049"), (note, 1, "kit_file", "MODULE.md")],
             "a public URL is no exception",
         )
-        for path in ("MODULE.md", "tests/run.py"):
+        for path in ("MODULE.md", "README.md", "tests/run.py"):
             case(
                 seen(root, at(path), "MODULE.md dec-0049 GATE.md\n") == [], f"{path} of a module is not read"
             )

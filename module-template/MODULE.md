@@ -137,6 +137,7 @@ const-<aspect-name>/
 │   └── plugin.json          # manifest — the ONLY file inside .claude-plugin/; version 0.0.x while draft
 ├── MODULE.md                # this document, filled in
 ├── INSTALL.md               # install/uninstall notes; the one CLAUDE.md pointer line if any
+├── README.md                # the landing page for a reader, from the template's README.md; of the root README's kind, binds nothing
 ├── skills/
 │   └── <name>/SKILL.md      # optional
 ├── commands/<name>.md       # optional

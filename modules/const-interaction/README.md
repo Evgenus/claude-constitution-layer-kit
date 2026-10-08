@@ -1,0 +1,54 @@
+# const-interaction
+
+<a id="a1"></a>
+## What it gives you
+
+Answer in the shape the question has, the answer first; every assumption listed, every list item addressable; honesty over agreement; stop before a hard-to-reverse act and wait for a yes, with a gate on enumerated destructive commands.
+
+<a id="a2"></a>
+## Why use it
+
+A short question is answered by a page: a yes-or-no question opens with three paragraphs of context and the word arrives at the end, if at all. The assumption that made the answer possible is never said, so the user cannot correct it. A list of findings has no handles, so the user quotes a sentence to point at one. A request that is wrong is carried out with a softened note, or a failure is reported as done because nobody checked. And a forced push, a hard reset or a recursive delete stays one keystroke away from a session that never learned the rule.
+
+<a id="a3"></a>
+## How Claude behaves with it
+
+At every session start, nine rules for every reply are added to the session's context, about 2,400 characters. The reply matches the shape the question asks for: a yes-or-no question is answered with the word first. The answer stands first, and the elaboration follows only when asked. Every assumption is listed under its own heading, and one that would change the work is a question. A wrong or unreasonable request is said to be so; a failure is never hidden, and unverified work is never reported as done. Every list, table and option set carries a stable handle per item. A gap in the rules is a routine call noted in the commit, or, at recorded stakes, a question; a procedure the project has not written is never invented on the spot. Before a hard-to-reverse act, the consequence and the reversible alternative are stated and a yes is waited for. And chat is plain language for a reader whose first language is not English.
+
+One of those rules has a gate. Before every shell command, the command is read, and where it matches an entry of the destructive list, a forced push or a hard reset among fourteen by default, the platform asks you to confirm, showing why the act is hard to reverse and what the reversible alternative is. You confirm once per command. Where no prompt can be shown, in a headless session, the command is denied with the same reason and the model waits for a yes in chat.
+
+```text
+RED: destructive command: 'git push --force origin main' matches the entry git push with --force
+  why: a forced push rewrites the branch on the remote: every other clone of it diverges, and the commits it replaced are unreachable there
+  fix: push with --force-with-lease, which refuses when the remote moved, or push a new branch and open a pull request; to run it as written, confirm at the prompt — where no prompt can be shown, get the user's yes in chat and run it again, one yes per command; to stop gating it, remove the entry from const-interaction.destructive in constitution.yaml
+```
+
+A second check holds the handle rule for documents: a scan reports every bulleted list item that opens with no handle, a number, a letter or a short key, in the project's Markdown files.
+
+<a id="a4"></a>
+## How it works
+
+**At session start.** A hook prints the nine rules, then one line naming how much a reply says beyond its answer, then one line when the destructive list is empty, so that a gate that examines nothing is never silent, and one line for each default wrapper or shell the project's dials drop or replace.
+
+**Before a shell command.** A hook runs before every command of the platform's `Bash` tool. It splits the command as the platform does, on `&&`, `;`, `|` and the rest, looks inside `$(…)`, strips wrappers such as `sudo`, `env` and `time`, reads the string a shell such as `bash -c` is told to run, and steps over a program's options to find its verb. Where a piece matches an entry, it answers the platform with the entry's teaching text and the ask decision. It cannot see a command built from a variable, an `eval`, a script file that deletes, a deletion through a file tool, or an argument the entries cannot name, such as `git checkout -- .`; the list is the gate, the class is the rule. An explain mode shows the reading of any command without running it.
+
+**The list scan.** A command-line scan over every Markdown file git lists, exit code 2 on a finding. It reads a grammar: the handle forms are patterns, and a project whose documents key items by a bold label or a link adds those forms.
+
+**Settings.** The module works with no configuration: the default destructive list, the default wrappers and shells, every Markdown file, and six handle forms. Dials replace the destructive list, where an empty list gates nothing and says so at every session start; add or drop a wrapper or a shell; name the documents the list scan reads and the handle forms; add the project's own examples of a bad reply beside a good one, printed at session start; and set how much a reply says beyond its answer. Two dials are every gate's: how loud a match is, where the quieter setting reports it and lets the command run, and where the log goes.
+
+<a id="a5"></a>
+## Get it
+
+For one session, from a clone of the kit:
+
+```bash
+claude --plugin-dir <path to this module>
+```
+
+Or install it from the marketplace the kit's install guide names: `claude plugin install const-interaction@<marketplace name> --scope project`. Then run the list scan from the project's root:
+
+```bash
+sh <plugin root>/scripts/check-list-handles.sh --scan
+```
+
+The full install procedure and every dial are in [INSTALL.md](INSTALL.md); the complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).

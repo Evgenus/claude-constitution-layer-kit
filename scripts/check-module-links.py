@@ -13,7 +13,8 @@ or without `const-`, holding its MODULE.md — a folder without it, and a tree w
 BROKEN. A mention is read for `const-` names alone, so a folder named otherwise counts as a name
 known and is never matched.
 
-Not read: module prose (modules/, module-template/), where the plain form is the rule; every
+Not read: module prose (modules/, a module's README.md among them, and module-template/), where
+the plain form is the rule; every
 research comparison (docs/research/), frozen or not: a frozen one keeps the form it was frozen
 with (rule 7 of plc-0005-research), and in one not yet frozen review holds the link; the kit's
 templates (templates/), whose text is copied into another folder, so that a relative link cannot
