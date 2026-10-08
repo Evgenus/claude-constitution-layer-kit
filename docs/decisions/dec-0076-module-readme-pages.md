@@ -49,7 +49,7 @@ A, chosen by the decider in chat on 2026-10-08, and narrowed there: user-facing,
 
 ## Applied
 
-The change that adds this record applies every item: the eleven pages, the template's page and the line in its plugin skeleton, the table and the map row of the root README, the two clauses of the kit guide, the ceiling, the docstrings and the cases of the portability and module-links checks, and, from the carry audit's fixes, rule 2 of the record policy, the carry-audit skill's list of places, and the carry-list check's refusal with its docstring and case. Every module is a draft at `0.0.x`, so no version moves. The record grew while its change was made and was born `active`; the carry audit's fixes applied the last of it, and it is `inactive` from that commit.
+The change that adds this record applies every item: the eleven pages, the template's page and the line in its plugin skeleton, the table and the map row of the root README, the two clauses of the kit guide, the ceiling, the docstrings and the cases of the portability and module-links checks, and, from the carry audit's fixes, rule 2 of the record policy, the carry-audit skill's list of places, and the carry-list check's refusal with its docstring and cases. Every module is a draft at `0.0.x`, so no version moves. The record grew while its change was made and was born `active`; the carry audit's fixes applied the last of it, and it is `inactive` from that commit.
 
 ## Carry list
 

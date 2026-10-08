@@ -14,10 +14,11 @@ script can hold:
                template's own file, a file that is not markdown — a file, never a folder. The rollout
                plan, a research comparison, another record and a README cannot — the root's, where
                rulings were found hiding, and a module's, a page written for a reader, which binds
-               nothing, whatever envelope it is given. "pending" is for intent that is not yet real,
-               and its link leads to the task-record that holds the work to come — a plan, never a
-               decision record — where the kernel says such intent rides. The entry is never
-               rewritten: once that task-record closes, the check says so in a note.
+               nothing, whatever envelope it is given, as a home and as a pending link alike.
+               "pending" is for intent that is not yet real, and its link leads to the task-record
+               that holds the work to come — a plan, never a decision record — where the kernel says
+               such intent rides. The entry is never rewritten: once that task-record closes, the
+               check says so in a note.
   the receipt  the commit that accepts a record — trailer "Accepted: <record id>" — also carries
                "Carry-Audit: at <commit>; <n> records; <f> findings, <x> fixed, <j> justified";
                the commit named is an ancestor at which the record already existed — a file of
@@ -285,6 +286,8 @@ def home_problem(
             PEND_IT if pending else "link the file in it that states the item",
         )
     if re.fullmatch(r"modules/[^/]+/README\.md", shown):
+        if pending:
+            return f"{shown} is a module's README, a page written for a reader, and no task-record", general
         return f"{shown} is a module's README, a page written for a reader, and it binds nothing", general
     envelope, _ = split_frontmatter(path.read_text(encoding="utf-8")) if path.suffix == ".md" else ({}, "")
     kind = envelope.get("type")
