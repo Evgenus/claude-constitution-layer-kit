@@ -121,7 +121,7 @@ version it is to update the kit's reader that the line names (`listed`, `platfor
 on the pinned version. Of the same event three things stay findings against the guide, red with a fix of
 their own, since the event is read whole: a well-formed `plugins` list that lacks a module of the kit, a
 module whose path is not its copy in the plugin cache, and a session whose stream holds no init event.
-Every other configuration failure prints a fix of its own: a module folder, document or manifest that
+Every other configuration failure prints a fix of its own, such as a module folder, document or manifest that
 cannot be read (`kit_module_doc.module_folders`; a manifest with no version), a dials example the check
 cannot read or place the first record by ("correct the guide's check=dials block"), a credential setting
 that cannot be carried into the run ("correct that entry in the global git configuration") and a clone

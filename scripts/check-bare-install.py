@@ -113,11 +113,11 @@ hooks/hooks.json to the shape the hooks reference gives"; a `command` hook with 
 (a boolean is none), the same fix; a valid hook of a type other than `command`, "make it a `command`
 hook, or teach `hooks_of` and `check_installed` to run a hook of that type"; a hooks file that is there
 and cannot be read (its permissions, an I/O error), "make it a readable file, or restore it with git
-checkout". A missing hooks
-file, or a folder in its place, gives no hooks. Every other configuration failure prints a fix of its own:
-a commit the kit's history lacks and cannot fetch, a module document that cannot be read, a module the kit
-lacks, a source that names a branch of no repository, a marketplace file that gives no name. The run holds
-the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
+checkout". A missing hooks file, or a folder in its place, gives no hooks. Every other configuration
+failure prints a fix of its own, such as a commit the kit's history lacks and cannot fetch, a module
+document that cannot be read, a module the kit lacks, a source that names a branch of no repository, a
+marketplace file that gives no name. The run holds the case of an absent dials file; a module with
+neither hook nor scan is held on its links alone.
 Needs no Claude account login: plugin install reads none; git needs a private remote's credentials.
 
 Modes:  --module <name> [--from <source>]  check one module of the kit;
