@@ -42,7 +42,8 @@ installs from too: one line, a version of three numbers, with at most one final 
 missing or unreadable, empty, or anything else (a carriage return, a byte-order mark, a second line, a
 word, a blank line after the version) is a `DocumentError` with the fix. `claude_note` runs
 `claude --version` before any other `claude` command of the check, in an empty configuration folder of
-its own, and reads the first word of the first line of the output, when the command exits 0:
+its own, and reads the first word of the first non-blank line of the output (leading blank lines are
+skipped), when the command exits 0:
   the pinned version        the run goes on, the note is empty;
   another readable version  `DocumentError` with the fix, unless the environment's
                             CONSTITUTION_KIT_ANY_CLAUDE is exactly `1` (any other value, an empty one
@@ -60,6 +61,12 @@ the reader does not read, names the script and its function, and tells to update
 pinned version writes. Off the pin (the opt-out set) it says the run is on the version found, not the
 pinned one, and tells to run it again on the pinned version, put first on PATH as `claude_note`'s own fix
 words it. Both checks prove it in theirs, in each state, as literal lines.
+`command_fix` is the kit's one wording of the fix for a documented `--json` list command that wrote no reply
+to read, which both checks end such a BROKEN line with, from the same `Note`: no reply was written, so it
+names no reader to update. A command that timed out (the run's exit 124): run the check again. A command that
+exited with another code than 0: run the command in the folder the caller names and read why it fails, then
+run the check again. Off the pin, either one has the check run again on the pinned version, put first on PATH
+as `claude_note`'s own fix words it. Both checks prove it in theirs, in each state, as literal lines.
 
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
 imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
@@ -183,9 +190,10 @@ def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note
     exactly `1`;
     else `DocumentError` with the fix: the pin unreadable, `claude` missing, another version with the
     variable unset or of another value, or no readable version at all, the variable notwithstanding.
-    The version is the first whitespace-separated word of the first line of the output, read when the
-    command exits 0 and the word is three numbers; a line break of either kind is white space, and the
-    lines after the first are not read. The command runs in `env`, in an empty configuration folder of
+    The version is the first whitespace-separated word of the first non-blank line of the output (the
+    output is stripped first, so leading blank lines are skipped), read when the command exits 0 and the
+    word is three numbers; a line break of either kind is white space, and the lines after that line are
+    not read. The command runs in `env`, in an empty configuration folder of
     its own and with the auto-updater off, and one that has not answered in `timeout` seconds is no
     version."""
     pinned = pinned_claude(root)
@@ -228,7 +236,7 @@ def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note
     raise DocumentError(
         f"claude is {found}, and the kit's install checks read the platform as {pinned} writes it"
         f" ({CLAUDE_PIN}) — fix: {put_first(pinned)}, or set {ANY_CLAUDE}=1 to run on {found} with a note on"
-        " every line"
+        " every headline line"
     )
 
 
@@ -255,6 +263,24 @@ def platform_fix(note: Note, script: str, reader: str, wrote: str) -> str:
         f" — fix: Claude Code {note.pinned} wrote {wrote} that the kit's reader, `{reader}` in {script},"
         f" does not read: update that reader to what {note.pinned} writes"
     )
+
+
+def command_fix(note: Note, command: str, where: str, timed_out: bool) -> str:
+    """The fix a check ends a BROKEN line with when `command`, a documented `--json` list command as a
+    person types it, wrote no reply to read: `timed_out` says it was cut short (the run's exit 124), else it
+    exited with a code other than 0. No reply was written, so no reader is to be updated. Timed out: run the
+    check again. Exited: run `command` in `where` and read why it fails, then run the check again. Off the
+    pin (`note.found` set) either one has the check run again on the pinned version, put first on PATH as
+    `put_first` words it."""
+    if note.found:
+        off = f"this run is on {note.found}, not the pinned {note.pinned}"
+        again = f"run the check again on the pinned version, {put_first(note.pinned)}"
+        if timed_out:
+            return f" — fix: {off}: {again}"
+        return f" — fix: run `{command}` in {where}, read why it fails; {off}, so then {again}"
+    if timed_out:
+        return " — fix: run the check again"
+    return f" — fix: run `{command}` in {where}, read why it fails, then run the check again"
 
 
 def own_packages(module: Path) -> list[Path]:

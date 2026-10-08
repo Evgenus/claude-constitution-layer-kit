@@ -76,13 +76,17 @@ A red is a finding against the module, and so is an install Claude Code refuses 
 and put it on PATH", and a `git` command that fails in the bare repository, "install git"; a marketplace
 the CLI cannot add (`claude plugin marketplace add` exits other than 0), "check the kit's marketplace.json,
 and that git can reach the source"; an install that gives no result in its 300 s, "run the check again, and
-check that git can reach the source". A result, a list or a record that cannot be read as step 2 says (a
-record of a remote source that names no commit, or one that is no object id, included) is a configuration
-failure whose fix is worded by `kit_module_doc.platform_fix` from the state of the run: on the pinned
-version, to update the kit's reader that the line names (`install_scope`, `listed_install` or
-`installed_commit`), to what that version writes; off the pin, to run again on the pinned version. Every
-other configuration failure, such as a commit the kit's history lacks or a module document that cannot be
-read, prints a fix of its own. The run holds
+check that git can reach the source"; a `claude plugin list --json` that times out (its exit 124), "run the
+check again", or that exits with another code than 0, "run `claude plugin list --json` in a folder of
+your own, CLAUDE_CONFIG_DIR set to an empty folder, read why it fails, then run the check again", each
+worded by `kit_module_doc.command_fix` from the state of the run, which off the pin adds the run on the
+pinned version, no reply having been written for a reader to read. Any other result, list or record that
+cannot be read as step 2 says (a record of a remote source that names no commit, or one that is no object
+id, included) is a configuration failure whose fix is worded by `kit_module_doc.platform_fix` from the
+state of the run: on the pinned version, to update the kit's reader that the line names (`install_scope`,
+`listed_install` or `installed_commit`), to what that version writes; off the pin, to run again on the
+pinned version. Every other configuration failure, such as a commit the kit's history lacks or a module
+document that cannot be read, prints a fix of its own. The run holds
 the case of an absent dials file; a module with neither hook nor scan is held on its links alone.
 Needs no Claude account login: plugin install reads none; git needs a private remote's credentials.
 
@@ -99,24 +103,29 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          without a failureCode, no output, a human line, the JSON line not last, ok with
                          exit 1, exit 124 and a timeout, a list, no scope, an outcome of no known
                          word), of the list (empty, another scope, the id twice, no installPath, no
-                         folder, not a list, no JSON, the right entry among others in either order) and
-                         of the record (a commit, none, empty, no string, missing, no JSON, no entry
-                         of the copy, a commit that is no object id: an option, a word, 39 or 41 or 63 or 65
-                         characters, upper case, with a line break, cut at 200 characters, and git never
-                         handed it; a local folder reading none), a reply or a value quoted whole up to 200
-                         characters and cut after, a list of five entries named whole and one of six cut with
-                         "…", the install's timeout the one `run` waits for, the wait of a hook with no
-                         timeout of its own by its event and of one with its own, and that `check_installed`
-                         hands that wait to `run` (spied, no hook run), the fix `platform_fix` words for an
-                         unreadable result, list and record, each on the pin and one of each off it, and the
-                         reports of a refusal, of a finding, of a green run and of
-                         configuration failures, a file the run cannot read included, as literal lines
-                         through `main`, with and without the note; and of a
-                         module's source at a commit from the kit's history (const-meta-types at
-                         HEAD, its links reaching shared/); and the version check over a fake `claude`
-                         that answers `--version` with the pin, another version, a longer or shorter one,
-                         no version, a failure, a crash and no answer, the variable unset and at each
-                         other value than `1`, and at `1`, the pin file missing and `claude` missing,
+                         folder, not a list, no JSON, an exit other than 0 and a timeout, the right entry
+                         among others in either order) and of the record (a commit, none, empty, no string,
+                         missing, no JSON, no entry of the copy, the copy's entry told from entries of
+                         another installPath, before it and after, and from entries of the copy's leaf name
+                         in another folder and with no installPath or one that is no string, before it, a
+                         commit that is no object id: an option, a word, 39 or 41 or 63 or 65 characters,
+                         upper case, with a line break, cut at 200 characters, and git never handed it; a
+                         local folder reading none), a reply or
+                         a value quoted whole up to 200 characters and cut after, a list of five entries
+                         named whole and one of six cut with "…", the install's timeout the one `run`
+                         waits for, the wait of a hook with no timeout of its own by its event and of one
+                         with its own, and that `check_installed` hands that wait to `run` (spied, no
+                         hook run), the fix `platform_fix` words for an unreadable result, list and record,
+                         each on the pin and one of each off it, the fix `command_fix` words for a list that
+                         exits 1 or 3, that exits 124 and that times out (the process mocked, no wait), on
+                         the pin and off it, and the reports of a refusal, of a finding, of a green run and
+                         of configuration failures, a file the run cannot read included, as literal lines
+                         through `main`, with and without the note; and of a module's source at a commit
+                         from the kit's history (const-meta-types at HEAD, its links reaching shared/); and
+                         the version check over a fake `claude` that answers `--version` with the pin,
+                         another version, a longer or shorter one, no version, blank lines before the
+                         version, a failure, a crash and no answer, the variable unset and at each other
+                         value than `1`, and at `1`, the pin file missing and `claude` missing,
                          the run stopped with no other `claude` command run, that command run in an empty
                          configuration folder of its own with the auto-updater off, and the reports of a
                          run off the pin, a finding's and a green one's, as literal lines.
@@ -144,6 +153,7 @@ from kit_module_doc import (
     DocumentError,
     Note,
     claude_note,
+    command_fix,
     enforcement,
     marketplace_name,
     own_packages,
@@ -158,6 +168,9 @@ FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
 INSTALL_TIMEOUT = 300  # seconds the install is given, kit tuning and no platform fact
 OBJECT_ID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")  # a git object id as git writes one: SHA-1 or SHA-256
 SCRIPT = "scripts/check-bare-install.py"  # named in the fix of a reply the check's readers do not read
+LIST_WHERE = (
+    "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"  # where the failed list is run again
+)
 # How long a `command` hook that declares no `timeout` is waited for: the platform's own default on its event
 # (the hooks reference, "Common fields" of a hook, and the sections of SessionEnd and MessageDisplay, read on
 # 2026-10-08): 600 seconds, but 30 on UserPromptSubmit, PreModelSwitch and PostModelSwitch, 10 on
@@ -557,8 +570,9 @@ def listed_install(key: str, scope: str, repo: Path, env: dict[str, str], note: 
     command = "`claude plugin list --json`"
     fix = platform_fix(note, SCRIPT, "listed_install", "a reply")
     code, out, err = run(["claude", "plugin", "list", "--json"], repo, env)
-    if code != 0:
-        raise Broken(f"{command} exited {code} ({last_line(out, err)}){fix}")
+    if code != 0:  # no reply was written: no reader to update, whatever the exit; 124 is `run`'s timeout
+        said = command_fix(note, "claude plugin list --json", LIST_WHERE, timed_out=code == 124)
+        raise Broken(f"{command} exited {code} ({last_line(out, err)}){said}")
     try:
         entries = json.loads(out)
     except ValueError as bad:
@@ -1220,7 +1234,7 @@ def self_test() -> int:
             " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run,"
             " installed beside your own (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
             " then PATH=<folder>/node_modules/.bin:$PATH), or set CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
-            " {0} with a note on every line"
+            " {0} with a note on every headline line"
         )
         noted = " [claude {0}, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"
         reinstall = (
@@ -1259,6 +1273,8 @@ def self_test() -> int:
             ("2.1.282 (Claude Code)\\n", 0, "note:", None),
             ("2.1.282 (Claude Code)\\r\\n", 0, "note:", None),  # CR is white space: the first word is read
             ("2.1.282 (Claude Code)\\nextra\\n", 0, "note:", None),  # the first line alone is read
+            ("\\n2.1.282 (Claude Code)\\n", 0, "note:", None),  # blank lines before it are skipped
+            ("  \\n\\n 2.1.282 (Claude Code)\\n", 0, "note:", None),  # white space too, and before the word
             (
                 "2.1.286 (Claude Code)\\n",
                 0,
@@ -1527,6 +1543,8 @@ def self_test() -> int:
                     found, _ = check_module("const-x", where(scene), pin_note)
                 except Broken as broken:
                     return unrecord(f"BROKEN: {broken}"), fetched, compared
+                except (KeyError, TypeError) as escaped:  # a record's entry read wrongly: a case that fails
+                    return f"escaped {type(escaped).__name__}: {escaped}", fetched, compared
             return "; ".join(f"RED: {f.what} | {f.fix}" for f in found) or "on", fetched, compared
 
         def expect(name: str, scene: Scene, wanted: str, fetched: list[str] | None = None) -> None:
@@ -1805,11 +1823,67 @@ def self_test() -> int:
                 f"BROKEN: {listing_command} {wanted}{list_fix}",
             )
         good = json.dumps([listed()])
-        expect(
-            "list replies: a good list with exit 1 is BROKEN",
-            Scene(listing=good, list_code=1, source="local"),
-            f"BROKEN: {listing_command} exited 1 ({good}){list_fix}",
+        # A list command that wrote no reply (it exited other than 0, or timed out) has no reader to update:
+        # its fix is the command's own, not `fix_of`'s; the lines are typed by hand
+        list_where = "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"
+        put_first = (
+            "put Claude Code 2.1.282 first on PATH for this run, installed beside your own (npm install"
+            " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
+            " then PATH=<folder>/node_modules/.bin:$PATH)"
         )
+        off_what = "this run is on 2.1.286, not the pinned 2.1.282"
+        fix_timed_out = " — fix: run the check again"
+        fix_timed_out_off = f" — fix: {off_what}: run the check again on the pinned version, {put_first}"
+        fix_exited = (
+            f" — fix: run `claude plugin list --json` in {list_where}, read why it fails,"
+            " then run the check again"
+        )
+        fix_exited_off = (
+            f" — fix: run `claude plugin list --json` in {list_where}, read why it fails; {off_what}, so then"
+            f" run the check again on the pinned version, {put_first}"
+        )
+        off_note = Note("2.1.282", "2.1.286")  # the state of a run on 2.1.286 with the opt-out set
+
+        def list_said(scene: Scene, note: Note) -> str:
+            """What `listed_install` says over the fake's list for `scene` in the state `note` records."""
+            try:
+                listed_install(key, "user", repo, environment(scene), note)
+            except Broken as bad:
+                return f"BROKEN: {bad}"
+            return "no Broken"
+
+        for code, wanted_on, wanted_off in (
+            (1, fix_exited, fix_exited_off),
+            (3, fix_exited, fix_exited_off),
+            (124, fix_timed_out, fix_timed_out_off),
+        ):
+            for state, note, fix in (
+                ("on the pin", pin_note, wanted_on),
+                ("off the pin", off_note, wanted_off),
+            ):
+                said_list = list_said(Scene(listing=good, list_code=code), note)
+                version_case(
+                    f"list replies: a good list with exit {code} is BROKEN, {state},"
+                    f" its fix the command's own{' (a timeout)' if code == 124 else ''}",
+                    said_list == f"BROKEN: {listing_command} exited {code} ({good}){fix}",
+                    said_list,
+                )
+        expect(
+            "list replies: a good list with exit 1 is BROKEN, through the run",
+            Scene(listing=good, list_code=1, source="local"),
+            f"BROKEN: {listing_command} exited 1 ({good}){fix_exited}",
+        )
+        for state, note, fix in (
+            ("on the pin", pin_note, fix_timed_out),
+            ("off the pin", off_note, fix_timed_out_off),
+        ):
+            with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["claude"], 300)):
+                said_list = list_said(Scene(listing=good), note)
+            version_case(
+                f"list replies: a list that times out is BROKEN, {state}, never a reader to update",
+                said_list == f"BROKEN: {listing_command} exited 124 (timed out after 300 s){fix}",
+                said_list,
+            )
         on_project = json.dumps({"outcome": "ok", "scope": "project"})
         picks: list[tuple[str, Scene]] = [
             (
@@ -1892,9 +1966,18 @@ def self_test() -> int:
             )
         expect("the record: a commit gives the source at that commit", Scene(), "on", [sha])
         wrong = commit(installPath=str(other), gitCommitSha=sha_wrong)
+        right = commit(gitCommitSha=sha_right)
+        # an entry whose installPath is the copy's leaf name in another folder: the whole path decides
+        same_leaf = commit(installPath=str(other / copy.name), gitCommitSha=sha_wrong)
+        no_install_path: dict[str, object] = {"scope": "user", "gitCommitSha": sha_wrong}
         for name, entries in (
-            ("an entry of another installPath first", (wrong, commit(gitCommitSha=sha_right))),
-            ("an entry of another installPath last", (commit(gitCommitSha=sha_right), wrong)),
+            ("an entry of another installPath first", (wrong, right)),
+            ("an entry of another installPath last", (right, wrong)),
+            ("an entry with the copy's leaf name in another folder first", (same_leaf, right)),
+            ("an entry with the copy's leaf name in another folder between", (wrong, same_leaf, right)),
+            ("an entry without an installPath first", (no_install_path, right)),
+            ("an entry whose installPath is a number first", (commit(installPath=7), right)),
+            ("an entry without an installPath, others round the right one", (wrong, no_install_path, right)),
         ):
             expect(
                 f"the record: the entry of the installed copy is the one read, {name}",
@@ -2113,6 +2196,22 @@ def self_test() -> int:
                     f"BROKEN: {listing_command} {no_entry.format('no entries')}{off_fix}{off_pin}",
                     stop + off_pin,
                 ],
+            ),
+            (
+                "a list that exits 1, off the pin",
+                Scene(listing=good, list_code=1),
+                off,
+                True,
+                EXIT_BROKEN,
+                [f"BROKEN: {listing_command} exited 1 ({good}){fix_exited_off}{off_pin}", stop + off_pin],
+            ),
+            (
+                "a list that exits 1, on the pin",
+                Scene(listing=good, list_code=1),
+                pinned,
+                False,
+                EXIT_BROKEN,
+                [f"BROKEN: {listing_command} exited 1 ({good}){fix_exited}", stop],
             ),
         ]
         for name, scene, says, optout, status_wanted, lines_wanted in reports:

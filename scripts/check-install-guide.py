@@ -36,11 +36,17 @@ Beside every block's exit 0, the check holds at each name:
                kit's clone.
   install      `claude plugin list --json`, run in the project, lists each module of the kit once at
                project scope for the project (`id` the module's `<module>@<name>`, `scope` project,
-               `projectPath` the project), its `version` the manifest's and its `installPath` an
-               existing folder, and the module is enabled in the project's .claude/settings.json;
-               and a headless session in the project, trusted in the configuration, reports each
-               module's path as that `installPath` — the frozen copy, never a clone's working
-               files. The path is reported before the model is called, so the session needs no login.
+               `projectPath` the project), its `version` the manifest's and its `installPath` the
+               module's copy in the plugin cache, an existing folder, and the module is enabled in the
+               project's .claude/settings.json. The copy is `cache/<name>/<module>/<version>/` under
+               the plugins root (`Run.cached`): <name> the marketplace's, <version> the manifest's,
+               and the root the run's CLAUDE_CODE_PLUGIN_CACHE_DIR when it is set and not empty, else
+               `plugins` in the run's CLAUDE_CONFIG_DIR. The `installPath` and that path are compared
+               resolved, links and `..` followed: a copy kept in the marketplace's clone, in place, in
+               the cache at another version, or in another marketplace's cache is a finding. And a
+               headless session in the project, trusted in the configuration, reports each module's
+               path as that cached copy — the frozen copy, never a clone's working files. The path is
+               reported before the model is called, so the session needs no login.
   kernel       the project's docs/constitution/ holds every file of the kit's kernel/, and the kit's
                LICENSE and NOTICE, byte for byte.
   dials        not run: written as the project's constitution.yaml, and with it what the reader
@@ -50,13 +56,13 @@ Beside every block's exit 0, the check holds at each name:
   scan         the block's exit: every scan it runs exits 0.
   commit       the project's working tree is clean.
   update       every module is listed as the install claim has it, at its manifest version, its
-               `installPath` a folder, and enabled. That an update leaves a draft's change at an
-               unchanged version untaken is not run: the platform fetches a GitHub marketplace from
-               GitHub alone, so the run cannot put a change where it looks; the guide states it as an
-               observed platform fact.
-  reinstall    every module is listed as the install claim has it, and the folder of its
-               `installPath` holds the same files as the module in the marketplace's `installLocation`,
-               read through its links, byte for byte: the install copied what the marketplace holds.
+               `installPath` the cached copy, a folder, and enabled. That an update leaves a draft's
+               change at an unchanged version untaken is not run: the platform fetches a GitHub
+               marketplace from GitHub alone, so the run cannot put a change where it looks; the guide
+               states it as an observed platform fact.
+  reinstall    every module is listed as the install claim has it, and its cached copy holds the
+               same files as the module in the marketplace's `installLocation`, read through its
+               links, byte for byte: the install copied what the marketplace holds.
   uninstall    no module is enabled in the project's settings or listed by `claude plugin list --json`
                with the project as its `projectPath`, at any scope.
 The first finding of the run ends it, since every later block builds on the one before. A finding
@@ -73,32 +79,42 @@ is not at HEAD, "push the branch (git push)"; each ends with "or set CONSTITUTIO
 the file"; no JSON, "restore the file as a JSON object"; no object, "restore the file as an object with
 the marketplace's "name""; no "name", "give the marketplace its name, at the top of the object"; a "name"
 that is no string, "write the name as a JSON string"; an empty one, "write the marketplace's name in it".
-A reply the claims cannot read as documented: a failed `--json` command, a reply that is no JSON or no
-list, an entry that is no object, an entry whose identifying field is no string or is empty (`name` in the
-marketplace list, `id` in the plugin list, of an entry of another marketplace or plugin too), two entries
-of the marketplace's name or two project-scope entries of a module's id for the project, a field a claim
-reads (`source`, `installLocation`, `repo` of a `github` entry, `installPath`, `version`, `scope`, and
-`projectPath` of a project- or local-scope entry) that is no string or is empty, an `installLocation` that
-names no existing folder, and a project's .claude/settings.json that is unreadable, no JSON object, or
-whose `enabledPlugins` is no object. The fix of these alone is worded by `kit_module_doc.platform_fix`
-from the state of the run, and is never a change to the guide: on the pinned version it is to update the
-kit's reader that the line names (`listed`, `platform_clone`, `project_entries` or `enabled`), to what that
-version writes; off the pin, to run again on the pinned version. Every other configuration failure, such
-as a module document or manifest that cannot be read or a clone that cannot be made, prints a fix of its
-own. Needs no
+A `--json` command that fails, an exit other than 0 or a timeout (its exit 124), wrote no reply for a
+reader to read: a configuration failure whose fix is worded by `kit_module_doc.command_fix` from the state
+of the run, never a change to the guide: after a timeout, "run the check again"; after another exit, to run
+the command in a folder of one's own with CLAUDE_CONFIG_DIR set to an empty folder, read why it fails, and
+run the check again; off the pin, either one adds the run on the pinned version. A reply the claims
+cannot read as documented: a reply that is no JSON or no list, an entry that is no object, an entry whose
+identifying field is no string or is empty (`name` in the marketplace list, `id` in the plugin list, of an
+entry of another marketplace or plugin too), two entries of the marketplace's name or two project-scope
+entries of a module's id for the project, a field a claim reads (`source`, `installLocation`, `repo` of a
+`github` entry, `installPath`, `version`, `scope`, and `projectPath` of a project- or local-scope entry)
+that is no string or is empty, an `installLocation` that names no existing folder, and a project's
+.claude/settings.json that is unreadable, no JSON object, or whose `enabledPlugins` is no object. The fix
+of these alone is worded by `kit_module_doc.platform_fix` from the state of the run, and is never a change
+to the guide: on the pinned version it is to update the kit's reader that the line names (`listed`,
+`platform_clone`, `project_entries` or `enabled`), to what that version writes; off the pin, to run again
+on the pinned version. Every other configuration failure, such as a module document or
+manifest that cannot be read or a clone that cannot be made, prints a fix of its own. Needs no
 Claude account login: the plugin commands read none, and the session stops before the model. Git needs a
 private repository's credentials.
 
-Before the clone, and before any block runs, once the marks are read and `claude` is found on PATH, the
-check asks `claude --version` (`kit_module_doc.claude_note`) and compares it with the version the
-working folder's scripts/claude-code.version pins, which the CI workflow installs from too; the clone
-carries the same file. The pinned version: the run goes on. Another readable version: a configuration
-failure, whose fix puts the pinned Claude Code first on PATH beside the person's own, unless the
-environment's CONSTITUTION_KIT_ANY_CLAUDE is exactly `1`: the run then goes on, and each `RED:` finding
-headline, each `BROKEN:` line and the closing `GREEN:` or `RED:` line ends with a note naming both
-versions. No readable version (the command fails, prints nothing, or opens with a word that is no
-version) and a pin file that is missing, empty or no one version are configuration failures whatever
-the variable says. A guide whose marks are red is reported before any of this, since it runs no `claude`.
+The check asks `claude --version` (`kit_module_doc.claude_note`) before the clone and before any block runs,
+and after the steps that run no `claude` command, in this order: the guide is read as committed at HEAD (a
+missing `git`, a folder that is no clone, a guide not committed: BROKEN); its marks are read (a mark finding:
+RED, no block run); the marketplace block is held to run `claude plugin marketplace add <source>` (if not:
+RED, no block run); the source the block registers is taken (no origin on GitHub, a detached HEAD, or an
+origin not at HEAD: BROKEN); `git`, `bash` and `claude` are found on PATH (BROKEN). The lines of a run that
+ends at one of these steps, or at the version check itself, carry no note, since the version is not yet
+known. The version is compared with the one the working folder's scripts/claude-code.version pins, which the
+CI workflow installs from too; the clone carries the same file. It is the first word of the first non-blank
+line of the output of `claude --version`. The pinned version: the run goes on. Another readable version: a
+configuration failure, whose fix puts the pinned Claude Code first on PATH beside the person's own, unless
+the environment's CONSTITUTION_KIT_ANY_CLAUDE is exactly `1`: the run then goes on, and each `RED:` finding
+headline, each `BROKEN:` line and the closing `GREEN:` or `RED:` line from then on ends with a note naming
+both versions. No readable version (the command fails, prints nothing, or opens with a word that is no
+version) and a pin file that is missing, empty or no one version are configuration failures whatever the
+variable says.
 
 What the check reads of Claude Code, all as it writes it at the version scripts/claude-code.version pins.
 From documented `--json` output: `claude plugin marketplace list --json`, per entry `name`, `source`, `repo`
@@ -108,9 +124,14 @@ files: the project's .claude/settings.json, its `enabledPlugins`; the `system/in
 session, its `plugins` with their `name` and `path`; and the trust flag
 `projects[<project>].hasTrustDialogAccepted` of <config>/.claude.json, which the check writes before the
 session, adding its key to whatever the file holds, documented for ~/.claude.json and put under
-CLAUDE_CONFIG_DIR, the folder that holds the platform's settings. From an undocumented place: none, since
-neither the plugin cache nor the record files of Claude Code are read; the files under an `installLocation`
-and an `installPath` that the output names are read as plain files.
+CLAUDE_CONFIG_DIR, the folder that holds the platform's settings. From a documented layout: the plugin
+cache's path, `cache/<marketplace>/<plugin>/<version>/` under the plugins root ("Find plugins on disk" of the
+loading page), a path the check builds and compares with the `installPath` of the list; the root is
+`~/.claude/plugins` unless CLAUDE_CODE_PLUGIN_CACHE_DIR names it, which the check follows, and the root
+under CLAUDE_CONFIG_DIR, `plugins` in it, is that default read from the variable's own meaning. From an
+undocumented place: none, since the record files of Claude Code are not read, and the plugin cache is read
+only through the documented path of a module's copy; the files under an `installLocation` and under that
+copy are read as plain files.
 
 Modes:  no arguments   check the kit's guide;
         --self-test    prove the check with a toy kit, a toy guide and a fake `claude` that logs to a
@@ -132,8 +153,10 @@ Modes:  no arguments   check the kit's guide;
                        update that drops a module, a reinstall whose copy differs from the marketplace, an
                        uninstall that keeps the plugin enabled.
                        The installs and uninstalls as the platform lists them: an install listed for no
-                       project, at user scope, for another project or at another version, an uninstall that
-                       keeps the plugin installed or enabled alone, each red.
+                       project, at user scope, for another project or at another version, in the
+                       marketplace's clone (in place), at another version in the right cache or in a plugins
+                       root a block moved, an uninstall that keeps the plugin installed or enabled alone or
+                       leaves an entry of the user, local or managed scope for the project, each red.
                        The findings and their fixes: a marketplace from another repository, one whose
                        modules differ from the kit's and the fix it teaches, each marketplace and install
                        finding's own fix and the fix of a marketplace and an install block that exits 1, a
@@ -160,11 +183,11 @@ Modes:  no arguments   check the kit's guide;
                        The pin: `kit_module_doc.pinned_claude` over a pin file of each form, the literal
                        message of each.
                        The version check: a fake `claude` that answers `--version` with the toy kit's pin,
-                       another version, a longer or shorter one, no version, a failure and a crash, the
-                       variable unset, at each other value than `1` and at `1`; the run stopped before the
-                       clone with only `--version` run; the version command run in an empty configuration
-                       folder of its own with the auto-updater off; the reports of a run off the pin, a
-                       green one's and a finding's, as literal lines.
+                       another version, a longer or shorter one, no version, blank lines before the
+                       version, a failure and a crash, the variable unset, at each other value than `1`
+                       and at `1`; the run stopped before the clone with only `--version` run; the version
+                       command run in an empty configuration folder of its own with the auto-updater off;
+                       the reports of a run off the pin, a green one's and a finding's, as literal lines.
                        The platform's replies: the fake answering `plugin marketplace list --json` and
                        `plugin list --json` from a state of its own; the two readers over whole sets of
                        replies, an entry that is not the marketplace's or the module's for the project
@@ -176,8 +199,16 @@ Modes:  no arguments   check the kit's guide;
                        the readers and in a whole run; a list that times out, at a timeout the runner is
                        given, a BROKEN and never an empty list (the process mocked, no wait); the update
                        claim over a local-scope entry of the id before, after and round the project-scope
-                       one, the project-scope one picked, and over an `installPath` that is a file or no
-                       folder.
+                       one, the project-scope one picked, and over an `installPath` in the cache that is a
+                       file or no folder, and one outside the cache copy `Run.cached` gives, naming both
+                       places: in the marketplace's clone, in the right cache at another version, in
+                       another marketplace's cache, at the module's folder without its version, below the
+                       copy, each a finding, and a link to the copy or a path through `..` none; the cache's
+                       path under CLAUDE_CODE_PLUGIN_CACHE_DIR set, unset and set and empty, in the claim and
+                       in a whole run.
+                       The lists that fail: a marketplace list and a plugin list that exit 1, 3 or 124 or
+                       time out (the process mocked), a BROKEN with the fix `kit_module_doc.command_fix`
+                       words, never a reader to update, on the pin and off it.
                        The BROKEN lines: a `repo` that is absent, empty or no string and an
                        `installLocation` that names no folder each a BROKEN and not a finding, a quotation
                        cut at 200 characters, the literal message of each BROKEN a reply or a settings file
@@ -211,6 +242,7 @@ from kit_module_doc import (
     DocumentError,
     Note,
     claude_note,
+    command_fix,
     marketplace_name,
     module_folders,
     pinned_claude,
@@ -222,6 +254,9 @@ GUIDE = "INSTALL.md"
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 CLONE = Path("dev") / "constitution-kit"  # the guide's placeholder for the kit's clone, rule 4 of plc-0011
 SCRIPT = "scripts/check-install-guide.py"  # named in the fix of a reply the check's readers do not read
+LIST_WHERE = (
+    "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"  # where a failed list is run again
+)
 NAMES = (
     "new-repo",
     "marketplace",
@@ -249,6 +284,7 @@ DOES = {
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 MARK = re.compile(r"(?:^|\s)check=(\S*)")
 FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
+CACHE_ENV = "CLAUDE_CODE_PLUGIN_CACHE_DIR"  # the plugins root, "Find plugins on disk" of the loading page
 ADD = re.compile(r"(claude plugin marketplace add\s+)(\S+)")  # the source the marketplace block registers
 GITHUB_URL = re.compile(r"github\.com[:/]([^/\s]+/[^/\s]+?)(?:\.git)?/?$")
 LICENSE_FILES = ("LICENSE", "NOTICE")  # the kit's license and credit, copied beside the kernel
@@ -553,6 +589,14 @@ class Run:
         """The id the platform lists a module of the kit's marketplace by."""
         return f"{module}@{self.marketplace}"
 
+    def cached(self, module: str) -> Path:
+        """Where the platform copies a module of the kit's marketplace at install, in the layout that "Find
+        plugins on disk" of its loading page documents: `cache/<marketplace>/<plugin>/<version>/` under the
+        plugins root, the manifest's version here. The root is the run's CLAUDE_CODE_PLUGIN_CACHE_DIR when it
+        is set and not empty, else `plugins` in the run's configuration folder."""
+        root = self.env.get(CACHE_ENV) or str(self.config / "plugins")
+        return Path(root) / "cache" / self.marketplace / module / self.modules[module]
+
 
 def shown(value: object) -> str:
     """A reply of Claude Code, or a field of it, as a message quotes it: its repr, at most 200 characters."""
@@ -563,12 +607,17 @@ def shown(value: object) -> str:
 def listed(argv: list[str], cwd: Path, env: dict[str, str], note: Note) -> list[dict[str, object]]:
     """The entries of `claude <argv>`, a documented `--json` command that prints a JSON list of objects: a
     command that fails, a reply that is no JSON or no list, and an entry that is no object are each a Broken
-    saying what was found, with the fix that points at the Claude Code version."""
+    saying what was found. The fix of a command that fails (an exit other than 0, a timeout's 124 included)
+    is the command's own, `kit_module_doc.command_fix`, since it wrote no reply; that of a reply that is no
+    JSON, no list or holds an entry that is no object points at the Claude Code version, `platform_fix`."""
     command = f"`claude {' '.join(argv)}`"
     fix = platform_fix(note, SCRIPT, "listed", "a reply")
     code, out, err = run_apart(["claude", *argv], cwd, env)
-    if code != 0:
-        raise Broken(f"{command} exited {code} ({last_line((err or out).strip())}){fix}")
+    if (
+        code != 0
+    ):  # no reply was written: no reader to update, whatever the exit; 124 is `run_apart`'s timeout
+        said = command_fix(note, command.strip("`"), LIST_WHERE, timed_out=code == 124)
+        raise Broken(f"{command} exited {code} ({last_line((err or out).strip())}){said}")
     try:
         reply = json.loads(out)
     except ValueError as bad:
@@ -780,7 +829,11 @@ def claim(state: Run, name: str) -> str:
                 return f"{module} is not installed for the project"
             if own[0]["version"] != state.modules[module]:
                 return f"{module} is installed at {own[0]['version']}, not {state.modules[module]}"
-            copies[module] = Path(own[0]["installPath"])
+            listed_at, copies[module] = own[0]["installPath"], state.cached(module)
+            if Path(listed_at).resolve() != copies[module].resolve():
+                raise Misfit(
+                    f"{module} is not in the plugin cache at {copies[module]} but at {listed_at}", CACHE_FIX
+                )
             if not copies[module].is_dir():
                 return f"{module} is not in the plugin cache at {copies[module]}"
             if state.key(module) not in on:
@@ -832,6 +885,13 @@ def claim(state: Run, name: str) -> str:
     return ""
 
 
+CACHE_FIX = (
+    "make the block install each module from the marketplace, `claude plugin install "
+    f"<module>@<marketplace> --scope project`, and set {CACHE_ENV} in no block, only in the environment the "
+    "check runs in: the platform copies the module to <plugins root>/cache/<marketplace>/<module>/<version>, "
+    "where Claude Code's loading page documents it; if it now copies elsewhere, correct `Run.cached` of the "
+    "check"
+)
 IN_PLACE = (
     "register the kit from GitHub, `claude plugin marketplace add <owner>/<repo>`: a marketplace added from "
     "a local folder runs that folder's working files in place, never the frozen copy"
@@ -1073,10 +1133,12 @@ FAKE = '''#!/usr/bin/env python3
 """A fake claude for the self-test: the plugin commands the guide runs and a session's start, logged
 to a file (FAKE_LOG, else the configuration folder's). It keeps its own state, the marketplaces added and
 the plugins installed, in the configuration folder's fake-state.json, its clone of a marketplace under
-fake-clone/ and its copies of the plugins under fake-copies/, and answers `plugin marketplace list --json`
-and `plugin list --json` from that state, or with the text of the file FAKE_MKT or FAKE_LIST names, and the
-exit FAKE_MKT_EXIT or FAKE_LIST_EXIT; the two list commands write FAKE_STDERR, when set, to standard error
-and append `<which>|<the folder they run in>` to the file FAKE_CWD names, when set. A marketplace added
+fake-clone/ and its copies of the plugins where the platform puts them, cache/<marketplace>/<plugin>/<version>
+under the plugins root (CLAUDE_CODE_PLUGIN_CACHE_DIR, else plugins/ in the configuration folder), and answers
+`plugin marketplace list --json` and `plugin list --json` from that state, or with the text of the file
+FAKE_MKT or FAKE_LIST names, and the exit FAKE_MKT_EXIT or FAKE_LIST_EXIT; the two list commands write
+FAKE_STDERR, when set, to standard error and append `<which>|<the folder they run in>` to the file
+FAKE_CWD names, when set. A marketplace added
 from `<owner>/<repo>#<branch>` is a GitHub one, cloned from the toy kit the environment names; one added
 from a path is a local folder. `--version` answers the pin of the toy kit, as the real one writes it, or
 FAKE_SAYS (escapes read) with the exit FAKE_EXIT; for `--version` it logs to FAKE_ENV, when set, its
@@ -1103,7 +1165,8 @@ name = json.loads(
     (Path(os.environ["FAKE_SOURCE"]) / ".claude-plugin" / "marketplace.json").read_text()
 )["name"]
 clone = config / "fake-clone" / name
-copies = config / "fake-copies"
+plugins = Path(os.environ.get("CLAUDE_CODE_PLUGIN_CACHE_DIR") or config / "plugins")
+copies = plugins / "cache" / name
 store = config / "fake-state.json"
 settings = Path.cwd() / ".claude" / "settings.json"
 def load(path):
@@ -1248,6 +1311,11 @@ elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
         entry = {k: v for k, v in entry.items() if k != "projectPath"} | {"scope": "user"}
     if mutant == "install-for-other-project":
         entry["projectPath"] = "/elsewhere/project"
+    if mutant == "install-in-place":
+        entry["installPath"] = str(clone / "modules" / module)
+    if mutant == "install-other-version":
+        entry["installPath"] = str(copies / module / "0.0.0")
+        Path(entry["installPath"]).mkdir(parents=True, exist_ok=True)
     data = state()
     data["plugins"] = [e for e in data["plugins"] if e["id"] != args[2]]
     if mutant != "install-not-listed":
@@ -1265,6 +1333,13 @@ elif args[:2] == ["plugin", "uninstall"]:
         data["plugins"] = [e for e in data["plugins"] if e["id"] != args[2]]
         save(store, data)
         shutil.rmtree(copies / module, ignore_errors=True)
+    if mutant.startswith("uninstall-leaves-"):
+        data = state()
+        data["plugins"].append({
+            "id": args[2], "version": "0.0.1", "scope": mutant.removeprefix("uninstall-leaves-"),
+            "enabled": True, "installPath": "/nowhere/" + module, "projectPath": str(Path.cwd()),
+        })
+        save(store, data)
     if mutant not in ("uninstall-keeps", "uninstall-keeps-enabled"):
         data = load(settings)
         data.get("enabledPlugins", {}).pop(args[2], None)
@@ -1766,7 +1841,9 @@ def self_test() -> int:
         fake.mkdir()
         (fake / "claude").write_text(FAKE, encoding="utf-8")
         (fake / "claude").chmod(0o755)
-        base = os.environ | {
+        base = {
+            k: v for k, v in os.environ.items() if k != CACHE_ENV
+        } | {  # the plugins root is the fake's own
             "PATH": f"{fake}{os.pathsep}{os.environ.get('PATH', '')}",
             FROM_ENV: "toy/kit#main",
             "FAKE_SOURCE": str(kit),
@@ -1830,11 +1907,23 @@ def self_test() -> int:
         def without(entry: dict[str, object], *fields: str) -> dict[str, object]:
             return {k: v for k, v in entry.items() if k not in fields}
 
+        list_where = "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"
+
+        def exited_fix(command: str) -> str:  # typed by hand: the fix of a list command that wrote no reply
+            return f" — fix: run `{command}` in {list_where}, read why it fails, then run the check again"
+
         def reply_fix(rest: str, reader: str) -> str:
             """The fix a BROKEN line ends with, by the function that reads: `reader`, which is
             `platform_clone` or `project_entries`, for what it asks of an entry or finds in the list (two
             entries of a name, a field that is no string, an installLocation that is no folder), and
-            `listed` for the rest, as `rest` says what was found."""
+            `listed` for the rest, as `rest` says what was found; a command that exited other than 0 wrote
+            no reply, and has the command's own fix."""
+            if re.search(r"\bexited \d+ \(", rest):
+                return exited_fix(
+                    "claude plugin marketplace list --json"
+                    if reader == "platform_clone"
+                    else "claude plugin list --json"
+                )
             asked = (
                 "entries named",
                 "project-scope entries",
@@ -2337,16 +2426,85 @@ def self_test() -> int:
                 )
             case(
                 f"{which} list that times out: BROKEN, never an empty list, after the runner's timeout",
-                got == f"BROKEN {command} exited 124 (timed out after {TIMEOUT} s){fix_of('listed')}"
+                got == f"BROKEN {command} exited 124 (timed out after {TIMEOUT} s) — fix: run the check again"
                 and timing.call_args.kwargs["timeout"] == TIMEOUT,
                 f"{got} ({reader}) {timing.call_args}",
             )
+        # a list command that wrote no reply has no reader to update: the command's own fix, on the pin and
+        # off it; the lines are typed by hand
+        other_note = Note("2.1.282", "2.1.286")  # the state of a run on 2.1.286 with the opt-out set
+        put_first = (
+            "put Claude Code 2.1.282 first on PATH for this run, installed beside your own (npm install"
+            " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
+            " then PATH=<folder>/node_modules/.bin:$PATH)"
+        )
+        off_what = "this run is on 2.1.286, not the pinned 2.1.282"
+
+        def silent_said(which: str, code: int, note: Note, timed_out: bool = False) -> str:
+            """What the reader of the marketplace list or the plugin list says over a command that exits
+            `code`, or that times out (the process mocked, no wait), in the state `note` records."""
+            state = unit_state(
+                FAKE_MKT=reply_file(json.dumps([mkt()])),
+                FAKE_MKT_EXIT=str(code),
+                FAKE_LIST=reply_file(json.dumps(both)),
+                FAKE_LIST_EXIT=str(code),
+            )
+            state.note = note
+            hang = subprocess.TimeoutExpired(["claude"], TIMEOUT)
+            with contextlib.ExitStack() as stack:
+                if timed_out:
+                    stack.enter_context(mock.patch("subprocess.run", side_effect=hang))
+                try:
+                    if which == "marketplace":
+                        platform_clone(state)
+                    else:
+                        project_entries(state, project_dir)
+                except Broken as bad:
+                    return f"BROKEN {bad}"
+            return "no Broken"
+
+        for which, command, raw in (
+            ("marketplace", mkt_command, "claude plugin marketplace list --json"),
+            ("plugin", listed_command, "claude plugin list --json"),
+        ):
+            reply = json.dumps([mkt()]) if which == "marketplace" else json.dumps(both)
+            for code, timed_out in ((1, False), (3, False), (124, False), (124, True)):
+                for state_name, note in (("on the pin", pin_note), ("off the pin", other_note)):
+                    on_pin = note is pin_note
+                    if code == 124:
+                        said = "timed out after " + str(TIMEOUT) + " s" if timed_out else reply
+                        fix = (
+                            " — fix: run the check again"
+                            if on_pin
+                            else f" — fix: {off_what}: run the check again on the pinned version, {put_first}"
+                        )
+                    else:
+                        said = reply
+                        read = f" — fix: run `{raw}` in {list_where}, read why it fails"
+                        fix = (
+                            read + ", then run the check again"
+                            if on_pin
+                            else read
+                            + f"; {off_what}, so then run the check again on the pinned version, {put_first}"
+                        )
+                    got = silent_said(which, code, note, timed_out)
+                    what = "times out" if timed_out else "exits " + str(code)
+                    case(
+                        f"{which} list that {what}, {state_name}: BROKEN, the command's own fix, no reader",
+                        got == f"BROKEN {command} exited {code} ({said}){fix}",
+                        got,
+                    )
         # the reinstall's comparison reads the platform's clone from the state, else from marketplace list
-        wanted_clone, held_copy, other_clone = unit / "clone", unit / "copy", unit / "other-clone"
+        wanted_clone, other_clone = unit / "clone", unit / "other-clone"
+
+        def held_copy(module: str) -> Path:
+            """The module's copy in the plugin cache of the unit tests' configuration, where claims look."""
+            return unit_state().cached(module)
+
         for module in ("const-alpha", "const-beta"):
             for folder, text in (
                 (wanted_clone / "modules" / module, "same\n"),
-                (held_copy / module, "same\n"),
+                (held_copy(module), "same\n"),
                 (other_clone / "modules" / module, "odd\n"),
             ):
                 folder.mkdir(parents=True)
@@ -2356,7 +2514,7 @@ def self_test() -> int:
             json.dumps({"enabledPlugins": {f"{m}@{TOY_MP}": True for m in ("const-alpha", "const-beta")}}),
             encoding="utf-8",
         )
-        copies_listed = [plug(m, installPath=str(held_copy / m)) for m in ("const-alpha", "const-beta")]
+        copies_listed = [plug(m, installPath=str(held_copy(m))) for m in ("const-alpha", "const-beta")]
         reinstalling = unit_state(
             FAKE_LIST=reply_file(json.dumps(copies_listed)),
             FAKE_MKT=reply_file(json.dumps([mkt(installLocation=str(wanted_clone))])),
@@ -2369,14 +2527,14 @@ def self_test() -> int:
             got == "",
             got,
         )
-        (held_copy / "const-alpha" / "a.txt").write_text("changed\n", encoding="utf-8")
+        (held_copy("const-alpha") / "a.txt").write_text("changed\n", encoding="utf-8")
         got = claim(reinstalling, "reinstall")
         case(
             "a reinstall with no clone on the state, a copy that differs from the listed clone's module",
             got == "const-alpha's a.txt is not alike in the cache and the marketplace",
             got,
         )
-        (held_copy / "const-alpha" / "a.txt").write_text("same\n", encoding="utf-8")
+        (held_copy("const-alpha") / "a.txt").write_text("same\n", encoding="utf-8")
         reinstalling.clone = other_clone
         got = claim(reinstalling, "reinstall")
         case(
@@ -2385,11 +2543,17 @@ def self_test() -> int:
             got,
         )
 
-        def update_said(entries: list[dict[str, object]]) -> str:
-            """What the update claim, whose picks the install and the reinstall share, says of a list."""
-            held = unit_state(FAKE_LIST=reply_file(json.dumps(entries)))
+        def update_said(entries: list[dict[str, object]], root: Path | None = None) -> str:
+            """What the update claim, whose picks the install and the reinstall share, says of a list: its
+            finding, `RED` and the finding of a Misfit, or the empty string; the run's plugins root is
+            `root` when one is given, else the default."""
+            extra = {} if root is None else {CACHE_ENV: str(root)}
+            held = unit_state(FAKE_LIST=reply_file(json.dumps(entries)), **extra)
             held.project = project_dir
-            return claim(held, "update")
+            try:
+                return claim(held, "update")
+            except Misfit as misfit:
+                return f"RED {misfit.what}"
 
         def local(module: str) -> dict[str, object]:
             """A local-scope entry for the project the claim must not pick: another version, no folder."""
@@ -2419,13 +2583,118 @@ def self_test() -> int:
             got == "const-alpha is not installed for the project",
             got,
         )
-        for name, place in (("a file", a_file), ("no folder at all", gone_folder)):
-            got = update_said([plug(installPath=str(place)), right_beta])
+        # the cache's copy is where the layout puts it, so the folder that fails is the cache's own
+        for name, plugins_root, as_file in (
+            ("a file", unit / "root-file", True),
+            ("no folder at all", unit / "root-none", False),
+        ):
+            target = unit_state(**{CACHE_ENV: str(plugins_root)}).cached("const-alpha")
             case(
-                f"update claim, an installPath that is {name}: not in the plugin cache",
-                got == f"const-alpha is not in the plugin cache at {place}",
+                f"the copy of an installPath case, {name}, is under the root it names",
+                plugins_root in target.parents,
+                str(target),
+            )
+            if plugins_root not in target.parents:
+                continue
+            if as_file:
+                target.parent.mkdir(parents=True)
+                target.write_text("not a folder\n", encoding="utf-8")
+            got = update_said([plug(installPath=str(target)), right_beta], plugins_root)
+            case(
+                f"update claim, an installPath in the cache that is {name}: not in the plugin cache",
+                got == f"const-alpha is not in the plugin cache at {target}",
                 got,
             )
+        # R4 of dec-0062, R4 and R5 of dec-0071: each module stands in the plugin cache, at its manifest
+        # version; an installPath is held to the platform's documented layout, resolved on both sides
+        alpha_cache = held_copy("const-alpha")
+        default_root = unit / "config" / "plugins"
+        case(
+            "the plugin cache's copy of a module is cache/<marketplace>/<module>/<version> under the plugins "
+            "root, which is plugins in the configuration folder by default",
+            alpha_cache == default_root / "cache" / TOY_MP / "const-alpha" / "0.0.1",
+            str(alpha_cache),
+        )
+        env_root = unit / "env-root"
+        env_state = unit_state(**{CACHE_ENV: str(env_root)})
+        case(
+            "the plugins root follows CLAUDE_CODE_PLUGIN_CACHE_DIR when it is set",
+            env_state.cached("const-alpha") == env_root / "cache" / TOY_MP / "const-alpha" / "0.0.1",
+            str(env_state.cached("const-alpha")),
+        )
+        case(
+            "the plugins root is the default when CLAUDE_CODE_PLUGIN_CACHE_DIR is set and empty",
+            unit_state(**{CACHE_ENV: ""}).cached("const-alpha") == alpha_cache,
+            str(unit_state(**{CACHE_ENV: ""}).cached("const-alpha")),
+        )
+        cache_fix = (  # typed by hand: a message function cannot check itself
+            "make the block install each module from the marketplace, `claude plugin install "
+            "<module>@<marketplace> --scope project`, and set CLAUDE_CODE_PLUGIN_CACHE_DIR in no block, only "
+            "in the environment the check runs in: the platform copies the module to <plugins root>/cache/"
+            "<marketplace>/<module>/<version>, where Claude Code's loading page documents it; if it now "
+            "copies elsewhere, correct `Run.cached` of the check"
+        )
+        outside = alpha_cache.parent / "0.0.0"  # the right cache, another version
+        other_market = default_root / "cache" / "other-mp" / "const-alpha" / "0.0.1"
+        not_module = alpha_cache.parent  # the module's folder, without its version
+        under = alpha_cache / "sub"
+        for name, place in (
+            ("in the marketplace's clone, in place", wanted_clone / "modules" / "const-alpha"),
+            ("in the right cache at another version", outside),
+            ("in another marketplace's cache", other_market),
+            ("at the module's folder, without its version", not_module),
+            ("below the module's copy", under),
+        ):
+            place.mkdir(parents=True, exist_ok=True)
+            got = update_said([plug(installPath=str(place)), right_beta])
+            case(
+                f"update claim, an installPath {name}: not in the plugin cache, naming where it should be",
+                got == f"RED const-alpha is not in the plugin cache at {alpha_cache} but at {place}",
+                got,
+            )
+        by_link = unit / "link-to-cache"
+        by_link.symlink_to(alpha_cache)
+        got = update_said([plug(installPath=str(by_link)), right_beta])
+        case("update claim, an installPath that is a link to the cache's copy: no finding", got == "", got)
+        got = update_said([plug(installPath=str(alpha_cache) + "/../0.0.1"), right_beta])
+        case(
+            "update claim, an installPath reaching the cache's copy through `..`: no finding", got == "", got
+        )
+        env_copies = [plug(m, installPath=str(env_state.cached(m))) for m in ("const-alpha", "const-beta")]
+        for module in ("const-alpha", "const-beta"):
+            env_state.cached(module).mkdir(parents=True, exist_ok=True)
+        got = update_said(env_copies, env_root)
+        case("update claim, CLAUDE_CODE_PLUGIN_CACHE_DIR set, copies under it: no finding", got == "", got)
+        # the plugins root itself may be a link: the path listed and the path built are both resolved
+        real_root, linked_root = unit / "root-real", unit / "root-linked"
+        real_root.mkdir()
+        linked_root.symlink_to(real_root)
+        real_copies = [
+            plug(m, installPath=str(real_root / "cache" / TOY_MP / m / "0.0.1"))
+            for m in ("const-alpha", "const-beta")
+        ]
+        for module in ("const-alpha", "const-beta"):
+            (real_root / "cache" / TOY_MP / module / "0.0.1").mkdir(parents=True)
+        got = update_said(real_copies, linked_root)
+        case(
+            "update claim, the plugins root a link, the installPath the real folder it leads to: no finding",
+            got == "",
+            got,
+        )
+        got = update_said(copies_listed, env_root)
+        case(
+            "update claim, CLAUDE_CODE_PLUGIN_CACHE_DIR set, copies under the default root: not in the cache",
+            got == f"RED const-alpha is not in the plugin cache at {env_state.cached('const-alpha')} but at "
+            f"{alpha_cache}",
+            got,
+        )
+        got = update_said(env_copies)
+        case(
+            "update claim, copies under the variable's root with the variable unset: not in the cache",
+            got == f"RED const-alpha is not in the plugin cache at {alpha_cache} but at "
+            f"{env_state.cached('const-alpha')}",
+            got,
+        )
         still_installed = (
             "after check=uninstall: const-alpha@toy-mp, const-beta@toy-mp still installed for the project"
         )
@@ -2545,6 +2814,24 @@ def self_test() -> int:
                 still_installed,
             ),
             (
+                "an uninstall that leaves an entry of the user scope for the project red, at any scope",
+                {},
+                "uninstall-leaves-user",
+                still_installed,
+            ),
+            (
+                "an uninstall that leaves an entry of the local scope for the project red, at any scope",
+                {},
+                "uninstall-leaves-local",
+                still_installed,
+            ),
+            (
+                "an uninstall that leaves an entry of the managed scope for the project red, at any scope",
+                {},
+                "uninstall-leaves-managed",
+                still_installed,
+            ),
+            (
                 "an install the platform lists for no project red",
                 {},
                 "install-not-listed",
@@ -2581,9 +2868,33 @@ def self_test() -> int:
             "an update that drops a module red, naming the folder the platform lists for it",
             len(dropped) == 1
             and dropped[0].what.startswith("after check=update: const-alpha is not in the plugin cache at ")
-            and dropped[0].what.endswith("/.claude/fake-copies/const-alpha/0.0.1"),
+            and dropped[0].what.endswith("/.claude/plugins/cache/toy-mp/const-alpha/0.0.1"),
             whats(dropped),
         )
+        # an install the platform lists outside the plugin cache is a finding, and the cache's layout is the
+        # documented one: in place, at another version, or where a block moved the plugins root to
+        moves = (  # a block that sets the plugins root for the install alone
+            f"export {CACHE_ENV}=$HOME/other-plugins && for m in ~/dev/constitution-kit/modules/const-*; do "
+            f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
+        )
+        placements: list[tuple[str, dict[str, str], str]] = [
+            ("in the marketplace's clone, in place", {}, "install-in-place"),
+            ("at another version in the right cache", {}, "install-other-version"),
+            ("in a plugins root the install's block moved", {"install": moves}, ""),
+        ]
+        for name, replace, mutant in placements:
+            elsewhere, _, _ = run_guide(toy_guide(**replace), kit, base | {"FAKE_MUTANT": mutant})
+            case(
+                f"an install the platform lists {name}: one finding, not in the plugin cache, naming both "
+                "places, with the cache's fix",
+                len(elsewhere) == 1
+                and elsewhere[0].what.startswith(
+                    "after check=install: const-alpha is not in the plugin cache at "
+                )
+                and "/.claude/plugins/cache/toy-mp/const-alpha/0.0.1 but at /" in elsewhere[0].what
+                and elsewhere[0].fix == cache_fix,
+                " | ".join(f"{f.what} / {f.fix}" for f in elsewhere),
+            )
         # the decoys: entries the check must not take, first and last, and the run green
         for mutant in (
             "list-user-first",
@@ -2599,6 +2910,22 @@ def self_test() -> int:
                 not decoyed and decoyed_examined == green_examined,
                 f"{whats(decoyed)} ({decoyed_examined})",
             )
+
+        # the plugins root of a whole run follows CLAUDE_CODE_PLUGIN_CACHE_DIR: the fake copies there and the
+        # check looks there, whatever the root; set and empty is no root
+        pc_root = unit / "plugins-root"
+        for name, value in (("set to a folder", str(pc_root)), ("set and empty", "")):
+            rooted, rooted_examined, _ = run_guide(toy_guide(), kit, base | {CACHE_ENV: value})
+            case(
+                f"CLAUDE_CODE_PLUGIN_CACHE_DIR {name}: a green run, the whole of it",
+                not rooted and rooted_examined == green_examined,
+                f"{whats(rooted)} ({rooted_examined})",
+            )
+        case(
+            "CLAUDE_CODE_PLUGIN_CACHE_DIR set to a folder: the platform's copies were made under it",
+            (pc_root / "cache" / TOY_MP).is_dir(),
+            str(sorted(pc_root.rglob("*"))[:3]),
+        )
 
         # the folders in a whole run: the marketplace list where its block ended, not in the project, the
         # plugin list in the project, and neither in the run's home folder
@@ -2812,7 +3139,7 @@ def self_test() -> int:
             " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run,"
             " installed beside your own (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
             " then PATH=<folder>/node_modules/.bin:$PATH), or set CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
-            " {0} with a note on every line"
+            " {0} with a note on every headline line"
         )
         noted = " [claude {0}, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"
         reinstall = (
@@ -2856,6 +3183,8 @@ def self_test() -> int:
             ("2.1.282 (Claude Code)\\n", 0, "note:", None),
             ("2.1.282 (Claude Code)\\r\\n", 0, "note:", None),  # CR is white space: the first word is read
             ("2.1.282 (Claude Code)\\nextra\\n", 0, "note:", None),  # the first line alone is read
+            ("\\n2.1.282 (Claude Code)\\n", 0, "note:", None),  # blank lines before it are skipped
+            ("  \\n\\n 2.1.282 (Claude Code)\\n", 0, "note:", None),  # white space too, and before the word
             (
                 "2.1.286 (Claude Code)\\n",
                 0,
