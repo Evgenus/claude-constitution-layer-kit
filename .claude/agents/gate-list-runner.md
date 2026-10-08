@@ -27,13 +27,16 @@ The entry `task-close` runs the range check with a bare `--scan`: on a work bran
 branch, on the trunk the last landed change; when the message names a landed merge, run
 `sh modules/const-task-close/scripts/check-task-close.sh --scan --change <merge>` instead.
 `language` needs `vale` 3.23.0 or newer on PATH, `references` `lychee` 0.24.2 or newer, and the
-install entries and `guide` the `claude` that `scripts/claude-code.version` pins; a `BROKEN` line naming
+install entries and `guide` the `claude` that `scripts/claude-code.version` pins. When `sh scripts/setup-claude.sh`
+has run in the clone, the list puts the clone's `.claude-code-pinned/` copy first on PATH for those entries alone; when it
+has not, they run on the `claude` already on PATH, and a version other than the pin gives the `BROKEN` line whose fix names that
+script. You never run it: it installs, and you change nothing; report the line verbatim. A `BROKEN` line naming
 any, a `claude` of another version included, is reported as such, never skipped. You never set
 `CONSTITUTION_KIT_ANY_CLAUDE` on your own: only when the message asks, and then say in the report that the
 run was made with it, and keep the note that ends each headline line.
 
 When the message asks, run the extra group too, `sh scripts/gate-list.sh --names extra`: the
-branch gate's fixture, each module's fixture runner (it writes temporary repositories in the
+branch gate's fixture, the fixture of `scripts/setup-claude.sh`, each module's fixture runner (it writes temporary repositories in the
 system's temporary directory, never in the kit), the lint and the type commands. And, only when
 asked, `python3 scripts/check-aspects.py --run`, the per-row report, which runs every module's
 runner.

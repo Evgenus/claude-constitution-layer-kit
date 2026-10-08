@@ -10,12 +10,20 @@ commit the run clones. First its marks, read from the text:
   `check=<name>` where its language should stand is red too.
 Then the run, in throwaway folders the check removes: a home folder of its own, HOME and
 CLAUDE_CONFIG_DIR (<home>/.claude) under it and git's identity in a global configuration of its
-own; the environment's CLAUDE_CODE_PLUGIN_CACHE_DIR, set or empty, removed from the environment of the
-version command and of the whole run (`kit_module_doc.claude_env`), so that no `claude` command the check
-starts holds it unless a block sets it itself, the case the cache's fix names on the pinned version: with
-it Claude Code would write the kit's marketplace, its plugin cache and its records under the folder it
-names, a person's own plugins root perhaps, and not into the run's empty configuration, and the plugins
-root is otherwise `plugins` in the run's CLAUDE_CONFIG_DIR; the kit cloned from the working
+own; the environment's CLAUDE_CODE_PLUGIN_CACHE_DIR, CLAUDE_CODE_PLUGIN_SEED_DIR, CLAUDE_CODE_PLUGIN_DIRS and
+CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, each set or empty, removed from the environment of the version command and
+of the whole run (`kit_module_doc.claude_env`), so that no `claude` command the check starts holds one
+unless a block sets it itself, the case the cache's fix names for the first on the pinned version. They steer
+where Claude Code finds, keeps or loads plugins, as its documentation and a probe of 2.1.282 show: the first
+would have it write the kit's marketplace, its plugin cache and its records under the folder it names, a
+person's own plugins root perhaps, and not into the run's empty configuration, and the plugins root is
+otherwise `plugins` in the run's CLAUDE_CONFIG_DIR; the second, a session load the kit's plugins from the
+cache of a read-only seed; the third, a session load a plugin folder in place of the install the claims
+read; the fourth, the install write a zip file where the claims read a folder. Every other variable reaches
+the version command and the run unchanged, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the
+clone of its private repository over HTTPS, and the kit's own CONSTITUTION_KIT_* ones included, save those
+the check sets itself, CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER for both, HOME and GIT_CONFIG_GLOBAL for
+the run; the kit cloned from the working
 folder's HEAD to ~/dev/constitution-kit, so what is not committed is not run; the source the marketplace
 block registers pointed at the change: the argument of its `claude plugin marketplace add` replaced by the
 environment's CONSTITUTION_KIT_INSTALL_FROM, `<owner>/<repo>#<branch>` (the kit's CI names the change's GitHub
@@ -46,7 +54,9 @@ Beside every block's exit 0, the check holds at each name:
                project's .claude/settings.json. The copy is `cache/<name>/<module>/<version>/` under
                the plugins root (`Run.cached`): <name> the marketplace's, <version> the manifest's,
                and the root `plugins` in the run's CLAUDE_CONFIG_DIR, the environment the run gives its
-               blocks holding no CLAUDE_CODE_PLUGIN_CACHE_DIR. The `installPath` and that path are compared
+               blocks holding none of the four variables `kit_module_doc.claude_env` removes, the plugins
+               root CLAUDE_CODE_PLUGIN_CACHE_DIR among them, unless a block sets one itself. The `installPath`
+               and that path are compared
                resolved, links and `..` followed: a copy kept in the marketplace's clone, in place, in
                the cache at another version, or in another marketplace's cache is a finding. And a
                headless session in the project, trusted in the configuration, reports each module's
@@ -98,13 +108,24 @@ identifying field is no string or is empty (`name` in the marketplace list, `id`
 entry of another marketplace or plugin too), two entries of the marketplace's name or two project-scope
 entries of a module's id for the project, a field a claim reads (`source`, `installLocation`, `repo` of a
 `github` entry, `installPath`, `version`, `scope`, and `projectPath` of a project- or local-scope entry)
-that is no string or is empty, an `installLocation` that names no existing folder, and a project's
-.claude/settings.json that is unreadable, no JSON object, or whose `enabledPlugins` is no object. The fix
-of these alone is worded by `kit_module_doc.platform_fix` from the state of the run, and is never a change
-to the guide: on the pinned version it is to update the kit's reader that the line names (`listed`,
-`platform_clone`, `project_entries` or `enabled`), to what that version writes; off the pin, to run again
-on the pinned version. Every other configuration failure, such as a module document or
-manifest that cannot be read or a clone that cannot be made, prints a fix of its own. Needs no
+that is no string or is empty, an `installLocation` that names no existing folder, a project's
+.claude/settings.json that is unreadable, no JSON object, or whose `enabledPlugins` is no object, and the
+headless session's `system/init` event, the first one of the stream being the one read, as the headless
+page documents it: `plugins`, an array of objects each with a `name` and a `path`, both strings and not
+empty. A `plugins` that is absent or no list, an entry that is no object, a `name` or `path` that is
+absent, no string or empty, and two entries of one name, whatever their paths, are each a failure to run
+(`init_paths`). The fix of these alone is worded by
+`kit_module_doc.platform_fix` from the state of the run, and is never a change to the guide: on the pinned
+version it is to update the kit's reader that the line names (`listed`, `platform_clone`,
+`project_entries`, `session_paths` or `enabled`), to what that version writes; off the pin, to run again
+on the pinned version. Of the same event three things stay findings against the guide, red with a fix of
+their own, since the event is read whole: a well-formed `plugins` list that lacks a module of the kit, a
+module whose path is not its copy in the plugin cache, and a session whose stream holds no init event.
+Every other configuration failure prints a fix of its own, such as a module folder, document or manifest that
+cannot be read (`kit_module_doc.module_folders`; a manifest with no version), a dials example the check
+cannot read or place the first record by ("correct the guide's check=dials block"), a credential setting
+that cannot be carried into the run ("correct that entry in the global git configuration") and a clone
+that cannot be made ("check the clone"). Needs no
 Claude account login: the plugin commands read none, and the session stops before the model. Git needs a
 private repository's credentials.
 
@@ -118,7 +139,9 @@ ends at one of these steps, or at the version check itself, carry no note, since
 known. The version is compared with the one the working folder's scripts/claude-code.version pins, which the
 CI workflow installs from too; the clone carries the same file. It is the first word of the first non-blank
 line of the output of `claude --version`. The pinned version: the run goes on. Another readable version: a
-configuration failure, whose fix puts the pinned Claude Code first on PATH beside the person's own, unless
+configuration failure, whose fix (`kit_module_doc.put_first`) has the check run on the pinned Claude Code
+put first on PATH beside the person's own, which stays as it is: through `sh scripts/setup-claude.sh` and the
+gate list, `sh scripts/gate-list.sh --run guide`, first, an install by hand second, unless
 the environment's CONSTITUTION_KIT_ANY_CLAUDE is exactly `1`: the run then goes on, and each `RED:` finding
 headline, each `BROKEN:` line and the closing `GREEN:` or `RED:` line from then on ends with a note naming
 both versions. No readable version (the command fails, prints nothing, or opens with a word that is no
@@ -129,16 +152,16 @@ What the check reads of Claude Code, all as it writes it at the version scripts/
 From documented `--json` output: `claude plugin marketplace list --json`, per entry `name`, `source`, `repo`
 (of a `github` entry) and `installLocation`; `claude plugin list --json`, per entry `id`, `scope`,
 `version`, `installPath` and `projectPath` (required of a project- or local-scope entry). From documented
-files: the project's .claude/settings.json, its `enabledPlugins`; the `system/init` event of the headless
-session, its `plugins` with their `name` and `path`; and the trust flag
+files: the project's .claude/settings.json, its `enabledPlugins`; the first `system/init` event of the
+headless session's stream, its `plugins` with their `name` and `path`; and the trust flag
 `projects[<project>].hasTrustDialogAccepted` of <config>/.claude.json, which the check writes before the
 session, adding its key to whatever the file holds, documented for ~/.claude.json and put under
 CLAUDE_CONFIG_DIR, the folder that holds the platform's settings. From a documented layout: the plugin
 cache's path, `cache/<marketplace>/<plugin>/<version>/` under the plugins root ("Find plugins on disk" of the
 loading page), a path the check builds and compares with the `installPath` of the list; the root is
 `~/.claude/plugins` unless CLAUDE_CODE_PLUGIN_CACHE_DIR names it, a variable the check removes from the
-environment it runs `claude` in, so the root under CLAUDE_CONFIG_DIR, `plugins` in it, is that default read
-from CLAUDE_CONFIG_DIR's own meaning. From an
+environment it runs `claude` in, with three more (`kit_module_doc.claude_env`), so the root under
+CLAUDE_CONFIG_DIR, `plugins` in it, is that default read from CLAUDE_CONFIG_DIR's own meaning. From an
 undocumented place: none, since the record files of Claude Code are not read, and the plugin cache is read
 only through the documented path of a module's copy; the files under an `installLocation` and under that
 copy are read as plain files.
@@ -197,7 +220,9 @@ Modes:  no arguments   check the kit's guide;
                        version, a failure and a crash, the variable unset, at each other value than `1`
                        and at `1`; the run stopped before the clone with only `--version` run; the version
                        command run in an empty configuration folder of its own, the auto-updater off and
-                       CLAUDE_CODE_PLUGIN_CACHE_DIR absent;
+                       the four variables of `claude_env` absent, each of them set to a folder or to `1`
+                       and set empty in the person's environment, CLAUDE_CODE_PLUGIN_PREFER_HTTPS and an
+                       unrelated variable kept;
                        the reports of a run off the pin, a green one's and a finding's, as literal lines.
                        The platform's replies: the fake answering `plugin marketplace list --json` and
                        `plugin list --json` from a state of its own; the two readers over whole sets of
@@ -219,12 +244,27 @@ Modes:  no arguments   check the kit's guide;
                        (set to a folder, set and empty), and that variable not followed by the claim, copies
                        under the folder it names a finding; the fix of such a finding, `cache_fix`, on the
                        pin and off it, and off it in a whole run with the opt-out; a whole run with the
-                       variable set in the person's environment, to a folder and empty: green, every
-                       `claude` command (the version, the plugin commands, the session) run with it
-                       absent, and the folder it names left empty.
+                       one of the four set in the person's environment, to a folder or `1` and empty:
+                       green, every `claude` command (the version, the plugin commands, the session) run
+                       with the four absent and the kept variables as set, and the folders the variables
+                       name left empty; a block that exports one of the four itself, the variable present
+                       for the commands of that block alone; CONSTITUTION_KIT_INSTALL_FROM still read
+                       with the four set.
                        The lists that fail: a marketplace list and a plugin list that exit 1, 3 or 124 or
                        time out (the process mocked), a BROKEN with the fix `kit_module_doc.command_fix`
                        words, never a reader to update, on the pin and off it.
+                       The session's init event: each fault of `plugins` that the headless page does not
+                       document, a BROKEN that says what was found, the entry's place, the field and its
+                       value where there is one, with the fix naming `session_paths`, never a finding
+                       against the guide: `plugins` absent, null, an object or a string; an entry that is
+                       a string; a `name` or a `path` that is absent, empty or a number; two entries of
+                       one name, with the same path and with different ones, three of one name, and a name
+                       with a line break; one of them in a whole run through `main`, off the pin and on it,
+                       as literal lines; a built-in plugin, whose path is no folder, beside the modules
+                       green; a second init event after a good first, malformed or with other paths, never
+                       read; and the findings that stay: a well-formed list that holds a built-in plugin
+                       alone or loads no module, a session whose path is its module's folder in place, and
+                       a session that reports no start.
                        The BROKEN lines: a `repo` that is absent, empty or no string and an
                        `installLocation` that names no folder each a BROKEN and not a finding, a quotation
                        cut at 200 characters, the literal message of each BROKEN a reply or a settings file
@@ -303,7 +343,7 @@ DOES = {
 FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 MARK = re.compile(r"(?:^|\s)check=(\S*)")
 FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
-CACHE_ENV = PLUGINS_ROOT_ENV  # the plugins root, "Find plugins on disk" of the loading page; the run drops it
+CACHE_ENV = PLUGINS_ROOT_ENV  # the plugins root, "Find plugins on disk" of the loading page; one of the four
 ADD = re.compile(r"(claude plugin marketplace add\s+)(\S+)")  # the source the marketplace block registers
 GITHUB_URL = re.compile(r"github\.com[:/]([^/\s]+/[^/\s]+?)(?:\.git)?/?$")
 LICENSE_FILES = ("LICENSE", "NOTICE")  # the kit's license and credit, copied beside the kernel
@@ -612,9 +652,10 @@ class Run:
         """Where the platform copies a module of the kit's marketplace at install, in the layout that "Find
         plugins on disk" of its loading page documents: `cache/<marketplace>/<plugin>/<version>/` under the
         plugins root, the manifest's version here. The root is `plugins` in the run's configuration folder:
-        the run's environment holds no CLAUDE_CODE_PLUGIN_CACHE_DIR (`run_blocks` removes it), so the platform
-        is given no other root unless a block sets the variable itself, the case the cache's fix names on the
-        pinned version."""
+        the run's environment holds none of the four variables of `kit_module_doc.claude_env`, the plugins
+        root CLAUDE_CODE_PLUGIN_CACHE_DIR the one that names a root (`run_blocks` removes them), so the
+        platform is given no other root unless a block sets that variable itself, the case the cache's fix
+        names on the pinned version."""
         return self.config / "plugins" / "cache" / self.marketplace / module / self.modules[module]
 
 
@@ -652,14 +693,20 @@ def listed(argv: list[str], cwd: Path, env: dict[str, str], note: Note) -> list[
     return entries
 
 
-def text_of(entry: dict[str, object], field: str, what: str, argv: list[str], note: Note, reader: str) -> str:
-    """A field of an entry of `claude <argv>` that must be a string and not empty, or a Broken whose fix
-    names `reader`, the function that asked for the field and so knows what the platform writes."""
+def command_of(argv: list[str]) -> str:
+    """A documented `--json` command as a message names it."""
+    return f"`claude {' '.join(argv)}`"
+
+
+def text_of(entry: dict[str, object], field: str, what: str, source: str, note: Note, reader: str) -> str:
+    """A field of an entry of a reply that must be a string and not empty, or a Broken whose fix names
+    `reader`, the function that asked for the field and so knows what the platform writes. `source` names
+    the reply as a message does: `command_of` of a list command, or the session's init event."""
     value = entry.get(field)
     if not isinstance(value, str) or not value:
         found = shown(value) if field in entry else "absent"
         raise Broken(
-            f"`claude {' '.join(argv)}` gives no {field} string for {what} ({field} is {found})"
+            f"{source} gives no {field} string for {what} ({field} is {found})"
             + platform_fix(note, SCRIPT, reader, "a reply")
         )
     return value
@@ -680,7 +727,7 @@ def platform_clone(state: Run) -> Path:
     not the guide."""
     entries = listed(MARKETPLACES, state.cwd, state.env, state.note)
     names = [
-        text_of(e, "name", f"the list's entry {n}", MARKETPLACES, state.note, "platform_clone")
+        text_of(e, "name", f"the list's entry {n}", command_of(MARKETPLACES), state.note, "platform_clone")
         for n, e in enumerate(entries, 1)
     ]
     own = [e for e, name in zip(entries, names, strict=True) if name == state.marketplace]
@@ -697,7 +744,7 @@ def platform_clone(state: Run) -> Path:
     entry = own[0]
 
     def field(name: str) -> str:
-        return text_of(entry, name, state.marketplace, MARKETPLACES, state.note, "platform_clone")
+        return text_of(entry, name, state.marketplace, command_of(MARKETPLACES), state.note, "platform_clone")
 
     source, location = field("source"), field("installLocation")
     if source != "github":
@@ -730,13 +777,13 @@ def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]
     found: dict[str, list[dict[str, str]]] = {module: [] for module in state.modules}
     for position, entry in enumerate(listed(PLUGINS, project, state.env, state.note), 1):
         nth = f"the list's entry {position}"
-        identity = text_of(entry, "id", nth, PLUGINS, state.note, "project_entries")
+        identity = text_of(entry, "id", nth, command_of(PLUGINS), state.note, "project_entries")
         for module in state.modules:
             key = state.key(module)
             if identity != key:
                 continue
             fields = {
-                f: text_of(entry, f, key, PLUGINS, state.note, "project_entries")
+                f: text_of(entry, f, key, command_of(PLUGINS), state.note, "project_entries")
                 for f in ("installPath", "version", "scope")
             }
             if fields["scope"] in ("project", "local"):
@@ -744,7 +791,7 @@ def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]
                     entry,
                     "projectPath",
                     f"{key} at scope {fields['scope']}",
-                    PLUGINS,
+                    command_of(PLUGINS),
                     state.note,
                     "project_entries",
                 )
@@ -763,9 +810,52 @@ def project_entries(state: Run, project: Path) -> dict[str, list[dict[str, str]]
     return found
 
 
+INIT_EVENT = "the headless session's `system/init` event"
+
+
+def init_paths(event: dict[str, object], note: Note) -> dict[str, str]:
+    """Each plugin's path by its name, from the `plugins` of the `system/init` event as the headless page
+    documents it: an array of objects, each with a `name` and a `path`. The event is a platform reply, and a
+    fault in it is a Broken, never an answer for the guide: a `plugins` that is absent or no list, an entry
+    that is no object, a `name` or `path` that is absent, no string or empty, and two entries of one name,
+    whatever their paths. An entry that is no module of the kit, a built-in plugin with a path that is no
+    folder among them, is an entry like the others; the caller finds a module that is not listed. The fix
+    of each Broken names `session_paths`, which asks for the event and so knows what the platform writes."""
+    plugins = event.get("plugins")
+    if not isinstance(plugins, list):
+        found = shown(plugins) if "plugins" in event else "absent"
+        raise Broken(
+            f"{INIT_EVENT} gives no plugins list (plugins is {found})"
+            + platform_fix(note, SCRIPT, "session_paths", "a reply")
+        )
+    names: list[str] = []
+    paths: dict[str, str] = {}
+    for n, plugin in enumerate(plugins, 1):
+        if not isinstance(plugin, dict):
+            raise Broken(
+                f"{INIT_EVENT} gives plugins entry {n} that is no object ({shown(plugin)})"
+                + platform_fix(note, SCRIPT, "session_paths", "a reply")
+            )
+        what = f"plugins entry {n}"
+        name = text_of(plugin, "name", what, INIT_EVENT, note, "session_paths")
+        names.append(name)
+        paths[name] = text_of(plugin, "path", what, INIT_EVENT, note, "session_paths")
+    for name in names:
+        if names.count(name) > 1:
+            at = [str(n) for n, other in enumerate(names, 1) if other == name]
+            both = "both" if len(at) == 2 else "all"
+            raise Broken(
+                f"{INIT_EVENT} gives plugins entries {', '.join(at[:-1])} and {at[-1]} {both} named"
+                f" {shown(name)}" + platform_fix(note, SCRIPT, "session_paths", "a reply")
+            )
+    return paths
+
+
 def session_paths(state: Run, project: Path) -> tuple[dict[str, str] | None, str]:
     """Each plugin's path as a headless session in the project reports it at start, the project trusted
-    in the configuration first — None when the session reported no start — and its last line."""
+    in the configuration first — None when the session reported no start, the first `system/init` event
+    being the one read, as the headless page documents one at the start of the stream — and its last line.
+    An event of another shape than the page documents is a Broken (`init_paths`)."""
     dot = state.config / ".claude.json"
     data = read_json(dot)
     projects = data.get("projects")
@@ -783,12 +873,7 @@ def session_paths(state: Run, project: Path) -> tuple[dict[str, str] | None, str
         except ValueError:
             continue
         if isinstance(event, dict) and event.get("type") == "system" and event.get("subtype") == "init":
-            plugins = event.get("plugins")
-            return {
-                str(p.get("name")): str(p.get("path"))
-                for p in (plugins if isinstance(plugins, list) else [])
-                if isinstance(p, dict)
-            }, ""
+            return init_paths(event, state.note), ""
     return None, last_line(said)
 
 
@@ -1071,7 +1156,7 @@ def run_blocks(
             encoding="utf-8",
         )
         carry_credentials(base_env, home / ".gitconfig")
-        env = claude_env(base_env) | {  # no CLAUDE_CODE_PLUGIN_CACHE_DIR: the root is <config>/plugins
+        env = claude_env(base_env) | {  # none of the four: the plugins root is <config>/plugins
             "HOME": str(home),
             "CLAUDE_CONFIG_DIR": str(config),
             "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
@@ -1178,8 +1263,14 @@ from `<owner>/<repo>#<branch>` is a GitHub one, cloned from the toy kit the envi
 from a path is a local folder. `--version` answers the pin of the toy kit, as the real one writes it, or
 FAKE_SAYS (escapes read) with the exit FAKE_EXIT; for `--version` it logs to FAKE_ENV, when set, its
 configuration folder, its auto-updater setting, how many entries the folder holds and whether it is a
-folder. For every command it logs to FAKE_CACHE, when set, the arguments and the CLAUDE_CODE_PLUGIN_CACHE_DIR
-it holds, `absent` when unset. FAKE_MUTANT names the one thing it does wrong."""
+folder. For every command it logs to FAKE_CACHE, when set, the arguments, then, each after a `|` and in this
+order, the values of CLAUDE_CODE_PLUGIN_CACHE_DIR, CLAUDE_CODE_PLUGIN_SEED_DIR, CLAUDE_CODE_PLUGIN_DIRS,
+CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP,
+CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS, CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE,
+CLAUDE_CODE_SYNC_PLUGIN_INSTALL, CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS, FORCE_AUTOUPDATE_PLUGINS,
+CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL and CLAUDE_CODE_PLUGIN_DIR_WATCH it holds, `absent` when
+unset.
+FAKE_MUTANT names the one thing it does wrong."""
 import json, os, shutil, subprocess, sys
 from pathlib import Path
 mutant = os.environ.get("FAKE_MUTANT", "")
@@ -1188,8 +1279,15 @@ with open(os.environ.get("FAKE_LOG") or config / "fake.log", "a", encoding="utf-
     log.write(" ".join(sys.argv[1:]) + "\\n")
 if os.environ.get("FAKE_CACHE"):
     with open(os.environ["FAKE_CACHE"], "a", encoding="utf-8") as seen:
-        cache_dir = os.environ.get("CLAUDE_CODE_PLUGIN_CACHE_DIR", "absent")
-        seen.write(" ".join(sys.argv[1:]) + "|" + cache_dir + "\\n")
+        held = [os.environ.get(name, "absent") for name in (
+            "CLAUDE_CODE_PLUGIN_CACHE_DIR", "CLAUDE_CODE_PLUGIN_SEED_DIR", "CLAUDE_CODE_PLUGIN_DIRS",
+            "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE", "CLAUDE_CODE_PLUGIN_PREFER_HTTPS", "FAKE_KEEP",
+            "CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS", "CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE",
+            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL", "CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS",
+            "FORCE_AUTOUPDATE_PLUGINS", "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL",
+            "CLAUDE_CODE_PLUGIN_DIR_WATCH",
+        )]
+        seen.write(" ".join(sys.argv[1:]) + "|" + "|".join(held) + "\\n")
 if sys.argv[1:] == ["--version"]:
     if os.environ.get("FAKE_ENV"):
         with open(os.environ["FAKE_ENV"], "a", encoding="utf-8") as seen:
@@ -1396,7 +1494,47 @@ elif args[:1] == ["-p"]:
             where = clone / "modules" / module if mutant == "session-in-place" else cache_of(module)
             if on and mutant != "session-loads-nothing":
                 found.append({"name": module, "path": str(where), "source": key})
-    print(json.dumps({"type": "system", "subtype": "init", "plugins": found}))
+    event = {"type": "system", "subtype": "init", "plugins": found}
+    builtin = {"name": "agents-md", "path": "builtin", "source": "agents-md@builtin"}
+    if mutant == "session-builtin":
+        found.insert(0, builtin)
+    if mutant == "session-builtin-only":
+        found[:] = [builtin]
+    if mutant == "session-plugins-absent":
+        del event["plugins"]
+    if mutant == "session-plugins-null":
+        event["plugins"] = None
+    if mutant == "session-plugins-object":
+        event["plugins"] = {"name": "const-alpha"}
+    if mutant == "session-plugins-string":
+        event["plugins"] = "const-alpha"
+    if mutant == "session-entry-string":
+        found.insert(1, "const-beta")
+    if mutant.startswith("session-name-"):
+        if mutant == "session-name-absent":
+            del found[0]["name"]
+        else:
+            found[0]["name"] = "" if mutant == "session-name-empty" else 7
+    if mutant.startswith("session-path-"):
+        if mutant == "session-path-absent":
+            del found[1]["path"]
+        else:
+            found[1]["path"] = "" if mutant == "session-path-empty" else 7
+    if mutant == "session-dup-same":
+        found.append(dict(found[0]))
+    if mutant == "session-dup-diff":
+        found.append(dict(found[0]) | {"path": "/elsewhere/" + found[0]["name"]})
+    if mutant == "session-dup-three":
+        found[:] = [found[0], found[1], dict(found[0]), dict(found[0]) | {"path": "/elsewhere"}]
+    if mutant == "session-dup-newline":
+        found[:] = [found[0] | {"name": "a\\nb"}, found[1] | {"name": "a\\nb"}]
+    print("a line that is no JSON")  # skipped, as an event of another type is
+    print(json.dumps({"type": "system", "subtype": "hook_started", "plugins": None}))
+    print(json.dumps(event))
+    if mutant == "session-second-init-malformed":  # a later init event is never read
+        print(json.dumps(event | {"plugins": None}))
+    if mutant == "session-second-init-paths":
+        print(json.dumps(event | {"plugins": [p | {"path": "/elsewhere/" + p["name"]} for p in found]}))
     print(json.dumps({"type": "result", "subtype": "success", "result": "Not logged in"}))
     sys.exit(1)
 else:
@@ -1520,9 +1658,10 @@ def self_test() -> int:
 
     off_fix = (  # typed by hand: the run is on 2.1.286, not the pinned 2.1.282
         " — fix: this run is on 2.1.286, not the pinned 2.1.282: run it again on the pinned version,"
-        " put Claude Code 2.1.282 first on PATH for this run, installed beside your own (npm install"
-        " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
-        " then PATH=<folder>/node_modules/.bin:$PATH)"
+        " put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the"
+        " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
+        " for the guide's check), which puts it first, or install it beside your own by hand (npm install"
+        " --prefix <folder> @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:$PATH)"
     )
 
     marks = [
@@ -1881,8 +2020,30 @@ def self_test() -> int:
         fake.mkdir()
         (fake / "claude").write_text(FAKE, encoding="utf-8")
         (fake / "claude").chmod(0o755)
+        # typed by hand, a constant cannot check itself: the four variables `claude_env` removes, each with
+        # what a person who sets it would set, a folder of the run's or `1`; the person's own are never the
+        # environment of these runs, nor are the variables it keeps
+        four = {
+            "CLAUDE_CODE_PLUGIN_CACHE_DIR": "plugins-root",
+            "CLAUDE_CODE_PLUGIN_SEED_DIR": "plugins-seed",
+            "CLAUDE_CODE_PLUGIN_DIRS": "plugins-dirs",
+            "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE": "1",
+        }
+        documented_kept = {  # typed by hand, never the code's: the seven documented ones, each its own value
+            "CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS": "45000",
+            "CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE": "keep",
+            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL": "sync",
+            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS": "30000",
+            "FORCE_AUTOUPDATE_PLUGINS": "force",
+            "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "disable",
+            "CLAUDE_CODE_PLUGIN_DIR_WATCH": "watch",
+        }
+        # the kit's CI's CLAUDE_CODE_PLUGIN_PREFER_HTTPS, an unrelated FAKE_KEEP and the seven: the platform's
+        # environment-variables page documents them as tuning a clone's time, transport or retry, an update or
+        # a wait, none as steering where plugins are found, kept or loaded
+        kept_vars = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"} | documented_kept
         base = {
-            k: v for k, v in os.environ.items() if k != CACHE_ENV
+            k: v for k, v in os.environ.items() if k not in four and k not in kept_vars
         } | {  # the plugins root is the fake's own
             "PATH": f"{fake}{os.pathsep}{os.environ.get('PATH', '')}",
             FROM_ENV: "toy/kit#main",
@@ -2474,7 +2635,9 @@ def self_test() -> int:
         # off it; the lines are typed by hand
         other_note = Note("2.1.282", "2.1.286")  # the state of a run on 2.1.286 with the opt-out set
         put_first = (
-            "put Claude Code 2.1.282 first on PATH for this run, installed beside your own (npm install"
+            "put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the"
+            " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
+            " for the guide's check), which puts it first, or install it beside your own by hand (npm install"
             " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
             " then PATH=<folder>/node_modules/.bin:$PATH)"
         )
@@ -2998,30 +3161,69 @@ def self_test() -> int:
                 f"{whats(decoyed)} ({decoyed_examined})",
             )
 
-        # the person's CLAUDE_CODE_PLUGIN_CACHE_DIR never reaches a `claude` the run starts: the version
-        # command, the blocks' commands and the headless session all see it unset, the platform's copies are
-        # made under the run's own configuration, and the folder the variable names stays empty
-        pc_root = unit / "plugins-root"
-        pc_root.mkdir()
-        for name, value in (("set to a folder", str(pc_root)), ("set and empty", "")):
-            seen_log = unit / "cache-seen.log"
+        # none of the four variables reaches a `claude` the run starts, whichever the person sets and to what:
+        # the version command, the blocks' commands and the headless session all see the four unset, the
+        # platform's copies are made under the run's own configuration, and the folders the variables name
+        # stay empty; CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the seven documented ones reach every
+        # command as the person set them, and CONSTITUTION_KIT_INSTALL_FROM, in `base`, is still read: the
+        # run is green from its source
+        seen_when_removed = "|absent|absent|absent|absent|1|1|45000|keep|sync|30000|force|disable|watch"
+        # ^ the fake's log after a command's arguments
+        person_values: dict[str, tuple[str, str]] = {}
+        for variable, shape in four.items():
+            if shape != "1":
+                (unit / shape).mkdir()
+            person_values[variable] = (
+                ("set to 1", "1") if shape == "1" else ("set to a folder", str(unit / shape))
+            )
+        seen_log = unit / "cache-seen.log"
+        for variable, (what, set_value) in person_values.items():
+            for name, value in ((what, set_value), ("set and empty", "")):
+                seen_log.unlink(missing_ok=True)
+                rooted, rooted_examined, _ = run_guide(
+                    toy_guide(), kit, base | kept_vars | {variable: value, "FAKE_CACHE": str(seen_log)}
+                )
+                seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
+                first_words = {line.split("|")[0].split()[0] for line in seen}
+                case(
+                    f"{variable} {name} in the person's environment: a green run, the whole of it, every"
+                    " claude command (the version, the plugin commands, the session) run with the four"
+                    " absent and CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the seven documented ones as"
+                    " set, the folders empty",
+                    not rooted
+                    and rooted_examined == green_examined
+                    and bool(seen)
+                    and all(line.endswith(seen_when_removed) for line in seen)
+                    and {"--version", "plugin", "-p"} <= first_words
+                    and all(list((unit / f).iterdir()) == [] for f in four.values() if f != "1"),
+                    f"{whats(rooted)} ({rooted_examined}) {seen[:4]}",
+                )
+        # a block that exports one of the four itself has it for its own commands, and no other command
+        for variable in four:
+            block_value = "1" if four[variable] == "1" else "$HOME/block-value"
             seen_log.unlink(missing_ok=True)
-            rooted, rooted_examined, _ = run_guide(
-                toy_guide(), kit, base | {CACHE_ENV: value, "FAKE_CACHE": str(seen_log)}
+            run_guide(
+                toy_guide(
+                    install=f"export {variable}={block_value} && "
+                    "for m in ~/dev/constitution-kit/modules/const-*; "
+                    f'do claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
+                ),
+                kit,
+                base | kept_vars | {"FAKE_CACHE": str(seen_log)},
             )
             seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
-            first_words = {line.rsplit("|", 1)[0].split()[0] for line in seen}
+            at_command = [(line.split("|")[0], line.split("|")[1:5]) for line in seen]
+            slot = list(four).index(variable)
+            holds = [i for i, (_, fields) in enumerate(at_command) if fields[slot] != "absent"]
+            installs = [i for i, (words, _) in enumerate(at_command) if words.startswith("plugin install")]
             case(
-                f"CLAUDE_CODE_PLUGIN_CACHE_DIR {name} in the person's environment: a green run, the whole of"
-                " it, every claude command (the version, the plugin commands, the session) run with it"
-                " absent, the folder it names empty",
-                not rooted
-                and rooted_examined == green_examined
-                and bool(seen)
-                and all(line.endswith("|absent") for line in seen)
-                and {"--version", "plugin", "-p"} <= first_words
-                and list(pc_root.iterdir()) == [],
-                f"{whats(rooted)} ({rooted_examined}) {seen[:4]} {sorted(p.name for p in pc_root.iterdir())}",
+                f"a block that exports {variable} itself: the variable reaches the two `plugin install`"
+                " commands of that block, one for each toy module, and no other claude command, and the"
+                " other three reach none",
+                len(installs) >= 2
+                and holds == installs[:2]
+                and all(f == "absent" for _, fields in at_command for i, f in enumerate(fields) if i != slot),
+                " | ".join(seen[:6]),
             )
 
         # the folders in a whole run: the marketplace list where its block ended, not in the project, the
@@ -3167,6 +3369,50 @@ def self_test() -> int:
             and stopped[0].render().count("fix:") == 1,
             " | ".join(f"{f.what} / {f.fix}" for f in stopped),
         )
+        # the init event as the headless page documents it: `plugins` an array of objects each with a `name`
+        # and a `path` (both strings, not empty), one entry to a name. A fault in it is the platform's reply
+        # unread, a BROKEN, never a finding against the guide; a built-in plugin, whose path is no folder,
+        # is an entry like the others; the lines are typed by hand
+        event = "the headless session's `system/init` event"
+        for mutant, rest in (
+            ("session-plugins-absent", f"{event} gives no plugins list (plugins is absent)"),
+            ("session-plugins-null", f"{event} gives no plugins list (plugins is None)"),
+            (
+                "session-plugins-object",
+                f"{event} gives no plugins list (plugins is {{'name': 'const-alpha'}})",
+            ),
+            ("session-plugins-string", f"{event} gives no plugins list (plugins is 'const-alpha')"),
+            ("session-entry-string", f"{event} gives plugins entry 2 that is no object ('const-beta')"),
+            ("session-name-absent", f"{event} gives no name string for plugins entry 1 (name is absent)"),
+            ("session-name-empty", f"{event} gives no name string for plugins entry 1 (name is '')"),
+            ("session-name-number", f"{event} gives no name string for plugins entry 1 (name is 7)"),
+            ("session-path-absent", f"{event} gives no path string for plugins entry 2 (path is absent)"),
+            ("session-path-empty", f"{event} gives no path string for plugins entry 2 (path is '')"),
+            ("session-path-number", f"{event} gives no path string for plugins entry 2 (path is 7)"),
+            ("session-dup-same", f"{event} gives plugins entries 1 and 3 both named 'const-alpha'"),
+            ("session-dup-diff", f"{event} gives plugins entries 1 and 3 both named 'const-alpha'"),
+            ("session-dup-three", f"{event} gives plugins entries 1, 3 and 4 all named 'const-alpha'"),
+            ("session-dup-newline", f"{event} gives plugins entries 1 and 2 both named 'a\\nb'"),
+        ):
+            got = broke(mutant)
+            case(
+                f"{mutant}: a BROKEN pointing at the Claude Code version, never a finding against INSTALL.md",
+                got == rest + fix_of("session_paths"),
+                got,
+            )
+        builtin, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "session-builtin"})
+        case(
+            "a built-in plugin beside the modules in the init event: green, its path being no folder",
+            not builtin,
+            whats(builtin),
+        )
+        for mutant in ("session-second-init-malformed", "session-second-init-paths"):
+            # the first init event is the one read: a second after a good first, malformed or with paths that
+            # differ, is never looked at
+            got = broke(mutant)
+            case(
+                f"{mutant}: the first init event is the one read, green", got == "no Broken: no finding", got
+            )
         never, _, _ = run_guide(
             toy_guide(marketplace="true || claude plugin marketplace add toy/kit"), kit, base
         )
@@ -3182,6 +3428,8 @@ def self_test() -> int:
             ("session-in-place", "register the kit from GitHub"),
             ("install-no-enable", "make the block install each module at project scope"),
             ("session-loads-nothing", "run §2 steps 1 to 3 in a project of your own and read the Errors tab"),
+            # a well-formed list that holds a built-in plugin and lacks the modules: the same finding
+            ("session-builtin-only", "run §2 steps 1 to 3 in a project of your own and read the Errors tab"),
         ):
             taught, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
             case(
@@ -3233,9 +3481,12 @@ def self_test() -> int:
         version_log = root / "version.log"
         strict = (
             "claude is {0}, and the kit's install checks read the platform as 2.1.282 writes it"
-            " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run,"
-            " installed beside your own (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
-            " then PATH=<folder>/node_modules/.bin:$PATH), or set CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
+            " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run:"
+            " either run sh scripts/setup-claude.sh in the kit's clone, then the check through"
+            " sh scripts/gate-list.sh --run install-<module> (--run guide for the guide's check), which puts"
+            " it first, or install it beside your own by hand (npm install --prefix <folder>"
+            " @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:$PATH), or set"
+            " CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
             " {0} with a note on every headline line"
         )
         noted = " [claude {0}, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"
@@ -3362,6 +3613,27 @@ def self_test() -> int:
                 and sorted(path.name for path in person.iterdir()) == ["keep"],
                 f"{seen_env} {sorted(path.name for path in person.iterdir())}",
             )
+
+        seen_log.unlink(missing_ok=True)
+        opted, opted_examined, opted_note = run_guide(
+            toy_guide(),
+            kit,
+            says_env(too_old, 0, "1")
+            | kept_vars
+            | {variable: set_value for variable, (_, set_value) in person_values.items()}
+            | {"FAKE_CACHE": str(seen_log)},
+        )
+        seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
+        case(
+            "all four set in the person's environment with CONSTITUTION_KIT_ANY_CLAUDE=1 on another version:"
+            " the opt-out is still read (a green run with its note), every claude command run with the four"
+            " absent",
+            not opted
+            and opted_note == noted.format("2.1.286")
+            and bool(seen)
+            and all(line.endswith(seen_when_removed) for line in seen),
+            f"{whats(opted)} ({opted_examined}) {opted_note!r} {seen[:4]}",
+        )
 
         def stopped_run(env: dict[str, str], where: Path = kit) -> tuple[str, str]:
             """What `run_guide` over the toy guide ends in when it is Broken: its line and its note."""
@@ -3498,6 +3770,27 @@ def self_test() -> int:
         case(
             "a whole run on a reply of the wrong shape on the pin prints the two BROKEN lines, no note",
             ended == EXIT_BROKEN and lines == ["BROKEN: " + unreadable_head + fix_of("listed"), stop],
+            f"{ended} {lines}",
+        )
+        unreadable_event = (  # the init event's, typed by hand
+            "the headless session's `system/init` event gives no path string for plugins entry 2 (path is 7)"
+        )
+        ended, lines = whole_run(says_env(too_old, 0, "1") | {"FAKE_MUTANT": "session-path-number"})
+        case(
+            "a whole run on an init event of the wrong shape off the pin prints the two BROKEN lines, the"
+            " note at the end of each, the fix the run on the pinned version",
+            ended == EXIT_BROKEN
+            and lines
+            == [
+                "BROKEN: " + unreadable_event + off_fix + noted.format("2.1.286"),
+                stop + noted.format("2.1.286"),
+            ],
+            f"{ended} {lines}",
+        )
+        ended, lines = whole_run(base | {"FAKE_MUTANT": "session-path-number"})
+        case(
+            "a whole run on an init event of the wrong shape on the pin prints the two BROKEN lines, no note",
+            ended == EXIT_BROKEN and lines == ["BROKEN: " + unreadable_event + fix_of("session_paths"), stop],
             f"{ended} {lines}",
         )
         green_line = (

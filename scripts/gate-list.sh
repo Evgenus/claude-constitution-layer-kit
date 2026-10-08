@@ -10,7 +10,7 @@
 #   sh scripts/gate-list.sh --show <entry>             the commands of one entry, one per line
 #   sh scripts/gate-list.sh --run <entry>|<job>        run one entry's commands, or every entry of a job, in turn, from the kit root
 # The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types: each
-# module's, the branch gate's fixture, and the kit's own lint of scripts/ and shared/ and types of its
+# module's, the branch gate's fixture, the fixture of scripts/setup-claude.sh, and the kit's own lint of scripts/ and shared/ and types of its
 # checks and shared/const_gate, the shared tests typed through each module's links.
 # A CI job is a module — its scan, its install, its fixtures, its lint and its types — or `install-guide`,
 # the run of the install guide, or `kit`, every other entry no module holds; an entry is in exactly one job, and one no line of job() maps falls into `kit`.
@@ -22,7 +22,11 @@
 # PATH and no Claude account login: on any other version they fail to run, unless CONSTITUTION_KIT_ANY_CLAUDE=1,
 # when they run with a note naming both versions on every headline line of their report after the version
 # check; each installs from the change's GitHub branch, a private remote, so each needs git's credentials
-# for it.
+# for it. A clone runs `sh scripts/setup-claude.sh` once, and again after the pin moves, which installs the
+# pinned version into <main>/.claude-code-pinned, <main> the folder that holds git's common directory, so
+# every worktree shares it; --run then puts that folder's node_modules/.bin first on PATH for the commands
+# of the install-<module> entries and the guide alone, and only when its `claude` is executable. Every
+# other entry, and every run where the folder does not exist, as in CI, runs as it would without it.
 # --run runs every command of the entry, and every entry of the job, even after a red one and prints
 # each command's exit; it exits 0 when every command did, else 2 when every failing command exited 2
 # (a finding), else 1; an entry with no commands is a BROKEN line and exit 1. A job's run in GitHub
@@ -36,7 +40,7 @@ const-locations const-meta-types const-questions const-referencing const-styling
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links yaml-style module-links aspects portability gate-lists
 schema-mirror copies dials-schema resolved-paths bare-install guide $(for m in $MODULES; do printf 'install-%s ' "$m"; done)task-close"
-EXTRAS="branch-gate $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types"
+EXTRAS="branch-gate setup-claude $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types"
 
 job() {
     case "$1" in
@@ -113,6 +117,7 @@ commands() {
             return 1 ;;
         task-close) echo "sh modules/const-task-close/scripts/check-task-close.sh --scan" ;;
         branch-gate) echo "sh scripts/git-hooks/tests/run.sh" ;;
+        setup-claude) echo "sh scripts/tests/setup-claude.sh" ;;
         lint)
             echo "python3 -m ruff format --check scripts shared"
             echo "python3 -m ruff check scripts shared" ;;
@@ -135,8 +140,17 @@ run_entry() {
         worst=1
         return
     }
+    # the pinned claude of scripts/setup-claude.sh goes first on PATH for the install entries and the guide
+    # alone, and only when it is there; <main> is derived as setup-claude.sh derives it
+    pinned_bin=""
+    case "$1" in
+        install-* | guide)
+            common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) && [ -n "$common" ] &&
+                [ -x "$(dirname "$common")/.claude-code-pinned/node_modules/.bin/claude" ] &&
+                pinned_bin="$(dirname "$common")/.claude-code-pinned/node_modules/.bin" ;;
+    esac
     while IFS= read -r c; do
-        (sh -c "$c") </dev/null; code=$?
+        (if [ -n "$pinned_bin" ]; then PATH="$pinned_bin:$PATH"; export PATH; fi; sh -c "$c") </dev/null; code=$?
         echo "gate-list: exit $code — $c"
         case $code in
             0) ;;
