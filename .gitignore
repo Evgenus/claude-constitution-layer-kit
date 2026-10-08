@@ -4,3 +4,6 @@
 local/
 __pycache__/
 .claude/settings.local.json
+
+# The pinned Claude Code that scripts/setup-claude.sh installs for local runs of the gate list, in a clone's main checkout.
+.claude-code-pinned/

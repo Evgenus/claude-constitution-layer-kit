@@ -279,9 +279,13 @@ def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note
 
 
 def put_first(pinned: str) -> str:
-    """How to run on the pinned version beside one's own `claude`, which stays as it is."""
+    """How to run on the pinned version beside one's own `claude`, which stays as it is: the kit's script
+    that installs it into the clone and the gate list that puts it first on PATH for the install entries
+    and the guide, then the same by hand."""
     return (
-        f"put Claude Code {pinned} first on PATH for this run, installed beside your own"
+        f"put Claude Code {pinned} first on PATH for this run: either run sh scripts/setup-claude.sh in the"
+        " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
+        " for the guide's check), which puts it first, or install it beside your own by hand"
         f" (npm install --prefix <folder> @anthropic-ai/claude-code@{pinned}, then"
         " PATH=<folder>/node_modules/.bin:$PATH)"
     )
