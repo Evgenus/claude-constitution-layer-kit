@@ -6,7 +6,8 @@
 #   sh scripts/setup-claude.sh           install the pinned version into <main>/.claude-code-pinned, then --check
 #   sh scripts/setup-claude.sh --check   exit 0 when that folder's claude answers the pinned version, 2 when not
 # <main> is the folder that holds git's common directory, so every worktree of a clone shares the one copy.
-# The folder is git-ignored. Run it once per clone, and again after the pin moves. CI never runs it: the
+# The folder is git-ignored, and the install replaces it whole, so this is also the fix for any folder
+# --check finds red. Run it once per clone, and again after the pin moves. CI never runs it: the
 # workflow installs the pinned version globally, and the folder never exists there.
 # The pin is read as the file's bytes: exactly one version of three numbers, ASCII digits, with at most one
 # final line feed, as pinned_claude of scripts/kit_module_doc.py reads it; anything else is BROKEN.
@@ -76,6 +77,9 @@ if [ "$1" = "--check" ]; then
 fi
 
 command -v npm >/dev/null 2>&1 || broken "npm is not installed, and Claude Code is an npm package — fix: install Node.js with npm (https://nodejs.org/) and put npm on PATH"
+# the folder is replaced whole: npm leaves a folder that already holds the package as it is ("up to date"),
+# so a claude that was replaced, damaged or made non-executable would stay, and --check stay red
+rm -rf "$folder" || broken "$folder could not be removed — fix: remove it by hand, then run sh scripts/setup-claude.sh again"
 npm install --prefix "$folder" --no-audit --no-fund "@anthropic-ai/claude-code@$pin" || {
     broken "npm install exited $? — fix: run npm install --prefix \"$folder\" --no-audit --no-fund \"@anthropic-ai/claude-code@$pin\" by hand and read why it fails"
 }

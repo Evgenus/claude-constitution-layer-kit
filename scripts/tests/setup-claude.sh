@@ -28,6 +28,7 @@ echo "@VERSION@ (Claude Code)"
 EOF
 cat >"$tmp/bin/npm" <<'EOF'
 #!/bin/sh
+# as npm does: a folder that already holds the package at the asked version is left as it is
 echo "$*" >>"$NPM_LOG"
 [ -z "$FAKE_NPM_FAIL" ] || exit "$FAKE_NPM_FAIL"
 prefix=""; version=""
@@ -38,9 +39,13 @@ while [ "$#" -gt 0 ]; do
     esac
     shift
 done
-mkdir -p "$prefix/node_modules/.bin"
-sed "s/@VERSION@/$version/" "$FAKE_CLAUDE_TEMPLATE" >"$prefix/node_modules/.bin/claude"
-chmod +x "$prefix/node_modules/.bin/claude"
+package=$prefix/node_modules/@anthropic-ai/claude-code
+if grep -qs "\"version\": \"$version\"" "$package/package.json"; then echo "up to date"; exit 0; fi
+mkdir -p "$package" "$prefix/node_modules/.bin"
+printf '{"version": "%s"}\n' "$version" >"$package/package.json"
+sed "s/@VERSION@/$version/" "$FAKE_CLAUDE_TEMPLATE" >"$package/cli.sh"
+chmod +x "$package/cli.sh"
+ln -sf ../@anthropic-ai/claude-code/cli.sh "$prefix/node_modules/.bin/claude"
 EOF
 printf '#!/bin/sh\necho "2.1.286 (Claude Code)"\n' >"$tmp/bin/claude"
 chmod +x "$tmp/bin/npm" "$tmp/bin/claude"
@@ -119,23 +124,34 @@ is "--check from the worktree reads the main checkout's folder" 0 "$(green "$tmp
 run_in "$tmp/main" sh scripts/setup-claude.sh --check
 is "and so does the main checkout" 0 "$(green "$tmp/main" 2.1.282)"
 
-# the check: a folder that is not the pin, and what claude is asked with
-sed 's/@VERSION@/2.1.286/' "$tmp/claude.template" >"$clone/.claude-code-pinned/node_modules/.bin/claude"
-: >"$CLAUDE_LOG"
+# the check: every state it finds red, and the fix it prints followed as printed, which is the script
+# itself, to green. npm leaves a folder that holds the package as it is, so the script replaces the
+# folder whole; the fake npm does as npm does, and says so
+bin=$clone/.claude-code-pinned/node_modules/.bin
+walk() {  # walk <label> <what the RED says> <commands that put the installed folder in that state>
+    eval "$3"
+    run_in "$clone" sh scripts/setup-claude.sh --check
+    is "$1: --check is red" 2 "$(red "$clone" 2.1.282 "$2")"
+    run_in "$clone" sh scripts/setup-claude.sh
+    is "$1: the fix, run as printed, turns it green" 0 "$(green "$clone" 2.1.282)"
+    run_in "$clone" sh scripts/setup-claude.sh --check
+    is "$1: and --check stays green" 0 "$(green "$clone" 2.1.282)"
+}
+no_claude="$clone/.claude-code-pinned has no executable node_modules/.bin/claude"
+walk "no folder" "$no_claude" 'rm -rf "$clone/.claude-code-pinned"'
+walk "a bin link replaced by a claude of another version" "its claude answers 2.1.286, not 2.1.282" 'rm "$bin/claude"; sed "s/@VERSION@/2.1.286/" "$tmp/claude.template" >"$bin/claude"; chmod +x "$bin/claude"'
+rm "$bin/claude"; sed "s/@VERSION@/2.1.286/" "$tmp/claude.template" >"$bin/claude"; chmod +x "$bin/claude"
+run_in "$clone" npm install --prefix "$clone/.claude-code-pinned" --no-audit --no-fund @anthropic-ai/claude-code@2.1.282
+is "npm alone, asked again for the package that folder holds, says up to date" 0 "up to date"
 run_in "$clone" sh scripts/setup-claude.sh --check
-is "another version in the folder: --check is red" 2 "$(red "$clone" 2.1.282 "its claude answers 2.1.286, not 2.1.282")"
-printf '#!/bin/sh\nexit 0\n' >"$clone/.claude-code-pinned/node_modules/.bin/claude"
-run_in "$clone" sh scripts/setup-claude.sh --check
-is "a claude that prints nothing: red" 2 "$(red "$clone" 2.1.282 "its claude exited 0 without a version (no output)")"
-printf '#!/bin/sh\necho boom\nexit 3\n' >"$clone/.claude-code-pinned/node_modules/.bin/claude"
-run_in "$clone" sh scripts/setup-claude.sh --check
-is "a claude that fails: red, naming its last word" 2 "$(red "$clone" 2.1.282 "its claude exited 3 without a version (boom)")"
-printf '#!/bin/sh\necho "2.1.282 (Claude Code)"\n' >"$clone/.claude-code-pinned/node_modules/.bin/claude"
-chmod -x "$clone/.claude-code-pinned/node_modules/.bin/claude"
-run_in "$clone" sh scripts/setup-claude.sh --check
-is "a claude that is not executable: red" 2 "$(red "$clone" 2.1.282 "$clone/.claude-code-pinned has no executable node_modules/.bin/claude")"
-chmod +x "$clone/.claude-code-pinned/node_modules/.bin/claude"
-sed 's/@VERSION@/2.1.282/' "$tmp/claude.template" >"$clone/.claude-code-pinned/node_modules/.bin/claude"
+is "and changes nothing, so the folder stays red: the fix cannot be npm alone" 2 "$(red "$clone" 2.1.282 "its claude answers 2.1.286, not 2.1.282")"
+walk "a claude of the package damaged to print nothing" "its claude exited 0 without a version (no output)" 'printf "#!/bin/sh\nexit 0\n" >"$bin/claude"'
+walk "a claude that fails" "its claude exited 3 without a version (boom)" 'printf "#!/bin/sh\necho boom\nexit 3\n" >"$bin/claude"'
+walk "a claude that is not executable" "$no_claude" 'chmod -x "$bin/claude"'
+walk "a bin link that points nowhere" "$no_claude" 'rm "$bin/claude"; ln -s /nonexistent/claude "$bin/claude"'
+walk "a bin folder with no claude" "$no_claude" 'rm "$bin/claude"'
+walk "a file in the folder's place" "$no_claude" 'rm -rf "$clone/.claude-code-pinned"; : >"$clone/.claude-code-pinned"'
+walk "a folder holding another version of the package" "its claude answers 2.1.286, not 2.1.282" 'rm -rf "$clone/.claude-code-pinned"; mkdir -p "$bin"; sed "s/@VERSION@/2.1.286/" "$tmp/claude.template" >"$bin/claude"; chmod +x "$bin/claude"; mkdir -p "$clone/.claude-code-pinned/node_modules/@anthropic-ai/claude-code"; printf "{\"version\": \"2.1.282\"}\n" >"$clone/.claude-code-pinned/node_modules/@anthropic-ai/claude-code/package.json"'
 : >"$CLAUDE_LOG"
 person=$tmp/person; mkdir "$person"
 (cd "$clone" && CLAUDE_CONFIG_DIR=$person DISABLE_AUTOUPDATER=0 sh scripts/setup-claude.sh --check) >"$tmp/out" 2>&1; got=$?
@@ -156,6 +172,10 @@ pin_file=$pins/scripts/claude-code.version
 mv "$pin_file" "$tmp/pin.saved"
 run_in "$pins" sh scripts/setup-claude.sh
 is "a missing pin file is BROKEN" 1 "BROKEN: $pin_file cannot be read — fix: $pin_fix"
+# the fix is typed in two places, the script and PIN_FIX of scripts/kit_module_doc.py; nothing else ties them
+shell_fix=$(sed 's/^.* — fix: //' "$tmp/out")
+python_fix=$(PYTHONDONTWRITEBYTECODE=1 python3 -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import kit_module_doc; print(kit_module_doc.PIN_FIX)' "$pins/scripts")
+holds "the script's fix for a pin is the Python constant's" test "$shell_fix" = "$python_fix" -a -n "$python_fix"
 : >"$pin_file"
 run_in "$pins" sh scripts/setup-claude.sh
 is "an empty pin file is BROKEN" 1 "BROKEN: $pin_file is empty — fix: $pin_fix"
@@ -270,6 +290,43 @@ rm -rf "$list/.claude-code-pinned"
 run_in "$list" sh scripts/gate-list.sh --run "install-$install_entry"
 is "no folder, again: the person's own claude, as CI runs it" 1 "$(off_pin 2.1.286)
 $ran"
+
+# the folder goes first on PATH for the install entries and the guide ALONE, over every entry of the list.
+# A tree of the list alone, where every command fails fast, and a sh in the folder that logs the command
+# it is given and runs the real sh: run_entry runs each command as sh -c, so that sh is reached exactly
+# when the folder is first on PATH
+git init -q -b main "$tmp/sweep" && mkdir "$tmp/sweep/scripts" && cp "$kit/scripts/gate-list.sh" "$tmp/sweep/scripts/" || exit 1
+git -C "$tmp/sweep" add -A && git -C "$tmp/sweep" -c user.name=fixture -c user.email=fixture@example.invalid commit -q -m list || exit 1
+sweep=$tmp/sweep
+sweep_bin=$sweep/.claude-code-pinned/node_modules/.bin
+mkdir -p "$sweep_bin"
+printf '#!/bin/sh\nprintf "%%s\\n" "$2" >>"$MARKER"\nexec /bin/sh "$@"\n' >"$sweep_bin/sh"
+printf '#!/bin/sh\nexit 0\n' >"$sweep_bin/claude"
+chmod +x "$sweep_bin/sh" "$sweep_bin/claude"
+entries=$(cd "$sweep" && sh scripts/gate-list.sh --names all)
+: >"$MARKER"; : >"$tmp/want.all"; ran=0
+for entry in $entries; do
+    (cd "$sweep" && sh scripts/gate-list.sh --run "$entry") >/dev/null 2>&1
+    ran=$((ran + 1))
+    case $entry in
+        install-* | guide) (cd "$sweep" && sh scripts/gate-list.sh --show "$entry") >>"$tmp/want.all" ;;
+    esac
+done
+holds "every entry of the list was run alone ($ran)" test "$ran" -gt 50
+holds "the commands of the install entries and the guide were all that reached the folder's sh" cmp -s "$MARKER" "$tmp/want.all"
+holds "and they are not none: a command for each install entry and two for the guide" test "$(wc -l <"$tmp/want.all" | tr -d ' ')" -ge 11
+holds "the guide's two among them" test "$(grep -c 'check-install-guide.py' "$tmp/want.all")" -eq 2
+: >"$MARKER"
+(cd "$sweep" && sh scripts/gate-list.sh --run "$install_entry") >/dev/null 2>&1
+printf 'python3 scripts/check-bare-install.py --module %s\n' "$install_entry" >"$tmp/want.one"
+holds "a job run goes through run_entry the same way: a module's job reaches the folder with its install entry alone" cmp -s "$MARKER" "$tmp/want.one"
+: >"$MARKER"
+(cd "$sweep" && sh scripts/gate-list.sh --run install-guide) >/dev/null 2>&1
+printf 'python3 scripts/check-install-guide.py\npython3 scripts/check-install-guide.py --self-test\n' >"$tmp/want.guide"
+holds "the guide's job reaches it with the guide's two commands" cmp -s "$MARKER" "$tmp/want.guide"
+: >"$MARKER"
+(cd "$sweep" && sh scripts/gate-list.sh --run kit) >/dev/null 2>&1
+holds "the kit's job, with the folder present, never reaches it" test ! -s "$MARKER"
 
 # the list itself is unchanged by the folder
 run_in "$list" sh scripts/gate-list.sh --show "install-$install_entry"
