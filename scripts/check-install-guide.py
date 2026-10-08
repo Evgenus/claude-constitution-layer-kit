@@ -1239,7 +1239,11 @@ FAKE_SAYS (escapes read) with the exit FAKE_EXIT; for `--version` it logs to FAK
 configuration folder, its auto-updater setting, how many entries the folder holds and whether it is a
 folder. For every command it logs to FAKE_CACHE, when set, the arguments, then, each after a `|` and in this
 order, the values of CLAUDE_CODE_PLUGIN_CACHE_DIR, CLAUDE_CODE_PLUGIN_SEED_DIR, CLAUDE_CODE_PLUGIN_DIRS,
-CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS and FAKE_KEEP it holds, `absent` when unset.
+CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP,
+CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS, CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE,
+CLAUDE_CODE_SYNC_PLUGIN_INSTALL, CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS, FORCE_AUTOUPDATE_PLUGINS,
+CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL and CLAUDE_CODE_PLUGIN_DIR_WATCH it holds, `absent` when
+unset.
 FAKE_MUTANT names the one thing it does wrong."""
 import json, os, shutil, subprocess, sys
 from pathlib import Path
@@ -1252,6 +1256,10 @@ if os.environ.get("FAKE_CACHE"):
         held = [os.environ.get(name, "absent") for name in (
             "CLAUDE_CODE_PLUGIN_CACHE_DIR", "CLAUDE_CODE_PLUGIN_SEED_DIR", "CLAUDE_CODE_PLUGIN_DIRS",
             "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE", "CLAUDE_CODE_PLUGIN_PREFER_HTTPS", "FAKE_KEEP",
+            "CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS", "CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE",
+            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL", "CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS",
+            "FORCE_AUTOUPDATE_PLUGINS", "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL",
+            "CLAUDE_CODE_PLUGIN_DIR_WATCH",
         )]
         seen.write(" ".join(sys.argv[1:]) + "|" + "|".join(held) + "\\n")
 if sys.argv[1:] == ["--version"]:
@@ -1988,17 +1996,28 @@ def self_test() -> int:
         (fake / "claude").chmod(0o755)
         # typed by hand, a constant cannot check itself: the four variables `claude_env` removes, each with
         # what a person who sets it would set, a folder of the run's or `1`; the person's own are never the
-        # environment of these runs, nor are the two variables it keeps
+        # environment of these runs, nor are the variables it keeps
         four = {
             "CLAUDE_CODE_PLUGIN_CACHE_DIR": "plugins-root",
             "CLAUDE_CODE_PLUGIN_SEED_DIR": "plugins-seed",
             "CLAUDE_CODE_PLUGIN_DIRS": "plugins-dirs",
             "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE": "1",
         }
+        documented_kept = {  # typed by hand, never the code's: the seven documented ones, each its own value
+            "CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS": "45000",
+            "CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE": "keep",
+            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL": "sync",
+            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS": "30000",
+            "FORCE_AUTOUPDATE_PLUGINS": "force",
+            "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "disable",
+            "CLAUDE_CODE_PLUGIN_DIR_WATCH": "watch",
+        }
+        # the kit's CI's CLAUDE_CODE_PLUGIN_PREFER_HTTPS, an unrelated FAKE_KEEP and the seven: the platform's
+        # environment-variables page documents them as tuning a clone's time, transport or retry, an update or
+        # a wait, none as steering where plugins are found, kept or loaded
+        kept_vars = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"} | documented_kept
         base = {
-            k: v
-            for k, v in os.environ.items()
-            if k not in four and k not in ("CLAUDE_CODE_PLUGIN_PREFER_HTTPS", "FAKE_KEEP")
+            k: v for k, v in os.environ.items() if k not in four and k not in kept_vars
         } | {  # the plugins root is the fake's own
             "PATH": f"{fake}{os.pathsep}{os.environ.get('PATH', '')}",
             FROM_ENV: "toy/kit#main",
@@ -3119,10 +3138,11 @@ def self_test() -> int:
         # none of the four variables reaches a `claude` the run starts, whichever the person sets and to what:
         # the version command, the blocks' commands and the headless session all see the four unset, the
         # platform's copies are made under the run's own configuration, and the folders the variables name
-        # stay empty; CLAUDE_CODE_PLUGIN_PREFER_HTTPS and FAKE_KEEP reach every command as the person set
-        # them, and CONSTITUTION_KIT_INSTALL_FROM, in `base`, is still read: the run is green from its source
-        kept_vars = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"}
-        seen_when_removed = "|absent|absent|absent|absent|1|1"  # the fake's log after a command's arguments
+        # stay empty; CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the seven documented ones reach every
+        # command as the person set them, and CONSTITUTION_KIT_INSTALL_FROM, in `base`, is still read: the
+        # run is green from its source
+        seen_when_removed = "|absent|absent|absent|absent|1|1|45000|keep|sync|30000|force|disable|watch"
+        # ^ the fake's log after a command's arguments
         person_values: dict[str, tuple[str, str]] = {}
         for variable, shape in four.items():
             if shape != "1":
@@ -3142,7 +3162,8 @@ def self_test() -> int:
                 case(
                     f"{variable} {name} in the person's environment: a green run, the whole of it, every"
                     " claude command (the version, the plugin commands, the session) run with the four"
-                    " absent and CLAUDE_CODE_PLUGIN_PREFER_HTTPS and FAKE_KEEP as set, the folders empty",
+                    " absent and CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the seven documented ones as"
+                    " set, the folders empty",
                     not rooted
                     and rooted_examined == green_examined
                     and bool(seen)

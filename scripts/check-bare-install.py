@@ -1243,8 +1243,11 @@ def self_test() -> int:
     # `--version` it logs to FAKE_ENV, when set, its configuration folder, its auto-updater setting, how many
     # entries the folder holds and whether it is a folder; to FAKE_CACHE, when set, each command's first two
     # words and, in this order, the values of CLAUDE_CODE_PLUGIN_CACHE_DIR, CLAUDE_CODE_PLUGIN_SEED_DIR,
-    # CLAUDE_CODE_PLUGIN_DIRS, CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS and FAKE_KEEP
-    # it holds (`absent` when unset), each after a `|`; and it writes the record where the platform does, in
+    # CLAUDE_CODE_PLUGIN_DIRS, CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP,
+    # CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS, CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE,
+    # CLAUDE_CODE_SYNC_PLUGIN_INSTALL, CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS, FORCE_AUTOUPDATE_PLUGINS,
+    # CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL and CLAUDE_CODE_PLUGIN_DIR_WATCH it holds
+    # (`absent` when unset), each after a `|`; and it writes the record where the platform does, in
     # CLAUDE_CODE_PLUGIN_CACHE_DIR's folder when it is set, else in the configuration's plugins/
     fake_claude = (
         '#!/bin/sh\necho "$*" >> "${FAKE_LOG:-$CLAUDE_CONFIG_DIR/fake.log}"\n'
@@ -1255,7 +1258,11 @@ def self_test() -> int:
         '[ -n "$FAKE_CACHE" ] && echo "$1 $2|${CLAUDE_CODE_PLUGIN_CACHE_DIR-absent}|'
         "${CLAUDE_CODE_PLUGIN_SEED_DIR-absent}|${CLAUDE_CODE_PLUGIN_DIRS-absent}|"
         "${CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE-absent}|${CLAUDE_CODE_PLUGIN_PREFER_HTTPS-absent}|"
-        '${FAKE_KEEP-absent}" >> "$FAKE_CACHE"\n'
+        "${FAKE_KEEP-absent}|${CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS-absent}|"
+        "${CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE-absent}|${CLAUDE_CODE_SYNC_PLUGIN_INSTALL-absent}|"
+        "${CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS-absent}|${FORCE_AUTOUPDATE_PLUGINS-absent}|"
+        "${CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL-absent}|"
+        '${CLAUDE_CODE_PLUGIN_DIR_WATCH-absent}" >> "$FAKE_CACHE"\n'
         '[ -n "$FAKE_HANG" ] && exec tail -f /dev/null\n'
         '[ "$1" = --version ] && { printf \'%b\' "$FAKE_SAYS"; exit "${FAKE_EXIT:-0}"; }\n'
         '[ "$2" = install ] && [ -n "$FAKE_HANG_INSTALL" ] && exec tail -f /dev/null\n'
@@ -1826,18 +1833,33 @@ def self_test() -> int:
         )
 
         # typed by hand, a constant cannot check itself: the four variables `claude_env` removes, each with
-        # what a person who sets it would set, a folder of the run's or `1`, and the two variables it keeps;
-        # `seen_when_removed` is what the fake logs after a command's first two words (CLAUDE_CODE_PLUGIN_
-        # CACHE_DIR, …_SEED_DIR, …_DIRS, …_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP) when
-        # the four are gone and the two stay
+        # what a person who sets it would set, a folder of the run's or `1`, and the variables it keeps, the
+        # kit's CI's CLAUDE_CODE_PLUGIN_PREFER_HTTPS, an unrelated FAKE_KEEP and the seven other plugin
+        # variables of the platform's environment-variables page that tune a clone's time, transport or retry,
+        # an update or a wait, and steer nowhere plugins are found, kept or loaded, each with a value of its
+        # own; `seen_when_removed` is what the fake logs after a command's first two words
+        # (CLAUDE_CODE_PLUGIN_CACHE_DIR, …_SEED_DIR, …_DIRS, …_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS,
+        # FAKE_KEEP, then …_PLUGIN_GIT_TIMEOUT_MS, …_KEEP_MARKETPLACE_ON_FAILURE,
+        # CLAUDE_CODE_SYNC_PLUGIN_INSTALL, …_TIMEOUT_MS, FORCE_AUTOUPDATE_PLUGINS,
+        # …_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL, …_PLUGIN_DIR_WATCH) when the four are gone and the rest
+        # stay
         plugin_vars = {
             "CLAUDE_CODE_PLUGIN_CACHE_DIR": "person-cache",
             "CLAUDE_CODE_PLUGIN_SEED_DIR": "person-seed",
             "CLAUDE_CODE_PLUGIN_DIRS": "person-dirs",
             "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE": "1",
         }
-        kept_vars = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"}
-        seen_when_removed = "|absent|absent|absent|absent|1|1"
+        documented_kept = {  # typed by hand, never the code's: the seven documented ones, each its own value
+            "CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS": "45000",
+            "CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE": "keep",
+            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL": "sync",
+            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS": "30000",
+            "FORCE_AUTOUPDATE_PLUGINS": "force",
+            "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "disable",
+            "CLAUDE_CODE_PLUGIN_DIR_WATCH": "watch",
+        }
+        kept_vars = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"} | documented_kept
+        seen_when_removed = "|absent|absent|absent|absent|1|1|45000|keep|sync|30000|force|disable|watch"
 
         def person_plugin_values(under: Path) -> dict[str, tuple[str, str]]:
             """Each of the four variables with the words for its set value and the value, the folders made
@@ -2015,7 +2037,7 @@ def self_test() -> int:
                 )
                 version_case(
                     f"{variable} {name} in the person's environment: `claude --version` runs with the four"
-                    " absent, CLAUDE_CODE_PLUGIN_PREFER_HTTPS and FAKE_KEEP as set",
+                    " absent, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the seven documented as set",
                     said_version == "note:" and seen_version == ["--version " + seen_when_removed],
                     f"{said_version} {seen_version}",
                 )
@@ -2615,7 +2637,8 @@ def self_test() -> int:
         expect("the record: a commit gives the source at that commit", Scene(), "on", [sha])
         # none of the four variables reaches `claude`, whichever the person sets and to what: the platform's
         # plugins root is the check's own configuration's plugins/, where the record is read, and the folders
-        # the person's variables name stay empty; the two kept variables reach it unchanged
+        # the person's variables name stay empty; the kept variables, PREFER_HTTPS, FAKE_KEEP and the seven
+        # documented ones, reach it unchanged
         person_values = person_plugin_values(base)
         for variable, (what, set_value) in person_values.items():
             for name, value in ((what, set_value), ("set and empty", "")):
@@ -2623,8 +2646,9 @@ def self_test() -> int:
                 seen_cache = cache_log.read_text(encoding="utf-8").splitlines() if cache_log.exists() else []
                 version_case(
                     f"{variable} {name} in the person's environment: the marketplace add, the install and"
-                    " the list run with the four absent, CLAUDE_CODE_PLUGIN_PREFER_HTTPS and FAKE_KEEP as"
-                    " set, the record is read from the check's own configuration, and the folders stay empty",
+                    " the list run with the four absent, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the"
+                    " seven documented ones as set, the record is read from the check's own configuration,"
+                    " and the folders stay empty",
                     driven == ("on", [sha], [str(copy)])
                     and seen_cache
                     == [
