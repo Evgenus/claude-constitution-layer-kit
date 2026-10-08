@@ -14,7 +14,7 @@ script can hold:
                template's own file, a file that is not markdown — a file, never a folder. The rollout
                plan, a research comparison, another record and a README cannot — the root's, where
                rulings were found hiding, and a module's, a page written for a reader, which binds
-               nothing, whatever envelope it is given, as a home and as a pending link alike.
+               nothing and counts as no task-record, whatever envelope it is given.
                "pending" is for intent that is not yet real, and its link leads to the task-record
                that holds the work to come — a plan, never a decision record — where the kernel says
                such intent rides. The entry is never rewritten: once that task-record closes, the
@@ -287,7 +287,11 @@ def home_problem(
         )
     if re.fullmatch(r"modules/[^/]+/README\.md", shown):
         if pending:
-            return f"{shown} is a module's README, a page written for a reader, and no task-record", general
+            return (
+                f"{shown} is a module's README, a page written for a reader, which counts as no"
+                " task-record, whatever its envelope",
+                general,
+            )
         return f"{shown} is a module's README, a page written for a reader, and it binds nothing", general
     envelope, _ = split_frontmatter(path.read_text(encoding="utf-8")) if path.suffix == ".md" else ({}, "")
     kind = envelope.get("type")
@@ -951,6 +955,26 @@ def self_test() -> int:
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the right list is green, {name} is red")
+    readme_texts = {  # case: the damage, the headline's end and the fix, typed by hand
+        "a module's README refused as a home teaches CARRY_IT": (
+            wrong_lists["a home in a module's README given an envelope"],
+            "modules/n/README.md is a module's README, a page written for a reader, and it binds nothing",
+            CARRY_IT,
+        ),
+        "a module's README refused as a pending link teaches PEND_IT": (
+            wrong_lists["pending intent in a module's README given a task-record envelope"],
+            "modules/p/README.md is a module's README, a page written for a reader, which counts as no"
+            " task-record, whatever its envelope",
+            PEND_IT,
+        ),
+    }
+    for name, (damage, ending, fix) in readme_texts.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            found = lists(root, sample_kit(root, damage(GOOD_RECORD)))[0]
+        ok = len(found) == 1 and found[0].headline.endswith(ending) and found[0].fix == fix
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         found, noted = lists(root, sample_kit(root, GOOD_RECORD.replace("(../plan.md)", "(../done.md)")))
@@ -1535,7 +1559,15 @@ def self_test() -> int:
     )
 
     total = (
-        len(wrong_lists) + 1 + len(right_homes) + len(receipts) + len(scopes) + len(unscopable) + 3 + extra
+        len(wrong_lists)
+        + len(readme_texts)
+        + 1
+        + len(right_homes)
+        + len(receipts)
+        + len(scopes)
+        + len(unscopable)
+        + 3
+        + extra
     )
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED

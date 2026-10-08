@@ -39,7 +39,7 @@ A, chosen by the decider in chat on 2026-10-08, and narrowed there: user-facing,
 
 **R2.** The module template carries `README.md` with the five sections as placeholders, each saying what goes there; the page links only inside its own folder, so a copy keeps its links. Its plugin skeleton lists the file, and step 4 of "Developing a module" in the kit guide names it beside `INSTALL.md`.
 
-**R3.** The module table of the root README links each module to its `README.md`, the landing page. Everywhere else — every other kit document, and chat — the specification anchor stays the citation and the module's handle; the reference bullet of the kit guide states the exception, a third beside the two it already holds for a kit template and a frozen comparison. The kit's module-links check reads no page under `modules/`, which is module prose.
+**R3.** The module table of the root README links each module to its `README.md`, the landing page: a third exception of the kit guide's reference bullet, beside the two it already holds for a kit template and a frozen comparison. Outside these three places and module prose, and in chat, the specification anchor stays the citation and the module's handle. The kit's module-links check reads no page under `modules/`, which is module prose.
 
 **R4.** The pages stand under a ceiling of the length gate, `module-readmes` over `modules/*/README.md`, at warning, set on the pages' first day as the longest page plus 10 %, rounded up to 1,000, with that day as its window, like the install guide's ceiling before it.
 
