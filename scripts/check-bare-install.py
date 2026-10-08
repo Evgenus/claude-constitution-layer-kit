@@ -252,15 +252,16 @@ def last_line(out: str, err: str) -> str:
 def hooks_of(plugin: Path) -> list[Hook]:
     """The hooks of a plugin's hooks/hooks.json, each with the seconds it is waited for: its own `timeout`,
     else the platform's default for a `command` hook on its event (`EVENT_HOOK_TIMEOUT`, else
-    `HOOK_TIMEOUT`). A hooks file that is there and cannot be read (an `OSError`: its permissions, a folder
-    in its place, an I/O error) is a Broken of its own, with a fix to make it readable; a missing one gives
-    no hooks. Every shape of the file the check cannot run is a Broken naming the file, the event and
-    the hook's place (group and hook, counted from 1), never another exception: a file that is no object
-    with a "hooks" object of events, each a list of groups, each an object with a "hooks" list of hook
-    objects and a "matcher", when present, that is a string; a hook with no `type` of the five the hooks
-    reference names; for a `command` hook, a "command" that is no string, "args" that are no list of
-    strings, a "timeout" that is no finite number (a boolean is none); and a valid hook of a type other
-    than `command`, which the check does not run and so cannot prove."""
+    `HOOK_TIMEOUT`). A hooks file that is a regular file and cannot be read (an `OSError`: its
+    permissions, an I/O error) is a Broken of its own, with a fix to make it readable; a missing one, or
+    anything in its place that is no regular file (a folder), gives no hooks. Every shape of the file
+    the check cannot run is a Broken naming the file, the event and the hook's place (group and hook,
+    counted from 1), never another exception: a file that is no object with a "hooks" object of events,
+    each a list of groups, each an object with a "hooks" list of hook objects and a "matcher", when
+    present, that is a string; a hook with no `type` of the five the hooks reference names; for a
+    `command` hook, a "command" that is no string, "args" that are no list of strings, a "timeout" that is
+    no finite number (a boolean is none); and a valid hook of a type other than `command`, which the
+    check does not run and so cannot prove."""
     path = plugin / "hooks" / "hooks.json"
     if not path.is_file():
         return []
@@ -1264,7 +1265,7 @@ def self_test() -> int:
         """A hook that declares no timeout is waited for as the platform gives its event; one that declares
         a timeout, for that: read from the `Hook` that `hooks_of` builds, nothing is waited for. A hooks
         file `hooks_of` cannot run, in each shape, is one BROKEN line and never another exception; one that
-        is there and cannot be read (a denied read, a folder, an I/O error) has a line and fix of its own."""
+        is a regular file and cannot be read (a denied read, an I/O error) has a line and fix of its own."""
         with tempfile.TemporaryDirectory() as tmp:
             hooked = Path(tmp)
             (hooked / "hooks").mkdir()
@@ -1608,11 +1609,6 @@ def self_test() -> int:
                     not_read("Permission denied"),
                 ),
                 (
-                    "a folder in the place of the hooks file",
-                    IsADirectoryError(21, "Is a directory"),
-                    not_read("Is a directory"),
-                ),
-                (
                     "a hooks file with an I/O error",
                     OSError(5, "Input/output error"),
                     not_read("Input/output error"),
@@ -1635,6 +1631,17 @@ def self_test() -> int:
                 except Exception as other:  # any other is the defect this table holds
                     got_shape = f"raised {type(other).__name__}: {other}"
                 version_case(f"hooks file: {name}", got_shape == want, str(got_shape))
+            with tempfile.TemporaryDirectory() as other_tmp:  # a real folder, nothing mocked
+                (Path(other_tmp) / "hooks" / "hooks.json").mkdir(parents=True)
+                try:
+                    got_folder: list[Hook] | str = hooks_of(Path(other_tmp))
+                except Exception as other:  # a Broken here too is the defect this case holds
+                    got_folder = f"raised {type(other).__name__}: {other}"
+                version_case(
+                    "hooks file: a folder in its place gives no hooks, as a missing file does",
+                    got_folder == [],
+                    str(got_folder),
+                )
 
     def bare_repository_cases() -> None:
         """A git command of `bare_repository` that exits other than 0 is one BROKEN line naming it as
