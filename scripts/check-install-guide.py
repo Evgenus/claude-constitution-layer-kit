@@ -60,21 +60,32 @@ Beside every block's exit 0, the check holds at each name:
   uninstall    no module is enabled in the project's settings or listed by `claude plugin list --json`
                with the project as its `projectPath`, at any scope.
 The first finding of the run ends it, since every later block builds on the one before. A finding
-is red; a missing `claude`, `git` or `bash`, or a guide that cannot be read, is a configuration
-failure, and so is a source the check cannot point at the change: no origin on GitHub, a detached
-HEAD, or a branch whose origin copy is not at HEAD, and a clone whose marketplace.json gives no name
-(missing, no JSON, no object, no "name", one that is no string or is empty), and a reply the claims cannot
-read as documented: a failed `--json` command, a reply that is no JSON or no list, an entry that is no
-object, an entry whose identifying field is no string or is empty (`name` in the marketplace list, `id`
-in the plugin list, of an entry of another marketplace or plugin too), two entries of the marketplace's
-name or two project-scope entries of a module's id for the project, a field a claim reads (`source`,
-`installLocation`, `repo` of a `github` entry, `installPath`, `version`, `scope`, and `projectPath` of a
-project- or local-scope entry) that is no string or is empty, an `installLocation` that names no existing
-folder, and a project's .claude/settings.json that is unreadable, no JSON object, or whose
-`enabledPlugins` is no object. Their fix, worded by `kit_module_doc.platform_fix`
-from the state of the run, is never a change to the guide: on the pinned version it is to update the
-kit's reader that the line names, to what that version writes; off the pin, to run again on the pinned
-version. Needs no
+is red; a failure to run is a configuration failure, and each prints its own fix.
+A missing `git`, met first when the guide is read, "install it and put it on PATH"; a `git`, `bash` or
+`claude` not on PATH when the run starts, "install it; the check runs the guide's commands with it".
+A guide that cannot be read: a folder that is no clone with a commit, "run the check from a clone of the
+kit"; a guide not committed at HEAD, "commit the guide"; a file that cannot be read or written, "make the
+kit's files readable and the system's temporary folder writable". A source the check cannot point at the
+change: no origin on GitHub, "add one"; a detached HEAD, "check out a branch"; a branch whose origin copy
+is not at HEAD, "push the branch (git push)"; each ends with "or set CONSTITUTION_KIT_INSTALL_FROM=
+<owner>/<repo>#<branch>". A clone whose marketplace.json gives no name, each fault with the fix
+`kit_module_doc.marketplace_name` prints: missing, "run the check from a checkout of the kit, which holds
+the file"; no JSON, "restore the file as a JSON object"; no object, "restore the file as an object with
+the marketplace's "name""; no "name", "give the marketplace its name, at the top of the object"; a "name"
+that is no string, "write the name as a JSON string"; an empty one, "write the marketplace's name in it".
+A reply the claims cannot read as documented: a failed `--json` command, a reply that is no JSON or no
+list, an entry that is no object, an entry whose identifying field is no string or is empty (`name` in the
+marketplace list, `id` in the plugin list, of an entry of another marketplace or plugin too), two entries
+of the marketplace's name or two project-scope entries of a module's id for the project, a field a claim
+reads (`source`, `installLocation`, `repo` of a `github` entry, `installPath`, `version`, `scope`, and
+`projectPath` of a project- or local-scope entry) that is no string or is empty, an `installLocation` that
+names no existing folder, and a project's .claude/settings.json that is unreadable, no JSON object, or
+whose `enabledPlugins` is no object. The fix of these alone is worded by `kit_module_doc.platform_fix`
+from the state of the run, and is never a change to the guide: on the pinned version it is to update the
+kit's reader that the line names (`listed`, `platform_clone`, `project_entries` or `enabled`), to what that
+version writes; off the pin, to run again on the pinned version. Every other configuration failure, such
+as a module document or manifest that cannot be read or a clone that cannot be made, prints a fix of its
+own. Needs no
 Claude account login: the plugin commands read none, and the session stops before the model. Git needs a
 private repository's credentials.
 
@@ -169,8 +180,9 @@ Modes:  no arguments   check the kit's guide;
                        folder.
                        The BROKEN lines: a `repo` that is absent, empty or no string and an
                        `installLocation` that names no folder each a BROKEN and not a finding, a quotation
-                       cut at 200 characters, the literal message of each BROKEN, its fix in each state of
-                       the run against the pin.
+                       cut at 200 characters, the literal message of each BROKEN a reply or a settings file
+                       gives, its fix as worded on the pinned version, and off the pin for one of them, a
+                       list that is no JSON, in the whole report of the wrong shapes below.
                        The wrong shapes: each wrong shape of a reply, in a run, a BROKEN and never a
                        finding against the guide; one whole report of it through `main`, off the pin and on
                        it, as of a green run, a finding and a file the blocks' run cannot read.
