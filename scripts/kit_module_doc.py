@@ -28,6 +28,14 @@ holding its `MODULE.md`. No `modules/` directory, and a folder without its docum
 pass over the very folder it owes a verdict on. check-gate-lists proves it directly in its own
 `--self-test`, every other check through the cases of its own.
 
+`marketplace_name` is the kit's one reader of its marketplace's name, which check-bare-install (the
+kit it lives in) and check-install-guide (the guide's clone of the kit) read and type nowhere: the
+top-level "name" of `.claude-plugin/marketplace.json`, a non-empty string; the file missing or
+unreadable, not JSON, not an object, with no "name", a "name" that is no string, and an empty one are
+each a `DocumentError` with the fix. check-install-guide proves it in its `--self-test`, over the
+whole set. check-gate-lists reads the file in its own way, for the entries and their lines, and not
+through it.
+
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
 imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
 that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save the shared `const_gate`.
@@ -38,6 +46,7 @@ gate list's `types-<module>` entry derives the same set in shell. check-shared-l
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from enum import StrEnum
@@ -66,6 +75,39 @@ def module_folders(root: Path) -> list[Path]:
         if not (folder / "MODULE.md").is_file():
             raise DocumentError(f"modules/{folder.name} has no MODULE.md — fix: restore the module document")
     return folders
+
+
+def marketplace_name(root: Path) -> str:
+    """The name of the marketplace the kit at `root` declares: the top-level "name" of
+    `<root>/.claude-plugin/marketplace.json`, which must be a non-empty string, else `DocumentError`
+    with the fix. The kit's install checks read the name here and type it nowhere. A caller that
+    needs the name of its own kit or of a clone passes that root."""
+    path = root / ".claude-plugin" / "marketplace.json"
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as bad:
+        raise DocumentError(
+            f"{path} cannot be read ({bad.strerror}) — fix: run the check from a checkout of the kit,"
+            " which holds the file"
+        ) from bad
+    except ValueError as bad:
+        raise DocumentError(f"{path} is not JSON ({bad}) — fix: restore the file as a JSON object") from bad
+    if not isinstance(document, dict):
+        raise DocumentError(
+            f'{path} is not a JSON object — fix: restore the file as an object with the marketplace\'s "name"'
+        )
+    if "name" not in document:
+        raise DocumentError(
+            f'{path} has no "name" — fix: give the marketplace its name, at the top of the object'
+        )
+    name = document["name"]
+    if not isinstance(name, str):
+        raise DocumentError(
+            f'{path} gives a "name" that is not a string — fix: write the name as a JSON string'
+        )
+    if not name:
+        raise DocumentError(f'{path} gives an empty "name" — fix: write the marketplace\'s name in it')
+    return name
 
 
 def own_packages(module: Path) -> list[Path]:

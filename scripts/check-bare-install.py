@@ -6,10 +6,12 @@ dec-0059-bare-repo-install-in-ci).
 For the module named, in throwaway folders that the check removes:
   1. a bare repository — `git init`, the kit's kernel copied to docs/constitution/ and committed,
      no constitution.yaml — and an empty Claude configuration folder (CLAUDE_CONFIG_DIR);
-  2. `claude plugin marketplace add <source>` and `claude plugin install <module>@constitution-kit`,
+  2. `claude plugin marketplace add <source>` and `claude plugin install <module>@<marketplace>`,
      the platform's own install, which writes a copy of the plugin into the configuration's cache.
-     The source is --from, else the environment's CONSTITUTION_KIT_INSTALL_FROM, else the kit's
-     working folder. The kit's CI names the change's GitHub repository and branch,
+     The marketplace's name is the one the kit's own .claude-plugin/marketplace.json gives, read by
+     `kit_module_doc.marketplace_name` and typed nowhere in this check; a file that gives none is a
+     configuration failure. The source is --from, else the environment's CONSTITUTION_KIT_INSTALL_FROM,
+     else the kit's working folder. The kit's CI names the change's GitHub repository and branch,
      `<owner>/<repo>#<branch>` — a pull request's head repository and branch, or the kit's main on
      a push to it — the copy a consumer's install writes; a fork the job's token cannot read fails; git
      clones it with the machine's own credentials, which a private remote needs. The working
@@ -48,8 +50,11 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          twice, `t10` twice or gone with `t11` standing) a BROKEN line, the scans
                          read from rows of each form, a last cell with no closing bar included,
                          and the report of one finding as literal lines with exit 2; and step 2's
-                         reading of the install record, and of a module's source at a commit from
-                         the kit's history (const-meta-types at HEAD, its links reaching shared/).
+                         reading of the install record over a toy kit whose marketplace is named
+                         `toy-mp` (its record found, another name's record no install, a file with no
+                         name a BROKEN, the install asking a fake `claude` for `<module>@toy-mp`), and
+                         of a module's source at a commit from the kit's history (const-meta-types at
+                         HEAD, its links reaching shared/).
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -67,12 +72,12 @@ import tarfile
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from unittest import mock
 
-from kit_module_doc import DocumentError, enforcement, own_packages
+from kit_module_doc import DocumentError, enforcement, marketplace_name, own_packages
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
-MARKETPLACE = "constitution-kit"
 WHY = "a module must install and operate on a bare repository with its defaults alone (requirement A12.1)"
 NOTE = "docs/note.md"
 FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
@@ -386,11 +391,20 @@ def bare_repository(root: Path) -> Path:
     return repo
 
 
-def installed_entry(record: Path, module: str) -> tuple[Path, str]:
-    """The installed copy's folder and the commit it came from ("" when the record names none),
-    from Claude Code's install record."""
+def kit_marketplace(kit: Path) -> str:
+    """The name of the marketplace the kit at `kit` declares, read from its marketplace.json by
+    `kit_module_doc.marketplace_name`; a file that gives none is a Broken with that function's line."""
     try:
-        entry = json.loads(record.read_text(encoding="utf-8"))["plugins"][f"{module}@{MARKETPLACE}"][0]
+        return marketplace_name(kit)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+
+
+def installed_entry(record: Path, module: str, marketplace: str) -> tuple[Path, str]:
+    """The installed copy's folder and the commit it came from ("" when the record names none),
+    from Claude Code's install record, the plugin keyed `<module>@<marketplace>`."""
+    try:
+        entry = json.loads(record.read_text(encoding="utf-8"))["plugins"][f"{module}@{marketplace}"][0]
         return Path(entry["installPath"]), str(entry.get("gitCommitSha") or "")
     except (OSError, ValueError, KeyError, IndexError, TypeError) as bad:
         raise Broken(
@@ -427,7 +441,7 @@ def source_at(commit: str, module: str, root: Path) -> Path:
     return target / "modules" / module
 
 
-def install(module: str, root: Path, repo: Path, source: str) -> tuple[Path, str]:
+def install(module: str, root: Path, repo: Path, source: str, marketplace: str) -> tuple[Path, str]:
     if source.startswith("#"):
         raise Broken(
             f"the source {source} names a branch of no repository — the pull request's head repository is"
@@ -443,10 +457,10 @@ def install(module: str, root: Path, repo: Path, source: str) -> tuple[Path, str
             f"`claude plugin marketplace add {source}` exited {code} ({last}) — fix: check the kit's"
             " marketplace.json, and that git can reach the source"
         )
-    code, out, err = run(["claude", "plugin", "install", f"{module}@{MARKETPLACE}"], repo, env)
+    code, out, err = run(["claude", "plugin", "install", f"{module}@{marketplace}"], repo, env)
     if code != 0:
         raise Refused(last_line(out, err) if out or err else f"exit {code}")
-    return installed_entry(config / "plugins" / "installed_plugins.json", module)
+    return installed_entry(config / "plugins" / "installed_plugins.json", module, marketplace)
 
 
 def counted(source: Path) -> str:
@@ -458,11 +472,12 @@ def check_module(module: str, source: str) -> tuple[list[Finding], str]:
     """The findings, and what was examined: the hooks, scans and links of the source compared."""
     if not (KIT / "modules" / module / ".claude-plugin" / "plugin.json").is_file():
         raise Broken(f"no module {module} in the kit — fix: name a folder under modules/ that holds a plugin")
+    marketplace = kit_marketplace(KIT)
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         repo = bare_repository(root)
         try:
-            plugin, commit = install(module, root, repo, source)
+            plugin, commit = install(module, root, repo, source, marketplace)
         except Refused as refused:
             refusal_finding = Finding(
                 module,
@@ -798,15 +813,76 @@ def self_test() -> int:
     if not ok:
         print(printed.getvalue())
     with tempfile.TemporaryDirectory() as tmp:
+        # a toy kit whose marketplace is named toy-mp: the record's key is `<module>@toy-mp`, the name read
+        # from the kit's marketplace.json, never the real kit's
+        (Path(tmp) / "kit" / ".claude-plugin").mkdir(parents=True)
+        (Path(tmp) / "kit" / ".claude-plugin" / "marketplace.json").write_text(
+            '{"name": "toy-mp", "plugins": []}', encoding="utf-8"
+        )
+        name = kit_marketplace(Path(tmp) / "kit")
+        ok = name == "toy-mp"
         record = Path(tmp) / "installed_plugins.json"
         entry = {"installPath": "/cache/const-x/0.0.1", "gitCommitSha": "abc"}
-        record.write_text(json.dumps({"plugins": {f"const-x@{MARKETPLACE}": [entry]}}), encoding="utf-8")
-        ok = installed_entry(record, "const-x") == (Path("/cache/const-x/0.0.1"), "abc")
+        record.write_text(json.dumps({"plugins": {"const-x@toy-mp": [entry]}}), encoding="utf-8")
+        ok = ok and installed_entry(record, "const-x", name) == (Path("/cache/const-x/0.0.1"), "abc")
         del entry["gitCommitSha"]
-        record.write_text(json.dumps({"plugins": {f"const-x@{MARKETPLACE}": [entry]}}), encoding="utf-8")
-        ok = ok and installed_entry(record, "const-x") == (Path("/cache/const-x/0.0.1"), "")
+        record.write_text(json.dumps({"plugins": {"const-x@toy-mp": [entry]}}), encoding="utf-8")
+        ok = ok and installed_entry(record, "const-x", name) == (Path("/cache/const-x/0.0.1"), "")
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the install record gives the copy's folder and its commit, or none")
+    with tempfile.TemporaryDirectory() as tmp:  # the record of another marketplace's name is no install here
+        kit = Path(tmp) / "kit"
+        (kit / ".claude-plugin").mkdir(parents=True)
+        market = kit / ".claude-plugin" / "marketplace.json"
+        market.write_text('{"name": "toy-mp", "plugins": []}', encoding="utf-8")
+        record = Path(tmp) / "installed_plugins.json"
+        entry = {"installPath": "/cache/const-x/0.0.1", "gitCommitSha": "abc"}
+        record.write_text(json.dumps({"plugins": {"const-x@constitution-kit": [entry]}}), encoding="utf-8")
+        try:
+            installed_entry(record, "const-x", kit_marketplace(kit))
+            said = "no Broken"
+        except Broken as broken:
+            said = str(broken)
+        ok = said == (
+            f"{record} names no install of const-x ('const-x@toy-mp') — fix: check the Claude Code version"
+        )
+        market.write_text(
+            '{"plugins": []}', encoding="utf-8"
+        )  # no name: a BROKEN of the shared reader's line
+        try:
+            kit_marketplace(kit)
+            unnamed = "no Broken"
+        except Broken as broken:
+            unnamed = str(broken)
+        ok = ok and unnamed == (
+            f'{market} has no "name" — fix: give the marketplace its name, at the top of the object'
+        )
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] the marketplace is read from the kit's file, no other name is an install"
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # a fake claude that logs its arguments, records the install
+        bin_dir, repo = Path(tmp) / "bin", Path(tmp) / "repo"
+        bin_dir.mkdir()
+        repo.mkdir()
+        (bin_dir / "claude").write_text(
+            '#!/bin/sh\necho "$*" >> "$CLAUDE_CONFIG_DIR/fake.log"\n'
+            '[ "$2" = install ] && mkdir -p "$CLAUDE_CONFIG_DIR/plugins" && printf \'{"plugins": {"%s": '
+            '[{"installPath": "/cache/x", "gitCommitSha": "abc"}]}}\' "$3" '
+            '> "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json"\nexit 0\n',
+            encoding="utf-8",
+        )
+        (bin_dir / "claude").chmod(0o755)
+        (Path(tmp) / "work").mkdir()
+        with mock.patch.dict(os.environ, {"PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}"}):
+            installed = install("const-x", Path(tmp) / "work", repo, "owner/repo", "toy-mp")
+        log = (Path(tmp) / "work" / "config" / "fake.log").read_text(encoding="utf-8").splitlines()
+        ok = installed == (Path("/cache/x"), "abc") and log == [
+            "plugin marketplace add owner/repo",
+            "plugin install const-x@toy-mp",
+        ]
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] the install asks Claude Code for the module at the marketplace's name")
     with tempfile.TemporaryDirectory() as tmp:  # the kit's own history: the source at the commit checked out
         head = run(["git", "rev-parse", "HEAD"], KIT, os.environ.copy())[1]
         root = Path(tmp).resolve()
@@ -819,7 +895,7 @@ def self_test() -> int:
         ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
-    total = len(cases) + len(unreadable) + 4
+    total = len(cases) + len(unreadable) + 6
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

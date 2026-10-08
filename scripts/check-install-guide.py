@@ -26,7 +26,10 @@ inside an `&&` list earlier in the block, other than the list's last, stops no b
 block does is held by the claims below, not by its exit.
 Beside every block's exit 0, the check holds at each name:
   new-repo     the block ends in a git repository: the project.
-  marketplace  the configuration's plugins/known_marketplaces.json knows `constitution-kit`, from
+  marketplace  the configuration's plugins/known_marketplaces.json knows the kit's marketplace, by the
+               name the clone's .claude-plugin/marketplace.json gives, read once by
+               `kit_module_doc.marketplace_name` and typed nowhere: the later claims' `<module>@<name>`
+               keys, cache and marketplace-clone folders and install fix all use it; from
                a GitHub source naming the source's repository: a local folder would run in place,
                never from the cache; and the platform's clone of the marketplace holds the same
                modules at the same manifest versions as the kit's clone.
@@ -55,9 +58,10 @@ Beside every block's exit 0, the check holds at each name:
 The first finding of the run ends it, since every later block builds on the one before. A finding
 is red; a missing `claude`, `git` or `bash`, or a guide that cannot be read, is a configuration
 failure, and so is a source the check cannot point at the change: no origin on GitHub, a detached
-HEAD, or a branch whose origin copy is not at HEAD. Needs no Claude account login: the plugin
-commands read none, and the session stops before the model. Git needs a private repository's
-credentials.
+HEAD, or a branch whose origin copy is not at HEAD, and a clone whose marketplace.json gives no name
+(missing, no JSON, no object, no "name", one that is no string or is empty). Needs no Claude account
+login: the plugin commands read none, and the session stops before the model. Git needs a private
+repository's credentials.
 
 Modes:  no arguments   check the kit's guide;
         --self-test    prove the check with a toy kit, a toy guide and a fake `claude` that logs to
@@ -92,7 +96,11 @@ Modes:  no arguments   check the kit's guide;
                        folder `.x` or `_x` and a plain file skipped, a name without `const-` listed,
                        the list sorted whatever order the folder lists, and a folder without its
                        MODULE.md, a tree with no modules/, a modules/ with no folder and a manifest
-                       with no version each a BROKEN.
+                       with no version each a BROKEN; the toy kit's marketplace named `toy-mp`, which
+                       the toy guide's commands and the fake follow, so the green run, each claim's
+                       text and the install fix use that name and no other; `kit_module_doc.marketplace_name`
+                       over a file naming `toy-mp` and each of the six files it cannot read, the literal
+                       message of each; and a toy kit whose marketplace.json gives no name a BROKEN.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -113,12 +121,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
-from kit_module_doc import DocumentError, module_folders
+from kit_module_doc import DocumentError, marketplace_name, module_folders
 
 KIT = Path(__file__).resolve().parent.parent
 GUIDE = "INSTALL.md"
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
-MARKETPLACE = "constitution-kit"
+CLONE = Path("dev") / "constitution-kit"  # the guide's placeholder for the kit's clone, rule 4 of plc-0011
 NAMES = (
     "new-repo",
     "marketplace",
@@ -408,14 +416,15 @@ class Run:
     modules: dict[str, str]
     cwd: Path
     source: str
+    marketplace: str  # the name the kit's clone gives its marketplace, read once from its marketplace.json
     project: Path | None = None
 
     def cache(self, module: str) -> Path:
-        return self.config / "plugins" / "cache" / MARKETPLACE / module / self.modules[module]
+        return self.config / "plugins" / "cache" / self.marketplace / module / self.modules[module]
 
     def market(self, module: str) -> Path:
         """The module in the platform's own clone of the marketplace."""
-        return self.config / "plugins" / "marketplaces" / MARKETPLACE / "modules" / module
+        return self.config / "plugins" / "marketplaces" / self.marketplace / "modules" / module
 
 
 def session_paths(state: Run, project: Path) -> tuple[dict[str, str] | None, str]:
@@ -481,10 +490,10 @@ def claim(state: Run, name: str) -> str:
     if project is None:
         return "no block named check=new-repo made the project first"
     if name == "marketplace":
-        known = read_json(state.config / "plugins" / "known_marketplaces.json").get(MARKETPLACE)
+        known = read_json(state.config / "plugins" / "known_marketplaces.json").get(state.marketplace)
         if not isinstance(known, dict):
             raise Misfit(
-                f"the configuration knows no marketplace {MARKETPLACE}",
+                f"the configuration knows no marketplace {state.marketplace}",
                 "make the block register the kit's repository, "
                 "`claude plugin marketplace add <owner>/<repo>`",
             )
@@ -505,7 +514,7 @@ def claim(state: Run, name: str) -> str:
             f"{FROM_ENV} at the branch the clone holds"
         )
         try:
-            market = modules_of(state.config / "plugins" / "marketplaces" / MARKETPLACE)
+            market = modules_of(state.config / "plugins" / "marketplaces" / state.marketplace)
         except Broken as bad:
             said = str(bad).split(" — fix:")[0]
             raise Misfit(f"the platform's clone of the marketplace cannot be read ({said})", mend) from bad
@@ -517,7 +526,7 @@ def claim(state: Run, name: str) -> str:
         for module in state.modules:
             if not state.cache(module).is_dir():
                 return f"{module} is not in the plugin cache at {state.modules[module]}"
-            if f"{module}@{MARKETPLACE}" not in on:
+            if f"{module}@{state.marketplace}" not in on:
                 return f"{module} is not enabled in the project's .claude/settings.json"
         if name == "reinstall":
             for module in state.modules:
@@ -560,7 +569,7 @@ def claim(state: Run, name: str) -> str:
         return "" if code == 0 and not said else "the project's working tree is not clean after the commit"
     if name == "uninstall":
         left = sorted(
-            {f"{m}@{MARKETPLACE}" for m in state.modules}
+            {f"{m}@{state.marketplace}" for m in state.modules}
             & (enabled(project) | recorded(state.config, project))
         )
         return f"{', '.join(left)} still installed for the project" if left else ""
@@ -573,7 +582,7 @@ IN_PLACE = (
 )
 
 
-def fix_for(name: str) -> str:
+def fix_for(name: str, marketplace: str) -> str:
     if name == "marketplace":
         return (
             f"let git clone the source the block is given — {FROM_ENV}, `<owner>/<repo>#<branch>`, else the "
@@ -584,7 +593,7 @@ def fix_for(name: str) -> str:
     if name == "install":
         return (
             "make the block install each module at project scope, "
-            f"`claude plugin install <module>@{MARKETPLACE} --scope project`"
+            f"`claude plugin install <module>@{marketplace} --scope project`"
         )
     return (
         f"make the block named check={name} do what the guide says it does, "
@@ -677,7 +686,7 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
             "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
             "DISABLE_AUTOUPDATER": "1",
         }
-        clone = home / "dev" / MARKETPLACE
+        clone = home / CLONE
         clone.parent.mkdir(parents=True)
         head = subprocess.run(  # standard output alone, so no warning on stderr joins the commit
             ["git", "rev-parse", "HEAD"], cwd=kit, env=env, capture_output=True, text=True, check=False
@@ -694,14 +703,20 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
             code, said = run(argv, where, env)
             if code != 0:
                 raise Broken(f"the kit could not be cloned ({last_line(said)}) — fix: check the clone")
-        state = Run(home, clone, config, env, modules_of(clone), home, source)
+        try:
+            marketplace = marketplace_name(clone)
+        except DocumentError as bad:
+            raise Broken(str(bad)) from bad
+        state = Run(home, clone, config, env, modules_of(clone), home, source, marketplace)
         ran = 0
         for block in named:
             if block.name == "dials":
                 if state.project is None:
                     return [
                         Finding(
-                            block.line, "the dials example comes before the project exists", fix_for("dials")
+                            block.line,
+                            "the dials example comes before the project exists",
+                            fix_for("dials", state.marketplace),
                         )
                     ], f"{ran} block(s) run"
                 fixture(state.project, block.text)
@@ -720,9 +735,11 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
                 state.cwd = Path(where.read_text(encoding="utf-8").strip())
             if code != 0:
                 what = f"the block named check={block.name} exited {code} — {last_line(said)}"
-                return [Finding(block.line, what, fix_for(block.name))], f"{ran} block(s) run"
+                return [
+                    Finding(block.line, what, fix_for(block.name, state.marketplace))
+                ], f"{ran} block(s) run"
             try:
-                failed, fix = claim(state, block.name), fix_for(block.name)
+                failed, fix = claim(state, block.name), fix_for(block.name, state.marketplace)
             except Misfit as misfit:
                 failed, fix = misfit.what, misfit.fix
             if failed:
@@ -770,7 +787,10 @@ plugins = config / "plugins"
 plugins.mkdir(parents=True, exist_ok=True)
 known = plugins / "known_marketplaces.json"
 installed = plugins / "installed_plugins.json"
-market = plugins / "marketplaces" / "constitution-kit"
+name = json.loads(
+    (Path(os.environ["FAKE_SOURCE"]) / ".claude-plugin" / "marketplace.json").read_text()
+)["name"]
+market = plugins / "marketplaces" / name
 settings = Path.cwd() / ".claude" / "settings.json"
 def load(path):
     return json.loads(path.read_text()) if path.is_file() else {}
@@ -780,7 +800,7 @@ def save(path, data):
 def cache_of(module):
     manifest = market / "modules" / module / ".claude-plugin" / "plugin.json"
     version = json.loads(manifest.read_text())["version"]
-    return plugins / "cache" / "constitution-kit" / module / version
+    return plugins / "cache" / name / module / version
 args = sys.argv[1:]
 if args[:3] == ["plugin", "marketplace", "add"]:
     if Path(os.path.expanduser(args[3])).exists() or mutant == "marketplace-directory":
@@ -802,7 +822,7 @@ if args[:3] == ["plugin", "marketplace", "add"]:
         shutil.rmtree(market / "modules" / "const-beta")
     if mutant == "marketplace-unreadable":
         (market / "modules" / "const-beta" / "MODULE.md").unlink()
-    save(known, {"constitution-kit": {"source": source}})
+    save(known, {name: {"source": source}})
 elif args[:3] == ["plugin", "marketplace", "update"]:
     pass
 elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
@@ -837,7 +857,7 @@ elif args[:2] == ["plugin", "uninstall"]:
         data.get("enabledPlugins", {}).pop(args[2], None)
         save(settings, data)
         module = args[2].split("@")[0]
-        shutil.rmtree(plugins / "cache" / "constitution-kit" / module, ignore_errors=True)
+        shutil.rmtree(plugins / "cache" / name / module, ignore_errors=True)
 elif args[:1] == ["-p"] and mutant == "session-no-start":
     print("Error: the session could not start", file=sys.stderr)
     sys.exit(1)
@@ -858,6 +878,7 @@ else:
     sys.exit(3)
 '''
 
+TOY_MP = "toy-mp"  # the toy kit's marketplace name, which its marketplace.json gives and the fake follows
 TOY_DIALS = (
     'root_policy: docs/policies/root-policy.md\nroot-policy:\n  territory: ["docs/policies/**"]\n'
     'records:\n  territory: ["docs/records/**"]\n'
@@ -872,21 +893,21 @@ def toy_guide(**replace: str) -> str:
         'git commit --quiet --allow-empty -m "Initial commit"',
         "marketplace": "claude plugin marketplace add toy/kit",
         "install": "for m in ~/dev/constitution-kit/modules/const-*; do "
-        'claude plugin install "$(basename "$m")@constitution-kit" --scope project; done',
+        f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done',
         "kernel": "mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/\n"
         "cp ~/dev/constitution-kit/LICENSE ~/dev/constitution-kit/NOTICE docs/constitution/",
         "dials": TOY_DIALS.rstrip("\n"),
         "scan": "test -f constitution.yaml && test -f docs/policies/root-policy.md && "
         "test -f docs/policies/records.md && test -f docs/records/rec-0001-adopt-constitution-kernel.md",
         "commit": 'git add -A && git commit --quiet -m "Adopt the constitution kernel"',
-        "update": "claude plugin marketplace update constitution-kit && "
+        "update": f"claude plugin marketplace update {TOY_MP} && "
         "for m in ~/dev/constitution-kit/modules/const-*; "
-        'do claude plugin update "$(basename "$m")@constitution-kit" --scope project; done',
+        f'do claude plugin update "$(basename "$m")@{TOY_MP}" --scope project; done',
         "reinstall": "for m in ~/dev/constitution-kit/modules/const-*; do claude plugin uninstall "
-        '"$(basename "$m")@constitution-kit" --scope project && claude plugin install '
-        '"$(basename "$m")@constitution-kit" --scope project; done',
+        f'"$(basename "$m")@{TOY_MP}" --scope project && claude plugin install '
+        f'"$(basename "$m")@{TOY_MP}" --scope project; done',
         "uninstall": "for m in ~/dev/constitution-kit/modules/const-*; do "
-        'claude plugin uninstall "$(basename "$m")@constitution-kit" --scope project; done',
+        f'claude plugin uninstall "$(basename "$m")@{TOY_MP}" --scope project; done',
     } | replace
     parts = ["# Toy guide\n", "```bash check=none\nbrew install vale\n```\n"]
     for name, text in blocks.items():
@@ -895,8 +916,14 @@ def toy_guide(**replace: str) -> str:
     return "\n".join(parts)
 
 
-def toy_kit(root: Path) -> Path:
+def toy_kit(root: Path, market: dict[str, object] | None = None) -> Path:
+    """A toy kit under root, committed; `market` is its .claude-plugin/marketplace.json, by default
+    a marketplace named `TOY_MP`."""
     kit = root / "kit"
+    (kit / ".claude-plugin").mkdir(parents=True)
+    (kit / ".claude-plugin" / "marketplace.json").write_text(
+        json.dumps({"name": TOY_MP, "plugins": []} if market is None else market), encoding="utf-8"
+    )
     (kit / "kernel").mkdir(parents=True)
     (kit / "kernel" / "CONVENTIONS.md").write_text("# Kernel\n", encoding="utf-8")
     for name in LICENSE_FILES:
@@ -1079,6 +1106,63 @@ def self_test() -> int:
             said,
         )
 
+        def market_said(text: str | None) -> tuple[Path, str]:
+            """The folder of a kit whose .claude-plugin/marketplace.json holds `text` (no file for None),
+            and what `marketplace_name` gives over it: the name, or its DocumentError's message."""
+            nonlocal count
+            count += 1
+            folder = Path(listings) / f"market-{count}"
+            (folder / ".claude-plugin").mkdir(parents=True)
+            if text is not None:
+                (folder / ".claude-plugin" / "marketplace.json").write_text(text, encoding="utf-8")
+            try:
+                return folder, marketplace_name(folder)
+            except DocumentError as bad:
+                return folder, str(bad)
+
+        folder, got = market_said('{"name": "toy-mp", "plugins": []}')
+        case("the marketplace's name is the file's top-level name", got == "toy-mp", got)
+        for name, text, tail in (
+            (
+                "a marketplace.json that is missing",
+                None,
+                " cannot be read (No such file or directory) — fix: run the check from a checkout of the kit,"
+                " which holds the file",
+            ),
+            (
+                "a marketplace.json that is no JSON",
+                "not json",
+                " is not JSON (Expecting value: line 1 column 1 (char 0)) — fix: restore the file as a JSON"
+                " object",
+            ),
+            (
+                "a marketplace.json that is a JSON list",
+                "[]",
+                ' is not a JSON object — fix: restore the file as an object with the marketplace\'s "name"',
+            ),
+            (
+                "a marketplace.json with no name",
+                '{"plugins": []}',
+                ' has no "name" — fix: give the marketplace its name, at the top of the object',
+            ),
+            (
+                "a marketplace.json whose name is a number",
+                '{"name": 7}',
+                ' gives a "name" that is not a string — fix: write the name as a JSON string',
+            ),
+            (
+                "a marketplace.json whose name is empty",
+                '{"name": ""}',
+                ' gives an empty "name" — fix: write the marketplace\'s name in it',
+            ),
+        ):
+            folder, got = market_said(text)
+            case(
+                f"{name} is a teaching DocumentError",
+                got == f"{folder}/.claude-plugin/marketplace.json{tail}",
+                got,
+            )
+
     with tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch:
         root = Path(scratch)
         kit = toy_kit(root)
@@ -1093,6 +1177,20 @@ def self_test() -> int:
         }
         green, examined = run_guide(toy_guide(), kit, base)
         case("a green toy run green", not green, f"{whats(green)} ({examined})")
+        nameless = toy_kit(root / "nameless", {"plugins": []})
+        try:
+            run_guide(toy_guide(), nameless, base | {"FAKE_SOURCE": str(nameless)})
+            unnamed = "no Broken"
+        except Broken as broken:
+            unnamed = str(broken)
+        case(
+            "a kit whose marketplace.json gives no name is a BROKEN, naming the clone's file",
+            unnamed.endswith(
+                '/dev/constitution-kit/.claude-plugin/marketplace.json has no "name"'
+                " — fix: give the marketplace its name, at the top of the object"
+            ),
+            unnamed,
+        )
         runs: list[tuple[str, dict[str, str], str, str]] = [
             ("a block that exits 1 red", {"scan": "false"}, "", "the block named check=scan exited 1"),
             (
@@ -1105,7 +1203,7 @@ def self_test() -> int:
                 "a marketplace never added red",
                 {"marketplace": "true || claude plugin marketplace add toy/kit"},
                 "",
-                "after check=marketplace: the configuration knows no marketplace",
+                "after check=marketplace: the configuration knows no marketplace toy-mp",
             ),
             (
                 "a marketplace added from a folder red",
@@ -1194,7 +1292,7 @@ def self_test() -> int:
                 "an uninstall that keeps the plugin red",
                 {},
                 "uninstall-keeps",
-                "after check=uninstall: const-alpha@constitution-kit",
+                "after check=uninstall: const-alpha@toy-mp",
             ),
         ]
         for name, replace, mutant, expected in runs:
@@ -1217,7 +1315,7 @@ def self_test() -> int:
                 "an install block that exits 1",
                 {"install": "false"},
                 "make the block install each module at project scope, "
-                "`claude plugin install <module>@constitution-kit --scope project`",
+                "`claude plugin install <module>@toy-mp --scope project`",  # typed by hand: the toy's name
             ),
         ):
             exited, _ = run_guide(toy_guide(**replace), kit, base)
