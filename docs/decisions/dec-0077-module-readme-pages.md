@@ -1,5 +1,5 @@
 ---
-id: dec-0076-module-readme-pages
+id: dec-0077-module-readme-pages
 type: task-record
 title: Every module ships a README of the root README's kind, linked from the root README's module table
 status: inactive
