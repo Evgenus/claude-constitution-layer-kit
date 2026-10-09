@@ -2,13 +2,19 @@
 # Fixture of the branch-first gate, in a throwaway repository: the clone that is not set up takes a
 # commit on main, the clone that is set up refuses it and takes the same commit on a branch.
 # The user's global git configuration is kept out, so a global hooks path or signing cannot colour a case.
-# Usage: sh scripts/git-hooks/tests/run.sh    Exit: 0 all as expected; 2 not.
+# Its folder is made under TMPDIR (or /tmp when it is unset) and the fixture fails when it is not there.
+# Usage: sh scripts/git-hooks/tests/run.sh    Exit: 0 all as expected; 2 not; 1 the fixture's folder is not under TMPDIR.
 
 GIT_CONFIG_GLOBAL=/dev/null; export GIT_CONFIG_GLOBAL
 
 kit=$(cd "$(dirname "$0")/../../.." && pwd)
-tmp=$(mktemp -d) || exit 1
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/git-hooks.XXXXXX") && tmp=$(cd "$tmp" && pwd -P) || exit 1
 trap 'rm -rf "$tmp"' EXIT
+base=$(cd "${TMPDIR:-/tmp}" && pwd -P) || exit 1
+case $tmp in "$base"/*) ;; *)
+    echo "RED: the fixture's folder $tmp is not under ${TMPDIR:-/tmp}, so a run's TMPDIR would not hold its repositories — fix: make it with mktemp -d \"\${TMPDIR:-/tmp}/git-hooks.XXXXXX\", the template names the place; on macOS mktemp -d without one ignores TMPDIR"
+    exit 1 ;;
+esac
 failed=0
 cases=0
 
