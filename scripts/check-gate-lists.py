@@ -47,9 +47,12 @@ name no module folder by name:
   - `modules/<m>/.claude-plugin/plugin.json` is a JSON object, and its `name` is the string `<m>`;
   - `.claude-plugin/marketplace.json` is a JSON object with a `name`, a non-empty string, the
     marketplace's name, read there and typed nowhere in this check, and a list `plugins`: for each
-    folder exactly one entry, an object, whose `name` is `<m>` and whose `source` is the string
-    `./modules/<m>`; no entry names anything that is no module folder, and an entry's other keys, the
-    marketplace's other keys and its `owner` are the platform's and are never read;
+    folder exactly one entry, an object, whose `name` is `<m>`, whose `source` is the string
+    `./modules/<m>` and whose `description` is the string the manifest's `description` is, character for
+    character, a description missing or no string on either side being one finding, the manifest's
+    named first, and a module with no entry or two being judged by those findings alone; no entry names
+    anything that is no module folder, and an entry's other keys, the marketplace's other keys and its
+    `owner` are the platform's and are never read;
   - `.claude/settings.json` is a JSON object: under `enabledPlugins` the key `<m>@<marketplace name>`
     is `true`, the JSON boolean and nothing else, for each folder, a committed `false` included, the one
     switch-off being a clone's git-ignored `.claude/settings.local.json`, which this check never reads;
@@ -82,9 +85,10 @@ Modes:  no arguments   check the kit;
                        with no folder, red, its fix offering to restore the folder only to a name
                        `const-<aspect>`; an `--item` in the list or the workflow red, and one in
                        a comment green; the folder name over a whole set of names; a manifest, a
-                       marketplace entry, an enabled key and the declaration each changed one at
-                       a time, the platform's other keys allowed, the marketplace renamed in all
-                       three places green and in each pair of them red or green as the rule says,
+                       marketplace entry, its description included, an enabled key and the
+                       declaration each changed one at a time, the platform's other keys allowed,
+                       the marketplace renamed in all three places green and in each pair of them
+                       red or green as the rule says,
                        the name read and never typed; the findings of every kind as literal
                        lines with exit 2, whatever the order of the files' keys, of their lists
                        and of the folder listing, and each file the check cannot read as its
@@ -174,6 +178,10 @@ WHY_MARKET_STRAY = (
     "the marketplace lists exactly the module folders, and an entry that names no module folder is a"
     " plugin no module backs"
 )
+WHY_DESCRIPTION = (
+    "a module's README opens with its manifest's description, so a marketplace entry that words it"
+    " otherwise shows an installer another text for the same module"
+)
 WHY_ENABLED = (
     "the kit's sessions load only the plugins its committed settings enable, and the one switch-off,"
     " `false`, belongs in a clone's .claude/settings.local.json"
@@ -231,6 +239,7 @@ class Where(StrEnum):
     MARKET_SOURCE = "marketplace source"
     MARKET_TWICE = "marketplace entries"
     MARKET_STRAY = "marketplace strays"
+    MARKET_DESCRIPTION = "marketplace description"
     SETTINGS = "enabled plugin"
     SETTINGS_STRAY = "enabled strays"
     KNOWN_MISSING = "declared marketplace"
@@ -245,6 +254,7 @@ REGISTRY = frozenset(
         Where.MARKET_SOURCE,
         Where.MARKET_TWICE,
         Where.MARKET_STRAY,
+        Where.MARKET_DESCRIPTION,
         Where.SETTINGS,
         Where.SETTINGS_STRAY,
         Where.KNOWN_MISSING,
@@ -265,6 +275,7 @@ class Finding:
     fault: Fault = Fault.SPAN  # a form: what is wrong; `entry` then holds the first cell or the span
     said: str = ""  # a registry finding: what the file holds, as JSON text; empty: it holds nothing there
     tag: str = ""  # a registry finding: the marketplace name, read from marketplace.json
+    side: str = ""  # a description finding: which text is wrong, "manifest", "entry" or "differs"
 
     def render(self) -> str:
         spans = ", ".join(f"`{name}`" for name in self.names)
@@ -389,6 +400,31 @@ class Finding:
             what = f"the marketplace has an entry for it, but modules/{m} is no module folder"
             fix = f"remove the entry named {json.dumps(m)} from plugins in {MARKETPLACE_FILE}{make}"
             return what, WHY_MARKET_STRAY, fix
+        if self.where is Where.MARKET_DESCRIPTION:
+            entry = f"the entry named {json.dumps(m)} of plugins in {MARKETPLACE_FILE}"
+            if self.side == "manifest":
+                what = (
+                    f"its manifest {manifest} has a description that is {said}, not a string"
+                    if said
+                    else f"its manifest {manifest} has no description"
+                )
+                fix = (
+                    f"set `description` in {manifest} to a string, the words a module's README opens with,"
+                    f" and copy it, as written, into {entry}"
+                )
+                return what, WHY_DESCRIPTION, fix
+            if self.side == "entry":
+                what = (
+                    f"its marketplace entry has a description that is {said}, not a string"
+                    if said
+                    else "its marketplace entry has no description"
+                )
+            else:
+                what = (
+                    f"its marketplace entry's description differs from its manifest's, first at character"
+                    f" {said} (counting from 1)"
+                )
+            return what, WHY_DESCRIPTION, f"copy `description` of {manifest}, as written, into {entry}"
         if self.where is Where.SETTINGS:
             what = (
                 f"the kit's settings set {json.dumps(f'{m}@{tag}')} to {said}, not true"
@@ -618,19 +654,47 @@ def settings_object(settings: dict[str, Any], key: str) -> dict[str, Any]:
     return value
 
 
+def description_finding(module: str, manifest: dict[str, Any], entry: dict[str, Any]) -> Finding | None:
+    """The marketplace entry's `description` against the manifest's: equal strings are none. A manifest
+    whose description is missing or no string is the finding's first cause, since copying it would copy
+    nothing, whatever the entry holds; then an entry whose description is missing or no string; then two
+    strings that differ, with the position of the first character that does."""
+    wanted, got = manifest.get("description"), entry.get("description")
+    if not isinstance(wanted, str):
+        return Finding(
+            module,
+            Where.MARKET_DESCRIPTION,
+            said=shown(wanted) if "description" in manifest else "",
+            side="manifest",
+        )
+    if not isinstance(got, str):
+        return Finding(
+            module, Where.MARKET_DESCRIPTION, said=shown(got) if "description" in entry else "", side="entry"
+        )
+    if got == wanted:
+        return None
+    first = next(
+        (at for at, pair in enumerate(zip(wanted, got, strict=False), start=1) if pair[0] != pair[1]),
+        min(len(wanted), len(got)) + 1,
+    )
+    return Finding(module, Where.MARKET_DESCRIPTION, said=str(first), side="differs")
+
+
 def check_registries(root: Path, modules: list[str]) -> tuple[list[Finding], int, int]:
     """Each module folder is named `const-<aspect>` (kernel §7), is named so by its manifest, stands once in
     the marketplace with `./modules/<folder>` as its source, and is enabled, `true`, in the kit's settings,
     which declare the marketplace by a `directory` source at `.`; neither file names anything else of the
     marketplace. The marketplace's name is read from marketplace.json. The findings come in a fixed
     order, whatever the files' key order: by folder, name then manifest; the marketplace entries by folder,
-    then the strays by name; the enabled keys the same; the declaration last. Returns them, the entry
+    each one's source then its description, then the strays by name; the enabled keys the same; the
+    declaration last. Returns them, the entry
     count of the marketplace and the count of its keys in `enabledPlugins`."""
     findings: list[Finding] = []
+    manifests: dict[str, dict[str, Any]] = {}
     for module in modules:
         if not NAME.fullmatch(module):
             findings.append(Finding(module, Where.NAME))
-        manifest = read_json(root, f"modules/{module}/.claude-plugin/plugin.json")
+        manifest = manifests[module] = read_json(root, f"modules/{module}/.claude-plugin/plugin.json")
         if manifest.get("name") != module:
             said = shown(manifest["name"]) if "name" in manifest else ""
             findings.append(Finding(module, Where.MANIFEST, said=said))
@@ -645,6 +709,8 @@ def check_registries(root: Path, modules: list[str]) -> tuple[list[Finding], int
         elif got[0].get("source") != wanted:
             said = f"source {shown(got[0]['source'])}" if "source" in got[0] else "no source"
             findings.append(Finding(module, Where.MARKET_SOURCE, said=said))
+        if len(got) == 1 and (told := description_finding(module, manifests[module], got[0])) is not None:
+            findings.append(told)
     findings += [Finding(name, Where.MARKET_STRAY) for name in sorted(set(entries) - set(modules))]
     settings = read_json(root, SETTINGS_FILE)
     enabled = settings_object(settings, "enabledPlugins")
@@ -753,7 +819,12 @@ def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
     entry each, and the settings that enable each and declare the marketplace. Extra keys the platform
     allows stand in each, which the check never reads."""
     files: dict[str, Any] = {
-        f"modules/{m}/.claude-plugin/plugin.json": {"name": m, "version": "0.0.1"} for m in folders
+        f"modules/{m}/.claude-plugin/plugin.json": {
+            "name": m,
+            "version": "0.0.1",
+            "description": f"The module {m}.",
+        }
+        for m in folders
     }
     files[MARKETPLACE_FILE] = {
         "name": tag,
@@ -1240,6 +1311,75 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         "an entry whose source has no `./`": edit(
             lambda f: entry(f).update({"source": "modules/const-x"}), [Where.MARKET_SOURCE]
         ),
+        "an entry whose description differs from its manifest's": edit(
+            lambda f: entry(f).update({"description": "Another."}), [Where.MARKET_DESCRIPTION]
+        ),
+        "an entry whose description differs in its last character only": edit(
+            lambda f: entry(f).update({"description": "The module const-x!"}), [Where.MARKET_DESCRIPTION]
+        ),
+        "an entry whose description differs by a trailing space": edit(
+            lambda f: entry(f).update({"description": "The module const-x. "}), [Where.MARKET_DESCRIPTION]
+        ),
+        "an entry whose description differs in case": edit(
+            lambda f: entry(f).update({"description": "the module const-x."}), [Where.MARKET_DESCRIPTION]
+        ),
+        "an entry whose description is empty": edit(
+            lambda f: entry(f).update({"description": ""}), [Where.MARKET_DESCRIPTION]
+        ),
+        "an entry with no description": edit(
+            lambda f: entry(f).pop("description"), [Where.MARKET_DESCRIPTION]
+        ),
+        "an entry whose description is no string": edit(
+            lambda f: entry(f).update({"description": 5}), [Where.MARKET_DESCRIPTION]
+        ),
+        "an entry whose description is null": edit(
+            lambda f: entry(f).update({"description": None}), [Where.MARKET_DESCRIPTION]
+        ),
+        "a manifest with no description": edit(
+            lambda f: f[MANIFEST_X].pop("description"), [Where.MARKET_DESCRIPTION]
+        ),
+        "a manifest whose description is no string": edit(
+            lambda f: f[MANIFEST_X].update({"description": ["The module const-x."]}),
+            [Where.MARKET_DESCRIPTION],
+        ),
+        "a manifest and its entry with no description are one finding": edit(
+            lambda f: (f[MANIFEST_X].pop("description"), entry(f).pop("description")),
+            [Where.MARKET_DESCRIPTION],
+        ),
+        "a description of long, accented and dashed words, equal in both": edit(
+            lambda f: (
+                f[MANIFEST_X].update({"description": "Ask — only at stakes; é, ü and 한 \u2014 " * 20}),
+                entry(f).update({"description": "Ask — only at stakes; é, ü and 한 \u2014 " * 20}),
+            ),
+            [],
+        ),
+        "an entry with another source and another description: the source first": edit(
+            lambda f: entry(f).update({"source": "./modules/other", "description": "Another."}),
+            [Where.MARKET_SOURCE, Where.MARKET_DESCRIPTION],
+        ),
+        "a module the marketplace leaves out is not judged on its description": edit(
+            lambda f: (f[market]["plugins"].pop(0), f[MANIFEST_X].pop("description")),
+            [Where.MARKETPLACE],
+        ),
+        "two entries for one module, the second with another description, are not judged on it": edit(
+            lambda f: f[market]["plugins"].append(
+                {"name": "const-x", "source": "./modules/const-x", "description": "Another."}
+            ),
+            [Where.MARKET_TWICE],
+        ),
+        "an entry with no folder, whatever its description, is the stray alone": edit(
+            lambda f: f[market]["plugins"].append(
+                {"name": "const-gone", "source": "./modules/const-gone", "description": 5}
+            ),
+            [Where.MARKET_STRAY],
+        ),
+        "the descriptions of both modules differ: both are found": edit(
+            lambda f: (
+                entry(f).update({"description": "Another."}),
+                entry(f, 1).update({"description": "Another."}),
+            ),
+            [Where.MARKET_DESCRIPTION, Where.MARKET_DESCRIPTION],
+        ),
         "an entry with no folder": edit(
             lambda f: f[market]["plugins"].append({"name": "const-gone", "source": "./modules/const-gone"}),
             [Where.MARKET_STRAY],
@@ -1333,6 +1473,14 @@ def messy_case(scan: str, reverse: bool) -> Case:
         if entry["name"] == "const-s":
             plugins.append(dict(entry))
             break
+    files["modules/const-m/.claude-plugin/plugin.json"]["description"] = 5  # no entry: not judged
+    files["modules/const-s/.claude-plugin/plugin.json"].pop("description")  # two entries: not judged
+    files["modules/const-x/.claude-plugin/plugin.json"].pop("description")  # judged: the manifest's
+    for entry in plugins:
+        if entry["name"] == "const-n":
+            entry["description"] = "The module const-n!"  # the first difference, at character 19
+        if entry["name"] == "glossary":
+            entry["description"] = 7  # an entry whose description is no string
     # six strays, written in neither their sorted order nor its reverse, nor in the order `backwards` gives
     # them: no chance order of a set is likelier than 1 in 720 to be the sorted one, so a sort holds it
     strays = ("const-gone", "const-away", "const-zed", "const-mid", "const-bar", "const-old")
@@ -1955,6 +2103,10 @@ def self_test() -> int:
         "  why: the marketplace lists exactly the module folders, and an entry that names no module folder is"
         " a plugin no module backs"
     )
+    description_why = (
+        "  why: a module's README opens with its manifest's description, so a marketplace entry that words it"
+        " otherwise shows an installer another text for the same module"
+    )
     enabled_why = (
         "  why: the kit's sessions load only the plugins its committed settings enable, and the one"
         " switch-off, `false`, belongs in a clone's .claude/settings.local.json"
@@ -1990,11 +2142,25 @@ def self_test() -> int:
         ' "./modules/const-n"',
         source_why,
         f'  fix: set "source" to "./modules/const-n" in the entry named "const-n" of plugins in {market}',
+        "RED: const-n: its marketplace entry's description differs from its manifest's, first at character"
+        " 19 (counting from 1)",
+        description_why,
+        "  fix: copy `description` of modules/const-n/.claude-plugin/plugin.json, as written, into the entry"
+        f' named "const-n" of plugins in {market}',
         "RED: const-s: the marketplace has 2 entries for it",
         "  why: a plugin's name must lead to one source, and with two entries it is open which one an install"
         " reads",
         f'  fix: remove all but one entry named "const-s" from plugins in {market}, the one whose source is'
         ' "./modules/const-s"',
+        "RED: const-x: its manifest modules/const-x/.claude-plugin/plugin.json has no description",
+        description_why,
+        "  fix: set `description` in modules/const-x/.claude-plugin/plugin.json to a string, the words a"
+        ' module\'s README opens with, and copy it, as written, into the entry named "const-x" of plugins'
+        f" in {market}",
+        "RED: glossary: its marketplace entry has a description that is 7, not a string",
+        description_why,
+        "  fix: copy `description` of modules/glossary/.claude-plugin/plugin.json, as written, into the entry"
+        f' named "glossary" of plugins in {market}',
         *(  # the six strays of the marketplace, by name
             line
             for stray in ("away", "bar", "gone", "mid", "old", "zed")
@@ -2029,7 +2195,7 @@ def self_test() -> int:
         " marketplace or none",
         f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {settings} to'
         ' {"source": "directory", "path": "."}',
-        "RED: 19 finding(s) — 6 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+        "RED: 22 finding(s) — 6 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     known_why = (
         "  why: a session finds the kit's plugins only through a marketplace its settings declare, and the"
@@ -2040,6 +2206,16 @@ def self_test() -> int:
         source_why,
         '  fix: set "source" to "./modules/const-quiet" in the entry named "const-quiet" of plugins in'
         f" {market}",
+        "RED: const-quiet: its manifest modules/const-quiet/.claude-plugin/plugin.json has a description that"
+        ' is ["a"], not a string',
+        description_why,
+        "  fix: set `description` in modules/const-quiet/.claude-plugin/plugin.json to a string, the words a"
+        ' module\'s README opens with, and copy it, as written, into the entry named "const-quiet" of'
+        f" plugins in {market}",
+        "RED: const-x: its marketplace entry has no description",
+        description_why,
+        "  fix: copy `description` of modules/const-x/.claude-plugin/plugin.json, as written, into the entry"
+        f' named "const-x" of plugins in {market}',
         "RED: const-quiet: the kit's settings do not enable it",
         enabled_why,
         f'  fix: set "const-quiet@kit-test": true under enabledPlugins in {settings}',
@@ -2050,7 +2226,7 @@ def self_test() -> int:
         known_why,
         '  fix: add "kit-test": {"source": {"source": "directory", "path": "."}} under'
         f" extraKnownMarketplaces in {settings}",
-        "RED: 4 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+        "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     declared_source_lines = [
         "RED: kit-test: the kit's settings declare the marketplace with no source, not source"
@@ -2260,13 +2436,16 @@ def self_test() -> int:
             messy_lines,
         ),
         (
-            "the declaration and the enabled keys missing, an entry with no source",
+            "the declaration and the enabled keys missing, an entry with no source, one with no"
+            " description, a manifest whose description is no string",
             registry_case(
                 scan,
                 lambda f: (
                     f[SETTINGS_FILE].pop("enabledPlugins"),
                     f[SETTINGS_FILE].update({"extraKnownMarketplaces": {"elsewhere": {}}}),
                     f[MARKETPLACE_FILE]["plugins"][1].pop("source"),
+                    f["modules/const-quiet/.claude-plugin/plugin.json"].update({"description": ["a"]}),
+                    f[MARKETPLACE_FILE]["plugins"][0].pop("description"),
                 ),
             ),
             absent_lines,
