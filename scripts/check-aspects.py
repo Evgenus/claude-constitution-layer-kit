@@ -2340,6 +2340,7 @@ def self_test() -> int:
     seven_thrice = (*HARNESS_ITEMS, (7, "x"), (7, "y"), (7, "z"))
     top_100 = (*seven_twice, (100, "top"))
     top_99 = (*seven_thrice, (99, "top"))
+    top_99_four = (*top_99, (7, "w"))
     own_170 = (*HARNESS_ITEMS, (170, "p"), (170, "q"))
     filtered: dict[str, tuple[list[str], int, int, list[str], str | None, tuple[tuple[int, str], ...]]] = {
         # case: the command line; the runner's exit; its item lines; its last lines, on stdout, or all
@@ -2448,6 +2449,24 @@ def self_test() -> int:
             ],
             "exited 1",
             top_99,
+        ),
+        "an own item 99 and 7 four times, one number free below 101 and three needed": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    7,
+                    4,
+                    "'x', 'y', 'z', 'w'",
+                    f"keep one of them at 7, and in the module's own tests/run.py give 1 of the other 3"
+                    f" the number 100 — a number {below}; 2 items are then left with no free number"
+                    f" — {decision}",
+                ),
+                could_not.format(9),
+            ],
+            "exited 1",
+            top_99_four,
         ),
         "two own items numbered 170, no shared item there": (
             [],
