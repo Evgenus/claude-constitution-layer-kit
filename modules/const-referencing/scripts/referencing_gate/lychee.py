@@ -30,7 +30,7 @@ from . import messages
 TOOL = "lychee"
 FLOOR = (0, 24, 2)
 HOOK_SECONDS = 20  # a check after a write's one budget: reading, masking and the run; the scan has none
-VERSION_SECONDS = 5  # the probe's, in every mode; with HOOK_SECONDS under the handler's timeout in hooks.json
+VERSION_SECONDS = 5  # the probe's own, in every mode, outside HOOK_SECONDS; both under the handler's timeout
 LEAST_FOR_THE_RUN = 0.01  # the run's timeout when the budget is spent by then: a timeout of 0 would not wait
 CONFIG = Path(__file__).resolve().parent.parent / "lychee.toml"
 _VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
@@ -59,8 +59,9 @@ class Break:
 
 @dataclass(frozen=True, slots=True)
 class Budget:
-    """The one deadline of a check after a write. It starts before the covered texts are read, and
-    the reads, the masking and the link checker's run draw on it together; the scan has none."""
+    """The one deadline of a check after a write. It starts once the file list, the territory matching
+    and the version probe are done, before the covered texts are read, and the reads, the masking and
+    the link checker's run draw on it together; the scan has none."""
 
     seconds: float  # the whole budget, as it is told to the user
     deadline: float  # on the monotonic clock
@@ -81,11 +82,14 @@ class Budget:
         return min(max(self.deadline - monotonic(), LEAST_FOR_THE_RUN), self.seconds)
 
 
-def find_breaks(root: Path, inputs: Sequence[str], budget: Budget | None) -> list[Break]:
+def find_breaks(root: Path, inputs: Sequence[str], budget: Budget | None, binary: str | None) -> list[Break]:
     """Every unresolved link of the inputs, repository-relative paths of files that exist. `budget` is
     the check's deadline, of which the run gets what is left, None for no limit: the caller chooses,
-    there is no default. The version probe has its own `VERSION_SECONDS` and takes none of it."""
-    binary = _binary()
+    there is no default. `binary` is the checker the caller found and probed with `require`, before
+    it began the budget; None finds and probes it here, as the scan does. The version probe has its
+    own `VERSION_SECONDS`, wherever it runs, and takes none of the budget."""
+    if binary is None:
+        binary = require()
     if not inputs:
         return []
     with tempfile.TemporaryDirectory() as elsewhere:

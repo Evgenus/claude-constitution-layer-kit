@@ -2233,6 +2233,17 @@ TOO_SLOW_TYPED = (
     " masking counted — fix: a large tree can take lychee longer than that; run the scan, which waits"
     " for lychee as long as it takes — until then no reference is checked for resolving"
 )
+# typed by hand: the first line when lychee is missing, and when it is too old to be used
+X1_TYPED = (
+    "BROKEN: const-referencing needs lychee 0.24.2 or newer and found none on PATH — fix: install it"
+    " (https://lychee.cli.rs/installation/), then run the scan — until then no reference is checked for"
+    " resolving"
+)
+X2_TYPED = (
+    "BROKEN: const-referencing needs lychee 0.24.2 or newer, found 'lychee 0.23.0' — fix: install a"
+    " current one (https://lychee.cli.rs/installation/), then run the scan — until then no reference is"
+    " checked for resolving"
+)
 # typed by hand: the first line of a check after a write whose 20 s went on the tree before lychee ran
 OUT_OF_TIME_TYPED = (
     "BROKEN: the check after a write used its 20 s reading and masking the tree before lychee could run"
@@ -2241,9 +2252,10 @@ OUT_OF_TIME_TYPED = (
 )
 
 # A run of the real entry point, `start.main`, with the budget's clock stood still and moved by hand: it
-# advances by the seconds the environment names for each document read, each masked, once more
-# at the first masking, and once at the version probe. Nothing waits for real. The trace holds one word
-# per read and per masking, and what lychee's run was given as its timeout, with the clock then.
+# advances by the seconds the environment names for the file list, for the territory matching, for each
+# document read, each masked, once more at the first masking, and once at the version probe. Nothing waits
+# for real. The trace holds one word per read and per masking, and what lychee's run was given as its
+# timeout, with the clock then.
 BUDGET_DRIVER = """\
 import os
 import subprocess
@@ -2283,22 +2295,38 @@ def spy(command, *args, **kwargs):
     return run(command, *args, **kwargs)
 
 
+def listing(*args):
+    now[0] += float(os.environ.get("LIST_STEP", "0"))
+    return listed(*args)
+
+
+def matching(*args, **kwargs):
+    now[0] += float(os.environ.get("MATCH_STEP", "0"))
+    return matched(*args, **kwargs)
+
+
 read, mask, run = modes.read_text, tree.mask, subprocess.run
+listed, matched = modes.list_markdown, modes.covered_documents
 lychee.monotonic = lambda: now[0]
 modes.read_text, tree.mask, subprocess.run = reading, masking, spy
+modes.list_markdown, modes.covered_documents = listing, matching
 sys.exit(start.main(sys.argv[1:]))
 """
-BUDGET_LYCHEE = (  # logs the first argument of each call; answers an empty report, or never answers
-    'echo "$1" >> "$LYCHEE_LOG"\ncase "$1" in --version) echo \'lychee 0.24.2\';; *) {run};; esac\n'
+BUDGET_LYCHEE = (  # logs the first argument of each call; says its version, then an empty report or nothing
+    'echo "$1" >> "$LYCHEE_LOG"\ncase "$1" in --version) echo \'{version}\';; *) {run};; esac\n'
 )
 
 
 def on_a_patched_clock(
-    clock: dict[str, str], run: str = "echo '{\"error_map\": {}}'", scan: bool = False
+    clock: dict[str, str],
+    run: str = "echo '{\"error_map\": {}}'",
+    scan: bool = False,
+    version: str | None = "lychee 0.24.2",
 ) -> tuple[Result, list[str], list[str], float, int]:
     """The check after a write (or the scan) of a tree of documents, run through the entry point with
-    the clock patched as `clock` says (the seconds, as MASK_FIRST, MASK_STEP and READ_STEP). Gives the
-    result, the trace, the fake lychee's own log of its calls, the real seconds it took, and the
+    the clock patched as `clock` says (the seconds, as LIST_STEP, MATCH_STEP, MASK_FIRST, MASK_STEP, READ_STEP
+    and PROBE_STEP). `version` is what the fake lychee says to --version, None for no lychee on PATH. Gives
+    the result, the trace, the fake lychee's own log of its calls, the real seconds it took, and the
     number of documents the tree holds."""
     consumer = H.fresh_consumer()
     consumer.write("constitution.yaml", dials_text())
@@ -2308,7 +2336,7 @@ def on_a_patched_clock(
     scratch = H.scratch_dir()
     (scratch / "driver.py").write_text(BUDGET_DRIVER.format(scripts=str(SCRIPTS)))
     env = {
-        **path_with(BUDGET_LYCHEE.format(run=run)),
+        **path_with(None if version is None else BUDGET_LYCHEE.format(run=run, version=version)),
         "TRACE": str(scratch / "trace"),
         "LYCHEE_LOG": str(scratch / "lychee"),
         **clock,
@@ -2333,14 +2361,15 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
     """The check after a write has one deadline for the reads, the masking and lychee's run; the scan
     has none. Every case moves a patched clock by the document: the longest real wait is half a second."""
     results: list[tuple[bool, str]] = []
-    # masking, document by document, passes the deadline at the last of them: no run, not even a probe
+    # masking, document by document, passes the deadline at the last of them: no run, and one probe,
+    # made before the budget began
     count = on_a_patched_clock({})[4]
     each = 20 / (count - 0.5)
     late, trace, ran, _, _ = on_a_patched_clock({"MASK_STEP": repr(each)})
     results.append(broken_typed(late, OUT_OF_TIME_TYPED))
     results.append(
         (
-            trace.count("mask") == count and trace.count("read") == count and ran == [],
+            trace.count("mask") == count and trace.count("read") == count and ran == ["--version"],
             f"{count} documents read and masked, lychee called: {ran}; trace {trace}",
         )
     )
@@ -2350,8 +2379,8 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
     results.append(broken_typed(first, OUT_OF_TIME_TYPED))
     results.append(
         (
-            count > 1 and trace.count("mask") == 1 and trace.count("read") == count and ran == [],
-            f"{count} documents read, one masked, lychee never called: trace {trace}, lychee {ran}",
+            count > 1 and trace.count("mask") == 1 and trace.count("read") == count and ran == ["--version"],
+            f"{count} documents read, one masked, lychee probed and never run: trace {trace}, lychee {ran}",
         )
     )
     # a read passes it before any masking starts (reading is counted)
@@ -2359,8 +2388,8 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
     results.append(broken_typed(late, OUT_OF_TIME_TYPED))
     results.append(
         (
-            trace == ["read"] and ran == [],
-            f"one read and no masking, lychee never called: trace {trace}, lychee {ran}",
+            trace == ["read"] and ran == ["--version"],
+            f"one read and no masking, lychee probed and never run: trace {trace}, lychee {ran}",
         )
     )
     # the run is given what the reads and the masking left, never more than the budget
@@ -2389,17 +2418,59 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
             f"the run was given 0.5 s and ended after {took:.1f} s: {trace}",
         )
     )
-    # the version probe, which answers, passes the deadline: the run is given the floor, never 0 or less
-    spent_in_the_probe, trace, ran, _, _ = on_a_patched_clock(
-        {"PROBE_STEP": "25"}, run=f"exec {shutil.which('sleep') or '/bin/sleep'} 30"
+    # the reads and the masking leave 0.005 s, the deadline not yet passed: the run is given the floor,
+    # 0.01 s, never less; its timeout is the only place the floor shows
+    near, trace, ran, _, _ = on_a_patched_clock(
+        {"MASK_FIRST": "19.995"}, run=f"exec {shutil.which('sleep') or '/bin/sleep'} 30"
     )
-    results.append(broken_typed(spent_in_the_probe, TOO_SLOW_TYPED))
+    results.append(broken_typed(near, TOO_SLOW_TYPED))
     results.append(
         (
-            "run timeout=0.01 clock=25.0" in trace,  # the fake's own log is a race with the kill
-            f"the run was given 0.01 s after the probe: trace {trace}",
+            "run timeout=0.01 clock=19.995" in trace,  # the fake's own log is a race with the kill
+            f"the run was given 0.01 s with 0.005 s left: trace {trace}",
         )
     )
+    # the version probe has its own seconds, before the budget begins: a probe that takes 25 s of the
+    # patched clock leaves the run what the reads and the masking left of the whole 20 s
+    probed, trace, ran, _, _ = on_a_patched_clock(
+        {"PROBE_STEP": "25", "READ_STEP": repr(3 / count), "MASK_STEP": repr(6 / count)}
+    )
+    given = [line for line in trace if line.startswith("run ")]
+    timeout, clock = (float(part.split("=")[1]) for part in given[0].split()[1:]) if given else (-1.0, 0.0)
+    results.append(
+        (
+            probed.code == 0
+            and ran == ["--version", "--offline"]
+            and abs(clock - 34.0) < 1e-6
+            and abs(timeout - 11.0) < 1e-6,
+            f"exit {probed.code}, one probe, then the run was given {timeout!r} s with the clock at"
+            f" {clock!r}: {trace}, lychee {ran}",
+        )
+    )
+    # lychee is missing or too old: whatever the tree's size and however the reads spend the budget,
+    # the failure is the checker's own, X1 or X2, found before the first document is read
+    no_lychee, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "25"}, version=None)
+    results.append(broken_typed(no_lychee, X1_TYPED))
+    results.append((trace == [] and ran == [], f"nothing read, no lychee: trace {trace}, lychee {ran}"))
+    old, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "25"}, version="lychee 0.23.0")
+    results.append(broken_typed(old, X2_TYPED))
+    results.append(
+        (trace == [] and ran == ["--version"], f"nothing read, one probe: trace {trace}, lychee {ran}")
+    )
+    # the file list and the territory matching, which stand before the budget, take 25 s of the clock
+    # each: the check still reads, masks and runs, the whole 20 s its own
+    for step in ("LIST_STEP", "MATCH_STEP"):
+        slow, trace, ran, _, _ = on_a_patched_clock({step: "25"})
+        given = [line for line in trace if line.startswith("run ")]
+        results.append(
+            (
+                slow.code == 0
+                and trace.count("read") == count
+                and trace.count("mask") == count
+                and given == ["run timeout=20.0 clock=25.0"],
+                f"{step}: exit {slow.code}, {count} documents read and masked, the run: {given}",
+            )
+        )
     # the scan has no clock: a patched one that runs far away changes nothing, and the run has no timeout
     scanned, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "1000", "MASK_STEP": "1000"}, scan=True)
     far = [line for line in trace if line.startswith("run timeout=None clock=")]
@@ -2407,6 +2478,7 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
         (
             scanned.code == 0
             and scanned.stderr == ""
+            and ran.count("--version") == 1
             and len(far) == 1
             and float(far[0].rsplit("=", 1)[1]) > 20 * count,
             f"exit {scanned.code}: {scanned.stderr[:200]}; trace {trace}",

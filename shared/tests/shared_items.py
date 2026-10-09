@@ -927,10 +927,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     # ---------------------------------------------------------------- the budget of a git call
 
-    def silent_git(subcommand: str, directory: str, call: str) -> str:
+    def silent_git(subcommand: str, directory: str, call: str, quoted: str | None = None) -> str:
         """C12.12 as the hang cases type it, for the budget they lower it to: a call in the person's
-        repository, the directory and the call as a person types them into the fix."""
-        where = shlex.quote(directory)
+        repository, the directory and the call as a person types them into the fix. `quoted`: the
+        directory as the fix shows it to a shell, typed by the case; none, the directory quoted here."""
+        where = shlex.quote(directory) if quoted is None else quoted
         return (
             f"BROKEN: git gave no answer in {HANG_SECONDS:g} s to git {subcommand} in {directory}"
             " — fix: a git that hangs is a stalled file system or, for a call that reads the index, a"
@@ -954,6 +955,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             " working one, then run again; the scan, which gives git as long as it takes, checks the same"
             " tree"
         )
+
+    def quoted_by_hand(path: str) -> str:
+        """A path as a shell takes it whole, typed out: single quotes, and each single quote inside closed,
+        written between double quotes, and opened again."""
+        return "'" + path.replace("'", "'\"'\"'") + "'"
 
     def nearest_folder(root: Path) -> str:
         """Where the hook's `rev-parse` runs: the written file's folder, or the nearest one that exists,
@@ -1115,6 +1121,29 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             not at
         ) and above, f"at the budget: {at_said}; above it, and a print handler at 1 s: {above_said}"
 
+    def hangs_in_a_folder_to_quote() -> tuple[bool, str]:
+        """The folder C12.12 names stands in the fix's two commands quoted for a shell: a repository
+        whose folder holds a space and a single quote, a git that hangs at the root's `rev-parse` (the call
+        every hook makes first), the line typed with the folder as a shell takes it whole."""
+        kept = h.scratch
+        odd = kept / "a folder it's"
+        odd.mkdir()
+        h.scratch = odd  # every consumer the gate runs on is made under it, for as long as the case runs
+        try:
+            return git_failing_at(
+                "rev-parse",
+                0,
+                lambda root: silent_git(
+                    "rev-parse",
+                    nearest_folder(root),
+                    "rev-parse --show-toplevel",
+                    quoted_by_hand(nearest_folder(root)),
+                ),
+                hangs=True,
+            )
+        finally:
+            h.scratch = kept
+
     def attempted(check: Callable[[], tuple[bool, str]]) -> tuple[bool, str]:
         """One check of the item that cannot run is a red check with its error, and hides no other."""
         try:
@@ -1152,6 +1181,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 return git_failing_at(trigger, 0, lines[trigger], hangs=True)
 
             results += [hangs_at(trigger) for trigger in reached]
+            results.append(attempted(hangs_in_a_folder_to_quote))
             budgeted = git_calls(lambda env: s.gate_on(s.valid, env=env))
             every_call = set(budgeted) == {repr(repository.GIT_SECONDS)}
             results.append(

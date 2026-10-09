@@ -27,13 +27,15 @@ def examine(
     texts: Mapping[str, str],
     heading_anchors: Switch,
     budget: lychee.Budget | None,
+    binary: str | None,
     about: str | None = None,
 ) -> tuple[dict[str, list[tuple[int, Finding]]], int]:
     """The findings of each covered document, in reading order, and the links examined. `texts`
     holds the covered documents as they stand on disk. With `about`, only the findings that involve
     that document: its own links, and other documents' links into it. `budget` is the check's one
     deadline, begun by the caller before it read the texts, None for no limit: the clock is read after
-    each document is masked, and the checker's run is given what is left."""
+    each document is masked, and the checker's run is given what is left. `binary` is the checker
+    the caller found and probed before it began the budget, None to find and probe it here (the scan)."""
     masked: dict[str, Masked] = {}
     links: dict[str, list[Link]] = {}
     anchors: dict[str, frozenset[str]] = {}
@@ -45,7 +47,7 @@ def examine(
             budget.check()
     found: dict[str, list[tuple[int, Finding]]] = {rel: [] for rel in texts}
     broken: set[tuple[str, str, str | None]] = set()
-    for b in lychee.find_breaks(root, sorted(texts), budget):
+    for b in lychee.find_breaks(root, sorted(texts), budget, binary):
         broken.add((b.source, b.target, b.fragment))
         if about is not None and about not in (b.source, b.target):
             continue
