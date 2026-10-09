@@ -567,11 +567,17 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
     text = read(root, path)
     manifest = directory / ".claude-plugin" / "plugin.json"
     try:
-        version = str(json.loads(manifest.read_text(encoding="utf-8")).get("version", "?"))
+        data = json.loads(manifest.read_text(encoding="utf-8"))
     except (OSError, ValueError) as bad:
         raise Broken(
             f"modules/{name}/.claude-plugin/plugin.json cannot be read ({bad}) — fix: restore the manifest"
         ) from bad
+    if not isinstance(data, dict):
+        raise Broken(
+            f"modules/{name}/.claude-plugin/plugin.json is no JSON object, it holds a {type(data).__name__}"
+            " — fix: restore it as a JSON object"
+        )
+    version = str(data.get("version", "?"))
     try:
         rows_section, acceptance_section = section(text, "t3", path), section(text, "t10", path)
     except DocumentError as bad:
@@ -1619,6 +1625,20 @@ def listed_in_reverse() -> Iterator[None]:
         Path.iterdir = real  # type: ignore[method-assign]
 
 
+def main_over(root: Path, argv: list[str]) -> tuple[int, list[str]]:
+    """`main` as the command line runs it, over the tree `root` for the kit: its exit and the lines it
+    printed. The kit's place is restored on leaving."""
+    global KIT
+    real, KIT = KIT, root
+    printed = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(printed):
+            code = main(argv)
+    finally:
+        KIT = real
+    return code, printed.getvalue().splitlines()
+
+
 def self_test() -> int:
     """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
     and green with the good table; the report of one finding as literal lines; a full run green,
@@ -1956,6 +1976,20 @@ def self_test() -> int:
         "a folder with no module document\n",
         "modules/const-empty has no MODULE.md — fix: restore the module document",
     )
+    manifest_path = "modules/const-sample/.claude-plugin/plugin.json"
+    manifest_fix = "— fix: restore it as a JSON object"
+    for kind, manifest_text in (("a list", "[]\n"), ("a str", '"const-sample"\n'), ("a NoneType", "null\n")):
+        unreadable[f"a manifest that is valid JSON and no object, it holds {kind}"] = (
+            manifest_path,
+            manifest_text,
+            f"{manifest_path} is no JSON object, it holds {kind} {manifest_fix}",
+        )
+    unreadable["a manifest that is no JSON"] = (  # the line the check always gave
+        manifest_path,
+        "{not json\n",
+        f"{manifest_path} cannot be read (Expecting property name enclosed in double quotes: line 1 column 2"
+        " (char 1)) — fix: restore the manifest",
+    )
     classes_text = PREAMBLE[PREAMBLE.index(CLASSES_SENTENCE) : PREAMBLE.index(" An authoring")]
     typed_names = "'Mx', 'binding', 'kernel §n', 'template'"
     names_found = f'{SPEC} names the destination classes %s in its "Destination classes:" sentence, and this'
@@ -2027,6 +2061,9 @@ def self_test() -> int:
                     ok = ok and str(bad).startswith(said) and "— fix:" in str(bad)
                     ok = ok and (name not in fix_forms or f"— fix: {fix_forms[name]}" in str(bad))
                     got.append(str(bad))
+                except (AttributeError, TypeError) as crash:  # a traceback is a case that fails, not the run
+                    ok = False
+                    got.append(f"{type(crash).__name__}: {crash}")
         failed += 0 if ok else 1
         print(
             f"[{'ok' if ok else 'FAIL'}] a kit tree with {name} is one BROKEN line naming it,"
@@ -2034,6 +2071,46 @@ def self_test() -> int:
         )
         if not ok:
             print(f"        got: {got}")
+    command_lines: tuple[list[str], ...] = ([], ["--run"], ["--run", "--module", "const-sample"])
+    for kind, manifest_text in (("a list", "[]\n"), ("a str", '"const-sample"\n')):
+        for command_line in command_lines:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                build(root, GOOD_TABLE)
+                (root / manifest_path).write_text(manifest_text, encoding="utf-8")
+                try:
+                    code, main_lines = main_over(root, command_line)
+                except (AttributeError, TypeError) as crash:  # a traceback is a case that fails, not the run
+                    code, main_lines = -1, [f"{type(crash).__name__}: {crash}"]
+            expected = [
+                f"BROKEN: {manifest_path} is no JSON object, it holds {kind} {manifest_fix}",
+                "BROKEN: the check could not run — 0 rows examined",
+            ]
+            ok = code == EXIT_BROKEN and main_lines == expected
+            failed += 0 if ok else 1
+            print(
+                f"[{'ok' if ok else 'FAIL'}] a manifest that holds {kind} is one BROKEN line and the"
+                f" could-not-run line, exit 1, under `{' '.join(command_line) or 'no argument'}`"
+            )
+            if not ok:
+                print(f"        got: {code} {main_lines}")
+    version_read = {  # case: the manifest's text; the version the module is read with
+        "a manifest object without a version is read with the version ?": ('{"name": "const-sample"}\n', "?"),
+        "a manifest object with a numeric version is read with it as text": ('{"version": 3}\n', "3"),
+        "a manifest object with a string version is read with it": ('{"version": "0.0.2"}\n', "0.0.2"),
+    }
+    for name, (manifest_text, version) in version_read.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            (root / manifest_path).write_text(manifest_text, encoding="utf-8")
+            try:
+                _, modules, findings, _ = check_structure(root)
+                ok = not findings and [m.version for m in modules] == [version]
+            except Broken:
+                ok = False
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
     prose = "See [A1.2](#a1-2) and [A1.1](../docs/requirements.md#a1-1); an aspect is [A1](#a1).\n"
     read_as_before = {  # case: the matrix, the rows it gives; what holds no anchor of a row or an aspect
         "a prose line that links a row and a module's own anchor are no anchor": (
@@ -2546,6 +2623,8 @@ def self_test() -> int:
         + len(reports)
         + len(read_as_before)
         + len(unreadable)
+        + 6  # a manifest that is a list and one that is a string, each under three command lines
+        + len(version_read)
         + len(skipped)
         + len(listed)
         + 1  # no modules/

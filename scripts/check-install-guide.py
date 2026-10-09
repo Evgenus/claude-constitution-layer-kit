@@ -530,7 +530,8 @@ def last_line(said: str) -> str:
 def modules_of(kit: Path) -> dict[str, str]:
     """Each module of the kit with its manifest version, the folders those of the kit's one listing,
     `kit_module_doc.module_folders`: a plain file there is none, a name without `const-` is one, a
-    folder without its MODULE.md, and a tree with no modules/, are BROKEN."""
+    folder without its MODULE.md, and a tree with no modules/, are BROKEN; so is a manifest that cannot be
+    read, is no JSON object, has no `version`, or whose `version` is no string or number."""
     found: dict[str, str] = {}
     try:
         folders = module_folders(kit)
@@ -539,9 +540,23 @@ def modules_of(kit: Path) -> dict[str, str]:
     for folder in folders:
         manifest = folder / ".claude-plugin" / "plugin.json"
         try:
-            found[folder.name] = str(json.loads(manifest.read_text(encoding="utf-8"))["version"])
-        except (OSError, ValueError, KeyError) as bad:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as bad:
             raise Broken(f"{manifest} gives no version ({bad}) — fix: restore the module's manifest") from bad
+        if not isinstance(data, dict):
+            raise Broken(
+                f"{manifest} is no JSON object, it holds a {type(data).__name__}"
+                " — fix: restore it as a JSON object"
+            )
+        if "version" not in data:
+            raise Broken(f"{manifest} gives no version ('version') — fix: restore the module's manifest")
+        version = data["version"]
+        if isinstance(version, bool) or not isinstance(version, (str, int, float)):
+            raise Broken(
+                f"{manifest} gives a version that is no string or number, it holds a {type(version).__name__}"
+                " — fix: restore the module's manifest"
+            )
+        found[folder.name] = str(version)
     if not found:
         raise Broken(f"no module under {kit / 'modules'} — fix: run the check from a clone of the kit")
     return found
@@ -1718,6 +1733,8 @@ def self_test() -> int:
             modules_of(kit)
         except Broken as broken:
             return str(broken)
+        except TypeError as crash:  # a traceback is a case that fails, not the run
+            return f"{type(crash).__name__}: {crash}"
         return "no Broken"
 
     with tempfile.TemporaryDirectory(prefix="install-guide-listings-") as listings:
@@ -1788,6 +1805,53 @@ def self_test() -> int:
             said.endswith("gives no version ('version') — fix: restore the module's manifest"),
             said,
         )
+        for shape, manifest_text, held in (  # a manifest that is valid JSON and no object
+            ("a list", "[]", "list"),
+            ("a string", '"const-a"', "str"),
+            ("a number", "3", "int"),
+            ("null", "null", "NoneType"),
+        ):
+            odd = tree("const-a")
+            odd_manifest = odd / "modules" / "const-a" / ".claude-plugin" / "plugin.json"
+            odd_manifest.write_text(manifest_text, encoding="utf-8")
+            said = broken_said(odd)
+            case(
+                f"a manifest that is {shape} is BROKEN, naming it and the kind it holds, never a traceback",
+                said
+                == f"{odd_manifest} is no JSON object, it holds a {held} — fix: restore it as a JSON object",
+                said,
+            )
+        for shape, manifest_text, held in (  # a version that is no string or number
+            ("null", '{"version": null}', "NoneType"),
+            ("a list", '{"version": ["1.0"]}', "list"),
+            ("an object", '{"version": {"major": 1}}', "dict"),
+            ("true", '{"version": true}', "bool"),
+        ):
+            odd = tree("const-a")
+            odd_manifest = odd / "modules" / "const-a" / ".claude-plugin" / "plugin.json"
+            odd_manifest.write_text(manifest_text, encoding="utf-8")
+            said = broken_said(odd)
+            case(
+                f"a manifest whose version is {shape} is BROKEN, naming the kind it holds",
+                said == f"{odd_manifest} gives a version that is no string or number, it holds a {held}"
+                " — fix: restore the module's manifest",
+                said,
+            )
+        for shape, manifest_text, version_text in (  # a version that is a string or a number reads as it did
+            ("a string", '{"version": "0.0.2"}', "0.0.2"),
+            ("an integer", '{"version": 3}', "3"),
+            ("a float", '{"version": 1.5}', "1.5"),
+        ):
+            fine = tree("const-a")
+            (fine / "modules" / "const-a" / ".claude-plugin" / "plugin.json").write_text(
+                manifest_text, encoding="utf-8"
+            )
+            read_back = modules_of(fine)
+            case(
+                f"a manifest whose version is {shape} is read as the text of it",
+                read_back == {"const-a": version_text},
+                str(read_back),
+            )
 
         def market_said(text: str | None, as_folder: bool = False) -> tuple[Path, str]:
             """The folder of a kit whose .claude-plugin/marketplace.json holds `text` (no file for None,
@@ -3753,6 +3817,51 @@ def self_test() -> int:
             and logged() == ["--version"],
             f"{ended} {lines} {logged()}",
         )
+        for shape, manifest_text, said_tail in (  # a manifest of a module, committed, over the whole run
+            (
+                "a list",
+                "[]",
+                "/modules/const-alpha/.claude-plugin/plugin.json is no JSON object, it holds a list"
+                " — fix: restore it as a JSON object",
+            ),
+            (
+                "a string",
+                '"const-alpha"',
+                "/modules/const-alpha/.claude-plugin/plugin.json is no JSON object, it holds a str"
+                " — fix: restore it as a JSON object",
+            ),
+            (
+                "an object with no version",
+                "{}",
+                "/modules/const-alpha/.claude-plugin/plugin.json gives no version ('version')"
+                " — fix: restore the module's manifest",
+            ),
+        ):
+            odd_kit = toy_kit(root / f"manifest-{shape.replace(' ', '-')}")
+            (odd_kit / GUIDE).write_text(toy_guide(), encoding="utf-8")
+            (odd_kit / "modules" / "const-alpha" / ".claude-plugin" / "plugin.json").write_text(
+                manifest_text, encoding="utf-8"
+            )
+            run(["git", "add", "-A"], odd_kit, git)
+            run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "odd"],
+                odd_kit,
+                git,
+            )
+            try:
+                ended, lines = whole_run(base | {"FAKE_SOURCE": str(odd_kit)}, odd_kit)
+            except TypeError as crash:  # a traceback is a case that fails, not the run
+                ended, lines = -1, [f"{type(crash).__name__}: {crash}"]
+            case(
+                f"a whole run over a manifest that is {shape} prints the BROKEN line and the could-not-run"
+                " line, exit 1, after the clone and the marketplace's name",
+                ended == EXIT_BROKEN
+                and len(lines) == 2
+                and lines[0].startswith("BROKEN: ")
+                and lines[0].endswith(said_tail)
+                and lines[1] == stop,
+                f"{ended} {lines}",
+            )
         unreadable_head = f"{listed_command} printed no JSON ('no plugins yet\\n': {no_json})"
         ended, lines = whole_run(says_env(too_old, 0, "1") | {"FAKE_MUTANT": "list-not-json"})
         case(
