@@ -1496,8 +1496,11 @@ CHAT_RULE = (
 )
 
 
-# Seconds a handler keeps beyond its waits: the interpreter's start and git. The module's own reading and
-# masking of the tree are inside HOOK_SECONDS, one budget with the run.
+# Seconds a handler keeps beyond its waits, for the interpreter's start and for git while git is quick: no
+# bound on git. Several shared git calls, each under their 3 s, can pass them, and under governed_only the
+# policy index read (build_index) stands outside both budgets too (limit 16 of shared/GATE.md §4). The
+# module's own reading and masking of the tree are inside HOOK_SECONDS, one budget with the run; the
+# version probe has VERSION_SECONDS of its own, before it.
 LEFT_FOR_THE_REST = 5
 
 

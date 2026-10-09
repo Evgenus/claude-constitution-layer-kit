@@ -49,7 +49,7 @@ The question was how the shared git calls get a budget.
   - **Pros:** no code; one paragraph.
   - **Cons:** the silent hang stays in every hook; the scan in CI waits until the job's limit.
 
-The session recommended A: it closes the hang that has a known cause, the file list under a stalled fsmonitor hook, in every hook, at the cost of one function and one line; B is the larger design, kept for a later change; the value of 3 s was the session's to tune, open to the decider's override, and leaves room inside the handlers' margins for the interpreter's start. The decider chose A in chat on 2026-10-08.
+The session recommended A: it closes the hang that has a known cause, the file list under a stalled fsmonitor hook, in every hook, at the cost of one function and one line; B is the larger design, left out of this change; the value of 3 s was the session's to tune, open to the decider's override, and leaves room inside the handlers' margins for the interpreter's start. The decider chose A in chat on 2026-10-08.
 
 **R2.** In hook mode every call of the shared `git` has a budget of 3 s, `GIT_SECONDS`, its own for each call: the shared code's own calls and every call a module makes through it. In scan mode and in act mode the function gives git no clock, so a slow scan or a slow move is waited for as long as it takes. A module's own clock for git calls it makes outside the shared function stays its own.
 
@@ -57,7 +57,7 @@ The session recommended A: it closes the hang that has a known cause, the file l
 
 **R4.** A call past its budget is a configuration failure, non-blocking in hook mode like every configuration failure, with one of two shared lines. Each names the seconds and git's subcommand, and each gives a fix a person can follow to green and that harms nothing. C12.12, for a call in the repository, names where git ran and what can stall git there: a stalled file system or, for a call that reads the index, a `core.fsmonitor` hook, with the command that shows the hook. It then gives the call that hung, to run by hand as the gate made it, the argument `-z` dropped and a standard input replaced by `/dev/null`. C12.13, for a call in the matcher's scratch repository, names the system's temporary directory and `TMPDIR`, and git's configuration outside any repository, with the commands that list it; it asks for no git command run there by hand. Both say that the scan, which gives git as long as it takes, checks the same tree.
 
-**R5.** Every handler of a module's `hooks.json` that runs the gate has a timeout above `GIT_SECONDS`, so a hung git ends with the line before the platform cuts the hook; a shared acceptance item holds it, beside the hangs.
+**R5.** Every handler of a module's `hooks.json` whose script names `python3`, a gate's or a session-start printer's, has a timeout above `GIT_SECONDS`, so a hung git ends with the line before the platform cuts the hook; a shared acceptance item holds it, beside the hangs.
 
 **R6.** What the budget does not hold: a hook that makes many slow calls, each under 3 s, is bounded by no budget of git's; a healthy git slower than 3 s in a hook gives the C12.12 line instead of a late verdict; a process git started, a `core.fsmonitor` hook, may outlive the git the timeout kills.
 
