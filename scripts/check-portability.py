@@ -901,7 +901,7 @@ def self_test_names() -> tuple[int, int]:
             ],
             "a kit folder sorts after the places of its line, in the order they stand, before the documents",
         )
-        found = seen(root, note, "see docs/decisions/dec-0049-x and MODULE.md\n")
+        found = seen(root, note, "see docs/decisions/dec-0049 and MODULE.md\n")
         case(
             found
             == [

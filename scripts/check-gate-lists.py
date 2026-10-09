@@ -1610,10 +1610,13 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "a dials file with no namespace of a module at all": edit(with_dials({"root_policy": "p"}), []),
         "the same name below a top-level key is no top-level key": edit(
-            with_dials({"const-x": {"const-gone": 1}, "plc-0001-x": {"const-away": 1}}), []
+            with_dials({"const-x": {"const-gone": 1}, "plc-0001-root-policy": {"const-away": 1}}), []
         ),
         "kernel keys and policy namespaces are not judged": edit(
-            with_dials({"root_policy": "p", "territory_dialect": "git", "plc-0001-x": {}, "dec": {}}), []
+            with_dials(
+                {"root_policy": "p", "territory_dialect": "git", "plc-0001-root-policy": {}, "dec": {}}
+            ),
+            [],
         ),
         "a key that is no string is not judged": edit(
             with_dials("root_policy: p\n1: a\ntrue: b\nnull: c\n"), []
@@ -2287,7 +2290,7 @@ def self_test() -> int:
         "const-a-b-c2": True,
         "const-x": False,  # a module folder
         "const-quiet": False,  # a module folder
-        "plc-0001-x": False,  # a policy's namespace
+        "plc-0001-root-policy": False,  # a policy's namespace
         "root_policy": False,  # a kernel key
         "territory_dialect": False,
         "const-": False,
@@ -2775,7 +2778,7 @@ def self_test() -> int:
     dials_strays = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
     # six strays, in neither their sorted order nor its reverse (as the marketplace's): a sort holds it
     six = ("const-gone", "const-away", "const-zed", "const-mid", "const-bar", "const-old")
-    dials_strays[DIALS] = {"root_policy": "p", **{key: {} for key in six}, "plc-0001-x": {}}
+    dials_strays[DIALS] = {"root_policy": "p", **{key: {} for key in six}, "plc-0001-root-policy": {}}
     # a description that is the manifest's with something more, or with something less, differs where the
     # shorter one ends: after its last character, counted from 1
     prefix = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
