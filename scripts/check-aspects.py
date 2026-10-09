@@ -1007,9 +1007,13 @@ GREEN_RUN = [
 ]
 
 
-def harness_runner(argv: list[str]) -> str:
-    """A runner on the kit's own shared harness — the items of GREEN_RUN, each an assertion — with
-    `argv` as its command line, so the self-test reads what the harness prints, never a copy of it."""
+HARNESS_ITEMS = ((1, "a"), (2, "b"), (3, "c"), (101, "s"))
+
+
+def harness_runner(argv: list[str], named: tuple[tuple[int, str], ...] = HARNESS_ITEMS) -> str:
+    """A runner on the kit's own shared harness — the items of GREEN_RUN, each an assertion, or the
+    `named` ones — with `argv` as its command line, so the self-test reads what the harness prints,
+    never a copy of it."""
     shared = KIT / "shared"
     return (
         "import sys\n"
@@ -1018,7 +1022,7 @@ def harness_runner(argv: list[str]) -> str:
         "from pathlib import Path\n"
         "from harness import Assertion, Harness\n"
         "H = Harness(Path('.'), 'none.sh', 'none.py', 'const-sample')\n"
-        "NAMED = ((1, 'a'), (2, 'b'), (3, 'c'), (101, 's'))\n"
+        f"NAMED = {named!r}\n"
         "ITEMS = [Assertion(n, t, lambda: (True, 'evidence')) for n, t in NAMED]\n"
         "sys.exit(H.run_all([], ITEMS))\n"
     )
@@ -2302,15 +2306,37 @@ def self_test() -> int:
         " could pass for a filter — fix: run with no arguments for a full run, or with --item <n>[,<n>…]"
         " to run only those items"
     )
-    filtered: dict[str, tuple[list[str], int, int, list[str], str | None]] = {
-        # case: the command line; the runner's exit; its item lines; its last lines, on stdout, or on
-        # stderr when it could not run; what the full run's BROKEN line says, None when it reads green
+    could_not = "BROKEN: the runner could not run — 0 of {} items run"
+    carried = (  # typed by hand: the message of a number two items carry, as run_all prints it
+        "BROKEN: item number {n} is carried by 2 items, {titles} — why: one number, one item, or a result"
+        " and an --item cannot say which item they mean — fix: {keep}, and in the module's own tests/run.py"
+        " give {who} the number {to} — a number no other item holds, below 101"
+    )
+
+    def own_101(to: int) -> str:
+        return carried.format(
+            n=101,
+            titles="'s', 'own'",
+            keep="keep the shared item at 101, whose number is never moved or reissued",
+            who="the module's own item among them",
+            to=to,
+        )
+
+    twice_7 = carried.format(n=7, titles="'x', 'y'", keep="keep one of them at 7", who="the other one", to=8)
+    shared_and_own = (*HARNESS_ITEMS, (101, "own"))
+    seven_twice = (*HARNESS_ITEMS, (7, "x"), (7, "y"))
+    both = (*seven_twice, (101, "own"))
+    filtered: dict[str, tuple[list[str], int, int, list[str], str | None, tuple[tuple[int, str], ...]]] = {
+        # case: the command line; the runner's exit; its item lines; its last lines, on stdout, or all
+        # its lines on stderr when it could not run; what the full run's BROKEN line says, None when it
+        # reads green; the items it holds, the shared harness's four when nothing else is named
         "no filter, a full run": (
             [],
             0,
             4,
             ["4/4 acceptance items green — 0 red→green cases, 4 assertions examined"],
             None,
+            HARNESS_ITEMS,
         ),
         "--item 2,101": (
             ["--item", "2,101"],
@@ -2318,26 +2344,66 @@ def self_test() -> int:
             2,
             ["2/2 selected items green — 2 of 4 items run, not a full pass"],
             "does not count them",
+            HARNESS_ITEMS,
         ),
         "--item 7, a number it does not hold": (
             ["--item", "7"],
             1,
             0,
-            [unknown, "BROKEN: the runner could not run — 0 of 4 items run"],
+            [unknown, could_not.format(4)],
             "exited 1",
+            HARNESS_ITEMS,
         ),
         "--items 2, an argument it does not take": (
             ["--items", "2"],
             1,
             0,
-            [misused, "BROKEN: the runner could not run — 0 of 4 items run"],
+            [misused, could_not.format(4)],
             "exited 1",
+            HARNESS_ITEMS,
+        ),
+        "an own item 101 beside the shared 101": (
+            [],
+            1,
+            0,
+            [own_101(4), could_not.format(5)],
+            "exited 1",
+            shared_and_own,
+        ),
+        "two own items numbered 7": ([], 1, 0, [twice_7, could_not.format(6)], "exited 1", seven_twice),
+        "two numbers carried twice, 7 and 101, one line each in number order": (
+            [],
+            1,
+            0,
+            [
+                twice_7,
+                own_101(9),
+                could_not.format(7),
+            ],
+            "exited 1",
+            both,
+        ),
+        "a number carried twice and --item 7, a number it holds": (
+            ["--item", "7"],
+            1,
+            0,
+            [twice_7, could_not.format(6)],
+            "exited 1",
+            seven_twice,
+        ),
+        "a number carried twice and --item 99, a number it does not hold, the collision first and alone": (
+            ["--item", "99"],
+            1,
+            0,
+            [twice_7, could_not.format(6)],
+            "exited 1",
+            seven_twice,
         ),
     }
-    for name, (argv, runner_exit, count, tail, reason) in filtered.items():
+    for name, (argv, runner_exit, count, tail, reason, named) in filtered.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, GOOD_TABLE, runner=harness_runner(argv))
+            build(root, GOOD_TABLE, runner=harness_runner(argv, named))
             done = subprocess.run(
                 [sys.executable, str(root / "modules" / "const-sample" / "tests" / "run.py")],
                 cwd=root,
@@ -2347,7 +2413,11 @@ def self_test() -> int:
             )
             lines_out = done.stdout.splitlines()
             shown = done.stderr.splitlines() if runner_exit == 1 else lines_out
-            ok = done.returncode == runner_exit and shown[-len(tail) :] == tail
+            # a runner that could not run prints its BROKEN lines and nothing else: all of stderr, so that
+            # a line before the first, or between, is seen; a run that ran is judged by its last lines
+            ok = done.returncode == runner_exit and (
+                shown == tail if runner_exit == 1 else shown[-len(tail) :] == tail
+            )
             ok = ok and sum(1 for line in lines_out if ITEM_LINE.match(line)) == count
             ok = ok and (
                 not argv or not any(LAST_LINE.match(line) for line in lines_out)
