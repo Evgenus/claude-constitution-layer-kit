@@ -63,9 +63,9 @@ silence; `catalogs: []` declares none and is read so. PyYAML reads the file: wit
 exits 1 with the install command.
 
 A heuristic, as the row says: the bare-repository run on defaults stays the gate of record. Not
-seen here — a folder named with neither an extension nor a glob, a system path such as `/srv/…`,
-a home path in a form not listed — is held by review, and by that run where the path acts on a
-bare repository.
+seen here — a folder named with neither an extension nor a glob, the kit's four document folders
+aside, a system path such as `/srv/…`, a home path in a form not listed — is held by review, and by
+that run where the path acts on a bare repository.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree: each form red with its count typed

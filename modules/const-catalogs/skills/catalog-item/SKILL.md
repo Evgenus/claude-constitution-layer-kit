@@ -66,8 +66,9 @@ marked `(full: the width can write no higher number)`, stop and tell the user: a
 renames every item.
 
 The number is **provisional until your branch lands on the main branch, and frozen from then
-on.** Another branch may take the same number meanwhile; whoever lands second renumbers
-(section 4). So cite a new item outside your own branch only after it has landed.
+on** — but for one case, two landed items under one number (section 4). Another branch may
+take the same number meanwhile; whoever lands second renumbers (section 4). So cite a new
+item outside your own branch only after it has landed.
 
 ## 3. Write the item
 
@@ -85,7 +86,11 @@ count.
 
 ## 4. Two items under one number
 
-The scan reports it, usually at a pull request: two branches each took the next number.
+The scan reports it, usually at a pull request: two branches each took the next number. It
+reports it on the main branch too, when both branches have merged. Which case you are in
+decides the steps.
+
+**One item is on the main branch, the other is not yet.**
 
 1. **The item already on the main branch keeps its number.** The other one renumbers — yours,
    if your branch is the one not yet landed.
@@ -98,6 +103,26 @@ The scan reports it, usually at a pull request: two branches each took the next 
    finds both the full name and the bare form, in every file your branch touched — committed,
    not yet committed, or not yet added. References elsewhere mean the other item.
 5. Run the scan again. `git mv` and shell edits are not seen by the hook.
+
+**Both items are on the main branch.** Both numbers are frozen, yet one number cannot name two
+items. The one that landed second gives way, and a reference anywhere in the tree may mean it.
+
+1. **Find which landed second.** For each item, once:
+   `git log --first-parent --diff-filter=A --format='%h %cI' <main branch> -- <path of the item>`
+   The item with the later line landed second. It renumbers; the other keeps its number.
+2. Take the number again as in section 2: one more than the highest the scan's line names,
+   history included.
+3. Rename the file with `git mv` and set its `id` to the new name.
+4. Rewrite the references in the **whole tree**, not only in the files of your branch:
+   `git grep -n -i --untracked '<prefix>-<old number>' --`
+   The full old name, slug included, means the item that renumbers; rewrite it to the new
+   name. The bare form, `<PREFIX>-<old number>`, may mean either item: read each place and
+   rewrite only what means the item that renumbers. Commit messages stay as they are.
+5. Run the scan again, and run the grep once more: it must find the old number only where it
+   means the item that kept it.
+6. Where the project accepts items by a trailer naming the id, the old trailer now names an
+   id that no longer exists. Accept the renumbered item again under its new id, in the change
+   that renumbers it.
 
 ## 5. List a catalog, find an item, explain a gap
 

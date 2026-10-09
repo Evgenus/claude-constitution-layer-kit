@@ -28,7 +28,8 @@ script can hold:
                accepting again, in the merge commit of a new pull request. A record no commit
                accepts yet awaits its yes: a note, never a finding —
                a gate is not red for waiting on a person. An "Accepted:" id that names no record
-               is a note too: deleted since, or misspelt.
+               is a note too: deleted since, renumbered or misspelt. A renumbered record is accepted
+               again under its new id, in the merge commit of the change that renumbers it.
 
 What it cannot see, and leaves to the reader of the audit: a ruling item the author never gave a
 handle; whether the linked text states the rule; whether the audit the receipt names was run.
@@ -608,8 +609,9 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
             if stem not in present:
                 notes.append(
                     f"NOTE: commit {acceptance.commit[:7]} accepts {stem}, which is no record here — "
-                    "deleted since, or misspelt; when misspelt, accept again in the merge commit of a "
-                    "new pull request, the id spelt right"
+                    "deleted since, renumbered or misspelt; when renumbered, accept it again under its "
+                    "new id in the merge commit of the change that renumbers it; when misspelt, accept "
+                    "again in the merge commit of a new pull request, the id spelt right"
                 )
     return findings, notes, len(records)
 
@@ -1024,6 +1026,13 @@ def self_test() -> int:
             1,
         ),
     }
+    # the note of an id that names no record, typed by hand, the commit being the case's last
+    stranger_note = (
+        "NOTE: commit {last} accepts " + stranger + ", which is no record here — deleted since, renumbered"
+        " or misspelt; when renumbered, accept it again under its new id in the merge commit of the change"
+        " that renumbers it; when misspelt, accept again in the merge commit of a new pull request, the id"
+        " spelt right"
+    )
     for name, (messages, red_wanted, notes_wanted) in receipts.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1032,11 +1041,14 @@ def self_test() -> int:
             sample_kit(root)
             pinned = commit(root, "the record lands")
             awaiting = check_kit(root)
+            last = pinned
             for message in messages:
-                commit(root, message.format(at=pinned[:12], before=before[:12]))
+                last = commit(root, message.format(at=pinned[:12], before=before[:12]))
             findings, notes, _ = check_kit(root)
         ok = (not awaiting[0] and len(awaiting[1]) == 1) and bool(findings) == red_wanted
         ok = ok and len(notes) == notes_wanted
+        if name == "an acceptance of a record that is not there is a note":
+            ok = ok and notes == [stranger_note.format(last=last[:7])]
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a record awaiting its yes is a note; {name}")
 
