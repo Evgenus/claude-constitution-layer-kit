@@ -1063,10 +1063,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         """Every handler of the plugin's hooks file whose script names python3 has a timeout longer
         than `GIT_SECONDS` (limit 16): a git that hangs ends with the gate's own line before the platform
         cuts the hook, which says nothing. A handler's scripts are each of its `args`, and each word of its
-        `command` that, once `${CLAUDE_PLUGIN_ROOT}` is replaced, is a path under the plugin's folder or
-        an existing file: a redirection, an option or any other word is no script. A handler whose
-        `command` names python3 as a word is held too, and a script that cannot be read, a missing one
-        under the plugin's folder included, counts as one that names python3."""
+        `command` that, once `${CLAUDE_PLUGIN_ROOT}` (or the unbraced `$CLAUDE_PLUGIN_ROOT`, as a shell
+        expands it) is replaced, is a path under the plugin's folder or an existing file: a redirection,
+        an option or any other word is no script. A handler whose `command` names python3 as a word is
+        held too, and a script that cannot be read, a missing one under the plugin's folder included,
+        counts as one that names python3."""
         hooks = plugin / "hooks" / "hooks.json"
         try:
             spec = json.loads(hooks.read_text(encoding="utf-8"))
@@ -1087,7 +1088,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             except ValueError:  # an unbalanced quote: the words as a shell would not take them
                 words = command.split()
             root = str(plugin)
-            words = [w.replace("${CLAUDE_PLUGIN_ROOT}", root) for w in words]
+            words = [re.sub(r"\$\{CLAUDE_PLUGIN_ROOT\}|\$CLAUDE_PLUGIN_ROOT(?!\w)", root, w) for w in words]
             scripts = [a.replace("${CLAUDE_PLUGIN_ROOT}", root) for a in handler.get("args", [])] + [
                 w for w in words if w.startswith(root + os.sep) or is_file(w)
             ]
@@ -1206,7 +1207,39 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 (shell_form(f"sh {root}print.sh", 1), exec_form("gate.sh", budget + 1)),
             ),
         ]
+        # D-b: the unbraced form a shell expands names the same script.
+        cases.append(
+            (
+                "shell form with `$CLAUDE_PLUGIN_ROOT` unbraced, a script that names python3, at the budget",
+                False,
+                (
+                    shell_form("sh $CLAUDE_PLUGIN_ROOT/scripts/gate.sh", budget),
+                    exec_form("gate.sh", budget + 1),
+                ),
+            )
+        )
         results = [(label, expected, holds(*handlers)) for label, expected, handlers in cases]
+        # D-a: a word outside the plugin, in a folder that cannot be searched. Where the filesystem will
+        # not answer, `is_file` raises (Python 3.12) and the word counts as a script that cannot be read:
+        # red. Where it answers, as for root or on Python 3.14, the word is what the answer says.
+        locked = h.scratch_dir() / "locked"
+        locked.mkdir()
+        (locked / "x.sh").write_text("exec python3 x.py\n", encoding="utf-8")
+        locked.chmod(0o000)
+        try:
+            try:
+                answer = (locked / "x.sh").is_file()
+            except OSError:
+                answer = True
+            results.append(
+                (
+                    "shell form naming a file in a folder that cannot be searched, at the budget",
+                    not answer,
+                    holds(shell_form(f"sh {locked}/x.sh", budget), exec_form("gate.sh", budget + 1)),
+                )
+            )
+        finally:
+            locked.chmod(0o700)
         ok = all(got[0] == expected for _, expected, got in results)
         said = "; ".join(
             f"{label}: {'green' if got[0] else 'red'} (wanted {'green' if expected else 'red'})"
