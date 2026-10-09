@@ -2362,7 +2362,9 @@ def on_a_patched_clock(
 
 def the_budget_is_one() -> list[tuple[bool, str]]:
     """The check after a write has one deadline for the reads, the masking and lychee's run; the scan
-    has none. Every case moves a patched clock by the document: the longest real wait is half a second."""
+    has none. Every case moves a patched clock by the document: the longest real wait is half a second.
+    The order of two configuration failures is held here too: with a missing lychee and a document that
+    cannot be read, the check after a write says X1 and the scan says C12.10."""
     results: list[tuple[bool, str]] = []
     # masking, document by document, passes the deadline at the last of them: no run, and one probe,
     # made before the budget began
@@ -2460,6 +2462,37 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
     results.append(
         (trace == [] and ran == ["--version"], f"nothing read, one probe: trace {trace}, lychee {ran}")
     )
+    # a document nobody can read and no lychee together: the check after a write finds the checker before
+    # it reads anything and says X1, the scan reads the texts first and says C12.10; the same tree with
+    # the document readable says X1 in both, so the missing lychee is real in the scan too
+    if os.geteuid() == 0:
+        results.append(
+            (True, "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 files examined")
+        )
+        return results
+    both = H.fresh_consumer()
+    both.write("constitution.yaml", dials_text())
+    both.write(TARGET, TARGET_TEXT)
+    both.write(SOURCE, source("See [x](t.md)."))
+    shut = "docs/notes/zz-unreadable.md"
+    both.write(shut, note("# Shut\n", "note-z"))
+    both.commit()
+    (both.root / shut).chmod(0o000)
+    try:
+        hooked = H.run_gate(
+            event_json(both.root, Write(SOURCE, source("See [x](t.md).")), event=AFTER), env=path_with(None)
+        )
+        scanned = H.run_gate("", args=["--scan", str(both.root)], env=path_with(None))
+    finally:
+        (both.root / shut).chmod(0o644)
+    readable = H.run_gate("", args=["--scan", str(both.root)], env=path_with(None))
+    unreadable_typed = (  # typed by hand: the first line of a scan that met a file git lists and nobody reads
+        f"BROKEN: {shut} is listed by git but cannot be read — fix: check that the file can be read: its"
+        " permissions, or a link that leads nowhere"
+    )
+    results.append(broken_typed(hooked, X1_TYPED))
+    results.append(broken_typed(scanned, unreadable_typed))
+    results.append(broken_typed(readable, X1_TYPED))
     # the file list and the territory matching, which stand before the budget, take 25 s of the clock
     # each: the check still reads, masks and runs, the whole 20 s its own
     for step in ("LIST_STEP", "MATCH_STEP"):
@@ -3085,7 +3118,8 @@ ASSERTIONS = [
     ),
     Assertion(
         79,
-        "a link checker that hangs is a configuration failure inside the hook's timeout; the scan has none",
+        "a link checker that hangs is a configuration failure inside the hook's timeout; the scan has none;"
+        " no lychee and an unreadable document: X1 at the write, C12.10 in the scan",
         a_link_checker_that_hangs,
     ),
     Assertion(
