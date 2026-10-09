@@ -21,7 +21,7 @@ title: <one line>
 status: active               # active | inactive — lifecycle, see the lifecycle rule below
 ```
 
-**One exception to the `id` rule:** where two items whose ids carry one number have both landed on the main branch, the one landed second is renumbered — its file and its `id` — and every reference to it is rewritten. That is the only change an `id` takes, and the id it leaves is never reused.
+**One exception to the `id` rule:** where two items of one catalog — ids that share a prefix and a number — have both landed on the main branch, the one landed second is renumbered: its file and its `id` take a number the catalog has not held, and every reference to it in the tree is rewritten. The id it leaves is never reused.
 
 Creation and modification history is the repository's job — no envelope field duplicates git metadata.
 

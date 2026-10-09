@@ -105,6 +105,19 @@ Each row is the text of `const_gate/messages.py` under that key, word for word �
 
 An envelope that is YAML but no mapping is reported by the module with the shared detail `the block is not a mapping of field: value`. One nested past the parser's depth is reported with `brackets are nested too deeply to read` — an unreadable envelope, never a crash that lets the write through. Any other YAML error is the parser's whole message on one line, so the line and the column survive.
 
+The runner of [item 8 of §2](#g2) prints lines of its own, from `tests/harness.py` and not from `messages.py`. Each is a line of stderr, and a runner that prints one exits 1. A collision of item numbers is found before the filter is read, so the `H5` lines come first and the filter is then not read. Otherwise one of `H1`, `H2` and `H3` is printed. `H4` closes whichever was printed. `{…}` is a parameter, as above.
+
+| key | text |
+|---|---|
+| H1 | `BROKEN: misinvocation: {the arguments, each quoted by the shell where it needs it, joined by spaces} — why: the runner takes one option, and an argument it ignored could pass for a filter — fix: run with no arguments for a full run, or with --item <n>[,<n>…] to run only those items` |
+| H2 | `BROKEN: --item {the list as Python's repr writes it, in single quotes} is no list of item numbers — why: a filter the runner cannot read would run nothing, or everything — fix: run with no arguments for a full run, or with --item <n>[,<n>…] to run only those items` |
+| H3 | `BROKEN: --item {the list as given}: no item numbered {the unknown numbers, joined by ", "} in this runner — why: a filter that matches nothing runs nothing, and nothing run looks green — fix: name items this runner holds: {the runner's numbers as runs joined by ", ", such as 1–3, 101}` |
+| H4 | `BROKEN: the runner could not run — 0 of {total} items run` |
+| H5 | one line for each number that two items carry, in number order: `BROKEN: item number {n} is carried by {k} items, {each title as Python's repr writes it, joined by ", "} — why: one number, one item, or a result and an --item cannot say which item they mean — fix: {fix}`, with the fix one of the following, `{keep}` being `keep one of them at {n}` and, where {n} is 101 or more, ` — the shared one, if one is shared, since a shared number is never moved or reissued` after it |
+| H5.1 | fix, a number below 101 is free for each item that must move: `{keep}, and in the module's own tests/run.py give {the other one, or each of the other {m}} the {number or numbers} {the free numbers, joined by ", "} — {a number or numbers} no other item holds, below 101` |
+| H5.2 | fix, no number is free below 101: `{keep}; but no number is free below 101 for {the other one, or each of the other {m}} — raise it as a decision, since the shared numbers are never moved` |
+| H5.3 | fix, some are free and not enough: as `H5.1`, with `{g} of the other {m}` where it has the other items, and after `below 101` the text `; {l} {item is, or items are} then left with no free number — raise it as a decision, since the shared numbers are never moved` |
+
 <a id="g4"></a>
 ## 4. Shared honest limits
 

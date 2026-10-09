@@ -302,7 +302,8 @@ class Harness:
         argument — is a configuration failure, exit 1, never a silent full or empty run. Before the
         filter is read and before any item runs, a number that two items carry — a module's own and a
         shared one, or any two — is the same kind of failure: one BROKEN line for each such number, in
-        number order, then the could-not-run line (rule 4 of plc-0009-shared-code: one number, one item)."""
+        number order, then the could-not-run line (a number names one item, and rule 4 of plc-0009-shared-code
+        never reissues one)."""
         items: list[Case | Assertion] = sorted([*cases, *assertions], key=lambda i: i.number)
         total = len(items)
         doubled = number_collisions(items)
