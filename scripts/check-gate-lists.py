@@ -2,7 +2,9 @@
 """Kit check: every scan a module declares stands in the kit's gate list, in its CI list and in its
 module's job, the list's modules are exactly the module folders, each module folder is named
 `const-<aspect>`, named so by its manifest, listed once in the marketplace and enabled in the kit's
-settings, which declare the marketplace, and every kit check is run by an entry of the gate group.
+settings, which declare the marketplace, every kit check is run by an entry of the gate group, every
+top-level `const-<aspect>` key of the kit's dials file names a module folder, and the `types` entry of
+the gate list puts on `MYPYPATH` the module folders the schema mirror imports from.
 
 A module declares its scan in its document's enforcement section (template §9, anchor `t9`), read
 by `kit_module_doc.enforcement` row by row, whatever a row's indent: a line whose stripped form
@@ -75,6 +77,19 @@ gate group: a code line of that entry's `--show`, comments aside, holds `python3
 as whole words, with or without arguments — not after a name or path character, so `xpython3` and
 `/usr/bin/python3` are no run, and not before one, so `check-<x>.py.bak` is none. The kit root must be
 the git repository itself.
+The kit's dials file, `constitution.yaml`, is read as YAML, Python 3 with PyYAML: a PyYAML that is not
+installed is BROKEN with the install command, exit 1, before anything else is read. Every top-level key
+of it that bears a module's name, `const-<aspect>` in full, names a module folder (kernel §7: a module's
+namespace is its plugin name), one RED finding for each that does not, by key; a key of any other form,
+a kernel key or a policy's namespace, a key that is no string, and a key below the top level, are not
+judged. A dials file that is missing, is no YAML or is no mapping is BROKEN. The `types` entry of the
+list, `--show types`, puts on `MYPYPATH` exactly the module folders `scripts/check-schema-mirror.py` puts
+on its import path, each as `../modules/<m>/scripts`: the folders are the strings of the one `for module
+in (...)` over a non-empty tuple of strings, read from the syntax tree and never run; the entry's are the
+items of every `MYPYPATH=` setting on a code line of its commands, comments aside; the two are compared
+as sets, and a difference is one RED finding naming both. A mirror that is missing, is no Python or has
+not that one loop is BROKEN, and so is a list with no `types` entry. These two holds come after every
+other kind of finding, the dials file's first.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree, itself a git repository: a scan missing
@@ -106,13 +121,18 @@ Modes:  no arguments   check the kit;
                        twice, without its end anchor with a later one standing, or with `t11` before
                        it, a module folder without its document, a tree that is no repository
                        and a git that cannot be run, each a BROKEN line; a `.py` scan held by its
-                       python3 line and taught by it.
+                       python3 line and taught by it; the dials file's keys over a whole set of
+                       names, each file of those two holds that cannot be read as its BROKEN line,
+                       the types pair changed one at a time (a folder more on either side, none, a
+                       comment, another path, a quote, two settings), and PyYAML missing as a BROKEN
+                       line with the install command, exit 1.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 import io
 import json
@@ -129,6 +149,13 @@ from pathlib import Path
 from typing import Any
 
 from kit_module_doc import DocumentError, Fault, Problem, enforcement, module_folders
+
+try:
+    import yaml
+except ImportError:
+    print("BROKEN: PyYAML is not installed — fix: python3 -m pip install pyyaml")
+    print("BROKEN: the check could not run — 0 module documents examined")
+    sys.exit(1)
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -157,6 +184,10 @@ NAME = re.compile(
 )  # kernel §7: `const-<aspect>`, kebab-case, the whole name
 MARKETPLACE_FILE = ".claude-plugin/marketplace.json"
 SETTINGS_FILE = ".claude/settings.json"
+DIALS = "constitution.yaml"
+MIRROR = "scripts/check-schema-mirror.py"  # puts the kit-side module folders on its import path
+TYPES_ENTRY = "types"  # the entry of the list that type-checks the shared code and the kit's scripts
+MYPYPATH = re.compile(r"(?<![\w-])MYPYPATH=(\S*)")
 DIRECTORY_SOURCE = {"source": "directory", "path": "."}  # the kit's own folder, as a settings source
 WHY_NAME = (
     "the kernel names every module `const-<aspect>`, lowercase kebab-case, and the CI gives a job"
@@ -181,6 +212,14 @@ WHY_MARKET_STRAY = (
 WHY_DESCRIPTION = (
     "a module's README opens with its manifest's description, so a marketplace entry that words it"
     " otherwise shows an installer another text for the same module"
+)
+WHY_NAMESPACE = (
+    "a module reads only the dials namespace named after its plugin (kernel §7), so a namespace that names"
+    " no module folder is a dial nobody applies"
+)
+WHY_TYPES = (
+    "the schema mirror imports gate code from those module folders, so the type check of the kit's scripts"
+    " resolves it only through a MYPYPATH that names the same folders"
 )
 WHY_ENABLED = (
     "the kit's sessions load only the plugins its committed settings enable, and the one switch-off,"
@@ -240,6 +279,8 @@ class Where(StrEnum):
     MARKET_TWICE = "marketplace entries"
     MARKET_STRAY = "marketplace strays"
     MARKET_DESCRIPTION = "marketplace description"
+    DIALS_KEY = "dials namespace"
+    TYPES_PATH = "types entry"
     SETTINGS = "enabled plugin"
     SETTINGS_STRAY = "enabled strays"
     KNOWN_MISSING = "declared marketplace"
@@ -320,6 +361,22 @@ class Finding:
             return (
                 f"RED: {self.module}:{self.line}: {FORM_WHAT[self.fault].format(shown)}"
                 f"\n  why: {WHY_FORM}\n  fix: {FORM_FIX[self.fault]}"
+            )
+        elif self.where is Where.DIALS_KEY:  # `module` holds the key
+            what = f"{DIALS} has a top-level key for it, but modules/{self.module} is no module folder"
+            why = WHY_NAMESPACE
+            fix = (
+                f"rename the key `{self.module}` in {DIALS} to the name of the module folder whose dials it"
+                " holds, or remove the key and what is under it"
+            )
+        elif self.where is Where.TYPES_PATH:  # `module` holds the list's path, `said` the entry's MYPYPATH
+            folders = ":".join(f"../modules/{name}/scripts" for name in self.names)
+            held = f"`{self.said}`" if self.said else "nothing"
+            what = f"its `{TYPES_ENTRY}` entry puts {held} on MYPYPATH, but {MIRROR} imports from `{folders}`"
+            why = WHY_TYPES
+            fix = (
+                f"in the `{TYPES_ENTRY}` entry of {GATE_LIST}, set MYPYPATH to `{folders}`, one setting, on"
+                " the command that type-checks scripts/*.py"
             )
         elif self.where in REGISTRY:
             what, why, fix = self.registry()
@@ -737,6 +794,78 @@ def check_registries(root: Path, modules: list[str]) -> tuple[list[Finding], int
     return findings, plugins, len(ours)
 
 
+def read_dials(root: Path) -> dict[Any, Any]:
+    """The kit's dials file as a mapping; a file that is missing, is no YAML or is no mapping is BROKEN."""
+    if not (root / DIALS).is_file():
+        raise Broken(f"{DIALS} is no file — fix: restore the kit's dials file at the kit root")
+    try:
+        data = yaml.safe_load(read(root, DIALS))
+    except (yaml.YAMLError, ValueError) as bad:  # a date such as 2001-13-45 is a ValueError
+        first = (str(bad).splitlines() or ["no message"])[0]
+        raise Broken(f"{DIALS} is no YAML ({first}) — fix: repair the file") from bad
+    if not isinstance(data, dict):
+        raise Broken(
+            f"{DIALS} is no YAML mapping, it holds a {type(data).__name__}"
+            " — fix: restore it as a mapping of namespaces"
+        )
+    return data
+
+
+def dials_namespaces(root: Path, modules: list[str]) -> list[Finding]:
+    """A top-level key of the dials file that bears a module's name, `const-<aspect>`, names a module
+    folder (kernel §7: a module's namespace is its plugin name); a key of any other form, a kernel key or
+    a policy's namespace, is not judged, nor is a key that is no string. Findings come by key."""
+    stray = {key for key in read_dials(root) if isinstance(key, str) and NAME.fullmatch(key)} - set(modules)
+    return [Finding(key, Where.DIALS_KEY) for key in sorted(stray)]
+
+
+def mirror_folders(root: Path) -> tuple[str, ...]:
+    """The module folders `scripts/check-schema-mirror.py` puts on its import path: the strings of its one
+    `for module in (...)` over a non-empty tuple of strings, read from the syntax tree, never run."""
+    if not (root / MIRROR).is_file():
+        raise Broken(f"{MIRROR} is no file — fix: restore it")
+    try:
+        tree = ast.parse(read(root, MIRROR), MIRROR)
+    except (SyntaxError, ValueError) as bad:  # a source with a NUL byte is a ValueError before 3.12
+        raise Broken(
+            f"{MIRROR} is no Python (a syntax error at line {getattr(bad, 'lineno', None) or 1})"
+            " — fix: repair the file"
+        ) from bad
+    loops = [
+        [element.value for element in node.iter.elts if isinstance(element, ast.Constant)]
+        for node in ast.walk(tree)
+        if isinstance(node, ast.For)
+        and isinstance(node.target, ast.Name)
+        and node.target.id == "module"
+        and isinstance(node.iter, ast.Tuple)
+        and node.iter.elts
+        and all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in node.iter.elts)
+    ]
+    if len(loops) != 1:
+        raise Broken(
+            f"{MIRROR} has {len(loops)} loops `for module in (...)` over a tuple of folder names, not one"
+            " — fix: restore the one loop that puts the module folders on its import path"
+        )
+    return tuple(loops[0])
+
+
+def types_path(root: Path) -> list[Finding]:
+    """The `types` entry of the gate list puts on MYPYPATH exactly the module folders the schema mirror
+    imports from, each as `../modules/<m>/scripts`: the items of every MYPYPATH setting on a code line of the
+    entry's commands, comments aside, against the mirror's folders, as sets."""
+    items = [
+        part
+        for line in listed(root, "--show", TYPES_ENTRY).splitlines()
+        for value in MYPYPATH.findall(code_of(line))
+        for part in value.strip("\"'").split(":")
+        if part
+    ]
+    folders = mirror_folders(root)
+    if set(items) == {f"../modules/{name}/scripts" for name in folders}:
+        return []
+    return [Finding(GATE_LIST, Where.TYPES_PATH, said=":".join(items), names=folders)]
+
+
 def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
     try:
         modules = [folder.name for folder in module_folders(root)]
@@ -758,6 +887,8 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
     findings += item_filters(root)
     checks = tracked_checks(root)
     findings += check_checks(checks, gates)
+    findings += dials_namespaces(root, modules)
+    findings += types_path(root)
     return findings, len(modules), scans, len(checks), plugins, enabled
 
 
@@ -792,10 +923,18 @@ def run(root: Path) -> int:
         return broken_report(broken)
 
 
+MIRROR_FOLDERS = ("const-p", "const-q")  # the self-test's schema mirror folders, no tree's module folders
+TYPES_COMMAND = (  # the self-test's `types` entry, agreeing with MIRROR_FOLDERS
+    "cd scripts && MYPYPATH=../modules/const-p/scripts:../modules/const-q/scripts"
+    " python3 -m mypy --strict *.py"
+)
+
+
 @dataclass(frozen=True)
 class Case:
     """One self-test tree: the gate and extra entries with their commands, the workflow, the job of
-    each entry that is not `kit` beyond the module entries' own, the folders and the listed modules."""
+    each entry that is not `kit` beyond the module entries' own, the folders and the listed modules, and
+    the commands of the `types` entry, None for a list that has no such entry."""
 
     gates: dict[str, str]
     extras: dict[str, str] = field(default_factory=dict)
@@ -806,6 +945,7 @@ class Case:
     document: str = ""  # const-x's module document; empty: the self-test's own
     documents: dict[str, str] = field(default_factory=dict)  # another folder's module document, by name
     scripts: dict[str, bool] = field(default_factory=dict)  # a file of the tree, a path: git tracks it
+    types: str | None = TYPES_COMMAND  # the commands of the list's `types` entry
     comment: str = ""  # a comment line at the head of the list script
     repo: bool = True  # the tree is a git repository
     tag: str = "kit-test"  # the marketplace name of the default registry files
@@ -814,10 +954,16 @@ class Case:
     # text as it is, None leaves the file out; empty: `registry_tree(folders, tag)`
 
 
+def mirror_text(folders: tuple[str, ...]) -> str:
+    """A schema mirror whose import path takes `folders`, in the form the check reads."""
+    return f"import sys\n\nfor module in {folders!r}:\n    sys.path.insert(0, module)\n"
+
+
 def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
     """The files that name the modules, matching `folders`: a manifest each, the marketplace `tag` with one
-    entry each, and the settings that enable each and declare the marketplace. Extra keys the platform
-    allows stand in each, which the check never reads."""
+    entry each, the settings that enable each and declare the marketplace, the dials file with a namespace
+    each, and a schema mirror whose folders agree with the `types` entry. Extra keys the platform allows
+    stand in each, which the check never reads."""
     files: dict[str, Any] = {
         f"modules/{m}/.claude-plugin/plugin.json": {
             "name": m,
@@ -826,6 +972,8 @@ def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
         }
         for m in folders
     }
+    files[DIALS] = {"root_policy": "policies", **{m: {"key": 1} for m in folders}}  # YAML as JSON
+    files[MIRROR] = mirror_text(MIRROR_FOLDERS)
     files[MARKETPLACE_FILE] = {
         "name": tag,
         "owner": {"name": "Someone"},
@@ -1447,6 +1595,96 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
     return cases
 
 
+def hold_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
+    """The cases of the two holds that read other files than the ones that name a module: the dials file's
+    `const-<aspect>` keys against the module folders, and the `types` entry's MYPYPATH against the folders
+    the schema mirror imports from. Each a matching tree changed once: the findings it must give."""
+    p, q = MIRROR_FOLDERS
+
+    def path(*folders: str) -> str:  # the folders as MYPYPATH items
+        return ":".join(f"../modules/{name}/scripts" for name in folders)
+
+    def entry(
+        setting: str,
+    ) -> str:  # the entry's commands, the kit's scripts' one with `setting` before python3
+        return (
+            "cd shared && python3 -m mypy --strict const_gate\n"
+            f"cd scripts && {setting}python3 -m mypy --strict *.py"
+        )
+
+    def tree(types: str = TYPES_COMMAND, folders: tuple[str, ...] = MIRROR_FOLDERS) -> Case:
+        files = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
+        files[MIRROR] = mirror_text(folders)
+        return Case({"x": scan}, types=types, files=files)
+
+    def dials(content: object) -> Case:  # an object is written as JSON, which YAML reads; a text as it is
+        files = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
+        files[DIALS] = content
+        return Case({"x": scan}, files=files)
+
+    stray, one = [Where.DIALS_KEY], [Where.TYPES_PATH]
+    yaml_text = (
+        "# the kit's dials, in the forms YAML allows\n"
+        "root_policy: policies   # kernel\n"
+        "base: &base {key: 1}\n"
+        '"const-gone": *base\n'
+        "'const-two':\n"
+        "  const-nested: 1\n"
+        "const-x: *base\n"
+    )
+    return {
+        "a top-level key of a module's form with no module folder": (
+            dials({"root_policy": "p", "const-x": {}, "const-gone": {}}),
+            stray,
+        ),
+        "two such keys are two findings": (dials({"const-gone": {}, "const-away": {}}), stray + stray),
+        "a namespace for each module folder and nothing else": (dials({"const-x": {}, "const-quiet": 1}), []),
+        "a dials file with no namespace of a module at all": (dials({"root_policy": "p"}), []),
+        "the same name below a top-level key is no top-level key": (
+            dials({"const-x": {"const-gone": 1}, "plc-0001-x": {"const-away": 1}}),
+            [],
+        ),
+        "kernel keys and policy namespaces are not judged": (
+            dials({"root_policy": "p", "territory_dialect": "git", "plc-0001-x": {}, "dec": {}}),
+            [],
+        ),
+        "a key that is no string is not judged": (dials("root_policy: p\n1: a\ntrue: b\nnull: c\n"), []),
+        "comments, an anchor, an alias and quoted keys are read as YAML": (dials(yaml_text), stray + stray),
+        "the pair on MYPYPATH, the mirror importing the same pair": (tree(), []),
+        "a third module the mirror imports from, MYPYPATH lacking it": (tree(folders=(p, q, "const-r")), one),
+        "a third module on MYPYPATH, the mirror lacking it": (
+            tree(entry(f"MYPYPATH={path(p, q, 'const-r')} ")),
+            one,
+        ),
+        "the same pair in the other order": (tree(entry(f"MYPYPATH={path(q, p)} ")), []),
+        "a mirror of one folder and a MYPYPATH of the same one": (
+            tree(entry(f"MYPYPATH={path(p)} "), folders=(p,)),
+            [],
+        ),
+        "a types entry with no MYPYPATH": (tree(entry("")), one),
+        "a MYPYPATH named only in a comment of the entry": (
+            tree(entry("") + f"  # MYPYPATH={path(p, q)}"),
+            one,
+        ),
+        "a MYPYPATH with a path that is no module folder's": (
+            tree(entry(f"MYPYPATH={path(p, q)}:../shared ")),
+            one,
+        ),
+        "a folder of the pair under another path": (
+            tree(entry(f"MYPYPATH={path(p)}:../x/{q}/scripts ")),
+            one,
+        ),
+        "the pair on a quoted MYPYPATH": (tree(entry(f'MYPYPATH="{path(p, q)}" ')), []),
+        "the pair split over two settings of the entry": (
+            tree(
+                entry(f"MYPYPATH={path(p)} ")
+                + f"\ncd scripts && MYPYPATH={path(q)} python3 -m mypy --strict check-x.py"
+            ),
+            [],
+        ),
+    }
+
+
 def backwards(value: Any) -> Any:
     """`value` with the keys of every object and the items of every list in reverse order."""
     if isinstance(value, dict):
@@ -1543,6 +1781,18 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         f"{m}: entry 2 of plugins is no object with a string name — fix: write each entry as {entry_fix}"
     )
 
+    def dials_fix(what: str) -> str:
+        return f"{what} — fix: restore the kit's dials file at the kit root"
+
+    def not_mapping(kind: str) -> str:
+        return f"{DIALS} is no YAML mapping, it holds a {kind} — fix: restore it as a mapping of namespaces"
+
+    def loops(count: int) -> str:
+        return (
+            f"{MIRROR} has {count} loops `for module in (...)` over a tuple of folder names, not one"
+            " — fix: restore the one loop that puts the module folders on its import path"
+        )
+
     def market(change: Callable[[dict[str, Any]], object]) -> Case:
         return spoil(lambda f: change(f[MARKETPLACE_FILE]))
 
@@ -1609,6 +1859,37 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         "settings whose two objects are wrong: enabledPlugins is named": (
             settings(lambda d: d.update({"enabledPlugins": [], "extraKnownMarketplaces": []})),
             f"{s}: enabledPlugins is no JSON object — fix: restore it as an object",
+        ),
+        "a dials file that is missing": (put(DIALS, None), dials_fix(f"{DIALS} is no file")),
+        "a dials file that is no YAML": (
+            put(DIALS, "a: b: c\n"),
+            f"{DIALS} is no YAML (mapping values are not allowed here) — fix: repair the file",
+        ),
+        "a dials file that is a list": (put(DIALS, "- a\n"), not_mapping("list")),
+        "a dials file that is empty": (put(DIALS, ""), not_mapping("NoneType")),
+        "a dials file that is a string": (put(DIALS, "x\n"), not_mapping("str")),
+        "a schema mirror that is missing": (put(MIRROR, None), f"{MIRROR} is no file — fix: restore it"),
+        "a schema mirror that is no Python": (
+            put(MIRROR, "for module in (:\n"),
+            f"{MIRROR} is no Python (a syntax error at line 1) — fix: repair the file",
+        ),
+        "a schema mirror with no loop over its folders": (put(MIRROR, "x = 1\n"), loops(0)),
+        "a schema mirror with two such loops": (
+            put(MIRROR, mirror_text(("a",)) + mirror_text(("b",))),
+            loops(2),
+        ),
+        "a schema mirror whose loop runs over a list": (
+            put(MIRROR, "for module in ['a']:\n    pass\n"),
+            loops(0),
+        ),
+        "a schema mirror whose tuple holds a non-string": (
+            put(MIRROR, "for module in ('a', 3):\n    pass\n"),
+            loops(0),
+        ),
+        "a schema mirror whose tuple is empty": (put(MIRROR, "for module in ():\n    pass\n"), loops(0)),
+        "a gate list with no types entry": (
+            Case({"x": scan}, types=None),
+            f"{GATE_LIST} --show types exited 1 (no output) — fix: restore the list script",
         ),
     }
 
@@ -1686,7 +1967,8 @@ def self_test() -> int:
         own = {
             f"{kind}-{m}": m for m in (case.folders if case.listed is None else case.listed) for kind in KINDS
         }
-        extras = {**dict.fromkeys((n for n in own if n not in case.gates), "true"), **case.extras}
+        types = {} if case.types is None else {TYPES_ENTRY: case.types}
+        extras = {**dict.fromkeys((n for n in own if n not in case.gates), "true"), **types, **case.extras}
         jobs = {**{name: "kit" for name in {**case.gates, **extras}}, "x": "const-x", **own, **case.jobs}
         names = {"gate": list(case.gates), "all": [*case.gates, *extras]}
         for name, job in jobs.items():
@@ -1891,6 +2173,7 @@ def self_test() -> int:
         ),
     }
     cases.update(registry_cases(scan))
+    cases.update(hold_cases(scan))
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
         failed += 0 if ok else 1
@@ -1986,6 +2269,42 @@ def self_test() -> int:
     print(
         f"[{'ok' if ok else 'FAIL'}] the rename told for a folder name offers `const-<name>` only to a name"
         " that does not open with `const` and would then be a module's name"
+    )
+    key_names = {  # which top-level key of the dials file is a stray: a module's name in full with no folder
+        "const-gone": True,
+        "const-gone-2": True,
+        "const-1": True,
+        "const-a-b-c2": True,
+        "const-x": False,  # a module folder
+        "const-quiet": False,  # a module folder
+        "plc-0001-x": False,  # a policy's namespace
+        "root_policy": False,  # a kernel key
+        "territory_dialect": False,
+        "const-": False,
+        "const": False,
+        "const--a": False,
+        "const-a-": False,
+        "const-A": False,
+        "Const-a": False,
+        "xconst-a": False,
+        "const_a": False,
+        "const-a.b": False,
+        "const-ä": False,
+        "const-a b": False,
+        "const-a\n": False,  # a newline at the end is no name
+    }
+    ok = True
+    for key, is_stray in key_names.items():
+        files = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
+        files[DIALS] = {"root_policy": "p", key: {}}
+        stray_keys = [(f.where, f.module) for f in findings_of(Case({"x": scan}, files=files))]
+        if stray_keys != ([(Where.DIALS_KEY, key)] if is_stray else []):
+            ok = False
+            print(f"        key {key!r}: got {stray_keys}, a stray is {is_stray}")
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] only a top-level key `const-<aspect>` in full with no module folder is a"
+        " stray namespace, over the whole set of names"
     )
     with tempfile.TemporaryDirectory() as tmp:  # a scan declared by its Python file, run by python3
         root = Path(tmp).resolve()
@@ -2322,6 +2641,36 @@ def self_test() -> int:
     ]
     without_quiet = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
     without_quiet[MARKETPLACE_FILE]["plugins"].pop(1)  # const-quiet: the marketplace leaves it out
+    without_quiet[DIALS]["const-gone"] = {}  # a namespace with no module folder
+    without_quiet[MIRROR] = mirror_text((*MIRROR_FOLDERS, "const-r"))  # a folder the types entry lacks
+    namespace_why = (
+        "  why: a module reads only the dials namespace named after its plugin (kernel §7), so a namespace"
+        " that names no module folder is a dial nobody applies"
+    )
+    types_why = (
+        "  why: the schema mirror imports gate code from those module folders, so the type check of the kit's"
+        " scripts resolves it only through a MYPYPATH that names the same folders"
+    )
+
+    def namespace_lines(key: str) -> list[str]:  # typed by hand, the key the one thing that varies
+        return [
+            f"RED: {key}: constitution.yaml has a top-level key for it, but modules/{key} is no module"
+            " folder",
+            namespace_why,
+            f"  fix: rename the key `{key}` in constitution.yaml to the name of the module folder whose dials"
+            " it holds, or remove the key and what is under it",
+        ]
+
+    def types_lines(held: str, mirror: str) -> list[str]:
+        return [
+            f"RED: scripts/gate-list.sh: its `types` entry puts {held} on MYPYPATH, but"
+            f" scripts/check-schema-mirror.py imports from `{mirror}`",
+            types_why,
+            f"  fix: in the `types` entry of scripts/gate-list.sh, set MYPYPATH to `{mirror}`, one setting,"
+            " on the command that type-checks scripts/*.py",
+        ]
+
+    pair_path = "../modules/const-p/scripts:../modules/const-q/scripts"
     kinds_lines = [  # the list's modules, then the registry files, then the item filters, then the kit checks
         "RED: const-quiet: the list lacks its entries `install-const-quiet`, `fixtures-const-quiet`,"
         " `lint-const-quiet`, `types-const-quiet`",
@@ -2336,7 +2685,9 @@ def self_test() -> int:
         "  why: a kit check no entry runs is never run in CI, and its green says nothing",
         "  fix: add an entry to GATES in scripts/gate-list.sh and an arm in commands() that runs"
         f" `{run_new}`, with its `--self-test` where it has one",
-        "RED: 4 finding(s) — 2 module document(s) examined, 1 declared scan(s), 1 kit check(s)",
+        *namespace_lines("const-gone"),  # the dials file, then the types entry: after every earlier kind
+        *types_lines(f"`{pair_path}`", f"{pair_path}:../modules/const-r/scripts"),
+        "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 1 kit check(s)",
     ]
     strays_lines = [  # typed by hand; a name that no folder can bear has the removal for its one fix
         "RED: : the marketplace has an entry for it, but modules/ is no module folder",
@@ -2407,7 +2758,28 @@ def self_test() -> int:
         ),
         "RED: 4 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
+    dials_strays = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
+    dials_strays[DIALS] = {"const-zed": {}, "root_policy": "p", "const-away": {}, "plc-0001-x": {}}
+    no_path = "cd shared && python3 -m mypy --strict const_gate\ncd scripts && python3 -m mypy --strict *.py"
     for name, case, lines in (
+        (
+            "two dials namespaces with no module folder, and a kernel key and a policy's namespace beside"
+            " them, in the order of their names",
+            Case({"x": scan}, files=dials_strays),
+            [
+                *namespace_lines("const-away"),
+                *namespace_lines("const-zed"),
+                "RED: 2 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+            ],
+        ),
+        (
+            "a types entry with no MYPYPATH",
+            Case({"x": scan}, types=no_path),
+            [
+                *types_lines("nothing", pair_path),
+                "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+            ],
+        ),
         (
             "the list's modules naming folders that are no module: the restore is offered only to a name"
             " `const-<aspect>`, the removal to every name",
@@ -2558,6 +2930,11 @@ def self_test() -> int:
             'modules/const-x/MODULE.md: no anchor follows <a id="t9"></a>, and <a id="t10"></a> stands'
             " before it — fix: put the sections in the template's order, t1 to t12",
         ),
+        (  # the message goes on by the Python: "…, not 13" from 3.14, so the line is held to its start
+            "a dials file with a date out of range",
+            "DIALS-DATE",
+            f"{DIALS} is no YAML (month must be in 1..12",
+        ),
         ("a module folder without its document", "NO-DOC", "modules/empty has no MODULE.md"),
         (
             "a tree with no modules/",
@@ -2602,6 +2979,8 @@ def self_test() -> int:
                     .replace("@@", '<a id="t11"></a>\n'),
                 }[change]
                 (root / "modules/const-x/MODULE.md").write_text(broken_text, encoding="utf-8")
+            if change == "DIALS-DATE":
+                (root / DIALS).write_text("d: 2001-13-45\n", encoding="utf-8")
             if change == "NO-DOC":
                 (root / "modules/empty").mkdir()
             if change == "NO-MODULES":
@@ -2632,7 +3011,27 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] {name} is its literal BROKEN line, exit 1")
         if not ok:
             print(printed.getvalue())
-    total = len(cases) + len(unreadable) + 29 + 8
+    with tempfile.TemporaryDirectory() as tmp:  # PyYAML missing: a `yaml` that raises ImportError comes first
+        (Path(tmp) / "yaml.py").write_text("raise ImportError('PyYAML is hidden')\n", encoding="utf-8")
+        done = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve())],
+            env={**os.environ, "PYTHONPATH": tmp},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    ok = (
+        done.returncode == EXIT_BROKEN
+        and done.stdout.splitlines()
+        == [
+            "BROKEN: PyYAML is not installed — fix: python3 -m pip install pyyaml",
+            "BROKEN: the check could not run — 0 module documents examined",
+        ]
+        and done.stderr == ""
+    )
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] PyYAML missing is a BROKEN line with the install command, exit 1")
+    total = len(cases) + len(unreadable) + 29 + 13
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

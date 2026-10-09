@@ -24,7 +24,7 @@
 #   python3 scripts/check-resolved-paths.py && python3 scripts/check-resolved-paths.py --self-test   (every package a runner imports through a link reads __file__ resolved)
 #   python3 scripts/check-bare-install.py --self-test && python3 scripts/check-bare-install.py --module <name>   (A12: installed alone on a bare repo; needs the claude scripts/claude-code.version pins first on PATH — sh scripts/setup-claude.sh installs it, and sh scripts/gate-list.sh --run install-<name> puts it first — or CONSTITUTION_KIT_ANY_CLAUDE=1)
 #   python3 scripts/check-install-guide.py --self-test && python3 scripts/check-install-guide.py   (INSTALL.md's commands run and do what it says; the plain run needs the same claude, and the branch pushed)
-#   (cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts mypy --strict *.py)   (every kit script, one run)
+#   sh scripts/gate-list.sh --run types   (every kit script, one run: the `types` entry of scripts/gate-list.sh holds the command and its MYPYPATH)
 # And for the kit's own branch-first gate — the first sets the clone's settings, once per clone; the second is red
 # in a clone until the first has run:
 #   sh scripts/setup-clone.sh
