@@ -119,10 +119,12 @@ a file with no execute permission, a NUL byte, any other `OSError` of starting i
 that names the command, as `shown` quotes it, and the reason, with "give it a command that exists and can
 run" (a hook's, "give the hook's command and args in hooks/hooks.json a command that exists and can run"),
 and a path the check cannot look at (a folder on the way cannot be searched, an I/O error) one that names
-the path and "give the folder search permission, `chmod u+rx <folder>`", the same on every Python, a
-missing path being the finding or failure it was. A missing hooks file or folder, a folder in the
-file's place (or a link to one), a dangling link or a link loop there, or a path through a file, gives no
-hooks; a link to a regular file is that file. Every other configuration
+the path and "give the folder search permission, `chmod u+rx <folder>`", the same on every Python (the
+lookups of a path, an entry of a walk included), a missing path being the finding or failure it was. The
+walks themselves are a known limit: `Path.rglob` over a folder it cannot list raises on 3.12 and lists
+nothing on 3.14, and skips a subfolder it cannot list, so a file or link below one is not seen. A missing
+hooks file or folder, a folder in the file's place (or a link to one), a dangling link or a link loop there,
+or a path through a file, gives no hooks; a link to a regular file is that file. Every other configuration
 failure prints a fix of its own, such as a commit the kit's history lacks and cannot fetch, a module
 document that cannot be read, a module the kit lacks, a source that names a branch of no repository, a
 marketplace file that gives no name. The run holds the case of an absent dials file; a module with
@@ -162,7 +164,8 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          naming it, a hook's with the hook's own fix, the lines for a command not found
                          and one that outlasts its time as they were; a path the check cannot look at (a
                          module's document and plugin.json, an installPath, a --from source, a link's place
-                         in the copy, a file of a folder that lists but cannot be searched, the hooks file
+                         in the copy, a file or link of a folder that lists but cannot be searched, the
+                         hooks file
                          of the copy, each under a folder of mode 000, real unless run as root, and an I/O
                          error mocked) a BROKEN naming the folder to open, the source's hooks file the
                          line `hooks_of` had, and a missing path, a link loop, a path through a file and
@@ -617,7 +620,7 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
     arrives as a real file, or a real directory, with the same files byte for byte; the copy holds no
     link the source lacks."""
     findings: list[Finding] = []
-    links = sorted(p for p in source.rglob("*") if p.is_symlink())
+    links = sorted(p for p in source.rglob("*") if link_at(p))
     for link in links:
         where = link.relative_to(source)
         place = plugin / where
@@ -679,7 +682,7 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
                 Finding(module, f"the link {where} arrived with other bytes than its target", fix)
             )
     carried = {plugin / link.relative_to(source) for link in links}
-    for extra in sorted(p for p in plugin.rglob("*") if p.is_symlink() and p not in carried):
+    for extra in sorted(p for p in plugin.rglob("*") if link_at(p) and p not in carried):
         findings.append(
             Finding(
                 module,
@@ -1007,7 +1010,7 @@ def install(
 
 
 def counted(source: Path) -> str:
-    links = sum(1 for p in source.rglob("*") if p.is_symlink())
+    links = sum(1 for p in source.rglob("*") if link_at(p))
     return f"{len(hooks_of(source))} hook(s), {len(declared_scans(source))} scan(s), {links} link(s)"
 
 
@@ -2190,10 +2193,20 @@ def self_test() -> int:
                 (tree / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
             (shut_root / "repo").mkdir()
             listing_json = json.dumps([{"id": "m@mp", "scope": "user", "installPath": str(document)}])
-            shut_modes = [(closed, 0o755), (listing, 0o755), (hooks_copy / "hooks", 0o755)]
+            walk, empty_copy = shut_root / "walk", shut_root / "empty copy"  # a subfolder that lists only
+            (walk / "sub folder").mkdir(parents=True)
+            (walk / "sub folder" / "y.txt").write_text("y", encoding="utf-8")
+            empty_copy.mkdir()
+            shut_modes = [
+                (closed, 0o755),
+                (listing, 0o755),
+                (hooks_copy / "hooks", 0o755),
+                (walk / "sub folder", 0o755),
+            ]
             try:
                 closed.chmod(0o000)
                 listing.chmod(0o444)
+                (walk / "sub folder").chmod(0o444)
                 hooks_copy_hooks = hooks_copy / "hooks"
                 hooks_copy_hooks.chmod(0o000)
                 got_shut = said(lambda: declared_scans(document))
@@ -2245,6 +2258,18 @@ def self_test() -> int:
                     got_shut == cannot_search(closed / "copy" / "ln.txt", closed),
                     got_shut,
                 )
+                entry = walk / "sub folder" / "y.txt"  # an entry of a walk that cannot be looked at
+                for name, call in (
+                    ("a source's links", lambda: link_findings("m", walk, empty_copy)),
+                    ("the copy's extra links", lambda: link_findings("m", source_links / "module", walk)),
+                    ("the count of the source", lambda: counted(walk)),
+                ):
+                    got_shut = said(call)
+                    version_case(
+                        f"lookups: an entry of a walk that cannot be looked at ({name}) is the same line",
+                        got_shut == cannot_search(entry, walk / "sub folder"),
+                        got_shut,
+                    )
                 got_shut = said(lambda: files_under(listing))
                 version_case(
                     "lookups: a file of a folder that lists but cannot be searched is the same line",
