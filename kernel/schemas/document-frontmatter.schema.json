@@ -13,7 +13,7 @@
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-      "description": "Stable kebab-case identifier; never changed, never reused."
+      "description": "Stable kebab-case identifier; never reused, and never changed save by the one exception of kernel section 1."
     },
     "type": {
       "enum": [
