@@ -2307,25 +2307,40 @@ def self_test() -> int:
         " to run only those items"
     )
     could_not = "BROKEN: the runner could not run — 0 of {} items run"
-    carried = (  # typed by hand: the message of a number two items carry, as run_all prints it
-        "BROKEN: item number {n} is carried by 2 items, {titles} — why: one number, one item, or a result"
-        " and an --item cannot say which item they mean — fix: {keep}, and in the module's own tests/run.py"
-        " give {who} the number {to} — a number no other item holds, below 101"
-    )
 
-    def own_101(to: int) -> str:
-        return carried.format(
-            n=101,
-            titles="'s', 'own'",
-            keep="keep the shared item at 101, whose number is never moved or reissued",
-            who="the module's own item among them",
-            to=to,
+    def carried(n: int, held: int, titles: str, fix: str) -> str:  # typed by hand: as run_all prints it
+        return (
+            f"BROKEN: item number {n} is carried by {held} items, {titles} — why: one number, one item, or"
+            f" a result and an --item cannot say which item they mean — fix: {fix}"
         )
 
-    twice_7 = carried.format(n=7, titles="'x', 'y'", keep="keep one of them at 7", who="the other one", to=8)
+    shared_kept = " — the shared one, if one is shared, since a shared number is never moved or reissued"
+    below = "no other item holds, below 101"
+    decision = "raise it as a decision, since the shared numbers are never moved"
+
+    def own_101(to: int) -> str:
+        return carried(
+            101,
+            2,
+            "'s', 'own'",
+            f"keep one of them at 101{shared_kept}, and in the module's own tests/run.py give the other one"
+            f" the number {to} — a number {below}",
+        )
+
+    twice_7 = carried(
+        7,
+        2,
+        "'x', 'y'",
+        "keep one of them at 7, and in the module's own tests/run.py give the other one the number 8"
+        f" — a number {below}",
+    )
     shared_and_own = (*HARNESS_ITEMS, (101, "own"))
     seven_twice = (*HARNESS_ITEMS, (7, "x"), (7, "y"))
     both = (*seven_twice, (101, "own"))
+    seven_thrice = (*HARNESS_ITEMS, (7, "x"), (7, "y"), (7, "z"))
+    top_100 = (*seven_twice, (100, "top"))
+    top_99 = (*seven_thrice, (99, "top"))
+    own_170 = (*HARNESS_ITEMS, (170, "p"), (170, "q"))
     filtered: dict[str, tuple[list[str], int, int, list[str], str | None, tuple[tuple[int, str], ...]]] = {
         # case: the command line; the runner's exit; its item lines; its last lines, on stdout, or all
         # its lines on stderr when it could not run; what the full run's BROKEN line says, None when it
@@ -2382,6 +2397,74 @@ def self_test() -> int:
             ],
             "exited 1",
             both,
+        ),
+        "three own items numbered 7": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    7,
+                    3,
+                    "'x', 'y', 'z'",
+                    f"keep one of them at 7, and in the module's own tests/run.py give each of the other 2"
+                    f" the numbers 8, 9 — numbers {below}",
+                ),
+                could_not.format(7),
+            ],
+            "exited 1",
+            seven_thrice,
+        ),
+        "an own item 100 and 7 twice, no number free below 101": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    7,
+                    2,
+                    "'x', 'y'",
+                    f"keep one of them at 7; but no number is free below 101 for the other one — {decision}",
+                ),
+                could_not.format(7),
+            ],
+            "exited 1",
+            top_100,
+        ),
+        "an own item 99 and 7 three times, one number free below 101 and two needed": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    7,
+                    3,
+                    "'x', 'y', 'z'",
+                    f"keep one of them at 7, and in the module's own tests/run.py give 1 of the other 2"
+                    f" the number 100 — a number {below}; 1 item is then left with no free number"
+                    f" — {decision}",
+                ),
+                could_not.format(8),
+            ],
+            "exited 1",
+            top_99,
+        ),
+        "two own items numbered 170, no shared item there": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    170,
+                    2,
+                    "'p', 'q'",
+                    f"keep one of them at 170{shared_kept}, and in the module's own tests/run.py give the"
+                    f" other one the number 4 — a number {below}",
+                ),
+                could_not.format(6),
+            ],
+            "exited 1",
+            own_170,
         ),
         "a number carried twice and --item 7, a number it holds": (
             ["--item", "7"],

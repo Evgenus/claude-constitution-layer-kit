@@ -341,37 +341,39 @@ FIRST_SHARED = 101  # the number of the first shared item; the shared numbers ar
 
 def number_collisions(items: Sequence[Case | Assertion]) -> list[str]:
     """One message for each number that two or more of `items` carry, in number order — what failed,
-    why, and the exact fix. The fix gives the new numbers: the next ones above the highest number the
-    items hold below the first shared one, since a number an item left free is never reissued."""
+    why, and the exact fix. The harness does not know which item is a shared one, so a number from the
+    first shared one up is worded conditionally. The fix names the free numbers below the first shared
+    one — those above the highest number the items hold there, since a number an item left free is
+    never reissued — as many as the items that must move need; the items left without one are counted,
+    and that is a decision to raise, since the shared numbers never move."""
     titles: dict[int, list[str]] = {}
     for item in items:
         titles.setdefault(item.number, []).append(item.title)
-    highest = max((n for n in titles if n < FIRST_SHARED), default=0)
+    free = list(range(max((n for n in titles if n < FIRST_SHARED), default=0) + 1, FIRST_SHARED))
     lines: list[str] = []
     for number in sorted(n for n, held in titles.items() if len(held) > 1):
         held = titles[number]
         named = ", ".join(repr(title) for title in held)
         moving = len(held) - 1
-        fresh = list(range(highest + 1, highest + 1 + moving))
-        highest += moving
-        if fresh[-1] >= FIRST_SHARED:
-            fix = (
-                f"no number is free below {FIRST_SHARED} after {fresh[0] - 1}, and the shared numbers"
-                f" are never moved — raise it as a decision before adding the item"
-            )
+        given, free = free[:moving], free[moving:]
+        left = moving - len(given)
+        keep = f"keep one of them at {number}"
+        if number >= FIRST_SHARED:
+            keep += " — the shared one, if one is shared, since a shared number is never moved or reissued"
+        others = "the other one" if moving == 1 else f"each of the other {moving}"
+        decision = "raise it as a decision, since the shared numbers are never moved"
+        if not given:
+            fix = f"{keep}; but no number is free below {FIRST_SHARED} for {others} — {decision}"
         else:
-            given = ", ".join(map(str, fresh))
-            if number >= FIRST_SHARED:
-                keep = f"keep the shared item at {number}, whose number is never moved or reissued"
-                who = "the module's own item among them" if moving == 1 else f"each of the other {moving}"
-            else:
-                keep = f"keep one of them at {number}"
-                who = "the other one" if moving == 1 else f"each of the other {moving}"
-            noun, other = ("number", "a number") if moving == 1 else ("numbers", "numbers")
+            noun, other = ("number", "a number") if len(given) == 1 else ("numbers", "numbers")
+            who = others if not left else f"{len(given)} of the other {moving}"
             fix = (
-                f"{keep}, and in the module's own tests/run.py give {who} the {noun} {given}"
-                f" — {other} no other item holds, below {FIRST_SHARED}"
+                f"{keep}, and in the module's own tests/run.py give {who} the {noun}"
+                f" {', '.join(map(str, given))} — {other} no other item holds, below {FIRST_SHARED}"
             )
+            if left:
+                are = "item is" if left == 1 else "items are"
+                fix += f"; {left} {are} then left with no free number — {decision}"
         lines.append(
             f"item number {number} is carried by {len(held)} items, {named} — why: one number, one"
             f" item, or a result and an {ITEM_FLAG} cannot say which item they mean — fix: {fix}"
