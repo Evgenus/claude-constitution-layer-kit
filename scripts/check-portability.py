@@ -24,10 +24,16 @@ A finding is one of these forms, outside a public URL:
     particular place, so it is no finding; `**/decisions`, `**/.github`, `**/index.md` and `**/*`
     are findings.
     `constitution.yaml`, the one repository path a module may name, has no slash and so is never
-    one.
-Not read, by the forms above: in Markdown, fenced blocks and inline code, which show an example to
-adapt, not a location. There is no exemption marker; an interpreter line is read as any other, so
-`#!/usr/bin/env` passes and a home path there does not.
+    one;
+  - a document folder of the kit, `docs/decisions`, `docs/research`, `docs/policies` or
+    `docs/requirements`, as written, with no extension and no glob needed: the two segments whole,
+    nothing of a name before `docs` or after the second but a slash or the end of the word
+    (`mydocs/decisions`, `docs/decisionsx` and `docs/decisions-old` are none), a slash after it and
+    further segments allowed (`docs/decisions/`, `a/docs/research/x`); a place already a finding in its
+    line, a home path or a relative path that holds it, is not a second one.
+Not read, by the forms above, the kit's folders included: in Markdown, fenced blocks and inline code,
+which show an example to adapt, not a location. There is no exemption marker; an interpreter line is
+read as any other, so `#!/usr/bin/env` passes and a home path there does not.
 
 One more form, over the same files and the same shared code, a kit document's name; each is a
 finding, with its why and its fix:
@@ -67,7 +73,9 @@ Modes:  no arguments   check the kit;
                        `const-` read as a module, a folder `.x` or `_x` and a plain file of
                        `modules/` not; a module folder without its `MODULE.md`, a tree with no
                        `modules/` and a file that is not UTF-8 as a BROKEN line; the modules
-                       read sorted by name, whatever order the folder lists; the kit documents' names:
+                       read sorted by name, whatever order the folder lists; the kit's four document
+                       folders, red as written and green in code, in a URL and inside another name,
+                       once where a relative path holds the same place; the kit documents' names:
                        each fixed name and each id form typed by hand, in an install note and in a
                        skill, red or green; the width, its default and a prefix added to the dials,
                        read from the dials file; fenced code, a code span and a URL read, a test,
@@ -109,6 +117,7 @@ NAMESPACE = "const-catalogs"  # the dials namespace that declares the kit's numb
 DEFAULT_WIDTH, MAX_WIDTH = 4, 9  # the catalog module's own: a width is a whole number from 1 to 9
 PREFIX = re.compile(r"[a-z0-9]+")  # the catalog module's own form of a prefix, used with fullmatch
 FIXED_NAMES = ("MODULE.md", "requirements.md", "rollout-plan", "CONVENTIONS.md", "GATE.md", "kernel/")
+KIT_FOLDERS = ("docs/decisions", "docs/research", "docs/policies", "docs/requirements")
 
 URL = re.compile(r"https?://[^\s)>\"'`]+")
 HOME = re.compile(
@@ -118,6 +127,7 @@ HOME = re.compile(
 )
 TILDE = re.compile(r"~/")
 FILE_LINK = re.compile(r"\bfile:/")
+KIT_FOLDER = re.compile(rf"(?<![\w.-])(?:{'|'.join(map(re.escape, KIT_FOLDERS))})(?![\w-]|\.\w)")
 RELATIVE = re.compile(r"(?<![\w/.$}{~:*-])((?:[\w.*-]+/)+[\w.*-]*)")
 WILDCARD = re.compile(r"\*+")
 FILES_BY_EXTENSION = re.compile(r"\*+\.[A-Za-z0-9]{1,5}")
@@ -131,6 +141,8 @@ FIXES = {
     "file": "link a public URL, or name the document in words",
     "relative": "write it `${CLAUDE_PLUGIN_ROOT}`-relative if it is the plugin's, read it from the dials"
     " file if it is the project's, or show it in a fenced example",
+    "kit_folder": "name the place through the dials file, or, in a Markdown file, show it as an example in a"
+    " fenced block or a code span",
     "kit_file": "say in words what the document holds, or drop the mention",
     "kit_id": "say in words what the item holds, or drop the mention; an example of a project's own id"
     " takes a prefix that const-catalogs.catalogs in the kit's constitution.yaml does not declare",
@@ -140,6 +152,7 @@ WHAT = {
     "tilde": "a path under `~/`",
     "file": "a `file:/` link",
     "relative": "a relative path that is no file of the plugin",
+    "kit_folder": "a document folder of the kit",
     "kit_file": "a file name of the kit",
     "kit_id": "an id of a catalog the kit declares",
 }
@@ -147,7 +160,11 @@ WHY_KIT = (
     "a module installs into any project, where the kit's own documents do not exist, so it names none"
     " of them (law 2 of CLAUDE.md)"
 )
-WHYS = {"kit_file": WHY_KIT, "kit_id": WHY_KIT}  # the other forms give WHY
+WHY_FOLDER = (
+    "a module that names the kit's own folders carries the kit's layout into a project, where they do not"
+    " exist (law 2 of CLAUDE.md)"
+)
+WHYS = {"kit_file": WHY_KIT, "kit_id": WHY_KIT, "kit_folder": WHY_FOLDER}  # the other forms give WHY
 
 
 class Broken(Exception):
@@ -300,7 +317,9 @@ def examine(path: str, text: str, plugins: list[Path], ids: re.Pattern[str] | No
 
 
 def places(path: str, text: str, plugins: list[Path]) -> list[Finding]:
-    """The findings of the forms that name a place in a project."""
+    """The findings of the forms that name a place in a project. In a line, by kind: a home path, a `~/`,
+    a `file:/` link, then the relative paths in the order they stand, then the kit's folders in the
+    order they stand; the kit documents' names come after, in `examine`."""
     findings: list[Finding] = []
     markdown = path.endswith(".md")
     fence: str | None = None
@@ -316,8 +335,11 @@ def places(path: str, text: str, plugins: list[Path]) -> list[Finding]:
                 continue
             line = CODE_SPAN.sub(" ", line)
         line = URL.sub(" ", line)
+        taken: list[tuple[int, int]] = []  # where this line has a finding already: no second one there
         for kind, pattern in (("home", HOME), ("tilde", TILDE), ("file", FILE_LINK)):
-            findings.extend(Finding(path, number, kind, m[0][:60]) for m in pattern.finditer(line))
+            for m in pattern.finditer(line):
+                findings.append(Finding(path, number, kind, m[0][:60]))
+                taken.append((m.start(), token_end(line, m.start())))
         for m in RELATIVE.finditer(line):
             candidate = m[1].rstrip(".")
             if not NAMES_A_FILE.search(candidate):
@@ -331,7 +353,22 @@ def places(path: str, text: str, plugins: list[Path]) -> list[Finding]:
             if plain and any((plugin / plain).exists() for plugin in plugins):
                 continue
             findings.append(Finding(path, number, "relative", candidate[:60]))
+            taken.append((m.start(1), m.end(1)))
+        findings.extend(
+            Finding(path, number, "kit_folder", m[0])
+            for m in KIT_FOLDER.finditer(line)
+            if not any(start <= m.start() < end for start, end in taken)
+        )
     return findings
+
+
+def token_end(line: str, start: int) -> int:
+    """Where the run of non-space characters that opens at `start` ends: the place a home path, a `~/`
+    or a `file:/` link names reaches to."""
+    end = start
+    while end < len(line) and not line[end].isspace() and line[end] not in ")>\"'`":
+        end += 1
+    return end
 
 
 def check_kit(root: Path) -> tuple[list[Finding], int, int]:
@@ -491,6 +528,41 @@ def self_test() -> int:
         ),
         "a project path in the shared code": ("SHARED", "X = 1\n", "X = 'var/data/state.json'\n", 1),
         "a kit file name in the shared code": ("SHARED", "X = 1\n", "# the rules are in GATE.md\n", 1),
+        "a kit folder in an install note, in prose": (
+            "INSTALL.md",
+            "Install.\n",
+            "See docs/decisions for more.\n",
+            1,
+        ),
+        "a kit folder with a trailing slash": ("INSTALL.md", "Install.\n", "Read docs/research/ first.\n", 1),
+        "a kit folder closing a sentence": ("INSTALL.md", "Install.\n", "Put them in docs/policies.\n", 1),
+        "a kit folder with further segments": (
+            "skills/s/SKILL.md",
+            "A skill.\n",
+            "Open docs/requirements/a5 now.\n",
+            1,
+        ),
+        "a kit folder after other segments": ("scripts/gate.sh", "cd docs\n", "cd ../docs/decisions\n", 1),
+        "a kit folder in a script string": ("scripts/gate.py", "P = 'docs'\n", "P = 'docs/research'\n", 1),
+        "a kit folder in a hooks file, where no code is exempt": (
+            "hooks/hooks.json",
+            '{"a": 1}\n',
+            '{"a": "docs/policies"}\n',
+            1,
+        ),
+        "the four kit folders in one line": (
+            "INSTALL.md",
+            "Install.\n",
+            "docs/decisions docs/research docs/policies docs/requirements\n",
+            4,
+        ),
+        "a kit folder after a fenced block closed": (
+            "INSTALL.md",
+            "```\nx\n```\nInstall.\n",
+            "```\nx\n```\nSee docs/decisions here.\n",
+            1,
+        ),
+        "a kit folder in the shared code": ("SHARED", "X = 1\n", "X = 'docs/requirements'\n", 1),
     }
     green: dict[str, tuple[str, str]] = {  # case: file, text with a form the check does not read
         "the module document": ("MODULE.md", "See /home/ann/notes.md, docs/x.md, dec-0049 and GATE.md.\n"),
@@ -506,6 +578,31 @@ def self_test() -> int:
         "wildcards before wildcards and an extension": ("skills/s/SKILL.md", 'paths: "**/*.md"\n'),
         "a path with no extension or glob": ("scripts/gate.py", "REF = 'refs/heads/main'\n"),
         "a plugin-root path": ("hooks/hooks.json", '{"args": ["${CLAUDE_PLUGIN_ROOT}/scripts/x/y.sh"]}\n'),
+        "a kit folder with a glob in a fenced example": (
+            "skills/s/SKILL.md",
+            '```yaml\nterritory: ["docs/policies/**"]\n```\n',
+        ),
+        "a kit folder in a fenced example, with no glob": (
+            "INSTALL.md",
+            "```\ndocs/decisions\ndocs/research/\n```\n",
+        ),
+        "a kit folder in a code span": (
+            "INSTALL.md",
+            "Put them in `docs/decisions`, not `docs/research/`.\n",
+        ),
+        "a kit folder in a public URL": ("INSTALL.md", "See https://example.org/docs/decisions for more.\n"),
+        "a kit folder in a URL with segments": (
+            "INSTALL.md",
+            "See (https://example.org/docs/policies/x) and <http://a.b/docs/research/>.\n",
+        ),
+        "a name ending in a kit folder's first segment": ("INSTALL.md", "Put them in mydocs/decisions.\n"),
+        "a kit folder's name with more letters": ("INSTALL.md", "Put them in docs/decisionsx.\n"),
+        "a kit folder's name with a hyphened tail": ("INSTALL.md", "Put them in docs/decisions-old.\n"),
+        "a kit folder after a hyphened word": ("INSTALL.md", "Put them in my-docs/research.\n"),
+        "a kit folder after a dotted word": ("INSTALL.md", "Put them in .docs/research.\n"),
+        "a kit folder in other case": ("INSTALL.md", "Put them in Docs/Decisions.\n"),
+        "docs with a different second segment": ("INSTALL.md", "Put them in docs/notes and docs/decision.\n"),
+        "the second segment alone": ("INSTALL.md", "Put them in decisions or research.\n"),
     }
     report_lines = [  # the report of the tilde case, typed by hand: a message function cannot check itself
         "RED: modules/const-x/INSTALL.md:1: a path under `~/`, '~/'",
@@ -726,11 +823,12 @@ def self_test_names() -> tuple[int, int]:
         )
         for path in ("MODULE.md", "README.md", "tests/run.py"):
             case(
-                seen(root, at(path), "MODULE.md dec-0049 GATE.md\n") == [], f"{path} of a module is not read"
+                seen(root, at(path), "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
+                f"{path} of a module is not read",
             )
         for path in ("shared/GATE.md", "shared/tests/run.py"):
             case(
-                seen(root, path, "MODULE.md dec-0049 GATE.md\n") == [],
+                seen(root, path, "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
                 f"{path} is not read: only {SHARED}/ is",
             )
         found = seen(
@@ -755,6 +853,67 @@ def self_test_names() -> tuple[int, int]:
                 (note, 5, "kit_id", "res-0012"),
             ],
             "the findings go by line whatever the form, a place before the names of its line, then by column",
+        )
+        folders = ("docs/decisions", "docs/research", "docs/policies", "docs/requirements")
+        case(
+            set(folders) == set(KIT_FOLDERS) and len(KIT_FOLDERS) == len(folders),
+            "the self-test types the four folders of the check, no more and no fewer",
+        )
+        for folder in folders:
+            for written, matched in ((folder, folder), (f"{folder}/", folder), (f"{folder}/a/b", folder)):
+                ok = all(
+                    seen(root, path, f"See {written} for more.\n") == [(path, 1, "kit_folder", matched)]
+                    for path in (note, skill)
+                )
+                case(ok, f"{written} is red in an install note and in a skill, once, as '{matched}'")
+        for written, wanted in (
+            ("edit docs/decisions/index.md now", [(note, 1, "relative", "docs/decisions/index.md")]),
+            ("a **/docs/decisions/*.md glob", [(note, 1, "relative", "**/docs/decisions/*.md")]),
+            ("at /Users/ann/docs/decisions now", [(note, 1, "home", "/Users/ann/docs/decisions")]),
+            ("at $HOME/docs/research now", [(note, 1, "home", "$HOME/docs/research")]),
+            ("at ~/docs/policies now", [(note, 1, "tilde", "~/")]),
+            ("at file:///docs/requirements now", [(note, 1, "file", "file:/")]),
+            ("docs/decisions.md", [(note, 1, "relative", "docs/decisions.md")]),
+            (
+                "a docs/decisions/x.md and docs/research",
+                [(note, 1, "relative", "docs/decisions/x.md"), (note, 1, "kit_folder", "docs/research")],
+            ),
+        ):
+            case(
+                seen(root, note, f"{written}\n") == wanted,
+                f"'{written}' gives the one finding of its place, never a second for the kit folder in it",
+            )
+        found = seen(root, note, "docs/decisions\n~/a docs/research x/y.md dec-0049 docs/policies\n")
+        case(
+            found
+            == [
+                (note, 1, "kit_folder", "docs/decisions"),
+                (note, 2, "tilde", "~/"),
+                (note, 2, "relative", "x/y.md"),
+                (note, 2, "kit_folder", "docs/research"),
+                (note, 2, "kit_folder", "docs/policies"),
+                (note, 2, "kit_id", "dec-0049"),
+            ],
+            "a kit folder sorts after the places of its line, in the order they stand, before the documents",
+        )
+        found = seen(root, note, "see docs/decisions/dec-0049-x and MODULE.md\n")
+        case(
+            found
+            == [
+                (note, 1, "kit_folder", "docs/decisions"),
+                (note, 1, "kit_id", "dec-0049"),
+                (note, 1, "kit_file", "MODULE.md"),
+            ],
+            "a kit folder and the id after it are two findings, the folder first",
+        )
+        found = seen(
+            root,
+            note,
+            "```\ndocs/decisions\n```\n`docs/research` and docs/policies. https://a.b/docs/requirements\n",
+        )
+        case(
+            found == [(note, 4, "kit_folder", "docs/policies")],
+            "a fenced block, a code span and a URL are not read, the rest of the line is",
         )
     with tempfile.TemporaryDirectory() as tmp:  # the modules in reverse: the findings still go by name
         root = Path(tmp).resolve()
@@ -855,6 +1014,27 @@ def self_test_names() -> tuple[int, int]:
         "the report of a file name and an id is its literal text, exit 2",
     )
     if printed.getvalue().splitlines() != literal:
+        print(printed.getvalue())
+    with tempfile.TemporaryDirectory() as tmp:  # the report of a kit folder, typed by hand
+        root = Path(tmp).resolve()
+        fresh(root)
+        write(root, note, "See docs/decisions for more.\n")
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = report(*check_kit(root))
+    folder_report = [
+        "RED: modules/const-x/INSTALL.md:1: a document folder of the kit, 'docs/decisions'",
+        "  why: a module that names the kit's own folders carries the kit's layout into a project, where they"
+        " do not exist (law 2 of CLAUDE.md)",
+        "  fix: name the place through the dials file, or, in a Markdown file, show it as an example in a"
+        " fenced block or a code span",
+        "RED: 1 finding(s) — 3 installed file(s) of 1 module(s) and the shared code examined",
+    ]
+    case(
+        code == EXIT_RED and printed.getvalue().splitlines() == folder_report,
+        "the report of a kit folder is its literal text, exit 2",
+    )
+    if printed.getvalue().splitlines() != folder_report:
         print(printed.getvalue())
     where = "const-catalogs.catalogs entry"
     absent = (
