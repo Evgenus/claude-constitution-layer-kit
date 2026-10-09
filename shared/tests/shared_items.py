@@ -1086,8 +1086,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
 
     def the_tie_catches_a_short_handler() -> tuple[bool, str]:
-        """The tie on three hooks files made here: a timeout at GIT_SECONDS fails, one above passes, and
-        a handler that runs no gate is not held to it."""
+        """The tie on two hooks files made here, three handlers: a timeout at GIT_SECONDS fails, one
+        above passes, and a handler that runs no gate is not held to it."""
         plugin = h.scratch_dir()
         (plugin / "hooks").mkdir()
         (plugin / "scripts").mkdir()
