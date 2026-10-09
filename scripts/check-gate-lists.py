@@ -79,7 +79,8 @@ Modes:  no arguments   check the kit;
                        scan in both green; an extra entry no gate; a span with a flag after `--scan`
                        and the words no scan; a scan whose entry falls into `kit` or another
                        module's job red; a module folder the list leaves out, and a listed module
-                       with no folder, red; an `--item` in the list or the workflow red, and one in
+                       with no folder, red, its fix offering to restore the folder only to a name
+                       `const-<aspect>`; an `--item` in the list or the workflow red, and one in
                        a comment green; the folder name over a whole set of names; a manifest, a
                        marketplace entry, an enabled key and the declaration each changed one at
                        a time, the platform's other keys allowed, the marketplace renamed in all
@@ -321,10 +322,15 @@ class Finding:
         else:
             what = f"the list has its entries {spans}, but modules/{self.module} is no module folder"
             why = WHY_STRAY
-            fix = (
-                f"remove `{self.module}` from MODULES in {GATE_LIST}, or restore modules/{self.module}"
-                " with its MODULE.md"
+            # restoring the folder turns the check green only for a name that can be a module folder's,
+            # `const-<aspect>`; for any other name a restored folder stays red, being skipped as no module
+            # (`_draft`, `.x`) or turning the folder-name finding on (`glossary`), and the removal is the fix
+            restore = (
+                f", or restore modules/{self.module} with its MODULE.md"
+                if NAME.fullmatch(self.module) is not None
+                else ""
             )
+            fix = f"remove `{self.module}` from MODULES in {GATE_LIST}{restore}"
         return f"RED: {self.module}: {what}\n  why: {why}\n  fix: {fix}"
 
     def registry(self) -> tuple[str, str, str]:
@@ -2206,7 +2212,36 @@ def self_test() -> int:
         f'  fix: remove the key "gone@kit-test" from enabledPlugins in {settings}',
         "RED: 14 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
+    list_strays_lines = [  # typed by hand: the restore is offered only to a name `const-<aspect>`
+        *(
+            line
+            for stray, fix in (
+                (".hidden", ""),  # its folder exists, and is skipped: no module
+                ("_draft", ""),  # the same
+                ("const-gone", ", or restore modules/const-gone with its MODULE.md"),
+                ("glossary", ""),  # a restored folder would be red for its name
+            )
+            for line in (
+                f"RED: {stray}: the list has its entries `install-{stray}`, `fixtures-{stray}`,"
+                f" `lint-{stray}`, `types-{stray}`, but modules/{stray} is no module folder",
+                "  why: the list's modules are exactly the module folders, and an entry of a missing module"
+                " checks nothing",
+                f"  fix: remove `{stray}` from MODULES in scripts/gate-list.sh{fix}",
+            )
+        ),
+        "RED: 4 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+    ]
     for name, case, lines in (
+        (
+            "the list's modules naming folders that are no module: the restore is offered only to a name"
+            " `const-<aspect>`, the removal to every name",
+            Case(
+                {"x": scan},
+                listed=("const-x", "const-quiet", ".hidden", "_draft", "const-gone", "glossary"),
+                scripts={"modules/.hidden/MODULE.md": False, "modules/_draft/MODULE.md": False},
+            ),
+            list_strays_lines,
+        ),
         (
             "a marketplace entry and a settings key naming a module's missing folder or plain file, another"
             " missing folder, `_x`, `.x`, `a/b` or nothing, each told by the literal why and fix — the"
@@ -2418,7 +2453,7 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] {name} is its literal BROKEN line, exit 1")
         if not ok:
             print(printed.getvalue())
-    total = len(cases) + len(unreadable) + 29 + 7
+    total = len(cases) + len(unreadable) + 29 + 8
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
