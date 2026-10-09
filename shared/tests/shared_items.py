@@ -1051,12 +1051,22 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return ok, f"exit {done.returncode}: {lines or done.stderr.strip()[-200:]}"
 
+    def is_file(word: str) -> bool:
+        """A word that is an existing file; one the filesystem will not answer for counts as one, since
+        a script that cannot be read is held to the rule."""
+        try:
+            return Path(word).is_file()
+        except OSError:
+            return True
+
     def handlers_outlive_git(plugin: Path) -> tuple[bool, str]:
         """Every handler of the plugin's hooks file whose script names python3 has a timeout longer
         than `GIT_SECONDS` (limit 16): a git that hangs ends with the gate's own line before the platform
-        cuts the hook, which says nothing. A handler's scripts are each of its `args` and each word of
-        its `command` that is a path, once `${CLAUDE_PLUGIN_ROOT}` is replaced; a handler whose `command`
-        names python3 as a word is held too, and a script that cannot be read counts as one that does."""
+        cuts the hook, which says nothing. A handler's scripts are each of its `args`, and each word of its
+        `command` that, once `${CLAUDE_PLUGIN_ROOT}` is replaced, is a path under the plugin's folder or
+        an existing file: a redirection, an option or any other word is no script. A handler whose
+        `command` names python3 as a word is held too, and a script that cannot be read, a missing one
+        under the plugin's folder included, counts as one that names python3."""
         hooks = plugin / "hooks" / "hooks.json"
         try:
             spec = json.loads(hooks.read_text(encoding="utf-8"))
@@ -1077,10 +1087,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             except ValueError:  # an unbalanced quote: the words as a shell would not take them
                 words = command.split()
             root = str(plugin)
+            words = [w.replace("${CLAUDE_PLUGIN_ROOT}", root) for w in words]
             scripts = [a.replace("${CLAUDE_PLUGIN_ROOT}", root) for a in handler.get("args", [])] + [
-                w.replace("${CLAUDE_PLUGIN_ROOT}", root)
-                for w in words
-                if os.sep in w.replace("${CLAUDE_PLUGIN_ROOT}", root)
+                w for w in words if w.startswith(root + os.sep) or is_file(w)
             ]
             try:
                 names_python = re.search(r"(?<![\w-])python3(?![\w-])", command) is not None or any(
@@ -1157,6 +1166,39 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 "shell form naming a script that names python3, above it",
                 True,
                 (shell_form(f"sh {root}gate.sh", budget + 1),),
+            ),
+            # D1: python3 as a word of the command, no path word, no file to be unreadable.
+            (
+                "shell form `python3 -c pass`, no path word, at the budget",
+                False,
+                (shell_form("python3 -c pass", budget), exec_form("gate.sh", budget + 1)),
+            ),
+            ("shell form `python3 -c pass`, above it", True, (shell_form("python3 -c pass", budget + 1),)),
+            # An unbalanced quote: the words fall back to whitespace, the script is still found.
+            (
+                "shell form with an unbalanced quote naming a script that names python3, at the budget",
+                False,
+                (shell_form(f"sh {root}gate.sh 'x", budget), exec_form("gate.sh", budget + 1)),
+            ),
+            # A word with a separator that is no script: a redirection, an option, a path outside.
+            (
+                "shell form `print.sh 2>/dev/null` and `--x=/a`, naming no python3, beside a held handler",
+                True,
+                (
+                    shell_form(f"sh {root}print.sh --x=/a b/c 2>/dev/null", 1),
+                    exec_form("gate.sh", budget + 1),
+                ),
+            ),
+            # A script of `args` that does not exist counts as one that names python3, as before B2.
+            (
+                "exec form whose script is missing, at the budget",
+                False,
+                (exec_form("missing.sh", budget), exec_form("gate.sh", budget + 1)),
+            ),
+            (
+                "shell form whose script under the plugin's folder is missing, at the budget",
+                False,
+                (shell_form(f"sh {root}missing.sh", budget), exec_form("gate.sh", budget + 1)),
             ),
             (
                 "shell form naming no python3 beside a held handler above the budget",
