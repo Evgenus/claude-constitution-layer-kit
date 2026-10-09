@@ -12,11 +12,13 @@ script can hold:
                only", or with "pending" and a link. A link leads where a rule can live — an active
                document of type current-state, CLAUDE.md, a skill of the kit, a module's or the
                template's own file, a file that is not markdown — a file, never a folder. The rollout
-               plan, a research comparison, another record and the README cannot: those are where
-               rulings were found hiding. "pending" is for intent that is not yet real, and its
-               link leads to the task-record that holds the work to come — a plan, never a
-               decision record — where the kernel says such intent rides. The entry is never
-               rewritten: once that task-record closes, the check says so in a note.
+               plan, a research comparison, another record and a README cannot — the root's, where
+               rulings were found hiding, and a module's, a page written for a reader, which binds
+               nothing and counts as no task-record, whatever envelope it is given.
+               "pending" is for intent that is not yet real, and its link leads to the task-record
+               that holds the work to come — a plan, never a decision record — where the kernel says
+               such intent rides. The entry is never rewritten: once that task-record closes, the
+               check says so in a note.
   the receipt  the commit that accepts a record — trailer "Accepted: <record id>" — also carries
                "Carry-Audit: at <commit>; <n> records; <f> findings, <x> fixed, <j> justified";
                the commit named is an ancestor at which the record already existed — a file of
@@ -254,7 +256,7 @@ def split_frontmatter(text: str) -> tuple[dict[str, object], str]:
 
 CARRY_IT = (
     "write the rule into a current-state document and link that; a plan, a comparison, another record and "
-    'the README state no rule — intent that is not yet real is "pending" with a link to its task-record'
+    'a README state no rule — intent that is not yet real is "pending" with a link to its task-record'
 )
 PEND_IT = "link the step of the task-record that holds the intent — the plan, never a decision record"
 
@@ -283,6 +285,14 @@ def home_problem(
             f"{shown} is a directory, and a rule is stated in a file",
             PEND_IT if pending else "link the file in it that states the item",
         )
+    if re.fullmatch(r"modules/[^/]+/README\.md", shown):
+        if pending:
+            return (
+                f"{shown} is a module's README, a page written for a reader, which counts as no"
+                " task-record, whatever its envelope",
+                general,
+            )
+        return f"{shown} is a module's README, a page written for a reader, and it binds nothing", general
     envelope, _ = split_frontmatter(path.read_text(encoding="utf-8")) if path.suffix == ".md" else ({}, "")
     kind = envelope.get("type")
     if pending:
@@ -750,6 +760,8 @@ def sample_kit(root: Path, record: str = GOOD_RECORD, layout: Layout = DEFAULT_L
         "docs/research",
         ".claude/skills/s",
         "modules/m",
+        "modules/n",
+        "modules/p",
         "scripts",
     ):
         (root / folder).mkdir(parents=True, exist_ok=True)
@@ -760,10 +772,12 @@ def sample_kit(root: Path, record: str = GOOD_RECORD, layout: Layout = DEFAULT_L
         "docs/done.md": "id: done\ntype: task-record\nstatus: inactive",
         "docs/research/r.md": "id: r\ntype: non-authoritative\nstatus: active",
         ".claude/skills/s/SKILL.md": "name: s\ndescription: a skill of the kit",
+        "modules/n/README.md": "id: n\ntype: current-state\nstatus: active",
+        "modules/p/README.md": "id: p-page\ntype: task-record\nstatus: active",
     }
     for name, envelope in envelopes.items():
         (root / name).write_text(f"---\n{envelope}\n---\n", encoding="utf-8")
-    for name in ("README.md", "CLAUDE.md", "modules/m/INSTALL.md", "scripts/x.py"):
+    for name in ("README.md", "CLAUDE.md", "modules/m/INSTALL.md", "modules/m/README.md", "scripts/x.py"):
         (root / name).write_text("text\n", encoding="utf-8")
     (root / DIALS).write_text(layout.dials(), encoding="utf-8")
     path = root / layout.folder / f"{layout.sample}.md"
@@ -909,6 +923,13 @@ def self_test() -> int:
         "a home in a research comparison": lambda t: t.replace(home, "../research/r.md"),
         "a home in another record": lambda t: t.replace(home, f"{SAMPLE}.md"),
         "a home in the README": lambda t: t.replace(home, "../../README.md"),
+        "a home in a module's README": lambda t: t.replace(home, "../../modules/m/README.md"),
+        "a home in a module's README given an envelope": lambda t: t.replace(
+            home, "../../modules/n/README.md"
+        ),
+        "pending intent in a module's README given a task-record envelope": lambda t: t.replace(
+            "(../plan.md)", "(../../modules/p/README.md)"
+        ),
         "a home in a document that is not in force": lambda t: t.replace(home, "../policies/old.md"),
         "a folder as a home": lambda t: t.replace(home, "../../scripts"),
         "a home that does not exist": lambda t: t.replace(home, "../policies/none.md"),
@@ -934,6 +955,26 @@ def self_test() -> int:
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the right list is green, {name} is red")
+    readme_texts = {  # case: the damage, the headline's end and the fix, typed by hand
+        "a module's README refused as a home teaches CARRY_IT": (
+            wrong_lists["a home in a module's README given an envelope"],
+            "modules/n/README.md is a module's README, a page written for a reader, and it binds nothing",
+            CARRY_IT,
+        ),
+        "a module's README refused as a pending link teaches PEND_IT": (
+            wrong_lists["pending intent in a module's README given a task-record envelope"],
+            "modules/p/README.md is a module's README, a page written for a reader, which counts as no"
+            " task-record, whatever its envelope",
+            PEND_IT,
+        ),
+    }
+    for name, (damage, ending, fix) in readme_texts.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            found = lists(root, sample_kit(root, damage(GOOD_RECORD)))[0]
+        ok = len(found) == 1 and found[0].headline.endswith(ending) and found[0].fix == fix
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         found, noted = lists(root, sample_kit(root, GOOD_RECORD.replace("(../plan.md)", "(../done.md)")))
@@ -1518,7 +1559,15 @@ def self_test() -> int:
     )
 
     total = (
-        len(wrong_lists) + 1 + len(right_homes) + len(receipts) + len(scopes) + len(unscopable) + 3 + extra
+        len(wrong_lists)
+        + len(readme_texts)
+        + 1
+        + len(right_homes)
+        + len(receipts)
+        + len(scopes)
+        + len(unscopable)
+        + 3
+        + extra
     )
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED

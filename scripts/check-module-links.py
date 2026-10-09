@@ -2,7 +2,9 @@
 """Kit check: a kit document outside module prose cites a module by a link to its specification.
 
 Module prose says "module `const-x`"; every other kit document writes the same words as a link,
-module [`const-x`](<path to>/docs/requirements.md#const-x) — the reference rule of CLAUDE.md.
+module [`const-x`](<path to>/docs/requirements.md#const-x) — the reference rule of CLAUDE.md. The
+module table of the root README links a module to the module's own README.md instead, as that rule
+allows; a link's target is never checked here, so the table needs no exception of its own.
 The form read is the word "module" or "modules", with a small or a capital m, a space, and a
 module's name in a code span; a name standing alone, or any name after the first of "modules `a` and `b`", is
 left to review. The link lint of const-referencing cannot hold this: it matches its lanes on text
@@ -13,7 +15,8 @@ or without `const-`, holding its MODULE.md — a folder without it, and a tree w
 BROKEN. A mention is read for `const-` names alone, so a folder named otherwise counts as a name
 known and is never matched.
 
-Not read: module prose (modules/, module-template/), where the plain form is the rule; every
+Not read: module prose (modules/, a module's README.md among them, and module-template/), where
+the plain form is the rule; every
 research comparison (docs/research/), frozen or not: a frozen one keeps the form it was frozen
 with (rule 7 of plc-0005-research), and in one not yet frozen review holds the link; the kit's
 templates (templates/), whose text is copied into another folder, so that a relative link cannot
@@ -234,6 +237,7 @@ def self_test() -> int:
     }
     green: dict[str, tuple[str, str]] = {  # case: path, text with the plain form not read
         "module prose": ("modules/const-sample/MODULE.md", plain),
+        "a module's README": ("modules/const-sample/README.md", plain),
         "the module template": ("module-template/MODULE.md", plain),
         "a research comparison": ("docs/research/r.md", plain),
         "a template": ("templates/policy.md", plain),

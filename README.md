@@ -31,21 +31,21 @@ flowchart TB
 
 ## The modules
 
-Every gate's error message says what failed, why the rule exists, and the exact fix. A gate is deterministic, and red means fix; a skill shapes judgment and checks nothing.
+Every gate's error message says what failed, why the rule exists, and the exact fix. A gate is deterministic, and red means fix; a skill shapes judgment and checks nothing. The Module column links each module's own page, which says in plain language what it gives you, why, how a session behaves with it, how it works and how to get it.
 
 | No. | Module | What it holds | Gate | Advisory |
 |---|---|---|---|---|
-| 1 | [`const-meta-types`](docs/requirements.md#const-meta-types) | every document in claimed territory carries the envelope and has exactly one governing policy | at write time and in a scan | choosing a meta-type |
-| 2 | [`const-decision-records`](docs/requirements.md#const-decision-records) | a decision record carries its type, stakes and decider | at write time and in a scan | pricing and recording a decision |
-| 3 | [`const-catalogs`](docs/requirements.md#const-catalogs) | a numbered document's file name, id and number agree, and no number repeats | at write time and in a scan | taking a number, renumbering |
-| 4 | [`const-locations`](docs/requirements.md#const-locations) | a document is born in its canonical home, from its kind's template | none | creating documents, introducing a kind |
-| 5 | [`const-referencing`](docs/requirements.md#const-referencing) | references a machine can follow and a move can repair | at write time and in a scan | citing, anchoring, moving |
-| 6 | [`const-task-close`](docs/requirements.md#const-task-close) | a change to described code updates its documents or declares no impact | a range check; a dirty tree at turn end | closing a task, committing |
-| 7 | [`const-questions`](docs/requirements.md#const-questions) | no open question inside a delivered document | at write time and in a scan | when to ask, and the shape of a question |
-| 8 | [`const-interaction`](docs/requirements.md#const-interaction) | a prompt before a listed destructive command; every list item addressable | a shell hook and a scan | the shape of every reply |
-| 9 | [`const-styling`](docs/requirements.md#const-styling) | one style guide, a departure declared with its reason | a scan | the style defaults |
-| 10 | [`const-language`](docs/requirements.md#const-language) | plain prose under a grade ceiling and a sentence limit | after every write and in a scan | writing plain English |
-| 11 | [`const-doc-budgets`](docs/requirements.md#const-doc-budgets) | a character ceiling per group of documents, set from history | after every write and in a scan | setting a ceiling |
+| 1 | [`const-meta-types`](modules/const-meta-types/README.md) | every document in claimed territory carries the envelope and has exactly one governing policy | at write time and in a scan | choosing a meta-type |
+| 2 | [`const-decision-records`](modules/const-decision-records/README.md) | a decision record carries its type, stakes and decider | at write time and in a scan | pricing and recording a decision |
+| 3 | [`const-catalogs`](modules/const-catalogs/README.md) | a numbered document's file name, id and number agree, and no number repeats | at write time and in a scan | taking a number, renumbering |
+| 4 | [`const-locations`](modules/const-locations/README.md) | a document is born in its canonical home, from its kind's template | none | creating documents, introducing a kind |
+| 5 | [`const-referencing`](modules/const-referencing/README.md) | references a machine can follow and a move can repair | at write time and in a scan | citing, anchoring, moving |
+| 6 | [`const-task-close`](modules/const-task-close/README.md) | a change to described code updates its documents or declares no impact | a range check; a dirty tree at turn end | closing a task, committing |
+| 7 | [`const-questions`](modules/const-questions/README.md) | no open question inside a delivered document | at write time and in a scan | when to ask, and the shape of a question |
+| 8 | [`const-interaction`](modules/const-interaction/README.md) | a prompt before a listed destructive command; every list item addressable | a shell hook and a scan | the shape of every reply |
+| 9 | [`const-styling`](modules/const-styling/README.md) | one style guide, a departure declared with its reason | a scan | the style defaults |
+| 10 | [`const-language`](modules/const-language/README.md) | plain prose under a grade ceiling and a sentence limit | after every write and in a scan | writing plain English |
+| 11 | [`const-doc-budgets`](modules/const-doc-budgets/README.md) | a character ceiling per group of documents, set from history | after every write and in a scan | setting a ceiling |
 
 ## What a gate says
 
@@ -72,7 +72,7 @@ The [install guide](INSTALL.md) bootstraps a new project step by step: the prere
 | No. | Path | What it holds |
 |---|---|---|
 | 1 | `kernel/` | the semantic kernel, `CONVENTIONS.md`, and its schemas |
-| 2 | `modules/` | the eleven modules, one plugin each |
+| 2 | `modules/` | the eleven modules, one plugin each, each with a `README.md` that is its landing page |
 | 3 | `module-template/` | the fixed shape every module fills |
 | 4 | `shared/` | the code every gate shares, linked into each module ([shared/GATE.md](shared/GATE.md)) |
 | 5 | `docs/` | the requirements matrix, the rollout plan, the kit's policies, decision records, research and style guide |

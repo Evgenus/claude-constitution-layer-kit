@@ -85,7 +85,7 @@ kit's own reading of it is rule 2 of [plc-0004-decision-records](../../../docs/p
 > current-state text or code: `kernel/`, `CLAUDE.md`, `INTENT.md`, `constitution.yaml`,
 > `docs/policies/`, `docs/requirements.md`, `module-template/`, `shared/`, `modules/`, `scripts/`,
 > `pyproject.toml`, `.claude/skills/`. Not current-state: `docs/rollout-plan.md` — though intent that is not yet real
-> lives there legitimately, say so — `docs/research/`, `README.md`, commit messages, other records.
+> lives there legitimately, say so — `docs/research/`, `README.md`, a module's `README.md`, commit messages, other records.
 > Judge each item CARRIED (file and line, verified), PARTIAL (what exactly is missing), MISSING,
 > SUPERSEDED (by which record; does the text match the later ruling?) or CONTRADICTED. Rationale and
 > one-time acts living only in the record are history, not a gap. (3) If the record has a carry list,
