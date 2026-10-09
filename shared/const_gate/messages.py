@@ -11,6 +11,7 @@ holding any other document: no text here cites one.
 
 from __future__ import annotations
 
+import shlex
 from collections.abc import Sequence
 
 from . import identity
@@ -379,6 +380,37 @@ def c12_git_failed(detail: str) -> Broken:
         SharedKey.C12,
         f"git could not answer where the repository is: {escaped(detail)}",
         "repair the git setup named in the message (configuration, ownership, installation)",
+    )
+
+
+def c12_git_silent(seconds: float, subcommand: str, directory: str, call: str) -> Broken:
+    """A git call in the person's repository gave no answer. `call` is the call as a person runs it
+    (`repository.by_hand`); the hung call may be one that reads the index, which a core.fsmonitor hook
+    stalls, or any call on a stalled file system."""
+    where = shlex.quote(directory)
+    return Broken(
+        SharedKey.C12,
+        f"git gave no answer in {seconds:g} s to git {echoed(subcommand)} in {escaped(directory)}",
+        "a git that hangs is a stalled file system or, for a call that reads the index, a core.fsmonitor"
+        " hook, set in the repository's or in your own configuration: find the setting with"
+        f" git -C {escaped(where)} config --show-origin --get core.fsmonitor (no output means none is set),"
+        f" repair or unset it or the file system, and run git -C {escaped(where)} {escaped(call)} by hand"
+        " until it answers; the scan, which gives git as long as it takes, checks the same tree",
+    )
+
+
+def c12_git_silent_scratch(seconds: float, subcommand: str, temporary: str) -> Broken:
+    """A git call in the scratch repository the gate makes in the system's temporary directory gave no
+    answer: nothing there can be run by hand, and no core.fsmonitor hook runs in it."""
+    return Broken(
+        SharedKey.C12,
+        f"git gave no answer in {seconds:g} s to git {echoed(subcommand)} in a scratch folder under"
+        f" {escaped(temporary)}",
+        f"the system's temporary directory ({escaped(temporary)}; TMPDIR names it) may sit on a stalled"
+        " file system, or your git configuration outside any repository may hang git: read it with"
+        " git config --global --list --show-origin and git config --system --list --show-origin, repair"
+        " the setting, or free that file system or set TMPDIR to a folder on a working one, then run"
+        " again; the scan, which gives git as long as it takes, checks the same tree",
     )
 
 

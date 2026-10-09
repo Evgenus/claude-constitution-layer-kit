@@ -56,14 +56,22 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
 
 def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -> int:
     """The written document need not be covered itself: covered documents may link into it, and
-    a write that takes an anchor away breaks them all the same."""
+    a write that takes an anchor away breaks them all the same. The checker is found and its version
+    probed first, with the probe's own seconds, so a missing or old one is the same failure on a tree of
+    any size. The covered texts are then read, masked and handed to the checker within one budget,
+    begun before the first is read."""
     rel = target.rel
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, list_markdown(target.root))
     if covered is None:
         raise ConfigurationFailure(messages.c5_governed_only_without_root())
-    texts = {path: _text(target.root, path) for path in covered}
-    found, links = tree.examine(target.root, texts, dials.heading_anchors, lychee.HOOK_SECONDS, about=rel)
+    binary = lychee.require()  # before the budget: its seconds are its own, and X1 and X2 hold on every write
+    budget = lychee.Budget.start(lychee.HOOK_SECONDS)  # one deadline for the reads, the masking and the run
+    texts: dict[str, str] = {}
+    for path in covered:
+        texts[path] = _text(target.root, path)
+        budget.check()
+    found, links = tree.examine(target.root, texts, dials.heading_anchors, budget, binary, about=rel)
     findings = [finding for path in sorted(found) for _, finding in found[path]]
     if not findings:
         if rel not in covered:
@@ -90,7 +98,7 @@ def scan_mode(output: Output, start: Path) -> int:
         ids = ids_of(texts)
         others = mentions.other_files(target.root) if dials.mentions else []
         named, read = mentions.examine(target.root, others, dials.mentions, ids, matcher)
-    in_tree, _ = tree.examine(target.root, texts, dials.heading_anchors, None)
+    in_tree, _ = tree.examine(target.root, texts, dials.heading_anchors, None, None)
     findings: list[Finding] = []
     links = 0
     for rel in covered:

@@ -42,7 +42,15 @@ from harness import (
     red_lines,
 )
 from referencing_gate import lychee, messages, start
-from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions
+from shared_items import (
+    NO_ENVELOPE,
+    PatternDial,
+    Subject,
+    git_patch,
+    git_timeouts,
+    no_clock,
+    shared_assertions,
+)
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
@@ -1189,8 +1197,9 @@ def moving_consumer() -> Consumer:
     return consumer
 
 
-def mover(consumer: Consumer, *arguments: str, cwd: str = "") -> Result:
+def mover(consumer: Consumer, *arguments: str, cwd: str = "", env: dict[str, str] | None = None) -> Result:
     merged = {key: value for key, value in os.environ.items() if key != "CLAUDE_PLUGIN_DATA"}
+    merged.update(env or {})
     done = subprocess.run(
         [H.sh, str(MOVER), *arguments],
         cwd=consumer.root / cwd,
@@ -1220,7 +1229,8 @@ def move_red_green() -> tuple[bool, str]:
     by_git.git("mv", OLD, NEW)
     red = scan(by_git)
     acted = moving_consumer()
-    done = mover(acted, "notes/one.md", "moved/deep/first.md", cwd="docs")
+    patch, log = git_patch(H)  # the mover is an act: none of its git calls carries a clock
+    done = mover(acted, "notes/one.md", "moved/deep/first.md", cwd="docs", env=patch)
     first, two = (acted.root / NEW).read_text(), (acted.root / "docs/notes/two.md").read_text()
     checks = [
         expect(red, 2, messages.r5_no_target("docs/notes/two.md", 11, "one.md#k1").headline, "stdout"),
@@ -1232,9 +1242,12 @@ def move_red_green() -> tuple[bool, str]:
         (ONE_MOVED in first, f"the moved document's own links: {first}"),
         (TWO_REPAIRED in two and "[r]: ../moved/deep/first.md" in two, f"inbound links: {two}"),
         expect(scan(acted), 0, "GREEN: ", "stdout"),
+        no_clock(git_timeouts(log)),
     ]
     return all_of(
-        checks, "git mv alone leaves the scan red; the act leaves it green, fragments and code untouched"
+        checks,
+        "git mv alone leaves the scan red; the act leaves it green, fragments and code untouched, and no"
+        " git call of the mover has a clock",
     )
 
 
@@ -1483,7 +1496,11 @@ CHAT_RULE = (
 )
 
 
-# Seconds a handler keeps beyond its waits: the interpreter's start, git, the module's own reading.
+# Seconds a handler keeps beyond its waits, for the interpreter's start and for git while git is quick: no
+# bound on git. Several shared git calls, each under their 3 s, can pass them, and under governed_only the
+# policy index read (build_index) stands outside both budgets too (limit 16 of shared/GATE.md §4). The
+# module's own reading and masking of the tree are inside HOOK_SECONDS, one budget with the run; the
+# version probe has VERSION_SECONDS of its own, before it.
 LEFT_FOR_THE_REST = 5
 
 
@@ -2213,11 +2230,273 @@ def older_heading_link_not_repeated() -> tuple[bool, str]:
     return expect(after_write("docs/notes/u.md", files), 0, messages.g1_covered(), "stdout")
 
 
+# typed by hand: the first line of a check after a write that waited its 20 s for lychee, then the count line
+TOO_SLOW_TYPED = (
+    "BROKEN: lychee gave no report within the 20 s a check after a write waits, the tree's reading and"
+    " masking counted — fix: a large tree can take lychee longer than that; run the scan, which waits"
+    " for lychee as long as it takes — until then no reference is checked for resolving"
+)
+# typed by hand: the first line when lychee is missing, and when it is too old to be used
+X1_TYPED = (
+    "BROKEN: const-referencing needs lychee 0.24.2 or newer and found none on PATH — fix: install it"
+    " (https://lychee.cli.rs/installation/), then run the scan — until then no reference is checked for"
+    " resolving"
+)
+X2_TYPED = (
+    "BROKEN: const-referencing needs lychee 0.24.2 or newer, found 'lychee 0.23.0' — fix: install a"
+    " current one (https://lychee.cli.rs/installation/), then run the scan — until then no reference is"
+    " checked for resolving"
+)
+# typed by hand: the first line of a check after a write whose 20 s went on the tree before lychee ran
+OUT_OF_TIME_TYPED = (
+    "BROKEN: the check after a write used its 20 s reading and masking the tree before lychee could run"
+    " — fix: a large tree takes longer than that to read; run the scan, which waits as long as it takes"
+    " — until then no reference is checked for resolving"
+)
+
+# A run of the real entry point, `start.main`, with the budget's clock stood still and moved by hand: it
+# advances by the seconds the environment names for the file list, for the territory matching, for each
+# document read, each masked, once more at the first masking, and once at the version probe. Nothing waits
+# for real. The trace holds one word per read and per masking, and what lychee's run was given as its
+# timeout, with the clock then.
+BUDGET_DRIVER = """\
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, {scripts!r})
+from referencing_gate import lychee, modes, start, tree
+
+now = [0.0]
+extra = [float(os.environ.get("MASK_FIRST", "0"))]
+trace = open(os.environ["TRACE"], "a")
+
+
+def note(text):
+    trace.write(text + "\\n")
+    trace.flush()
+
+
+def reading(*args):
+    now[0] += float(os.environ.get("READ_STEP", "0"))
+    note("read")
+    return read(*args)
+
+
+def masking(text):
+    now[0] += float(os.environ.get("MASK_STEP", "0")) + extra[0]
+    extra[0] = 0.0
+    note("mask")
+    return mask(text)
+
+
+def spy(command, *args, **kwargs):
+    if os.path.basename(str(command[0])) == "lychee" and command[1] == "--version":
+        now[0] += float(os.environ.get("PROBE_STEP", "0"))
+    elif os.path.basename(str(command[0])) == "lychee":
+        note("run timeout=%r clock=%r" % (kwargs.get("timeout"), now[0]))
+    return run(command, *args, **kwargs)
+
+
+def listing(*args):
+    now[0] += float(os.environ.get("LIST_STEP", "0"))
+    return listed(*args)
+
+
+def matching(*args, **kwargs):
+    now[0] += float(os.environ.get("MATCH_STEP", "0"))
+    return matched(*args, **kwargs)
+
+
+read, mask, run = modes.read_text, tree.mask, subprocess.run
+listed, matched = modes.list_markdown, modes.covered_documents
+lychee.monotonic = lambda: now[0]
+modes.read_text, tree.mask, subprocess.run = reading, masking, spy
+modes.list_markdown, modes.covered_documents = listing, matching
+sys.exit(start.main(sys.argv[1:]))
+"""
+BUDGET_LYCHEE = (  # logs the first argument of each call; says its version, then an empty report or nothing
+    'echo "$1" >> "$LYCHEE_LOG"\ncase "$1" in --version) echo \'{version}\';; *) {run};; esac\n'
+)
+
+
+def on_a_patched_clock(
+    clock: dict[str, str],
+    run: str = "echo '{\"error_map\": {}}'",
+    scan: bool = False,
+    version: str | None = "lychee 0.24.2",
+) -> tuple[Result, list[str], list[str], float, int]:
+    """The check after a write (or the scan) of a tree of documents, run through the entry point with
+    the clock patched as `clock` says (the seconds, as LIST_STEP, MATCH_STEP, MASK_FIRST, MASK_STEP, READ_STEP
+    and PROBE_STEP). `version` is what the fake lychee says to --version, None for no lychee on PATH. Gives
+    the result, the trace, the fake lychee's own log of its calls, the real seconds it took, and the
+    number of documents the tree holds."""
+    consumer = H.fresh_consumer()
+    consumer.write("constitution.yaml", dials_text())
+    consumer.write(TARGET, TARGET_TEXT)
+    consumer.write(SOURCE, source("See [x](t.md)."))
+    documents = sum(1 for found in consumer.root.rglob("*.md") if ".git" not in found.parts)
+    scratch = H.scratch_dir()
+    (scratch / "driver.py").write_text(BUDGET_DRIVER.format(scripts=str(SCRIPTS)))
+    env = {
+        **path_with(None if version is None else BUDGET_LYCHEE.format(run=run, version=version)),
+        "TRACE": str(scratch / "trace"),
+        "LYCHEE_LOG": str(scratch / "lychee"),
+        **clock,
+    }
+    stdin = "" if scan else event_json(consumer.root, Write(SOURCE, source("See [x](t.md).")), event=AFTER)
+    began = time.monotonic()
+    result = H.run_gate(
+        stdin,
+        args=["--scan", str(consumer.root)] if scan else [],
+        env=env,
+        command=[sys.executable, str(scratch / "driver.py")],
+    )
+    took = time.monotonic() - began
+    lines = [
+        (scratch / name).read_text().splitlines() if (scratch / name).exists() else []
+        for name in ("trace", "lychee")
+    ]
+    return result, lines[0], lines[1], took, documents
+
+
+def the_budget_is_one() -> list[tuple[bool, str]]:
+    """The check after a write has one deadline for the reads, the masking and lychee's run; the scan
+    has none. Every case moves a patched clock by the document: the longest real wait is half a second."""
+    results: list[tuple[bool, str]] = []
+    # masking, document by document, passes the deadline at the last of them: no run, and one probe,
+    # made before the budget began
+    count = on_a_patched_clock({})[4]
+    each = 20 / (count - 0.5)
+    late, trace, ran, _, _ = on_a_patched_clock({"MASK_STEP": repr(each)})
+    results.append(broken_typed(late, OUT_OF_TIME_TYPED))
+    results.append(
+        (
+            trace.count("mask") == count and trace.count("read") == count and ran == ["--version"],
+            f"{count} documents read and masked, lychee called: {ran}; trace {trace}",
+        )
+    )
+    # the first of several documents masked passes it: the clock is read after each document, so the
+    # check stops there and the other documents are never masked
+    first, trace, ran, _, _ = on_a_patched_clock({"MASK_FIRST": "25"})
+    results.append(broken_typed(first, OUT_OF_TIME_TYPED))
+    results.append(
+        (
+            count > 1 and trace.count("mask") == 1 and trace.count("read") == count and ran == ["--version"],
+            f"{count} documents read, one masked, lychee probed and never run: trace {trace}, lychee {ran}",
+        )
+    )
+    # a read passes it before any masking starts (reading is counted)
+    late, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "25"})
+    results.append(broken_typed(late, OUT_OF_TIME_TYPED))
+    results.append(
+        (
+            trace == ["read"] and ran == ["--version"],
+            f"one read and no masking, lychee probed and never run: trace {trace}, lychee {ran}",
+        )
+    )
+    # the run is given what the reads and the masking left, never more than the budget
+    spent = 9.0
+    done, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": repr(3 / count), "MASK_STEP": repr(6 / count)})
+    given = [line for line in trace if line.startswith("run ")]
+    timeout, clock = (float(part.split("=")[1]) for part in given[0].split()[1:]) if given else (-1.0, 0.0)
+    results.append(
+        (
+            done.code == 0
+            and len(given) == 1
+            and abs(clock - spent) < 1e-6
+            and timeout == 20.0 - clock
+            and 0 < timeout <= 20,
+            f"exit {done.code}, the run was given {timeout!r} s with the clock at {clock!r}: {trace}",
+        )
+    )
+    # lychee's run times out with 0.5 s left: the line names the whole budget, not the half second
+    hung, trace, ran, took, _ = on_a_patched_clock(
+        {"MASK_FIRST": "19.5"}, run=f"exec {shutil.which('sleep') or '/bin/sleep'} 30"
+    )
+    results.append(broken_typed(hung, TOO_SLOW_TYPED))
+    results.append(
+        (
+            "run timeout=0.5 clock=19.5" in trace and took < 6,
+            f"the run was given 0.5 s and ended after {took:.1f} s: {trace}",
+        )
+    )
+    # the reads and the masking leave 0.005 s, the deadline not yet passed: the run is given the floor,
+    # 0.01 s, never less; its timeout is the only place the floor shows
+    near, trace, ran, _, _ = on_a_patched_clock(
+        {"MASK_FIRST": "19.995"}, run=f"exec {shutil.which('sleep') or '/bin/sleep'} 30"
+    )
+    results.append(broken_typed(near, TOO_SLOW_TYPED))
+    results.append(
+        (
+            "run timeout=0.01 clock=19.995" in trace,  # the fake's own log is a race with the kill
+            f"the run was given 0.01 s with 0.005 s left: trace {trace}",
+        )
+    )
+    # the version probe has its own seconds, before the budget begins: a probe that takes 25 s of the
+    # patched clock leaves the run what the reads and the masking left of the whole 20 s
+    probed, trace, ran, _, _ = on_a_patched_clock(
+        {"PROBE_STEP": "25", "READ_STEP": repr(3 / count), "MASK_STEP": repr(6 / count)}
+    )
+    given = [line for line in trace if line.startswith("run ")]
+    timeout, clock = (float(part.split("=")[1]) for part in given[0].split()[1:]) if given else (-1.0, 0.0)
+    results.append(
+        (
+            probed.code == 0
+            and ran == ["--version", "--offline"]
+            and abs(clock - 34.0) < 1e-6
+            and abs(timeout - 11.0) < 1e-6,
+            f"exit {probed.code}, one probe, then the run was given {timeout!r} s with the clock at"
+            f" {clock!r}: {trace}, lychee {ran}",
+        )
+    )
+    # lychee is missing or too old: whatever the tree's size and however the reads spend the budget,
+    # the failure is the checker's own, X1 or X2, found before the first document is read
+    no_lychee, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "25"}, version=None)
+    results.append(broken_typed(no_lychee, X1_TYPED))
+    results.append((trace == [] and ran == [], f"nothing read, no lychee: trace {trace}, lychee {ran}"))
+    old, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "25"}, version="lychee 0.23.0")
+    results.append(broken_typed(old, X2_TYPED))
+    results.append(
+        (trace == [] and ran == ["--version"], f"nothing read, one probe: trace {trace}, lychee {ran}")
+    )
+    # the file list and the territory matching, which stand before the budget, take 25 s of the clock
+    # each: the check still reads, masks and runs, the whole 20 s its own
+    for step in ("LIST_STEP", "MATCH_STEP"):
+        slow, trace, ran, _, _ = on_a_patched_clock({step: "25"})
+        given = [line for line in trace if line.startswith("run ")]
+        results.append(
+            (
+                slow.code == 0
+                and trace.count("read") == count
+                and trace.count("mask") == count
+                and given == ["run timeout=20.0 clock=25.0"],
+                f"{step}: exit {slow.code}, {count} documents read and masked, the run: {given}",
+            )
+        )
+    # the scan has no clock: a patched one that runs far away changes nothing, and the run has no timeout
+    scanned, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "1000", "MASK_STEP": "1000"}, scan=True)
+    far = [line for line in trace if line.startswith("run timeout=None clock=")]
+    results.append(
+        (
+            scanned.code == 0
+            and scanned.stderr == ""
+            and ran.count("--version") == 1
+            and len(far) == 1
+            and float(far[0].rsplit("=", 1)[1]) > 20 * count,
+            f"exit {scanned.code}: {scanned.stderr[:200]}; trace {trace}",
+        )
+    )
+    return results
+
+
 def a_link_checker_that_hangs() -> tuple[bool, str]:
     """A checker that never answers is a configuration failure inside the hook's timeout, never
     a hook the platform gives up on: the version probe and the run have a budget each. The run's
-    budget belongs to the check after a write: the scan waits for a slow checker, as long as it takes.
-    The three runs go side by side, so the item costs the longest of them, about 21 s."""
+    budget belongs to the check after a write, and it is one budget with the reading and the masking
+    of the tree (`the_budget_is_one`): the scan waits for a slow checker, as long as it takes.
+    The three runs go side by side, the longest about 21 s, and the budget cases follow one after the
+    other: the item costs about 30 s."""
     sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
     slow_version = f'case "$1" in --version) {sleep} 8; echo "lychee 0.24.2";; *) exit 0;; esac\n'
     # answers --version at once; any other call is 1 s past the hook's 20 s, then an empty report
@@ -2250,14 +2529,10 @@ def a_link_checker_that_hangs() -> tuple[bool, str]:
         " whoever maintains the plugin — until then no reference is checked for resolving"
     )
     on_the_version = broken_typed(result, probe_typed)
-    # typed by hand: the first line of the check after a write that waited its 20 s, then the count line
-    hand_typed = (
-        "BROKEN: lychee gave no report: no answer in 20 s, the most a check after a write waits — fix: a"
-        " large tree can take lychee longer than that; run the scan, which waits for lychee as long as it"
-        " takes — until then no reference is checked for resolving"
-    )
+    hand_typed = TOO_SLOW_TYPED
     return all_of(
         [
+            *the_budget_is_one(),
             (
                 on_the_version[0] and result.code == 1 and 4 < took < 8,
                 f"the version: exit {result.code} after {took:.1f} s: {on_the_version[1]}",

@@ -45,7 +45,15 @@ from harness import (
     event_json,
     expect,
 )
-from shared_items import NO_ENVELOPE, PatternDial, Subject, shared_assertions
+from shared_items import (
+    NO_ENVELOPE,
+    PatternDial,
+    Subject,
+    git_patch,
+    git_timeouts,
+    hook_budget,
+    shared_assertions,
+)
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 MODULE_ROOT = SCRIPTS.parent
@@ -1057,7 +1065,8 @@ ZERO_LINE = (
 def session_start_zero_line() -> tuple[bool, str]:
     """Nothing while a catalog is listed; the zero line typed by hand when the dial is an empty list
     and when it is absent, of the size the module document states."""
-    listed = SESSION.run_gate(session_json(session_root()))
+    patch, log = git_patch(SESSION)  # the printer is a hook: each of its git calls has the hook's budget
+    listed = SESSION.run_gate(session_json(session_root()), env=patch)
     listed_ok = listed.code == 0 and listed.stdout == "" and listed.stderr == ""
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     match = re.search(r"one line of ([0-9,]+) characters saying that no document is examined", module_doc)
@@ -1069,6 +1078,7 @@ def session_start_zero_line() -> tuple[bool, str]:
     return all_of(
         [
             (listed_ok, f"a listed catalog printed: {listed.stdout!r} {listed.stderr!r}"),
+            hook_budget(git_timeouts(log)),
             (empty_ok, f"an empty list got: {empty.stdout!r} {empty.stderr!r}"),
             (absent_ok, f"an absent dial got: {absent.stdout!r} {absent.stderr!r}"),
             (

@@ -43,7 +43,14 @@ from harness import (
     broken_first_line,
     event_json,
 )
-from shared_items import PatternDial, Subject, shared_assertions
+from shared_items import (
+    PatternDial,
+    Subject,
+    git_patch,
+    git_timeouts,
+    hook_budget,
+    shared_assertions,
+)
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 MODULE_ROOT = SCRIPTS.parent
@@ -1020,7 +1027,8 @@ def t19() -> tuple[bool, str]:
     """Nothing while a ceiling is set; the zero line typed by hand when the dial is empty or absent, of
     the size the module document states; no dials file (the first also from a subfolder of the root) and no
     repository said in the module's words, roots and folders whose names hold `:` too."""
-    set_ = SESSION.run_gate(session_json(prepared()))
+    patch, log = git_patch(SESSION)  # the printer is a hook: each of its git calls has the hook's budget
+    set_ = SESSION.run_gate(session_json(prepared()), env=patch)
     empty = SESSION.run_gate(session_json(prepared({NAMESPACE: {"ceilings": []}})))
     absent = SESSION.run_gate(session_json(prepared({NAMESPACE: {}})))
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
@@ -1059,6 +1067,7 @@ def t19() -> tuple[bool, str]:
             " length gate measures nothing there\n",
         ),
         exactly(set_, 0, ""),
+        hook_budget(git_timeouts(log)),
         exactly(empty, 0, ZERO_LINE + "\n"),
         exactly(absent, 0, ZERO_LINE + "\n"),
         (stated == 111, f"the document states {stated} characters; 111 typed by hand"),

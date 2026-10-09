@@ -179,12 +179,26 @@ def x3_no_report(what: str, first_line: str) -> Broken:
 
 
 def x3_too_slow(seconds: float) -> Broken:
-    """The run's budget in a check after a write ran out: lychee is not at fault, the tree is large."""
+    """The budget of a check after a write ran out inside lychee's run: lychee is not at fault, the tree
+    is large. `seconds` is the whole budget, not what was left for the run when it began."""
     return Broken(
         ToolKey.X3,
-        f"lychee gave no report: no answer in {seconds:g} s, the most a check after a write waits",
+        f"lychee gave no report within the {seconds:g} s a check after a write waits, the tree's reading"
+        " and masking counted",
         "a large tree can take lychee longer than that; run the scan, which waits for lychee as long as it"
         " takes — until then no reference is checked for resolving",
+    )
+
+
+def x3_out_of_time(seconds: float) -> Broken:
+    """The budget of a check after a write ran out before lychee could be run: the module's own reading
+    and masking of a large tree took all of it, so lychee is not blamed."""
+    return Broken(
+        ToolKey.X3,
+        f"the check after a write used its {seconds:g} s reading and masking the tree before lychee could"
+        " run",
+        "a large tree takes longer than that to read; run the scan, which waits as long as it takes — until"
+        " then no reference is checked for resolving",
     )
 
 

@@ -14,14 +14,17 @@ import json
 import os
 import shlex
 import shutil
+import subprocess
 import sys
+import tempfile
 from collections.abc import Callable, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from const_gate import envelope as envelope_reader
-from const_gate import messages, pipeline, preflight
+from const_gate import messages, pipeline, preflight, repository
 from const_gate.envelope import ID_RE, declared_policy, document_id, parse_envelope
 from const_gate.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, SharedKey
 from const_gate.output import ROTATE_AT, log_name
@@ -43,6 +46,77 @@ from harness import (
 )
 
 NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
+
+# Run at the start of a gate's process, through a `sitecustomize` on PYTHONPATH — any module's entry
+# point, whatever its wrapper. It logs the `timeout=` each git call is given, one line, the call after it;
+# and where the environment names a trigger and a lower budget, it lowers the budget of the one call whose
+# arguments hold the trigger — and only where the gate gave that call a budget at all, so that a gate with
+# none stays without one. Every other call keeps the real budget, so a loaded machine cannot trip it.
+GIT_PATCH = """\
+import os
+import subprocess
+import sys
+
+scripts = os.environ["GIT_PATCH_SCRIPTS"]
+sys.path.insert(0, scripts)
+from const_gate import repository
+
+sys.path.remove(scripts)
+lowered = os.environ.get("GIT_PATCH_SECONDS")
+trigger = os.environ.get("GIT_PATCH_TRIGGER")
+log, run = os.environ["GIT_PATCH_LOG"], subprocess.run
+
+
+def spy(command, *args, **kwargs):
+    if command[0] == "git":
+        with open(log, "a") as out:
+            out.write(repr(kwargs.get("timeout")) + " " + repr(command[1:]) + "\\n")
+        if lowered and trigger in command[1:] and kwargs.get("timeout") is not None:
+            repository.GIT_SECONDS = kwargs["timeout"] = float(lowered)
+    return run(command, *args, **kwargs)
+
+
+subprocess.run = spy
+"""
+HANG_SECONDS = 0.5  # the budget of the one call a hang case lowers it for: the case waits well under a second
+# What a hang case allows the whole run, the gate's start-up included. It only stops an endless wait, so it is
+# far above anything a loaded machine takes; the assertion that matters is the line from the 0.5 s budget.
+HANG_BOUND = 20.0
+
+
+def git_patch(
+    h: Harness, seconds: float | None = None, trigger: str | None = None
+) -> tuple[dict[str, str], Path]:
+    """The environment that makes a gate's process log the `timeout=` of each git call it makes, and,
+    with `seconds` and a `trigger`, give the call whose arguments hold the trigger that many seconds;
+    with the log it writes."""
+    folder = h.scratch_dir()
+    (folder / "sitecustomize.py").write_text(GIT_PATCH, encoding="utf-8")
+    log = folder / "git-calls"
+    env = {
+        "PYTHONPATH": os.pathsep.join(filter(None, [str(folder), os.environ.get("PYTHONPATH")])),
+        "GIT_PATCH_SCRIPTS": str(h.scripts),
+        "GIT_PATCH_LOG": str(log),
+    }
+    if seconds is not None and trigger is not None:
+        env["GIT_PATCH_SECONDS"] = repr(seconds)
+        env["GIT_PATCH_TRIGGER"] = trigger
+    return env, log
+
+
+def git_timeouts(log: Path) -> list[str]:
+    """The `timeout=` of each git call the log holds, as `repr` wrote it: "None" for no clock."""
+    return [line.split(" ", 1)[0] for line in log.read_text().splitlines()] if log.exists() else []
+
+
+def hook_budget(calls: list[str]) -> tuple[bool, str]:
+    """Every git call of a process declared a hook carried the hook's budget, and there was one."""
+    return bool(calls) and set(calls) == {repr(repository.GIT_SECONDS)}, f"the git calls' timeouts: {calls}"
+
+
+def no_clock(calls: list[str]) -> tuple[bool, str]:
+    """Every git call of a scan or an act carried no timeout, and there was one."""
+    return bool(calls) and set(calls) == {"None"}, f"the git calls' timeouts: {calls}"
 
 
 class GateOn(Protocol):
@@ -773,34 +847,46 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     # ---------------------------------------------------------------- git failing in one way; a file unread
 
     def git_failing_at(
-        trigger: str, code: int, line: Callable[[Path], str], through_scan: bool = False, then: str = ""
+        trigger: str,
+        code: int,
+        line: Callable[[Path], str],
+        through_scan: bool = False,
+        then: str = "",
+        hangs: bool = False,
     ) -> tuple[bool, str]:
         """A git first on PATH that exits `code` when one of its arguments is `trigger`, and hands every
         other call to the real git — so the gate gets as far as that one call. `through_scan`: the
         failing git is met by the scan on the prepared consumer, for a gate whose hook never makes
-        the call. `then`: a second stderr line the failing git adds, which no message may carry."""
-        real = shutil.which("git")
-        if real is None:
-            return False, "no git on PATH: the failing git hands every other call to the real one"
+        the call. `then`: a second stderr line the failing git adds, which no message may carry.
+        `hangs`: the git does not fail but never answers — it becomes a process that waits for ever,
+        which the budget kills — and the hook run, whose budget is lowered to `HANG_SECONDS`, is bounded
+        by the case itself, so that a gate with no budget reads as a red item, not an endless wait."""
+        real, silent = shutil.which("git"), shutil.which("tail")
+        if real is None or silent is None:
+            return False, "no git or no tail on PATH: the fake git hands every other call to the real one"
         directory = h.scratch_dir()
         fake = directory / "git"
         said = [f"fatal: simulated {trigger} failure", *([then] if then else [])]
+        refusal = "".join(f"    echo {shlex.quote(line)} >&2\n" for line in said) + f"    exit {code}\n"
+        stall = f"    exec {shlex.quote(silent)} -f /dev/null\n"  # the very process the timeout kills
         fake.write_text(
             "#!/bin/sh\n"
             'for a in "$@"; do\n'
             f'  if [ "$a" = {shlex.quote(trigger)} ]; then\n'
-            + "".join(f"    echo {shlex.quote(line)} >&2\n" for line in said)
-            + f"    exit {code}\n  fi\ndone\n"
-            f'exec {shlex.quote(real)} "$@"\n',
+            + (stall if hangs else refusal)
+            + f'  fi\ndone\nexec {shlex.quote(real)} "$@"\n',
             encoding="utf-8",
         )
         fake.chmod(0o755)
         env = {"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
-        if through_scan:
-            _, root = s.gate_on(s.valid)
-            result = h.run_gate("", args=scan_args(root), env=env)
-        else:
-            result, root = s.gate_on(s.valid, env=env)
+        if hangs:
+            env.update(git_patch(h, HANG_SECONDS, trigger)[0])
+        with h.bounded(HANG_BOUND) if hangs else nullcontext():
+            if through_scan:
+                _, root = s.gate_on(s.valid)
+                result = h.run_gate("", args=scan_args(root), env=env)
+            else:
+                result, root = s.gate_on(s.valid, env=env)
         return broken_as_typed(result, line(root))
 
     def ls_files_fails() -> tuple[bool, str]:
@@ -837,6 +923,286 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 " patterns must be gitignore syntax; check constitution.yaml"
             ),
             then="hint: a second line of git's message",
+        )
+
+    # ---------------------------------------------------------------- the budget of a git call
+
+    def silent_git(subcommand: str, directory: str, call: str, quoted: str | None = None) -> str:
+        """C12.12 as the hang cases type it, for the budget they lower it to: a call in the person's
+        repository, the directory and the call as a person types them into the fix. `quoted`: the
+        directory as the fix shows it to a shell, typed by the case; none, the directory quoted here."""
+        where = shlex.quote(directory) if quoted is None else quoted
+        return (
+            f"BROKEN: git gave no answer in {HANG_SECONDS:g} s to git {subcommand} in {directory}"
+            " — fix: a git that hangs is a stalled file system or, for a call that reads the index, a"
+            " core.fsmonitor hook, set in the repository's or in your own configuration: find the setting"
+            f" with git -C {where} config --show-origin --get core.fsmonitor (no output means none is set),"
+            f" repair or unset it or the file system, and run git -C {where} {call} by hand until it"
+            " answers; the scan, which gives git as long as it takes, checks the same tree"
+        )
+
+    def silent_scratch(subcommand: str) -> str:
+        """C12.13 as the hang cases type it: a call in the scratch repository, which names the system's
+        temporary directory and the configuration outside any repository, and asks for nothing by hand
+        in the scratch repository."""
+        temporary = tempfile.gettempdir()
+        return (
+            f"BROKEN: git gave no answer in {HANG_SECONDS:g} s to git {subcommand} in a scratch folder under"
+            f" {temporary} — fix: the system's temporary directory ({temporary}; TMPDIR names it) may sit"
+            " on a stalled file system, or your git configuration outside any repository may hang git:"
+            " read it with git config --global --list --show-origin and git config --system --list"
+            " --show-origin, repair the setting, or free that file system or set TMPDIR to a folder on a"
+            " working one, then run again; the scan, which gives git as long as it takes, checks the same"
+            " tree"
+        )
+
+    def quoted_by_hand(path: str) -> str:
+        """A path as a shell takes it whole, typed out: single quotes, and each single quote inside closed,
+        written between double quotes, and opened again."""
+        return "'" + path.replace("'", "'\"'\"'") + "'"
+
+    def nearest_folder(root: Path) -> str:
+        """Where the hook's `rev-parse` runs: the written file's folder, or the nearest one that exists,
+        for a gate on a file; the event's directory for one without a file."""
+        probe = root if no_file else (root / s.valid.target).parent
+        while not probe.is_dir():
+            probe = probe.parent
+        return str(probe)
+
+    def git_calls(run: Callable[[dict[str, str]], object]) -> list[str]:
+        """The `timeout=` of each git call `run` made, as logged by the patch in its environment."""
+        env, log = git_patch(h)
+        run(env)
+        return git_timeouts(log)
+
+    def budget_by_mode() -> tuple[bool, str]:
+        """The rule at its one decision point, in a process of its own for each mode: a hook gives git
+        `GIT_SECONDS`; a scan, an act and a process declared with no mode give it no clock."""
+        program = (
+            "import json, sys\n"
+            "from pathlib import Path\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from const_gate import identity, repository\n"
+            "from const_gate.model import Mode\n"
+            "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
+            "identity.declare(identity.Identity('x', 'y', Path('.')), mode)\n"
+            "print(json.dumps(repository.budget()))\n"
+        )
+        seen: dict[str, object] = {}
+        for mode in ("hook", "scan", "act", "none"):
+            done = subprocess.run(
+                [sys.executable, "-c", program, str(h.scripts), mode],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            seen[mode] = json.loads(done.stdout) if done.returncode == 0 else done.stderr.strip()
+        wanted: dict[str, object] = {"hook": repository.GIT_SECONDS, "scan": None, "act": None, "none": None}
+        return seen == wanted, f"the budget by mode: {seen}"
+
+    def git_words() -> tuple[bool, str]:
+        """git's subcommand is the first argument that is no option and no option's value; the call as a
+        person runs it keeps the arguments, quoted, without `-z`, and reads `/dev/null` for a stdin."""
+        subcommands = {
+            ("status", "--porcelain"): "status",
+            ("-C", "/a b", "log", "-1"): "log",
+            ("-c", "core.x=y", "-c", "core.z=w", "diff"): "diff",
+            ("--git-dir=/g", "--work-tree=/w", "check-ignore", "-v"): "check-ignore",
+            ("--git-dir", "/g", "--work-tree", "/w", "ls-files"): "ls-files",
+            ("--namespace", "n", "--config-env", "a=B", "show-ref"): "show-ref",
+            ("--version",): "--version",
+        }
+        got = {args: repository.subcommand(list(args)) for args in subcommands}
+        words = [
+            (repository.by_hand(["ls-files", "-z", "--cached"]), "ls-files --cached"),
+            (repository.by_hand(["log", "--format=%H %s", "a b"]), "log '--format=%H %s' 'a b'"),
+            (repository.by_hand(["check-ignore", "--stdin"], b"x\0"), "check-ignore --stdin < /dev/null"),
+        ]
+        ok = got == subcommands and all(real == typed for real, typed in words)
+        return ok, f"subcommands {got}; the call as typed {[real for real, _ in words]}"
+
+    def declaration_is_one() -> tuple[bool, str]:
+        """A process is one gate in one mode: the same identity twice with different modes is a defect,
+        the same identity and mode twice is not."""
+        program = (
+            "import sys\n"
+            "from pathlib import Path\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from const_gate import identity\n"
+            "from const_gate.model import Mode\n"
+            "who = identity.Identity('x', 'y', Path('.'))\n"
+            "identity.declare(who, Mode.HOOK)\n"
+            "identity.declare(who, Mode.HOOK)\n"
+            "print('same twice: fine')\n"
+            "try:\n"
+            "    identity.declare(who, Mode.SCAN)\n"
+            "except RuntimeError as failure:\n"
+            "    print('other mode: RuntimeError', failure)\n"
+        )
+        done = subprocess.run(
+            [sys.executable, "-c", program, str(h.scripts)], capture_output=True, text=True, check=False
+        )
+        lines = done.stdout.splitlines()
+        ok = (
+            done.returncode == 0
+            and lines[:1] == ["same twice: fine"]
+            and (len(lines) == 2 and lines[1].startswith("other mode: RuntimeError"))
+        )
+        return ok, f"exit {done.returncode}: {lines or done.stderr.strip()[-200:]}"
+
+    def handlers_outlive_git(plugin: Path) -> tuple[bool, str]:
+        """Every handler of the plugin's hooks file that runs a script of the gate (one that names
+        python3) has a timeout longer than `GIT_SECONDS`: a git that hangs ends with the gate's own
+        line before the platform cuts the hook, which says nothing."""
+        hooks = plugin / "hooks" / "hooks.json"
+        try:
+            spec = json.loads(hooks.read_text(encoding="utf-8"))
+            handlers = [
+                (event, handler)
+                for event, groups in spec["hooks"].items()
+                for group in groups
+                for handler in group["hooks"]
+            ]
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            return False, f"{hooks} cannot be read as a hooks file: {type(exc).__name__}: {exc}"
+        checked, short = 0, []
+        for event, handler in handlers:
+            scripts = [a.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin)) for a in handler.get("args", [])]
+            try:
+                runs_the_gate = any("python3" in Path(a).read_text(encoding="utf-8") for a in scripts)
+            except OSError:
+                runs_the_gate = True  # a handler whose script cannot be read is held to the rule too
+            if not runs_the_gate:
+                continue
+            checked += 1
+            timeout = handler.get("timeout")
+            numeric = isinstance(timeout, int | float) and not isinstance(timeout, bool)
+            if not numeric or timeout <= repository.GIT_SECONDS:
+                short.append(f"{event} handler {scripts} has timeout {timeout!r}")
+        if checked == 0:
+            return False, f"{hooks} holds no handler that runs the gate"
+        if short:
+            return False, (
+                f"{'; '.join(short)} — not above GIT_SECONDS ({repository.GIT_SECONDS:g} s): a git that"
+                " hangs would be cut by the platform before the gate said so"
+            )
+        return (
+            True,
+            f"{checked} handler(s) that run the gate outlive GIT_SECONDS ({repository.GIT_SECONDS:g} s)",
+        )
+
+    def the_tie_catches_a_short_handler() -> tuple[bool, str]:
+        """The tie on two hooks files made here, three handlers: a timeout at GIT_SECONDS fails, one
+        above passes, and a handler that runs no gate is not held to it."""
+        plugin = h.scratch_dir()
+        (plugin / "hooks").mkdir()
+        (plugin / "scripts").mkdir()
+        (plugin / "scripts" / "gate.sh").write_text('exec python3 "$0.py"\n', encoding="utf-8")
+        (plugin / "scripts" / "print.sh").write_text("cat rule.txt\n", encoding="utf-8")
+
+        def file_with(*handlers: tuple[str, float]) -> None:
+            entries = [
+                {
+                    "type": "command",
+                    "command": "sh",
+                    "args": [f"${{CLAUDE_PLUGIN_ROOT}}/scripts/{n}"],
+                    "timeout": t,
+                }
+                for n, t in handlers
+            ]
+            spec = {"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": entries}]}}
+            (plugin / "hooks" / "hooks.json").write_text(json.dumps(spec), encoding="utf-8")
+
+        file_with(("gate.sh", repository.GIT_SECONDS))
+        at, at_said = handlers_outlive_git(plugin)
+        file_with(("gate.sh", repository.GIT_SECONDS + 1), ("print.sh", 1))
+        above, above_said = handlers_outlive_git(plugin)
+        return (
+            not at
+        ) and above, f"at the budget: {at_said}; above it, and a print handler at 1 s: {above_said}"
+
+    def hangs_in_a_folder_to_quote() -> tuple[bool, str]:
+        """The folder C12.12 names stands in the fix's two commands quoted for a shell: a repository
+        whose folder holds a space and a single quote, a git that hangs at the root's `rev-parse` (the call
+        every hook makes first), the line typed with the folder as a shell takes it whole."""
+        kept = h.scratch
+        odd = kept / "a folder it's"
+        odd.mkdir()
+        h.scratch = odd  # every consumer the gate runs on is made under it, for as long as the case runs
+        try:
+            return git_failing_at(
+                "rev-parse",
+                0,
+                lambda root: silent_git(
+                    "rev-parse",
+                    nearest_folder(root),
+                    "rev-parse --show-toplevel",
+                    quoted_by_hand(nearest_folder(root)),
+                ),
+                hangs=True,
+            )
+        finally:
+            h.scratch = kept
+
+    def attempted(check: Callable[[], tuple[bool, str]]) -> tuple[bool, str]:
+        """One check of the item that cannot run is a red check with its error, and hides no other."""
+        try:
+            return check()
+        except Exception as error:  # noqa: BLE001 — any failure of the check is its red
+            return False, f"{check.__name__} raised {type(error).__name__}: {error}"
+
+    def git_has_a_budget_in_a_hook() -> tuple[bool, str]:
+        """N22: the shared `git` gives a call `GIT_SECONDS` in a hook and no clock in a scan or an act. In a
+        hook a git that never answers — at the file list, at the scratch repository, at the repository's
+        root — ends in the shared line `C12.12` with the count line after it; a git that answers is
+        unchanged; and the plugin's handlers outlive the budget, so the line is the hook's last word."""
+        results: list[tuple[bool, str]] = [
+            attempted(check)
+            for check in (budget_by_mode, declaration_is_one, git_words, the_tie_catches_a_short_handler)
+        ]
+        if s.event_driven and not s.scan_only:  # a gate with a hook run
+            lines: dict[str, Callable[[Path], str]] = {
+                "rev-parse": lambda root: silent_git(
+                    "rev-parse", nearest_folder(root), "rev-parse --show-toplevel"
+                ),
+                "ls-files": lambda root: silent_git(
+                    "ls-files", str(root), "ls-files --cached --others --exclude-standard"
+                ),
+                "init": lambda _: silent_scratch("init"),
+                "check-ignore": lambda _: silent_scratch("check-ignore"),
+            }
+            reached = ["rev-parse"]
+            if not no_file:
+                reached += ["init", "check-ignore"]
+                if s.hook_lists_files:  # the hook asks git for the file list
+                    reached.append("ls-files")
+
+            def hangs_at(trigger: str) -> tuple[bool, str]:
+                return git_failing_at(trigger, 0, lines[trigger], hangs=True)
+
+            results += [hangs_at(trigger) for trigger in reached]
+            results.append(attempted(hangs_in_a_folder_to_quote))
+            budgeted = git_calls(lambda env: s.gate_on(s.valid, env=env))
+            every_call = set(budgeted) == {repr(repository.GIT_SECONDS)}
+            results.append(
+                (every_call, f"a hook run's {len(budgeted)} git calls' timeouts: {sorted(set(budgeted))}")
+            )
+            results.append(handlers_outlive_git(preflight.requirements_file().parent))
+        if s.event_driven or s.scan_only:  # a scan, on the prepared consumer
+            _, scanned = s.gate_on(s.valid)
+            unclocked = git_calls(lambda env: h.run_gate("", args=scan_args(scanned), env=env))
+            results.append(
+                (bool(unclocked) and set(unclocked) == {"None"}, f"a scan's git calls: {unclocked}")
+            )
+        else:  # a generator's act
+            acted = git_calls(lambda env: s.gate_on(s.valid, env=env))
+            results.append((bool(acted) and set(acted) == {"None"}, f"an act's git calls: {acted}"))
+        failed = [evidence for ok, evidence in results if not ok]
+        if failed:
+            return False, f"{len(failed)} of {len(results)} checks red: " + " | ".join(failed)
+        return (
+            True,
+            f"{len(results)} checks: a hang ends in the line within {HANG_SECONDS:g} s; scan, act: no clock",
         )
 
     def unreadable(path: Path, run: Callable[[], Result], line: str) -> tuple[bool, str]:
@@ -1399,6 +1765,12 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "a `---` line with trailing whitespace opens and closes the envelope, and a line-break character"
             " other than \\n, \\r\\n or \\r makes no delimiter",
             envelope_delimiters,
+        ),
+        (
+            165,
+            "C12.12, C12.13: a git that gives no answer in a hook ends in a shared line within the budget,"
+            " a scan and an act give git no clock, and the hook's handlers outlive the budget",
+            git_has_a_budget_in_a_hook,
         ),
     ]
     # Each item carries its number, so it keeps that number in every module and when the list is

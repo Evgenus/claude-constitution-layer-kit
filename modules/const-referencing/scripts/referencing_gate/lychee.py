@@ -20,6 +20,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from time import monotonic
 from urllib.parse import unquote, urlsplit
 
 from const_gate.errors import ConfigurationFailure
@@ -28,8 +29,9 @@ from . import messages
 
 TOOL = "lychee"
 FLOOR = (0, 24, 2)
-HOOK_SECONDS = 20  # the run's budget in a check after a write; the scan passes none
-VERSION_SECONDS = 5  # the probe's, in every mode; with HOOK_SECONDS under the handler's timeout in hooks.json
+HOOK_SECONDS = 20  # a check after a write's one budget: reading, masking and the run; the scan has none
+VERSION_SECONDS = 5  # the probe's own, in every mode, outside HOOK_SECONDS; both under the handler's timeout
+LEAST_FOR_THE_RUN = 0.01  # the run's timeout when the budget is spent by then: a timeout of 0 would not wait
 CONFIG = Path(__file__).resolve().parent.parent / "lychee.toml"
 _VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 _NO_FRAGMENT = "Cannot find fragment"
@@ -55,10 +57,39 @@ class Break:
     words: str  # the checker's own, for a kind this module has no text for
 
 
-def find_breaks(root: Path, inputs: Sequence[str], seconds: float | None) -> list[Break]:
-    """Every unresolved link of the inputs, repository-relative paths of files that exist. `seconds`
-    is the run's budget, None for no limit: the caller chooses, there is no default."""
-    binary = _binary()
+@dataclass(frozen=True, slots=True)
+class Budget:
+    """The one deadline of a check after a write. It starts once the file list, the territory matching
+    and the version probe are done, before the covered texts are read, and the reads, the masking and
+    the link checker's run draw on it together; the scan has none."""
+
+    seconds: float  # the whole budget, as it is told to the user
+    deadline: float  # on the monotonic clock
+
+    @classmethod
+    def start(cls, seconds: float) -> Budget:
+        return cls(seconds, monotonic() + seconds)
+
+    def check(self) -> None:
+        """Called after each document is read and after each is masked: once the deadline has passed,
+        the check stops here, before the link checker is run, and says whose time it was."""
+        if monotonic() >= self.deadline:
+            raise ConfigurationFailure(messages.x3_out_of_time(self.seconds))
+
+    def left(self) -> float:
+        """What the run may take: the deadline's remainder, but not under `LEAST_FOR_THE_RUN` and not
+        over the budget."""
+        return min(max(self.deadline - monotonic(), LEAST_FOR_THE_RUN), self.seconds)
+
+
+def find_breaks(root: Path, inputs: Sequence[str], budget: Budget | None, binary: str | None) -> list[Break]:
+    """Every unresolved link of the inputs, repository-relative paths of files that exist. `budget` is
+    the check's deadline, of which the run gets what is left, None for no limit: the caller chooses,
+    there is no default. `binary` is the checker the caller found and probed with `require`, before
+    it began the budget; None finds and probes it here, as the scan does. The version probe has its
+    own `VERSION_SECONDS`, wherever it runs, and takes none of the budget."""
+    if binary is None:
+        binary = require()
     if not inputs:
         return []
     with tempfile.TemporaryDirectory() as elsewhere:
@@ -82,11 +113,12 @@ def find_breaks(root: Path, inputs: Sequence[str], seconds: float | None) -> lis
                 cwd=elsewhere,
                 capture_output=True,
                 text=True,
-                timeout=seconds,
+                timeout=None if budget is None else budget.left(),
                 check=False,
             )
         except subprocess.TimeoutExpired as late:
-            raise ConfigurationFailure(messages.x3_too_slow(late.timeout)) from late
+            whole = late.timeout if budget is None else budget.seconds
+            raise ConfigurationFailure(messages.x3_too_slow(whole)) from late
     breaks = _parse(root, done.stdout)
     if done.returncode not in (0, 2) or breaks is None:
         first = (done.stderr.strip().splitlines() or [""])[0]
