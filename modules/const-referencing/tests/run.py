@@ -2467,32 +2467,37 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
     # the document readable says X1 in both, so the missing lychee is real in the scan too
     if os.geteuid() == 0:
         results.append(
-            (True, "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 files examined")
+            (
+                True,
+                "NOT EXERCISED: running as root, where a mode bit does not deny a read, so the order of a"
+                " missing lychee and an unreadable document is not pinned — 3 results skipped",
+            )
         )
-        return results
-    both = H.fresh_consumer()
-    both.write("constitution.yaml", dials_text())
-    both.write(TARGET, TARGET_TEXT)
-    both.write(SOURCE, source("See [x](t.md)."))
-    shut = "docs/notes/zz-unreadable.md"
-    both.write(shut, note("# Shut\n", "note-z"))
-    both.commit()
-    (both.root / shut).chmod(0o000)
-    try:
-        hooked = H.run_gate(
-            event_json(both.root, Write(SOURCE, source("See [x](t.md).")), event=AFTER), env=path_with(None)
+    else:
+        both = H.fresh_consumer()
+        both.write("constitution.yaml", dials_text())
+        both.write(TARGET, TARGET_TEXT)
+        both.write(SOURCE, source("See [x](t.md)."))
+        shut = "docs/notes/zz-unreadable.md"
+        both.write(shut, note("# Shut\n", "note-z"))
+        both.commit()
+        (both.root / shut).chmod(0o000)
+        try:
+            hooked = H.run_gate(
+                event_json(both.root, Write(SOURCE, source("See [x](t.md).")), event=AFTER),
+                env=path_with(None),
+            )
+            scanned = H.run_gate("", args=["--scan", str(both.root)], env=path_with(None))
+        finally:
+            (both.root / shut).chmod(0o644)
+        readable = H.run_gate("", args=["--scan", str(both.root)], env=path_with(None))
+        unreadable_typed = (  # typed by hand: a scan's first line for a file git lists and nobody reads
+            f"BROKEN: {shut} is listed by git but cannot be read — fix: check that the file can be read: its"
+            " permissions, or a link that leads nowhere"
         )
-        scanned = H.run_gate("", args=["--scan", str(both.root)], env=path_with(None))
-    finally:
-        (both.root / shut).chmod(0o644)
-    readable = H.run_gate("", args=["--scan", str(both.root)], env=path_with(None))
-    unreadable_typed = (  # typed by hand: the first line of a scan that met a file git lists and nobody reads
-        f"BROKEN: {shut} is listed by git but cannot be read — fix: check that the file can be read: its"
-        " permissions, or a link that leads nowhere"
-    )
-    results.append(broken_typed(hooked, X1_TYPED))
-    results.append(broken_typed(scanned, unreadable_typed))
-    results.append(broken_typed(readable, X1_TYPED))
+        results.append(broken_typed(hooked, X1_TYPED))
+        results.append(broken_typed(scanned, unreadable_typed))
+        results.append(broken_typed(readable, X1_TYPED))
     # the file list and the territory matching, which stand before the budget, take 25 s of the clock
     # each: the check still reads, masks and runs, the whole 20 s its own
     for step in ("LIST_STEP", "MATCH_STEP"):

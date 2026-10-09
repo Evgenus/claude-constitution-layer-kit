@@ -27,10 +27,11 @@ A finding is one of these forms, outside a public URL:
     one;
   - a document folder of the kit, `docs/decisions`, `docs/research`, `docs/policies` or
     `docs/requirements`, as written, with no extension and no glob needed: the two segments whole,
-    nothing of a name before `docs` or after the second but a slash or the end of the word
-    (`mydocs/decisions`, `docs/decisionsx` and `docs/decisions-old` are none), a slash after it and
-    further segments allowed (`docs/decisions/`, `a/docs/research/x`); a place already a finding in its
-    line, a home path or a relative path that holds it, is not a second one.
+    no letter, digit, `_`, `.` or `-` just before `docs`; after the second segment no letter, digit, `_`
+    or `-` and no `.` with a letter, digit or `_` behind it, so a full stop closing a sentence is allowed
+    (`mydocs/decisions`, `docs/decisionsx`, `docs/decisions-old` and `docs/decisions.v2` are none), and a
+    slash after it and further segments are allowed (`docs/decisions/`, `a/docs/research/x`); a place
+    already a finding in its line, a home path or a relative path that holds it, is not a second one.
 Not read, by the forms above, the kit's folders included: in Markdown, fenced blocks and inline code,
 which show an example to adapt, not a location. There is no exemption marker; an interpreter line is
 read as any other, so `#!/usr/bin/env` passes and a home path there does not.
@@ -597,6 +598,10 @@ def self_test() -> int:
         ),
         "a name ending in a kit folder's first segment": ("INSTALL.md", "Put them in mydocs/decisions.\n"),
         "a kit folder's name with more letters": ("INSTALL.md", "Put them in docs/decisionsx.\n"),
+        "a kit folder's name with a dotted tail": (
+            "INSTALL.md",
+            "Put them in docs/decisions.v2 or docs/research.123.\n",
+        ),
         "a kit folder's name with a hyphened tail": ("INSTALL.md", "Put them in docs/decisions-old.\n"),
         "a kit folder after a hyphened word": ("INSTALL.md", "Put them in my-docs/research.\n"),
         "a kit folder after a dotted word": ("INSTALL.md", "Put them in .docs/research.\n"),
