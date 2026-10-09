@@ -974,7 +974,9 @@ K3_GOLDEN = [
     "  why: a number cites one item; two items under one number make every reference to it ambiguous",
     "  fix: the item already on the main branch keeps its number; every other one takes a number of its"
     " own, one more than the highest the catalog has held: rename its file, set its id to the new name,"
-    " and rewrite the references to it made on its own branch",
+    " and rewrite the references to it made on its own branch; of two items both on the main branch,"
+    " the one that landed second renumbers the same way, and every reference to it in the tree is"
+    " rewritten",
 ]
 
 
@@ -1202,7 +1204,10 @@ def session_start_absence_paths() -> tuple[bool, str]:
     return all_of([(yaml_ok, yaml_said), (py_ok, py_said)], f"{yaml_said}; {py_said}")
 
 
-# Seconds a handler keeps beyond its waits: the interpreter's start, git, the module's own reading.
+# Seconds a handler keeps beyond its waits, for the interpreter's start, the module's own reading and git
+# while git is quick: no bound on git. Several shared git calls, each under their 3 s, can pass them
+# (limit 16 of shared/GATE.md §4). The history read has HOOK_SECONDS of its own, which the timeout holds
+# besides.
 LEFT_FOR_THE_REST = 5
 
 

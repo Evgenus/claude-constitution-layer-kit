@@ -299,9 +299,19 @@ class Harness:
         A filtered run never prints the full line, `N/T acceptance items green — …`, which only a full
         run may print: its last line says how many items of how many ran and that it is not a full
         pass. A filter the runner cannot honour — an unknown number, a malformed list, any other
-        argument — is a configuration failure, exit 1, never a silent full or empty run."""
+        argument — is a configuration failure, exit 1, never a silent full or empty run. Before the
+        filter is read and before any item runs, a number that two items carry — a module's own and a
+        shared one, or any two — is the same kind of failure: one BROKEN line for each such number, in
+        number order, then the could-not-run line (a number names one item, and rule 4 of plc-0009-shared-code
+        never reissues one)."""
         items: list[Case | Assertion] = sorted([*cases, *assertions], key=lambda i: i.number)
         total = len(items)
+        doubled = number_collisions(items)
+        if doubled:
+            for line in doubled:
+                print(f"BROKEN: {line}", file=sys.stderr)
+            print(f"BROKEN: the runner could not run — 0 of {total} items run", file=sys.stderr)
+            return 1
         try:
             wanted = item_filter(sys.argv[1:] if argv is None else argv, [i.number for i in items])
         except Misuse as misuse:
@@ -325,6 +335,51 @@ class Harness:
                 f" {len(assertions)} assertions examined"
             )
         return 0 if failed == 0 else 2
+
+
+FIRST_SHARED = 101  # the number of the first shared item; the shared numbers are never moved or reissued
+
+
+def number_collisions(items: Sequence[Case | Assertion]) -> list[str]:
+    """One message for each number that two or more of `items` carry, in number order — what failed,
+    why, and the exact fix. The harness does not know which item is a shared one, so a number from the
+    first shared one up is worded conditionally. The fix names the free numbers below the first shared
+    one — those above the highest number the items hold there, since a number an item left free is
+    never reissued — as many as the items that must move need; the items left without one are counted,
+    and that is a decision to raise, since the shared numbers never move."""
+    titles: dict[int, list[str]] = {}
+    for item in items:
+        titles.setdefault(item.number, []).append(item.title)
+    free = list(range(max((n for n in titles if n < FIRST_SHARED), default=0) + 1, FIRST_SHARED))
+    lines: list[str] = []
+    for number in sorted(n for n, held in titles.items() if len(held) > 1):
+        held = titles[number]
+        named = ", ".join(repr(title) for title in held)
+        moving = len(held) - 1
+        given, free = free[:moving], free[moving:]
+        left = moving - len(given)
+        keep = f"keep one of them at {number}"
+        if number >= FIRST_SHARED:
+            keep += " — the shared one, if one is shared, since a shared number is never moved or reissued"
+        others = "the other one" if moving == 1 else f"each of the other {moving}"
+        decision = "raise it as a decision, since the shared numbers are never moved"
+        if not given:
+            fix = f"{keep}; but no number is free below {FIRST_SHARED} for {others} — {decision}"
+        else:
+            noun, other = ("number", "a number") if len(given) == 1 else ("numbers", "numbers")
+            who = others if not left else f"{len(given)} of the other {moving}"
+            fix = (
+                f"{keep}, and in the module's own tests/run.py give {who} the {noun}"
+                f" {', '.join(map(str, given))} — {other} no other item holds, below {FIRST_SHARED}"
+            )
+            if left:
+                are = "item is" if left == 1 else "items are"
+                fix += f"; {left} {are} then left with no free number — {decision}"
+        lines.append(
+            f"item number {number} is carried by {len(held)} items, {named} — why: one number, one"
+            f" item, or a result and an {ITEM_FLAG} cannot say which item they mean — fix: {fix}"
+        )
+    return lines
 
 
 class Misuse(Exception):

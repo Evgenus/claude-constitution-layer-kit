@@ -1163,7 +1163,10 @@ def t15() -> tuple[bool, str]:
     )
 
 
-# Seconds the handler keeps beyond its waits: the interpreter's start, git, the module's own reading.
+# Seconds the handler keeps beyond its waits, for the interpreter's start, the module's own reading and git
+# while git is quick: no bound on git. Several shared git calls, each under their 3 s, can pass them
+# (limit 16 of shared/GATE.md §4). The version probe has VERSION_SECONDS of its own and the run
+# HOOK_SECONDS, which the timeout holds besides.
 LEFT_FOR_THE_REST = 5
 
 

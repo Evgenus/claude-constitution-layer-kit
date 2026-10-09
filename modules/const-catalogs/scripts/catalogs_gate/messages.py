@@ -160,7 +160,9 @@ def k3_number_shared(catalog: Catalog, number: int, paths: Sequence[str]) -> Fin
         "a number cites one item; two items under one number make every reference to it ambiguous",
         "the item already on the main branch keeps its number; every other one takes a number of its"
         " own, one more than the highest the catalog has held: rename its file, set its id to the new"
-        " name, and rewrite the references to it made on its own branch",
+        " name, and rewrite the references to it made on its own branch; of two items both on the main"
+        " branch, the one that landed second renumbers the same way, and every reference to it in the"
+        " tree is rewritten",
     )
 
 

@@ -114,9 +114,18 @@ hooks/hooks.json to the shape the hooks reference gives"; a `command` hook with 
 hook, or teach `hooks_of` and `check_installed` in scripts/check-bare-install.py to run a <type> hook";
 a hooks file that is there and cannot be read (its permissions, an I/O error), "make it a readable file,
 or restore it with git checkout"; a hooks file whose place cannot be looked up (its folder cannot be
-searched, an I/O error), "make its folder searchable". A missing hooks file or folder, a folder in the
-file's place (or a link to one), a dangling link or a link loop there, or a path through a file, gives no
-hooks; a link to a regular file is that file. Every other configuration
+searched, an I/O error), "make its folder searchable". A command the check cannot start (an empty one,
+a file with no execute permission, a NUL byte, any other `OSError` of starting it) is a configuration failure
+that names the command, as `shown` quotes it, and the reason, with "give it a command that exists and can
+run" (a hook's, "give the hook's command and args in hooks/hooks.json a command that exists and can run"),
+and a path the check cannot look at (a folder on the way cannot be searched, an I/O error) one that names
+the path and "give the folder search permission, `chmod u+rx <folder>`", the same on every Python (the
+lookups of a path, an entry of a walk included), a missing path being the finding or failure it was. The
+walks themselves are a known limit: `Path.rglob` lists nothing of a folder it cannot list, raises on 3.12
+for a folder below one that cannot be searched where 3.14 lists nothing, and skips a subfolder it cannot
+list, so a file or link below one is not seen. A missing
+hooks file or folder, a folder in the file's place (or a link to one), a dangling link or a link loop there,
+or a path through a file, gives no hooks; a link to a regular file is that file. Every other configuration
 failure prints a fix of its own, such as a commit the kit's history lacks and cannot fetch, a module
 document that cannot be read, a module the kit lacks, a source that names a branch of no repository, a
 marketplace file that gives no name. The run holds the case of an absent dials file; a module with
@@ -151,6 +160,17 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          the exits 1, 2, 124 and 128, the BROKEN named by the subcommand with the `-c`
                          options skipped, the last line quoted from the standard error, else from the
                          standard output, no failure, and a git missing from PATH, `run`'s own line;
+                         a command `run` cannot start (an empty one, a file with no execute permission,
+                         a NUL byte, each kind of OSError and a ValueError, the process mocked) a BROKEN
+                         naming it, a hook's with the hook's own fix, the lines for a command not found
+                         and one that outlasts its time as they were; a path the check cannot look at (a
+                         module's document and plugin.json, an installPath, a --from source, a link's place
+                         in the copy, a file or link of a folder that lists but cannot be searched, the
+                         hooks file
+                         of the copy, each under a folder of mode 000, real unless run as root, and an I/O
+                         error mocked) a BROKEN naming the folder to open, the source's hooks file the
+                         line `hooks_of` had, and a missing path, a link loop, a path through a file and
+                         a NUL in a name each the result they had;
                          and the report of one finding as literal lines with exit 2; and step 2
                          over a toy kit whose marketplace is named `toy-mp` (its name read from its
                          file, a file with no name a BROKEN) and a fake `claude` asked for
@@ -203,6 +223,7 @@ import json
 import math
 import os
 import re
+import shlex
 import shutil
 import stat
 import subprocess
@@ -280,10 +301,32 @@ class Hook:
     timeout: float
 
 
+RUN_FIX = (
+    "give it a command that exists and can run, with no NUL byte in it or its arguments: a program on"
+    " PATH, or a file with the execute permission (`chmod u+x` it), then run the check again"
+)
+
+
+HOOK_RUN_FIX = (
+    'give the hook\'s "command" and "args" in the module\'s hooks/hooks.json a command that exists and can'
+    " run, with no NUL byte in it or its arguments: a program on PATH, or a file of the module with the"
+    " execute permission (`chmod u+x` it, and commit the mode), then run the check again"
+)
+
+
 def run(
-    argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: float = 300
+    argv: list[str],
+    cwd: Path,
+    env: dict[str, str],
+    stdin: str = "",
+    timeout: float = 300,
+    fix: str = RUN_FIX,
 ) -> tuple[int, str, str]:
-    """The exit, the standard output and the standard error of one command."""
+    """The exit, the standard output and the standard error of one command. A command that is not found
+    is a Broken saying to install it; any other `OSError` of starting it (an empty command, a file with no
+    execute permission, a folder that cannot be searched) and a `ValueError` (a NUL byte) are a Broken that
+    names the command, as `shown` quotes it, and the reason, with `fix` to follow; one that outlasts its
+    `timeout` is the exit 124."""
     try:
         done = subprocess.run(
             argv, cwd=cwd, env=env, input=stdin, capture_output=True, text=True, timeout=timeout, check=False
@@ -294,7 +337,72 @@ def run(
         ) from bad
     except subprocess.TimeoutExpired:
         return 124, "", f"timed out after {timeout} s"
+    except (OSError, ValueError) as bad:
+        why = (bad.strerror if isinstance(bad, OSError) else None) or str(bad)
+        raise Broken(f"the command {shown(argv)} could not be started ({why}) — fix: {fix}") from bad
     return done.returncode, done.stdout.strip(), done.stderr.strip()
+
+
+def looked_up(path: Path, follow: bool = True) -> os.stat_result | None:
+    """What `os.stat` says of a path (`os.lstat` when `follow` is False): None for a path that is not
+    there (no entry, a path through a file, a link loop, a name that holds a NUL byte), a Broken for a
+    path that cannot be looked up (a folder on the way cannot be searched, an I/O error). The check asks
+    this and not `Path.is_file`, `is_dir` or `exists`: from release 3.14 of the language on they return
+    False for the error that earlier releases raise, and the answer would differ by version, a path the
+    check cannot look at read as a missing one."""
+    try:
+        return path.stat() if follow else path.lstat()
+    except (FileNotFoundError, NotADirectoryError, ValueError):
+        return None
+    except OSError as bad:
+        if bad.errno == errno.ELOOP:
+            return None
+        why = bad.strerror or str(bad)
+        if bad.errno == errno.EACCES:
+            folder = blocking_folder(path)
+            fix = f"give the folder {folder} search permission, `chmod u+rx {shlex.quote(str(folder))}`"
+        else:
+            folder = path.parent
+            fix = f"make the folder {folder} searchable, `ls -ld {shlex.quote(str(folder))}` shows why not"
+        raise Broken(f"{path} cannot be searched ({why}) — fix: {fix}, then run the check again") from bad
+
+
+def blocking_folder(path: Path) -> Path:
+    """The folder on the way to a path that refuses the search: the first, from the root down, below which
+    `os.stat` is denied; the path's own folder when none is."""
+    chain = [*reversed(path.parents), path]
+    for folder, below in zip(chain, chain[1:], strict=False):
+        try:
+            os.stat(below)
+        except PermissionError:
+            return folder
+        except OSError:
+            continue
+    return path.parent
+
+
+def file_at(path: Path) -> bool:
+    """Whether a regular file (or a link to one) stands at the path; a Broken where it cannot be looked up."""
+    found = looked_up(path)
+    return found is not None and stat.S_ISREG(found.st_mode)
+
+
+def folder_at(path: Path) -> bool:
+    """Whether a folder (or a link to one) stands at the path; a Broken where it cannot be looked up."""
+    found = looked_up(path)
+    return found is not None and stat.S_ISDIR(found.st_mode)
+
+
+def there(path: Path) -> bool:
+    """Whether anything stands at the path (a link is followed); a Broken where it cannot be looked up."""
+    return looked_up(path) is not None
+
+
+def link_at(path: Path) -> bool:
+    """Whether a link stands at the path, itself and not what it leads to; a Broken where it cannot be
+    looked up."""
+    found = looked_up(path, follow=False)
+    return found is not None and stat.S_ISLNK(found.st_mode)
 
 
 def last_line(out: str, err: str) -> str:
@@ -430,7 +538,7 @@ def declared_seconds(timeout: object) -> float | None:
 
 def declared_scans(plugin: Path) -> list[str]:
     document = plugin / "MODULE.md"
-    if not document.is_file():
+    if not file_at(document):
         raise Broken(
             f"{document} does not exist — fix: restore the module's document, which declares its scans"
         )
@@ -491,7 +599,7 @@ def files_under(folder: Path) -> set[str]:
     return {
         str(f.relative_to(folder))
         for f in folder.rglob("*")
-        if f.is_file() and not any(part in CACHES for part in f.relative_to(folder).parts)
+        if file_at(f) and not any(part in CACHES for part in f.relative_to(folder).parts)
     }
 
 
@@ -513,14 +621,14 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
     arrives as a real file, or a real directory, with the same files byte for byte; the copy holds no
     link the source lacks."""
     findings: list[Finding] = []
-    links = sorted(p for p in source.rglob("*") if p.is_symlink())
+    links = sorted(p for p in source.rglob("*") if link_at(p))
     for link in links:
         where = link.relative_to(source)
         place = plugin / where
         target = link.resolve()
         if runner_link(source, link):
             package = plugin / "scripts" / where.name
-            if not place.exists() or not package.is_dir() or place.resolve() != package.resolve():
+            if not there(place) or not folder_at(package) or place.resolve() != package.resolve():
                 findings.append(
                     Finding(
                         module,
@@ -539,18 +647,18 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
             else "the install must carry what it runs — fire the fallback of limit 3 of"
             " shared/GATE.md §4, links replaced by copies"
         )
-        if place.is_symlink() or not place.exists():
-            state = "left a link" if place.is_symlink() else "missing"
+        if link_at(place) or not there(place):
+            state = "left a link" if link_at(place) else "missing"
             findings.append(Finding(module, f"the link {where} is {state} in the installed copy", fix))
         elif inside:
             findings.append(Finding(module, f"the link {where} leads inside the module", fix))
-        elif target.is_file() and place.is_dir():
+        elif file_at(target) and folder_at(place):
             findings.append(Finding(module, f"the link {where} to a file arrived as a folder", fix))
-        elif target.is_dir() and not place.is_dir():
+        elif folder_at(target) and not folder_at(place):
             findings.append(Finding(module, f"the link {where} to a folder arrived as a file", fix))
-        elif not target.exists():
+        elif not there(target):
             findings.append(Finding(module, f"the link {where} leads nowhere in the source", fix))
-        elif target.is_dir() and (
+        elif folder_at(target) and (
             files_under(place) != files_under(target)
             or any((place / f).read_bytes() != (target / f).read_bytes() for f in files_under(target))
         ):
@@ -570,12 +678,12 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
                     fix,
                 )
             )
-        elif target.is_file() and place.read_bytes() != target.read_bytes():
+        elif file_at(target) and place.read_bytes() != target.read_bytes():
             findings.append(
                 Finding(module, f"the link {where} arrived with other bytes than its target", fix)
             )
     carried = {plugin / link.relative_to(source) for link in links}
-    for extra in sorted(p for p in plugin.rglob("*") if p.is_symlink() and p not in carried):
+    for extra in sorted(p for p in plugin.rglob("*") if link_at(p) and p not in carried):
         findings.append(
             Finding(
                 module,
@@ -589,7 +697,9 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
 def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
     """What the kit's source of the module promises, held in its installed copy on a bare repository."""
     findings = link_findings(module, source, plugin)
-    if (source / "hooks" / "hooks.json").is_file() and not (plugin / "hooks" / "hooks.json").is_file():
+    hooks = hooks_of(source)  # before the lookup below of the same file, so that a hooks folder of the
+    # source that cannot be searched is `hooks_of`'s own line
+    if file_at(source / "hooks" / "hooks.json") and not file_at(plugin / "hooks" / "hooks.json"):
         findings.append(
             Finding(module, "the installed copy has no hooks/hooks.json", "restore the hooks file")
         )
@@ -598,13 +708,15 @@ def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: P
         "CLAUDE_PROJECT_DIR": str(repo),
         "CLAUDE_PLUGIN_DATA": str(data),
     }
-    for hook in hooks_of(source):
+    for hook in hooks:
         argv = [a.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin)) for a in (hook.command, *hook.args)]
         shown = " ".join(argv[1:]).replace(str(plugin), "<plugin>")
         note = repo / NOTE
         if hook.event == "PostToolUse":
             note.write_text("# Note\n", encoding="utf-8")
-        code, out, err = run(argv, repo, env, json.dumps(sample_event(hook, repo)), hook.timeout)
+        code, out, err = run(
+            argv, repo, env, json.dumps(sample_event(hook, repo)), hook.timeout, fix=HOOK_RUN_FIX
+        )
         note.unlink(missing_ok=True)
         answered = refusal(out) if code == 0 else ""
         if code != 0 or answered:
@@ -784,7 +896,7 @@ def listed_install(key: str, scope: str, repo: Path, env: dict[str, str], note: 
             f"{command} gives no installPath string for {key} at scope {scope} (installPath is"
             f" {shown(path) if 'installPath' in own[0] else 'absent'}){fix}"
         )
-    if not Path(path).is_dir():
+    if not folder_at(Path(path)):
         raise Broken(f"{command} names an installPath that is no folder ({path}){fix}")
     return Path(path)
 
@@ -899,13 +1011,13 @@ def install(
 
 
 def counted(source: Path) -> str:
-    links = sum(1 for p in source.rglob("*") if p.is_symlink())
+    links = sum(1 for p in source.rglob("*") if link_at(p))
     return f"{len(hooks_of(source))} hook(s), {len(declared_scans(source))} scan(s), {links} link(s)"
 
 
 def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], str]:
     """The findings, and what was examined: the hooks, scans and links of the source compared."""
-    if not (KIT / "modules" / module / ".claude-plugin" / "plugin.json").is_file():
+    if not file_at(KIT / "modules" / module / ".claude-plugin" / "plugin.json"):
         raise Broken(f"no module {module} in the kit — fix: name a folder under modules/ that holds a plugin")
     marketplace = kit_marketplace(KIT)
     with tempfile.TemporaryDirectory() as tmp:
@@ -921,7 +1033,7 @@ def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], s
             )
             return [refusal_finding], "no install"
         (root / "data").mkdir()
-        if Path(source).exists():  # a local folder is copied as it stands, uncommitted edits included
+        if there(Path(source)):  # a local folder is copied as it stands, uncommitted edits included
             kit_source = Path(source).resolve() / "modules" / module
         else:
             commit = installed_commit(root / "config", f"{module}@{marketplace}", plugin, note)
@@ -1409,7 +1521,12 @@ def self_test() -> int:
             handed: dict[str, float] = {}
 
             def run_spy(
-                argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: float = 300
+                argv: list[str],
+                cwd: Path,
+                env: dict[str, str],
+                stdin: str = "",
+                timeout: float = 300,
+                fix: str = "",
             ) -> tuple[int, str, str]:
                 """`run`, but the timeout of each hook is kept by its event, and the hook is not run."""
                 handed[json.loads(stdin)["hook_event_name"]] = timeout
@@ -1846,6 +1963,346 @@ def self_test() -> int:
                         str(got_shut),
                     )
 
+    def start_and_lookup_cases() -> None:
+        """A command `run` cannot start and a path the check cannot look at are each one BROKEN line, never a
+        traceback and never a missing path read in the place of one that cannot be searched: `run` turns any
+        `OSError` of starting the command and a `ValueError` (a NUL byte) into a line naming the command, the
+        reason and a fix (the hook's own where a hook is run), the not-found and timeout branches as they
+        were; `file_at`, `folder_at`, `there` and `link_at` tell a missing path (no entry, a path through a
+        file, a link loop, a NUL in the name), whose meaning each site keeps, from one that cannot be
+        searched, a line naming the path and the folder to open, on every Python (`Path.is_file` and
+        `exists` return False for it from release 3.14 on). No existing case fits: the hook cases read a
+        hooks file, the bare-repository cases git's exits, and the rest a `claude`; the lookups are in
+        different functions of the check, so this table is new; its real folders of mode 000 are skipped as
+        root, which searches any folder."""
+        fix_run = (
+            "give it a command that exists and can run, with no NUL byte in it or its arguments: a program on"
+            " PATH, or a file with the execute permission (`chmod u+x` it), then run the check again"
+        )
+        fix_hook = (
+            'give the hook\'s "command" and "args" in the module\'s hooks/hooks.json a command that'
+            " exists and can run, with no NUL byte in it or its arguments: a program on PATH, or a file of"
+            " the module with the execute permission (`chmod u+x` it, and commit the mode), then run the"
+            " check again"
+        )
+
+        def said(call: Callable[[], object]) -> str:
+            """What the call does: its result, or the BROKEN line it raises, or the other exception."""
+            try:
+                return f"returned {call()!r}"
+            except Broken as bad:
+                return f"BROKEN: {bad}"
+            except Exception as other:  # any other is the defect these cases hold
+                return f"raised {type(other).__name__}: {other}"
+
+        def cannot_search(path: Path, folder: Path) -> str:
+            """The line for a path under a folder that refuses the search, typed by hand."""
+            return (
+                f"BROKEN: {path} cannot be searched (Permission denied) — fix: give the folder {folder}"
+                f" search permission, `chmod u+rx '{folder}'`, then run the check again"
+            )
+
+        def declared_of(plugin_at: Path) -> str:
+            return said(lambda: declared_scans(plugin_at))
+
+        def started(argv: list[str]) -> str:
+            return said(lambda: run(argv, Path.cwd(), dict(os.environ)))
+
+        for name, raised, why in (
+            ("a PermissionError", PermissionError(13, "Permission denied"), "Permission denied"),
+            ("an OSError of another kind", OSError(8, "Exec format error"), "Exec format error"),
+            ("an OSError with no reason", OSError("odd"), "odd"),
+            ("a NotADirectoryError", NotADirectoryError(20, "Not a directory"), "Not a directory"),
+            ("a ValueError", ValueError("embedded null byte"), "embedded null byte"),
+        ):
+            with mock.patch("subprocess.run", side_effect=raised):
+                got_start = started(["tool", "-x"])
+            version_case(
+                f"run: {name} of starting a command is one BROKEN line naming the command",
+                got_start
+                == f"BROKEN: the command ['tool', '-x'] could not be started ({why}) — fix: {fix_run}",
+                got_start,
+            )
+        with mock.patch("subprocess.run", side_effect=FileNotFoundError(2, "No such file or directory")):
+            got_start = started(["tool"])
+        version_case(
+            "run: a command that is not found is the line it was, install it",
+            got_start
+            == "BROKEN: tool is not installed (No such file or directory) — fix: install it and put it on"
+            " PATH",
+            got_start,
+        )
+        with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["tool"], 5)):
+            got_start = started(["tool"])
+        version_case(
+            "run: a command that outlasts its time is still the exit 124",
+            got_start == "returned (124, '', 'timed out after 300 s')",
+            got_start,
+        )
+        with tempfile.TemporaryDirectory() as run_tmp:
+            plain = Path(run_tmp) / "plain"
+            plain.write_text("#!/bin/sh\n", encoding="utf-8")
+            plain.chmod(0o644)
+            got_start = said(lambda: run([str(plain)], Path(run_tmp), dict(os.environ)))
+            version_case(
+                "run: a file with no execute permission is one BROKEN line naming it",
+                got_start
+                == f"BROKEN: the command [{str(plain)!r}] could not be started (Permission denied) — fix:"
+                f" {fix_run}",
+                got_start,
+            )
+        got_start = started(["a\0b"])
+        version_case(
+            "run: a command holding a NUL byte is one BROKEN line naming it, escaped",
+            got_start
+            == f"BROKEN: the command ['a\\x00b'] could not be started (embedded null byte) — fix: {fix_run}",
+            got_start,
+        )
+        got_start = started(["a\0b" + "x" * 300])
+        cut_at = repr(["a\0b" + "x" * 300])[:200]
+        version_case(
+            "run: a long command is cut at 200 characters, as every quoted reply is",
+            got_start
+            == f"BROKEN: the command {cut_at}… could not be started (embedded null byte) — fix: {fix_run}",
+            got_start,
+        )
+        got_start = started([""])  # a PermissionError here, a missing file on Linux: both name the command
+        version_case(
+            "run: an empty command is one BROKEN line, never a traceback",
+            got_start
+            in (
+                f"BROKEN: the command [''] could not be started (Permission denied) — fix: {fix_run}",
+                "BROKEN:  is not installed (No such file or directory) — fix: install it and put it on PATH",
+            ),
+            got_start,
+        )
+        with (
+            tempfile.TemporaryDirectory() as hook_tmp
+        ):  # a hook run through check_installed has the hook's fix
+            hooked_root = Path(hook_tmp)
+            (hooked_root / "hooks").mkdir()
+            (hooked_root / "repo").mkdir()
+            (hooked_root / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+            nul_hook = {
+                "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "\0tool", "args": []}]}]}
+            }
+            (hooked_root / "hooks" / "hooks.json").write_text(json.dumps(nul_hook), encoding="utf-8")
+            got_start = said(
+                lambda: check_installed("m", hooked_root, hooked_root, hooked_root / "repo", hooked_root)
+            )
+            version_case(
+                "run: a hook whose command cannot be started is one BROKEN line with the hook's own fix",
+                got_start
+                == f"BROKEN: the command ['\\x00tool'] could not be started (embedded null byte) — fix:"
+                f" {fix_hook}",
+                got_start,
+            )
+        # A missing path keeps its meaning at each site; a NUL in a name, a link loop and a path through a
+        # file are missing paths too, as `Path.exists` has them.
+        with tempfile.TemporaryDirectory() as miss_tmp:
+            miss_root = Path(miss_tmp)
+            (miss_root / "empty").mkdir()
+            (miss_root / "loop").mkdir()
+            (miss_root / "loop" / "MODULE.md").symlink_to("MODULE.md")
+            (miss_root / "afile").write_text("", encoding="utf-8")
+            no_doc = (
+                "BROKEN: {} does not exist — fix: restore the module's document, which declares its scans"
+            )
+            for name, plugin_at in (
+                ("a folder with no document", miss_root / "empty"),
+                ("a document that is a link loop", miss_root / "loop"),
+                ("a plugin that is a file, the document a path through it", miss_root / "afile"),
+                ("a plugin that is no entry", miss_root / "nothing"),
+            ):
+                got_miss = declared_of(plugin_at)
+                version_case(
+                    f"lookups: {name} is the missing document it was",
+                    got_miss == no_doc.format(plugin_at / "MODULE.md"),
+                    got_miss,
+                )
+            version_case(
+                "lookups: a name that holds a NUL byte is a missing path, at every kind of lookup",
+                not (
+                    there(Path("a\0b"))
+                    or file_at(Path("a\0b"))
+                    or folder_at(Path("a\0b"))
+                    or link_at(Path("a\0b"))
+                ),
+                "one of them found it",
+            )
+            toy_missing = miss_root / "kit"
+            toy_missing.mkdir()
+            with mock.patch.dict(globals(), {"KIT": toy_missing}):
+                got_miss = said(lambda: check_module("m", str(miss_root), Note("2.1.282")))
+            version_case(
+                "lookups: a module with no plugin.json is the line it was",
+                got_miss
+                == "BROKEN: no module m in the kit — fix: name a folder under modules/ that holds a plugin",
+                got_miss,
+            )
+            with (
+                mock.patch.dict(globals(), {"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}),
+                contextlib.redirect_stdout(io.StringIO()) as printed_miss,
+            ):
+                status_miss = main(["--module", "m", "--from", str(miss_root / "nothing")])
+            version_case(
+                "lookups: a source that is no entry goes on as a remote, as it did",
+                (status_miss, printed_miss.getvalue().splitlines())
+                == (
+                    EXIT_BROKEN,
+                    ["BROKEN: stopped here", "BROKEN: the check could not run — 0 modules examined"],
+                ),
+                f"{status_miss} {printed_miss.getvalue()}",
+            )
+        with tempfile.TemporaryDirectory() as odd_tmp:  # an error that is no search permission: the other fix
+            odd = Path(odd_tmp) / "odd plugin"
+            odd.mkdir()
+            with mock.patch.object(Path, "stat", side_effect=OSError(5, "Input/output error")):
+                got_odd = said(lambda: declared_scans(odd))
+            version_case(
+                "lookups: an I/O error is one BROKEN line, its fix to read why the folder is not searchable",
+                got_odd
+                == f"BROKEN: {odd / 'MODULE.md'} cannot be searched (Input/output error) — fix: make the"
+                f" folder {odd} searchable, `ls -ld '{odd}'` shows why not, then run the check again",
+                got_odd,
+            )
+        if os.geteuid() == 0:  # root searches any folder: there, the cases above are the proof
+            return
+        with tempfile.TemporaryDirectory() as shut_tmp:
+            shut_root = Path(shut_tmp)
+            closed = shut_root / "closed folder"
+            document = closed / "deep" / "plugin"
+            document.mkdir(parents=True)
+            (document / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+            (closed / "kit" / "modules" / "m" / ".claude-plugin").mkdir(parents=True)
+            (closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json").write_text(
+                "{}", encoding="utf-8"
+            )
+            (closed / "src").mkdir()
+            (closed / "copy").mkdir()
+            source_links = shut_root / "links"  # a source with a link to a file outside the module
+            (source_links / "module").mkdir(parents=True)
+            (shut_root / "links" / "outside.txt").write_text("o", encoding="utf-8")
+            (source_links / "module" / "ln.txt").symlink_to("../outside.txt")
+            listing = shut_root / "listing folder"  # a folder that lists but cannot be searched
+            listing.mkdir()
+            (listing / "f.txt").write_text("x", encoding="utf-8")
+            hooks_source, hooks_copy = shut_root / "hooks source", shut_root / "hooks copy"
+            for tree in (hooks_source, hooks_copy):
+                (tree / "hooks").mkdir(parents=True)
+                (tree / "hooks" / "hooks.json").write_text('{"hooks": {}}', encoding="utf-8")
+                (tree / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+            (shut_root / "repo").mkdir()
+            listing_json = json.dumps([{"id": "m@mp", "scope": "user", "installPath": str(document)}])
+            walk, empty_copy = shut_root / "walk", shut_root / "empty copy"  # a subfolder that lists only
+            (walk / "sub folder").mkdir(parents=True)
+            (walk / "sub folder" / "y.txt").write_text("y", encoding="utf-8")
+            empty_copy.mkdir()
+            shut_modes = [
+                (closed, 0o755),
+                (listing, 0o755),
+                (hooks_copy / "hooks", 0o755),
+                (walk / "sub folder", 0o755),
+            ]
+            try:
+                closed.chmod(0o000)
+                listing.chmod(0o444)
+                (walk / "sub folder").chmod(0o444)
+                hooks_copy_hooks = hooks_copy / "hooks"
+                hooks_copy_hooks.chmod(0o000)
+                got_shut = said(lambda: declared_scans(document))
+                version_case(
+                    "lookups: a module document under a folder of mode 000 is one BROKEN line naming the"
+                    " folder to open",
+                    got_shut == cannot_search(document / "MODULE.md", closed),
+                    got_shut,
+                )
+                with mock.patch.dict(globals(), {"KIT": closed / "kit"}):
+                    got_shut = said(lambda: check_module("m", "owner/repo", Note("2.1.282")))
+                version_case(
+                    "lookups: a module's plugin.json under such a folder is the same line",
+                    got_shut
+                    == cannot_search(
+                        closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json", closed
+                    ),
+                    got_shut,
+                )
+                with mock.patch.dict(globals(), {"run": lambda *args, **kwargs: (0, listing_json, "")}):
+                    got_shut = said(lambda: listed_install("m@mp", "user", shut_root, {}, Note("2.1.282")))
+                version_case(
+                    "lookups: an installPath under such a folder is the same line, not 'no folder'",
+                    got_shut == cannot_search(document, closed),
+                    got_shut,
+                )
+                with (
+                    mock.patch.dict(
+                        globals(), {"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}
+                    ),
+                    contextlib.redirect_stdout(io.StringIO()) as printed_shut,
+                ):
+                    status_shut = main(["--module", "m", "--from", str(closed / "src")])
+                version_case(
+                    "lookups: a --from source under such a folder is the same line, not a remote source",
+                    (status_shut, printed_shut.getvalue().splitlines())
+                    == (
+                        EXIT_BROKEN,
+                        [
+                            cannot_search(closed / "src", closed),
+                            "BROKEN: the check could not run — 0 modules examined",
+                        ],
+                    ),
+                    f"{status_shut} {printed_shut.getvalue()}",
+                )
+                got_shut = said(lambda: link_findings("m", source_links / "module", closed / "copy"))
+                version_case(
+                    "lookups: a link's place in the copy under such a folder is the same line",
+                    got_shut == cannot_search(closed / "copy" / "ln.txt", closed),
+                    got_shut,
+                )
+                entry = walk / "sub folder" / "y.txt"  # an entry of a walk that cannot be looked at
+                for name, call in (
+                    ("a source's links", lambda: link_findings("m", walk, empty_copy)),
+                    ("the copy's extra links", lambda: link_findings("m", source_links / "module", walk)),
+                    ("the count of the source", lambda: counted(walk)),
+                ):
+                    got_shut = said(call)
+                    version_case(
+                        f"lookups: an entry of a walk that cannot be looked at ({name}) is the same line",
+                        got_shut == cannot_search(entry, walk / "sub folder"),
+                        got_shut,
+                    )
+                got_shut = said(lambda: files_under(listing))
+                version_case(
+                    "lookups: a file of a folder that lists but cannot be searched is the same line",
+                    got_shut == cannot_search(listing / "f.txt", listing),
+                    got_shut,
+                )
+                got_shut = said(
+                    lambda: check_installed("m", hooks_source, hooks_copy, shut_root / "repo", shut_root)
+                )
+                version_case(
+                    "lookups: the copy's hooks file under a folder of mode 000 is the same line",
+                    got_shut == cannot_search(hooks_copy / "hooks" / "hooks.json", hooks_copy / "hooks"),
+                    got_shut,
+                )
+                hooks_copy_hooks.chmod(0o755)
+                (hooks_source / "hooks").chmod(0o000)
+                shut_modes.append((hooks_source / "hooks", 0o755))
+                got_shut = said(
+                    lambda: check_installed("m", hooks_source, hooks_copy, shut_root / "repo", shut_root)
+                )
+                version_case(
+                    "lookups: the source's hooks file under such a folder is the line `hooks_of` had",
+                    got_shut
+                    == f"BROKEN: {hooks_source / 'hooks' / 'hooks.json'} cannot be looked up (Permission"
+                    f" denied) — fix: make its folder {hooks_source / 'hooks'} searchable (its permissions),"
+                    " so that the check can find hooks/hooks.json and read each hook it runs",
+                    got_shut,
+                )
+            finally:
+                for folder_back, mode_back in shut_modes:
+                    folder_back.chmod(mode_back)
+
     def bare_repository_cases() -> None:
         """A git command of `bare_repository` that exits other than 0 is one BROKEN line naming it as
         `git <subcommand>` and a fix that can be followed (git ran, so "install git" is none); a missing
@@ -1986,6 +2443,7 @@ def self_test() -> int:
             version_case(f"bare repository: {argv} is named {named!r}", got_name == named, got_name)
 
     hook_wait_cases()
+    start_and_lookup_cases()
     bare_repository_cases()
     with tempfile.TemporaryDirectory() as tmp:  # the version check over every answer of `claude --version`
         base_dir = Path(tmp)
@@ -3170,7 +3628,7 @@ def main(argv: list[str]) -> int:
             return self_test()
         module = str(args.module)
         source = args.source or os.environ.get(FROM_ENV) or str(KIT)
-        if Path(source).exists():  # the install runs in another folder, so a local source is made absolute
+        if there(Path(source)):  # the install runs in another folder, so a local source is made absolute
             source = str(Path(source).resolve())
         claude = claude_noted(KIT, dict(os.environ))  # before any other `claude` command, once per run
         note = claude

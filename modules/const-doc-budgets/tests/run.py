@@ -60,7 +60,6 @@ H = Harness(SCRIPTS, "check-budgets.sh", "check-budgets.py", start.GATE.namespac
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
 SKILL = MODULE_ROOT / "skills" / "set-ceilings" / "SKILL.md"
-INSTALL = MODULE_ROOT / "INSTALL.md"
 MANIFEST = MODULE_ROOT / ".claude-plugin" / "plugin.json"
 HOOKS = MODULE_ROOT / "hooks" / "hooks.json"
 
@@ -1163,11 +1162,10 @@ def t20() -> tuple[bool, str]:
 
 
 def t21() -> tuple[bool, str]:
-    """The install note, the skill and the manifest name no kit document; the hooks file's shape; the
-    skill's description fits the platform's listing limit of 1,536 characters."""
-    kit_names = re.compile(r"\b(?:dec|res|plc)-\d{4}\b|docs/(?:decisions|research|policies|requirements)")
-    texts = {path.name: path.read_text(encoding="utf-8") for path in (INSTALL, SKILL, MANIFEST)}
-    clean = [name for name, text in texts.items() if not kit_names.search(text)]
+    """The hooks file's shape; the skill's description fits the platform's listing limit of 1,536
+    characters, and the module document states its size; the manifest names the plugin. The kit's names an
+    installed text must not carry are the kit check `check-portability`'s."""
+    texts = {path.name: path.read_text(encoding="utf-8") for path in (SKILL, MANIFEST)}
     hooks = json.loads(HOOKS.read_text(encoding="utf-8"))["hooks"]
     start_hook, write_hook = hooks["SessionStart"][0], hooks["PostToolUse"][0]
     shape = (
@@ -1189,7 +1187,6 @@ def t21() -> tuple[bool, str]:
     stated = int(match.group(1).replace(",", "")) if match else -1
     return all_of(
         (stated == listing, f"the module document states {stated} characters, the listing has {listing}"),
-        (len(clean) == 3, f"no kit document named in {sorted(clean)}"),
         (shape, "SessionStart without matcher, PostToolUse on Write|Edit, exec form, timeouts"),
         (listing <= 1536, f"the skill's listing text is {listing} characters, within 1,536"),
         (manifest["name"] == NAMESPACE, f"the manifest names {manifest['name']}"),
@@ -1221,7 +1218,7 @@ ITEMS = [
         t19,
     ),
     (20, "session start: malformed dials, an argument, PyYAML and python3 missing", t20),
-    (21, "install note, skill and manifest name no kit document; hooks shape; description size", t21),
+    (21, "hooks shape; description size and the stated listing count; manifest name", t21),
     (22, "report: a day whose last commit holds none, no document at all, no commit, git failing", t22),
     (
         23,

@@ -25,7 +25,7 @@ RED: docs/records/second.md: file name 'second' is not rec-<4 digits>-<kebab-slu
   fix: rename the file to rec-<number>-<slug>.md: the number it is already cited by, or, if it has none, one more than the highest the catalog has held — the scan's last line names it — written with exactly 4 digit(s), zero-padded; the slug is lowercase words and digits joined by '-'; then set id to that name without .md
 ```
 
-The skill `catalog-item` loads on its own when a numbered document is created, renumbered, listed or cited. It teaches the rules the gate cannot hold. A new item takes one more than the highest number the catalog has ever held, deleted items included. A number is provisional until its branch lands on the main branch. At a collision between two branches, the item already on the main branch keeps its number and the other renumbers. A gap is never filled. A catalog is listed with a git command, never kept in a register file.
+The skill `catalog-item` loads on its own when a numbered document is created, renumbered, listed or cited. It teaches the rules the gate cannot hold. A new item takes one more than the highest number the catalog has ever held, deleted items included. A number is provisional until its branch lands on the main branch. At a collision between two branches, the item already on the main branch keeps its number and the other renumbers. If both have landed, the one that landed second renumbers. A gap is never filled. A catalog is listed with a git command, never kept in a register file.
 
 <a id="a4"></a>
 ## How it works

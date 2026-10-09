@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -1050,10 +1051,23 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return ok, f"exit {done.returncode}: {lines or done.stderr.strip()[-200:]}"
 
+    def is_file(word: str) -> bool:
+        """A word that is an existing file; one the filesystem will not answer for counts as one, since
+        a script that cannot be read is held to the rule."""
+        try:
+            return Path(word).is_file()
+        except OSError:
+            return True
+
     def handlers_outlive_git(plugin: Path) -> tuple[bool, str]:
-        """Every handler of the plugin's hooks file that runs a script of the gate (one that names
-        python3) has a timeout longer than `GIT_SECONDS`: a git that hangs ends with the gate's own
-        line before the platform cuts the hook, which says nothing."""
+        """Every handler of the plugin's hooks file whose script names python3 has a timeout longer
+        than `GIT_SECONDS` (limit 16): a git that hangs ends with the gate's own line before the platform
+        cuts the hook, which says nothing. A handler's scripts are each of its `args`, and each word of its
+        `command` that, once `${CLAUDE_PLUGIN_ROOT}` (or the unbraced `$CLAUDE_PLUGIN_ROOT`, as a shell
+        expands it) is replaced, is a path under the plugin's folder or an existing file: a redirection,
+        an option or any other word is no script. A handler whose `command` names python3 as a word is
+        held too, and a script that cannot be read, a missing one under the plugin's folder included,
+        counts as one that names python3."""
         hooks = plugin / "hooks" / "hooks.json"
         try:
             spec = json.loads(hooks.read_text(encoding="utf-8"))
@@ -1067,20 +1081,32 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             return False, f"{hooks} cannot be read as a hooks file: {type(exc).__name__}: {exc}"
         checked, short = 0, []
         for event, handler in handlers:
-            scripts = [a.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin)) for a in handler.get("args", [])]
+            command = handler.get("command", "")
+            command = command if isinstance(command, str) else ""
             try:
-                runs_the_gate = any("python3" in Path(a).read_text(encoding="utf-8") for a in scripts)
+                words = shlex.split(command)
+            except ValueError:  # an unbalanced quote: the words as a shell would not take them
+                words = command.split()
+            root = str(plugin)
+            words = [re.sub(r"\$\{CLAUDE_PLUGIN_ROOT\}|\$CLAUDE_PLUGIN_ROOT(?!\w)", root, w) for w in words]
+            scripts = [a.replace("${CLAUDE_PLUGIN_ROOT}", root) for a in handler.get("args", [])] + [
+                w for w in words if w.startswith(root + os.sep) or is_file(w)
+            ]
+            try:
+                names_python = re.search(r"(?<![\w-])python3(?![\w-])", command) is not None or any(
+                    b"python3" in Path(a).read_bytes() for a in scripts
+                )
             except OSError:
-                runs_the_gate = True  # a handler whose script cannot be read is held to the rule too
-            if not runs_the_gate:
+                names_python = True  # a handler whose script cannot be read is held to the rule too
+            if not names_python:
                 continue
             checked += 1
             timeout = handler.get("timeout")
             numeric = isinstance(timeout, int | float) and not isinstance(timeout, bool)
             if not numeric or timeout <= repository.GIT_SECONDS:
-                short.append(f"{event} handler {scripts} has timeout {timeout!r}")
+                short.append(f"{event} handler {command!r} {scripts} has timeout {timeout!r}")
         if checked == 0:
-            return False, f"{hooks} holds no handler that runs the gate"
+            return False, f"{hooks} holds no handler whose script names python3"
         if short:
             return False, (
                 f"{'; '.join(short)} — not above GIT_SECONDS ({repository.GIT_SECONDS:g} s): a git that"
@@ -1088,38 +1114,138 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             )
         return (
             True,
-            f"{checked} handler(s) that run the gate outlive GIT_SECONDS ({repository.GIT_SECONDS:g} s)",
+            f"{checked} handler(s) whose script names python3 outlive GIT_SECONDS"
+            f" ({repository.GIT_SECONDS:g} s)",
         )
 
     def the_tie_catches_a_short_handler() -> tuple[bool, str]:
-        """The tie on two hooks files made here, three handlers: a timeout at GIT_SECONDS fails, one
-        above passes, and a handler that runs no gate is not held to it."""
+        """The tie on hooks files made here: a timeout at GIT_SECONDS fails and one above passes, for a
+        handler whose script names python3 given as `command: sh` with `args` and given in shell form
+        (`command` alone, naming python3 or a script that does), and a handler whose command and
+        scripts name no python3 is not held to it."""
         plugin = h.scratch_dir()
         (plugin / "hooks").mkdir()
         (plugin / "scripts").mkdir()
         (plugin / "scripts" / "gate.sh").write_text('exec python3 "$0.py"\n', encoding="utf-8")
         (plugin / "scripts" / "print.sh").write_text("cat rule.txt\n", encoding="utf-8")
+        root = "${CLAUDE_PLUGIN_ROOT}/scripts/"
+        budget = repository.GIT_SECONDS
 
-        def file_with(*handlers: tuple[str, float]) -> None:
-            entries = [
-                {
-                    "type": "command",
-                    "command": "sh",
-                    "args": [f"${{CLAUDE_PLUGIN_ROOT}}/scripts/{n}"],
-                    "timeout": t,
-                }
-                for n, t in handlers
-            ]
-            spec = {"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": entries}]}}
+        def exec_form(name: str, timeout: float) -> dict[str, object]:
+            return {"type": "command", "command": "sh", "args": [root + name], "timeout": timeout}
+
+        def shell_form(command: str, timeout: float) -> dict[str, object]:
+            return {"type": "command", "command": command, "timeout": timeout}
+
+        def holds(*handlers: dict[str, object]) -> tuple[bool, str]:
+            spec = {"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": list(handlers)}]}}
             (plugin / "hooks" / "hooks.json").write_text(json.dumps(spec), encoding="utf-8")
+            return handlers_outlive_git(plugin)
 
-        file_with(("gate.sh", repository.GIT_SECONDS))
-        at, at_said = handlers_outlive_git(plugin)
-        file_with(("gate.sh", repository.GIT_SECONDS + 1), ("print.sh", 1))
-        above, above_said = handlers_outlive_git(plugin)
-        return (
-            not at
-        ) and above, f"at the budget: {at_said}; above it, and a print handler at 1 s: {above_said}"
+        cases: list[tuple[str, bool, tuple[dict[str, object], ...]]] = [
+            ("exec form, at the budget", False, (exec_form("gate.sh", budget),)),
+            (
+                "exec form above it, a print handler at 1 s",
+                True,
+                (exec_form("gate.sh", budget + 1), exec_form("print.sh", 1)),
+            ),
+            # Shell form (N55): no `args`, the handler's `command` alone. A held handler at the
+            # budget stands beside one above it, so that a handler the tie skips is a green, never
+            # the red of a file with no handler to hold.
+            (
+                "shell form naming python3, at the budget",
+                False,
+                (shell_form(f"python3 {root}x.py", budget), exec_form("gate.sh", budget + 1)),
+            ),
+            ("shell form naming python3, above it", True, (shell_form(f'python3 "{root}x.py"', budget + 1),)),
+            (
+                "shell form naming a script that names python3, at the budget",
+                False,
+                (shell_form(f"sh {root}gate.sh", budget), exec_form("gate.sh", budget + 1)),
+            ),
+            (
+                "shell form naming a script that names python3, above it",
+                True,
+                (shell_form(f"sh {root}gate.sh", budget + 1),),
+            ),
+            # D1: python3 as a word of the command, no path word, no file to be unreadable.
+            (
+                "shell form `python3 -c pass`, no path word, at the budget",
+                False,
+                (shell_form("python3 -c pass", budget), exec_form("gate.sh", budget + 1)),
+            ),
+            ("shell form `python3 -c pass`, above it", True, (shell_form("python3 -c pass", budget + 1),)),
+            # An unbalanced quote: the words fall back to whitespace, the script is still found.
+            (
+                "shell form with an unbalanced quote naming a script that names python3, at the budget",
+                False,
+                (shell_form(f"sh {root}gate.sh 'x", budget), exec_form("gate.sh", budget + 1)),
+            ),
+            # A word with a separator that is no script: a redirection, an option, a path outside.
+            (
+                "shell form `print.sh 2>/dev/null` and `--x=/a`, naming no python3, beside a held handler",
+                True,
+                (
+                    shell_form(f"sh {root}print.sh --x=/a b/c 2>/dev/null", 1),
+                    exec_form("gate.sh", budget + 1),
+                ),
+            ),
+            # A script of `args` that does not exist counts as one that names python3, as before B2.
+            (
+                "exec form whose script is missing, at the budget",
+                False,
+                (exec_form("missing.sh", budget), exec_form("gate.sh", budget + 1)),
+            ),
+            (
+                "shell form whose script under the plugin's folder is missing, at the budget",
+                False,
+                (shell_form(f"sh {root}missing.sh", budget), exec_form("gate.sh", budget + 1)),
+            ),
+            (
+                "shell form naming no python3 beside a held handler above the budget",
+                True,
+                (shell_form(f"sh {root}print.sh", 1), exec_form("gate.sh", budget + 1)),
+            ),
+        ]
+        # D-b: the unbraced form a shell expands names the same script.
+        cases.append(
+            (
+                "shell form with `$CLAUDE_PLUGIN_ROOT` unbraced, a script that names python3, at the budget",
+                False,
+                (
+                    shell_form("sh $CLAUDE_PLUGIN_ROOT/scripts/gate.sh", budget),
+                    exec_form("gate.sh", budget + 1),
+                ),
+            )
+        )
+        results = [(label, expected, holds(*handlers)) for label, expected, handlers in cases]
+        # D-a: a word outside the plugin, in a folder that cannot be searched. Where the filesystem will
+        # not answer, `is_file` raises (Python 3.12) and the word counts as a script that cannot be read:
+        # red. Where it answers, as for root or on a newer Python, the word is what the answer says.
+        locked = h.scratch_dir() / "locked"
+        locked.mkdir()
+        (locked / "x.sh").write_text("exec python3 x.py\n", encoding="utf-8")
+        locked.chmod(0o000)
+        try:
+            try:
+                answer = (locked / "x.sh").is_file()
+            except OSError:
+                answer = True
+            results.append(
+                (
+                    "shell form naming a file in a folder that cannot be searched, at the budget",
+                    not answer,
+                    holds(shell_form(f"sh {locked}/x.sh", budget), exec_form("gate.sh", budget + 1)),
+                )
+            )
+        finally:
+            locked.chmod(0o700)
+        ok = all(got[0] == expected for _, expected, got in results)
+        said = "; ".join(
+            f"{label}: {'green' if got[0] else 'red'} (wanted {'green' if expected else 'red'})"
+            for label, expected, got in results
+        )
+        return ok, said
 
     def hangs_in_a_folder_to_quote() -> tuple[bool, str]:
         """The folder C12.12 names stands in the fix's two commands quoted for a shell: a repository

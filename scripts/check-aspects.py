@@ -567,11 +567,17 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
     text = read(root, path)
     manifest = directory / ".claude-plugin" / "plugin.json"
     try:
-        version = str(json.loads(manifest.read_text(encoding="utf-8")).get("version", "?"))
+        data = json.loads(manifest.read_text(encoding="utf-8"))
     except (OSError, ValueError) as bad:
         raise Broken(
             f"modules/{name}/.claude-plugin/plugin.json cannot be read ({bad}) — fix: restore the manifest"
         ) from bad
+    if not isinstance(data, dict):
+        raise Broken(
+            f"modules/{name}/.claude-plugin/plugin.json is no JSON object, it holds a {type(data).__name__}"
+            " — fix: restore it as a JSON object"
+        )
+    version = str(data.get("version", "?"))
     try:
         rows_section, acceptance_section = section(text, "t3", path), section(text, "t10", path)
     except DocumentError as bad:
@@ -1007,9 +1013,13 @@ GREEN_RUN = [
 ]
 
 
-def harness_runner(argv: list[str]) -> str:
-    """A runner on the kit's own shared harness — the items of GREEN_RUN, each an assertion — with
-    `argv` as its command line, so the self-test reads what the harness prints, never a copy of it."""
+HARNESS_ITEMS = ((1, "a"), (2, "b"), (3, "c"), (101, "s"))
+
+
+def harness_runner(argv: list[str], named: tuple[tuple[int, str], ...] = HARNESS_ITEMS) -> str:
+    """A runner on the kit's own shared harness — the items of GREEN_RUN, each an assertion, or the
+    `named` ones — with `argv` as its command line, so the self-test reads what the harness prints,
+    never a copy of it."""
     shared = KIT / "shared"
     return (
         "import sys\n"
@@ -1018,7 +1028,7 @@ def harness_runner(argv: list[str]) -> str:
         "from pathlib import Path\n"
         "from harness import Assertion, Harness\n"
         "H = Harness(Path('.'), 'none.sh', 'none.py', 'const-sample')\n"
-        "NAMED = ((1, 'a'), (2, 'b'), (3, 'c'), (101, 's'))\n"
+        f"NAMED = {named!r}\n"
         "ITEMS = [Assertion(n, t, lambda: (True, 'evidence')) for n, t in NAMED]\n"
         "sys.exit(H.run_all([], ITEMS))\n"
     )
@@ -1615,6 +1625,20 @@ def listed_in_reverse() -> Iterator[None]:
         Path.iterdir = real  # type: ignore[method-assign]
 
 
+def main_over(root: Path, argv: list[str]) -> tuple[int, list[str]]:
+    """`main` as the command line runs it, over the tree `root` for the kit: its exit and the lines it
+    printed. The kit's place is restored on leaving."""
+    global KIT
+    real, KIT = KIT, root
+    printed = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(printed):
+            code = main(argv)
+    finally:
+        KIT = real
+    return code, printed.getvalue().splitlines()
+
+
 def self_test() -> int:
     """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
     and green with the good table; the report of one finding as literal lines; a full run green,
@@ -1952,6 +1976,20 @@ def self_test() -> int:
         "a folder with no module document\n",
         "modules/const-empty has no MODULE.md — fix: restore the module document",
     )
+    manifest_path = "modules/const-sample/.claude-plugin/plugin.json"
+    manifest_fix = "— fix: restore it as a JSON object"
+    for kind, manifest_text in (("a list", "[]\n"), ("a str", '"const-sample"\n'), ("a NoneType", "null\n")):
+        unreadable[f"a manifest that is valid JSON and no object, it holds {kind}"] = (
+            manifest_path,
+            manifest_text,
+            f"{manifest_path} is no JSON object, it holds {kind} {manifest_fix}",
+        )
+    unreadable["a manifest that is no JSON"] = (  # the line the check always gave
+        manifest_path,
+        "{not json\n",
+        f"{manifest_path} cannot be read (Expecting property name enclosed in double quotes: line 1 column 2"
+        " (char 1)) — fix: restore the manifest",
+    )
     classes_text = PREAMBLE[PREAMBLE.index(CLASSES_SENTENCE) : PREAMBLE.index(" An authoring")]
     typed_names = "'Mx', 'binding', 'kernel §n', 'template'"
     names_found = f'{SPEC} names the destination classes %s in its "Destination classes:" sentence, and this'
@@ -2023,6 +2061,9 @@ def self_test() -> int:
                     ok = ok and str(bad).startswith(said) and "— fix:" in str(bad)
                     ok = ok and (name not in fix_forms or f"— fix: {fix_forms[name]}" in str(bad))
                     got.append(str(bad))
+                except (AttributeError, TypeError) as crash:  # a traceback is a case that fails, not the run
+                    ok = False
+                    got.append(f"{type(crash).__name__}: {crash}")
         failed += 0 if ok else 1
         print(
             f"[{'ok' if ok else 'FAIL'}] a kit tree with {name} is one BROKEN line naming it,"
@@ -2030,6 +2071,46 @@ def self_test() -> int:
         )
         if not ok:
             print(f"        got: {got}")
+    command_lines: tuple[list[str], ...] = ([], ["--run"], ["--run", "--module", "const-sample"])
+    for kind, manifest_text in (("a list", "[]\n"), ("a str", '"const-sample"\n')):
+        for command_line in command_lines:
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                build(root, GOOD_TABLE)
+                (root / manifest_path).write_text(manifest_text, encoding="utf-8")
+                try:
+                    code, main_lines = main_over(root, command_line)
+                except (AttributeError, TypeError) as crash:  # a traceback is a case that fails, not the run
+                    code, main_lines = -1, [f"{type(crash).__name__}: {crash}"]
+            expected = [
+                f"BROKEN: {manifest_path} is no JSON object, it holds {kind} {manifest_fix}",
+                "BROKEN: the check could not run — 0 rows examined",
+            ]
+            ok = code == EXIT_BROKEN and main_lines == expected
+            failed += 0 if ok else 1
+            print(
+                f"[{'ok' if ok else 'FAIL'}] a manifest that holds {kind} is one BROKEN line and the"
+                f" could-not-run line, exit 1, under `{' '.join(command_line) or 'no argument'}`"
+            )
+            if not ok:
+                print(f"        got: {code} {main_lines}")
+    version_read = {  # case: the manifest's text; the version the module is read with
+        "a manifest object without a version is read with the version ?": ('{"name": "const-sample"}\n', "?"),
+        "a manifest object with a numeric version is read with it as text": ('{"version": 3}\n', "3"),
+        "a manifest object with a string version is read with it": ('{"version": "0.0.2"}\n', "0.0.2"),
+    }
+    for name, (manifest_text, version) in version_read.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            (root / manifest_path).write_text(manifest_text, encoding="utf-8")
+            try:
+                _, modules, findings, _ = check_structure(root)
+                ok = not findings and [m.version for m in modules] == [version]
+            except Broken:
+                ok = False
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
     prose = "See [A1.2](#a1-2) and [A1.1](../docs/requirements.md#a1-1); an aspect is [A1](#a1).\n"
     read_as_before = {  # case: the matrix, the rows it gives; what holds no anchor of a row or an aspect
         "a prose line that links a row and a module's own anchor are no anchor": (
@@ -2302,15 +2383,53 @@ def self_test() -> int:
         " could pass for a filter — fix: run with no arguments for a full run, or with --item <n>[,<n>…]"
         " to run only those items"
     )
-    filtered: dict[str, tuple[list[str], int, int, list[str], str | None]] = {
-        # case: the command line; the runner's exit; its item lines; its last lines, on stdout, or on
-        # stderr when it could not run; what the full run's BROKEN line says, None when it reads green
+    could_not = "BROKEN: the runner could not run — 0 of {} items run"
+
+    def carried(n: int, held: int, titles: str, fix: str) -> str:  # typed by hand: as run_all prints it
+        return (
+            f"BROKEN: item number {n} is carried by {held} items, {titles} — why: one number, one item, or"
+            f" a result and an --item cannot say which item they mean — fix: {fix}"
+        )
+
+    shared_kept = " — the shared one, if one is shared, since a shared number is never moved or reissued"
+    below = "no other item holds, below 101"
+    decision = "raise it as a decision, since the shared numbers are never moved"
+
+    def own_101(to: int) -> str:
+        return carried(
+            101,
+            2,
+            "'s', 'own'",
+            f"keep one of them at 101{shared_kept}, and in the module's own tests/run.py give the other one"
+            f" the number {to} — a number {below}",
+        )
+
+    twice_7 = carried(
+        7,
+        2,
+        "'x', 'y'",
+        "keep one of them at 7, and in the module's own tests/run.py give the other one the number 8"
+        f" — a number {below}",
+    )
+    shared_and_own = (*HARNESS_ITEMS, (101, "own"))
+    seven_twice = (*HARNESS_ITEMS, (7, "x"), (7, "y"))
+    both = (*seven_twice, (101, "own"))
+    seven_thrice = (*HARNESS_ITEMS, (7, "x"), (7, "y"), (7, "z"))
+    top_100 = (*seven_twice, (100, "top"))
+    top_99 = (*seven_thrice, (99, "top"))
+    top_99_four = (*top_99, (7, "w"))
+    own_170 = (*HARNESS_ITEMS, (170, "p"), (170, "q"))
+    filtered: dict[str, tuple[list[str], int, int, list[str], str | None, tuple[tuple[int, str], ...]]] = {
+        # case: the command line; the runner's exit; its item lines; its last lines, on stdout, or all
+        # its lines on stderr when it could not run; what the full run's BROKEN line says, None when it
+        # reads green; the items it holds, the shared harness's four when nothing else is named
         "no filter, a full run": (
             [],
             0,
             4,
             ["4/4 acceptance items green — 0 red→green cases, 4 assertions examined"],
             None,
+            HARNESS_ITEMS,
         ),
         "--item 2,101": (
             ["--item", "2,101"],
@@ -2318,26 +2437,152 @@ def self_test() -> int:
             2,
             ["2/2 selected items green — 2 of 4 items run, not a full pass"],
             "does not count them",
+            HARNESS_ITEMS,
         ),
         "--item 7, a number it does not hold": (
             ["--item", "7"],
             1,
             0,
-            [unknown, "BROKEN: the runner could not run — 0 of 4 items run"],
+            [unknown, could_not.format(4)],
             "exited 1",
+            HARNESS_ITEMS,
         ),
         "--items 2, an argument it does not take": (
             ["--items", "2"],
             1,
             0,
-            [misused, "BROKEN: the runner could not run — 0 of 4 items run"],
+            [misused, could_not.format(4)],
             "exited 1",
+            HARNESS_ITEMS,
+        ),
+        "an own item 101 beside the shared 101": (
+            [],
+            1,
+            0,
+            [own_101(4), could_not.format(5)],
+            "exited 1",
+            shared_and_own,
+        ),
+        "two own items numbered 7": ([], 1, 0, [twice_7, could_not.format(6)], "exited 1", seven_twice),
+        "two numbers carried twice, 7 and 101, one line each in number order": (
+            [],
+            1,
+            0,
+            [
+                twice_7,
+                own_101(9),
+                could_not.format(7),
+            ],
+            "exited 1",
+            both,
+        ),
+        "three own items numbered 7": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    7,
+                    3,
+                    "'x', 'y', 'z'",
+                    f"keep one of them at 7, and in the module's own tests/run.py give each of the other 2"
+                    f" the numbers 8, 9 — numbers {below}",
+                ),
+                could_not.format(7),
+            ],
+            "exited 1",
+            seven_thrice,
+        ),
+        "an own item 100 and 7 twice, no number free below 101": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    7,
+                    2,
+                    "'x', 'y'",
+                    f"keep one of them at 7; but no number is free below 101 for the other one — {decision}",
+                ),
+                could_not.format(7),
+            ],
+            "exited 1",
+            top_100,
+        ),
+        "an own item 99 and 7 three times, one number free below 101 and two needed": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    7,
+                    3,
+                    "'x', 'y', 'z'",
+                    f"keep one of them at 7, and in the module's own tests/run.py give 1 of the other 2"
+                    f" the number 100 — a number {below}; 1 item is then left with no free number"
+                    f" — {decision}",
+                ),
+                could_not.format(8),
+            ],
+            "exited 1",
+            top_99,
+        ),
+        "an own item 99 and 7 four times, one number free below 101 and three needed": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    7,
+                    4,
+                    "'x', 'y', 'z', 'w'",
+                    f"keep one of them at 7, and in the module's own tests/run.py give 1 of the other 3"
+                    f" the number 100 — a number {below}; 2 items are then left with no free number"
+                    f" — {decision}",
+                ),
+                could_not.format(9),
+            ],
+            "exited 1",
+            top_99_four,
+        ),
+        "two own items numbered 170, no shared item there": (
+            [],
+            1,
+            0,
+            [
+                carried(
+                    170,
+                    2,
+                    "'p', 'q'",
+                    f"keep one of them at 170{shared_kept}, and in the module's own tests/run.py give the"
+                    f" other one the number 4 — a number {below}",
+                ),
+                could_not.format(6),
+            ],
+            "exited 1",
+            own_170,
+        ),
+        "a number carried twice and --item 7, a number it holds": (
+            ["--item", "7"],
+            1,
+            0,
+            [twice_7, could_not.format(6)],
+            "exited 1",
+            seven_twice,
+        ),
+        "a number carried twice and --item 99, a number it does not hold, the collision first and alone": (
+            ["--item", "99"],
+            1,
+            0,
+            [twice_7, could_not.format(6)],
+            "exited 1",
+            seven_twice,
         ),
     }
-    for name, (argv, runner_exit, count, tail, reason) in filtered.items():
+    for name, (argv, runner_exit, count, tail, reason, named) in filtered.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, GOOD_TABLE, runner=harness_runner(argv))
+            build(root, GOOD_TABLE, runner=harness_runner(argv, named))
             done = subprocess.run(
                 [sys.executable, str(root / "modules" / "const-sample" / "tests" / "run.py")],
                 cwd=root,
@@ -2347,7 +2592,11 @@ def self_test() -> int:
             )
             lines_out = done.stdout.splitlines()
             shown = done.stderr.splitlines() if runner_exit == 1 else lines_out
-            ok = done.returncode == runner_exit and shown[-len(tail) :] == tail
+            # a runner that could not run prints its BROKEN lines and nothing else: all of stderr, so that
+            # a line before the first, or between, is seen; a run that ran is judged by its last lines
+            ok = done.returncode == runner_exit and (
+                shown == tail if runner_exit == 1 else shown[-len(tail) :] == tail
+            )
             ok = ok and sum(1 for line in lines_out if ITEM_LINE.match(line)) == count
             ok = ok and (
                 not argv or not any(LAST_LINE.match(line) for line in lines_out)
@@ -2374,6 +2623,8 @@ def self_test() -> int:
         + len(reports)
         + len(read_as_before)
         + len(unreadable)
+        + 6  # a manifest that is a list and one that is a string, each under three command lines
+        + len(version_read)
         + len(skipped)
         + len(listed)
         + 1  # no modules/

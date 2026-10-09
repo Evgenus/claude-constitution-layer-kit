@@ -21,6 +21,8 @@ title: <one line>
 status: active               # active | inactive — lifecycle, see the lifecycle rule below
 ```
 
+**One exception to the `id` rule:** where two items of one catalog — ids that share a prefix and a number — have both landed on the main branch, the one landed second is renumbered: its file and its `id` take a number the catalog has not held, and every reference to it in the tree is rewritten. The id it leaves is never reused.
+
 Creation and modification history is the repository's job — no envelope field duplicates git metadata.
 
 Additional fields are allowed and expected — upper layers (knowledge, binding) and individual modules extend the envelope; they never alter the meaning of the fields above. Schema: `schemas/document-frontmatter.schema.json`.
