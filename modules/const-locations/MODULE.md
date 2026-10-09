@@ -119,7 +119,7 @@ None: an advisory module claims no invariant. In its place, the rules, each `adv
 | C5.c | `constitution.yaml: const-locations.templates must be a list of {policy: <id>, template: <repository-relative path>}: one entry names one kind's template` — `write it as templates: [{policy: <id>, template: <path>}, ...], or remove the key` |
 | C5.d | `constitution.yaml: const-locations.templates[{n}] {what}; an entry the command cannot read names no template` — `write the entry as {policy: <id>, template: <repository-relative path>}` — `what` one of `is not a mapping`, `has no policy`, `has no template`, `carries an unknown key '{key}'`, `names policy '{id}' a second time`, `names a template outside the repository` — an absolute path, or one leaving the repository by `..`, read as limit 15 of [kit-shared-gate-code §4](../../shared/GATE.md#g4) says, with the platform's separator |
 
-**Installed components reference nothing in the kit.** The skills, scripts, error texts, fixtures and install note name no kit document; where the skills need the kernel's definitions they point at "the constitution's conventions page the project adopted". The reasoning lives here and in [§4](#t4).
+**Installed components reference nothing in the kit.** The skills, scripts, error texts and install note name no kit document, which `scripts/check-portability.py` in the kit holds for the installed components; where the skills need the kernel's definitions they point at "the constitution's conventions page the project adopted". The reasoning lives here and in [§4](#t4).
 
 <a id="t7"></a>
 ## 7. Dials
