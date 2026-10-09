@@ -121,8 +121,9 @@ run" (a hook's, "give the hook's command and args in hooks/hooks.json a command 
 and a path the check cannot look at (a folder on the way cannot be searched, an I/O error) one that names
 the path and "give the folder search permission, `chmod u+rx <folder>`", the same on every Python (the
 lookups of a path, an entry of a walk included), a missing path being the finding or failure it was. The
-walks themselves are a known limit: `Path.rglob` over a folder it cannot list raises on 3.12 and lists
-nothing on 3.14, and skips a subfolder it cannot list, so a file or link below one is not seen. A missing
+walks themselves are a known limit: `Path.rglob` lists nothing of a folder it cannot list, raises on 3.12
+for a folder below one that cannot be searched where 3.14 lists nothing, and skips a subfolder it cannot
+list, so a file or link below one is not seen. A missing
 hooks file or folder, a folder in the file's place (or a link to one), a dangling link or a link loop there,
 or a path through a file, gives no hooks; a link to a regular file is that file. Every other configuration
 failure prints a fix of its own, such as a commit the kit's history lacks and cannot fetch, a module
