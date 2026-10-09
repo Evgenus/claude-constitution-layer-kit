@@ -1314,7 +1314,38 @@ def empty_map() -> tuple[bool, str]:
     r = repo(own())
     branch(r.root)
     commit(r.root, "code", {"src/a.py": "2\n"})
-    return green_scan(scan(r.root), EMPTY)
+    on_branch = green_scan(scan(r.root), EMPTY)
+    # red→green: with zero pairs the trunk is not looked up — a repository whose only branch is master,
+    # no remote, is green, where a map would meet the C12 of a trunk found nowhere
+    r2 = repo(own())
+    git(r2.root, "branch", "-M", "master")
+    trunkless = green_scan(scan(r2.root), EMPTY)
+    r3 = repo(with_map())
+    git(r3.root, "branch", "-M", "master")
+    trunk_wanted = broken(scan(r3.root), no_trunk(r3.root))
+    # a flag's ref is still resolved: an unknown one is the failure it is with a map, a known one green
+    unknown = broken(
+        scan(r2.root, "--since", "nope"),
+        f"BROKEN: --since names 'nope', which git cannot resolve in {r2.root}: no such ref — fix: name a"
+        f" commit, branch or tag this repository has; {SHALLOW}",
+    )
+    known = all_of(
+        [
+            green_scan(scan(r2.root, "--since", "HEAD"), EMPTY),
+            green_scan(scan(r2.root, "--change", "HEAD"), EMPTY),
+        ],
+        "flags",
+    )
+    # no commit yet and zero pairs: the map's count, not the root's
+    empty = H.scratch_dir()
+    git(empty, "init", "-q")
+    (empty / "constitution.yaml").write_text(dials_text(own()), encoding="utf-8")
+    unborn = green_scan(scan(empty), EMPTY)
+    return all_of(
+        [on_branch, trunkless, trunk_wanted, unknown, known, unborn],
+        "an empty map examines zero pairs on a branch, on a repository with no trunk, and with no commit;"
+        " a flag's ref is still resolved",
+    )
 
 
 # ------------------------------------------------------------------ dials
