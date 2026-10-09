@@ -1221,7 +1221,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         results = [(label, expected, holds(*handlers)) for label, expected, handlers in cases]
         # D-a: a word outside the plugin, in a folder that cannot be searched. Where the filesystem will
         # not answer, `is_file` raises (Python 3.12) and the word counts as a script that cannot be read:
-        # red. Where it answers, as for root or on Python 3.14, the word is what the answer says.
+        # red. Where it answers, as for root or on a newer Python, the word is what the answer says.
         locked = h.scratch_dir() / "locked"
         locked.mkdir()
         (locked / "x.sh").write_text("exec python3 x.py\n", encoding="utf-8")
