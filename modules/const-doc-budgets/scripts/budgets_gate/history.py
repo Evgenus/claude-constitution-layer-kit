@@ -6,7 +6,10 @@ at its last commit; its longest is the longest version any commit of that day he
 force on the first day is read from the last commit before it, when there is one; otherwise the
 window starts on the first day a commit was made, so it never claims days no data stand behind. A
 departure lifts nothing here: the data are every document's, the frozen ones included, since a
-ceiling set from them must sit above them."""
+ceiling set from them must sit above them. A symbolic link is measured as the scan measures it: a link
+whose path is Markdown and that leads, within the commit's tree, to a file counts as that file at the
+link's own path, and a link to a folder, out of the tree, to nothing, or through more than `MAX_LINKS`
+links is left out."""
 
 from __future__ import annotations
 
@@ -24,6 +27,10 @@ from const_gate.territory import Matcher
 
 from . import messages
 from .model import BudgetDials, characters, longer, longest, rule_of_thumb
+
+# The links one resolution may pass before it gives up, as Linux's own path resolution does.
+MAX_LINKS = 40
+_LINK = "120000"  # the mode git gives a symbolic link
 
 
 @dataclass
@@ -43,7 +50,8 @@ def report(output: Output, root: Path, dials: BudgetDials, since: datetime.date)
     if not commits:
         output.out(messages.h1_no_commit(since))
         return EXIT_GREEN
-    trees = {sha: _markdown_blobs(root, sha) for sha, _ in commits}
+    links: dict[str, str] = {}  # a link's blob -> its target, read once for every commit
+    trees = {sha: _markdown_blobs(root, sha, links) for sha, _ in commits}
     every_path = sorted({path for blobs in trees.values() for path in blobs})
     with Matcher() as matcher:
         held = {c.name: set(matcher.match(c.paths, every_path)) for c in dials.ceilings}
@@ -101,35 +109,91 @@ def _commits(root: Path, since: datetime.date) -> list[tuple[str, datetime.date]
     return found
 
 
-def _markdown_blobs(root: Path, sha: str) -> dict[str, str]:
-    """{path: blob} of every Markdown file the commit's tree holds."""
-    blobs: dict[str, str] = {}
+def _markdown_blobs(root: Path, sha: str, links: dict[str, str]) -> dict[str, str]:
+    """{path: blob} of every Markdown file the commit's tree holds, a link at its own path standing for
+    the blob of the file it leads to, as the module docstring says. `links` caches each link's target
+    by its blob, across the commits of one report."""
+    files: dict[str, str] = {}
+    symlinks: dict[str, str] = {}
     listing = git(["ls-tree", "-r", "-z", sha], cwd=root)
     if listing.returncode != 0:
         raise ConfigurationFailure(messages.c12_git_history(first_line(listing.stderr)))
     for entry in os.fsdecode(listing.stdout).split("\0"):
         head, _, path = entry.partition("\t")
         parts = head.split()
-        if len(parts) == 3 and parts[1] == "blob" and is_markdown(path):
-            blobs[path] = parts[2]
+        if len(parts) == 3 and parts[1] == "blob":
+            (symlinks if parts[0] == _LINK else files)[path] = parts[2]
+    blobs = {path: blob for path, blob in files.items() if is_markdown(path)}
+    named = [path for path in symlinks if is_markdown(path)]
+    if named:
+        unread = sorted(set(symlinks.values()) - links.keys())
+        links.update({blob: os.fsdecode(text) for blob, text in _contents(root, unread).items()})
+        targets = {path: links[blob] for path, blob in symlinks.items()}
+        folders = {
+            "/".join(path.split("/")[:n])
+            for path in [*files, *symlinks]
+            for n in range(1, path.count("/") + 1)
+        }
+        for path in named:
+            blob = _resolve(path, files, targets, folders)
+            if blob is not None:
+                blobs[path] = blob
     return blobs
 
 
-def _lengths(root: Path, blobs: Sequence[str]) -> dict[str, int]:
-    """{blob: characters} — each blob read once, through one git process."""
+def _resolve(link: str, files: dict[str, str], targets: dict[str, str], folders: set[str]) -> str | None:
+    """The blob of the file the link at `link` leads to within the tree, or None: component by
+    component, as a system resolves a path — a link's target read from the link's own folder, `..` from
+    where the path stands once its links are followed. None for a folder, a target that leaves the tree
+    or is absolute, a name the tree does not hold, a file with more path after it, and a resolution that
+    passes more than `MAX_LINKS` links."""
+    *done, name = link.split("/")
+    pending = [name]  # the components still to walk, the next one last
+    passed = 0
+    while pending:
+        part = pending.pop()
+        if part in ("", "."):
+            continue
+        if part == "..":
+            if not done:
+                return None
+            done.pop()
+            continue
+        here = "/".join([*done, part])
+        if here in targets:
+            passed += 1
+            if passed > MAX_LINKS or targets[here].startswith("/"):
+                return None
+            pending.extend(reversed(targets[here].split("/")))
+        elif here in files:
+            return None if pending else files[here]
+        elif here in folders:
+            done.append(part)
+        else:
+            return None
+    return None
+
+
+def _contents(root: Path, blobs: Sequence[str]) -> dict[str, bytes]:
+    """{blob: bytes} — each blob read once, through one git process."""
     if not blobs:
         return {}
     done = git(["cat-file", "--batch"], cwd=root, stdin=("\n".join(blobs) + "\n").encode("ascii"))
     if done.returncode != 0:
         raise ConfigurationFailure(messages.c12_git_history(first_line(done.stderr)))
     data, at = done.stdout, 0
-    lengths: dict[str, int] = {}
+    contents: dict[str, bytes] = {}
     for _ in blobs:
         end = data.index(b"\n", at)
         sha, kind, size = data[at:end].decode("ascii").split(" ")
         if kind != "blob":
             raise ConfigurationFailure(messages.c12_git_history(f"{sha} is a {kind}, not a blob"))
         start = end + 1
-        lengths[sha] = characters(data[start : start + int(size)].decode("utf-8", "replace"))
+        contents[sha] = data[start : start + int(size)]
         at = start + int(size) + 1
-    return lengths
+    return contents
+
+
+def _lengths(root: Path, blobs: Sequence[str]) -> dict[str, int]:
+    """{blob: characters} — each blob read once, through one git process."""
+    return {sha: characters(text.decode("utf-8", "replace")) for sha, text in _contents(root, blobs).items()}
