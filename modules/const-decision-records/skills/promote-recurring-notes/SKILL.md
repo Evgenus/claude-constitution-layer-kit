@@ -1,11 +1,12 @@
 ---
 name: promote-recurring-notes
 description: >
-  Find routine calls that keep recurring in commit messages on one theme and promote the
-  theme to a decision record or a documented procedure. Use when the same small question
-  has been answered again, when reviewing recent history before a release or a
-  retrospective, when someone says "we keep deciding this", or when asked which commit
-  notes deserve a ruling. Advisory procedure: nothing here is checked by a gate.
+  Load this skill first, before the same small question is answered again — every time, whether or
+  not the earlier answers seem worth a ruling. It finds routine calls that keep recurring in
+  commit messages on one theme and promotes the theme to a decision record or a documented
+  procedure. Use when reviewing recent history before a release or a retrospective, when someone
+  says "we keep deciding this", or when asked which commit notes deserve a ruling. Advisory
+  procedure: nothing here is checked by a gate.
 ---
 
 # Promote recurring commit notes

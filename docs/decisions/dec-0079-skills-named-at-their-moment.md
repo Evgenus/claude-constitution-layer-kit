@@ -40,7 +40,7 @@ The session recommended B: A alone leaves the skills with no gate moment out, an
 
 **R1.** A gate whose module has a skill that teaches its rule names that skill in one shared line after the count line of every red the model reads: in the block, in the warn's context, in the reason of an `ask`, and in a scan's output. The user's notice on a turn's end at `warn`, which no model reads, does not carry it. The gate's identity maps each of its modes to the skill. Module [`const-interaction`](../requirements.md#const-interaction) has no skill, and its gate names none.
 
-**R2.** Modules [`const-catalogs`](../requirements.md#const-catalogs), [`const-language`](../requirements.md#const-language), [`const-meta-types`](../requirements.md#const-meta-types), [`const-referencing`](../requirements.md#const-referencing), [`const-styling`](../requirements.md#const-styling) and [`const-task-close`](../requirements.md#const-task-close) each print one advisory pointer line at session start: `<module> (advisory): before <the moment>, load the skill <module>:<skill>.` The six lines hold 1,247 characters together, not the 1,050 of the estimate the choice was put with; the plugin-qualified skill names make most of the difference. A module whose skill applies only after its gate's red, or whose skill already has a pointer, prints none.
+**R2.** Modules [`const-catalogs`](../requirements.md#const-catalogs), [`const-language`](../requirements.md#const-language), [`const-meta-types`](../requirements.md#const-meta-types), [`const-referencing`](../requirements.md#const-referencing), [`const-styling`](../requirements.md#const-styling) and [`const-task-close`](../requirements.md#const-task-close) each print one advisory pointer line at session start: `<module> (advisory): before <the moment>, load the skill <module>:<skill>.` The six lines hold 1,247 characters together, not the 1,050 of the estimate the choice was put with; the plugin-qualified skill names make most of the difference. A module whose skill applies only after its gate's red, or whose skill sessions were found to load at its moment, prints none, as R10 rules.
 
 **R3.** The decider's choice of B carried a condition: if the live proof of section 3 showed that a description which gives an order brings the loads by itself, the session would put the removal of R2's lines to the decider before the yes. The proof showed it for one skill, the question was put in section 3, and the decider kept the lines.
 
@@ -103,6 +103,26 @@ The session recommended B: the pointer lines showed no gain over a description t
 
 **R8.** For module [`const-styling`](../requirements.md#const-styling), R2 and R4 replace two items of dec-0044: its R4's "no `SessionStart` line" and its R9's "the module ships no hook". The module prints its pointer line at session start and at each subagent's start through two advisory hooks, and its scan still runs no hook, has no hook mode and no `severity` dial, as dec-0044's R9 ruled.
 
+## 5. How far the two rules reach
+
+The carry audit of this record found that the module template's skill row read as binding every module skill: each description opening with the order, and each skill that applies before a write named in a pointer line. The choices above applied them to seven skills and six modules. Six other skills stood outside: `record-decision` and `new-document`, loaded 6 times each in the study, `set-ceilings` twice, `new-kind` once, `promote-recurring-notes`, whose trigger is rare, never, and `ask-or-decide`, 45 times, with the order as its second sentence. Modules [`const-decision-records`](../requirements.md#const-decision-records), [`const-doc-budgets`](../requirements.md#const-doc-budgets) and [`const-locations`](../requirements.md#const-locations) print no pointer line.
+
+- **A. Narrow the template to what was applied:** the order and the pointer line bind a new skill and a skill found not to load at its moment; the six keep their descriptions.
+  - **Pros:** the choices as taken; skills that load are left alone.
+  - **Cons:** two kinds of description in the kit; "found not to load" needs a usage study before it applies.
+- **B. The order for every description; the pointer line only for a skill found not to load:** the five descriptions that open with what the skill does are reworded, and the order moves to the front of `ask-or-decide`; the pointer line is narrowed as in A.
+  - **Pros:** one rule for every description, at no cost per session, since the listing carries it already; the order is the variant that did best.
+  - **Cons:** six descriptions reworded beyond the seven of section 3, five of them of skills that load; one more round of fixtures, sizes and audit.
+- **C. Both rules everywhere:** B, with pointer lines and `SubagentStart` hooks in the three modules.
+  - **Pros:** uniform.
+  - **Cons:** about 600 more characters at every session's and every subagent's start, for skills with no measured reach problem; the kit ships no machinery for a failure no one has hit.
+
+The session recommended B: the description's order costs nothing to apply everywhere and did best, while a pointer line costs characters at every start and stays earned by evidence. The decider chose B in chat on 2026-10-10.
+
+**R9.** R6 holds for every module skill. The descriptions of `record-decision`, `promote-recurring-notes`, `set-ceilings`, `new-document` and `new-kind` are reworded to open with the order, and the order moves to the front of the description of `ask-or-decide`.
+
+**R10.** A pointer line of R2 is shipped only for a skill that applies before a write, or at a moment no gate meets, and that sessions were found not to load at that moment, since every session and every subagent pays for the line in characters.
+
 ## Applied
 
 The commits of this branch apply every item. The message of each commit names what it changed and the evidence that it is red without the change and green with it. The record was created `active` while its sections were drafted, and set `inactive` once every item was applied.
@@ -117,3 +137,5 @@ The commits of this branch apply every item. The message of each commit names wh
 6. R6 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, and [its example skill](../../module-template/skills/example-procedure/SKILL.md), the description.
 7. R7 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, which asks for both the order and the pointer.
 8. R8 — [`const-styling`](../../modules/const-styling/MODULE.md#t6), the hook row and the always-on content of section 6.
+9. R9 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, which binds every skill's description.
+10. R10 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, the sentence on the pointer line.

@@ -1,13 +1,15 @@
 ---
 name: record-decision
 description: >
-  Price a decision by its stakes and, when it is a recorded one, write the decision record:
-  envelope with stakes and decider, body with the options, pros and cons, one recommendation
-  and the choice. Use when a ruling is being made or has just been made in the dialog — a
-  policy, procedure or harness ruling, a user-visible behaviour, a structural choice — when
-  unsure whether a call deserves a record or only a commit note, when reversing an earlier
-  ruling, or when a write was blocked for a record's stakes or decider. Advisory: it shapes
-  the triage and the body; the write-time gate checks only type, stakes and decider.
+  Load this skill first, before a ruling made in the dialog is written down or left as a commit
+  note — every time, whether or not its stakes seem plain. It prices a decision by its stakes and,
+  when it is a recorded one, writes the decision record: envelope with stakes and decider, body
+  with the options, pros and cons, one recommendation and the choice. Use when a ruling is being
+  made or has just been made in the dialog — a policy, procedure or harness ruling, a user-visible
+  behaviour, a structural choice — when unsure whether a call deserves a record or only a commit
+  note, when reversing an earlier ruling, or when a write was blocked for a record's stakes or
+  decider. Advisory: it shapes the triage and the body; the write-time gate checks only type,
+  stakes and decider.
 ---
 
 # Record a decision

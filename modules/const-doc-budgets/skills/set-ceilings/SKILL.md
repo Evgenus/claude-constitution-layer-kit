@@ -1,13 +1,14 @@
 ---
 name: set-ceilings
 description: >
-  Set a character ceiling for a group of documents from the repository's own history, and read a
-  finding of the length check: a document over its ceiling, a note at warning, a ceiling refused
-  for too few days of data, two ceilings holding one document. Use when a group of documents is
-  to be measured for the first time, when a ceiling is raised, lowered or moved to error, when the
-  check reports after a write or in its scan, when a document must stand over its ceiling, and
-  when the history report is read. Advisory: it shapes the numbers and the cuts; the check holds
-  the count, the ceilings and the 30 days.
+  Load this skill first, before a ceiling is set, raised, lowered or moved to error, and before a
+  finding of the length check is fixed — every time, whether or not the number seems obvious. It
+  sets a character ceiling for a group of documents from the repository's own history, and reads a
+  finding of the check: a document over its ceiling, a note at warning, a ceiling refused for too
+  few days of data, two ceilings holding one document. Use when a group of documents is to be
+  measured for the first time, when the check reports after a write or in its scan, when a
+  document must stand over its ceiling, and when the history report is read. Advisory: it shapes
+  the numbers and the cuts; the check holds the count, the ceilings and the 30 days.
 ---
 
 # Set ceilings

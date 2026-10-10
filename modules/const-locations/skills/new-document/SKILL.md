@@ -1,12 +1,13 @@
 ---
 name: new-document
 description: >
-  Create a governed document in its canonical home, from its policy's template, with a valid
-  envelope, through this plugin's command instead of writing the file by hand. Use when about
-  to create any new Markdown document in a repository that has a constitution.yaml — a policy,
-  a record, a note, a comparison, a module document — when asked "write a policy for…", "add a
-  note about…", "start a document on…", and when unsure where a new document goes or what its
-  envelope must say. Advisory: it shapes how documents are born; nothing here blocks a write.
+  Load this skill first, before any new Markdown document is created in a repository that has a
+  constitution.yaml — a policy, a record, a note, a comparison, a module document — every time,
+  whether or not its home seems known. It creates the document in its canonical home, from its
+  policy's template, with a valid envelope, through this plugin's command instead of writing the
+  file by hand. Use when asked "write a policy for…", "add a note about…", "start a document on…",
+  and when unsure where a new document goes or what its envelope must say. Advisory: it shapes how
+  documents are born; nothing here blocks a write.
 arguments: [kind, stem]
 allowed-tools: Bash(sh ${CLAUDE_PLUGIN_ROOT}/scripts/new-document.sh *)
 ---
