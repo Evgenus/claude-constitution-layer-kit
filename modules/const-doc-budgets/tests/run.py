@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -650,9 +651,17 @@ def t13() -> tuple[bool, str]:
     return all_of(exactly(scan(root), 2, wanted), exactly(scan(cut), 0, cut_wanted))
 
 
-def history_repo(dates: Sequence[tuple[str, dict[str, str | None]]]) -> Path:
-    """A repository whose first-parent line is the given commits, each at its date: {path: text}, None
-    deleting the file. No other commit, so the report's numbers depend on nothing else."""
+@dataclass(frozen=True)
+class Link:
+    """A symbolic link a commit holds, its target written as git stores it."""
+
+    target: str
+
+
+def history_repo(dates: Sequence[tuple[str, dict[str, str | Link | None]]]) -> Path:
+    """A repository whose first-parent line is the given commits, each at its date: {path: text}, a
+    `Link` making the path a symbolic link, None deleting the file. No other commit, so the report's
+    numbers depend on nothing else."""
     root = H.scratch_dir()
     consumer = Consumer(root)
     consumer.write("constitution.yaml", dials_text())
@@ -661,6 +670,9 @@ def history_repo(dates: Sequence[tuple[str, dict[str, str | None]]]) -> Path:
         for rel, text in files.items():
             if text is None:
                 (root / rel).unlink()
+            elif isinstance(text, Link):
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                os.symlink(text.target, root / rel)
             else:
                 consumer.write(rel, text)
         env = {**os.environ, "GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp}
@@ -674,7 +686,7 @@ def history_repo(dates: Sequence[tuple[str, dict[str, str | None]]]) -> Path:
     return root
 
 
-HISTORY: list[tuple[str, dict[str, str | None]]] = [
+HISTORY: list[tuple[str, dict[str, str | Link | None]]] = [
     ("2026-08-10T10:00:00+0000", {"docs/notes/a.md": doc(50)}),
     ("2026-08-11T09:00:00+0000", {"docs/notes/a.md": doc(80)}),
     ("2026-08-11T17:00:00+0000", {"docs/notes/a.md": doc(60), "docs/notes/b.md": doc(70)}),
@@ -872,6 +884,57 @@ def t23() -> tuple[bool, str]:
             twice,
             0,
             green("300 characters; the ceiling 'notes' is lifted by const-doc-budgets.departures entry 1"),
+        ),
+    )
+
+
+def t24() -> tuple[bool, str]:
+    """The report measures a symbolic link as the scan does: a link to a file in the tree is that file
+    at the link's own path, through a chain and a linked folder too; a link to a folder, out of the
+    tree, absolute, to a file with a slash after it, to nothing or through a missing folder, or in a
+    loop is left out."""
+    root = history_repo(
+        [
+            (
+                "2026-08-20T09:00:00+0000",
+                {
+                    "docs/notes/a.md": doc(50),
+                    "docs/long.md": doc(90),
+                    "docs/other/x.md": doc(30),
+                    "docs/hop": Link("notes/a.md"),
+                    "docs/dir": Link("notes"),
+                    "docs/notes/link.md": Link("../long.md"),
+                    "docs/notes/chain.md": Link("../hop"),
+                    "docs/notes/via.md": Link("../dir/a.md"),
+                    "docs/notes/folder.md": Link("../other"),
+                    "docs/notes/out.md": Link("../../../docs/long.md"),
+                    "docs/notes/abs.md": Link("/../long.md"),
+                    "docs/notes/slash.md": Link("../long.md/"),
+                    "docs/notes/gone.md": Link("missing.md"),
+                    "docs/notes/ghost.md": Link("../nothere/../long.md"),
+                    "docs/notes/loop.md": Link("loop.md"),
+                },
+            )
+        ]
+    )
+    return all_of(
+        exactly(
+            scan(root, "--since", "2026-08-20"),
+            0,
+            "2026-08-20 notes: 4 document(s) at the day's last commit, the longest of the day"
+            " docs/notes/link.md at 90\n"
+            "window notes: 2026-08-20 to 2026-08-20, a span of 0 day(s), the longest docs/notes/link.md at"
+            " 90; plus 10 % rounded up to 1,000: 1,000; set now: 100\n"
+            "const-doc-budgets: history since 2026-08-20 — 1 commit(s) of the first-parent line read, 1"
+            " day(s) with data, 1 ceiling(s); a report, nothing judged\n",
+        ),
+        exactly(  # the scan of the same tree holds the same four documents and names the same longest
+            scan(root),
+            0,
+            "note: ceiling 'notes' — 100 characters, error, window 2026-08-01 to 2026-09-01: 4 document(s),"
+            " the longest docs/notes/link.md at 90, 10 to spare\n"
+            "GREEN: const-doc-budgets: 4 document(s) measured under 1 ceiling(s) and 0 departure(s), 6"
+            " Markdown file(s) scanned\n",
         ),
     )
 
@@ -1225,6 +1288,7 @@ ITEMS = [
         "scan margins: at the ceiling, all lifted, a tie named in path order, two departures on one file",
         t23,
     ),
+    (24, "report: a link to a file measured as that file, as the scan does; other links left out", t24),
 ]
 
 NOTED = Write("docs/notes/ok.md", doc(151))
