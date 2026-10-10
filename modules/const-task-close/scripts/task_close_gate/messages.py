@@ -56,7 +56,7 @@ def t1_dirty_tree(lines: Sequence[str]) -> Finding:
         "rollback points live in git, not in the chat's rewind, which does not see edits made through"
         " the shell, a script or a subagent — work not committed did not happen",
         "commit what is finished: git add -A && git commit -m '<what changed and why>' — stash or discard"
-        " what is not; this is asked once per turn, and the rule is the skill commit-before-edit",
+        " what is not; this is asked once per turn",
     )
 
 

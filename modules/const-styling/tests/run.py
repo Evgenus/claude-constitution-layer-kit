@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
 import sys
 import textwrap
 from collections.abc import Callable, Sequence
@@ -53,6 +54,18 @@ SIGNATURES = len(Signature)
 GUIDE = MODULE_ROOT / "skills" / "style-defaults" / "style-guide.md"
 SKILL = MODULE_ROOT / "skills" / "style-defaults" / "SKILL.md"
 
+
+# the line a red ends with (F10), typed by hand
+F10 = (
+    "const-styling: load the skill const-styling:style-defaults before you fix this"
+    " — it teaches the rule and the fix\n"
+)
+
+# the pointer line printed at session start and at each subagent's start, typed by hand
+POINTER = (
+    "const-styling (advisory): before writing a table, a diagram, a list, a formula, a heading below level"
+    " three, a callout or a fenced block in a document, load the skill const-styling:style-defaults."
+)
 
 # a file name of over 80 characters holding a line break and a backslash: the real name, and the text the
 # scan shows for it, typed by hand — the whole name, since a path is what the reader opens
@@ -168,7 +181,7 @@ def t1() -> tuple[bool, str]:
         "RED: 1 finding(s) — 4 document(s) examined for 12 signature(s) under 0 departure(s), 4 Markdown"
         " file(s) scanned"
     )
-    red_ok = result.code == 2 and result.stdout.strip() == wanted
+    red_ok = result.code == 2 and result.stdout == wanted + "\n" + F10
     bare = one_finding(
         {"docs/notes/d.md": PLANTUML_BARE},
         "docs/notes/d.md:4: PlantUML, where the shipped default is Mermaid — @startuml",
@@ -983,6 +996,69 @@ def t20() -> tuple[bool, str]:
     return not problems, "; ".join(problems) or "C1, C2, C14 and C15 close with the gate's own clause"
 
 
+def skill_pointer() -> tuple[bool, str]:
+    """The pointer, run through sh: exit 0, the line as typed here and a newline, nothing on stderr; with
+    --subagent one JSON object whose hookSpecificOutput is the event name and the line, nothing else; the
+    size in characters is the one the module document states; the qualified name names a skill folder."""
+    script = str(SCRIPTS / "print-skill-pointer.sh")
+    session = subprocess.run([H.sh, script], capture_output=True, text=True, check=False)
+    if session.returncode != 0 or session.stdout != POINTER + "\n" or session.stderr != "":
+        return False, repr(session)
+    subagent = subprocess.run([H.sh, script, "--subagent"], capture_output=True, text=True, check=False)
+    if subagent.returncode != 0 or subagent.stderr != "" or not subagent.stdout.endswith("\n"):
+        return False, repr(subagent)
+    printed = json.loads(subagent.stdout)
+    wanted = {"hookEventName": "SubagentStart", "additionalContext": POINTER}
+    if list(printed) != ["hookSpecificOutput"] or printed["hookSpecificOutput"] != wanted:
+        return False, f"the subagent form differs: {subagent.stdout}"
+    size = len(POINTER)
+    stated = re.search(
+        r"pointer line, (\d+) characters", (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
+    )
+    if not stated or int(stated.group(1)) != size:
+        return False, f"the module document states another size than {size}"
+    named = re.search(r"load the skill (const-styling):([a-z-]+)\.$", POINTER)
+    if not named or not (MODULE_ROOT / "skills" / named.group(2) / "SKILL.md").is_file():
+        return False, "the qualified skill name in the line names no folder under skills/"
+    return (
+        True,
+        f"exit 0, the line as typed, {size} characters as the module document states, JSON form exact",
+    )
+
+
+def hooks_file() -> tuple[bool, str]:
+    """The hooks file holds the two advisory handlers and nothing else: SessionStart and SubagentStart,
+    each without a matcher, exec form sh, the script in args (the second with --subagent), an integer
+    timeout, the script present."""
+    hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    pointer = "${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh"
+    wanted = {"SessionStart": [pointer], "SubagentStart": [pointer, "--subagent"]}
+    problems = [name for name in wanted if name not in hooks] + [name for name in hooks if name not in wanted]
+    for name, args in wanted.items():
+        groups = hooks.get(name, [])
+        if len(groups) != 1:
+            problems.append(f"{name}: {len(groups)} handler(s)")
+        for group in groups:
+            handler = group["hooks"][0]
+            right = (
+                "matcher" not in group
+                and len(group["hooks"]) == 1
+                and handler.get("type") == "command"
+                and handler.get("command") == "sh"
+                and handler.get("args") == args
+                and isinstance(handler.get("timeout"), int)
+                and (SCRIPTS / Path(args[0]).name).is_file()
+            )
+            if not right:
+                problems.append(f"{name}: {group}")
+    return (
+        not problems,
+        "SessionStart and SubagentStart, no matcher, exec form, integer timeouts, the script present"
+        if not problems
+        else str(problems),
+    )
+
+
 # ---------------------------------------------------------------- the twelve red→green cases
 
 
@@ -1058,6 +1134,16 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
     (18, "the manifest names the plugin; the install note's example accepted and describes the keys", t18),
     (19, "golden lines: the why and the fix of every finding typed whole", t19),
     (20, "C1, C2, C14 and C15 close with the gate's own clause, and the entry files carry it", t20),
+    (
+        33,
+        "the session-start and subagent pointer as typed, its size stated, the skill it names present",
+        skill_pointer,
+    ),
+    (
+        34,
+        "the hooks file holds the two advisory handlers: SessionStart and SubagentStart, exec form",
+        hooks_file,
+    ),
 ]
 
 SUBJECT = Subject(
@@ -1076,6 +1162,7 @@ SUBJECT = Subject(
     long_value=Write("docs/notes/long.md", "# T\n\n* " + "x" * 12000 + "\n"),
     scan_only=True,
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
+    skill="style-defaults",  # the skill a red names (F10), typed by hand
 )
 
 

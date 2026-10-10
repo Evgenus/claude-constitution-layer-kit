@@ -8,11 +8,13 @@ from pathlib import Path
 
 from const_gate import cli
 from const_gate.identity import Identity
+from const_gate.model import Mode
 
 GATE = Identity(
     namespace="const-referencing",
     gate="check-references",
     plugin_root=Path(__file__).resolve().parents[2],
+    skills={Mode.HOOK: "referencing", Mode.SCAN: "referencing"},  # the skill a red names (F10)
 )
 
 

@@ -666,6 +666,7 @@ SUBJECT = Subject(
     judges_envelopes=False,
     long_value=wrote("[decide:" + "x" * 11992 + "\n"),
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
+    skill="ask-or-decide",  # the skill a red names (F10), typed by hand
 )
 
 if __name__ == "__main__":

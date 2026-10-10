@@ -6,7 +6,7 @@ reported at the first turn end, a missing git too, each with the fix on the firs
 silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
-   session). One hook: at the end of every turn the working tree of the session's repository is
+   session). Two hooks print the pointer line, below, at session start and at each subagent's start. The third: at the end of every turn the working tree of the session's repository is
    examined, and a dirty tree — any tracked change or untracked file git does not ignore — is
    reported once: under the default `severity: block` the model receives the finding and the
    turn continues once, for the commit; under `warn` the user is shown the finding as a notice
@@ -88,8 +88,8 @@ silently skipped.
    git 2.45 or newer, since item 36 builds a repository in each ref store; on an older git that item
    is red and the rest run.
 9. CLAUDE.md pointer: none. The skills `/const-task-close:close-task` and
-   `/const-task-close:commit-before-edit` load on their own when a task is being finished or a
-   batch of edits begins; the hook's message names the second.
+   `/const-task-close:commit-before-edit` are named at their moment: by the pointer line printed at
+   session start and at each subagent's start (251 characters, advisory), and by the line after the count line of every red of the turn-end hook the model reads, and of the scan.
 
 What this module does not check: whether a document update is right; whether a declaration is
 true; whether a file is a working file (a `working_files` match is a note); a change merged into

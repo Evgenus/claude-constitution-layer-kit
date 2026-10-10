@@ -6,9 +6,10 @@ reported at session start and on the first `Write` or `Edit` of any file, a miss
 one of a Markdown file, each with the fix on the first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
-   session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the
+   session). Four hooks. At every session start — startup, resume, clear, compaction, fork — the
    plugin prints one line into the model's context while `catalogs` lists nothing, saying so (the
-   transcript does not show it), and nothing once a catalog is listed. The write-time hook fires on
+   transcript does not show it), and nothing once a catalog is listed. It also prints, at every
+   session start and at every subagent's start, one line naming the skill (step 7). The write-time hook fires on
    every `Write` and `Edit`; it examines Markdown files in a listed catalog's territory and nothing else.
    A copy of this plugin's folder made outside the repository it comes from must follow links
    (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
@@ -68,8 +69,9 @@ one of a Markdown file, each with the fix on the first line; nothing is silently
    Set `log_dir` to keep it inside the repository instead; the directory must be git-ignored,
    and the gate refuses to run otherwise. The log rotates at 1 MiB.
 6. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
-7. CLAUDE.md pointer: none. The skill `/const-catalogs:catalog-item` loads on its own when a
-   numbered document is being created, renumbered, listed or cited.
+7. CLAUDE.md pointer: none. The skill `/const-catalogs:catalog-item` is named at the moments it
+   applies: by a pointer line printed at every session start and at every subagent's start (226
+   characters, advisory), and by a line after every red of the gate.
 
 What this module does not check: the rest of the envelope, which policy governs a document,
 whether a number was skipped (a gap is legitimate), and a file that carries a catalog's prefix

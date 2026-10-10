@@ -1,9 +1,12 @@
 ---
 name: example-procedure
 description: >
-  Replace: when this skill should trigger, phrased by activity
-  ("when creating a governed document", "when closing a story"), plus
-  the trigger phrases a session would naturally contain.
+  Replace: open with the order "Load this skill first, before <the moment
+  it applies> — every time, whether or not <the choice> seems known.", then
+  what the skill does, then "Use when" and its other moments, phrased by
+  activity ("when creating a governed document", "when closing a story")
+  with the phrases a session would naturally contain, and last "Advisory:"
+  with what the skill shapes and what a gate holds.
 ---
 
 # <Procedure name>

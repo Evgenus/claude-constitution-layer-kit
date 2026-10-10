@@ -1,12 +1,12 @@
 ---
 name: choose-meta-type
 description: >
-  Choose the meta-type of a governed Markdown document (current-state, task-record,
-  non-authoritative) before creating or reclassifying one, and split a document that
-  mixes how things are with where they should go. Use when creating a document in
-  claimed territory, when unsure whether a document binds, or when a write was blocked
-  for an invalid type. Advisory: it shapes the choice; the write-time gate checks only
-  that the type is one of the three.
+  Load this skill first, before creating a governed Markdown document or changing its type — every
+  time, whether or not the type seems obvious. It chooses the meta-type (current-state,
+  task-record, non-authoritative) and splits a document that mixes how things are with where they
+  should go. Use when creating a document in claimed territory, when unsure whether a document
+  binds, or when a write was blocked for an invalid type. Advisory: it shapes the choice; the
+  write-time gate checks only that the type is one of the three.
 paths: "**/*.md"
 ---
 

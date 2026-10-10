@@ -39,6 +39,7 @@ The specification's optional dial, "default policy for otherwise-unclaimed gover
 5. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) and [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md) — the script rules the generator follows and the shared code it links, on the pattern of the fourth module's second entry point.
 6. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 7. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
+8. [dec-0079-skills-named-at-their-moment](../../docs/decisions/dec-0079-skills-named-at-their-moment.md) — the descriptions of `new-document` and `new-kind` open with the order to load the skill before their moment; the module prints no pointer line, since sessions were found to load both skills.
 
 <a id="t5"></a>
 ## 5. Invariant
@@ -71,7 +72,7 @@ None: an advisory module claims no invariant. In its place, the rules, each `adv
 | command | none | a command file is the legacy form of a skill and cannot carry the named arguments or the pre-approval. |
 | agent | none | creating a document is one step of the dialog that asked for it, not a delegation. |
 
-- **Always-on content:** none printed; the descriptions of `new-document` and `new-kind` stand in the skill listing, 553 and 498 characters; the comparison's four live runs show the model reaching `new-document` from the listing before writing.
+- **Always-on content:** none printed; the descriptions of `new-document` and `new-kind` stand in the skill listing, 619 and 551 characters; the comparison's four live runs show the model reaching `new-document` from the listing before writing.
 - **Platform facts relied on** (verified 2026-09-22, fact 7 on 2026-09-23, against the official documentation; sources in the research comparison, section 9):
   1. A skill's `arguments` list names positional arguments; `$kind` and `$stem` expand in the skill's content, an unfilled one to the empty string. Breaks: the arguments the skill hands to the command.
   2. `${CLAUDE_PLUGIN_ROOT}` is substituted in a plugin skill's content and in Bash rules of its `allowed-tools`, and is not set in the Bash tool's environment; the skill writes the placeholder, never the variable. Breaks: the command line, and the pre-approval of a human-invoked skill.

@@ -1,12 +1,12 @@
 ---
 name: new-kind
 description: >
-  Introduce a new document kind: its policy first — a process-stakes decision — then its
-  territory line in constitution.yaml, then the first document, in that order. Use when a
-  document is asked for that no policy covers, when the create-document command refuses a kind
-  as "not a policy", when a new directory of documents is about to be started, and when a
-  repository has no constitution.yaml yet and its first governed document is due. Advisory:
-  nothing here blocks a write; the order is the rule.
+  Load this skill first, before a document is started that no policy covers, or a new directory of
+  documents — every time, whether or not a kind seems to exist. It introduces a new document kind:
+  its policy first — a process-stakes decision — then its territory line in constitution.yaml,
+  then the first document, in that order. Use when the create-document command refuses a kind as
+  "not a policy", and when a repository has no constitution.yaml yet and its first governed
+  document is due. Advisory: nothing here blocks a write; the order is the rule.
 allowed-tools: Bash(sh ${CLAUDE_PLUGIN_ROOT}/scripts/new-document.sh *)
 ---
 

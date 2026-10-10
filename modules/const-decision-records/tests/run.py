@@ -953,6 +953,7 @@ SUBJECT = Subject(
     long_value=Write(RECORD_A, record(stakes="x" * 12_000)),
     # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
     outside="docs/decisions/a.md is not governed by a record policy (records-policy)",
+    skill="record-decision",  # the skill a red names (F10), typed by hand
 )
 
 if __name__ == "__main__":

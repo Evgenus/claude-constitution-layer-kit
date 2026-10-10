@@ -21,6 +21,7 @@ import os
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import time
 from collections.abc import Callable, Sequence
@@ -63,6 +64,10 @@ INSTALL = MODULE_ROOT / "INSTALL.md"
 MANIFEST = MODULE_ROOT / ".claude-plugin" / "plugin.json"
 HOOKS = MODULE_ROOT / "hooks" / "hooks.json"
 DOC = "docs/notes/c.md"
+# the line after the count line of every red (F10 of the shared gate code), typed by hand once
+F10 = "const-language: load the skill const-language:plain-language before you fix this — it teaches the rule and the fix"  # noqa: E501 — a golden line is typed whole
+# the line printed at session start and at each subagent's start, typed by hand once
+POINTER = "const-language (advisory): before writing or editing prose in a document the language check covers, and when the check reports a finding, load the skill const-language:plain-language."  # noqa: E501 — a golden line is typed whole
 
 # Documents the items share. Vale 3.23.0 counts these as the numbers below (E1 of the comparison);
 # a later Vale that counts syllables differently changes the grade and this fixture says so.
@@ -326,7 +331,8 @@ def t4() -> tuple[bool, str]:
     long_path = (  # the path whole in the headline and in the count line, though over 80 characters
         weird.stderr.splitlines()[0]
         == "RED: " + WEIRD_SHOWN + ":3: 'prior to' where the plain word is 'before'"
-        and weird.stderr.splitlines()[-1] == "RED: 1 finding(s) — 1 document examined (" + WEIRD_SHOWN + ")",
+        and weird.stderr.splitlines()[-2:]
+        == ["RED: 1 finding(s) — 1 document examined (" + WEIRD_SHOWN + ")", F10],
         "the path whole and escaped: " + weird.stderr[:400],
     )
     typed = (
@@ -1138,6 +1144,7 @@ def t15() -> tuple[bool, str]:
             "  why: a long or formal word costs a non-native reader a dictionary where the plain one does not",  # noqa: E501 — a golden line is typed whole
             f"  fix: write 'before'; a word this repository keeps on purpose is named in const-language.exceptions in constitution.yaml{ALLOW_SIMPLER}",  # noqa: E501 — a golden line is typed whole
             "RED: 5 finding(s) — 4 document(s) examined under a grade ceiling of 10 and 25 words per sentence and 0 departure(s), 4 Markdown file(s) scanned",  # noqa: E501 — a golden line is typed whole
+            F10,
             "",
         ]
     )
@@ -1163,6 +1170,31 @@ def t15() -> tuple[bool, str]:
     )
 
 
+def pointer_wiring(hooks: dict[str, list[dict[str, object]]]) -> tuple[bool, str]:
+    """SessionStart and SubagentStart: one handler each, no matcher, exec form sh, an integer timeout,
+    the script there."""
+    wanted = {
+        "SessionStart": ["${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh"],
+        "SubagentStart": ["${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh", "--subagent"],
+    }
+    for event, args in wanted.items():
+        entries = hooks.get(event, [])
+        handlers = entries[0].get("hooks") if len(entries) == 1 else None
+        if (
+            not isinstance(handlers, list)
+            or len(handlers) != 1
+            or "matcher" in entries[0]
+            or handlers[0].get("type") != "command"
+            or handlers[0].get("command") != "sh"
+            or handlers[0].get("args") != args
+            or not isinstance(handlers[0].get("timeout"), int)
+        ):
+            return False, f"{event} is not one handler, no matcher, exec form sh, integer timeout: {entries}"
+    if not (SCRIPTS / "print-skill-pointer.sh").is_file():
+        return False, "scripts/print-skill-pointer.sh is missing"
+    return True, "SessionStart and SubagentStart: one handler each, no matcher, sh, integer timeout"
+
+
 # Seconds the handler keeps beyond its waits, for the interpreter's start, the module's own reading and git
 # while git is quick: no bound on git. Several shared git calls, each under their 3 s, can pass them
 # (limit 16 of shared/GATE.md §4). The version probe has VERSION_SECONDS of its own and the run
@@ -1171,9 +1203,10 @@ LEFT_FOR_THE_REST = 5
 
 
 def t16() -> tuple[bool, str]:
-    """The skill's description is under the platform's cap; the hook is wired after the write, and only
-    then, with an integer timeout that holds the version probe, then the run, and LEFT_FOR_THE_REST, both
-    read from the module's own code; the manifest names the plugin at a draft version; the install note's
+    """The skill's description is under the platform's cap; the hook is wired after the write, and
+    besides it only the two pointer events (the pointer's own item proves what they print), with an
+    integer timeout that holds the version probe, then the run, and LEFT_FOR_THE_REST, both read from
+    the module's own code; the manifest names the plugin at a draft version; the install note's
     calibration example is accepted."""
     texts = {p.name: p.read_text(encoding="utf-8") for p in (SKILL, INSTALL, MANIFEST)}
     front = yaml.safe_load(texts["SKILL.md"].split("---")[1])
@@ -1197,11 +1230,12 @@ def t16() -> tuple[bool, str]:
             f"the module document states the size: {stated.group(1) if stated else 'none'}",
         ),
         (
-            list(hooks) == ["PostToolUse"]
+            list(hooks) == ["PostToolUse", "SessionStart", "SubagentStart"]
             and entry["matcher"] == "Write|Edit"
             and entry["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/check-language.sh"],
-            "PostToolUse on Write|Edit through the plugin root, no other event",
+            "PostToolUse on Write|Edit through the plugin root, and the two pointer events, no other",
         ),
+        pointer_wiring(hooks),
         (
             isinstance(timeout, int) and timeout >= needed,
             f"timeout {timeout} s holds the {needed} s it needs: version probe {vale.VERSION_SECONDS} s"
@@ -1430,6 +1464,48 @@ CASES = [
 ]
 
 
+def ran_pointer(*args: str) -> Result:
+    done = subprocess.run(
+        [H.sh, str(SCRIPTS / "print-skill-pointer.sh"), *args],
+        input="{}",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return Result(done.returncode, done.stdout, done.stderr)
+
+
+def t20() -> tuple[bool, str]:
+    """The pointer, run through sh: exit 0, the line typed here and nothing on stderr; with --subagent
+    one JSON object that adds the same line to the subagent's context and nothing else; the line is of
+    the size the module document states and names a skill folder."""
+    plain = ran_pointer()
+    sub = ran_pointer("--subagent")
+    if (plain.code, plain.stdout, plain.stderr) != (0, POINTER + "\n", ""):
+        return False, f"session start: {plain}"
+    if sub.code != 0 or sub.stderr != "":
+        return False, f"subagent start: {sub}"
+    try:
+        answer = json.loads(sub.stdout)
+    except json.JSONDecodeError:
+        return False, f"subagent start is not JSON: {sub.stdout!r}"
+    shown = {"hookEventName": "SubagentStart", "additionalContext": POINTER}
+    if answer != {"hookSpecificOutput": shown} or sub.stdout.count("\n") != 1:
+        return False, f"subagent start: {sub.stdout!r}"
+    stated = re.search(
+        r"pointer line, (\d+) characters", (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
+    )
+    if not stated or int(stated.group(1)) != len(POINTER):
+        return False, f"the module document states another size than {len(POINTER)}"
+    named = re.search(r"load the skill const-language:([a-z-]+)", POINTER)
+    if not named or not (MODULE_ROOT / "skills" / named.group(1) / "SKILL.md").is_file():
+        return False, "the line names no folder under skills/"
+    return (
+        True,
+        f"exit 0, the line as typed, {len(POINTER)} characters as the module document states, plain and JSON",
+    )
+
+
 # ---------------------------------------------------------------- the list
 
 ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
@@ -1477,6 +1553,12 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         "departures: by pattern, by path, one rule at a time; a stale entry is a note; the hook honours one",
         t19,
     ),
+    (
+        20,
+        "the skill pointer: the line typed whole at session start and as a subagent's context; its size"
+        " stated; its skill a folder",
+        t20,
+    ),
 ]
 
 SUBJECT = Subject(
@@ -1499,6 +1581,7 @@ SUBJECT = Subject(
     note=f"note: {DOC}:3: passive voice — 'was written' — reported, not red, while"
     " const-language.levels.passive is warning",
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
+    skill="plain-language",  # the skill a red names (F10), typed by hand
 )
 
 

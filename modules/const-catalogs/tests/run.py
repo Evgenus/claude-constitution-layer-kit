@@ -10,7 +10,7 @@ a catalog is declared in this module's own dial, with a territory no policy clai
 item writes that dial — through the case's setup for the red→green cases, through `gate_on`
 for the assertions. The shared items about the root policy and the policies' documents are
 not this gate's, and are left out; their numbers stay free. The session-start printer is the
-second entry point, driven through its own items (T74–T77).
+second entry point, driven through its own items (T74–T77); the skill pointer, a third, is T78.
 """
 
 from __future__ import annotations
@@ -1212,35 +1212,96 @@ LEFT_FOR_THE_REST = 5
 
 
 def hooks_file_shape() -> tuple[bool, str]:
-    """A SessionStart handler with no matcher and a PreToolUse handler on Write|Edit, exec form, the
-    placeholder in args, timeouts. The PreToolUse timeout holds the history read the hook waits on
-    and LEFT_FOR_THE_REST; the session-start printer reads no history."""
+    """Two SessionStart handlers (the printer of the dial's state, the skill pointer) and a SubagentStart
+    handler, each with no matcher, and a PreToolUse handler on Write|Edit, exec form, the placeholder in
+    args, integer timeouts, every script present. The PreToolUse timeout holds the history read the hook
+    waits on and LEFT_FOR_THE_REST; the two printers read no history."""
     hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
-    start_hook = hooks["SessionStart"][0]
+    root = "${CLAUDE_PLUGIN_ROOT}/scripts/"
+    wanted: dict[str, list[list[str]]] = {
+        "SessionStart": [[root + "session-start.sh"], [root + "print-skill-pointer.sh"]],
+        "SubagentStart": [[root + "print-skill-pointer.sh", "--subagent"]],
+        "PreToolUse": [[root + "check-catalog-item.sh"]],
+    }
+    if set(hooks) != set(wanted):
+        return False, f"events {sorted(hooks)}, wanted {sorted(wanted)}"
+    for event, args_lists in wanted.items():
+        groups = hooks[event]
+        if [[handler["args"] for handler in group["hooks"]] for group in groups] != [
+            [args] for args in args_lists
+        ]:
+            return False, f"{event}: handlers {groups}"
+        for group in groups:
+            handler = group["hooks"][0]
+            if handler["type"] != "command" or handler["command"] != "sh":
+                return False, f"{event}: not exec form `sh`: {handler}"
+            if not isinstance(handler["timeout"], int) or isinstance(handler["timeout"], bool):
+                return False, f"{event}: timeout is no integer: {handler}"
+            if not (MODULE_ROOT / "scripts" / Path(handler["args"][0]).name).is_file():
+                return False, f"{event}: no script {handler['args'][0]}"
+            if ("matcher" in group) != (event == "PreToolUse"):
+                return False, f"{event}: matcher wrong: {group}"
     write_hook = hooks["PreToolUse"][0]
+    if write_hook["matcher"] != "Write|Edit":
+        return False, f"PreToolUse matcher {write_hook['matcher']}"
     needed = HOOK_SECONDS + LEFT_FOR_THE_REST
     timeout = write_hook["hooks"][0]["timeout"]
-    if isinstance(timeout, int) and timeout < needed:
+    if timeout < needed:
         return False, (
             f"PreToolUse: timeout {timeout} s is under the {needed:g} s it needs:"
             f" history read {HOOK_SECONDS:g} s + {LEFT_FOR_THE_REST} s left"
         )
-    ok = (
-        "matcher" not in start_hook
-        and start_hook["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"]
-        and write_hook["matcher"] == "Write|Edit"
-        and write_hook["hooks"][0]["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/check-catalog-item.sh"]
-        and all(
-            h["hooks"][0]["command"] == "sh" and isinstance(h["hooks"][0]["timeout"], int)
-            for h in (start_hook, write_hook)
-        )
-    )
     return (
-        ok,
-        "SessionStart without matcher, PreToolUse on Write|Edit, exec form, timeouts; PreToolUse"
-        f" {timeout} s >= history read {HOOK_SECONDS:g} s + {LEFT_FOR_THE_REST} s left"
-        if ok
-        else f"bad: {hooks}",
+        True,
+        "SessionStart twice and SubagentStart once without matcher, PreToolUse on Write|Edit, exec form,"
+        f" integer timeouts, scripts present; PreToolUse {timeout} s >= history read {HOOK_SECONDS:g} s"
+        f" + {LEFT_FOR_THE_REST} s left",
+    )
+
+
+# The pointer to the module's skill, typed by hand: printed at session start and as the context a
+# subagent starts with.
+POINTER = (
+    "const-catalogs (advisory): before creating a document of a kind the project numbers — a decision"
+    " record, a task, an RFC — and when a write is blocked for its file name, id or number, load the skill"
+    " const-catalogs:catalog-item."
+)
+
+
+def skill_pointer_printed() -> tuple[bool, str]:
+    """The pointer line: exit 0, the line as typed here and a line break, nothing on stderr; with
+    --subagent one JSON object whose hookSpecificOutput is exactly the SubagentStart event name and the
+    line; the line's size is the one the module document states, and the skill it names is a folder
+    under skills/."""
+    script = str(SCRIPTS / "print-skill-pointer.sh")
+    plain = subprocess.run([H.sh, script], capture_output=True, text=True, encoding="utf-8", check=False)
+    if plain.returncode != 0 or plain.stdout != POINTER + "\n" or plain.stderr != "":
+        return False, repr(plain)
+    sub = subprocess.run(
+        [H.sh, script, "--subagent"], capture_output=True, text=True, encoding="utf-8", check=False
+    )
+    if sub.returncode != 0 or sub.stderr != "" or not sub.stdout.endswith("\n"):
+        return False, repr(sub)
+    try:
+        event = json.loads(sub.stdout)
+    except json.JSONDecodeError:
+        return False, f"--subagent printed no JSON: {sub.stdout!r}"
+    expected = {"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": POINTER}}
+    if event != expected or sub.stdout.count("\n") != 1:
+        return False, f"--subagent printed {sub.stdout!r}"
+    size = len(POINTER)
+    stated = re.search(
+        r"pointer line, (\d+) characters", (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
+    )
+    if not stated or int(stated.group(1)) != size:
+        return False, f"the module document states another size than {size}"
+    named = re.search(rf"load the skill ({re.escape(NAMESPACE)}):([a-z0-9-]+)\.$", POINTER)
+    if not named or not (MODULE_ROOT / "skills" / named.group(2) / "SKILL.md").is_file():
+        return False, "the line names no skill folder of this module"
+    return (
+        True,
+        f"exit 0, the line as typed, {size} characters as the module document states, the SubagentStart"
+        " object exact, the skill a folder under skills/",
     )
 
 
@@ -1418,6 +1479,11 @@ ASSERTIONS = [
         "the hooks file's shape, with a timeout that holds the history read the hook waits on",
         hooks_file_shape,
     ),
+    Assertion(
+        78,
+        "the skill pointer: the line as typed, its SubagentStart form, its size stated, its skill present",
+        skill_pointer_printed,
+    ),
 ]
 
 
@@ -1441,6 +1507,7 @@ SUBJECT = Subject(
     outside="docs/items/first.md lies in no catalog's territory (itm)",
     resolves_policies=False,
     pattern_dial=PatternDial("catalogs[itm]", lambda pattern: catalogs(entry(territory=[pattern]))),
+    skill="catalog-item",  # the skill a red names (F10), typed by hand
 )
 
 if __name__ == "__main__":

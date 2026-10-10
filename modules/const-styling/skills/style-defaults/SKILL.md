@@ -1,13 +1,12 @@
 ---
 name: style-defaults
 description: >
-  Apply the project's style defaults before writing a diagram, a table, a list, a formula, a
-  heading below level three, a callout or a fenced block in a document, and declare a departure
-  from a default in the dials file with its reason instead of marking the document. Use when
-  about to draw a diagram, when choosing between prose, a list and a table, when about to write a
-  formula, a fourth heading level or a note box, when writing or editing a template, when the
-  style scan reports a signature, and when a repository has no style guide yet. Advisory: it
-  shapes the choice; the scan checks only the twelve traces it knows.
+  Load this skill first, before writing any table, diagram, list, formula, heading below level
+  three, callout or fenced block in a document — every time, whether or not the style seems known:
+  it applies the project's style defaults to that choice and declares a departure from a default
+  in the dials file with its reason instead of marking the document. Load it also when writing or
+  editing a template, when the style scan reports a signature, and when a repository has no style
+  guide yet. Advisory: it shapes the choice; the scan checks only the twelve traces it knows.
 ---
 
 # Style defaults

@@ -5,7 +5,7 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported by the scan with the fix on its first line; nothing is silently skipped.
 
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
-   session). One skill and one scan, no hook. The skill, `style-defaults`, is offered to the model
+   session). One skill, one scan, and two advisory hooks that name the skill. The skill, `style-defaults`, is offered to the model
    before a diagram, a table, a formula, a heading below level three, a callout, a fenced block or a
    template is written, and reads the project's style guide. The scan reads the covered Markdown
    files for twelve traces of the defaults and reports each that no departure allows. A copy of
@@ -73,7 +73,10 @@ reported by the scan with the fix on its first line; nothing is silently skipped
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the scan refuses to run otherwise.
 8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
-9. CLAUDE.md pointer: none. The defaults ride on the skill; the traces on the scan.
+9. CLAUDE.md pointer: none. The skill is named by a pointer line of 196 characters, advisory, that the
+   plugin prints at session start and gives to every subagent at its start, and by the last line of
+   every red of the scan; the defaults ride on the skill and the traces on the scan. The scan itself
+   runs no hook.
 
 What this module does not check: whether prose, a list or a table was the right form; whether a
 drawing is trivial; whether a key column is first or a heading is in sentence case; a callout

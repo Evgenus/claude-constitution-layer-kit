@@ -1489,6 +1489,12 @@ def golden_mover_lines() -> tuple[bool, str]:
 # ------------------------------------------------------------------ the plugin's other parts
 
 PLUGIN = SCRIPTS.parent
+# the session-start pointer to the skill, and the context a subagent starts with, typed by hand
+POINTER = (
+    "const-referencing (advisory): before writing a link between documents, adding a section or a row"
+    " that others will cite, or moving, renaming or deleting a document, load the skill"
+    " const-referencing:referencing.\n"
+)
 CHAT_RULE = (
     "const-referencing (advisory): in chat, write every reference to a file, a section or a document as a"
     " markdown link wherever the file exists. A number, letter or key is a handle local to its message,"
@@ -1505,34 +1511,45 @@ LEFT_FOR_THE_REST = 5
 
 
 def hooks_file() -> tuple[bool, str]:
-    """Three handlers, each in the exec form with an explicit timeout; both tool events run the
-    gate's one entry point, which tells them apart by the event's name. A tool handler's timeout
-    holds what its check after a write waits on, one wait after the other (the version probe, then
-    the run), and LEFT_FOR_THE_REST; the session-start printer runs no child process."""
+    """Five handlers, each in the exec form with an explicit timeout: both tool events run the
+    gate's one entry point, which tells them apart by the event's name; the session start has two,
+    the chat rule and the pointer to the skill, and the subagent start one, the pointer with
+    `--subagent`. A tool handler's timeout holds what its check after a write waits on, one wait
+    after the other (the version probe, then the run), and LEFT_FOR_THE_REST; the printers run no
+    child process."""
     hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())["hooks"]
     gate = ["${CLAUDE_PLUGIN_ROOT}/scripts/check-references.sh"]
-    wanted = {
-        "PreToolUse": ("Write|Edit", gate),
-        "PostToolUse": ("Write|Edit", gate),
-        "SessionStart": (None, ["${CLAUDE_PLUGIN_ROOT}/scripts/print-chat-rule.sh"]),
+    rule = ["${CLAUDE_PLUGIN_ROOT}/scripts/print-chat-rule.sh"]
+    pointer = ["${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh"]
+    wanted: dict[str, list[tuple[str | None, list[str]]]] = {
+        "PreToolUse": [("Write|Edit", gate)],
+        "PostToolUse": [("Write|Edit", gate)],
+        "SessionStart": [(None, rule), (None, pointer)],
+        "SubagentStart": [(None, [*pointer, "--subagent"])],
     }
     waits = {
         "PreToolUse": lychee.VERSION_SECONDS + lychee.HOOK_SECONDS,
         "PostToolUse": lychee.VERSION_SECONDS + lychee.HOOK_SECONDS,
         "SessionStart": 0,
+        "SubagentStart": 0,
     }
     problems = [name for name in wanted if name not in hooks] + [name for name in hooks if name not in wanted]
     tied: list[str] = []
-    for name, (matcher, args) in wanted.items():
-        for group in hooks.get(name, []):
+    for name, expected in wanted.items():
+        groups = hooks.get(name, [])
+        if len(groups) != len(expected):
+            problems.append(f"{name}: {len(groups)} groups, {len(expected)} wanted")
+            continue
+        for group, (matcher, args) in zip(groups, expected, strict=True):
             handler = group["hooks"][0]
             right = (
-                group.get("matcher") == matcher
+                len(group["hooks"]) == 1
+                and group.get("matcher") == matcher
                 and handler.get("type") == "command"
                 and handler.get("command") == "sh"
                 and handler.get("args") == args
                 and isinstance(handler.get("timeout"), int)
-                and all((SCRIPTS / Path(arg).name).is_file() for arg in args)
+                and all((SCRIPTS / Path(arg).name).is_file() for arg in args if not arg.startswith("--"))
             )
             if not right:
                 problems.append(f"{name}: {group}")
@@ -1547,9 +1564,51 @@ def hooks_file() -> tuple[bool, str]:
                 else:
                     tied.append(f"{name} {handler['timeout']} s >= {needed} s")
     return not problems, (
-        "three handlers, exec form, scripts present, timeouts that hold the waits: " + ", ".join(tied)
+        "five handlers, exec form, scripts present, timeouts that hold the waits: " + ", ".join(tied)
         if not problems
         else str(problems)
+    )
+
+
+def skill_pointer() -> tuple[bool, str]:
+    """The pointer to the skill, run through `sh`: exit 0, the line as typed here and nothing on
+    stderr; with `--subagent`, one JSON object whose `hookSpecificOutput` is exactly the event's
+    name and the line as `additionalContext`. The line's size is the one MODULE.md states, and
+    the qualified skill name in it names a folder under `skills/`."""
+    plain = subprocess.run(
+        [H.sh, str(SCRIPTS / "print-skill-pointer.sh")],
+        input="{}",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if plain.returncode != 0 or plain.stdout != POINTER or plain.stderr != "":
+        return False, repr(plain)
+    sub = subprocess.run(
+        [H.sh, str(SCRIPTS / "print-skill-pointer.sh"), "--subagent"],
+        input="{}",
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if sub.returncode != 0 or sub.stderr != "" or not sub.stdout.endswith("\n"):
+        return False, repr(sub)
+    answer = json.loads(sub.stdout)
+    wanted = {
+        "hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": POINTER.rstrip("\n")}
+    }
+    if answer != wanted or sub.stdout.count("\n") != 1:
+        return False, f"the subagent's answer is {answer!r}"
+    size = len(POINTER) - 1
+    stated = re.search(r"pointer line, ([\d,]+) characters", (PLUGIN / "MODULE.md").read_text())
+    if not stated or int(stated.group(1).replace(",", "")) != size:
+        return False, f"MODULE.md states another size than {size}"
+    named = re.search(r"load the skill (const-referencing):([a-z-]+)\.", POINTER)
+    if not named or not (PLUGIN / "skills" / named.group(2) / "SKILL.md").is_file():
+        return False, "the skill the line names is no folder under skills/"
+    return (
+        True,
+        f"exit 0, the line as typed here and as a subagent's context, {size} characters as MODULE.md states",
     )
 
 
@@ -2993,9 +3052,15 @@ ASSERTIONS = [
     ),
     Assertion(
         70,
-        "hooks.json: three handlers in the exec form, scripts present, explicit timeouts that hold the"
+        "hooks.json: five handlers in the exec form, scripts present, explicit timeouts that hold the"
         " budgets each tool handler waits on",
         hooks_file,
+    ),
+    Assertion(
+        8,
+        "the pointer to the skill is printed as typed here at session start and as a subagent's context,"
+        " of the size MODULE.md states, naming a skill that exists",
+        skill_pointer,
     ),
     Assertion(71, "the always-on rule is printed as typed here, and nothing else", chat_rule),
     Assertion(
@@ -3157,6 +3222,7 @@ SUBJECT = Subject(
     bare_readme="1 document examined",
     judges_envelopes=False,
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
+    skill="referencing",  # the skill a red names (F10), typed by hand
 )
 
 if __name__ == "__main__":

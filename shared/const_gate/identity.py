@@ -30,6 +30,9 @@ class Identity:
     # generator says what it leaves undone.
     until_installed: str = "until then Markdown writes pass unchecked"
     until_fixed: str = "until it is fixed this check does not run"
+    # The skill of the plugin that teaches a mode's rule and its fix, by mode, named in the line that
+    # follows a red verdict of that mode (F10); a mode without one, no line.
+    skills: Mapping[Mode, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

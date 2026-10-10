@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import subprocess
 import sys
 import time
 from collections.abc import Sequence
@@ -50,6 +52,16 @@ ROOT_TERRITORY = ["docs/policies/**"]
 NOTES = Match("notes-policy", "docs/notes/**")
 SHARED_POLICY = Match("shared-policy", "docs/notes/shared/**")
 F1_HEADLINE = "RED: docs/notes/a.md: no frontmatter envelope"  # typed by hand, as the gate prints it
+# the line after the count line of every red verdict (F10), typed by hand
+F10_LINE = (
+    "const-meta-types: load the skill const-meta-types:choose-meta-type before you fix this — it teaches"
+    " the rule and the fix"
+)
+# the pointer line the module prints at session start and at every subagent's start, typed by hand
+POINTER = (
+    "const-meta-types (advisory): before creating a governed document or changing its type, and when a"
+    " write is blocked for its envelope, load the skill const-meta-types:choose-meta-type."
+)
 
 
 def yaml_error(block: str) -> str:
@@ -379,7 +391,9 @@ def scan_red() -> tuple[bool, str]:
         F1_HEADLINE,
         "RED: 1 finding(s) — 4 governed document(s) examined, 4 Markdown file(s) scanned, 3 policies",
     ]
+    # F10 closes the output, after the count line
     ok = result.code == 2 and red_lines(result.stdout) == wanted
+    ok = ok and result.stdout.rstrip("\n").endswith(wanted[1] + "\n" + F10_LINE)
     return (
         ok,
         f"exit 2: {wanted[1]}"
@@ -607,6 +621,8 @@ def golden_lines() -> tuple[bool, str]:
         case = cases[number]
         stderr = H.run_gate(event_json(H.fresh_consumer(case.setup).root, case.red)).stderr
         missing += [f"case {number}: {line}" for line in lines if line not in stderr]
+        if not stderr.endswith("\n" + F10_LINE + "\n"):
+            missing.append(f"case {number}: the stderr does not end with F10: {F10_LINE}")
     # an id, a type, a status and a declared policy holding a line break stay on one line, each break
     # shown escaped, typed by hand
     breaks = H.run_gate(
@@ -847,6 +863,77 @@ def unreadable_twin_is_broken() -> tuple[bool, str]:
     return skipped, f"{detail}; README.md: {skip_detail}"
 
 
+def hooks_file_shape() -> tuple[bool, str]:
+    """The hooks file: the gate on Write and Edit, kept as it was, and the two handlers of the
+    pointer — one at session start, one at a subagent's start — each in exec form `sh`, with no
+    matcher, an integer timeout and a script that is there."""
+    spec = json.loads((SCRIPTS.parent / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    if sorted(spec) != ["PreToolUse", "SessionStart", "SubagentStart"]:
+        return False, f"events: {sorted(spec)}"
+    wanted: dict[str, tuple[str | None, list[str], int | None]] = {
+        "PreToolUse": ("Write|Edit", ["${CLAUDE_PLUGIN_ROOT}/scripts/check-governed-document.sh"], 30),
+        "SessionStart": (None, ["${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh"], None),
+        "SubagentStart": (
+            None,
+            ["${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh", "--subagent"],
+            None,
+        ),
+    }
+    for event, (matcher, args, timeout) in wanted.items():
+        groups = spec[event]
+        if len(groups) != 1 or groups[0].get("matcher") != matcher or len(groups[0]["hooks"]) != 1:
+            return False, f"{event}: {groups}"
+        handler = groups[0]["hooks"][0]
+        timeout_ok = (
+            handler["timeout"] == timeout
+            if timeout is not None
+            else isinstance(handler["timeout"], int) and not isinstance(handler["timeout"], bool)
+        )
+        script = SCRIPTS / Path(args[0]).name
+        if (
+            handler["type"] != "command"
+            or handler["command"] != "sh"
+            or handler["args"] != args
+            or not timeout_ok
+            or not script.is_file()
+        ):
+            return False, f"{event}: {handler}"
+    return (
+        True,
+        "PreToolUse kept; SessionStart and SubagentStart: sh, no matcher, integer timeout, script present",
+    )
+
+
+def skill_pointer_printed() -> tuple[bool, str]:
+    """The pointer, run through sh: exit 0, the line as typed here and nothing on stderr; with
+    `--subagent` one JSON object whose `hookSpecificOutput` is the event's name and the line; the
+    size the module document states; and the skill it names a folder of this plugin."""
+    script = str(SCRIPTS / "print-skill-pointer.sh")
+    plain = subprocess.run([H.sh, script], capture_output=True, text=True, check=False)
+    if plain.returncode != 0 or plain.stdout != POINTER + "\n" or plain.stderr != "":
+        return False, repr(plain)
+    nested = subprocess.run([H.sh, script, "--subagent"], capture_output=True, text=True, check=False)
+    if nested.returncode != 0 or nested.stderr != "":
+        return False, repr(nested)
+    payload = json.loads(nested.stdout)
+    wanted = {"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": POINTER}}
+    if payload != wanted or nested.stdout.count("\n") != 1:
+        return False, f"the subagent form is {nested.stdout!r}"
+    size = len(POINTER)
+    stated = re.search(
+        r"pointer line, (\d+) characters", (SCRIPTS.parent / "MODULE.md").read_text(encoding="utf-8")
+    )
+    if not stated or int(stated.group(1)) != size:
+        return False, f"the module document states another size than {size}"
+    named = re.search(r"load the skill const-meta-types:([a-z-]+)\.$", POINTER)
+    if not named or not (SCRIPTS.parent / "skills" / named.group(1) / "SKILL.md").is_file():
+        return False, "the line names no skill of this plugin"
+    return (
+        True,
+        f"exit 0, the line as typed, {size} characters as the module document states, one JSON object",
+    )
+
+
 ASSERTIONS = [
     Assertion(18, "examined count: outside claimed territory prints 0 and exits 0", outside_territory),
     Assertion(19, "a territory with no policy behind it claims nothing: a visible skip", void_territory),
@@ -875,6 +962,16 @@ ASSERTIONS = [
         " a write outside every territory is still skipped",
         unreadable_twin_is_broken,
     ),
+    Assertion(
+        37,
+        "the hooks file: the gate, and the pointer at session start and at a subagent's start",
+        hooks_file_shape,
+    ),
+    Assertion(
+        38,
+        "the pointer: the line as typed, its JSON form for a subagent, its size, its skill",
+        skill_pointer_printed,
+    ),
 ]
 
 
@@ -896,6 +993,7 @@ SUBJECT = Subject(
     long_value=Write(NOTE_A, document(id="note-a", type="x" * 12_000, title="Note A", status="active")),
     # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
     outside="docs/notes/a.md is outside claimed territory",
+    skill="choose-meta-type",  # the skill a red names (F10), typed by hand
 )
 
 if __name__ == "__main__":

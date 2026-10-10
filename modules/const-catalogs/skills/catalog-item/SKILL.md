@@ -1,14 +1,14 @@
 ---
 name: catalog-item
 description: >
-  Number a document of a numbered kind: take the catalog's next number, name the file
-  <prefix>-<nnnn>-<slug>.md with the same id, renumber after a collision at a pull request,
-  list a catalog, cite an item. Use when creating a document of a kind the project numbers —
-  decision records, tasks, RFCs — when a write was blocked for a file name, an id or a number
-  already taken, when the scan reports two items under one number, when asked what a catalog
-  holds or what a missing number was, or when a kind is about to become numbered. Advisory:
-  it shapes allocation, renumbering and citation; the gate checks the name, the id and the
-  number's uniqueness.
+  Load this skill first, before creating any document of a kind the project numbers — a decision
+  record, a task, an RFC — every time, whether or not the next number seems known. It numbers the
+  document: take the catalog's next number, name the file <prefix>-<nnnn>-<slug>.md with the same
+  id, renumber after a collision at a pull request, list a catalog, cite an item. Use when a write
+  was blocked for a file name, an id or a number already taken, when the scan reports two items
+  under one number, when asked what a catalog holds or what a missing number was, or when a kind
+  is about to become numbered. Advisory: it shapes allocation, renumbering and citation; the gate
+  checks the name, the id and the number's uniqueness.
 ---
 
 # A catalogued item

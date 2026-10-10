@@ -12,11 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
 
-from . import messages
+from . import identity, messages
 from .dials import load_dials
 from .errors import ConfigurationFailure
 from .events import document_after_write, read_event
-from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, STOP, Dials, Finding, Severity, SkipKind
+from .model import EXIT_GREEN, EXIT_RED, POST_WRITE, PRE_WRITE, STOP, Dials, Finding, Mode, Severity, SkipKind
 from .output import Output, log_name
 from .repository import is_ignored, is_markdown, read_text, repo_root
 
@@ -189,6 +189,14 @@ def within_the_cap(findings: Sequence[Finding], most: int | None = None) -> Sequ
     return shown
 
 
+def skill_line(mode: Mode) -> list[str]:
+    """F10, the shared line after the count line of a red verdict that names the skill teaching the
+    rule and its fix: it sends the reader of a red to the procedure, at the moment it applies. No
+    line where the gate names no skill for the mode."""
+    skill = identity.current().skills.get(mode, "")
+    return [messages.f10_skill(skill)] if skill else []
+
+
 def report_hook(
     output: Output,
     findings: Sequence[Finding],
@@ -207,9 +215,13 @@ def report_hook(
     `ask`: a gate whose block is the user's yes — the shell gate — answers, at block severity,
     with exit 0 and one JSON object asking the platform to prompt the user, the body its reason:
     where a prompt cannot be shown the platform denies the call with that reason, and the exit
-    code is 0 because the verdict is the platform's prompt, not this process's; warn is unchanged."""
+    code is 0 because the verdict is the platform's prompt, not this process's; warn is unchanged.
+    Every text the model reads carries, after the count line, the line naming the skill of the
+    hook's mode, where the gate names one (F10) — at warn the warn note follows it; the user's
+    notice on Stop, which no model reads, carries the verdict alone."""
     count = messages.f9_count_hook(len(findings), rel) if count is None else count
-    body = "\n".join([*notes, *(f.render() for f in findings), count])
+    verdict = "\n".join([*notes, *(f.render() for f in findings), count])
+    body = "\n".join([verdict, *skill_line(Mode.HOOK)])  # the count line, then F10
     if ask and severity is Severity.BLOCK:
         output.out(
             json.dumps(
@@ -224,7 +236,7 @@ def report_hook(
         )
         return EXIT_GREEN
     if severity is Severity.WARN and event_name == STOP:
-        output.out(json.dumps({"systemMessage": messages.w1_warn_stop(body)}))
+        output.out(json.dumps({"systemMessage": messages.w1_warn_stop(verdict)}))  # the user's: no F10
         return EXIT_GREEN
     if severity is Severity.WARN:
         output.out(
@@ -244,13 +256,16 @@ def report_hook(
 
 
 def report_scan(output: Output, findings: Sequence[Finding], notes: Sequence[str], tail: str) -> int:
-    """Scan verdict. The scan ignores the severity dial and always reports."""
+    """Scan verdict. The scan ignores the severity dial and always reports; a red ends in the line
+    naming the skill of the scan, where the gate names one (F10)."""
     for note in notes:
         output.out(note)
     if findings:
         for finding in findings:
             output.out(finding.render())
         output.out(messages.f9_count_scan(len(findings), tail))
+        for line in skill_line(Mode.SCAN):
+            output.out(line)
         return EXIT_RED
     output.out(messages.g1_green_scan(tail))
     return EXIT_GREEN
