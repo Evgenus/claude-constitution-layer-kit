@@ -42,7 +42,7 @@ People cite decisions, tasks and escalations by number — "see D41" — and the
 5. [dec-0014-territory-dialect](../../docs/decisions/dec-0014-territory-dialect.md) and [dec-0018-dials-schema](../../docs/decisions/dec-0018-dials-schema.md) — an entry's territory is gitignore syntax like every territory, and every read of the dials file validates the keys read.
 6. [dec-0020-gate-script-rules](../../docs/decisions/dec-0020-gate-script-rules.md), [dec-0022-output-log-through-logging](../../docs/decisions/dec-0022-output-log-through-logging.md), [dec-0026-imports-at-the-top](../../docs/decisions/dec-0026-imports-at-the-top.md) and [dec-0025-shared-gate-code-linked](../../docs/decisions/dec-0025-shared-gate-code-linked.md) — the gate-script rules and the linked shared code; this module is its third consumer and the first that resolves no policy.
 7. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
-8. [dec-0079-skills-named-at-their-moment](../../docs/decisions/dec-0079-skills-named-at-their-moment.md) — a skill is named where it applies: every red of a gate ends in a line naming it, and a pointer line at session start and at each subagent's start does the same for the moment before any red.
+8. [dec-0079-skills-named-at-their-moment](../../docs/decisions/dec-0079-skills-named-at-their-moment.md) — a skill is named where it applies: every red of a gate carries, after its count line, a line naming it, and a pointer line at session start and at each subagent's start does the same for the moment before any red.
 
 <a id="t5"></a>
 ## 5. Invariant

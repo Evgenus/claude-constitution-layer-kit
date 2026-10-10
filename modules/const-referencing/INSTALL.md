@@ -93,7 +93,7 @@ not, and every write says so until it is installed.
 8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
 9. CLAUDE.md pointer: none. The rule about chat arrives through the session-start hook. The skill
    is named by a pointer line of 209 characters printed at session start, by the same line at the
-   start of every subagent, and by the last line of every red of the gate.
+   start of every subagent, and by the line after the count line of every red of the gate.
 
 What this module does not check: remote links (the check is offline); links inside code; links
 a template or a script assembles; whether a path link should have been an id link; anchors

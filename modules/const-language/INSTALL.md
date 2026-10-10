@@ -12,7 +12,7 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    model; it never refuses a write. The scan reads every covered document. The skill,
    `plain-language`, is for the model to load before prose is written and when a finding is read.
    The two pointer hooks, at session start and at each subagent's start, print one line naming
-   it (183 characters, advisory); the last line of every red names it too.
+   it (183 characters, advisory); a line after the count line of every red names it too.
    A copy of this plugin's folder made outside
    the repository it comes from must follow links (`cp -RL`): `scripts/const_gate`, and
    `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are links to code the plugin
@@ -86,7 +86,7 @@ floor, is reported by the check with the fix on its first line; nothing is silen
 9. Verify the install: `python3 <plugin root>/tests/run.py` — every item green; the runner needs
    `vale` on PATH like the check.
 10. CLAUDE.md pointer: none. The skill is named by the pointer line at session start, by the same
-    line at every subagent's start and by the last line of every red of the check, so no line in
+    line at every subagent's start and by the line after the count line of every red of the check, so no line in
     CLAUDE.md is needed to reach it. The rules ride on the check and the skill.
 
 What this module does not check: whether a term is defined at first use; whether a sentence

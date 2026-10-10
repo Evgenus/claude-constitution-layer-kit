@@ -246,7 +246,7 @@ class Harness:
             f"RED: {case.expect.headline}",
             f"RED: 1 finding(s) — 1 document examined ({case.red.target})",
         ]
-        if red_lines(red.stderr) != wanted:  # exactly the one finding and the count line, nothing more
+        if red_lines(red.stderr) != wanted:  # exactly the one finding and the count line, no other RED line
             return False, f"red taught more or less than {wanted}:\n{red.stderr.strip()}"
         if red_lines(red.stdout):  # and nothing RED on the other stream
             return False, f"red printed RED on stdout: {red.stdout.strip()}"
@@ -277,7 +277,7 @@ class Harness:
                 f"got:\n{red.stdout.strip()}",
             )
         wanted = [f"RED: {case.expect.headline}", case.count]
-        if red_lines(red.stdout) != wanted:  # exactly the one finding and the count line, nothing more
+        if red_lines(red.stdout) != wanted:  # exactly the one finding and the count line, no other RED line
             return False, f"red taught more or less than {wanted}:\n{red.stdout.strip()}"
         if red_lines(red.stderr):  # and nothing RED on the other stream
             return False, f"red printed RED on stderr: {red.stderr.strip()}"

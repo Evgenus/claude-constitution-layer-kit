@@ -40,7 +40,7 @@ A document a project keeps grows with every change that touches it, and nobody m
 7. [dec-0045-frozen-documents-stay-in-the-style-scan](../../docs/decisions/dec-0045-frozen-documents-stay-in-the-style-scan.md) and [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — a frozen document stays in a gate's territory, and what it cannot meet is a departure with its reason.
 8. [dec-0053-drafts-keep-their-versions](../../docs/decisions/dec-0053-drafts-keep-their-versions.md) — a finding of the consumer-live proof is a fix, with a version bump once the module is published.
 9. [dec-0068-enforcement-tables-destination-classes-and-kit-checks-held](../../docs/decisions/dec-0068-enforcement-tables-destination-classes-and-kit-checks-held.md) — the history report's row of the enforcement table says it is no tree scan, so the kit's gate list does not hold it as a declared scan.
-10. [dec-0079-skills-named-at-their-moment](../../docs/decisions/dec-0079-skills-named-at-their-moment.md) — every red of this module's gate ends in a line that names the skill `set-ceilings`, since a skill that no red names is not loaded when it applies.
+10. [dec-0079-skills-named-at-their-moment](../../docs/decisions/dec-0079-skills-named-at-their-moment.md) — every red of this module's gate carries, after its count line, a line that names the skill `set-ceilings`, since a skill that no red names is not loaded when it applies; and the skill's description opens with the order to load it before its moment.
 
 <a id="t5"></a>
 ## 5. Invariant
