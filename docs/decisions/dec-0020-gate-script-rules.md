@@ -35,7 +35,7 @@ Findings that shaped the rules:
   - **Pros:** no template change before a second module tests the rules.
   - **Cons:** the friction had already appeared twice.
 
-Recommendation A. Chosen A by the decider in chat on 2026-09-18, with these amendments of his:
+Recommendation A. Chosen A by the decider in chat on 2026-09-18, with these amendments of theirs:
 
 - **the Python floor** is 3.12 (the session proposed 3.9, then 3.11 for `StrEnum`; 3.13 was set aside because the decider's own interpreter is 3.12 and no current long-term distribution ships it; 3.11 because it is in its last supported year, [Python release status](https://devguide.python.org/versions/));
 - **dependencies** are unrestricted but declared;
