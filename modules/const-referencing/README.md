@@ -25,7 +25,7 @@ RED: docs/notes/refs.md:3: document id 'plc-notes' stands in backticks and is no
   fix: write [plc-notes](../policies/plc-notes.md) — the path from this document to docs/policies/plc-notes.md
 ```
 
-At every session start, two sentences are added to the session's context. In chat, every reference to a file, a section or a document is a markdown link. A number or a key is a handle local to its message, and it is named with its source when a cite crosses that boundary. The skill `referencing` loads on its own when links are written, when a section others will cite is added, and when a document is moved. It has the session move a document with the module's mover, never by hand.
+At every session start, two sentences are added to the session's context. In chat, every reference to a file, a section or a document is a markdown link. A number or a key is a handle local to its message, and it is named with its source when a cite crosses that boundary. The skill `referencing` teaches the forms when links are written, when a section others will cite is added, and when a document is moved. It has the session move a document with the module's mover, never by hand.
 
 <a id="a4"></a>
 ## How it works
@@ -38,7 +38,7 @@ At every session start, two sentences are added to the session's context. In cha
 
 **The mover.** A command that moves or renames a document with `git mv`. It repairs every link to the document and every link inside it. It lists the places that still name the old path in prose, without changing them, and ends with the scan. After a move made by hand, the same command repairs what the move broke.
 
-**At session start, and the skill.** The two sentences, printed by a hook; and the procedure for citing, anchoring and moving, loaded when the activity occurs. Nothing in either blocks.
+**At session start, and the skill.** The two sentences, printed by a hook; and the procedure for citing, anchoring and moving, in a skill. The module names that skill at session start, at the start of each subagent and after every red. Nothing in either blocks.
 
 **Settings.** The module works with no configuration: every Markdown file git lists is covered. Dials narrow coverage to governed documents, and allow links through headings, ids in backticks or local paths while a repository adopts the rule. Further dials add the project's own lanes, and the places outside Markdown where ids are named. Two dials are every gate's: how loud a finding is, and where the log goes.
 
