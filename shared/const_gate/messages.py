@@ -60,7 +60,7 @@ def field_not_string(key: str, yaml_type: str) -> str:
     return f"{key} must be a quoted string (YAML read it as {yaml_type})"
 
 
-# ---------------------------------------------------------------- verdict and count lines (F9, G1, W1)
+# ---------------------------------------------------------------- verdict and count lines (F9, F10, G1, W1)
 
 
 def f9_count_hook(findings: int, rel: str) -> str:
@@ -69,6 +69,10 @@ def f9_count_hook(findings: int, rel: str) -> str:
 
 def f9_count_scan(findings: int, tail: str) -> str:
     return f"RED: {findings} finding(s) — {tail}"
+
+
+def f10_skill(skill: str) -> str:
+    return f"{_ns()}: load the skill {_ns()}:{skill} before you fix this — it teaches the rule and the fix"
 
 
 def g1_green_hook(what: str) -> str:

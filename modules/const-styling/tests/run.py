@@ -1076,6 +1076,7 @@ SUBJECT = Subject(
     long_value=Write("docs/notes/long.md", "# T\n\n* " + "x" * 12000 + "\n"),
     scan_only=True,
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
+    skill="style-defaults",  # the skill a red names (F10), typed by hand
 )
 
 

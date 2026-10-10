@@ -192,8 +192,15 @@ def green(what: str) -> str:
     return f"GREEN: const-doc-budgets: 1 document examined, {what}\n"
 
 
+# the line after every red, naming the skill that teaches the rule and its fix (F10), typed by hand
+POINTER = (
+    "const-doc-budgets: load the skill const-doc-budgets:set-ceilings before you fix this — it teaches the"
+    " rule and the fix\n"
+)
+
+
 def block(finding: Finding, rel: str) -> str:
-    return f"{finding.render()}\nRED: 1 finding(s) — 1 document examined ({rel})\n"
+    return f"{finding.render()}\nRED: 1 finding(s) — 1 document examined ({rel})\n{POINTER}"
 
 
 # ---------------------------------------------------------------- red→green cases
@@ -635,6 +642,7 @@ def t13() -> tuple[bool, str]:
         f"{finding.render()}\n"
         "RED: 1 finding(s) — 4 document(s) measured under 3 ceiling(s) and 3 departure(s), 8 Markdown file(s)"
         " scanned\n"
+        f"{POINTER}"
     )
     long_pattern = "docs\\gone/" + "p" * 100  # 110 characters with a backslash: a pattern only points
     cut = prepared(
@@ -1331,6 +1339,7 @@ SUBJECT = Subject(
     pattern_dial=PatternDial(
         "ceilings entry 1 paths", lambda pattern: own(ceilings=[{**NOTES, "paths": [pattern]}])
     ),
+    skill="set-ceilings",  # the skill a red names (F10), typed by hand
 )
 
 

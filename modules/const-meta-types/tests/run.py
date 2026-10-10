@@ -896,6 +896,7 @@ SUBJECT = Subject(
     long_value=Write(NOTE_A, document(id="note-a", type="x" * 12_000, title="Note A", status="active")),
     # the skip reason once a negated pattern takes `red` out of the territory, typed by hand
     outside="docs/notes/a.md is outside claimed territory",
+    skill="choose-meta-type",  # the skill a red names (F10), typed by hand
 )
 
 if __name__ == "__main__":

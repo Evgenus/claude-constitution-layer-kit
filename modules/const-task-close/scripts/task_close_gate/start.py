@@ -9,6 +9,7 @@ from pathlib import Path
 
 from const_gate import cli
 from const_gate.identity import Identity
+from const_gate.model import Mode
 
 GATE = Identity(
     namespace="const-task-close",
@@ -16,6 +17,8 @@ GATE = Identity(
     plugin_root=Path(__file__).resolve().parents[2],
     # what a failure to install leaves unchecked: the turn-end tree and a change's documents, not a write
     until_installed="until then neither the tree at turn end nor a change's documents are checked",
+    # the skill a red names (F10): the turn-end tree's rule, then the range check's
+    skills={Mode.HOOK: "commit-before-edit", Mode.SCAN: "close-task"},
 )
 
 ARGUMENTS = (

@@ -1499,6 +1499,7 @@ SUBJECT = Subject(
     note=f"note: {DOC}:3: passive voice — 'was written' — reported, not red, while"
     " const-language.levels.passive is warning",
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
+    skill="plain-language",  # the skill a red names (F10), typed by hand
 )
 
 

@@ -208,6 +208,8 @@ class Subject:
     # `red` being the documents the scan passes or reports, `green` the whole green line of a scan
     # over the consumer holding `valid` alone, and the items about a red run read stdout, where a
     # scan prints its verdict; `bare_readme` is that scan's green line with a README at the top
+    skill: str = ""  # the skill a red of `red` names in its last line (F10), typed by hand; empty: the
+    # gate names none for that mode, and the item about the line is left out
 
 
 def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
@@ -740,6 +742,31 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return ok, "exit 0, finding in additionalContext and systemMessage" if ok else f"bad: {answer}"
 
+    def skill_named_after_red() -> tuple[bool, str]:
+        """A red ends in one line naming the skill that teaches the rule and its fix, after the count
+        line — in the block, the asking reason or the scan, and in the warn context the model reads."""
+        line = f"{ns}: load the skill {ns}:{s.skill} before you fix this — it teaches the rule and the fix"
+        result, _ = s.gate_on(s.red)  # the line typed by hand above
+        lines = red_said(result).splitlines()
+        ok = (
+            result.code == red_code
+            and len(lines) >= 2
+            and lines[-1] == line
+            and lines[-2].startswith("RED: ")
+            and lines.count(line) == 1
+        )
+        if not ok:
+            return False, f"exit {result.code}, the last lines: {lines[-2:]}"
+        if s.scan_only or stop:  # a scan has no warn; a Stop's warn is the user's notice alone
+            return True, "the skill's line last, after the count line"
+        warned, _ = s.gate_on(s.red, dials_patch=s.own(severity="warn"))
+        context = json.loads(warned.stdout)["hookSpecificOutput"]["additionalContext"]
+        ok = context.splitlines().count(line) == 1
+        return (
+            ok,
+            "the skill's line last, after the count line, and once in the warn context" if ok else context,
+        )
+
     # ---------------------------------------------------------------- the output log
 
     def log_lines(path: Path) -> list[dict[str, str]]:
@@ -758,7 +785,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         # an asking gate prints its verdict as one JSON object on stdout, the finding inside it; a scan
         # prints its finding and its count line on stdout, one record each
         verdict_stream = "stdout" if (s.ask or s.scan_only) else "stderr"
-        records = 2 if s.scan_only else 1
+        records = (3 if s.skill else 2) if s.scan_only else 1  # a scan prints F10 as a record of its own
         ok = (
             set(line) == {"ts", "module", "gate", "mode", "session", "stream", "text"}
             and (first in line["text"] if s.ask else line["text"].startswith(first))
@@ -1898,6 +1925,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             " a scan and an act give git no clock, and the hook's handlers outlive the budget",
             git_has_a_budget_in_a_hook,
         ),
+        (
+            166,
+            "F10: a red names the skill that teaches the rule and its fix, after the count line",
+            skill_named_after_red,
+        ),
     ]
     # Each item carries its number, so it keeps that number in every module and when the list is
     # reordered; a gate that resolves no policy leaves gaps where the items about policies stand. A new
@@ -1991,4 +2023,5 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         and (s.long_value is not None or check is not long_value_is_cut)
         and (s.pattern_dial is not None or check is not pattern_in_own_dial_is_one_line)
         and (s.noted is not None or check is not notes_reach_the_model)
+        and (s.skill != "" or check is not skill_named_after_red)
     ]

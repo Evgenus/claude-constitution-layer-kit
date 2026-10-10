@@ -9,6 +9,7 @@ from pathlib import Path
 
 from const_gate import cli
 from const_gate.identity import Identity
+from const_gate.model import Mode
 
 from . import session
 
@@ -19,6 +20,7 @@ GATE = Identity(
     namespace=NAMESPACE,
     gate="check-catalog-item",
     plugin_root=PLUGIN_ROOT,
+    skills={Mode.HOOK: "catalog-item", Mode.SCAN: "catalog-item"},  # the skill a red names (F10)
 )
 SESSION = Identity(
     namespace=NAMESPACE,

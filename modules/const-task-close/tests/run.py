@@ -1606,7 +1606,7 @@ def golden_lines() -> tuple[bool, str]:
             tree,
         ),
         (
-            "  fix: commit what is finished: git add -A && git commit -m '<what changed and why>' — stash or discard what is not; this is asked once per turn, and the rule is the skill commit-before-edit",  # noqa: E501 — a golden line is typed whole
+            "  fix: commit what is finished: git add -A && git commit -m '<what changed and why>' — stash or discard what is not; this is asked once per turn",  # noqa: E501 — a golden line is typed whole
             tree,
         ),
         ("RED: 1 finding — the working tree examined (1 path(s) dirty)", tree),
@@ -2021,6 +2021,7 @@ SUBJECT = Subject(
     judges_envelopes=False,
     event="Stop",
     pattern_dial=PatternDial("working_files", lambda pattern: own(working_files=[pattern])),
+    skill="commit-before-edit",  # the skill a red names (F10), typed by hand
 )
 
 ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [

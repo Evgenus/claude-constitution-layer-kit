@@ -3157,6 +3157,7 @@ SUBJECT = Subject(
     bare_readme="1 document examined",
     judges_envelopes=False,
     pattern_dial=PatternDial("territories", lambda pattern: own(territories=[pattern])),
+    skill="referencing",  # the skill a red names (F10), typed by hand
 )
 
 if __name__ == "__main__":

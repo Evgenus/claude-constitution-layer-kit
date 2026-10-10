@@ -8,6 +8,7 @@ from pathlib import Path
 
 from const_gate import cli
 from const_gate.identity import Identity
+from const_gate.model import Mode
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 NAMESPACE = "const-styling"
@@ -17,6 +18,7 @@ GATE = Identity(
     gate="check-style",
     plugin_root=PLUGIN_ROOT,
     until_installed="until then no document is scanned for style",
+    skills={Mode.SCAN: "style-defaults"},  # the skill a red names (F10); a scan-only gate
 )
 
 

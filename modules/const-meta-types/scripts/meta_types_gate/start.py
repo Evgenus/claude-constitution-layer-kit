@@ -8,11 +8,13 @@ from pathlib import Path
 
 from const_gate import cli
 from const_gate.identity import Identity
+from const_gate.model import Mode
 
 GATE = Identity(
     namespace="const-meta-types",
     gate="check-governed-document",
     plugin_root=Path(__file__).resolve().parents[2],
+    skills={Mode.HOOK: "choose-meta-type", Mode.SCAN: "choose-meta-type"},  # the skill a red names (F10)
 )
 
 

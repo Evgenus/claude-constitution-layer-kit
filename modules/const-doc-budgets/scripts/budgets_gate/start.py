@@ -9,13 +9,19 @@ from pathlib import Path
 
 from const_gate import cli
 from const_gate.identity import Identity
+from const_gate.model import Mode
 
 from . import session
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 NAMESPACE = "const-doc-budgets"
 
-GATE = Identity(namespace=NAMESPACE, gate="check-budgets", plugin_root=PLUGIN_ROOT)
+GATE = Identity(
+    namespace=NAMESPACE,
+    gate="check-budgets",
+    plugin_root=PLUGIN_ROOT,
+    skills={Mode.HOOK: "set-ceilings", Mode.SCAN: "set-ceilings"},  # the skill a red names (F10)
+)
 SESSION = Identity(
     namespace=NAMESPACE,
     gate="session-start",

@@ -8,11 +8,17 @@ from pathlib import Path
 
 from const_gate import cli
 from const_gate.identity import Identity
+from const_gate.model import Mode
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 NAMESPACE = "const-language"
 
-GATE = Identity(namespace=NAMESPACE, gate="check-language", plugin_root=PLUGIN_ROOT)
+GATE = Identity(
+    namespace=NAMESPACE,
+    gate="check-language",
+    plugin_root=PLUGIN_ROOT,
+    skills={Mode.HOOK: "plain-language", Mode.SCAN: "plain-language"},  # the skill a red names (F10)
+)
 
 
 def load_modes() -> cli.Modes:

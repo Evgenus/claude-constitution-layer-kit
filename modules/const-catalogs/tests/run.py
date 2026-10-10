@@ -1441,6 +1441,7 @@ SUBJECT = Subject(
     outside="docs/items/first.md lies in no catalog's territory (itm)",
     resolves_policies=False,
     pattern_dial=PatternDial("catalogs[itm]", lambda pattern: catalogs(entry(territory=[pattern]))),
+    skill="catalog-item",  # the skill a red names (F10), typed by hand
 )
 
 if __name__ == "__main__":
