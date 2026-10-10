@@ -65,8 +65,8 @@ its whole output, stdout then stderr, printed first, line for line, under one li
 runner and its exit, so that a red item's own lines stand where the run is read — as in the
 kit's CI, which runs each module's fixtures through `--run --module <name>`. A fixture item's
 handle is its runner number, bare or under `T` or `S` — `T12` and `12` are item 12, `S101` is
-item 101. Also red in a full run: a runner item no table row names, and a fixture item a table
-names that the runner did not print.
+item 101. Also red under `--run`, with or without `--module`: a runner item no table row names,
+and a fixture item a table names that the runner did not print.
 
 Each row a module holds is printed with its destination as the matrix states it, every module
 that holds a part of it with the version of its manifest, and every item that names it — from
@@ -87,7 +87,8 @@ module, run through the same entry point, names, so a red there turns those rows
 marked `none` are listed per module outside every row; a red one still makes the run red.
 
 Modes:  no arguments         the gate;
-        --run                the gate, then every runner and the per-row report;
+        --run                every runner, then the per-row report, the gate's findings and the
+                             run's, and one verdict;
         --run --module NAME  the same for one module: its findings alone, and those of the shared
                              items, its rows' verdicts from its items alone;
         --self-test          prove the check on a throwaway tree: each finding red→green, the
@@ -808,7 +809,7 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
         ) from slow
     if done.returncode != 0:  # the runner's own lines say what failed; the report says only which item
         print(f"the runner of {module.name} exited {done.returncode}; its output, as it printed it:")
-        for text in (done.stdout + done.stderr).splitlines():
+        for text in done.stdout.splitlines() + done.stderr.splitlines():
             print(text)
     if done.returncode not in (0, 2):
         first = ((done.stderr or done.stdout).strip().splitlines() or ["no message"])[-1]
@@ -2397,6 +2398,19 @@ def self_test() -> int:
         ok = ok and echoed(printed.getvalue(), lines, runner_exit)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a runner with {name} is a BROKEN line, never a pass")
+    with tempfile.TemporaryDirectory() as tmp:  # stdout without its last line break, then stderr
+        root = Path(tmp).resolve()
+        body = "import sys\nsys.stdout.write('tail')\nsys.stderr.write('err\\n')\nsys.exit(1)\n"
+        build(root, GOOD_TABLE, runner=body)
+        printed = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(printed):
+                full_run(root, None)
+            ok = False
+        except Broken:
+            ok = printed.getvalue().splitlines()[-2:] == ["tail", "err"]
+    failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] a runner's stdout and stderr are echoed as lines of their own")
     unknown = (  # typed by hand: a message function cannot check itself
         "BROKEN: --item 7: no item numbered 7 in this runner — why: a filter that matches nothing runs"
         " nothing, and nothing run looks green — fix: name items this runner holds: 1–3, 101"
@@ -2653,6 +2667,7 @@ def self_test() -> int:
         + 1  # no modules/
         + len(runs)
         + len(broken)
+        + 1  # stdout without its last line break, then stderr
         + len(filtered)
         + shared_cases[1]
     )
