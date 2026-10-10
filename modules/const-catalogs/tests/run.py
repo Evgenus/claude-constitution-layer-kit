@@ -1190,7 +1190,7 @@ def session_start_absence_paths() -> tuple[bool, str]:
         f" '{MODULE_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
     )
     yaml_ok, yaml_said = broken_first_line(no_yaml, c2)
-    yaml_ok = yaml_ok and messages.s1_could_not_run() in no_yaml.stderr and no_yaml.stdout == ""
+    yaml_ok = yaml_ok and messages.z1_could_not_run() in no_yaml.stderr and no_yaml.stdout == ""
     bin_dir = H.scratch_dir()
     (bin_dir / "sh").symlink_to(H.sh)
     (bin_dir / "dirname").symlink_to(shutil.which("dirname") or "dirname")
@@ -1200,7 +1200,7 @@ def session_start_absence_paths() -> tuple[bool, str]:
         " (https://www.python.org/downloads/) — until then the gate's state is not said at session start"
     )
     py_ok, py_said = broken_first_line(no_python, c1)
-    py_ok = py_ok and messages.s1_could_not_run() in no_python.stderr and no_python.stdout == ""
+    py_ok = py_ok and messages.z1_could_not_run() in no_python.stderr and no_python.stdout == ""
     return all_of([(yaml_ok, yaml_said), (py_ok, py_said)], f"{yaml_said}; {py_said}")
 
 
