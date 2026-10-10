@@ -25,7 +25,7 @@ RED: docs/notes/plan.md: no frontmatter envelope
   fix: start the file with a YAML block between two '---' lines carrying at least id: <kebab-id>, type: current-state | task-record | non-authoritative, title: <one line>, status: active | inactive — the fields every governed document carries; its kind may add fields of its own
 ```
 
-The skill `choose-meta-type` loads on its own when a document is being created or sorted. It helps the session pick one of the three types from examples. It also helps split a page that mixes how things are with where they should go.
+The skill `choose-meta-type` is there for the moment a document is created or sorted. It helps the session pick one of the three types from examples. It also helps split a page that mixes how things are with where they should go.
 
 <a id="a4"></a>
 ## How it works
@@ -34,7 +34,7 @@ The skill `choose-meta-type` loads on its own when a document is being created o
 
 **The scan.** The same check over every Markdown file git lists, run from the command line. It reports every finding and exits with code 2 when there is one. It says how many documents it examined, so a scan of nothing is never read as green. Run it in CI and before a merge.
 
-**The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write.
+**The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write. The module names its skill at session start, at the start of each subagent and after every refusal, so the session knows to load it.
 
 **Settings.** The module works with no configuration of its own. It reads the project's `constitution.yaml` for the root policy and the territories, which every module of the kit shares, and nothing else. Two dials can be tuned under its own name there. One sets how loud a finding is: refuse the write, or report the finding and let the write through. Reporting is the path for a repository full of old documents. The other names where the module keeps its log of everything it printed. With no `constitution.yaml`, or no root policy in it, nothing is claimed and nothing is checked, and the module says so.
 

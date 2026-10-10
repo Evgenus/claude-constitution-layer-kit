@@ -34,8 +34,10 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    repository. Set `log_dir` to keep it inside the repository instead; the directory must
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
 5. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
-6. CLAUDE.md pointer: none. The skill `/const-meta-types:choose-meta-type` loads on its own
-   when Markdown documents are being created or classified.
+6. CLAUDE.md pointer: none. The session-start hook prints one pointer line, 182 characters,
+   advisory, naming the skill `/const-meta-types:choose-meta-type` and its moment; every
+   subagent's start gets the same line, and every red of the gate ends with a line naming the
+   skill.
 
 Uninstall: remove the plugin; remove the `const-meta-types:` namespace from
 `constitution.yaml` if present.
