@@ -25,7 +25,7 @@ RED: docs/notes/dense.md:3: 'utilize' where the plain word is 'use'
   fix: write 'use'; a word this repository keeps on purpose is named in const-language.exceptions in constitution.yaml; for a document that must stand as written, declare the departure with its reason: add to const-language.departures in constitution.yaml an entry {paths: [<the file, or a pattern of the documents that stand>], allow: [simpler], reason: <why they stand, in one line>}
 ```
 
-The skill `plain-language` loads on its own before prose is written in a covered document, and when a finding is read. Its rules: one idea per sentence, and a long sentence is split at a clause, never squeezed. The plain word. No idiom. Name who acts. A term of the project's own is defined in one clause at first use. A phrase the project keeps on purpose is an exception in the dials file, never a mark in the document.
+The skill `plain-language` is for loading before prose is written in a covered document, and when a finding is read. Its rules: one idea per sentence, and a long sentence is split at a clause, never squeezed. The plain word. No idiom. Name who acts. A term of the project's own is defined in one clause at first use. A phrase the project keeps on purpose is an exception in the dials file, never a mark in the document.
 
 <a id="a4"></a>
 ## How it works
@@ -34,7 +34,7 @@ The skill `plain-language` loads on its own before prose is written in a covered
 
 **The scan.** The same check over every covered document, from the command line. It exits with code 2 on a finding at level error. A rule at level warning prints notes and never turns it red. Run it in CI and before a merge, on a runner that has Vale.
 
-**The skill.** A procedure in prose. Nothing in it blocks.
+**The skill.** A procedure in prose. Nothing in it blocks. The module names the skill to the session at session start, at the start of each subagent and after every red, so that it is loaded when it applies.
 
 **The numbers are Vale's.** The grade is Flesch–Kincaid as Vale counts words, sentences and syllables, over the prose outside headings, code and tables. A heading counts as a sentence for the word limit. Other tools give the same text a grade a year or two apart, so a ceiling means "grade N by Vale".
 
