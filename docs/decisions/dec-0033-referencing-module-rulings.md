@@ -27,7 +27,7 @@ The specification said an id cite is "repaired by tooling on a move", in one cla
   - **Pros:** the smallest module.
   - **Cons:** the friction signal has already fired four times.
 
-**R1.** The decider chose A and widened it in his own words: "move/rename as feature (might be script or command) + repair after manual move + check for consistency". [Requirement A5.8](../requirements.md#a5-8) is added: one act moves a document and rewrites the inbound links and the moved file's own relative links; after a move made by hand the same repair runs from the two paths, or from the envelope alone where a link's text is a governed id; links inside code are not rewritten, and mentions in prose are listed for a human, never rewritten; changing an `id` is not a move. The rewrite is advisory — a generator; its completeness is a gate: each act ends with the scan of the whole tree and exits with its verdict.
+**R1.** The decider chose A and widened it in their own words: "move/rename as feature (might be script or command) + repair after manual move + check for consistency". [Requirement A5.8](../requirements.md#a5-8) is added: one act moves a document and rewrites the inbound links and the moved file's own relative links; after a move made by hand the same repair runs from the two paths, or from the envelope alone where a link's text is a governed id; links inside code are not rewritten, and mentions in prose are listed for a human, never rewritten; changing an `id` is not a move. The rewrite is advisory — a generator; its completeness is a gate: each act ends with the scan of the whole tree and exits with its verdict.
 
 ## 2. Where the check of resolution runs at write time
 
