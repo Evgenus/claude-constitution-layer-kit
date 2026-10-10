@@ -64,7 +64,7 @@ INSTALL = MODULE_ROOT / "INSTALL.md"
 MANIFEST = MODULE_ROOT / ".claude-plugin" / "plugin.json"
 HOOKS = MODULE_ROOT / "hooks" / "hooks.json"
 DOC = "docs/notes/c.md"
-# the line every red ends in (F10 of the shared gate code), typed by hand once
+# the line after the count line of every red (F10 of the shared gate code), typed by hand once
 F10 = "const-language: load the skill const-language:plain-language before you fix this — it teaches the rule and the fix"  # noqa: E501 — a golden line is typed whole
 # the line printed at session start and at each subagent's start, typed by hand once
 POINTER = "const-language (advisory): before writing or editing prose in a document the language check covers, and when the check reports a finding, load the skill const-language:plain-language."  # noqa: E501 — a golden line is typed whole

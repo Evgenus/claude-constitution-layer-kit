@@ -89,8 +89,7 @@ silently skipped.
    is red and the rest run.
 9. CLAUDE.md pointer: none. The skills `/const-task-close:close-task` and
    `/const-task-close:commit-before-edit` are named at their moment: by the pointer line printed at
-   session start and at each subagent's start (251 characters, advisory), and by the line that ends
-   every red of the turn-end hook and of the scan.
+   session start and at each subagent's start (251 characters, advisory), and by the line after the count line of every red of the turn-end hook the model reads, and of the scan.
 
 What this module does not check: whether a document update is right; whether a declaration is
 true; whether a file is a working file (a `working_files` match is a note); a change merged into

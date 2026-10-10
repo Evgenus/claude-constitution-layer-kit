@@ -41,7 +41,7 @@ Rows enforced through [A3.4](../../docs/requirements.md#a3-4) and not homed here
 7. [dec-0010-module-research-per-module](../../docs/decisions/dec-0010-module-research-per-module.md) — the mechanism choices of [§6](#t6) rest on this module's own dated comparison.
 8. [dec-0012-record-references-are-provenance](../../docs/decisions/dec-0012-record-references-are-provenance.md) — the skill's rule that an applied ruling stands in the text of the current-state document it changed.
 9. [dec-0048-frozen-documents-take-wording-edits](../../docs/decisions/dec-0048-frozen-documents-take-wording-edits.md) — the skill names a third mechanical edit of an accepted record, the wording edit of a kind the project's policy for records lists.
-10. [dec-0079-skills-named-at-their-moment](../../docs/decisions/dec-0079-skills-named-at-their-moment.md) — every red of this module's gate carries, after its count line, a line that names the skill `record-decision`, since a skill that no red names is not loaded when it applies; and the skill's description opens with the order to load it before its moment.
+10. [dec-0079-skills-named-at-their-moment](../../docs/decisions/dec-0079-skills-named-at-their-moment.md) — every red of this module's gate carries, after its count line, a line that names the skill `record-decision`, since a skill that no red names is not loaded when it applies; and the descriptions of both skills, `record-decision` and `promote-recurring-notes`, open with the order to load them before their moment.
 
 <a id="t5"></a>
 ## 5. Invariant

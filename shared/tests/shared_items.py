@@ -208,7 +208,7 @@ class Subject:
     # `red` being the documents the scan passes or reports, `green` the whole green line of a scan
     # over the consumer holding `valid` alone, and the items about a red run read stdout, where a
     # scan prints its verdict; `bare_readme` is that scan's green line with a README at the top
-    skill: str = ""  # the skill a red of `red` names in its last line (F10), typed by hand; empty: the
+    skill: str = ""  # the skill a red of `red` names after its count line (F10), typed by hand; empty: the
     # gate names none for that mode, and the item about the line is left out
 
 
@@ -743,8 +743,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return ok, "exit 0, finding in additionalContext and systemMessage" if ok else f"bad: {answer}"
 
     def skill_named_after_red() -> tuple[bool, str]:
-        """A red ends in one line naming the skill that teaches the rule and its fix, after the count
-        line — in the block, the asking reason or the scan, and in the warn context the model reads."""
+        """A red names the skill that teaches the rule and its fix in one line right after the count
+        line, the last line of the block, the asking reason or the scan; the warn context the model
+        reads holds the line once, the warn note after it."""
         line = f"{ns}: load the skill {ns}:{s.skill} before you fix this — it teaches the rule and the fix"
         result, _ = s.gate_on(s.red)  # the line typed by hand above
         lines = red_said(result).splitlines()

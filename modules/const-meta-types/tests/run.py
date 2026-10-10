@@ -52,7 +52,7 @@ ROOT_TERRITORY = ["docs/policies/**"]
 NOTES = Match("notes-policy", "docs/notes/**")
 SHARED_POLICY = Match("shared-policy", "docs/notes/shared/**")
 F1_HEADLINE = "RED: docs/notes/a.md: no frontmatter envelope"  # typed by hand, as the gate prints it
-# the line that ends every red verdict, after the count line (F10), typed by hand
+# the line after the count line of every red verdict (F10), typed by hand
 F10_LINE = (
     "const-meta-types: load the skill const-meta-types:choose-meta-type before you fix this — it teaches"
     " the rule and the fix"

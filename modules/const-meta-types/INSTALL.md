@@ -36,8 +36,7 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
 5. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
 6. CLAUDE.md pointer: none. The session-start hook prints one pointer line, 182 characters,
    advisory, naming the skill `/const-meta-types:choose-meta-type` and its moment; every
-   subagent's start gets the same line, and every red of the gate ends with a line naming the
-   skill.
+   subagent's start gets the same line, and every red of the gate carries, after its count line, a line naming the skill.
 
 Uninstall: remove the plugin; remove the `const-meta-types:` namespace from
 `constitution.yaml` if present.
