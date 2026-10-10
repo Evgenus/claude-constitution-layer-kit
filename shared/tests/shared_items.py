@@ -761,11 +761,20 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         if s.scan_only or stop:  # a scan has no warn; a Stop's warn is the user's notice alone
             return True, "the skill's line last, after the count line"
         warned, _ = s.gate_on(s.red, dials_patch=s.own(severity="warn"))
-        context = json.loads(warned.stdout)["hookSpecificOutput"]["additionalContext"]
-        ok = context.splitlines().count(line) == 1
+        context = json.loads(warned.stdout)["hookSpecificOutput"]["additionalContext"].splitlines()
+        ok = (  # the count line, then F10, then the warn note, typed by hand, last
+            context.count(line) == 1
+            and len(context) >= 3
+            and context[-2] == line
+            and context[-3].startswith("RED: ")
+            and context[-1].startswith(f"{ns}: severity is warn: the write proceeds")
+        )
         return (
             ok,
-            "the skill's line last, after the count line, and once in the warn context" if ok else context,
+            "the skill's line last, after the count line, and in the warn context once, between the count"
+            " line and the warn note"
+            if ok
+            else str(context),
         )
 
     # ---------------------------------------------------------------- the output log
