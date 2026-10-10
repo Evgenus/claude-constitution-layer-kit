@@ -51,6 +51,21 @@ identity.declare(start.GATE)  # the messages not typed by hand are built by the 
 H = Harness(SCRIPTS, "check-task-close.sh", "check-task-close.py", start.GATE.namespace)
 NS = start.GATE.namespace
 KEY = "No-Doc-Impact"
+# F10, the line after a red's count line, typed by hand: the hook's skill, then the scan's
+POINTER_HOOK = (
+    "const-task-close: load the skill const-task-close:commit-before-edit before you fix this"
+    " — it teaches the rule and the fix\n"
+)
+POINTER_SCAN = (
+    "const-task-close: load the skill const-task-close:close-task before you fix this"
+    " — it teaches the rule and the fix\n"
+)
+# the pointer line of the session start, typed by hand; its size in characters is stated in MODULE.md
+SKILL_POINTER = (
+    "const-task-close (advisory): before a batch of edits, and when a change is done, load the skill"
+    " const-task-close:commit-before-edit; when a task, a branch or a pull request is finished,"
+    " merged or handed off, load the skill const-task-close:close-task."
+)
 CORE = {"name": "core", "code": ["src/**"], "docs": ["docs/core.md"]}
 PAIR = Pair("core", ("src/**",), ("docs/core.md",))
 GIT_ENV = {
@@ -1609,7 +1624,7 @@ def golden_lines() -> tuple[bool, str]:
             "  fix: commit what is finished: git add -A && git commit -m '<what changed and why>' — stash or discard what is not; this is asked once per turn",  # noqa: E501 — a golden line is typed whole
             tree,
         ),
-        ("RED: 1 finding — the working tree examined (1 path(s) dirty)", tree),
+        ("RED: 1 finding — the working tree examined (1 path(s) dirty)\n" + POINTER_HOOK, tree),
         (
             "GREEN: const-task-close: the working tree examined — 1 path(s) dirty; a stop hook already continued this turn once, so it is not asked again and the turn ends",  # noqa: E501 — a golden line is typed whole
             second,
@@ -1636,6 +1651,7 @@ def golden_lines() -> tuple[bool, str]:
         ("  why: a declaration is a judgment; the reason is what a reviewer reads", out),
         ("  fix: write it as No-Doc-Impact: core — <why the documents are unaffected>", out),
         ("RED: 3 finding(s) — 1 pair(s) examined over 1 commit(s), ", out),
+        (POINTER_SCAN, out),
         (
             "BROKEN: constitution.yaml: const-task-close.coverage[core] names the document docs/none.md, which does not exist at HEAD (",  # noqa: E501 — a golden line is typed whole
             x1,
@@ -1671,17 +1687,69 @@ def golden_lines() -> tuple[bool, str]:
 
 def hooks_file_shape() -> tuple[bool, str]:
     hooks = json.loads((SCRIPTS.parent / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-    stop = hooks["hooks"]["Stop"]
-    handler = stop[0]["hooks"][0]
-    ok = (
-        list(hooks["hooks"]) == ["Stop"]
-        and "matcher" not in stop[0]
-        and handler["type"] == "command"
-        and handler["command"] == "sh"
-        and handler["args"] == ["${CLAUDE_PLUGIN_ROOT}/scripts/check-task-close.sh"]
-        and isinstance(handler["timeout"], int)
+    wanted = {
+        "Stop": ["${CLAUDE_PLUGIN_ROOT}/scripts/check-task-close.sh"],
+        "SessionStart": ["${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh"],
+        "SubagentStart": ["${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh", "--subagent"],
+    }
+    if list(hooks["hooks"]) != list(wanted):
+        return False, json.dumps(hooks)
+    for event, args in wanted.items():
+        groups = hooks["hooks"][event]
+        if len(groups) != 1 or "matcher" in groups[0] or len(groups[0]["hooks"]) != 1:
+            return False, f"{event}: not one handler without a matcher"
+        handler = groups[0]["hooks"][0]
+        script = SCRIPTS / args[0].removeprefix("${CLAUDE_PLUGIN_ROOT}/scripts/")
+        if (
+            handler["type"] != "command"
+            or handler["command"] != "sh"
+            or handler["args"] != args
+            or type(handler["timeout"]) is not int
+            or not script.is_file()
+        ):
+            return False, f"{event}: {json.dumps(handler)}"
+    return (
+        True,
+        "Stop, SessionStart and SubagentStart, one handler each, exec form, the placeholder in args,"
+        " a timeout",
     )
-    return ok, "one Stop handler, exec form, the placeholder in args, a timeout" if ok else json.dumps(hooks)
+
+
+def skill_pointer_printed() -> tuple[bool, str]:
+    """The session-start pointer: exit 0, the line as typed here and a line break, nothing on stderr;
+    with --subagent one JSON object carrying the line; of the size the module document states; and
+    each skill it names is a folder under skills/."""
+    plain = subprocess.run(
+        [H.sh, str(SCRIPTS / "print-skill-pointer.sh")], capture_output=True, text=True, check=False
+    )
+    if plain.returncode != 0 or plain.stdout != SKILL_POINTER + "\n" or plain.stderr != "":
+        return False, repr(plain)
+    sub = subprocess.run(
+        [H.sh, str(SCRIPTS / "print-skill-pointer.sh"), "--subagent"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if sub.returncode != 0 or sub.stderr != "" or not sub.stdout.endswith("\n"):
+        return False, repr(sub)
+    parsed = json.loads(sub.stdout)
+    wanted = {"hookSpecificOutput": {"hookEventName": "SubagentStart", "additionalContext": SKILL_POINTER}}
+    if parsed != wanted:
+        return False, f"the subagent object is {parsed!r}"
+    size = len(SKILL_POINTER)
+    stated = re.search(
+        r"pointer line, (\d+) characters", (SCRIPTS.parent / "MODULE.md").read_text(encoding="utf-8")
+    )
+    if not stated or int(stated.group(1)) != size:
+        return False, f"the module document states another size than {size}"
+    named = re.findall(r"the skill const-task-close:([a-z-]+)", SKILL_POINTER)
+    if len(named) != 2 or not all((SCRIPTS.parent / "skills" / name).is_dir() for name in named):
+        return False, f"a skill the line names has no folder under skills/: {named}"
+    return (
+        True,
+        f"exit 0, the line as typed, {size} characters as the module document states, the subagent"
+        f" object exact, {named} are skills",
+    )
 
 
 def skills_and_install_note() -> tuple[bool, str]:
@@ -2107,7 +2175,11 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         " T2, typed by hand",
         golden_lines,
     ),
-    (33, "the hooks file's shape", hooks_file_shape),
+    (
+        33,
+        "the hooks file's shape: Stop, SessionStart and SubagentStart, one handler each",
+        hooks_file_shape,
+    ),
     (
         34,
         "the skill descriptions' sizes, each with its trigger and its advisory line; the install note's"
@@ -2133,6 +2205,12 @@ ITEMS: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
         "the install-failure lines, C1, C2, C14 and C15, close with this gate's own clause, never the write"
         " gates', C12.11 keeps the default; the entry files hold it three times",
         closing_is_the_gates_own,
+    ),
+    (
+        41,
+        "the session-start pointer line and the subagent's JSON object: exact text, stated size, the skills"
+        " it names exist",
+        skill_pointer_printed,
     ),
 ]
 
