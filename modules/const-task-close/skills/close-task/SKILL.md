@@ -1,12 +1,13 @@
 ---
 name: close-task
 description: >
-  Close a task as one act: merge the deltas into the current-state documents that describe
-  the changed code, run the range check, delete the working files, set the task's record
-  inactive, commit as one change. Use when a task, story, branch or pull request is being
-  finished, merged or handed off, when a change touched code and the question is which
-  documents it owes, when writing a no-impact declaration, or when the range check is red.
-  Advisory: it shapes the close; the check judges only the range.
+  Load this skill first, before a task, a story, a branch or a pull request is finished, merged or
+  handed off — every time, whether or not the close seems simple. It closes the task as one act:
+  merge the deltas into the current-state documents that describe the changed code, run the range
+  check, delete the working files, set the task's record inactive, commit as one change. Use when
+  a change touched code and the question is which documents it owes, when writing a no-impact
+  declaration, or when the range check is red. Advisory: it shapes the close; the check judges
+  only the range.
 ---
 
 # Close a task

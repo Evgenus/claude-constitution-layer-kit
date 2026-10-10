@@ -1,16 +1,16 @@
 ---
 name: referencing
 description: >
-  Write references that a machine can follow and a move can repair: cite a document by its id
-  as a link, give every cited place an explicit anchor with a short fixed key, cite code by
-  symbol name, move or rename a document with the mover so that every link to it is repaired,
-  repair links after a move made by hand. Use when writing or editing links between documents,
-  when adding a section, table row or rule that others will cite, when moving, renaming or
-  deleting a document, when a write was blocked for a bare handle, an id in backticks, an id
-  link that opens another file or a path on one machine, and when the check after a write or
-  the scan reports a link target that does not exist, an anchor that does not exist, or a link
-  that resolves only through a heading. Advisory: it shapes how references are written and
-  moved; the gate checks their form and that they resolve.
+  Load this skill first, before writing a link between documents, adding a section, table row or
+  rule that others will cite, or moving, renaming or deleting a document — every time, whether or
+  not the form seems known. It writes references that a machine can follow and a move can repair:
+  cite a document by its id as a link, give every cited place an explicit anchor with a short
+  fixed key, cite code by symbol name, move or rename a document with the mover so that every link
+  to it is repaired, repair links after a move made by hand. Use when a write was blocked for a
+  bare handle, an id in backticks, an id link that opens another file or a path on one machine,
+  and when the check after a write or the scan reports a link target that does not exist, an
+  anchor that does not exist, or a link that resolves only through a heading. Advisory: it shapes
+  how references are written and moved; the gate checks their form and that they resolve.
 ---
 
 # References

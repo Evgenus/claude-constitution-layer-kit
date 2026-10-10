@@ -1,14 +1,14 @@
 ---
 name: plain-language
 description: >
-  Write the prose of a governed document in plain English for a reader whose first language is
-  not English — short sentences, short words, no idiom, the actor named — and read a finding of
-  the language check: a document over the grade ceiling, a sentence over the word limit, a
-  construction plain language avoids, a word with a plain replacement, passive voice. Use when
-  writing or editing prose in a document the check covers, when the check reports after a write
-  or in its scan, when a phrase the project must keep is flagged, when adopting the check on a
-  repository with many findings, and when setting its thresholds. Advisory: it shapes the
-  writing; the check holds the numbers and the lists.
+  Load this skill first, before writing or editing any prose in a document the language check
+  covers — every time, whether or not the prose seems plain — and again when the check reports a
+  finding after a write or in its scan: a document over the grade ceiling, a sentence over the
+  word limit, a construction plain language avoids, a word with a plain replacement, passive
+  voice. It writes plain English for a reader whose first language is not English — short
+  sentences, short words, no idiom, the actor named. Load it also when a phrase the project must
+  keep is flagged, when adopting the check on a repository with many findings, and when setting
+  its thresholds. Advisory: it shapes the writing; the check holds the numbers and the lists.
 ---
 
 # Plain language
