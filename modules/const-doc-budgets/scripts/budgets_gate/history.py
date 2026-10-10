@@ -44,11 +44,11 @@ def report(output: Output, root: Path, dials: BudgetDials, since: datetime.date)
     if shallow == "true":
         raise ConfigurationFailure(messages.c12_shallow(str(root)))
     if git(["rev-parse", "--verify", "-q", "HEAD"], cwd=root).returncode != 0:
-        output.out(messages.h1_no_commit(since))
+        output.out(messages.b2_no_commit(since))
         return EXIT_GREEN
     commits = _commits(root, since)
     if not commits:
-        output.out(messages.h1_no_commit(since))
+        output.out(messages.b2_no_commit(since))
         return EXIT_GREEN
     links: dict[str, str] = {}  # a link's blob -> its target, read once for every commit
     trees = {sha: _markdown_blobs(root, sha, links) for sha, _ in commits}
@@ -73,7 +73,7 @@ def report(output: Output, root: Path, dials: BudgetDials, since: datetime.date)
         for ceiling in dials.ceilings:
             record = days[day]
             output.out(
-                messages.h1_day(
+                messages.b2_day(
                     day, ceiling, record.documents[ceiling.name], record.longest.get(ceiling.name)
                 )
             )
@@ -81,8 +81,8 @@ def report(output: Output, root: Path, dials: BudgetDials, since: datetime.date)
     for ceiling in dials.ceilings:
         top = longest([t for d in days.values() if (t := d.longest.get(ceiling.name)) is not None])
         thumb = rule_of_thumb(top[1]) if top is not None else 0
-        output.out(messages.h1_window(ceiling, first, last, top, thumb))
-    output.out(messages.h1_closing(since, len(commits), len(ordered), len(dials.ceilings)))
+        output.out(messages.b2_window(ceiling, first, last, top, thumb))
+    output.out(messages.b2_closing(since, len(commits), len(ordered), len(dials.ceilings)))
     return EXIT_GREEN
 
 
