@@ -329,7 +329,7 @@ def spec_trailer() -> tuple[bool, str]:
     red = red_scan(scan(r.root), t2())
     where = "commit " + commit(r.root, "declare\n\n" + trailer())
     result = scan(r.root)
-    note = messages.n1_declared(
+    note = messages.n2_declared(
         declared(where, "core", "a helper only, the page describes the interface"), True
     )
     green = green_scan(result, tail(1, 2, short(r.root, "main"), short(r.root)))
@@ -359,7 +359,7 @@ def spec_body() -> tuple[bool, str]:
         "Title\n\nSome text.\n\n" + trailer(reason="via the description") + "\n", encoding="utf-8"
     )
     result = scan(r.root, "--body", str(body))
-    note = messages.n1_declared(declared(BODY, "core", "via the description"), True)
+    note = messages.n2_declared(declared(BODY, "core", "via the description"), True)
     green = green_scan(result, tail(1, 1, short(r.root, "main"), short(r.root)))
     noted = (note in result.stdout, f"the note: {note}" if note in result.stdout else result.stdout)
     return all_of([red, green, noted], "red→green: T2, then the same line in the body given as a file")
@@ -750,7 +750,7 @@ def change_merge_and_commit() -> tuple[bool, str]:
     commit(r.root, "more code", {"src/b.py": "y\n"})
     merged = merge(r.root)
     result = scan(r.root, "--change", merged)
-    note = messages.n1_declared(
+    note = messages.n2_declared(
         declared(where, "core", "a helper only, the page describes the interface"), True
     )
     whole = green_scan(result, tail(1, 3, short(r.root, "main^1"), merged))
@@ -1008,8 +1008,8 @@ def trailer_among_others() -> tuple[bool, str]:
     )
     result = scan(r.root)
     notes = [
-        messages.n1_declared(declared(where, "core", "one"), True),
-        messages.n1_declared(declared(where, "cli", "two"), True),
+        messages.n2_declared(declared(where, "core", "one"), True),
+        messages.n2_declared(declared(where, "cli", "two"), True),
     ]
     ok = result.code == 0 and all(note in result.stdout for note in notes)
     if not ok:
@@ -1029,7 +1029,7 @@ def signed_note() -> tuple[bool, str]:
     log = fake_gpg(r.root)
     where = "commit " + commit(r.root, "renamed\n\n" + trailer("core", "a rename only"), {"src/a.py": "2\n"})
     result = scan(r.root)
-    note = messages.n1_declared(declared(where, "core", "a rename only"), True)
+    note = messages.n2_declared(declared(where, "core", "a rename only"), True)
     count = "GREEN: const-task-close: " + tail(1, 1, short(r.root, "main"), short(r.root))
     wrong = signed_gate(r.root, result, log)
     ok = result.code == 0 and not wrong and result.stdout.splitlines() == [*note.splitlines(), count]
@@ -1102,7 +1102,7 @@ def old_git_is_a_failure_of_git() -> tuple[bool, str]:
     reason = "the %(trailers placeholder, quoted"
     where = "commit " + commit(q.root, "quoted\n\n" + trailer("core", reason), {"src/a.py": "2\n"})
     quoted = scan(q.root)
-    note = messages.n1_declared(declared(where, "core", reason), True)
+    note = messages.n2_declared(declared(where, "core", reason), True)
     count = "GREEN: const-task-close: " + tail(1, 1, short(q.root, "main"), short(q.root))
     if quoted.code != 0 or quoted.stdout.splitlines() != [*note.splitlines(), count]:
         return (
@@ -1203,7 +1203,7 @@ def untouched_pair_note() -> tuple[bool, str]:
     branch(r.root)
     where = "commit " + commit(r.root, "docs only\n\n" + trailer(reason="nothing"), {"README.md": "x\n"})
     result = scan(r.root)
-    note = messages.n1_declared(declared(where, "core", "nothing"), False)
+    note = messages.n2_declared(declared(where, "core", "nothing"), False)
     return expect(result, 0, note, "stdout")
 
 
@@ -1243,7 +1243,7 @@ def document_is_no_trigger() -> tuple[bool, str]:
         r.root, "the page alone\n\n" + trailer("docs", "nothing"), {"docs/core.md": "# 2\n"}
     )
     result = scan(r.root)
-    note = messages.n1_declared(
+    note = messages.n2_declared(
         declared(where, "docs", "nothing"), False
     )  # the pair is not covered by its own page
     silent = expect(result, 0, note, "stdout")
@@ -1543,7 +1543,7 @@ def working_files_note() -> tuple[bool, str]:
     r = repo(own(working_files=["notes/**"]), files={"notes/todo.md": "x\n"})
     r.write("notes/untracked.md", "y\n")
     result = scan(r.root)
-    note = messages.n2_working_files(["notes/todo.md"])
+    note = messages.n3_working_files(["notes/todo.md"])
     odd = "notes/w\nx\\y" + "p" * 80 + ".md"  # a path over 80 characters: whole, escaped
     odd_run = scan(repo(own(working_files=["notes/**"]), files={odd: "x\n"}).root)
     odd_note = (

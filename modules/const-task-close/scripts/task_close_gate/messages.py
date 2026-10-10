@@ -4,7 +4,7 @@ in the shared package's messages module.
 
 Error messages are a teaching surface: a finding states what failed, why the rule exists
 (one clause), and the exact fix; a configuration failure is one self-sufficient line. Every
-function name starts with the stable key of its text (t1_, n1_, g1_, c5_, ...), so a text can
+function name starts with the stable key of its text (t1_, n2_, g1_, c5_, ...), so a text can
 be cited, reviewed and asserted by key. A reader must be able to act on a message without
 holding any other document: no text here cites one.
 """
@@ -97,7 +97,7 @@ def t4_no_reason(declaration: Declaration, key: str) -> Finding:
 # ---------------------------------------------------------------- notes
 
 
-def n1_declared(declaration: Declaration, covered: bool) -> str:
+def n2_declared(declaration: Declaration, covered: bool) -> str:
     if covered:
         return (
             f"note: {declaration.pair}: no impact declared in {declaration.where}:"
@@ -109,7 +109,7 @@ def n1_declared(declaration: Declaration, covered: bool) -> str:
     )
 
 
-def n2_working_files(paths: Sequence[str]) -> str:
+def n3_working_files(paths: Sequence[str]) -> str:
     return (
         f"note: {len(paths)} tracked file(s) match working_files ({_some(paths, SHOWN_PATHS)}) — a task's"
         " working files are deleted at its close; keep one only with a reason"

@@ -40,7 +40,7 @@ def examine(
             findings.append(messages.t4_no_reason(declaration, key))
             continue
         declared.add(declaration.pair)
-        notes.append(messages.n1_declared(declaration, declaration.pair in covered))
+        notes.append(messages.n2_declared(declaration, declaration.pair in covered))
     owed = [
         messages.t2_not_updated(v.pair, v.touched, key)
         for v in verdicts
@@ -51,7 +51,7 @@ def examine(
 
 def working_files_note(matcher: Matcher, patterns: Sequence[str], tracked: Sequence[str]) -> list[str]:
     matched = sorted(matcher.match(patterns, tracked))
-    return [messages.n2_working_files(matched)] if matched else []
+    return [messages.n3_working_files(matched)] if matched else []
 
 
 def tree_finding(lines: Sequence[str]) -> Finding:
