@@ -99,7 +99,7 @@ The session recommended B: the pointer lines showed no gain over a description t
 
 ## 4. What this changes in an earlier record
 
-[dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md) ruled that module [`const-styling`](../requirements.md#const-styling) prints no `SessionStart` line, in its R4, and ships no hook, in its R9. R2 and R4 above give it one pointer line and two advisory hooks.
+[dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md) ruled that module [`const-styling`](../requirements.md#const-styling) prints no `SessionStart` line, in its R4, and ships no hook, in its R9. R2 and R4 above give it one pointer line and two advisory hooks. No real choice is left here: sections 1 and 2 chose the lines and the hooks, and this item only names the earlier items they replace.
 
 **R8.** For module [`const-styling`](../requirements.md#const-styling), R2 and R4 replace two items of dec-0044: its R4's "no `SessionStart` line" and its R9's "the module ships no hook". The module prints its pointer line at session start and at each subagent's start through two advisory hooks, and its scan still runs no hook, has no hook mode and no `severity` dial, as dec-0044's R9 ruled.
 
@@ -135,7 +135,7 @@ The commits of this branch apply every item. The message of each commit names wh
 4. R4 — [the module template](../../module-template/MODULE.md#t6), the hook row of section 6; the hook rows of section 6 of the six modules of R2.
 5. R5 — [CLAUDE.md](../../CLAUDE.md), the opening paragraph of "Session conduct"; the implementer's own file applies it.
 6. R6 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, and [its example skill](../../module-template/skills/example-procedure/SKILL.md), the description.
-7. R7 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, which asks for both the order and the pointer.
-8. R8 — [`const-styling`](../../modules/const-styling/MODULE.md#t6), the hook row and the always-on content of section 6.
+7. R7 — the always-on content of section 6 of the six modules of R2, which keeps their pointer lines beside the reworded descriptions; [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, where a skill is named by the module's other parts as well as by its description.
+8. R8 — [`const-styling`](../../modules/const-styling/MODULE.md#t6), the hook row and the always-on content of section 6, and [its section 7](../../modules/const-styling/MODULE.md#t7), the opening line, which keeps the scan without a `severity` dial; that it replaces two items of dec-0044 is history only.
 9. R9 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, which binds every skill's description.
 10. R10 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, the sentence on the pointer line.

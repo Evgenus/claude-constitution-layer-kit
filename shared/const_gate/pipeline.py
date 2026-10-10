@@ -189,10 +189,10 @@ def within_the_cap(findings: Sequence[Finding], most: int | None = None) -> Sequ
     return shown
 
 
-def skill_pointer(mode: Mode) -> list[str]:
-    """The line after a red verdict that names the skill teaching the rule and its fix (F10): it
-    sends the reader of a red to the procedure, at the moment it applies. None where the
-    gate names no skill for the mode."""
+def skill_line(mode: Mode) -> list[str]:
+    """F10, the shared line after the count line of a red verdict that names the skill teaching the
+    rule and its fix: it sends the reader of a red to the procedure, at the moment it applies. No
+    line where the gate names no skill for the mode."""
     skill = identity.current().skills.get(mode, "")
     return [messages.f10_skill(skill)] if skill else []
 
@@ -216,11 +216,12 @@ def report_hook(
     with exit 0 and one JSON object asking the platform to prompt the user, the body its reason:
     where a prompt cannot be shown the platform denies the call with that reason, and the exit
     code is 0 because the verdict is the platform's prompt, not this process's; warn is unchanged.
-    Every text the model reads ends in the line naming the skill of the hook's mode, where the gate
-    names one (F10); the user's notice on Stop, which no model reads, carries the verdict alone."""
+    Every text the model reads carries, after the count line, the line naming the skill of the
+    hook's mode, where the gate names one (F10) — at warn the warn note follows it; the user's
+    notice on Stop, which no model reads, carries the verdict alone."""
     count = messages.f9_count_hook(len(findings), rel) if count is None else count
     verdict = "\n".join([*notes, *(f.render() for f in findings), count])
-    body = "\n".join([verdict, *skill_pointer(Mode.HOOK)])  # what the model reads ends in F10
+    body = "\n".join([verdict, *skill_line(Mode.HOOK)])  # the count line, then F10
     if ask and severity is Severity.BLOCK:
         output.out(
             json.dumps(
@@ -235,7 +236,7 @@ def report_hook(
         )
         return EXIT_GREEN
     if severity is Severity.WARN and event_name == STOP:
-        output.out(json.dumps({"systemMessage": messages.w1_warn_stop(verdict)}))  # the user's: no pointer
+        output.out(json.dumps({"systemMessage": messages.w1_warn_stop(verdict)}))  # the user's: no F10
         return EXIT_GREEN
     if severity is Severity.WARN:
         output.out(
@@ -263,7 +264,7 @@ def report_scan(output: Output, findings: Sequence[Finding], notes: Sequence[str
         for finding in findings:
             output.out(finding.render())
         output.out(messages.f9_count_scan(len(findings), tail))
-        for line in skill_pointer(Mode.SCAN):
+        for line in skill_line(Mode.SCAN):
             output.out(line)
         return EXIT_RED
     output.out(messages.g1_green_scan(tail))

@@ -5,8 +5,8 @@ description: >
   not the earlier answers seem worth a ruling. It finds routine calls that keep recurring in
   commit messages on one theme and promotes the theme to a decision record or a documented
   procedure. Use when reviewing recent history before a release or a retrospective, when someone
-  says "we keep deciding this", or when asked which commit notes deserve a ruling. Advisory
-  procedure: nothing here is checked by a gate.
+  says "we keep deciding this", or when asked which commit notes deserve a ruling. Advisory: it
+  shapes which themes are promoted and to what; no gate checks anything here.
 ---
 
 # Promote recurring commit notes

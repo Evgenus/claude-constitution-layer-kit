@@ -262,7 +262,7 @@ class Harness:
     def run_scan_case(self, case: Case) -> tuple[bool, str]:
         """A gate without a hook mode: each half is a document written into a fresh consumer and the
         scan run over it; red prints its verdict on stdout — the one finding whole and the count line
-        typed by hand, nothing more — and green prints the whole green line."""
+        typed by hand, and no other RED line — and green prints the whole green line."""
         if case.count is None or not isinstance(case.red, Write) or not isinstance(case.green, Write):
             return False, "a scan-only case needs its count line and two Writes"
         consumer = self.fresh_consumer(case.setup)
