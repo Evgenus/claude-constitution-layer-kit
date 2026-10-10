@@ -60,10 +60,13 @@ the shared harness prints as `[ok]` or `[FAIL]`, the number, the kind in round b
 title, and its last line, `N/T acceptance items green — …`. An item line out of that form, a
 count of item lines that differs from T, a count N of green lines that differs from the `[ok]`
 lines, an exit other than 0 or 2, or an exit that disagrees with the item lines means the runner
-could not be read: the check could not run, never a pass. A fixture item's handle is its runner
-number, bare or under `T` or `S` — `T12` and `12` are item 12, `S101` is item 101. Also red in a
-full run: a runner item no table row names, and a fixture item a table names that the runner did
-not print.
+could not be read: the check could not run, never a pass. A runner that exits other than 0 has
+its whole output, stdout then stderr, printed first, line for line, under one line naming the
+runner and its exit, so that a red item's own lines stand where the run is read — as in the
+kit's CI, which runs each module's fixtures through `--run --module <name>`. A fixture item's
+handle is its runner number, bare or under `T` or `S` — `T12` and `12` are item 12, `S101` is
+item 101. Also red in a full run: a runner item no table row names, and a fixture item a table
+names that the runner did not print.
 
 Each row a module holds is printed with its destination as the matrix states it, every module
 that holds a part of it with the version of its manifest, and every item that names it — from
@@ -803,6 +806,10 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
             f"the runner of {module.name} ran past {RUNNER_TIMEOUT} s"
             " — fix: run it alone and see where it hangs"
         ) from slow
+    if done.returncode != 0:  # the runner's own lines say what failed; the report says only which item
+        print(f"the runner of {module.name} exited {done.returncode}; its output, as it printed it:")
+        for text in (done.stdout + done.stderr).splitlines():
+            print(text)
     if done.returncode not in (0, 2):
         first = ((done.stderr or done.stdout).strip().splitlines() or ["no message"])[-1]
         raise Broken(
@@ -996,6 +1003,19 @@ GOOD_TABLE = (
     f"| L1 | live | {LINK_3} | done 2026-09-01, a live run |\n"
     f"| L2 | review | {LINK_1}, {LINK_3} | the pairs |\n"
 )
+
+
+def echoed(out: str, lines: list[str], code: int) -> bool:
+    """A runner that exited other than 0 has its whole output printed, line for line, under one
+    header; a green one prints nothing of its own."""
+    header = f"the runner of const-sample exited {code}; its output, as it printed it:"
+    printed = out.splitlines()
+    if code == 0:
+        return "the runner of const-sample exited" not in out and "        evidence" not in printed
+    if header not in printed:
+        return False
+    start = printed.index(header) + 1
+    return printed[start : start + len(lines)] == lines
 
 
 def fake_runner(lines: list[str], code: int) -> str:
@@ -2345,6 +2365,7 @@ def self_test() -> int:
             and "  A1.2  held by kernel §2 — definitional — through A1.1" in out
         )
         ok = ok and "      const-sample L1: live, done 2026-09-01 — not run" in out
+        ok = ok and echoed(out, lines, runner_exit)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a full run with {name} exits {want} and says so")
         if not ok:
@@ -2366,12 +2387,14 @@ def self_test() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE, runner=fake_runner(lines, runner_exit))
+            printed = io.StringIO()
             try:
-                with contextlib.redirect_stdout(io.StringIO()):
+                with contextlib.redirect_stdout(printed):
                     full_run(root, None)
                 ok = False
             except Broken as said:
                 ok = needle in str(said) and "fix:" in str(said)
+        ok = ok and echoed(printed.getvalue(), lines, runner_exit)
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a runner with {name} is a BROKEN line, never a pass")
     unknown = (  # typed by hand: a message function cannot check itself
