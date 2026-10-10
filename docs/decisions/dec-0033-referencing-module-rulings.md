@@ -199,10 +199,10 @@ No real choice was put to the decider on these; each is the session's derivation
 - **a fence indented under a list item** is code;
 - **a write to a document that is not covered** still has the covered links it broke reported after it;
 - **a key of the module's namespace that is no dial** is a configuration failure;
-- R4 asks for a user's directory and something inside it;
+- **message key R4** asks for a user's directory and something inside it;
 - **one document's cost** is linear in its size.
 
-**R26.** R4 gets the switch the two other universal checks have: the dial `local_paths: refuse | allow`, default `refuse`. Put to the decider on 2026-09-22 after the first validation showed an ordinary document R4 blocks with no way out — a README whose Dockerfile fence sets the working directory to a home directory inside the container. Options: A, the dial; B, fences masked for the `/home/` form only, which would half reopen R21; C, the limit stated and nothing built. The decider chose A: the kit keeps `refuse`, a consumer gets the same adoption path as for `bare_ids` and `heading_anchors`.
+**R26.** Message key R4 gets the switch the two other universal checks have: the dial `local_paths: refuse | allow`, default `refuse`. Put to the decider on 2026-09-22 after the first validation showed an ordinary document message key R4 blocks with no way out — a README whose Dockerfile fence sets the working directory to a home directory inside the container. Options: A, the dial; B, fences masked for the `/home/` form only, which would half reopen R21; C, the limit stated and nothing built. The decider chose A: the kit keeps `refuse`, a consumer gets the same adoption path as for `bare_ids` and `heading_anchors`.
 
 **R25.** From the second fresh-context validation, pinned to 822c070 — thirteen findings, twelve of thirty-one mutants alive — the behaviour that changed:
 
