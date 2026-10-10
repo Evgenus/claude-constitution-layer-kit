@@ -17,7 +17,7 @@ class Key(StrEnum):
     F7 = "F7"
     F8 = "F8"
     F8B = "F8b"
-    F10 = "F10"
+    F15 = "F15"
     F11 = "F11"
     F12 = "F12"
     F13 = "F13"

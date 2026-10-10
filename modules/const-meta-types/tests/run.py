@@ -165,10 +165,10 @@ CASES = [
     ),
     Case(
         11,
-        "F10: a document where policies live must be current-state",
+        "F15: a document where policies live must be current-state",
         Write("docs/policies/drafts-policy.md", envelope("drafts-policy", "task-record")),
         Write("docs/policies/drafts-policy.md", envelope("drafts-policy", "current-state")),
-        messages.f10_policy_type("docs/policies/drafts-policy.md", "task-record", ROOT_TERRITORY),
+        messages.f15_policy_type("docs/policies/drafts-policy.md", "task-record", ROOT_TERRITORY),
         "governed by root-policy",
     ),
     Case(
@@ -405,7 +405,7 @@ def scan_red() -> tuple[bool, str]:
 def scan_green() -> tuple[bool, str]:
     result = _scan(bad=False)
     ok, evidence = expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(4, 4, 3)), "stdout")
-    note = messages.n1_note_void_namespace("ghost")
+    note = messages.n2_note_void_namespace("ghost")
     # a namespace key with a line break and 103 characters: the note names it cut at 80 and escaped,
     # each time on the one line — typed by hand
     wide = _scan(bad=False, void_key=VOID_KEY)

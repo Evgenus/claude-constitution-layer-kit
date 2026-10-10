@@ -80,6 +80,6 @@ def scan_mode(output: Output, start: Path) -> int:
                 continue
             examined += 1
             findings.extend(examination.findings)
-    notes = index.notes + [messages.n1_note_void_namespace(name) for name in sorted(void)]
+    notes = index.notes + [messages.n2_note_void_namespace(name) for name in sorted(void)]
     tail = messages.f9_scan_tail(examined, len(index.paths), len(index.policies))
     return pipeline.report_scan(output, findings, notes, tail)

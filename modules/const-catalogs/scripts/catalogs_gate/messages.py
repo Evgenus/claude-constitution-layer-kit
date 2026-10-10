@@ -210,29 +210,29 @@ def g1_skip_not_an_item(rel: str, catalogs: Sequence[Catalog]) -> str:
     return f"{escaped(rel)} lies in no catalog's territory ({', '.join(c.prefix for c in catalogs)})"
 
 
-# ---------------------------------------------------------------- session start: the visible zero (S1)
+# ---------------------------------------------------------------- session start: the visible zero (Z1)
 
 
-def s1_empty() -> str:
+def z1_empty() -> str:
     return f"{_ns()}: no document is examined — {_ns()}.catalogs is an empty list in {DIALS_FILE}"
 
 
-def s1_no_dials(root: str) -> str:
+def z1_no_dials(root: str) -> str:
     return (
         f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the catalog gate examines nothing there until"
         f" the file lists a catalog in {_ns()}.catalogs"
     )
 
 
-def s1_no_repo(cwd: str) -> str:
+def z1_no_repo(cwd: str) -> str:
     return f"{_ns()}: {escaped(cwd)} is not inside a git repository — the catalog gate examines nothing there"
 
 
-def s1_prefix() -> str:
+def z1_prefix() -> str:
     return _ns()
 
 
-def s1_could_not_run() -> str:
+def z1_could_not_run() -> str:
     return "BROKEN: the session-start line could not be printed — the gate's state is unknown"
 
 

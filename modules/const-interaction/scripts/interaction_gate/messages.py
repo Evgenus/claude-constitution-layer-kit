@@ -4,7 +4,7 @@ shared package's messages module.
 
 Error messages are a teaching surface: a finding states what failed, why the rule exists
 (one clause), and the exact fix; a configuration failure is one self-sufficient line. Every
-function name starts with the stable key of its text (d1_, l1_, g1_, f9_, s1_, c5_, c12_), so a
+function name starts with the stable key of its text (d1_, l1_, g1_, f9_, z1_, c5_, c12_), so a
 text can be cited, reviewed and asserted by key. A reader must be able to act on a message
 without holding any other document: no text here cites one.
 """
@@ -83,14 +83,14 @@ def f9_lists_tail(documents: int, handles: int, scanned: int) -> str:
     )
 
 
-# ---------------------------------------------------------------- session start: the visible zero (S1)
+# ---------------------------------------------------------------- session start: the visible zero (Z1)
 
 
-def s1_empty() -> str:
+def z1_empty() -> str:
     return f"{_ns()}: no command is gated — {_ns()}.destructive is an empty list in {DIALS_FILE}"
 
 
-def s1_dropped(dial: ReaderDial, command: Sequence[str]) -> str:
+def z1_dropped(dial: ReaderDial, command: Sequence[str]) -> str:
     """One default the dials dropped, said at every session start: which, what the gate no longer
     examines, and where it is set."""
     kind = "wrapper" if dial is ReaderDial.WRAPPERS else "shell"
@@ -101,7 +101,7 @@ def s1_dropped(dial: ReaderDial, command: Sequence[str]) -> str:
     )
 
 
-def s1_replaced(dial: ReaderDial, command: Sequence[str]) -> str:
+def z1_replaced(dial: ReaderDial, command: Sequence[str]) -> str:
     """One default the dials replaced, said at every session start: which, what its options now are,
     and where it is set."""
     kind = "wrapper" if dial is ReaderDial.WRAPPERS else "shell"
@@ -111,41 +111,41 @@ def s1_replaced(dial: ReaderDial, command: Sequence[str]) -> str:
     )
 
 
-def s1_no_dials(root: str) -> str:
+def z1_no_dials(root: str) -> str:
     return (
         f"{_ns()}: no {DIALS_FILE} in {escaped(root)} — the destructive-command gate examines nothing there"
         " until the file exists (an empty mapping, {}, is enough for the default list)"
     )
 
 
-def s1_no_repo(cwd: str) -> str:
+def z1_no_repo(cwd: str) -> str:
     return (
         f"{_ns()}: {escaped(cwd)} is not inside a git repository — the destructive-command gate examines"
         " nothing there"
     )
 
 
-def s1_prefix() -> str:
+def z1_prefix() -> str:
     return _ns()
 
 
-def s1_could_not_run() -> str:
+def z1_could_not_run() -> str:
     return "BROKEN: the session-start line could not be printed — the gate's state is unknown"
 
 
-def s1_verbosity(value: Verbosity) -> str:
+def z1_verbosity(value: Verbosity) -> str:
     return (
         f"{_ns()}: verbosity is {value.value} — the assumption block and the restatement appear only when"
         " triggered, never as an empty ritual"
     )
 
 
-def s1_pair(number: int, violates: str, complies: str) -> str:
+def z1_pair(number: int, violates: str, complies: str) -> str:
     """One boundary example: the content of the line is the example, so it stands whole, escaped."""
     return f"{number}. {escaped(violates)} / {escaped(complies)}"
 
 
-def s1_pairs_heading() -> str:
+def z1_pairs_heading() -> str:
     return f"Boundary examples of this project ({_ns()}.boundary_examples), each violates / complies:"
 
 

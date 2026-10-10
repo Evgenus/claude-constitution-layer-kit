@@ -288,9 +288,9 @@ The commits of this branch apply every item. The commits before the one that add
 4. R4 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t5), section 5, which skips no program's options by name; the reversal of a clause of R6 of dec-0042-interaction-module-rulings is history.
 5. R5 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t7), the default wrappers and shells of section 7.
 6. R6 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t7), the rows `wrappers` and `shells` of section 7.
-7. R7 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t7), the rows `wrappers` and `shells`; [its section 6](../../modules/const-interaction/MODULE.md#t6), the row S1 of the message table.
+7. R7 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t7), the rows `wrappers` and `shells`; [its section 6](../../modules/const-interaction/MODULE.md#t6), the row Z1 of the message table.
 8. R8 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t7), the rows `wrappers` and `shells`; [its section 5](../../modules/const-interaction/MODULE.md#t5), "Reading".
-9. R9 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t6), the row S1 of the message table.
+9. R9 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t6), the row Z1 of the message table.
 10. R10 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t5), "Reading" in section 5.
 11. R11 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t9), limit 4 of section 9.
 12. R12 — [`const-interaction`](../../modules/const-interaction/MODULE.md#t5), the invariant of section 5; [its section 9](../../modules/const-interaction/MODULE.md#t9), limit 9; [its section 12](../../modules/const-interaction/MODULE.md#t12), item 8.

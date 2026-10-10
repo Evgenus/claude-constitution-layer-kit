@@ -40,22 +40,22 @@ def body(output: Output, argv: Sequence[str]) -> int:
 
     target = pipeline.locate_event(output, sys.stdin)
     if isinstance(target, Skip):  # no dials to read: the default value, then why the gate is off
-        output.out(messages.s1_verbosity(Verbosity.TRIGGERED))
+        output.out(messages.z1_verbosity(Verbosity.TRIGGERED))
         output.out(_zero_line(target))
         return 0
     dials = own_dials.parse(target.dials.own)
-    output.out(messages.s1_verbosity(dials.verbosity))
+    output.out(messages.z1_verbosity(dials.verbosity))
     if not dials.destructive:
-        output.out(messages.s1_empty())
+        output.out(messages.z1_empty())
     for change in dials.changed:
         if isinstance(change, Replaced):
-            output.out(messages.s1_replaced(change.dial, change.command))
+            output.out(messages.z1_replaced(change.dial, change.command))
         else:
-            output.out(messages.s1_dropped(change.dial, change.command))
+            output.out(messages.z1_dropped(change.dial, change.command))
     if dials.boundary_examples:
-        output.out(messages.s1_pairs_heading())
+        output.out(messages.z1_pairs_heading())
         for number, pair in enumerate(dials.boundary_examples, 1):
-            output.out(messages.s1_pair(number, pair.violates, pair.complies))
+            output.out(messages.z1_pair(number, pair.violates, pair.complies))
     return 0
 
 
@@ -63,13 +63,13 @@ def _zero_line(skip: Skip) -> str:
     """The shared skip, said in this module's own words for the session; a skip of another kind is
     printed whole after the module's name."""
     if skip.kind is SkipKind.NO_DIALS:
-        return messages.s1_no_dials(skip.where)
+        return messages.z1_no_dials(skip.where)
     if skip.kind is SkipKind.NO_REPO:
-        return messages.s1_no_repo(skip.where)
-    return f"{messages.s1_prefix()}: {skip.reason}"
+        return messages.z1_no_repo(skip.where)
+    return f"{messages.z1_prefix()}: {skip.reason}"
 
 
 def run(argv: Sequence[str], gate: Identity) -> int:
     return cli.guarded(
-        gate, Mode.HOOK, lambda output: body(output, argv), could_not_run=messages.s1_could_not_run
+        gate, Mode.HOOK, lambda output: body(output, argv), could_not_run=messages.z1_could_not_run
     )

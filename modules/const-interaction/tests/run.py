@@ -2029,7 +2029,7 @@ def t33() -> tuple[bool, str]:
         f" '{MODULE_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
     )
     yaml_ok, yaml_said = broken_first_line(no_yaml, c2)
-    yaml_ok = yaml_ok and messages.s1_could_not_run() in no_yaml.stderr and no_yaml.stdout == RULES
+    yaml_ok = yaml_ok and messages.z1_could_not_run() in no_yaml.stderr and no_yaml.stdout == RULES
     bin_dir = H.scratch_dir()
     (bin_dir / "sh").symlink_to(H.sh)
     for tool in ("cat", "dirname"):

@@ -124,7 +124,7 @@ def f9_tail(documents: int, ceilings: int, departures: int, scanned: int) -> str
 # ---------------------------------------------------------------- the history report
 
 
-def h1_day(day: datetime.date, ceiling: Ceiling, documents: int, top: tuple[str, int] | None) -> str:
+def b2_day(day: datetime.date, ceiling: Ceiling, documents: int, top: tuple[str, int] | None) -> str:
     if top is None:
         return f"{day.isoformat()} {ceiling.name}: no document"
     rel, length = top
@@ -134,7 +134,7 @@ def h1_day(day: datetime.date, ceiling: Ceiling, documents: int, top: tuple[str,
     )
 
 
-def h1_window(
+def b2_window(
     ceiling: Ceiling, first: datetime.date, last: datetime.date, top: tuple[str, int] | None, thumb: int
 ) -> str:
     span = f"{first.isoformat()} to {last.isoformat()}, a span of {(last - first).days} day(s)"
@@ -147,14 +147,14 @@ def h1_window(
     )
 
 
-def h1_closing(since: datetime.date, commits: int, days: int, ceilings: int) -> str:
+def b2_closing(since: datetime.date, commits: int, days: int, ceilings: int) -> str:
     return (
         f"{_ns()}: history since {since.isoformat()} — {commits} commit(s) of the first-parent line read,"
         f" {days} day(s) with data, {ceilings} ceiling(s); a report, nothing judged"
     )
 
 
-def h1_no_commit(since: datetime.date) -> str:
+def b2_no_commit(since: datetime.date) -> str:
     return (
         f"{_ns()}: history since {since.isoformat()} — no commit on the first-parent line; a report,"
         " nothing judged"
