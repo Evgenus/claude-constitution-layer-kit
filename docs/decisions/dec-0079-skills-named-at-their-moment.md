@@ -97,9 +97,15 @@ The session recommended B: the pointer lines showed no gain over a description t
 
 **R7.** The pointer lines of R2 and R4 stay beside the reworded descriptions.
 
+## 4. What this changes in an earlier record
+
+[dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md) ruled that module [`const-styling`](../requirements.md#const-styling) prints no `SessionStart` line, in its R4, and ships no hook, in its R9. R2 and R4 above give it one pointer line and two advisory hooks.
+
+**R8.** For module [`const-styling`](../requirements.md#const-styling), R2 and R4 replace two items of dec-0044: its R4's "no `SessionStart` line" and its R9's "the module ships no hook". The module prints its pointer line at session start and at each subagent's start through two advisory hooks, and its scan still runs no hook, has no hook mode and no `severity` dial, as dec-0044's R9 ruled.
+
 ## Applied
 
-The commits of this branch apply every item. The message of each commit names what it changed and the evidence that it is red without the change and green with it. The record is born `inactive`.
+The commits of this branch apply every item. The message of each commit names what it changed and the evidence that it is red without the change and green with it. The record was created `active` while its sections were drafted, and set `inactive` once every item was applied.
 
 ## Carry list
 
@@ -110,3 +116,4 @@ The commits of this branch apply every item. The message of each commit names wh
 5. R5 — [CLAUDE.md](../../CLAUDE.md), the opening paragraph of "Session conduct"; the implementer's own file applies it.
 6. R6 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, and [its example skill](../../module-template/skills/example-procedure/SKILL.md), the description.
 7. R7 — [the module template](../../module-template/MODULE.md#t6), the skill row of section 6, which asks for both the order and the pointer.
+8. R8 — [`const-styling`](../../modules/const-styling/MODULE.md#t6), the hook row and the always-on content of section 6.

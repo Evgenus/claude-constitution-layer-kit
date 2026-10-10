@@ -5,7 +5,8 @@ description: >
   it applies> — every time, whether or not <the choice> seems known.", then
   what the skill does, then "Use when" and its other moments, phrased by
   activity ("when creating a governed document", "when closing a story")
-  with the phrases a session would naturally contain.
+  with the phrases a session would naturally contain, and last "Advisory:"
+  with what the skill shapes and what a gate holds.
 ---
 
 # <Procedure name>

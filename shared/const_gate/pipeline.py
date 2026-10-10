@@ -190,8 +190,8 @@ def within_the_cap(findings: Sequence[Finding], most: int | None = None) -> Sequ
 
 
 def skill_pointer(mode: Mode) -> list[str]:
-    """The line after a red verdict that names the skill teaching the rule and its fix (F10): the
-    pointer that sends the reader of a red to the procedure, at the moment it applies. None where the
+    """The line after a red verdict that names the skill teaching the rule and its fix (F10): it
+    sends the reader of a red to the procedure, at the moment it applies. None where the
     gate names no skill for the mode."""
     skill = identity.current().skills.get(mode, "")
     return [messages.f10_skill(skill)] if skill else []
