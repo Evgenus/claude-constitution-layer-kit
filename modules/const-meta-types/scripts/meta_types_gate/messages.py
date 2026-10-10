@@ -3,7 +3,7 @@ typed parameters; the texts every gate shares live in the shared package's messa
 
 Error messages are a teaching surface: a finding states what failed, why the rule exists
 (one clause), and the exact fix; a configuration failure is one self-sufficient line. Every
-function name starts with the stable key of its text (f1_, g1_, n1_, c5_, ...), so a text can
+function name starts with the stable key of its text (f1_, g1_, n2_, c5_, ...), so a text can
 be cited, reviewed and asserted by key. A reader must be able to act on a message without
 holding any other document: no text here cites one.
 """
@@ -102,9 +102,9 @@ def f5_duplicate_id(rel: str, doc_id: str, other: str) -> Finding:
     )
 
 
-def f10_policy_type(rel: str, found_type: str, root_territory: Sequence[str]) -> Finding:
+def f15_policy_type(rel: str, found_type: str, root_territory: Sequence[str]) -> Finding:
     return Finding(
-        Key.F10,
+        Key.F15,
         f"{escaped(rel)}: lies in the root policy's territory but has type '{found_type}'",
         "a policy is a current-state document, and only policies lie where policies live",
         f"set type: current-state, or move the file out of {patterns(root_territory)}",
@@ -238,7 +238,7 @@ def g1_skip_void_territory(rel: str, namespaces: Sequence[str]) -> str:
     )
 
 
-def n1_note_void_namespace(name: str) -> str:
+def n2_note_void_namespace(name: str) -> str:
     return (
         f"note: namespace '{echoed(name)}' declares a territory but no policy with id '{echoed(name)}'"
         " lies in the root policy's territory; it claims nothing until that policy exists"
