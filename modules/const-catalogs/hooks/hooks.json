@@ -10,6 +10,16 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh"],
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -21,6 +31,18 @@
             "command": "sh",
             "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/check-catalog-item.sh"],
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh", "--subagent"],
+            "timeout": 5
           }
         ]
       }

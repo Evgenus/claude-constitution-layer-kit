@@ -25,7 +25,7 @@ RED: docs/records/second.md: file name 'second' is not rec-<4 digits>-<kebab-slu
   fix: rename the file to rec-<number>-<slug>.md: the number it is already cited by, or, if it has none, one more than the highest the catalog has held — the scan's last line names it — written with exactly 4 digit(s), zero-padded; the slug is lowercase words and digits joined by '-'; then set id to that name without .md
 ```
 
-The skill `catalog-item` loads on its own when a numbered document is created, renumbered, listed or cited. It teaches the rules the gate cannot hold. A new item takes one more than the highest number the catalog has ever held, deleted items included. A number is provisional until its branch lands on the main branch. At a collision between two branches, the item already on the main branch keeps its number and the other renumbers. If both have landed, the one that landed second renumbers. A gap is never filled. A catalog is listed with a git command, never kept in a register file.
+The skill `catalog-item` is for the moments when a numbered document is created, renumbered, listed or cited. It teaches the rules the gate cannot hold. A new item takes one more than the highest number the catalog has ever held, deleted items included. A number is provisional until its branch lands on the main branch. At a collision between two branches, the item already on the main branch keeps its number and the other renumbers. If both have landed, the one that landed second renumbers. A gap is never filled. A catalog is listed with a git command, never kept in a register file.
 
 <a id="a4"></a>
 ## How it works
@@ -36,7 +36,7 @@ The skill `catalog-item` loads on its own when a numbered document is created, r
 
 **The scan.** The same checks over every Markdown file git lists, plus the one only a whole tree shows: two items of one catalog under one number. That is where two branches that each took a number meet. It exits with code 2 on a finding. Its last line names each catalog's highest number, the one a new item counts on from. Run it in CI on every pull request, where both branches are in the tree.
 
-**The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write.
+**The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write. The module names its skill at session start, at each subagent's start and after every red of the gate, so the session knows when to load it.
 
 **Settings.** The module works with no configuration beyond the one dial that switches it on, the list of catalogs. It reads no policy and nothing else of the dials file. A folder's patterns can be shared with the policy that governs the kind by a YAML alias, so the two never drift apart. A file in a catalog's folders that is no item, such as an index page, is taken out by a negated pattern. Two dials are every gate's: how loud a finding is, and where the log goes. The quieter setting reports the finding and lets the write through, the path for adopting a kind that already has documents.
 
