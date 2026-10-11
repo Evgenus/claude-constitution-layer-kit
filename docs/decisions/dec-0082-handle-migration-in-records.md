@@ -31,7 +31,7 @@ The session recommended B: the order rule came after the record, rule 14 keeps s
 
 <a id="r1"></a>**R1.** The sentence of rule 10 of plc-0004 that handles run in order, contiguous and unique in the record, tables included, holds from dec-0039 on, the record that brought it. An earlier record keeps the handles it was accepted with, though from record 30 on no ruling handle opens two ruling items, as `scripts/check-carry-lists.py` already held. The order and the contiguity of handles are review.
 
-<a id="r2"></a>**R2.** R1 narrows R9 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md#r9), which ruled that sentence for every record, to the records from dec-0039 on. R4 narrows R12 of the same record, that an accepted record is never edited to fit a later rule: case (ii) may bring a citation in an earlier record to the qualified form that rule 10 of plc-0004 asks. The first sentence of rule 14 of plc-0004 now names every edit the rule allows, the typo fix and the migrations beside the wording edits.
+<a id="r2"></a>**R2.** R1 narrows R9 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md#r9), which ruled that sentence for every record, to the records from dec-0039 on, save the uniqueness of ruling handles, held from record 30 on. R4 narrows R12 of the same record, that an accepted record is never edited to fit a later rule: case (ii) may bring a citation in an earlier record to the qualified form that rule 10 of plc-0004 asks.
 
 <a id="r3"></a>**R3.** dec-0033 stays as it is: no ruling of it is renumbered or moved.
 
@@ -61,7 +61,7 @@ Options:
 
 The session recommended A: it uses a class of edit the kernel already allows, it is the narrow form, and the edits of the record's own keys are better recorded than allowed. The decider chose A.
 
-<a id="r4"></a>**R4.** A handle migration is a reference-form migration in the sense of [kernel §5](../../kernel/CONVENTIONS.md#k5), the ruling untouched. Where a record cites a handle of another document, its carry list included, the handle changes in three cases and no other. A migration of the citation's link stands as its own rule says: to a renumbered record, as rule 14 of plc-0004 says; to a deleted record's title, as rule 7 of plc-0004 says, the handle kept; to the anchor of a ruling, as rule 2 of plc-0004 says. (i) That document renamed the handle: the citation takes the new one, and a link's fragment that holds the handle follows it. (ii) The handle stands bare, and a reader could take it for a key of the record or of the kit: it is qualified by its document's name or, outside a carry list, by a link to that document; in a carry list it is qualified by the name alone, since a link there names a home. (iii) Its document lies outside the repository and was never in it, or holds no item under that handle: the handle becomes the plain words it stood for. The new words stand where the grammar of the sentence needs them; nothing else in the sentence changes. The commit names it a migration, and names the rename in case (i) and the case in (ii) and (iii).
+<a id="r4"></a>**R4.** A handle migration is a reference-form migration in the sense of [kernel §5](../../kernel/CONVENTIONS.md#k5), the ruling untouched. Where a record cites a handle of another document, its carry list included, the citation of the handle changes in three cases and no other. A migration of the citation's link stands as its own rule says: to a renumbered record, as rule 14 of plc-0004 says; to a deleted record's title, as rule 7 of plc-0004 says, the handle kept; to the anchor of a ruling, as rule 2 of plc-0004 says. (i) That document renamed the handle: the citation takes the new one, and a link's fragment that holds the handle follows it. (ii) The handle stands bare, and a reader could take it for a key of the record or of the kit: it is qualified by its document's name or by a link to that document, and in a carry list such a link never leads to a record, as rule 2 of plc-0004 says. (iii) Its document lies outside the repository and was never in it, or holds no item under that handle: the handle becomes the plain words it stood for. In each of the three cases the new words stand where the grammar of the sentence needs them, and nothing else in the sentence changes. The first sentence of rule 14 of plc-0004 names every edit the policy allows an accepted record: the typo fix, the reference-form migrations of its rules 6, 7 and 14, and the wording edits. The commit names it a migration, and names the rename in case (i) and the case in (ii) and (iii).
 
 <a id="r5"></a>**R5.** The edits of the first two groups above were handle migrations, made before R4 named them, save three. "Message key R4" in dec-0033 is qualified by its kind, not by its document. In dec-0044 and dec-0046 the word "first" moved and the bold lead grew. These three, and the two edits of the record's own keys in dec-0034 and dec-0039, were no edit that rule 14 of plc-0004 allows. They stand as departures, since undoing them would be a second such edit.
 
@@ -103,7 +103,7 @@ Many commit subjects on `main` — 49 by the count of the handle audit of 2026-1
 
 The session recommended B: a handle local to a session fails a later reader as one of an outside document does, and B stops both. The decider chose B.
 
-<a id="r9"></a>**R9.** Every handle in a commit message names its source. A key of a tracked document names that document in the same message. A handle of a document outside the repository names that document. A handle local to a session or a chat names the work or the decision it came from. The rule is the kit's own, not the chat rule of the referencing module. Review holds it.
+<a id="r9"></a>**R9.** Every handle in a commit message names its source. A key of a tracked document names that document in the same message. A handle of a document outside the repository names that document. A handle local to a session or a chat names the work or the decision it came from. The chat rule of the referencing module carries this only for a handle local to a session; the rest is the kit's own. Review holds it.
 
 <a id="r10"></a>**R10.** The commit subjects that cite handles of the audit report stay as they are.
 
@@ -115,7 +115,7 @@ The session recommended B: a handle local to a session fails a later reader as o
 
 ## Applied
 
-The change that creates this record states R1 in rule 10 of plc-0004, R4 and R6 in its rule 14, R6 in rule 7 of plc-0005 too, and R9 in the reference rule of CLAUDE.md. By case (iii) of R4, it rewrites two citations that named an "R4" of dec-0001, whose ruling list has no handles, as "the fourth item of the ruling list" of that record: one in section 9 of dec-0042, one in the section "Applied" of [dec-0081-rulings-carry-anchors](dec-0081-rulings-carry-anchors.md). The record is born `inactive`.
+The change that creates this record states R1 in rules 10 and 6 of plc-0004, R4 and R6 in its rule 14, R6 in rule 7 of plc-0005 too, and R9 in the reference rule of CLAUDE.md. By case (iii) of R4, it rewrites two citations that named an "R4" of dec-0001, whose ruling list has no handles, as "the fourth item of the ruling list" of that record: one in section 9 of dec-0042, one in the section "Applied" of [dec-0081-rulings-carry-anchors](dec-0081-rulings-carry-anchors.md). The record is born `inactive`.
 
 ## Carry list
 
@@ -125,7 +125,7 @@ The change that creates this record states R1 in rule 10 of plc-0004, R4 and R6 
 4. R4 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), rule 14, the handle migration.
 5. R5 — history only: the edits of 2026-10-11 and the five departures.
 6. R6 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), rule 14, the typo fix; [plc-0005-research](../policies/plc-0005-research.md#r7), rule 7.
-7. R7 — history only: the widening of an earlier ruling.
+7. R7 — history only: the widening of three earlier rulings.
 8. R8 — history only: the pronoun edits of 2026-10-11.
 9. R9 — [CLAUDE.md](../../CLAUDE.md#references), the reference rule.
 10. R10 — history only: the commit subjects of the audit of hard-coded values.
