@@ -119,7 +119,8 @@ WHY_ANCHOR = (
     "a ruling cited from another document is reached by its anchor; without one, every citation opens "
     "only the record"
 )
-ANCHORED = re.compile(r'(<a id="([^"]*)"></a>)?\*\*R(\d+[a-z]?)\.\*\*')
+# the handles HANDLE reads, which carry no suffix letter
+ANCHORED = re.compile(r'(<a id="([^"]*)"></a>)?\*\*R(\d+)\.\*\*')
 FENCE = re.compile(r"^[ \t]*```.*?^[ \t]*```[^\n]*$", re.MULTILINE | re.DOTALL)
 
 

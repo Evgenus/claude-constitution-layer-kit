@@ -99,9 +99,9 @@ The session recommended B: the pointer lines showed no gain over a description t
 
 ## 4. What this changes in an earlier record
 
-[dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md) ruled that module [`const-styling`](../requirements.md#const-styling) prints no `SessionStart` line, in its R4, and ships no hook, in its R9. R2 and R4 above give it one pointer line and two advisory hooks. No real choice is left here: sections 1 and 2 chose the lines and the hooks, and this item only names the earlier items they replace.
+[dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r4) ruled that module [`const-styling`](../requirements.md#const-styling) prints no `SessionStart` line, in its R4, and ships no hook, in its R9. R2 and R4 above give it one pointer line and two advisory hooks. No real choice is left here: sections 1 and 2 chose the lines and the hooks, and this item only names the earlier items they replace.
 
-<a id="r8"></a>**R8.** For module [`const-styling`](../requirements.md#const-styling), R2 and R4 replace two items of dec-0044: its R4's "no `SessionStart` line" and its R9's "the module ships no hook". The module prints its pointer line at session start and at each subagent's start through two advisory hooks, and its scan still runs no hook, has no hook mode and no `severity` dial, as [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r9)'s R9 ruled.
+<a id="r8"></a>**R8.** For module [`const-styling`](../requirements.md#const-styling), R2 and R4 replace two items of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r4): its R4's "no `SessionStart` line" and its R9's "the module ships no hook". The module prints its pointer line at session start and at each subagent's start through two advisory hooks, and its scan still runs no hook, has no hook mode and no `severity` dial, as [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r9)'s R9 ruled.
 
 ## 5. How far the two rules reach
 
