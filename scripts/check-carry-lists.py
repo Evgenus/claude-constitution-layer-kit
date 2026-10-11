@@ -1109,15 +1109,15 @@ def self_test() -> int:
             + f"## Ruling\n\n{rulings}{fence}\n## Carry list\n\n{entries}"
         )
 
-    breaks = "break their run at R{}, where R{} is due"
+    breaks = "break their run at R{at}, where R{due} is due"
     orders = {  # case: the number of the record, the handles in document order, a fence, the break wanted
-        "R1, R3 in a record numbered 39 is red, a gap": (39, [1, 3], "", breaks.format(3, 2)),
-        "R2, R1 in a record numbered 39 is red, out of order": (39, [2, 1], "", breaks.format(2, 1)),
+        "R1, R3 in a record numbered 39 is red, a gap": (39, [1, 3], "", breaks.format(at=3, due=2)),
+        "R2, R1 in a record numbered 39 is red, out of order": (39, [2, 1], "", breaks.format(at=2, due=1)),
         "R2, R3 in a record numbered 39 is red, a run that starts late": (
             39,
             [2, 3],
             "",
-            breaks.format(2, 1),
+            breaks.format(at=2, due=1),
         ),
         "R2, R1 in a record numbered 38 is green": (38, [2, 1], "", None),
         "R1, R2 in a record numbered 39 is green": (39, [1, 2], "", None),

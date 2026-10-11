@@ -19,8 +19,10 @@ findings and the scan reports them all. Today one rule is read:
 
 Not read: the research comparisons (docs/research/), frozen ones keep the form they were frozen
 with (rule 7 of plc-0005-research); the "Carry list" section of a record, whose links lead to no
-record; fenced code, indented code, inline code spans and HTML comments, in every document. Left to
-review: a handle with a suffix letter (`R4b`), a record's citation of its own rulings ("R3",
+record; fenced code, indented code, inline code spans and HTML comments, in every document.
+Not a ruling: a handle after a word that names another kind of key, "message R4 of …" or "the
+table keys R1 to R4 of …" (rule 10 of plc-0004 writes such a key qualified). Left to review: a
+handle with a suffix letter (`R4b`), a record's citation of its own rulings ("R3",
 "R3 of this record"), and an indirect one ("that record's R3").
 
 Modes:  no arguments   check the kit;
@@ -60,6 +62,12 @@ LINK = (
 CITED_LINK = re.compile(CITE + LINK)  # (a)
 LINK_THEN_HANDLE = re.compile(LINK + r"(?:['’]s)?[ \t]+R(\d+)(?![A-Za-z0-9])")  # (b), on one line
 CITED_BARE = re.compile(CITE + r"(dec-\d{4}(?:-[a-z0-9-]*[a-z0-9])?)")  # (c)
+# the words that make a handle a qualified key of another kind, no ruling (rule 10 of plc-0004):
+# "message R4 of …", "the table keys R1 to R4 of …"
+QUALIFIERS = frozenset(
+    {"key", "keys", "message", "messages", "row", "rows", "item", "items", "entry", "entries"}
+)
+WORD_BEFORE = re.compile(r"([A-Za-z]+)[ \t]*\n?[ \t>]*$")
 RECORD_FILE = re.compile(r"(?:^|/)dec-\d{4}-[^/#?]*\.md$")
 TICKS = re.compile(r"`+")
 FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})(.*)$")
@@ -239,10 +247,18 @@ def record_path(document: Document, context: Context, bare: str) -> str | None:
     return os.path.relpath(found[0], os.path.dirname(document.path) or ".") if len(found) == 1 else None
 
 
+def qualified(document: Document, start: int) -> bool:
+    """The handle at start follows a word that names another kind of key: no ruling is cited."""
+    word = WORD_BEFORE.search(document.masked, 0, start)
+    return word is not None and word[1].lower() in QUALIFIERS
+
+
 def ruling_citations(document: Document, context: Context) -> list[Finding]:
     """Rule 2 of plc-0004-decision-records: forms (a), (b) and (c) of the docstring."""
     findings: list[Finding] = []
     for match in CITED_LINK.finditer(document.masked):
+        if qualified(document, match.start()):
+            continue
         found = linked_wrongly(document, match.start(), match.end(), match[2], match[1])
         if found:
             findings.append(found)
@@ -251,6 +267,8 @@ def ruling_citations(document: Document, context: Context) -> list[Finding]:
         if found:
             findings.append(found)
     for match in CITED_BARE.finditer(document.masked):
+        if qualified(document, match.start()):
+            continue
         where = record_path(document, context, match[2])
         target = f"{where}#r{match[1]}" if where else f"<path to that record>#r{match[1]}"
         name = Path(where).stem if where else match[2]
@@ -349,8 +367,8 @@ def self_test() -> int:
         ),
         "a citation in a list item's continuation line": (
             note,
-            "- item\n    R7 of [dec-0057-sample](dec-0057-sample.md#r7)\n",
-            "- item\n    R7 of [dec-0057-sample](dec-0057-sample.md)\n",
+            "- a note\n    R7 of [dec-0057-sample](dec-0057-sample.md#r7)\n",
+            "- a note\n    R7 of [dec-0057-sample](dec-0057-sample.md)\n",
             (2,),
         ),
         "a record linked, then its handle, with no anchor": (
@@ -437,6 +455,10 @@ def self_test() -> int:
             "R4b of dec-0057-sample and R4b of [a](dec-0057-sample.md).\n",
         ),
         "a record's own ruling": (note, "R3 holds, R3 of this record too, and that record's R3.\n"),
+        "a key qualified by its kind": (
+            note,
+            "The table keys R1 to R4 of [a](dec-0057-sample.md) and message\nR4 of dec-0057-sample.\n",
+        ),
         "a link to what is no record": (
             note,
             "R3 of [plc-0004](plc-0004-x.md#r2) and [plc-0004](plc-0004-x.md) R3.\n",
