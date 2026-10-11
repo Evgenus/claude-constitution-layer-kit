@@ -142,6 +142,7 @@ UNIQUE_FROM = 39  # the record that brought the sentence of rule 10 of plc-0004-
 # the first handle of a table row's first cell, its bold marks and backticks taken off: R3, R2–R3, R7 (x)
 CELL_HANDLE = re.compile(r"(?<![\w./])([A-Z]+)(\d+)(?![A-Za-z0-9]|\.[A-Za-z]|/)")
 OF_AFTER = re.compile(r"[ \t]+of\b")  # "R1 of the module": a key of another document
+RUN_REST = re.compile(rf"(?:{SEP}R\d+[a-z]?)*")  # the rest of a range or a list a handle opens: "–R3", ", R5"
 WHY = (
     "a link to the ruling's own anchor takes a reader to the ruling in one click, and a record moved"
     " by the mover is repaired in every link (rule 2 of plc-0004-decision-records)"
@@ -571,7 +572,7 @@ def move_fix(kind: str, prefix: str, kinds: Collection[str]) -> str:
 def record_table_keys(document: Document, context: Context) -> list[Finding]:
     """Rule 10 of plc-0004-decision-records: from the record that brought the sentence on, handles are
     unique in the record, tables included, so no table row of a record has a first cell whose first
-    handle has the form of a ruling handle
+    handle is an unqualified handle of the form of a ruling handle
     (the "table keys" rule of the docstring)."""
     numbered = RECORD_NUMBER.search(document.path)
     if numbered is None or int(numbered[1]) < UNIQUE_FROM:
@@ -594,8 +595,9 @@ def record_table_keys(document: Document, context: Context) -> list[Finding]:
                     f'a table row opens with "{key}", which has the form of a ruling handle of this record',
                     'before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
                     f' "R", so that "{handle}" names a ruling alone; where the cell names a key of another'
-                    f' document, write it "{handle} of <that document>", by its name or a link to it, which'
-                    " rule 14 of plc-0004-decision-records allows in an accepted record too",
+                    ' document, write "of <that document>" after the handle, or after the range or list it'
+                    " opens, by the document's name or a link to it, which rule 14 of"
+                    " plc-0004-decision-records allows in an accepted record too",
                     TABLE_WHY,
                 )
             )
@@ -605,12 +607,15 @@ def record_table_keys(document: Document, context: Context) -> list[Finding]:
 def ruling_handle(key: str) -> str | None:
     """The ruling handle a table row's first cell opens with, bold marks and backticks already taken off:
     its first handle, when that is R<n> and the cell does not write it as a key of another document,
-    "R1 of the module", or after the word "message", "key" or "row"."""
+    "R1 of the module" (a range or a list it opens qualified so, "R2–R3 of the module", too), or after
+    the word "message", "key" or "row"."""
     found = CELL_HANDLE.search(key)
     if found is None or found[1] != "R":
         return None
     word = WORD_BEFORE.search(key, 0, found.start())
-    if (word is not None and word[1].lower() in QUALIFIERS) or OF_AFTER.match(key, found.end()):
+    run = RUN_REST.match(key, found.end())
+    after = run.end() if run else found.end()
+    if (word is not None and word[1].lower() in QUALIFIERS) or OF_AFTER.match(key, after):
         return None
     return found[0]
 
@@ -1346,7 +1351,15 @@ def self_test() -> int:
         "a first handle of another document, R1 of a link to it": (
             record_at(39),
             rulings
-            + "| R1 of [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8) | a |\n",
+            + "| R1 of [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r1) | a |\n",
+        ),
+        "a range of another document, R2–R3 of the module": (
+            record_at(39),
+            rulings + "| R2–R3 of the module | a |\n",
+        ),
+        "a list of another document, R4, R5 of the module": (
+            record_at(39),
+            rulings + "| R4, R5 of the module | a |\n",
         ),
         "a first handle of another document, in a code span": (
             record_at(39),
@@ -1561,8 +1574,9 @@ def self_test() -> int:
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
             ' "R", so that "R1" names a ruling alone; where the cell names a key of another document,'
-            ' write it "R1 of <that document>", by its name or a link to it, which rule 14 of'
-            " plc-0004-decision-records allows in an accepted record too",
+            ' write "of <that document>" after the handle, or after the range or list it opens, by the'
+            " document's name or a link to it, which rule 14 of plc-0004-decision-records allows in an"
+            " accepted record too",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
         "the report of one finding, a table row keyed as a ruling, is its literal text, exit 2",
@@ -1584,8 +1598,9 @@ def self_test() -> int:
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
             ' "R", so that "R2" names a ruling alone; where the cell names a key of another document,'
-            ' write it "R2 of <that document>", by its name or a link to it, which rule 14 of'
-            " plc-0004-decision-records allows in an accepted record too",
+            ' write "of <that document>" after the handle, or after the range or list it opens, by the'
+            " document's name or a link to it, which rule 14 of plc-0004-decision-records allows in an"
+            " accepted record too",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
         "the report of one finding, a bold range in a code span, quotes the key without its marks, exit 2",
