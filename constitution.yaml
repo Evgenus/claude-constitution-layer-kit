@@ -126,7 +126,7 @@ const-referencing:                    # the kit's own reference forms (requireme
       fix: '[requirement A5.3](<path to>/docs/requirements.md#a5-3)'
       home:
         - "/docs/requirements.md"
-    - pattern: '§ ?[0-9]'
+    - pattern: '§ ?[1-7](?![0-9])'
       names: a kernel section
       fix: '[kernel §4](<path to>/kernel/CONVENTIONS.md#k4)'
       home:
