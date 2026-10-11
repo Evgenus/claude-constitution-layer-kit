@@ -224,6 +224,7 @@ const-task-close:                     # task close as one act: a change that tou
     - name: const-styling
       code:
         - "modules/const-styling/scripts/**"
+        - "modules/const-styling/hooks/**"
         - "modules/const-styling/skills/**"
         - "modules/const-styling/tests/**"
       docs:
