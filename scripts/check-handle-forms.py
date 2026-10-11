@@ -540,7 +540,8 @@ def module_handle_prefixes(document: Document, context: Context) -> list[Finding
 def owns_prefix(kind: str, prefix: str, kinds: Collection[str]) -> bool:
     """Whether rule 8 of plc-0006-module-documents gives the prefix to the kind, among the kinds that use
     it: the letters it fixes, save that L is the message keys' where they use it, and the live, review
-    and kit-check items take V."""
+    and kit-check items take V. V stays the items' even where the message keys use it too: items of L
+    beside message keys of L and V move to V, and the next run moves the message keys of V."""
     if prefix == LIVE_PREFIX and KIND_MESSAGE in kinds:
         return kind == KIND_MESSAGE
     return prefix in FIXED_PREFIXES.get(kind, ())
