@@ -42,7 +42,8 @@ def examine(
         read_at_all.update(read)
         for rel in read:
             text = (root / rel).read_text(encoding="utf-8", errors="replace")
-            for number, line in enumerate(text.splitlines(), start=1):
+            # a line ends at "\n" alone, as `line_of` counts: a form feed or U+2028 stays inside its line
+            for number, line in enumerate(text.split("\n"), start=1):
                 found += [
                     messages.r8_unknown_mention(rel, number, m[0])
                     for m in mention.pattern.finditer(line)

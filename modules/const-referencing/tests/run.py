@@ -954,10 +954,14 @@ def mentions_outside_markdown() -> tuple[bool, str]:
     red = scan_of(files, own(mentions=[MENTION]))
     fixed = scan_of({**files, "tools/check.sh": "# see note-s\n"}, own(mentions=[MENTION]))
     elsewhere = scan_of(files, own(mentions=[{**MENTION, "files": ["src/**"]}]))
+    # a line ends at "\n" alone: a form feed or U+2028 inside a line moves no line number
+    odd = scan_of({**files, "tools/page.sh": "echo one\x0ctwo\n# page  note-lost\n"}, own(mentions=[MENTION]))
     return all_of(
         [
             expect(red, 2, finding.render(), "stdout"),
             expect(red, 2, "1 finding(s)", "stdout"),
+            expect(odd, 2, messages.r8_unknown_mention("tools/page.sh", 2, "note-lost").render(), "stdout"),
+            expect(odd, 2, "2 finding(s)", "stdout"),
             expect(fixed, 0, "1 mention pattern(s) over ", "stdout"),
             expect(scan_of(files), 0, "GREEN: ", "stdout"),
             expect(elsewhere, 0, "GREEN: ", "stdout"),
@@ -1260,6 +1264,8 @@ def mentions_are_listed_not_changed() -> tuple[bool, str]:
     outside.write("constitution.yaml", dials_text(own(territories=["docs/**"])))
     outside.write("other/readme.md", f"# Readme\nSee {OLD}.\nOr ../{OLD}.\n")
     outside.write("tools/y.sh", f"cat ../{OLD}\n")
+    # a line ends at "\n" alone: a form feed inside an earlier line, or before the name, moves no number
+    outside.write("tools/z.sh", f"echo one\x0ctwo\ncat\x0c ../{OLD}\n")
     outside.commit()
     listed = mover(outside, OLD, NEW)
     return all_of(
@@ -1272,6 +1278,7 @@ def mentions_are_listed_not_changed() -> tuple[bool, str]:
             expect(listed, 0, f"MENTION: other/readme.md:2: 'See {OLD}.' names the old path", "stdout"),
             expect(listed, 0, f"MENTION: other/readme.md:3: 'Or ../{OLD}.' names the old path", "stdout"),
             expect(listed, 0, f"MENTION: tools/y.sh:1: 'cat ../{OLD}' names the old path", "stdout"),
+            expect(listed, 0, f"MENTION: tools/z.sh:2: 'cat\x0c ../{OLD}' names the old path", "stdout"),
             (
                 (outside.root / "other/readme.md").read_text() == f"# Readme\nSee {OLD}.\nOr ../{OLD}.\n",
                 "the uncovered Markdown file was not rewritten",
