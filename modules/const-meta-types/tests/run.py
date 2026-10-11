@@ -1080,6 +1080,24 @@ def policy_pointer_once_per_session() -> tuple[bool, str]:
             and beside.read_text(encoding="utf-8") == f"s7\t{logged.root}\tdocs/policies/notes-policy.md\n",
         )
     )
+    # with a note of the index — a second policy document carrying the notes policy's id — the note
+    # stands first, the pointer after it, the green line last, typed by hand
+    noted = H.fresh_consumer()
+    noted.write("docs/policies/zz-twin.md", envelope("notes-policy", "current-state"))
+    with_note = H.run_gate(event_json(noted.root, VALID, session="s8"), env=env)
+    note = (
+        "note: docs/policies/notes-policy.md and docs/policies/zz-twin.md both carry id 'notes-policy'; the"
+        " first claims, the second is ignored"
+    )
+    pointed_notes = POINTED_PLAIN.replace(
+        "root-policy", "notes-policy"
+    )  # no Enforcement rule in this consumer
+    checks.append(
+        (
+            "the pointer after the index's note, before the green line",
+            context(with_note) == f"{note}\n{pointed_notes}\n{green}",
+        )
+    )
     failed = [title for title, ok in checks if not ok]
     return not failed, f"{len(checks)} checks" if not failed else "failed: " + "; ".join(
         failed
