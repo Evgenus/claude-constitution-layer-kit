@@ -1262,8 +1262,11 @@ def t20() -> tuple[bool, str]:
         " (cp -RL) — until then the gate's state is not said at session start",
     )
     no_git_bin = H.scratch_dir()
-    for tool in ("sh", "dirname", "python3"):
+    for tool in ("sh", "dirname"):
         (no_git_bin / tool).symlink_to(shutil.which(tool) or tool)
+    # the runner's own interpreter, never what `python3` resolves to on the PATH: that can be a launcher
+    # script that needs a shell this folder does not hold
+    (no_git_bin / "python3").symlink_to(os.path.realpath(sys.executable))
     no_git = SESSION.run_gate(session_json(prepared()), env={"PATH": str(no_git_bin)})
     git_ok, git_said = broken_first_line(
         no_git,
