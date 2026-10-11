@@ -23,6 +23,7 @@ from pathlib import Path
 from time import monotonic
 from urllib.parse import unquote, urlsplit
 
+from const_gate import identity
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
@@ -33,6 +34,11 @@ FLOOR = (0, 24, 2)
 # (`identity.hook_seconds`), which the gate's tie holds them to fit together.
 HOOK_SECONDS = 20  # the cap of a hook check's one budget: reading, masking and the run; the scan has none
 VERSION_SECONDS = 5  # the probe's cap, in every mode, outside the budget of HOOK_SECONDS
+# What each wait is, as the shared lines name it: "the hook's budget is spent before <this>", asked of the
+# deadline as the wait begins and named again when the deadline cuts the wait.
+PROBE_BEFORE = "lychee reported its version"
+READ_BEFORE = "the covered documents were read"  # the budget of the check before a write
+RUN_BEFORE = "lychee finished the link check"  # the budget of the check after a write
 LEAST_FOR_THE_RUN = 0.01  # the run's timeout when the budget is spent by then: a timeout of 0 would not wait
 CONFIG = Path(__file__).resolve().parent.parent / "lychee.toml"
 _VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
@@ -77,9 +83,12 @@ class Budget:
     def check(self) -> None:
         """Called after each document is read and after each is masked: once the deadline has passed,
         the check stops here, before it is done, and says whose time it was: the reading of the tree
-        before a write, the reading and the masking before the checker could be run after one."""
+        before a write, the reading and the masking before the checker could be run after one. A budget
+        that the hook's deadline shortened ends in the shared C12.14 line, which says whose time it was."""
         if monotonic() >= self.deadline:
-            raise ConfigurationFailure(messages.x3_out_of_time(self.seconds, self.before_write))
+            own = messages.x3_out_of_time(self.seconds, self.before_write)
+            before = READ_BEFORE if self.before_write else RUN_BEFORE
+            raise identity.ran_out(self.seconds, HOOK_SECONDS, before, own)
 
     def left(self) -> float:
         """What the run may take: the deadline's remainder, but not under `LEAST_FOR_THE_RUN` and not
@@ -122,8 +131,10 @@ def find_breaks(root: Path, inputs: Sequence[str], budget: Budget | None, binary
                 check=False,
             )
         except subprocess.TimeoutExpired as late:
-            whole = late.timeout if budget is None else budget.seconds
-            raise ConfigurationFailure(messages.x3_too_slow(whole)) from late
+            if budget is None:
+                raise ConfigurationFailure(messages.x3_too_slow(late.timeout)) from late
+            too_slow = messages.x3_too_slow(budget.seconds)
+            raise identity.ran_out(budget.seconds, HOOK_SECONDS, RUN_BEFORE, too_slow) from late
     breaks = _parse(root, done.stdout)
     if done.returncode not in (0, 2) or breaks is None:
         first = (done.stderr.strip().splitlines() or [""])[0]
@@ -134,7 +145,8 @@ def find_breaks(root: Path, inputs: Sequence[str], budget: Budget | None, binary
 def require(seconds: float = VERSION_SECONDS) -> str:
     """The checker's path, or the configuration failure that says what is missing. Public so
     that an act that changes files can ask before it changes any. `seconds` is how long the version
-    probe may take: its cap, unless a hook has less of its deadline left."""
+    probe may take: its cap, unless a hook has less of its deadline left, and a probe given less that then
+    runs out is the shared C12.14 line, not this module's, which would name the shortened number."""
     return _binary(seconds)
 
 
@@ -147,7 +159,8 @@ def _binary(seconds: float) -> str:
             [binary, "--version"], capture_output=True, text=True, timeout=seconds, check=False
         ).stdout
     except subprocess.TimeoutExpired as late:
-        raise ConfigurationFailure(messages.x3_no_report(f"no answer in {seconds:g} s", "")) from late
+        no_answer = messages.x3_no_report(f"no answer in {seconds:g} s", "")
+        raise identity.ran_out(seconds, VERSION_SECONDS, PROBE_BEFORE, no_answer) from late
     except OSError:
         said = ""
     version = _VERSION.search(said)

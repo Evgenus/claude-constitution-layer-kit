@@ -54,7 +54,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         lanes = _lanes_abroad(matcher, dials, [rel])[rel]
     # begun before the first read; no checker runs here; the cap, or what the hook's deadline has left
     budget = lychee.Budget.start(
-        identity.remaining(lychee.HOOK_SECONDS, "the covered documents were read"), before_write=True
+        identity.remaining(lychee.HOOK_SECONDS, lychee.READ_BEFORE), before_write=True
     )
     texts: dict[str, str] = {}
     for path in covered:
@@ -81,9 +81,9 @@ def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -
         raise ConfigurationFailure(messages.c5_governed_only_without_root())
     # before the budget: its seconds are its own, the cap or what the hook's deadline has left, and X1 and
     # X2 hold on every write
-    binary = lychee.require(identity.remaining(lychee.VERSION_SECONDS, "lychee reported its version"))
+    binary = lychee.require(identity.remaining(lychee.VERSION_SECONDS, lychee.PROBE_BEFORE))
     # one deadline for the reads, the masking and the run: the cap, or what the hook's deadline has left
-    budget = lychee.Budget.start(identity.remaining(lychee.HOOK_SECONDS, "lychee finished the link check"))
+    budget = lychee.Budget.start(identity.remaining(lychee.HOOK_SECONDS, lychee.RUN_BEFORE))
     texts: dict[str, str] = {}
     for path in covered:
         texts[path] = _text(target.root, path)

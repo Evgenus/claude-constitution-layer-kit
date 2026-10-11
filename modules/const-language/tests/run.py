@@ -775,8 +775,10 @@ def t11() -> tuple[bool, str]:
     outlasts the hook's budget is C12 in the check after a write, and in one before a write where a
     consumer wires it, naming the budget and the scan, while the scan waits and is green; a vale
     whose --version outlasts its own budget is C12 in both modes, the check after a write and the
-    scan — the five runs side by side, so the item costs the budget plus a second or so — and every
-    fake was asked what the gate says."""
+    scan — the five runs side by side, so the item costs the budget plus a second or so; under a hook
+    whose declared budget is lower than a wait's cap, the same slow run and a probe that answers after 4 s
+    are cut at what the deadline has left, and the line is the deadline's, C12.14, naming the wait and
+    the budget — and every fake was asked what the gate says."""
     none = H.scratch_dir()
     for tool in ("python3", "git", "sh", "dirname"):
         source = (
@@ -877,7 +879,25 @@ def t11() -> tuple[bool, str]:
         event = event_json(lowered_root, Write(DOC, "unused"), event="PostToolUse")
         return H.run_gate(event, env={**on_path, **lowered_env}), time.monotonic() - began
 
-    with ThreadPoolExecutor(max_workers=6) as pool:
+    # the same hook budget, lowered to 2 s, and a probe that answers after 4 s, under its cap of 5: the probe
+    # is given what the deadline has left, so it is cut and the deadline's line says so; given its cap it
+    # would answer, and the next wait, the run, would find the deadline spent and name itself instead
+    probe_lowered_env, _ = git_patch(H, hook_seconds=2.0)
+    slow_answer = fake_vale(
+        H.scratch_dir(),
+        f'case "$1" in --version) {sleep} {vale.VERSION_SECONDS - 1}; echo "vale version 3.23.0";;'
+        " *) echo '{}';; esac",
+    )
+    probe_lowered_root = prepared(files={DOC: PLAIN})
+
+    def timed_probe_lowered() -> tuple[Result, float]:
+        began = time.monotonic()
+        event = event_json(probe_lowered_root, Write(DOC, "unused"), event="PostToolUse")
+        result = H.run_gate(event, env={"PATH": str(slow_answer), **probe_lowered_env})
+        return result, time.monotonic() - began
+
+    with ThreadPoolExecutor(max_workers=7) as pool:
+        probe_lowered_hooked = pool.submit(timed_probe_lowered)
         lowered_hooked = pool.submit(timed_lowered)
         hooked = pool.submit(timed_hook)
         before_hooked = pool.submit(timed_before_hook)
@@ -885,6 +905,7 @@ def t11() -> tuple[bool, str]:
         version_hooked = pool.submit(timed_version_hook)
         version_scanned = pool.submit(timed_version_scan)
     lowered_hook, lowered_took = lowered_hooked.result()
+    probe_lowered_hook, probe_lowered_took = probe_lowered_hooked.result()
     hook, hook_took = hooked.result()
     before_hook, before_took = before_hooked.result()
     scan_slow, scan_took = scanned.result()
@@ -892,17 +913,22 @@ def t11() -> tuple[bool, str]:
     version_scan, version_scan_took = version_scanned.result()
     no_answer = "BROKEN: vale did not report its version (no answer in 5 s) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     too_slow = "BROKEN: vale gave no answer in 10 s, the most a check after a write waits — fix: a document of normal size takes vale well under a second, so the likely cause is a vale that hangs; run vale by hand to repair it, and the scan waits for vale as long as it takes — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
-    cut = re.match(  # the seconds are what the deadline had left, so the number is read, not typed
-        r"BROKEN: vale gave no answer in ([\d.]+) s, the most a check after a write waits — fix: a document",
-        lowered_hook.stderr.splitlines()[0] if lowered_hook.stderr else "",
-    )
+    # a wait the hook's deadline cut short, then out of time, is the deadline's shared line naming the wait
+    # and the whole budget the gate declares, never this module's line with the shortened number
+    cut_run = shared.c12_hook_budget(3, "vale finished its run")
+    cut_probe = shared.c12_hook_budget(2, "vale reported its version")
     return all_of(
         broken(hook, too_slow),
         (hook_took > 9, f"the check after a write gave up after {hook_took:.1f} s"),
         (
-            lowered_hook.code == 1 and cut is not None and 0 < float(cut.group(1)) < 3.0,
-            f"under a hook that declares 3 s the run was cut at {cut.group(1) if cut else None} s, after"
-            f" {lowered_took:.1f} s: {lowered_hook.stderr[:160]}",
+            broken(lowered_hook, cut_run)[0],
+            f"under a hook that declares 3 s the run ended after {lowered_took:.1f} s:"
+            f" {lowered_hook.stderr[:160]}",
+        ),
+        (
+            broken(probe_lowered_hook, cut_probe)[0],
+            f"under a hook that declares 2 s the probe, which answers after 4 s, ended after"
+            f" {probe_lowered_took:.1f} s: {probe_lowered_hook.stderr[:160]}",
         ),
         broken(before_hook, too_slow),  # the same budget in the event the plugin does not wire
         (

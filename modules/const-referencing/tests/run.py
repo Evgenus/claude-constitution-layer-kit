@@ -2434,8 +2434,16 @@ modes.read_text, tree.mask, subprocess.run = reading, masking, spy
 modes.list_markdown, modes.covered_documents = listing, matching
 sys.exit(start.main(sys.argv[1:]))
 """
+
+
+def deadline_line(seconds: int, before: str) -> str:
+    """The shared C12.14 line a wait the hook's deadline cut short ends in, for a gate declared with a hook
+    budget of `seconds`: the wait is named by `before`, typed by hand in the case that asks for it."""
+    return shared.c12_hook_budget(seconds, before).render()
+
+
 BUDGET_LYCHEE = (  # logs the first argument of each call; says its version, then an empty report or nothing
-    'echo "$1" >> "$LYCHEE_LOG"\ncase "$1" in --version) echo \'{version}\';; *) {run};; esac\n'
+    'echo "$1" >> "$LYCHEE_LOG"\ncase "$1" in --version) {wait}echo \'{version}\';; *) {run};; esac\n'
 )
 
 
@@ -2445,11 +2453,13 @@ def on_a_patched_clock(
     scan: bool = False,
     version: str | None = "lychee 0.24.2",
     event: str = AFTER,
+    probe_seconds: int = 0,
 ) -> tuple[Result, list[str], list[str], float, int]:
     """The check after a write (or the scan; or, with `event`, the check before a write) of a tree of
     documents, run through the entry point with
     the clock patched as `clock` says (the seconds, as LIST_STEP, MATCH_STEP, MASK_FIRST, MASK_STEP, READ_STEP
-    and PROBE_STEP). `version` is what the fake lychee says to --version, None for no lychee on PATH. Gives
+    and PROBE_STEP). `version` is what the fake lychee says to --version, None for no lychee on PATH, after
+    `probe_seconds` of real waiting where that is not 0. Gives
     the result, the trace, the fake lychee's own log of its calls, the real seconds it took, and the
     number of documents the tree holds."""
     consumer = H.fresh_consumer()
@@ -2459,8 +2469,10 @@ def on_a_patched_clock(
     documents = sum(1 for found in consumer.root.rglob("*.md") if ".git" not in found.parts)
     scratch = H.scratch_dir()
     (scratch / "driver.py").write_text(BUDGET_DRIVER.format(scripts=str(SCRIPTS)))
+    wait = f"{shutil.which('sleep') or '/bin/sleep'} {probe_seconds}; " if probe_seconds else ""
+    script = None if version is None else BUDGET_LYCHEE.format(run=run, version=version, wait=wait)
     env = {
-        **path_with(None if version is None else BUDGET_LYCHEE.format(run=run, version=version)),
+        **path_with(script),
         "TRACE": str(scratch / "trace"),
         "LYCHEE_LOG": str(scratch / "lychee"),
         **clock,
@@ -2484,7 +2496,10 @@ def on_a_patched_clock(
 def the_budget_is_one() -> list[tuple[bool, str]]:
     """The check after a write has one deadline for the reads, the masking and lychee's run, and the
     check before a write the same deadline for its reads; the scan has none. Every case moves a patched
-    clock by the document: the longest real wait is half a second.
+    clock by the document: the longest real wait is half a second, bar the probe cut by a hook of 2 s,
+    which waits those 2.
+    A wait the hook's deadline cut short that runs out ends in the shared C12.14 line, for each of the four
+    waits: the probe, the run, the reads and the masking after a write, the reads before one.
     The order of two configuration failures is held here too: with a missing lychee and a document that
     cannot be read, the check after a write says X1 and the scan says C12.10."""
     results: list[tuple[bool, str]] = []
@@ -2583,6 +2598,45 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
         (
             short.code == 0 and 11 < timeout <= 12,
             f"exit {short.code}, the run was given {timeout!r} s of a hook that declares 12 s: {trace}",
+        )
+    )
+    # a wait the hook's deadline cut short that then runs out ends in the deadline's shared line, naming the
+    # wait and the hook's whole budget, never lychee's or the check's own line with the shortened number.
+    # The run: given 0.5 s of a hook that declares 12 s, it hangs
+    sleep = shutil.which("sleep") or "/bin/sleep"
+    cut_run, trace, ran, took, _ = on_a_patched_clock(
+        {"HOOK_BUDGET": "12", "MASK_FIRST": "11.5"}, run=f"exec {sleep} 30"
+    )
+    results.append(broken_typed(cut_run, deadline_line(12, "lychee finished the link check")))
+    results.append(
+        (
+            any(line.startswith("run timeout=0.") for line in trace) and took < 6,
+            f"the run was given under a second and ended after {took:.1f} s: {trace}",
+        )
+    )
+    # the reads of a check after a write pass that deadline before any masking
+    cut_read, trace, ran, _, _ = on_a_patched_clock({"HOOK_BUDGET": "12", "READ_STEP": "25"})
+    results.append(broken_typed(cut_read, deadline_line(12, "lychee finished the link check")))
+    results.append((trace == ["read"] and ran == ["--version"], f"one read, lychee probed: {trace}, {ran}"))
+    # the check before a write: one read moves the clock past what the hook's 12 s leave, 15 s, and no
+    # later document is read; with the cap of 20 s, which that budget must not be given, the second read
+    # would be the one to pass it, and with the check's own line
+    cut_before, trace, ran, _, _ = on_a_patched_clock({"HOOK_BUDGET": "12", "READ_STEP": "15"}, event=BEFORE)
+    results.append(broken_typed(cut_before, deadline_line(12, "the covered documents were read")))
+    results.append(
+        (count > 1 and trace == ["read"] and ran == [], f"{count} documents, one read: {trace}, {ran}")
+    )
+    # the version probe of a check after a write: a hook that declares 2 s, a lychee that answers after 4 s,
+    # under the probe's cap of 5 s; the probe is given what the deadline has left and is cut. Given its cap
+    # it would answer, and the budget that follows would find the deadline spent and name itself
+    cut_probe, trace, ran, took, _ = on_a_patched_clock(
+        {"HOOK_BUDGET": "2"}, probe_seconds=int(lychee.VERSION_SECONDS) - 1
+    )
+    results.append(broken_typed(cut_probe, deadline_line(2, "lychee reported its version")))
+    results.append(
+        (
+            trace == [] and ran == ["--version"],
+            f"lychee probed, nothing read, after {took:.1f} s: {trace}, {ran}",
         )
     )
     # lychee is missing or too old: whatever the tree's size and however the reads spend the budget,

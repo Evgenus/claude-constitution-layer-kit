@@ -64,10 +64,11 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
 
 def _hook_waits() -> vale.Waits:
     """The hook's waits: each takes the smaller of its cap and what is left of the hook's one deadline,
-    asked as the wait begins; a spent deadline is the shared configuration failure, C12.14."""
+    asked as the wait begins; a spent deadline is the shared configuration failure, C12.14, and so is a
+    wait the deadline cut short that then ran out (`vale.preflight` and `vale.run` say which)."""
     return vale.Waits(
-        probe=lambda: identity.remaining(vale.VERSION_SECONDS, "vale reported its version"),
-        run=lambda: identity.remaining(vale.HOOK_SECONDS, "vale finished its run"),
+        probe=lambda: identity.remaining(vale.VERSION_SECONDS, vale.PROBE_BEFORE),
+        run=lambda: identity.remaining(vale.HOOK_SECONDS, vale.RUN_BEFORE),
     )
 
 

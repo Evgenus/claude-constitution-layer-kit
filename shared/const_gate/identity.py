@@ -25,7 +25,7 @@ from pathlib import Path
 
 from . import messages
 from .errors import ConfigurationFailure
-from .model import Mode
+from .model import Broken, Mode
 
 # The seconds one hook run may take in all, from its declaration: the default of `Identity.hook_seconds`,
 # and the handlers' 30 s less `LEFT_FOR_THE_REST`.
@@ -106,3 +106,13 @@ def remaining(cap: float, before: str) -> float:
     if left <= 0:
         raise ConfigurationFailure(messages.c12_hook_budget(_declared.identity.hook_seconds, before))
     return min(cap, left)
+
+
+def ran_out(given: float, cap: float, before: str, own: Broken) -> ConfigurationFailure:
+    """The failure for a wait that ran out of the `given` seconds `remaining` gave it, of its own `cap`. Given
+    the whole cap, the wait was slow by itself and `own` is its line. Given less, the run's deadline cut it,
+    and the line is the shared C12.14 naming the wait (`before`, as `remaining` was asked): the line `own`
+    would print the shortened number as the most the check waits. A scan and an act give the cap."""
+    if given < cap and _declared is not None:
+        return ConfigurationFailure(messages.c12_hook_budget(_declared.identity.hook_seconds, before))
+    return ConfigurationFailure(own)
