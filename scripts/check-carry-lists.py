@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Kit check: every decision record names a home for each thing it rules, every ruling carries
-its anchor, and every accepted record has the receipt of its carry audit.
+its anchor, in order, and every accepted record has the receipt of its carry audit.
 
 A ruling that is recorded and approved but never written into a current-state document is
 lost the day its record stops being read. Whether a sentence really states a rule is judgment,
 and a reader decides it — the carry audit. This check holds the two parts of that audit a
-script can hold, and the anchor every ruling is cited by:
+script can hold, and the anchor and the order every ruling is cited by:
 
   the list     the record's last section is "Carry list"; every ruling item carries a handle,
                **R1.**, **R2.**, …; the list pairs each handle, once, with links, with "history
@@ -35,13 +35,14 @@ script can hold, and the anchor every ruling is cited by:
                <a id="r<n>"></a>, so that a ruling cited from another document is reached by a
                link to it; held in every record, whatever its number, outside fenced blocks.
 
-What it cannot see, and leaves to the reader of the audit: a ruling item the author never gave a
-handle; whether the linked text states the rule; whether the audit the receipt names was run;
-whether a citation of a ruling from another document links its anchor.
-
   the order    from the record that brought the sentence of rule 10 of plc-0004 on (`IN_ORDER`), the
                ruling handles outside fenced blocks run R1, R2, … in document order with no gap; a
                record that breaks the run is one finding, at the first handle out of place.
+
+What it cannot see, and leaves to the reader of the audit: a ruling item the author never gave a
+handle; whether the linked text states the rule; whether the audit the receipt names was run.
+Whether a citation of a ruling from another document links its anchor is held by the kit's
+scripts/check-handle-forms.py, not by this check.
 
 Records numbered below the threshold were written before the rule, and only their anchors are
 examined. The records' folder and the width of their numbers are read from the `dec` entry of

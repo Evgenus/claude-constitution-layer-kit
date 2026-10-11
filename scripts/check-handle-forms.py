@@ -40,8 +40,11 @@ findings and the scan reports them all. Four rules are read:
                     are the module's own (its messages.py). The kind that moves is the one that uses
                     a prefix rule 8 gives to another kind; where rule 8 gives the prefix to none of
                     the kinds that use it, each kind it fixes moves; the message keys move only when
-                    rule 8 gives the prefix to the other kind. The fix names what applies to that
-                    pair alone.
+                    rule 8 gives the prefix to the other kind. The one prefix of two owners is L:
+                    rule 8 gives the live, review and kit-check items L, and V where L is the
+                    module's message prefix, so where the message keys and the acceptance items both
+                    use L, the acceptance items move and the message keys stay.
+                    The fix names what applies to that pair alone.
 
   table keys        from the record that brought the sentence of rule 10 of plc-0004-decision-records
                     (number 39), handles are unique in a record, tables included. Finding: in a
@@ -81,7 +84,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -130,6 +133,8 @@ FIXED_PREFIXES: dict[str, tuple[str, ...]] = {
     KIND_ENFORCEMENT: ("E",),
     KIND_ACCEPTANCE: ("T", "S", "L", "V"),
 }
+LIVE_PREFIX = "L"  # the live, review and kit-check items' prefix, the message keys' where they use it
+ITEM_PREFIX_BESIDE_L = "V"  # and theirs where L is the module's message prefix
 COUNT_WORDS = {2: "two", 3: "three"}
 RECORD_NUMBER = re.compile(r"(?:^|/)dec-(\d{4})-[^/#?]*\.md$")
 UNIQUE_FROM = 39  # the record that brought the sentence of rule 10 of plc-0004-decision-records:
@@ -457,15 +462,15 @@ def module_message_keys(document: Document, context: Context) -> list[Finding]:
     for number, row in table_rows(document, "t6"):
         for key in KEY_IN_CELL.findall(row[0] if row else ""):
             if family(key) in shared and family(key) not in allowed:
-                prefixes = ", ".join(sorted({re.sub(r"\d.*", "", f) for f in shared}))
                 findings.append(
                     Finding(
                         document.path,
                         number,
                         f'the module\'s message table takes the key "{key}", which the shared table'
                         f" of {SHARED_DOC} holds for a message of its own (family {family(key)})",
-                        f'rename "{key}" to a prefix that neither table uses (the shared table uses'
-                        f" {prefixes}), in the module's messages.py, in its tests and in this table together",
+                        f'rename "{key}" to a key whose family (letters and first number) the shared'
+                        " table does not use, e.g. the next free number of the module's own prefix, in the"
+                        " module's messages.py, in its tests and in this table together",
                         KEY_WHY,
                     )
                 )
@@ -510,7 +515,7 @@ def module_handle_prefixes(document: Document, context: Context) -> list[Finding
             continue
         stands = sorted(kinds.items(), key=lambda item: item[1][0])
         named = [f"the {kind} ({handle}, line {at})" for kind, (at, handle) in stands]
-        owners = [kind for kind in kinds if prefix in FIXED_PREFIXES.get(kind, ())]
+        owners = [kind for kind in kinds if owns_prefix(kind, prefix, kinds)]
         movers = [kind for kind, _ in stands if kind not in owners and (owners or kind in FIXED_PREFIXES)]
         line = min(kinds[kind][0] for kind in movers)
         findings.append(
@@ -521,16 +526,32 @@ def module_handle_prefixes(document: Document, context: Context) -> list[Finding
                 + ", ".join(named[:-1])
                 + " and "
                 + named[-1],
-                "; and ".join(move_fix(kind, prefix) for kind in movers),
+                "; and ".join(move_fix(kind, prefix, kinds) for kind in movers),
                 PREFIX_WHY,
             )
         )
     return sorted(findings, key=lambda f: f.line)
 
 
-def move_fix(kind: str, prefix: str) -> str:
+def owns_prefix(kind: str, prefix: str, kinds: Collection[str]) -> bool:
+    """Whether rule 8 of plc-0006-module-documents gives the prefix to the kind, among the kinds that use
+    it: the letters it fixes, save that L is the message keys' where they use it, and the live, review
+    and kit-check items take V."""
+    if prefix == LIVE_PREFIX and KIND_MESSAGE in kinds:
+        return kind == KIND_MESSAGE
+    return prefix in FIXED_PREFIXES.get(kind, ())
+
+
+def move_fix(kind: str, prefix: str, kinds: Collection[str]) -> str:
     """The fix for the kind that moves off a prefix: rule 8 of plc-0006-module-documents fixes the letters
-    of the enforcement rows and the acceptance items, and the message keys are the module's own."""
+    of the enforcement rows and the acceptance items, and the message keys are the module's own; the
+    acceptance items that share L with the message keys take V."""
+    if kind == KIND_ACCEPTANCE and prefix == LIVE_PREFIX and KIND_MESSAGE in kinds:
+        return (
+            f"give the live, review and kit-check items the prefix {ITEM_PREFIX_BESIDE_L}, which rule 8 of"
+            " plc-0006-module-documents gives them where L is the module's message prefix, in their table"
+            " and in every citation of them together"
+        )
     if kind == KIND_MESSAGE:
         return (
             f"rename the message keys that begin with {prefix} to a prefix that this document uses for no"
@@ -571,7 +592,8 @@ def record_table_keys(document: Document, context: Context) -> list[Finding]:
                     number,
                     f'a table row opens with "{key}", which has the form of a ruling handle of this record',
                     f'key the rows of this table with another letter, e.g. "K" for "R", so that "{handle}"'
-                    " names a ruling alone",
+                    " names a ruling alone, before the record's yes — an accepted record keeps its table"
+                    " as it stands (rule 14 of plc-0004-decision-records)",
                     TABLE_WHY,
                 )
             )
@@ -970,9 +992,9 @@ def self_test() -> int:
     kinds_red: dict[str, tuple[dict[str, str], dict[str, str], tuple[int, ...]]] = {
         # case: the arguments of module_doc green, red, and the lines by hand
         "a message key L1 and a live item L1": (
-            {"rows": "| X1 | a |\n", "items": bare + "| V1 | live | none | a |\n"},
+            {"rows": "| L1 | a |\n", "items": bare + "| V1 | live | none | a |\n"},
             {"rows": "| L1 | a |\n", "items": bare + "| L1 | live | none | a |\n"},
-            (6,),
+            (25,),
         ),
         "a message key E1 and an enforcement row E1": (
             {"rows": "| X1 | a |\n"},
@@ -1140,6 +1162,31 @@ def self_test() -> int:
                 " together; and give the acceptance items one of the prefixes T, S, L or V, which rule 8 of"
                 " plc-0006-module-documents fixes for them, the one that this document uses for no other"
                 " kind, in their table and in every citation of them together",
+                "RED: 1 finding(s) — 4 document(s) examined",
+            ),
+        ),
+        "a message key and a live item, both of L: the live item moves": (
+            {"rows": "| L1 | a |\n", "items": "| L1 | live | none | a |\n"},
+            (
+                'RED: modules/const-x/MODULE.md:24: the prefix "L" names two kinds of handle in this'
+                " document: the message keys (L1, line 6) and the acceptance items (L1, line 24)",
+                "  fix: give the live, review and kit-check items the prefix V, which rule 8 of"
+                " plc-0006-module-documents gives them where L is the module's message prefix, in their table"
+                " and in every citation of them together",
+                "RED: 1 finding(s) — 4 document(s) examined",
+            ),
+        ),
+        "a message key, an enforcement row and an item, all of L: the enforcement row and the item move": (
+            {"rows": "| L1 | a |\n", "enforcement": "| L1 | a |\n", "items": "| L1 | live | none | a |\n"},
+            (
+                'RED: modules/const-x/MODULE.md:17: the prefix "L" names three kinds of handle in this'
+                " document: the message keys (L1, line 6), the enforcement rows (L1, line 17) and the"
+                " acceptance items (L1, line 24)",
+                "  fix: give the enforcement rows the prefix E, which rule 8 of plc-0006-module-documents"
+                " fixes for them, in their table and in every citation of them together; and give the"
+                " live, review and kit-check items the prefix V, which rule 8 of plc-0006-module-documents"
+                " gives them where L is the module's message prefix, in their table and in every citation"
+                " of them together",
                 "RED: 1 finding(s) — 4 document(s) examined",
             ),
         ),
@@ -1478,16 +1525,17 @@ def self_test() -> int:
         code == EXIT_RED
         and printed.getvalue().splitlines()
         == [
-            'RED: modules/const-x/MODULE.md:6: the prefix "L" names two kinds of handle in this document:'
+            'RED: modules/const-x/MODULE.md:25: the prefix "L" names two kinds of handle in this document:'
             " the message keys (L1, line 6) and the acceptance items (L1, line 25)",
             "  why: one prefix names one kind of handle in a document, so a reader who meets L1 or T3 knows"
             " at once which table to open (rule 8 of plc-0006-module-documents)",
-            "  fix: rename the message keys that begin with L to a prefix that this document uses for no"
-            " other kind, in the module's messages.py, in its tests and in the table of its section 6"
-            " together",
+            "  fix: give the live, review and kit-check items the prefix V, which rule 8 of"
+            " plc-0006-module-documents gives them where L is the module's message prefix, in their table"
+            " and in every citation of them together",
             "RED: 1 finding(s) — 4 document(s) examined",
         ],
-        "the report of one finding, a message key and a live item of L, is its literal text, exit 2",
+        "the report of one finding, a message key and a live item of L, the item moving,"
+        " is its literal text, exit 2",
     )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
@@ -1505,7 +1553,8 @@ def self_test() -> int:
             "  why: a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a"
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: key the rows of this table with another letter, e.g. "K" for "R", so that "R1" names a'
-            " ruling alone",
+            " ruling alone, before the record's yes — an accepted record keeps its table as it stands"
+            " (rule 14 of plc-0004-decision-records)",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
         "the report of one finding, a table row keyed as a ruling, is its literal text, exit 2",
@@ -1526,7 +1575,8 @@ def self_test() -> int:
             "  why: a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a"
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: key the rows of this table with another letter, e.g. "K" for "R", so that "R2" names a'
-            " ruling alone",
+            " ruling alone, before the record's yes — an accepted record keeps its table as it stands"
+            " (rule 14 of plc-0004-decision-records)",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
         "the report of one finding, a bold range in a code span, quotes the key without its marks, exit 2",
@@ -1547,8 +1597,9 @@ def self_test() -> int:
             " shared table of shared/GATE.md holds for a message of its own (family N1)",
             "  why: one key names one message in every module, so a reader who meets the key in a log or a"
             " document finds the same message wherever it stands (paragraph g3a of shared/GATE.md)",
-            '  fix: rename "N1" to a prefix that neither table uses (the shared table uses C, G, H, N), in'
-            " the module's messages.py, in its tests and in this table together",
+            '  fix: rename "N1" to a key whose family (letters and first number) the shared table does not'
+            " use, e.g. the next free number of the module's own prefix, in the module's messages.py, in"
+            " its tests and in this table together",
             "RED: 1 finding(s) — 4 document(s) examined",
         ],
         "the report of one finding, a shared key in a module's table, is its literal text, exit 2",
