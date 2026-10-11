@@ -49,6 +49,9 @@ Deferred: delivery of this code through a package index is not built — inside 
 
 Each row is the text of `const_gate/messages.py` under that key, word for word — one function per sub-key (`c5_…`, `c12_…`, `g1_skip_…`), the row's handle being the table's, not the function's name. `{module}` is the namespace the entry point declared, other `{…}` are parameters. A configuration failure is one line that stands on its own — in hook mode only the first stderr line reaches the user (the platform's hooks documentation, read on the survey dates of the six linking modules, 2026-09-18 to 2026-09-23, Claude Code 2.1.251) — followed by the count line `C11`.
 
+<a id="g3a"></a>
+A module's own message table takes a key of this table only to state its part of that message: the keys `G1`, `F9`, `F10`, `C1`, `C2`, `C5`, `C12`, `C14` and `C15`. It takes no other key of this table, sub-keys included, for a message of its own. A key means one thing in every module, and a module that needs a key of its own writes it under a prefix this table does not use. The kit's `scripts/check-handle-forms.py` holds this.
+
 | key | text |
 |---|---|
 | G1 | `GREEN: {module}: 1 document examined, {what it is}` — `governed by {policy id}` from a gate that resolves policies, the module's own words otherwise / `GREEN: {module}: 0 documents examined — {reason}` / scan: `GREEN: {module}: {the module's count tail}` / an event without a document: `GREEN: {module}: {the module's whole line}` |
