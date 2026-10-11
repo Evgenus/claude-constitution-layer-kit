@@ -27,7 +27,7 @@ The handoff of the previous session left the next module unchosen: two self-limi
   - **Pros:** the plan lists Phase B before Phase C, and one parked item changes how a module is proven live in the kit.
   - **Cons:** the accumulating set is complete and every consumer-live proof already sits at step 5 of the plan, so nothing blocks a module; the parked items are each short and can be taken when they bite.
 
-The session recommended A. **R1.** A, chosen by the decider in chat on 2026-09-25: [`const-questions`](../requirements.md#const-questions) is authored in the kit as consumer zero, like the six modules before it, ahead of its Phase C slot — the kit being consumer zero of the session conduct its own guide states, and having passed the module's entry trigger; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. The parked items of the audit plan stay parked and come to the decider one per message when one blocks a step.
+The session recommended A. <a id="r1"></a>**R1.** A, chosen by the decider in chat on 2026-09-25: [`const-questions`](../requirements.md#const-questions) is authored in the kit as consumer zero, like the six modules before it, ahead of its Phase C slot — the kit being consumer zero of the session conduct its own guide states, and having passed the module's entry trigger; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. The parked items of the audit plan stay parked and come to the decider one per message when one blocks a step.
 
 ## 2. The session-conduct block of CLAUDE.md once the skill exists
 
@@ -43,7 +43,7 @@ The block carries today, by hand, the rules this module ships as a skill. The ki
   - **Pros:** proves the fallback path on the kit, which no consumer has yet.
   - **Cons:** a lower-fidelity carrier chosen over the skill just built; the label invites the drift it warns of.
 
-The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-25, with the decider's addition: the kit's harness — the session-conduct block and the rest of what [CLAUDE.md](../../CLAUDE.md) carries by hand — is replaced by the made modules later, once the kit loads its own plugins per clone; until then the block stays whole and carries the rules itself, and what a module carries leaves the block at that replacement, as a routine edit that names this record.
+The session recommended A. <a id="r2"></a>**R2.** A, chosen by the decider in chat on 2026-09-25, with the decider's addition: the kit's harness — the session-conduct block and the rest of what [CLAUDE.md](../../CLAUDE.md) carries by hand — is replaced by the made modules later, once the kit loads its own plugins per clone; until then the block stays whole and carries the rules itself, and what a module carries leaves the block at that replacement, as a routine edit that names this record.
 
 ## 3. Whether the open-question scan ships
 
@@ -59,7 +59,7 @@ The row's optional gate-lite, "a script scanning deliverables for open-question 
   - **Pros:** a self-check at the cost of one line; nothing claimed as a gate.
   - **Cons:** the model may skip the command and nothing shows it did; the marker set fixed in prose.
 
-The session recommended C. **R3.** B, chosen by the decider in chat on 2026-09-25: the check ships in this version, a `gate` with its territory and its marker set as dials of the module's own namespace, its message claiming no more than that no marker was left. The session's objection stands: the measurement found no consumer friction, and the kit's own corpus turns the check red only in its fixtures.
+The session recommended C. <a id="r3"></a>**R3.** B, chosen by the decider in chat on 2026-09-25: the check ships in this version, a `gate` with its territory and its marker set as dials of the module's own namespace, its message claiming no more than that no marker was left. The session's objection stands: the measurement found no consumer friction, and the kit's own corpus turns the check red only in its fixtures.
 
 ## 4. The shape of the check
 
@@ -72,7 +72,7 @@ Whether the check is a hook and a scan, the standard shape of every kit gate, or
   - **Pros:** matches the row's words and the comparison's recommendation; no write is ever blocked.
   - **Cons:** widens four shared parts and the shared page for one module; a red arrives only when the scan is run; the drafts need the same exemptions, since the scan sees them too.
 
-The session recommended A. **R4.** A, chosen by the decider in chat on 2026-09-25, with the session's defaults accepted:
+The session recommended A. <a id="r4"></a>**R4.** A, chosen by the decider in chat on 2026-09-25, with the session's defaults accepted:
 
 - **the marker set** is `[decide:`, `TODO`, `TBD` and `FIXME`, matched case-sensitively and, where a marker begins or ends with a word character, at a word boundary there;
 - `???` and `[open]` left out for having matched nothing but a quoted glob;
@@ -96,7 +96,7 @@ The row's binding, "who wants to be asked about what"; the comparison found no h
   - **Pros:** one shape across the two modules.
   - **Cons:** answers who decides, not what they want asked; reading the sibling's key crosses namespaces, copying it duplicates a binding.
 
-The session recommended A. **R5.** A, chosen by the decider in chat on 2026-09-25, with the session's defaults accepted: both keys empty by default and read by the skill as written, the gate refusing only a key of the namespace that is no dial; `pick` takes `tool` or `letter`, `tool` when the entry omits it, and a decider's `letter` makes the fallback of [requirement A6.9](../requirements.md#a6-9) the path from the first decision, which settles that row's open slot without a further ruling; the kit's own entry names the decider with `pick: letter`, the loss having been observed in the decider's sessions, and leaves `ask` and `decide` empty, the seed pairs applying.
+The session recommended A. <a id="r5"></a>**R5.** A, chosen by the decider in chat on 2026-09-25, with the session's defaults accepted: both keys empty by default and read by the skill as written, the gate refusing only a key of the namespace that is no dial; `pick` takes `tool` or `letter`, `tool` when the entry omits it, and a decider's `letter` makes the fallback of [requirement A6.9](../requirements.md#a6-9) the path from the first decision, which settles that row's open slot without a further ruling; the kit's own entry names the decider with `pick: letter`, the loss having been observed in the decider's sessions, and leaves `ask` and `decide` empty, the seed pairs applying.
 
 ## Carry list
 

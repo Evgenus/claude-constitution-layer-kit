@@ -37,11 +37,11 @@ The decider chose B in chat on 2026-10-08. The session keeps its objection: the 
 
 ## Ruling
 
-**R1.** A package that the fixture runner imports through a link in `tests/` — a module's own package, the shared package, the shared test files — reads its own place only as `Path(__file__).resolve()`, the name `Path` or `pathlib.Path`, and derives every path from that. Any other use of `__file__` is a defect. Entry files and the runner, run by path, are not bound.
+<a id="r1"></a>**R1.** A package that the fixture runner imports through a link in `tests/` — a module's own package, the shared package, the shared test files — reads its own place only as `Path(__file__).resolve()`, the name `Path` or `pathlib.Path`, and derives every path from that. Any other use of `__file__` is a defect. Entry files and the runner, run by path, are not bound.
 
-**R2.** The kit's `scripts/check-resolved-paths.py`, kit tooling never shipped in a module, holds R1: it reads every `.py` file of each module's own packages, of `shared/const_gate/` and at the top of `shared/tests/`, and turns red, with why and fix, on each use of `__file__` not of that form. It is an entry of the gate list's gate group, in the job `kit`, with its `--self-test` as its fixture.
+<a id="r2"></a>**R2.** The kit's `scripts/check-resolved-paths.py`, kit tooling never shipped in a module, holds R1: it reads every `.py` file of each module's own packages, of `shared/const_gate/` and at the top of `shared/tests/`, and turns red, with why and fix, on each use of `__file__` not of that form. It is an entry of the gate list's gate group, in the job `kit`, with its `--self-test` as its fixture.
 
-**R3.** A module's own packages have one derivation in Python, `own_packages` of `scripts/kit_module_doc.py`, which `scripts/check-shared-links.py`, `scripts/check-bare-install.py`, `scripts/check-resolved-paths.py` and `scripts/list-message-literals.py` read; the gate list's entry `types-<module>` derives the same set in shell.
+<a id="r3"></a>**R3.** A module's own packages have one derivation in Python, `own_packages` of `scripts/kit_module_doc.py`, which `scripts/check-shared-links.py`, `scripts/check-bare-install.py`, `scripts/check-resolved-paths.py` and `scripts/list-message-literals.py` read; the gate list's entry `types-<module>` derives the same set in shell.
 
 ## Applied
 

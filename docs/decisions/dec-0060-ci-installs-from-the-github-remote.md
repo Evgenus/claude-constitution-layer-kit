@@ -35,13 +35,13 @@ C, chosen by the decider in chat on 2026-10-01.
 
 ## Ruling
 
-**R1.** In the kit's CI, each `install-<module>` job installs the module from the GitHub repository and branch of the change, `<repository>#<branch>` — the pull request's head repository and branch, or the kit's `main` on a push to it — over HTTPS, with git credentials set from the job's own token; Claude Code needs no account login. A fork the token cannot read fails to install; a pull request installs only from its own head repository, the kit's repository serving a push alone. Run by hand with no source named, the check installs from the working folder. `scripts/check-bare-install.py` takes the source from `--from`, else from `CONSTITUTION_KIT_INSTALL_FROM`, else the working folder.
+<a id="r1"></a>**R1.** In the kit's CI, each `install-<module>` job installs the module from the GitHub repository and branch of the change, `<repository>#<branch>` — the pull request's head repository and branch, or the kit's `main` on a push to it — over HTTPS, with git credentials set from the job's own token; Claude Code needs no account login. A fork the token cannot read fails to install; a pull request installs only from its own head repository, the kit's repository serving a push alone. Run by hand with no source named, the check installs from the working folder. `scripts/check-bare-install.py` takes the source from `--from`, else from `CONSTITUTION_KIT_INSTALL_FROM`, else the working folder.
 
-**R2.** The installed copy is compared with the kit's source at the commit the install came from, which Claude Code's install record names, read from the kit's git history and fetched when the clone lacks it. A branch that moves during a run then changes nothing: the copy is held against its own commit, and the newer commit has a run of its own. An install from a local folder is compared with that folder, and a remote install whose record names no commit with the working folder.
+<a id="r2"></a>**R2.** The installed copy is compared with the kit's source at the commit the install came from, which Claude Code's install record names, read from the kit's git history and fetched when the clone lacks it. A branch that moves during a run then changes nothing: the copy is held against its own commit, and the newer commit has a run of its own. An install from a local folder is compared with that folder, and a remote install whose record names no commit with the working folder.
 
-**R3.** R1 replaces the local-directory marketplace of R1 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md) in CI, and so its R4's "R1 holds that copy on every run": the local-directory copy was observed on 2026-10-01 and is not held since. The first install of the two-install proof of rollout step 10, from the git remote, is held by R1 on every run.
+<a id="r3"></a>**R3.** R1 replaces the local-directory marketplace of R1 of [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md#r1) in CI, and so its R4's "R1 holds that copy on every run": the local-directory copy was observed on 2026-10-01 and is not held since. The first install of the two-install proof of rollout step 10, from the git remote, is held by R1 on every run.
 
-**R4.** The session's loading in place of a local-directory entry, the rest of that proof, stays pending.
+<a id="r4"></a>**R4.** The session's loading in place of a local-directory entry, the rest of that proof, stays pending.
 
 ## Applied
 

@@ -17,17 +17,17 @@ The module [`const-styling`](../requirements.md#const-styling) is authored from 
 
 The handoff of the previous session left the next work unchosen: the parked items of the audit plan, beginning with the name of the first consumer; a module; or a week under the kit's own gates.
 
-- **A. The parked item D9 first,** the consumer's name and the date of Phase B, then the other parked items one per message.
-  - **Pros:** D9 unblocks the deferred consumer-live proofs of all eight modules; the parked items are already argued and need only a yes.
+- **A. The parked item on the consumer's name and the date of Phase B first,** then the other parked items one per message.
+  - **Pros:** that item unblocks the deferred consumer-live proofs of all eight modules; the parked items are already argued and need only a yes.
   - **Cons:** it needs a fact only the decider holds, so the session halts until given; a day of process rulings produces no module.
 - **B. The next module,** one of the three self-limiting modules waiting for a signal.
   - **Pros:** the routine is proven eight times and the tooling is in place.
-  - **Cons:** none of the three has a friction signal in the commit notes, the condition the kit's guide names for growth; the module's consumer-live proof waits on D9 like the others.
+  - **Cons:** none of the three has a friction signal in the commit notes, the condition the kit's guide names for growth; the module's consumer-live proof waits on that item like the others.
 - **C. A week of the kit under its own gates,** no new work, the prompts logged as friction.
   - **Pros:** answers the `warn` against `block` calibration with evidence.
   - **Cons:** a wait, not a task.
 
-The session recommended A with C beside it. **R1.** B, chosen by the decider in chat on 2026-09-26; the session's objection stands: no self-limiting module had a friction signal in the commit notes, the condition [CLAUDE.md](../../CLAUDE.md) names for growth, and the module was started without one.
+The session recommended A with C beside it. <a id="r1"></a>**R1.** B, chosen by the decider in chat on 2026-09-26; the session's objection stands: no self-limiting module had a friction signal in the commit notes, the condition [CLAUDE.md](../../CLAUDE.md) names for growth, and the module was started without one.
 
 ## 2. Which module
 
@@ -41,7 +41,7 @@ The session recommended A with C beside it. **R1.** B, chosen by the decider in 
   - **Pros:** the eight-times-proven shape on the shared code; the default examines nothing, as the two silent modules do; the kit's records its data.
   - **Cons:** a month of data before a ceiling binds, and the kit is twelve days old.
 
-The session recommended C. **R2.** A, chosen by the decider in chat on 2026-09-26: [`const-styling`](../requirements.md#const-styling) is authored in the kit as consumer zero of its own documents, ahead of its slot in the rollout plan and of its signal; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the modules before it.
+The session recommended C. <a id="r2"></a>**R2.** A, chosen by the decider in chat on 2026-09-26: [`const-styling`](../requirements.md#const-styling) is authored in the kit as consumer zero of its own documents, ahead of its slot in the rollout plan and of its signal; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the modules before it.
 
 ## 3. The founding set
 
@@ -60,7 +60,7 @@ The matrix row said exactly three founding entries and lazy accretion for the re
   - **Pros:** a complete style page on day one; a linter configuration derivable from it; explicit over inferred.
   - **Cons:** the lazy-accretion rule hollowed at the module's own founding; seven entries with no consumer behind them.
 
-The session recommended B. **R3.** D, chosen by the decider in chat on 2026-09-26, the session's objection noted: seven of the ten entries are born without a consumer's need, against [requirement A9.3](../requirements.md#a9-3). The founding entries are ten — Mermaid first with PlantUML only under a departure naming the missing capability; character drawings for trivial cases only, by pairs; pseudocode over formulas; prose against lists against tables; list format; table format; heading levels; code font and fence languages; emphasis; no callouts — each one sentence with its pairs in the guide; the matrix row [requirement A9.2](../requirements.md#a9-2) is edited to say so, its destination reading the guide in place of a policy, under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2). The aspects the comparison priced as lazy and the decider did not found — numbers and units, link text, source line length — enter under [requirement A9.3](../requirements.md#a9-3) when a document needs them.
+The session recommended B. <a id="r3"></a>**R3.** D, chosen by the decider in chat on 2026-09-26, the session's objection noted: seven of the ten entries are born without a consumer's need, against [requirement A9.3](../requirements.md#a9-3). The founding entries are ten — Mermaid first with PlantUML only under a departure naming the missing capability; character drawings for trivial cases only, by pairs; pseudocode over formulas; prose against lists against tables; list format; table format; heading levels; code font and fence languages; emphasis; no callouts — each one sentence with its pairs in the guide; the matrix row [requirement A9.2](../requirements.md#a9-2) is edited to say so, its destination reading the guide in place of a policy, under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2). The aspects the comparison priced as lazy and the decider did not found — numbers and units, link text, source line length — enter under [requirement A9.3](../requirements.md#a9-3) when a document needs them.
 
 ## 4. The carrier
 
@@ -79,7 +79,7 @@ The defaults must reach a session at the moment of choice and have a home the co
   - **Pros:** one binding copy.
   - **Cons:** nothing brings it to the model at the moment of writing.
 
-The session recommended A. **R4.** A, taken with the ruling of section 5 in chat on 2026-09-26 — the decider's questions moved the discussion to the home before a letter was given, and the home chosen there is A's shipped text as a document of its own kind:
+The session recommended A. <a id="r4"></a>**R4.** A, taken with the ruling of section 5 in chat on 2026-09-26 — the decider's questions moved the discussion to the home before a letter was given, and the home chosen there is A's shipped text as a document of its own kind:
 
 - **the module** ships one skill, `style-defaults`, whose description names the moments before a departure and whose body is the procedure, and the guide's text as `skills/style-defaults/style-guide.md`, the file the consumer's guide is born from and the floor on a bare repository;
 - **no `SessionStart` line;**
@@ -102,13 +102,13 @@ The comparison proposed a policy that claims nothing, a document in the root pol
   - **Pros:** reaches everything.
   - **Cons:** the kernel is semantics, and the consumer cannot accrete into a page the kit ships.
 
-The session recommended C. **R5.** C, chosen by the decider in chat on 2026-09-26:
+The session recommended C. <a id="r5"></a>**R5.** C, chosen by the decider in chat on 2026-09-26:
 
 - **the style guide** is a document kind of its own, one document in a territory of one path, governed by its own policy — in the kit [plc-0010-style-guide](../policies/plc-0010-style-guide.md) governing `docs/style-guide.md`, the guide created by hand from the module's shipped text;
 - **the matrix row [requirement A9.1](../requirements.md#a9-1)** is edited to say so, and the destination of [requirement A9.3](../requirements.md#a9-3) and [requirement A9.4](../requirements.md#a9-4) reads the guide in place of a policy, under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2);
 - **a style guide** never claims a territory beyond its own path, since a document resolving to two policies is the kernel's defect.
 
-**R6.** The binding is by governance, the session's proposal adopted with the ruling of section 6:
+<a id="r6"></a>**R6.** The binding is by governance, the session's proposal adopted with the ruling of section 6:
 
 - **the root policy** asks every policy to carry a rule named "Style", saying that its kind's documents follow the style guides in the territory of the policy that governs the style guide and depart from a default only where the module's dial names a departure for their territory, with its reason;
 - **policies** follow the guides as documents of their own kind;
@@ -130,7 +130,7 @@ The decider rejected the comparison's marker — an HTML comment or a visible li
   - **Pros:** zero markup, zero dial entries.
   - **Cons:** the gate-lite becomes advisory in fact; the reason is in history, and the tree holds current truth.
 
-The session recommended B. **R7.** B, chosen by the decider in chat on 2026-09-26, with the decider's own finding that nothing then needs to be stated twice:
+The session recommended B. <a id="r7"></a>**R7.** B, chosen by the decider in chat on 2026-09-26, with the decider's own finding that nothing then needs to be stated twice:
 
 - **every departure** is an entry of the dial `departures` of module [`const-styling`](../requirements.md#const-styling) — `paths` a pattern for a kind or one document by its path, `allow` the signature keys, `reason` one required line, never two — and nothing in a document marks it;
 - **a kind's policy** may keep the documents of its kind finished before its style rule out of the scan's territory by number range, saying so — in the kit the records accepted before this one and the comparisons frozen before this module's, which stand as written;
@@ -152,7 +152,7 @@ The scan is `--scan` only, over an own `territories` dial, red on a trace in a t
   - **Pros:** the fullest coverage the entries allow.
   - **Cons:** parser state across lines, the class the reviewers probe for rounds; a third-party linter's territory.
 
-The session recommended B. **R8.** C, chosen by the decider in chat on 2026-09-26, the session's objection noted: the scan knows twelve signatures — `plantuml`, `formula`, `callout`, `deep-heading`, `skipped-level`, `second-h1`, `fence-language`, `list-marker`, `list-numbering`, `underscore-emphasis`, `table-columns`, `table-empty-cell` — the closed vocabulary of the dial's `allow`, each defined by its line shape or its multi-line state in the module's document, and claims nothing beyond them. **R9.** The scan has no hook mode and no `severity` dial, and the module ships no hook: run as a hook it is its own configuration failure; the shared fixture subject is widened with `scan_only`, defaulting to what the other modules pass, so that the shared items run through a gate without a hook mode.
+The session recommended B. <a id="r8"></a>**R8.** C, chosen by the decider in chat on 2026-09-26, the session's objection noted: the scan knows twelve signatures — `plantuml`, `formula`, `callout`, `deep-heading`, `skipped-level`, `second-h1`, `fence-language`, `list-marker`, `list-numbering`, `underscore-emphasis`, `table-columns`, `table-empty-cell` — the closed vocabulary of the dial's `allow`, each defined by its line shape or its multi-line state in the module's document, and claims nothing beyond them. <a id="r9"></a>**R9.** The scan has no hook mode and no `severity` dial, and the module ships no hook: run as a hook it is its own configuration failure; the shared fixture subject is widened with `scan_only`, defaulting to what the other modules pass, so that the shared items run through a gate without a hook mode.
 
 ## Carry list
 

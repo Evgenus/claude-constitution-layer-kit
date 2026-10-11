@@ -35,13 +35,13 @@ A, chosen by the decider in chat on 2026-09-24.
 
 ## Ruling
 
-**R1.** One call that prints — `out` or `err` of the shared `output` — is one record of the output log, one JSON line; a text of several lines stays one record, its newlines escaped by JSON. The records of a run whose log is written, their texts each followed by a newline, rebuild what the run printed on each stream exactly, save a character the stream could not encode, which the stream shows escaped and the record keeps.
+<a id="r1"></a>**R1.** One call that prints — `out` or `err` of the shared `output` — is one record of the output log, one JSON line; a text of several lines stays one record, its newlines escaped by JSON. The records of a run whose log is written, their texts each followed by a newline, rebuild what the run printed on each stream exactly, save a character the stream could not encode, which the stream shows escaped and the record keeps.
 
-**R2.** The shared item S132 holds R1: its records rebuild both streams of a red run, and a gate's block verdict is one record of several lines.
+<a id="r2"></a>**R2.** The shared item S132 holds R1: its records rebuild both streams of a red run, and a gate's block verdict is one record of several lines.
 
-**R3.** A configuration failure stays two records — its BROKEN line and the closing line — and an unexpected one three, the traceback last, because the guard prints each apart; should that trouble a reader, the remedy is a guard that prints once, never another unit of record.
+<a id="r3"></a>**R3.** A configuration failure stays two records — its BROKEN line and the closing line — and an unexpected one three, the traceback last, because the guard prints each apart; should that trouble a reader, the remedy is a guard that prints once, never another unit of record.
 
-**R4.** Pre-publication, every module still at `0.0.1`: no version bump (step 7 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md)).
+<a id="r4"></a>**R4.** Pre-publication, every module still at `0.0.1`: no version bump (step 7 of "Developing a module" in [CLAUDE.md](../../CLAUDE.md)).
 
 ## Carry list
 

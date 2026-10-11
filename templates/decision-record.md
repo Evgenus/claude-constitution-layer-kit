@@ -38,11 +38,11 @@ the recommendation, why; an objection the session keeps stands here.>
 
 ## Ruling
 
-**R1.** <What now holds. Every item that binds after the yes opens with a bold handle,
-wherever it stands — a deferred trigger, a fallback, an exception and a default left open to
+<a id="r1"></a>**R1.** <What now holds. Every item that binds after the yes opens with a bold handle, right
+after the anchor of its own key, wherever it stands — a deferred trigger, a fallback, an exception and a default left open to
 override are items too.>
 
-**R2.** <…>
+<a id="r2"></a>**R2.** <…>
 
 ## Applied
 
@@ -59,7 +59,7 @@ override are items too.>
 
 ## Ruling
 
-**R1.** <What now holds, and which current-state documents and code it is applied to.>
+<a id="r1"></a>**R1.** <What now holds, and which current-state documents and code it is applied to.>
 
 ## Reasoning
 

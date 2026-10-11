@@ -35,11 +35,11 @@ A and B together, chosen by the decider in chat on 2026-09-23: the gate, plus a 
 
 ## Ruling
 
-**R1.** The kit's `constitution.yaml` is written in block style: one key or one `- ` item per line; flow style, `[]` or `{}`, only where a list or a mapping is empty. The rule is the kit's own, for its one dials file; the YAML examples inside the kit's Markdown are not under it, and a consumer's file is the consumer's.
+<a id="r1"></a>**R1.** The kit's `constitution.yaml` is written in block style: one key or one `- ` item per line; flow style, `[]` or `{}`, only where a list or a mapping is empty. The rule is the kit's own, for its one dials file; the YAML examples inside the kit's Markdown are not under it, and a consumer's file is the consumer's.
 
-**R2.** The gate is `scripts/check-yaml-style.py`, kit development tooling never shipped in a module: exit 2 with the line and a teaching message on a non-empty flow collection, exit 0 with the count of collections examined otherwise, exit 1 when it could not run; `--fix` rewrites every non-empty flow collection into block style, keeps every comment, anchor, alias and quote as written, refuses a collection spanning several lines, and proves before writing that the file still says what it said; `--self-test` is its fixture. It is run before every commit that touches the file until the kit's CI runs it, and is listed in the routine of `pyproject.toml`.
+<a id="r2"></a>**R2.** The gate is `scripts/check-yaml-style.py`, kit development tooling never shipped in a module: exit 2 with the line and a teaching message on a non-empty flow collection, exit 0 with the count of collections examined otherwise, exit 1 when it could not run; `--fix` rewrites every non-empty flow collection into block style, keeps every comment, anchor, alias and quote as written, refuses a collection spanning several lines, and proves before writing that the file still says what it said; `--self-test` is its fixture. It is run before every commit that touches the file until the kit's CI runs it, and is listed in the routine of `pyproject.toml`.
 
-**R3.** The rewrite of the file on 2026-09-23 — thirty-one collections, the data and every comment proven equal before and after — and the folding of this record into the sixth module's change: one-time acts.
+<a id="r3"></a>**R3.** The rewrite of the file on 2026-09-23 — thirty-one collections, the data and every comment proven equal before and after — and the folding of this record into the sixth module's change: one-time acts.
 
 ## Carry list
 
