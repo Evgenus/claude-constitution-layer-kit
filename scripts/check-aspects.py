@@ -66,7 +66,11 @@ runner and its exit, so that a red item's own lines stand where the run is read 
 kit's CI, which runs each module's fixtures through `--run --module <name>`. A fixture item's
 handle is its runner number, bare or under `T` or `S` — `T12` and `12` are item 12, `S101` is
 item 101. Also red under `--run`, with or without `--module`: a runner item no table row names,
-and a fixture item a table names that the runner did not print.
+and a fixture item a table names that the runner did not print. Also red under `--run`, for each module
+whose runner ran: a number typed on the `Runner:` line of section 10 of its document (`<digits> items
+green`, the first such line outside code fences, the first such match on it) that is not the total T of
+the runner's last line; a Runner line without that form, or none, is no finding, and the gate, which runs
+no runner, compares nothing.
 
 Each row a module holds is printed with its destination as the matrix states it, every module
 that holds a part of it with the version of its manifest, and every item that names it — from
@@ -100,7 +104,9 @@ Modes:  no arguments         the gate;
                              skipped, a name without `const-` listed, sorted whatever order the
                              folder lists, the report
                              of one finding as literal lines, a full run green and red, a runner
-                             that cannot be read as a BROKEN line; the shared items over their
+                             that cannot be read as a BROKEN line, a typed runner count equal to the
+                             total, off it, absent, in another form, inside a fence, and off it
+                             run without `--run`; the shared items over their
                              whole set of cases: numbers and ranges of the table green and red,
                              a file or form it cannot read BROKEN, the report as literal lines.
 Exit:   0 green; 2 a finding or a red item; 1 the check could not run.
@@ -142,6 +148,8 @@ HANDLE_PARTS = re.compile(r"^(?P<p>[A-Z]?)(?P<n>\d+)(?P<s>[a-z]?)$")
 ITEM_LINE = re.compile(r"^\[(ok|FAIL)\] +(\d+)\. \((red→green|assertion)\) ")
 ITEM_LIKE = re.compile(r"^\[(?:ok|FAIL)\]")
 LAST_LINE = re.compile(r"^(\d+)/(\d+) acceptance items green — ")
+RUNNER_COUNT = re.compile(r"\b([0-9]+) items green\b")  # the one form of a typed count that is read
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 DONE = re.compile(r"\bdone (\d{4}-\d{2}-\d{2})\b")
 MODULE_DEST = re.compile(r"^M\d+\b")
 # The closed set of destination classes, typed once: the name the preamble of the matrix writes in bold,
@@ -166,6 +174,7 @@ WHY_HANDLES = (
 WHY_KIND = "the kind says whether a run examines the item, and a kind outside the set cannot be judged"
 WHY_SCOPE = "a module implements exactly the rows its rows section holds (law 4 of CLAUDE.md)"
 WHY_RUN = "a row is green only where a run examined it, so every item the runner prints must be in the table"
+WHY_COUNT = "a count typed by hand drifts without a sound, and the runner's total is the one count"
 WHY_CLASSES = (
     "the destination classes are a closed set, defined once in the preamble (rule 7 of"
     " plc-0007-requirements), and a destination outside it takes its row out of every check that reads it"
@@ -248,6 +257,7 @@ class Module:
     version: str
     held: dict[str, int]  # anchor → line in the rows section
     items: list[Item]
+    acceptance: list[tuple[int, str]] = field(default_factory=list)  # the lines of section 10, as read
 
 
 def read(root: Path, path: str) -> str:
@@ -596,7 +606,7 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
             path_part, _, anchor = link[2].partition("#")
             if path_part.endswith(SPEC) and anchor in matrix:
                 held.setdefault(anchor, number)
-    module = Module(name, path, version, held, [])
+    module = Module(name, path, version, held, [], acceptance_section)
     table = [(n, raw.strip()) for n, raw in acceptance_section if raw.strip().startswith("|")]
     header = next(((n, cells(line)) for n, line in table if cells(line) and cells(line)[0] == "item"), None)
     if header is None or header[1] != ACCEPTANCE_HEADER:
@@ -842,6 +852,43 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
     return results
 
 
+def typed_count(lines: list[tuple[int, str]]) -> tuple[int, int] | None:
+    """The first line of section 10, outside code fences, that opens with `Runner:` and holds
+    `<digits> items green`: its line number and the number; None when the section has no such line,
+    the count being optional."""
+    fence = ""  # the opening run of a fence, while one is open
+    for number, raw in lines:
+        marker = FENCE.match(raw)
+        if fence:
+            if marker and marker[1][0] == fence[0] and len(marker[1]) >= len(fence) and not marker[2].strip():
+                fence = ""
+            continue
+        if marker and not (marker[1][0] == "`" and "`" in marker[2]):
+            fence = marker[1]
+            continue
+        found = RUNNER_COUNT.search(raw) if raw.startswith("Runner:") else None
+        if found:
+            return number, int(found[1])
+    return None
+
+
+def count_finding(module: Module, total: int) -> Finding | None:
+    """The finding for a count typed on the Runner line of the module's section 10 that is not the
+    runner's total `total`; None when the line holds no count or the count is the total."""
+    typed = typed_count(module.acceptance)
+    if typed is None or typed[1] == total:
+        return None
+    line, written = typed
+    return Finding(
+        module.path,
+        line,
+        f"the Runner line of section 10 says {written} items green, and the runner's total is {total}",
+        WHY_COUNT,
+        f"write the runner's total on the Runner line of section 10: change `{written} items green` to"
+        f" `{total} items green`",
+    )
+
+
 def advisory_only(enforcement: str) -> bool:
     """An advisory row, as the matrix classes it: the cell opens with `advisory` and names no gate."""
     text = enforcement.lower()  # a word, so that "ungateable" is no gate and "gate-lite" is one
@@ -880,6 +927,9 @@ def full_run(
     for module in modules:
         results = runner(root, module)
         read_items += len(results)
+        mismatch = count_finding(module, len(results))  # run_runner held len(results) to the last line's T
+        if mismatch is not None:
+            findings.append(mismatch)
         named: set[int] = set()
         for item in module.items:
             for n in item.numbers:
@@ -2371,6 +2421,76 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] a full run with {name} exits {want} and says so")
         if not ok:
             print(out)
+    runner_line = "Runner: `python3 tests/run.py` (needs git), {} items green."
+    counted: dict[str, tuple[str, list[str], int | None]] = {  # case: section 10 before the table, the
+        # command line, the count the one finding says is written (None: no finding); the runner's total is 4
+        "a Runner line whose count is the total": (runner_line.format(4), ["--run"], None),
+        "a Runner line whose count differs": (runner_line.format(5), ["--run"], 5),
+        "a Runner line whose count differs, run without --run": (runner_line.format(5), [], None),
+        "a Runner line whose count differs, run with --run --module": (
+            runner_line.format(5),
+            ["--run", "--module", "const-sample"],
+            5,
+        ),
+        "a Runner line without a count": ("Runner: `python3 tests/run.py` (needs git).", ["--run"], None),
+        "a Runner line with the count in another form": (
+            "Runner: `python3 tests/run.py`, 9 items, green: 7, 8 tests green.",
+            ["--run"],
+            None,
+        ),
+        "no Runner line": ("The runner is started by hand.", ["--run"], None),
+        "a count inside a fenced block only": (
+            "```\n" + runner_line.format(9) + "\n```\n\n~~~~\n" + runner_line.format(9) + "\n~~~~",
+            ["--run"],
+            None,
+        ),
+        "a Runner line after a fenced block that closed": (
+            "```\n" + runner_line.format(9) + "\n```\n\n" + runner_line.format(5),
+            ["--run"],
+            5,
+        ),
+    }
+    for name, (preface, command_line, written) in counted.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, preface + "\n\n" + GOOD_TABLE)
+            doc_file = root / "modules" / "const-sample" / "MODULE.md"
+            doc_lines = doc_file.read_text(encoding="utf-8").splitlines()
+            where = next(
+                (
+                    n
+                    for n, text in enumerate(doc_lines, start=1)
+                    if text.startswith("Runner:") and f" {written} " in text
+                ),
+                0,
+            )
+            code, got = main_over(root, command_line)
+            if written is None:
+                ok = code == EXIT_GREEN and not any(line.startswith("RED:") for line in got)
+                ok = ok and got[-1].startswith(("GREEN: every item read", "GREEN: every acceptance item"))
+            else:  # the finding as literal lines, typed by hand, then its fix followed to green
+                block = [
+                    f"RED: modules/const-sample/MODULE.md:{where}: the Runner line of section 10 says"
+                    f" {written} items green, and the runner's total is 4",
+                    "  why: a count typed by hand drifts without a sound, and the runner's total is the one"
+                    " count",
+                    "  fix: write the runner's total on the Runner line of section 10: change"
+                    f" `{written} items green` to `4 items green`",
+                ]
+                start = got.index(block[0]) if block[0] in got else -1
+                ok = code == EXIT_RED and start >= 0 and got[start : start + 3] == block
+                ok = ok and sum(1 for line in got if line.startswith("RED: modules/")) == 1
+                ok = ok and got[-1].startswith("RED: 1 finding(s), no red item")
+                spans = re.findall(r"`([^`]+)`", block[2])
+                doc_file.write_text(
+                    doc_file.read_text(encoding="utf-8").replace(spans[0], spans[1]), encoding="utf-8"
+                )
+                code, after = main_over(root, command_line)
+                ok = ok and code == EXIT_GREEN and not any(line.startswith("RED:") for line in after)
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] section 10 with {name} is {'green' if written is None else 'red'}")
+        if not ok:
+            print(f"        got: {code} {got}")
     broken: dict[str, tuple[list[str], int, str]] = {
         "an item line out of form": (
             ["[ok] one (assertion) a", *GREEN_RUN[1:]],
@@ -2666,6 +2786,7 @@ def self_test() -> int:
         + len(listed)
         + 1  # no modules/
         + len(runs)
+        + len(counted)
         + len(broken)
         + 1  # stdout without its last line break, then stderr
         + len(filtered)
