@@ -3,8 +3,9 @@
 module's job, the list's modules are exactly the module folders, each module folder is named
 `const-<aspect>`, named so by its manifest, listed once in the marketplace and enabled in the kit's
 settings, which declare the marketplace, every kit check is run by an entry of the gate group, every
-top-level `const-<aspect>` key of the kit's dials file names a module folder, and the `types` entry of
-the gate list puts on `MYPYPATH` the module folders the schema mirror imports from.
+top-level `const-<aspect>` key of the kit's dials file names a module folder, the `types` entry of
+the gate list puts on `MYPYPATH` the module folders the schema mirror imports from, and the scan block
+of the install guide names every declared scan and nothing else.
 
 A module declares its scan in its document's enforcement section (template §9, anchor `t9`), read
 by `kit_module_doc.enforcement` row by row, whatever a row's indent: a line whose stripped form
@@ -91,6 +92,16 @@ a stray colon an item like another; the two are compared as sets, and a differen
 naming both. A mirror that is missing, is no Python or has not that one loop is BROKEN, and so is a list
 with no `types` entry. These two holds come after every
 other kind of finding, the dials file's first.
+The install guide, `INSTALL.md` at the kit root, holds one fenced block whose info string is `bash
+check=scan`; its first line is `for s in <path> … ; do …`, and the words between `for s in` and `; do`
+are the paths the guide runs with `sh`, each `<module>/scripts/<stem>.sh`, the POSIX entry point of a
+declared scan, its stem the declared name without `.py`. The paths are held against the declared
+scans both ways, after the types hold: a declared scan whose path the block does not list, and a listed
+path no module declares, are one RED finding each, by path, the fix naming the path to add or to
+remove; a path listed twice is no finding; a module that declares no scan owes none; the command after
+`; do` and every other block are not read (`scripts/check-install-guide.py` runs the block and holds
+none of this). A guide that is missing, with no such block or two, or whose block does not begin
+`for s in … ; do`, is BROKEN, since the check cannot read what it holds.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree, itself a git repository: a scan missing
@@ -126,7 +137,11 @@ Modes:  no arguments   check the kit;
                        names, each file of those two holds that cannot be read as its BROKEN line,
                        the types pair changed one at a time (a folder more on either side, none, a
                        comment, another path, a quote, two settings, a stray colon), and PyYAML
-                       missing as a BROKEN line with the install command, exit 1.
+                       missing as a BROKEN line with the install command, exit 1; the guide's scan
+                       block against the declared scans (a block of exactly those, a scan missing, a
+                       path no module declares, a path twice, a module with no scan), each fix text
+                       followed on the tree until green, and a guide that is missing, has no block,
+                       two, or a block that does not begin `for s in … ; do` as a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -237,6 +252,14 @@ WHY_KNOWN = (
 WHY_KNOWN_SOURCE = (
     "the kit loads its own modules from its own folder, so any other source loads another marketplace or none"
 )
+GUIDE_FILE = "INSTALL.md"  # the install guide; its `bash check=scan` block runs every scan of a project
+FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")  # as scripts/check-install-guide.py opens a block
+SCAN_FOR = re.compile(r"for s in (.*?)\s*; do(?:\s|$)")  # the first line of the guide's scan block
+BLOCK = "`bash check=scan`"
+WHY_GUIDE = (
+    "the guide's scan block is what a project runs to verify an install, so a scan it leaves out is never"
+    " run there and a path no module declares fails there"
+)
 
 
 FORM_WHAT = {  # what a problem of the enforcement section says; its text is the first cell or the span
@@ -286,6 +309,8 @@ class Where(StrEnum):
     SETTINGS_STRAY = "enabled strays"
     KNOWN_MISSING = "declared marketplace"
     KNOWN_SOURCE = "marketplace source declared"
+    GUIDE_ADD = "guide's scan block"
+    GUIDE_DROP = "guide's listed paths"
 
 
 REGISTRY = frozenset(
@@ -369,6 +394,19 @@ class Finding:
             fix = (
                 f"rename the key `{self.module}` in {DIALS} to the name of the module folder whose dials it"
                 " holds, or remove the key and what is under it"
+            )
+        elif self.where is Where.GUIDE_ADD:
+            what = f"its scan `{self.entry} --scan` is not in the scan block of {GUIDE_FILE}"
+            why = WHY_GUIDE
+            fix = (
+                f"add `{scan_path(self.module, self.entry)}` to the list after `for s in` in the {BLOCK}"
+                f" block of {GUIDE_FILE}"
+            )
+        elif self.where is Where.GUIDE_DROP:  # `module` holds the path
+            what = f"the scan block of {GUIDE_FILE} lists it, but no module declares that scan"
+            why = WHY_GUIDE
+            fix = (
+                f"remove `{self.module}` from the list after `for s in` in the {BLOCK} block of {GUIDE_FILE}"
             )
         elif self.where is Where.TYPES_PATH:  # `module` holds the list's path, `said` the entry's MYPYPATH
             folders = ":".join(f"../modules/{name}/scripts" for name in self.names)
@@ -866,6 +904,82 @@ def types_path(root: Path) -> list[Finding]:
     return [Finding(GATE_LIST, Where.TYPES_PATH, said=":".join(items), names=folders)]
 
 
+def scan_path(module: str, entry: str) -> str:
+    """The path the guide's scan block lists for a declared scan: `<module>/scripts/<stem>.sh`, the POSIX
+    entry point every scan has (template §6, gate-script rule 6), which the guide's loop runs with `sh`; the
+    stem is the declared name without `.py`, so `check-x` and `check-x.py` both stand for `check-x.sh`."""
+    return f"{module}/scripts/{entry.removesuffix('.py')}.sh"
+
+
+def scan_block(root: Path) -> list[str]:
+    """The paths of the guide's scan block: the words between `for s in` and `; do` on the first line of the
+    one fenced block whose info string is `bash check=scan`. A guide that is missing, with no such block or
+    two, or whose block does not begin `for s in … ; do`, is BROKEN: the check cannot read what it holds."""
+    if not (root / GUIDE_FILE).is_file():
+        raise Broken(
+            f"{GUIDE_FILE} is no file — fix: restore the install guide at the kit root, with the fenced block"
+            f" {BLOCK} that lists every scan"
+        )
+    lines = read(root, GUIDE_FILE).splitlines()
+    blocks: list[tuple[int, str]] = []  # the line of each block's fence and its first line
+    at = 0
+    while at < len(lines):
+        opened = FENCE.match(lines[at])
+        if opened is None:
+            at += 1
+            continue
+        indent, fence, info = opened.group(1), opened.group(2), opened.group(3).split()
+        end = at + 1
+        while end < len(lines):
+            closing = FENCE.match(lines[end])
+            if (
+                closing is not None
+                and closing.group(2)[0] == fence[0]
+                and len(closing.group(2)) >= len(fence)
+                and not closing.group(3).strip()
+            ):
+                break
+            end += 1
+        if info[:1] == ["bash"] and "check=scan" in info[1:]:
+            first = lines[at + 1] if at + 1 < end else ""
+            blocks.append((at + 1, first[len(indent) :] if first.startswith(indent) else first.lstrip()))
+        at = end + 1
+    if not blocks:
+        raise Broken(
+            f"{GUIDE_FILE} has no block {BLOCK} — fix: add the fenced block that runs every module's scan"
+            f" in the guide's verify step, its fence {BLOCK}"
+        )
+    if len(blocks) > 1:
+        where = " and ".join(str(line) for line, _ in blocks)
+        raise Broken(
+            f"{GUIDE_FILE} has {len(blocks)} blocks {BLOCK}, at lines {where} — fix: keep one: list the"
+            " paths of both in the first and give the other `check=none`"
+        )
+    line, first = blocks[0]
+    listed_in = SCAN_FOR.match(first)
+    if listed_in is None:
+        raise Broken(
+            f"{GUIDE_FILE}:{line}: the first line of the block {BLOCK} is not `for s in <paths>; do …`"
+            " — fix: begin it with `for s in <module>/scripts/<entry> …; do`, the paths being the scans the"
+            ' modules declare, and run each as `"$s"` after `do`'
+        )
+    return listed_in.group(1).split()
+
+
+def guide_scans(root: Path, declared: list[tuple[str, str]]) -> list[Finding]:
+    """The paths of the guide's scan block against the declared scans, as sets: a declared scan whose path is
+    not listed, in the order the modules declare them, then a listed path no module declares, sorted."""
+    listed_paths = set(scan_block(root))
+    wanted = {scan_path(module, entry): (module, entry) for module, entry in declared}
+    findings = [
+        Finding(module, Where.GUIDE_ADD, entry)
+        for path, (module, entry) in wanted.items()
+        if path not in listed_paths
+    ]
+    findings += [Finding(path, Where.GUIDE_DROP) for path in sorted(listed_paths - set(wanted))]
+    return findings
+
+
 def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
     try:
         modules = [folder.name for folder in module_folders(root)]
@@ -874,12 +988,14 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
     gates, jobs, ci = gate_list(root), jobs_of(root), ci_reads_list(root)
     findings: list[Finding] = []
     scans = 0
+    declared: list[tuple[str, str]] = []
     for module in modules:
         document = f"modules/{module}/MODULE.md"
         entries, problems = declared_scans(read(root, document), document)
         findings += [Finding(document, Where.FORM, p.text, line=p.line, fault=p.fault) for p in problems]
         for entry in entries:
             scans += 1
+            declared.append((module, entry))
             findings += check_scan(module, entry, gates, jobs, ci)
     findings += check_modules(modules, listed(root, "--names", "all").split())
     registry, plugins, enabled = check_registries(root, modules)
@@ -889,6 +1005,7 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
     findings += check_checks(checks, gates)
     findings += dials_namespaces(root, modules)
     findings += types_path(root)
+    findings += guide_scans(root, declared)
     return findings, len(modules), scans, len(checks), plugins, enabled
 
 
@@ -903,7 +1020,8 @@ def report(findings: list[Finding], modules: int, scans: int, checks: int, plugi
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the"
         " list's modules are the module folders, each named const-<aspect> and by its manifest, listed"
         " once in the marketplace and enabled in the kit's settings, which declare the marketplace,"
-        " neither list filters a runner's items, and every kit check is run by an entry of the gate group"
+        " neither list filters a runner's items, every kit check is run by an entry of the gate group, and"
+        " the install guide's scan block names exactly the declared scans"
         f" — {counts}, {plugins} marketplace plugin(s), {enabled} enabled plugin(s)"
     )
     return EXIT_GREEN
@@ -952,11 +1070,23 @@ class Case:
     files: dict[str, object] = field(default_factory=dict)
     # the registry files, by path, when the case writes its own: an object or list is written as JSON, a
     # text as it is, None leaves the file out; empty: `registry_tree(folders, tag)`
+    guide: str | None = ""  # the install guide: a text as it is, None leaves it out; empty: `guide_text(...)`
 
 
 def mirror_text(folders: tuple[str, ...]) -> str:
     """A schema mirror whose import path takes `folders`, in the form the check reads."""
     return f"import sys\n\nfor module in {folders!r}:\n    sys.path.insert(0, module)\n"
+
+
+def guide_text(*paths: str, block: str = "bash check=scan") -> str:
+    """An install guide in the kit's form: a step whose fenced block, `block` as its info string, runs the
+    scans `paths` in a loop, the block indented as inside a numbered list, a `check=none` block beside it."""
+    return (
+        "# Install\n\n8. **Verify.** Run every scan:\n"
+        f'   ```{block}\n   for s in {" ".join(paths)}; do sh ~/kit/modules/"$s" --scan; done\n   ```\n'
+        "   Then the fixtures:\n   ```bash check=none\n"
+        "   for m in ~/kit/modules/const-*; do true; done\n   ```\n"
+    )
 
 
 def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
@@ -1758,6 +1888,69 @@ def strays_case(scan: str) -> Case:
     )
 
 
+GUIDE_X = "const-x/scripts/check-x.sh"  # the scan const-x declares, as the guide lists it
+GUIDE_P = (
+    "const-p/scripts/check-p.sh"  # the scan const-p declares as `check-p.py --scan`: its .sh entry point
+)
+GUIDE_GONE = "const-gone/scripts/check-gone.sh"  # a path no module declares
+
+
+def guide_case(scan: str, module_text: str, guide: str | None) -> Case:
+    """Three folders: const-x declares `check-x`, const-p declares `check-p.py`, const-quiet declares none;
+    the install guide is `guide`."""
+    p_text = module_text.replace("check-x", "check-p").replace("`check-p --scan`", "`check-p.py --scan`")
+    return Case(
+        {"x": scan, "p": "python3 modules/const-p/scripts/check-p.py --scan"},
+        jobs={"p": "const-p"},
+        folders=("const-x", "const-quiet", "const-p"),
+        documents={"const-p": p_text},
+        guide=guide,
+    )
+
+
+def guide_cases(scan: str, module_text: str) -> dict[str, tuple[Case, list[Where]]]:
+    """The guide's scan block against the declared scans, each a guide edited once: the findings it must
+    give, in their fixed order (the missing scans in the folders' order, then the strays by path). Beside
+    `registry_cases`, whose files name the modules the same way."""
+    add, drop = Where.GUIDE_ADD, Where.GUIDE_DROP
+
+    def edit(*paths: str, tail: str = "") -> Case:
+        return guide_case(scan, module_text, guide_text(*paths) + tail)
+
+    other = "   ```bash check=none\n   for s in " + GUIDE_GONE + '; do sh ~/kit/modules/"$s"; done\n   ```\n'
+    return {
+        "the guide's scan block names exactly the declared scans, `check-x` and `check-p.py` alike": (
+            edit(GUIDE_X, GUIDE_P),
+            [],
+        ),
+        "the guide's scan block names them in another order": (edit(GUIDE_P, GUIDE_X), []),
+        "the guide's scan block leaves out a scan declared as `check-x`": (edit(GUIDE_P), [add]),
+        "the guide's scan block leaves out a scan declared as `check-p.py`": (edit(GUIDE_X), [add]),
+        "the guide's scan block lists nothing": (edit(), [add, add]),
+        "the guide's scan block lists a path no module declares": (
+            edit(GUIDE_X, GUIDE_P, GUIDE_GONE),
+            [drop],
+        ),
+        "the guide's scan block lists a module that declares no scan": (
+            edit(GUIDE_X, GUIDE_P, "const-quiet/scripts/check-q.sh"),
+            [drop],
+        ),
+        "the guide's scan block lists the .py file of a scan its loop runs with sh": (
+            edit("const-x/scripts/check-x.py", GUIDE_P),
+            [add, drop],
+        ),
+        "the guide's scan block lists a path twice": (edit(GUIDE_X, GUIDE_X, GUIDE_P), []),
+        "a module that declares no scan is owed no path": (
+            Case({"o": "true"}, folders=("const-quiet",), guide=guide_text()),
+            [],
+        ),
+        "a block other than the scan block lists a path no module declares: not read": (
+            edit(GUIDE_X, GUIDE_P, tail=other),
+            [],
+        ),
+    }
+
+
 def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     """The files the check cannot read, each a matching registry with one file or key spoilt: the first
     line of the BROKEN report, which names the file and how to fix it."""
@@ -1808,6 +2001,19 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
 
     def settings(change: Callable[[dict[str, Any]], object]) -> Case:
         return spoil(lambda f: change(f[SETTINGS_FILE]))
+
+    no_block = (
+        f"{GUIDE_FILE} has no block `bash check=scan` — fix: add the fenced block that runs every module's"
+        " scan in the guide's verify step, its fence `bash check=scan`"
+    )
+    form_fix = (
+        " — fix: begin it with `for s in <module>/scripts/<entry> …; do`, the paths being the scans the"
+        ' modules declare, and run each as `"$s"` after `do`'
+    )
+    form_line = (
+        f"{GUIDE_FILE}:4: the first line of the block `bash check=scan` is not `for s in <paths>; do …`"
+        + form_fix
+    )
 
     return {
         "a manifest that is missing": (put(x, None), no_file(x)),
@@ -1904,6 +2110,43 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         "a gate list with no types entry": (
             Case({"x": scan}, types=None),
             f"{GATE_LIST} --show types exited 1 (no output) — fix: restore the list script",
+        ),
+        "an install guide that is missing": (
+            Case({"x": scan}, guide=None),
+            f"{GUIDE_FILE} is no file — fix: restore the install guide at the kit root, with the fenced"
+            " block `bash check=scan` that lists every scan",
+        ),
+        "an install guide whose only scan block is marked check=none": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X, block="bash check=none")),
+            no_block,
+        ),
+        "an install guide whose scan mark stands on a fence that is not bash": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X, block="text check=scan")),
+            no_block,
+        ),
+        "an install guide with two scan blocks": (
+            Case(
+                {"x": scan}, guide=guide_text(GUIDE_X) + "```bash check=scan\nfor s in ; do true; done\n```\n"
+            ),
+            f"{GUIDE_FILE} has 2 blocks `bash check=scan`, at lines 4 and 11 — fix: keep one: list the paths"
+            " of both in the first and give the other `check=none`",
+        ),
+        "an install guide whose scan block runs a command, not a loop": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X).replace("for s in const-x", "sh const-x", 1)),
+            form_line,
+        ),
+        "an install guide whose scan loop runs over another variable": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X).replace("for s in", "for m in", 1)),
+            form_line,
+        ),
+        "an install guide whose scan loop has no `; do`": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X).replace("; do sh", "; sh", 1)),
+            form_line,
+        ),
+        "an install guide whose scan block is empty": (
+            Case({"x": scan}, guide="# Install\n\n   ```bash check=scan\n   ```\n"),
+            f"{GUIDE_FILE}:3: the first line of the block `bash check=scan` is not `for s in <paths>; do …`"
+            + form_fix,
         ),
     }
 
@@ -2018,6 +2261,12 @@ def self_test() -> int:
                 (root / path).parent.mkdir(parents=True, exist_ok=True)
                 text = content if isinstance(content, str) else json.dumps(content, indent=2)
                 (root / path).write_text(text, encoding="utf-8")
+        if case.guide is not None:  # the default guide lists the scans the case's documents declare
+            paths: list[str] = []
+            for m in case.folders:
+                with contextlib.suppress(Broken):  # a document the check cannot read declares none here
+                    paths += [scan_path(m, entry) for entry in scans_of(documents.get(m, quiet_text))]
+            (root / GUIDE_FILE).write_text(case.guide or guide_text(*paths), encoding="utf-8")
         if case.repo:  # `git add` for the tracked files alone, so an untracked one is no kit check
             git = ["git", "-c", "init.defaultBranch=main"]
             subprocess.run([*git, "init", "-q"], cwd=root, check=True)
@@ -2187,6 +2436,7 @@ def self_test() -> int:
         ),
     }
     cases.update(registry_cases(scan))
+    cases.update(guide_cases(scan, module_text))
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
         failed += 0 if ok else 1
@@ -2321,13 +2571,7 @@ def self_test() -> int:
     )
     with tempfile.TemporaryDirectory() as tmp:  # a scan declared by its Python file, run by python3
         root = Path(tmp).resolve()
-        p = "python3 modules/const-p/scripts/check-p.py --scan"
-        build(
-            root,
-            Case({"x": scan, "p": p}, jobs={"p": "const-p"}, folders=("const-x", "const-quiet", "const-p")),
-        )
-        text = module_text.replace("check-x", "check-p").replace("`check-p --scan`", "`check-p.py --scan`")
-        (root / "modules/const-p/MODULE.md").write_text(text, encoding="utf-8")
+        build(root, guide_case(scan, module_text, ""))  # const-p declares `check-p.py --scan`
         ok = check_kit(root)[0] == []
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a scan declared as `<entry>.py --scan` is held by its python3 line")
@@ -2568,7 +2812,26 @@ def self_test() -> int:
         f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {settings} to'
         ' {"source": "directory", "path": "."}',
     ]
+    guide_lines = [  # typed by hand: a scan left out of the block, then a path no module declares
+        "RED: const-x: its scan `check-x --scan` is not in the scan block of INSTALL.md",
+        "  why: the guide's scan block is what a project runs to verify an install, so a scan it leaves out"
+        " is never run there and a path no module declares fails there",
+        "  fix: add `const-x/scripts/check-x.sh` to the list after `for s in` in the `bash check=scan` block"
+        " of INSTALL.md",
+        "RED: const-gone/scripts/check-gone.sh: the scan block of INSTALL.md lists it, but no module"
+        " declares that scan",
+        "  why: the guide's scan block is what a project runs to verify an install, so a scan it leaves out"
+        " is never run there and a path no module declares fails there",
+        "  fix: remove `const-gone/scripts/check-gone.sh` from the list after `for s in` in the"
+        " `bash check=scan` block of INSTALL.md",
+        "RED: 2 finding(s) — 3 module document(s) examined, 2 declared scan(s), 0 kit check(s)",
+    ]
     for name, case, lines in (
+        (
+            "the guide's scan block findings",
+            guide_case(scan, module_text, guide_text(GUIDE_P, GUIDE_GONE)),
+            guide_lines,
+        ),
         (
             "two kit checks no entry runs, in sorted order",
             Case(
@@ -2604,6 +2867,24 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] the report of {name} is its literal text, exit 2")
         if not ok:
             print(printed.getvalue())
+    # the fix texts of the guide's findings, followed to the letter on the tree: the path named is added to
+    # the list after `for s in`, or removed from it, and the check is then green
+    followed = guide_text(GUIDE_P, GUIDE_GONE)
+    taught = findings_of(guide_case(scan, module_text, followed))
+    for finding in taught:
+        act = re.search(r"fix: (add|remove) `([^`]+)`", finding.render())
+        if act is None:
+            followed = ""
+        elif act[1] == "add":
+            followed = followed.replace("for s in ", f"for s in {act[2]} ", 1)
+        else:
+            followed = followed.replace(f" {act[2]}", "", 1)
+    ok = len(taught) == 2 and followed != "" and findings_of(guide_case(scan, module_text, followed)) == []
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] the fixes the guide's findings teach, followed to the letter,"
+        " turn it green"
+    )
     with tempfile.TemporaryDirectory() as tmp:  # the green line, with every kit check run
         root = Path(tmp).resolve()
         green_files = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
@@ -2617,8 +2898,9 @@ def self_test() -> int:
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's"
         " modules are the module folders, each named const-<aspect> and by its manifest, listed once in the"
         " marketplace and enabled in the kit's settings, which declare the marketplace, neither list filters"
-        " a runner's items, and every kit check is run by an entry of the gate group — 2 module document(s)"
-        " examined, 1 declared scan(s), 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
+        " a runner's items, every kit check is run by an entry of the gate group, and the install guide's"
+        " scan block names exactly the declared scans — 2 module document(s) examined, 1 declared scan(s),"
+        " 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
     )
     ok = code == EXIT_GREEN and printed.getvalue().splitlines() == [green_line]
     failed += 0 if ok else 1
@@ -2924,7 +3206,7 @@ def self_test() -> int:
     swapped = "".join("".join(block) for block in blocks)
     with tempfile.TemporaryDirectory() as tmp:  # t11 before t10: BROKEN; the fix applied, by number: read
         root = Path(tmp).resolve()
-        build(root, Case({"x": scan}, document=swapped))
+        build(root, Case({"x": scan}, document=swapped, guide=guide_text(GUIDE_X)))
         try:
             check_kit(root)
             before = None
@@ -3082,7 +3364,7 @@ def self_test() -> int:
     )
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] PyYAML missing is a BROKEN line with the install command, exit 1")
-    total = len(cases) + len(unreadable) + 29 + 14
+    total = len(cases) + len(unreadable) + 31 + 14
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
