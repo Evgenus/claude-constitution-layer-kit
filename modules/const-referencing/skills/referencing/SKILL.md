@@ -56,8 +56,9 @@ judgment, and the rest of this page.
 ## 2. Give every cited place an anchor of its own
 
 1. Write `<a id="key"></a>` on its own line, directly before the heading or paragraph that will
-   be cited. For a table row, put it inside the row's first cell. For a rule or a ruling that
-   opens with a bold name or handle, put it right before that name: `<a id="r3"></a>**R3.**`.
+   be cited. For a table row, put it inside the row's first cell. For a numbered rule or ruling
+   that opens with a bold name or handle, put it right before that name or handle:
+   `<a id="r3"></a>**R3.**`.
 2. The key is short and fixed: a letter and a number, a row's own handle in lowercase — not the
    heading's words. It is for machines; it does not have to read well.
 3. Never cite a heading's generated name (`#7-dials`). It changes when the heading is reworded,
