@@ -99,7 +99,7 @@ The carry audit's readers found on 2026-10-11 that the catalogs module offers to
   - **Pros:** the kernel stays as chosen in section 1.
   - **Cons:** a full catalog has no path; four module texts and their golden lines change in this change's audit.
 
-The session recommended A: it keeps the list complete without a new case, since widening is the act of adoption, and it leaves the module untouched. The decider chose A in chat on 2026-10-11.
+The session recommended A: it keeps the list complete without a new case, since widening is the act of adoption, and it leaves the module untouched. The decider chose A in chat on 2026-10-11. [Requirement A5.8](../requirements.md#a5-8) and item 5 of the deferred list of [`const-referencing`](../../modules/const-referencing/MODULE.md#t12) named only the adoption, so they were amended to follow the kernel's words, which is an amendment of a requirement row at `process` stakes under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), covered by this record's yes.
 
 <a id="r8"></a>**R8.** The third exception of [kernel §1](../../kernel/CONVENTIONS.md#k1) covers a catalog whose form changes, as when its width is widened, as it covers a kind that becomes a catalog: each of its documents not yet in that form is renamed once, every reference rewritten, the id left never reused; the catalogs module's limit on a full catalog and its fix texts stand.
 
