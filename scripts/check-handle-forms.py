@@ -51,7 +51,7 @@ findings and the scan reports them all. Four rules are read:
                     record numbered 39 or above, a table row whose first cell has the form of a ruling
                     handle: its first handle is `R<n>`, in bold or in a code span, alone, in a range
                     (`R2–R3`, `R2-R3`), in a list (`R4, R5`) or followed by other words (`R7 (x)`),
-                    outside fenced code and before the "Carry list" section. A first cell that writes
+                    outside fenced code and outside the "Carry list" section. A first cell that writes
                     the handle as a key of another document stays: `R1 of the module`, or a handle
                     after "message", "key" or "row". An earlier record is not read.
 
@@ -570,7 +570,8 @@ def move_fix(kind: str, prefix: str, kinds: Collection[str]) -> str:
 
 def record_table_keys(document: Document, context: Context) -> list[Finding]:
     """Rule 10 of plc-0004-decision-records: from the record that brought the sentence on, handles are
-    unique in the record, tables included, so no table row of a record opens with a ruling's handle
+    unique in the record, tables included, so no table row of a record has a first cell whose first
+    handle has the form of a ruling handle
     (the "table keys" rule of the docstring)."""
     numbered = RECORD_NUMBER.search(document.path)
     if numbered is None or int(numbered[1]) < UNIQUE_FROM:
@@ -593,8 +594,8 @@ def record_table_keys(document: Document, context: Context) -> list[Finding]:
                     f'a table row opens with "{key}", which has the form of a ruling handle of this record',
                     'before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
                     f' "R", so that "{handle}" names a ruling alone; where the cell names a key of another'
-                    " document, qualify it by that document's name or a link instead, which rule 14 of"
-                    " plc-0004-decision-records allows in an accepted record too",
+                    f' document, write it "{handle} of <that document>", by its name or a link to it, which'
+                    " rule 14 of plc-0004-decision-records allows in an accepted record too",
                     TABLE_WHY,
                 )
             )
@@ -1342,6 +1343,11 @@ def self_test() -> int:
             record_at(39),
             rulings + "| R1 of the module | a |\n",
         ),
+        "a first handle of another document, R1 of a link to it": (
+            record_at(39),
+            rulings
+            + "| R1 of [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8) | a |\n",
+        ),
         "a first handle of another document, in a code span": (
             record_at(39),
             rulings + "| `R1` of the module | a |\n",
@@ -1555,7 +1561,7 @@ def self_test() -> int:
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
             ' "R", so that "R1" names a ruling alone; where the cell names a key of another document,'
-            " qualify it by that document's name or a link instead, which rule 14 of"
+            ' write it "R1 of <that document>", by its name or a link to it, which rule 14 of'
             " plc-0004-decision-records allows in an accepted record too",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
@@ -1578,7 +1584,7 @@ def self_test() -> int:
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
             ' "R", so that "R2" names a ruling alone; where the cell names a key of another document,'
-            " qualify it by that document's name or a link instead, which rule 14 of"
+            ' write it "R2 of <that document>", by its name or a link to it, which rule 14 of'
             " plc-0004-decision-records allows in an accepted record too",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
