@@ -18,6 +18,7 @@ from const_gate.territory import Matcher
 from . import dials as own_dials
 from . import messages
 from .checks import check_root_policy, examine, id_owners, void_claims
+from .pointer import policy_pointer
 
 # configuration failures a write to the root policy can itself cause
 ROOT_KEYS = (SharedKey.C6, SharedKey.C7, SharedKey.C8, SharedKey.C9)
@@ -57,7 +58,14 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         return pipeline.skip(output, reason, index.notes, target.event_name)
     if examination.findings:
         return pipeline.report_hook(output, examination.findings, index.notes, rel, dials.severity)
-    return pipeline.green_hook(output, governed_by(examination.policy or ""), index.notes, target.event_name)
+    policy = index.policies[examination.policy] if examination.policy in index.policies else None
+    pointer = (
+        policy_pointer(output, output.session, target.root, policy.path, index.text(policy.path))
+        if policy is not None
+        else None
+    )
+    notes = [*index.notes, *([pointer] if pointer else [])]  # the pointer last, before the green line
+    return pipeline.green_hook(output, governed_by(examination.policy or ""), notes, target.event_name)
 
 
 def scan_mode(output: Output, start: Path) -> int:

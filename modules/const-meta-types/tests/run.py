@@ -934,7 +934,164 @@ def skill_pointer_printed() -> tuple[bool, str]:
     )
 
 
+# the pointer to the governing policy (N3), typed by hand: with the Enforcement anchor, and without it
+POINTED = (
+    "const-meta-types (advisory): this document is governed by docs/policies/notes-policy.md — read its"
+    " rules before further edits; what review holds is its Enforcement rule (#r6)"
+)
+POINTED_PLAIN = (
+    "const-meta-types (advisory): this document is governed by docs/policies/root-policy.md — read its"
+    " rules before further edits"
+)
+ENFORCEMENT_RULE = (
+    '6. <a id="r6"></a>**Enforcement.** The envelope by the write-time guard; the rest is review.\n'
+)
+
+
+def policy_pointer_once_per_session() -> tuple[bool, str]:
+    """The green of a write in claimed territory points the session at the governing policy once:
+    the first such write of a session prints one JSON object whose context holds the pointer, with
+    the anchor of the policy's rule named Enforcement, then the green line; the next write of the
+    same session for the same policy prints the green line plain; another session, another policy,
+    an Edit each earn their own; a write outside territory and a red earn none; the memo beside the
+    output log holds the session, the repository and the policy, keeps its last lines, and with no
+    home — no log_dir, no data directory — nothing is pointed. Every line typed by hand."""
+    data = H.scratch_dir()
+    env = {"CLAUDE_PLUGIN_DATA": str(data)}
+    consumer = H.fresh_consumer()
+    consumer.write(
+        "docs/policies/notes-policy.md", envelope("notes-policy", "current-state") + "\n" + ENFORCEMENT_RULE
+    )
+    root = consumer.root
+    green = "GREEN: const-meta-types: 1 document examined, governed by notes-policy"
+
+    def run(action: Write | Edit, session: str, env: dict[str, str] = env) -> Result:
+        return H.run_gate(event_json(root, action, session=session), env=env)
+
+    def context(result: Result) -> str | None:
+        """The additionalContext of one JSON object on stdout, or None for anything else."""
+        try:
+            payload = json.loads(result.stdout)
+        except ValueError:
+            return None
+        specific = payload.get("hookSpecificOutput", {}) if isinstance(payload, dict) else {}
+        if (
+            result.code != 0
+            or specific.get("hookEventName") != "PreToolUse"
+            or result.stdout.count("\n") != 1
+        ):
+            return None
+        found = specific.get("additionalContext")
+        return found if isinstance(found, str) else None
+
+    checks: list[tuple[str, bool]] = []
+    first = run(VALID, "s1")
+    checks.append(
+        (
+            "first write of s1: the pointer with the anchor, then the green line",
+            context(first) == f"{POINTED}\n{green}",
+        )
+    )
+    second = run(VALID, "s1")
+    checks.append(
+        (
+            "second write of s1: the green line plain, no JSON",
+            second.code == 0 and second.stdout == green + "\n",
+        )
+    )
+    other_session = run(VALID, "s2")
+    checks.append(("first write of s2: pointed again", context(other_session) == f"{POINTED}\n{green}"))
+    consumer.write(NOTE_A, envelope("note-a"))  # an Edit is applied to the file on disk
+    edited = run(Edit(NOTE_A, "# Fixture", "# Fixture, edited"), "s3")
+    checks.append(("an Edit is pointed too", context(edited) == f"{POINTED}\n{green}"))
+    plain_policy = run(
+        Write("docs/policies/drafts-policy.md", envelope("drafts-policy", "current-state")), "s1"
+    )
+    root_green = "GREEN: const-meta-types: 1 document examined, governed by root-policy"
+    checks.append(
+        (
+            "a policy with no Enforcement rule: the path alone",
+            context(plain_policy) == f"{POINTED_PLAIN}\n{root_green}",
+        )
+    )
+    outside = run(Write("README.md", NO_ENVELOPE), "s4")
+    checks.append(
+        (
+            "outside territory: the skip line plain",
+            outside.code == 0
+            and outside.stdout
+            == "GREEN: const-meta-types: 0 documents examined — README.md is outside claimed territory\n",
+        )
+    )
+    red = run(Write(NOTE_A, NO_ENVELOPE), "s4")
+    checks.append(("a red earns no pointer", red.code == 2 and "advisory" not in red.stdout + red.stderr))
+    memo = data / "const-meta-types.pointed"
+    lines = memo.read_text(encoding="utf-8").splitlines() if memo.is_file() else []
+    wanted = [
+        f"s1\t{root}\tdocs/policies/notes-policy.md",
+        f"s2\t{root}\tdocs/policies/notes-policy.md",
+        f"s3\t{root}\tdocs/policies/notes-policy.md",
+        f"s1\t{root}\tdocs/policies/root-policy.md",
+    ]
+    checks.append(
+        ("the memo holds session, repository and policy, tab-separated, one line each", lines == wanted)
+    )
+    # the memo keeps its last 200 lines: 300 lines of other sessions, then one pointer, leaves 200
+    memo.write_text("".join(f"old-{n}\tx\ty\n" for n in range(300)), encoding="utf-8")
+    capped = run(VALID, "s5")
+    kept = memo.read_text(encoding="utf-8").splitlines()
+    checks.append(
+        (
+            "the memo keeps its last 200 lines",
+            context(capped) is not None
+            and len(kept) == 200
+            and kept[-1] == f"s5\t{root}\tdocs/policies/notes-policy.md"
+            and kept[0] == "old-101\tx\ty",
+        )
+    )
+    # no session in the event: nothing pointed, the green line plain
+    nameless = run(VALID, "")
+    checks.append(
+        (
+            "an event with no session: the green line plain",
+            nameless.code == 0 and nameless.stdout == green + "\n",
+        )
+    )
+    # no home for the memo: nothing pointed
+    homeless = H.run_gate(event_json(root, VALID, session="s6"))
+    checks.append(
+        (
+            "no log_dir and no data directory: the green line plain, nothing pointed",
+            homeless.code == 0 and homeless.stdout == green + "\n",
+        )
+    )
+    # log_dir set: the memo lives beside the log inside the repository
+    logged = H.fresh_consumer()
+    logged.dials.update(own(log_dir=".gate-logs"))
+    logged.build()
+    logged.write(".gitignore", ".gate-logs/\n")
+    in_repo = H.run_gate(event_json(logged.root, VALID, session="s7"))
+    beside = logged.root / ".gate-logs" / "const-meta-types.pointed"
+    checks.append(
+        (
+            "log_dir: the memo beside the log, and the pointer said",
+            context(in_repo) is not None
+            and beside.is_file()
+            and beside.read_text(encoding="utf-8") == f"s7\t{logged.root}\tdocs/policies/notes-policy.md\n",
+        )
+    )
+    failed = [title for title, ok in checks if not ok]
+    return not failed, f"{len(checks)} checks" if not failed else "failed: " + "; ".join(
+        failed
+    ) + f"\nfirst run: {first.stdout}{first.stderr}"
+
+
 ASSERTIONS = [
+    Assertion(
+        39,
+        "the pointer to the governing policy: on a green write, once per session, repository and policy",
+        policy_pointer_once_per_session,
+    ),
     Assertion(18, "examined count: outside claimed territory prints 0 and exits 0", outside_territory),
     Assertion(19, "a territory with no policy behind it claims nothing: a visible skip", void_territory),
     Assertion(

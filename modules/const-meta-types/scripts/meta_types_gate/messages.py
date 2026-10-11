@@ -245,6 +245,23 @@ def n2_note_void_namespace(name: str) -> str:
     )
 
 
+# ---------------------------------------------------------------- the pointer to the governing policy (N3)
+
+
+def n3_policy_pointer(policy_path: str, anchor: str | None) -> str:
+    """Advisory, on a green write in claimed territory, once per session for the policy: the policy's
+    document to read, and the rule that says what review holds. `anchor` is the explicit anchor of
+    the policy's rule named Enforcement, whose shape the pattern that found it fixed; None where the
+    policy has no such rule, and the line names the document alone."""
+    line = (
+        f"{_ns()} (advisory): this document is governed by {escaped(policy_path)} — read its rules"
+        " before further edits"
+    )
+    if anchor is None:
+        return line
+    return f"{line}; what review holds is its Enforcement rule (#{anchor})"
+
+
 # ---------------------------------------------------------------- this module's dial failure
 
 
