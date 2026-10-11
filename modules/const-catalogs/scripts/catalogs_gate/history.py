@@ -22,8 +22,20 @@ HOOK_SECONDS = 5.0  # the hook's patience for all of history; the scan has no cl
 
 HEAD = ["rev-parse", "--verify", "-q", "HEAD"]
 SHALLOW = ["rev-parse", "--is-shallow-repository"]
-# --no-renames: a rename is then an addition and a deletion, so the name renamed to is seen as added
-ADDED = ["log", "-z", "--format=", "--name-only", "--diff-filter=A", "--no-renames", "--", "*" + EXTENSION]
+# --no-renames: a rename is then an addition and a deletion, so the name renamed to is seen as added;
+# log.showSignature=true would print a signature check before the names of each commit
+ADDED = [
+    "-c",
+    "log.showSignature=false",
+    "log",
+    "-z",
+    "--format=",
+    "--name-only",
+    "--diff-filter=A",
+    "--no-renames",
+    "--",
+    "*" + EXTENSION,
+]
 
 
 @dataclass(frozen=True, slots=True)

@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -708,11 +709,82 @@ def deleted_number_is_not_refused() -> tuple[bool, str]:
     return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
 
 
-def scan_names_history() -> tuple[bool, str]:
-    result = H.run_gate("", args=["--scan", str(top_deleted().root)])
-    return expect(
-        result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2)])), "stdout"
+def fake_gpg(root: Path) -> None:
+    """Signs every later commit of the repository through a fake `gpg.program` and turns
+    `log.showSignature` on; the fake logs each call to a file and, to verify, says its human text on
+    stderr as gpg does, which git log prints before the formatted line."""
+    folder = H.scratch_dir()
+    log = folder / "gpg.log"
+    program = folder / "gpg"
+    program.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
+        "cat > /dev/null\n"
+        'case "$*" in\n'
+        "  *--verify*)\n"
+        "    printf 'gpg: Good signature from \"fake signer\"\\n' >&2\n"
+        "    printf '[GNUPG:] GOODSIG 0123456789ABCDEF fake signer\\n'\n"
+        "    printf '[GNUPG:] VALIDSIG 0123456789ABCDEF 2026-10-06 1 0 4 0 1 8 00 0123456789ABCDEF\\n';;\n"
+        "  *)\n"
+        "    printf '[GNUPG:] SIG_CREATED D 1 8 00 1 0123456789ABCDEF 1\\n' >&2\n"
+        "    printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n';;\n"
+        "esac\n",
+        encoding="utf-8",
     )
+    program.chmod(0o755)
+    for key, value in (
+        ("gpg.format", "openpgp"),
+        ("gpg.program", str(program)),
+        ("user.signingkey", "FIXTURE"),
+        ("commit.gpgsign", "true"),
+        ("log.showSignature", "true"),
+    ):
+        subprocess.run(["git", "config", key, value], cwd=root, check=True)
+
+
+TOP_LEVEL = Catalog("itm", 4, ("itm-*.md",))  # a catalog whose items stand in the repository's top folder
+
+
+def top_level_deleted(signed: bool) -> Consumer:
+    """Items 1 and 2 of a catalog whose items stand in the top folder, committed, then item 2 deleted
+    and the deletion committed. `signed`: every commit after the first is signed through a fake
+    `gpg.program`, with `log.showSignature` on, so the repository's own `git log` prints the check."""
+    consumer = Consumer(H.scratch_dir()).build()
+    if signed:
+        fake_gpg(consumer.root)
+    consumer.write("constitution.yaml", dials_text(catalogs(entry(territory=list(TOP_LEVEL.territory)))))
+    consumer.write("itm-0001-first.md", item("itm-0001-first"))
+    consumer.commit()
+    consumer.write("itm-0002-second.md", item("itm-0002-second"))
+    consumer.commit()
+    consumer.git("rm", "-q", "itm-0002-second.md")
+    consumer.commit()
+    return consumer
+
+
+def scan_names_history() -> tuple[bool, str]:
+    """The scan names history where it went further than the tree. A signed history, read with
+    `log.showSignature` on, gives the same: the signature check git prints before a commit's names
+    would stand in front of the name of the first file the commit added, and a name without a folder
+    — an item in the top folder — would carry it as part of its stem and lose its number."""
+    result = H.run_gate("", args=["--scan", str(top_deleted().root)])
+    wanted = shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2)]))
+    top = shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2, TOP_LEVEL)]))
+    signed = top_level_deleted(signed=True)
+    shown = subprocess.run(
+        ["git", "log", "-1", "--format=%h"], cwd=signed.root, capture_output=True, text=True, check=False
+    )
+    if "fake signer" not in shown.stdout + shown.stderr:  # the case cannot pass for want of a check
+        return False, f"git log did not print the check: {shown.stdout}{shown.stderr}"
+    plain = H.run_gate("", args=["--scan", str(top_level_deleted(signed=False).root)])
+    after = H.run_gate("", args=["--scan", str(signed.root)])
+    checks = [
+        expect(result, 0, wanted, "stdout"),
+        expect(plain, 0, top, "stdout"),
+        expect(after, 0, top, "stdout"),
+    ]
+    failed = [evidence for ok, evidence in checks if not ok]
+    return not failed, "; ".join(failed) or "history named by the scan, in a signed history too"
 
 
 def renamed_name_is_history() -> tuple[bool, str]:

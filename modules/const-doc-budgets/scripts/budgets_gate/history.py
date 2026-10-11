@@ -98,7 +98,11 @@ def _commits(root: Path, since: datetime.date) -> list[tuple[str, datetime.date]
     with its committer date as the committer's clock wrote it; then, when one exists, the last commit
     before `since`, standing for `since` itself — the state in force when the window opens."""
     found: list[tuple[str, datetime.date]] = []
-    for line in _git(["log", "--first-parent", "--format=%H %cs", "HEAD"], root).splitlines():
+    # log.showSignature=true would print a signature check before each formatted line
+    listing = _git(
+        ["-c", "log.showSignature=false", "log", "--first-parent", "--format=%H %cs", "HEAD"], root
+    )
+    for line in listing.splitlines():
         sha, _, stamp = line.partition(" ")
         day = datetime.date.fromisoformat(stamp)
         if day >= since:
