@@ -41,7 +41,7 @@ branch gate's fixture, the fixture of `scripts/setup-claude.sh`, each module's f
 acceptance table (the runner writes temporary repositories in the system's temporary directory, never in the kit) —
 the lint and the type commands. And, only when
 asked, `python3 scripts/check-aspects.py --run`, the per-row report over the whole matrix, which runs
-every module's runner once more, after the extra group has already run each one.
+every module's runner again — a second time when the extra group ran too.
 
 Run each entry on its own, capture its exit code and its whole output, and never chain one
 into another. A command that cannot start — a missing interpreter, a missing file — is reported

@@ -41,7 +41,7 @@ The decider chose A in chat on 2026-10-11.
 
 **R2.** `scripts/check-aspects.py` prints the whole output of a runner that exits other than 0, its standard output and then its standard error, line for line, under one line naming the runner and its exit, before its report, so that the lines of a red item stand where the run is read.
 
-**R3.** R1 replaces the last sentence of R7 of dec-0054, "The full run, with results, is on request, beside the module runners.", for each module: its full run, `--run --module <module>`, runs in CI in place of its runner. The report over the whole matrix, `--run` with no module, stays on request.
+**R3.** For each module, R1 replaces the last sentence of R7 of dec-0054: "The full run, with results, is on request, beside the module runners."
 
 ## Applied
 
