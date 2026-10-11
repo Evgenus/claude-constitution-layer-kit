@@ -1252,6 +1252,10 @@ def run_blocks(
         except Broken as bad:  # a failure of the loop or of a claim: the count is what ran before it
             bad.ran = ran
             raise
+        except OSError as bad:  # the same, a file the loop could not read or write: one Broken, one count
+            unreadable = Broken(unreadable_said(bad))
+            unreadable.ran = ran
+            raise unreadable from bad
         return [], f"{ran} block(s) run, {len(state.modules)} module(s), from {source}"
 
 
@@ -4011,6 +4015,33 @@ def self_test() -> int:
             case(
                 f"a file the blocks' run cannot read, {name}: the two BROKEN lines, the note at each end",
                 ended == EXIT_BROKEN and lines == [line.format(note_wanted) for line in unreadable_wanted],
+                f"{ended} {lines}",
+            )
+
+        real_claim = claim
+
+        def unreadable_claim(state: Run, block: str) -> str:
+            """A claim that reads a file it cannot at the install block, the others as they are."""
+            if block == "install":
+                raise PermissionError(13, "Permission denied", "/the/file")
+            return real_claim(state, block)
+
+        for name, env, note_wanted in (
+            ("off the pin", says_env(too_old, 0, "1"), noted.format("2.1.286")),
+            ("on the pin", base, ""),
+        ):
+            # the case above mocks run_blocks whole, so it cannot reach an OSError after blocks have run
+            with mock.patch.dict(globals(), {"claim": unreadable_claim}):
+                ended, lines = whole_run(env)
+            case(
+                f"a file a claim cannot read after three blocks ran, {name}: the two BROKEN lines, the second"
+                " counting the three, the note at each end",
+                ended == EXIT_BROKEN
+                and lines
+                == [
+                    unreadable_wanted[0].format(note_wanted),
+                    stop_after(3) + note_wanted,
+                ],
                 f"{ended} {lines}",
             )
         try:
