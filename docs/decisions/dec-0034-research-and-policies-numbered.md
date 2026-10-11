@@ -39,10 +39,10 @@ The session recommended A: the cost for policies is real but one-time, and the k
 
 | # | old path and id | new path and id |
 |---|---|---|
-| R1 | `docs/research/const-meta-types.md`, id `research-const-meta-types` | `docs/research/res-0001-const-meta-types.md` |
-| R2 | `docs/research/const-decision-records.md`, id `research-const-decision-records` | `docs/research/res-0002-const-decision-records.md` |
-| R3 | `docs/research/const-catalogs.md`, id `research-const-catalogs` | `docs/research/res-0003-const-catalogs.md` |
-| R4 | `docs/research/const-referencing.md`, id `research-const-referencing` | `docs/research/res-0004-const-referencing.md` |
+| C1 | `docs/research/const-meta-types.md`, id `research-const-meta-types` | `docs/research/res-0001-const-meta-types.md` |
+| C2 | `docs/research/const-decision-records.md`, id `research-const-decision-records` | `docs/research/res-0002-const-decision-records.md` |
+| C3 | `docs/research/const-catalogs.md`, id `research-const-catalogs` | `docs/research/res-0003-const-catalogs.md` |
+| C4 | `docs/research/const-referencing.md`, id `research-const-referencing` | `docs/research/res-0004-const-referencing.md` |
 | P1 | `docs/policies/kit-root-policy.md`, id `kit-root-policy` | `docs/policies/plc-0001-root-policy.md` |
 | P2 | `docs/policies/kit-kernel.md`, id `kit-kernel` | `docs/policies/plc-0002-kernel.md` |
 | P3 | `docs/policies/kit-intent-page.md`, id `kit-intent-page` | `docs/policies/plc-0003-intent-page.md` |

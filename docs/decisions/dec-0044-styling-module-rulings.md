@@ -17,12 +17,12 @@ The module [`const-styling`](../requirements.md#const-styling) is authored from 
 
 The handoff of the previous session left the next work unchosen: the parked items of the audit plan, beginning with the name of the first consumer; a module; or a week under the kit's own gates.
 
-- **A. The parked item D9 first,** the consumer's name and the date of Phase B, then the other parked items one per message.
-  - **Pros:** D9 unblocks the deferred consumer-live proofs of all eight modules; the parked items are already argued and need only a yes.
+- **A. The parked item on the consumer's name and the date of Phase B first,** then the other parked items one per message.
+  - **Pros:** that item unblocks the deferred consumer-live proofs of all eight modules; the parked items are already argued and need only a yes.
   - **Cons:** it needs a fact only the decider holds, so the session halts until given; a day of process rulings produces no module.
 - **B. The next module,** one of the three self-limiting modules waiting for a signal.
   - **Pros:** the routine is proven eight times and the tooling is in place.
-  - **Cons:** none of the three has a friction signal in the commit notes, the condition the kit's guide names for growth; the module's consumer-live proof waits on D9 like the others.
+  - **Cons:** none of the three has a friction signal in the commit notes, the condition the kit's guide names for growth; the module's consumer-live proof waits on that item like the others.
 - **C. A week of the kit under its own gates,** no new work, the prompts logged as friction.
   - **Pros:** answers the `warn` against `block` calibration with evidence.
   - **Cons:** a wait, not a task.
