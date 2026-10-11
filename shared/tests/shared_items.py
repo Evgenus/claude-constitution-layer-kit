@@ -550,8 +550,13 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return expect(result, 2, "brackets are nested too deeply to read", "stderr")  # typed by hand
 
     def other_tool() -> tuple[bool, str]:
-        event = json.dumps({"tool_name": "Read", "tool_input": {"file_path": "x.md"}})
-        skip = messages.g1_green_skip(messages.g1_skip_no_file("Read"))
+        """`MultiEdit` carries a `file_path`, and is still no tool this gate judges: the visible skip says so,
+        and names the tools it does judge. The whole line is typed by hand."""
+        event = json.dumps({"tool_name": "MultiEdit", "tool_input": {"file_path": "x.md"}})
+        skip = (
+            f"GREEN: {ns}: 0 documents examined — tool 'MultiEdit' is not one this gate judges"
+            " (it judges Write and Edit)"
+        )
         return expect(h.run_gate(event), 0, skip, "stdout")
 
     def scan_missing_path() -> tuple[bool, str]:
@@ -1777,8 +1782,15 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             ),
             (
                 "G1.1",
-                messages.g1_skip_no_file("T\n" + "t" * 100),
-                "tool 'T\\n" + "t" * 78 + "… [102 characters]' carries no file to examine",
+                messages.g1_skip_other_tool("T\n" + "t" * 100),
+                "tool 'T\\n"
+                + "t" * 78
+                + "… [102 characters]' is not one this gate judges (it judges Write and Edit)",
+            ),
+            (
+                "G1.1 for an event that names no tool",
+                messages.g1_skip_other_tool(""),
+                "an event that names no tool is not one this gate judges (it judges Write and Edit)",
             ),
             ("G1.2", messages.g1_skip_not_markdown(path), f"{esc} is not a .md file"),
             (

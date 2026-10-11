@@ -15,7 +15,7 @@ import shlex
 from collections.abc import Sequence
 
 from . import identity
-from .model import DIALECT, DIALECT_KEY, DIALS_FILE, ROOT_POLICY_KEY, Broken, SharedKey
+from .model import DIALECT, DIALECT_KEY, DIALS_FILE, ROOT_POLICY_KEY, Broken, FileTool, SharedKey
 
 
 def _ns() -> str:
@@ -116,8 +116,14 @@ def w1_warn_stop(body: str) -> str:
 # skip reasons (the {reason} of G1)
 
 
-def g1_skip_no_file(tool: str) -> str:
-    return f"tool '{echoed(tool)}' carries no file to examine"
+def g1_skip_other_tool(tool: str) -> str:
+    """G1.1: the event is for a tool this gate does not judge, however it came to the gate. The tools it
+    does judge are the members of `FileTool`, so text and enum stay in step. A `Stop` and a session start
+    name no tool: the line then says the event names none."""
+    judged = " and ".join(t.value for t in FileTool)
+    if not tool:
+        return f"an event that names no tool is not one this gate judges (it judges {judged})"
+    return f"tool '{echoed(tool)}' is not one this gate judges (it judges {judged})"
 
 
 def g1_skip_not_markdown(path: str) -> str:

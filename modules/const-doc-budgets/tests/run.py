@@ -1106,7 +1106,10 @@ def t18() -> tuple[bool, str]:
             " Write|Edit, or run it with --scan [<dir>]",
         ),
         exactly(
-            start, 0, "GREEN: const-doc-budgets: 0 documents examined — tool '' carries no file to examine\n"
+            start,
+            0,
+            "GREEN: const-doc-budgets: 0 documents examined — an event that names no tool is not one this"
+            " gate judges (it judges Write and Edit)\n",
         ),
     )
 

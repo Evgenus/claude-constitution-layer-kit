@@ -67,7 +67,7 @@ def locate_write(output: Output, stdin: TextIO) -> WriteTarget | Skip:
     event = read_event(stdin)
     output.session = event.session_id
     if event.tool is None:
-        return Skip(messages.g1_skip_no_file(event.tool_name), SkipKind.NO_FILE, event.tool_name)
+        return Skip(messages.g1_skip_other_tool(event.tool_name), SkipKind.NO_FILE, event.tool_name)
     path = Path(os.path.expanduser(event.file_path))
     if not path.is_absolute():
         path = Path(event.cwd or os.getcwd()) / path

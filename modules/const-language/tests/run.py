@@ -527,7 +527,7 @@ def t8() -> tuple[bool, str]:
             + "… [95 characters]' — fix: in hooks.json wire it to PostToolUse on Write|Edit, or run it with"
             " --scan [<dir>]",
         ),
-        expect(stop, 0, shared.g1_green_skip(shared.g1_skip_no_file("")), "stdout"),
+        expect(stop, 0, shared.g1_green_skip(shared.g1_skip_other_tool("")), "stdout"),
     )
 
 
