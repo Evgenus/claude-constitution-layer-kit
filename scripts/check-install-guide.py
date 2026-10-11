@@ -63,7 +63,8 @@ Beside every block's exit 0, the check holds at each name:
                path as that cached copy — the frozen copy, never a clone's working files. The path is
                reported before the model is called, so the session needs no login. The fix of a copy
                listed outside the cache (`cache_fix`), on the pinned version: make the block install from
-               the marketplace and set CLAUDE_CODE_PLUGIN_CACHE_DIR in no block, or, if the platform now
+               the marketplace and set none of the four variables (`CACHE_FIX` names them, from
+               `PLUGIN_PLACE_ENV`) in a block, or, if the platform now
                copies elsewhere, correct `Run.cached`; off the pin, where the reader is the pinned
                version's and not this one's, to run the check again on the pinned version.
   kernel       the project's docs/constitution/ holds every file of the kit's kernel/, and the kit's
@@ -295,6 +296,7 @@ from unittest import mock
 
 import yaml
 from kit_module_doc import (
+    PLUGIN_PLACE_ENV,
     PLUGINS_ROOT_ENV,
     DocumentError,
     Note,
@@ -354,9 +356,17 @@ TIMEOUT = 900
 
 class Broken(Exception):
     """The check could not run; the message says why and how to fix it. `note` is the note of a run on
-    another Claude Code than the pin, set once the version is known, which ends each BROKEN line."""
+    another Claude Code than the pin, set once the version is known, which ends each BROKEN line. `ran` is
+    the number of blocks that ran before the failure, set once by `run_blocks` where its loop re-raises;
+    a failure before any block leaves it 0."""
 
     note = ""
+    ran = 0
+
+    def stop(self) -> str:
+        """The could-not-run line of a BROKEN report: no block ran, or how many ran before the failure."""
+        said = "0 blocks run" if not self.ran else f"{self.ran} block(s) run"
+        return f"BROKEN: the check could not run — {said}{self.note}"
 
 
 class Misfit(Exception):
@@ -1006,11 +1016,12 @@ def claim(state: Run, name: str) -> str:
     return ""
 
 
+PLACE_ENV_NAMED = f"{', '.join(PLUGIN_PLACE_ENV[:-1])} and {PLUGIN_PLACE_ENV[-1]}"  # the four, in order
 CACHE_FIX = (
     "make the block install each module from the marketplace, `claude plugin install "
-    f"<module>@<marketplace> --scope project`, and set {CACHE_ENV} in no block: the platform copies the "
-    "module to <plugins root>/cache/<marketplace>/<module>/<version>, where Claude Code's loading page "
-    "documents it; if it now copies elsewhere, correct `Run.cached` of the check"
+    f"<module>@<marketplace> --scope project`, and set none of {PLACE_ENV_NAMED} in a block: the platform "
+    "copies the module to <plugins root>/cache/<marketplace>/<module>/<version>, where Claude Code's "
+    "loading page documents it; if it now copies elsewhere, correct `Run.cached` of the check"
 )
 
 
@@ -1200,43 +1211,47 @@ def run_blocks(
             raise Broken(str(bad)) from bad
         state = Run(home, clone, config, env, modules_of(clone), home, source, marketplace, note)
         ran = 0
-        for block in named:
-            if block.name == "dials":
-                if state.project is None:
+        try:
+            for block in named:
+                if block.name == "dials":
+                    if state.project is None:
+                        return [
+                            Finding(
+                                block.line,
+                                "the dials example comes before the project exists",
+                                fix_for("dials", state.marketplace),
+                            )
+                        ], f"{ran} block(s) run"
+                    fixture(state.project, block.text)
+                    continue
+                text = block.text
+                if block.name == "marketplace":
+                    text = ADD.sub(lambda m: m.group(1) + source, text, count=1)
+                script = Path(scratch) / f"{block.name}.sh"
+                where = Path(scratch) / f"{block.name}.cwd"
+                body = Path(scratch) / f"{block.name}.block.sh"
+                body.write_text(text, encoding="utf-8")
+                script.write_text(f'. "{body}"\npwd > "{where}"\n', encoding="utf-8")
+                code, said = run(["bash", "-eu", str(script)], state.cwd, env)
+                ran += 1
+                if where.is_file():
+                    state.cwd = Path(where.read_text(encoding="utf-8").strip())
+                if code != 0:
+                    what = f"the block named check={block.name} exited {code} — {last_line(said)}"
                     return [
-                        Finding(
-                            block.line,
-                            "the dials example comes before the project exists",
-                            fix_for("dials", state.marketplace),
-                        )
+                        Finding(block.line, what, fix_for(block.name, state.marketplace))
                     ], f"{ran} block(s) run"
-                fixture(state.project, block.text)
-                continue
-            text = block.text
-            if block.name == "marketplace":
-                text = ADD.sub(lambda m: m.group(1) + source, text, count=1)
-            script = Path(scratch) / f"{block.name}.sh"
-            where = Path(scratch) / f"{block.name}.cwd"
-            body = Path(scratch) / f"{block.name}.block.sh"
-            body.write_text(text, encoding="utf-8")
-            script.write_text(f'. "{body}"\npwd > "{where}"\n', encoding="utf-8")
-            code, said = run(["bash", "-eu", str(script)], state.cwd, env)
-            ran += 1
-            if where.is_file():
-                state.cwd = Path(where.read_text(encoding="utf-8").strip())
-            if code != 0:
-                what = f"the block named check={block.name} exited {code} — {last_line(said)}"
-                return [
-                    Finding(block.line, what, fix_for(block.name, state.marketplace))
-                ], f"{ran} block(s) run"
-            try:
-                failed, fix = claim(state, block.name), fix_for(block.name, state.marketplace)
-            except Misfit as misfit:
-                failed, fix = misfit.what, misfit.fix
-            if failed:
-                return [
-                    Finding(block.line, f"after check={block.name}: {failed}", fix)
-                ], f"{ran} block(s) run"
+                try:
+                    failed, fix = claim(state, block.name), fix_for(block.name, state.marketplace)
+                except Misfit as misfit:
+                    failed, fix = misfit.what, misfit.fix
+                if failed:
+                    return [
+                        Finding(block.line, f"after check={block.name}: {failed}", fix)
+                    ], f"{ran} block(s) run"
+        except Broken as bad:  # a failure of the loop or of a claim: the count is what ran before it
+            bad.ran = ran
+            raise
         return [], f"{ran} block(s) run, {len(state.modules)} module(s), from {source}"
 
 
@@ -1460,6 +1475,8 @@ elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
         "id": args[2], "version": cache.name, "scope": "project", "enabled": True,
         "installPath": str(cache), "projectPath": str(Path.cwd()),
     }
+    if os.environ.get("CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE") == "1":  # the platform lists a zip file then
+        entry["installPath"] = str(cache) + ".zip"
     if mutant == "install-at-user-scope":
         entry = {k: v for k, v in entry.items() if k != "projectPath"} | {"scope": "user"}
     if mutant == "install-for-other-project":
@@ -2916,10 +2933,11 @@ def self_test() -> int:
             )
         cache_fix = (  # typed by hand: a message function cannot check itself
             "make the block install each module from the marketplace, `claude plugin install "
-            "<module>@<marketplace> --scope project`, and set CLAUDE_CODE_PLUGIN_CACHE_DIR in no block: the "
-            "platform copies the module to <plugins root>/cache/<marketplace>/<module>/<version>, where "
-            "Claude Code's loading page documents it; if it now copies elsewhere, correct `Run.cached` of "
-            "the check"
+            "<module>@<marketplace> --scope project`, and set none of CLAUDE_CODE_PLUGIN_CACHE_DIR, "
+            "CLAUDE_CODE_PLUGIN_SEED_DIR, CLAUDE_CODE_PLUGIN_DIRS and CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE in a "
+            "block: the platform copies the module to <plugins root>/cache/<marketplace>/<module>/<version>, "
+            "where Claude Code's loading page documents it; if it now copies elsewhere, correct `Run.cached` "
+            "of the check"
         )
         off_cache_fix = (  # off the pin: the run on the pinned version, not a reader to correct
             f"{off_what}: run the check again on the pinned version, {put_first}"
@@ -3191,10 +3209,12 @@ def self_test() -> int:
             f"export {CACHE_ENV}=$HOME/other-plugins && for m in ~/dev/constitution-kit/modules/const-*; do "
             f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
         )
+        zips = moves.replace(CACHE_ENV + "=$HOME/other-plugins", "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE=1")
         placements: list[tuple[str, dict[str, str], str]] = [
             ("in the marketplace's clone, in place", {}, "install-in-place"),
             ("at another version in the right cache", {}, "install-other-version"),
             ("in a plugins root the install's block moved", {"install": moves}, ""),
+            ("in a zip file the install's block asked for", {"install": zips}, ""),
         ]
         for name, replace, mutant in placements:
             elsewhere, _, _ = run_guide(toy_guide(**replace), kit, base | {"FAKE_MUTANT": mutant})
@@ -3788,7 +3808,11 @@ def self_test() -> int:
                 status = main([])
             return status, printed_lines.getvalue().splitlines()
 
-        stop = "BROKEN: the check could not run — 0 blocks run"
+        stop = "BROKEN: the check could not run — 0 blocks run"  # a failure before any block ran
+
+        def stop_after(blocks: int) -> str:  # typed by hand: a message function cannot check itself
+            return f"BROKEN: the check could not run — {blocks} block(s) run"
+
         ended, lines = whole_run(says_env(too_old, 0, None))
         case(
             "a whole run on another version prints the two BROKEN lines, and runs no other claude command",
@@ -3871,14 +3895,16 @@ def self_test() -> int:
             and lines
             == [
                 "BROKEN: " + unreadable_head + off_fix + noted.format("2.1.286"),
-                stop + noted.format("2.1.286"),
+                stop_after(3) + noted.format("2.1.286"),  # new-repo, marketplace and install had run
             ],
             f"{ended} {lines}",
         )
         ended, lines = whole_run(base | {"FAKE_MUTANT": "list-not-json"})
         case(
-            "a whole run on a reply of the wrong shape on the pin prints the two BROKEN lines, no note",
-            ended == EXIT_BROKEN and lines == ["BROKEN: " + unreadable_head + fix_of("listed"), stop],
+            "a whole run on a reply of the wrong shape on the pin prints the two BROKEN lines, no note, the"
+            " second counting the three blocks that ran",
+            ended == EXIT_BROKEN
+            and lines == ["BROKEN: " + unreadable_head + fix_of("listed"), stop_after(3)],
             f"{ended} {lines}",
         )
         unreadable_event = (  # the init event's, typed by hand
@@ -3892,14 +3918,32 @@ def self_test() -> int:
             and lines
             == [
                 "BROKEN: " + unreadable_event + off_fix + noted.format("2.1.286"),
-                stop + noted.format("2.1.286"),
+                stop_after(3) + noted.format("2.1.286"),
             ],
             f"{ended} {lines}",
         )
         ended, lines = whole_run(base | {"FAKE_MUTANT": "session-path-number"})
         case(
-            "a whole run on an init event of the wrong shape on the pin prints the two BROKEN lines, no note",
-            ended == EXIT_BROKEN and lines == ["BROKEN: " + unreadable_event + fix_of("session_paths"), stop],
+            "a whole run on an init event of the wrong shape on the pin prints the two BROKEN lines, no note,"
+            " the second counting the three blocks that ran",
+            ended == EXIT_BROKEN
+            and lines == ["BROKEN: " + unreadable_event + fix_of("session_paths"), stop_after(3)],
+            f"{ended} {lines}",
+        )
+        ended, lines = whole_run(base | {"FAKE_MUTANT": "settings-corrupt-on-update"})
+        case(
+            "a whole run on a settings file the update left as no JSON prints the two BROKEN lines, the"
+            " second counting the seven blocks that ran, the update's the last",
+            ended == EXIT_BROKEN
+            and len(lines) == 2
+            and lines[0].endswith(f"/.claude/settings.json is no JSON ({no_json}){settings_fix}")
+            and lines[1] == stop_after(7),
+            f"{ended} {lines}",
+        )
+        ended, lines = whole_run(says_env(too_old, 0, "1") | {"FAKE_MUTANT": "settings-corrupt-on-update"})
+        case(
+            "the same off the pin: the note ends the second line after the count",
+            ended == EXIT_BROKEN and len(lines) == 2 and lines[1] == stop_after(7) + noted.format("2.1.286"),
             f"{ended} {lines}",
         )
         green_line = (
@@ -4151,7 +4195,7 @@ def main(argv: list[str]) -> int:
         return report(findings, examined, note)
     except Broken as broken:
         print(f"BROKEN: {broken}{broken.note}")
-        print(f"BROKEN: the check could not run — 0 blocks run{broken.note}")
+        print(broken.stop())
         return EXIT_BROKEN
     except OSError as bad:
         print(f"BROKEN: {unreadable_said(bad)}")
