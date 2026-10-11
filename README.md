@@ -61,7 +61,7 @@ The session reads the fix, makes it, and writes again; nobody has to explain the
 
 ## Status
 
-Eleven modules ship, each a draft at version `0.0.x` until Phase D of the [rollout plan](docs/rollout-plan.md#phase-d) publishes it. The kit is its own first consumer: its own documents, code territories and session conduct run under its modules. No other project has adopted it yet, so the first one's bootstrap is each module's consumer-live proof. CI runs every gate, each module's install on a bare repository, and the install guide's own commands, on every pull request.
+The modules ship as drafts, each at version `0.0.x` until Phase D of the [rollout plan](docs/rollout-plan.md#phase-d) publishes it. The kit is its own first consumer: its own documents, code territories and session conduct run under its modules. No other project has adopted it yet, so the first one's bootstrap is each module's consumer-live proof. CI runs every gate, each module's install on a bare repository, and the install guide's own commands, on every pull request.
 
 ## Get started
 
@@ -72,7 +72,7 @@ The [install guide](INSTALL.md) bootstraps a new project step by step: the prere
 | No. | Path | What it holds |
 |---|---|---|
 | 1 | `kernel/` | the semantic kernel, `CONVENTIONS.md`, and its schemas |
-| 2 | `modules/` | the eleven modules, one plugin each, each with a `README.md` that is its landing page |
+| 2 | `modules/` | the modules, one plugin each, each with a `README.md` that is its landing page |
 | 3 | `module-template/` | the fixed shape every module fills |
 | 4 | `shared/` | the code every gate shares, linked into each module ([shared/GATE.md](shared/GATE.md)) |
 | 5 | `docs/` | the requirements matrix, the rollout plan, the kit's policies, decision records, research and style guide |

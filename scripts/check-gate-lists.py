@@ -3,8 +3,10 @@
 module's job, the list's modules are exactly the module folders, each module folder is named
 `const-<aspect>`, named so by its manifest, listed once in the marketplace and enabled in the kit's
 settings, which declare the marketplace, every kit check is run by an entry of the gate group, every
-top-level `const-<aspect>` key of the kit's dials file names a module folder, and the `types` entry of
-the gate list puts on `MYPYPATH` the module folders the schema mirror imports from.
+top-level `const-<aspect>` key of the kit's dials file names a module folder, the `types` entry of
+the gate list puts on `MYPYPATH` the module folders the schema mirror imports from, the scan block
+of the install guide names every declared scan and nothing else, and each module folder has its pair in
+the coverage map of the range check.
 
 A module declares its scan in its document's enforcement section (template §9, anchor `t9`), read
 by `kit_module_doc.enforcement` row by row, whatever a row's indent: a line whose stripped form
@@ -91,6 +93,28 @@ a stray colon an item like another; the two are compared as sets, and a differen
 naming both. A mirror that is missing, is no Python or has not that one loop is BROKEN, and so is a list
 with no `types` entry. These two holds come after every
 other kind of finding, the dials file's first.
+The install guide, `INSTALL.md` at the kit root, holds one fenced block whose info string is `bash
+check=scan`; its first line is `for s in <path> … ; do …`, and the words between `for s in` and `; do`
+are the paths the guide runs with `sh`, each `<module>/scripts/<stem>.sh`, the POSIX entry point of a
+declared scan, its stem the declared name without `.py`. The paths are held against the declared
+scans both ways, after the types hold: a declared scan whose path the block does not list, and a listed
+path no module declares, are one RED finding each, by path, the fix naming the path to add or to
+remove; a path listed twice is no finding; a module that declares no scan owes none; the command after
+`; do` and every other block are not read (`scripts/check-install-guide.py` runs the block and holds
+none of this). A guide that is missing, with no such block or two, or whose block does not begin
+`for s in … ; do`, is BROKEN, since the check cannot read what it holds.
+The coverage map is `const-task-close.coverage` of the dials file, the code territories of the kit's
+current-state documents, each an entry with a `name`, a `code` list and a `docs` list. It is held after
+the guide's scan block, for each module folder: exactly one entry whose `name` is the folder's name (a
+module with two is judged by that finding alone); its `docs` the one path `modules/<m>/MODULE.md`; every
+`code` pattern opening with `modules/<m>/`, one finding for each that does not; and for each of the folders
+`scripts`, `hooks`, `skills` and `tests` that is a directory directly under the module, the pattern
+`modules/<m>/<folder>/**` among its `code`, a pattern for a folder that does not exist being allowed. The
+range check of module `const-task-close` asks a change for a module's document only through its pair, so a
+module with no pair, or code outside its pair, is never asked. A missing entry's fix is the whole entry in
+block style, every existing folder listed. Entries named for no module folder (`shared-gate-code`,
+`kit-scripts`, `kernel-schemas`) are not judged. A map that is absent or no list, or an entry that is no
+mapping with a string `name` and `code` and `docs` lists of strings, is BROKEN.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree, itself a git repository: a scan missing
@@ -126,7 +150,17 @@ Modes:  no arguments   check the kit;
                        names, each file of those two holds that cannot be read as its BROKEN line,
                        the types pair changed one at a time (a folder more on either side, none, a
                        comment, another path, a quote, two settings, a stray colon), and PyYAML
-                       missing as a BROKEN line with the install command, exit 1.
+                       missing as a BROKEN line with the install command, exit 1; the guide's scan
+                       block against the declared scans (a block of exactly those, a scan missing, a
+                       path no module declares, a path twice, a module with no scan), each fix text
+                       followed on the tree until green, and a guide that is missing, has no block,
+                       two, or a block that does not begin `for s in … ; do` as a BROKEN line; the
+                       coverage map against the module folders (every module with its pair, a module
+                       with no entry, two entries, other docs, a pattern outside the module, a folder
+                       present with no pattern, an absent folder with one, the three non-module entries
+                       ignored, a map that cannot be read as a BROKEN line), each fix text followed on
+                       the tree until green. The self-test reads the map under a dials key no module
+                       bears, so that its trees need no module named for the real one.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -144,7 +178,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -237,6 +271,56 @@ WHY_KNOWN = (
 WHY_KNOWN_SOURCE = (
     "the kit loads its own modules from its own folder, so any other source loads another marketplace or none"
 )
+GUIDE_FILE = "INSTALL.md"  # the install guide; its `bash check=scan` block runs every scan of a project
+FENCE = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")  # as scripts/check-install-guide.py opens a block
+SCAN_FOR = re.compile(r"for s in (.*?)\s*; do(?:\s|$)")  # the first line of the guide's scan block
+BLOCK = "`bash check=scan`"
+WHY_GUIDE = (
+    "the guide's scan block is what a project runs to verify an install, so a scan it leaves out is never"
+    " run there and a path no module declares fails there"
+)
+COVERAGE_OWNER = "const-task-close"  # the dials namespace whose `coverage` key is the range check's map
+COVERAGE_KEY = "coverage"
+COVERAGE_FOLDERS = ("scripts", "hooks", "skills", "tests")  # the folders of a module that carry code
+WHY_COVERAGE = (
+    "the range check of module const-task-close asks a change for a module's document only through the"
+    " module's pair, so a module with no pair, or code outside its pair, is never asked"
+)
+
+
+@dataclass
+class Dial:
+    """Where the coverage map stands. The self-test points `owner` at a key no module bears, so that its
+    throwaway trees need no module folder named for the owner; the plain run reads the real one."""
+
+    owner: str = COVERAGE_OWNER
+
+
+COVERAGE = Dial()
+
+
+@contextlib.contextmanager
+def coverage_owner(key: str) -> Iterator[None]:
+    """For the code inside, the coverage map is read under the dials key `key`. Restored on leaving."""
+    saved = COVERAGE.owner
+    COVERAGE.owner = key
+    try:
+        yield
+    finally:
+        COVERAGE.owner = saved
+
+
+def coverage_entry(module: str, folders: tuple[str, ...]) -> str:
+    """The pair of a module as the kit writes it in block style, one pattern for each folder given, the
+    module's document as its docs; an empty `code` is the one flow-style list."""
+    code = (
+        ["      code:", *(f'        - "modules/{module}/{folder}/**"' for folder in folders)]
+        if folders
+        else ["      code: []"]
+    )
+    return "\n".join(
+        [f"    - name: {module}", *code, "      docs:", f'        - "modules/{module}/MODULE.md"']
+    )
 
 
 FORM_WHAT = {  # what a problem of the enforcement section says; its text is the first cell or the span
@@ -286,6 +370,13 @@ class Where(StrEnum):
     SETTINGS_STRAY = "enabled strays"
     KNOWN_MISSING = "declared marketplace"
     KNOWN_SOURCE = "marketplace source declared"
+    GUIDE_ADD = "guide's scan block"
+    GUIDE_DROP = "guide's listed paths"
+    COVERAGE_MISSING = "coverage pair"
+    COVERAGE_TWICE = "coverage pairs"
+    COVERAGE_DOCS = "coverage docs"
+    COVERAGE_OUTSIDE = "coverage pattern"
+    COVERAGE_FOLDER = "coverage folder pattern"
 
 
 REGISTRY = frozenset(
@@ -303,6 +394,15 @@ REGISTRY = frozenset(
         Where.KNOWN_SOURCE,
     }
 )  # the findings about the files that name a module, in `Finding.registry`
+COVERAGE_WHERE = frozenset(
+    {
+        Where.COVERAGE_MISSING,
+        Where.COVERAGE_TWICE,
+        Where.COVERAGE_DOCS,
+        Where.COVERAGE_OUTSIDE,
+        Where.COVERAGE_FOLDER,
+    }
+)  # the findings about a module's pair in the coverage map, in `Finding.coverage`
 
 
 @dataclass(frozen=True)
@@ -318,6 +418,8 @@ class Finding:
     said: str = ""  # a registry finding: what the file holds, as JSON text; empty: it holds nothing there
     tag: str = ""  # a registry finding: the marketplace name, read from marketplace.json
     side: str = ""  # a description finding: which text is wrong, "manifest", "entry" or "differs"
+    owner: str = ""  # a coverage finding: the dials key that holds the map; `said` the detail, `names` the
+    # folders the module has when its pair is missing
 
     def render(self) -> str:
         spans = ", ".join(f"`{name}`" for name in self.names)
@@ -370,6 +472,19 @@ class Finding:
                 f"rename the key `{self.module}` in {DIALS} to the name of the module folder whose dials it"
                 " holds, or remove the key and what is under it"
             )
+        elif self.where is Where.GUIDE_ADD:
+            what = f"its scan `{self.entry} --scan` is not in the scan block of {GUIDE_FILE}"
+            why = WHY_GUIDE
+            fix = (
+                f"add `{scan_path(self.module, self.entry)}` to the list after `for s in` in the {BLOCK}"
+                f" block of {GUIDE_FILE}"
+            )
+        elif self.where is Where.GUIDE_DROP:  # `module` holds the path
+            what = f"the scan block of {GUIDE_FILE} lists it, but no module declares that scan"
+            why = WHY_GUIDE
+            fix = (
+                f"remove `{self.module}` from the list after `for s in` in the {BLOCK} block of {GUIDE_FILE}"
+            )
         elif self.where is Where.TYPES_PATH:  # `module` holds the list's path, `said` the entry's MYPYPATH
             folders = ":".join(f"../modules/{name}/scripts" for name in self.names)
             held = f"`{self.said}`" if self.said else "nothing"
@@ -381,6 +496,8 @@ class Finding:
             )
         elif self.where in REGISTRY:
             what, why, fix = self.registry()
+        elif self.where in COVERAGE_WHERE:
+            what, why, fix = self.coverage()
         elif self.where is Where.MISSING:
             what = f"the list lacks its entries {spans}"
             why = WHY_MISSING
@@ -401,6 +518,32 @@ class Finding:
             )
             fix = f"remove `{self.module}` from MODULES in {GATE_LIST}{restore}"
         return f"RED: {self.module}: {what}\n  why: {why}\n  fix: {fix}"
+
+    def coverage(self) -> tuple[str, str, str]:
+        """What, why and fix of a finding about a module's pair in the coverage map: `module` is the folder,
+        `said` the detail (the number of pairs, the docs as JSON, the pattern or the folder), `names` the
+        folders of a module whose pair is missing."""
+        m, said, owner = self.module, self.said, self.owner
+        held = f"`{owner}.{COVERAGE_KEY}` of {DIALS}"
+        pair = f"the pair named `{m}`"
+        listing = f"the list under `{COVERAGE_KEY}:` of the `{owner}` namespace in {DIALS}"
+        if self.where is Where.COVERAGE_MISSING:
+            fix = (
+                f"add this entry to {listing}, in place of `[]` when it is empty:\n"
+                f"{coverage_entry(m, self.names)}"
+            )
+            return f"{held} has no pair for it", WHY_COVERAGE, fix
+        if self.where is Where.COVERAGE_TWICE:
+            fix = f"remove every pair named `{m}` after the first from {listing}"
+            return f"{held} has {said} pairs named for it", WHY_COVERAGE, fix
+        if self.where is Where.COVERAGE_DOCS:
+            fix = f"set `docs` of {pair} to the one path `modules/{m}/MODULE.md`"
+            return f"its pair in {held} lists docs {said}, not its module document alone", WHY_COVERAGE, fix
+        if self.where is Where.COVERAGE_OUTSIDE:
+            what = f"its pair in {held} lists the code pattern `{said}`, which is outside modules/{m}/"
+            return what, WHY_COVERAGE, f"remove `{said}` from `code` of {pair}"
+        what = f"modules/{m}/{said} is a folder, but its pair in {held} lists no pattern for it"
+        return what, WHY_COVERAGE, f'add the line `- "modules/{m}/{said}/**"` to `code` of {pair}'
 
     def registry(self) -> tuple[str, str, str]:
         """What, why and fix of a finding about the files that name a module: `module` is the folder, the
@@ -866,6 +1009,157 @@ def types_path(root: Path) -> list[Finding]:
     return [Finding(GATE_LIST, Where.TYPES_PATH, said=":".join(items), names=folders)]
 
 
+def scan_path(module: str, entry: str) -> str:
+    """The path the guide's scan block lists for a declared scan: `<module>/scripts/<stem>.sh`, the POSIX
+    entry point every scan has (template §6, gate-script rule 6), which the guide's loop runs with `sh`; the
+    stem is the declared name without `.py`, so `check-x` and `check-x.py` both stand for `check-x.sh`."""
+    return f"{module}/scripts/{entry.removesuffix('.py')}.sh"
+
+
+def scan_block(root: Path) -> list[str]:
+    """The paths of the guide's scan block: the words between `for s in` and `; do` on the first line of the
+    one fenced block whose info string is `bash check=scan`. A guide that is missing, with no such block or
+    two, or whose block does not begin `for s in … ; do`, is BROKEN: the check cannot read what it holds."""
+    if not (root / GUIDE_FILE).is_file():
+        raise Broken(
+            f"{GUIDE_FILE} is no file — fix: restore the install guide at the kit root, with the fenced block"
+            f" {BLOCK} that lists every scan"
+        )
+    lines = read(root, GUIDE_FILE).splitlines()
+    blocks: list[tuple[int, str]] = []  # the line of each block's fence and its first line
+    at = 0
+    while at < len(lines):
+        opened = FENCE.match(lines[at])
+        if opened is None:
+            at += 1
+            continue
+        indent, fence, info = opened.group(1), opened.group(2), opened.group(3).split()
+        end = at + 1
+        while end < len(lines):
+            closing = FENCE.match(lines[end])
+            if (
+                closing is not None
+                and closing.group(2)[0] == fence[0]
+                and len(closing.group(2)) >= len(fence)
+                and not closing.group(3).strip()
+            ):
+                break
+            end += 1
+        if info[:1] == ["bash"] and "check=scan" in info[1:]:
+            first = lines[at + 1] if at + 1 < end else ""
+            blocks.append((at + 1, first[len(indent) :] if first.startswith(indent) else first.lstrip()))
+        at = end + 1
+    if not blocks:
+        raise Broken(
+            f"{GUIDE_FILE} has no block {BLOCK} — fix: add the fenced block that runs every module's scan"
+            f" in the guide's verify step, its fence {BLOCK}"
+        )
+    if len(blocks) > 1:
+        where = " and ".join(str(line) for line, _ in blocks)
+        raise Broken(
+            f"{GUIDE_FILE} has {len(blocks)} blocks {BLOCK}, at lines {where} — fix: keep one: list the"
+            " paths of both in the first and give the other `check=none`"
+        )
+    line, first = blocks[0]
+    listed_in = SCAN_FOR.match(first)
+    if listed_in is None:
+        raise Broken(
+            f"{GUIDE_FILE}:{line}: the first line of the block {BLOCK} is not `for s in <paths>; do …`"
+            " — fix: begin it with `for s in <module>/scripts/<stem>.sh …; do`, the paths being the scans the"
+            " modules declare, each `<stem>` the declared scan's name without `.py`,"
+            ' and run each as `"$s"` after `do`'
+        )
+    return listed_in.group(1).split()
+
+
+def guide_scans(root: Path, declared: list[tuple[str, str]]) -> list[Finding]:
+    """The paths of the guide's scan block against the declared scans, as sets: a declared scan whose path is
+    not listed, in the order the modules declare them, then a listed path no module declares, sorted."""
+    listed_paths = set(scan_block(root))
+    wanted = {scan_path(module, entry): (module, entry) for module, entry in declared}
+    findings = [
+        Finding(module, Where.GUIDE_ADD, entry)
+        for path, (module, entry) in wanted.items()
+        if path not in listed_paths
+    ]
+    findings += [Finding(path, Where.GUIDE_DROP) for path in sorted(listed_paths - set(wanted))]
+    return findings
+
+
+@dataclass(frozen=True)
+class Pair:
+    """One entry of the coverage map: a code territory, its path patterns, and the documents describing it."""
+
+    name: str
+    code: list[str]
+    docs: list[str]
+
+
+def coverage_pairs_of(root: Path) -> list[Pair]:
+    """The entries of the coverage map, `<owner>.coverage` of the dials file. A map that is absent or no
+    list, or an entry that is no mapping with a string `name` and two lists of strings, `code` and `docs`,
+    is BROKEN: the check cannot read what it holds."""
+    owner = COVERAGE.owner
+    namespace = read_dials(root).get(owner)
+    declared = namespace.get(COVERAGE_KEY) if isinstance(namespace, dict) else None
+    if not isinstance(declared, list):
+        said = "it is absent" if declared is None else f"it holds a {type(declared).__name__}"
+        raise Broken(
+            f"{DIALS}: `{owner}.{COVERAGE_KEY}` is no list ({said}) — fix: restore it as a list of pairs,"
+            f" each `- name: <territory>` with a `code` list and a `docs` list, under `{COVERAGE_KEY}:` in"
+            f" the `{owner}` namespace"
+        )
+    pairs: list[Pair] = []
+    for position, entry in enumerate(declared, start=1):
+        if not (
+            isinstance(entry, dict)
+            and isinstance(entry.get("name"), str)
+            and all(
+                isinstance(entry.get(key), list) and all(isinstance(item, str) for item in entry[key])
+                for key in ("code", "docs")
+            )
+        ):
+            raise Broken(
+                f"{DIALS}: entry {position} of `{owner}.{COVERAGE_KEY}` is no mapping with a string `name`,"
+                " a `code` list and a `docs` list of strings — fix: write each pair as `- name: <territory>`"
+                " with `code:` and `docs:` lists of path patterns"
+            )
+        pairs.append(Pair(entry["name"], list(entry["code"]), list(entry["docs"])))
+    return pairs
+
+
+def coverage_pairs(root: Path, modules: list[str]) -> list[Finding]:
+    """Each module folder has its pair in the coverage map of the range check: exactly one entry named for
+    the folder, whose `docs` are the one path `modules/<m>/MODULE.md`, whose `code` patterns all open with
+    `modules/<m>/`, and which lists `modules/<m>/<folder>/**` for each of `scripts`, `hooks`, `skills` and
+    `tests` that is a directory directly under the module; a pattern for a folder that does not exist is
+    allowed. A module with two entries is judged by that finding alone. Entries named for no module folder
+    are not judged. The findings come by module, then docs, patterns outside, folders in the order above."""
+    owner, pairs = COVERAGE.owner, coverage_pairs_of(root)
+    findings: list[Finding] = []
+    for module in modules:
+        folders = tuple(f for f in COVERAGE_FOLDERS if (root / "modules" / module / f).is_dir())
+        mine = [pair for pair in pairs if pair.name == module]
+        if len(mine) != 1:
+            kind = Where.COVERAGE_TWICE if mine else Where.COVERAGE_MISSING
+            findings.append(Finding(module, kind, names=folders, said=str(len(mine)), owner=owner))
+            continue
+        code, prefix = mine[0].code, f"modules/{module}/"
+        if mine[0].docs != [f"{prefix}MODULE.md"]:
+            findings.append(Finding(module, Where.COVERAGE_DOCS, said=shown(mine[0].docs), owner=owner))
+        findings += [
+            Finding(module, Where.COVERAGE_OUTSIDE, said=pattern, owner=owner)
+            for pattern in code
+            if not pattern.startswith(prefix)
+        ]
+        findings += [
+            Finding(module, Where.COVERAGE_FOLDER, said=folder, owner=owner)
+            for folder in folders
+            if f"{prefix}{folder}/**" not in code
+        ]
+    return findings
+
+
 def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
     try:
         modules = [folder.name for folder in module_folders(root)]
@@ -874,12 +1168,14 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
     gates, jobs, ci = gate_list(root), jobs_of(root), ci_reads_list(root)
     findings: list[Finding] = []
     scans = 0
+    declared: list[tuple[str, str]] = []
     for module in modules:
         document = f"modules/{module}/MODULE.md"
         entries, problems = declared_scans(read(root, document), document)
         findings += [Finding(document, Where.FORM, p.text, line=p.line, fault=p.fault) for p in problems]
         for entry in entries:
             scans += 1
+            declared.append((module, entry))
             findings += check_scan(module, entry, gates, jobs, ci)
     findings += check_modules(modules, listed(root, "--names", "all").split())
     registry, plugins, enabled = check_registries(root, modules)
@@ -889,6 +1185,8 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int, int, int, int]:
     findings += check_checks(checks, gates)
     findings += dials_namespaces(root, modules)
     findings += types_path(root)
+    findings += guide_scans(root, declared)
+    findings += coverage_pairs(root, modules)
     return findings, len(modules), scans, len(checks), plugins, enabled
 
 
@@ -903,8 +1201,10 @@ def report(findings: list[Finding], modules: int, scans: int, checks: int, plugi
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the"
         " list's modules are the module folders, each named const-<aspect> and by its manifest, listed"
         " once in the marketplace and enabled in the kit's settings, which declare the marketplace,"
-        " neither list filters a runner's items, and every kit check is run by an entry of the gate group"
-        f" — {counts}, {plugins} marketplace plugin(s), {enabled} enabled plugin(s)"
+        " neither list filters a runner's items, every kit check is run by an entry of the gate group, the"
+        " install guide's scan block names exactly the declared scans, and the coverage map of the range"
+        f" check holds one pair for each module folder — {counts}, {plugins} marketplace plugin(s),"
+        f" {enabled} enabled plugin(s)"
     )
     return EXIT_GREEN
 
@@ -923,6 +1223,9 @@ def run(root: Path) -> int:
         return broken_report(broken)
 
 
+TEST_OWNER = (
+    "task-close"  # the dials key of the self-test's coverage map: no module's name, no namespace to judge
+)
 MIRROR_FOLDERS = ("const-p", "const-q")  # the self-test's schema mirror folders, no tree's module folders
 TYPES_COMMAND = (  # the self-test's `types` entry, agreeing with MIRROR_FOLDERS
     "cd scripts && MYPYPATH=../modules/const-p/scripts:../modules/const-q/scripts"
@@ -952,6 +1255,8 @@ class Case:
     files: dict[str, object] = field(default_factory=dict)
     # the registry files, by path, when the case writes its own: an object or list is written as JSON, a
     # text as it is, None leaves the file out; empty: `registry_tree(folders, tag)`
+    guide: str | None = ""  # the install guide: a text as it is, None leaves it out; empty: `guide_text(...)`
+    owner: str = ""  # the dials key the coverage map is read under; empty: the self-test's `TEST_OWNER`
 
 
 def mirror_text(folders: tuple[str, ...]) -> str:
@@ -959,11 +1264,32 @@ def mirror_text(folders: tuple[str, ...]) -> str:
     return f"import sys\n\nfor module in {folders!r}:\n    sys.path.insert(0, module)\n"
 
 
+def guide_text(*paths: str, block: str = "bash check=scan") -> str:
+    """An install guide in the kit's form: a step whose fenced block, `block` as its info string, runs the
+    scans `paths` in a loop, the block indented as inside a numbered list, a `check=none` block beside it."""
+    return (
+        "# Install\n\n8. **Verify.** Run every scan:\n"
+        f'   ```{block}\n   for s in {" ".join(paths)}; do sh ~/kit/modules/"$s" --scan; done\n   ```\n'
+        "   Then the fixtures:\n   ```bash check=none\n"
+        "   for m in ~/kit/modules/const-*; do true; done\n   ```\n"
+    )
+
+
+def full_pair(module: str, folders: tuple[str, ...] = COVERAGE_FOLDERS) -> dict[str, Any]:
+    """The coverage pair of a module: a pattern for each of `folders`, a folder that does not exist
+    included (allowed), and its module document alone."""
+    return {
+        "name": module,
+        "code": [f"modules/{module}/{folder}/**" for folder in folders],
+        "docs": [f"modules/{module}/MODULE.md"],
+    }
+
+
 def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
     """The files that name the modules, matching `folders`: a manifest each, the marketplace `tag` with one
     entry each, the settings that enable each and declare the marketplace, the dials file with a namespace
-    each, and a schema mirror whose folders agree with the `types` entry. Extra keys the platform allows
-    stand in each, which the check never reads."""
+    each and the coverage map, a pair for each, and a schema mirror whose folders agree with the `types`
+    entry. Extra keys the platform allows stand in each, which the check never reads."""
     files: dict[str, Any] = {
         f"modules/{m}/.claude-plugin/plugin.json": {
             "name": m,
@@ -972,7 +1298,11 @@ def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
         }
         for m in folders
     }
-    files[DIALS] = {"root_policy": "policies", **{m: {"key": 1} for m in folders}}  # YAML as JSON
+    files[DIALS] = {  # YAML as JSON
+        "root_policy": "policies",
+        **{m: {"key": 1} for m in folders},
+        TEST_OWNER: {COVERAGE_KEY: [full_pair(m) for m in folders]},
+    }
     files[MIRROR] = mirror_text(MIRROR_FOLDERS)
     files[MARKETPLACE_FILE] = {
         "name": tag,
@@ -1396,7 +1726,18 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         return registry_case(scan, change, types=types), wanted
 
     def with_dials(content: object) -> Callable[[dict[str, Any]], object]:
-        return lambda f: f.update({DIALS: content})  # an object is written as JSON, which YAML reads
+        """The dials file replaced by `content`, the coverage map of the tree's two folders kept beside it;
+        an object is written as JSON, which YAML reads."""
+        owned = {COVERAGE_KEY: [full_pair(m) for m in ("const-x", "const-quiet")]}
+
+        def put(f: dict[str, Any]) -> None:
+            f[DIALS] = (
+                {**content, TEST_OWNER: owned}
+                if isinstance(content, dict)
+                else f"{content}{TEST_OWNER}: {json.dumps(owned)}\n"
+            )
+
+        return put
 
     def with_mirror(*folders: str) -> Callable[[dict[str, Any]], object]:
         return lambda f: f.update({MIRROR: mirror_text(folders)})
@@ -1758,6 +2099,329 @@ def strays_case(scan: str) -> Case:
     )
 
 
+GUIDE_X = "const-x/scripts/check-x.sh"  # the scan const-x declares, as the guide lists it
+GUIDE_P = (
+    "const-p/scripts/check-p.sh"  # the scan const-p declares as `check-p.py --scan`: its .sh entry point
+)
+GUIDE_GONE = "const-gone/scripts/check-gone.sh"  # a path no module declares
+
+
+def guide_case(scan: str, module_text: str, guide: str | None) -> Case:
+    """Three folders: const-x declares `check-x`, const-p declares `check-p.py`, const-quiet declares none;
+    the install guide is `guide`."""
+    p_text = module_text.replace("check-x", "check-p").replace("`check-p --scan`", "`check-p.py --scan`")
+    return Case(
+        {"x": scan, "p": "python3 modules/const-p/scripts/check-p.py --scan"},
+        jobs={"p": "const-p"},
+        folders=("const-x", "const-quiet", "const-p"),
+        documents={"const-p": p_text},
+        guide=guide,
+    )
+
+
+def guide_cases(scan: str, module_text: str) -> dict[str, tuple[Case, list[Where]]]:
+    """The guide's scan block against the declared scans, each a guide edited once: the findings it must
+    give, in their fixed order (the missing scans in the folders' order, then the strays by path). Beside
+    `registry_cases`, whose files name the modules the same way."""
+    add, drop = Where.GUIDE_ADD, Where.GUIDE_DROP
+
+    def edit(*paths: str, tail: str = "") -> Case:
+        return guide_case(scan, module_text, guide_text(*paths) + tail)
+
+    other = "   ```bash check=none\n   for s in " + GUIDE_GONE + '; do sh ~/kit/modules/"$s"; done\n   ```\n'
+    return {
+        "the guide's scan block names exactly the declared scans, `check-x` and `check-p.py` alike": (
+            edit(GUIDE_X, GUIDE_P),
+            [],
+        ),
+        "the guide's scan block names them in another order": (edit(GUIDE_P, GUIDE_X), []),
+        "the guide's scan block leaves out a scan declared as `check-x`": (edit(GUIDE_P), [add]),
+        "the guide's scan block leaves out a scan declared as `check-p.py`": (edit(GUIDE_X), [add]),
+        "the guide's scan block lists nothing": (edit(), [add, add]),
+        "the guide's scan block lists a path no module declares": (
+            edit(GUIDE_X, GUIDE_P, GUIDE_GONE),
+            [drop],
+        ),
+        "the guide's scan block lists a module that declares no scan": (
+            edit(GUIDE_X, GUIDE_P, "const-quiet/scripts/check-q.sh"),
+            [drop],
+        ),
+        "the guide's scan block lists the .py file of a scan its loop runs with sh": (
+            edit("const-x/scripts/check-x.py", GUIDE_P),
+            [add, drop],
+        ),
+        "the guide's scan block lists a path twice": (edit(GUIDE_X, GUIDE_X, GUIDE_P), []),
+        "a module that declares no scan is owed no path": (
+            Case({"o": "true"}, folders=("const-quiet",), guide=guide_text()),
+            [],
+        ),
+        "a block other than the scan block lists a path no module declares: not read": (
+            edit(GUIDE_X, GUIDE_P, tail=other),
+            [],
+        ),
+    }
+
+
+def coverage_text(owner: str, *pairs: dict[str, Any]) -> str:
+    """A dials file with the coverage map under `owner`, in the block style the kit writes it, so that a fix
+    text can be followed on it line by line; an empty list is the one flow-style form."""
+    lines = ["root_policy: policies", f"{owner}:"]
+    if not pairs:
+        return "\n".join([*lines, f"  {COVERAGE_KEY}: []"]) + "\n"
+    lines.append(f"  {COVERAGE_KEY}:")
+    for pair in pairs:
+        lines.append(f"    - name: {pair['name']}")
+        for key in ("code", "docs"):
+            lines += (
+                [f"      {key}:", *(f'        - "{item}"' for item in pair[key])]
+                if pair[key]
+                else [f"      {key}: []"]
+            )
+    return "\n".join(lines) + "\n"
+
+
+def pair_span(lines: list[str], name: str, nth: int = 0) -> tuple[int, int]:
+    """The lines of the `nth` pair named `name` in a dials text from `coverage_text`: its `- name:` line up to
+    the next pair's, or the end."""
+    starts = [at for at, line in enumerate(lines) if line == f"    - name: {name}"]
+    start = starts[nth]
+    end = next((at for at in range(start + 1, len(lines)) if lines[at].startswith("    - name:")), len(lines))
+    return start, end
+
+
+def follow_coverage_fix(text: str, report: str) -> str:
+    """The dials text `text` after the fix a coverage finding teaches, `report` being the finding's text, done
+    to the letter of its fix line: an entry added after `coverage:` (in place of `[]`), the pairs of a name
+    after the first removed, the `docs` of a pair set, a pattern removed from a pair's `code`, a line added to
+    it. The text unchanged for a fix of no form known here, which the caller's rerun then holds red."""
+    first, *block = report.split("  fix: ", 1)[1].splitlines()
+    lines = text.splitlines()
+    if first.startswith("add this entry to "):
+        at = next(i for i, line in enumerate(lines) if line.startswith(f"  {COVERAGE_KEY}:"))
+        lines[at : at + 1] = [f"  {COVERAGE_KEY}:", *block]
+    elif (
+        told := re.fullmatch(r"remove every pair named `([^`]+)` after the first from .*", first)
+    ) is not None:
+        count = sum(1 for line in lines if line == f"    - name: {told[1]}")
+        for nth in range(count - 1, 0, -1):  # from the last, so that the earlier spans keep their places
+            start, end = pair_span(lines, told[1], nth)
+            del lines[start:end]
+    elif (
+        told := re.fullmatch(r"set `docs` of the pair named `([^`]+)` to the one path `([^`]+)`", first)
+    ) is not None:
+        start, end = pair_span(lines, told[1])
+        at = next(i for i in range(start, end) if lines[i].startswith("      docs:"))
+        lines[at:end] = ["      docs:", f'        - "{told[2]}"']
+    elif (
+        told := re.fullmatch(r"remove `([^`]+)` from `code` of the pair named `([^`]+)`", first)
+    ) is not None:
+        start, end = pair_span(lines, told[2])
+        for at in range(start, end):
+            if lines[at] == f'        - "{told[1]}"':
+                del lines[at]
+                break
+    elif (
+        told := re.fullmatch(r'add the line `- "([^`]+)"` to `code` of the pair named `([^`]+)`', first)
+    ) is not None:
+        start, end = pair_span(lines, told[2])
+        at = next(i for i in range(start, end) if lines[i].startswith("      code:"))
+        lines[at : at + 1] = ["      code:", f'        - "{told[1]}"']  # the pair's other patterns follow
+    return "\n".join(lines) + "\n"
+
+
+def coverage_case(
+    scan: str,
+    pairs: list[dict[str, Any]],
+    *folders: str,
+    plain: tuple[str, ...] = (),
+    modules: tuple[str, ...] = ("const-x", "const-quiet"),
+    owner: str = "",
+) -> Case:
+    """The tree of `modules` whose coverage map holds `pairs`, the folders `folders` (`<module>/<folder>`)
+    as directories under modules/, a file in each, and the paths `plain` as plain files there; the map is
+    read under `owner` when given."""
+    files = registry_tree(modules, REGISTRY_TAG)
+    files[DIALS] = coverage_text(owner or TEST_OWNER, *pairs)
+    return Case(
+        {"o": "true"} if "const-x" not in modules else {"x": scan},
+        folders=modules,
+        files=files,
+        scripts={
+            **{f"modules/{folder}/file": False for folder in folders},
+            **{f"modules/{p}": False for p in plain},
+        },
+        owner=owner,
+    )
+
+
+def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
+    """A module's pair in the coverage map against the module folders, each a map edited once: the findings
+    it must give, by module, then docs, patterns outside, folders. Beside `registry_cases`, whose dials file
+    and files name the modules the same way. The folders of the tree are const-x and const-quiet."""
+    missing, twice, docs = Where.COVERAGE_MISSING, Where.COVERAGE_TWICE, Where.COVERAGE_DOCS
+    outside, folder = Where.COVERAGE_OUTSIDE, Where.COVERAGE_FOLDER
+    x, quiet = full_pair("const-x"), full_pair("const-quiet")
+    all_folders = tuple(f"const-x/{name}" for name in COVERAGE_FOLDERS)
+    outside_cases = {
+        "a pattern of no module": "scripts/**",
+        "a pattern of another module": "modules/const-quiet/scripts/**",
+        "a pattern of a module whose name opens with the module's": "modules/const-xy/scripts/**",
+        "a pattern that is the module's folder with no slash": "modules/const-x",
+        "a pattern anchored at the root": "/modules/const-x/scripts/**",
+    }
+
+    def case(*pairs: dict[str, Any], dirs: tuple[str, ...] = (), plain: tuple[str, ...] = ()) -> Case:
+        return coverage_case(scan, list(pairs), *dirs, plain=plain)
+
+    def with_docs(*paths: str) -> dict[str, Any]:
+        return {**x, "docs": list(paths)}
+
+    def with_code(*patterns: str) -> dict[str, Any]:
+        return {**x, "code": list(patterns)}
+
+    cases: dict[str, tuple[Case, list[Where]]] = {
+        "the coverage map has a pair for each module, a pattern for each folder it has": (
+            case(x, quiet, dirs=all_folders),
+            [],
+        ),
+        "a module without a hooks/ folder and with no hooks pattern": (
+            case(
+                full_pair("const-x", ("scripts", "skills", "tests")),
+                quiet,
+                dirs=("const-x/scripts", "const-x/skills", "const-x/tests"),
+            ),
+            [],
+        ),
+        "a module with a skills pattern and no skills/ folder": (
+            case(x, quiet, dirs=("const-x/scripts", "const-x/hooks", "const-x/tests")),
+            [],
+        ),
+        "a module with a pattern for each folder and none of the folders": (case(x, quiet), []),
+        "a hooks entry that is a plain file is no folder": (
+            case(full_pair("const-x", ("scripts", "skills", "tests")), quiet, plain=("const-x/hooks",)),
+            [],
+        ),
+        "the pairs in another order": (case(quiet, x, dirs=all_folders), []),
+        "a pair that lists more patterns inside the module": (
+            case(with_code(*x["code"], "modules/const-x/README.md"), quiet),
+            [],
+        ),
+        "the three entries of no module are not judged, whatever they hold": (
+            case(
+                {"name": "shared-gate-code", "code": ["shared/const_gate/**"], "docs": ["shared/GATE.md"]},
+                x,
+                {"name": "kit-scripts", "code": ["scripts/**", "/pyproject.toml"], "docs": ["CLAUDE.md"]},
+                quiet,
+                {"name": "kernel-schemas", "code": [], "docs": []},
+            ),
+            [],
+        ),
+        "an entry named for a missing module folder is not judged": (
+            case(x, quiet, {"name": "const-gone", "code": ["elsewhere/**"], "docs": ["a.md", "b.md"]}),
+            [],
+        ),
+        "the map read under the real key, const-task-close, with a pair for each module": (
+            coverage_case(
+                scan,
+                [full_pair("const-task-close"), full_pair("const-quiet")],
+                modules=("const-task-close", "const-quiet"),
+                owner=COVERAGE_OWNER,
+            ),
+            [],
+        ),
+        "a module with no pair": (case(quiet), [missing]),
+        "a module with no pair, its folders existing": (case(quiet, dirs=all_folders), [missing]),
+        "no pair for either module": (case(), [missing, missing]),
+        "a module with no pair beside a module with a wrong one: by module": (
+            case(with_docs("modules/const-x/README.md")),
+            [missing, docs],
+        ),
+        "a name that only opens like the module's is no pair for it": (
+            case({**x, "name": "const-xy"}, quiet),
+            [missing],
+        ),
+        "a pair named for the module in another case is no pair for it": (
+            case({**x, "name": "Const-x"}, quiet),
+            [missing],
+        ),
+        "two pairs of one name": (case(x, quiet, x), [twice]),
+        "three pairs of one name": (case(x, x, quiet, x), [twice]),
+        "two pairs of one name, the second with other docs: judged by the two alone": (
+            case(x, with_docs("modules/const-x/README.md"), quiet),
+            [twice],
+        ),
+        "two pairs of one name, the first wrong: judged by the two alone": (
+            case(with_docs("README.md"), x, quiet),
+            [twice],
+        ),
+        "docs of another file": (case(with_docs("modules/const-x/README.md"), quiet), [docs]),
+        "docs of two files": (
+            case(with_docs("modules/const-x/MODULE.md", "modules/const-x/README.md"), quiet),
+            [docs],
+        ),
+        "docs of the module document twice": (
+            case(with_docs("modules/const-x/MODULE.md", "modules/const-x/MODULE.md"), quiet),
+            [docs],
+        ),
+        "docs of no file": (case(with_docs(), quiet), [docs]),
+        "docs of another module's document": (
+            case(with_docs("modules/const-quiet/MODULE.md"), quiet),
+            [docs],
+        ),
+        "docs that open with ./": (case(with_docs("./modules/const-x/MODULE.md"), quiet), [docs]),
+        "two patterns of no module are two findings": (
+            case(with_code(*x["code"], "scripts/**", "kernel/**"), quiet),
+            [outside, outside],
+        ),
+        "a pattern missing and a pattern outside, the folders existing: by kind": (
+            case(with_code("scripts/**", "modules/const-x/scripts/**"), quiet, dirs=all_folders),
+            [outside, folder, folder, folder],
+        ),
+        "a wrong doc, a pattern outside and a folder without a pattern: in that order": (
+            case(
+                {**x, "docs": ["README.md"], "code": ["scripts/**", *x["code"][1:]]},
+                quiet,
+                dirs=all_folders,
+            ),
+            [docs, outside, folder],
+        ),
+        "a folder present with a pattern that is not the whole folder": (
+            case(
+                with_code("modules/const-x/hooks/*.json", *x["code"][:1], *x["code"][2:]),
+                quiet,
+                dirs=all_folders,
+            ),
+            [folder],
+        ),
+        "a folder present and its pattern one level too deep": (
+            case(
+                with_code("modules/const-x/hooks/**/*", *x["code"][:1], *x["code"][2:]),
+                quiet,
+                dirs=all_folders,
+            ),
+            [folder],
+        ),
+        "two folders present and no pattern for either": (
+            case(
+                with_code(*x["code"][2:]), quiet, dirs=("const-x/scripts", "const-x/hooks", "const-x/skills")
+            ),
+            [folder, folder],
+        ),
+    }
+    for what, pattern in outside_cases.items():
+        cases[f"{what} is outside the module"] = (case(with_code(*x["code"], pattern), quiet), [outside])
+    for name in COVERAGE_FOLDERS:
+        cases[f"a {name}/ folder present and no pattern for it"] = (
+            case(
+                with_code(*(c for c in x["code"] if c != f"modules/const-x/{name}/**")),
+                quiet,
+                dirs=all_folders,
+            ),
+            [folder],
+        )
+    return cases
+
+
 def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     """The files the check cannot read, each a matching registry with one file or key spoilt: the first
     line of the BROKEN report, which names the file and how to fix it."""
@@ -1808,6 +2472,39 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
 
     def settings(change: Callable[[dict[str, Any]], object]) -> Case:
         return spoil(lambda f: change(f[SETTINGS_FILE]))
+
+    no_block = (
+        f"{GUIDE_FILE} has no block `bash check=scan` — fix: add the fenced block that runs every module's"
+        " scan in the guide's verify step, its fence `bash check=scan`"
+    )
+    form_fix = (
+        " — fix: begin it with `for s in <module>/scripts/<stem>.sh …; do`, the paths being the scans the"
+        " modules declare, each `<stem>` the declared scan's name without `.py`,"
+        ' and run each as `"$s"` after `do`'
+    )
+    form_line = (
+        f"{GUIDE_FILE}:4: the first line of the block `bash check=scan` is not `for s in <paths>; do …`"
+        + form_fix
+    )
+
+    def no_list(said: str, key: str = TEST_OWNER) -> str:
+        return (
+            f"{DIALS}: `{key}.coverage` is no list ({said}) — fix: restore it as a list of pairs, each"
+            f" `- name: <territory>` with a `code` list and a `docs` list, under `coverage:` in the `{key}`"
+            " namespace"
+        )
+
+    def bad_entry(position: int) -> str:
+        return (
+            f"{DIALS}: entry {position} of `{TEST_OWNER}.coverage` is no mapping with a string `name`, a"
+            " `code` list and a `docs` list of strings — fix: write each pair as `- name: <territory>` with"
+            " `code:` and `docs:` lists of path patterns"
+        )
+
+    def coverage(*entries: str) -> Case:  # the map's entries as YAML lines, under the self-test's key
+        return put(DIALS, f"{TEST_OWNER}:\n  coverage:\n" + "".join(f"    {line}\n" for line in entries))
+
+    good = ["- name: const-x", "  code: []", "  docs: []"]
 
     return {
         "a manifest that is missing": (put(x, None), no_file(x)),
@@ -1904,6 +2601,105 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         "a gate list with no types entry": (
             Case({"x": scan}, types=None),
             f"{GATE_LIST} --show types exited 1 (no output) — fix: restore the list script",
+        ),
+        "an install guide that is missing": (
+            Case({"x": scan}, guide=None),
+            f"{GUIDE_FILE} is no file — fix: restore the install guide at the kit root, with the fenced"
+            " block `bash check=scan` that lists every scan",
+        ),
+        "an install guide whose only scan block is marked check=none": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X, block="bash check=none")),
+            no_block,
+        ),
+        "an install guide whose scan mark stands on a fence that is not bash": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X, block="text check=scan")),
+            no_block,
+        ),
+        "an install guide with two scan blocks": (
+            Case(
+                {"x": scan}, guide=guide_text(GUIDE_X) + "```bash check=scan\nfor s in ; do true; done\n```\n"
+            ),
+            f"{GUIDE_FILE} has 2 blocks `bash check=scan`, at lines 4 and 11 — fix: keep one: list the paths"
+            " of both in the first and give the other `check=none`",
+        ),
+        "an install guide whose scan block runs a command, not a loop": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X).replace("for s in const-x", "sh const-x", 1)),
+            form_line,
+        ),
+        "an install guide whose scan block has a command before its loop": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X).replace("for s in", "cd x; for s in", 1)),
+            form_line,
+        ),
+        "an install guide whose scan block holds a tilde line, then a second scan block": (
+            Case(
+                {"x": scan},
+                guide=guide_text(GUIDE_X).replace(
+                    "   ```\n   Then the fixtures:",
+                    "   ~~~\n   ```\n```bash check=scan\nfor s in ; do true; done\n```\n"
+                    "   Then the fixtures:",
+                    1,
+                ),
+            ),
+            f"{GUIDE_FILE} has 2 blocks `bash check=scan`, at lines 4 and 8 — fix: keep one: list the paths"
+            " of both in the first and give the other `check=none`",
+        ),
+        "an install guide whose scan loop runs over another variable": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X).replace("for s in", "for m in", 1)),
+            form_line,
+        ),
+        "an install guide whose scan loop has no `; do`": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X).replace("; do sh", "; sh", 1)),
+            form_line,
+        ),
+        "an install guide whose scan block is empty": (
+            Case({"x": scan}, guide="# Install\n\n   ```bash check=scan\n   ```\n"),
+            f"{GUIDE_FILE}:3: the first line of the block `bash check=scan` is not `for s in <paths>; do …`"
+            + form_fix,
+        ),
+        "a coverage map under the real key, const-task-close, when only the self-test's key holds one": (
+            Case({"x": scan}, owner=COVERAGE_OWNER),
+            no_list("it is absent", COVERAGE_OWNER),
+        ),
+        "a dials file with no coverage namespace": (put(DIALS, "root_policy: p\n"), no_list("it is absent")),
+        "a coverage namespace that is a string": (put(DIALS, f"{TEST_OWNER}: x\n"), no_list("it is absent")),
+        "a coverage map that is empty": (
+            put(DIALS, f"{TEST_OWNER}:\n  coverage:\n"),
+            no_list("it is absent"),
+        ),
+        "a coverage map that is a mapping": (
+            put(DIALS, f"{TEST_OWNER}:\n  coverage: {{a: 1}}\n"),
+            no_list("it holds a dict"),
+        ),
+        "a coverage map that is a string": (
+            put(DIALS, f"{TEST_OWNER}:\n  coverage: x\n"),
+            no_list("it holds a str"),
+        ),
+        "a coverage entry that is a string": (coverage("- const-x"), bad_entry(1)),
+        "a coverage entry that is the second and has no name": (
+            coverage(*good, "- code: []", "  docs: []"),
+            bad_entry(2),
+        ),
+        "a coverage entry whose name is no string": (
+            coverage("- name: 7", "  code: []", "  docs: []"),
+            bad_entry(1),
+        ),
+        "a coverage entry with no code": (coverage("- name: const-x", "  docs: []"), bad_entry(1)),
+        "a coverage entry with no docs": (coverage("- name: const-x", "  code: []"), bad_entry(1)),
+        "a coverage entry whose code is a mapping": (
+            coverage("- name: const-x", "  code: {a: 1}", "  docs: []"),
+            bad_entry(1),
+        ),
+        "a coverage entry whose code holds a non-string": (
+            coverage("- name: const-x", "  code: [1]", "  docs: []"),
+            bad_entry(1),
+        ),
+        "a coverage entry whose docs hold a non-string": (
+            coverage("- name: const-x", "  code: []", "  docs: [1]"),
+            bad_entry(1),
+        ),
+        "a coverage entry whose docs are a string": (
+            coverage("- name: const-x", "  code: []", "  docs: MODULE.md"),
+            bad_entry(1),
         ),
     }
 
@@ -2018,6 +2814,12 @@ def self_test() -> int:
                 (root / path).parent.mkdir(parents=True, exist_ok=True)
                 text = content if isinstance(content, str) else json.dumps(content, indent=2)
                 (root / path).write_text(text, encoding="utf-8")
+        if case.guide is not None:  # the default guide lists the scans the case's documents declare
+            paths: list[str] = []
+            for m in case.folders:
+                with contextlib.suppress(Broken):  # a document the check cannot read declares none here
+                    paths += [scan_path(m, entry) for entry in scans_of(documents.get(m, quiet_text))]
+            (root / GUIDE_FILE).write_text(case.guide or guide_text(*paths), encoding="utf-8")
         if case.repo:  # `git add` for the tracked files alone, so an untracked one is no kit check
             git = ["git", "-c", "init.defaultBranch=main"]
             subprocess.run([*git, "init", "-q"], cwd=root, check=True)
@@ -2029,7 +2831,8 @@ def self_test() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, case)
-            return check_kit(root)[0]
+            with coverage_owner(case.owner or COVERAGE.owner):
+                return check_kit(root)[0]
 
     trailing = f"\t# {READS_LIST[1]}\n"
     new = "scripts/check-new.py"
@@ -2187,6 +2990,8 @@ def self_test() -> int:
         ),
     }
     cases.update(registry_cases(scan))
+    cases.update(guide_cases(scan, module_text))
+    cases.update(coverage_cases(scan))
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
         failed += 0 if ok else 1
@@ -2309,7 +3114,7 @@ def self_test() -> int:
     ok = True
     for key, is_stray in key_names.items():
         files = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
-        files[DIALS] = {"root_policy": "p", key: {}}
+        files[DIALS] = {"root_policy": "p", key: {}, TEST_OWNER: files[DIALS][TEST_OWNER]}
         stray_keys = [(f.where, f.module) for f in findings_of(Case({"x": scan}, files=files))]
         if stray_keys != ([(Where.DIALS_KEY, key)] if is_stray else []):
             ok = False
@@ -2321,13 +3126,7 @@ def self_test() -> int:
     )
     with tempfile.TemporaryDirectory() as tmp:  # a scan declared by its Python file, run by python3
         root = Path(tmp).resolve()
-        p = "python3 modules/const-p/scripts/check-p.py --scan"
-        build(
-            root,
-            Case({"x": scan, "p": p}, jobs={"p": "const-p"}, folders=("const-x", "const-quiet", "const-p")),
-        )
-        text = module_text.replace("check-x", "check-p").replace("`check-p --scan`", "`check-p.py --scan`")
-        (root / "modules/const-p/MODULE.md").write_text(text, encoding="utf-8")
+        build(root, guide_case(scan, module_text, ""))  # const-p declares `check-p.py --scan`
         ok = check_kit(root)[0] == []
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a scan declared as `<entry>.py --scan` is held by its python3 line")
@@ -2568,7 +3367,100 @@ def self_test() -> int:
         f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {settings} to'
         ' {"source": "directory", "path": "."}',
     ]
+    guide_lines = [  # typed by hand: a scan left out of the block, then a path no module declares
+        "RED: const-x: its scan `check-x --scan` is not in the scan block of INSTALL.md",
+        "  why: the guide's scan block is what a project runs to verify an install, so a scan it leaves out"
+        " is never run there and a path no module declares fails there",
+        "  fix: add `const-x/scripts/check-x.sh` to the list after `for s in` in the `bash check=scan` block"
+        " of INSTALL.md",
+        "RED: const-gone/scripts/check-gone.sh: the scan block of INSTALL.md lists it, but no module"
+        " declares that scan",
+        "  why: the guide's scan block is what a project runs to verify an install, so a scan it leaves out"
+        " is never run there and a path no module declares fails there",
+        "  fix: remove `const-gone/scripts/check-gone.sh` from the list after `for s in` in the"
+        " `bash check=scan` block of INSTALL.md",
+        "RED: 2 finding(s) — 3 module document(s) examined, 2 declared scan(s), 0 kit check(s)",
+    ]
+    coverage_why = (
+        "  why: the range check of module const-task-close asks a change for a module's document only through"
+        " the module's pair, so a module with no pair, or code outside its pair, is never asked"
+    )
+    cov = "`task-close.coverage` of constitution.yaml"  # the self-test's key, the map's file
+    under = "the list under `coverage:` of the `task-close` namespace in constitution.yaml"
+    coverage_lines = [  # typed by hand: by module, then docs, a pattern outside, a folder without one
+        f"RED: const-p: {cov} has 2 pairs named for it",
+        coverage_why,
+        f"  fix: remove every pair named `const-p` after the first from {under}",
+        f"RED: const-quiet: {cov} has no pair for it",
+        coverage_why,
+        f"  fix: add this entry to {under}, in place of `[]` when it is empty:",
+        "    - name: const-quiet",
+        "      code: []",
+        "      docs:",
+        '        - "modules/const-quiet/MODULE.md"',
+        f'RED: const-x: its pair in {cov} lists docs ["modules/const-x/README.md"], not its module document'
+        " alone",
+        coverage_why,
+        "  fix: set `docs` of the pair named `const-x` to the one path `modules/const-x/MODULE.md`",
+        f"RED: const-x: its pair in {cov} lists the code pattern `scripts/**`, which is outside"
+        " modules/const-x/",
+        coverage_why,
+        "  fix: remove `scripts/**` from `code` of the pair named `const-x`",
+        f"RED: const-x: modules/const-x/hooks is a folder, but its pair in {cov} lists no pattern for it",
+        coverage_why,
+        '  fix: add the line `- "modules/const-x/hooks/**"` to `code` of the pair named `const-x`',
+        "RED: 5 finding(s) — 3 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+    ]
+    real_under = "the list under `coverage:` of the `const-task-close` namespace in constitution.yaml"
+    real_lines = [  # typed by hand: the real key, an entry listing the folders the module has
+        "RED: const-quiet: `const-task-close.coverage` of constitution.yaml has no pair for it",
+        coverage_why,
+        f"  fix: add this entry to {real_under}, in place of `[]` when it is empty:",
+        "    - name: const-quiet",
+        "      code:",
+        '        - "modules/const-quiet/hooks/**"',
+        '        - "modules/const-quiet/tests/**"',
+        "      docs:",
+        '        - "modules/const-quiet/MODULE.md"',
+        "RED: 1 finding(s) — 2 module document(s) examined, 0 declared scan(s), 0 kit check(s)",
+    ]
     for name, case, lines in (
+        (
+            "the guide's scan block findings",
+            guide_case(scan, module_text, guide_text(GUIDE_P, GUIDE_GONE)),
+            guide_lines,
+        ),
+        (
+            "the coverage map's findings, in the order of the modules and of the kinds",
+            coverage_case(
+                scan,
+                [
+                    full_pair("const-p"),
+                    {
+                        **full_pair("const-x"),
+                        "docs": ["modules/const-x/README.md"],
+                        "code": ["scripts/**", "modules/const-x/scripts/**"],
+                    },
+                    full_pair("const-p"),
+                ],
+                "const-x/scripts",
+                "const-x/hooks",
+                modules=("const-x", "const-quiet", "const-p"),
+            ),
+            coverage_lines,
+        ),
+        (
+            "the coverage map's pair missing under the real key, its folders listed",
+            coverage_case(
+                scan,
+                [full_pair("const-task-close")],
+                "const-quiet/hooks",
+                "const-quiet/tests",
+                modules=("const-task-close", "const-quiet"),
+                owner=COVERAGE_OWNER,
+            ),
+            real_lines,
+        ),
         (
             "two kit checks no entry runs, in sorted order",
             Case(
@@ -2597,13 +3489,65 @@ def self_test() -> int:
             root = Path(tmp).resolve()
             build(root, case)
             printed = io.StringIO()
-            with contextlib.redirect_stdout(printed):
+            with contextlib.redirect_stdout(printed), coverage_owner(case.owner or COVERAGE.owner):
                 code = report(*check_kit(root))
         ok = code == EXIT_RED and printed.getvalue().splitlines() == lines
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the report of {name} is its literal text, exit 2")
         if not ok:
             print(printed.getvalue())
+    # the fix texts of the guide's findings, followed to the letter on the tree: the path named is added to
+    # the list after `for s in`, or removed from it, and the check is then green
+    followed = guide_text(GUIDE_P, GUIDE_GONE)
+    taught = findings_of(guide_case(scan, module_text, followed))
+    for finding in taught:
+        act = re.search(r"fix: (add|remove) `([^`]+)`", finding.render())
+        if act is None:
+            followed = ""
+        elif act[1] == "add":
+            followed = followed.replace("for s in ", f"for s in {act[2]} ", 1)
+        else:
+            followed = followed.replace(f" {act[2]}", "", 1)
+    ok = len(taught) == 2 and followed != "" and findings_of(guide_case(scan, module_text, followed)) == []
+    failed += 0 if ok else 1
+    print(
+        f"[{'ok' if ok else 'FAIL'}] the fixes the guide's findings teach, followed to the letter,"
+        " turn it green"
+    )
+    x_pair, q_pair = full_pair("const-x"), full_pair("const-quiet")
+    some = ("const-x/scripts", "const-x/hooks")
+    for name, (case, count) in {  # the fix texts of the coverage hold, followed to the letter on the tree
+        "a missing pair, with the folders the module has": (coverage_case(scan, [q_pair], *some), 1),
+        "no pair at all, the list empty": (coverage_case(scan, [], *some), 2),
+        "a pair twice": (coverage_case(scan, [x_pair, q_pair, x_pair, x_pair]), 1),
+        "docs of two files": (
+            coverage_case(scan, [{**x_pair, "docs": ["a.md", "modules/const-x/MODULE.md"]}, q_pair]),
+            1,
+        ),
+        "a pattern outside the module": (
+            coverage_case(scan, [{**x_pair, "code": [*x_pair["code"], "scripts/**"]}, q_pair]),
+            1,
+        ),
+        "a folder without its pattern": (
+            coverage_case(scan, [{**x_pair, "code": x_pair["code"][2:]}, q_pair], *some),
+            2,
+        ),
+        "a pair with no pattern, docs and a pattern wrong": (
+            coverage_case(scan, [{**x_pair, "code": ["scripts/**"], "docs": []}, q_pair], *some),
+            4,
+        ),
+    }.items():
+        text = str(case.files[DIALS])
+        taught = findings_of(case)
+        for finding in taught:
+            text = follow_coverage_fix(text, finding.render())
+        ok = len(taught) == count and text != case.files[DIALS]
+        ok = ok and findings_of(replace(case, files={**case.files, DIALS: text})) == []
+        failed += 0 if ok else 1
+        print(
+            f"[{'ok' if ok else 'FAIL'}] the fix the coverage hold teaches for {name}, followed to the"
+            " letter, turns it green"
+        )
     with tempfile.TemporaryDirectory() as tmp:  # the green line, with every kit check run
         root = Path(tmp).resolve()
         green_files = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
@@ -2617,8 +3561,10 @@ def self_test() -> int:
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's"
         " modules are the module folders, each named const-<aspect> and by its manifest, listed once in the"
         " marketplace and enabled in the kit's settings, which declare the marketplace, neither list filters"
-        " a runner's items, and every kit check is run by an entry of the gate group — 2 module document(s)"
-        " examined, 1 declared scan(s), 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
+        " a runner's items, every kit check is run by an entry of the gate group, the install guide's"
+        " scan block names exactly the declared scans, and the coverage map of the range check holds one pair"
+        " for each module folder — 2 module document(s) examined, 1 declared scan(s),"
+        " 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
     )
     ok = code == EXIT_GREEN and printed.getvalue().splitlines() == [green_line]
     failed += 0 if ok else 1
@@ -2778,7 +3724,12 @@ def self_test() -> int:
     dials_strays = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
     # six strays, in neither their sorted order nor its reverse (as the marketplace's): a sort holds it
     six = ("const-gone", "const-away", "const-zed", "const-mid", "const-bar", "const-old")
-    dials_strays[DIALS] = {"root_policy": "p", **{key: {} for key in six}, "plc-0001-root-policy": {}}
+    dials_strays[DIALS] = {
+        "root_policy": "p",
+        **{key: {} for key in six},
+        "plc-0001-root-policy": {},
+        TEST_OWNER: dials_strays[DIALS][TEST_OWNER],
+    }
     # a description that is the manifest's with something more, or with something less, differs where the
     # shorter one ends: after its last character, counted from 1
     prefix = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
@@ -2924,7 +3875,7 @@ def self_test() -> int:
     swapped = "".join("".join(block) for block in blocks)
     with tempfile.TemporaryDirectory() as tmp:  # t11 before t10: BROKEN; the fix applied, by number: read
         root = Path(tmp).resolve()
-        build(root, Case({"x": scan}, document=swapped))
+        build(root, Case({"x": scan}, document=swapped, guide=guide_text(GUIDE_X)))
         try:
             check_kit(root)
             before = None
@@ -3054,7 +4005,7 @@ def self_test() -> int:
             root = Path(tmp).resolve()
             build(root, case)
             printed = io.StringIO()
-            with contextlib.redirect_stdout(printed):
+            with contextlib.redirect_stdout(printed), coverage_owner(case.owner or COVERAGE.owner):
                 code = run(root)
         lines = [f"BROKEN: {line}", "BROKEN: the check could not run — 0 module documents examined"]
         ok = code == EXIT_BROKEN and printed.getvalue().splitlines() == lines
@@ -3082,7 +4033,7 @@ def self_test() -> int:
     )
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] PyYAML missing is a BROKEN line with the install command, exit 1")
-    total = len(cases) + len(unreadable) + 29 + 14
+    total = len(cases) + len(unreadable) + 40 + 14
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
@@ -3099,7 +4050,8 @@ def main(argv: list[str]) -> int:
     if not args.self_test:
         return run(KIT)
     try:
-        return self_test()
+        with coverage_owner(TEST_OWNER):
+            return self_test()
     except Broken as broken:
         return broken_report(broken)
 

@@ -228,7 +228,24 @@ def t4() -> tuple[bool, str]:
 
 
 def t5() -> tuple[bool, str]:
-    """Wrappers, assignments, a program path, git's global options: none hides the verb."""
+    """Wrappers, assignments, a program path, git's global options: none hides the verb.
+
+    The cases, once held by the acceptance table of the module document: wrappers, shells,
+    assignments, a program path and the options between a program and its verb hide nothing:
+    `sudo /bin/rm -r`, `git -c k=v push -f`, `FOO=1 timeout 5 git stash drop`, `nohup git
+    filter-repo`, `git gc --prune=now`, `env -i`, `sudo -k`, `sudo --user root`, `/usr/bin/env`,
+    `bash -lc`, `exec`, `exec -a x rm -r y`, `if ...; then`, a redirection `2>&1`.
+
+    Git's options are stepped over by the entry's matching: `-C .`, `-c k=v`, `--no-pager -C .`,
+    `--git-dir .git` and `--git-dir=.git`, `--work-tree w`, `--namespace n`, and `--exec-path`,
+    whose value git's page gives as optional.
+
+    Each wrapper added on 2026-10-05 in the forms of its page: `busybox`, `setsid -f`, `ionice -c3`
+    and `-c 3`, `taskset 0x3` and `-c 0,1`, `caffeinate -t 5`, `flock /tmp/l` and `-w 5 /tmp/l`,
+    `chrt 10` and `-f 10`, and `flock /tmp/l -c '...'`. Each added shell with `-c`, fish's
+    `--command=`, yash's `--cmdline`, mksh's `-T`, and fish's `-C` and `-c` in both orders, both
+    strings read.
+    """
     return all_of(
         asked("sudo /bin/rm -r /tmp/x", d1("", "rm", "-r", "sudo /bin/rm -r /tmp/x")),
         asked(
@@ -302,7 +319,39 @@ def t5() -> tuple[bool, str]:
 
 def t6() -> tuple[bool, str]:
     """What the list leaves out passes and is said so in the install note: a heredoc body, the
-    argument form, an amend, a plain push, a flag after `--`, one file removed."""
+    argument form, an amend, a plain push, a flag after `--`, one file removed.
+
+    The cases, once held by the acceptance table of the module document. Outside the list, passes:
+    a heredoc body, `git checkout -- .`, an amend, a plain push, a flag after `--`, `rm` of one
+    file, `git branch -d`.
+
+    A heredoc marker inside quotes, with or without its terminator line, hides nothing, and the
+    commit forms `-F - <<'EOF'` and `-m "$(cat <<'EOF' ... )"` pass with a listed command in
+    their body. A `$(` inside single quotes is text and a `)` restores an interrupted quote.
+
+    `env -S` as a token, attached, in a cluster, long and with an unbalanced quote in its value,
+    and `bash -o pipefail -c`, `-eo`, `+o posix` and `-O extglob` too, ask. `env -uSHELL` names a
+    variable, not a split, and the command after it asks.
+
+    A cluster whose last letter takes a value, `env -iu SHELL` and `sudo -iu root`, takes the next
+    word, and so does a valued flag of a wrapper, short or long: `env -P`, `-L`, `-U`, `sudo -T`,
+    `-R`, `--command-timeout`, `--chroot`, `doas -a`, `xargs -J`, `-R`, `-S`, `--max-chars`,
+    `--process-slot-var`, `stdbuf --output`. The command after it asks, while a GNU flag whose
+    value is optional, `xargs --max-lines` and `--eof`, takes no word when given bare. `sudo -c`,
+    `-a`, `--login-class` and `--auth-type` are valued, while `sudo --login` and a bare `--` take
+    no word.
+
+    `bash --rcfile f -c`, `--init-file f -c`, `bash -c --` and a quoted `)` inside `$(...)`, the
+    substitution itself inside a string or nested twice, hide nothing. `env -iu SHELL -S '...'`
+    reads the split value after the cluster and its value.
+
+    A word after a shell's strings is an argument and passes: `bash -c 'git status' git push -f`,
+    and the same after fish's `-C` and `-c`. `bash -ce` asks.
+
+    With a consumer entry `[kubectl, delete]`, a word that is neither an option nor an option's
+    value between the entry's words, or a `--`, is no match: `kubectl get pods delete`,
+    `kubectl -n prod get pods` and `kubectl -n prod -- delete pod x` pass.
+    """
     entry = {"command": ["kubectl", "delete"], "teach": "a deleted resource is gone", "alternative": "scale"}
     kubectl = own(destructive=[entry])
     return all_of(
@@ -414,7 +463,26 @@ def t6() -> tuple[bool, str]:
 def t7() -> tuple[bool, str]:
     """The dial: an empty list gates nothing and says so; an own entry with words alone; a short
     flag inside a cluster; a long flag by equality only; an entry's words apart by options; the
-    reader's dials `wrappers` and `shells`, merged with the defaults by command."""
+    reader's dials `wrappers` and `shells`, merged with the defaults by command.
+
+    The cases, once held by the acceptance table of the module document. The dial: an empty list
+    gates nothing and says so; an own entry with words alone; a short flag inside a cluster
+    (`-xdf`); a long flag by equality (`--force-with-lease=main` passes); two entries matching
+    one piece give one hit, the first. An entry written as a base name matches the program by any
+    path, and `[git, -C]` loads.
+
+    Options and their values stand between an entry's words and hide none: `kubectl -n prod
+    delete`, `--context=prod`, `docker --context prod rm`, `terraform -chdir=infra destroy`,
+    `helm -n prod uninstall`, `npx -y prisma migrate reset`, `uv run --with x rm -rf` with the
+    flag `-r`; the false prompt `kubectl -n delete get pods` is pinned as asking.
+
+    The reader's dials: a wrapper added reads through (`uv run --with x`); a default dropped is
+    read as a program, and an entry may name it; a default given again takes the fields as
+    written; a shell added has its string read; a shell dropped passes; empty lists leave the
+    defaults; a collision of a wrapper and a shell is judged on the merged lists; a later word
+    with a `/` loads and reads; a wrapper with a command flag, `nix develop -c`, reads its
+    string.
+    """
     result, _ = gate_on(command(FORCE_PUSH), dials_patch=own(destructive=[]))
     nothing_gated = (  # typed by hand
         f"1 command examined against 0 entries — {NAMESPACE}.destructive is empty, nothing is gated"
@@ -972,7 +1040,33 @@ def unread_commands(*words: list[str]) -> list[dict[str, object]]:
 
 
 def t10() -> tuple[bool, str]:
-    """This module's C5 lines typed by hand, each exit 1."""
+    """This module's C5 lines typed by hand, each exit 1.
+
+    The cases, once held by the acceptance table of the module document: a key that is no dial,
+    `destructive` not a list, an entry not a mapping, an unknown field, a command with a space,
+    flags without `-`, `teach` missing, `handles` empty, a handle that does not compile,
+    `territories` empty, a malformed pair, a `verbosity` outside its one value. The list in its
+    headline is built from the `Verbosity` members, and the fix's "the one value today" is tied
+    to there being one.
+
+    The handle pattern of 102 characters with a backslash is cut at 80 with the compiler's words
+    after it. The pattern of 105 characters with a group name of 100 gives the compiler's words
+    over 80 characters, which stand whole after the cut pattern.
+
+    Entries the reader does not read as themselves: a path, a wrapper, an assignment, `exec`, a
+    wrapper alone, `x/`, `/`, `bash -c x`, and words that need echoing.
+
+    The lines of the dials `wrappers` and `shells`: a wrong shape of the list or of an entry, an
+    unknown field, a bad `command` in each dial, a first word that is a shell word or an
+    assignment in each, an option in both fields, a shell with no command flag, each fault of an
+    option, a count, `drop` in each of its three misuses and for no default, one command twice, a
+    word in both dials judged on the merged lists, a wrapper by its first word, `destructive`
+    read through the lists given, the reader's dials read before `destructive`.
+
+    The default entries read through the lists, with the key absent, are refused where a wrapper
+    takes the first word of one. A bad `wrappers` list is refused with one first line at every
+    entry point: the hook, the command scan, the list scan and the session start.
+    """
     prefix = "BROKEN: constitution.yaml: "
     try:  # the compiler's own words come from `re` itself, never from the code under test
         re.compile("(?P=" + "a" * 100 + ")")
@@ -1294,7 +1388,32 @@ def t12() -> tuple[bool, str]:
 
 
 def t13() -> tuple[bool, str]:
-    """The tokeniser's readings, each typed by hand."""
+    """The tokeniser's readings, each typed by hand.
+
+    The cases, once held by the acceptance table of the module document: every operator, a quoted
+    operator, backticks, `env -i FOO=1 nice -n 5`, a quoted verb, `--git-dir=`, `sh -c` and what
+    follows it, an unbalanced quote, a bare subshell, `sudo -u`, a continuation line, `&>`, a
+    brace group, an assignment alone.
+
+    75 readings in all, among them git's options kept in the words, `exec -a x`, each wrapper
+    added on 2026-10-05 read to its command, `flock -c` before and after the lock file, each
+    added shell with its string, a shell's strings (`-ce`, `-cl`, `-ec`, `-oc posix`,
+    `-oe pipefail -c` in bash, `-oerrexit -c` in zsh and `-opipefail -c` in ksh, `-c -e`,
+    `-c --`, arguments after the string, a script file with `-c` after it), fish's `-C` and `-c`
+    in both orders and with a flag that waits, and `--` ending the options of a wrapper and of a
+    shell.
+
+    A table typed by hand, never derived from the code, pins 151 readings: every default wrapper
+    name, every valued flag of every wrapper, every default shell and every option of a shell
+    that takes a value, each read to `rm -rf b`.
+
+    14 readings on lists of their own hold the fields no default uses: a wrapper of two words,
+    `numbers`, a command flag after a positional word, a shell's long command flag.
+
+    11 readings of an entry's own words: `[git, -C]` and `[deploy.sh]` read as themselves, while a
+    path, a wrapper, an assignment, `exec`, a wrapper alone, `x/` and a string handed on do not.
+    Each of the fourteen default entries reads as itself.
+    """
     readings = {
         "git -C . push --force origin main": [("git", "-C", ".", "push", "--force", "origin", "main")],
         "a && b || c; d | e |& f & g\nh": [("a",), ("b",), ("c",), ("d",), ("e",), ("f",), ("g",), ("h",)],

@@ -126,14 +126,14 @@ const-referencing:                    # the kit's own reference forms (requireme
       fix: '[requirement A5.3](<path to>/docs/requirements.md#a5-3)'
       home:
         - "/docs/requirements.md"
-    - pattern: '§ ?[0-9]'
+    - pattern: '§ ?[1-7](?![0-9])'
       names: a kernel section
       fix: '[kernel §4](<path to>/kernel/CONVENTIONS.md#k4)'
       home:
         - "/kernel/CONVENTIONS.md"
     - pattern: '(?i)\blaws? [0-9]'
       names: a law
-      fix: '[law 4 of CLAUDE.md](<path to>/CLAUDE.md#law-4)'
+      fix: '[law <n> of CLAUDE.md](<path to>/CLAUDE.md#law-<n>) — <n> is the number of the law cited'
       home:
         - "/CLAUDE.md"
   mentions:                           # a catalogued item named in a script or a configuration file must exist: no link checker reads those
@@ -224,6 +224,7 @@ const-task-close:                     # task close as one act: a change that tou
     - name: const-styling
       code:
         - "modules/const-styling/scripts/**"
+        - "modules/const-styling/hooks/**"
         - "modules/const-styling/skills/**"
         - "modules/const-styling/tests/**"
       docs:
@@ -761,13 +762,24 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-09-14
         to: 2026-09-29
+    # shared-code, 2026-10-12: raised from 49,000 to 75,000 after the shortening of the page to 74,048 characters,
+    # the shortened size rounded up to the next thousand, which leaves 952 characters of room (piece B10 of the G14 brief of the
+    # hardcode audit; the decider's pick Q5 (B10) A of 2026-10-12, "shorten what is reasonable. raise the ceiling
+    # after"; record dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds, R9). The reason: the page's
+    # ruling text with its message texts exceeds the old ceiling by the inventory's estimate, 58,500 to 61,000
+    # characters: 177 ruling sentences, 126 of them homed by 24 records and 51 facts, definitions and limits of the
+    # page's own, and 10,573 characters of message texts kept word for word (rule 1 of plc-0009-shared-code). The
+    # shortening cut, shortened or named by symbol every passage that carries no ruling, and kept every ruling,
+    # message text, anchor and handle. The number is not the window's longest plus 10 %: the window's longest is the
+    # size before the shortening, 84,515, which would give about 93,000, so the number is the shortened size with
+    # room; the window runs to the day of the measure; the level stays warning.
     - name: shared-code
       paths: *shared_code
-      max: 49000
+      max: 75000
       level: warning
       window:
         from: 2026-09-14
-        to: 2026-09-29
+        to: 2026-10-12
     - name: style-guide
       paths: *style
       max: 11000

@@ -174,7 +174,7 @@ The gate validates the two dials it reads at each read, and a key of this namesp
 <a id="t10"></a>
 ## 10. Acceptance
 
-Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries), 70 items green. It builds the shared three-policy consumer in a temporary git repository, fresh for every half of every case, and drives the real entry point — POSIX wrapper, stdin, exit code — with real `PreToolUse` events. A red→green case fails when its red half does not exit 2, when red does not teach the expected message — all three lines, compared with what the `messages` function returns — or prints any `RED` line but that finding's headline and the count line, or when green still fails. Verification kinds: `fixture` (the shared consumer in a temp repository), `live` (the kit as consumer zero, or a consumer project), `review` (the human, at the one yes).
+Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries), 77 items green. It builds the shared three-policy consumer in a temporary git repository, fresh for every half of every case, and drives the real entry point — POSIX wrapper, stdin, exit code — with real `PreToolUse` events. A red→green case fails when its red half does not exit 2, when red does not teach the expected message — all three lines, compared with what the `messages` function returns — or prints any `RED` line but that finding's headline and the count line, or when green still fails. Verification kinds: `fixture` (the shared consumer in a temp repository), `live` (the kit as consumer zero, or a consumer project), `review` (the human, at the one yes).
 
 | item | kind | rows | what it proves |
 |---|---|---|---|
