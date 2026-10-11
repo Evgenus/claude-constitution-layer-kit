@@ -33,14 +33,24 @@ findings and the scan reports them all. Four rules are read:
                     cell of each row; the live, review and kit-check items may continue the fixture
                     items' numbering under T, so those are one kind. Finding: a prefix that two kinds
                     of one document use. The prefixes the document uses are compared, never the
-                    letters a policy reserves; bare numbers have no prefix, and the advisory rules'
-                    `T-a` form is another prefix and not read.
+                    letters a policy reserves; bare numbers have no prefix, a path in a cell
+                    (`hooks/V1.json`) holds no handle, and the advisory rules' `T-a` form is another
+                    prefix and not read. The fix names the kind that moves: rule 8 fixes E for the
+                    enforcement rows and T, S, L or V for the acceptance items, and the message keys
+                    are the module's own (its messages.py). The kind that moves is the one that uses
+                    a prefix rule 8 gives to another kind; where rule 8 gives the prefix to none of
+                    the kinds that use it, each kind it fixes moves; the message keys move only when
+                    rule 8 gives the prefix to the other kind. The fix names what applies to that
+                    pair alone.
 
   table keys        from the record that brought the sentence of rule 10 of plc-0004-decision-records
                     (number 39), handles are unique in a record, tables included. Finding: in a
-                    record numbered 39 or above, a table row whose first cell is `R<n>`, bold or not,
-                    a full stop after it allowed, outside fenced code and before the "Carry list"
-                    section. An earlier record is not read.
+                    record numbered 39 or above, a table row whose first cell has the form of a ruling
+                    handle: its first handle is `R<n>`, in bold or in a code span, alone, in a range
+                    (`R2–R3`, `R2-R3`), in a list (`R4, R5`) or followed by other words (`R7 (x)`),
+                    outside fenced code and before the "Carry list" section. A first cell that writes
+                    the handle as a key of another document stays: `R1 of the module`, or a handle
+                    after "message", "key" or "row". An earlier record is not read.
 
 Not read: the research comparisons (docs/research/), which keep the form they were frozen with
 (rule 7 of plc-0005-research); and in every other document the "Carry list" section of a record,
@@ -110,14 +120,23 @@ KEY = r"[A-Z]+\d+[A-Za-z0-9]*(?:\.[A-Za-z0-9]+)*"  # a message key: C11, C5.a, C
 KEY_FULL = re.compile(KEY)
 KEY_IN_CELL = re.compile(rf"(?<![\w.]){KEY}")
 FAMILY = re.compile(r"[A-Z]+\d+")  # the letters and the first number of a key
-HANDLE_IN_CELL = re.compile(r"(?<![\w.])([A-Z]+)\d+")  # a handle of a table's first cell: T1, S101, L1b
+# a handle of a table's first cell: T1, S101, L1b, bold or not; the part of a path (hooks/V1.json) is none
+HANDLE_IN_CELL = re.compile(r"(?<![\w./])([A-Z]+)\d+")
 KIND_MESSAGE = "message keys"
 KIND_ENFORCEMENT = "enforcement rows"
 KIND_ACCEPTANCE = "acceptance items"  # fixture, live, review and kit-check items alike: they may share T
+# the prefixes rule 8 of plc-0006-module-documents fixes for a kind; the message keys are the module's own
+FIXED_PREFIXES: dict[str, tuple[str, ...]] = {
+    KIND_ENFORCEMENT: ("E",),
+    KIND_ACCEPTANCE: ("T", "S", "L", "V"),
+}
+COUNT_WORDS = {2: "two", 3: "three"}
 RECORD_NUMBER = re.compile(r"(?:^|/)dec-(\d{4})-[^/#?]*\.md$")
 UNIQUE_FROM = 39  # the record that brought the sentence of rule 10 of plc-0004-decision-records:
 # handles run in order, contiguous and unique in the record, tables included
-TABLE_RULING = re.compile(r"R\d+")  # a table row's first cell without its bold marks and full stop
+# the first handle of a table row's first cell, its bold marks and backticks taken off: R3, R2–R3, R7 (x)
+CELL_HANDLE = re.compile(r"(?<![\w./])([A-Z]+)(\d+)(?![A-Za-z0-9]|\.[A-Za-z]|/)")
+OF_AFTER = re.compile(r"[ \t]+of\b")  # "R1 of the module": a key of another document
 WHY = (
     "a link to the ruling's own anchor takes a reader to the ruling in one click, and a record moved"
     " by the mover is repaired in every link (rule 2 of plc-0004-decision-records)"
@@ -456,7 +475,7 @@ def module_message_keys(document: Document, context: Context) -> list[Finding]:
 def handle_prefixes(cell: str) -> list[tuple[str, str]]:
     """The handles of one cell, each as (prefix, handle): the capital letters before a number, so that
     the cell `T1–T4, T7` gives T1, T4 and T7, and a bare number none."""
-    return [(found[1], found[0]) for found in HANDLE_IN_CELL.finditer(cell.replace("*", ""))]
+    return [(found[1], found[0]) for found in HANDLE_IN_CELL.finditer(cell)]
 
 
 def prefix_kinds(document: Document) -> dict[str, dict[str, tuple[int, str]]]:
@@ -489,22 +508,43 @@ def module_handle_prefixes(document: Document, context: Context) -> list[Finding
     for prefix, kinds in prefix_kinds(document).items():
         if len(kinds) < 2:
             continue
-        (first, (first_line, first_handle)), (second, (line, handle)) = sorted(
-            kinds.items(), key=lambda item: item[1][0]
-        )[:2]
+        stands = sorted(kinds.items(), key=lambda item: item[1][0])
+        named = [f"the {kind} ({handle}, line {at})" for kind, (at, handle) in stands]
+        owners = [kind for kind in kinds if prefix in FIXED_PREFIXES.get(kind, ())]
+        movers = [kind for kind, _ in stands if kind not in owners and (owners or kind in FIXED_PREFIXES)]
+        line = min(kinds[kind][0] for kind in movers)
         findings.append(
             Finding(
                 document.path,
                 line,
-                f'the prefix "{prefix}" names two kinds of handle in this document: the {first}'
-                f" ({first_handle}, line {first_line}) and the {second} ({handle}, line {line})",
-                f"give the {second} a prefix that this document uses for no other kind, in their table and"
-                " in every citation of them together (the acceptance items take T, S, L or V, and V where L"
-                " is the module's message prefix)",
+                f'the prefix "{prefix}" names {COUNT_WORDS[len(kinds)]} kinds of handle in this document: '
+                + ", ".join(named[:-1])
+                + " and "
+                + named[-1],
+                "; and ".join(move_fix(kind, prefix) for kind in movers),
                 PREFIX_WHY,
             )
         )
     return sorted(findings, key=lambda f: f.line)
+
+
+def move_fix(kind: str, prefix: str) -> str:
+    """The fix for the kind that moves off a prefix: rule 8 of plc-0006-module-documents fixes the letters
+    of the enforcement rows and the acceptance items, and the message keys are the module's own."""
+    if kind == KIND_MESSAGE:
+        return (
+            f"rename the message keys that begin with {prefix} to a prefix that this document uses for no"
+            " other kind, in the module's messages.py, in its tests and in the table of its section 6"
+            " together"
+        )
+    letters = FIXED_PREFIXES[kind]
+    gives = (
+        f"the prefix {letters[0]}, which rule 8 of plc-0006-module-documents fixes for them"
+        if len(letters) == 1
+        else f"one of the prefixes {', '.join(letters[:-1])} or {letters[-1]}, which rule 8 of"
+        " plc-0006-module-documents fixes for them, the one that this document uses for no other kind"
+    )
+    return f"give the {kind} {gives}, in their table and in every citation of them together"
 
 
 def record_table_keys(document: Document, context: Context) -> list[Finding]:
@@ -515,24 +555,40 @@ def record_table_keys(document: Document, context: Context) -> list[Finding]:
     if numbered is None or int(numbered[1]) < UNIQUE_FROM:
         return []
     findings: list[Finding] = []
+    written = document.text.split("\n")
     for number, line in enumerate(document.masked.split("\n"), start=1):
-        stripped = line.strip()
-        if not stripped.startswith("|") or SEPARATOR.fullmatch(stripped):
+        if not line.strip().startswith("|"):  # a fenced block, the carry list, a comment: blanked
             continue
-        first = cells(stripped)[0] if cells(stripped) else ""
-        if TABLE_RULING.fullmatch(first.replace("*", "").rstrip(".")):
+        row = written[number - 1].strip()  # the unmasked line, since a code span is a first cell too
+        if SEPARATOR.fullmatch(row) or not cells(row):
+            continue
+        key = cells(row)[0].replace("*", "").replace("`", "")
+        handle = ruling_handle(key)
+        if handle:
             findings.append(
                 Finding(
                     document.path,
                     number,
-                    f'a table row opens with the key "{first}", which is the handle of a ruling of this'
-                    " record too",
-                    f'key the rows of this table with another letter, e.g. "K" for "R", so that "{first}"'
+                    f'a table row opens with "{key}", which has the form of a ruling handle of this record',
+                    f'key the rows of this table with another letter, e.g. "K" for "R", so that "{handle}"'
                     " names a ruling alone",
                     TABLE_WHY,
                 )
             )
     return findings
+
+
+def ruling_handle(key: str) -> str | None:
+    """The ruling handle a table row's first cell opens with, bold marks and backticks already taken off:
+    its first handle, when that is R<n> and the cell does not write it as a key of another document,
+    "R1 of the module", or after the word "message", "key" or "row"."""
+    found = CELL_HANDLE.search(key)
+    if found is None or found[1] != "R":
+        return None
+    word = WORD_BEFORE.search(key, 0, found.start())
+    if (word is not None and word[1].lower() in QUALIFIERS) or OF_AFTER.match(key, found.end()):
+        return None
+    return found[0]
 
 
 RULES: tuple[Rule, ...] = (
@@ -916,22 +972,42 @@ def self_test() -> int:
         "a message key L1 and a live item L1": (
             {"rows": "| X1 | a |\n", "items": bare + "| V1 | live | none | a |\n"},
             {"rows": "| L1 | a |\n", "items": bare + "| L1 | live | none | a |\n"},
-            (25,),
+            (6,),
         ),
         "a message key E1 and an enforcement row E1": (
             {"rows": "| X1 | a |\n"},
             {"rows": "| E1 | a |\n"},
-            (17,),
+            (6,),
         ),
         "a message key T1 and a fixture item T1": (
             {"rows": "| X1 | a |\n", "items": "| T1 | fixture | none | a |\n"},
             {"rows": "| T1 | a |\n", "items": "| T1 | fixture | none | a |\n"},
-            (24,),
+            (6,),
         ),
         "a bold message key V2 and a live range V1–V3": (
             {"rows": "| **X2** | a |\n", "items": "| V1–V3 | live | none | a |\n"},
             {"rows": "| **V2** | a |\n", "items": "| V1–V3 | live | none | a |\n"},
+            (6,),
+        ),
+        "an acceptance item E1 and an enforcement row E1": (
+            {"items": "| T1 | fixture | none | a |\n"},
+            {"items": "| E1 | fixture | none | a |\n"},
             (24,),
+        ),
+        "an enforcement row X1 and a message key X1": (
+            {"rows": "| X1 | a |\n"},
+            {"rows": "| X1 | a |\n", "enforcement": "| X1 | a |\n"},
+            (17,),
+        ),
+        "an enforcement row X5 and an item X5, neither of E, T, S, L or V": (
+            {"items": "| T1 | fixture | none | a |\n"},
+            {"enforcement": "| X5 | a |\n", "items": "| X5 | fixture | none | a |\n"},
+            (17,),
+        ),
+        "a message key E1, an enforcement row E1 and an item E1": (
+            {"rows": "| X1 | a |\n", "items": "| T1 | fixture | none | a |\n"},
+            {"rows": "| E1 | a |\n", "items": "| E1 | fixture | none | a |\n"},
+            (6,),
         ),
         "a sub-key C5.a and an item C1": (
             {"rows": "| C5.a | a |\n", "items": "| T1 | fixture | none | a |\n"},
@@ -949,7 +1025,7 @@ def self_test() -> int:
                 "enforcement": "| S1 | a |\n",
                 "items": "| S101 | fixture | none | a |\n",
             },
-            (24,),
+            (17,),
         ),
     }
     kinds_green: dict[str, dict[str, str]] = {  # case: the arguments of module_doc
@@ -975,6 +1051,98 @@ def self_test() -> int:
             "items": "| T1 | fixture | L1 | E1 |\n",
         },
         "a handle after the table of its section": {"after": "| L1 | a |\n| E1 | a |\n"},
+        "a path in the first cell of an item, hooks/L1.json": {
+            "rows": "| L1 | a |\n",
+            "items": "| `hooks/L1.json` | fixture | none | a |\n",
+        },
+        "bold handles of two kinds, L1 and T1": {
+            "rows": "| **L1** | a |\n",
+            "items": "| **T1–T4** | fixture | none | a |\n",
+        },
+    }
+    prefix_pairs: dict[str, tuple[dict[str, str], tuple[str, str, str]]] = {
+        # case: the arguments of module_doc, and the lines by hand of the report with one finding: the
+        # finding's first line, its fix line and the last line; the pair decides which kind moves
+        "a message key against an enforcement row: the message key moves": (
+            {"rows": "| E1 | a |\n"},
+            (
+                'RED: modules/const-x/MODULE.md:6: the prefix "E" names two kinds of handle in this document:'
+                " the message keys (E1, line 6) and the enforcement rows (E1, line 17)",
+                "  fix: rename the message keys that begin with E to a prefix that this document uses for no"
+                " other kind, in the module's messages.py, in its tests and in the table of its section 6"
+                " together",
+                "RED: 1 finding(s) — 4 document(s) examined",
+            ),
+        ),
+        "an enforcement row against an item of S: the enforcement row moves": (
+            {"enforcement": "| S1 | a |\n", "items": "| S101 | fixture | none | a |\n"},
+            (
+                'RED: modules/const-x/MODULE.md:17: the prefix "S" names two kinds of handle in this'
+                " document: the enforcement rows (S1, line 17) and the acceptance items (S101, line 24)",
+                "  fix: give the enforcement rows the prefix E, which rule 8 of plc-0006-module-documents"
+                " fixes for them, in their table and in every citation of them together",
+                "RED: 1 finding(s) — 4 document(s) examined",
+            ),
+        ),
+        "an enforcement row against an item of E: the item moves": (
+            {"items": "| E1 | fixture | none | a |\n"},
+            (
+                'RED: modules/const-x/MODULE.md:24: the prefix "E" names two kinds of handle in this'
+                " document: the enforcement rows (E1, line 17) and the acceptance items (E1, line 24)",
+                "  fix: give the acceptance items one of the prefixes T, S, L or V, which rule 8 of"
+                " plc-0006-module-documents fixes for them, the one that this document uses for no other"
+                " kind, in their table and in every citation of them together",
+                "RED: 1 finding(s) — 4 document(s) examined",
+            ),
+        ),
+        "a message key against an item of C, no kind owning it: the item moves": (
+            {"rows": "| C5.a | a |\n", "items": "| C1 | review | none | a |\n"},
+            (
+                'RED: modules/const-x/MODULE.md:24: the prefix "C" names two kinds of handle in this'
+                " document: the message keys (C5, line 6) and the acceptance items (C1, line 24)",
+                "  fix: give the acceptance items one of the prefixes T, S, L or V, which rule 8 of"
+                " plc-0006-module-documents fixes for them, the one that this document uses for no other"
+                " kind, in their table and in every citation of them together",
+                "RED: 1 finding(s) — 4 document(s) examined",
+            ),
+        ),
+        "a message key against an enforcement row of X, no kind owning it: the enforcement row moves": (
+            {"enforcement": "| X1 | a |\n"},
+            (
+                'RED: modules/const-x/MODULE.md:17: the prefix "X" names two kinds of handle in this'
+                " document: the message keys (X1, line 6) and the enforcement rows (X1, line 17)",
+                "  fix: give the enforcement rows the prefix E, which rule 8 of plc-0006-module-documents"
+                " fixes for them, in their table and in every citation of them together",
+                "RED: 1 finding(s) — 4 document(s) examined",
+            ),
+        ),
+        "an enforcement row against an item, both of X: both move": (
+            {"enforcement": "| X5 | a |\n", "items": "| X5 | fixture | none | a |\n", "rows": "| Y1 | a |\n"},
+            (
+                'RED: modules/const-x/MODULE.md:17: the prefix "X" names two kinds of handle in this'
+                " document: the enforcement rows (X5, line 17) and the acceptance items (X5, line 24)",
+                "  fix: give the enforcement rows the prefix E, which rule 8 of plc-0006-module-documents"
+                " fixes for them, in their table and in every citation of them together; and give the"
+                " acceptance items one of the prefixes T, S, L or V, which rule 8 of"
+                " plc-0006-module-documents fixes for them, the one that this document uses for no other"
+                " kind, in their table and in every citation of them together",
+                "RED: 1 finding(s) — 4 document(s) examined",
+            ),
+        ),
+        "a message key, an enforcement row and an item, all of E: the key and the item move": (
+            {"rows": "| E1 | a |\n", "items": "| E1 | fixture | none | a |\n"},
+            (
+                'RED: modules/const-x/MODULE.md:6: the prefix "E" names three kinds of handle in this'
+                " document: the message keys (E1, line 6), the enforcement rows (E1, line 17) and the"
+                " acceptance items (E1, line 24)",
+                "  fix: rename the message keys that begin with E to a prefix that this document uses for no"
+                " other kind, in the module's messages.py, in its tests and in the table of its section 6"
+                " together; and give the acceptance items one of the prefixes T, S, L or V, which rule 8 of"
+                " plc-0006-module-documents fixes for them, the one that this document uses for no other"
+                " kind, in their table and in every citation of them together",
+                "RED: 1 finding(s) — 4 document(s) examined",
+            ),
+        ),
     }
     keys_broken: dict[str, tuple[str | None, str, str]] = {  # case: shared text, rows, start
         "the shared document missing": (
@@ -1027,7 +1195,7 @@ def self_test() -> int:
         ),
         "a module document without its anchor t10": (
             module_doc().replace('<a id="t10"></a>\n', ""),
-            'BROKEN: modules/const-x/MODULE.md has no anchor <a id="t10"></a> after <a id="t9"></a>',
+            'BROKEN: modules/const-x/MODULE.md has no anchor <a id="t10"></a>',
         ),
     }
 
@@ -1056,6 +1224,50 @@ def self_test() -> int:
             rulings + "| K1 | a |\n| R2 | b |\n",
             (8,),
         ),
+        "a row key R1 in a code span": (40, rulings + "| K1 | a |\n", rulings + "| `R1` | a |\n", (7,)),
+        "a row key R1 in a bold code span": (
+            40,
+            rulings + "| K1 | a |\n",
+            rulings + "| **`R1`** | a |\n",
+            (7,),
+        ),
+        "a row key range R2–R3 with an en dash": (
+            40,
+            rulings + "| K2–K3 | a |\n",
+            rulings + "| R2–R3 | a |\n",
+            (7,),
+        ),
+        "a row key range R2-R3 with a hyphen": (
+            40,
+            rulings + "| K2-K3 | a |\n",
+            rulings + "| R2-R3 | a |\n",
+            (7,),
+        ),
+        "a row key range in a code span, R2–R3": (
+            40,
+            rulings + "| K2–K3 | a |\n",
+            rulings + "| `R2–R3` | a |\n",
+            (7,),
+        ),
+        "a row key list R4, R5": (40, rulings + "| K4, K5 | a |\n", rulings + "| R4, R5 | a |\n", (7,)),
+        "a row key list in a code span, R4, R5": (
+            40,
+            rulings + "| K4, K5 | a |\n",
+            rulings + "| `R4, R5` | a |\n",
+            (7,),
+        ),
+        "a row key R7 followed by other words": (
+            40,
+            rulings + "| K7 (x) | a |\n",
+            rulings + "| R7 (x) | a |\n",
+            (7,),
+        ),
+        "a row key R7 after other words, not a qualifier": (
+            40,
+            rulings + "| the K7 row | a |\n",
+            rulings + "| the R7 row | a |\n",
+            (7,),
+        ),
         "a row R1 in a table after the section Carry list ends": (
             42,
             after_carry + "| K1 | a |\n",
@@ -1068,9 +1280,34 @@ def self_test() -> int:
         "a document that is no record": ("docs/policies/p.md", rulings + "| R1 | a |\n"),
         "the section Carry list": (record_at(39), "## Carry list\n\n| key | what |\n|---|---|\n| R1 | a |\n"),
         "a fenced block": (record_at(39), "```\n| R1 | a |\n```\n"),
-        "a code span": (record_at(39), rulings + "| `R1` | a |\n"),
+        "a code span in a fenced block": (record_at(39), "```\n| `R1` | a |\n```\n"),
+        "a code span in the section Carry list": (
+            record_at(39),
+            "## Carry list\n\n| key | what |\n|---|---|\n| `R1` | a |\n",
+        ),
         "a later cell": (record_at(39), rulings + "| K1 | R1 |\n"),
-        "a key qualified by its kind": (record_at(39), rulings + "| R1 of the module | a |\n"),
+        "a first cell whose first handle is no ruling's, K1, R1": (
+            record_at(39),
+            rulings + "| K1, R1 | a |\n",
+        ),
+        "a first handle of another document, R1 of the module": (
+            record_at(39),
+            rulings + "| R1 of the module | a |\n",
+        ),
+        "a first handle of another document, in a code span": (
+            record_at(39),
+            rulings + "| `R1` of the module | a |\n",
+        ),
+        "a handle after the word message": (record_at(39), rulings + "| message R1 | a |\n"),
+        "a handle after the word key": (record_at(39), rulings + "| the key R1 | a |\n"),
+        "a handle after the word row": (record_at(39), rulings + "| **row R1** | a |\n"),
+        "a path with a handle in its name, hooks/R1.json": (
+            record_at(39),
+            rulings + "| hooks/R1.json | a |\n",
+        ),
+        "a file name that opens with a handle, R1.json": (record_at(39), rulings + "| `R1.json` | a |\n"),
+        "a handle with a suffix letter, R1b": (record_at(39), rulings + "| R1b | a |\n"),
+        "a cell with no handle": (record_at(39), rulings + "| the rule | a |\n"),
         "a ruling outside a table": (record_at(39), "1. **R1.** A rule.\n\nR1 stands.\n"),
     }
 
@@ -1181,6 +1418,22 @@ def self_test() -> int:
             write(root, gate_path, shared_lines)
             write(root, module_path, module_doc(**args))
             judge(not check_kit(root)[0], f"{name} is not a finding")
+    for name, (args, expected_lines) in prefix_pairs.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, gate_path, shared_lines)
+            write(root, module_path, module_doc(**args))
+            printed = io.StringIO()
+            with contextlib.redirect_stdout(printed):
+                code = report(*check_kit(root))
+        got = printed.getvalue().splitlines()
+        judge(
+            code == EXIT_RED
+            and len(got) == len(expected_lines) + 1
+            and (got[0], got[2], got[3]) == expected_lines,
+            f"the report of a prefix of several kinds, {name}, has its literal first and fix lines, exit 2",
+        )
     for name, (text, start) in sections_broken.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1225,16 +1478,16 @@ def self_test() -> int:
         code == EXIT_RED
         and printed.getvalue().splitlines()
         == [
-            'RED: modules/const-x/MODULE.md:25: the prefix "L" names two kinds of handle in this document:'
+            'RED: modules/const-x/MODULE.md:6: the prefix "L" names two kinds of handle in this document:'
             " the message keys (L1, line 6) and the acceptance items (L1, line 25)",
             "  why: one prefix names one kind of handle in a document, so a reader who meets L1 or T3 knows"
             " at once which table to open (rule 8 of plc-0006-module-documents)",
-            "  fix: give the acceptance items a prefix that this document uses for no other kind, in their"
-            " table and in every citation of them together (the acceptance items take T, S, L or V, and V"
-            " where L is the module's message prefix)",
+            "  fix: rename the message keys that begin with L to a prefix that this document uses for no"
+            " other kind, in the module's messages.py, in its tests and in the table of its section 6"
+            " together",
             "RED: 1 finding(s) — 4 document(s) examined",
         ],
-        "the report of one finding, a prefix of two kinds, is its literal text, exit 2",
+        "the report of one finding, a message key and a live item of L, is its literal text, exit 2",
     )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
@@ -1247,8 +1500,8 @@ def self_test() -> int:
         code == EXIT_RED
         and printed.getvalue().splitlines()
         == [
-            f'RED: {record_at(39)}:7: a table row opens with the key "R1", which is the handle of a ruling of'
-            " this record too",
+            f'RED: {record_at(39)}:7: a table row opens with "R1", which has the form of a ruling handle of'
+            " this record",
             "  why: a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a"
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: key the rows of this table with another letter, e.g. "K" for "R", so that "R1" names a'
@@ -1256,6 +1509,27 @@ def self_test() -> int:
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
         "the report of one finding, a table row keyed as a ruling, is its literal text, exit 2",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        fresh(root)
+        write(root, record_at(39), rulings + "| **`R2–R3`** | a |\n")
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = report(*check_kit(root))
+    judge(
+        code == EXIT_RED
+        and printed.getvalue().splitlines()
+        == [
+            f'RED: {record_at(39)}:7: a table row opens with "R2–R3", which has the form of a ruling handle'
+            " of this record",
+            "  why: a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a"
+            " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
+            '  fix: key the rows of this table with another letter, e.g. "K" for "R", so that "R2" names a'
+            " ruling alone",
+            "RED: 1 finding(s) — 3 document(s) examined",
+        ],
+        "the report of one finding, a bold range in a code span, quotes the key without its marks, exit 2",
     )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
