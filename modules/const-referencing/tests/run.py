@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -448,12 +449,39 @@ def _ignored_by_git() -> list[tuple[bool, str]]:
     tracked = H.fresh_consumer(setup=(Write(IGNORED, note("# F\n", "note-t")),))
     tracked.write(".gitignore", ignore[".gitignore"])  # after the commit: the file stays tracked, now matched
     kept = H.run_gate(event_json(tracked.root, wrote("# F\n", IGNORED)))
+    # The calls: a file git lists costs no `check-ignore` in the repository, a new file the territories hold
+    # one (the matcher's own calls carry `--no-index`; the fixture sets no log_dir, so none is the log's)
+    listed_calls = _repository_check_ignores(event_json(tracked.root, wrote("# F\n", IGNORED)))
+    new_root = H.fresh_consumer().root
+    new_root.joinpath(".gitignore").write_text(ignore[".gitignore"], encoding="utf-8")
+    new_calls = _repository_check_ignores(event_json(new_root, wrote("# F\n", IGNORED)))
     return [
+        (
+            listed_calls == 0 and new_calls == 1,
+            f"repository check-ignore calls: {listed_calls} for a listed file, {new_calls} for a new one",
+        ),
         expect(before, 0, skip, "stdout"),
         expect(after, 0, skip, "stdout"),
         expect(new, 0, messages.g1_covered(), "stdout"),
         expect(kept, 0, messages.g1_covered(), "stdout"),
     ]
+
+
+def _repository_check_ignores(event: str) -> int:
+    """The `git check-ignore` calls without `--no-index` one hook run makes: a fake git first on PATH logs
+    the arguments of each call to a file and hands the call to the real git."""
+    real = shutil.which("git")
+    assert real is not None
+    directory = H.scratch_dir()
+    log = directory / "git.log"
+    fake = directory / "git"
+    fake.write_text(
+        f'#!/bin/sh\necho "$*" >> {shlex.quote(str(log))}\nexec {shlex.quote(real)} "$@"\n', encoding="utf-8"
+    )
+    fake.chmod(0o755)
+    H.run_gate(event, env={"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)})
+    lines = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+    return sum("check-ignore" in line and "--no-index" not in line for line in lines)
 
 
 def scan_reports_all() -> tuple[bool, str]:
