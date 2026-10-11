@@ -1111,18 +1111,18 @@ def self_test() -> int:
 
     breaks = "break their run at R{}, where R{} is due"
     orders = {  # case: the number of the record, the handles in document order, a fence, the break wanted
-        "R1, R3 in a record numbered 39 is red, a gap": (IN_ORDER, [1, 3], "", breaks.format(3, 2)),
-        "R2, R1 in a record numbered 39 is red, out of order": (IN_ORDER, [2, 1], "", breaks.format(2, 1)),
+        "R1, R3 in a record numbered 39 is red, a gap": (39, [1, 3], "", breaks.format(3, 2)),
+        "R2, R1 in a record numbered 39 is red, out of order": (39, [2, 1], "", breaks.format(2, 1)),
         "R2, R3 in a record numbered 39 is red, a run that starts late": (
-            IN_ORDER,
+            39,
             [2, 3],
             "",
             breaks.format(2, 1),
         ),
-        "R2, R1 in a record numbered 38 is green": (IN_ORDER - 1, [2, 1], "", None),
-        "R1, R2 in a record numbered 39 is green": (IN_ORDER, [1, 2], "", None),
+        "R2, R1 in a record numbered 38 is green": (38, [2, 1], "", None),
+        "R1, R2 in a record numbered 39 is green": (39, [1, 2], "", None),
         "R1, R2 in a record numbered 39, a handle in a fenced block after them, is green": (
-            IN_ORDER,
+            39,
             [1, 2],
             "\n```\n**R7.** an example\n```\n",
             None,
@@ -1728,6 +1728,7 @@ def self_test() -> int:
         + len(receipts)
         + len(scopes)
         + len(unscopable)
+        + len(orders)
         + 3
         + extra
     )
