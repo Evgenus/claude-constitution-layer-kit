@@ -36,10 +36,12 @@ any, a `claude` of another version included, is reported as such, never skipped.
 run was made with it, and keep the note that ends each headline line.
 
 When the message asks, run the extra group too, `sh scripts/gate-list.sh --names extra`: the
-branch gate's fixture, the fixture of `scripts/setup-claude.sh`, each module's fixture runner (it writes temporary repositories in the
-system's temporary directory, never in the kit), the lint and the type commands. And, only when
-asked, `python3 scripts/check-aspects.py --run`, the per-row report, which runs every module's
-runner.
+branch gate's fixture, the fixture of `scripts/setup-claude.sh`, each module's fixtures — its runner, run through
+`python3 scripts/check-aspects.py --run --module <module>`, which also holds the runner's items against the module's
+acceptance table (the runner writes temporary repositories in the system's temporary directory, never in the kit) —
+the lint and the type commands. And, only when
+asked, `python3 scripts/check-aspects.py --run`, the per-row report over the whole matrix, which runs
+every module's runner — a second time when the extra group ran too.
 
 Run each entry on its own, capture its exit code and its whole output, and never chain one
 into another. A command that cannot start — a missing interpreter, a missing file — is reported
