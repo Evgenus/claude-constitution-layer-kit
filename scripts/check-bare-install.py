@@ -1546,7 +1546,9 @@ def self_test() -> int:
                 f"{handed} {found}",
             )
             # The shapes of a hooks file `hooks_of` reads: one table, each case a whole file and either the
-            # hooks it gives or the whole BROKEN line, typed by hand; nothing but `Broken` may be raised.
+            # hooks it gives or the whole BROKEN line, typed by hand; nothing but `Broken` may be raised. A
+            # line that holds the interpreter's own words for the reason is a pair instead: the line's start
+            # and its end, with a reason of any wording between them.
             hooks_path = hooked / "hooks" / "hooks.json"
             shape_fix = (  # typed by hand
                 " — fix: restore hooks/hooks.json to the shape the hooks reference gives, so that the check"
@@ -1583,7 +1585,7 @@ def self_test() -> int:
             cmd: dict[str, object] = {"type": "command", "command": "true"}
             one = Hook("PreToolUse", "", "true", (), 600.0)
             long_int = "1" + "0" * 400  # no float holds it
-            shapes: list[tuple[str, str | bytes | OSError, list[Hook] | str]] = [
+            shapes: list[tuple[str, str | bytes | OSError, list[Hook] | str | tuple[str, str]]] = [
                 ("a command hook runs", single(cmd), [one]),
                 ("an http hook is BROKEN, not a skip", single({"type": "http", "url": "u"}), not_run("http")),
                 (
@@ -1829,9 +1831,7 @@ def self_test() -> int:
                 (
                     "a file nested too deep to be read",
                     "[" * 100000,
-                    not_hooks(
-                        "maximum recursion depth exceeded while decoding a JSON array from a unicode string"
-                    ),
+                    (f"BROKEN {hooks_path} is not a hooks file (", f"){shape_fix}"),
                 ),
                 # A file that is there and cannot be read: the read is made to raise (a chmod alone would
                 # not hold when run as root), and the line is its own, never the shape fix.
@@ -1862,7 +1862,17 @@ def self_test() -> int:
                     got_shape = f"BROKEN {broken}"
                 except Exception as other:  # any other is the defect this table holds
                     got_shape = f"raised {type(other).__name__}: {other}"
-                version_case(f"hooks file: {name}", got_shape == want, str(got_shape))
+                if isinstance(want, tuple):
+                    start, end = want
+                    got_text = got_shape if isinstance(got_shape, str) else ""
+                    shape_ok = (
+                        got_text.startswith(start)
+                        and got_text.endswith(end)
+                        and len(got_text) > len(start) + len(end)
+                    )
+                else:
+                    shape_ok = got_shape == want
+                version_case(f"hooks file: {name}", shape_ok, str(got_shape))
             with tempfile.TemporaryDirectory() as other_tmp:  # a real folder, nothing mocked
                 (Path(other_tmp) / "hooks" / "hooks.json").mkdir(parents=True)
                 try:

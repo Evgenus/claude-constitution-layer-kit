@@ -1079,7 +1079,8 @@ def self_test_names() -> tuple[int, int]:
         (
             "a dials file whose YAML is a date no calendar has",
             "a: 2020-13-45\n",
-            "constitution.yaml is not YAML (month must be in 1..12) — fix: repair the file",
+            # PyYAML words the reason by the interpreter, so the line is held by its start and its end.
+            ("constitution.yaml is not YAML (", ") — fix: repair the file"),
         ),
         ("a dials file that is a list", "- a\n", no_namespace),
         ("a dials file with no const-catalogs", "other: {}\n", no_namespace),
@@ -1119,7 +1120,14 @@ def self_test_names() -> tuple[int, int]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             fresh(root, content)
-            case(broken_line(root) == expect, f"{name} is a teaching BROKEN line")
+            line = broken_line(root)
+            if isinstance(expect, tuple):
+                start, end = expect
+                text = line or ""
+                holds = text.startswith(start) and text.endswith(end) and len(text) > len(start) + len(end)
+            else:
+                holds = line == expect
+            case(holds, f"{name} is a teaching BROKEN line")
     with tempfile.TemporaryDirectory() as tmp:  # the dials file is read after the module folders
         root = Path(tmp).resolve()
         fresh(root, None)
