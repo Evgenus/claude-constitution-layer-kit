@@ -881,14 +881,35 @@ def history_is_read_only_for_a_fix() -> tuple[bool, str]:
 
 
 def slow_history_costs_no_verdict() -> tuple[bool, str]:
-    """A history that takes twenty seconds to list: the block still comes, within the hook's patience."""
+    """A history that takes twenty seconds to list: the block still comes, within the hook's patience. The
+    history is given its own 5 s, or what the hook's deadline has left where that is less: with the gate
+    declared with 2 s, no git call, the history's included, is given more than that."""
     consumer = H.fresh_consumer(SETUP)
     env, _ = fake_git(on_log="exec /bin/sleep 20")
+    patch, log = git_patch(H)
     started = time.monotonic()
-    red = H.run_gate(event_json(consumer.root, BLOCKED), env=env)
+    red = H.run_gate(event_json(consumer.root, BLOCKED), env={**env, **patch})
     elapsed = time.monotonic() - started
-    ok = red.code == 2 and k1("first", take=NOT_READ).render() in red.stderr and elapsed < 9
-    return ok, f"exit {red.code} in {elapsed:.1f} s (bound 9 s), saying history was not read"
+    own = [float(timeout) for timeout in git_timeouts(log)]
+    short_patch, short_log = git_patch(H, hook_seconds=2.0)
+    short = H.run_gate(event_json(consumer.root, BLOCKED), env={**env, **short_patch})
+    left = [float(timeout) for timeout in git_timeouts(short_log)]
+    block = k1("first", take=NOT_READ).render()
+    ok = (
+        red.code == 2
+        and block in red.stderr
+        and elapsed < 9
+        and bool(own)
+        and max(own) > HOOK_SECONDS - 0.5  # the history read has its own 5 s
+        and short.code == 2
+        and block in short.stderr
+        and bool(left)
+        and max(left) <= 2.0  # no call is given more than the hook's 2 s
+    )
+    return ok, (
+        f"exit {red.code} in {elapsed:.1f} s (bound 9 s), saying history was not read; the most any git call"
+        f" was given: {max(own, default=0):.2f} s, and {max(left, default=0):.2f} s under a hook of 2 s"
+    )
 
 
 def vanished_git_costs_no_verdict() -> tuple[bool, str]:
@@ -1301,18 +1322,12 @@ def session_start_absence_paths() -> tuple[bool, str]:
     return all_of([(yaml_ok, yaml_said), (py_ok, py_said)], f"{yaml_said}; {py_said}")
 
 
-# Seconds a handler keeps beyond its waits, for the interpreter's start, the module's own reading and git
-# while git is quick: no bound on git. Several shared git calls, each under their 3 s, can pass them
-# (limit 16 of shared/GATE.md §4). The history read has HOOK_SECONDS of its own, which the timeout holds
-# besides.
-LEFT_FOR_THE_REST = 5
-
-
 def hooks_file_shape() -> tuple[bool, str]:
     """Two SessionStart handlers (the printer of the dial's state, the skill pointer) and a SubagentStart
     handler, each with no matcher, and a PreToolUse handler on Write|Edit, exec form, the placeholder in
-    args, integer timeouts, every script present. The PreToolUse timeout holds the history read the hook
-    waits on and LEFT_FOR_THE_REST; the two printers read no history."""
+    args, integer timeouts, every script present. The module's own wait in one hook run, the history read,
+    fits the hook's budget the gate declares (`GATE.hook_seconds`); the handlers' timeouts hold that budget
+    and `LEFT_FOR_THE_REST`, which the shared item S165 ties; the two printers read no history."""
     hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
     root = "${CLAUDE_PLUGIN_ROOT}/scripts/"
     wanted: dict[str, list[list[str]]] = {
@@ -1341,18 +1356,14 @@ def hooks_file_shape() -> tuple[bool, str]:
     write_hook = hooks["PreToolUse"][0]
     if write_hook["matcher"] != "Write|Edit":
         return False, f"PreToolUse matcher {write_hook['matcher']}"
-    needed = HOOK_SECONDS + LEFT_FOR_THE_REST
-    timeout = write_hook["hooks"][0]["timeout"]
-    if timeout < needed:
-        return False, (
-            f"PreToolUse: timeout {timeout} s is under the {needed:g} s it needs:"
-            f" history read {HOOK_SECONDS:g} s + {LEFT_FOR_THE_REST} s left"
-        )
+    budget = start.GATE.hook_seconds
+    if HOOK_SECONDS > budget:
+        return False, (f"the history read waits {HOOK_SECONDS:g} s, over the hook's budget of {budget:g} s")
     return (
         True,
         "SessionStart twice and SubagentStart once without matcher, PreToolUse on Write|Edit, exec form,"
-        f" integer timeouts, scripts present; PreToolUse {timeout} s >= history read {HOOK_SECONDS:g} s"
-        f" + {LEFT_FOR_THE_REST} s left",
+        f" integer timeouts, scripts present; the history read's {HOOK_SECONDS:g} s fit the hook's budget"
+        f" of {budget:g} s",
     )
 
 
@@ -1573,7 +1584,7 @@ ASSERTIONS = [
     ),
     Assertion(
         77,
-        "the hooks file's shape, with a timeout that holds the history read the hook waits on",
+        "the hooks file's shape, with integer timeouts; the history read fits the hook's budget",
         hooks_file_shape,
     ),
     Assertion(

@@ -190,9 +190,17 @@ def x3_too_slow(seconds: float) -> Broken:
     )
 
 
-def x3_out_of_time(seconds: float) -> Broken:
-    """The budget of a check after a write ran out before lychee could be run: the module's own reading
-    and masking of a large tree took all of it, so lychee is not blamed."""
+def x3_out_of_time(seconds: float, before_write: bool) -> Broken:
+    """The budget of a hook's check ran out before the check was done: the module's own reading, and after a
+    write the masking too, of a large tree took all of it, so lychee, which after a write was not yet run,
+    is not blamed. Before a write there is no lychee at all: the line names the reading alone."""
+    if before_write:
+        return Broken(
+            ToolKey.X3,
+            f"the check before a write used its {seconds:g} s reading the covered documents",
+            "a large tree takes longer than that to read; run the scan, which waits as long as it takes"
+            " — until then the references of this write are not checked",
+        )
     return Broken(
         ToolKey.X3,
         f"the check after a write used its {seconds:g} s reading and masking the tree before lychee could"

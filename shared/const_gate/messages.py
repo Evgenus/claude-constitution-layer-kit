@@ -418,6 +418,21 @@ def c12_git_silent_scratch(seconds: float, subcommand: str, temporary: str) -> B
     )
 
 
+def c12_hook_budget(seconds: float, before: str) -> Broken:
+    """The hook's one deadline passed while the run still had a wait to make: `before` names the wait it
+    ended (`identity.remaining`). A run of many waits, each within its own limit, is bounded by this
+    alone; the platform's cut at the handler's timeout says nothing."""
+    return Broken(
+        SharedKey.C12,
+        f"the hook's budget of {seconds:g} s is spent before {echoed(before)}",
+        "a hook of many waits, each within its own limit, would otherwise be cut by the platform with no word"
+        " of what was slow: run the scan, which has no clock, to check the same tree; where git itself is"
+        " slow, look for a core.fsmonitor hook, set in the repository's or in your own configuration, with"
+        " git config --show-origin --get core.fsmonitor (no output means none is set), or for a stalled"
+        " file system, and repair it",
+    )
+
+
 def c12_scan_path(path: str) -> Broken:
     return Broken(
         SharedKey.C12,

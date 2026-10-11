@@ -119,8 +119,10 @@ def guarded(
     mode, with no arguments to parse and a closing line saying the gate's state is not said.
     `could_not_run` is the line that closes a
     failure: a gate's says that nothing was examined, a generator's that nothing was changed. The
-    mode is declared with the gate: a hook gives each git call a budget, a scan and an act none."""
-    identity.declare(gate, mode)  # first: every text, the log's name and the git budget ask who and how
+    mode is declared with the gate: a hook starts the run's one deadline, `gate.hook_seconds` from this
+    declaration, and every wait of the run takes what is left of it, each git call also within its own
+    `GIT_SECONDS`; a scan and an act have no deadline and no budget."""
+    identity.declare(gate, mode)  # first: every text, the log, the git calls and the deadline ask who and how
     output = Output(mode)
     try:
         return body(output)

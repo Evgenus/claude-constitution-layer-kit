@@ -1565,21 +1565,15 @@ CHAT_RULE = (
 )
 
 
-# Seconds a handler keeps beyond its waits, for the interpreter's start and for git while git is quick: no
-# bound on git. Several shared git calls, each under their 3 s, can pass them, and under governed_only the
-# policy index read (build_index) stands outside both budgets too (limit 16 of shared/GATE.md §4). The
-# module's own reading and masking of the tree are inside HOOK_SECONDS, one budget with the run; the
-# version probe has VERSION_SECONDS of its own, before it.
-LEFT_FOR_THE_REST = 5
-
-
 def hooks_file() -> tuple[bool, str]:
     """Five handlers, each in the exec form with an explicit timeout: both tool events run the
     gate's one entry point, which tells them apart by the event's name; the session start has two,
     the chat rule and the pointer to the skill, and the subagent start one, the pointer with
-    `--subagent`. A tool handler's timeout holds what its check after a write waits on, one wait
-    after the other (the version probe, then the run), and LEFT_FOR_THE_REST; the printers run no
-    child process."""
+    `--subagent`. The module's own waits in one hook run fit the hook's budget the gate declares
+    (`GATE.hook_seconds`): the check after a write waits for the version probe, then for the run, one
+    after the other; the check before a write runs no link checker and waits for none of them. The
+    handlers' timeouts hold that budget and `LEFT_FOR_THE_REST`, which the shared item S165 ties; the
+    printers run no child process."""
     hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())["hooks"]
     gate = ["${CLAUDE_PLUGIN_ROOT}/scripts/check-references.sh"]
     rule = ["${CLAUDE_PLUGIN_ROOT}/scripts/print-chat-rule.sh"]
@@ -1590,14 +1584,7 @@ def hooks_file() -> tuple[bool, str]:
         "SessionStart": [(None, rule), (None, pointer)],
         "SubagentStart": [(None, [*pointer, "--subagent"])],
     }
-    waits = {
-        "PreToolUse": lychee.VERSION_SECONDS + lychee.HOOK_SECONDS,
-        "PostToolUse": lychee.VERSION_SECONDS + lychee.HOOK_SECONDS,
-        "SessionStart": 0,
-        "SubagentStart": 0,
-    }
     problems = [name for name in wanted if name not in hooks] + [name for name in hooks if name not in wanted]
-    tied: list[str] = []
     for name, expected in wanted.items():
         groups = hooks.get(name, [])
         if len(groups) != len(expected):
@@ -1616,18 +1603,16 @@ def hooks_file() -> tuple[bool, str]:
             )
             if not right:
                 problems.append(f"{name}: {group}")
-            elif waits[name]:
-                needed = waits[name] + LEFT_FOR_THE_REST
-                if handler["timeout"] < needed:
-                    problems.append(
-                        f"{name}: timeout {handler['timeout']} s is under the {needed} s it needs:"
-                        f" version probe {lychee.VERSION_SECONDS} s + run {lychee.HOOK_SECONDS} s"
-                        f" + {LEFT_FOR_THE_REST} s left"
-                    )
-                else:
-                    tied.append(f"{name} {handler['timeout']} s >= {needed} s")
+    own = lychee.VERSION_SECONDS + lychee.HOOK_SECONDS  # the check after a write; before a write: none
+    if own > start.GATE.hook_seconds:
+        problems.append(
+            f"PostToolUse: version probe {lychee.VERSION_SECONDS} s + run {lychee.HOOK_SECONDS} s = {own} s"
+            f" is over the hook's budget of {start.GATE.hook_seconds:g} s"
+        )
     return not problems, (
-        "five handlers, exec form, scripts present, timeouts that hold the waits: " + ", ".join(tied)
+        "five handlers, exec form, scripts present, integer timeouts; the check after a write's waits,"
+        f" version probe {lychee.VERSION_SECONDS} s + run {lychee.HOOK_SECONDS} s = {own} s, fit the hook's"
+        f" budget of {start.GATE.hook_seconds:g} s; the check before a write waits for no link checker"
         if not problems
         else str(problems)
     )
@@ -2375,19 +2360,31 @@ OUT_OF_TIME_TYPED = (
     " — fix: a large tree takes longer than that to read; run the scan, which waits as long as it takes"
     " — until then no reference is checked for resolving"
 )
+# typed by hand: the first line of a check before a write whose 20 s went on reading the tree; no checker
+# is run before a write, so the line names the reading alone and does not say the references are unresolved
+OUT_OF_TIME_BEFORE_TYPED = (
+    "BROKEN: the check before a write used its 20 s reading the covered documents — fix: a large tree"
+    " takes longer than that to read; run the scan, which waits as long as it takes — until then the"
+    " references of this write are not checked"
+)
 
 # A run of the real entry point, `start.main`, with the budget's clock stood still and moved by hand: it
 # advances by the seconds the environment names for the file list, for the territory matching, for each
 # document read, each masked, once more at the first masking, and once at the version probe. Nothing waits
 # for real. The trace holds one word per read and per masking, and what lychee's run was given as its
-# timeout, with the clock then.
+# timeout, with the clock then. The clock moved by hand is the check's own; the hook's deadline stands on
+# the real one, and HOOK_BUDGET declares the gate with that many seconds in place of its own.
 BUDGET_DRIVER = """\
+import dataclasses
 import os
 import subprocess
 import sys
 
 sys.path.insert(0, {scripts!r})
 from referencing_gate import lychee, modes, start, tree
+
+if os.environ.get("HOOK_BUDGET"):
+    start.GATE = dataclasses.replace(start.GATE, hook_seconds=float(os.environ["HOOK_BUDGET"]))
 
 now = [0.0]
 extra = [float(os.environ.get("MASK_FIRST", "0"))]
@@ -2577,6 +2574,17 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
             f" {clock!r}: {trace}, lychee {ran}",
         )
     )
+    # the hook's own deadline, declared as 12 s, is shorter than the check's cap of 20 s: the run is given
+    # what that deadline has left, a little under 12 s, never the cap
+    short, trace, ran, _, _ = on_a_patched_clock({"HOOK_BUDGET": "12"})
+    given = [line for line in trace if line.startswith("run ")]
+    timeout = float(given[0].split()[1].split("=")[1]) if given else -1.0
+    results.append(
+        (
+            short.code == 0 and 11 < timeout <= 12,
+            f"exit {short.code}, the run was given {timeout!r} s of a hook that declares 12 s: {trace}",
+        )
+    )
     # lychee is missing or too old: whatever the tree's size and however the reads spend the budget,
     # the failure is the checker's own, X1 or X2, found before the first document is read
     no_lychee, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "25"}, version=None)
@@ -2638,10 +2646,10 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
             )
         )
     # the check before a write has the same budget for its reads, and no checker to run or to find: a read
-    # that passes the deadline stops it there with the third line, no later document read, lychee neither
-    # probed nor run, however many it is told of
+    # that passes the deadline stops it there with the X3 line in its before-a-write form, no later document
+    # read, lychee neither probed nor run, however many it is told of
     before, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "25"}, event=BEFORE)
-    results.append(broken_typed(before, OUT_OF_TIME_TYPED))
+    results.append(broken_typed(before, OUT_OF_TIME_BEFORE_TYPED))
     results.append(
         (
             count > 1 and trace == ["read"] and ran == [],
@@ -3151,8 +3159,8 @@ ASSERTIONS = [
     ),
     Assertion(
         70,
-        "hooks.json: five handlers in the exec form, scripts present, explicit timeouts that hold the"
-        " budgets each tool handler waits on",
+        "hooks.json: five handlers in the exec form, scripts present, explicit timeouts; the waits of a"
+        " check after a write fit the hook's budget, and a check before a write waits for no link checker",
         hooks_file,
     ),
     Assertion(

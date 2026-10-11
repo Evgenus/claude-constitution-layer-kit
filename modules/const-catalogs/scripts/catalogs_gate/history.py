@@ -18,7 +18,9 @@ from pathlib import Path
 from .checks import stem_of
 from .model import EXTENSION, Catalog, Read
 
-HOOK_SECONDS = 5.0  # the hook's patience for all of history; the scan has no clock to beat and passes None
+# The most the hook waits for all of history: a cap, which the caller passes shortened to what is left of the
+# hook's deadline; the scan has no clock to beat and passes None.
+HOOK_SECONDS = 5.0
 
 HEAD = ["rev-parse", "--verify", "-q", "HEAD"]
 SHALLOW = ["rev-parse", "--is-shallow-repository"]

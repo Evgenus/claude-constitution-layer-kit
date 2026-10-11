@@ -7,13 +7,14 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from const_gate import cli
-from const_gate.identity import Identity
+from const_gate.identity import HOOK_SECONDS, Identity
 from const_gate.model import Mode
 
 GATE = Identity(
     namespace="const-questions",
     gate="check-open-questions",
     plugin_root=Path(__file__).resolve().parents[2],
+    hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "ask-or-decide", Mode.SCAN: "ask-or-decide"},  # the skill a red names (F10)
 )
 

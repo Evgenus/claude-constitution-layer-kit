@@ -8,8 +8,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
 
+from const_gate import identity, pipeline
 from const_gate import messages as shared
-from const_gate import pipeline
 from const_gate.envelope import id_of_text
 from const_gate.errors import ConfigurationFailure
 from const_gate.index import build_index
@@ -52,7 +52,10 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         if rel not in covered:
             return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         lanes = _lanes_abroad(matcher, dials, [rel])[rel]
-    budget = lychee.Budget.start(lychee.HOOK_SECONDS)  # begun before the first read; no checker runs here
+    # begun before the first read; no checker runs here; the cap, or what the hook's deadline has left
+    budget = lychee.Budget.start(
+        identity.remaining(lychee.HOOK_SECONDS, "the covered documents were read"), before_write=True
+    )
     texts: dict[str, str] = {}
     for path in covered:
         texts[path] = target.text if path == rel else _text(target.root, path)
@@ -69,14 +72,18 @@ def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -
     a write that takes an anchor away breaks them all the same. The checker is found and its version
     probed first, with the probe's own seconds, so a missing or old one is the same failure on a tree of
     any size. The covered texts are then read, masked and handed to the checker within one budget,
-    begun before the first is read."""
+    begun before the first is read. Both waits are within the hook's one deadline: each takes the smaller
+    of its cap and what the deadline has left."""
     rel = target.rel
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, list_markdown(target.root))
     if covered is None:
         raise ConfigurationFailure(messages.c5_governed_only_without_root())
-    binary = lychee.require()  # before the budget: its seconds are its own, and X1 and X2 hold on every write
-    budget = lychee.Budget.start(lychee.HOOK_SECONDS)  # one deadline for the reads, the masking and the run
+    # before the budget: its seconds are its own, the cap or what the hook's deadline has left, and X1 and
+    # X2 hold on every write
+    binary = lychee.require(identity.remaining(lychee.VERSION_SECONDS, "lychee reported its version"))
+    # one deadline for the reads, the masking and the run: the cap, or what the hook's deadline has left
+    budget = lychee.Budget.start(identity.remaining(lychee.HOOK_SECONDS, "lychee finished the link check"))
     texts: dict[str, str] = {}
     for path in covered:
         texts[path] = _text(target.root, path)

@@ -9,8 +9,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TextIO
 
+from const_gate import identity, pipeline
 from const_gate import messages as shared
-from const_gate import pipeline
 from const_gate.errors import ConfigurationFailure
 from const_gate.output import Output
 from const_gate.pipeline import Skip, WriteTarget
@@ -93,7 +93,10 @@ def _items(matcher: Matcher, catalogs: Sequence[Catalog], catalog: Catalog, root
 
 
 def _with_history(taken: Taken, root: Path) -> Taken:
-    history = read_history(root, HOOK_SECONDS)
+    """The hook's history read: its own `HOOK_SECONDS` at most, and no more than the hook's deadline has
+    left (a spent deadline is the shared configuration failure, C12.14, before git is asked); the read keeps
+    its own clock inside that number."""
+    history = read_history(root, identity.remaining(HOOK_SECONDS, "the history of added files was read"))
     return replace(taken, in_history=history.highest(taken.catalog), history_read=history.complete)
 
 
