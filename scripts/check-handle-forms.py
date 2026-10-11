@@ -15,7 +15,11 @@ findings and the scan reports them all. Four rules are read:
                         whose fragment is missing or is not `#r<n>`;
                     (c) a list of rulings, then " of ", then a record's id with no link at all.
                     A list is handles joined by ", ", " and ", " or ", " to " or "–". A link leads to
-                    a decision record when its file is named `dec-<four digits>-….md`.
+                    a decision record when its file is named `dec-<four digits>-….md`. A range takes
+                    an unspaced dash, as the kit writes its ranges: in `R2 – R3 of [dec-…](…)` form
+                    (a) reads R3 alone, so where a spaced dash stands right before the list, the
+                    finding quotes the whole citation and its fix says to close up the dash and link
+                    the anchor of the range's first ruling, never R3's, which would be green and wrong.
 
   message keys      a module's own message table (its MODULE.md §6, anchor t6) takes a key of the
                     shared table (shared/GATE.md §3, anchor g3) only to state the module's part of
@@ -146,6 +150,11 @@ UNIQUE_FROM = 39  # the record that brought the sentence of rule 10 of plc-0004-
 CELL_HANDLE = re.compile(r"(?<![\w./])([A-Z]+)(\d+)(?![A-Za-z0-9]|\.[A-Za-z]|/)")
 OF_AFTER = re.compile(r"[ \t]+of\b")  # "R1 of the module": a key of another document
 RUN_REST = re.compile(rf"(?:{SEP}R\d+[a-z]?)*")  # the rest of a range or a list a handle opens: "–R3", ", R5"
+# a range or a list that ends in a spaced dash right before a citation of form (a): "R1, R2 – " of
+# "R1, R2 – R3 of …", which (a) reads as a citation of R3 alone; its first ruling, and the handle
+# before the dash
+SPACED_BEFORE = re.compile(rf"(?<![\w.])R(\d+)[a-z]?(?:{SEP}R(\d+)[a-z]?)*{SP}[–—-]{SP}\Z")
+SPACED_REACH = 300  # how far back from a citation the spaced run is looked for, in characters
 WHY = (
     "a link to the ruling's own anchor takes a reader to the ruling in one click, and a record moved"
     " by the mover is repaired in every link (rule 2 of plc-0004-decision-records)"
@@ -315,18 +324,38 @@ def shown(text: str) -> str:
     return " ".join(text.split())
 
 
-def linked_wrongly(document: Document, start: int, end: int, destination: str, number: str) -> Finding | None:
+def linked_wrongly(
+    document: Document,
+    start: int,
+    end: int,
+    destination: str,
+    number: str,
+    spaced: re.Match[str] | None = None,
+) -> Finding | None:
+    """A finding when the link's fragment is not the anchor of R<number>. With spaced, the run that ends
+    in a spaced dash right before start, the fix names the range's own first ruling, never R<number>."""
     path, fragment = split_fragment(destination)
     anchor = f"r{number}"
     if not RECORD_FILE.search(path) or fragment == anchor:
         return None
     got = "no anchor" if fragment is None else f'"#{fragment}"'
+    if spaced is None:
+        return Finding(
+            document.path,
+            document.line_of(start),
+            f'the citation "{shown(document.text[start:end])}" links {got} where the anchor of R{number}'
+            f' is "#{anchor}"',
+            f"link the anchor of the first ruling named, with the destination {path}#{anchor}",
+        )
+    before = spaced[2] or spaced[1]
     return Finding(
         document.path,
-        document.line_of(start),
-        f'the citation "{shown(document.text[start:end])}" links {got} where the anchor of R{number}'
+        document.line_of(spaced.start()),
+        f'the citation "{shown(document.text[spaced.start() : end])}" spaces the dash of its range, so it'
+        f" reads as a citation of R{number} alone, and links {got} where the anchor of R{number}"
         f' is "#{anchor}"',
-        f"link the anchor of the first ruling named, with the destination {path}#{anchor}",
+        f'write the range with an unspaced dash, "R{before}–R{number}", as the kit writes its ranges, and'
+        f" link the anchor of its first ruling, with the destination {path}#r{spaced[1]}",
     )
 
 
@@ -351,7 +380,8 @@ def ruling_citations(document: Document, context: Context) -> list[Finding]:
     for match in CITED_LINK.finditer(document.masked):
         if qualified(document, match.start()):
             continue
-        found = linked_wrongly(document, match.start(), match.end(), match[2], match[1])
+        spaced = SPACED_BEFORE.search(document.masked, max(0, match.start() - SPACED_REACH), match.start())
+        found = linked_wrongly(document, match.start(), match.end(), match[2], match[1], spaced)
         if found:
             findings.append(found)
     for match in LINK_THEN_HANDLE.finditer(document.masked):
@@ -692,6 +722,12 @@ def self_test() -> int:
             "R1-R4 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r4) holds.\n",
             (1,),
         ),
+        "a range with a spaced dash, read as its last ruling": (
+            note,
+            "R2–R3 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r2) holds.\n",
+            "R2 – R3 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r2) holds.\n",
+            (1,),
+        ),
         "a range linking its last ruling": (
             note,
             "R18 to R27 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r18) holds.\n",
@@ -893,6 +929,20 @@ def self_test() -> int:
                 why_line,
                 "  fix: link the anchor of the first ruling named, with the destination"
                 " dec-0016-yes-on-the-change.md#r5",
+                "RED: 1 finding(s) — 3 document(s) examined",
+            ],
+        ),
+        "a range with a spaced dash": (
+            "docs/policies/c.md",
+            "R2 – R3 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r2).\n",
+            [
+                "RED: docs/policies/c.md:1: the citation"
+                ' "R2 – R3 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r2)"'
+                ' spaces the dash of its range, so it reads as a citation of R3 alone, and links "#r2"'
+                ' where the anchor of R3 is "#r3"',
+                why_line,
+                '  fix: write the range with an unspaced dash, "R2–R3", as the kit writes its ranges, and'
+                " link the anchor of its first ruling, with the destination dec-0016-yes-on-the-change.md#r2",
                 "RED: 1 finding(s) — 3 document(s) examined",
             ],
         ),
