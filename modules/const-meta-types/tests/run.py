@@ -934,7 +934,249 @@ def skill_pointer_printed() -> tuple[bool, str]:
     )
 
 
+# the pointer to the governing policy (N3), typed by hand: with the Enforcement anchor, and without it
+POINTED = (
+    "const-meta-types (advisory): this document is governed by docs/policies/notes-policy.md — read its"
+    " rules before further edits; what review holds is its Enforcement rule (#r6)"
+)
+POINTED_PLAIN = (
+    "const-meta-types (advisory): this document is governed by docs/policies/root-policy.md — read its"
+    " rules before further edits"
+)
+ENFORCEMENT_RULE = (
+    '6. <a id="r6"></a>**Enforcement.** The envelope by the write-time guard; the rest is review.\n'
+)
+
+
+def policy_pointer_once_per_session() -> tuple[bool, str]:
+    """The green of a write in claimed territory points the session at the governing policy once:
+    the first such write of a session prints one JSON object whose context holds the pointer, with
+    the anchor of the policy's rule named Enforcement, then the green line; the next write of the
+    same session for the same policy prints the green line plain; another session, another policy,
+    the same session in another repository, an Edit each earn their own; a policy with no
+    Enforcement rule earns the path alone, and with two such rules the first is named; a write
+    outside territory, a red, a warn and a scan earn none; an index note stands before the pointer;
+    the memo beside the output log holds the session, the repository and the policy, keeps its last
+    lines, and with no home — no log_dir, no data directory — or no session nothing is pointed; a
+    memo that cannot be written or read is said again, the verdict green, the unreadable one
+    reported not exercised as root. Every line typed by hand."""
+    data = H.scratch_dir()
+    env = {"CLAUDE_PLUGIN_DATA": str(data)}
+    consumer = H.fresh_consumer()
+    consumer.write(
+        "docs/policies/notes-policy.md", envelope("notes-policy", "current-state") + "\n" + ENFORCEMENT_RULE
+    )
+    root = consumer.root
+    green = "GREEN: const-meta-types: 1 document examined, governed by notes-policy"
+
+    def run(action: Write | Edit, session: str, env: dict[str, str] = env) -> Result:
+        return H.run_gate(event_json(root, action, session=session), env=env)
+
+    def context(result: Result) -> str | None:
+        """The additionalContext of one JSON object on stdout, or None for anything else."""
+        try:
+            payload = json.loads(result.stdout)
+        except ValueError:
+            return None
+        specific = payload.get("hookSpecificOutput", {}) if isinstance(payload, dict) else {}
+        if (
+            result.code != 0
+            or specific.get("hookEventName") != "PreToolUse"
+            or result.stdout.count("\n") != 1
+        ):
+            return None
+        found = specific.get("additionalContext")
+        return found if isinstance(found, str) else None
+
+    checks: list[tuple[str, bool]] = []
+    first = run(VALID, "s1")
+    checks.append(
+        (
+            "first write of s1: the pointer with the anchor, then the green line",
+            context(first) == f"{POINTED}\n{green}",
+        )
+    )
+    second = run(VALID, "s1")
+    checks.append(
+        (
+            "second write of s1: the green line plain, no JSON",
+            second.code == 0 and second.stdout == green + "\n",
+        )
+    )
+    # the same session in another repository is pointed again: the memo keys on the repository too
+    other_root = H.fresh_consumer().root
+    elsewhere = H.run_gate(event_json(other_root, VALID, session="s1"), env=env)
+    checks.append(("the same session, another repository: pointed again", context(elsewhere) is not None))
+    other_session = run(VALID, "s2")
+    checks.append(("first write of s2: pointed again", context(other_session) == f"{POINTED}\n{green}"))
+    consumer.write(NOTE_A, envelope("note-a"))  # an Edit is applied to the file on disk
+    edited = run(Edit(NOTE_A, "# Fixture", "# Fixture, edited"), "s3")
+    checks.append(("an Edit is pointed too", context(edited) == f"{POINTED}\n{green}"))
+    plain_policy = run(
+        Write("docs/policies/drafts-policy.md", envelope("drafts-policy", "current-state")), "s1"
+    )
+    root_green = "GREEN: const-meta-types: 1 document examined, governed by root-policy"
+    checks.append(
+        (
+            "a policy with no Enforcement rule: the path alone",
+            context(plain_policy) == f"{POINTED_PLAIN}\n{root_green}",
+        )
+    )
+    outside = run(Write("README.md", NO_ENVELOPE), "s4")
+    checks.append(
+        (
+            "outside territory: the skip line plain",
+            outside.code == 0
+            and outside.stdout
+            == "GREEN: const-meta-types: 0 documents examined — README.md is outside claimed territory\n",
+        )
+    )
+    red = run(Write(NOTE_A, NO_ENVELOPE), "s4")
+    checks.append(("a red earns no pointer", red.code == 2 and "advisory" not in red.stdout + red.stderr))
+    memo = data / "const-meta-types.pointed"
+    lines = memo.read_text(encoding="utf-8").splitlines() if memo.is_file() else []
+    wanted = [
+        f"s1\t{root}\tdocs/policies/notes-policy.md",
+        f"s1\t{other_root}\tdocs/policies/notes-policy.md",
+        f"s2\t{root}\tdocs/policies/notes-policy.md",
+        f"s3\t{root}\tdocs/policies/notes-policy.md",
+        f"s1\t{root}\tdocs/policies/root-policy.md",
+    ]
+    checks.append(
+        ("the memo holds session, repository and policy, tab-separated, one line each", lines == wanted)
+    )
+    # the memo keeps its last 200 lines: 300 lines of other sessions, then one pointer, leaves 200
+    memo.write_text("".join(f"old-{n}\tx\ty\n" for n in range(300)), encoding="utf-8")
+    capped = run(VALID, "s5")
+    kept = memo.read_text(encoding="utf-8").splitlines()
+    checks.append(
+        (
+            "the memo keeps its last 200 lines",
+            context(capped) is not None
+            and len(kept) == 200
+            and kept[-1] == f"s5\t{root}\tdocs/policies/notes-policy.md"
+            and kept[0] == "old-101\tx\ty",
+        )
+    )
+    # no session in the event: nothing pointed, the green line plain
+    nameless = run(VALID, "")
+    checks.append(
+        (
+            "an event with no session: the green line plain",
+            nameless.code == 0 and nameless.stdout == green + "\n",
+        )
+    )
+    # no home for the memo: nothing pointed
+    homeless = H.run_gate(event_json(root, VALID, session="s6"))
+    checks.append(
+        (
+            "no log_dir and no data directory: the green line plain, nothing pointed",
+            homeless.code == 0 and homeless.stdout == green + "\n",
+        )
+    )
+    # log_dir set: the memo lives beside the log inside the repository
+    logged = H.fresh_consumer()
+    logged.dials.update(own(log_dir=".gate-logs"))
+    logged.build()
+    logged.write(".gitignore", ".gate-logs/\n")
+    in_repo = H.run_gate(event_json(logged.root, VALID, session="s7"))
+    beside = logged.root / ".gate-logs" / "const-meta-types.pointed"
+    checks.append(
+        (
+            "log_dir: the memo beside the log, and the pointer said",
+            context(in_repo) is not None
+            and beside.is_file()
+            and beside.read_text(encoding="utf-8") == f"s7\t{logged.root}\tdocs/policies/notes-policy.md\n",
+        )
+    )
+    # with a note of the index — a second policy document carrying the notes policy's id — the note
+    # stands first, the pointer after it, the green line last, typed by hand
+    noted = H.fresh_consumer()
+    noted.write("docs/policies/zz-twin.md", envelope("notes-policy", "current-state"))
+    with_note = H.run_gate(event_json(noted.root, VALID, session="s8"), env=env)
+    note = (
+        "note: docs/policies/notes-policy.md and docs/policies/zz-twin.md both carry id 'notes-policy'; the"
+        " first claims, the second is ignored"
+    )
+    pointed_notes = POINTED_PLAIN.replace(
+        "root-policy", "notes-policy"
+    )  # no Enforcement rule in this consumer
+    checks.append(
+        (
+            "the pointer after the index's note, before the green line",
+            context(with_note) == f"{note}\n{pointed_notes}\n{green}",
+        )
+    )
+    # a warn carries no pointer: the finding's context, the warn note last; a scan carries none
+    warned = H.fresh_consumer()
+    warned.dials.update(own(severity="warn"))
+    warned.build()
+    at_warn = H.run_gate(event_json(warned.root, Write(NOTE_A, NO_ENVELOPE), session="s9"), env=env)
+    warn_context = json.loads(at_warn.stdout)["hookSpecificOutput"]["additionalContext"]
+    checks.append(("a warn carries no pointer", at_warn.code == 0 and "advisory" not in warn_context))
+    scanned = H.run_gate("", args=["--scan", str(root)], env=env)
+    checks.append(("a scan carries no pointer", scanned.code == 0 and "advisory" not in scanned.stdout))
+    # two rules named Enforcement: the first is named
+    twice = H.fresh_consumer()
+    twice.write(
+        "docs/policies/notes-policy.md",
+        envelope("notes-policy", "current-state")
+        + '\n3. <a id="r3"></a>**Enforcement** review.\n'
+        + ENFORCEMENT_RULE,
+    )
+    first_rule = H.run_gate(event_json(twice.root, VALID, session="s10"), env=env)
+    checks.append(
+        (
+            "two Enforcement rules: the first is named",
+            context(first_rule) == f"{POINTED.replace('#r6', '#r3')}\n{green}",
+        )
+    )
+    # a memo that cannot be written: the line said on every write, the verdict unchanged
+    blocked = H.scratch_dir()
+    (blocked / "const-meta-types.pointed").mkdir()  # a directory where the memo file should be
+    blocked_env = {"CLAUDE_PLUGIN_DATA": str(blocked)}
+    once = run(VALID, "s11", blocked_env)
+    again = run(VALID, "s11", blocked_env)
+    checks.append(
+        (
+            "a memo that cannot be written: said again, the verdict green",
+            context(once) == f"{POINTED}\n{green}" and context(again) == f"{POINTED}\n{green}",
+        )
+    )
+    # a memo that cannot be read: the line said on every write, the verdict green; a mode bit does not
+    # stop root, so there the case is reported not exercised
+    not_exercised = ""
+    if os.geteuid() == 0:
+        not_exercised = (
+            "; NOT EXERCISED: a memo that cannot be read, running as root — 0 unreadable memos examined"
+        )
+    else:
+        sealed = H.scratch_dir()
+        sealed_memo = sealed / "const-meta-types.pointed"
+        sealed_memo.write_text(f"s12\t{root}\tdocs/policies/notes-policy.md\n", encoding="utf-8")
+        sealed_memo.chmod(0o000)
+        try:
+            unread = run(VALID, "s12", {"CLAUDE_PLUGIN_DATA": str(sealed)})
+        finally:
+            sealed_memo.chmod(0o644)
+        checks.append(
+            (
+                "a memo that cannot be read: said again, the verdict green",
+                context(unread) == f"{POINTED}\n{green}",
+            )
+        )
+    failed = [title for title, ok in checks if not ok]
+    return not failed, f"{len(checks)} checks{not_exercised}" if not failed else "failed: " + "; ".join(
+        failed
+    ) + f"{not_exercised}\nfirst run: {first.stdout}{first.stderr}"
+
+
 ASSERTIONS = [
+    Assertion(
+        39,
+        "the pointer to the governing policy: on a green write, once per session, repository and policy",
+        policy_pointer_once_per_session,
+    ),
     Assertion(18, "examined count: outside claimed territory prints 0 and exits 0", outside_territory),
     Assertion(19, "a territory with no policy behind it claims nothing: a visible skip", void_territory),
     Assertion(

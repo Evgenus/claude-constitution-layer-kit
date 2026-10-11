@@ -25,8 +25,9 @@ git-ignored by the caller); the platform's per-plugin data directory; nowhere.
 A logging failure never changes a verdict. ``logging.raiseExceptions`` is switched off so
 that a handler's own error is swallowed by the library instead of being printed to stderr,
 where it would become the first line the user sees; the one ``except OSError`` below covers
-creating the directory. This is the only place the gate swallows an error, deliberately: a
-full disk must not turn a finding into a pass or a pass into a failure.
+creating the directory. This is the output log's one swallowed error, deliberately: a full disk
+must not turn a finding into a pass or a pass into a failure. A module that keeps an advisory memo
+beside the log swallows that memo's failures the same way, said so at its place.
 """
 
 from __future__ import annotations
