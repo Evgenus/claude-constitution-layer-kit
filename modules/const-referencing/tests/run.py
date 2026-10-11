@@ -1019,6 +1019,7 @@ def mention_dial_failures() -> tuple[bool, str]:
 # ------------------------------------------------------------------ after the write
 
 AFTER = "PostToolUse"
+BEFORE = "PreToolUse"
 
 
 def after_write(
@@ -2391,8 +2392,10 @@ def on_a_patched_clock(
     run: str = "echo '{\"error_map\": {}}'",
     scan: bool = False,
     version: str | None = "lychee 0.24.2",
+    event: str = AFTER,
 ) -> tuple[Result, list[str], list[str], float, int]:
-    """The check after a write (or the scan) of a tree of documents, run through the entry point with
+    """The check after a write (or the scan; or, with `event`, the check before a write) of a tree of
+    documents, run through the entry point with
     the clock patched as `clock` says (the seconds, as LIST_STEP, MATCH_STEP, MASK_FIRST, MASK_STEP, READ_STEP
     and PROBE_STEP). `version` is what the fake lychee says to --version, None for no lychee on PATH. Gives
     the result, the trace, the fake lychee's own log of its calls, the real seconds it took, and the
@@ -2410,7 +2413,7 @@ def on_a_patched_clock(
         "LYCHEE_LOG": str(scratch / "lychee"),
         **clock,
     }
-    stdin = "" if scan else event_json(consumer.root, Write(SOURCE, source("See [x](t.md).")), event=AFTER)
+    stdin = "" if scan else event_json(consumer.root, Write(SOURCE, source("See [x](t.md).")), event=event)
     began = time.monotonic()
     result = H.run_gate(
         stdin,
@@ -2427,8 +2430,9 @@ def on_a_patched_clock(
 
 
 def the_budget_is_one() -> list[tuple[bool, str]]:
-    """The check after a write has one deadline for the reads, the masking and lychee's run; the scan
-    has none. Every case moves a patched clock by the document: the longest real wait is half a second.
+    """The check after a write has one deadline for the reads, the masking and lychee's run, and the
+    check before a write the same deadline for its reads; the scan has none. Every case moves a patched
+    clock by the document: the longest real wait is half a second.
     The order of two configuration failures is held here too: with a missing lychee and a document that
     cannot be read, the check after a write says X1 and the scan says C12.10."""
     results: list[tuple[bool, str]] = []
@@ -2576,6 +2580,35 @@ def the_budget_is_one() -> list[tuple[bool, str]]:
                 and trace.count("mask") == count
                 and given == ["run timeout=20.0 clock=25.0"],
                 f"{step}: exit {slow.code}, {count} documents read and masked, the run: {given}",
+            )
+        )
+    # the check before a write has the same budget for its reads, and no checker to run or to find: a read
+    # that passes the deadline stops it there with the third line, no later document read, lychee neither
+    # probed nor run, however many it is told of
+    before, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": "25"}, event=BEFORE)
+    results.append(broken_typed(before, OUT_OF_TIME_TYPED))
+    results.append(
+        (
+            count > 1 and trace == ["read"] and ran == [],
+            f"{count} documents, one read and nothing masked, lychee not called: trace {trace}, lychee {ran}",
+        )
+    )
+    # reads within the budget give the verdict they gave: green, with no lychee on PATH at all, as before
+    within, trace, ran, _, _ = on_a_patched_clock({"READ_STEP": repr(3 / count)}, version=None, event=BEFORE)
+    results.append(
+        (
+            within.code == 0 and trace.count("read") >= 1 and "mask" not in trace and ran == [],
+            f"exit {within.code}: {within.stderr[:200]}; trace {trace}, lychee {ran}",
+        )
+    )
+    # the file list and the territory matching stand before this budget too: 25 s of the clock each, the
+    # reads are still all made
+    for step in ("LIST_STEP", "MATCH_STEP"):
+        slow, trace, ran, _, _ = on_a_patched_clock({step: "25"}, event=BEFORE)
+        results.append(
+            (
+                slow.code == 0 and trace.count("read") >= 1 and ran == [],
+                f"{step} before a write: exit {slow.code}: {slow.stderr[:200]}; trace {trace}",
             )
         )
     # the scan has no clock: a patched one that runs far away changes nothing, and the run has no timeout

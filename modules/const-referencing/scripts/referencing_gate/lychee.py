@@ -59,9 +59,10 @@ class Break:
 
 @dataclass(frozen=True, slots=True)
 class Budget:
-    """The one deadline of a check after a write. It starts once the file list, the territory matching
-    and the version probe are done, before the covered texts are read, and the reads, the masking and
-    the link checker's run draw on it together; the scan has none."""
+    """The one deadline of a hook's check, before a write or after it. It starts once the file list and
+    the territory matching are done, and in a check after a write the version probe too, before the
+    covered texts are read. After a write the reads, the masking and the link checker's run draw on
+    it together; before a write only the reads do, since no checker is run there. The scan has none."""
 
     seconds: float  # the whole budget, as it is told to the user
     deadline: float  # on the monotonic clock

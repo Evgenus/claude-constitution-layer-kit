@@ -46,7 +46,11 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         if rel not in covered:
             return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         lanes = _lanes_abroad(matcher, dials, [rel])[rel]
-    texts = {path: target.text if path == rel else _text(target.root, path) for path in covered}
+    budget = lychee.Budget.start(lychee.HOOK_SECONDS)  # begun before the first read; no checker runs here
+    texts: dict[str, str] = {}
+    for path in covered:
+        texts[path] = target.text if path == rel else _text(target.root, path)
+        budget.check()
     placed, _ = _examine(rel, texts, ids_of(texts), lanes, dials)
     findings = [finding for _, finding in placed]
     if findings:
