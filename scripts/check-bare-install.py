@@ -121,9 +121,15 @@ run" (a hook's, "give the hook's command and args in hooks/hooks.json a command 
 and a path the check cannot look at (a folder on the way cannot be searched, an I/O error) one that names
 the path and "give the folder search permission, `chmod u+rx <folder>`", the same on every Python (the
 lookups of a path, an entry of a walk included), a missing path being the finding or failure it was. The
-walks themselves are a known limit: `Path.rglob` lists nothing of a folder it cannot list, raises on 3.12
-for a folder below one that cannot be searched where 3.14 lists nothing, and skips a subfolder it cannot
-list, so a file or link below one is not seen. A missing
+walks go through `entries_under`, which is `os.walk` and not `Path.rglob`, since `rglob` raises for a
+folder below one it cannot list on one release of the language and lists nothing of it on another: a
+folder below the source, the copy or a link's target that cannot be listed is a configuration failure
+that names it and "give the folder search permission, `chmod u+rx <folder>`", the same on every Python;
+a file of a link's target or of the copy that cannot be read when the two are compared (`bytes_of`) one
+that names the file, with `chmod u+r <file>` for the source's and "run the check again" for the copy's.
+A command not found is echoed as `plain` quotes it, a word as it is and any other as `shown` does, and a
+working folder of `run` that does not exist is a failure of its own, "the working folder <folder> does not
+exist", never "is not installed". A missing
 hooks file or folder, a folder in the file's place (or a link to one), a dangling link or a link loop there,
 or a path through a file, gives no hooks; a link to a regular file is that file. Every other configuration
 failure prints a fix of its own, such as a commit the kit's history lacks and cannot fetch, a module
@@ -162,8 +168,13 @@ Modes:  --module <name> [--from <source>]  check one module of the kit;
                          standard output, no failure, and a git missing from PATH, `run`'s own line;
                          a command `run` cannot start (an empty one, a file with no execute permission,
                          a NUL byte, each kind of OSError and a ValueError, the process mocked) a BROKEN
-                         naming it, a hook's with the hook's own fix, the lines for a command not found
-                         and one that outlasts its time as they were; a path the check cannot look at (a
+                         naming it, a hook's with the hook's own fix, the line for a command not found
+                         as it was save that a command of no plain word is quoted as one token, a working
+                         folder that does not exist the line naming the folder, and one that outlasts its
+                         time as it was; a subfolder that cannot be listed (the listing mocked, and real
+                         unless run as root) at each walk site, and a file that cannot be read in a link's
+                         folder, in a differing folder and under a file link (the read mocked, and real
+                         unless run as root), each a BROKEN naming it; a path the check cannot look at (a
                          module's document and plugin.json, an installPath, a --from source, a link's place
                          in the copy, a file or link of a folder that lists but cannot be searched, the
                          hooks file
@@ -232,6 +243,7 @@ import tarfile
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from functools import partial
 from pathlib import Path
 from unittest import mock
 
@@ -314,6 +326,12 @@ HOOK_RUN_FIX = (
 )
 
 
+def plain(command: str) -> str:
+    """A command as a message echoes it: a plain word as it is, else as `shown` quotes it, so that one with a
+    space, a quote, a line break or no characters at all reads as one token."""
+    return command if re.fullmatch(r"[\w@%+=:,./-]+", command) else shown(command)
+
+
 def run(
     argv: list[str],
     cwd: Path,
@@ -323,7 +341,8 @@ def run(
     fix: str = RUN_FIX,
 ) -> tuple[int, str, str]:
     """The exit, the standard output and the standard error of one command. A command that is not found
-    is a Broken saying to install it; any other `OSError` of starting it (an empty command, a file with no
+    is a Broken saying to install it, as `plain` echoes it, and a working folder that does not exist a
+    Broken of its own, naming the folder; any other `OSError` of starting it (an empty command, a file with no
     execute permission, a folder that cannot be searched) and a `ValueError` (a NUL byte) are a Broken that
     names the command, as `shown` quotes it, and the reason, with `fix` to follow; one that outlasts its
     `timeout` is the exit 124."""
@@ -332,8 +351,13 @@ def run(
             argv, cwd=cwd, env=env, input=stdin, capture_output=True, text=True, timeout=timeout, check=False
         )
     except FileNotFoundError as bad:
+        if not os.path.isdir(cwd):  # the working folder is what is missing, whichever command is asked for
+            raise Broken(
+                f"the working folder {cwd} does not exist — fix: make the folder"
+                f" (`mkdir -p {shlex.quote(str(cwd))}`), then run the check again"
+            ) from bad
         raise Broken(
-            f"{argv[0]} is not installed ({bad.strerror}) — fix: install it and put it on PATH"
+            f"{plain(argv[0])} is not installed ({bad.strerror}) — fix: install it and put it on PATH"
         ) from bad
     except subprocess.TimeoutExpired:
         return 124, "", f"timed out after {timeout} s"
@@ -594,11 +618,68 @@ def refusal(said: str) -> str:
 CACHES = ("__pycache__", ".mypy_cache", ".ruff_cache")
 
 
+def unlisted(bad: OSError) -> Broken:
+    """The Broken for a folder a walk cannot list, naming it and the folder to open: the one itself, or the
+    folder above it when that one cannot be searched. The walk is `os.walk` and not `Path.rglob`, which
+    raises for a folder below one it cannot list on one release of the language and lists nothing on
+    another, so that the answer would differ by version."""
+    folder = Path(os.fsdecode(bad.filename)) if bad.filename is not None else Path()
+    why = bad.strerror or str(bad)
+    if bad.errno == errno.EACCES:
+        try:
+            os.stat(folder)
+            opening = folder
+        except PermissionError:
+            opening = blocking_folder(folder)
+        except OSError:
+            opening = folder
+        fix = f"give the folder {opening} search permission, `chmod u+rx {shlex.quote(str(opening))}`"
+    else:
+        fix = f"make the folder {folder} listable, `ls -ld {shlex.quote(str(folder))}` shows why not"
+    return Broken(f"{folder} cannot be listed ({why}) — fix: {fix}, then run the check again")
+
+
+def entries_under(folder: Path) -> list[Path]:
+    """Every entry below a folder, files, folders and links (a link to a folder is one entry and is not
+    entered), as `Path.rglob("*")` lists them; a folder that is not there lists nothing, and one that
+    cannot be listed is a Broken naming it, on every Python."""
+    found: list[Path] = []
+
+    def failed(bad: OSError) -> None:
+        if not isinstance(bad, FileNotFoundError | NotADirectoryError):
+            raise unlisted(bad)
+
+    for here, folders, files in os.walk(folder, onerror=failed):
+        folders.sort()
+        found.extend(Path(here) / name for name in (*folders, *files))
+    return found
+
+
+def bytes_of(path: Path, installed: bool) -> bytes:
+    """The bytes of a file the links are compared by; a file that cannot be read is a Broken naming it.
+    `installed` is whether the file is in the installed copy, which the check cannot mend and rebuilds."""
+    try:
+        return path.read_bytes()
+    except OSError as bad:
+        why = bad.strerror or str(bad)
+        quoted = shlex.quote(str(path))
+        if installed:
+            fix = (
+                "run the check again, and if it repeats, report that the install wrote a file the check"
+                " cannot read, at the version the kit pins"
+            )
+        elif bad.errno == errno.EACCES:
+            fix = f"give the file read permission, `chmod u+r {quoted}`, then run the check again"
+        else:
+            fix = f"make the file readable, `ls -l {quoted}` shows why not, then run the check again"
+        raise Broken(f"{path} cannot be read ({why}) — fix: {fix}") from bad
+
+
 def files_under(folder: Path) -> set[str]:
     """The files under a folder, by relative path, caches left out."""
     return {
         str(f.relative_to(folder))
-        for f in folder.rglob("*")
+        for f in entries_under(folder)
         if file_at(f) and not any(part in CACHES for part in f.relative_to(folder).parts)
     }
 
@@ -621,7 +702,7 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
     arrives as a real file, or a real directory, with the same files byte for byte; the copy holds no
     link the source lacks."""
     findings: list[Finding] = []
-    links = sorted(p for p in source.rglob("*") if link_at(p))
+    links = sorted(p for p in entries_under(source) if link_at(p))
     for link in links:
         where = link.relative_to(source)
         place = plugin / where
@@ -660,14 +741,14 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
             findings.append(Finding(module, f"the link {where} leads nowhere in the source", fix))
         elif folder_at(target) and (
             files_under(place) != files_under(target)
-            or any((place / f).read_bytes() != (target / f).read_bytes() for f in files_under(target))
+            or any(bytes_of(place / f, True) != bytes_of(target / f, False) for f in files_under(target))
         ):
             differing = sorted(
                 (files_under(target) ^ files_under(place))
                 | {
                     f
                     for f in files_under(target) & files_under(place)
-                    if (place / f).read_bytes() != (target / f).read_bytes()
+                    if bytes_of(place / f, True) != bytes_of(target / f, False)
                 }
             )
             findings.append(
@@ -678,12 +759,12 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
                     fix,
                 )
             )
-        elif file_at(target) and place.read_bytes() != target.read_bytes():
+        elif file_at(target) and bytes_of(place, True) != bytes_of(target, False):
             findings.append(
                 Finding(module, f"the link {where} arrived with other bytes than its target", fix)
             )
     carried = {plugin / link.relative_to(source) for link in links}
-    for extra in sorted(p for p in plugin.rglob("*") if link_at(p) and p not in carried):
+    for extra in sorted(p for p in entries_under(plugin) if link_at(p) and p not in carried):
         findings.append(
             Finding(
                 module,
@@ -696,10 +777,15 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
 
 def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
     """What the kit's source of the module promises, held in its installed copy on a bare repository."""
+    # The hooks file is looked up before the walks of `link_findings`, so that a hooks folder of the source
+    # or of the copy that cannot be searched is the line of its own lookup (`hooks_of`, `file_at`) and not
+    # the walk's, which names the same folder; the findings keep their order, the links first.
+    hooks = hooks_of(source)
+    lacks_hooks_file = file_at(source / "hooks" / "hooks.json") and not file_at(
+        plugin / "hooks" / "hooks.json"
+    )
     findings = link_findings(module, source, plugin)
-    hooks = hooks_of(source)  # before the lookup below of the same file, so that a hooks folder of the
-    # source that cannot be searched is `hooks_of`'s own line
-    if file_at(source / "hooks" / "hooks.json") and not file_at(plugin / "hooks" / "hooks.json"):
+    if lacks_hooks_file:
         findings.append(
             Finding(module, "the installed copy has no hooks/hooks.json", "restore the hooks file")
         )
@@ -1011,7 +1097,7 @@ def install(
 
 
 def counted(source: Path) -> str:
-    links = sum(1 for p in source.rglob("*") if link_at(p))
+    links = sum(1 for p in entries_under(source) if link_at(p))
     return f"{len(hooks_of(source))} hook(s), {len(declared_scans(source))} scan(s), {links} link(s)"
 
 
@@ -2082,10 +2168,38 @@ def self_test() -> int:
             got_start
             in (
                 f"BROKEN: the command [''] could not be started (Permission denied) — fix: {fix_run}",
-                "BROKEN:  is not installed (No such file or directory) — fix: install it and put it on PATH",
+                "BROKEN: '' is not installed (No such file or directory) — fix: install it and put it on"
+                " PATH",
             ),
             got_start,
         )
+        # A command that is not found is echoed as `shown` quotes it when it is no plain word, so that a
+        # space, a quote or a line break reads as one token; a working folder that does not exist is its own
+        # cause, whichever command is asked for. Both are real, no process mocked.
+        got_start = started(["my tool's\nname"])
+        version_case(
+            "run: a command with a space, a quote and a line break, not found, is quoted as one token",
+            got_start
+            == 'BROKEN: "my tool\'s\\nname" is not installed (No such file or directory) — fix: install it'
+            " and put it on PATH",
+            got_start,
+        )
+        with tempfile.TemporaryDirectory() as gone_tmp:
+            gone = Path(gone_tmp) / "gone dir"
+            no_folder = (
+                f"BROKEN: the working folder {gone} does not exist — fix: make the folder"
+                f" (`mkdir -p '{gone}'`), then run the check again"
+            )
+            for name, argv in (
+                ("an existing command", ["sh", "-c", "true"]),
+                ("a missing one", ["no-such-tool"]),
+            ):
+                got_start = said(partial(run, argv, gone, dict(os.environ)))
+                version_case(
+                    f"run: a working folder that does not exist is named, not {name} read as not installed",
+                    got_start == no_folder,
+                    got_start,
+                )
         with (
             tempfile.TemporaryDirectory() as hook_tmp
         ):  # a hook run through check_installed has the hook's fix
@@ -2176,10 +2290,138 @@ def self_test() -> int:
                 f" folder {odd} searchable, `ls -ld '{odd}'` shows why not, then run the check again",
                 got_odd,
             )
+
+        # A folder the walks cannot list, and a file they cannot read: the walks (`files_under`, the
+        # source's and the copy's links in `link_findings`, a link's target folder, `counted`) each give one
+        # BROKEN line naming the folder, the same on every Python (`Path.rglob` raises on one and lists
+        # nothing on the other), and the byte comparisons of `link_findings` (a folder link's files, its
+        # differing files, a file link) one naming the file. The listing and the read are made to raise
+        # here, so that the cases hold as root too; the real folder and file of mode 000 follow below. No
+        # existing case fits: the walk cases above hold an entry that cannot be looked at, in a folder that
+        # lists, and the read cases a hooks file; these two failures are new.
+        def cannot_list(folder: Path) -> str:
+            return (
+                f"BROKEN: {folder} cannot be listed (Permission denied) — fix: give the folder {folder}"
+                f" search permission, `chmod u+rx {shlex.quote(str(folder))}`, then run the check again"
+            )
+
+        def cannot_read(path: Path, installed: bool) -> str:
+            fix = (
+                "run the check again, and if it repeats, report that the install wrote a file the check"
+                " cannot read, at the version the kit pins"
+                if installed
+                else f"give the file read permission, `chmod u+r {shlex.quote(str(path))}`,"
+                " then run the check again"
+            )
+            return f"BROKEN: {path} cannot be read (Permission denied) — fix: {fix}"
+
+        def walk_fixtures(root: Path, bad: Path) -> list[tuple[str, Callable[[], object]]]:
+            """The walk sites, each reaching the folder `bad`: as the source, as the copy, as a link's target,
+            and in the count."""
+            empty = root / "empty copy"
+            links_source = root / "links source"
+            target_source, target_copy = root / "target source", root / "target copy"
+            for folder in (empty, links_source, target_source, target_copy):
+                folder.mkdir(parents=True)
+            (links_source / "ln.txt").symlink_to("../outside.txt")
+            (target_source / "shared").symlink_to(bad)
+            (target_copy / "shared").mkdir()
+            return [
+                ("files_under", lambda: files_under(bad)),
+                ("the source's links", lambda: link_findings("m", bad, empty)),
+                ("the copy's extra links", lambda: link_findings("m", links_source, bad)),
+                ("a link's target folder", lambda: link_findings("m", target_source, target_copy)),
+                ("the count of the source", lambda: counted(bad)),
+            ]
+
+        def bytes_fixture(root: Path) -> tuple[Path, Path, Path]:
+            """A source with a link to a folder of two files and a link to a file, and a copy that holds the
+            same bytes: the source, the copy, and the folder the first link leads to (its `locked.txt` is the
+            file the cases make unreadable)."""
+            folder = root / "shared dir"
+            folder.mkdir(parents=True)
+            (folder / "a.txt").write_text("a", encoding="utf-8")
+            (folder / "locked.txt").write_text("l", encoding="utf-8")
+            (root / "outside.txt").write_text("o", encoding="utf-8")
+            source = root / "source"
+            (source / "scripts").mkdir(parents=True)
+            (source / "scripts" / "shared").symlink_to(folder)
+            (source / "scripts" / "one.txt").symlink_to("../../outside.txt")
+            copy = root / "copy"
+            shutil.copytree(folder, copy / "scripts" / "shared")
+            shutil.copy(root / "outside.txt", copy / "scripts" / "one.txt")
+            return source, copy, folder
+
+        with tempfile.TemporaryDirectory() as list_tmp:
+            list_root = Path(list_tmp).resolve()
+            walked = list_root / "walked folder"
+            closed_sub = walked / "closed sub"
+            closed_sub.mkdir(parents=True)
+            (walked / "f.txt").write_text("f", encoding="utf-8")
+            real_scandir = os.scandir
+
+            def scandir_denying(path: str | os.PathLike[str] | None = None) -> object:
+                if path is not None and os.fspath(path) == str(closed_sub):
+                    raise PermissionError(errno.EACCES, "Permission denied", str(closed_sub))
+                return real_scandir(path)
+
+            for name, call in walk_fixtures(list_root, walked):
+                with mock.patch.object(os, "scandir", scandir_denying):
+                    got_list = said(call)
+                version_case(
+                    f"walks: a subfolder that cannot be listed ({name}) is one BROKEN line naming it",
+                    got_list == cannot_list(closed_sub),
+                    got_list,
+                )
+        with tempfile.TemporaryDirectory() as bytes_tmp:
+            bytes_root = Path(bytes_tmp).resolve()
+            bytes_source, bytes_copy, shared_dir = bytes_fixture(bytes_root)
+            copied_locked = bytes_copy / "scripts" / "shared" / "locked.txt"
+            real_read = Path.read_bytes
+
+            def read_denying(blocked: Path) -> contextlib.AbstractContextManager[object]:
+                def read_bytes(self: Path) -> bytes:
+                    if self == blocked:
+                        raise PermissionError(errno.EACCES, "Permission denied")
+                    return real_read(self)
+
+                return mock.patch.object(Path, "read_bytes", read_bytes)
+
+            got_bytes = said(lambda: link_findings("m", bytes_source, bytes_copy))
+            version_case(
+                "reads: the copy and the source compared are green", got_bytes == "returned []", got_bytes
+            )
+            for name, blocked, installed in (
+                ("a folder link's file of the source", shared_dir / "locked.txt", False),
+                ("a folder link's file of the copy", copied_locked, True),
+                ("a file link's file of the source", bytes_root / "outside.txt", False),
+                ("a file link's file of the copy", bytes_copy / "scripts" / "one.txt", True),
+            ):
+                with read_denying(blocked):
+                    got_bytes = said(lambda: link_findings("m", bytes_source, bytes_copy))
+                version_case(
+                    f"reads: {name} that cannot be read is one BROKEN line naming it",
+                    got_bytes == cannot_read(blocked, installed),
+                    got_bytes,
+                )
+            (
+                bytes_copy / "scripts" / "shared" / "a.txt"
+            ).unlink()  # the trees differ: the differing files are named
+            for name, blocked, installed in (
+                ("a differing folder link's file of the source", shared_dir / "locked.txt", False),
+                ("a differing folder link's file of the copy", copied_locked, True),
+            ):
+                with read_denying(blocked):
+                    got_bytes = said(lambda: link_findings("m", bytes_source, bytes_copy))
+                version_case(
+                    f"reads: {name} that cannot be read is one BROKEN line naming it",
+                    got_bytes == cannot_read(blocked, installed),
+                    got_bytes,
+                )
         if os.geteuid() == 0:  # root searches any folder: there, the cases above are the proof
             return
         with tempfile.TemporaryDirectory() as shut_tmp:
-            shut_root = Path(shut_tmp)
+            shut_root = Path(shut_tmp).resolve()  # a link's target is resolved, so the folders are too
             closed = shut_root / "closed folder"
             document = closed / "deep" / "plugin"
             document.mkdir(parents=True)
@@ -2208,11 +2450,22 @@ def self_test() -> int:
             (walk / "sub folder").mkdir(parents=True)
             (walk / "sub folder" / "y.txt").write_text("y", encoding="utf-8")
             empty_copy.mkdir()
+            unlisted = shut_root / "unlisted folder"  # a subfolder that cannot be listed
+            (unlisted / "closed sub").mkdir(parents=True)
+            half = shut_root / "half root" / "half folder"  # a folder that lists but cannot be searched
+            (half / "inner").mkdir(parents=True)
+            (shut_root / "sites").mkdir()
+            sites = walk_fixtures(shut_root / "sites", unlisted)
+            real_source, real_copy, real_shared = bytes_fixture(shut_root / "real bytes")
             shut_modes = [
                 (closed, 0o755),
                 (listing, 0o755),
                 (hooks_copy / "hooks", 0o755),
                 (walk / "sub folder", 0o755),
+                (unlisted / "closed sub", 0o755),
+                (half, 0o755),
+                (real_shared / "locked.txt", 0o644),
+                (real_copy / "scripts" / "shared" / "locked.txt", 0o644),
             ]
             try:
                 closed.chmod(0o000)
@@ -2309,6 +2562,40 @@ def self_test() -> int:
                     " so that the check can find hooks/hooks.json and read each hook it runs",
                     got_shut,
                 )
+                (unlisted / "closed sub").chmod(0o000)  # a real subfolder that cannot be listed
+                for name, call in sites:
+                    got_shut = said(call)
+                    version_case(
+                        f"walks: a real subfolder of mode 000 ({name}) is one BROKEN line naming it",
+                        got_shut == cannot_list(unlisted / "closed sub"),
+                        got_shut,
+                    )
+                half.chmod(0o444)
+                got_shut = said(lambda: files_under(half.parent))
+                version_case(
+                    "walks: a folder below one that lists but cannot be searched names the folder to open",
+                    got_shut
+                    == (
+                        f"BROKEN: {half / 'inner'} cannot be listed (Permission denied) — fix: give the"
+                        f" folder {half} search permission, `chmod u+rx {shlex.quote(str(half))}`, then run"
+                        " the check again"
+                    ),
+                    got_shut,
+                )
+                locked_shared = real_shared / "locked.txt"
+                locked_copy = real_copy / "scripts" / "shared" / "locked.txt"
+                for name, locked, installed in (
+                    ("a real file of the source", locked_shared, False),
+                    ("a real file of the copy", locked_copy, True),
+                ):
+                    locked.chmod(0o000)
+                    got_shut = said(lambda: link_findings("m", real_source, real_copy))
+                    locked.chmod(0o644)
+                    version_case(
+                        f"reads: {name} of mode 000 under a folder link is one BROKEN line naming it",
+                        got_shut == cannot_read(locked, installed),
+                        got_shut,
+                    )
             finally:
                 for folder_back, mode_back in shut_modes:
                     folder_back.chmod(mode_back)
