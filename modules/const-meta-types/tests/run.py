@@ -1098,6 +1098,42 @@ def policy_pointer_once_per_session() -> tuple[bool, str]:
             context(with_note) == f"{note}\n{pointed_notes}\n{green}",
         )
     )
+    # a warn carries no pointer: the finding's context, the warn note last; a scan carries none
+    warned = H.fresh_consumer()
+    warned.dials.update(own(severity="warn"))
+    warned.build()
+    at_warn = H.run_gate(event_json(warned.root, Write(NOTE_A, NO_ENVELOPE), session="s9"), env=env)
+    warn_context = json.loads(at_warn.stdout)["hookSpecificOutput"]["additionalContext"]
+    checks.append(("a warn carries no pointer", at_warn.code == 0 and "advisory" not in warn_context))
+    scanned = H.run_gate("", args=["--scan", str(root)], env=env)
+    checks.append(("a scan carries no pointer", scanned.code == 0 and "advisory" not in scanned.stdout))
+    # two rules named Enforcement: the first is named
+    twice = H.fresh_consumer()
+    twice.write(
+        "docs/policies/notes-policy.md",
+        envelope("notes-policy", "current-state")
+        + '\n3. <a id="r3"></a>**Enforcement** review.\n'
+        + ENFORCEMENT_RULE,
+    )
+    first_rule = H.run_gate(event_json(twice.root, VALID, session="s10"), env=env)
+    checks.append(
+        (
+            "two Enforcement rules: the first is named",
+            context(first_rule) == f"{POINTED.replace('#r6', '#r3')}\n{green}",
+        )
+    )
+    # a memo that cannot be written: the line said on every write, the verdict unchanged
+    blocked = H.scratch_dir()
+    (blocked / "const-meta-types.pointed").mkdir()  # a directory where the memo file should be
+    blocked_env = {"CLAUDE_PLUGIN_DATA": str(blocked)}
+    once = run(VALID, "s11", blocked_env)
+    again = run(VALID, "s11", blocked_env)
+    checks.append(
+        (
+            "a memo that cannot be written: said again, the verdict green",
+            context(once) == f"{POINTED}\n{green}" and context(again) == f"{POINTED}\n{green}",
+        )
+    )
     failed = [title for title, ok in checks if not ok]
     return not failed, f"{len(checks)} checks" if not failed else "failed: " + "; ".join(
         failed
