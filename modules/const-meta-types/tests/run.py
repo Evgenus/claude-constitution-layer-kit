@@ -999,6 +999,10 @@ def policy_pointer_once_per_session() -> tuple[bool, str]:
             second.code == 0 and second.stdout == green + "\n",
         )
     )
+    # the same session in another repository is pointed again: the memo keys on the repository too
+    other_root = H.fresh_consumer().root
+    elsewhere = H.run_gate(event_json(other_root, VALID, session="s1"), env=env)
+    checks.append(("the same session, another repository: pointed again", context(elsewhere) is not None))
     other_session = run(VALID, "s2")
     checks.append(("first write of s2: pointed again", context(other_session) == f"{POINTED}\n{green}"))
     consumer.write(NOTE_A, envelope("note-a"))  # an Edit is applied to the file on disk
@@ -1029,6 +1033,7 @@ def policy_pointer_once_per_session() -> tuple[bool, str]:
     lines = memo.read_text(encoding="utf-8").splitlines() if memo.is_file() else []
     wanted = [
         f"s1\t{root}\tdocs/policies/notes-policy.md",
+        f"s1\t{other_root}\tdocs/policies/notes-policy.md",
         f"s2\t{root}\tdocs/policies/notes-policy.md",
         f"s3\t{root}\tdocs/policies/notes-policy.md",
         f"s1\t{root}\tdocs/policies/root-policy.md",
@@ -1098,9 +1103,6 @@ def policy_pointer_once_per_session() -> tuple[bool, str]:
             context(with_note) == f"{note}\n{pointed_notes}\n{green}",
         )
     )
-    # the same session in another repository is pointed again: the memo keys on the repository too
-    elsewhere = H.run_gate(event_json(H.fresh_consumer().root, VALID, session="s1"), env=env)
-    checks.append(("the same session, another repository: pointed again", context(elsewhere) is not None))
     # a warn carries no pointer: the finding's context, the warn note last; a scan carries none
     warned = H.fresh_consumer()
     warned.dials.update(own(severity="warn"))
