@@ -28,8 +28,8 @@ The check: in the scan, every pair whose code patterns match a path of the range
           documents excepted, has one of its documents among the range's paths, or a
           declaration — the trailer "<key>: <pair> — <reason>" on a commit of the range, or
           the same line in the body — naming it; a declaration naming no pair, or carrying
-          no reason, is a finding of its own; a document the map names must exist at the
-          range's tip unless the range touched it. In hook mode, the working tree is clean.
+          no reason, is a finding of its own; a document the map names must exist in the
+          repository's HEAD unless the range touched it. In hook mode, the working tree is clean.
 Exit:     0 green, or nothing to examine (the count line says which);
           2 finding — in hook mode this continues the turn once, the message reaching the
             model; with severity warn it is exit 0 with the finding in a systemMessage for
