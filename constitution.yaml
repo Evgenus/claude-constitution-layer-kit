@@ -762,13 +762,20 @@ const-doc-budgets:                    # a character ceiling per group of documen
       window:
         from: 2026-09-14
         to: 2026-09-29
+    # shared-code, 2026-10-12: raised from 49,000 to 75,000 after the shortening of the page to 73,956 characters,
+    # the shortened size rounded up to the next thousand plus one thousand of room (piece B10 of the G14 brief of the
+    # hardcode audit; the decider's pick Q5 (B10) A of 2026-10-12, "shorten what is reasonable. raise the ceiling
+    # after"; record dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds, R9). The reason: the page's
+    # ruling sentences alone exceed the old ceiling, 177 of them homed by 24 records and 10,573 characters of message
+    # texts kept word for word (rule 1 of plc-0009-shared-code), so the shortening cut every passage no record homes.
+    # The number is not the window's longest plus 10 %: the window runs to the day of the measure; the level stays warning.
     - name: shared-code
       paths: *shared_code
-      max: 49000
+      max: 75000
       level: warning
       window:
         from: 2026-09-14
-        to: 2026-09-29
+        to: 2026-10-12
     - name: style-guide
       paths: *style
       max: 11000
