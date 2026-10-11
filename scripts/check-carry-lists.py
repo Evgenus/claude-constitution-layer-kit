@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Kit check: every decision record names a home for each thing it rules, and every accepted
-record has the receipt of its carry audit.
+"""Kit check: every decision record names a home for each thing it rules, every ruling carries
+its anchor, and every accepted record has the receipt of its carry audit.
 
 A ruling that is recorded and approved but never written into a current-state document is
 lost the day its record stops being read. Whether a sentence really states a rule is judgment,
 and a reader decides it — the carry audit. This check holds the two parts of that audit a
-script can hold:
+script can hold, and the anchor every ruling is cited by:
 
   the list     the record's last section is "Carry list"; every ruling item carries a handle,
                **R1.**, **R2.**, …; the list pairs each handle, once, with links, with "history
@@ -31,18 +31,23 @@ script can hold:
                is a note too: deleted since, renumbered or misspelt. A renumbered record is accepted
                again under its new id, in the merge commit of the change that renumbers it.
 
+  the anchor   every ruling handle **R<n>.** stands right after the anchor of its own key,
+               <a id="r<n>"></a>, so that a ruling cited from another document is reached by a
+               link to it; held in every record, whatever its number, outside fenced blocks.
+
 What it cannot see, and leaves to the reader of the audit: a ruling item the author never gave a
-handle; whether the linked text states the rule; whether the audit the receipt names was run.
+handle; whether the linked text states the rule; whether the audit the receipt names was run;
+whether a citation of a ruling from another document links its anchor.
 
-Records numbered below the threshold were written before the rule and are not examined. The records'
-folder and the width of their numbers are read from the `dec` entry of `const-catalogs.catalogs` in
-constitution.yaml at the kit root: its territory must be exactly one pattern `<folder>/**`, its width
-(absent is 4) a whole number from 1 to 9 that can number the threshold, and the entry stands once. A
-dials file, an entry or a folder that cannot be read, a width or a territory that is off, and a file
-of `*.md` in that folder that does not have the form `dec-<width digits>-<slug>` — never skipped —
-are each a failure to run, with the fix.
+Records numbered below the threshold were written before the rule, and only their anchors are
+examined. The records' folder and the width of their numbers are read from the `dec` entry of
+`const-catalogs.catalogs` in constitution.yaml at the kit root: its territory must be exactly one
+pattern `<folder>/**`, its width (absent is 4) a whole number from 1 to 9 that can number the
+threshold, and the entry stands once. A dials file, an entry or a folder that cannot be read, a width
+or a territory that is off, and a file of `*.md` in that folder that does not have the form
+`dec-<width digits>-<slug>` — never skipped — are each a failure to run, with the fix.
 
-Modes:  no arguments            check the lists and the receipts;
+Modes:  no arguments            check the lists, the anchors and the receipts;
         --scope BASE [MODULE]   print the records a closing audit must read for the change since
                                 BASE: in full — those the change adds or edits and those the module's
                                 decisions section, found by its anchor `t4`, cites; for regression —
@@ -110,6 +115,12 @@ WHY_RECEIPT = (
     "the carry audit is mandatory before a yes, and a yes that does not name its audit cannot be told "
     "from one without"
 )
+WHY_ANCHOR = (
+    "a ruling cited from another document is reached by its anchor; without one, every citation opens "
+    "only the record"
+)
+ANCHORED = re.compile(r'(<a id="([^"]*)"></a>)?\*\*R(\d+[a-z]?)\.\*\*')
+FENCE = re.compile(r"^[ \t]*```.*?^[ \t]*```[^\n]*$", re.MULTILINE | re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -337,6 +348,32 @@ def carry_entries(body: str) -> list[str]:
     return entries
 
 
+def check_anchors(shown: str, text: str) -> list[Finding]:
+    """Every ruling handle **R<n>.** stands right after the anchor of its own key, <a id="r<n>"></a>,
+    outside fenced blocks (rule 2 of plc-0004)."""
+    masked = FENCE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    findings: list[Finding] = []
+    for m in ANCHORED.finditer(masked):
+        handle, key = f"R{m.group(3)}", f"r{m.group(3)}"
+        if m.group(1) is None:
+            findings.append(
+                Finding(
+                    f"{shown}: ruling {handle} has no anchor",
+                    WHY_ANCHOR,
+                    f'write <a id="{key}"></a> right before **{handle}.**',
+                )
+            )
+        elif m.group(2) != key:
+            findings.append(
+                Finding(
+                    f'{shown}: ruling {handle} stands after the anchor "{m.group(2)}"',
+                    WHY_ANCHOR,
+                    f'make it <a id="{key}"></a>, the handle\'s own key',
+                )
+            )
+    return findings
+
+
 def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding], list[str]]:
     shown = record.relative_to(kit).as_posix()
     _, text = split_frontmatter(record.read_text(encoding="utf-8"))
@@ -352,7 +389,7 @@ def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding]
         ], []
     ruled, listed = text[: headings[-1].start()], text[headings[-1].end() :]
     handles = [f"R{n}" for n in HANDLE.findall(ruled)]
-    findings: list[Finding] = []
+    findings: list[Finding] = check_anchors(shown, ruled)
     notes: list[str] = []
     if not handles:
         findings.append(
@@ -584,11 +621,19 @@ def check_receipt(
 # ---------------------------------------------------------------------------------------------
 
 
-def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
+def check_kit(kit: Path) -> tuple[list[Finding], list[str], int, int]:
     catalog = load_catalog(kit)
     records = gated_records(kit, catalog)
     findings: list[Finding] = []
     notes: list[str] = []
+    older = [  # the anchor of each ruling is held in every record, whatever its number
+        path
+        for path in sorted((kit / catalog.folder).glob("*.md"))
+        if catalog.stem.match(path.stem) and path not in records
+    ]
+    for record in older:
+        _, text = split_frontmatter(record.read_text(encoding="utf-8"))
+        findings.extend(check_anchors(record.relative_to(kit).as_posix(), text))
     for record in records:
         found, noted = check_list(kit, catalog, record)
         findings.extend(found)
@@ -613,11 +658,14 @@ def check_kit(kit: Path) -> tuple[list[Finding], list[str], int]:
                     "new id in the merge commit of the change that renumbers it; when misspelt, accept "
                     "again in the merge commit of a new pull request, the id spelt right"
                 )
-    return findings, notes, len(records)
+    return findings, notes, len(records), len(records) + len(older)
 
 
-def report(findings: list[Finding], notes: list[str], records: int) -> int:
-    counts = f"{records} record(s) numbered {THRESHOLD:04d} or above examined"
+def report(findings: list[Finding], notes: list[str], records: int, anchored: int) -> int:
+    counts = (
+        f"{records} record(s) numbered {THRESHOLD:04d} or above examined, the rulings of {anchored}"
+        " for their anchors"
+    )
     for note in notes:
         print(note)
     if findings:
@@ -625,7 +673,10 @@ def report(findings: list[Finding], notes: list[str], records: int) -> int:
             print(finding.render())
         print(f"RED: {len(findings)} finding(s) — {counts}")
         return EXIT_RED
-    print(f"GREEN: every ruling item names its home, every acceptance names its audit — {counts}")
+    print(
+        "GREEN: every ruling item names its home and carries its anchor, every acceptance names its audit"
+        f" — {counts}"
+    )
     return EXIT_GREEN
 
 
@@ -743,9 +794,9 @@ decider: someone
 
 ## Ruling
 
-1. **R1.** A rule that binds.
-2. **R2.** A one-time act.
-3. **R3.** Something to be done in a later phase.
+1. <a id="r1"></a>**R1.** A rule that binds.
+2. <a id="r2"></a>**R2.** A one-time act.
+3. <a id="r3"></a>**R3.** Something to be done in a later phase.
 
 ## Carry list
 
@@ -939,6 +990,8 @@ def self_test() -> int:
         "pending intent in another record": lambda t: t.replace("(../plan.md)", f"({SAMPLE}.md)"),
         "pending intent in a current-state document": lambda t: t.replace("(../plan.md)", f"({home})"),
         "a rule carried into the active plan": lambda t: t.replace(home, "../plan.md"),
+        "a ruling with no anchor": lambda t: t.replace('<a id="r2"></a>**R2.**', "**R2.**"),
+        "a ruling after the anchor of another key": lambda t: t.replace('<a id="r2"></a>', '<a id="r9"></a>'),
     }
     right_homes = {
         "CLAUDE.md": "../../CLAUDE.md",
@@ -957,6 +1010,33 @@ def self_test() -> int:
         ok = green_before and red_after
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] the right list is green, {name} is red")
+    old = f"dec-{1:0{DEFAULT_LAYOUT.width}d}-old"  # built, so that no file names a record that does not exist
+    old_envelope = (
+        f"---\nid: {old}\ntype: task-record\ntitle: Old\nstatus: inactive\nstakes: process\n"
+        "decider: someone\n---\n\n"
+    )
+    older_cases = {  # case: the body of a record numbered below the threshold, whether it is red
+        "a record below the threshold whose ruling has no anchor is red": (
+            "# Old\n\n**R1.** A rule.\n",
+            True,
+        ),
+        "a ruling handle in a fenced block needs no anchor": (
+            '# Old\n\n<a id="r1"></a>**R1.** A rule.\n\n```\n**R2.** an example\n```\n',
+            False,
+        ),
+    }
+    for name, (body, want_red) in older_cases.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            git(root, "init", "-q")
+            sample_kit(root)
+            (root / folder / f"{old}.md").write_text(old_envelope + body, encoding="utf-8")
+            commit(root, "the records land")
+            found = check_kit(root)[0]
+        red = any(f"{old}.md" in f.headline for f in found)
+        ok = red == want_red
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
     readme_texts = {  # case: the damage, the headline's end and the fix, typed by hand
         "a module's README refused as a home teaches CARRY_IT": (
             wrong_lists["a home in a module's README given an envelope"],
@@ -1044,7 +1124,7 @@ def self_test() -> int:
             last = pinned
             for message in messages:
                 last = commit(root, message.format(at=pinned[:12], before=before[:12]))
-            findings, notes, _ = check_kit(root)
+            findings, notes, _, _ = check_kit(root)
         ok = (not awaiting[0] and len(awaiting[1]) == 1) and bool(findings) == red_wanted
         ok = ok and len(notes) == notes_wanted
         if name == "an acceptance of a record that is not there is a note":
@@ -1064,7 +1144,7 @@ def self_test() -> int:
         signed_merge(root, right.format(at=pinned[:12]))
         shown = git(root, "log", "-1", "--format=%h")
         calls = signing.read_text(encoding="utf-8") if signing.exists() else ""
-        findings, notes, _ = check_kit(root)
+        findings, notes, _, _ = check_kit(root)
     asked = "--verify" in calls and "fake signer" in shown.stdout + shown.stderr
     ok = asked and not findings and not notes
     failed += 0 if ok else 1
@@ -1113,7 +1193,7 @@ def self_test() -> int:
         pinned = commit(root, "the record lands")
         commit(root, right.format(at=pinned[:12]) + "Carry-Audit: the %(trailers placeholder, quoted\n")
         try:
-            findings, _, _ = check_kit(root)
+            findings, _, _, _ = check_kit(root)
             ok = any("cannot be read" in finding.headline for finding in findings)
         except CouldNotRun:
             ok = False
@@ -1270,7 +1350,7 @@ def self_test() -> int:
             root = Path(tmp).resolve()
             git(root, "init", "-q")
             sample_kit(root, damage(GOOD_RECORD.replace(SAMPLE, layout.sample)), layout)
-            findings, _, records = check_kit(root)
+            findings, _, records, _ = check_kit(root)
         return len(findings), records
 
     in_folder = f'["{folder}/**"]'
@@ -1497,7 +1577,7 @@ def self_test() -> int:
             pinned = commit(root, "the record lands")
             at = at.format(pinned=pinned[:12], before=before[:12])
             commit(root, accept + f"Carry-Audit: at {at}; 3 records; 0 findings, 0 fixed, 0 justified\n")
-            findings, notes, _ = check_kit(root)
+            findings, notes, _, _ = check_kit(root)
         judge(
             bool(findings) == red and not notes,
             f"in a catalog of docs/records, width 5: {name} is {'red' if red else 'green'}",
@@ -1564,7 +1644,7 @@ def self_test() -> int:
         pinned = commit(root, "the record lands")
         (root / folder / f"{SAMPLE}.md").rename(root / folder / f"{renamed}.md")
         commit(root, right_receipt.format(id=renamed, at=pinned[:12]))
-        findings, _, _ = check_kit(root)
+        findings, _, _, _ = check_kit(root)
     judge(
         len(findings) == 1 and "did not exist yet" in findings[0].headline,
         "a record that stood under another id at the audit commit did not exist yet there: red",
@@ -1572,6 +1652,7 @@ def self_test() -> int:
 
     total = (
         len(wrong_lists)
+        + len(older_cases)
         + len(readme_texts)
         + 1
         + len(right_homes)
