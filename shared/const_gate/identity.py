@@ -7,10 +7,11 @@ mode of the run beside it, in the same declaration, for the code that behaves di
 a hook than in a scan or an act: the git calls' budget and the hook's one deadline.
 
 A hook run has one deadline, `hook_seconds` of the identity from the moment of the declaration,
-and every wait of the run takes the smaller of its own cap and what is left of it (`remaining`);
-a scan, an act and a process declared with no mode have no deadline. The handler's timeout in the
-plugin's hooks file stays `hook_seconds` and `LEFT_FOR_THE_REST` above it, so that a spent
-deadline ends with the gate's own line before the platform cuts the hook.
+and every wait of the run takes the smaller of its own cap and what is left of it (`remaining`, and
+`left_of` for a wait no verdict depends on); a scan, an act and a process declared with no mode
+have no deadline. The handler's timeout in the plugin's hooks file stays `hook_seconds` and
+`LEFT_FOR_THE_REST` above it, so that a spent deadline ends with the gate's own line before the
+platform cuts the hook.
 
 It is the package's one global of its own; the output module also switches off a process-wide flag
 of `logging`.
@@ -106,6 +107,16 @@ def remaining(cap: float, before: str) -> float:
     if left <= 0:
         raise ConfigurationFailure(messages.c12_hook_budget(_declared.identity.hook_seconds, before))
     return min(cap, left)
+
+
+def left_of(cap: float) -> float:
+    """The seconds a wait of a hook run may take where no verdict depends on it: the smaller of its own
+    `cap` and what is left of the run's deadline, zero where nothing is left, the cap itself where the
+    run has no deadline. It never raises: a wait for advice that the deadline cuts ends the advice, and
+    the verdict stands. `remaining` serves a wait that a verdict does wait for."""
+    if _declared is None or _declared.deadline is None:
+        return cap
+    return max(min(cap, _declared.deadline - time.monotonic()), 0.0)
 
 
 def ran_out(given: float, cap: float, before: str, own: Broken) -> ConfigurationFailure:

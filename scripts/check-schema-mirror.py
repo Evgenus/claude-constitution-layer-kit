@@ -36,7 +36,7 @@ import copy
 import json
 import sys
 import tempfile
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
@@ -65,6 +65,7 @@ from decision_records_gate import checks as record_checks  # noqa: E402
 from decision_records_gate.checks import check_record  # noqa: E402
 from decision_records_gate.model import ROUTINE, Stakes  # noqa: E402
 from meta_types_gate import checks as meta_checks  # noqa: E402
+from meta_types_gate import messages as meta_messages  # noqa: E402
 from meta_types_gate import start  # noqa: E402
 from meta_types_gate.checks import envelope_errors  # noqa: E402
 from meta_types_gate.model import TITLE_MAX  # noqa: E402
@@ -470,6 +471,21 @@ def with_broken_property(schema: dict[str, Any]) -> dict[str, Any]:
     return changed
 
 
+@contextlib.contextmanager
+def mirror_accepting_any_status() -> Iterator[None]:
+    """A mirror whose status check lets every value through: the error it gives for the value no side
+    holds, `OUTSIDE`, is dropped. Neither side lists that value, so only the case `vocabulary_cases` adds
+    for it can show the mirror to be looser than the schema."""
+    real = envelope_errors
+    refusal = meta_messages.f4_status_not_allowed(OUTSIDE)
+
+    def lenient(envelope: Any) -> list[str]:
+        return [error for error in real(envelope) if error != refusal]
+
+    with mock.patch.dict(globals(), {"envelope_errors": lenient}):
+        yield
+
+
 def self_test() -> int:
     """Red→green on mutated copies held in memory: each mutation is red with the line that names the
     value and both verdicts, the untouched inputs are green, a schema that breaks its draft is BROKEN."""
@@ -522,6 +538,12 @@ def self_test() -> int:
             (f"RED: envelope 'title {real.title_max + 1}': schema accepts=True, mirror accepts=False",),
         ),
         (
+            "a mirror that accepts a status neither side lists is red",
+            (envelope, record, dials, real),
+            EXIT_RED,
+            (f"RED: envelope 'status '{OUTSIDE}'': schema accepts=False, mirror accepts=True",),
+        ),
+        (
             "the untouched inputs are green",
             (envelope, record, dials, real),
             EXIT_GREEN,
@@ -534,9 +556,13 @@ def self_test() -> int:
             (f"BROKEN: {ENVELOPE_SCHEMA} {drafted}", ") — fix: repair the schema"),
         ),
     ]
+    under: dict[str, Callable[[], contextlib.AbstractContextManager[None]]] = {
+        "a mirror that accepts a status neither side lists is red": mirror_accepting_any_status
+    }
     failed = 0
     for name, inputs, wanted_code, wanted in cases:
-        code, lines = outcome(*inputs)
+        with under.get(name, contextlib.nullcontext)():
+            code, lines = outcome(*inputs)
         said = [line for line in "\n".join(lines).splitlines() if all(part in line for part in wanted)]
         ok = code == wanted_code and bool(said)
         failed += 0 if ok else 1

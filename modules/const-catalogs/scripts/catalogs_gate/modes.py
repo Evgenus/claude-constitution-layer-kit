@@ -94,9 +94,10 @@ def _items(matcher: Matcher, catalogs: Sequence[Catalog], catalog: Catalog, root
 
 def _with_history(taken: Taken, root: Path) -> Taken:
     """The hook's history read: its own `HOOK_SECONDS` at most, and no more than the hook's deadline has
-    left (a spent deadline is the shared configuration failure, C12.14, before git is asked); the read keeps
-    its own clock inside that number."""
-    history = read_history(root, identity.remaining(HOOK_SECONDS, "the history of added files was read"))
+    left (`left_of`, which never raises: the history is advice, and a deadline spent when it is asked ends
+    in the working tree's answer, history not read, the verdict standing); the read keeps its own clock
+    inside that number."""
+    history = read_history(root, identity.left_of(HOOK_SECONDS))
     return replace(taken, in_history=history.highest(taken.catalog), history_read=history.complete)
 
 

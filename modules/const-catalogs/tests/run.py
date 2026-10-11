@@ -15,6 +15,7 @@ second entry point, driven through its own items (T74–T77); the skill pointer,
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -880,10 +881,51 @@ def history_is_read_only_for_a_fix() -> tuple[bool, str]:
     )
 
 
+# A process whose clock jumps 100 s forward once it has made the number of git calls the environment names:
+# the hook's budget of 25 s is then spent from that call on. The gate's own clock is the only one it moves.
+CLOCK_JUMP = """\
+import os
+import subprocess
+import time
+
+after, made, jumped = int(os.environ["CLOCK_JUMP_AFTER"]), [0], [0.0]
+run, real = subprocess.run, time.monotonic
+
+
+def spy(command, *args, **kwargs):
+    done = run(command, *args, **kwargs)
+    if command[0] == "git":
+        made[0] += 1
+        if made[0] == after:
+            jumped[0] = 100.0
+    return done
+
+
+subprocess.run = spy
+time.monotonic = lambda: real() + jumped[0]
+"""
+
+
+def clock_jump_after_git(calls_before_history: int) -> dict[str, str]:
+    """The environment that moves the gate's clock 100 s on after that many git calls."""
+    folder = H.scratch_dir()
+    (folder / "sitecustomize.py").write_text(CLOCK_JUMP, encoding="utf-8")
+    path = os.pathsep.join(filter(None, [str(folder), os.environ.get("PYTHONPATH")]))
+    return {"PYTHONPATH": path, "CLOCK_JUMP_AFTER": str(calls_before_history)}
+
+
+def calls_before_history(log: Path) -> int:
+    """How many git calls the log holds before the history's first, `rev-parse --verify`."""
+    asked = [ast.literal_eval(line.split(" ", 1)[1]) for line in log.read_text().splitlines()]
+    return next(number for number, args in enumerate(asked) if "--verify" in args)
+
+
 def slow_history_costs_no_verdict() -> tuple[bool, str]:
     """A history that takes twenty seconds to list: the block still comes, within the hook's patience. The
     history is given its own 5 s, or what the hook's deadline has left where that is less: with the gate
-    declared with 2 s, no git call, the history's included, is given more than that."""
+    declared with 2 s, no git call, the history's included, is given more than that. With the deadline
+    already spent when the history is asked, the history is not read and the block stands, exit 2, never the
+    shared C12.14 (exit 1): no verdict waits for advice or falls with it."""
     consumer = H.fresh_consumer(SETUP)
     env, _ = fake_git(on_log="exec /bin/sleep 20")
     patch, log = git_patch(H)
@@ -894,6 +936,11 @@ def slow_history_costs_no_verdict() -> tuple[bool, str]:
     short_patch, short_log = git_patch(H, hook_seconds=2.0)
     short = H.run_gate(event_json(consumer.root, BLOCKED), env={**env, **short_patch})
     left = [float(timeout) for timeout in git_timeouts(short_log)]
+    quick_env, _ = fake_git()
+    spent = H.run_gate(
+        event_json(consumer.root, BLOCKED),
+        env={**quick_env, **clock_jump_after_git(calls_before_history(log))},
+    )
     block = k1("first", take=NOT_READ).render()
     ok = (
         red.code == 2
@@ -905,10 +952,15 @@ def slow_history_costs_no_verdict() -> tuple[bool, str]:
         and block in short.stderr
         and bool(left)
         and max(left) <= 2.0  # no call is given more than the hook's 2 s
+        and spent.code == 2  # the deadline was spent when the history was asked: the block stands
+        and block in spent.stderr
+        and "budget" not in spent.stderr
     )
     return ok, (
         f"exit {red.code} in {elapsed:.1f} s (bound 9 s), saying history was not read; the most any git call"
-        f" was given: {max(own, default=0):.2f} s, and {max(left, default=0):.2f} s under a hook of 2 s"
+        f" was given: {max(own, default=0):.2f} s, and {max(left, default=0):.2f} s under a hook of 2 s;"
+        f" with the deadline spent when the history is asked: exit {spent.code}"
+        f" ({spent.stderr.splitlines()[0][:90] if spent.stderr else spent.stdout[:90]})"
     )
 
 
