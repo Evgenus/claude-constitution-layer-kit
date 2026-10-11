@@ -2,7 +2,7 @@
 """Kit check: the forms in which a document names a handle of another document.
 
 One scan over the Markdown files git lists, one rule function per form; each rule returns its
-findings and the scan reports them all. Two rules are read:
+findings and the scan reports them all. Four rules are read:
 
   ruling citations  a citation of a ruling of a decision record from another document links the
                     ruling's anchor, the record's id the link's text: `R7 of [dec-…](…#r7)`
@@ -26,11 +26,28 @@ findings and the scan reports them all. Two rules are read:
                     the shared keys from the first column of the §3 table and the allowed ones from
                     the code spans of the paragraph of g3a, so the document is the one source.
 
+  handle prefixes   one prefix per kind of handle in a module document (rule 8 of
+                    plc-0006-module-documents). A prefix is the capital letters before the number
+                    (`T1` is T). The kinds read: the message keys of the table of anchor t6, the
+                    enforcement rows of anchor t9, and the acceptance items of anchor t10, the first
+                    cell of each row; the live, review and kit-check items may continue the fixture
+                    items' numbering under T, so those are one kind. Finding: a prefix that two kinds
+                    of one document use. The prefixes the document uses are compared, never the
+                    letters a policy reserves; bare numbers have no prefix, and the advisory rules'
+                    `T-a` form is another prefix and not read.
+
+  table keys        from the record that brought the sentence of rule 10 of plc-0004-decision-records
+                    (number 39), handles are unique in a record, tables included. Finding: in a
+                    record numbered 39 or above, a table row whose first cell is `R<n>`, bold or not,
+                    a full stop after it allowed, outside fenced code and before the "Carry list"
+                    section. An earlier record is not read.
+
 Not read: the research comparisons (docs/research/), which keep the form they were frozen with
 (rule 7 of plc-0005-research); and in every other document the "Carry list" section of a record,
 whose links lead to no record, fenced code, indented code, inline code spans and HTML comments. The
-message-key rule reads only the table of anchor t6 of each modules/<name>/MODULE.md, and fails loud
-(BROKEN, with the fix) where the shared document or its anchors g3, g3a and g4 cannot be read.
+two module rules read only the tables of anchors t6, t9 and t10 of each modules/<name>/MODULE.md, the
+first of them t6 alone, and fail loud (BROKEN, with the fix) where a section, the shared document or
+its anchors g3, g3a and g4 cannot be read.
 Not a ruling: a handle after a word that names another kind of key, "message R4 of …" or "the
 table keys R1 to R4 of …" (rule 10 of plc-0004 writes such a key qualified). Left to review: a
 handle with a suffix letter (`R4b`), a record's citation of its own rulings ("R3",
@@ -93,6 +110,14 @@ KEY = r"[A-Z]+\d+[A-Za-z0-9]*(?:\.[A-Za-z0-9]+)*"  # a message key: C11, C5.a, C
 KEY_FULL = re.compile(KEY)
 KEY_IN_CELL = re.compile(rf"(?<![\w.]){KEY}")
 FAMILY = re.compile(r"[A-Z]+\d+")  # the letters and the first number of a key
+HANDLE_IN_CELL = re.compile(r"(?<![\w.])([A-Z]+)\d+")  # a handle of a table's first cell: T1, S101, L1b
+KIND_MESSAGE = "message keys"
+KIND_ENFORCEMENT = "enforcement rows"
+KIND_ACCEPTANCE = "acceptance items"  # fixture, live, review and kit-check items alike: they may share T
+RECORD_NUMBER = re.compile(r"(?:^|/)dec-(\d{4})-[^/#?]*\.md$")
+UNIQUE_FROM = 39  # the record that brought the sentence of rule 10 of plc-0004-decision-records:
+# handles run in order, contiguous and unique in the record, tables included
+TABLE_RULING = re.compile(r"R\d+")  # a table row's first cell without its bold marks and full stop
 WHY = (
     "a link to the ruling's own anchor takes a reader to the ruling in one click, and a record moved"
     " by the mover is repaired in every link (rule 2 of plc-0004-decision-records)"
@@ -106,6 +131,16 @@ class Broken(Exception):
 KEY_WHY = (
     "one key names one message in every module, so a reader who meets the key in a log or a document"
     " finds the same message wherever it stands (paragraph g3a of shared/GATE.md)"
+)
+
+
+PREFIX_WHY = (
+    "one prefix names one kind of handle in a document, so a reader who meets L1 or T3 knows at once"
+    " which table to open (rule 8 of plc-0006-module-documents)"
+)
+TABLE_WHY = (
+    "a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a citation"
+    " of R3 with two readings (rule 10 of plc-0004-decision-records)"
 )
 
 
@@ -376,6 +411,21 @@ def shared_message_keys(root: Path) -> tuple[frozenset[str], frozenset[str]]:
     return frozenset(shared), frozenset(allowed)
 
 
+def table_rows(document: Document, anchor: str) -> list[tuple[int, list[str]]]:
+    """The table rows (line number, cells) of the section of a module document that opens at the
+    anchor; the separator line is no row. A document without the section is Broken."""
+    try:
+        body = section(document.text, anchor, document.path)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+    rows: list[tuple[int, list[str]]] = []
+    for number, raw in body:
+        line = raw.strip()
+        if line.startswith("|") and not SEPARATOR.fullmatch(line):
+            rows.append((number, cells(line)))
+    return rows
+
+
 def module_message_keys(document: Document, context: Context) -> list[Finding]:
     """A module's message table (anchor t6) takes a key of the shared table only for the module's
     part of it, the keys of the paragraph of g3a (the "message keys" rule of the docstring)."""
@@ -384,16 +434,8 @@ def module_message_keys(document: Document, context: Context) -> list[Finding]:
     if "shared" not in context.cache:  # read and parsed once for the scan, not once per module
         context.cache["shared"] = shared_message_keys(context.root)
     shared, allowed = context.cache["shared"]
-    try:
-        body = section(document.text, "t6", document.path)
-    except DocumentError as bad:
-        raise Broken(str(bad)) from bad
     findings: list[Finding] = []
-    for number, raw in body:
-        line = raw.strip()
-        if not line.startswith("|") or SEPARATOR.fullmatch(line):
-            continue
-        row = cells(line)
+    for number, row in table_rows(document, "t6"):
         for key in KEY_IN_CELL.findall(row[0] if row else ""):
             if family(key) in shared and family(key) not in allowed:
                 prefixes = ", ".join(sorted({re.sub(r"\d.*", "", f) for f in shared}))
@@ -411,7 +453,94 @@ def module_message_keys(document: Document, context: Context) -> list[Finding]:
     return findings
 
 
-RULES: tuple[Rule, ...] = (ruling_citations, module_message_keys)
+def handle_prefixes(cell: str) -> list[tuple[str, str]]:
+    """The handles of one cell, each as (prefix, handle): the capital letters before a number, so that
+    the cell `T1–T4, T7` gives T1, T4 and T7, and a bare number none."""
+    return [(found[1], found[0]) for found in HANDLE_IN_CELL.finditer(cell.replace("*", ""))]
+
+
+def prefix_kinds(document: Document) -> dict[str, dict[str, tuple[int, str]]]:
+    """Where each prefix stands in a module document, by kind: prefix -> kind -> (line, handle) of its
+    first use. The kinds are the message keys of the table of anchor t6, the enforcement rows of t9
+    and the acceptance items of t10; the live, review and kit-check items of t10 may continue the
+    fixture items' numbering under T (rule 8 of plc-0006-module-documents), so the two are one kind."""
+    uses: dict[str, dict[str, tuple[int, str]]] = {}
+
+    def note(kind: str, number: int, cell: str) -> None:
+        for prefix, handle in handle_prefixes(cell):
+            uses.setdefault(prefix, {}).setdefault(kind, (number, handle))
+
+    for number, row in table_rows(document, "t6"):
+        note(KIND_MESSAGE, number, row[0] if row else "")
+    for number, row in table_rows(document, "t9"):
+        note(KIND_ENFORCEMENT, number, row[0] if row else "")
+    for number, row in table_rows(document, "t10"):
+        note(KIND_ACCEPTANCE, number, row[0] if row else "")
+    return uses
+
+
+def module_handle_prefixes(document: Document, context: Context) -> list[Finding]:
+    """Rule 8 of plc-0006-module-documents: one prefix per kind of handle in a module document (the
+    "handle prefixes" rule of the docstring). The prefixes a document uses are compared, never the
+    letters a policy reserves."""
+    if not MODULE_DOC.fullmatch(document.path):
+        return []
+    findings: list[Finding] = []
+    for prefix, kinds in prefix_kinds(document).items():
+        if len(kinds) < 2:
+            continue
+        (first, (first_line, first_handle)), (second, (line, handle)) = sorted(
+            kinds.items(), key=lambda item: item[1][0]
+        )[:2]
+        findings.append(
+            Finding(
+                document.path,
+                line,
+                f'the prefix "{prefix}" names two kinds of handle in this document: the {first}'
+                f" ({first_handle}, line {first_line}) and the {second} ({handle}, line {line})",
+                f"give the {second} a prefix that this document uses for no other kind, in their table and"
+                " in every citation of them together (the acceptance items take T, S, L or V, and V where L"
+                " is the module's message prefix)",
+                PREFIX_WHY,
+            )
+        )
+    return sorted(findings, key=lambda f: f.line)
+
+
+def record_table_keys(document: Document, context: Context) -> list[Finding]:
+    """Rule 10 of plc-0004-decision-records: from the record that brought the sentence on, handles are
+    unique in the record, tables included, so no table row of a record opens with a ruling's handle
+    (the "table keys" rule of the docstring)."""
+    numbered = RECORD_NUMBER.search(document.path)
+    if numbered is None or int(numbered[1]) < UNIQUE_FROM:
+        return []
+    findings: list[Finding] = []
+    for number, line in enumerate(document.masked.split("\n"), start=1):
+        stripped = line.strip()
+        if not stripped.startswith("|") or SEPARATOR.fullmatch(stripped):
+            continue
+        first = cells(stripped)[0] if cells(stripped) else ""
+        if TABLE_RULING.fullmatch(first.replace("*", "").rstrip(".")):
+            findings.append(
+                Finding(
+                    document.path,
+                    number,
+                    f'a table row opens with the key "{first}", which is the handle of a ruling of this'
+                    " record too",
+                    f'key the rows of this table with another letter, e.g. "K" for "R", so that "{first}"'
+                    " names a ruling alone",
+                    TABLE_WHY,
+                )
+            )
+    return findings
+
+
+RULES: tuple[Rule, ...] = (
+    ruling_citations,
+    module_message_keys,
+    module_handle_prefixes,
+    record_table_keys,
+)
 
 
 def check_document(document: Document, context: Context) -> list[Finding]:
@@ -726,12 +855,25 @@ def self_test() -> int:
         '<a id="g4"></a>\n## 4. Limits\n'
     )
 
-    def module_doc(rows: str, after: str = "") -> str:  # the table's first row is line 6
+    def module_doc(
+        rows: str = "| X1 | a |\n",
+        after: str = "",
+        enforcement: str = "| E1 | a |\n",
+        items: str = "| 1 | fixture | none | a |\n",
+    ) -> str:
+        """The sections the rules read, in miniature. With one row in each of the first two tables and
+        nothing after t7, the message rows start at line 6, the enforcement rows at 17 and the items
+        at 24."""
         return (
             '<a id="t6"></a>\n## 6. Artifacts\n\n| key | text |\n|---|---|\n'
             + rows
             + '\n<a id="t7"></a>\n## 7. Next\n\n'
             + after
+            + '\n<a id="t9"></a>\n## 9. Enforcement\n\n| # | artifact | kind |\n|---|---|---|\n'
+            + enforcement
+            + '\n<a id="t10"></a>\n## 10. Acceptance\n\n| item | kind | rows | what |\n|---|---|---|---|\n'
+            + items
+            + '\n<a id="t11"></a>\n## 11. Siblings\n'
         )
 
     after_paragraph = "a key named in a code span of a table row after the paragraph, N1"
@@ -767,6 +909,72 @@ def self_test() -> int:
         ),
         "a shared key in a section after the table": ("| X1 | a |\n", "| N1 | a |\n"),
         "a shared key in a later cell": ("| X1 | N1 and H2 |\n", ""),
+    }
+    bare = "| 1 | fixture | none | a |\n"  # the items table's default row
+    kinds_red: dict[str, tuple[dict[str, str], dict[str, str], tuple[int, ...]]] = {
+        # case: the arguments of module_doc green, red, and the lines by hand
+        "a message key L1 and a live item L1": (
+            {"rows": "| X1 | a |\n", "items": bare + "| V1 | live | none | a |\n"},
+            {"rows": "| L1 | a |\n", "items": bare + "| L1 | live | none | a |\n"},
+            (25,),
+        ),
+        "a message key E1 and an enforcement row E1": (
+            {"rows": "| X1 | a |\n"},
+            {"rows": "| E1 | a |\n"},
+            (17,),
+        ),
+        "a message key T1 and a fixture item T1": (
+            {"rows": "| X1 | a |\n", "items": "| T1 | fixture | none | a |\n"},
+            {"rows": "| T1 | a |\n", "items": "| T1 | fixture | none | a |\n"},
+            (24,),
+        ),
+        "a bold message key V2 and a live range V1–V3": (
+            {"rows": "| **X2** | a |\n", "items": "| V1–V3 | live | none | a |\n"},
+            {"rows": "| **V2** | a |\n", "items": "| V1–V3 | live | none | a |\n"},
+            (24,),
+        ),
+        "a sub-key C5.a and an item C1": (
+            {"rows": "| C5.a | a |\n", "items": "| T1 | fixture | none | a |\n"},
+            {"rows": "| C5.a | a |\n", "items": "| C1 | review | none | a |\n"},
+            (24,),
+        ),
+        "an enforcement row S1 and an item S101": (
+            {
+                "rows": "| X1 | a |\n",
+                "enforcement": "| E1 | a |\n",
+                "items": "| S101 | fixture | none | a |\n",
+            },
+            {
+                "rows": "| X1 | a |\n",
+                "enforcement": "| S1 | a |\n",
+                "items": "| S101 | fixture | none | a |\n",
+            },
+            (24,),
+        ),
+    }
+    kinds_green: dict[str, dict[str, str]] = {  # case: the arguments of module_doc
+        "message keys T1 to T4 and bare item numbers": {
+            "rows": "| T1 | a |\n| T4 | a |\n",
+            "items": "| 1–3 | fixture | none | a |\n| 101–106, 111 | fixture | none | a |\n",
+        },
+        "the shared keys beside the items T, S, L and V": {
+            "rows": "| G1 | a |\n| F9 | a |\n| C5, C12 | a |\n| N2 | a |\n",
+            "items": "| T1–T4 | fixture | none | a |\n| S101–S106 | fixture | none | a |\n"
+            "| L1 | live | none | a |\n| V1 | review | none | a |\n",
+        },
+        "one prefix for the fixture items and the live items": {
+            "items": "| T1 | fixture | none | a |\n| T50 | kit check | none | a |\n"
+            "| T51 | live | none | a |\n",
+        },
+        "message keys L1 and L2 and the items T1": {
+            "rows": "| L1 | a |\n| L2 | a |\n",
+            "items": "| T1 | fixture | none | a |\n",
+        },
+        "a handle in a later cell, not the first": {
+            "rows": "| X1 | L1 and E1 |\n",
+            "items": "| T1 | fixture | L1 | E1 |\n",
+        },
+        "a handle after the table of its section": {"after": "| L1 | a |\n| E1 | a |\n"},
     }
     keys_broken: dict[str, tuple[str | None, str, str]] = {  # case: shared text, rows, start
         "the shared document missing": (
@@ -811,6 +1019,59 @@ def self_test() -> int:
             "",
             'BROKEN: modules/const-x/MODULE.md has no anchor <a id="t6"></a>',
         ),
+    }
+    sections_broken: dict[str, tuple[str, str]] = {  # case: module document, start of the BROKEN line
+        "a module document without its anchor t9": (
+            module_doc().replace('<a id="t9"></a>\n', ""),
+            'BROKEN: modules/const-x/MODULE.md has no anchor <a id="t9"></a>',
+        ),
+        "a module document without its anchor t10": (
+            module_doc().replace('<a id="t10"></a>\n', ""),
+            'BROKEN: modules/const-x/MODULE.md has no anchor <a id="t10"></a> after <a id="t9"></a>',
+        ),
+    }
+
+    def record_at(number: int) -> str:
+        return f"docs/decisions/dec-{number:04d}-t.md"
+
+    rulings = "## Rulings\n\n1. **R1.** A rule.\n\n| key | what |\n|---|---|\n"  # the first row is line 7
+    after_carry = (
+        "## Carry list\n\n| R1 | x |\n\n## After\n\n| key | what |\n|---|---|\n"  # the first row is 9
+    )
+    tables_red: dict[str, tuple[int, str, str, tuple[int, ...]]] = {
+        # case: the record's number, the text green, the text red, the lines by hand
+        "a row R1 in a record numbered 39": (39, rulings + "| K1 | a |\n", rulings + "| R1 | a |\n", (7,)),
+        "a row R1 in a record numbered 100": (100, rulings + "| K1 | a |\n", rulings + "| R1 | a |\n", (7,)),
+        "a bold row key R1": (40, rulings + "| **K1** | a |\n", rulings + "| **R1** | a |\n", (7,)),
+        "a bold row key with a full stop, R2.": (
+            40,
+            rulings + "| K2. | a |\n",
+            rulings + "| **R2.** | a |\n",
+            (7,),
+        ),
+        "a row key with a full stop, R3.": (40, rulings + "| K3. | a |\n", rulings + "| R3. | a |\n", (7,)),
+        "a second row R2 beside a correct one": (
+            41,
+            rulings + "| K1 | a |\n| K2 | b |\n",
+            rulings + "| K1 | a |\n| R2 | b |\n",
+            (8,),
+        ),
+        "a row R1 in a table after the section Carry list ends": (
+            42,
+            after_carry + "| K1 | a |\n",
+            after_carry + "| R1 | a |\n",
+            (9,),
+        ),
+    }
+    tables_green: dict[str, tuple[str, str]] = {  # case: path, text
+        "a record numbered 38": (record_at(38), rulings + "| R1 | a |\n"),
+        "a document that is no record": ("docs/policies/p.md", rulings + "| R1 | a |\n"),
+        "the section Carry list": (record_at(39), "## Carry list\n\n| key | what |\n|---|---|\n| R1 | a |\n"),
+        "a fenced block": (record_at(39), "```\n| R1 | a |\n```\n"),
+        "a code span": (record_at(39), rulings + "| `R1` | a |\n"),
+        "a later cell": (record_at(39), rulings + "| K1 | R1 |\n"),
+        "a key qualified by its kind": (record_at(39), rulings + "| R1 of the module | a |\n"),
+        "a ruling outside a table": (record_at(39), "1. **R1.** A rule.\n\nR1 stands.\n"),
     }
 
     def fresh(root: Path) -> None:
@@ -902,6 +1163,100 @@ def self_test() -> int:
         judge(
             said.startswith(start) and " — fix: " in said, f"{name} is a teaching BROKEN line, never a pass"
         )
+    for name, (good_args, bad_args, lines) in kinds_red.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, gate_path, shared_lines)
+            write(root, module_path, module_doc(**good_args))
+            green_before = not check_kit(root)[0]
+            write(root, module_path, module_doc(**bad_args))
+            findings = check_kit(root)[0]
+        red_after = tuple(f.line for f in findings) == lines and all(f.path == module_path for f in findings)
+        judge(green_before and red_after, f"the correct prefixes are green, {name} is red")
+    for name, args in kinds_green.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, gate_path, shared_lines)
+            write(root, module_path, module_doc(**args))
+            judge(not check_kit(root)[0], f"{name} is not a finding")
+    for name, (text, start) in sections_broken.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, gate_path, shared_lines)
+            write(root, module_path, text)
+            try:
+                check_kit(root)
+                said = "no BROKEN: the check passed"
+            except Broken as broken:
+                said = f"BROKEN: {broken}"
+        judge(
+            said.startswith(start) and " — fix: " in said, f"{name} is a teaching BROKEN line, never a pass"
+        )
+    for name, (number, good_text, bad_text, lines) in tables_red.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, record_at(number), good_text)
+            green_before = not check_kit(root)[0]
+            write(root, record_at(number), bad_text)
+            findings = check_kit(root)[0]
+        red_after = tuple(f.line for f in findings) == lines and all(
+            f.path == record_at(number) for f in findings
+        )
+        judge(green_before and red_after, f"the correct row key is green, {name} is red")
+    for name, (path, text) in tables_green.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh(root)
+            write(root, path, text)
+            judge(not check_kit(root)[0], f"{name} is not a finding")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        fresh(root)
+        write(root, gate_path, shared_lines)
+        write(root, module_path, module_doc("| L1 | a |\n", items=bare + "| L1 | live | none | a |\n"))
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = report(*check_kit(root))
+    judge(
+        code == EXIT_RED
+        and printed.getvalue().splitlines()
+        == [
+            'RED: modules/const-x/MODULE.md:25: the prefix "L" names two kinds of handle in this document:'
+            " the message keys (L1, line 6) and the acceptance items (L1, line 25)",
+            "  why: one prefix names one kind of handle in a document, so a reader who meets L1 or T3 knows"
+            " at once which table to open (rule 8 of plc-0006-module-documents)",
+            "  fix: give the acceptance items a prefix that this document uses for no other kind, in their"
+            " table and in every citation of them together (the acceptance items take T, S, L or V, and V"
+            " where L is the module's message prefix)",
+            "RED: 1 finding(s) — 4 document(s) examined",
+        ],
+        "the report of one finding, a prefix of two kinds, is its literal text, exit 2",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        fresh(root)
+        write(root, record_at(39), rulings + "| R1 | a |\n")
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = report(*check_kit(root))
+    judge(
+        code == EXIT_RED
+        and printed.getvalue().splitlines()
+        == [
+            f'RED: {record_at(39)}:7: a table row opens with the key "R1", which is the handle of a ruling of'
+            " this record too",
+            "  why: a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a"
+            " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
+            '  fix: key the rows of this table with another letter, e.g. "K" for "R", so that "R1" names a'
+            " ruling alone",
+            "RED: 1 finding(s) — 3 document(s) examined",
+        ],
+        "the report of one finding, a table row keyed as a ruling, is its literal text, exit 2",
+    )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
