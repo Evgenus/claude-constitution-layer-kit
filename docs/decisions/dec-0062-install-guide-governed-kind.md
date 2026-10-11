@@ -101,7 +101,7 @@ The session checked that the style scan of [`const-styling`](../requirements.md#
 
 - **A. In the job `kit`.** `kit` installs Node and Claude Code from now on.
   - **Pros:** no new kind of job; R1 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md#r1) stays as it is.
-  - **Cons:** reverses R5 of that record, under which `kit` installs no Claude Code; every run of `kit` slows by the install and eleven plugin installs; a red on `kit` names no guide until the annotation is read.
+  - **Cons:** reverses R5 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md#r5), under which `kit` installs no Claude Code; every run of `kit` slows by the install and eleven plugin installs; a red on `kit` names no guide until the annotation is read.
 - **B. A job of its own, `install-guide`.** The gate list maps the new entry to its own job, and the workflow installs Node and Claude Code for it as for a module's job.
   - **Pros:** `kit` stays fast and free of Claude Code; the check line says "install-guide", so a red names the guide; it runs in parallel, so the wait does not grow.
   - **Cons:** narrows R1 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md#r1) with a third kind of job; about one more billed minute per run; one more case in the workflow's step condition.
