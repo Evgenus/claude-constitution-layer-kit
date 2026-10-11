@@ -10,7 +10,9 @@ per-plugin data directory — one line per pointer: the session, the repository 
 policy's path, tab-separated. Where neither place exists the memo has no home and nothing is
 pointed: a session the platform runs has the data directory. A memo that cannot be read or
 written is treated as holding nothing, so the line is said again rather than lost; nothing here
-changes a verdict, and the one `OSError` swallowed is said so at its place.
+changes a verdict. The two `OSError`s swallowed here, the memo's read and its write, are each said
+so at their place: beside the output log's own, they are the module's departure from the rule that
+a gate swallows one error, declared in its document.
 """
 
 from __future__ import annotations
@@ -23,9 +25,9 @@ from const_gate.output import Output
 
 from . import messages
 
-# A rule named Enforcement in a policy's body: its explicit anchor, then the bold name, as a policy's
-# numbered rules are written; the first such rule is the one named. The id's shape is fixed by the
-# pattern, so the message takes it as it stands.
+# A rule named Enforcement in a policy's body, in the one form this module reads: its explicit anchor,
+# then the bold name, with or without a full stop inside the bold; the first such rule is the one named.
+# The id's shape is fixed by the pattern, so the message takes it as it stands.
 ENFORCEMENT_RE = re.compile(r'<a id="([A-Za-z0-9_-]+)"></a>\s*\*\*Enforcement\.?\*\*')
 MEMO_SUFFIX = ".pointed"
 MEMO_LINES = 200  # the memo keeps its last lines: a session points at few policies, and old sessions go
@@ -54,7 +56,7 @@ def _remember(memo: Path, key: str) -> bool:
     try:
         held = memo.read_text(encoding="utf-8").splitlines() if memo.is_file() else []
     except OSError:
-        held = []
+        held = []  # deliberate: a memo nobody can read holds nothing; the line is said again, never lost
     if key in held:
         return False
     held = [*held[-(MEMO_LINES - 1) :], key]

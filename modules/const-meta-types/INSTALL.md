@@ -41,8 +41,11 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    subagent's start gets the same line, and every red of the gate carries, after its count line, a line naming the skill.
 7. The pointer to the governing policy: the first write of a session that passes for a document of
    a policy adds one advisory line to the model's context, naming the policy's path and, where the
-   policy has a rule named Enforcement, that rule's anchor — once per session, repository and policy,
-   remembered in the memo of step 4. With no log location there is no memo, and nothing is pointed.
+   policy has a rule named Enforcement, that rule's anchor — a rule written
+   `<a id="<anchor>"></a>**Enforcement.**`, the full stop optional, the first one in the file; a policy
+   without one earns the path alone. Once per session, repository and policy, remembered in the memo
+   of step 4. With no log location, or an event that names no session, there is no memo entry and
+   nothing is pointed.
 
 Uninstall: remove the plugin; remove the `const-meta-types:` namespace from
 `constitution.yaml` if present.

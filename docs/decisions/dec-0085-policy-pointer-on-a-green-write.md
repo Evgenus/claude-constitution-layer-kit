@@ -2,7 +2,7 @@
 id: dec-0085-policy-pointer-on-a-green-write
 type: task-record
 title: The write-time guard points a session at the governing policy once per session
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -42,17 +42,17 @@ The decider chose A in chat on 2026-10-11.
 
 <a id="r2"></a>**R2.** Where the policy's body holds a rule named Enforcement — an explicit anchor followed by the bold name, as the kit's policies write their numbered rules — the line names that rule's anchor after the path, since that rule says what review holds; the first such rule is the one named. Where the policy has no such rule, the line names the path alone.
 
-<a id="r3"></a>**R3.** The line is said once per session, per repository and per policy, so that a session edits many documents of one kind and pays once. What was said is remembered in a memo beside the module's output log, under the same name as the log with the suffix `.pointed`: one line per pointer, the session's id, the repository root and the policy's path, tab-separated; the memo keeps its last 200 lines. The memo has a home where the log has one: `log_dir` when set, else the platform's per-plugin data directory. Where neither exists, or where the event names no session, nothing is pointed. A memo that cannot be read or written counts as holding nothing, so the line is said again rather than lost, and no verdict waits on it.
+<a id="r3"></a>**R3.** The line is said once per session, per repository and per policy, so that a session edits many documents of one kind and pays once. What was said is remembered in a memo beside the module's output log, under the same name as the log with the suffix `.pointed`: one line per pointer, the session's id, the repository root and the policy's path, tab-separated; the memo keeps its last 200 lines. The memo has a home where the log has one: `log_dir` when set, else the platform's per-plugin data directory. Where neither exists, or where the event names no session, nothing is pointed. A memo that cannot be read or written counts as holding nothing, so the line is said again rather than lost, and no verdict waits on it: the memo's read and its write each swallow an `OSError`, said so at their place, the module's one departure from the gate-script rule that a gate swallows one error, the output log's.
 
 <a id="r4"></a>**R4.** The pointer is a new requirement row, [A2.7](../requirements.md#a2-7), homed in module [`const-meta-types`](../requirements.md#const-meta-types) as advisory: the hook's green carries the line, and whether the policy is read is judgment. The module's manifest version moves to `0.0.2`, within its draft range ([dec-0053-drafts-keep-their-versions](dec-0053-drafts-keep-their-versions.md)).
 
 ## Applied
 
-The commits of this branch apply every item: the code and its fixture, then the requirement row, the module's document, its install note and landing page, and this record, corrected before its yes on the findings of its validation and of its carry audit. The record was created `active` and is set `inactive` once every item is applied.
+The commits of this branch apply every item: the code and its fixture, then the requirement row, the module's document, its install note and landing page, and this record, corrected before its yes on the findings of its validation and of its carry audit. The record was created `active` and set `inactive` by the fix commits of its validation, once every item was applied.
 
 ## Carry list
 
-1. R1 — [`const-meta-types`](../../modules/const-meta-types/MODULE.md#t6), the row `N3` of the message table of section 6, and [its section 9](../../modules/const-meta-types/MODULE.md#t9), row `E5`; [requirement A2.7](../requirements.md#a2-7).
+1. R1 — [`const-meta-types`](../../modules/const-meta-types/MODULE.md#t3), the row of section 3 for [requirement A2.7](../requirements.md#a2-7), [its section 6](../../modules/const-meta-types/MODULE.md#t6), the row `N3` of the message table, and [its section 9](../../modules/const-meta-types/MODULE.md#t9), row `E5`; [requirement A2.7](../requirements.md#a2-7).
 2. R2 — [`const-meta-types`](../../modules/const-meta-types/MODULE.md#t6), the row `N3` of the message table of section 6; [requirement A2.7](../requirements.md#a2-7).
 3. R3 — [`const-meta-types`](../../modules/const-meta-types/MODULE.md#t6), the `package` row of section 6, and [its section 9](../../modules/const-meta-types/MODULE.md#t9), limit 5; [requirement A2.7](../requirements.md#a2-7).
 4. R4 — [requirement A2.7](../requirements.md#a2-7), and [`const-meta-types`](../../modules/const-meta-types/MODULE.md#t3), the row of section 3 for that requirement; the version is history only.

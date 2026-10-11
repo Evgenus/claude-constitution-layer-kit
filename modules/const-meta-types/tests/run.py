@@ -1098,6 +1098,9 @@ def policy_pointer_once_per_session() -> tuple[bool, str]:
             context(with_note) == f"{note}\n{pointed_notes}\n{green}",
         )
     )
+    # the same session in another repository is pointed again: the memo keys on the repository too
+    elsewhere = H.run_gate(event_json(H.fresh_consumer().root, VALID, session="s1"), env=env)
+    checks.append(("the same session, another repository: pointed again", context(elsewhere) is not None))
     # a warn carries no pointer: the finding's context, the warn note last; a scan carries none
     warned = H.fresh_consumer()
     warned.dials.update(own(severity="warn"))
