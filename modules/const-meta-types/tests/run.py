@@ -953,8 +953,8 @@ def policy_pointer_once_per_session() -> tuple[bool, str]:
     the first such write of a session prints one JSON object whose context holds the pointer, with
     the anchor of the policy's rule named Enforcement, then the green line; the next write of the
     same session for the same policy prints the green line plain; another session, another policy,
-    the same session in another repository, an Edit each earn their own; with two Enforcement rules
-    the first is named; a write outside territory, a red, a warn and a scan earn none; an index note
+    the same session in another repository, an Edit each earn their own; a policy with no Enforcement
+    rule earns the path alone, and with two such rules the first is named; a write outside territory, a red, a warn and a scan earn none; an index note
     stands before the pointer; the memo beside the output log holds the session, the repository and
     the policy, keeps its last lines, and with no home — no log_dir, no data directory — or no
     session nothing is pointed; a memo that cannot be written or read is said again, the verdict
@@ -1167,7 +1167,7 @@ def policy_pointer_once_per_session() -> tuple[bool, str]:
     failed = [title for title, ok in checks if not ok]
     return not failed, f"{len(checks)} checks{not_exercised}" if not failed else "failed: " + "; ".join(
         failed
-    ) + f"\nfirst run: {first.stdout}{first.stderr}"
+    ) + f"{not_exercised}\nfirst run: {first.stdout}{first.stderr}"
 
 
 ASSERTIONS = [

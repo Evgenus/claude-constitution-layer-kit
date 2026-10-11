@@ -44,8 +44,8 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    policy has a rule named Enforcement, that rule's anchor — a rule written
    `<a id="<anchor>"></a>**Enforcement.**`, the full stop optional, the first such rule in the
    policy; a policy without one earns the path alone. Once per session, repository and policy,
-   remembered in the memo of step 4. With no log location, or an event that names no session, there is no memo entry and
-   nothing is pointed.
+   remembered in the memo of step 4. With no log location, or an event that names no session, there
+   is no memo entry and nothing is pointed.
 
 Uninstall: remove the plugin; remove the `const-meta-types:` namespace from
 `constitution.yaml` if present.
