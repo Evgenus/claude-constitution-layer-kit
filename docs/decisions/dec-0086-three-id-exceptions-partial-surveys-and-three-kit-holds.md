@@ -1,5 +1,5 @@
 ---
-id: dec-0085-three-id-exceptions-partial-surveys-and-three-kit-holds
+id: dec-0086-three-id-exceptions-partial-surveys-and-three-kit-holds
 type: task-record
 title: The id rule has three named exceptions, a survey may supersede a comparison in part, and kit checks hold the runner count, the guide scan block and the coverage pairs
 status: inactive
