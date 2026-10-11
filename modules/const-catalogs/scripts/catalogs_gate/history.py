@@ -57,6 +57,8 @@ class History:
 
 
 def read_history(root: Path, seconds: float | None = None) -> History:
+    if seconds is not None and seconds <= 0:  # asked with no time left: no git is started
+        return History((), Read.NOT)
     deadline = None if seconds is None else time.monotonic() + seconds
     try:
         if _git(HEAD, root, deadline).returncode != 0:
