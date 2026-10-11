@@ -24,7 +24,7 @@ The handoff of the previous session left the next work unchosen: the module, or 
   - **Pros:** a consumer name unblocks the consumer-live proofs seven modules defer to the bootstrap; the parked items stop accumulating.
   - **Cons:** nothing ships; most parked items are process and several depend on this module's carrier, so they would be ruled without the module that exercises them.
 
-The session recommended A. **R1.** A, chosen by the decider in chat on 2026-09-25: [`const-interaction`](../requirements.md#const-interaction) is authored in the kit as consumer zero, like the seven modules before it, ahead of its Phase C slot — the kit having passed the module's entry trigger with five guide bullets on one theme; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. The consumer's name stays a parked item, put to the decider in one message at any point.
+The session recommended A. <a id="r1"></a>**R1.** A, chosen by the decider in chat on 2026-09-25: [`const-interaction`](../requirements.md#const-interaction) is authored in the kit as consumer zero, like the seven modules before it, ahead of its Phase C slot — the kit having passed the module's entry trigger with five guide bullets on one theme; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. The consumer's name stays a parked item, put to the decider in one message at any point.
 
 ## 2. The always-on carrier of the advisory rules
 
@@ -43,7 +43,7 @@ Nine rules that govern every reply, with no trigger — unlike the sibling's ask
   - **Pros:** zero runtime; the user sees the rules.
   - **Cons:** the manual, version-drifting path the specification names only as the fallback; what the kit does today, the friction the module absorbs.
 
-The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-25: the module's advisory rules ride on one `SessionStart` hook with no matcher, printed to stdout as plain text, declared advisory, sized in characters in the module document; the install note offers the copy-into-guide fallback labelled manual and version-drifting; an unforced output style is deferred with its signal.
+The session recommended A. <a id="r2"></a>**R2.** A, chosen by the decider in chat on 2026-09-25: the module's advisory rules ride on one `SessionStart` hook with no matcher, printed to stdout as plain text, declared advisory, sized in characters in the module document; the install note offers the copy-into-guide fallback labelled manual and version-drifting; an unforced output style is deferred with its signal.
 
 ## 3. The visible zero of a gate whose dial leaves it examining nothing
 
@@ -62,7 +62,7 @@ Item D3 of the audit of 2026-09-22: two shipped gates examine nothing by default
   - **Pros:** appears where the gate would have acted.
   - **Cons:** reaches the user and never the model; needs state.
 
-The session recommended A. **R3.** A, chosen by the decider in chat on 2026-09-25: a gate whose own dial leaves it examining nothing prints one line at `SessionStart`, naming the module and the dial, for as long as the dial stays so — a line to the model, sized in characters in the module's document; this module's hook prints it while `destructive` is an empty list; the two modules that examine nothing by default each gain the line in a routine change naming this record, after this module lands.
+The session recommended A. <a id="r3"></a>**R3.** A, chosen by the decider in chat on 2026-09-25: a gate whose own dial leaves it examining nothing prints one line at `SessionStart`, naming the module and the dial, for as long as the dial stays so — a line to the model, sized in characters in the module's document; this module's hook prints it while `destructive` is an empty list; the two modules that examine nothing by default each gain the line in a routine change naming this record, after this module lands.
 
 ## 4. How the kit's own sessions load its plugins
 
@@ -78,7 +78,7 @@ Item D7 of the audit of 2026-09-22: the kit's sessions load no plugin unless sta
   - **Pros:** nothing of the kit touches the user's global settings.
   - **Cons:** the `directory` source in a local settings file is documented for development only and its in-place loading is unverified by any run.
 
-The session recommended A, with C tried during the implementation. **R4.** A, chosen by the decider in chat on 2026-09-25: the kit loads its own plugins per clone through a marketplace file at its root, relative entries, one per module; the project's settings file enables each; the clone setup script registers the marketplace and installs the plugins once per clone; the work is a routine change on its own branch after this module lands, held by step 10 of the rollout plan, and the local-settings form of C replaces the user-settings write there if one headless run proves it loads in place; the marketplace is named `constitution-kit`.
+The session recommended A, with C tried during the implementation. <a id="r4"></a>**R4.** A, chosen by the decider in chat on 2026-09-25: the kit loads its own plugins per clone through a marketplace file at its root, relative entries, one per module; the project's settings file enables each; the clone setup script registers the marketplace and installs the plugins once per clone; the work is a routine change on its own branch after this module lands, held by step 10 of the rollout plan, and the local-settings form of C replaces the user-settings write there if one headless run proves it loads in place; the marketplace is named `constitution-kit`.
 
 ## 5. Whether the addressable-lists scan ships
 
@@ -94,7 +94,7 @@ The row's optional gate-lite, "a script flagging unnumbered multi-item lists in 
   - **Pros:** catches the list at the keystroke.
   - **Cons:** blocks every draft list mid-work on a heuristic.
 
-The session recommended A. **R5.** B, chosen by the decider in chat on 2026-09-25:
+The session recommended A. <a id="r5"></a>**R5.** B, chosen by the decider in chat on 2026-09-25:
 
 - **the check** ships in this version as a `gate` with a scan mode only — a second entry point of the module beside the shell gate, its hook mode never wired and answering that it is not, so the shared code is not widened — over the dials `territories` and `handles` of the module's own namespace, a finding per list naming the first item without a handle, a list inside a fenced block never counted, the message claiming no more than that an item opens with no token of the grammar;
 - **the kit's own exemptions** are ruled after the first scan on the kit's tree, never before, as [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) R4 learned.
@@ -115,7 +115,7 @@ The comparison bypassed the hook's `if` field live with `git -C . push --force`,
   - **Pros:** one grammar a consumer knows.
   - **Cons:** prefix-shaped; `--force-with-lease` cannot be excluded; the grammar whose blind spots the live run showed.
 
-The session recommended A. **R6.** A, chosen by the decider in chat on 2026-09-25: the dial `destructive` is a list of entries `{command: [<words>], flags: [<flags>], teach: <why>, alternative: <the reversible way>}`, matched on the tokens of every subcommand of the `Bash` command after the platform's own split — separators, `$()` and backticks, the string after `bash -c` or `sh -c`, a leading assignment and the wrappers stripped, a program path reduced to its base name, git's global options before the verb skipped; a short flag matched inside a cluster, a long flag by equality; an entry with no `flags` matched on its words alone; an argument-value form deferred with its signal; the scan mode explains a command given as `--scan --command <text>`.
+The session recommended A. <a id="r6"></a>**R6.** A, chosen by the decider in chat on 2026-09-25: the dial `destructive` is a list of entries `{command: [<words>], flags: [<flags>], teach: <why>, alternative: <the reversible way>}`, matched on the tokens of every subcommand of the `Bash` command after the platform's own split — separators, `$()` and backticks, the string after `bash -c` or `sh -c`, a leading assignment and the wrappers stripped, a program path reduced to its base name, git's global options before the verb skipped; a short flag matched inside a cluster, a long flag by equality; an entry with no `flags` matched on its words alone; an argument-value form deferred with its signal; the scan mode explains a command given as `--scan --command <text>`.
 
 ## 7. The confirmation mechanism
 
@@ -131,7 +131,7 @@ The live runs (d4 to d6, E4, E5, E11 of [res-0008-const-interaction](../research
   - **Pros:** works headless.
   - **Cons:** the model can add it alone; the yes is not in a human hand.
 
-The session recommended A. **R7.** A, chosen by the decider in chat on 2026-09-25:
+The session recommended A. <a id="r7"></a>**R7.** A, chosen by the decider in chat on 2026-09-25:
 
 - **a `Bash` command matching an entry** is answered with `permissionDecision: "ask"` and the entry's three-part teaching text as the reason — what matched, why the act is hard to reverse, the reversible alternative — at exit 0;
 - **an unlisted command** passes at exit 0 with nothing printed but the green line;
@@ -153,7 +153,7 @@ The comparison proposed a list (d13 of [res-0008-const-interaction](../research/
   - **Pros:** prompts only on the acts nearly everyone calls destructive.
   - **Cons:** a rebase and a discarded working tree pass in silence, the two acts the kit's own guide names first.
 
-The session recommended B. **R8.** B, chosen by the decider in chat on 2026-09-25: the default of the dial `destructive` is the entries of B — fourteen, listed there in ten groups, `git branch` taking `-f` and `--force` beside `-D` since the review of the build, a branch moved by force losing its commits as one deleted does — each with its teaching text and its reversible alternative written in the module's document; what the list leaves out is named there and in the gate's own words; SQL is no shell gate's default.
+The session recommended B. <a id="r8"></a>**R8.** B, chosen by the decider in chat on 2026-09-25: the default of the dial `destructive` is the entries of B — fourteen, listed there in ten groups, `git branch` taking `-f` and `--force` beside `-D` since the review of the build, a branch moved by force losing its commits as one deleted does — each with its teaching text and its reversible alternative written in the module's document; what the list leaves out is named there and in the gate's own words; SQL is no shell gate's default.
 
 ## 9. The verbosity dial of dec-0001
 
@@ -169,7 +169,7 @@ The carry audit's regression reader found that [dec-0001-session-conduct-rows](d
   - **Pros:** the reversal recorded, the trigger named.
   - **Cons:** one more deferred item; otherwise as A.
 
-The session recommended C. **R9.** B, chosen by the decider in chat on 2026-09-25: the module carries the dial `verbosity` in its own namespace, one value today, `triggered` — the assumption block and the restatement appear only when triggered, never as an empty ritual — its default, validated at each read and refused outside its values, and printed by the session-start hook after the rules; a second value is deferred with its signal. The session's objection stands: a dial with one value is ceremony until a consumer asks for a second.
+The session recommended C. <a id="r9"></a>**R9.** B, chosen by the decider in chat on 2026-09-25: the module carries the dial `verbosity` in its own namespace, one value today, `triggered` — the assumption block and the restatement appear only when triggered, never as an empty ritual — its default, validated at each read and refused outside its values, and printed by the session-start hook after the rules; a second value is deferred with its signal. The session's objection stands: a dial with one value is ceremony until a consumer asks for a second.
 
 ## Carry list
 

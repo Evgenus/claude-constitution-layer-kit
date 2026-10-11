@@ -33,7 +33,7 @@ The audit's item on this defect argued three ways to fix it.
 
 **Choice.** B, by the decider, in chat on 2026-10-04, when the decider set this change's scope.
 
-**R1.** The shared envelope reader has two more public parts, both class K. `envelope_bounds(text)` says where the envelope stands, as character offsets into the text as given, a byte-order mark included. `envelope_lines(text, start, stop)` is the line splitter. `parse_envelope` is built on both and gives the same verdict as before for every text that holds none of the characters of R4. A module that blanks, masks or rewrites the envelope asks `envelope_bounds` where it stands and cuts its lines with `envelope_lines`; it keeps no reading of its own of where the envelope opens or closes, or of where one of the envelope's lines ends.
+<a id="r1"></a>**R1.** The shared envelope reader has two more public parts, both class K. `envelope_bounds(text)` says where the envelope stands, as character offsets into the text as given, a byte-order mark included. `envelope_lines(text, start, stop)` is the line splitter. `parse_envelope` is built on both and gives the same verdict as before for every text that holds none of the characters of R4. A module that blanks, masks or rewrites the envelope asks `envelope_bounds` where it stands and cuts its lines with `envelope_lines`; it keeps no reading of its own of where the envelope opens or closes, or of where one of the envelope's lines ends.
 
 ## 2. Whether the history report's link defect joins this change
 
@@ -50,7 +50,7 @@ The same audit item found a defect of the same class in [`const-doc-budgets`](..
 
 **Choice.** A, by the decider, in chat on 2026-10-04.
 
-**R2.** This change leaves the history report of [`const-doc-budgets`](../requirements.md#const-doc-budgets) as it is; its link defect is work of its own.
+<a id="r2"></a>**R2.** This change leaves the history report of [`const-doc-budgets`](../requirements.md#const-doc-budgets) as it is; its link defect is work of its own.
 
 ## 3. The shared-code page over its ceiling
 
@@ -72,7 +72,7 @@ The decider then asked whether the page could be shortened instead. The session 
 
 **Choice.** A, by the decider, in chat on 2026-10-04, "for now", to be taken up after the remaining changes of the audit.
 
-**R3.** The decider's choice for the page among splitting section 5, raising the ceiling and shortening the page within rule 6 is taken up after the remaining changes of the audit of 2026-10-02.
+<a id="r3"></a>**R3.** The decider's choice for the page among splitting section 5, raising the ceiling and shortening the page within rule 6 is taken up after the remaining changes of the audit of 2026-10-02.
 
 ## 4. Which characters end a line
 
@@ -89,7 +89,7 @@ The helper returns offsets, so line numbers stay right whatever it calls a line.
 
 **Choice.** B, by the decider, in chat on 2026-10-04.
 
-**R4.** A line ends at a line feed, a CRLF or a lone carriage return, and nowhere else. The envelope opens when the first line, leading byte-order marks aside, is `---` with its trailing whitespace ignored, and ends at the first later line that is `---` the same way. A line that holds one of the other characters before `---`, or after it with text, such as `\x0c---`, is no delimiter.
+<a id="r4"></a>**R4.** A line ends at a line feed, a CRLF or a lone carriage return, and nowhere else. The envelope opens when the first line, leading byte-order marks aside, is `---` with its trailing whitespace ignored, and ends at the first later line that is `---` the same way. A line that holds one of the other characters before `---`, or after it with text, such as `\x0c---`, is no delimiter.
 
 ## 5. A second copy of the line rule
 
@@ -106,19 +106,19 @@ The verifier of the locations generator's piece found that `filling.py` held its
 
 **Choice.** A, by the decider, in chat on 2026-10-04.
 
-**R5.** `envelope_lines` is the one place R4's line rule is written in code. It is a widening for one module that rule 2 of plc-0009-shared-code admits, since it keeps the line rule the reader carries for every module, and the other modules call nothing new.
+<a id="r5"></a>**R5.** `envelope_lines` is the one place R4's line rule is written in code. It is a widening for one module that rule 2 of plc-0009-shared-code admits, since it keeps the line rule the reader carries for every module, and the other modules call nothing new.
 
 ## 6. What the change makes where no choice existed
 
 These items carry no options. Each follows from the answers above or from the kit's rules, and each stands open to the decider's override before the yes.
 
-**R6.** The language gate blanks exactly the envelope `envelope_bounds` returns. Everything before its end is replaced by one empty line for each line feed it holds, so the text after it keeps the count of line feeds before it. A carriage return in the envelope is deleted, not turned into a space, so prose after a closer that ends with a lone carriage return is read and never taken for indented code. An envelope that never closes is not blanked.
+<a id="r6"></a>**R6.** The language gate blanks exactly the envelope `envelope_bounds` returns. Everything before its end is replaced by one empty line for each line feed it holds, so the text after it keeps the count of line feeds before it. A carriage return in the envelope is deleted, not turned into a space, so prose after a closer that ends with a lone carriage return is read and never taken for indented code. An envelope that never closes is not blanked.
 
-**R7.** The referencing gate masks the envelope from the start of the file to where `envelope_bounds` says it ends, and to the end of the file when it never closes.
+<a id="r7"></a>**R7.** The referencing gate masks the envelope from the start of the file to where `envelope_bounds` says it ends, and to the end of the file when it never closes.
 
-**R8.** The locations generator rewrites the envelope it finds through `envelope_bounds` and `envelope_lines`, writes the rewritten block with line feeds and no byte-order mark before it, and keeps the body as the command read it.
+<a id="r8"></a>**R8.** The locations generator rewrites the envelope it finds through `envelope_bounds` and `envelope_lines`, writes the rewritten block with line feeds and no byte-order mark before it, and keeps the body as the command read it.
 
-**R9.** The shared acceptance item S164 proves, in every gate that judges envelopes, that a `---` line with trailing whitespace and CRLF endings delimit the envelope, that a break character other than those of R4 before `---` makes no delimiter, and the offsets and line cuts of R1. A gate that judges none leaves it out, and where it blanks or masks the envelope, it proves where the envelope ends in its own items.
+<a id="r9"></a>**R9.** The shared acceptance item S164 proves, in every gate that judges envelopes, that a `---` line with trailing whitespace and CRLF endings delimit the envelope, that a break character other than those of R4 before `---` makes no delimiter, and the offsets and line cuts of R1. A gate that judges none leaves it out, and where it blanks or masks the envelope, it proves where the envelope ends in its own items.
 
 ## Applied
 

@@ -32,11 +32,11 @@ B, chosen by the decider in chat on 2026-09-26, with the record written now rath
 
 ## Ruling
 
-**R1.** A document a rule of its policy freezes — an accepted record, a frozen comparison — stands as written, and a trace of a default in it is declared by a departure over a number range that holds it, or its path, never by an edit and never by taking it out of the scan's territory; rule 9 of the root policy says so for every kind, and the style rules of the records and research policies say so for theirs.
+<a id="r1"></a>**R1.** A document a rule of its policy freezes — an accepted record, a frozen comparison — stands as written, and a trace of a default in it is declared by a departure over a number range that holds it, or its path, never by an edit and never by taking it out of the scan's territory; rule 9 of the root policy says so for every kind, and the style rules of the records and research policies say so for theirs.
 
-**R2.** The kit's `const-styling.territories` covers every Markdown file, the frozen documents included; no departure is declared for them until a signature bites one, since none of them carries a signature today.
+<a id="r2"></a>**R2.** The kit's `const-styling.territories` covers every Markdown file, the frozen documents included; no departure is declared for them until a signature bites one, since none of them carries a signature today.
 
-**R3.** The clause of R7 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md) that named the two number-range exclusions as uses of the root policy's permission is reversed, with the permission itself; the rest of R7 stands.
+<a id="r3"></a>**R3.** The clause of R7 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r7) that named the two number-range exclusions as uses of the root policy's permission is reversed, with the permission itself; the rest of R7 stands.
 
 ## Applied
 

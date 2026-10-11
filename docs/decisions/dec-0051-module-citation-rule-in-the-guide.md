@@ -35,11 +35,11 @@ A, chosen by the decider in chat on 2026-09-28.
 
 ## Ruling
 
-**R1.** How a module is cited outside module prose, in every other kit document and in chat — the link to the specification anchor, the two exceptions for a template and a frozen comparison, and the kit check that holds the link, with what it reads and when it runs — is stated in the reference bullet of the kit guide, whose anchor is `references`. Rule 4 of plc-0007-requirements keeps only the `M<n>` alias of the requirements document and points to that bullet; rule 9 of the same policy, the enforcement cell of [requirement A5.6](../requirements.md#a5-6) and the check's own texts point to it too. The rulings of dec-0049 stand unchanged; only their home moves.
+<a id="r1"></a>**R1.** How a module is cited outside module prose, in every other kit document and in chat — the link to the specification anchor, the two exceptions for a template and a frozen comparison, and the kit check that holds the link, with what it reads and when it runs — is stated in the reference bullet of the kit guide, whose anchor is `references`. Rule 4 of plc-0007-requirements keeps only the `M<n>` alias of the requirements document and points to that bullet; rule 9 of the same policy, the enforcement cell of [requirement A5.6](../requirements.md#a5-6) and the check's own texts point to it too. The rulings of dec-0049 stand unchanged; only their home moves.
 
-**R2.** The kit check reads no research comparison, frozen or not: rule 10 of plc-0005-research names it as the one exception to "a frozen comparison is never taken out of any gate's territory". A frozen comparison keeps the form it was frozen with, and in one not yet frozen review holds the module links. The check's scope is dec-0049's; this item states it where the research policy said otherwise.
+<a id="r2"></a>**R2.** The kit check reads no research comparison, frozen or not: rule 10 of plc-0005-research names it as the one exception to "a frozen comparison is never taken out of any gate's territory". A frozen comparison keeps the form it was frozen with, and in one not yet frozen review holds the module links. The check's scope is dec-0049's; this item states it where the research policy said otherwise.
 
-**R3.** R2 narrows R3 of [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md), "a frozen document is never taken out of any gate's territory", by one named check, the kit's `scripts/check-module-links.py`, whose scope dec-0049 set. That record stays as written (rule 13 of plc-0004-decision-records).
+<a id="r3"></a>**R3.** R2 narrows R3 of [dec-0048-frozen-documents-take-wording-edits](dec-0048-frozen-documents-take-wording-edits.md#r3), "a frozen document is never taken out of any gate's territory", by one named check, the kit's `scripts/check-module-links.py`, whose scope dec-0049 set. That record stays as written (rule 13 of plc-0004-decision-records).
 
 ## Applied
 

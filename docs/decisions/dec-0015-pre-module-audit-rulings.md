@@ -89,7 +89,7 @@ Recommendation A. Chosen A by the decider in chat on 2026-09-18. Applied: [CLAUD
 
 ## 4. Where a module's description lives after it moves into `MODULE.md`
 
-[dec-0003-module-spec-kind](dec-0003-module-spec-kind.md) moves each plan description into the module's draft `MODULE.md`; reference form R7 of [dec-0005-reference-forms](dec-0005-reference-forms.md) sends every module cite to the plan's anchor, and eleven records link there.
+[dec-0003-module-spec-kind](dec-0003-module-spec-kind.md) moves each plan description into the module's draft `MODULE.md`; reference form R7 of [dec-0005-reference-forms](dec-0005-reference-forms.md#r7) sends every module cite to the plan's anchor, and eleven records link there.
 
 - **A. The plan keeps a one-line stub per module under the same anchor**, linking the module's `MODULE.md`; the anchor stays the canonical handle, authored or not.
   - **Pros:** no link migration ever; one stable handle per module; authored and unauthored modules cited alike.

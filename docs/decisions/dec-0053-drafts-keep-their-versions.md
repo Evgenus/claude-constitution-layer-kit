@@ -25,7 +25,7 @@ The carry audit of [dec-0052-doc-budgets-module-rulings](dec-0052-doc-budgets-mo
   - **Pros:** no work now.
   - **Cons:** a reading the rule's own words contradict; the next audit finds the tension again.
 
-The session recommended A. **R1.** A, chosen by the decider in chat on 2026-09-29: a change to the shared code bumps the version of every published module that links it, and a draft's need not be bumped. The same holds for a change to a kernel section the shared code implements, which rule 3 of [plc-0002-kernel](../policies/plc-0002-kernel.md#r3) ties to the same bump.
+The session recommended A. <a id="r1"></a>**R1.** A, chosen by the decider in chat on 2026-09-29: a change to the shared code bumps the version of every published module that links it, and a draft's need not be bumped. The same holds for a change to a kernel section the shared code implements, which rule 3 of [plc-0002-kernel](../policies/plc-0002-kernel.md#r3) ties to the same bump.
 
 ## 2. Whether the exemption covers a consumer-live finding
 
@@ -38,11 +38,11 @@ Step 5 of "Developing a module" said a finding in the consumer-live proof "is a 
   - **Pros:** a smaller change; dec-0015 unchanged.
   - **Cons:** two bump rules with different conditions.
 
-The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-29: a consumer-live finding is a fix, with a version bump once the module is published; step 7 states the whole rule — a draft, at `0.0.x`, need not be bumped, for a change of its own, a change to the shared code or a consumer-live finding alike. "Need not": a draft may still be bumped within `0.0.x`, as four were before this record.
+The session recommended A. <a id="r2"></a>**R2.** A, chosen by the decider in chat on 2026-09-29: a consumer-live finding is a fix, with a version bump once the module is published; step 7 states the whole rule — a draft, at `0.0.x`, need not be bumped, for a change of its own, a change to the shared code or a consumer-live finding alike. "Need not": a draft may still be bumped within `0.0.x`, as four were before this record.
 
 ## 3. What this record narrows
 
-**R3.** R1 narrows the unconditional bump of R5 and R34 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md), carried into [rule 3 of plc-0002-kernel](../policies/plc-0002-kernel.md#r3) and [rule 7 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7). R2 narrows the clause "a finding there is a fix with a version bump" of section 3 of [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) and the same clause as R4 of [dec-0035-locations-module-rulings](dec-0035-locations-module-rulings.md), R6 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md), R1 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md), R1 of [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md) and R2 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md). Each such bump now applies once the module is published; the rest of those rulings stands.
+<a id="r3"></a>**R3.** R1 narrows the unconditional bump of R5 and R34 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md#r5), carried into [rule 3 of plc-0002-kernel](../policies/plc-0002-kernel.md#r3) and [rule 7 of plc-0009-shared-code](../policies/plc-0009-shared-code.md#r7). R2 narrows the clause "a finding there is a fix with a version bump" of section 3 of [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) and the same clause as R4 of [dec-0035-locations-module-rulings](dec-0035-locations-module-rulings.md#r4), R6 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md#r6), R1 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md#r1), R1 of [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md#r1) and R2 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r2). Each such bump now applies once the module is published; the rest of those rulings stands.
 
 ## Carry list
 

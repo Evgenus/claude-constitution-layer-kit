@@ -38,11 +38,11 @@ A skill applies at one of two moments: before a write, as the styling, language,
 
 The session recommended B: A alone leaves the skills with no gate moment out, and C alone leaves out the moment with the most evidence. The decider chose B in chat on 2026-10-10.
 
-**R1.** A gate whose module has a skill that teaches its rule names that skill in one shared line after the count line of every red the model reads: in the block, in the warn's context, in the reason of an `ask`, and in a scan's output. The user's notice on a turn's end at `warn`, which no model reads, does not carry it. The gate's identity maps each of its modes to the skill. Module [`const-interaction`](../requirements.md#const-interaction) has no skill, and its gate names none.
+<a id="r1"></a>**R1.** A gate whose module has a skill that teaches its rule names that skill in one shared line after the count line of every red the model reads: in the block, in the warn's context, in the reason of an `ask`, and in a scan's output. The user's notice on a turn's end at `warn`, which no model reads, does not carry it. The gate's identity maps each of its modes to the skill. Module [`const-interaction`](../requirements.md#const-interaction) has no skill, and its gate names none.
 
-**R2.** Modules [`const-catalogs`](../requirements.md#const-catalogs), [`const-language`](../requirements.md#const-language), [`const-meta-types`](../requirements.md#const-meta-types), [`const-referencing`](../requirements.md#const-referencing), [`const-styling`](../requirements.md#const-styling) and [`const-task-close`](../requirements.md#const-task-close) each print one advisory pointer line at session start: `<module> (advisory): before <the moment>, load the skill <module>:<skill>.` The six lines hold 1,247 characters together, not the 1,050 of the estimate the choice was put with; the plugin-qualified skill names make most of the difference. A module whose skill applies only after its gate's red, or whose skill sessions were found to load at its moment, prints none, as R10 rules.
+<a id="r2"></a>**R2.** Modules [`const-catalogs`](../requirements.md#const-catalogs), [`const-language`](../requirements.md#const-language), [`const-meta-types`](../requirements.md#const-meta-types), [`const-referencing`](../requirements.md#const-referencing), [`const-styling`](../requirements.md#const-styling) and [`const-task-close`](../requirements.md#const-task-close) each print one advisory pointer line at session start: `<module> (advisory): before <the moment>, load the skill <module>:<skill>.` The six lines hold 1,247 characters together, not the 1,050 of the estimate the choice was put with; the plugin-qualified skill names make most of the difference. A module whose skill applies only after its gate's red, or whose skill sessions were found to load at its moment, prints none, as R10 rules.
 
-**R3.** The decider's choice of B carried a condition: if the live proof of section 3 showed that a description which gives an order brings the loads by itself, the session would put the removal of R2's lines to the decider before the yes. The proof showed it for one skill, the question was put in section 3, and the decider kept the lines.
+<a id="r3"></a>**R3.** The decider's choice of B carried a condition: if the live proof of section 3 showed that a description which gives an order brings the loads by itself, the session would put the removal of R2's lines to the decider before the yes. The proof showed it for one skill, the question was put in section 3, and the decider kept the lines.
 
 ## 2. How the skills reach subagents
 
@@ -63,9 +63,9 @@ Modules ship no agents, so a module cannot change a consumer's agent definitions
 
 The session recommended A: it alone reaches the subagents that make most of the writes, at the cost the session line already has. The decider chose A in chat on 2026-10-10.
 
-**R4.** Each module of R2 gives its pointer line to every subagent through a `SubagentStart` hook, as the event's `additionalContext` in one JSON object, since that event adds no plain output to the context. The same script prints both forms.
+<a id="r4"></a>**R4.** Each module of R2 gives its pointer line to every subagent through a `SubagentStart` hook, as the event's `additionalContext` in one JSON object, since that event adds no plain output to the context. The same script prints both forms.
 
-**R5.** The kit's implementer agent lists the `Skill` tool and is told to load a skill that its start context or a hook's red names. The kit's other agents write no tracked file and keep their tools.
+<a id="r5"></a>**R5.** The kit's implementer agent lists the `Skill` tool and is told to load a skill that its start context or a hook's red names. The kit's other agents write no tracked file and keep their tools.
 
 ## 3. How a description asks to be loaded
 
@@ -93,15 +93,15 @@ The table prompt named the moment, so it could not tell the variants apart. Unde
 
 The session recommended B: the pointer lines showed no gain over a description that gives an order, at 1,247 characters a session and a subagent. To cover what was not proved, B carried a live run with one fair prompt for each of the other rewordings, its module's line returning for a skill that is not loaded. The decider chose A in chat on 2026-10-10, giving no reason; A keeps both carriers.
 
-**R6.** A module skill's description opens with an order: `Load this skill first, before <the moment> — every time, whether or not <the choice> seems known.` Then it says what the skill does, then, after `Use when`, its other moments, then its `Advisory:` line. The seven descriptions named in option A are reworded so; `plain-language` and `style-defaults` take the words the proof ran.
+<a id="r6"></a>**R6.** A module skill's description opens with an order: `Load this skill first, before <the moment> — every time, whether or not <the choice> seems known.` Then it says what the skill does, then, after `Use when`, its other moments, then its `Advisory:` line. The seven descriptions named in option A are reworded so; `plain-language` and `style-defaults` take the words the proof ran.
 
-**R7.** The pointer lines of R2 and R4 stay beside the reworded descriptions.
+<a id="r7"></a>**R7.** The pointer lines of R2 and R4 stay beside the reworded descriptions.
 
 ## 4. What this changes in an earlier record
 
 [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md) ruled that module [`const-styling`](../requirements.md#const-styling) prints no `SessionStart` line, in its R4, and ships no hook, in its R9. R2 and R4 above give it one pointer line and two advisory hooks. No real choice is left here: sections 1 and 2 chose the lines and the hooks, and this item only names the earlier items they replace.
 
-**R8.** For module [`const-styling`](../requirements.md#const-styling), R2 and R4 replace two items of dec-0044: its R4's "no `SessionStart` line" and its R9's "the module ships no hook". The module prints its pointer line at session start and at each subagent's start through two advisory hooks, and its scan still runs no hook, has no hook mode and no `severity` dial, as dec-0044's R9 ruled.
+<a id="r8"></a>**R8.** For module [`const-styling`](../requirements.md#const-styling), R2 and R4 replace two items of dec-0044: its R4's "no `SessionStart` line" and its R9's "the module ships no hook". The module prints its pointer line at session start and at each subagent's start through two advisory hooks, and its scan still runs no hook, has no hook mode and no `severity` dial, as [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r9)'s R9 ruled.
 
 ## 5. How far the two rules reach
 
@@ -119,9 +119,9 @@ The carry audit of this record found that the module template's skill row read a
 
 The session recommended B: the description's order costs nothing to apply everywhere and did best, while a pointer line costs characters at every start and stays earned by evidence. The decider chose B in chat on 2026-10-10.
 
-**R9.** R6 holds for every module skill. The descriptions of `record-decision`, `promote-recurring-notes`, `set-ceilings`, `new-document` and `new-kind` are reworded to open with the order, and the order moves to the front of the description of `ask-or-decide`.
+<a id="r9"></a>**R9.** R6 holds for every module skill. The descriptions of `record-decision`, `promote-recurring-notes`, `set-ceilings`, `new-document` and `new-kind` are reworded to open with the order, and the order moves to the front of the description of `ask-or-decide`.
 
-**R10.** A pointer line of R2 is shipped only for a skill that applies before a write, or at a moment no gate meets, and that sessions were found not to load at that moment, since every session and every subagent pays for the line in characters.
+<a id="r10"></a>**R10.** A pointer line of R2 is shipped only for a skill that applies before a write, or at a moment no gate meets, and that sessions were found not to load at that moment, since every session and every subagent pays for the line in characters.
 
 ## Applied
 

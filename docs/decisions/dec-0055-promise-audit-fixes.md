@@ -25,7 +25,7 @@ On 2026-09-30 the decider asked whether every row of the matrix of [constitution
   - **Pros:** each small.
   - **Cons:** about six audits reading the same records again.
 
-The session recommended B. The decider chose B in chat on 2026-09-30. **R1.** This record carries the fixes; the check that every module scan stands in the gate list and the CI list, and the grep of [requirement A12.1](../requirements.md#a12-1) as a kit script, come in a change of their own. F8 — that grep, run by hand as the row words it, hits in-plugin relative paths in messages and example dial paths in install notes, though it finds no project reference — moves there, since its fix is the grep's own design.
+The session recommended B. The decider chose B in chat on 2026-09-30. <a id="r1"></a>**R1.** This record carries the fixes; the check that every module scan stands in the gate list and the CI list, and the grep of [requirement A12.1](../requirements.md#a12-1) as a kit script, come in a change of their own. F8 — that grep, run by hand as the row words it, hits in-plugin relative paths in messages and example dial paths in install notes, though it finds no project reference — moves there, since its fix is the grep's own design.
 
 ## 2. The bare aspect handle
 
@@ -38,27 +38,27 @@ The session recommended B. The decider chose B in chat on 2026-09-30. **R1.** Th
   - **Pros:** no false red and no list of exceptions to keep; the limit written where a reader looks.
   - **Cons:** a bare aspect handle in a new document is not caught by a machine.
 
-The session recommended B: bare aspect handles were three in the kit, all in records written before the reference rule was strict, and a list of exceptions would be machinery for a failure no one has hit. **R2.** B, chosen by the decider in chat on 2026-09-30: a bare aspect handle is held by review and not by a lane, since the letter and a number collide with message keys.
+The session recommended B: bare aspect handles were three in the kit, all in records written before the reference rule was strict, and a list of exceptions would be machinery for a failure no one has hit. <a id="r2"></a>**R2.** B, chosen by the decider in chat on 2026-09-30: a bare aspect handle is held by review and not by a lane, since the letter and a number collide with message keys.
 
 ## 3. The fixes without a choice
 
 Each carries a clause a row states, or corrects a text the audit found wrong; none is a new rule.
 
-**R3.** F1, [requirement A4.3](../requirements.md#a4-3): an `inactive` record is kept while something should still reference it and deleted once nothing should, git history its archive, whether anything should being judgment — carried into rule T-b of module [`const-task-close`](../requirements.md#const-task-close) and its close skill, after [kernel §1](../../kernel/CONVENTIONS.md#k1), its "should" read as judgment, as [rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7) reads it for the kit's own records.
+<a id="r3"></a>**R3.** F1, [requirement A4.3](../requirements.md#a4-3): an `inactive` record is kept while something should still reference it and deleted once nothing should, git history its archive, whether anything should being judgment — carried into rule T-b of module [`const-task-close`](../requirements.md#const-task-close) and its close skill, after [kernel §1](../../kernel/CONVENTIONS.md#k1), its "should" read as judgment, as [rule 7 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r7) reads it for the kit's own records.
 
-**R4.** F2, the rest of the same row: a code location by symbol, a commit hash and a bare `#n` stay advisory, with the reason now stated — a pattern cannot tell a symbol from a word, a hash from other hexadecimal text, or a bare `#n` from prose such as "record #1".
+<a id="r4"></a>**R4.** F2, the rest of the same row: a code location by symbol, a commit hash and a bare `#n` stay advisory, with the reason now stated — a pattern cannot tell a symbol from a word, a hash from other hexadecimal text, or a bare `#n` from prose such as "record #1".
 
-**R5.** F3, [requirement A7.5](../requirements.md#a7-5): rule e of the rules text of module [`const-interaction`](../requirements.md#const-interaction) says a stable per-item handle, as the row does.
+<a id="r5"></a>**R5.** F3, [requirement A7.5](../requirements.md#a7-5): rule e of the rules text of module [`const-interaction`](../requirements.md#const-interaction) says a stable per-item handle, as the row does.
 
-**R6.** F4, [requirement A9.1](../requirements.md#a9-1): what module [`const-styling`](../requirements.md#const-styling) ships tells a project that governs its documents by policies to have its root policy ask every policy for a style rule, and each kind's policy carry one, binding that kind's documents to the guide.
+<a id="r6"></a>**R6.** F4, [requirement A9.1](../requirements.md#a9-1): what module [`const-styling`](../requirements.md#const-styling) ships tells a project that governs its documents by policies to have its root policy ask every policy for a style rule, and each kind's policy carry one, binding that kind's documents to the guide.
 
-**R7.** F5: the list-handles scan of module [`const-interaction`](../requirements.md#const-interaction), the gate of [requirement A7.5](../requirements.md#a7-5), is a line of the kit's gate list.
+<a id="r7"></a>**R7.** F5: the list-handles scan of module [`const-interaction`](../requirements.md#const-interaction), the gate of [requirement A7.5](../requirements.md#a7-5), is a line of the kit's gate list.
 
-**R8.** F6: the CI of rollout step 10 runs the scan of every module that ships one, not only the reference scan and the range check.
+<a id="r8"></a>**R8.** F6: the CI of rollout step 10 runs the scan of every module that ships one, not only the reference scan and the range check.
 
-**R9.** F7, [requirement A9.4](../requirements.md#a9-4): the row's text says that, once module [`const-language`](../requirements.md#const-language) is installed, a checkable default about words may graduate to a Vale rule, each at its first need, and that the markup signatures the styling scan detects stay the scan's — the ruling R10 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md), section 7; the row is amended under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), its rule having changed.
+<a id="r9"></a>**R9.** F7, [requirement A9.4](../requirements.md#a9-4): the row's text says that, once module [`const-language`](../requirements.md#const-language) is installed, a checkable default about words may graduate to a Vale rule, each at its first need, and that the markup signatures the styling scan detects stay the scan's — the ruling R10 of [dec-0046-language-module-rulings](dec-0046-language-module-rulings.md#r10), section 7; the row is amended under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2), its rule having changed.
 
-**R10.** F9 and F10, two readings corrected: in module [`const-interaction`](../requirements.md#const-interaction) the daggers of [requirement A8.1](../requirements.md#a8-1) and [requirement A8.2](../requirements.md#a8-2) are still an open test, as its rows section says; in module [`const-task-close`](../requirements.md#const-task-close) the row's "blocking is a dial" is kept by a stronger hold, the scan exiting 2 on every finding, while the shared `severity` governs only the turn-end hook.
+<a id="r10"></a>**R10.** F9 and F10, two readings corrected: in module [`const-interaction`](../requirements.md#const-interaction) the daggers of [requirement A8.1](../requirements.md#a8-1) and [requirement A8.2](../requirements.md#a8-2) are still an open test, as its rows section says; in module [`const-task-close`](../requirements.md#const-task-close) the row's "blocking is a dial" is kept by a stronger hold, the scan exiting 2 on every finding, while the shared `severity` governs only the turn-end hook.
 
 F11 needs no edit: module [`const-catalogs`](../requirements.md#const-catalogs) records the research's verdict against the matrix row as it then stood, and the row was amended afterwards — a history line, not a stale claim.
 

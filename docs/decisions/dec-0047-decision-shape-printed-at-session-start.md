@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Row [A6.2](../requirements.md#a6-2) fixes the shape of a decision put to the user in chat: lettered options, each with **Pros:** and **Cons:** sub-bullets, one recommendation, the decider named. From 2026-09-14 the kit's guide carried it in its session-conduct block; on 2026-09-25 module [`const-questions`](../requirements.md#const-questions) landed with the shape in its skill `ask-or-decide`, and on 2026-09-26 the guide's copy was trimmed, as R2 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) planned, leaving the skill as the shape's only home. The module printed nothing at session start: its comparison's live runs had shown the skill's description reaching the model when a choice arose (a5, a6 of [res-0007-const-questions](../research/res-0007-const-questions.md)), and the module deferred an always-on carrier behind the signal "a session that asked in the wrong shape without ever loading the skill, observed in a consumer twice" (item 4 of its deferred list, as it stood).
+Row [A6.2](../requirements.md#a6-2) fixes the shape of a decision put to the user in chat: lettered options, each with **Pros:** and **Cons:** sub-bullets, one recommendation, the decider named. From 2026-09-14 the kit's guide carried it in its session-conduct block; on 2026-09-25 module [`const-questions`](../requirements.md#const-questions) landed with the shape in its skill `ask-or-decide`, and on 2026-09-26 the guide's copy was trimmed, as R2 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md#r2) planned, leaving the skill as the shape's only home. The module printed nothing at session start: its comparison's live runs had shown the skill's description reaching the model when a choice arose (a5, a6 of [res-0007-const-questions](../research/res-0007-const-questions.md)), and the module deferred an always-on carrier behind the signal "a session that asked in the wrong shape without ever loading the skill, observed in a consumer twice" (item 4 of its deferred list, as it stood).
 
 The kit's own sessions of 2026-09-26 showed the failure. The `const-styling` session, which had loaded the skill at 02:35 and kept the shape for twelve hours, put its last sub-bullet decision at 14:11 and its next one, at 18:54, with the pros and cons inline in prose. The `const-language` session, from 23:42 that day, put eight lettered decisions in the inline shape and never loaded the skill; its only skill call was the carry audit. The decider noticed on 2026-09-27 and asked for a fix. Nothing in the repository had changed: the skill still stated the shape. The mechanism had failed, not the rule.
 
@@ -30,7 +30,7 @@ The shape has no fixture, by [law 5 of CLAUDE.md](../../CLAUDE.md#law-5): it is 
   - **Cons:** the description already said "Use when about to ask the user anything" and the `const-language` session never loaded it; alone, the same mechanism that failed, with no way to prove it holds.
 - **D. Put the shape back into the kit's guide.** CLAUDE.md carries it again, as before 2026-09-26.
   - **Pros:** immediate and certain for the kit.
-  - **Cons:** it reverses R2 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md) and fixes only consumer zero; every consumer keeps the drift; the kit stops dogfooding its own module.
+  - **Cons:** it reverses R2 of [dec-0041-questions-module-rulings](dec-0041-questions-module-rulings.md#r2) and fixes only consumer zero; every consumer keeps the drift; the kit stops dogfooding its own module.
 
 ## Recommendation
 
@@ -42,17 +42,17 @@ A and C together, chosen by the decider in chat on 2026-09-27: the always-on pri
 
 ## Ruling
 
-**R1.** Module [`const-questions`](../requirements.md#const-questions) prints the shape of a decision message at every session start: a `SessionStart` hook without a matcher, so that it runs again after a resume, a compaction and a clear, running a POSIX script that reads nothing and prints one fixed text — the lettered options, the **Pros:** and **Cons:** sub-bullets, never inline and never a table, one recommendation, the decider named, the one-fact exemption, and the instruction to load the skill before any choice is put. The text is advisory, stated in the module document with its size, and the skill stays the full carrier of rules Q-a to Q-i.
+<a id="r1"></a>**R1.** Module [`const-questions`](../requirements.md#const-questions) prints the shape of a decision message at every session start: a `SessionStart` hook without a matcher, so that it runs again after a resume, a compaction and a clear, running a POSIX script that reads nothing and prints one fixed text — the lettered options, the **Pros:** and **Cons:** sub-bullets, never inline and never a table, one recommendation, the decider named, the one-fact exemption, and the instruction to load the skill before any choice is put. The text is advisory, stated in the module document with its size, and the skill stays the full carrier of rules Q-a to Q-i.
 
-**R2.** The fixture runner pins the printed text character for character, its size against the module document, and the phrases the text shares with the skill's shape section, so that the two carriers cannot drift apart; the hooks-file item covers both handlers. A live item proves the shape in a headless session that never loads the skill, and the skill's loading in one that is told nothing about skills.
+<a id="r2"></a>**R2.** The fixture runner pins the printed text character for character, its size against the module document, and the phrases the text shares with the skill's shape section, so that the two carriers cannot drift apart; the hooks-file item covers both handlers. A live item proves the shape in a headless session that never loads the skill, and the skill's loading in one that is told nothing about skills.
 
-**R3.** The description of the skill `ask-or-decide` asks for the skill to be loaded first, before the reply is written, every time a message will put options, a recommendation or a question to the user, whether or not the shape seems known.
+<a id="r3"></a>**R3.** The description of the skill `ask-or-decide` asks for the skill to be loaded first, before the reply is written, every time a message will put options, a recommendation or a question to the user, whether or not the shape seems known.
 
-**R4.** The enforcement of [A6.2](../requirements.md#a6-2) names both carriers: the skill and the `SessionStart` hook, advisory.
+<a id="r4"></a>**R4.** The enforcement of [A6.2](../requirements.md#a6-2) names both carriers: the skill and the `SessionStart` hook, advisory.
 
-**R5.** The always-on carrier the module had deferred is added ahead of its signal, on the kit's evidence as consumer zero: one session that never loaded the skill and put eight decisions in another shape, and one that lost the shape twelve hours after loading it. The deferred item is closed; the comparison's reading (a5, a6 of [res-0007-const-questions](../research/res-0007-const-questions.md)) stands as written, frozen, and the module document says what later evidence showed.
+<a id="r5"></a>**R5.** The always-on carrier the module had deferred is added ahead of its signal, on the kit's evidence as consumer zero: one session that never loaded the skill and put eight decisions in another shape, and one that lost the shape twelve hours after loading it. The deferred item is closed; the comparison's reading (a5, a6 of [res-0007-const-questions](../research/res-0007-const-questions.md)) stands as written, frozen, and the module document says what later evidence showed.
 
-**R6.** The module's manifest version is `0.0.2`.
+<a id="r6"></a>**R6.** The module's manifest version is `0.0.2`.
 
 ## Applied
 

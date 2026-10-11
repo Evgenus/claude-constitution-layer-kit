@@ -37,7 +37,7 @@ The rulings on the table's form, the destination classes and the kit checks have
 
 The session recommended A: no consumer exists and the kit trips none of these cases today, so B's speed buys nothing anyone uses. The decider chose A in chat on 2026-10-06.
 
-**R1.** One pull request and one record for the rulings of sections 2 to 4 and 7; the rest of the change routine, noted in its commits.
+<a id="r1"></a>**R1.** One pull request and one record for the rulings of sections 2 to 4 and 7; the rest of the change routine, noted in its commits.
 
 ## 2. A mode that is no tree scan
 
@@ -55,9 +55,9 @@ Two rows of the kit hold a `--scan` span that is no tree scan for CI to run: con
 
 The session recommended A: today's documents follow it, and the clause makes the reading a written rule. It named B as the right pick for an outright rule at a small cost. The decider chose B in chat on 2026-10-06.
 
-**R2.** A module's enforcement table ([template §9](../../module-template/MODULE.md#t9)) is read row by row, whatever a row's indent: a row opens with `E<n>`, bold or not, and any other first cell is a finding. A code span in a row that holds `--scan` reads `<entry> --scan`, a declared scan, held in the gate list and CI; or `<entry> --scan --<flag> …` in a row whose cell holding the span also holds the words `not a tree scan` outside a code span, a mode that is no tree scan and not declared. Any other span holding `--scan` in a row is a finding, and so is a span in the declared form in the prose of the section. A declared span stays declared when the mark stands beside it, since the mark only licenses the form with a flag. This amends in part R2 of [dec-0056-portability-grep-and-gate-lists](dec-0056-portability-grep-and-gate-lists.md), whose declared form is unchanged; dec-0056 is not touched.
+<a id="r2"></a>**R2.** A module's enforcement table ([template §9](../../module-template/MODULE.md#t9)) is read row by row, whatever a row's indent: a row opens with `E<n>`, bold or not, and any other first cell is a finding. A code span in a row that holds `--scan` reads `<entry> --scan`, a declared scan, held in the gate list and CI; or `<entry> --scan --<flag> …` in a row whose cell holding the span also holds the words `not a tree scan` outside a code span, a mode that is no tree scan and not declared. Any other span holding `--scan` in a row is a finding, and so is a span in the declared form in the prose of the section. A declared span stays declared when the mark stands beside it, since the mark only licenses the form with a flag. This amends in part R2 of [dec-0056-portability-grep-and-gate-lists](dec-0056-portability-grep-and-gate-lists.md#r2), whose declared form is unchanged; dec-0056 is not touched.
 
-**R3.** const-interaction's row of its explain and const-doc-budgets' row of its history report carry the mark.
+<a id="r3"></a>**R3.** const-interaction's row of its explain and const-doc-budgets' row of its history report carry the mark.
 
 ## 3. Where the destination classes live
 
@@ -75,7 +75,7 @@ The four classes — **kernel §n**, **Mx**, **binding**, **template** — stand
 
 The session recommended A: the patterns must be typed somewhere in any case, and the tie keeps the typed list from drifting without a red. The decider chose A in chat on 2026-10-06. The change built the tie into every run of the check, `--run` included, where the option as put named the plain run; R4 states what was built.
 
-**R4.** `scripts/check-aspects.py` types the closed set of destination classes — `kernel §n`, `Mx`, `binding`, `template` — with their patterns, matched at the start of a Destination cell, a link read for its text. A cell that opens with none is red, beside the reds R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md) lists; dec-0054 is not touched. Every run reads the bold names of the preamble's sentence "Destination classes: …" and fails to run when the sentence is missing or its names are not exactly the four.
+<a id="r4"></a>**R4.** `scripts/check-aspects.py` types the closed set of destination classes — `kernel §n`, `Mx`, `binding`, `template` — with their patterns, matched at the start of a Destination cell, a link read for its text. A cell that opens with none is red, beside the reds R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r7) lists; dec-0054 is not touched. Every run reads the bold names of the preamble's sentence "Destination classes: …" and fails to run when the sentence is missing or its names are not exactly the four.
 
 ## 4. Every kit check in the gate group
 
@@ -90,7 +90,7 @@ The type-check entries now take every kit script by glob, so a new kit check is 
 
 The session recommended A: a new kit check is added rarely and on purpose, in a reviewed pull request. The decider chose B in chat on 2026-10-06.
 
-**R5.** `scripts/check-gate-lists.py` is red when a `scripts/check-*.py` that git tracks at the top of `scripts/` is run by no entry of the list's gate group: no command line of a gate entry runs `python3 scripts/check-<x>.py`. A library beside the checks, such as `scripts/kit_module_doc.py`, is no check.
+<a id="r5"></a>**R5.** `scripts/check-gate-lists.py` is red when a `scripts/check-*.py` that git tracks at the top of `scripts/` is run by no entry of the list's gate group: no command line of a gate entry runs `python3 scripts/check-<x>.py`. A library beside the checks, such as `scripts/kit_module_doc.py`, is no check.
 
 ## 5. The shared-links check's list
 
@@ -105,7 +105,7 @@ The session recommended A: a new kit check is added rarely and on purpose, in a 
 
 The session recommended A: the folder is the only source that cannot be wrong about itself, and the floor keeps a derived list from shrinking silently. The decider chose A in chat on 2026-10-06.
 
-**R6.** `scripts/check-shared-links.py` takes the links a module owes from `shared/tests/` itself — each `.py` file at its top whose name starts with neither `.` nor `_` — and fails to run when `shared/const_gate/` or one of the three files GATE.md names is gone. Kit tooling at routine stakes.
+<a id="r6"></a>**R6.** `scripts/check-shared-links.py` takes the links a module owes from `shared/tests/` itself — each `.py` file at its top whose name starts with neither `.` nor `_` — and fails to run when `shared/const_gate/` or one of the three files GATE.md names is gone. Kit tooling at routine stakes.
 
 ## 6. Cases the inventory found
 
@@ -123,11 +123,11 @@ The inventory of every place a kit check reads a document found three more cases
 
 The session recommended B: both silent greens sit in functions the change already rewrites and cost one test case each, while the module listing is loud and belongs with a single answer to "which folders are modules" in a later change. The decider chose C in chat on 2026-10-06.
 
-**R7.** `scripts/check-aspects.py` reads the rows of a module's rows section and acceptance table whatever their indent, fails to run when two lines of the matrix open with the same row or aspect anchor, skips a folder of `modules/` whose name starts with `.` or `_`, and fails to run on one that holds no module document. Kit tooling at routine stakes.
+<a id="r7"></a>**R7.** `scripts/check-aspects.py` reads the rows of a module's rows section and acceptance table whatever their indent, fails to run when two lines of the matrix open with the same row or aspect anchor, skips a folder of `modules/` whose name starts with `.` or `_`, and fails to run on one that holds no module document. Kit tooling at routine stakes.
 
 ## 7. A qualifier before a destination class
 
-[Rule 7 of plc-0007-requirements](../policies/plc-0007-requirements.md#r7) said a class may carry a qualifier before or after it. Its examples are enforcement classes, but the sentence covered both closed sets. The check of R4 classes a Destination cell at its start, so a cell with a qualifier before its class would be red against the policy's words. All 69 cells put the class first, and the module check R7 of dec-0054 rules also reads a module's number at the cell's start.
+[Rule 7 of plc-0007-requirements](../policies/plc-0007-requirements.md#r7) said a class may carry a qualifier before or after it. Its examples are enforcement classes, but the sentence covered both closed sets. The check of R4 classes a Destination cell at its start, so a cell with a qualifier before its class would be red against the policy's words. All 69 cells put the class first, and the module check R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r7) rules also reads a module's number at the cell's start.
 
 - **A. Narrow rule 7 for destinations**: a destination class opens its cell, its qualifiers after it; the check unchanged.
   - **Pros:** it matches all 69 cells and both checks that read the cell, so neither can go quiet; one clause in a policy the change already edits; no code change.
@@ -141,7 +141,7 @@ The session recommended B: both silent greens sit in functions the change alread
 
 The session recommended A: it is the only option that keeps both checks of the cell loud and in agreement at no code cost, and it writes down what all 69 cells do. The decider chose A in chat on 2026-10-06.
 
-**R8.** A Destination cell opens with a destination class, its qualifiers after it, the template still free to stand beside another class as the rest of rule 7 says; an enforcement class may carry a qualifier before or after it. This narrows rule 7 of plc-0007-requirements for destinations, in the same change.
+<a id="r8"></a>**R8.** A Destination cell opens with a destination class, its qualifiers after it, the template still free to stand beside another class as the rest of rule 7 says; an enforcement class may carry a qualifier before or after it. This narrows rule 7 of plc-0007-requirements for destinations, in the same change.
 
 ## Applied
 

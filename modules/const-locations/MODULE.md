@@ -170,7 +170,7 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 <a id="t10"></a>
 ## 10. Acceptance
 
-Numbered items in `tests/run.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the `Subject` widened for a module that is only a generator (ruling R3 of [dec-0035-locations-module-rulings](../../docs/decisions/dec-0035-locations-module-rulings.md)). Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
+Numbered items in `tests/run.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the `Subject` widened for a module that is only a generator (ruling R3 of [dec-0035-locations-module-rulings](../../docs/decisions/dec-0035-locations-module-rulings.md#r3)). Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
 
 | item | kind | rows | what it proves |
 |---|---|---|---|

@@ -27,7 +27,7 @@ The fifth module, [`const-locations`](../requirements.md#const-locations), is au
   - **Pros:** the proof is deterministic and the script never touches a file; the handoff line is the whole interface.
   - **Cons:** the envelope is left to the model, whose blind envelopes carried the same three defects in every run; the template becomes an exemplar to imitate, which the row's own wording forbids.
 
-**R1.** A, with C kept as the `--dry-run` mode of the same script. Chosen by the decider in chat on 2026-09-22, "as recommended". The generator is `new-document`, a second entry point on the pattern of the fourth module's mover, under the shared guard with a closing line of its own; the skill `new-document` names it and carries the procedure; the dry run prints the home and the template and writes nothing, and is what another kind's procedure calls when it writes the file itself.
+<a id="r1"></a>**R1.** A, with C kept as the `--dry-run` mode of the same script. Chosen by the decider in chat on 2026-09-22, "as recommended". The generator is `new-document`, a second entry point on the pattern of the fourth module's mover, under the shared guard with a closing line of its own; the skill `new-document` names it and carries the procedure; the dry run prints the home and the template and writes nothing, and is what another kind's procedure calls when it writes the file itself.
 
 ## 2. Where a kind's template is declared, and where its `type` comes from
 
@@ -43,7 +43,7 @@ The generator needs two things per kind: the template file and the meta-type. Th
   - **Pros:** the natural reading — a policy declares its template; no list to maintain.
   - **Cons:** a module would read a policy-namespace key beyond `territory`: a kernel change to its section 6 and the dials schema, recorded and audited.
 
-**R2.** A, with the principle the decider stated in choosing it: the module stays independent of every other module — it reads its own namespace and the kernel-owned keys, and a sibling enters only as an optional enhancement whose handoff is a stem given to the command and a `HOME:` line read from it. Chosen by the decider in chat on 2026-09-22.
+<a id="r2"></a>**R2.** A, with the principle the decider stated in choosing it: the module stays independent of every other module — it reads its own namespace and the kernel-owned keys, and a sibling enters only as an optional enhancement whose handoff is a stem given to the command and a `HOME:` line read from it. Chosen by the decider in chat on 2026-09-22.
 
 ## 3. How a module that is only a generator gets the shared acceptance items
 
@@ -59,13 +59,13 @@ The shared fixture items are written for a gate: they feed a `Write` event, expe
   - **Pros:** smallest.
   - **Cons:** the absence and log items are exactly the ones a module forgets.
 
-**R3.** A. Chosen by the decider in chat on 2026-09-22. Applied: `Subject.event_driven`, `Subject.closing`, `Subject.act_args` and `Harness.run_gate(cwd=…)` in the shared tests, defaulting to what the four gates pass — their fixtures unchanged and green; the twenty items left out and the thirty run are named in [kit-shared-gate-code §5](../../shared/GATE.md#g5); the rotation item now asks that the new log hold only this run's lines, since a generator's completed run prints more than a gate's one green line.
+<a id="r3"></a>**R3.** A. Chosen by the decider in chat on 2026-09-22. Applied: `Subject.event_driven`, `Subject.closing`, `Subject.act_args` and `Harness.run_gate(cwd=…)` in the shared tests, defaulting to what the four gates pass — their fixtures unchanged and green; the twenty items left out and the thirty run are named in [kit-shared-gate-code §5](../../shared/GATE.md#g5); the rotation item now asks that the new log hold only this run's lines, since a generator's completed run prints more than a gate's one green line.
 
 ## 4. Where the module is authored
 
 No options were put: the decider asked to start with [`const-locations`](../requirements.md#const-locations) "in the kit", and the session read it as the routine reorder its context describes. The carry audit found that [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md) names exactly four modules for authoring in the kit, so the extension is a ruling with a handle.
 
-**R4.** [`const-locations`](../requirements.md#const-locations) is authored in the kit as consumer zero, like the four accumulating modules of Phase A, ahead of its Phase C slot; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. Chosen by the decider in chat on 2026-09-22.
+<a id="r4"></a>**R4.** [`const-locations`](../requirements.md#const-locations) is authored in the kit as consumer zero, like the four accumulating modules of Phase A, ahead of its Phase C slot; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. Chosen by the decider in chat on 2026-09-22.
 
 ## Carry list
 

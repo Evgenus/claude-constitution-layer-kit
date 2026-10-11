@@ -39,11 +39,11 @@ The decider chose B in chat on 2026-10-08.
 
 ## Ruling
 
-**R1.** Every message a module's code can print stands, in the fixtures that run it, at least once as a line typed by hand — its fixed text written out, a value the test computes filled in. A shared message stands so in the shared items or in the fixtures of a module that runs it. The fresh-context review holds the rule; no gate does.
+<a id="r1"></a>**R1.** Every message a module's code can print stands, in the fixtures that run it, at least once as a line typed by hand — its fixed text written out, a value the test computes filled in. A shared message stands so in the shared items or in the fixtures of a module that runs it. The fresh-context review holds the rule; no gate does.
 
-**R2.** The kit's `scripts/list-message-literals.py`, kit tooling never shipped in a module and never a gate, is the review's aid: for each message function it lists whether a piece of its fixed text, 15 characters or more, stands in a string of the fixtures that run it, and lists apart the functions whose text is too short to find. It decides nothing and exits 0 whatever it finds.
+<a id="r2"></a>**R2.** The kit's `scripts/list-message-literals.py`, kit tooling never shipped in a module and never a gate, is the review's aid: for each message function it lists whether a piece of its fixed text, 15 characters or more, stands in a string of the fixtures that run it, and lists apart the functions whose text is too short to find. It decides nothing and exits 0 whatever it finds.
 
-**R3.** The 47 messages counted are each given one line typed by hand in a fixture that already reaches them, with no new acceptance item.
+<a id="r3"></a>**R3.** The 47 messages counted are each given one line typed by hand in a fixture that already reaches them, with no new acceptance item.
 
 ## Applied
 
