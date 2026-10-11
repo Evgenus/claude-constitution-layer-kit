@@ -2464,6 +2464,17 @@ def self_test() -> int:
             ["--run"],
             None,
         ),
+        "a Runner line whose count is below the total": (runner_line.format(3), ["--run"], 3),
+        "a differing count after a line of backticks whose info string holds a backtick": (
+            "```a`b\n" + runner_line.format(5),
+            ["--run"],
+            5,
+        ),
+        "a differing count after a line of backticks indented four spaces": (
+            "    ```\n" + runner_line.format(5),
+            ["--run"],
+            5,
+        ),
         "a differing count on a line that holds Runner: after other words": (
             "The " + runner_line.format(5),
             ["--run"],

@@ -1065,8 +1065,9 @@ def scan_block(root: Path) -> list[str]:
     if listed_in is None:
         raise Broken(
             f"{GUIDE_FILE}:{line}: the first line of the block {BLOCK} is not `for s in <paths>; do …`"
-            " — fix: begin it with `for s in <module>/scripts/<entry> …; do`, the paths being the scans the"
-            ' modules declare, and run each as `"$s"` after `do`'
+            " — fix: begin it with `for s in <module>/scripts/<stem>.sh …; do`, the paths being the scans the"
+            " modules declare, each `<stem>` the declared scan's name without `.py`,"
+            ' and run each as `"$s"` after `do`'
         )
     return listed_in.group(1).split()
 
@@ -2477,8 +2478,9 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         " scan in the guide's verify step, its fence `bash check=scan`"
     )
     form_fix = (
-        " — fix: begin it with `for s in <module>/scripts/<entry> …; do`, the paths being the scans the"
-        ' modules declare, and run each as `"$s"` after `do`'
+        " — fix: begin it with `for s in <module>/scripts/<stem>.sh …; do`, the paths being the scans the"
+        " modules declare, each `<stem>` the declared scan's name without `.py`,"
+        ' and run each as `"$s"` after `do`'
     )
     form_line = (
         f"{GUIDE_FILE}:4: the first line of the block `bash check=scan` is not `for s in <paths>; do …`"
@@ -2623,6 +2625,23 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         "an install guide whose scan block runs a command, not a loop": (
             Case({"x": scan}, guide=guide_text(GUIDE_X).replace("for s in const-x", "sh const-x", 1)),
             form_line,
+        ),
+        "an install guide whose scan block has a command before its loop": (
+            Case({"x": scan}, guide=guide_text(GUIDE_X).replace("for s in", "cd x; for s in", 1)),
+            form_line,
+        ),
+        "an install guide whose scan block holds a tilde line, then a second scan block": (
+            Case(
+                {"x": scan},
+                guide=guide_text(GUIDE_X).replace(
+                    "   ```\n   Then the fixtures:",
+                    "   ~~~\n   ```\n```bash check=scan\nfor s in ; do true; done\n```\n"
+                    "   Then the fixtures:",
+                    1,
+                ),
+            ),
+            f"{GUIDE_FILE} has 2 blocks `bash check=scan`, at lines 4 and 8 — fix: keep one: list the paths"
+            " of both in the first and give the other `check=none`",
         ),
         "an install guide whose scan loop runs over another variable": (
             Case({"x": scan}, guide=guide_text(GUIDE_X).replace("for s in", "for m in", 1)),
