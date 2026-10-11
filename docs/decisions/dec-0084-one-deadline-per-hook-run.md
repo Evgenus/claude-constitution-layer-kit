@@ -1,5 +1,5 @@
 ---
-id: dec-0083-one-deadline-per-hook-run
+id: dec-0084-one-deadline-per-hook-run
 type: task-record
 title: A hook run has one deadline from a budget each module declares, and every wait takes the smaller of its own cap and what is left
 status: inactive
@@ -57,7 +57,7 @@ The session recommended A: it closes the hole limit 16 named while keeping every
 
 Under R3 a tool wait near the end of the budget is given less than its cap. The verifier of the change found that such a wait, when it then ran out, printed the tool's own line with the shortened number: "vale gave no answer in 2 s, the most a check after a write waits", when the most is 10 s. The line was false, and the user could not tell that the hook's budget, not the tool's cap, ended the wait. No real choice existed: [law 6 of CLAUDE.md](../../CLAUDE.md#law-6) asks a gate's line to say what failed.
 
-<a id="r7"></a>**R7.** A tool wait that the deadline shortened and that then runs out is reported by the shared line `C12.14`, naming the wait, never by the tool's own line. The tool's own line stands only for a wait that had its whole cap. The shared code decides by comparing the seconds a wait was given with its cap.
+<a id="r7"></a>**R7.** A wait that the deadline shortened and that then runs out — a shared git call, the version probe and the run of the prose linter, the version probe, the reads and the run of the link checker — is reported by the shared line `C12.14`, naming the wait, never by the tool's own line. The tool's own line stands only for a wait that had its whole cap. The shared code decides by comparing the seconds a wait was given with its cap. The one exception is the history read of [`const-catalogs`](../requirements.md#const-catalogs): a git call outside the shared function, with a clock of its own inside the number the deadline gives it, and a read that clock cuts ends in the working tree's answer, not in a failure.
 
 ## 4. The handler tie reads a script, not an option
 
