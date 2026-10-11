@@ -2674,6 +2674,10 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
             coverage("- name: const-x", "  code: [1]", "  docs: []"),
             bad_entry(1),
         ),
+        "a coverage entry whose docs hold a non-string": (
+            coverage("- name: const-x", "  code: []", "  docs: [1]"),
+            bad_entry(1),
+        ),
         "a coverage entry whose docs are a string": (
             coverage("- name: const-x", "  code: []", "  docs: MODULE.md"),
             bad_entry(1),
