@@ -67,7 +67,7 @@ A, chosen by the decider in chat on 2026-09-24. Two slots were left open in the 
 
 <a id="r7"></a>**R7.** A record is written from the kit's own template, `templates/decision-record.md`, named for the kind in `const-locations.templates`: the shape the record skill of module [`const-decision-records`](../requirements.md#const-decision-records) ships to every consumer, with what the policy's rules 2, 9, 11 and 12 add, which are the kit's rules and no module's — so the module's template stays within its rows. A change to the shape rules changes the template in the same change.
 
-<a id="r8"></a>**R8.** The sections and their order are fixed for both shapes; a record answering several questions has one numbered section per question, with its context, options, recommendation, choice and handled ruling; the title states the ruling and the H1 repeats it.
+<a id="r8"></a>**R8.** The sections and their order are fixed for both shapes; a record answering several questions has one numbered section per question, with its context, options, recommendation, choice and handled ruling; the title states the ruling and the top-level heading repeats it.
 
 <a id="r9"></a>**R9.** A ruling item is any sentence that binds after the yes, wherever it stands, a default left open to override included — the test being the blind reader; handles run in order, contiguous and unique in the record, tables included, a key of another document written qualified; one kind of home per handle, with the split or the after-link history for a mixed item.
 
@@ -152,7 +152,7 @@ A `product` record, which the kernel gives neither a yes nor a review, is comple
 3. R3 — [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r3), rule 3.
 4. R4 — [plc-0001-root-policy](../policies/plc-0001-root-policy.md#r4), rule 4; the two policies brought into the form is history.
 5. R5 — [plc-0002-kernel](../policies/plc-0002-kernel.md#r3), rules 3 to 7.
-6. R6 — [plc-0003-intent-page](../policies/plc-0003-intent-page.md#r3), rules 3 to 6, and [INTENT.md](../../INTENT.md#i5), the sentence on the A12 gates; the rewriting of that sentence is history.
+6. R6 — [plc-0003-intent-page](../policies/plc-0003-intent-page.md#r3), rules 3 to 6, and [INTENT.md](../../INTENT.md#i5), the sentence on the [aspect A12](../requirements.md#a12) gates; the rewriting of that sentence is history.
 7. R7 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r8), rule 8, and the `templates` dial of [constitution.yaml](../../constitution.yaml).
 8. R8 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r9), rule 9.
 9. R9 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r10), rule 10.

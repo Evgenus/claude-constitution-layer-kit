@@ -17,8 +17,8 @@ The module [`const-language`](../requirements.md#const-language) is authored fro
 
 The handoff of the previous session left the next work unchosen.
 
-- **A. The parked item D9 first,** the consumer's name and the date of Phase B, then the other parked items one per message.
-  - **Pros:** D9 unblocks the deferred consumer-live proofs of all nine modules; the items are argued and need only a yes.
+- **A. The parked item on the consumer's name and the date of Phase B first,** then the other parked items one per message.
+  - **Pros:** that item unblocks the deferred consumer-live proofs of all nine modules; the items are argued and need only a yes.
   - **Cons:** a session of process rulings produces no module.
 - **B. A week of the kit under its own gates,** the prompts logged as friction.
   - **Pros:** answers two open questions with evidence.
