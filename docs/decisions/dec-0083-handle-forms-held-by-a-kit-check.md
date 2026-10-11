@@ -59,7 +59,7 @@ What each check reads and holds followed from the rule it serves; no real choice
 
 ## Applied
 
-The commits before the one that creates this record built the checks: R4's order in `scripts/check-carry-lists.py`, then `scripts/check-handle-forms.py` with R2, R6 and its paragraph in [§3 of the shared gate code](../../shared/GATE.md#g3a), then R7 and R4's table keys, each followed by the fixes of its verifier. The commit that creates this record states R2, R4 and R8 in rule 6 of plc-0004, R6 and R7 in rule 12 of plc-0006, and R2 and R8 in CLAUDE.md. The record is born `inactive`. The first round of its carry audit corrected the record and the documents in place before the yes: R2 stated in rule 10 of plc-0005 too, R9 added, and the fix line of R7 brought to the V clause of rule 8 of plc-0006.
+The commits before the one that creates this record built the checks: R4's order in `scripts/check-carry-lists.py`, then `scripts/check-handle-forms.py` with R2, R6 and its paragraph in [§3 of the shared gate code](../../shared/GATE.md#g3a), then R7 and R4's table keys, each followed by the fixes of its verifier. The commit that creates this record states R2, R4 and R8 in rule 6 of plc-0004, R6 and R7 in rule 12 of plc-0006, and R2 and R8 in CLAUDE.md. The record is born `inactive`. The rounds of its carry audit corrected the record and the documents in place before the yes, among them: R2 stated in rule 10 of plc-0005 too, R9 added, the fix line of R7 brought to the V clause of rule 8 of plc-0006, and the scope of R2 and R4 stated in rule 6 of plc-0004 as the scripts hold it.
 
 ## Carry list
 

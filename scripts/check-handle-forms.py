@@ -56,8 +56,8 @@ findings and the scan reports them all. Four rules are read:
                     after "message", "key" or "row". An earlier record is not read.
 
 Not read: the research comparisons (docs/research/), which keep the form they were frozen with
-(rule 7 of plc-0005-research); and in every other document a section titled "Carry list", at any
-heading level, whose links in a record lead to no record; fenced code, indented code, inline code
+(rule 7 of plc-0005-research); and in every other document a section titled "Carry list", under a
+"#" heading of any level, whose links in a record lead to no record; fenced code, indented code, inline code
 spans and HTML comments. The two module rules read only the tables of anchors t6, t9 and t10 of
 each modules/<name>/MODULE.md, the first of them t6 alone, and fail loud (BROKEN, with the fix)
 where a section, the shared document or its anchors g3, g3a and g4 cannot be read.
@@ -592,8 +592,9 @@ def record_table_keys(document: Document, context: Context) -> list[Finding]:
                     number,
                     f'a table row opens with "{key}", which has the form of a ruling handle of this record',
                     'before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
-                    f' "R", so that "{handle}" names a ruling alone; an accepted record keeps its table as it'
-                    " stands (rule 14 of plc-0004-decision-records)",
+                    f' "R", so that "{handle}" names a ruling alone; where the cell names a key of another'
+                    " document, qualify it by that document's name or a link instead, which rule 14 of"
+                    " plc-0004-decision-records allows in an accepted record too",
                     TABLE_WHY,
                 )
             )
@@ -1553,8 +1554,9 @@ def self_test() -> int:
             "  why: a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a"
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
-            ' "R", so that "R1" names a ruling alone; an accepted record keeps its table as it stands'
-            " (rule 14 of plc-0004-decision-records)",
+            ' "R", so that "R1" names a ruling alone; where the cell names a key of another document,'
+            " qualify it by that document's name or a link instead, which rule 14 of"
+            " plc-0004-decision-records allows in an accepted record too",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
         "the report of one finding, a table row keyed as a ruling, is its literal text, exit 2",
@@ -1575,8 +1577,9 @@ def self_test() -> int:
             "  why: a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a"
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
-            ' "R", so that "R2" names a ruling alone; an accepted record keeps its table as it stands'
-            " (rule 14 of plc-0004-decision-records)",
+            ' "R", so that "R2" names a ruling alone; where the cell names a key of another document,'
+            " qualify it by that document's name or a link instead, which rule 14 of"
+            " plc-0004-decision-records allows in an accepted record too",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
         "the report of one finding, a bold range in a code span, quotes the key without its marks, exit 2",
