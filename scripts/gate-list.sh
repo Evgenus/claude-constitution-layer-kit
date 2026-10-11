@@ -87,10 +87,9 @@ commands() {
         language) echo "sh modules/const-language/scripts/check-language.sh --scan" ;;
         budgets) echo "sh modules/const-doc-budgets/scripts/check-budgets.sh --scan" ;;
         list-handles) echo "sh modules/const-interaction/scripts/check-list-handles.sh --scan" ;;
-        carry-lists | shared-links | yaml-style | module-links | aspects | portability | gate-lists | copies | dials-schema | resolved-paths)
+        carry-lists | shared-links | yaml-style | module-links | aspects | portability | gate-lists | copies | schema-mirror | dials-schema | resolved-paths)
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
-        schema-mirror) echo "python3 scripts/check-schema-mirror.py" ;;
         bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;
         guide)
             echo "python3 scripts/check-install-guide.py"
