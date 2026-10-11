@@ -26,12 +26,11 @@ findings and the scan reports them all. Two rules are read:
                     the shared keys from the first column of the §3 table and the allowed ones from
                     the code spans of the paragraph of g3a, so the document is the one source.
 
-Not read: the research comparisons (docs/research/), frozen ones keep the form
-they were frozen with (rule 7 of plc-0005-research); in every document it skips the "Carry list"
-section of a record, whose links lead to no record, fenced code, indented code, inline code spans
-and HTML comments. The message-key rule
-reads only the table of anchor t6 of each modules/<name>/MODULE.md, and fails loud (BROKEN, with
-the fix) where the shared document or its anchors g3, g3a and g4 cannot be read.
+Not read: the research comparisons (docs/research/), which keep the form they were frozen with
+(rule 7 of plc-0005-research); and in every other document the "Carry list" section of a record,
+whose links lead to no record, fenced code, indented code, inline code spans and HTML comments. The
+message-key rule reads only the table of anchor t6 of each modules/<name>/MODULE.md, and fails loud
+(BROKEN, with the fix) where the shared document or its anchors g3, g3a and g4 cannot be read.
 Not a ruling: a handle after a word that names another kind of key, "message R4 of …" or "the
 table keys R1 to R4 of …" (rule 10 of plc-0004 writes such a key qualified). Left to review: a
 handle with a suffix letter (`R4b`), a record's citation of its own rulings ("R3",
@@ -56,7 +55,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from kit_module_doc import SEPARATOR, SPAN, DocumentError, cells, section
@@ -136,6 +135,8 @@ class Document:
 class Context:
     root: Path  # the checkout read, for a rule that reads a document it was not handed
     tracked: tuple[str, ...]  # every Markdown file git lists, for a rule that resolves a name
+    # what a rule read once for the whole scan: "shared" holds the families of the shared messages
+    cache: dict[str, tuple[frozenset[str], frozenset[str]]] = field(default_factory=dict)
 
 
 Rule = Callable[[Document, Context], list[Finding]]
@@ -331,10 +332,15 @@ def shared_message_keys(root: Path) -> tuple[frozenset[str], frozenset[str]]:
     marks: dict[str, int] = {}
     for name in ("g3", "g3a", "g4"):
         found = [n for n, line in enumerate(lines) if line.strip() == f'<a id="{name}"></a>']
-        if len(found) != 1:
+        if not found:
             raise Broken(
-                f'{SHARED_DOC} holds the anchor <a id="{name}"></a> {len(found)} time(s), and the check reads'
-                " it once — fix: keep the anchor alone on its line, once, in the order g3, g3a, g4"
+                f'{SHARED_DOC} has no anchor <a id="{name}"></a> alone on a line, and the check reads'
+                " the section and the paragraph by it — fix: restore the anchor, in the order g3, g3a, g4"
+            )
+        if len(found) > 1:
+            raise Broken(
+                f'{SHARED_DOC} holds the anchor <a id="{name}"></a> {len(found)} times, and the check reads'
+                " it once — fix: keep the anchor once, alone on its line, in the order g3, g3a, g4"
             )
         marks[name] = found[0]
     if not marks["g3"] < marks["g3a"] < marks["g4"]:
@@ -375,7 +381,9 @@ def module_message_keys(document: Document, context: Context) -> list[Finding]:
     part of it, the keys of the paragraph of g3a (the "message keys" rule of the docstring)."""
     if not MODULE_DOC.fullmatch(document.path):
         return []
-    shared, allowed = shared_message_keys(context.root)
+    if "shared" not in context.cache:  # read and parsed once for the scan, not once per module
+        context.cache["shared"] = shared_message_keys(context.root)
+    shared, allowed = context.cache["shared"]
     try:
         body = section(document.text, "t6", document.path)
     except DocumentError as bad:
@@ -386,7 +394,7 @@ def module_message_keys(document: Document, context: Context) -> list[Finding]:
         if not line.startswith("|") or SEPARATOR.fullmatch(line):
             continue
         row = cells(line)
-        for key in KEY_IN_CELL.findall(row[0].replace("*", "").replace("`", "") if row else ""):
+        for key in KEY_IN_CELL.findall(row[0] if row else ""):
             if family(key) in shared and family(key) not in allowed:
                 prefixes = ", ".join(sorted({re.sub(r"\d.*", "", f) for f in shared}))
                 findings.append(
@@ -726,7 +734,14 @@ def self_test() -> int:
             + after
         )
 
+    after_paragraph = "a key named in a code span of a table row after the paragraph, N1"
+    own_shared = {  # the cases that read a shared document of their own, by case name: a table row
+        # right after the paragraph names N1 in a code span; the paragraph ends at its blank line,
+        # so the row's span is no allowed key
+        after_paragraph: shared_lines.replace("| N1.2 | d |", "| N1.2 | see `N1` |"),
+    }
     keys_red: dict[str, tuple[str, str, tuple[int, ...]]] = {  # case: rows green, rows red, lines by hand
+        after_paragraph: ("| X1 | a |\n", "| N1 | a |\n", (6,)),
         "a key of a shared family that is not allowed, N1": ("| X1 | a |\n", "| N1 | a |\n", (6,)),
         "a key that is a shared key itself, H2": ("| X1 | a |\n", "| H2 | a |\n", (6,)),
         "a key of a shared family by its sub-key, C4b": ("| X1 | a |\n", "| C4b | a |\n", (6,)),
@@ -762,7 +777,7 @@ def self_test() -> int:
         "the paragraph of g3a missing": (
             shared_lines.replace('<a id="g3a"></a>\n', ""),
             "| X1 | a |\n",
-            'BROKEN: shared/GATE.md holds the anchor <a id="g3a"></a> 0 time(s)',
+            'BROKEN: shared/GATE.md has no anchor <a id="g3a"></a> alone on a line',
         ),
         "the paragraph of g3a naming no key": (
             shared_lines.replace("`G1` and `C5`", "none"),
@@ -773,6 +788,23 @@ def self_test() -> int:
             shared_lines.replace("`C5`", "`Q9`"),
             "| X1 | a |\n",
             "BROKEN: shared/GATE.md: the paragraph of g3a names Q9, which the table of section 3 lacks",
+        ),
+        "the anchor g3a twice": (
+            shared_lines.replace('<a id="g4"></a>', '<a id="g3a"></a>\n<a id="g4"></a>'),
+            "| X1 | a |\n",
+            'BROKEN: shared/GATE.md holds the anchor <a id="g3a"></a> 2 times',
+        ),
+        "the anchors out of order": (
+            '<a id="g3a"></a>\nA module takes `G1`.\n\n<a id="g3"></a>\n| key | text |\n|---|---|\n'
+            '| G1 | a |\n\n<a id="g4"></a>\n',
+            "| X1 | a |\n",
+            "BROKEN: shared/GATE.md holds the anchors g3, g3a and g4 out of order",
+        ),
+        "the table with no key in its first column": (
+            '<a id="g3"></a>\nLead.\n\n<a id="g3a"></a>\nA module takes `G1`.\n\n| key | text |\n|---|---|\n'
+            '| first | a |\n\n<a id="g4"></a>\n',
+            "| X1 | a |\n",
+            "BROKEN: shared/GATE.md has no message key in the first column of its section 3",
         ),
         "a module document without its anchor t6": (
             shared_lines,
@@ -841,7 +873,7 @@ def self_test() -> int:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             fresh(root)
-            write(root, gate_path, shared_lines)
+            write(root, gate_path, own_shared.get(name, shared_lines))
             write(root, module_path, module_doc(good_rows))
             green_before = not check_kit(root)[0]
             write(root, module_path, module_doc(bad_rows))
