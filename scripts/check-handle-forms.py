@@ -1316,6 +1316,12 @@ def self_test() -> int:
             rulings + "| R7 (x) | a |\n",
             (7,),
         ),
+        "a row key range R2–R3 whose of follows other words, not the range": (
+            40,
+            rulings + "| K2–K3 (x) of the module | a |\n",
+            rulings + "| R2–R3 (x) of the module | a |\n",
+            (7,),
+        ),
         "a row key R7 after other words, not a qualifier": (
             40,
             rulings + "| the K7 row | a |\n",
