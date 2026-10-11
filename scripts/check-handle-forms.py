@@ -52,8 +52,11 @@ findings and the scan reports them all. Four rules are read:
                     handle: its first handle is `R<n>`, in bold or in a code span, alone, in a range
                     (`R2–R3`, `R2-R3`), in a list (`R4, R5`) or followed by other words (`R7 (x)`),
                     outside fenced code and outside the "Carry list" section. A first cell that writes
-                    the handle as a key of another document stays: `R1 of the module`, or a handle
-                    after "message", "key" or "row". An earlier record is not read.
+                    the handle as a key of another document stays: `R1 of the module`, a range or a
+                    list it opens qualified so (`R2–R3 of the module`, `R4, R5 of the module`), or a
+                    handle after "message", "key" or "row". A range qualified so takes an unspaced
+                    dash, as the kit writes its ranges: in `R2 – R3 of the module` the "of" follows
+                    R3 alone, and the row is red. An earlier record is not read.
 
 Not read: the research comparisons (docs/research/), which keep the form they were frozen with
 (rule 7 of plc-0005-research); and in every other document a section titled "Carry list", under a
@@ -537,7 +540,8 @@ def module_handle_prefixes(document: Document, context: Context) -> list[Finding
 def owns_prefix(kind: str, prefix: str, kinds: Collection[str]) -> bool:
     """Whether rule 8 of plc-0006-module-documents gives the prefix to the kind, among the kinds that use
     it: the letters it fixes, save that L is the message keys' where they use it, and the live, review
-    and kit-check items take V."""
+    and kit-check items take V. V stays the items' even where the message keys use it too: items of L
+    beside message keys of L and V move to V, and the next run moves the message keys of V."""
     if prefix == LIVE_PREFIX and KIND_MESSAGE in kinds:
         return kind == KIND_MESSAGE
     return prefix in FIXED_PREFIXES.get(kind, ())
@@ -595,9 +599,9 @@ def record_table_keys(document: Document, context: Context) -> list[Finding]:
                     f'a table row opens with "{key}", which has the form of a ruling handle of this record',
                     'before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
                     f' "R", so that "{handle}" names a ruling alone; where the cell names a key of another'
-                    ' document, write "of <that document>" after the handle, or after the range or list it'
-                    " opens, by the document's name or a link to it, which rule 14 of"
-                    " plc-0004-decision-records allows in an accepted record too",
+                    ' document, write "of <that document>", by its name or a link to it, after the handle or'
+                    ' after the range or list it opens, a range with an unspaced dash ("R2–R3 of the'
+                    ' module"); rule 14 of plc-0004-decision-records allows this in an accepted record too',
                     TABLE_WHY,
                 )
             )
@@ -1316,6 +1320,18 @@ def self_test() -> int:
             rulings + "| R7 (x) | a |\n",
             (7,),
         ),
+        "a row key range R2–R3 whose of follows other words, not the range": (
+            40,
+            rulings + "| K2–K3 (x) of the module | a |\n",
+            rulings + "| R2–R3 (x) of the module | a |\n",
+            (7,),
+        ),
+        "a row key range with a spaced dash, R2 – R3 of the module": (
+            40,
+            rulings + "| R2–R3 of the module | a |\n",
+            rulings + "| R2 – R3 of the module | a |\n",
+            (7,),
+        ),
         "a row key R7 after other words, not a qualifier": (
             40,
             rulings + "| the K7 row | a |\n",
@@ -1574,9 +1590,9 @@ def self_test() -> int:
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
             ' "R", so that "R1" names a ruling alone; where the cell names a key of another document,'
-            ' write "of <that document>" after the handle, or after the range or list it opens, by the'
-            " document's name or a link to it, which rule 14 of plc-0004-decision-records allows in an"
-            " accepted record too",
+            ' write "of <that document>", by its name or a link to it, after the handle or after the range'
+            ' or list it opens, a range with an unspaced dash ("R2–R3 of the module"); rule 14 of'
+            " plc-0004-decision-records allows this in an accepted record too",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
         "the report of one finding, a table row keyed as a ruling, is its literal text, exit 2",
@@ -1598,9 +1614,9 @@ def self_test() -> int:
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
             '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
             ' "R", so that "R2" names a ruling alone; where the cell names a key of another document,'
-            ' write "of <that document>" after the handle, or after the range or list it opens, by the'
-            " document's name or a link to it, which rule 14 of plc-0004-decision-records allows in an"
-            " accepted record too",
+            ' write "of <that document>", by its name or a link to it, after the handle or after the range'
+            ' or list it opens, a range with an unspaced dash ("R2–R3 of the module"); rule 14 of'
+            " plc-0004-decision-records allows this in an accepted record too",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
         "the report of one finding, a bold range in a code span, quotes the key without its marks, exit 2",
