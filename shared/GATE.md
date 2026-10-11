@@ -164,7 +164,7 @@ Every module that links this code has these limits and states its own beside the
 | S141 | not fail-open: an unexpected exception exits 1, `C12.11` first, the traceback after it |
 | S142–S144 | an `Edit` event without its fields; a stdout that cannot encode the dash; an envelope nested past the parser's depth |
 | S145–S146 | `--scan` outside any repository, `--scan=DIR` and a scan from a subdirectory |
-| S147–S150 | a byte-order mark before the envelope; a file-level negated pattern's skip; note `N1.1`; an `Edit` with an empty `old_string` |
+| S147–S150 | a byte-order mark before the envelope; a file-level negated pattern's skip; note `N1.1`; an `Edit` with an empty `old_string` on an existing file |
 | S151 | a value of 12,000 characters echoed by a finding is cut at 80, stderr under 2,000 characters |
 | S152–S154 | git failing in one way: `C12.1`, `C12.2`, `C12.3`, each line typed by hand |
 | S155–S156 | a file the process may list and not read: `C12.7`, and `C12.10` in a scan; not exercised where the runner runs as root |
@@ -172,7 +172,7 @@ Every module that links this code has these limits and states its own beside the
 | S158 | a file in the root policy's territory the process cannot read is `C12.10` in a hook run as in a scan, never note `N1.1`; not exercised where the runner runs as root |
 | S159 | a green hook run with notes: exit 0, one JSON object and nothing else on stdout, `hookEventName` the event, the note typed by hand and the green line in `additionalContext`, no `RED` line; the passed write without notes still prints its green line plain |
 | S160 | a key of the module's namespace holding a backslash, a line break and 12,000 characters is `C5.10` on one line, cut at 80 characters and escaped, typed by hand; the same item holds the other shared texts to the rule of item 5 of [§2](#g2) |
-| S161 | a pattern of `#` and 12,000 characters in a path-pattern dial of the module's own is `C5.7` naming the dial whole, the pattern cut at 80 characters; left out for a module that gives no `pattern_dial` |
+| S161 | a pattern of `#` and 12,000 characters in a path-pattern dial of the module's own is `C5.7` naming the dial whole, the pattern cut at 80 characters, and the escape `\#drafts/**` is no `C5.7`; left out for a module that gives no `pattern_dial` |
 | S162 | a file named just `.md`, written through the hook, is not skipped for its ending, and the scan lists it |
 | S163 | the findings shown after a write, by `pipeline.within_the_cap`: the first always, the next while the text stays within 8,000 characters, never more than `most` |
 | S164 | a `---` line with trailing whitespace, and CRLF, delimit the envelope; a line-break character other than `\n`, `\r\n` or `\r` before `---` makes no delimiter; the offsets of `envelope_bounds` and the cuts of `envelope_lines` hold, typed by hand; run by a gate that judges envelopes |
