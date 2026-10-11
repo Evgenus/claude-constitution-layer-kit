@@ -157,7 +157,7 @@ The session recommended B. <a id="r8"></a>**R8.** B, chosen by the decider in ch
 
 ## 9. The verbosity dial of dec-0001
 
-The carry audit's regression reader found that [dec-0001-session-conduct-rows](dec-0001-session-conduct-rows.md) R4 rules "the verbosity dial in `const-interaction` carries this as its first concrete value" — this being: no assumption line when no assumption was made — and that the module as built carried the rule as fixed text with no dial.
+The carry audit's regression reader found that the fourth item of the ruling list of [dec-0001-session-conduct-rows](dec-0001-session-conduct-rows.md) rules "the verbosity dial in `const-interaction` carries this as its first concrete value" — this being: no assumption line when no assumption was made — and that the module as built carried the rule as fixed text with no dial.
 
 - **A. Rule the dial away: the rule is fixed text, no dial.**
   - **Pros:** nothing to build; the rule is on the carrier and pinned by the fixtures.
