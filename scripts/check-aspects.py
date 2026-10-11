@@ -2449,6 +2449,26 @@ def self_test() -> int:
             ["--run"],
             5,
         ),
+        "a differing count inside a four-backtick fence that holds a three-backtick line": (
+            "````\n```\n" + runner_line.format(5) + "\n````",
+            ["--run"],
+            None,
+        ),
+        "a differing count inside a backtick fence that holds a tilde line": (
+            "```\n~~~\n" + runner_line.format(5) + "\n```",
+            ["--run"],
+            None,
+        ),
+        "a differing count inside a fence that holds a backtick line with an info string": (
+            "```\n```text\n" + runner_line.format(5) + "\n```",
+            ["--run"],
+            None,
+        ),
+        "a differing count on a line that holds Runner: after other words": (
+            "The " + runner_line.format(5),
+            ["--run"],
+            None,
+        ),
     }
     for name, (preface, command_line, written) in counted.items():
         with tempfile.TemporaryDirectory() as tmp:
