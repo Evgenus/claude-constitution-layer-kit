@@ -56,11 +56,11 @@ findings and the scan reports them all. Four rules are read:
                     after "message", "key" or "row". An earlier record is not read.
 
 Not read: the research comparisons (docs/research/), which keep the form they were frozen with
-(rule 7 of plc-0005-research); and in every other document the "Carry list" section of a record,
-whose links lead to no record, fenced code, indented code, inline code spans and HTML comments. The
-two module rules read only the tables of anchors t6, t9 and t10 of each modules/<name>/MODULE.md, the
-first of them t6 alone, and fail loud (BROKEN, with the fix) where a section, the shared document or
-its anchors g3, g3a and g4 cannot be read.
+(rule 7 of plc-0005-research); and in every other document a section titled "Carry list", at any
+heading level, whose links in a record lead to no record; fenced code, indented code, inline code
+spans and HTML comments. The two module rules read only the tables of anchors t6, t9 and t10 of
+each modules/<name>/MODULE.md, the first of them t6 alone, and fail loud (BROKEN, with the fix)
+where a section, the shared document or its anchors g3, g3a and g4 cannot be read.
 Not a ruling: a handle after a word that names another kind of key, "message R4 of …" or "the
 table keys R1 to R4 of …" (rule 10 of plc-0004 writes such a key qualified). Left to review: a
 handle with a suffix letter (`R4b`), a record's citation of its own rulings ("R3",
@@ -591,9 +591,9 @@ def record_table_keys(document: Document, context: Context) -> list[Finding]:
                     document.path,
                     number,
                     f'a table row opens with "{key}", which has the form of a ruling handle of this record',
-                    f'key the rows of this table with another letter, e.g. "K" for "R", so that "{handle}"'
-                    " names a ruling alone, before the record's yes — an accepted record keeps its table"
-                    " as it stands (rule 14 of plc-0004-decision-records)",
+                    'before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
+                    f' "R", so that "{handle}" names a ruling alone; an accepted record keeps its table as it'
+                    " stands (rule 14 of plc-0004-decision-records)",
                     TABLE_WHY,
                 )
             )
@@ -1552,8 +1552,8 @@ def self_test() -> int:
             " this record",
             "  why: a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a"
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
-            '  fix: key the rows of this table with another letter, e.g. "K" for "R", so that "R1" names a'
-            " ruling alone, before the record's yes — an accepted record keeps its table as it stands"
+            '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
+            ' "R", so that "R1" names a ruling alone; an accepted record keeps its table as it stands'
             " (rule 14 of plc-0004-decision-records)",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],
@@ -1574,8 +1574,8 @@ def self_test() -> int:
             " of this record",
             "  why: a handle names one thing in a record, so a table row keyed R3 beside a ruling R3 leaves a"
             " citation of R3 with two readings (rule 10 of plc-0004-decision-records)",
-            '  fix: key the rows of this table with another letter, e.g. "K" for "R", so that "R2" names a'
-            " ruling alone, before the record's yes — an accepted record keeps its table as it stands"
+            '  fix: before the record\'s yes, key the rows of this table with another letter, e.g. "K" for'
+            ' "R", so that "R2" names a ruling alone; an accepted record keeps its table as it stands'
             " (rule 14 of plc-0004-decision-records)",
             "RED: 1 finding(s) — 3 document(s) examined",
         ],

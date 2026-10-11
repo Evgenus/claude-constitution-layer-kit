@@ -45,9 +45,9 @@ What each check reads and holds followed from the rule it serves; no real choice
 
 <a id="r3"></a>**R3.** R2 reverses the part of R3 of [dec-0081-rulings-carry-anchors](dec-0081-rulings-carry-anchors.md#r3) that left a citation's anchor to review.
 
-<a id="r4"></a>**R4.** From dec-0039 on, `scripts/check-carry-lists.py` holds that the bold ruling handles run R1, R2, … in document order with no gap, outside fenced blocks and before the carry list. `scripts/check-handle-forms.py` holds that no table row of such a record has a first cell whose first handle has the form of a ruling handle, `R<n>`: alone, bold, in a code span, in a range or a list, or followed by other words. A handle qualified as another document's key, "R1 of the module" or after "message", "key" or "row", is no ruling. The order, the contiguity and the uniqueness of other handles, and the order of the handles of an earlier record, stay review.
+<a id="r4"></a>**R4.** From dec-0039 on, `scripts/check-carry-lists.py` holds that the bold ruling handles run R1, R2, … in document order with no gap, outside fenced blocks and before the carry list. `scripts/check-handle-forms.py` holds that no table row of such a record has a first cell whose first handle has the form of a ruling handle, `R<n>`: alone, bold, in a code span, in a range or a list, or followed by other words. A handle qualified as another document's key, "R1 of the module" or after "message", "key" or "row", is no ruling. The order, the contiguity and the uniqueness of other handles, and the order and the contiguity of the handles of an earlier record, stay review.
 
-<a id="r5"></a>**R5.** R4 narrows what R1 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r1) left to review: the order and the contiguity of handles, and a table key that repeats a ruling handle.
+<a id="r5"></a>**R5.** R4 narrows what R1 of [dec-0082-handle-migration-in-records](dec-0082-handle-migration-in-records.md#r1) left to review: the order and the contiguity of the bold ruling handles, and a table key of the form of a ruling handle.
 
 <a id="r6"></a>**R6.** A module's own message table takes a key of the shared table only to state its part of that message: G1, F9, F10, C1, C2, C5, C12, C14 and C15. The family of a key is its letters and its first number. `scripts/check-handle-forms.py` holds that no key of the module's table has a family of the shared table outside that list, sub-keys included. Whether a module's row under an allowed key states its part of the message is review.
 
@@ -59,7 +59,7 @@ What each check reads and holds followed from the rule it serves; no real choice
 
 ## Applied
 
-The commits before the one that creates this record built the checks: R4's order in `scripts/check-carry-lists.py`, then `scripts/check-handle-forms.py` with R2, R6 and its paragraph in [§3 of the shared gate code](../../shared/GATE.md#g3a), then R7 and R4's table keys, each followed by the fixes of its verifier. The commit that creates this record states R2, R4 and R8 in rule 6 of plc-0004 and R2 in rule 10 of plc-0005, R6 and R7 in rule 12 of plc-0006, and R2 and R8 in CLAUDE.md. The record is born `inactive`.
+The commits before the one that creates this record built the checks: R4's order in `scripts/check-carry-lists.py`, then `scripts/check-handle-forms.py` with R2, R6 and its paragraph in [§3 of the shared gate code](../../shared/GATE.md#g3a), then R7 and R4's table keys, each followed by the fixes of its verifier. The commit that creates this record states R2, R4 and R8 in rule 6 of plc-0004, R6 and R7 in rule 12 of plc-0006, and R2 and R8 in CLAUDE.md. The record is born `inactive`. The first round of its carry audit corrected the record and the documents in place before the yes: R2 stated in rule 10 of plc-0005 too, R9 added, and the fix line of R7 brought to the V clause of rule 8 of plc-0006.
 
 ## Carry list
 
