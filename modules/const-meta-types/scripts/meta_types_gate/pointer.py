@@ -11,8 +11,7 @@ policy's path, tab-separated. Where neither place exists the memo has no home an
 pointed: a session the platform runs has the data directory. A memo that cannot be read or
 written is treated as holding nothing, so the line is said again rather than lost; nothing here
 changes a verdict. The two `OSError`s swallowed here, the memo's read and its write, are each said
-so at their place: beside the output log's own, they are the module's departure from the rule that
-a gate swallows one error, declared in its document.
+so at their place, as the gate-script rule on the output log allows for an advisory memo kept beside it.
 """
 
 from __future__ import annotations

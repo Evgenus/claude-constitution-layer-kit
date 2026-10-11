@@ -42,7 +42,7 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
 7. The pointer to the governing policy: the first write of a session that passes for a document of
    a policy adds one advisory line to the model's context, naming the policy's path and, where the
    policy has a rule named Enforcement, that rule's anchor — a rule written
-   `<a id="<anchor>"></a>**Enforcement.**`, the full stop optional, the first one in the file; a policy
+   `<a id="<anchor>"></a>**Enforcement.**`, the full stop optional, the first such rule in the policy's text; a policy
    without one earns the path alone. Once per session, repository and policy, remembered in the memo
    of step 4. With no log location, or an event that names no session, there is no memo entry and
    nothing is pointed.

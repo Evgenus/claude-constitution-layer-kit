@@ -1139,6 +1139,27 @@ def policy_pointer_once_per_session() -> tuple[bool, str]:
             context(once) == f"{POINTED}\n{green}" and context(again) == f"{POINTED}\n{green}",
         )
     )
+    # a memo that cannot be read: the line said on every write, the verdict green; a mode bit does not
+    # stop root, so there the case is reported not exercised
+    if os.geteuid() == 0:
+        checks.append(
+            ("a memo that cannot be read: NOT EXERCISED as root — 0 unreadable memos examined", True)
+        )
+    else:
+        sealed = H.scratch_dir()
+        sealed_memo = sealed / "const-meta-types.pointed"
+        sealed_memo.write_text(f"s12\t{root}\tdocs/policies/notes-policy.md\n", encoding="utf-8")
+        sealed_memo.chmod(0o000)
+        try:
+            unread = run(VALID, "s12", {"CLAUDE_PLUGIN_DATA": str(sealed)})
+        finally:
+            sealed_memo.chmod(0o644)
+        checks.append(
+            (
+                "a memo that cannot be read: said again, the verdict green",
+                context(unread) == f"{POINTED}\n{green}",
+            )
+        )
     failed = [title for title, ok in checks if not ok]
     return not failed, f"{len(checks)} checks" if not failed else "failed: " + "; ".join(
         failed
