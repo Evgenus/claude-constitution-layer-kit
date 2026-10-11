@@ -33,10 +33,16 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    survive. By default it lives in the platform's per-plugin data directory, outside the
    repository. Set `log_dir` to keep it inside the repository instead; the directory must
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
+   Beside the log lives `const-meta-types.pointed`, the memo of the pointers below: one line per
+   pointer, the session, the repository and the policy, its last 200 lines kept.
 5. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
 6. CLAUDE.md pointer: none. The session-start hook prints one pointer line, 182 characters,
    advisory, naming the skill `/const-meta-types:choose-meta-type` and its moment; every
    subagent's start gets the same line, and every red of the gate carries, after its count line, a line naming the skill.
+7. The pointer to the governing policy: the first write of a session that passes for a document of
+   a policy adds one advisory line to the model's context, naming the policy's path and, where the
+   policy has a rule named Enforcement, that rule's anchor — once per session, repository and policy,
+   remembered in the memo of step 4. With no log location there is no memo, and nothing is pointed.
 
 Uninstall: remove the plugin; remove the `const-meta-types:` namespace from
 `constitution.yaml` if present.
