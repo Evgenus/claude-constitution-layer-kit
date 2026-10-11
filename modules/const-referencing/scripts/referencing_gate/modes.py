@@ -8,15 +8,15 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
 
+from const_gate import identity, pipeline
 from const_gate import messages as shared
-from const_gate import pipeline
 from const_gate.envelope import id_of_text
 from const_gate.errors import ConfigurationFailure
 from const_gate.index import build_index
 from const_gate.model import POST_WRITE, PRE_WRITE, Finding, PendingDocument
 from const_gate.output import Output
 from const_gate.pipeline import ScanTarget, Skip, WriteTarget
-from const_gate.repository import list_markdown, read_text
+from const_gate.repository import is_ignored, list_markdown, read_text
 from const_gate.territory import Matcher
 
 from . import dials as own_dials
@@ -38,15 +38,28 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     if target.event_name == POST_WRITE:
         return _after_write(output, target, dials)
     rel = target.rel
-    paths = sorted({*list_markdown(target.root), rel})
+    listed = list_markdown(target.root)
+    paths = sorted({*listed, rel})
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, paths, PendingDocument(rel, target.text))
         if covered is None:
             raise ConfigurationFailure(messages.c5_governed_only_without_root())
+        # The dial covers the Markdown files git lists, ignored ones excepted, as after a write: a file
+        # git lists is covered whatever the ignore rules say of it; a new one only if git would not ignore
+        # it. Asked last, so that a path no territory holds costs git no call.
+        if rel in covered and rel not in listed and is_ignored(target.root, rel):
+            covered.remove(rel)
         if rel not in covered:
             return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         lanes = _lanes_abroad(matcher, dials, [rel])[rel]
-    texts = {path: target.text if path == rel else _text(target.root, path) for path in covered}
+    # begun before the first read; no checker runs here; the cap, or what the hook's deadline has left
+    budget = lychee.Budget.start(
+        identity.remaining(lychee.HOOK_SECONDS, lychee.READ_BEFORE), before_write=True
+    )
+    texts: dict[str, str] = {}
+    for path in covered:
+        texts[path] = target.text if path == rel else _text(target.root, path)
+        budget.check()
     placed, _ = _examine(rel, texts, ids_of(texts), lanes, dials)
     findings = [finding for _, finding in placed]
     if findings:
@@ -59,14 +72,18 @@ def _after_write(output: Output, target: WriteTarget, dials: ReferencingDials) -
     a write that takes an anchor away breaks them all the same. The checker is found and its version
     probed first, with the probe's own seconds, so a missing or old one is the same failure on a tree of
     any size. The covered texts are then read, masked and handed to the checker within one budget,
-    begun before the first is read."""
+    begun before the first is read. Both waits are within the hook's one deadline: each takes the smaller
+    of its cap and what the deadline has left."""
     rel = target.rel
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, list_markdown(target.root))
     if covered is None:
         raise ConfigurationFailure(messages.c5_governed_only_without_root())
-    binary = lychee.require()  # before the budget: its seconds are its own, and X1 and X2 hold on every write
-    budget = lychee.Budget.start(lychee.HOOK_SECONDS)  # one deadline for the reads, the masking and the run
+    # before the budget: its seconds are its own, the cap or what the hook's deadline has left, and X1 and
+    # X2 hold on every write
+    binary = lychee.require(identity.remaining(lychee.VERSION_SECONDS, lychee.PROBE_BEFORE))
+    # one deadline for the reads, the masking and the run: the cap, or what the hook's deadline has left
+    budget = lychee.Budget.start(identity.remaining(lychee.HOOK_SECONDS, lychee.RUN_BEFORE))
     texts: dict[str, str] = {}
     for path in covered:
         texts[path] = _text(target.root, path)

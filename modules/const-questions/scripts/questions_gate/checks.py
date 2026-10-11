@@ -19,7 +19,8 @@ def examine(text: str, markers: Sequence[str]) -> list[Hit]:
     patterns = [_pattern(marker) for marker in markers]
     hits: list[Hit] = []
     fence: str | None = None
-    for number, line in enumerate(text.splitlines(), start=1):
+    # a line ends at "\n" alone, as the other gates count: a form feed or U+2028 stays inside its line
+    for number, line in enumerate(text.split("\n"), start=1):
         opener = _FENCE.match(line)
         if fence is None and opener and opener.group(1)[0] == "`" and "`" in opener.group(2):
             opener = None  # a backtick fence's info string holds no backtick: this is a code span line

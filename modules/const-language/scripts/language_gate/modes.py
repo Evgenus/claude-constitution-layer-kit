@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TextIO
 
+from const_gate import identity, pipeline
 from const_gate import messages as shared
-from const_gate import pipeline
 from const_gate.errors import ConfigurationFailure
 from const_gate.model import POST_WRITE, PRE_WRITE, Finding
 from const_gate.output import Output
@@ -48,7 +48,7 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
         allowed = _allowed(matcher, dials, [rel])
     if not covered:
         return pipeline.skip(output, messages.g1_skip_not_covered(rel))
-    verdict = examine({rel: target.text}, dials, allowed, vale.HOOK_SECONDS)
+    verdict = examine({rel: target.text}, dials, allowed, _hook_waits())
     if not verdict.findings:
         return pipeline.green_hook(output, messages.g1_covered(), verdict.notes, target.event_name)
     shown = pipeline.within_the_cap(verdict.findings)
@@ -59,6 +59,16 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     )
     return pipeline.report_hook(
         output, shown, verdict.notes, rel, target.dials.severity, target.event_name, count
+    )
+
+
+def _hook_waits() -> vale.Waits:
+    """The hook's waits: each takes the smaller of its cap and what is left of the hook's one deadline,
+    asked as the wait begins; a spent deadline is the shared configuration failure, C12.14, and so is a
+    wait the deadline cut short that then ran out (`vale.preflight` and `vale.run` say which)."""
+    return vale.Waits(
+        probe=lambda: identity.remaining(vale.VERSION_SECONDS, vale.PROBE_BEFORE),
+        run=lambda: identity.remaining(vale.HOOK_SECONDS, vale.RUN_BEFORE),
     )
 
 
@@ -83,7 +93,7 @@ def scan_mode(output: Output, start: Path) -> int:
         if text is None:  # a file git lists and nobody can read: a count that skipped it would lie
             raise ConfigurationFailure(shared.c12_unreadable(rel))
         texts[rel] = text
-    verdict = examine(texts, dials, allowed, None)
+    verdict = examine(texts, dials, allowed, vale.Waits(lambda: vale.VERSION_SECONDS, lambda: None))
     tail = messages.f9_tail(
         len(covered), dials.grade_ceiling, dials.sentence_words, len(dials.departures), len(paths)
     )
@@ -100,13 +110,14 @@ def _allowed(matcher: Matcher, dials: LanguageDials, rels: Sequence[str]) -> dic
 
 
 def examine(
-    texts: dict[str, str], dials: LanguageDials, allowed: dict[str, set[Rule]], seconds: float | None
+    texts: dict[str, str], dials: LanguageDials, allowed: dict[str, set[Rule]], waits: vale.Waits
 ) -> Verdict:
     """Every document prepared and checked in one Vale run; the findings and notes in document
     and line order, a Vale comment outside a fence or a code span a finding wherever it stands; a
-    hit of a rule that a departure allows for its document is neither. `seconds` is each Vale run's
-    budget, None for no limit: the hook gives its own, the scan none, and there is no default."""
-    binary = vale.preflight()
+    hit of a rule that a departure allows for its document is neither. `waits` says how long the version
+    probe and each Vale run may take, asked as each begins: the hook's are capped by what its deadline has
+    left, the scan's probe has its cap and its runs none, and there is no default."""
+    binary = vale.preflight(waits.probe())
     findings: list[Finding] = []
     notes: list[str] = []
     if not texts:
@@ -123,7 +134,7 @@ def examine(
         tree.mkdir()
         for name, rel in named.items():
             (tree / name).write_text(prepared[rel].text, encoding="utf-8")
-        ran = vale.run(binary, config, tree, list(named), seconds)
+        ran = vale.run(binary, config, tree, list(named), waits.run)
         hits = {named[name]: found for name, found in ran.items()}
     for rel in sorted(prepared):
         lines = prepared[rel].text.split("\n")

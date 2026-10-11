@@ -9,33 +9,54 @@ import json
 import re
 import shutil
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
+from const_gate import identity
 from const_gate.errors import ConfigurationFailure
 
 from . import messages
 from .model import STYLE, VALE_FLOOR, VALE_RULE_NAME, Hit, Rule, Version
 
-# Together VERSION_SECONDS + HOOK_SECONDS stay under the handler's timeout in hooks.json.
-HOOK_SECONDS = 10  # the run's budget in a check after a write, the scan has none
-VERSION_SECONDS = 5  # the probe's budget, in every mode
+# In a hook these are caps: each wait takes the smaller of its cap and what is left of the hook's one
+# deadline, which together they fit (`identity.hook_seconds`; the gate's tie holds it).
+HOOK_SECONDS = 10  # the run's cap in a check after a write, the scan has none
+VERSION_SECONDS = 5  # the probe's cap, in every mode
+# What each wait is, as the shared lines name it: "the hook's budget is spent before <this>", asked of the
+# deadline as the wait begins and named again when the deadline cuts the wait.
+PROBE_BEFORE = "vale reported its version"
+RUN_BEFORE = "vale finished its run"
 CHUNK = 200  # files per run, so an argument list stays far under any platform's limit
 VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 RULE_OF = {f"{STYLE}.{name}": rule for rule, name in VALE_RULE_NAME.items()}
 
 
-def preflight() -> Path:
-    """The binary's path, once it exists and is new enough; a configuration failure otherwise."""
+@dataclass(frozen=True, slots=True)
+class Waits:
+    """The seconds each of Vale's waits may take, asked when the wait begins, since what a hook has left of
+    its deadline shrinks with the wait before it: the version probe's, and each run's, None for no limit.
+    The caller chooses, there is no default: a hook asks the deadline, the scan asks for no limit."""
+
+    probe: Callable[[], float]
+    run: Callable[[], float | None]
+
+
+def preflight(seconds: float = VERSION_SECONDS) -> Path:
+    """The binary's path, once it exists and is new enough; a configuration failure otherwise. `seconds` is
+    how long the version probe may take, the cap unless a hook has less of its deadline left; a probe given
+    less that then runs out is the shared C12.14 line, not this module's, which would name the shortened
+    number as the most it waits."""
     found = shutil.which("vale")
     if found is None:
         raise ConfigurationFailure(messages.c2_vale_missing())
     try:
         done = subprocess.run(
-            [found, "--version"], capture_output=True, text=True, timeout=VERSION_SECONDS, check=False
+            [found, "--version"], capture_output=True, text=True, timeout=seconds, check=False
         )
     except subprocess.TimeoutExpired as late:
-        raise ConfigurationFailure(messages.c12_vale_version(f"no answer in {VERSION_SECONDS} s")) from late
+        no_answer = messages.c12_vale_version(f"no answer in {seconds:g} s")
+        raise identity.ran_out(seconds, VERSION_SECONDS, PROBE_BEFORE, no_answer) from late
     except OSError as exc:
         raise ConfigurationFailure(messages.c12_vale_version(str(exc))) from exc
     match = VERSION.search(done.stdout)
@@ -52,24 +73,29 @@ def preflight() -> Path:
 
 
 def run(
-    binary: Path, config: Path, tree: Path, rels: Sequence[str], seconds: float | None
+    binary: Path, config: Path, tree: Path, rels: Sequence[str], seconds: Callable[[], float | None]
 ) -> dict[str, list[Hit]]:
     """Vale over the named files under `tree`, in chunks; {rel: hits} for the files with any. `seconds`
-    is the budget of each run, None for no limit: the caller chooses, there is no default."""
+    is asked before each run for its budget, None for no limit: the caller chooses, there is no default. A run
+    given less than its cap, by a hook's deadline, that then runs out is the shared C12.14 line."""
     hits: dict[str, list[Hit]] = {}
     for start in range(0, len(rels), CHUNK):
         chunk = rels[start : start + CHUNK]
+        budget = seconds()
         try:
             done = subprocess.run(
                 [str(binary), f"--config={config}", "--no-global", "--output=JSON", "--no-exit", *chunk],
                 cwd=tree,
                 capture_output=True,
                 text=True,
-                timeout=seconds,
+                timeout=budget,
                 check=False,
             )
         except subprocess.TimeoutExpired as late:
-            raise ConfigurationFailure(messages.c12_vale_too_slow(late.timeout)) from late
+            too_slow = messages.c12_vale_too_slow(late.timeout)
+            raise identity.ran_out(
+                HOOK_SECONDS if budget is None else budget, HOOK_SECONDS, RUN_BEFORE, too_slow
+            ) from late
         if done.returncode != 0:
             raise ConfigurationFailure(messages.c12_vale_failed(_failure(done)))
         try:

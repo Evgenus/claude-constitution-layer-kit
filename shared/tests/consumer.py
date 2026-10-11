@@ -12,6 +12,8 @@ from pathlib import Path
 import yaml
 
 ROOT_POLICY = "docs/policies/root-policy.md"
+POLICIES = ("root", "notes", "shared")
+BASE_MARKDOWN = len(POLICIES)  # the Markdown files a fresh consumer holds, one per policy
 
 
 def document(body: str = "# Fixture\n", **fields: str) -> str:
@@ -41,7 +43,7 @@ class Consumer:
 
     def build(self) -> Consumer:
         self.write("constitution.yaml", yaml.safe_dump(self.dials, sort_keys=False))
-        for name in ("root", "notes", "shared"):
+        for name in POLICIES:
             self.write(f"docs/policies/{name}-policy.md", envelope(f"{name}-policy", "current-state"))
         self.git("init", "-q")
         self.commit()

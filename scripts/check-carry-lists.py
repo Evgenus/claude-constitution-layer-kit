@@ -91,6 +91,10 @@ except ImportError:
     sys.exit(1)
 
 KIT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(KIT / "shared"))  # kit-side tooling only
+
+from const_gate.envelope import envelope_bounds, envelope_lines  # noqa: E402
+
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 
 DIALS = "constitution.yaml"
@@ -261,16 +265,18 @@ def gated_records(kit: Path, catalog: Catalog) -> list[Path]:
 
 
 def split_frontmatter(text: str) -> tuple[dict[str, object], str]:
-    if not text.startswith("---\n"):
+    """The envelope's mapping and the text after it, where the shared reader says the envelope stands
+    (limit 8 of shared/GATE.md section 4); `({}, text)` when none opens or closes, and `{}` when the YAML
+    does not load or is no mapping."""
+    bounds = envelope_bounds(text)
+    if bounds is None or bounds.yaml_end is None or bounds.end is None:
         return {}, text
-    end = text.find("\n---\n", 4)
-    if end < 0:
-        return {}, text
+    block = "\n".join(content for _, content, _ in envelope_lines(text, bounds.yaml_start, bounds.yaml_end))
     try:
-        loaded = yaml.safe_load(text[4:end])
+        loaded = yaml.safe_load(block)
     except yaml.YAMLError:
-        return {}, text[end + 5 :]
-    return (loaded if isinstance(loaded, dict) else {}), text[end + 5 :]
+        return {}, text[bounds.end :]
+    return (loaded if isinstance(loaded, dict) else {}), text[bounds.end :]
 
 
 # ---------------------------------------------------------------------------------------------
@@ -838,7 +844,17 @@ decider: someone
 """
 
 
-def sample_kit(root: Path, record: str = GOOD_RECORD, layout: Layout = DEFAULT_LAYOUT) -> Path:
+def sample_kit(
+    root: Path,
+    record: str = GOOD_RECORD,
+    layout: Layout = DEFAULT_LAYOUT,
+    *,
+    line_end: str = "\n",
+    closer: str = "---",
+    bom: str = "",
+) -> Path:
+    """A sample kit; its homes' envelopes are written with `line_end` for a line ending, `closer` for the
+    closing line and `bom` before the opening line, so that one kit stands in every way a home is written."""
     for folder in (
         layout.folder,
         "docs/policies",
@@ -861,12 +877,13 @@ def sample_kit(root: Path, record: str = GOOD_RECORD, layout: Layout = DEFAULT_L
         "modules/p/README.md": "id: p-page\ntype: task-record\nstatus: active",
     }
     for name, envelope in envelopes.items():
-        (root / name).write_text(f"---\n{envelope}\n---\n", encoding="utf-8")
+        text = f"{bom}---\n{envelope}\n{closer}\n".replace("\n", line_end)
+        (root / name).write_text(text, encoding="utf-8", newline="")
     for name in ("README.md", "CLAUDE.md", "modules/m/INSTALL.md", "modules/m/README.md", "scripts/x.py"):
         (root / name).write_text("text\n", encoding="utf-8")
     (root / DIALS).write_text(layout.dials(), encoding="utf-8")
     path = root / layout.folder / f"{layout.sample}.md"
-    path.write_text(record, encoding="utf-8")
+    path.write_text(record, encoding="utf-8", newline="")
     return path
 
 
@@ -1237,6 +1254,11 @@ def self_test() -> int:
             (root / "scripts" / script).write_text(
                 (Path(__file__).parent / script).read_text(encoding="utf-8"), encoding="utf-8"
             )
+        shutil.copytree(  # the shared reader the check imports, from the kit's `shared` folder
+            KIT / "shared" / "const_gate",
+            root / "shared" / "const_gate",
+            ignore=shutil.ignore_patterns("__pycache__"),
+        )
         old_log = fake_old_git(Path(tools).resolve(), real or "git")
         env = {**os.environ, "PATH": f"{Path(tools).resolve()}{os.pathsep}{os.environ['PATH']}"}
         ran = subprocess.run(
@@ -1719,6 +1741,69 @@ def self_test() -> int:
     judge(
         len(findings) == 1 and "did not exist yet" in findings[0].headline,
         "a record that stood under another id at the audit commit did not exist yet there: red",
+    )
+
+    # a home's envelope is read by the shared reader (limit 8 of shared/GATE.md section 4): a line ends at
+    # \n, \r\n or a lone \r, a closing line is --- with its trailing whitespace ignored, and byte-order
+    # marks before the opening line are no part of it
+    BOM = chr(0xFEFF)  # a byte-order mark, built so that no source line holds the invisible character
+    forms = {  # name -> (line ending, closing line, byte-order mark) of every home of the sample kit
+        "written with CRLF line ends": ("\r\n", "---", ""),
+        "written with lone CR line ends": ("\r", "---", ""),
+        "closed by --- and a trailing space": ("\n", "--- ", ""),
+        "closed by --- and a trailing tab": ("\n", "---\t", ""),
+        "opened after a byte-order mark": ("\n", "---", BOM),
+        "written with CRLF and closed by --- and a space": ("\r\n", "--- ", ""),
+    }
+    for name, (line_end, closer, bom) in forms.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            record = sample_kit(root, line_end=line_end, closer=closer, bom=bom)
+            green = not lists(root, record)[0]
+            record.write_text(GOOD_RECORD.replace(home, "../policies/old.md"), encoding="utf-8")
+            not_in_force = [f.headline.split(" — ")[-1] for f in lists(root, record)[0]]
+            record.write_text(GOOD_RECORD.replace(home, "../research/r.md"), encoding="utf-8")
+            not_binding = [f.headline.split(" — ")[-1] for f in lists(root, record)[0]]
+        judge(
+            green
+            and not_in_force
+            == ["docs/policies/old.md is not `active`, and a document that is not in force binds nothing"]
+            and not_binding
+            == [
+                "docs/research/r.md is `non-authoritative`, and only a `current-state` document states a rule"
+                " that binds"
+            ],
+            f"homes {name}: the current-state one is a home, the others are refused for what they are",
+        )
+    gone = {  # a text -> (its envelope, its body) as split_frontmatter reads it, typed by hand
+        "---\nid: x\n---\nbody\n": ({"id": "x"}, "body\n"),
+        "---\r\nid: x\r\n---\r\nbody\r\n": ({"id": "x"}, "body\r\n"),
+        "---\rid: x\r---\rbody\r": ({"id": "x"}, "body\r"),
+        "---\nid: x\n--- \nbody\n": ({"id": "x"}, "body\n"),
+        "---\nid: x\n---\t\nbody\n": ({"id": "x"}, "body\n"),
+        BOM + "---\nid: x\n---\nbody\n": ({"id": "x"}, "body\n"),
+        "---\nid: x\n---": ({"id": "x"}, ""),
+        "---\nid: [\n---\nbody\n": ({}, "body\n"),
+        "---\n- a\n---\nbody\n": ({}, "body\n"),
+        "---\nid: x\nbody\n": ({}, "---\nid: x\nbody\n"),
+        "body\n---\nid: x\n---\n": ({}, "body\n---\nid: x\n---\n"),
+        "": ({}, ""),
+    }
+    for source, read in gone.items():
+        judge(split_frontmatter(source) == read, f"an envelope read from {source!r} is {read!r}")
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        crlf_record = sample_kit(root, GOOD_RECORD.replace("\n", "\r\n"))
+        crlf_green = not lists(root, crlf_record)[0]
+        crlf_record.write_text(
+            GOOD_RECORD.replace("\n", "\r\n").replace('<a id="r2"></a>**R2.**', "**R2.**"),
+            encoding="utf-8",
+            newline="",
+        )
+        crlf_found = [f.headline for f in lists(root, crlf_record)[0]]
+    judge(
+        crlf_green and len(crlf_found) == 1 and "ruling R2 has no anchor" in crlf_found[0],
+        "a record written with CRLF: its list is read and its missing anchor is found, as on LF",
     )
 
     total = (

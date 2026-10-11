@@ -13,15 +13,17 @@ from . import identity, messages
 from .errors import ConfigurationFailure
 from .model import Mode
 
-# The seconds one git call may take in a hook; a scan and an act give git as long as it takes.
+# The most seconds one git call may take in a hook; a scan and an act give git as long as it takes. A cap:
+# the call takes the smaller of it and what is left of the hook's one deadline (`identity.remaining`).
 GIT_SECONDS: float = 3
 _TAKES_A_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env"})
 
 
-def budget() -> float | None:
-    """The clock of one git call: `GIT_SECONDS` where the run was declared a hook, none in a scan, in an
-    act, or where no mode was declared."""
-    return GIT_SECONDS if identity.declared_mode() is Mode.HOOK else None
+def budget(before: str = "a git call") -> float | None:
+    """The clock of one git call: in a run declared a hook the smaller of `GIT_SECONDS` and what is left of
+    the hook's deadline, and a configuration failure, C12.14, where nothing is left (`before` names the call
+    it ended); none in a scan, in an act, or where no mode was declared."""
+    return identity.remaining(GIT_SECONDS, before) if identity.declared_mode() is Mode.HOOK else None
 
 
 def subcommand(args: list[str]) -> str:
@@ -50,10 +52,16 @@ def by_hand(args: list[str], stdin: bytes | None = None) -> str:
 def git(
     args: list[str], cwd: Path, stdin: bytes | None = None, scratch: bool = False
 ) -> subprocess.CompletedProcess[bytes]:
-    """One git call. In a hook it has `GIT_SECONDS` to answer; past them it is a configuration failure.
+    """One git call. In a hook it has the smaller of `GIT_SECONDS` and what is left of the hook's deadline to
+    answer. Past `GIT_SECONDS` it is a configuration failure naming the hang, C12.12 or C12.13; cut short
+    by the deadline, which the earlier waits of the run had spent, it is C12.14, the hook's budget, and a
+    call asked after the deadline is that failure before git is started. In a scan or an act it has no
+    clock.
     `scratch`: the call runs in a null repository the caller made in the system's temporary directory,
     which a person cannot run it in by hand; the failure then names that directory and the git
     configuration outside any repository, not `cwd` and the call."""
+    asked = f"git {subcommand(args)} answered"
+    timeout = budget(asked)
     try:
         return subprocess.run(
             ["git", *args],
@@ -62,11 +70,15 @@ def git(
             capture_output=True,
             check=False,
             env={**os.environ, "LC_ALL": "C"},
-            timeout=budget(),
+            timeout=timeout,
         )
     except FileNotFoundError as exc:
         raise ConfigurationFailure(messages.c3_git_missing()) from exc
     except subprocess.TimeoutExpired as exc:
+        if exc.timeout is not None and exc.timeout < GIT_SECONDS:  # the deadline cut it, not the call's cap
+            raise ConfigurationFailure(
+                messages.c12_hook_budget(identity.current().hook_seconds, asked)
+            ) from exc
         if scratch:
             failure = messages.c12_git_silent_scratch(GIT_SECONDS, subcommand(args), tempfile.gettempdir())
         else:

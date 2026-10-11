@@ -63,7 +63,7 @@ def mentions(document: str, names: tuple[str, ...]) -> list[Mentioned]:
     links = find_links(document, mask(document))
     spans = sorted(Span(link.at, link.until) for link in links if link.kind is not LinkKind.USAGE)
     found: dict[int, Mentioned] = {}
-    lines = document.splitlines()
+    lines = document.split("\n")  # a line ends at "\n" alone, as `line_of` counts
     for name in names:  # the name itself: `a.md` is not named by `data.md`
         for match in re.finditer(rf"(?<![\w./-]){re.escape(name)}(?![\w-])", document):
             if holder(spans, match.start()) is None:

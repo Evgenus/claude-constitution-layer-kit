@@ -15,9 +15,11 @@ second entry point, driven through its own items (T74–T77); the skill pointer,
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -33,7 +35,7 @@ from const_gate import identity
 from const_gate import messages as shared
 from const_gate.envelope import yaml_error_line
 from const_gate.model import Broken, EnvelopeState, Finding
-from consumer import ROOT_POLICY, Consumer
+from consumer import BASE_MARKDOWN, ROOT_POLICY, Consumer
 from harness import (
     Assertion,
     Case,
@@ -513,7 +515,9 @@ def two_catalogs() -> tuple[bool, str]:
     return expect(
         scan_of(files, patch),
         0,
-        shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(1), reach(1, catalog=NOTES)])),
+        shared.g1_green_scan(
+            messages.f9_scan_tail(2, 2 + BASE_MARKDOWN, [reach(1), reach(1, catalog=NOTES)])
+        ),
         "stdout",
     )
 
@@ -553,7 +557,7 @@ K3 = messages.k3_number_shared(CATALOG, 1, [ITEM_A, at("itm-0001-second")])
 def scan_collision() -> tuple[bool, str]:
     """The red half of the uniqueness gate: two items under one number."""
     result = scan_of(COLLIDING)
-    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 6, [reach(2)]))
+    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 3 + BASE_MARKDOWN, [reach(2)]))
     ok = result.code == 2 and K3.render() in result.stdout and count in result.stdout
     return (
         ok,
@@ -568,17 +572,29 @@ def scan_renumbered() -> tuple[bool, str]:
         at("itm-0003-second"): item("itm-0003-second"),
         at("itm-0002-third"): item("itm-0002-third"),
     }
-    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(3, 6, [reach(3)])), "stdout")
+    return expect(
+        scan_of(files),
+        0,
+        shared.g1_green_scan(messages.f9_scan_tail(3, 3 + BASE_MARKDOWN, [reach(3)])),
+        "stdout",
+    )
 
 
 def scan_gap_is_legitimate() -> tuple[bool, str]:
     files = {ITEM_A: item(), at("itm-0009-ninth"): item("itm-0009-ninth")}
-    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(9)])), "stdout")
+    return expect(
+        scan_of(files),
+        0,
+        shared.g1_green_scan(messages.f9_scan_tail(2, 2 + BASE_MARKDOWN, [reach(9)])),
+        "stdout",
+    )
 
 
 def scan_empty_catalog() -> tuple[bool, str]:
     """A listed catalog with no item yet is named as such: a visible zero, and the first number is 1."""
-    return expect(scan_of({}), 0, shared.g1_green_scan(messages.f9_scan_tail(0, 3, [reach(None)])), "stdout")
+    return expect(
+        scan_of({}), 0, shared.g1_green_scan(messages.f9_scan_tail(0, BASE_MARKDOWN, [reach(None)])), "stdout"
+    )
 
 
 def scan_ignores_warn() -> tuple[bool, str]:
@@ -589,7 +605,7 @@ def scan_ignores_warn() -> tuple[bool, str]:
 def scan_name_and_number() -> tuple[bool, str]:
     """An item whose name carries no number is one finding and takes no part in the collision check."""
     result = scan_of({**COLLIDING, at("first"): item("first")})
-    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 7, [reach(2)]))
+    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 4 + BASE_MARKDOWN, [reach(2)]))
     taught = (k1("first", take=IN_WORDS).render(), K3.render(), count)
     ok = result.code == 2 and all(text in result.stdout for text in taught)
     return ok, f"exit {result.code}: two findings, four items"
@@ -600,7 +616,9 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     consumer = H.fresh_consumer((*SETUP, VALID, Write(at("itm-0002-second"), item("itm-0002-second"))))
     (consumer.root / ITEM_A).unlink()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [reach(2)])), "stdout")
+    return expect(
+        result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(2)])), "stdout"
+    )
 
 
 def scan_scales() -> tuple[bool, str]:
@@ -692,9 +710,82 @@ def deleted_number_is_not_refused() -> tuple[bool, str]:
     return expect(result, 0, shared.g1_green_hook(messages.g1_item_of(CATALOG)), "stdout")
 
 
+def fake_gpg(root: Path) -> None:
+    """Signs every later commit of the repository through a fake `gpg.program` and turns
+    `log.showSignature` on; the fake logs each call to a file and, to verify, says its human text on
+    stderr as gpg does, which git log prints before the formatted line."""
+    folder = H.scratch_dir()
+    log = folder / "gpg.log"
+    program = folder / "gpg"
+    program.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' \"$*\" >> {shlex.quote(str(log))}\n"
+        "cat > /dev/null\n"
+        'case "$*" in\n'
+        "  *--verify*)\n"
+        "    printf 'gpg: Good signature from \"fake signer\"\\n' >&2\n"
+        "    printf '[GNUPG:] GOODSIG 0123456789ABCDEF fake signer\\n'\n"
+        "    printf '[GNUPG:] VALIDSIG 0123456789ABCDEF 2026-10-06 1 0 4 0 1 8 00 0123456789ABCDEF\\n';;\n"
+        "  *)\n"
+        "    printf '[GNUPG:] SIG_CREATED D 1 8 00 1 0123456789ABCDEF 1\\n' >&2\n"
+        "    printf -- '-----BEGIN PGP SIGNATURE-----\\n\\nZmFrZQ==\\n-----END PGP SIGNATURE-----\\n';;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    program.chmod(0o755)
+    for key, value in (
+        ("gpg.format", "openpgp"),
+        ("gpg.program", str(program)),
+        ("user.signingkey", "FIXTURE"),
+        ("commit.gpgsign", "true"),
+        ("log.showSignature", "true"),
+    ):
+        subprocess.run(["git", "config", key, value], cwd=root, check=True)
+
+
+TOP_LEVEL = Catalog("itm", 4, ("itm-*.md",))  # a catalog whose items stand in the repository's top folder
+
+
+def top_level_deleted(signed: bool) -> Consumer:
+    """Items 1 and 2 of a catalog whose items stand in the top folder, committed, then item 2 deleted
+    and the deletion committed. `signed`: every commit after the first is signed through a fake
+    `gpg.program`, with `log.showSignature` on, so the repository's own `git log` prints the check."""
+    consumer = Consumer(H.scratch_dir()).build()
+    if signed:
+        fake_gpg(consumer.root)
+    consumer.write("constitution.yaml", dials_text(catalogs(entry(territory=list(TOP_LEVEL.territory)))))
+    consumer.write("itm-0001-first.md", item("itm-0001-first"))
+    consumer.commit()
+    consumer.write("itm-0002-second.md", item("itm-0002-second"))
+    consumer.commit()
+    consumer.git("rm", "-q", "itm-0002-second.md")
+    consumer.commit()
+    return consumer
+
+
 def scan_names_history() -> tuple[bool, str]:
+    """The scan names history where it went further than the tree. A signed history, read with
+    `log.showSignature` on, gives the same: the signature check git prints before a commit's names
+    would stand in front of the name of the first file the commit added, and a name without a folder
+    — an item in the top folder — would carry it as part of its stem and lose its number."""
     result = H.run_gate("", args=["--scan", str(top_deleted().root)])
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [reach(1, 2)])), "stdout")
+    wanted = shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2)]))
+    top = shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2, TOP_LEVEL)]))
+    signed = top_level_deleted(signed=True)
+    shown = subprocess.run(
+        ["git", "log", "-1", "--format=%h"], cwd=signed.root, capture_output=True, text=True, check=False
+    )
+    if "fake signer" not in shown.stdout + shown.stderr:  # the case cannot pass for want of a check
+        return False, f"git log did not print the check: {shown.stdout}{shown.stderr}"
+    plain = H.run_gate("", args=["--scan", str(top_level_deleted(signed=False).root)])
+    after = H.run_gate("", args=["--scan", str(signed.root)])
+    checks = [
+        expect(result, 0, wanted, "stdout"),
+        expect(plain, 0, top, "stdout"),
+        expect(after, 0, top, "stdout"),
+    ]
+    failed = [evidence for ok, evidence in checks if not ok]
+    return not failed, "; ".join(failed) or "history named by the scan, in a signed history too"
 
 
 def renamed_name_is_history() -> tuple[bool, str]:
@@ -706,7 +797,9 @@ def renamed_name_is_history() -> tuple[bool, str]:
     consumer.git("rm", "-q", at("itm-0007-first"))
     consumer.commit()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(0, 3, [reach(None, 7)])), "stdout")
+    return expect(
+        result, 0, shared.g1_green_scan(messages.f9_scan_tail(0, BASE_MARKDOWN, [reach(None, 7)])), "stdout"
+    )
 
 
 def shallow_clone_says_so() -> tuple[bool, str]:
@@ -716,7 +809,7 @@ def shallow_clone_says_so() -> tuple[bool, str]:
         ["git", "clone", "-q", "--depth", "1", source, str(clone)], check=True, capture_output=True
     )
     result = H.run_gate("", args=["--scan", str(clone)])
-    tail = messages.f9_scan_tail(1, 4, [reach(1)], Read.SHALLOW)
+    tail = messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1)], Read.SHALLOW)
     return expect(result, 0, shared.g1_green_scan(tail), "stdout")
 
 
@@ -788,15 +881,95 @@ def history_is_read_only_for_a_fix() -> tuple[bool, str]:
     )
 
 
+# A process whose clock jumps 100 s forward once it has made the number of git calls the environment names:
+# the hook's budget of 25 s is then spent from that call on. The gate's own clock is the only one it moves.
+CLOCK_JUMP = """\
+import os
+import subprocess
+import time
+
+after, made, jumped = int(os.environ["CLOCK_JUMP_AFTER"]), [0], [0.0]
+run, real = subprocess.run, time.monotonic
+
+
+def spy(command, *args, **kwargs):
+    if command[0] == "git":
+        with open(os.environ["CLOCK_JUMP_LOG"], "a") as out:
+            out.write(repr(command[1:]) + "\\n")
+    done = run(command, *args, **kwargs)
+    if command[0] == "git":
+        made[0] += 1
+        if made[0] == after:
+            jumped[0] = 100.0
+    return done
+
+
+subprocess.run = spy
+time.monotonic = lambda: real() + jumped[0]
+"""
+
+
+def clock_jump_after_git(calls_before_history: int) -> tuple[dict[str, str], Path]:
+    """The environment that moves the gate's clock 100 s on after that many git calls, and the file that
+    notes the arguments of every git call the process starts."""
+    folder = H.scratch_dir()
+    (folder / "sitecustomize.py").write_text(CLOCK_JUMP, encoding="utf-8")
+    path = os.pathsep.join(filter(None, [str(folder), os.environ.get("PYTHONPATH")]))
+    log = folder / "git-calls"
+    after, kept = str(calls_before_history), str(log)
+    return {"PYTHONPATH": path, "CLOCK_JUMP_AFTER": after, "CLOCK_JUMP_LOG": kept}, log
+
+
+def calls_before_history(log: Path) -> int:
+    """How many git calls the log holds before the history's first, `rev-parse --verify`."""
+    asked = [ast.literal_eval(line.split(" ", 1)[1]) for line in log.read_text().splitlines()]
+    return next(number for number, args in enumerate(asked) if "--verify" in args)
+
+
 def slow_history_costs_no_verdict() -> tuple[bool, str]:
-    """A history that takes twenty seconds to list: the block still comes, within the hook's patience."""
+    """A history that takes twenty seconds to list: the block still comes, within the hook's patience. The
+    history is given its own 5 s, or what the hook's deadline has left where that is less: with the gate
+    declared with 2 s, no git call, the history's included, is given more than that. With the deadline
+    already spent when the history is asked, the history is not read and starts no git, and the block stands,
+    exit 2, never the shared C12.14 (exit 1): no verdict waits for advice or falls with it."""
     consumer = H.fresh_consumer(SETUP)
     env, _ = fake_git(on_log="exec /bin/sleep 20")
+    patch, log = git_patch(H)
     started = time.monotonic()
-    red = H.run_gate(event_json(consumer.root, BLOCKED), env=env)
+    red = H.run_gate(event_json(consumer.root, BLOCKED), env={**env, **patch})
     elapsed = time.monotonic() - started
-    ok = red.code == 2 and k1("first", take=NOT_READ).render() in red.stderr and elapsed < 9
-    return ok, f"exit {red.code} in {elapsed:.1f} s (bound 9 s), saying history was not read"
+    own = [float(timeout) for timeout in git_timeouts(log)]
+    short_patch, short_log = git_patch(H, hook_seconds=2.0)
+    short = H.run_gate(event_json(consumer.root, BLOCKED), env={**env, **short_patch})
+    left = [float(timeout) for timeout in git_timeouts(short_log)]
+    quick_env, _ = fake_git()
+    before_history = calls_before_history(log)
+    jump_env, jump_log = clock_jump_after_git(before_history)
+    spent = H.run_gate(event_json(consumer.root, BLOCKED), env={**quick_env, **jump_env})
+    asked = len(jump_log.read_text().splitlines()) if jump_log.exists() else 0
+    block = k1("first", take=NOT_READ).render()
+    ok = (
+        red.code == 2
+        and block in red.stderr
+        and elapsed < 9
+        and bool(own)
+        and max(own) > HOOK_SECONDS - 0.5  # the history read has its own 5 s
+        and short.code == 2
+        and block in short.stderr
+        and bool(left)
+        and max(left) <= 2.0  # no call is given more than the hook's 2 s
+        and spent.code == 2  # the deadline was spent when the history was asked: the block stands
+        and block in spent.stderr
+        and "budget" not in spent.stderr
+        and asked == before_history  # a read asked with nothing left starts no git
+    )
+    return ok, (
+        f"exit {red.code} in {elapsed:.1f} s (bound 9 s), saying history was not read; the most any git call"
+        f" was given: {max(own, default=0):.2f} s, and {max(left, default=0):.2f} s under a hook of 2 s;"
+        f" with the deadline spent when the history is asked: exit {spent.code}, {asked} git calls of"
+        f" {before_history} before the history"
+        f" ({spent.stderr.splitlines()[0][:90] if spent.stderr else spent.stdout[:90]})"
+    )
 
 
 def vanished_git_costs_no_verdict() -> tuple[bool, str]:
@@ -813,7 +986,10 @@ def unread_history_in_the_scan() -> tuple[bool, str]:
     env, _ = fake_git(on_log="exit 97")
     result = H.run_gate("", args=["--scan", str(consumer.root)], env=env)
     return expect(
-        result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [reach(1)], Read.NOT)), "stdout"
+        result,
+        0,
+        shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1)], Read.NOT)),
+        "stdout",
     )
 
 
@@ -843,7 +1019,9 @@ def dated_name_is_an_item() -> tuple[bool, str]:
     scan's line counts it, and a formed item beside it passes (limit 14)."""
     dated = "itm-2026-09-22-x"
     result = scan_of({at(dated): item(dated), ITEM_A: item()})
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(2026)])), "stdout")
+    return expect(
+        result, 0, shared.g1_green_scan(messages.f9_scan_tail(2, 2 + BASE_MARKDOWN, [reach(2026)])), "stdout"
+    )
 
 
 def number_the_width_cannot_write() -> tuple[bool, str]:
@@ -1204,18 +1382,12 @@ def session_start_absence_paths() -> tuple[bool, str]:
     return all_of([(yaml_ok, yaml_said), (py_ok, py_said)], f"{yaml_said}; {py_said}")
 
 
-# Seconds a handler keeps beyond its waits, for the interpreter's start, the module's own reading and git
-# while git is quick: no bound on git. Several shared git calls, each under their 3 s, can pass them
-# (limit 16 of shared/GATE.md §4). The history read has HOOK_SECONDS of its own, which the timeout holds
-# besides.
-LEFT_FOR_THE_REST = 5
-
-
 def hooks_file_shape() -> tuple[bool, str]:
     """Two SessionStart handlers (the printer of the dial's state, the skill pointer) and a SubagentStart
     handler, each with no matcher, and a PreToolUse handler on Write|Edit, exec form, the placeholder in
-    args, integer timeouts, every script present. The PreToolUse timeout holds the history read the hook
-    waits on and LEFT_FOR_THE_REST; the two printers read no history."""
+    args, integer timeouts, every script present. The module's own wait in one hook run, the history read,
+    fits the hook's budget the gate declares (`GATE.hook_seconds`); the handlers' timeouts hold that budget
+    and `LEFT_FOR_THE_REST`, which the shared item S165 ties; the two printers read no history."""
     hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
     root = "${CLAUDE_PLUGIN_ROOT}/scripts/"
     wanted: dict[str, list[list[str]]] = {
@@ -1244,18 +1416,14 @@ def hooks_file_shape() -> tuple[bool, str]:
     write_hook = hooks["PreToolUse"][0]
     if write_hook["matcher"] != "Write|Edit":
         return False, f"PreToolUse matcher {write_hook['matcher']}"
-    needed = HOOK_SECONDS + LEFT_FOR_THE_REST
-    timeout = write_hook["hooks"][0]["timeout"]
-    if timeout < needed:
-        return False, (
-            f"PreToolUse: timeout {timeout} s is under the {needed:g} s it needs:"
-            f" history read {HOOK_SECONDS:g} s + {LEFT_FOR_THE_REST} s left"
-        )
+    budget = start.GATE.hook_seconds
+    if HOOK_SECONDS > budget:
+        return False, (f"the history read waits {HOOK_SECONDS:g} s, over the hook's budget of {budget:g} s")
     return (
         True,
         "SessionStart twice and SubagentStart once without matcher, PreToolUse on Write|Edit, exec form,"
-        f" integer timeouts, scripts present; PreToolUse {timeout} s >= history read {HOOK_SECONDS:g} s"
-        f" + {LEFT_FOR_THE_REST} s left",
+        f" integer timeouts, scripts present; the history read's {HOOK_SECONDS:g} s fit the hook's budget"
+        f" of {budget:g} s",
     )
 
 
@@ -1476,7 +1644,7 @@ ASSERTIONS = [
     ),
     Assertion(
         77,
-        "the hooks file's shape, with a timeout that holds the history read the hook waits on",
+        "the hooks file's shape, with integer timeouts; the history read fits the hook's budget",
         hooks_file_shape,
     ),
     Assertion(

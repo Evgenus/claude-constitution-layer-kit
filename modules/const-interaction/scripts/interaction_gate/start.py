@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from const_gate import cli
-from const_gate.identity import Identity
+from const_gate.identity import HOOK_SECONDS, Identity
 
 from . import session
 from .model import COMMAND_FLAG
@@ -21,6 +21,7 @@ GATE = Identity(
     namespace=NAMESPACE,
     gate="check-destructive",
     plugin_root=PLUGIN_ROOT,
+    hook_seconds=HOOK_SECONDS,
     until_installed="until then shell commands pass unchecked",
 )
 LISTS = Identity(
@@ -33,6 +34,7 @@ SESSION = Identity(
     namespace=NAMESPACE,
     gate="session-start",
     plugin_root=PLUGIN_ROOT,
+    hook_seconds=HOOK_SECONDS,
     until_installed="until then the gate's state is not said at session start",
 )
 

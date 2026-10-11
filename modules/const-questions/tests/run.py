@@ -73,8 +73,9 @@ def wrote(body: str, target: str = DOC) -> Write:
 
 
 def line_of(text: str, needle: str) -> int:
-    """The 1-based line that carries `needle` — so a case never hardcodes the envelope's height."""
-    for number, line in enumerate(text.splitlines(), start=1):
+    """The 1-based line that carries `needle` — so a case never hardcodes the envelope's height. A line
+    ends at `\\n` alone, as the gate counts: a form feed or U+2028 inside a line does not end it."""
+    for number, line in enumerate(text.split("\n"), start=1):
         if needle in line:
             return number
     raise AssertionError(needle)
@@ -191,7 +192,13 @@ def quotations_pass() -> tuple[bool, str]:
         "TODOs, TODO_LIST, todo, fixme, tbd and Tbd are none.\n"
         "   ```\n   TODO in an indented fence\n   ```\n"
     )
-    return passes(wrote(body))
+    ok, evidence = passes(wrote(body))
+    if not ok:
+        return False, evidence
+    # a form feed or U+2028 is no line end: a fence is closed by a line of its own, and a fence line
+    # that holds the closer's characters after one is still inside the block
+    odd = "```\nTODO a\x0c```\nTODO b ```\nTBD c\n```\nA `TBD`\x0c and ``a FIXME``  in spans.\n"
+    return passes(wrote(odd))
 
 
 def boundaries_hold() -> tuple[bool, str]:
@@ -246,7 +253,18 @@ def one_hit_per_line_in_order() -> tuple[bool, str]:
         f"RED: 2 finding(s) — 1 document examined ({DOC})",
     ]
     ok = result.code == 2 and red_lines(result.stderr) == wanted
-    return ok, "two findings in line order, counted two" if ok else result.stderr[:600]
+    if not ok:
+        return False, result.stderr[:600]
+    # a form feed or U+2028 inside a line before the marker moves no line number: lines end at "\n" alone
+    odd = wrote("Page\x0cbreak.\nNext para, then TBD here.\n\x0c\nLast\x0cline [decide: y] end.\n")
+    result, _ = gate_on(odd)
+    wanted = [
+        f"RED: {q1(odd, 'TBD', 'Next', 'TBD here.').headline}",
+        f"RED: {q1(odd, '[decide:', 'Last', '[decide: y] end.').headline}",
+        f"RED: 2 finding(s) — 1 document examined ({DOC})",
+    ]
+    ok = result.code == 2 and red_lines(result.stderr) == wanted
+    return ok, "two findings, counted two; a form feed ends no line" if ok else result.stderr[:600]
 
 
 def own_markers() -> tuple[bool, str]:
@@ -367,10 +385,11 @@ def scan_reports_in_order() -> tuple[bool, str]:
         files, dials_patch={**claim(["docs/**"]), **own(severity="warn", territories=["docs/**"])}
     )
     a = note("TBD one\n\nTBD two\n")
+    c = files["docs/notes/c.md"]
     wanted = [
         f"RED: {messages.q1_marker(DOC, line_of(a, 'TBD one'), 'TBD', 'TBD one').headline}",
         f"RED: {messages.q1_marker(DOC, line_of(a, 'TBD two'), 'TBD', 'TBD two').headline}",
-        f"RED: {messages.q1_marker('docs/notes/c.md', line_of(a, 'TBD one'), 'FIXME', 'FIXME').headline}",
+        f"RED: {messages.q1_marker('docs/notes/c.md', line_of(c, 'FIXME'), 'FIXME', 'FIXME').headline}",
         "RED: 3 finding(s) — 6 document(s) examined for 4 marker(s), 7 Markdown file(s) scanned",
     ]
     if result.code != 2 or red_lines(result.stdout) != wanted:

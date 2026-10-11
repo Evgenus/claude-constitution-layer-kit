@@ -15,7 +15,7 @@ import shlex
 from collections.abc import Sequence
 
 from . import identity
-from .model import DIALECT, DIALECT_KEY, DIALS_FILE, ROOT_POLICY_KEY, Broken, SharedKey
+from .model import DIALECT, DIALECT_KEY, DIALS_FILE, ROOT_POLICY_KEY, Broken, FileTool, SharedKey
 
 
 def _ns() -> str:
@@ -116,8 +116,14 @@ def w1_warn_stop(body: str) -> str:
 # skip reasons (the {reason} of G1)
 
 
-def g1_skip_no_file(tool: str) -> str:
-    return f"tool '{echoed(tool)}' carries no file to examine"
+def g1_skip_other_tool(tool: str) -> str:
+    """G1.1: the event is for a tool this gate does not judge, however it came to the gate. The tools it
+    does judge are the members of `FileTool`, so text and enum stay in step. A `Stop` and a session start
+    name no tool: the line then says the event names none."""
+    judged = " and ".join(t.value for t in FileTool)
+    if not tool:
+        return f"an event that names no tool is not one this gate judges (it judges {judged})"
+    return f"tool '{echoed(tool)}' is not one this gate judges (it judges {judged})"
 
 
 def g1_skip_not_markdown(path: str) -> str:
@@ -415,6 +421,21 @@ def c12_git_silent_scratch(seconds: float, subcommand: str, temporary: str) -> B
         " git config --global --list --show-origin and git config --system --list --show-origin, repair"
         " the setting, or free that file system or set TMPDIR to a folder on a working one, then run"
         " again; the scan, which gives git as long as it takes, checks the same tree",
+    )
+
+
+def c12_hook_budget(seconds: float, before: str) -> Broken:
+    """The hook's one deadline passed while the run still had a wait to make: `before` names the wait it
+    ended (`identity.remaining`). A run of many waits, each within its own limit, is bounded by this
+    alone; the platform's cut at the handler's timeout says nothing."""
+    return Broken(
+        SharedKey.C12,
+        f"the hook's budget of {seconds:g} s is spent before {echoed(before)}",
+        "a hook of many waits, each within its own limit, would otherwise be cut by the platform with no word"
+        " of what was slow: run the scan, which has no clock, to check the same tree; where git itself is"
+        " slow, look for a core.fsmonitor hook, set in the repository's or in your own configuration, with"
+        " git config --show-origin --get core.fsmonitor (no output means none is set), or for a stalled"
+        " file system, and repair it",
     )
 
 

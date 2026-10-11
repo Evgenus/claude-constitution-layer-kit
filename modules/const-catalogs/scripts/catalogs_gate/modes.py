@@ -9,8 +9,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TextIO
 
+from const_gate import identity, pipeline
 from const_gate import messages as shared
-from const_gate import pipeline
 from const_gate.errors import ConfigurationFailure
 from const_gate.output import Output
 from const_gate.pipeline import Skip, WriteTarget
@@ -93,7 +93,11 @@ def _items(matcher: Matcher, catalogs: Sequence[Catalog], catalog: Catalog, root
 
 
 def _with_history(taken: Taken, root: Path) -> Taken:
-    history = read_history(root, HOOK_SECONDS)
+    """The hook's history read: its own `HOOK_SECONDS` at most, and no more than the hook's deadline has
+    left (`left_of`, which never raises: the history is advice, and a deadline spent when it is asked starts
+    no git and ends in the working tree's answer, history not read, the verdict standing); the read keeps
+    its own clock inside that number."""
+    history = read_history(root, identity.left_of(HOOK_SECONDS))
     return replace(taken, in_history=history.highest(taken.catalog), history_read=history.complete)
 
 

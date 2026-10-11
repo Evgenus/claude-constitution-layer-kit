@@ -27,7 +27,7 @@ class Key(StrEnum):
     T2 = "T2"  # a covered pair neither updated nor declared
     T3 = "T3"  # a declaration naming no pair
     T4 = "T4"  # a declaration without a reason
-    X1 = "X1"  # a pair's document does not exist at the range's tip
+    X1 = "X1"  # a pair's document does not exist at HEAD
     X2 = "X2"  # a pair's document is a directory at HEAD, which no change can update
 
 

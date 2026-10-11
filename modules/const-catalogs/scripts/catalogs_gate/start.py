@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from const_gate import cli
-from const_gate.identity import Identity
+from const_gate.identity import HOOK_SECONDS, Identity
 from const_gate.model import Mode
 
 from . import session
@@ -20,12 +20,14 @@ GATE = Identity(
     namespace=NAMESPACE,
     gate="check-catalog-item",
     plugin_root=PLUGIN_ROOT,
+    hook_seconds=HOOK_SECONDS,
     skills={Mode.HOOK: "catalog-item", Mode.SCAN: "catalog-item"},  # the skill a red names (F10)
 )
 SESSION = Identity(
     namespace=NAMESPACE,
     gate="session-start",
     plugin_root=PLUGIN_ROOT,
+    hook_seconds=HOOK_SECONDS,
     until_installed="until then the gate's state is not said at session start",
 )
 

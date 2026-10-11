@@ -50,7 +50,7 @@ from harness import (
 from language_gate import dials as own_dials
 from language_gate import messages, rules, start, vale
 from language_gate.model import Departure, Rule
-from shared_items import PatternDial, Subject, shared_assertions
+from shared_items import PatternDial, Subject, git_patch, shared_assertions
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 MODULE_ROOT = SCRIPTS.parent
@@ -527,7 +527,7 @@ def t8() -> tuple[bool, str]:
             + "… [95 characters]' — fix: in hooks.json wire it to PostToolUse on Write|Edit, or run it with"
             " --scan [<dir>]",
         ),
-        expect(stop, 0, shared.g1_green_skip(shared.g1_skip_no_file("")), "stdout"),
+        expect(stop, 0, shared.g1_green_skip(shared.g1_skip_other_tool("")), "stdout"),
     )
 
 
@@ -775,8 +775,10 @@ def t11() -> tuple[bool, str]:
     outlasts the hook's budget is C12 in the check after a write, and in one before a write where a
     consumer wires it, naming the budget and the scan, while the scan waits and is green; a vale
     whose --version outlasts its own budget is C12 in both modes, the check after a write and the
-    scan — the five runs side by side, so the item costs the budget plus a second or so — and every
-    fake was asked what the gate says."""
+    scan — the five runs side by side, so the item costs the budget plus a second or so; under a hook
+    whose declared budget is lower than a wait's cap, the same slow run and a probe that answers after 4 s
+    are cut at what the deadline has left, and the line is the deadline's, C12.14, naming the wait and
+    the budget — and every fake was asked what the gate says."""
     none = H.scratch_dir()
     for tool in ("python3", "git", "sh", "dirname"):
         source = (
@@ -867,12 +869,43 @@ def t11() -> tuple[bool, str]:
         result = H.run_gate(event_json(before_root, Write(DOC, PLAIN)), env=on_path)
         return result, time.monotonic() - began
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    # the hook's own deadline, declared as 3 s, is shorter than the run's cap of 10 s: the same slow run is
+    # cut at what that deadline has left, a little under 3 s, not at 10
+    lowered_env, _ = git_patch(H, hook_seconds=3.0)
+    lowered_root = prepared(files={DOC: PLAIN})
+
+    def timed_lowered() -> tuple[Result, float]:
+        began = time.monotonic()
+        event = event_json(lowered_root, Write(DOC, "unused"), event="PostToolUse")
+        return H.run_gate(event, env={**on_path, **lowered_env}), time.monotonic() - began
+
+    # the same hook budget, lowered to 2 s, and a probe that answers after 4 s, under its cap of 5: the probe
+    # is given what the deadline has left, so it is cut and the deadline's line says so; given its cap it
+    # would answer, and the next wait, the run, would find the deadline spent and name itself instead
+    probe_lowered_env, _ = git_patch(H, hook_seconds=2.0)
+    slow_answer = fake_vale(
+        H.scratch_dir(),
+        f'case "$1" in --version) {sleep} {vale.VERSION_SECONDS - 1}; echo "vale version 3.23.0";;'
+        " *) echo '{}';; esac",
+    )
+    probe_lowered_root = prepared(files={DOC: PLAIN})
+
+    def timed_probe_lowered() -> tuple[Result, float]:
+        began = time.monotonic()
+        event = event_json(probe_lowered_root, Write(DOC, "unused"), event="PostToolUse")
+        result = H.run_gate(event, env={"PATH": str(slow_answer), **probe_lowered_env})
+        return result, time.monotonic() - began
+
+    with ThreadPoolExecutor(max_workers=7) as pool:
+        probe_lowered_hooked = pool.submit(timed_probe_lowered)
+        lowered_hooked = pool.submit(timed_lowered)
         hooked = pool.submit(timed_hook)
         before_hooked = pool.submit(timed_before_hook)
         scanned = pool.submit(timed_scan)
         version_hooked = pool.submit(timed_version_hook)
         version_scanned = pool.submit(timed_version_scan)
+    lowered_hook, lowered_took = lowered_hooked.result()
+    probe_lowered_hook, probe_lowered_took = probe_lowered_hooked.result()
     hook, hook_took = hooked.result()
     before_hook, before_took = before_hooked.result()
     scan_slow, scan_took = scanned.result()
@@ -880,9 +913,23 @@ def t11() -> tuple[bool, str]:
     version_scan, version_scan_took = version_scanned.result()
     no_answer = "BROKEN: vale did not report its version (no answer in 5 s) — fix: run vale --version by hand and repair the installation — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
     too_slow = "BROKEN: vale gave no answer in 10 s, the most a check after a write waits — fix: a document of normal size takes vale well under a second, so the likely cause is a vale that hangs; run vale by hand to repair it, and the scan waits for vale as long as it takes — until then Markdown writes pass unchecked"  # noqa: E501 — a golden line is typed whole
+    # a wait the hook's deadline cut short, then out of time, is the deadline's shared line naming the wait
+    # and the whole budget the gate declares, never this module's line with the shortened number
+    cut_run = shared.c12_hook_budget(3, "vale finished its run")
+    cut_probe = shared.c12_hook_budget(2, "vale reported its version")
     return all_of(
         broken(hook, too_slow),
         (hook_took > 9, f"the check after a write gave up after {hook_took:.1f} s"),
+        (
+            broken(lowered_hook, cut_run)[0],
+            f"under a hook that declares 3 s the run ended after {lowered_took:.1f} s:"
+            f" {lowered_hook.stderr[:160]}",
+        ),
+        (
+            broken(probe_lowered_hook, cut_probe)[0],
+            f"under a hook that declares 2 s the probe, which answers after 4 s, ended after"
+            f" {probe_lowered_took:.1f} s: {probe_lowered_hook.stderr[:160]}",
+        ),
         broken(before_hook, too_slow),  # the same budget in the event the plugin does not wire
         (
             before_took > vale.HOOK_SECONDS - 1,
@@ -1195,19 +1242,13 @@ def pointer_wiring(hooks: dict[str, list[dict[str, object]]]) -> tuple[bool, str
     return True, "SessionStart and SubagentStart: one handler each, no matcher, sh, integer timeout"
 
 
-# Seconds the handler keeps beyond its waits, for the interpreter's start, the module's own reading and git
-# while git is quick: no bound on git. Several shared git calls, each under their 3 s, can pass them
-# (limit 16 of shared/GATE.md §4). The version probe has VERSION_SECONDS of its own and the run
-# HOOK_SECONDS, which the timeout holds besides.
-LEFT_FOR_THE_REST = 5
-
-
 def t16() -> tuple[bool, str]:
     """The skill's description is under the platform's cap; the hook is wired after the write, and
     besides it only the two pointer events (the pointer's own item proves what they print), with an
-    integer timeout that holds the version probe, then the run, and LEFT_FOR_THE_REST, both read from
-    the module's own code; the manifest names the plugin at a draft version; the install note's
-    calibration example is accepted."""
+    integer timeout; the version probe and then the run, both read from the module's own code, fit the
+    hook's budget the gate declares (`GATE.hook_seconds`), which the handler's timeout holds with
+    `LEFT_FOR_THE_REST` (the shared item S165); the manifest names the plugin at a draft version; the
+    install note's calibration example is accepted."""
     texts = {p.name: p.read_text(encoding="utf-8") for p in (SKILL, INSTALL, MANIFEST)}
     front = yaml.safe_load(texts["SKILL.md"].split("---")[1])
     description = str(front["description"])
@@ -1222,7 +1263,8 @@ def t16() -> tuple[bool, str]:
         r"a description of (\d+) characters", (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     )
     timeout = entry["hooks"][0].get("timeout")
-    needed = vale.VERSION_SECONDS + vale.HOOK_SECONDS + LEFT_FOR_THE_REST
+    needed = vale.VERSION_SECONDS + vale.HOOK_SECONDS
+    budget = start.GATE.hook_seconds
     return all_of(
         (len(description) < 1536, f"description of {len(description)} characters"),
         (
@@ -1237,13 +1279,14 @@ def t16() -> tuple[bool, str]:
         ),
         pointer_wiring(hooks),
         (
-            isinstance(timeout, int) and timeout >= needed,
-            f"timeout {timeout} s holds the {needed} s it needs: version probe {vale.VERSION_SECONDS} s"
-            f" + run {vale.HOOK_SECONDS} s + {LEFT_FOR_THE_REST} s left"
-            if isinstance(timeout, int) and timeout >= needed
-            else f"timeout {timeout} s is not an int of at least the {needed} s it needs:"
-            f" version probe {vale.VERSION_SECONDS} s + run {vale.HOOK_SECONDS} s"
-            f" + {LEFT_FOR_THE_REST} s left",
+            isinstance(timeout, int) and needed <= budget,
+            f"the version probe's {vale.VERSION_SECONDS} s and the run's {vale.HOOK_SECONDS} s, {needed} s in"
+            f" all, fit the hook's budget of {budget:g} s"
+            if isinstance(timeout, int) and needed <= budget
+            else f"timeout {timeout!r} is no integer"
+            if not isinstance(timeout, int)
+            else f"the version probe's {vale.VERSION_SECONDS} s and the run's {vale.HOOK_SECONDS} s,"
+            f" {needed} s in all, are over the hook's budget of {budget:g} s",
         ),
         (
             manifest["name"] == NAMESPACE and manifest["version"].startswith("0.0."),

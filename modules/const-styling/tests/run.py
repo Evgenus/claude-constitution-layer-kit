@@ -27,7 +27,7 @@ from pathlib import Path
 
 import yaml
 from const_gate import identity
-from consumer import Consumer
+from consumer import BASE_MARKDOWN, Consumer
 from harness import (
     Assertion,
     Case,
@@ -155,7 +155,7 @@ def no_finding(
     files: dict[str, str], dials_patch: dict[str, object] | None = None, departures: int = 0
 ) -> tuple[bool, str]:
     result = scan(files, dials_patch)
-    return expect(result, 0, green(3 + len(files), departures), "stdout")
+    return expect(result, 0, green(BASE_MARKDOWN + len(files), departures), "stdout")
 
 
 # ---------------------------------------------------------------- the twelve signatures

@@ -10,6 +10,7 @@ consumer, one write it passes and one it blocks. Each item carries its number in
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -25,7 +26,7 @@ from pathlib import Path
 from typing import Protocol
 
 from const_gate import envelope as envelope_reader
-from const_gate import messages, pipeline, preflight, repository
+from const_gate import identity, messages, pipeline, preflight, repository
 from const_gate.envelope import ID_RE, declared_policy, document_id, parse_envelope
 from const_gate.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, SharedKey
 from const_gate.output import ROTATE_AT, log_name
@@ -53,19 +54,24 @@ NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
 # and where the environment names a trigger and a lower budget, it lowers the budget of the one call whose
 # arguments hold the trigger — and only where the gate gave that call a budget at all, so that a gate with
 # none stays without one. Every other call keeps the real budget, so a loaded machine cannot trip it.
+# It also logs the `hook_seconds` of each declaration the process makes, and where the environment names
+# a lower hook budget it declares the gate with that many seconds in place of its own: the one deadline of
+# a hook run, lowered for the case that spends it.
 GIT_PATCH = """\
+import dataclasses
 import os
 import subprocess
 import sys
 
 scripts = os.environ["GIT_PATCH_SCRIPTS"]
 sys.path.insert(0, scripts)
-from const_gate import repository
+from const_gate import identity, repository
 
 sys.path.remove(scripts)
 lowered = os.environ.get("GIT_PATCH_SECONDS")
 trigger = os.environ.get("GIT_PATCH_TRIGGER")
-log, run = os.environ["GIT_PATCH_LOG"], subprocess.run
+hook_lowered = os.environ.get("GIT_PATCH_HOOK_SECONDS")
+log, run, declare = os.environ["GIT_PATCH_LOG"], subprocess.run, identity.declare
 
 
 def spy(command, *args, **kwargs):
@@ -77,7 +83,16 @@ def spy(command, *args, **kwargs):
     return run(command, *args, **kwargs)
 
 
+def declaring(gate, mode=None):
+    if hook_lowered:
+        gate = dataclasses.replace(gate, hook_seconds=float(hook_lowered))
+    with open(log + "-hook-seconds", "a") as out:
+        out.write(repr(gate.hook_seconds) + "\\n")
+    declare(gate, mode)
+
+
 subprocess.run = spy
+identity.declare = declaring
 """
 HANG_SECONDS = 0.5  # the budget of the one call a hang case lowers it for: the case waits well under a second
 # What a hang case allows the whole run, the gate's start-up included. It only stops an endless wait, so it is
@@ -86,11 +101,12 @@ HANG_BOUND = 20.0
 
 
 def git_patch(
-    h: Harness, seconds: float | None = None, trigger: str | None = None
+    h: Harness, seconds: float | None = None, trigger: str | None = None, hook_seconds: float | None = None
 ) -> tuple[dict[str, str], Path]:
-    """The environment that makes a gate's process log the `timeout=` of each git call it makes, and,
-    with `seconds` and a `trigger`, give the call whose arguments hold the trigger that many seconds;
-    with the log it writes."""
+    """The environment that makes a gate's process log the `timeout=` of each git call it makes and the
+    `hook_seconds` it is declared with, and, with `seconds` and a `trigger`, give the call whose arguments
+    hold the trigger that many seconds, and, with `hook_seconds`, declare the gate with that hook budget
+    in place of its own; with the log it writes."""
     folder = h.scratch_dir()
     (folder / "sitecustomize.py").write_text(GIT_PATCH, encoding="utf-8")
     log = folder / "git-calls"
@@ -102,12 +118,20 @@ def git_patch(
     if seconds is not None and trigger is not None:
         env["GIT_PATCH_SECONDS"] = repr(seconds)
         env["GIT_PATCH_TRIGGER"] = trigger
+    if hook_seconds is not None:
+        env["GIT_PATCH_HOOK_SECONDS"] = repr(hook_seconds)
     return env, log
 
 
 def git_timeouts(log: Path) -> list[str]:
     """The `timeout=` of each git call the log holds, as `repr` wrote it: "None" for no clock."""
     return [line.split(" ", 1)[0] for line in log.read_text().splitlines()] if log.exists() else []
+
+
+def declared_hook_seconds(log: Path) -> list[str]:
+    """The `hook_seconds` of each declaration the process made, as `repr` wrote it, one per line."""
+    kept = log.with_name(log.name + "-hook-seconds")
+    return kept.read_text().splitlines() if kept.exists() else []
 
 
 def hook_budget(calls: list[str]) -> tuple[bool, str]:
@@ -526,8 +550,13 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         return expect(result, 2, "brackets are nested too deeply to read", "stderr")  # typed by hand
 
     def other_tool() -> tuple[bool, str]:
-        event = json.dumps({"tool_name": "Read", "tool_input": {"file_path": "x.md"}})
-        skip = messages.g1_green_skip(messages.g1_skip_no_file("Read"))
+        """`MultiEdit` carries a `file_path`, and is still no tool this gate judges: the visible skip says so,
+        and names the tools it does judge. The whole line is typed by hand."""
+        event = json.dumps({"tool_name": "MultiEdit", "tool_input": {"file_path": "x.md"}})
+        skip = (
+            f"GREEN: {ns}: 0 documents examined — tool 'MultiEdit' is not one this gate judges"
+            " (it judges Write and Edit)"
+        )
         return expect(h.run_gate(event), 0, skip, "stdout")
 
     def scan_missing_path() -> tuple[bool, str]:
@@ -1096,15 +1125,18 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         except OSError:
             return True
 
-    def handlers_outlive_git(plugin: Path) -> tuple[bool, str]:
-        """Every handler of the plugin's hooks file whose script names python3 has a timeout longer
-        than `GIT_SECONDS` (limit 16): a git that hangs ends with the gate's own line before the platform
-        cuts the hook, which says nothing. A handler's scripts are each of its `args`, and each word of its
-        `command` that, once `${CLAUDE_PLUGIN_ROOT}` (or the unbraced `$CLAUDE_PLUGIN_ROOT`, as a shell
-        expands it) is replaced, is a path under the plugin's folder or an existing file: a redirection,
-        an option or any other word is no script. A handler whose `command` names python3 as a word is
-        held too, and a script that cannot be read, a missing one under the plugin's folder included,
-        counts as one that names python3."""
+    def handlers_outlive_git(plugin: Path, hook_seconds: float) -> tuple[bool, str]:
+        """Every handler of the plugin's hooks file whose script names python3 has a timeout of at least
+        `hook_seconds` (the one the gate is declared with) plus `LEFT_FOR_THE_REST` (limit 16): the hook's
+        deadline, and so a git that hangs, ends with the gate's own line before the platform cuts the hook,
+        which says nothing. The floor implies that the timeout is above `GIT_SECONDS`. A handler's scripts
+        are each of its `args` that is no option (`--subagent`), and each word of its `command` that, once
+        `${CLAUDE_PLUGIN_ROOT}` (or the unbraced `$CLAUDE_PLUGIN_ROOT`, as a shell expands it) is replaced,
+        is a path under the plugin's folder or an existing file: a redirection, an option or any other word
+        is no script. A handler whose `command` names python3 as a word is held too, and a script that
+        cannot be read, a missing one under the plugin's folder included, counts as one that names
+        python3."""
+        floor = hook_seconds + identity.LEFT_FOR_THE_REST
         hooks = plugin / "hooks" / "hooks.json"
         try:
             spec = json.loads(hooks.read_text(encoding="utf-8"))
@@ -1126,9 +1158,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 words = command.split()
             root = str(plugin)
             words = [re.sub(r"\$\{CLAUDE_PLUGIN_ROOT\}|\$CLAUDE_PLUGIN_ROOT(?!\w)", root, w) for w in words]
-            scripts = [a.replace("${CLAUDE_PLUGIN_ROOT}", root) for a in handler.get("args", [])] + [
-                w for w in words if w.startswith(root + os.sep) or is_file(w)
-            ]
+            scripts = [
+                a.replace("${CLAUDE_PLUGIN_ROOT}", root)
+                for a in handler.get("args", [])
+                if not a.startswith("-")
+            ] + [w for w in words if w.startswith(root + os.sep) or is_file(w)]
             try:
                 names_python = re.search(r"(?<![\w-])python3(?![\w-])", command) is not None or any(
                     b"python3" in Path(a).read_bytes() for a in scripts
@@ -1140,33 +1174,37 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             checked += 1
             timeout = handler.get("timeout")
             numeric = isinstance(timeout, int | float) and not isinstance(timeout, bool)
-            if not numeric or timeout <= repository.GIT_SECONDS:
+            if not numeric or timeout < floor:
                 short.append(f"{event} handler {command!r} {scripts} has timeout {timeout!r}")
         if checked == 0:
             return False, f"{hooks} holds no handler whose script names python3"
         if short:
             return False, (
-                f"{'; '.join(short)} — not above GIT_SECONDS ({repository.GIT_SECONDS:g} s): a git that"
-                " hangs would be cut by the platform before the gate said so"
+                f"{'; '.join(short)} — under the {floor:g} s of the hook's budget ({hook_seconds:g} s) and"
+                f" LEFT_FOR_THE_REST ({identity.LEFT_FOR_THE_REST:g} s): a hook that spends its deadline"
+                " would be cut by the platform before the gate said so"
             )
         return (
             True,
-            f"{checked} handler(s) whose script names python3 outlive GIT_SECONDS"
-            f" ({repository.GIT_SECONDS:g} s)",
+            f"{checked} handler(s) whose script names python3 hold {floor:g} s: the hook's budget"
+            f" ({hook_seconds:g} s) and LEFT_FOR_THE_REST ({identity.LEFT_FOR_THE_REST:g} s)",
         )
 
     def the_tie_catches_a_short_handler() -> tuple[bool, str]:
-        """The tie on hooks files made here: a timeout at GIT_SECONDS fails and one above passes, for a
-        handler whose script names python3 given as `command: sh` with `args` and given in shell form
-        (`command` alone, naming python3 or a script that does), and a handler whose command and
-        scripts name no python3 is not held to it."""
+        """The tie on hooks files made here, for a hook budget of 10 s: a timeout one second under the
+        floor, the budget and LEFT_FOR_THE_REST, fails and one at the floor passes, for a handler whose
+        script names python3 given as `command: sh` with `args` and given in shell form (`command` alone,
+        naming python3 or a script that does), and a handler whose command and scripts name no python3 is
+        not held to it."""
         plugin = h.scratch_dir()
         (plugin / "hooks").mkdir()
         (plugin / "scripts").mkdir()
         (plugin / "scripts" / "gate.sh").write_text('exec python3 "$0.py"\n', encoding="utf-8")
         (plugin / "scripts" / "print.sh").write_text("cat rule.txt\n", encoding="utf-8")
         root = "${CLAUDE_PLUGIN_ROOT}/scripts/"
-        budget = repository.GIT_SECONDS
+        hook_seconds = 10
+        enough = hook_seconds + identity.LEFT_FOR_THE_REST  # the floor: held at it, and the test's "above"
+        under = enough - 1  # one second under it
 
         def exec_form(name: str, timeout: float) -> dict[str, object]:
             return {"type": "command", "command": "sh", "args": [root + name], "timeout": timeout}
@@ -1174,49 +1212,70 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         def shell_form(command: str, timeout: float) -> dict[str, object]:
             return {"type": "command", "command": command, "timeout": timeout}
 
+        def with_option(name: str, timeout: float) -> dict[str, object]:
+            return {
+                "type": "command",
+                "command": "sh",
+                "args": [root + name, "--subagent"],
+                "timeout": timeout,
+            }
+
         def holds(*handlers: dict[str, object]) -> tuple[bool, str]:
             spec = {"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": list(handlers)}]}}
             (plugin / "hooks" / "hooks.json").write_text(json.dumps(spec), encoding="utf-8")
-            return handlers_outlive_git(plugin)
+            return handlers_outlive_git(plugin, hook_seconds)
 
         cases: list[tuple[str, bool, tuple[dict[str, object], ...]]] = [
-            ("exec form, at the budget", False, (exec_form("gate.sh", budget),)),
+            ("exec form, one second under the floor", False, (exec_form("gate.sh", under),)),
             (
-                "exec form above it, a print handler at 1 s",
+                "exec form at the floor, a print handler at 1 s",
                 True,
-                (exec_form("gate.sh", budget + 1), exec_form("print.sh", 1)),
+                (exec_form("gate.sh", enough), exec_form("print.sh", 1)),
             ),
-            # Shell form (N55): no `args`, the handler's `command` alone. A held handler at the
-            # budget stands beside one above it, so that a handler the tie skips is a green, never
-            # the red of a file with no handler to hold.
+            # An option among the `args` is no script that cannot be read: a printer given `--subagent`, at
+            # 1 s, beside a held handler at the floor, is not held; the same option after a script that
+            # names python3 does not release it.
             (
-                "shell form naming python3, at the budget",
-                False,
-                (shell_form(f"python3 {root}x.py", budget), exec_form("gate.sh", budget + 1)),
-            ),
-            ("shell form naming python3, above it", True, (shell_form(f'python3 "{root}x.py"', budget + 1),)),
-            (
-                "shell form naming a script that names python3, at the budget",
-                False,
-                (shell_form(f"sh {root}gate.sh", budget), exec_form("gate.sh", budget + 1)),
-            ),
-            (
-                "shell form naming a script that names python3, above it",
+                "exec form `print.sh --subagent` at 1 s, beside a held handler at the floor",
                 True,
-                (shell_form(f"sh {root}gate.sh", budget + 1),),
+                (with_option("print.sh", 1), exec_form("gate.sh", enough)),
+            ),
+            (
+                "exec form `gate.sh --subagent`, one second under the floor",
+                False,
+                (with_option("gate.sh", under),),
+            ),
+            # Shell form (N55): no `args`, the handler's `command` alone. A held handler one second under
+            # the floor stands beside one at it, so that a handler the tie skips is a green, never the red
+            # of a file with no handler to hold.
+            (
+                "shell form naming python3, one second under the floor",
+                False,
+                (shell_form(f"python3 {root}x.py", under), exec_form("gate.sh", enough)),
+            ),
+            ("shell form naming python3, at the floor", True, (shell_form(f'python3 "{root}x.py"', enough),)),
+            (
+                "shell form naming a script that names python3, one second under the floor",
+                False,
+                (shell_form(f"sh {root}gate.sh", under), exec_form("gate.sh", enough)),
+            ),
+            (
+                "shell form naming a script that names python3, at the floor",
+                True,
+                (shell_form(f"sh {root}gate.sh", enough),),
             ),
             # D1: python3 as a word of the command, no path word, no file to be unreadable.
             (
-                "shell form `python3 -c pass`, no path word, at the budget",
+                "shell form `python3 -c pass`, no path word, one second under the floor",
                 False,
-                (shell_form("python3 -c pass", budget), exec_form("gate.sh", budget + 1)),
+                (shell_form("python3 -c pass", under), exec_form("gate.sh", enough)),
             ),
-            ("shell form `python3 -c pass`, above it", True, (shell_form("python3 -c pass", budget + 1),)),
+            ("shell form `python3 -c pass`, at the floor", True, (shell_form("python3 -c pass", enough),)),
             # An unbalanced quote: the words fall back to whitespace, the script is still found.
             (
-                "shell form with an unbalanced quote naming a script that names python3, at the budget",
+                "shell form with an unbalanced quote naming a python3 script, one second under the floor",
                 False,
-                (shell_form(f"sh {root}gate.sh 'x", budget), exec_form("gate.sh", budget + 1)),
+                (shell_form(f"sh {root}gate.sh 'x", under), exec_form("gate.sh", enough)),
             ),
             # A word with a separator that is no script: a redirection, an option, a path outside.
             (
@@ -1224,34 +1283,34 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 True,
                 (
                     shell_form(f"sh {root}print.sh --x=/a b/c 2>/dev/null", 1),
-                    exec_form("gate.sh", budget + 1),
+                    exec_form("gate.sh", enough),
                 ),
             ),
             # A script of `args` that does not exist counts as one that names python3, as before B2.
             (
-                "exec form whose script is missing, at the budget",
+                "exec form whose script is missing, one second under the floor",
                 False,
-                (exec_form("missing.sh", budget), exec_form("gate.sh", budget + 1)),
+                (exec_form("missing.sh", under), exec_form("gate.sh", enough)),
             ),
             (
-                "shell form whose script under the plugin's folder is missing, at the budget",
+                "shell form whose script under the plugin's folder is missing, one second under the floor",
                 False,
-                (shell_form(f"sh {root}missing.sh", budget), exec_form("gate.sh", budget + 1)),
+                (shell_form(f"sh {root}missing.sh", under), exec_form("gate.sh", enough)),
             ),
             (
-                "shell form naming no python3 beside a held handler above the budget",
+                "shell form naming no python3 beside a held handler at the floor",
                 True,
-                (shell_form(f"sh {root}print.sh", 1), exec_form("gate.sh", budget + 1)),
+                (shell_form(f"sh {root}print.sh", 1), exec_form("gate.sh", enough)),
             ),
         ]
         # D-b: the unbraced form a shell expands names the same script.
         cases.append(
             (
-                "shell form with `$CLAUDE_PLUGIN_ROOT` unbraced, a script that names python3, at the budget",
+                "shell form with `$CLAUDE_PLUGIN_ROOT` unbraced, naming a script, one second under the floor",
                 False,
                 (
-                    shell_form("sh $CLAUDE_PLUGIN_ROOT/scripts/gate.sh", budget),
-                    exec_form("gate.sh", budget + 1),
+                    shell_form("sh $CLAUDE_PLUGIN_ROOT/scripts/gate.sh", under),
+                    exec_form("gate.sh", enough),
                 ),
             )
         )
@@ -1270,9 +1329,9 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 answer = True
             results.append(
                 (
-                    "shell form naming a file in a folder that cannot be searched, at the budget",
+                    "shell form naming a file in a folder that cannot be searched, a second under the floor",
                     not answer,
-                    holds(shell_form(f"sh {locked}/x.sh", budget), exec_form("gate.sh", budget + 1)),
+                    holds(shell_form(f"sh {locked}/x.sh", under), exec_form("gate.sh", enough)),
                 )
             )
         finally:
@@ -1318,7 +1377,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         """N22: the shared `git` gives a call `GIT_SECONDS` in a hook and no clock in a scan or an act. In a
         hook a git that never answers — at the file list, at the scratch repository, at the repository's
         root — ends in the shared line `C12.12` with the count line after it; a git that answers is
-        unchanged; and the plugin's handlers outlive the budget, so the line is the hook's last word."""
+        unchanged; and the plugin's handlers hold the hook's budget and `LEFT_FOR_THE_REST`, so that the
+        line is the hook's last word."""
         results: list[tuple[bool, str]] = [
             attempted(check)
             for check in (budget_by_mode, declaration_is_one, git_words, the_tie_catches_a_short_handler)
@@ -1345,12 +1405,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
             results += [hangs_at(trigger) for trigger in reached]
             results.append(attempted(hangs_in_a_folder_to_quote))
-            budgeted = git_calls(lambda env: s.gate_on(s.valid, env=env))
+            env, log = git_patch(h)
+            s.gate_on(s.valid, env=env)
+            budgeted = git_timeouts(log)
             every_call = set(budgeted) == {repr(repository.GIT_SECONDS)}
             results.append(
                 (every_call, f"a hook run's {len(budgeted)} git calls' timeouts: {sorted(set(budgeted))}")
             )
-            results.append(handlers_outlive_git(preflight.requirements_file().parent))
+            declared = set(declared_hook_seconds(log))  # the hook budget the gate declared itself with
+            results.append(
+                handlers_outlive_git(preflight.requirements_file().parent, float(declared.pop()))
+                if len(declared) == 1
+                else (False, f"a hook run declared the gate with {sorted(declared)} hook budgets, not one")
+            )
         if s.event_driven or s.scan_only:  # a scan, on the prepared consumer
             _, scanned = s.gate_on(s.valid)
             unclocked = git_calls(lambda env: h.run_gate("", args=scan_args(scanned), env=env))
@@ -1367,6 +1434,171 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             True,
             f"{len(results)} checks: a hang ends in the line within {HANG_SECONDS:g} s; scan, act: no clock",
         )
+
+    # ---------------------------------------------------------------- the one deadline of a hook run
+
+    def spent(seconds: str, before: str) -> str:
+        """C12.14 as the deadline cases type it, for a hook budget of `seconds` (as `{:g}` writes it)."""
+        return (
+            f"BROKEN: the hook's budget of {seconds} s is spent before {before} — fix: a hook of many waits,"
+            " each within its own limit, would otherwise be cut by the platform with no word of what was"
+            " slow: run the scan, which has no clock, to check the same tree; where git itself is slow,"
+            " look for a core.fsmonitor hook, set in the repository's or in your own configuration, with"
+            " git config --show-origin --get core.fsmonitor (no output means none is set), or for a"
+            " stalled file system, and repair it"
+        )
+
+    def deadline_by_mode() -> tuple[bool, str]:
+        """The rule at its decision point, in a process of its own for each mode, the gate declared with a
+        hook budget of 2 s: a hook run has a deadline, so a wait takes the smaller of its cap and what is
+        left (a cap of 10 s gets under 2 s, a cap of 0.5 s gets 0.5 s) and a git call gets under 2 s, never
+        the 3 s of its own cap; a scan, an act and a process declared with no mode have none, so a wait takes
+        its cap and git no clock. An identity declared without a hook budget has the shared 25 s."""
+        program = (
+            "import json, sys\n"
+            "from pathlib import Path\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from const_gate import identity, repository\n"
+            "from const_gate.model import Mode\n"
+            "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
+            "identity.declare(identity.Identity('x', 'y', Path('.'), hook_seconds=2), mode)\n"
+            "asked = [identity.remaining(10, 'x'), identity.remaining(0.5, 'x'), repository.budget()]\n"
+            "print(json.dumps(asked))\n"
+        )
+        seen: dict[str, object] = {}
+        for mode in ("hook", "scan", "act", "none"):
+            done = subprocess.run(
+                [sys.executable, "-c", program, str(h.scripts), mode],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            seen[mode] = json.loads(done.stdout) if done.returncode == 0 else done.stderr.strip()
+        hook = seen["hook"]
+        in_a_hook = (
+            isinstance(hook, list)
+            and 0 < hook[0] <= 2
+            and hook[1] == 0.5
+            and hook[2] is not None
+            and 0 < hook[2] <= 2
+        )
+        without = all(seen[mode] == [10, 0.5, None] for mode in ("scan", "act", "none"))
+        default = identity.Identity("x", "y", Path(".")).hook_seconds == 25
+        return in_a_hook and without and default, (
+            f"a wait of cap 10 s, of cap 0.5 s, and a git call, by mode: {seen}; the default budget"
+            f" {identity.Identity('x', 'y', Path('.')).hook_seconds:g} s"
+        )
+
+    def spent_deadline() -> tuple[bool, str]:
+        """A wait asked after the deadline is the shared failure C12.14, typed by hand, before the wait
+        begins: in a hook process whose clock is moved 100 s on after its declaration (budget 2 s),
+        `identity.remaining` and a shared git call both end in it, and no git process was started."""
+        program = (
+            "import subprocess, sys, time\n"
+            "from pathlib import Path\n"
+            "sys.path.insert(0, sys.argv[1])\n"
+            "from const_gate import identity, repository\n"
+            "from const_gate.errors import ConfigurationFailure\n"
+            "from const_gate.model import Mode\n"
+            "identity.declare(identity.Identity('x', 'y', Path('.'), hook_seconds=2), Mode.HOOK)\n"
+            "real, started = time.monotonic, []\n"
+            "time.monotonic = lambda: real() + 100\n"
+            "subprocess.run = lambda *args, **kwargs: started.append(args)\n"
+            "asks = [\n"
+            "    lambda: identity.remaining(10, 'the prose linter finished'),\n"
+            "    lambda: repository.git(['ls-files', '-z'], Path('.')),\n"
+            "]\n"
+            "for ask in asks:\n"
+            "    try:\n"
+            "        ask()\n"
+            "    except ConfigurationFailure as failure:\n"
+            "        print(failure.broken.render())\n"
+            "print(len(started))\n"
+        )
+        done = subprocess.run(
+            [sys.executable, "-c", program, str(h.scripts)], capture_output=True, text=True, check=False
+        )
+        wanted = [
+            spent("2", "the prose linter finished"),
+            spent("2", "git ls-files answered"),
+            "0",
+        ]
+        lines = done.stdout.splitlines()
+        return done.returncode == 0 and lines == wanted, (
+            f"exit {done.returncode}: {lines or done.stderr.strip()[-300:]}"
+        )
+
+    def slow_git_env(delay: float) -> dict[str, str]:
+        """A git first on PATH that answers every call correctly, `delay` seconds late."""
+        real, nap = shutil.which("git"), shutil.which("sleep")
+        if real is None or nap is None:
+            raise FileNotFoundError(
+                "no git or no sleep on PATH: the slow git hands every call to the real one"
+            )
+        directory = h.scratch_dir()
+        fake = directory / "git"
+        fake.write_text(
+            f'#!/bin/sh\n{shlex.quote(nap)} {delay}\nexec {shlex.quote(real)} "$@"\n', encoding="utf-8"
+        )
+        fake.chmod(0o755)
+        return {"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
+
+    def git_call_log(log: Path) -> list[tuple[float, list[str]]]:
+        """Each git call the log holds: the `timeout=` it was given and its arguments."""
+        lines = log.read_text().splitlines() if log.exists() else []
+        return [(float(line.split(" ", 1)[0]), ast.literal_eval(line.split(" ", 1)[1])) for line in lines]
+
+    def slow_git_within_the_cap() -> tuple[bool, str]:
+        """A git that answers every call 0.15 s late, in a hook with its own 25 s: the cap of 3 s binds every
+        call, and no line of the hook's budget is said."""
+        env, log = git_patch(h)
+        env.update(slow_git_env(0.15))
+        result, _ = s.gate_on(s.valid, env=env)
+        timeouts = git_timeouts(log)
+        ok = result.code == 0 and bool(timeouts) and set(timeouts) == {repr(repository.GIT_SECONDS)}
+        return ok and "budget" not in result.stderr, (
+            f"exit {result.code}, {len(timeouts)} git calls, each late, timeouts {sorted(set(timeouts))}"
+        )
+
+    def slow_git_spends_the_deadline() -> tuple[bool, str]:
+        """A hook budget of 1 s, lowered for the run by the patch, and a git that answers late: the calls are
+        given the smaller of the 3 s and what is left — each less than the one before, none over the 1 s —
+        and the call the deadline meets ends the run in C12.14 as the first stderr line, the count line after
+        it, exit 1, the call naming itself. A gate that makes three calls or more meets it at the second or
+        the third (each answers 0.45 s late); one that makes fewer, at its first (1.5 s late). The run is
+        bounded at the hang cases' 20 s, and no assertion is made on its time."""
+        calibrate, counted = git_patch(h)
+        s.gate_on(s.valid, env=calibrate)
+        calls = len(git_timeouts(counted))
+        lowered = 1.0
+        env, log = git_patch(h, hook_seconds=lowered)
+        env.update(slow_git_env(0.45 if calls >= 3 else lowered * 1.5))
+        with h.bounded(HANG_BOUND):
+            result, _ = s.gate_on(s.valid, env=env)
+        made = git_call_log(log)
+        timeouts = [timeout for timeout, _ in made]
+        falling = all(0 < b < a for a, b in zip(timeouts, timeouts[1:], strict=False))
+        within = bool(timeouts) and 0 < timeouts[0] <= lowered
+        met = len(made) <= 3 if calls >= 3 else len(made) == 1
+        sub = repository.subcommand(made[-1][1]) if made else "none"
+        ok, evidence = broken_as_typed(result, spent("1", f"git {sub} answered"))
+        return ok and falling and within and met, (
+            f"{len(made)} git calls (the run makes {calls}), timeouts {timeouts}: {evidence}"
+        )
+
+    def hook_has_one_deadline() -> tuple[bool, str]:
+        """N52: a hook run has one deadline, from its declaration, and every wait takes the smaller of its
+        own cap and what is left of it; past it the gate says so in the shared line C12.14, non-blocking like
+        every configuration failure, the count line after it. A scan, an act and a process declared with no
+        mode have no deadline. Read at the decision point, in a process for each mode, in a process whose
+        clock is moved past the deadline, and through the gate with a git that answers late."""
+        results: list[tuple[bool, str]] = [attempted(check) for check in (deadline_by_mode, spent_deadline)]
+        if s.event_driven and not s.scan_only:  # a gate with a hook run
+            results += [attempted(slow_git_within_the_cap), attempted(slow_git_spends_the_deadline)]
+        failed = [evidence for ok, evidence in results if not ok]
+        if failed:
+            return False, f"{len(failed)} of {len(results)} checks red: " + " | ".join(failed)
+        return True, f"{len(results)} checks: the hook run's deadline is one; scan, act: none"
 
     def unreadable(path: Path, run: Callable[[], Result], line: str) -> tuple[bool, str]:
         """`run` with `path` made unreadable, its mode restored whatever happens: the runner's cleanup
@@ -1550,8 +1782,15 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             ),
             (
                 "G1.1",
-                messages.g1_skip_no_file("T\n" + "t" * 100),
-                "tool 'T\\n" + "t" * 78 + "… [102 characters]' carries no file to examine",
+                messages.g1_skip_other_tool("T\n" + "t" * 100),
+                "tool 'T\\n"
+                + "t" * 78
+                + "… [102 characters]' is not one this gate judges (it judges Write and Edit)",
+            ),
+            (
+                "G1.1 for an event that names no tool",
+                messages.g1_skip_other_tool(""),
+                "an event that names no tool is not one this gate judges (it judges Write and Edit)",
             ),
             ("G1.2", messages.g1_skip_not_markdown(path), f"{esc} is not a .md file"),
             (
@@ -1932,13 +2171,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         (
             165,
             "C12.12, C12.13: a git that gives no answer in a hook ends in a shared line within the budget,"
-            " a scan and an act give git no clock, and the hook's handlers outlive the budget",
+            " a scan and an act give git no clock, and the hook's handlers hold its budget and the margin",
             git_has_a_budget_in_a_hook,
         ),
         (
             166,
             "F10: a red names the skill that teaches the rule and its fix, after the count line",
             skill_named_after_red,
+        ),
+        (
+            167,
+            "C12.14: a hook run has one deadline, every wait takes the smaller of its cap and what is left,"
+            " and a run that spends it ends in a shared line; a scan and an act have none",
+            hook_has_one_deadline,
         ),
     ]
     # Each item carries its number, so it keeps that number in every module and when the list is
