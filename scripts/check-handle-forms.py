@@ -53,7 +53,7 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 NOT_READ = ("docs/research/",)  # frozen comparisons keep their form (rule 7 of plc-0005-research)
 LAST_SECTION = "Carry list"  # the record section whose links lead to no record
 SP = r"(?:[ \t]+|[ \t]*\n[ \t>]*)"  # one space, or a line break of a wrapped paragraph
-SEP = rf"(?:,{SP}(?:(?:and|or){SP})?|{SP}(?:and|or|to){SP}|–)"
+SEP = rf"(?:,{SP}(?:(?:and|or){SP})?|{SP}(?:and|or|to){SP}|[–—-])"
 CITE = rf"(?<![\w.])R(\d+)(?![A-Za-z0-9])(?:{SEP}R\d+[a-z]?)*{SP}of{SP}"
 LINK = (
     r"\[(?:[^\[\]]|\[[^\[\]]*\])*\]"
@@ -65,8 +65,8 @@ CITED_BARE = re.compile(CITE + r"(dec-\d{4}(?:-[a-z0-9-]*[a-z0-9])?)")  # (c)
 # the words that make a handle a qualified key of another kind, no ruling (rule 10 of plc-0004):
 # "message R4 of …", "the table keys R1 to R4 of …"
 QUALIFIERS = frozenset(
-    {"key", "keys", "message", "messages", "row", "rows", "item", "items", "entry", "entries"}
-)
+    {"key", "keys", "message", "messages", "row", "rows"}
+)  # never "item": rulings are items
 WORD_BEFORE = re.compile(r"([A-Za-z]+)[ \t]*\n?[ \t>]*$")
 RECORD_FILE = re.compile(r"(?:^|/)dec-\d{4}-[^/#?]*\.md$")
 TICKS = re.compile(r"`+")
@@ -333,6 +333,18 @@ def self_test() -> int:
             note,
             "See R7 of [dec-0057-sample](../decisions/dec-0057-sample.md#r7) here.\n",
             "See R7 of [dec-0057-sample](../decisions/dec-0057-sample.md#r8) here.\n",
+            (1,),
+        ),
+        "a ruling called an item, with no anchor": (
+            note,
+            "The deferred item R7 of [dec-0057-sample](dec-0057-sample.md#r7) holds.\n",
+            "The deferred item R7 of [dec-0057-sample](dec-0057-sample.md) holds.\n",
+            (1,),
+        ),
+        "a range with a hyphen linking its last ruling": (
+            note,
+            "R1-R4 of [dec-0033-sample](dec-0033-sample.md#r1) holds.\n",
+            "R1-R4 of [dec-0033-sample](dec-0033-sample.md#r4) holds.\n",
             (1,),
         ),
         "a range linking its last ruling": (
