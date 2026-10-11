@@ -16,7 +16,7 @@ from const_gate.index import build_index
 from const_gate.model import POST_WRITE, PRE_WRITE, Finding, PendingDocument
 from const_gate.output import Output
 from const_gate.pipeline import ScanTarget, Skip, WriteTarget
-from const_gate.repository import list_markdown, read_text
+from const_gate.repository import is_ignored, list_markdown, read_text
 from const_gate.territory import Matcher
 
 from . import dials as own_dials
@@ -38,11 +38,17 @@ def hook_mode(output: Output, stdin: TextIO) -> int:
     if target.event_name == POST_WRITE:
         return _after_write(output, target, dials)
     rel = target.rel
-    paths = sorted({*list_markdown(target.root), rel})
+    listed = list_markdown(target.root)
+    paths = sorted({*listed, rel})
     with Matcher() as matcher:
         covered = covered_documents(matcher, dials, target, paths, PendingDocument(rel, target.text))
         if covered is None:
             raise ConfigurationFailure(messages.c5_governed_only_without_root())
+        # The dial covers the Markdown files git lists, ignored ones excepted, as after a write: a file
+        # git lists is covered whatever the ignore rules say of it; a new one only if git would not ignore
+        # it. Asked last, so that a path no territory holds costs git no call.
+        if rel in covered and rel not in listed and is_ignored(target.root, rel):
+            covered.remove(rel)
         if rel not in covered:
             return pipeline.skip(output, messages.g1_skip_not_covered(rel))
         lanes = _lanes_abroad(matcher, dials, [rel])[rel]

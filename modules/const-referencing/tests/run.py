@@ -426,7 +426,34 @@ def not_covered() -> tuple[bool, str]:
         wrote(body("See REQ-7.")),
         dials_patch={NAMESPACE: {"lanes": [LANE], "territories": ["docs/policies/**"]}},
     )
-    return expect(result, 0, shared.g1_green_skip(messages.g1_skip_not_covered(DOC)), "stdout")
+    outside = expect(result, 0, shared.g1_green_skip(messages.g1_skip_not_covered(DOC)), "stdout")
+    return all_of(
+        [outside, *_ignored_by_git()], "a document outside the territories, or ignored by git, is a skip"
+    )
+
+
+IGNORED_DIR = "docs/notes/ignored/"
+IGNORED = IGNORED_DIR + "new.md"
+
+
+def _ignored_by_git() -> list[tuple[bool, str]]:
+    """The dial covers the Markdown files git lists, ignored ones excepted: before a write as after it.
+    A new file under an ignored folder is a skip, and the same line either way; a new file git does not
+    ignore is covered; a tracked file the ignore rules match is still listed by git, so still covered."""
+    ignore = {".gitignore": IGNORED_DIR + "\n"}
+    skip = shared.g1_green_skip(messages.g1_skip_not_covered(IGNORED))
+    before, _ = gate_on(wrote("# F\n", IGNORED), files=ignore)
+    after = after_write(IGNORED, {**ignore, IGNORED: note("# F\n")})
+    new, _ = gate_on(wrote("# F\n"), files=ignore)
+    tracked = H.fresh_consumer(setup=(Write(IGNORED, note("# F\n", "note-t")),))
+    tracked.write(".gitignore", ignore[".gitignore"])  # after the commit: the file stays tracked, now matched
+    kept = H.run_gate(event_json(tracked.root, wrote("# F\n", IGNORED)))
+    return [
+        expect(before, 0, skip, "stdout"),
+        expect(after, 0, skip, "stdout"),
+        expect(new, 0, messages.g1_covered(), "stdout"),
+        expect(kept, 0, messages.g1_covered(), "stdout"),
+    ]
 
 
 def scan_reports_all() -> tuple[bool, str]:
@@ -2972,7 +2999,11 @@ ASSERTIONS = [
     ),
     Assertion(20, "an Edit is judged on the document it produces", edit_is_judged_as_written),
     Assertion(21, "several findings come in reading order, with their count", findings_in_reading_order),
-    Assertion(22, "a document outside const-referencing.territories is a visible skip", not_covered),
+    Assertion(
+        22,
+        "a document outside const-referencing.territories, or a new one git ignores, is a visible skip",
+        not_covered,
+    ),
     Assertion(
         23, "the scan reports every document, names documents, links and lanes in its tail", scan_reports_all
     ),
