@@ -31,7 +31,7 @@ The full carry audit of [dec-0048-frozen-documents-take-wording-edits](dec-0048-
 
 **Choice:** A, chosen by the decider in chat on 2026-09-28.
 
-**R1.** When a record is deleted, no link points at what is gone. An id or a path of the deleted record quoted in a record or a frozen comparison — in a code span, a fenced or indented block, or an HTML comment — stays as written: it is quoted evidence, and no edit reaches it. Anywhere else the deletion commit removes it, including from a comment in a script or in a configuration file and from an entry of the dials file. The deletion commit names the deletion and, where a record was edited, the migration.
+<a id="r1"></a>**R1.** When a record is deleted, no link points at what is gone. An id or a path of the deleted record quoted in a record or a frozen comparison — in a code span, a fenced or indented block, or an HTML comment — stays as written: it is quoted evidence, and no edit reaches it. Anywhere else the deletion commit removes it, including from a comment in a script or in a configuration file and from an entry of the dials file. The deletion commit names the deletion and, where a record was edited, the migration.
 
 ## 2. A typo in a frozen comparison
 
@@ -51,7 +51,7 @@ The kernel lets a record's body take a typo fix at any time ([kernel §5](../../
 
 **Choice:** A, chosen by the decider in chat on 2026-09-28.
 
-**R2.** A comparison frozen under rule 7 of plc-0005-research takes a fifth kind of edit, the typo fix. It corrects a misspelt word, a doubled word or a wrong punctuation mark, and changes no fact, number, link, anchor, code span, handle or word of a quotation. The commit names it a typo fix and names the comparisons it edits.
+<a id="r2"></a>**R2.** A comparison frozen under rule 7 of plc-0005-research takes a fifth kind of edit, the typo fix. It corrects a misspelt word, a doubled word or a wrong punctuation mark, and changes no fact, number, link, anchor, code span, handle or word of a quotation. The commit names it a typo fix and names the comparisons it edits.
 
 ## 3. The commit word for a typo fix
 
@@ -71,13 +71,13 @@ Kernel section 5 listed three mechanical edits of a record's body and named the 
 
 **Choice:** A, chosen by the decider in chat on 2026-09-28.
 
-**R3.** A typo fix in a record's body is named a typo fix in its commit, as a reference-form migration and a wording edit are named, and the commit names the records it edits. For a record it is the same narrow kind R2 defines for a comparison, and it changes no ruling either.
+<a id="r3"></a>**R3.** A typo fix in a record's body is named a typo fix in its commit, as a reference-form migration and a wording edit are named, and the commit names the records it edits. For a record it is the same narrow kind R2 defines for a comparison, and it changes no ruling either.
 
 ## 4. The earlier ruling R1 narrows
 
 R1 narrows a promise of an accepted record, which rule 13 of plc-0004-decision-records asks this record to name by record and handle.
 
-**R4.** Item 4 of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md) is narrowed: its promise that nothing in the tree points at a deleted record now leaves out an id or a path quoted in a record or a frozen comparison, as R1 says.
+<a id="r4"></a>**R4.** Item 4 of [dec-0027-record-citations-optional](dec-0027-record-citations-optional.md) is narrowed: its promise that nothing in the tree points at a deleted record now leaves out an id or a path quoted in a record or a frozen comparison, as R1 says.
 
 ## Applied
 

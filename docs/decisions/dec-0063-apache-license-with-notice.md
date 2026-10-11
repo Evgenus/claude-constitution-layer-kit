@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-[Step 10 of the rollout plan](../rollout-plan.md#s10) makes the kit's repository public after the first consumer project's live proof. R1 of [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md) put two decisions at that step: the license, and whether the author's email stays in the history. The decider asked for the license ahead of it, in chat on 2026-10-02. Until this record the tree held no license file. Five module manifests and the template's manifest named `MIT`, a placeholder the template carried and no ruling chose; six manifests named no license and no author.
+[Step 10 of the rollout plan](../rollout-plan.md#s10) makes the kit's repository public after the first consumer project's live proof. R1 of [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md#r1) put two decisions at that step: the license, and whether the author's email stays in the history. The decider asked for the license ahead of it, in chat on 2026-10-02. Until this record the tree held no license file. Five module manifests and the template's manifest named `MIT`, a placeholder the template carried and no ruling chose; six manifests named no license and no author.
 
 The record answers three questions, each put in chat on 2026-10-02 with lettered options, the pick a letter: which license, in section 1; how its two files reach a project's kernel copy, in section 2; and whether an installed module carries them, in section 4. Section 3 holds two items where no choice existed.
 
@@ -36,11 +36,11 @@ The decider stated two wishes: the credit is kept, and no profit is needed. So e
 
 **Choice.** B, by the decider, in chat on 2026-10-02. The decider picked the license. The session set the rest as defaults, each open to the decider's override before the yes: the wording of `NOTICE`, the `author` field in every manifest, and no license header in any file. The decider then picked the wording of `NOTICE` from four drafts, in chat on 2026-10-02: the one that names the author once, in the copyright line.
 
-**R1.** The kit is under the Apache License, Version 2.0. It is one license for the whole tree, documents and code alike. Its text is `LICENSE` at the kit's root, and no file takes a license header.
+<a id="r1"></a>**R1.** The kit is under the Apache License, Version 2.0. It is one license for the whole tree, documents and code alike. Its text is `LICENSE` at the kit's root, and no file takes a license header.
 
-**R2.** `NOTICE` at the kit's root carries the credit: the kit's name, the copyright line with the author's name, and the address of the kit's repository. It holds no email address.
+<a id="r2"></a>**R2.** `NOTICE` at the kit's root carries the credit: the kit's name, the copyright line with the author's name, and the address of the kit's repository. It holds no email address.
 
-**R3.** Every module's manifest, and the template's, names the license in `license` as `Apache-2.0`. Every module's manifest names the kit's author in `author`; the template keeps a placeholder there.
+<a id="r3"></a>**R3.** Every module's manifest, and the template's, names the license in `license` as `Apache-2.0`. Every module's manifest names the kit's author in `author`; the template keeps a placeholder there.
 
 ## 2. How the two files reach a project's kernel copy
 
@@ -60,13 +60,13 @@ A project copies the kit's kernel into its own repository, and a public reposito
 
 **Choice.** B, by the decider, in chat on 2026-10-02.
 
-**R4.** The block of the install guide that copies the kernel also copies the kit's `LICENSE` and `NOTICE` beside it, and the guide's check holds both there, byte for byte. The guide says that the two files cover the kernel copy alone and carry no envelope. It also says what the license asks: a project that passes the copy on to others keeps both files there, and says in each kernel file it changed that it changed it.
+<a id="r4"></a>**R4.** The block of the install guide that copies the kernel also copies the kit's `LICENSE` and `NOTICE` beside it, and the guide's check holds both there, byte for byte. The guide says that the two files cover the kernel copy alone and carry no envelope. It also says what the license asks: a project that passes the copy on to others keeps both files there, and says in each kernel file it changed that it changed it.
 
 ## 3. What the record leaves open, and what it reverses
 
-**R5.** Whether the author's email stays in the history is not ruled here. It stays a decision of the plan's step 10, made before the repository is public.
+<a id="r5"></a>**R5.** Whether the author's email stays in the history is not ruled here. It stays a decision of the plan's step 10, made before the repository is public.
 
-**R6.** The license is decided by this record, ahead of the step that makes the repository public. This reverses one part of R1 of [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md): that the license is decided at that step. The rest of that item stands.
+<a id="r6"></a>**R6.** The license is decided by this record, ahead of the step that makes the repository public. This reverses one part of R1 of [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md#r1): that the license is decided at that step. The rest of that item stands.
 
 ## 4. Whether an installed module carries the two files
 
@@ -86,9 +86,9 @@ A module never lands in a project's repository: an install copies it into the pl
 
 **Choice.** A, by the decider, in chat on 2026-10-02.
 
-**R7.** A module carries no license file. Its manifest names the license, and `LICENSE` and `NOTICE` stand at the kit's root alone; whoever passes a module's folder on alone takes both from there.
+<a id="r7"></a>**R7.** A module carries no license file. Its manifest names the license, and `LICENSE` and `NOTICE` stand at the kit's root alone; whoever passes a module's folder on alone takes both from there.
 
-**R8.** Linking both files into each module is reopened as a decision once a module is mirrored or vendored outside the kit's marketplace.
+<a id="r8"></a>**R8.** Linking both files into each module is reopened as a decision once a module is mirrored or vendored outside the kit's marketplace.
 
 ## Applied
 

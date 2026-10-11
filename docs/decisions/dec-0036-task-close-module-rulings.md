@@ -27,9 +27,9 @@ The gate examines a change as a commit range and asks, per coverage pair the cha
   - **Pros:** covers a consumer that squashes and a local run alike.
   - **Cons:** two readers, one of which cannot be exercised live in the kit and has no consumer asking for it; more surface for the same verdict.
 
-The session recommended A, for the kit being consumer zero with `--no-ff` merges and a trailer reader already in place. **R1.** C, chosen by the decider in chat on 2026-09-23. Applied so that the module stays portable: the gate never calls a forge client and never touches the network; the body is given as text through `--body <file>`, which CI writes from the event payload and a local closer may pipe from the forge's client; the marker is the same line as the trailer, on its own line anywhere in the body, so one parser reads both sources; without `--body` the trailers alone are read. The session's objection stands in the module's honest limits: the body half has no live proof in the kit before Phase D, and its fixtures are against text.
+The session recommended A, for the kit being consumer zero with `--no-ff` merges and a trailer reader already in place. <a id="r1"></a>**R1.** C, chosen by the decider in chat on 2026-09-23. Applied so that the module stays portable: the gate never calls a forge client and never touches the network; the body is given as text through `--body <file>`, which CI writes from the event payload and a local closer may pipe from the forge's client; the marker is the same line as the trailer, on its own line anywhere in the body, so one parser reads both sources; without `--body` the trailers alone are read. The session's objection stands in the module's honest limits: the body half has no live proof in the kit before Phase D, and its fixtures are against text.
 
-**R2.** The declaration's form, the session's defaults accepted with R1: the key is `No-Doc-Impact`, matched case-insensitively as git matches it, and is the module's dial `declaration_key`; the value is the pair's name, a dash, a reason the gate requires non-empty and never judges; there is no wildcard — a change touching several pairs writes one line per pair, and a value naming no pair is a finding, not a declaration; the scope is the change — any commit of the range counts, as with `Accepted:` — since the kit's own history would have been red nineteen times per commit and once per change.
+<a id="r2"></a>**R2.** The declaration's form, the session's defaults accepted with R1: the key is `No-Doc-Impact`, matched case-insensitively as git matches it, and is the module's dial `declaration_key`; the value is the pair's name, a dash, a reason the gate requires non-empty and never judges; there is no wildcard — a change touching several pairs writes one line per pair, and a value naming no pair is a finding, not a declaration; the scope is the change — any commit of the range counts, as with `Accepted:` — since the kit's own history would have been red nineteen times per commit and once per change.
 
 ## 2. The shape of the coverage map
 
@@ -45,7 +45,7 @@ The map says which current-state documents describe which code; the gate reads i
   - **Pros:** the policy that governs a document says what code it describes.
   - **Cons:** a module would read a policy-namespace key beyond `territory` — a kernel change with one reader; a document outside every policy's territory, such as `CLAUDE.md`, could not be covered.
 
-**R3.** A, chosen by the decider in chat on 2026-09-23, with the session's defaults: `name` required, kebab-case and unique, a duplicate or a malformed one a configuration failure; a pair with empty `docs` refused, the sharper form deferred; a `docs` path that also matches the pair's `code` left out of the pair's code side, so a documentation-only change is never its own trigger; deleted and renamed paths count as touched on both sides; an absent map is zero pairs examined, said so.
+<a id="r3"></a>**R3.** A, chosen by the decider in chat on 2026-09-23, with the session's defaults: `name` required, kebab-case and unique, a duplicate or a malformed one a configuration failure; a pair with empty `docs` refused, the sharper form deferred; a `docs` path that also matches the pair's `code` left out of the pair's code side, so a documentation-only change is never its own trigger; deleted and renamed paths count as touched on both sides; an absent map is zero pairs examined, said so.
 
 ## 3. The `Stop` hook's severities and default
 
@@ -61,7 +61,7 @@ The hook fires at every turn end, runs `git status --porcelain` from the event's
   - **Pros:** the specification's own wording; no shared change.
   - **Cons:** a gate with a hook mode and no `severity` breaks the template's rule for gates and the shared fixture items that exercise the dial; the same cons as B for what warn teaches.
 
-**R4.** A, chosen by the decider in chat on 2026-09-23, with the session's defaults: the kit calibrates `block` in its own dials file; the hook checks the tree only, the range check running at close, on demand and in CI; the block message names the module's `commit-before-edit` skill and carries the commit command itself; `SubagentStop` is not wired; the second firing of a turn is exit 0 with a green line whatever the tree holds, so the platform's cap is never reached by this hook.
+<a id="r4"></a>**R4.** A, chosen by the decider in chat on 2026-09-23, with the session's defaults: the kit calibrates `block` in its own dials file; the hook checks the tree only, the range check running at close, on demand and in CI; the block message names the module's `commit-before-edit` skill and carries the commit command itself; `SubagentStop` is not wired; the second firing of a turn is exit 0 with a green line whatever the tree holds, so the platform's cap is never reached by this hook.
 
 ## 4. How the range check finds its base
 
@@ -77,13 +77,13 @@ The hook fires at every turn end, runs `git status --porcelain` from the event's
   - **Pros:** nothing guessed.
   - **Cons:** the bare scan every other module offers becomes a form to fill.
 
-**R5.** A, chosen by the decider in chat on 2026-09-23, with the session's defaults: the check compares committed changes only, the working tree being the hook's business; a `--since` or `--change` naming a ref the repository does not have is a configuration failure, not a skip; `--change` on a non-merge commit examines that commit alone; `--history <n>` is deferred with its signal; the count line names the pairs, the commits and the range.
+<a id="r5"></a>**R5.** A, chosen by the decider in chat on 2026-09-23, with the session's defaults: the check compares committed changes only, the working tree being the hook's business; a `--since` or `--change` naming a ref the repository does not have is a configuration failure, not a skip; `--change` on a non-merge commit examines that commit alone; `--history <n>` is deferred with its signal; the count line names the pairs, the commits and the range.
 
 ## 5. Where the module is authored
 
 No options were put: the decider chose in chat on 2026-09-23, at the end of the fifth module's authoring, to author this module in the kit before the consumer's bootstrap. [dec-0006-accumulating-set-first](dec-0006-accumulating-set-first.md) names four modules for authoring in the kit and places this one in the consumer's first week; [dec-0035-locations-module-rulings](dec-0035-locations-module-rulings.md) extended that list once, with a handle, and this is the second extension.
 
-**R6.** [`const-task-close`](../requirements.md#const-task-close) is authored in the kit as consumer zero, like the four accumulating modules of Phase A and the fifth, ahead of its Phase C slot — the kit being consumer zero for the code territories its own current-state documents describe; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. Chosen by the decider in chat on 2026-09-23.
+<a id="r6"></a>**R6.** [`const-task-close`](../requirements.md#const-task-close) is authored in the kit as consumer zero, like the four accumulating modules of Phase A and the fifth, ahead of its Phase C slot — the kit being consumer zero for the code territories its own current-state documents describe; its consumer-live proof is a step of the consumer's bootstrap, and a finding there is a fix with a version bump, as [dec-0015-pre-module-audit-rulings](dec-0015-pre-module-audit-rulings.md) rules for the four. Chosen by the decider in chat on 2026-09-23.
 
 ## Carry list
 

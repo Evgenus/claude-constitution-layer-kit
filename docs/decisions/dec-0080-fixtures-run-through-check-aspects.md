@@ -22,8 +22,8 @@ So the kit's CI ran the plain run, and each module's job ran its runner alone. N
   - **Cons:** it changes the gate list; a red item shows as the check's report unless the check is taught to print the runner's own lines.
 - **B. One more entry in the `kit` job runs the full `check-aspects --run`.**
   - **Pros:** one line in the gate list.
-  - **Cons:** the eleven runners run a second time, one after another, so the `kit` job grows from about half a minute to several minutes — the cost R7 of dec-0054 turned down.
-- **C. R7 of dec-0054 stays, and the full run joins the steps before a merge of a change that touches a module.**
+  - **Cons:** the eleven runners run a second time, one after another, so the `kit` job grows from about half a minute to several minutes — the cost R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r7) turned down.
+- **C. R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r7) stays, and the full run joins the steps before a merge of a change that touches a module.**
   - **Pros:** no change to CI or to the ruling.
   - **Cons:** a step by hand, the way the gap above went unseen.
 
@@ -37,11 +37,11 @@ The decider chose A in chat on 2026-10-11.
 
 ## Ruling
 
-**R1.** Each module's `fixtures-<module>` entry of the kit's gate list runs `python3 scripts/check-aspects.py --run --module <module>`, never the module's runner alone. So the findings of the full run hold in each module's CI job, on every pull request and on `main` after each merge. The plain run stays the gate of R7 of dec-0054, in the `kit` job.
+<a id="r1"></a>**R1.** Each module's `fixtures-<module>` entry of the kit's gate list runs `python3 scripts/check-aspects.py --run --module <module>`, never the module's runner alone. So the findings of the full run hold in each module's CI job, on every pull request and on `main` after each merge. The plain run stays the gate of R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r7), in the `kit` job.
 
-**R2.** `scripts/check-aspects.py` prints the whole output of a runner that exits other than 0, its standard output and then its standard error, line for line, under one line naming the runner and its exit, before its report, so that the lines of a red item stand where the run is read.
+<a id="r2"></a>**R2.** `scripts/check-aspects.py` prints the whole output of a runner that exits other than 0, its standard output and then its standard error, line for line, under one line naming the runner and its exit, before its report, so that the lines of a red item stand where the run is read.
 
-**R3.** For each module, R1 replaces the last sentence of R7 of dec-0054: "The full run, with results, is on request, beside the module runners."
+<a id="r3"></a>**R3.** For each module, R1 replaces the last sentence of R7 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r7): "The full run, with results, is on request, beside the module runners."
 
 ## Applied
 

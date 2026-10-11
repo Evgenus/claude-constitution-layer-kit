@@ -30,7 +30,7 @@ The collision blocked this change's own merge, since the trunk's ruleset needs t
 
 The session recommended A: "close small, track the rest"; the renumbering rules on frozen numbers and accepted trailers, so it earns its own record; the merge is blocked either way until the fix lands. The decider chose B in chat on 2026-10-09.
 
-**R1.** One pull request and one record; the collision of dec-0076 is fixed in this change; the routine pieces are noted in their commits.
+<a id="r1"></a>**R1.** One pull request and one record; the collision of dec-0076 is fixed in this change; the routine pieces are noted in their commits.
 
 ## 2. One number, one item, in the shared harness
 
@@ -48,11 +48,11 @@ A module's runner sorts its own acceptance items and the shared ones, numbered f
 
 The session recommended A: it closes the one gap C left without undoing C; it is the only option that neither caps a module nor leaves the collision possible; the harness already refuses a malformed filter the same way. The decider chose A in chat on 2026-10-09.
 
-**R2.** The shared harness refuses an item number two items carry, a module's own and a shared one or any two, before any item runs and before the runner's filter is read: one BROKEN line per number, in number order, naming the number and the items that carry it, with a fix a person can follow, then the runner's could-not-run line, exit 1.
+<a id="r2"></a>**R2.** The shared harness refuses an item number two items carry, a module's own and a shared one or any two, before any item runs and before the runner's filter is read: one BROKEN line per number, in number order, naming the number and the items that carry it, with a fix a person can follow, then the runner's could-not-run line, exit 1.
 
 ## 3. New holds of the module lists
 
-The record of this change existed once section 1 was answered. The question was whether three findings that a text fix would close for now get holds in `scripts/check-gate-lists.py`, each extending R2 of [dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names](dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md): a module's description in the marketplace that differed from its manifest's; the module namespaces of `constitution.yaml`, which [kernel §7](../../kernel/CONVENTIONS.md#k7) says equal the plugin names; and the pair of modules whose scripts the kit's type check puts on `MYPYPATH`, typed in `scripts/check-schema-mirror.py`, in the type-check entry of `scripts/gate-list.sh` and in a comment of `pyproject.toml`. The first two drift silently; the third drifts loudly, as an import error of the type check.
+The record of this change existed once section 1 was answered. The question was whether three findings that a text fix would close for now get holds in `scripts/check-gate-lists.py`, each extending R2 of [dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names](dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md#r2): a module's description in the marketplace that differed from its manifest's; the module namespaces of `constitution.yaml`, which [kernel §7](../../kernel/CONVENTIONS.md#k7) says equal the plugin names; and the pair of modules whose scripts the kit's type check puts on `MYPYPATH`, typed in `scripts/check-schema-mirror.py`, in the type-check entry of `scripts/gate-list.sh` and in a comment of `pyproject.toml`. The first two drift silently; the third drifts loudly, as an import error of the type check.
 
 - **A. No new holds:** the description made equal, the namespaces held by the kernel and review, a comment pointing to the type-check entry.
   - **Pros:** the smallest audit; the batch stays fixes of texts and crashes; the check unchanged.
@@ -66,15 +66,15 @@ The record of this change existed once section 1 was answered. The question was 
 
 The session recommended C: the record and the audit exist anyway, so a hold costs one ruling item and one case; worth it where drift is silent, not where a red entry already shows it. The decider chose B in chat on 2026-10-09.
 
-**R3.** `scripts/check-gate-lists.py` holds each module's marketplace `description` equal to its manifest's.
+<a id="r3"></a>**R3.** `scripts/check-gate-lists.py` holds each module's marketplace `description` equal to its manifest's.
 
-**R4.** `scripts/check-gate-lists.py` holds every top-level key of the kit's `constitution.yaml` that has a module's form, `const-<aspect>`, to name a module folder.
+<a id="r4"></a>**R4.** `scripts/check-gate-lists.py` holds every top-level key of the kit's `constitution.yaml` that has a module's form, `const-<aspect>`, to name a module folder.
 
-**R5.** `scripts/check-gate-lists.py` holds the gate list's type-check entry to put on `MYPYPATH` exactly the module folders `scripts/check-schema-mirror.py` imports from, an empty element a difference too.
+<a id="r5"></a>**R5.** `scripts/check-gate-lists.py` holds the gate list's type-check entry to put on `MYPYPATH` exactly the module folders `scripts/check-schema-mirror.py` imports from, an empty element a difference too.
 
 ## 4. The kit's document folders in a module
 
-One module's own acceptance item refused, in that module's install note, skill and manifest, both the ids of the kit's records and the kit's document folders named with no extension: `docs/decisions`, `docs/research`, `docs/policies`, `docs/requirements`. The ids had moved into `scripts/check-portability.py` with R8 of dec-0069, for every module; the folders were held by that one item alone. Only one installed component of any module named such a folder, inside a fenced example the check exempts.
+One module's own acceptance item refused, in that module's install note, skill and manifest, both the ids of the kit's records and the kit's document folders named with no extension: `docs/decisions`, `docs/research`, `docs/policies`, `docs/requirements`. The ids had moved into `scripts/check-portability.py` with R8 of [dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names](dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md#r8), for every module; the folders were held by that one item alone. Only one installed component of any module named such a folder, inside a fenced example the check exempts.
 
 - **A. Keep the item; its row says why.**
   - **Pros:** no behaviour change; routine; no ruling item.
@@ -88,7 +88,7 @@ One module's own acceptance item refused, in that module's install note, skill a
 
 The session recommended B: it ends the last copy of the kit-name rule in a module; the existing exemptions let fenced and inline examples pass. The decider chose B in chat on 2026-10-09.
 
-**R6.** `scripts/check-portability.py` refuses the kit's document folders — `docs/decisions`, `docs/research`, `docs/policies`, `docs/requirements`, each pair of segments whole — in a module's installed components and in the shared code it reads, outside a public URL and outside Markdown code, as its path forms are. The module item that held its own list of kit names loses it and keeps the rest; R8 of dec-0069 and R1 of [dec-0056-portability-grep-and-gate-lists](dec-0056-portability-grep-and-gate-lists.md) stand as they ruled.
+<a id="r6"></a>**R6.** `scripts/check-portability.py` refuses the kit's document folders — `docs/decisions`, `docs/research`, `docs/policies`, `docs/requirements`, each pair of segments whole — in a module's installed components and in the shared code it reads, outside a public URL and outside Markdown code, as its path forms are. The module item that held its own list of kit names loses it and keeps the rest; R8 of [dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names](dec-0069-kit-checks-hold-module-lists-floor-clauses-shared-numbers-and-kit-names.md#r8) and R1 of [dec-0056-portability-grep-and-gate-lists](dec-0056-portability-grep-and-gate-lists.md#r1) stand as they ruled.
 
 ## 5. Two landed items under one number
 
@@ -103,9 +103,9 @@ The kernel said an `id` "never changes after creation; never reused"; the catalo
 
 The session recommended A: it restores one number for one item, which every catalog check and reader relies on; the cost lands once, in a change that already has a record and an audit; B keeps the ambiguity and adds machinery the kit admits only for a failure that recurs. The decider chose A in chat on 2026-10-09.
 
-**R7.** Of two items of one catalog that have both landed on the trunk under one number, the one landed second renumbers: its file by `git mv`, its `id` set to the new name, the next number its catalog has not held, and every reference to it in the tree rewritten, since both have landed and a reference anywhere may mean it. The renaming changes no word of a record's body. The catalog scan's fix for two items under one number says it. The README pages' record, landed in `23f7ef7` after dec-0076-hooks-give-each-shared-git-call-a-budget landed in `d9bdc76`, is renumbered by this change, to [dec-0077-module-readme-pages](dec-0077-module-readme-pages.md).
+<a id="r7"></a>**R7.** Of two items of one catalog that have both landed on the trunk under one number, the one landed second renumbers: its file by `git mv`, its `id` set to the new name, the next number its catalog has not held, and every reference to it in the tree rewritten, since both have landed and a reference anywhere may mean it. The renaming changes no word of a record's body. The catalog scan's fix for two items under one number says it. The README pages' record, landed in `23f7ef7` after dec-0076-hooks-give-each-shared-git-call-a-budget landed in `d9bdc76`, is renumbered by this change, to [dec-0077-module-readme-pages](dec-0077-module-readme-pages.md).
 
-**R8.** A renumbered record's earlier `Accepted:` trailer names an id that no longer exists; the carry check reads it as the note it gives any such id, and the record is accepted again under its new id, with a receipt, in the merge commit of the change that renumbers it.
+<a id="r8"></a>**R8.** A renumbered record's earlier `Accepted:` trailer names an id that no longer exists; the carry check reads it as the note it gives any such id, and the record is accepted again under its new id, with a receipt, in the merge commit of the change that renumbers it.
 
 ## 6. A third collision
 
@@ -123,7 +123,7 @@ Two pull requests each passed CI alone and landed one after the other; no run ju
 
 The session recommended A: the platform holds it as a gate for free, and only merges close together pay. The decider chose B in chat on 2026-10-09.
 
-**R9.** Before `gh pr merge`, a branch whose trunk has moved since its last CI run merges the trunk and waits for CI green again; review holds it, and the ruleset stays as it is.
+<a id="r9"></a>**R9.** Before `gh pr merge`, a branch whose trunk has moved since its last CI run merges the trunk and waits for CI green again; review holds it, and the ruleset stays as it is.
 
 ## Applied
 

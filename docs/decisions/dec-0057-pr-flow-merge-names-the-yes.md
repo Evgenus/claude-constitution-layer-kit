@@ -25,9 +25,9 @@ On 2026-09-30 the decider asked to publish the kit to GitHub. The kit had no rem
   - **Pros:** the public version is proven in a real project; it follows the rollout order.
   - **Cons:** a second step later.
 
-The session recommended A, since it took the decider's plan to be GitHub Free, where a private repository has no branch protection. **R1.** C, chosen by the decider in chat on 2026-09-30: the repository is private and is made public after the first consumer project's live proof. The license and whether the author's email stays in the history are decided at that step. The decider holds GitHub Pro, so a private repository can be protected.
+The session recommended A, since it took the decider's plan to be GitHub Free, where a private repository has no branch protection. <a id="r1"></a>**R1.** C, chosen by the decider in chat on 2026-09-30: the repository is private and is made public after the first consumer project's live proof. The license and whether the author's email stays in the history are decided at that step. The decider holds GitHub Pro, so a private repository can be protected.
 
-**R2.** The repository `Evgenus/constitution-kit` was created on 2026-09-30 as the clone's `origin`, and `main` and all 77 local branches were pushed, at the decider's word in chat.
+<a id="r2"></a>**R2.** The repository `Evgenus/constitution-kit` was created on 2026-09-30 as the clone's `origin`, and `main` and all 77 local branches were pushed, at the decider's word in chat.
 
 ## 2. When to protect main
 
@@ -41,13 +41,13 @@ The session recommended A, since it took the decider's plan to be GitHub Free, w
   - **Pros:** it guards against losing history, in minutes, with no rule change.
   - **Cons:** a bad merge can still be pushed; step 10 stays open.
 
-The session recommended C. **R3.** B, chosen by the decider in chat on 2026-09-30: the shared `main` on GitHub is held by a repository ruleset — a pull request before every merge, with no approval required, since the only human is the author; no force push; no deletion; no one on its bypass list. The repository allows merge commits only, squash and rebase off, and does not delete a head branch after its merge.
+The session recommended C. <a id="r3"></a>**R3.** B, chosen by the decider in chat on 2026-09-30: the shared `main` on GitHub is held by a repository ruleset — a pull request before every merge, with no approval required, since the only human is the author; no force push; no deletion; no one on its bypass list. The repository allows merge commits only, squash and rebase off, and does not delete a head branch after its merge.
 
-**R4.** A work reaches `main` as a pull request from its branch `work/<name>`, merged with a merge commit whose subject is `Work: <name>`: `gh pr merge <n> --merge --subject "Work: <name>"`. The branch is pushed, and it is kept on the remote after the merge as it is in the clone. A local `main` follows the remote only by fast-forward.
+<a id="r4"></a>**R4.** A work reaches `main` as a pull request from its branch `work/<name>`, merged with a merge commit whose subject is `Work: <name>`: `gh pr merge <n> --merge --subject "Work: <name>"`. The branch is pushed, and it is kept on the remote after the merge as it is in the clone. A local `main` follows the remote only by fast-forward.
 
-**R5.** `scripts/setup-clone.sh` sets a third setting, `pull.ff` = `only`, and its check asks for it. With `merge.ff` = `false` alone, a plain `git pull` onto `main` makes a merge commit of its own, tried on git 2.54 on 2026-09-30.
+<a id="r5"></a>**R5.** `scripts/setup-clone.sh` sets a third setting, `pull.ff` = `only`, and its check asks for it. With `merge.ff` = `false` alone, a plain `git pull` onto `main` makes a merge commit of its own, tried on git 2.54 on 2026-09-30.
 
-**R6.** The deferred item R7 of [dec-0032-work-starts-on-a-branch](dec-0032-work-starts-on-a-branch.md) is now real: whatever was done to a local `main` by the ways its R6 names reaches the shared one only through a pull request's merge. A local `main` stays unheld, and the hook stays as the fast local check.
+<a id="r6"></a>**R6.** The deferred item R7 of [dec-0032-work-starts-on-a-branch](dec-0032-work-starts-on-a-branch.md#r7) is now real: whatever was done to a local `main` by the ways its R6 names reaches the shared one only through a pull request's merge. A local `main` stays unheld, and the hook stays as the fast local check.
 
 ## 3. How the yes is given when the decider is the pull request's only human
 
@@ -64,17 +64,17 @@ The session recommended C. **R3.** B, chosen by the decider in chat on 2026-09-3
   - **Pros:** the smallest rule change.
   - **Cons:** the yes comes before the pull request's checks; the kernel wording changes anyway.
 
-The session recommended A. **R7.** A, chosen by the decider in chat on 2026-09-30. The `process` row of [kernel §4](../../kernel/CONVENTIONS.md#k4) now reads: one human yes on the change, named in the commit that lands it — where a PR flow exists, the commit that merges the pull request, the yes being its approval or, where no second human reviews it, the decider's own merge.
+The session recommended A. <a id="r7"></a>**R7.** A, chosen by the decider in chat on 2026-09-30. The `process` row of [kernel §4](../../kernel/CONVENTIONS.md#k4) now reads: one human yes on the change, named in the commit that lands it — where a PR flow exists, the commit that merges the pull request, the yes being its approval or, where no second human reviews it, the decider's own merge.
 
-**R8.** In the kit, the decider gives the yes by merging the pull request, or by saying it in chat and having the session merge in the decider's name. The merge commit names the yes and carries the `Accepted:` and `Carry-Audit:` trailers in its last paragraph, written with `--body`. It is the commit that lands the change and completes it in the sense of rule 5 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5): a yes given in chat is complete with it, and the window for corrections closes there. A decider who merges on the forge's page writes the yes and the trailers into the merge message there. From the merge of the kit's first pull request on, every `Accepted:` and `Carry-Audit:` trailer stands on a merge commit, never on a branch commit: a wrong receipt is mended by accepting again in the merge commit of a new pull request, and a `product` record's lone `Carry-Audit:` trailer stands on the merge commit too.
+<a id="r8"></a>**R8.** In the kit, the decider gives the yes by merging the pull request, or by saying it in chat and having the session merge in the decider's name. The merge commit names the yes and carries the `Accepted:` and `Carry-Audit:` trailers in its last paragraph, written with `--body`. It is the commit that lands the change and completes it in the sense of rule 5 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5): a yes given in chat is complete with it, and the window for corrections closes there. A decider who merges on the forge's page writes the yes and the trailers into the merge message there. From the merge of the kit's first pull request on, every `Accepted:` and `Carry-Audit:` trailer stands on a merge commit, never on a branch commit: a wrong receipt is mended by accepting again in the merge commit of a new pull request, and a `product` record's lone `Carry-Audit:` trailer stands on the merge commit too.
 
-**R9.** An audit finding is justified in a commit message of the change, the merge commit included — never only in the pull request's description, which git does not keep.
+<a id="r9"></a>**R9.** An audit finding is justified in a commit message of the change, the merge commit included — never only in the pull request's description, which git does not keep.
 
-**R10.** The review of an `architecture` record is complete with the merge that accepts the record, once the decider has said so, in chat or by that merge.
+<a id="r10"></a>**R10.** The review of an `architecture` record is complete with the merge that accepts the record, once the decider has said so, in chat or by that merge.
 
-**R11.** R7 and R8 narrow the sunset of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) — PR approval on a protected main from rollout Phase D — and the clause of R2 of [dec-0032-work-starts-on-a-branch](dec-0032-work-starts-on-a-branch.md) that puts the yes on a branch commit until the kit has a PR flow. R4 replaces that R2's merge command, `git merge --no-ff work/<name>`, and R5 adds a third setting to the two of dec-0032's R5. R6 withdraws the clause of dec-0032's R7 that a pull request's review sees the content of a merge concluded by hand: no approval is required, so no review is promised. The acceptances made until the merge of the kit's first pull request, each on the branch commit that named the yes, stand.
+<a id="r11"></a>**R11.** R7 and R8 narrow the sunset of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) — PR approval on a protected main from rollout Phase D — and the clause of R2 of [dec-0032-work-starts-on-a-branch](dec-0032-work-starts-on-a-branch.md#r2) that puts the yes on a branch commit until the kit has a PR flow. R4 replaces that R2's merge command, `git merge --no-ff work/<name>`, and R5 adds a third setting to the two of [dec-0032-work-starts-on-a-branch](dec-0032-work-starts-on-a-branch.md#r5)'s R5. R6 withdraws the clause of [dec-0032-work-starts-on-a-branch](dec-0032-work-starts-on-a-branch.md#r7)'s R7 that a pull request's review sees the content of a merge concluded by hand: no approval is required, so no review is promised. The acceptances made until the merge of the kit's first pull request, each on the branch commit that named the yes, stand.
 
-**R12.** A record born `active` because it grows while its change is made is `inactive` by the last commit of its branch, which the merge that names its yes or ends its review lands: a pull request's merge edits no file. This replaces the moment R10 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md) set, the commit that names its yes or ends its review.
+<a id="r12"></a>**R12.** A record born `active` because it grows while its change is made is `inactive` by the last commit of its branch, which the merge that names its yes or ends its review lands: a pull request's merge edits no file. This replaces the moment R10 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md#r10) set, the commit that names its yes or ends its review.
 
 ## Applied
 

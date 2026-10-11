@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-Module [`const-styling`](../requirements.md#const-styling) landed on 2026-09-26 with three negated patterns in its `territories` dial, taking the 43 records accepted before [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md) and the 8 comparisons frozen before its own out of the scan: an accepted record is never edited to fit a later rule ([rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14)) and a comparison is frozen at its module's yes ([rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7)), so a finding in one could never be fixed by an edit. The style rules of the two policies said the ranges were out, and rule 9 of the root policy granted every kind's policy that permission; R7 of the module's record named the two uses. The decider asked the same day why the territory carried so many exclusions. The answer: they protected nothing — the scan was green on every one of the 51 documents before they were added — and they hid every signature in those documents where the module's own dial can hide one. The scan examined 63 of 114 Markdown files.
+Module [`const-styling`](../requirements.md#const-styling) landed on 2026-09-26 with three negated patterns in its `territories` dial, taking the 43 records accepted before [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md) and the 8 comparisons frozen before its own out of the scan: an accepted record is never edited to fit a later rule ([rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14)) and a comparison is frozen at its module's yes ([rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7)), so a finding in one could never be fixed by an edit. The style rules of the two policies said the ranges were out, and rule 9 of the root policy granted every kind's policy that permission; R7 of the module's record, [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r7), named the two uses. The decider asked the same day why the territory carried so many exclusions. The answer: they protected nothing — the scan was green on every one of the 51 documents before they were added — and they hid every signature in those documents where the module's own dial can hide one. The scan examined 63 of 114 Markdown files.
 
 ## Options
 
@@ -32,11 +32,11 @@ B, chosen by the decider in chat on 2026-09-26, with the record written now rath
 
 ## Ruling
 
-**R1.** A document a rule of its policy freezes — an accepted record, a frozen comparison — stands as written, and a trace of a default in it is declared by a departure over a number range that holds it, or its path, never by an edit and never by taking it out of the scan's territory; rule 9 of the root policy says so for every kind, and the style rules of the records and research policies say so for theirs.
+<a id="r1"></a>**R1.** A document a rule of its policy freezes — an accepted record, a frozen comparison — stands as written, and a trace of a default in it is declared by a departure over a number range that holds it, or its path, never by an edit and never by taking it out of the scan's territory; rule 9 of the root policy says so for every kind, and the style rules of the records and research policies say so for theirs.
 
-**R2.** The kit's `const-styling.territories` covers every Markdown file, the frozen documents included; no departure is declared for them until a signature bites one, since none of them carries a signature today.
+<a id="r2"></a>**R2.** The kit's `const-styling.territories` covers every Markdown file, the frozen documents included; no departure is declared for them until a signature bites one, since none of them carries a signature today.
 
-**R3.** The clause of R7 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md) that named the two number-range exclusions as uses of the root policy's permission is reversed, with the permission itself; the rest of R7 stands.
+<a id="r3"></a>**R3.** The clause of R7 of [dec-0044-styling-module-rulings](dec-0044-styling-module-rulings.md#r7) that named the two number-range exclusions as uses of the root policy's permission is reversed, with the permission itself; the rest of R7 stands.
 
 ## Applied
 

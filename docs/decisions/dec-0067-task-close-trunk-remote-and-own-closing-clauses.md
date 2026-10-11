@@ -14,7 +14,7 @@ decider: Eugene Chernyshov
 An audit of the kit's hardcoded logic on 2026-10-02 found these gaps in [`const-task-close`](../requirements.md#const-task-close), each probed again on the trunk on 2026-10-06:
 
 - **The trunk's remote.** A bare scan finds the trunk as a local branch or as `origin/<trunk>`. The name `origin` is fixed in code, so a fork whose real project is the remote `upstream` stops with a configuration failure whose fix names a dial that cannot help.
-- **A stale local trunk.** When the local trunk exists, it wins, even when it is behind `origin/<trunk>`. A branch cut from the fresher tip then gets a red for commits other people landed. R5 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md) ruled the lookup and listed this as a con: "only more paths examined". The probe shows a false red.
+- **A stale local trunk.** When the local trunk exists, it wins, even when it is behind `origin/<trunk>`. A branch cut from the fresher tip then gets a red for commits other people landed. R5 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md#r5) ruled the lookup and listed this as a con: "only more paths examined". The probe shows a false red.
 - **Signature lines.** With `log.showSignature=true`, git prints the signature check before each line the trailer read parses, and a commit's label in a note or a red spans two lines.
 - **An old git.** A git that does not know an option of the trailer read prints the placeholder as text. The scan then blames every commit for a declaration it never wrote.
 - **The closing clause.** Every install-failure line of the gate ends "until then Markdown writes pass unchecked", while the gate checks the tree at a turn's end and a change's documents. The shared rule in [GATE.md §2](../../shared/GATE.md#g2) told a gate with a hook mode to keep that default, and the rule was already broken by the shell gate of [`const-interaction`](../requirements.md#const-interaction).
@@ -39,7 +39,7 @@ The change has `process` stakes: it adds a dial a consumer types, reverses part 
 
 The session recommended A: the two topics touch one module and one documents step, and one record with separate sections is still easy to cite by handle. The decider chose A in chat on 2026-10-06.
 
-**R1.** One record holds the change's rulings. History only: it rules how this change was recorded.
+<a id="r1"></a>**R1.** One record holds the change's rulings. History only: it rules how this change was recorded.
 
 ## 2. Whether the stale-trunk fix goes first
 
@@ -54,7 +54,7 @@ The stale-trunk fix needs no new dial and hits plain `origin` setups, so it coul
 
 The session recommended A: the kit itself does not hit the case — every branch is cut after a pull of the trunk, and CI has no local trunk — and no consumer exists yet. The decider chose A in chat on 2026-10-06.
 
-**R2.** The stale-trunk fix lands in the same change as the remote's dial. History only.
+<a id="r2"></a>**R2.** The stale-trunk fix lands in the same change as the remote's dial. History only.
 
 ## 3. Where the scan finds the trunk
 
@@ -75,11 +75,11 @@ The audit argued four ways to let a bare scan find a trunk on a remote that is n
 
 The audit recommended A, with the fresher tip taken when both refs exist. The decider kept A when reading the change's plan on 2026-10-06.
 
-**R3.** A dial `trunk_remote`, default `origin`, names the remote whose `<remote>/<trunk>` the scan looks up. It accepts a non-empty string with no white space and no control character — U+0000 to U+001F, U+007F, U+0080 to U+009F — that does not begin with a dash, kept as written, a slash included, since git allows one in a remote's name. Anything else is a configuration failure at every entry point, the hook included. Whether git knows the remote is learned at the lookup.
+<a id="r3"></a>**R3.** A dial `trunk_remote`, default `origin`, names the remote whose `<remote>/<trunk>` the scan looks up. It accepts a non-empty string with no white space and no control character — U+0000 to U+001F, U+007F, U+0080 to U+009F — that does not begin with a dash, kept as written, a slash included, since git allows one in a remote's name. Anything else is a configuration failure at every entry point, the hook included. Whether git knows the remote is learned at the lookup.
 
-**R4.** The trunk is the local branch `<trunk>` or `<remote>/<trunk>`. When only one exists, it is the trunk. When both exist, the tracked one is the trunk if the local one is its ancestor or equal to it; otherwise — the local one ahead, the two split, or an ancestry question git cannot answer — the local one. A head that is the trunk examines its last landed change: the branch of that name, or a detached HEAD equal to either tip. This reverses in part R5 of dec-0036-task-close-module-rulings, its lookup "as a local branch, then as `origin/<trunk>`", and corrects its con "only more paths examined", which the audit's probe showed to be a red for another person's commit.
+<a id="r4"></a>**R4.** The trunk is the local branch `<trunk>` or `<remote>/<trunk>`. When only one exists, it is the trunk. When both exist, the tracked one is the trunk if the local one is its ancestor or equal to it; otherwise — the local one ahead, the two split, or an ancestry question git cannot answer — the local one. A head that is the trunk examines its last landed change: the branch of that name, or a detached HEAD equal to either tip. This reverses in part R5 of [dec-0036-task-close-module-rulings](dec-0036-task-close-module-rulings.md#r5), its lookup "as a local branch, then as `origin/<trunk>`", and corrects its con "only more paths examined", which the audit's probe showed to be a red for another person's commit.
 
-**R5.** When the trunk is found nowhere, the configuration failure names `<remote>/<trunk>` and teaches `git fetch <remote> <trunk>`, both dials and `--since`. The values inside the fetch command are printed whole through `escaped`, since the reader types them, and the values that only point are cut through `echoed`, as R8 of [dec-0064-shared-gate-defects-one-refusal-one-path-rule](dec-0064-shared-gate-defects-one-refusal-one-path-rule.md) asks.
+<a id="r5"></a>**R5.** When the trunk is found nowhere, the configuration failure names `<remote>/<trunk>` and teaches `git fetch <remote> <trunk>`, both dials and `--since`. The values inside the fetch command are printed whole through `escaped`, since the reader types them, and the values that only point are cut through `echoed`, as R8 of [dec-0064-shared-gate-defects-one-refusal-one-path-rule](dec-0064-shared-gate-defects-one-refusal-one-path-rule.md#r8) asks.
 
 ## 4. An old git: detect or declare
 
@@ -94,7 +94,7 @@ The trailer read and the ref check use git options of uncertain age. The audit c
 
 The audit recommended A. The decider kept it when reading the change's plan on 2026-10-06.
 
-**R6.** An old git is detected, never declared. A commit whose trailer field comes back beginning with the literal `%(trailers` is a configuration failure that names git's own version line and the fix "install a newer git"; when `git version` itself fails, its first line stands in that place. No version floor is stated or checked. The guard reads the start of a commit's whole trailer field, so a reason that quotes the placeholder further in, or a later declaration of the same commit that begins with it, is read as before, while a commit whose first declaration begins with it gets the same failure. A ref that begins with a dash is refused before git is asked, with the unknown-ref failure and the detail "a ref cannot begin with a dash"; `--since -x` written as two words is the command line's own misinvocation.
+<a id="r6"></a>**R6.** An old git is detected, never declared. A commit whose trailer field comes back beginning with the literal `%(trailers` is a configuration failure that names git's own version line and the fix "install a newer git"; when `git version` itself fails, its first line stands in that place. No version floor is stated or checked. The guard reads the start of a commit's whole trailer field, so a reason that quotes the placeholder further in, or a later declaration of the same commit that begins with it, is read as before, while a commit whose first declaration begins with it gets the same failure. A ref that begins with a dash is refused before git is asked, with the unknown-ref failure and the detail "a ref cannot begin with a dash"; `--since -x` written as two words is the command line's own misinvocation.
 
 ## 5. The gate's closing clause
 
@@ -115,7 +115,7 @@ The audit argued four ways to treat the clause that ends the gate's install-fail
 
 The audit recommended A without D. The decider kept it when reading the change's plan on 2026-10-06.
 
-**R7.** const-task-close names its own `until_installed` clause in its identity, and its entry files carry the same clause in `C1`, `C14` and `C15`; `until_fixed` stays the shared default, "until it is fixed this check does not run", true for this gate. The count line every configuration failure ends with, "0 documents examined", stays the shared one and is read as nothing examined.
+<a id="r7"></a>**R7.** const-task-close names its own `until_installed` clause in its identity, and its entry files carry the same clause in `C1`, `C14` and `C15`; `until_fixed` stays the shared default, "until it is fixed this check does not run", true for this gate. The count line every configuration failure ends with, "0 documents examined", stays the shared one and is read as nothing examined.
 
 ## 6. The shared rule
 
@@ -133,9 +133,9 @@ The rule of [GATE.md §2](../../shared/GATE.md#g2) said the default clauses are 
 
 The session recommended A: it fixes the rule's error with a document edit, and a fixture for every clause could come as its own item. The decider chose B in chat on 2026-10-06.
 
-**R8.** The default closing clauses fit a gate whose hook runs on a Markdown write, before it or after it; `until_fixed`'s default fits every gate. Any other gate — a scan alone, a hook on the shell, a hook at a turn's end — names `until_installed` with what its failure leaves unchecked. Its entry files carry the same clause in `C1`, `C14` and `C15`, its module's document writes the clause out, and an item of its runner holds it in `C2` and in the entry files. Generators and session-start printers keep their own rules.
+<a id="r8"></a>**R8.** The default closing clauses fit a gate whose hook runs on a Markdown write, before it or after it; `until_fixed`'s default fits every gate. Any other gate — a scan alone, a hook on the shell, a hook at a turn's end — names `until_installed` with what its failure leaves unchecked. Its entry files carry the same clause in `C1`, `C14` and `C15`, its module's document writes the clause out, and an item of its runner holds it in `C2` and in the entry files. Generators and session-start printers keep their own rules.
 
-**R9.** const-styling's clause, `until then no document is scanned for style`, is held by an item of its runner.
+<a id="r9"></a>**R9.** const-styling's clause, `until then no document is scanned for style`, is held by an item of its runner.
 
 ## 7. The clause's words
 
@@ -153,7 +153,7 @@ The clause tells a reader what is at risk while the fix waits. The gate checks t
 
 The session recommended C: the clause is the only part of the line that says what is at risk, and only C names the documents. The decider chose C in chat on 2026-10-06.
 
-**R10.** const-task-close's clause is `until then neither the tree at turn end nor a change's documents are checked`.
+<a id="r10"></a>**R10.** const-task-close's clause is `until then neither the tree at turn end nor a change's documents are checked`.
 
 ## 8. const-interaction's clauses
 
@@ -171,7 +171,7 @@ const-interaction's code already prints its two gates' own clauses, while its do
 
 The session recommended B: two clauses written out are the whole gap found, and a test can come if a clause ever drifts. The decider chose C in chat on 2026-10-06.
 
-**R11.** const-interaction's document writes out its two gates' clauses — the shell gate's `until then shell commands pass unchecked`, the list check's `until then no list is scanned` — and an item of its runner holds both.
+<a id="r11"></a>**R11.** const-interaction's document writes out its two gates' clauses — the shell gate's `until then shell commands pass unchecked`, the list check's `until then no list is scanned` — and an item of its runner holds both.
 
 ## 9. The kit's carry-list check
 
@@ -186,13 +186,13 @@ The kit's `scripts/check-carry-lists.py` reads the `Accepted:` and `Carry-Audit:
 
 The session recommended A: no one is hit today, and the change had grown twice. The decider chose B in chat on 2026-10-06.
 
-**R12.** The kit's carry-list check reads acceptances without signature lines and stops, naming git's version line, when a field of an acceptance comes back beginning with the literal placeholder. History only: kit tooling at routine stakes, its behaviour stated in the script itself; it rules nothing a document carries.
+<a id="r12"></a>**R12.** The kit's carry-list check reads acceptances without signature lines and stops, naming git's version line, when a field of an acceptance comes back beginning with the literal placeholder. History only: kit tooling at routine stakes, its behaviour stated in the script itself; it rules nothing a document carries.
 
 ## 10. What the change makes where no choice existed
 
-**R13.** The trailer read asks git without signature lines.
+<a id="r13"></a>**R13.** The trailer read asks git without signature lines.
 
-**R14.** Item 36 of const-task-close's runner holds a broken HEAD in each ref store: a zeroed ref file in a repository of the files store, and a ref to a commit whose object is gone in one of the reftable store. Each half checks the store it runs in, which needs git 2.45 or newer to run the fixtures; on an older git the half is red and the runner goes on.
+<a id="r14"></a>**R14.** Item 36 of const-task-close's runner holds a broken HEAD in each ref store: a zeroed ref file in a repository of the files store, and a ref to a commit whose object is gone in one of the reftable store. Each half checks the store it runs in, which needs git 2.45 or newer to run the fixtures; on an older git the half is red and the runner goes on.
 
 ## Applied
 

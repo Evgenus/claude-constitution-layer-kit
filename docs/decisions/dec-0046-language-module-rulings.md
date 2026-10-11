@@ -27,7 +27,7 @@ The handoff of the previous session left the next work unchosen.
   - **Pros:** the routine is proven nine times and the tooling is in place.
   - **Cons:** neither module has a friction signal, the condition [CLAUDE.md](../../CLAUDE.md) names for growth.
 
-The session recommended A with B beside it. C was chosen; then, between the two modules, the session recommended `const-doc-budgets` — deterministic, Python only, its measuring pass the data its own row asks for — over `const-language`, whose binary is a new dependency class and whose thresholds had no data behind them. **R1.** `const-language`, chosen by the decider in chat on 2026-09-26 with the words "perform proper research of enforcement instruments in internet"; the session's objection stands: no self-limiting module had a friction signal, and the module was started without one.
+The session recommended A with B beside it. C was chosen; then, between the two modules, the session recommended `const-doc-budgets` — deterministic, Python only, its measuring pass the data its own row asks for — over `const-language`, whose binary is a new dependency class and whose thresholds had no data behind them. <a id="r1"></a>**R1.** `const-language`, chosen by the decider in chat on 2026-09-26 with the words "perform proper research of enforcement instruments in internet"; the session's objection stands: no self-limiting module had a friction signal, and the module was started without one.
 
 ## 2. The instrument and the home of its thresholds
 
@@ -43,7 +43,7 @@ The comparison found Vale the one runnable instrument with a configurable grade 
   - **Pros:** every kit gate stays at Python and PyYAML.
   - **Cons:** the module owns Markdown stripping, where the comparison measured gaps of twenty grades between raw and stripped text; the row says "pass Vale".
 
-The session recommended A. **R2.** A, chosen by the decider in chat on 2026-09-26: the gate generates Vale's configuration and one style from the dials into a temporary directory per run, reads it with `--config` and `--no-global`, ships its two founding lists and its passive pattern in the plugin, syncs and pins nothing, and refuses a `vale` that is missing or below 3.23.0 with the install command, as the shared failure shape for a missing dependency; the specification's "pin packages by release URL" becomes the consumer's route for packages of its own, outside the module. **R3.** (The departures sentence below is section 8's choice of 2026-09-27.) The rules are five, each with a level in the dial `levels` — `error` a finding, `warning` a note, `off` unwritten — and every rule off is refused, since a gate that checks nothing would report green as if it had checked; the founding lists are extended by the dials `forbidden` and `simpler` and trimmed by `exceptions`, which refuses a phrase no list holds. A document that must stand as it is written is declared as an entry of the dial `departures`, by path or by pattern, naming the rules it may fail there and the reason in one line, and the gate still reads it for every other rule; an entry matching no document is a note, a malformed one a configuration failure. **R4.** The envelope is blanked before Vale reads, so a title or an id is not prose and the envelope stays the sibling gate's; a Vale comment outside code is blanked and reported as a finding, since a departure is declared in the dials file and never marked in the document, and one inside a fence or a code span is a mention Vale does not honour and is left as it stands.
+The session recommended A. <a id="r2"></a>**R2.** A, chosen by the decider in chat on 2026-09-26: the gate generates Vale's configuration and one style from the dials into a temporary directory per run, reads it with `--config` and `--no-global`, ships its two founding lists and its passive pattern in the plugin, syncs and pins nothing, and refuses a `vale` that is missing or below 3.23.0 with the install command, as the shared failure shape for a missing dependency; the specification's "pin packages by release URL" becomes the consumer's route for packages of its own, outside the module. <a id="r3"></a>**R3.** (The departures sentence below is section 8's choice of 2026-09-27.) The rules are five, each with a level in the dial `levels` — `error` a finding, `warning` a note, `off` unwritten — and every rule off is refused, since a gate that checks nothing would report green as if it had checked; the founding lists are extended by the dials `forbidden` and `simpler` and trimmed by `exceptions`, which refuses a phrase no list holds. A document that must stand as it is written is declared as an entry of the dial `departures`, by path or by pattern, naming the rules it may fail there and the reason in one line, and the gate still reads it for every other rule; an entry matching no document is a note, a malformed one a configuration failure. <a id="r4"></a>**R4.** The envelope is blanked before Vale reads, so a title or an id is not prose and the envelope stays the sibling gate's; a Vale comment outside code is blanked and reported as a finding, since a departure is declared in the dials file and never marked in the document, and one inside a fence or a code span is a mention Vale does not honour and is left as it stands.
 
 ## 3. The default grade ceiling and the kit's own value
 
@@ -59,7 +59,7 @@ On the kit's tree at the survey, 38 of 109 documents read above grade 10 by Vale
   - **Pros:** the kit nearly meets it.
   - **Cons:** 12 is where the kernel and the policies read, the documents a non-native reader finds hardest; a consumer with no calibration would get a ceiling that flags almost nothing.
 
-The session recommended B. **R5.** B, chosen by the decider in chat on 2026-09-26: the module's default `grade_ceiling` is 10, exclusive as Vale computes it; the kit's own is 13, and its descent — 12, then 10 — is a work item after this module, one step per change with its audit, named in the rollout plan.
+The session recommended B. <a id="r5"></a>**R5.** B, chosen by the decider in chat on 2026-09-26: the module's default `grade_ceiling` is 10, exclusive as Vale computes it; the kit's own is 13, and its descent — 12, then 10 — is a work item after this module, one step per change with its audit, named in the rollout plan.
 
 ## 4. The default sentence limit and the kit's own value
 
@@ -75,7 +75,7 @@ On the kit's current-state documents at the survey, frozen ones out: 1,365 sente
   - **Pros:** an eighth of the kit's sentences instead of a third.
   - **Cons:** no public guidance names 40.
 
-The session recommended B. **R6.** B, chosen by the decider in chat on 2026-09-26: the module's default `sentence_words` is 25, exclusive, a heading being a sentence; the kit's own is 100, and its descent — 60, then 40, then 25 — is the same work item as R5's. **R7.** Two routine calls the decider did not object to: the consumer extends the two lists through the dials, since the gate generates the rules from them; a consumer's own Vale style admitted by path waits for a consumer's signal, deferred in the module's document.
+The session recommended B. <a id="r6"></a>**R6.** B, chosen by the decider in chat on 2026-09-26: the module's default `sentence_words` is 25, exclusive, a heading being a sentence; the kit's own is 100, and its descent — 60, then 40, then 25 — is the same work item as R5's. <a id="r7"></a>**R7.** Two routine calls the decider did not object to: the consumer extends the two lists through the dials, since the gate generates the rules from them; a consumer's own Vale style admitted by path waits for a consumer's signal, deferred in the module's document.
 
 ## 5. The enforcement moment
 
@@ -86,7 +86,7 @@ The session recommended B. **R6.** B, chosen by the decider in chat on 2026-09-2
   - **Pros:** the scan satisfies the row as written; a smaller module.
   - **Cons:** a red found at the commit gate is the slow loop; a post-write hook is the one thing Vale's own plugin ships.
 
-The session recommended A. **R8.** A, chosen by the decider in chat on 2026-09-26: the plugin wires `PostToolUse` on `Write|Edit` and ships the scan; there is no `PreToolUse` entry, since a document-wide rule before the write refuses every partial fix, and the gate judges a `PreToolUse` payload the same way only where a consumer wires it; after a write the hook shows the findings that fit in 8,000 characters, and its count line names the total and the scan.
+The session recommended A. <a id="r8"></a>**R8.** A, chosen by the decider in chat on 2026-09-26: the plugin wires `PostToolUse` on `Write|Edit` and ships the scan; there is no `PreToolUse` entry, since a document-wide rule before the write refuses every partial fix, and the gate judges a `PreToolUse` payload the same way only where a consumer wires it; after a write the hook shows the findings that fit in 8,000 characters, and its count line names the total and the scan.
 
 ## 6. Where the plain-chat row lives
 
@@ -99,7 +99,7 @@ The matrix held [requirement A10.2](../requirements.md#a10-2) under module [`con
   - **Pros:** no matrix edit inside this module's work.
   - **Cons:** every reader of the matrix re-asks a closed question.
 
-The session recommended A. **R9.** A, chosen by the decider in chat on 2026-09-26: the row's destination is module [`const-interaction`](../requirements.md#const-interaction), the boundary note settled, and this module ships nothing for chat.
+The session recommended A. <a id="r9"></a>**R9.** A, chosen by the decider in chat on 2026-09-26: the row's destination is module [`const-interaction`](../requirements.md#const-interaction), the boundary note settled, and this module ships nothing for chat.
 
 ## 7. Sentence-case headings as this module's first rule
 
@@ -112,7 +112,7 @@ The comparison overturned the graduation of the twelve markup signatures of modu
   - **Pros:** one word rule proves the path end to end.
   - **Cons:** the same two laws, and a rule before its default puts the gate ahead of the guide.
 
-The session recommended A. **R10.** A, chosen by the decider in chat on 2026-09-26: no heading-case rule at founding; the twelve signatures stay the styling scan's, and the graduation path is read as the path for rules about words, deferred in the module's document with its signal.
+The session recommended A. <a id="r10"></a>**R10.** A, chosen by the decider in chat on 2026-09-26: no heading-case rule at founding; the twelve signatures stay the styling scan's, and the graduation path is read as the path for rules about words, deferred in the module's document with its signal.
 
 ## 8. The kit's own calibration and the frozen documents
 
@@ -128,7 +128,7 @@ The kit's dial follows the rulings above, and the session made the calls of R12 
   - **Pros:** nothing to build, and the kit's scan green at once but for the one formal word.
   - **Cons:** the kit's calibration hollowed, and every step of the descent brings the findings back.
 
-The session recommended A. **R11.** A, chosen by the decider in chat on 2026-09-27: the kit's accepted records and frozen comparisons stay in this gate's territory and are declared as one entry of the dial `departures` over their number ranges, allowing the four content rules with the reason that they stand as written; the ranges grow with each acceptance, this record's own number and its comparison among them; the policies of both kinds say so beside their clause on the style scan. **R12.** The kit's passive rule is `off`, not `warning`: the day-one scan printed 1,224 passive notes over 64 documents, every sampled one a passive chosen — the register of the kit's documents — and a note nobody reads on every scan is noise, not a warning; a consumer's default stays `warning`. **R13.** Every policy's enforcement rule names this gate among the guards of its kind, after a write and in its scan, as it names the style scan; no policy carries a language rule of its own, since the thresholds live in the dials file and not in a policy.
+The session recommended A. <a id="r11"></a>**R11.** A, chosen by the decider in chat on 2026-09-27: the kit's accepted records and frozen comparisons stay in this gate's territory and are declared as one entry of the dial `departures` over their number ranges, allowing the four content rules with the reason that they stand as written; the ranges grow with each acceptance, this record's own number and its comparison among them; the policies of both kinds say so beside their clause on the style scan. <a id="r12"></a>**R12.** The kit's passive rule is `off`, not `warning`: the day-one scan printed 1,224 passive notes over 64 documents, every sampled one a passive chosen — the register of the kit's documents — and a note nobody reads on every scan is noise, not a warning; a consumer's default stays `warning`. <a id="r13"></a>**R13.** Every policy's enforcement rule names this gate among the guards of its kind, after a write and in its scan, as it names the style scan; no policy carries a language rule of its own, since the thresholds live in the dials file and not in a policy.
 
 ## Carry list
 

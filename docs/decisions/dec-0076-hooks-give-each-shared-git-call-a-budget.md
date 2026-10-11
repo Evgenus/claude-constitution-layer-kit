@@ -33,7 +33,7 @@ The module's own budget and its limit are routine, as the kit's earlier budgets 
 
 The session recommended B: the shared change sets behaviour that all eleven gates show the user, and one pull request keeps the two budgets reviewed side by side. The decider chose B in chat on 2026-10-08.
 
-**R1.** One pull request and one record for the shared git budget; the module's budget for its check after a write and the clause of its limit 15 are routine, noted in their commits.
+<a id="r1"></a>**R1.** One pull request and one record for the shared git budget; the module's budget for its check after a write and the clause of its limit 15 are routine, noted in their commits.
 
 ## 2. The budget of the shared git
 
@@ -51,15 +51,15 @@ The question was how the shared git calls get a budget.
 
 The session recommended A: it closes the hang that has a known cause, the file list under a stalled fsmonitor hook, in every hook, at the cost of one function and one line; B is the larger design, left out of this change; the value of 3 s was the session's to tune, open to the decider's override, and leaves room inside the handlers' margins for the interpreter's start. The decider chose A in chat on 2026-10-08.
 
-**R2.** In hook mode every call of the shared `git` has a budget of 3 s, `GIT_SECONDS`, its own for each call: the shared code's own calls and every call a module makes through it. In scan mode and in act mode the function gives git no clock, so a slow scan or a slow move is waited for as long as it takes. A module's own clock for git calls it makes outside the shared function stays its own.
+<a id="r2"></a>**R2.** In hook mode every call of the shared `git` has a budget of 3 s, `GIT_SECONDS`, its own for each call: the shared code's own calls and every call a module makes through it. In scan mode and in act mode the function gives git no clock, so a slow scan or a slow move is waited for as long as it takes. A module's own clock for git calls it makes outside the shared function stays its own.
 
-**R3.** The mode is part of the one declaration the shared guard makes for the process: the identity and the mode together, still the package's one global of its own. A second declaration that differs in either is a defect.
+<a id="r3"></a>**R3.** The mode is part of the one declaration the shared guard makes for the process: the identity and the mode together, still the package's one global of its own. A second declaration that differs in either is a defect.
 
-**R4.** A call past its budget is a configuration failure, non-blocking in hook mode like every configuration failure, with one of two shared lines. Each names the seconds and git's subcommand, and each gives a fix a person can follow to green and that harms nothing. C12.12, for a call in the repository, names where git ran and what can stall git there: a stalled file system or, for a call that reads the index, a `core.fsmonitor` hook, with the command that shows the hook. It then gives the call that hung, to run by hand as the gate made it, the argument `-z` dropped and a standard input replaced by `/dev/null`. C12.13, for a call in the matcher's scratch repository, names the system's temporary directory and `TMPDIR`, and git's configuration outside any repository, with the commands that list it; it asks for no git command run there by hand. Both say that the scan, which gives git as long as it takes, checks the same tree.
+<a id="r4"></a>**R4.** A call past its budget is a configuration failure, non-blocking in hook mode like every configuration failure, with one of two shared lines. Each names the seconds and git's subcommand, and each gives a fix a person can follow to green and that harms nothing. C12.12, for a call in the repository, names where git ran and what can stall git there: a stalled file system or, for a call that reads the index, a `core.fsmonitor` hook, with the command that shows the hook. It then gives the call that hung, to run by hand as the gate made it, the argument `-z` dropped and a standard input replaced by `/dev/null`. C12.13, for a call in the matcher's scratch repository, names the system's temporary directory and `TMPDIR`, and git's configuration outside any repository, with the commands that list it; it asks for no git command run there by hand. Both say that the scan, which gives git as long as it takes, checks the same tree.
 
-**R5.** Every handler of a module's `hooks.json` whose script names `python3`, a gate's or a session-start printer's, has a timeout above `GIT_SECONDS`, so a hung git ends with the line before the platform cuts the hook; a shared acceptance item holds it, beside the hangs.
+<a id="r5"></a>**R5.** Every handler of a module's `hooks.json` whose script names `python3`, a gate's or a session-start printer's, has a timeout above `GIT_SECONDS`, so a hung git ends with the line before the platform cuts the hook; a shared acceptance item holds it, beside the hangs.
 
-**R6.** What the budget does not hold: a hook that makes many slow calls, each under 3 s, is bounded by no budget of git's; a healthy git slower than 3 s in a hook gives the C12.12 line instead of a late verdict; a process git started, a `core.fsmonitor` hook, may outlive the git the timeout kills.
+<a id="r6"></a>**R6.** What the budget does not hold: a hook that makes many slow calls, each under 3 s, is bounded by no budget of git's; a healthy git slower than 3 s in a hook gives the C12.12 line instead of a late verdict; a process git started, a `core.fsmonitor` hook, may outlive the git the timeout kills.
 
 ## Applied
 
