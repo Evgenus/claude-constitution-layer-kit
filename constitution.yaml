@@ -133,7 +133,7 @@ const-referencing:                    # the kit's own reference forms (requireme
         - "/kernel/CONVENTIONS.md"
     - pattern: '(?i)\blaws? [0-9]'
       names: a law
-      fix: '[law 4 of CLAUDE.md](<path to>/CLAUDE.md#law-4)'
+      fix: '[law <n> of CLAUDE.md](<path to>/CLAUDE.md#law-<n>) — <n> is the number of the law cited'
       home:
         - "/CLAUDE.md"
   mentions:                           # a catalogued item named in a script or a configuration file must exist: no link checker reads those
