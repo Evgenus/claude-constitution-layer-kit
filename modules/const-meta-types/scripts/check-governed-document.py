@@ -25,7 +25,11 @@ Output:   hook, block: findings, with any notes above them, on stderr; hook, war
           line, plain. Configuration failures
           (BROKEN) on stderr in both modes. Every print is also appended, as one record, to
           the output log — under log_dir when set, else under the directory the platform
-          names in the environment variable CLAUDE_PLUGIN_DATA, else nowhere.
+          names in the environment variable CLAUDE_PLUGIN_DATA, else nowhere. A green write in
+          claimed territory, the first of its session for the repository and the policy, adds one
+          advisory line naming the governing policy to the JSON's additionalContext and records
+          it in the memo <log name>.pointed beside the log; with no log location there is no memo
+          and no line, and an event that names no session earns none either.
 
 This file stays parseable by any Python 3 so that an interpreter below the floor gets the
 teaching message rather than a syntax error; the code lives in the package beside it.

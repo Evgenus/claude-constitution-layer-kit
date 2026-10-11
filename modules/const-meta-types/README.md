@@ -32,6 +32,8 @@ The skill `choose-meta-type` is there for the moment a document is created or so
 
 **Before a write.** A hook runs before every `Write` and `Edit` of the platform's file tools. It reads the file as it would be after the write and finds the policy whose territory holds the path. It checks the four fields, and that no other file in the tree carries the same id. Then it lets the write through or refuses it with the message above. It sees only writes made through the file tools. A file written by a shell command, a script or another person passes it unseen, which is what the scan is for.
 
+**The pointer.** The first time in a session that a write passes for a document of some policy, the hook adds one short line to what the model reads next. The line names the policy's file and, where the policy has a rule named Enforcement, that rule's place in the file. The session can then open the rules review will hold before it edits further. The line is advice and blocks nothing. It is said once per session for each repository and policy, which the module remembers in a small file beside its log.
+
 **The scan.** The same check over every Markdown file git lists, run from the command line. It reports every finding and exits with code 2 when there is one. It says how many documents it examined, so a scan of nothing is never read as green. Run it in CI and before a merge.
 
 **The skill.** A procedure in prose, loaded when the activity occurs. Nothing in it blocks a write. The module names its skill at session start, at the start of each subagent and after every refusal, so the session knows to load it.

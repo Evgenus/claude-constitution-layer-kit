@@ -33,6 +33,7 @@ status: active
 | <a id="a2-4"></a>A2.4 | Documents created by command from the policy's template into the canonical home | M2 skill | advisory procedure — its *output* is caught by A1.4+A2.3 gates |
 | <a id="a2-5"></a>A2.5 | New-document-kind procedure: policy first (`process` stakes), then creation | M2 skill | advisory — skipping it lands in A2.3's no-policy defect anyway |
 | <a id="a2-6"></a>A2.6 | The territory declarations themselves: `root_policy`, the optional `territory_dialect`, and each policy's territory in its dials namespace ([kernel §3](../kernel/CONVENTIONS.md#k3), [kernel §6](../kernel/CONVENTIONS.md#k6)) | binding | config — validated against the kernel's dials schema at each read, malformed = configuration failure (decision [dec-0018-dials-schema](decisions/dec-0018-dials-schema.md)); no declarations = silent territory |
+| <a id="a2-7"></a>A2.7 | A write in claimed territory that passes points the session at the governing policy: the write-time hook's green carries, as added context, one advisory line naming the policy's repository-relative path and, where the policy holds a rule named Enforcement, that rule's anchor — once per session, per repository and policy, remembered in a memo beside the module's output log; with no home for the memo, or no session named, nothing is pointed. Whether the policy is read is judgment (decision [dec-0085-policy-pointer-on-a-green-write](decisions/dec-0085-policy-pointer-on-a-green-write.md)) | M1 hook+script | advisory — one context line on the write-time hook's green; the policy's rules themselves stay review |
 | <a id="a3"></a>**A3 — Decisions & records** | | | |
 | <a id="a3-1"></a>A3.1 | Stakes enum, ceremony table, fast lane | [kernel §4](../kernel/CONVENTIONS.md#k4) | definitional — enum enforced through A3.4; ceremony via review |
 | <a id="a3-2"></a>A3.2 | Record shape: `stakes`+`decider`; body = options, pros/cons, one recommendation, choice | [kernel §5](../kernel/CONVENTIONS.md#k5) | frontmatter: **gate** via A3.4; body shape: advisory (skill-emitted, review-judged) |
@@ -110,7 +111,7 @@ status: active
 <a id="const-meta-types"></a>
 ### M1 `const-meta-types` — accumulating; enters with the first governed document
 
-Description moved into the module's document: [`modules/const-meta-types/MODULE.md`](../modules/const-meta-types/MODULE.md) (rows [A1.4](#a1-4), [A1.5](#a1-5), [A2.3](#a2-3)); this anchor stays the module's handle.
+Description moved into the module's document: [`modules/const-meta-types/MODULE.md`](../modules/const-meta-types/MODULE.md) (rows [A1.4](#a1-4), [A1.5](#a1-5), [A2.3](#a2-3), [A2.7](#a2-7)); this anchor stays the module's handle.
 
 <a id="const-locations"></a>
 ### M2 `const-locations` — accumulating; enters with the second territory
