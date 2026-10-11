@@ -776,7 +776,10 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
 
 
 def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
-    """What the kit's source of the module promises, held in its installed copy on a bare repository."""
+    """What the kit's source of the module promises, held in its installed copy on a bare repository; a
+    failure that stops the check (a `Broken`) is raised in this order, the source's hooks file (`hooks_of`)
+    and the copy's hooks-file lookup first, then the walks and lookups of the links, then the rest, so that
+    a hooks folder that cannot be searched is named by its own lookup before a walk names it."""
     # The hooks file is looked up before the walks of `link_findings`, so that a hooks folder of the source
     # or of the copy that cannot be searched is the line of its own lookup (`hooks_of`, `file_at`) and not
     # the walk's, which names the same folder; the findings keep their order, the links first.
