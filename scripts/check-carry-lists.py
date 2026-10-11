@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Kit check: every decision record names a home for each thing it rules, every ruling carries
-its anchor, and every accepted record has the receipt of its carry audit.
+its anchor, the rulings run in order from dec-0039 on, and every accepted record has the receipt
+of its carry audit.
 
 A ruling that is recorded and approved but never written into a current-state document is
 lost the day its record stops being read. Whether a sentence really states a rule is judgment,
 and a reader decides it — the carry audit. This check holds the two parts of that audit a
-script can hold, and the anchor every ruling is cited by:
+script can hold, and the anchor and the order every ruling is cited by:
 
   the list     the record's last section is "Carry list"; every ruling item carries a handle,
                **R1.**, **R2.**, …; the list pairs each handle, once, with links, with "history
@@ -35,9 +36,14 @@ script can hold, and the anchor every ruling is cited by:
                <a id="r<n>"></a>, so that a ruling cited from another document is reached by a
                link to it; held in every record, whatever its number, outside fenced blocks.
 
+  the order    from the record that brought the sentence of rule 10 of plc-0004 on (`IN_ORDER`), the
+               ruling handles outside fenced blocks run R1, R2, … in document order with no gap; a
+               record that breaks the run is one finding, at the first handle out of place.
+
 What it cannot see, and leaves to the reader of the audit: a ruling item the author never gave a
-handle; whether the linked text states the rule; whether the audit the receipt names was run;
-whether a citation of a ruling from another document links its anchor.
+handle; whether the linked text states the rule; whether the audit the receipt names was run.
+Whether a citation of a ruling from another document links its anchor is held by the kit's
+scripts/check-handle-forms.py, not by this check.
 
 Records numbered below the threshold were written before the rule, and only their anchors are
 examined. The records' folder and the width of their numbers are read from the `dec` entry of
@@ -92,6 +98,7 @@ NAMESPACE = "const-catalogs"  # the dials namespace of the module that numbers t
 PREFIX = "dec"  # the catalog whose items are the decision records (rule 3 of plc-0004)
 DEFAULT_WIDTH, MAX_WIDTH = 4, 9  # the catalog module's own: a width is a whole number from 1 to 9
 THRESHOLD = 30  # the record that landed this check; earlier records predate the rule
+IN_ORDER = 39  # the record that brought the sentence of rule 10 of plc-0004: handles in order, contiguous
 LAST_SECTION = "Carry list"
 UNKNOWN_PLACEHOLDER = "%(trailers"  # what a git that does not know a trailer option prints instead
 UNGOVERNED_HOMES = (
@@ -118,6 +125,10 @@ WHY_RECEIPT = (
 WHY_ANCHOR = (
     "a ruling cited from another document is reached by its anchor; without one, every citation opens "
     "only the record"
+)
+WHY_ORDER = (
+    "a ruling is cited by its handle, and a handle out of order or a gap in the run cannot be told "
+    "from a ruling moved or lost, so a citation may open the wrong text"
 )
 # the handles HANDLE reads, which carry no suffix letter
 ANCHORED = re.compile(r'(<a id="([^"]*)"></a>)?\*\*R(\d+)\.\*\*')
@@ -375,6 +386,23 @@ def check_anchors(shown: str, text: str) -> list[Finding]:
     return findings
 
 
+def check_order(shown: str, ruled: str) -> list[Finding]:
+    """The ruling handles **R<n>.** outside fenced blocks run R1, R2, … in document order with no gap
+    (rule 10 of plc-0004); one finding, at the first handle that breaks the run."""
+    masked = FENCE.sub(lambda m: "\n" * m.group(0).count("\n"), ruled)
+    for due, number in enumerate(HANDLE.findall(masked), start=1):
+        if int(number) != due:
+            return [
+                Finding(
+                    f"{shown}: the ruling handles break their run at R{number}, where R{due} is due",
+                    WHY_ORDER,
+                    "renumber the rulings so they run R1, R2, … in document order, with the anchors "
+                    "and the carry list, before the record's yes — an accepted record keeps its handles",
+                )
+            ]
+    return []
+
+
 def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding], list[str]]:
     shown = record.relative_to(kit).as_posix()
     _, text = split_frontmatter(record.read_text(encoding="utf-8"))
@@ -392,6 +420,9 @@ def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding]
     handles = [f"R{n}" for n in HANDLE.findall(ruled)]
     findings: list[Finding] = check_anchors(shown, ruled)
     notes: list[str] = []
+    number = catalog.stem.match(record.stem)
+    if number and int(number.group(1)) >= IN_ORDER:
+        findings.extend(check_order(shown, ruled))
     if not handles:
         findings.append(
             Finding(
@@ -1071,6 +1102,45 @@ def self_test() -> int:
         failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] a home in {name} is green")
 
+    def run_of(handles: list[int], fence: str = "") -> str:
+        """A record whose rulings carry these handles in this order, each with its anchor and its entry."""
+        rulings = "".join(f'{i}. <a id="r{n}"></a>**R{n}.** A rule.\n' for i, n in enumerate(handles, 1))
+        entries = "".join(f"{i}. R{n} — history only.\n" for i, n in enumerate(handles, 1))
+        return (
+            GOOD_RECORD[: GOOD_RECORD.index("## Ruling")]
+            + f"## Ruling\n\n{rulings}{fence}\n## Carry list\n\n{entries}"
+        )
+
+    breaks = "break their run at R{at}, where R{due} is due"
+    orders = {  # case: the number of the record, the handles in document order, a fence, the break wanted
+        "R1, R3 in a record numbered 39 is red, a gap": (39, [1, 3], "", breaks.format(at=3, due=2)),
+        "R2, R1 in a record numbered 39 is red, out of order": (39, [2, 1], "", breaks.format(at=2, due=1)),
+        "R2, R3 in a record numbered 39 is red, a run that starts late": (
+            39,
+            [2, 3],
+            "",
+            breaks.format(at=2, due=1),
+        ),
+        "R2, R1 in a record numbered 38 is green": (38, [2, 1], "", None),
+        "R1, R2 in a record numbered 39 is green": (39, [1, 2], "", None),
+        "R1, R2 in a record numbered 39, a handle in a fenced block after them, is green": (
+            39,
+            [1, 2],
+            "\n```\n**R7.** an example\n```\n",
+            None,
+        ),
+    }
+    for name, (number, handles, fence, tail) in orders.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            sample_kit(root)
+            record = root / folder / f"dec-{number:0{DEFAULT_LAYOUT.width}d}-order.md"
+            record.write_text(run_of(handles, fence), encoding="utf-8")
+            found = [f for f in lists(root, record)[0] if "their run" in f.headline]
+        ok = (not found) if tail is None else (len(found) == 1 and found[0].headline.endswith(tail))
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+
     accept = f"Accepted: {SAMPLE}"
     stranger = f"dec-{THRESHOLD + 69:04d}-no-such-record"
     right = "yes\n\n" + accept + "\nCarry-Audit: at {at}; 3 records; 2 findings, 1 fixed, 1 justified\n"
@@ -1660,6 +1730,7 @@ def self_test() -> int:
         + len(receipts)
         + len(scopes)
         + len(unscopable)
+        + len(orders)
         + 3
         + extra
     )
