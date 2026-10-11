@@ -367,10 +367,11 @@ def scan_reports_in_order() -> tuple[bool, str]:
         files, dials_patch={**claim(["docs/**"]), **own(severity="warn", territories=["docs/**"])}
     )
     a = note("TBD one\n\nTBD two\n")
+    c = files["docs/notes/c.md"]
     wanted = [
         f"RED: {messages.q1_marker(DOC, line_of(a, 'TBD one'), 'TBD', 'TBD one').headline}",
         f"RED: {messages.q1_marker(DOC, line_of(a, 'TBD two'), 'TBD', 'TBD two').headline}",
-        f"RED: {messages.q1_marker('docs/notes/c.md', line_of(a, 'TBD one'), 'FIXME', 'FIXME').headline}",
+        f"RED: {messages.q1_marker('docs/notes/c.md', line_of(c, 'FIXME'), 'FIXME', 'FIXME').headline}",
         "RED: 3 finding(s) — 6 document(s) examined for 4 marker(s), 7 Markdown file(s) scanned",
     ]
     if result.code != 2 or red_lines(result.stdout) != wanted:

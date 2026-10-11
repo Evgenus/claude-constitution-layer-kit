@@ -33,7 +33,7 @@ from const_gate import identity
 from const_gate import messages as shared
 from const_gate.envelope import yaml_error_line
 from const_gate.model import Broken, EnvelopeState, Finding
-from consumer import ROOT_POLICY, Consumer
+from consumer import BASE_MARKDOWN, ROOT_POLICY, Consumer
 from harness import (
     Assertion,
     Case,
@@ -513,7 +513,9 @@ def two_catalogs() -> tuple[bool, str]:
     return expect(
         scan_of(files, patch),
         0,
-        shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(1), reach(1, catalog=NOTES)])),
+        shared.g1_green_scan(
+            messages.f9_scan_tail(2, 2 + BASE_MARKDOWN, [reach(1), reach(1, catalog=NOTES)])
+        ),
         "stdout",
     )
 
@@ -553,7 +555,7 @@ K3 = messages.k3_number_shared(CATALOG, 1, [ITEM_A, at("itm-0001-second")])
 def scan_collision() -> tuple[bool, str]:
     """The red half of the uniqueness gate: two items under one number."""
     result = scan_of(COLLIDING)
-    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 6, [reach(2)]))
+    count = shared.f9_count_scan(1, messages.f9_scan_tail(3, 3 + BASE_MARKDOWN, [reach(2)]))
     ok = result.code == 2 and K3.render() in result.stdout and count in result.stdout
     return (
         ok,
@@ -568,17 +570,29 @@ def scan_renumbered() -> tuple[bool, str]:
         at("itm-0003-second"): item("itm-0003-second"),
         at("itm-0002-third"): item("itm-0002-third"),
     }
-    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(3, 6, [reach(3)])), "stdout")
+    return expect(
+        scan_of(files),
+        0,
+        shared.g1_green_scan(messages.f9_scan_tail(3, 3 + BASE_MARKDOWN, [reach(3)])),
+        "stdout",
+    )
 
 
 def scan_gap_is_legitimate() -> tuple[bool, str]:
     files = {ITEM_A: item(), at("itm-0009-ninth"): item("itm-0009-ninth")}
-    return expect(scan_of(files), 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(9)])), "stdout")
+    return expect(
+        scan_of(files),
+        0,
+        shared.g1_green_scan(messages.f9_scan_tail(2, 2 + BASE_MARKDOWN, [reach(9)])),
+        "stdout",
+    )
 
 
 def scan_empty_catalog() -> tuple[bool, str]:
     """A listed catalog with no item yet is named as such: a visible zero, and the first number is 1."""
-    return expect(scan_of({}), 0, shared.g1_green_scan(messages.f9_scan_tail(0, 3, [reach(None)])), "stdout")
+    return expect(
+        scan_of({}), 0, shared.g1_green_scan(messages.f9_scan_tail(0, BASE_MARKDOWN, [reach(None)])), "stdout"
+    )
 
 
 def scan_ignores_warn() -> tuple[bool, str]:
@@ -589,7 +603,7 @@ def scan_ignores_warn() -> tuple[bool, str]:
 def scan_name_and_number() -> tuple[bool, str]:
     """An item whose name carries no number is one finding and takes no part in the collision check."""
     result = scan_of({**COLLIDING, at("first"): item("first")})
-    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 7, [reach(2)]))
+    count = shared.f9_count_scan(2, messages.f9_scan_tail(4, 4 + BASE_MARKDOWN, [reach(2)]))
     taught = (k1("first", take=IN_WORDS).render(), K3.render(), count)
     ok = result.code == 2 and all(text in result.stdout for text in taught)
     return ok, f"exit {result.code}: two findings, four items"
@@ -600,7 +614,9 @@ def scan_with_deleted_file() -> tuple[bool, str]:
     consumer = H.fresh_consumer((*SETUP, VALID, Write(at("itm-0002-second"), item("itm-0002-second"))))
     (consumer.root / ITEM_A).unlink()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [reach(2)])), "stdout")
+    return expect(
+        result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(2)])), "stdout"
+    )
 
 
 def scan_scales() -> tuple[bool, str]:
@@ -694,7 +710,9 @@ def deleted_number_is_not_refused() -> tuple[bool, str]:
 
 def scan_names_history() -> tuple[bool, str]:
     result = H.run_gate("", args=["--scan", str(top_deleted().root)])
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [reach(1, 2)])), "stdout")
+    return expect(
+        result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1, 2)])), "stdout"
+    )
 
 
 def renamed_name_is_history() -> tuple[bool, str]:
@@ -706,7 +724,9 @@ def renamed_name_is_history() -> tuple[bool, str]:
     consumer.git("rm", "-q", at("itm-0007-first"))
     consumer.commit()
     result = H.run_gate("", args=["--scan", str(consumer.root)])
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(0, 3, [reach(None, 7)])), "stdout")
+    return expect(
+        result, 0, shared.g1_green_scan(messages.f9_scan_tail(0, BASE_MARKDOWN, [reach(None, 7)])), "stdout"
+    )
 
 
 def shallow_clone_says_so() -> tuple[bool, str]:
@@ -716,7 +736,7 @@ def shallow_clone_says_so() -> tuple[bool, str]:
         ["git", "clone", "-q", "--depth", "1", source, str(clone)], check=True, capture_output=True
     )
     result = H.run_gate("", args=["--scan", str(clone)])
-    tail = messages.f9_scan_tail(1, 4, [reach(1)], Read.SHALLOW)
+    tail = messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1)], Read.SHALLOW)
     return expect(result, 0, shared.g1_green_scan(tail), "stdout")
 
 
@@ -813,7 +833,10 @@ def unread_history_in_the_scan() -> tuple[bool, str]:
     env, _ = fake_git(on_log="exit 97")
     result = H.run_gate("", args=["--scan", str(consumer.root)], env=env)
     return expect(
-        result, 0, shared.g1_green_scan(messages.f9_scan_tail(1, 4, [reach(1)], Read.NOT)), "stdout"
+        result,
+        0,
+        shared.g1_green_scan(messages.f9_scan_tail(1, 1 + BASE_MARKDOWN, [reach(1)], Read.NOT)),
+        "stdout",
     )
 
 
@@ -843,7 +866,9 @@ def dated_name_is_an_item() -> tuple[bool, str]:
     scan's line counts it, and a formed item beside it passes (limit 14)."""
     dated = "itm-2026-09-22-x"
     result = scan_of({at(dated): item(dated), ITEM_A: item()})
-    return expect(result, 0, shared.g1_green_scan(messages.f9_scan_tail(2, 5, [reach(2026)])), "stdout")
+    return expect(
+        result, 0, shared.g1_green_scan(messages.f9_scan_tail(2, 2 + BASE_MARKDOWN, [reach(2026)])), "stdout"
+    )
 
 
 def number_the_width_cannot_write() -> tuple[bool, str]:
