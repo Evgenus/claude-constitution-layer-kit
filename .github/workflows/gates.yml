@@ -6,7 +6,10 @@
 # The job "gates" waits for all of them and is the one check the ruleset requires, so a new module or
 # entry never changes the ruleset; after its verdict it runs the module metrics and the list of the most
 # complex functions, reports whose JSON it uploads as the artifact `metrics`, and whose failure never
-# changes that verdict.
+# changes that verdict. A module's job runs its fixtures under coverage.py, which writes the module's
+# coverage file, uploaded as `coverage-<module>`; the job "gates", after its verdict, reads every such
+# file into the fixture coverage report, uploaded as `coverage` — a report, whose numbers no check holds
+# (decision dec-0089-module-coverage-report).
 name: gates
 
 on:
@@ -49,7 +52,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Python tools
-        run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518"
+        run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518" "coverage==7.16.2"
       - name: Vale and lychee
         run: |
           mkdir -p "$HOME/.local/bin"
@@ -87,7 +90,20 @@ jobs:
           # of the change — the pull request's head, or main on a push — the copy a consumer's install writes; a
           # fork the token cannot read fails
           CONSTITUTION_KIT_INSTALL_FROM: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && (github.event_name == 'pull_request' && format('{0}#{1}', github.event.pull_request.head.repo.full_name, github.head_ref) || format('{0}#{1}', github.repository, github.ref_name)) || '' }}
+          # a module's fixtures entry runs its runner under coverage.py and writes the module's coverage file
+          # there (scripts/kit_coverage.py); a coverage failure is a BROKEN line of that entry, and so turns
+          # the module's job red, the price decision dec-0089-module-coverage-report chose
+          CONSTITUTION_KIT_COVERAGE: ${{ startsWith(matrix.job, 'const-') && format('{0}/coverage', runner.temp) || '' }}
         run: sh scripts/gate-list.sh --run "$JOB"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && startsWith(matrix.job, 'const-') }}
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          name: coverage-${{ matrix.job }}
+          path: ${{ runner.temp }}/coverage
+          if-no-files-found: warn
+          retention-days: 5 # read by the job gates of the same run; the merged report keeps the default
 
   gates:
     needs:
@@ -103,11 +119,12 @@ jobs:
         run: |
           echo "list: $LIST, checks: $CHECKS"
           test "$LIST" = success && test "$CHECKS" = success
-      # The module metrics, a report and never a check (scripts/metrics.py): the steps below run after the
-      # verdict above, whatever it was, save on a cancelled run, whose newer push or stop wants no report
-      # (always() would run them there too); continue-on-error keeps a failure of theirs from turning the
-      # job red, and the verdict step's own red stands, since it carries no such flag; each step's timeout
-      # bounds a hang at 5 minutes, where the job's own limit is 360 minutes.
+      # The module metrics and the fixture coverage, reports and never checks (scripts/metrics.py,
+      # scripts/module-coverage.py): the steps below run after the verdict above, whatever it was, save on
+      # a cancelled run, whose newer push or stop wants no report (always() would run them there too);
+      # continue-on-error keeps a failure of theirs from turning the job red, and the verdict step's own
+      # red stands, since it carries no such flag; each step's timeout bounds a hang at 5 minutes, where
+      # the job's own limit is 360 minutes.
       - uses: actions/checkout@v7
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -143,4 +160,32 @@ jobs:
           path: |
             metrics.json
             complexity.json
+          if-no-files-found: warn
+      - uses: actions/download-artifact@v8
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: coverage-files
+      - name: Fixture coverage, a report
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          # the files the module jobs wrote; the table, its notes, a BROKEN line with its fix, reach the log and
+          # the summary before the step exits with the report's code
+          status=0
+          python3 scripts/module-coverage.py --from coverage-files --json coverage.json > coverage.txt 2> notes.txt || status=$?
+          cat coverage.txt notes.txt
+          { echo '```'; cat coverage.txt notes.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          name: coverage
+          path: coverage.json
           if-no-files-found: warn

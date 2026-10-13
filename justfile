@@ -11,3 +11,7 @@ metrics *args:
 # List the most complex functions of the modules' own code, the script's default unless a limit is given; extra arguments go to the script (--json <path>|-)
 complexity limit="" *args:
     python3 scripts/metrics.py --complexity {{limit}} {{args}}
+
+# Print the fixture coverage of each module, a report and never a check: runs every fixtures entry under coverage.py, minutes in all, coverage.py installed for this python3; extra arguments go to the script (--module <name>, --from <folder>, --json <path>|-)
+coverage *args:
+    python3 scripts/module-coverage.py {{args}}
