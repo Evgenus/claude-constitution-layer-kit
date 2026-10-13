@@ -46,7 +46,24 @@ A totals row sums every key, save cc_max, which is the largest.
 
 Modes:  no arguments    the three tables on stdout: the documents, the proof kinds, the code;
         --json <path>   the tables on stdout and the same numbers as one JSON object in <path>;
-        --json -        the JSON object on stdout, and no tables.
+        --json -        the JSON object on stdout, and no tables;
+        --complexity [<n>]
+                        the <n> most complex functions of the modules' own Python under scripts/ (the
+                        functions counted above), 20 when <n> is not given, most complex first, ties
+                        by length; with --json, the same list as JSON, in <path> or on stdout. Per
+                        function, the JSON keys as written:
+                          module, path, line  where it stands;
+                          function            its name, under its class or enclosing function;
+                          cc                  its cyclomatic complexity, counted as above;
+                          lines               the lines from its `def` to its last, docstring included;
+                          depth               the deepest nesting of if, for, while, with, try and
+                                              match blocks in its own body, an elif at its if's level;
+                          params              its parameters, `self` and `cls` left out, *args and
+                                              **kwargs counted;
+                          churn_90d           the commits, merges left out, of the last 90 days that
+                                              touch its file.
+                        This mode reads no module document and runs no hook. It names functions; it
+                        gives no advice, and no number in it is a threshold.
 Notes on stderr: a SessionStart command that exits other than 0 or times out (its stdout still counted,
 none when it timed out), and a shallow clone, whose churn is short.
 Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BROKEN line that says what
@@ -72,7 +89,7 @@ import re
 import subprocess
 import sys
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 from kit_module_doc import DocumentError, cells, module_folders, own_packages, section
@@ -415,6 +432,8 @@ BRANCHES = (
     ast.match_case,
 )
 SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+NESTS = (ast.If, ast.For, ast.AsyncFor, ast.While, ast.With, ast.AsyncWith, ast.Try, ast.TryStar, ast.Match)
+TOP = 20  # the functions --complexity lists when it is given no number
 
 
 def complexity(function: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
@@ -433,14 +452,112 @@ def complexity(function: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
     return count
 
 
+def is_elif(parent: ast.AST, child: ast.AST) -> bool:
+    """`elif`: an `if` that is its parent `if`'s whole else branch, in the parent's column."""
+    return (
+        isinstance(parent, ast.If)
+        and isinstance(child, ast.If)
+        and parent.orelse == [child]
+        and child.col_offset == parent.col_offset
+    )
+
+
+def nesting(node: ast.AST, level: int = 0) -> int:
+    """The deepest block nesting under `node`, a nested function or class not walked."""
+    deepest = level
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, SCOPES):
+            continue
+        step = isinstance(child, NESTS) and not is_elif(node, child)
+        deepest = max(deepest, nesting(child, level + step))
+    return deepest
+
+
+def parameters(function: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+    """The parameters, `self` or `cls` in the first place left out, *args and **kwargs counted."""
+    given = function.args
+    names = [a.arg for a in (*given.posonlyargs, *given.args, *given.kwonlyargs)]
+    starred = (given.vararg is not None) + (given.kwarg is not None)
+    return len(names) + starred - (bool(names) and names[0] in ("self", "cls"))
+
+
+@dataclass(frozen=True)
+class Function:
+    module: str
+    path: str
+    line: int
+    function: str
+    cc: int
+    lines: int
+    depth: int
+    params: int
+    churn_90d: int
+
+
+def defined(
+    node: ast.AST, prefix: str, out: list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]]
+) -> None:
+    """Every function under `node`, named under its classes and enclosing functions."""
+    for child in ast.iter_child_nodes(node):
+        if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+            out.append((prefix + child.name, child))
+            defined(child, f"{prefix}{child.name}.", out)
+        elif isinstance(child, ast.ClassDef):
+            defined(child, f"{prefix}{child.name}.", out)
+        else:
+            defined(child, prefix, out)
+
+
+def own_python(module: Path) -> list[Path]:
+    """The module's own tracked Python under scripts/: links, and so the shared const_gate, left out."""
+    return [
+        path
+        for path in tracked(module, ("scripts",))
+        if path.suffix == ".py" and "const_gate" not in path.relative_to(module).parts
+    ]
+
+
+def churn(path: Path) -> int:
+    """The commits, merges left out, of the last 90 days that touch the file."""
+    since = f"--since={CHURN_DAYS} days ago"
+    return len(git("log", "--no-merges", since, "--format=%H", "--", str(path.relative_to(KIT))).split())
+
+
+def complex_functions(folders: list[Path], top: int) -> list[Function]:
+    """The `top` most complex functions of the modules' own Python, most complex first, ties by length."""
+    found: list[Function] = []
+    for module in folders:
+        for path in own_python(module):
+            named: list[tuple[str, ast.FunctionDef | ast.AsyncFunctionDef]] = []
+            defined(parse(path), "", named)
+            for name, node in named:
+                end = node.end_lineno or node.lineno
+                where = str(path.relative_to(KIT))
+                found.append(
+                    Function(
+                        module.name,
+                        where,
+                        node.lineno,
+                        name,
+                        complexity(node),
+                        end - node.lineno + 1,
+                        nesting(node),
+                        parameters(node),
+                        0,
+                    )
+                )
+    found.sort(key=lambda f: (-f.cc, -f.lines, f.path, f.line))
+    chosen = found[:top]
+    churned = {f.path: churn(KIT / f.path) for f in chosen}
+    return [replace(f, churn_90d=churned[f.path]) for f in chosen]
+
+
 def read_code(module: Path, into: Metrics) -> None:
     """Lines, functions, complexity and imports of the module's tracked code."""
     into.code_lines = sum(lines_of(p) for p in tracked(module, ("scripts", "hooks")))
     into.test_lines = sum(lines_of(p) for p in tracked(module, ("tests",)))
     packages = {p.name for p in own_packages(module)}
-    for path in tracked(module, ("scripts",)):
-        if path.suffix != ".py" or "const_gate" in path.relative_to(module).parts:
-            continue
+    for path in own_python(module):
         for node in ast.walk(parse(path)):
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 score = complexity(node)
@@ -544,15 +661,52 @@ def report(measured: dict[str, Metrics], total: Metrics, commit: str, notes: lis
     )
 
 
+def ranking(functions: list[Function]) -> str:
+    """The complexity list as one plain-text table, most complex first."""
+    keys = ("cc", "lines", "depth", "params", "churn_90d")
+    head = "  ".join(keys) + "  function"
+    rows = [
+        "  ".join(f"{getattr(f, key):>{len(key)}}" for key in keys) + f"  {f.function}  {f.path}:{f.line}"
+        for f in functions
+    ]
+    title = (
+        f"The {len(functions)} most complex functions of the modules' own code, advisory: a list, no verdict"
+    )
+    return "\n".join([title, head, "-" * len(head), *rows])
+
+
+def write(path: str | None, text: str) -> None:
+    """The JSON into the file `path` names, or Broken."""
+    if path is None:
+        return
+    try:
+        Path(path).write_text(text + "\n", encoding="utf-8")
+    except OSError as bad:
+        raise Broken(
+            f"{path} cannot be written ({bad.strerror})\n  why: the JSON is the report's copy for CI's"
+            " artifact\n  fix: name a path in a folder that exists and can be written to"
+        ) from bad
+
+
+def positive(text: str) -> int:
+    """A count of at least 1, for --complexity."""
+    number = int(text)
+    if number < 1:
+        raise ValueError(text)
+    return number
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="metrics", add_help=False, allow_abbrev=False)
     parser.add_argument("--json")
+    parser.add_argument("--complexity", nargs="?", const=TOP, type=positive)
     try:
         args = parser.parse_args(argv)
     except SystemExit:
         print(
-            "BROKEN: misinvocation\n  why: the report reads no other option\n"
-            "  fix: run with no arguments, with --json <path>, or with --json -"
+            "BROKEN: misinvocation\n  why: the report reads only the options and values below\n"
+            "  fix: run with no arguments, with --json <path>, with --json -, or with --complexity [<n>],"
+            " <n> a whole number of at least 1, alone or with --json"
         )
         return BROKEN
     notes: list[str] = []
@@ -561,6 +715,23 @@ def main(argv: list[str]) -> int:
             folders = module_folders(KIT)
         except DocumentError as bad:
             raise Broken(f"{bad}\n  why: the report measures each module folder") from bad
+        if args.complexity is not None:
+            functions = complex_functions(folders, args.complexity)
+            listed = json.dumps(
+                {
+                    "advisory": "a list of law 5 of CLAUDE.md: it judges nothing",
+                    "commit": git("rev-parse", "HEAD").strip(),
+                    "functions": [asdict(f) for f in functions],
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+            if args.json == "-":
+                print(listed)
+            else:
+                write(args.json, listed)
+                print(ranking(functions))
+            return OK
         measured = {module.name: measure(module, notes) for module in folders}
         commit = git("rev-parse", "HEAD").strip()
         if git("rev-parse", "--is-shallow-repository").strip() == "true":
@@ -572,15 +743,7 @@ def main(argv: list[str]) -> int:
         if args.json == "-":
             print(written)
         else:
-            if args.json is not None:
-                try:
-                    Path(args.json).write_text(written + "\n", encoding="utf-8")
-                except OSError as bad:
-                    raise Broken(
-                        f"{args.json} cannot be written ({bad.strerror})\n  why: the JSON is the report's"
-                        " copy for CI's artifact\n  fix: name a path in a folder that exists and can be"
-                        " written to"
-                    ) from bad
+            write(args.json, written)
             print(tables(measured, total))
     except Broken as broken:
         print(f"BROKEN: {broken}")
