@@ -26,7 +26,7 @@ from const_gate.repository import first_line, git, is_markdown
 from const_gate.territory import Matcher
 
 from . import messages
-from .model import BudgetDials, characters, longer, longest, rule_of_thumb
+from .model import BudgetDials, Ceiling, characters, longer, longest, rule_of_thumb
 
 # The links one resolution may pass before it gives up, as Linux's own path resolution does.
 MAX_LINKS = 40
@@ -56,18 +56,7 @@ def report(output: Output, root: Path, dials: BudgetDials, since: datetime.date)
     with Matcher() as matcher:
         held = {c.name: set(matcher.match(c.paths, every_path)) for c in dials.ceilings}
     lengths = _lengths(root, sorted({blob for blobs in trees.values() for blob in blobs.values()}))
-    days: dict[datetime.date, Day] = {}
-    for sha, day in commits:  # newest first: the first commit of a day met is its last
-        record = days.get(day)
-        first_of_day = record is None
-        record = days.setdefault(day, Day())
-        for ceiling in dials.ceilings:
-            mine = [(path, lengths[blob]) for path, blob in trees[sha].items() if path in held[ceiling.name]]
-            if first_of_day:
-                record.documents[ceiling.name] = len(mine)
-            top = longest(mine)
-            if top is not None and longer(top, record.longest.get(ceiling.name)):
-                record.longest[ceiling.name] = top
+    days = _days(commits, trees, held, lengths, dials.ceilings)
     ordered = sorted(days)
     for day in ordered:
         for ceiling in dials.ceilings:
@@ -84,6 +73,30 @@ def report(output: Output, root: Path, dials: BudgetDials, since: datetime.date)
         output.out(messages.b2_window(ceiling, first, last, top, thumb))
     output.out(messages.b2_closing(since, len(commits), len(ordered), len(dials.ceilings)))
     return EXIT_GREEN
+
+
+def _days(
+    commits: Sequence[tuple[str, datetime.date]],
+    trees: dict[str, dict[str, str]],
+    held: dict[str, set[str]],
+    lengths: dict[str, int],
+    ceilings: Sequence[Ceiling],
+) -> dict[datetime.date, Day]:
+    """Each day's record: for every ceiling, the documents it held at the day's last commit and the
+    longest of them any commit of the day held."""
+    days: dict[datetime.date, Day] = {}
+    for sha, day in commits:  # newest first: the first commit of a day met is its last
+        record = days.get(day)
+        first_of_day = record is None
+        record = days.setdefault(day, Day())
+        for ceiling in ceilings:
+            mine = [(path, lengths[blob]) for path, blob in trees[sha].items() if path in held[ceiling.name]]
+            if first_of_day:
+                record.documents[ceiling.name] = len(mine)
+            top = longest(mine)
+            if top is not None and longer(top, record.longest.get(ceiling.name)):
+                record.longest[ceiling.name] = top
+    return days
 
 
 def _git(args: list[str], root: Path) -> str:
