@@ -924,7 +924,120 @@ def differing(cache: Path, market: Path) -> str:
     return ""
 
 
-def claim(state: Run, name: str) -> str:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
+def claim_marketplace(state: Run) -> str:
+    """What fails of the claim that the platform's clone of the marketplace matches the kit's."""
+    clone = platform_clone(state)
+    mend = (
+        "bring the source branch to the kit's clone — merge main into it and push — or point "
+        f"{FROM_ENV} at the branch the clone holds"
+    )
+    try:
+        market = modules_of(clone)
+    except Broken as bad:
+        said = str(bad).split(" — fix:")[0]
+        raise Misfit(f"the platform's clone of the marketplace cannot be read ({said})", mend) from bad
+    if market != state.modules:
+        raise Misfit(f"the marketplace holds {market}, the kit's clone {state.modules}", mend)
+    state.clone = clone
+    return ""
+
+
+def cached_copies(state: Run, project: Path) -> tuple[dict[str, Path], str]:
+    """The plugin-cache copy of each module, and what fails of the claim that each is installed."""
+    mine, on = project_entries(state, project), enabled(project, state.note)
+    copies: dict[str, Path] = {}
+    for module in state.modules:
+        own = [e for e in mine[module] if e["scope"] == "project"]
+        if not own:
+            return copies, f"{module} is not installed for the project"
+        if own[0]["version"] != state.modules[module]:
+            return copies, f"{module} is installed at {own[0]['version']}, not {state.modules[module]}"
+        listed_at, copies[module] = own[0]["installPath"], state.cached(module)
+        if Path(listed_at).resolve() != copies[module].resolve():
+            raise Misfit(
+                f"{module} is not in the plugin cache at {copies[module]} but at {listed_at}",
+                cache_fix(state.note),
+            )
+        if not copies[module].is_dir():
+            return copies, f"{module} is not in the plugin cache at {copies[module]}"
+        if state.key(module) not in on:
+            return copies, f"{module} is not enabled in the project's .claude/settings.json"
+    return copies, ""
+
+
+def claim_alike(state: Run, copies: dict[str, Path]) -> str:
+    """What fails of the claim that each cached module is alike in the marketplace."""
+    clone = state.clone or platform_clone(state)
+    for module in state.modules:
+        odd = differing(copies[module], clone / "modules" / module)
+        if odd:
+            return f"{module}'s {odd} is not alike in the cache and the marketplace"
+    return ""
+
+
+def claim_loaded(state: Run, project: Path, copies: dict[str, Path]) -> str:
+    """What fails of the claim that a session in the project loads each module from the plugin cache."""
+    paths, last = session_paths(state, project)
+    if paths is None:
+        raise Misfit(
+            f"a session in the project reported no start ({last})",
+            "run §2 steps 1 to 3 in a project of your own, then `claude -p ok --output-format "
+            "stream-json --verbose` there, and read why it stops before its start event",
+        )
+    for module in state.modules:
+        where = paths.get(module)
+        if where is None:
+            raise Misfit(
+                f"a session in the project loads no {module}",
+                "run §2 steps 1 to 3 in a project of your own and read the Errors tab of `/plugin` "
+                "in a session there: a module cached and enabled that a session does not load "
+                "failed to load",
+            )
+        if Path(where).resolve() != copies[module].resolve():
+            raise Misfit(f"a session runs {module} from {where}, not from the plugin cache", IN_PLACE)
+    return ""
+
+
+def claim_installed(state: Run, project: Path, name: str) -> str:
+    """What fails of the claim of an install, a reinstall or an update."""
+    copies, odd = cached_copies(state, project)
+    if odd:
+        return odd
+    if name == "reinstall":
+        return claim_alike(state, copies)
+    if name == "install":
+        return claim_loaded(state, project, copies)
+    return ""
+
+
+def claim_kernel(state: Run, project: Path) -> str:
+    """What fails of the claim that the kernel and the license files stand in the project's docs."""
+    source = state.kit / "kernel"
+    for path in sorted(p for p in source.rglob("*") if p.is_file()):
+        copy = project / "docs" / "constitution" / path.relative_to(source)
+        if not copy.is_file() or copy.read_bytes() != path.read_bytes():
+            return f"docs/constitution/{path.relative_to(source)} is not the kernel's file"
+    for held in LICENSE_FILES:
+        copy = project / "docs" / "constitution" / held
+        if not copy.is_file() or copy.read_bytes() != (state.kit / held).read_bytes():
+            return f"docs/constitution/{held} is not the kit's file"
+    return ""
+
+
+def claim_commit(state: Run, project: Path) -> str:
+    """What fails of the claim that the project's working tree is clean after the commit."""
+    code, said = run(["git", "status", "--porcelain"], project, state.env, joined=False)
+    return "" if code == 0 and not said else "the project's working tree is not clean after the commit"
+
+
+def claim_uninstall(state: Run, project: Path) -> str:
+    """What fails of the claim that no module is left installed for the project."""
+    mine, on = project_entries(state, project), enabled(project, state.note)
+    left = sorted(state.key(m) for m in state.modules if mine[m] or state.key(m) in on)
+    return f"{', '.join(left)} still installed for the project" if left else ""
+
+
+def claim(state: Run, name: str) -> str:
     """What fails of the guide's claim at a name, or the empty string."""
     project = state.project
     if name == "new-repo":
@@ -936,83 +1049,15 @@ def claim(state: Run, name: str) -> str:  # noqa: C901 — over the limit when t
     if project is None:
         return "no block named check=new-repo made the project first"
     if name == "marketplace":
-        clone = platform_clone(state)
-        mend = (
-            "bring the source branch to the kit's clone — merge main into it and push — or point "
-            f"{FROM_ENV} at the branch the clone holds"
-        )
-        try:
-            market = modules_of(clone)
-        except Broken as bad:
-            said = str(bad).split(" — fix:")[0]
-            raise Misfit(f"the platform's clone of the marketplace cannot be read ({said})", mend) from bad
-        if market != state.modules:
-            raise Misfit(f"the marketplace holds {market}, the kit's clone {state.modules}", mend)
-        state.clone = clone
-        return ""
+        return claim_marketplace(state)
     if name in ("install", "reinstall", "update"):
-        mine, on = project_entries(state, project), enabled(project, state.note)
-        copies: dict[str, Path] = {}
-        for module in state.modules:
-            own = [e for e in mine[module] if e["scope"] == "project"]
-            if not own:
-                return f"{module} is not installed for the project"
-            if own[0]["version"] != state.modules[module]:
-                return f"{module} is installed at {own[0]['version']}, not {state.modules[module]}"
-            listed_at, copies[module] = own[0]["installPath"], state.cached(module)
-            if Path(listed_at).resolve() != copies[module].resolve():
-                raise Misfit(
-                    f"{module} is not in the plugin cache at {copies[module]} but at {listed_at}",
-                    cache_fix(state.note),
-                )
-            if not copies[module].is_dir():
-                return f"{module} is not in the plugin cache at {copies[module]}"
-            if state.key(module) not in on:
-                return f"{module} is not enabled in the project's .claude/settings.json"
-        if name == "reinstall":
-            clone = state.clone or platform_clone(state)
-            for module in state.modules:
-                odd = differing(copies[module], clone / "modules" / module)
-                if odd:
-                    return f"{module}'s {odd} is not alike in the cache and the marketplace"
-        if name == "install":
-            paths, last = session_paths(state, project)
-            if paths is None:
-                raise Misfit(
-                    f"a session in the project reported no start ({last})",
-                    "run §2 steps 1 to 3 in a project of your own, then `claude -p ok --output-format "
-                    "stream-json --verbose` there, and read why it stops before its start event",
-                )
-            for module in state.modules:
-                where = paths.get(module)
-                if where is None:
-                    raise Misfit(
-                        f"a session in the project loads no {module}",
-                        "run §2 steps 1 to 3 in a project of your own and read the Errors tab of `/plugin` "
-                        "in a session there: a module cached and enabled that a session does not load "
-                        "failed to load",
-                    )
-                if Path(where).resolve() != copies[module].resolve():
-                    raise Misfit(f"a session runs {module} from {where}, not from the plugin cache", IN_PLACE)
-        return ""
+        return claim_installed(state, project, name)
     if name == "kernel":
-        source = state.kit / "kernel"
-        for path in sorted(p for p in source.rglob("*") if p.is_file()):
-            copy = project / "docs" / "constitution" / path.relative_to(source)
-            if not copy.is_file() or copy.read_bytes() != path.read_bytes():
-                return f"docs/constitution/{path.relative_to(source)} is not the kernel's file"
-        for held in LICENSE_FILES:
-            copy = project / "docs" / "constitution" / held
-            if not copy.is_file() or copy.read_bytes() != (state.kit / held).read_bytes():
-                return f"docs/constitution/{held} is not the kit's file"
-        return ""
+        return claim_kernel(state, project)
     if name == "commit":
-        code, said = run(["git", "status", "--porcelain"], project, state.env, joined=False)
-        return "" if code == 0 and not said else "the project's working tree is not clean after the commit"
+        return claim_commit(state, project)
     if name == "uninstall":
-        mine, on = project_entries(state, project), enabled(project, state.note)
-        left = sorted(state.key(m) for m in state.modules if mine[m] or state.key(m) in on)
-        return f"{', '.join(left)} still installed for the project" if left else ""
+        return claim_uninstall(state, project)
     return ""
 
 
@@ -1669,104 +1714,126 @@ def listed_in_reverse() -> Iterator[None]:
         Path.iterdir = real  # type: ignore[method-assign]
 
 
-def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    failed = 0
-    total = 0
+def whats(findings: list[Finding]) -> str:
+    """What each finding says, joined, or "no finding"."""
+    return " | ".join(f.what for f in findings) or "no finding"
 
-    def case(name: str, ok: bool, got: str) -> None:
-        nonlocal failed, total
-        total += 1
+
+def fix_of(reader: str, wrote: str = "a reply") -> str:
+    """The fix of a reply the kit's reader `reader` does not read; typed by hand, since a message
+    function cannot check itself."""
+    return (
+        f" — fix: Claude Code 2.1.282 wrote {wrote} that the kit's reader, `{reader}` in"
+        " scripts/check-install-guide.py, does not read: update that reader to what 2.1.282 writes"
+    )
+
+
+def broken_said(kit: Path) -> str:
+    """What `modules_of` says over a kit folder when it is Broken, or "no Broken"."""
+    try:
+        modules_of(kit)
+    except Broken as broken:
+        return str(broken)
+    except TypeError as crash:  # a traceback is a case that fails, not the run
+        return f"{type(crash).__name__}: {crash}"
+    return "no Broken"
+
+
+class SelfTestRun:
+    """The self-test's cases, run in groups in order; a group keeps for the next what it made."""
+
+    def __init__(self) -> None:
+        self.failed = 0
+        self.total = 0
+        self.folders = 0  # the numbered folders the listing cases made so far
+
+    def case(self, name: str, ok: bool, got: str) -> None:
+        """Print one case's line, and count it; a case that fails prints what it got."""
+        self.total += 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
         if not ok:
-            failed += 1
+            self.failed += 1
             print(f"        got: {got}")
 
-    def whats(findings: list[Finding]) -> str:
-        return " | ".join(f.what for f in findings) or "no finding"
+    def next_folder(self, prefix: str) -> Path:
+        """The path of the next numbered folder in the listing cases' temporary folder, not yet made."""
+        self.folders += 1
+        return Path(self.listings) / f"{prefix}-{self.folders}"
 
-    pin_note = Note("2.1.282")  # the state of a run on the pin: the note empty
+    def mark_cases(self) -> None:
+        """The block-mark reader: each malformed fence one finding, a clean guide none."""
+        case = self.case
 
-    def fix_of(reader: str, wrote: str = "a reply") -> str:  # typed by hand: a message function cannot
-        return (  # check itself
-            f" — fix: Claude Code 2.1.282 wrote {wrote} that the kit's reader, `{reader}` in"
-            " scripts/check-install-guide.py, does not read: update that reader to what 2.1.282 writes"
+        pin_note = Note("2.1.282")  # the state of a run on the pin: the note empty
+
+        off_fix = (  # typed by hand: the run is on 2.1.286, not the pinned 2.1.282
+            " — fix: this run is on 2.1.286, not the pinned 2.1.282: run it again on the pinned version,"
+            " put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh"
+            " in the kit's clone, then the check through sh scripts/gate-list.sh --run install-<module>"
+            " (--run guide for the guide's check), which puts it first, or install it beside your own by"
+            " hand (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282, then"
+            " PATH=<folder>/node_modules/.bin:$PATH)"
         )
 
-    off_fix = (  # typed by hand: the run is on 2.1.286, not the pinned 2.1.282
-        " — fix: this run is on 2.1.286, not the pinned 2.1.282: run it again on the pinned version,"
-        " put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the"
-        " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
-        " for the guide's check), which puts it first, or install it beside your own by hand (npm install"
-        " --prefix <folder> @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:$PATH)"
-    )
+        marks = [
+            (
+                "an unmarked `bash` block red",
+                toy_guide() + "\n```bash\nls\n```\n",
+                "a `bash` block names no check",
+            ),
+            (
+                "an unknown name red",
+                toy_guide() + "\n```bash check=deploy\nls\n```\n",
+                "check=deploy is no name the check knows",
+            ),
+            (
+                "a name twice red",
+                toy_guide() + "\n```bash check=scan\nls\n```\n",
+                "check=scan stands a second time, first at line",
+            ),
+            (
+                "a missing name red",
+                toy_guide().replace("check=uninstall", "check=none"),
+                "no block is named check=uninstall",
+            ),
+            (
+                "dials on a bash fence red",
+                toy_guide().replace("```yaml check=dials", "```bash check=dials"),
+                "check=dials stands on a `bash` fence",
+            ),
+            (
+                "a mark where the language should be red",
+                toy_guide() + "\n```check=scan\nls\n```\n",
+                "the fence opens with check=scan where its language should stand",
+            ),
+            (
+                "a bash name on a yaml fence red",
+                toy_guide().replace("```bash check=scan", "```yaml check=scan"),
+                "check=scan stands on a `yaml` fence",
+            ),
+        ]
+        for name, guide, expected in marks:
+            _, findings = blocks_of(guide)
+            case(name, len(findings) == 1 and findings[0].what.startswith(expected), whats(findings))
+        _, misplaced = blocks_of(toy_guide().replace("```yaml check=dials", "```check=dials"))
+        case(
+            "a misplaced dials mark red once, its fix a yaml fence",
+            len(misplaced) == 1 and misplaced[0].fix.endswith("```yaml check=dials"),
+            " | ".join(f"{f.what} / {f.fix}" for f in misplaced),
+        )
+        _, clean = blocks_of(toy_guide() + "\n```text\nnot a command\n```\n")
+        case("a green guide gives no mark finding; a `text` fence needs no mark", not clean, whats(clean))
+        self.off_fix, self.pin_note = off_fix, pin_note
 
-    marks = [
-        (
-            "an unmarked `bash` block red",
-            toy_guide() + "\n```bash\nls\n```\n",
-            "a `bash` block names no check",
-        ),
-        (
-            "an unknown name red",
-            toy_guide() + "\n```bash check=deploy\nls\n```\n",
-            "check=deploy is no name the check knows",
-        ),
-        (
-            "a name twice red",
-            toy_guide() + "\n```bash check=scan\nls\n```\n",
-            "check=scan stands a second time, first at line",
-        ),
-        (
-            "a missing name red",
-            toy_guide().replace("check=uninstall", "check=none"),
-            "no block is named check=uninstall",
-        ),
-        (
-            "dials on a bash fence red",
-            toy_guide().replace("```yaml check=dials", "```bash check=dials"),
-            "check=dials stands on a `bash` fence",
-        ),
-        (
-            "a mark where the language should be red",
-            toy_guide() + "\n```check=scan\nls\n```\n",
-            "the fence opens with check=scan where its language should stand",
-        ),
-        (
-            "a bash name on a yaml fence red",
-            toy_guide().replace("```bash check=scan", "```yaml check=scan"),
-            "check=scan stands on a `yaml` fence",
-        ),
-    ]
-    for name, guide, expected in marks:
-        _, findings = blocks_of(guide)
-        case(name, len(findings) == 1 and findings[0].what.startswith(expected), whats(findings))
-    _, misplaced = blocks_of(toy_guide().replace("```yaml check=dials", "```check=dials"))
-    case(
-        "a misplaced dials mark red once, its fix a yaml fence",
-        len(misplaced) == 1 and misplaced[0].fix.endswith("```yaml check=dials"),
-        " | ".join(f"{f.what} / {f.fix}" for f in misplaced),
-    )
-    _, clean = blocks_of(toy_guide() + "\n```text\nnot a command\n```\n")
-    case("a green guide gives no mark finding; a `text` fence needs no mark", not clean, whats(clean))
-
-    def broken_said(kit: Path) -> str:
-        try:
-            modules_of(kit)
-        except Broken as broken:
-            return str(broken)
-        except TypeError as crash:  # a traceback is a case that fails, not the run
-            return f"{type(crash).__name__}: {crash}"
-        return "no Broken"
-
-    with tempfile.TemporaryDirectory(prefix="install-guide-listings-") as listings:
-        count = 0
+    def module_listing_cases(self) -> None:
+        """The module folders of a tree: which are modules, in what order, and what a bad one says."""
+        case = self.case
+        listings = self.listings
 
         def tree(*folders: str, files: tuple[str, ...] = (), documents: bool = True) -> Path:
             """A tree whose modules/ holds each folder, with a manifest of version 1.0 and, unless
             `documents` is off, its MODULE.md, and each plain file; `modules/` is made even for none."""
-            nonlocal count
-            count += 1
-            root = Path(listings) / f"tree-{count}"
+            root = self.next_folder("tree")
             (root / "modules").mkdir(parents=True)
             for folder in folders:
                 (root / "modules" / folder / ".claude-plugin").mkdir(parents=True)
@@ -1874,13 +1941,15 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 str(read_back),
             )
 
+    def marketplace_and_pin_cases(self) -> None:
+        """The marketplace file's name and the pin file's version, each read as the check reads it."""
+        case = self.case
+
         def market_said(text: str | None, as_folder: bool = False) -> tuple[Path, str]:
             """The folder of a kit whose .claude-plugin/marketplace.json holds `text` (no file for None,
             a folder of that name for `as_folder`), and what `marketplace_name` gives over it: the name, or
             its DocumentError's message, or the OSError a read of it let escape."""
-            nonlocal count
-            count += 1
-            folder = Path(listings) / f"market-{count}"
+            folder = self.next_folder("market")
             (folder / ".claude-plugin").mkdir(parents=True)
             if as_folder:
                 (folder / ".claude-plugin" / "marketplace.json").mkdir()
@@ -1946,9 +2015,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         def pin_said(content: bytes | None) -> tuple[Path, str]:
             """The folder of a kit whose scripts/claude-code.version holds `content` (no file for None),
             and what `pinned_claude` gives over it: the version, or its DocumentError's message."""
-            nonlocal count
-            count += 1
-            folder = Path(listings) / f"pin-{count}"
+            folder = self.next_folder("pin")
             (folder / "scripts").mkdir(parents=True)
             if content is not None:
                 (folder / "scripts" / "claude-code.version").write_bytes(content)
@@ -2023,14 +2090,18 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 got == f"{folder}/scripts/claude-code.version{tail}",
                 got,
             )
+        self.pin_fix = pin_fix
+
+    def settings_file_cases(self) -> None:
+        """The project's settings file: what it enables and what a bad one says."""
+        case = self.case
+        pin_note = self.pin_note
 
         def settings_said(text: str | None, as_folder: bool = False) -> tuple[Path, str]:
             """The project whose .claude/settings.json holds `text` (no file for None, a folder of that name
             for `as_folder`), and what `enabled` gives over it: the plugins it enables, sorted and joined by
             commas, or "none", or its Broken's message."""
-            nonlocal count
-            count += 1
-            project = Path(listings) / f"settings-{count}"
+            project = self.next_folder("settings")
             (project / ".claude").mkdir(parents=True)
             if as_folder:
                 (project / ".claude" / "settings.json").mkdir()
@@ -2097,8 +2168,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             got == f"{folder}/.claude/settings.json cannot be read (Is a directory){settings_fix}",
             got,
         )
+        self.settings_fix = settings_fix
 
-    with tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch:
+    def green_run_cases(self) -> None:
+        """The toy kit, the fake claude and the runs' environment; a green run, and a nameless kit."""
+        case = self.case
+        scratch = self.scratch
         root = Path(scratch)
         kit = toy_kit(root)
         fake = root / "bin"
@@ -2155,6 +2230,18 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             unnamed,
         )
         green_examined = examined
+        self.base = base
+        self.four = four
+        self.green_examined = green_examined
+        self.kept_vars = kept_vars
+        self.kit = kit
+        self.nameless = nameless
+        self.root = root
+
+    def marketplace_list_cases(self) -> None:
+        """The replies to the marketplace list: the clone they name, and each reply the reader refuses."""
+        case = self.case
+        base, kit, pin_note, root = self.base, self.kit, self.pin_note, self.root
         # the platform's replies, whole sets of them: the fake prints the text of a file as `plugin
         # marketplace list --json` or `plugin list --json`, and the readers are held to each reply
         unit = root / "unit"
@@ -2436,6 +2523,34 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 got == f"BROKEN {mkt_command} {rest}{reply_fix(rest, 'platform_clone')}",
                 got,
             )
+        self.clone_of = clone_of
+        self.gone_folder = gone_folder
+        self.linked_dir = linked_dir
+        self.list_where = list_where
+        self.listed_command = listed_command
+        self.mkt = mkt
+        self.mkt_command = mkt_command
+        self.mkt_said = mkt_said
+        self.no_json = no_json
+        self.other = other
+        self.project_dir = project_dir
+        self.reply_file = reply_file
+        self.reply_fix = reply_fix
+        self.unit = unit
+        self.unit_state = unit_state
+        self.without = without
+
+    def plugin_list_cases(self) -> None:
+        """The replies to the plugin list: the entries they hold, and each reply the reader refuses."""
+        case = self.case
+        linked_dir = self.linked_dir
+        listed_command = self.listed_command
+        no_json = self.no_json
+        project_dir = self.project_dir
+        reply_file = self.reply_file
+        reply_fix = self.reply_fix
+        unit_state = self.unit_state
+        without = self.without
 
         def plug(module: str = "const-alpha", /, **fields: object) -> dict[str, object]:
             return {
@@ -2606,6 +2721,29 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ):
             got = plugins_said(json.dumps(entries))
             case(f"plugin list, {name}: BROKEN", got == f"BROKEN {listed_command} {rest}", got)
+        self.alpha = alpha
+        self.beta = beta
+        self.both = both
+        self.picks = picks
+        self.plug = plug
+        self.plugins_said = plugins_said
+
+    def list_identity_cases(self) -> None:
+        """Names and ids in a reply, and a warning beside a valid list."""
+        case = self.case
+        alpha = self.alpha
+        beta = self.beta
+        both = self.both
+        clone_of = self.clone_of
+        listed_command = self.listed_command
+        mkt = self.mkt
+        mkt_command = self.mkt_command
+        mkt_said = self.mkt_said
+        other = self.other
+        picks = self.picks
+        plug = self.plug
+        plugins_said = self.plugins_said
+        without = self.without
         # every entry of either reply carries its identifying field as a string, an entry of another
         # marketplace or plugin too: an entry without it is a reply of the wrong shape, never an entry to skip
         for shape, entry, said in (
@@ -2666,6 +2804,23 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             got == picks(alpha, beta),
             got,
         )
+
+    def list_command_cases(self) -> None:
+        """Where the list commands run, and a command that times out or says nothing."""
+        case = self.case
+        base = self.base
+        both = self.both
+        list_where = self.list_where
+        listed_command = self.listed_command
+        mkt = self.mkt
+        mkt_command = self.mkt_command
+        mkt_said = self.mkt_said
+        pin_note = self.pin_note
+        plugins_said = self.plugins_said
+        project_dir = self.project_dir
+        reply_file = self.reply_file
+        unit = self.unit
+        unit_state = self.unit_state
         # the folder each list runs in: the marketplace list where the block ended, the plugin list in the
         # project; neither in the run's home folder
         block_end = unit / "block-end"
@@ -2782,6 +2937,19 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                         got == f"BROKEN {command} exited {code} ({said}){fix}",
                         got,
                     )
+        self.off_what, self.other_note, self.put_first = off_what, other_note, put_first
+
+    def reinstall_and_update_cases(self) -> None:
+        """The reinstall and update claims over the copies a project lists."""
+        case = self.case
+        gone_folder = self.gone_folder
+        mkt = self.mkt
+        pin_note = self.pin_note
+        plug = self.plug
+        project_dir = self.project_dir
+        reply_file = self.reply_file
+        unit = self.unit
+        unit_state = self.unit_state
         # the reinstall's comparison reads the platform's clone from the state, else from marketplace list
         wanted_clone, other_clone = unit / "clone", unit / "other-clone"
 
@@ -2914,6 +3082,33 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 got == f"const-alpha is not in the plugin cache at {target}",
                 got,
             )
+        self.copies_listed = copies_listed
+        self.held_copy = held_copy
+        self.right_beta = right_beta
+        self.update_held = update_held
+        self.update_said = update_said
+        self.wanted_clone = wanted_clone
+
+    def plugin_cache_cases(self) -> None:
+        """Where the plugin cache is, what steers it, and the runs that drop a module or place one."""
+        case = self.case
+        base = self.base
+        copies_listed = self.copies_listed
+        four = self.four
+        green_examined = self.green_examined
+        held_copy = self.held_copy
+        kept_vars = self.kept_vars
+        kit = self.kit
+        off_what = self.off_what
+        other_note = self.other_note
+        plug = self.plug
+        put_first = self.put_first
+        right_beta = self.right_beta
+        unit = self.unit
+        unit_state = self.unit_state
+        update_held = self.update_held
+        update_said = self.update_said
+        wanted_clone = self.wanted_clone
         # R4 of dec-0062, R4 and R5 of dec-0071: each module stands in the plugin cache, at its manifest
         # version; an installPath is held to the platform's documented layout, resolved on both sides
         alpha_cache = held_copy("const-alpha")
@@ -3313,6 +3508,22 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 and all(f == "absent" for _, fields in at_command for i, f in enumerate(fields) if i != slot),
                 " | ".join(seen[:6]),
             )
+        self.off_cache_fix = off_cache_fix
+        self.person_values = person_values
+        self.seen_log = seen_log
+        self.seen_when_removed = seen_when_removed
+
+    def broken_reply_cases(self) -> None:
+        """The BROKEN lines for replies the platform gets wrong, and the guide as the commit holds it."""
+        case = self.case
+        base = self.base
+        kit = self.kit
+        listed_command = self.listed_command
+        mkt_command = self.mkt_command
+        no_json = self.no_json
+        reply_fix = self.reply_fix
+        settings_fix = self.settings_fix
+        unit = self.unit
 
         # the folders in a whole run: the marketplace list where its block ended, not in the project, the
         # plugin list in the project, and neither in the run's home folder
@@ -3565,6 +3776,18 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         )
         read = committed_guide(kit, os.environ | {"GIT_TRACE": "2"})  # git writes its trace to stderr
         case("the committed guide is read whole, standard output alone", read == toy_guide(), read[:80])
+        self.git = git
+
+    def claude_version_cases(self) -> None:
+        """The version the run is on: the pin, the opt-out and the person's own environment."""
+        case = self.case
+        base = self.base
+        kept_vars = self.kept_vars
+        kit = self.kit
+        person_values = self.person_values
+        root = self.root
+        seen_log = self.seen_log
+        seen_when_removed = self.seen_when_removed
         # the version check, over every answer of `claude --version`; the lines are typed by hand
         version_log = root / "version.log"
         strict = (
@@ -3722,6 +3945,35 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             and all(line.endswith(seen_when_removed) for line in seen),
             f"{whats(opted)} ({opted_examined}) {opted_note!r} {seen[:4]}",
         )
+        self.logged = logged
+        self.noted = noted
+        self.says_env = says_env
+        self.strict = strict
+        self.stuck = stuck
+        self.too_old = too_old
+        self.version_log = version_log
+
+    def whole_run_cases(self) -> None:
+        """Whole runs on another version, on a crashed claude and over unreadable replies."""
+        case = self.case
+        base = self.base
+        git = self.git
+        kit = self.kit
+        listed_command = self.listed_command
+        logged = self.logged
+        nameless = self.nameless
+        no_json = self.no_json
+        noted = self.noted
+        off_cache_fix = self.off_cache_fix
+        off_fix = self.off_fix
+        pin_fix = self.pin_fix
+        root = self.root
+        says_env = self.says_env
+        settings_fix = self.settings_fix
+        strict = self.strict
+        stuck = self.stuck
+        too_old = self.too_old
+        version_log = self.version_log
 
         def stopped_run(env: dict[str, str], where: Path = kit) -> tuple[str, str]:
             """What `run_guide` over the toy guide ends in when it is Broken: its line and its note."""
@@ -3964,6 +4216,20 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 ended == EXIT_GREEN and lines == [green_line + note_wanted],
                 f"{ended} {lines}",
             )
+        self.stop_after, self.whole_run = stop_after, whole_run
+
+    def run_setup_cases(self) -> None:
+        """Runs ending in a finding, folders that are no clone, carried credentials and the source."""
+        case = self.case
+        base = self.base
+        git = self.git
+        kit = self.kit
+        noted = self.noted
+        root = self.root
+        says_env = self.says_env
+        stop_after = self.stop_after
+        too_old = self.too_old
+        whole_run = self.whole_run
         red_main = toy_kit(root / "red-main")  # its guide committed, with a block that exits 1
         (red_main / GUIDE).write_text(toy_guide(scan="false"), encoding="utf-8")
         run(["git", "add", GUIDE], red_main, git)
@@ -4155,59 +4421,99 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             detached,
         )
 
-    printed = io.StringIO()
-    with contextlib.redirect_stdout(printed):
-        code = report(
-            [Finding(12, "a `bash` block names no check", "write `check=<name>`")],
-            "3 named block(s), not run",
+    def report_cases(self) -> None:
+        """The report: its literal text for one finding, for a run off the pin and for a green run."""
+        case = self.case
+
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = report(
+                [Finding(12, "a `bash` block names no check", "write `check=<name>`")],
+                "3 named block(s), not run",
+            )
+        literal = (
+            "RED: INSTALL.md:12: a `bash` block names no check\n"
+            f"  why: {WHY}\n"
+            "  fix: write `check=<name>`\n"
+            "RED: 1 finding(s) — 3 named block(s), not run\n"
         )
-    literal = (
-        "RED: INSTALL.md:12: a `bash` block names no check\n"
-        f"  why: {WHY}\n"
-        "  fix: write `check=<name>`\n"
-        "RED: 1 finding(s) — 3 named block(s), not run\n"
-    )
-    case(
-        "the report of one finding is its literal text, exit 2",
-        code == EXIT_RED and printed.getvalue() == literal,
-        printed.getvalue(),
-    )
-    off_pin = " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"  # typed by hand
-    printed = io.StringIO()
-    with contextlib.redirect_stdout(printed):
-        code = report(
-            [Finding(12, "a `bash` block names no check", "write `check=<name>`")],
-            "3 named block(s), not run",
-            off_pin,
+        case(
+            "the report of one finding is its literal text, exit 2",
+            code == EXIT_RED and printed.getvalue() == literal,
+            printed.getvalue(),
         )
-    literal = (  # the note ends the headline lines, not the why: and fix: lines
-        f"RED: INSTALL.md:12: a `bash` block names no check{off_pin}\n"
-        f"  why: {WHY}\n"
-        "  fix: write `check=<name>`\n"
-        f"RED: 1 finding(s) — 3 named block(s), not run{off_pin}\n"
-    )
-    case(
-        "the report of a run off the pin ends each headline line with the note",
-        code == EXIT_RED and printed.getvalue() == literal,
-        printed.getvalue(),
-    )
-    printed = io.StringIO()
-    with contextlib.redirect_stdout(printed):
-        code = report([], "9 block(s) run, 2 module(s), from toy/kit#main", off_pin)
-        plain_code = report([], "9 block(s) run, 2 module(s), from toy/kit#main")
-    literal = (  # typed by hand
-        "GREEN: the install guide runs and does what it says — 9 block(s) run, 2 module(s), from toy/kit#main"
-        " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]\n"
-        "GREEN: the install guide runs and does what it says — 9 block(s) run, 2 module(s),"
-        " from toy/kit#main\n"
-    )
-    case(
-        "the green report ends with the note off the pin, and with none on it",
-        code == plain_code == EXIT_GREEN and printed.getvalue() == literal,
-        printed.getvalue(),
-    )
-    print(f"{total - failed}/{total} cases green")
-    return EXIT_GREEN if failed == 0 else EXIT_RED
+        off_pin = " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"  # typed by hand
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = report(
+                [Finding(12, "a `bash` block names no check", "write `check=<name>`")],
+                "3 named block(s), not run",
+                off_pin,
+            )
+        literal = (  # the note ends the headline lines, not the why: and fix: lines
+            f"RED: INSTALL.md:12: a `bash` block names no check{off_pin}\n"
+            f"  why: {WHY}\n"
+            "  fix: write `check=<name>`\n"
+            f"RED: 1 finding(s) — 3 named block(s), not run{off_pin}\n"
+        )
+        case(
+            "the report of a run off the pin ends each headline line with the note",
+            code == EXIT_RED and printed.getvalue() == literal,
+            printed.getvalue(),
+        )
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = report([], "9 block(s) run, 2 module(s), from toy/kit#main", off_pin)
+            plain_code = report([], "9 block(s) run, 2 module(s), from toy/kit#main")
+        literal = (  # typed by hand
+            "GREEN: the install guide runs and does what it says — 9 block(s) run, 2 module(s),"
+            " from toy/kit#main"
+            " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]\n"
+            "GREEN: the install guide runs and does what it says — 9 block(s) run, 2 module(s),"
+            " from toy/kit#main\n"
+        )
+        case(
+            "the green report ends with the note off the pin, and with none on it",
+            code == plain_code == EXIT_GREEN and printed.getvalue() == literal,
+            printed.getvalue(),
+        )
+
+    def listing_cases(self) -> None:
+        """The cases that read trees made in a temporary folder."""
+        with tempfile.TemporaryDirectory(prefix="install-guide-listings-") as listings:
+            self.listings = listings
+            self.module_listing_cases()
+            self.marketplace_and_pin_cases()
+            self.settings_file_cases()
+
+    def guide_run_cases(self) -> None:
+        """The cases that run the guide against the fake claude in a temporary folder."""
+        with tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch:
+            self.scratch = scratch
+            self.green_run_cases()
+            self.marketplace_list_cases()
+            self.plugin_list_cases()
+            self.list_identity_cases()
+            self.list_command_cases()
+            self.reinstall_and_update_cases()
+            self.plugin_cache_cases()
+            self.broken_reply_cases()
+            self.claude_version_cases()
+            self.whole_run_cases()
+            self.run_setup_cases()
+
+    def run(self) -> int:
+        """Run every group in order, print the tally, and give the exit code."""
+        self.mark_cases()
+        self.listing_cases()
+        self.guide_run_cases()
+        self.report_cases()
+        print(f"{self.total - self.failed}/{self.total} cases green")
+        return EXIT_GREEN if self.failed == 0 else EXIT_RED
+
+
+def self_test() -> int:
+    return SelfTestRun().run()
 
 
 def main(argv: list[str]) -> int:
