@@ -245,214 +245,274 @@ def listed_in_reverse() -> Iterator[None]:
         Path.iterdir = real  # type: ignore[method-assign]
 
 
-def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    """Red→green on a throwaway kit: each wrong state must be red, the right link green; what a module
-    owes follows the folders (a new shared test file is owed at once, a name that starts `.` or `_` or is
-    no `.py` file is not), and the shared code missing its floor is BROKEN."""
-    owed = 2 + len(FLOOR)  # the links a module owes on a fresh tree: the gate package twice, the floor
+OWED = 2 + len(FLOOR)  # the links a module owes on a fresh tree: the gate package twice, the floor
 
-    def root_of(link: Path) -> Path:
-        return link.parent.parent.parent.parent
 
-    def add_module(root: Path, name: str) -> Path:
-        module = root / "modules" / name
-        (module / "hooks").mkdir(parents=True)
-        (module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
-        (module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
-        for link, source in links_of(root).items():
-            (module / link).parent.mkdir(parents=True, exist_ok=True)
-            os.symlink(os.path.relpath(root / source, (module / link).parent), module / link)
-        return module
+@dataclass
+class Tally:
+    """The cases the self-test has judged, and those that failed."""
 
-    def fresh(root: Path) -> Path:
-        (root / "shared" / "const_gate").mkdir(parents=True)
-        (root / "shared" / "tests").mkdir()
-        for name in FLOOR:
-            (root / "shared" / "tests" / name).write_text("", encoding="utf-8")
-        return add_module(root, "const-sample") / "scripts" / "const_gate"
+    judged: int = 0
+    failed: int = 0
 
-    def as_copy(link: Path) -> None:
-        link.unlink()
-        link.mkdir()
+    def judge(self, ok: bool, text: str) -> None:
+        """Count one case and print its line."""
+        self.judged += 1
+        self.failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {text}")
 
-    def as_package_copy(link: Path) -> None:
-        """scripts/const_gate a real folder holding an __init__.py: a copy, and a package by its look."""
-        as_copy(link)
-        (link / "__init__.py").write_text("", encoding="utf-8")
 
-    def as_text_file(link: Path) -> None:
-        link.unlink()
-        link.write_text("../../../shared/const_gate", encoding="utf-8")
+def root_of(link: Path) -> Path:
+    return link.parent.parent.parent.parent
 
-    def as_dangling(link: Path) -> None:
-        link.unlink()
-        os.symlink("../../../shared/no_such_gate", link)
 
-    def as_elsewhere(link: Path) -> None:
-        link.unlink()
-        os.symlink("../tests", link)
+def add_module(root: Path, name: str) -> Path:
+    module = root / "modules" / name
+    (module / "hooks").mkdir(parents=True)
+    (module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+    (module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
+    for link, source in links_of(root).items():
+        (module / link).parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(os.path.relpath(root / source, (module / link).parent), module / link)
+    return module
 
-    def as_absolute(link: Path) -> None:
-        target = link.resolve()
-        link.unlink()
-        os.symlink(target, link)
 
-    def as_missing(link: Path) -> None:
-        link.unlink()
+def fresh_kit(root: Path) -> Path:
+    (root / "shared" / "const_gate").mkdir(parents=True)
+    (root / "shared" / "tests").mkdir()
+    for name in FLOOR:
+        (root / "shared" / "tests" / name).write_text("", encoding="utf-8")
+    return add_module(root, "const-sample") / "scripts" / "const_gate"
 
-    def harness_as_copy(link: Path) -> None:
-        harness = link.parent.parent / "tests" / "harness.py"
-        harness.unlink()
-        harness.write_text("", encoding="utf-8")
 
-    def new_shared(root: Path) -> None:
-        (root / "shared" / "tests" / "new.py").write_text("", encoding="utf-8")
+def as_copy(link: Path) -> None:
+    link.unlink()
+    link.mkdir()
 
-    def new_file_unlinked(link: Path) -> None:
-        """A fourth shared test file appears; no module links it."""
-        new_shared(root_of(link))
 
-    def new_file_in_two_modules(link: Path) -> None:
-        """The same, with a second linking module: each owes the file."""
-        add_module(root_of(link), "const-other")
-        new_shared(root_of(link))
+def as_package_copy(link: Path) -> None:
+    """scripts/const_gate a real folder holding an __init__.py: a copy, and a package by its look."""
+    as_copy(link)
+    (link / "__init__.py").write_text("", encoding="utf-8")
 
-    def new_file_as_copy(link: Path) -> None:
-        """The wrong fix: a plain copy of the new file in the module's tests/."""
-        new_shared(root_of(link))
-        (link.parent.parent / "tests" / "new.py").write_text("", encoding="utf-8")
 
-    def hookless(path: str, text: str | bytes, keep: str | None = None) -> Callable[[Path], None]:
-        """No hook; the links gone, bar the one kept; one script written at `path` under scripts/."""
+def as_text_file(link: Path) -> None:
+    link.unlink()
+    link.write_text("../../../shared/const_gate", encoding="utf-8")
 
-        def damage(link: Path) -> None:
-            module = link.parent.parent
-            if keep == "new.py":  # a shared file the module alone links
-                new_shared(root_of(link))
-                os.symlink("../../../shared/tests/new.py", module / "tests" / "new.py")
-            (module / "hooks" / "hooks.json").unlink()
-            (module / "hooks").rmdir()
-            for each in links_of(root_of(link)):  # only the import or the kept link can make the module owe
-                if each != f"tests/{keep}":
-                    (module / each).unlink()
-            script = module / "scripts" / path
-            script.parent.mkdir(parents=True, exist_ok=True)
-            if isinstance(text, bytes):
-                script.write_bytes(text)
-            else:
-                script.write_text(text, encoding="utf-8")
 
-        return damage
+def as_dangling(link: Path) -> None:
+    link.unlink()
+    os.symlink("../../../shared/no_such_gate", link)
 
-    def beside_dangling_script(damage: Callable[[Path], None]) -> Callable[[Path], None]:
-        """The damage, then a script scripts/x.py that is a dangling symbolic link."""
 
-        def both(link: Path) -> None:
-            damage(link)
-            os.symlink("no_such_script.py", link.parent / "x.py")
+def as_elsewhere(link: Path) -> None:
+    link.unlink()
+    os.symlink("../tests", link)
 
-        return both
 
-    def hidden_folders(link: Path) -> None:
-        """Folders of modules/ that start with . or _ and hold a hook, with no link: no module."""
-        for name in (".wip", "_draft"):
-            (root_of(link) / "modules" / name / "hooks").mkdir(parents=True)
-            (root_of(link) / "modules" / name / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+def as_absolute(link: Path) -> None:
+    target = link.resolve()
+    link.unlink()
+    os.symlink(target, link)
 
-    def not_shared_files(link: Path) -> None:
-        """Files of shared/tests/ that are no .py file at its top: a README, a folder with a .py in it."""
-        tests = root_of(link) / "shared" / "tests"
-        (tests / "README.md").write_text("", encoding="utf-8")
-        (tests / "__pycache__").mkdir()
-        (tests / "__pycache__" / "inner.py").write_text("", encoding="utf-8")
 
-    def unlinked_module(name: str, document: bool = True) -> Callable[[Path], None]:
-        """A folder of modules/ that has a hook and none of the links, its MODULE.md written or not."""
+def as_missing(link: Path) -> None:
+    link.unlink()
 
-        def damage(link: Path) -> None:
-            folder = root_of(link) / "modules" / name
-            (folder / "hooks").mkdir(parents=True)
-            (folder / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
-            if document:
-                (folder / "MODULE.md").write_text("A module.\n", encoding="utf-8")
 
-        return damage
+def harness_as_copy(link: Path) -> None:
+    harness = link.parent.parent / "tests" / "harness.py"
+    harness.unlink()
+    harness.write_text("", encoding="utf-8")
 
-    def plain_file(link: Path) -> None:
-        """A plain file of modules/ named like a module."""
-        (root_of(link) / "modules" / "const-file").write_text("not a folder\n", encoding="utf-8")
 
-    def skills_only_without_document(link: Path) -> None:
-        """A folder of skills alone, owing no link, with no MODULE.md."""
-        (root_of(link) / "modules" / "const-skills" / "skills").mkdir(parents=True)
+def new_shared(root: Path) -> None:
+    (root / "shared" / "tests" / "new.py").write_text("", encoding="utf-8")
 
-    def modules_gone(link: Path) -> None:
-        shutil.rmtree(root_of(link) / "modules")
 
-    def without_harness(link: Path) -> None:
-        (root_of(link) / "shared" / "tests" / "harness.py").unlink()
+def new_file_unlinked(link: Path) -> None:
+    """A fourth shared test file appears; no module links it."""
+    new_shared(root_of(link))
 
-    def without_gate(link: Path) -> None:
-        shutil.rmtree(root_of(link) / "shared" / "const_gate")
 
-    def tests_emptied(link: Path) -> None:
-        for name in FLOOR:
-            (root_of(link) / "shared" / "tests" / name).unlink()
+def new_file_in_two_modules(link: Path) -> None:
+    """The same, with a second linking module: each owes the file."""
+    add_module(root_of(link), "const-other")
+    new_shared(root_of(link))
 
-    def tests_gone(link: Path) -> None:
-        tests = root_of(link) / "shared" / "tests"
-        for name in FLOOR:
-            (tests / name).unlink()
-        tests.rmdir()
 
-    def own_package(name: str = "sample_gate", linked: str | None = None) -> Callable[[Path], None]:
-        """A package scripts/<name>/ of the module's own, its link in tests/ made to `linked` or none."""
+def new_file_as_copy(link: Path) -> None:
+    """The wrong fix: a plain copy of the new file in the module's tests/."""
+    new_shared(root_of(link))
+    (link.parent.parent / "tests" / "new.py").write_text("", encoding="utf-8")
 
-        def damage(link: Path) -> None:
-            module = link.parent.parent
-            (module / "scripts" / name).mkdir()
-            (module / "scripts" / name / "__init__.py").write_text("", encoding="utf-8")
-            if linked is not None:
-                os.symlink(linked, module / "tests" / name)
 
-        return damage
+def hookless(path: str, text: str | bytes, keep: str | None = None) -> Callable[[Path], None]:
+    """No hook; the links gone, bar the one kept; one script written at `path` under scripts/."""
 
-    def runner_gate_through_scripts(link: Path) -> None:
-        """tests/const_gate made a link to ../scripts/const_gate: it resolves to the source, not straight."""
-        (link.parent.parent / "tests" / "const_gate").unlink(missing_ok=True)
-        os.symlink("../scripts/const_gate", link.parent.parent / "tests" / "const_gate")
+    def damage(link: Path) -> None:
+        module = link.parent.parent
+        if keep == "new.py":  # a shared file the module alone links
+            new_shared(root_of(link))
+            os.symlink("../../../shared/tests/new.py", module / "tests" / "new.py")
+        (module / "hooks" / "hooks.json").unlink()
+        (module / "hooks").rmdir()
+        for each in links_of(root_of(link)):  # only the import or the kept link can make the module owe
+            if each != f"tests/{keep}":
+                (module / each).unlink()
+        script = module / "scripts" / path
+        script.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(text, bytes):
+            script.write_bytes(text)
+        else:
+            script.write_text(text, encoding="utf-8")
 
-    def own_package_as_text(link: Path) -> None:
-        """The module's own package, its link in tests/ a one-line text file, as a checkout without links."""
-        own_package()(link)
-        (link.parent.parent / "tests" / "sample_gate").write_text("../scripts/sample_gate", encoding="utf-8")
+    return damage
 
-    def own_package_through_alias(link: Path) -> None:
-        """The module's own package reached from tests/ through a second link in scripts/."""
-        own_package()(link)
-        os.symlink("sample_gate", link.parent / "alias")
-        os.symlink("../scripts/alias", link.parent.parent / "tests" / "sample_gate")
 
-    def own_package_copied(link: Path) -> None:
-        """The module's own package, copied into tests/ instead of linked."""
-        own_package()(link)
-        shutil.copytree(link.parent / "sample_gate", link.parent.parent / "tests" / "sample_gate")
+def beside_dangling_script(damage: Callable[[Path], None]) -> Callable[[Path], None]:
+    """The damage, then a script scripts/x.py that is a dangling symbolic link."""
 
-    def not_packages(link: Path) -> None:
-        """Folders of scripts/ that are no package of the module's own: no __init__.py, a `.` or `_` name, and
-        the shared const_gate, a package through its link."""
-        scripts = link.parent
-        (scripts / "data").mkdir()
-        (scripts / "data" / "x.py").write_text("", encoding="utf-8")
-        for name in ("__pycache__", "_private", ".mypy_cache"):
-            (scripts / name).mkdir()
-            (scripts / name / "__init__.py").write_text("", encoding="utf-8")
-        (scripts / "single.py").write_text("", encoding="utf-8")
-        shared_gate = root_of(link) / "shared" / "const_gate"
-        (shared_gate / "__init__.py").write_text("", encoding="utf-8")  # scripts/const_gate, a package
-        (scripts / "linked_gate").symlink_to(shared_gate)  # a link to a package, no package of its own
+    def both(link: Path) -> None:
+        damage(link)
+        os.symlink("no_such_script.py", link.parent / "x.py")
 
-    wrong: dict[str, tuple[Callable[[Path], None], int]] = {  # the damage, and the findings it earns
+    return both
+
+
+def hidden_folders(link: Path) -> None:
+    """Folders of modules/ that start with . or _ and hold a hook, with no link: no module."""
+    for name in (".wip", "_draft"):
+        (root_of(link) / "modules" / name / "hooks").mkdir(parents=True)
+        (root_of(link) / "modules" / name / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+
+
+def not_shared_files(link: Path) -> None:
+    """Files of shared/tests/ that are no .py file at its top: a README, a folder with a .py in it."""
+    tests = root_of(link) / "shared" / "tests"
+    (tests / "README.md").write_text("", encoding="utf-8")
+    (tests / "__pycache__").mkdir()
+    (tests / "__pycache__" / "inner.py").write_text("", encoding="utf-8")
+
+
+def unlinked_module(name: str, document: bool = True) -> Callable[[Path], None]:
+    """A folder of modules/ that has a hook and none of the links, its MODULE.md written or not."""
+
+    def damage(link: Path) -> None:
+        folder = root_of(link) / "modules" / name
+        (folder / "hooks").mkdir(parents=True)
+        (folder / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+        if document:
+            (folder / "MODULE.md").write_text("A module.\n", encoding="utf-8")
+
+    return damage
+
+
+def plain_file(link: Path) -> None:
+    """A plain file of modules/ named like a module."""
+    (root_of(link) / "modules" / "const-file").write_text("not a folder\n", encoding="utf-8")
+
+
+def skills_only_without_document(link: Path) -> None:
+    """A folder of skills alone, owing no link, with no MODULE.md."""
+    (root_of(link) / "modules" / "const-skills" / "skills").mkdir(parents=True)
+
+
+def modules_gone(link: Path) -> None:
+    shutil.rmtree(root_of(link) / "modules")
+
+
+def without_harness(link: Path) -> None:
+    (root_of(link) / "shared" / "tests" / "harness.py").unlink()
+
+
+def without_gate(link: Path) -> None:
+    shutil.rmtree(root_of(link) / "shared" / "const_gate")
+
+
+def tests_emptied(link: Path) -> None:
+    for name in FLOOR:
+        (root_of(link) / "shared" / "tests" / name).unlink()
+
+
+def tests_gone(link: Path) -> None:
+    tests = root_of(link) / "shared" / "tests"
+    for name in FLOOR:
+        (tests / name).unlink()
+    tests.rmdir()
+
+
+def own_package(name: str = "sample_gate", linked: str | None = None) -> Callable[[Path], None]:
+    """A package scripts/<name>/ of the module's own, its link in tests/ made to `linked` or none."""
+
+    def damage(link: Path) -> None:
+        module = link.parent.parent
+        (module / "scripts" / name).mkdir()
+        (module / "scripts" / name / "__init__.py").write_text("", encoding="utf-8")
+        if linked is not None:
+            os.symlink(linked, module / "tests" / name)
+
+    return damage
+
+
+def runner_gate_through_scripts(link: Path) -> None:
+    """tests/const_gate made a link to ../scripts/const_gate: it resolves to the source, not straight."""
+    (link.parent.parent / "tests" / "const_gate").unlink(missing_ok=True)
+    os.symlink("../scripts/const_gate", link.parent.parent / "tests" / "const_gate")
+
+
+def own_package_as_text(link: Path) -> None:
+    """The module's own package, its link in tests/ a one-line text file, as a checkout without links."""
+    own_package()(link)
+    (link.parent.parent / "tests" / "sample_gate").write_text("../scripts/sample_gate", encoding="utf-8")
+
+
+def own_package_through_alias(link: Path) -> None:
+    """The module's own package reached from tests/ through a second link in scripts/."""
+    own_package()(link)
+    os.symlink("sample_gate", link.parent / "alias")
+    os.symlink("../scripts/alias", link.parent.parent / "tests" / "sample_gate")
+
+
+def own_package_copied(link: Path) -> None:
+    """The module's own package, copied into tests/ instead of linked."""
+    own_package()(link)
+    shutil.copytree(link.parent / "sample_gate", link.parent.parent / "tests" / "sample_gate")
+
+
+def not_packages(link: Path) -> None:
+    """Folders of scripts/ that are no package of the module's own: no __init__.py, a `.` or `_` name, and
+    the shared const_gate, a package through its link."""
+    scripts = link.parent
+    (scripts / "data").mkdir()
+    (scripts / "data" / "x.py").write_text("", encoding="utf-8")
+    for name in ("__pycache__", "_private", ".mypy_cache"):
+        (scripts / name).mkdir()
+        (scripts / name / "__init__.py").write_text("", encoding="utf-8")
+    (scripts / "single.py").write_text("", encoding="utf-8")
+    shared_gate = root_of(link) / "shared" / "const_gate"
+    (shared_gate / "__init__.py").write_text("", encoding="utf-8")  # scripts/const_gate, a package
+    (scripts / "linked_gate").symlink_to(shared_gate)  # a link to a package, no package of its own
+
+
+# the name filter over its whole set: name, a folder, owed, and why
+NAME_CASES = (
+    ("a.py", False, True, "a .py file at the top"),
+    ("_a.py", False, False, "starts with _"),
+    (".a.py", False, False, "starts with ."),
+    ("a.pyc", False, False, "does not end in .py"),
+    ("a.py.bak", False, False, "does not end in .py"),
+    ("A.PY", False, False, "the suffix is .py, matched as written"),
+    ("d.py", True, False, "a folder, no regular file"),
+    ("__pycache__", True, False, "a folder, and starts with _"),
+    ("README.md", False, False, "does not end in .py"),
+)
+
+
+def wrong_cases() -> dict[str, tuple[Callable[[Path], None], int]]:
+    """The damages to a kit that must each be red, by case, with the findings each earns."""
+    return {  # the damage, and the findings it earns
         "a missing link": (as_missing, 1),
         "the runner's gate package link missing": (
             lambda link: (link.parent.parent / "tests/const_gate").unlink(missing_ok=True),
@@ -475,54 +535,54 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         "a copied harness in tests/": (harness_as_copy, 1),
         "a hookless module importing the shared code, its links missing": (
             hookless("generate.py", "from const_gate import cli\n"),
-            owed,
+            OWED,
         ),
         "a hookless module importing the shared code in scripts/lib/, its links missing": (
             hookless("lib/gen.py", "from const_gate import cli\n"),
-            owed,
+            OWED,
         ),
         "a hookless module with `import const_gate` in scripts/x.py, its links missing": (
             hookless("x.py", "import const_gate\n"),
-            owed,
+            OWED,
         ),
         "a hookless module importing the shared code in scripts/lib/const_gate/, its links missing": (
             hookless("lib/const_gate/x.py", "from const_gate import cli\n"),
-            owed,  # only the folder scripts/const_gate at the top is the link; a nested one is read
+            OWED,  # only the folder scripts/const_gate at the top is the link; a nested one is read
         ),
         "a hookless module with a dangling scripts/x.py beside a script importing the shared code": (
             beside_dangling_script(hookless("y.py", "import const_gate\n")),
-            owed,
+            OWED,
         ),
         "a hookless module with non-UTF-8 bytes in a script before its import, its links missing": (
             hookless("x.py", b"# caf\xe9\nimport const_gate\n"),
-            owed,
+            OWED,
         ),
         "a hookless module with an indented import inside a function, its links missing": (
             hookless("lib/f.py", "def f() -> None:\n    from const_gate import cli\n"),
-            owed,
+            OWED,
         ),
         "a hookless module with an import line indented by a tab, its links missing": (
             hookless("lib/g.py", "def g() -> None:\n\tfrom const_gate import cli\n"),
-            owed,
+            OWED,
         ),
         "a hookless module with `import` and the name apart by a tab, its links missing": (
             hookless("lib/h.py", "import\tconst_gate\n"),
-            owed,
+            OWED,
         ),
         "a hookless module with `from const_gate.cli import y`, its links missing": (
             hookless("y.py", "from const_gate.cli import y\n"),
-            owed,
+            OWED,
         ),
         "a hookless module that has only the link of a new shared file": (
             hookless("empty.txt", "", keep="new.py"),
-            owed,  # the gate package twice and the three of the floor, of the six links it owes
+            OWED,  # the gate package twice and the three of the floor, of the six links it owes
         ),
-        "a hookless module that has only one link": (hookless("empty.txt", "", keep="consumer.py"), owed - 1),
+        "a hookless module that has only one link": (hookless("empty.txt", "", keep="consumer.py"), OWED - 1),
         "a shared test file no module links": (new_file_unlinked, 1),
         "a shared test file no one of two linking modules links": (new_file_in_two_modules, 2),
         "a folder named without const- that uses the shared code, its links missing": (
             unlinked_module("glossary"),
-            owed,  # the listing has no name rule: the folder owes the links like any module
+            OWED,  # the listing has no name rule: the folder owes the links like any module
         ),
         "a copy": (as_copy, 1),
         "a copy that is a package, owed once as the gate package and never as one of its own": (
@@ -534,8 +594,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         "a link leading elsewhere": (as_elsewhere, 1),
         "an absolute link": (as_absolute, 1),
     }
+
+
+def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...]]]:
+    """The damages whose plain run must print the given words and give the given exit code."""
     # what the plain run prints: the damage, the exit code, the words the output must hold
-    reads: dict[str, tuple[Callable[[Path], None], int, tuple[str, ...]]] = {
+    return {
         "a shared test file no module links, taught with its ln -s": (
             new_file_in_two_modules,
             EXIT_RED,
@@ -675,33 +739,26 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             ("BROKEN: shared/tests/ lacks harness.py, consumer.py, shared_items.py, which",),
         ),
     }
-    # the name filter over its whole set: name, a folder, owed, and why
-    names = (
-        ("a.py", False, True, "a .py file at the top"),
-        ("_a.py", False, False, "starts with _"),
-        (".a.py", False, False, "starts with ."),
-        ("a.pyc", False, False, "does not end in .py"),
-        ("a.py.bak", False, False, "does not end in .py"),
-        ("A.PY", False, False, "the suffix is .py, matched as written"),
-        ("d.py", True, False, "a folder, no regular file"),
-        ("__pycache__", True, False, "a folder, and starts with _"),
-        ("README.md", False, False, "does not end in .py"),
-    )
-    failed = 0
-    for name, (damage, findings) in wrong.items():
+
+
+def judge_wrong(tally: Tally) -> None:
+    """Each damage is red against a kit that was green."""
+    for name, (damage, findings) in wrong_cases().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            link = fresh(root)
+            link = fresh_kit(root)
             green_before = not check_kit(root)[0]
             damage(link)
             red_after = len(check_kit(root)[0]) == findings
-        ok = green_before and red_after
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] the right link is green, {name} is red")
-    for name, (damage, code, words) in reads.items():
+        tally.judge(green_before and red_after, f"the right link is green, {name} is red")
+
+
+def judge_reads(tally: Tally) -> None:
+    """The plain run of each damaged kit gives its exit code and holds its words."""
+    for name, (damage, code, words) in reads_cases().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            link = fresh(root)
+            link = fresh_kit(root)
             with contextlib.redirect_stdout(io.StringIO()):
                 green_before = run(root) == EXIT_GREEN
             damage(link)
@@ -709,12 +766,15 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             with contextlib.redirect_stdout(out):
                 code_after = run(root)
         ok = green_before and code_after == code and all(word in out.getvalue() for word in words)
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] the right link is green, {name} reads exit {code}")
+        tally.judge(ok, f"the right link is green, {name} reads exit {code}")
+
+
+def judge_order(tally: Tally) -> None:
+    """The findings of two modules come by module, the gate package first, the files by name."""
     # the order of the findings, held whole: no row of `reads` compares order, which asks the one list
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        fresh(root)
+        fresh_kit(root)
         shutil.rmtree(root / "modules" / "const-sample")
         for module in ("const-a", "const-b"):
             (root / "modules" / module / "hooks").mkdir(parents=True)
@@ -744,15 +804,19 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         )
     ]
     ok = code_after == EXIT_RED and heads == expected
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] findings by module, the gate package in scripts/ then in tests/,"
-        " the shared files by name, then the module's own packages by name"
+    tally.judge(
+        ok,
+        "findings by module, the gate package in scripts/ then in tests/,"
+        " the shared files by name, then the module's own packages by name",
     )
-    for name, folder, is_owed, why in names:
+
+
+def judge_names(tally: Tally) -> None:
+    """A file or folder at the top of shared/tests/ is owed a link by its name alone."""
+    for name, folder, is_owed, why in NAME_CASES:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            fresh(root)
+            fresh_kit(root)
             path = root / "shared" / "tests" / name
             if folder:
                 path.mkdir()
@@ -763,12 +827,21 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ok = len(found) == (1 if is_owed else 0) and (
             not is_owed or f"tests/{name} is missing" in found[0].headline
         )
-        failed += 0 if ok else 1
         shown, verdict = name + ("/" if folder else ""), "owed" if is_owed else "not owed"
-        print(f"[{'ok' if ok else 'FAIL'}] shared/tests/{shown} is {verdict}: {why}")
-    total = len(wrong) + len(reads) + 1 + len(names)
-    print(f"{total - failed}/{total} red→green cases green")
-    return EXIT_GREEN if failed == 0 else EXIT_RED
+        tally.judge(ok, f"shared/tests/{shown} is {verdict}: {why}")
+
+
+def self_test() -> int:
+    """Red→green on a throwaway kit: each wrong state must be red, the right link green; what a module
+    owes follows the folders (a new shared test file is owed at once, a name that starts `.` or `_` or is
+    no `.py` file is not), and the shared code missing its floor is BROKEN."""
+    tally = Tally()
+    judge_wrong(tally)
+    judge_reads(tally)
+    judge_order(tally)
+    judge_names(tally)
+    print(f"{tally.judged - tally.failed}/{tally.judged} red→green cases green")
+    return EXIT_GREEN if tally.failed == 0 else EXIT_RED
 
 
 def main(argv: list[str]) -> int:
