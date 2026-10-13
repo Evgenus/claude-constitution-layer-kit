@@ -108,7 +108,16 @@ Modes:  no arguments         the gate;
                              total, off it, absent, in another form, inside a fence, and off it
                              run without `--run`; the shared items over their
                              whole set of cases: numbers and ranges of the table green and red,
-                             a file or form it cannot read BROKEN, the report as literal lines.
+                             a file or form it cannot read BROKEN, the report as literal lines;
+                             the coverage mode, a green run and a red one each writing the file,
+                             a gate's child process measured and a file no run imports missed,
+                             and no file with the variable unset — it needs coverage.py.
+With CONSTITUTION_KIT_COVERAGE naming a folder, `--run` runs each runner under coverage.py and writes
+`<folder>/<module>.json`, a red run too, before it reads the runner's lines (scripts/kit_coverage.py
+says how); coverage.py not installed, or a step of it that fails, is a BROKEN line. The kit's CI sets
+the variable in each module's job, and scripts/module-coverage.py reads the files: a report, whose
+numbers no check holds (decision dec-0089-module-coverage-report). Empty or absent, the runner runs as
+it always did.
 Exit:   0 green; 2 a finding or a red item; 1 the check could not run.
 """
 
@@ -120,15 +129,18 @@ import contextlib
 import io
 import itertools
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import kit_coverage
 from kit_module_doc import DocumentError, cells, module_folders, section
 
 KIT = Path(__file__).resolve().parent.parent
@@ -803,20 +815,37 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
     runner = root / "modules" / module.name / "tests" / "run.py"
     if not runner.is_file():
         raise Broken(f"modules/{module.name}/tests/run.py does not exist — fix: restore the module's runner")
-    try:
-        done = subprocess.run(
-            [sys.executable, str(runner)],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=RUNNER_TIMEOUT,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as slow:
-        raise Broken(
-            f"the runner of {module.name} ran past {RUNNER_TIMEOUT} s"
-            " — fix: run it alone and see where it hangs"
-        ) from slow
+    out = kit_coverage.wanted()
+    with tempfile.TemporaryDirectory(prefix="aspects-coverage-") as scratch:
+        prefix: list[str] = [sys.executable]
+        env: dict[str, str] | None = None
+        if out is not None:
+            try:
+                prefix, env = kit_coverage.prepare(root, module.name, Path(scratch))
+            except kit_coverage.CoverageError as bad:
+                raise Broken(str(bad)) from bad
+        started = time.monotonic()
+        try:
+            done = subprocess.run(
+                [*prefix, str(runner)],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=RUNNER_TIMEOUT,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as slow:
+            raise Broken(
+                f"the runner of {module.name} ran past {RUNNER_TIMEOUT} s"
+                " — fix: run it alone and see where it hangs"
+            ) from slow
+        if out is not None:
+            seconds = round(time.monotonic() - started)
+            try:
+                kit_coverage.save(root, module.name, Path(scratch), out, done.returncode, seconds)
+            except kit_coverage.CoverageError as bad:
+                raise Broken(str(bad)) from bad
     if done.returncode != 0:  # the runner's own lines say what failed; the report says only which item
         print(f"the runner of {module.name} exited {done.returncode}; its output, as it printed it:")
         for text in done.stdout.splitlines() + done.stderr.splitlines():
@@ -1710,6 +1739,74 @@ def main_over(root: Path, argv: list[str]) -> tuple[int, list[str]]:
     return code, printed.getvalue().splitlines()
 
 
+COVERED_GATE = "import sys\nif len(sys.argv) > 5:\n    print('many')\nprint('gate')\n"
+
+
+def coverage_runner(lines: list[str], code: int) -> str:
+    """A fake runner that runs the sample module's gate as the fixtures do, `sh` calling `python3`."""
+    return (
+        "import subprocess, sys\nfrom pathlib import Path\n"
+        "entry = Path(__file__).resolve().parent.parent / 'scripts' / 'entry.sh'\n"
+        "subprocess.run(['sh', str(entry)], check=True, capture_output=True)\n"
+    ) + fake_runner(lines, code)
+
+
+def self_test_coverage() -> tuple[int, int]:
+    """The coverage mode of kit_coverage: with the variable set, a green run and a red one each write
+    the module's file, the gate a child process ran counted as executed and a file no run imported
+    as missed; with it unset, no file. The failed cases, and the cases."""
+    red_run = [line.replace("[ok]   2.", "[FAIL] 2.") for line in GREEN_RUN[:-1]]
+    red_run.append("3/4 acceptance items green — 1 red→green cases, 3 assertions examined")
+    cases = {  # case: the runner's lines, its exit, whether the variable is set, the check's exit
+        "a green run under coverage": (GREEN_RUN, 0, True, EXIT_GREEN),
+        "a red run under coverage": (red_run, 2, True, EXIT_RED),
+        "a run with the variable unset": (GREEN_RUN, 0, False, EXIT_GREEN),
+    }
+    failed = 0
+    for name, (lines, runner_exit, wanted, want) in cases.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE, runner=coverage_runner(lines, runner_exit))
+            scripts = root / "modules" / "const-sample" / "scripts"
+            scripts.mkdir()
+            (scripts / "entry.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
+            (scripts / "gate.py").write_text(COVERED_GATE, encoding="utf-8")
+            (scripts / "unused.py").write_text("print('never run')\n", encoding="utf-8")
+            (root / "shared" / "const_gate").mkdir()
+            (root / "shared" / "const_gate" / "__init__.py").write_text("", encoding="utf-8")
+            out = root / "coverage-out"
+            if wanted:
+                os.environ[kit_coverage.ENV] = str(out)
+            printed = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(printed):
+                    code = full_run(root, None)
+            except Broken as why:
+                code, printed = EXIT_BROKEN, io.StringIO(str(why))
+            finally:
+                os.environ.pop(kit_coverage.ENV, None)
+            written = out / "const-sample.json"
+            ok = code == want and written.is_file() == wanted
+            if ok and wanted:
+                saved = json.loads(written.read_text(encoding="utf-8"))
+                files = saved["files"]
+                gate_file = files.get("modules/const-sample/scripts/gate.py", {})
+                unused = files.get("modules/const-sample/scripts/unused.py", {})
+                ok = (
+                    saved["runner_exit"] == runner_exit
+                    and gate_file.get("executed_lines") == [1, 2, 4]
+                    and gate_file.get("missing_lines") == [3]
+                    and gate_file.get("missing_branches") == [[2, 3]]
+                    and unused.get("executed_lines") == []
+                    and unused.get("missing_lines") == [1]
+                )
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name} {'writes' if wanted else 'writes no'} coverage file")
+        if not ok:
+            print(f"exit {code}\n{printed.getvalue()}")
+    return failed, len(cases)
+
+
 def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
     and green with the good table; the report of one finding as literal lines; a full run green,
@@ -1717,6 +1814,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     unnamed; a runner out of form and one whose count disagrees as BROKEN; the destination classes,
     the form of the matrix and of the module documents, and the tie to the preamble, each over its
     whole set of cases."""
+    os.environ.pop(kit_coverage.ENV, None)  # every case runs its runner plain, save those that set it
     header = "| item | kind | rows | what it proves |\n|---|---|---|---|\n"
     red: dict[str, tuple[str, str | None]] = {  # case: its table (or rows section), what the finding says
         "no rows column": (
@@ -2803,6 +2901,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         if not ok:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
     shared_cases = self_test_shared()
+    coverage_cases = self_test_coverage()
     total = (
         len(red)
         + 6  # the row no module holds, the indented rows, the carrier row, the unclosed rows, t12 gone, the
@@ -2822,8 +2921,9 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         + 1  # stdout without its last line break, then stderr
         + len(filtered)
         + shared_cases[1]
+        + coverage_cases[1]
     )
-    failed += shared_cases[0]
+    failed += shared_cases[0] + coverage_cases[0]
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

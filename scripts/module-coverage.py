@@ -1,26 +1,17 @@
 #!/usr/bin/env python3
-"""Kit report, never a gate: run each module's fixtures under coverage.py, and print what they reach.
+"""Kit report, never a gate: what each module's fixtures reach of its code, from coverage.py's files.
 
 Advisory in the sense of law 5 of CLAUDE.md: it judges nothing and blocks nothing. Its numbers are read
-by a person, who decides what they mean; no number here is a threshold, and none is held anywhere. The
-kit's workflow .github/workflows/coverage.yml runs it once a week on main, on request, and on a pull
-request that changes this script or that workflow; it is no job of the workflow gates, so no verdict
-waits for it (decision dec-0089-module-coverage-report). Mutation score is no metric of this report: it
-stays a work item of its own, pending at step 9 of the rollout plan.
-
-Per module folder (the kit's one listing, `module_folders` of scripts/kit_module_doc.py), the report
-runs the module's runner, modules/<module>/tests/run.py, once, from the kit root, under
-`python3 -m coverage run` with branch coverage and `patch = subprocess`: the fixtures run the gates as
-child processes, `sh` entry points that call `python3`, and each such child is measured too. So that
-`python3` is the interpreter that runs this report, the one coverage.py is installed in, a folder
-holding a `python3` that calls it goes first on the runner's PATH. A child started with an environment
-of its own, without coverage's variable, is not measured, and its lines count as missed. coverage.py
-measures Python alone: a module's `.sh` files are not in these numbers.
+by a person, who decides what they mean; no number here is a threshold, and none is held anywhere.
+The numbers come from the fixtures entry itself: `scripts/check-aspects.py --run` runs a module's runner
+under coverage.py when CONSTITUTION_KIT_COVERAGE names a folder, and writes `<folder>/<module>.json`
+(scripts/kit_coverage.py says how, and what the file holds). The kit's CI sets it in each module's job
+on every pull request and on main, and the job `gates`, after its verdict, runs this report over the
+files of every module job (decision dec-0089-module-coverage-report). Mutation score is no metric of
+this report: it stays a work item of its own, pending at step 9 of the rollout plan.
 
 The measured code is the module's own Python under modules/<module>/scripts (`own`) and the shared
-const_gate it links, read at shared/const_gate (`shared`); a file under either that no run imports
-counts with all its lines missed. The runner and the shared test files are not measured. Per module,
-the JSON keys as written:
+const_gate it links, read at shared/const_gate (`shared`). Per module, the JSON keys as written:
   own_lines, own_lines_covered        the statements of the module's own Python, and those run;
   own_branches, own_branches_covered  its branch destinations, and those taken;
   own_line_percent,                   the two ratios as percentages, rounded to one decimal,
@@ -28,27 +19,30 @@ the JSON keys as written:
   shared_lines, …, shared_branch_percent
                                       the same six for shared/const_gate, as this module's fixtures
                                       reach it;
-  files                               per measured file, its path from the kit root and its
-                                      `lines`, `lines_covered`, `branches`, `branches_covered`;
   runner_exit                         the runner's exit: 0 when every item was green;
-  seconds                             the run's wall-clock time, whole seconds.
-The totals row sums the own keys and the seconds; its shared keys are the union of every module's runs
-over shared/const_gate, never a sum, and its runner_exit is the largest.
+  seconds                             the run's wall-clock time under coverage.py, whole seconds.
+The totals row joins the modules: its own keys count every module's own code, its shared keys the
+union of every module's runs over shared/const_gate, never a sum; its seconds are the sum, and its
+runner_exit the largest.
 
-Modes:  no arguments      every module, one table on stdout;
-        --module <name>   that module alone, the option repeatable;
+Modes:  --from <folder>   read the files in <folder>, one per module, and print one table;
+        no --from         make the files first, in a folder of its own: run
+                          `python3 scripts/check-aspects.py --run --module <module>` for every module,
+                          with this interpreter and the variable set — minutes in all;
+        --module <name>   with no --from, that module alone, the option repeatable;
         --json <path>     the table on stdout and the same numbers as one JSON object in <path>;
         --json -          the JSON object on stdout, and no table.
-Notes on stderr: a runner that exits other than 0 (its numbers still count what ran), and a run that
-leaves no coverage data, whose module is reported with zero lines covered.
-Exit:   0 whenever the runs could be made, whatever they measure; 1, with a BROKEN line that says what
-        failed, why and the fix, when they cannot: coverage.py not installed, the module folders that
-        cannot be listed, a module named that is no module folder, a module with no runner, a
-        coverage.py command that fails, its JSON that does not parse, the arguments misused, or the
-        JSON file that cannot be written.
-No --self-test: no list runs it, so a self-test would be a test that nothing runs. The scheduled
-workflow runs the script itself, where only its output shows, and the kit's `lint` and `types`
-entries of scripts/gate-list.sh hold its code, as they hold every script at the top of scripts/.
+Notes on stderr: a runner that exited other than 0 (its numbers still count what ran), and, with
+--from, a module folder with no file, which the table leaves out; each module run, as it starts.
+Exit:   0 whenever the files could be read or made, whatever they measure; 1, with a BROKEN line that
+        says what failed, why and the fix, when they cannot: the folder that cannot be read, a file that
+        does not parse or lacks a key, a fixtures entry that wrote no file, the module folders that
+        cannot be listed, a module named that is no module folder, the arguments misused, or the JSON
+        file that cannot be written.
+No --self-test: no list runs it, so a self-test would be a test that nothing runs. The job `gates`
+runs the script itself on every change, where only its output shows; the self-test of check-aspects
+holds the files it reads; and the kit's `lint` and `types` entries of scripts/gate-list.sh hold its
+code, as they hold every script at the top of scripts/.
 Its name is module-coverage, never check-: the kit's check-gate-lists holds every scripts/check-*.py to
 the gate group, and this script is no check. Nor is it coverage.py: a script of that name would shadow
 the package it runs.
@@ -57,203 +51,162 @@ the package it runs.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import os
 import subprocess
 import sys
 import tempfile
-import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
 
+import kit_coverage
 from kit_module_doc import DocumentError, module_folders
 
 KIT = Path(__file__).resolve().parent.parent
-SHARED = KIT / "shared" / "const_gate"
+SHARED = "shared/const_gate/"
 OK, BROKEN = 0, 1
-FIX_INSTALL = 'python3 -m pip install "coverage==7.16.2"'
 
 
 class Broken(Exception):
-    """A run the report needs cannot be made: the message is its BROKEN line, what failed and the fix."""
+    """An input the report needs cannot be read or made: the message is its BROKEN line."""
 
 
 @dataclass
-class Counts:
-    lines: int = 0
-    lines_covered: int = 0
-    branches: int = 0
-    branches_covered: int = 0
+class Lines:
+    """The lines and branches of a set of files, each kept as a set so that runs can be joined."""
 
-    def add(self, other: Counts) -> None:
-        self.lines += other.lines
-        self.lines_covered += other.lines_covered
-        self.branches += other.branches
-        self.branches_covered += other.branches_covered
+    lines: set[tuple[str, int]] = field(default_factory=set)
+    run: set[tuple[str, int]] = field(default_factory=set)
+    branches: set[tuple[str, int, int]] = field(default_factory=set)
+    taken: set[tuple[str, int, int]] = field(default_factory=set)
+
+    def add(self, path: str, one: dict[str, list[object]]) -> None:
+        executed = {(path, number(n)) for n in one["executed_lines"]}
+        self.run |= executed
+        self.lines |= executed | {(path, number(n)) for n in one["missing_lines"]}
+        taken = {(path, *pair(b)) for b in one["executed_branches"]}
+        self.taken |= taken
+        self.branches |= taken | {(path, *pair(b)) for b in one["missing_branches"]}
+
+    def join(self, other: Lines) -> None:
+        self.lines |= other.lines
+        self.run |= other.run
+        self.branches |= other.branches
+        self.taken |= other.taken
+
+    def keys(self, side: str) -> dict[str, object]:
+        """The six keys of the docstring for `side`, own or shared."""
+        return {
+            f"{side}_lines": len(self.lines),
+            f"{side}_lines_covered": len(self.run),
+            f"{side}_branches": len(self.branches),
+            f"{side}_branches_covered": len(self.taken),
+            f"{side}_line_percent": percent(len(self.run), len(self.lines)),
+            f"{side}_branch_percent": percent(len(self.taken), len(self.branches)),
+        }
 
 
 @dataclass
-class Coverage:
-    own: Counts = field(default_factory=Counts)
-    shared: Counts = field(default_factory=Counts)
-    files: dict[str, Counts] = field(default_factory=dict)
+class Module:
+    own: Lines = field(default_factory=Lines)
+    shared: Lines = field(default_factory=Lines)
     runner_exit: int = 0
     seconds: int = 0
+
+
+def number(value: object) -> int:
+    if not isinstance(value, int):
+        raise ValueError(f"a line number that is no whole number: {value!r}")
+    return value
+
+
+def pair(branch: object) -> tuple[int, int]:
+    if not isinstance(branch, list) or len(branch) != 2:
+        raise ValueError(f"a branch that is no pair of line numbers: {branch!r}")
+    return number(branch[0]), number(branch[1])
 
 
 def percent(part: int, whole: int) -> float | None:
     return round(100 * part / whole, 1) if whole else None
 
 
-def flat(measured: Coverage) -> dict[str, object]:
-    """One module's JSON object, the keys of the docstring."""
-    row: dict[str, object] = {}
-    for side in ("own", "shared"):
-        counts: Counts = getattr(measured, side)
-        row[f"{side}_lines"] = counts.lines
-        row[f"{side}_lines_covered"] = counts.lines_covered
-        row[f"{side}_branches"] = counts.branches
-        row[f"{side}_branches_covered"] = counts.branches_covered
-        row[f"{side}_line_percent"] = percent(counts.lines_covered, counts.lines)
-        row[f"{side}_branch_percent"] = percent(counts.branches_covered, counts.branches)
-    row["files"] = {path: asdict(counts) for path, counts in sorted(measured.files.items())}
-    row["runner_exit"] = measured.runner_exit
-    row["seconds"] = measured.seconds
-    return row
-
-
-# --- the runs -------------------------------------------------------------------------------------
-
-
-def coverage_cli(*args: str, cwd: Path) -> None:
-    """One `python3 -m coverage` command, or Broken with its own output."""
-    done = subprocess.run(
-        [sys.executable, "-m", "coverage", *args], cwd=cwd, capture_output=True, text=True, check=False
-    )
-    if done.returncode != 0:
-        said = (done.stderr or done.stdout).strip().splitlines()
-        raise Broken(
-            f"`coverage {' '.join(args)}` exited {done.returncode}: {said[-1] if said else 'no output'}\n"
-            "  why: a number from a run coverage.py could not finish would be a guess\n"
-            f"  fix: run the same command in {cwd} and repair what it reports"
-        )
-
-
-def config(work: Path, sources: list[Path]) -> Path:
-    """The rc file of one run: branch coverage, the children measured, the data kept in `work`."""
-    rc = work / "coveragerc"
-    rc.write_text(
-        "[run]\n"
-        "branch = true\n"
-        "parallel = true\n"
-        "patch = subprocess\n"
-        f"data_file = {work / 'data'}\n"
-        "source =\n" + "".join(f"    {source}\n" for source in sources),
-        encoding="utf-8",
-    )
-    return rc
-
-
-def shim(work: Path) -> Path:
-    """A folder whose `python3` runs this interpreter, so that a gate's `python3` is the measured one."""
-    folder = work / "bin"
-    folder.mkdir()
-    python3 = folder / "python3"
-    python3.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n', encoding="utf-8")
-    python3.chmod(0o755)
-    return folder
-
-
-def read_json(work: Path, rc: Path) -> dict[str, Counts]:
-    """The measured files of the combined data in `work`, by path from the kit root."""
-    out = work / "coverage.json"
-    coverage_cli("json", "--rcfile", str(rc), "-q", "-o", str(out), cwd=work)
+def read(path: Path) -> tuple[str, Module]:
+    """One module's file: its name and its numbers, or Broken."""
     try:
-        files = json.loads(out.read_text(encoding="utf-8"))["files"]
-        return {
-            Path(name).resolve().relative_to(KIT).as_posix(): Counts(
-                one["summary"]["num_statements"],
-                one["summary"]["covered_lines"],
-                one["summary"].get("num_branches", 0),
-                one["summary"].get("covered_branches", 0),
-            )
-            for name, one in files.items()
-        }
-    except (OSError, ValueError, KeyError, TypeError) as bad:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        name = str(data["module"])
+        module = Module(runner_exit=int(data["runner_exit"]), seconds=int(data["seconds"]))
+        own = f"modules/{name}/scripts/"
+        for file, one in data["files"].items():
+            if file.startswith(own):
+                module.own.add(file, one)
+            elif file.startswith(SHARED):
+                module.shared.add(file, one)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as bad:
         raise Broken(
-            f"coverage.py's JSON in {out} cannot be read ({bad})\n"
-            "  why: the report reads each file's summary from it\n"
-            f"  fix: install the version the workflow pins, {FIX_INSTALL}"
+            f"{path} cannot be read ({bad})\n  why: the report reads each module's coverage file whole\n"
+            f"  fix: make the files again — run the fixtures entry with {kit_coverage.ENV} set, or this"
+            " report without --from"
         ) from bad
+    return name, module
 
 
-def has_data(work: Path) -> bool:
-    return any(work.glob("data.*"))
+def listed() -> list[str]:
+    try:
+        return [folder.name for folder in module_folders(KIT)]
+    except DocumentError as bad:
+        raise Broken(f"{bad}\n  why: the report measures each module folder") from bad
 
 
-def measure(module: Path, scratch: Path, notes: list[str]) -> tuple[Coverage, Path | None]:
-    """Run one module's fixtures under coverage.py; its numbers, and its combined data file, if any."""
-    runner = module / "tests" / "run.py"
-    if not runner.is_file():
-        raise Broken(
-            f"modules/{module.name}/tests/run.py does not exist\n"
-            "  why: the report measures what a module's fixtures reach\n"
-            "  fix: restore the module's runner"
-        )
-    work = scratch / module.name
-    work.mkdir()
-    rc = config(work, [module / "scripts", SHARED])
+def gather(folder: Path, expected: list[str], notes: list[str]) -> dict[str, Module]:
+    try:
+        files = sorted(folder.glob("*.json"))
+    except OSError as bad:
+        raise Broken(f"{folder} cannot be read ({bad.strerror})\n  fix: name a folder that exists") from bad
+    measured = dict(read(file) for file in files)
+    for name in expected:
+        if name not in measured:
+            notes.append(f"{name}: no coverage file in {folder}; the table leaves it out")
+    for name, module in measured.items():
+        if module.runner_exit != 0:
+            notes.append(
+                f"{name}: the runner exited {module.runner_exit}; its numbers count what ran — run"
+                f" python3 scripts/check-aspects.py --run --module {name} for its red items"
+            )
+    return measured
+
+
+def make(names: list[str] | None, folder: Path) -> list[str]:
+    """Run the fixtures entry of each module chosen, with the variable set to `folder`; the modules run."""
+    known = listed()
+    for name in names or []:
+        if name not in known:
+            raise Broken(
+                f"--module {name} names no module folder\n  why: the report runs a module's own runner\n"
+                f"  fix: name one of {', '.join(known)}"
+            )
     env = dict(os.environ)
-    env["PATH"] = f"{shim(work)}{os.pathsep}{env.get('PATH', '')}"
-    started = time.monotonic()
-    done = subprocess.run(
-        [sys.executable, "-m", "coverage", "run", "--rcfile", str(rc), str(runner)],
-        cwd=KIT,
-        env=env,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    )
-    measured = Coverage(runner_exit=done.returncode, seconds=round(time.monotonic() - started))
-    if done.returncode != 0:
-        notes.append(
-            f"{module.name}: the runner exited {done.returncode}; its numbers count what ran — run"
-            f" python3 scripts/check-aspects.py --run --module {module.name} for its red items"
+    env[kit_coverage.ENV] = str(folder)
+    for name in dict.fromkeys(names or known):
+        print(f"running the fixtures of {name} under coverage.py", file=sys.stderr)
+        done = subprocess.run(
+            [sys.executable, str(KIT / "scripts" / "check-aspects.py"), "--run", "--module", name],
+            cwd=KIT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
         )
-    if not has_data(work):
-        notes.append(f"{module.name}: the run left no coverage data; its lines count as missed")
-        return measured, None
-    coverage_cli("combine", "--rcfile", str(rc), "-q", cwd=work)
-    own = (module / "scripts").relative_to(KIT).as_posix() + "/"
-    for path, counts in read_json(work, rc).items():
-        if path.startswith(own):
-            measured.own.add(counts)
-        elif path.startswith(SHARED.relative_to(KIT).as_posix() + "/"):
-            measured.shared.add(counts)
-        else:
-            continue
-        measured.files[path] = counts
-    return measured, work / "data"
-
-
-def union(data: list[Path], scratch: Path) -> Counts:
-    """shared/const_gate as every module's runs together reach it."""
-    work = scratch / "union"
-    work.mkdir()
-    rc = config(work, [SHARED])
-    total = Counts()
-    if not data:
-        return total
-    coverage_cli("combine", "--rcfile", str(rc), "--keep", "-q", *map(str, data), cwd=work)
-    for path, counts in read_json(work, rc).items():
-        if path.startswith(SHARED.relative_to(KIT).as_posix() + "/"):
-            total.add(counts)
-    return total
-
-
-# --- reporting -----------------------------------------------------------------------------------
+        if not (folder / f"{name}.json").is_file():
+            said = [line for line in done.stdout.splitlines() if line.startswith("BROKEN:")]
+            raise Broken(
+                f"the fixtures entry of {name} wrote no coverage file ("
+                + (said[0] if said else f"exit {done.returncode}")
+                + ")\n  why: the report reads the file the entry writes\n"
+                f"  fix: run {kit_coverage.ENV}=<folder> python3 scripts/check-aspects.py --run --module"
+                f" {name} and repair what it reports"
+            )
+    return list(dict.fromkeys(names or known))
 
 
 COLUMNS = (
@@ -264,13 +217,16 @@ COLUMNS = (
 )
 
 
-def cell(counts: Counts, kind: str) -> str:
-    part, whole = getattr(counts, f"{kind}_covered"), getattr(counts, kind)
+def cell(numbers: Lines, kind: str) -> str:
+    if kind == "lines":
+        part, whole = len(numbers.run), len(numbers.lines)
+    else:
+        part, whole = len(numbers.taken), len(numbers.branches)
     ratio = percent(part, whole)
     return f"{'-' if ratio is None else f'{ratio:.1f}%'} {part}/{whole}"
 
 
-def table(measured: dict[str, Coverage], total: Coverage) -> str:
+def table(measured: dict[str, Module], total: Module) -> str:
     """One plain-text table: a module column, the four ratios with their counts, the exit and the time."""
     rows = [*measured.items(), ("totals", total)]
     head = ["module", *(title for title, _, _ in COLUMNS), "exit", "seconds"]
@@ -298,6 +254,25 @@ def table(measured: dict[str, Coverage], total: Coverage) -> str:
     return "\n".join([title, line(head), rule, *map(line, body[:-1]), rule, line(body[-1])])
 
 
+def totals(measured: dict[str, Module]) -> Module:
+    total = Module()
+    for one in measured.values():
+        total.own.join(one.own)
+        total.shared.join(one.shared)
+        total.runner_exit = max(total.runner_exit, one.runner_exit)
+        total.seconds += one.seconds
+    return total
+
+
+def flat(module: Module) -> dict[str, object]:
+    return {
+        **module.own.keys("own"),
+        **module.shared.keys("shared"),
+        "runner_exit": module.runner_exit,
+        "seconds": module.seconds,
+    }
+
+
 def write(path: str | None, text: str) -> None:
     """The JSON into the file `path` names, or Broken."""
     if path is None:
@@ -316,78 +291,52 @@ def commit() -> str:
     return done.stdout.strip() if done.returncode == 0 else "unknown"
 
 
-def chosen(names: list[str] | None) -> list[Path]:
-    """The module folders the report runs, all of them unless `--module` names some."""
-    try:
-        folders = module_folders(KIT)
-    except DocumentError as bad:
-        raise Broken(f"{bad}\n  why: the report measures each module folder") from bad
-    if not names:
-        return folders
-    known = {folder.name: folder for folder in folders}
-    for name in names:
-        if name not in known:
-            raise Broken(
-                f"--module {name} names no module folder\n  why: the report runs a module's own runner\n"
-                f"  fix: name one of {', '.join(sorted(known))}"
-            )
-    return [known[name] for name in dict.fromkeys(names)]
+def report(source: Path, expected: list[str], json_path: str | None, notes: list[str]) -> None:
+    measured = gather(source, expected, notes)
+    total = totals(measured)
+    written = json.dumps(
+        {
+            "advisory": "a report of law 5 of CLAUDE.md: it judges nothing",
+            "commit": commit(),
+            "modules": {name: flat(one) for name, one in measured.items()},
+            "totals": flat(total),
+            "notes": notes,
+        },
+        indent=2,
+        ensure_ascii=False,
+    )
+    if json_path == "-":
+        print(written)
+    else:
+        write(json_path, written)
+        print(table(measured, total))
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="module-coverage", add_help=False, allow_abbrev=False)
+    parser.add_argument("--from", dest="source")
     parser.add_argument("--json")
     parser.add_argument("--module", action="append")
     try:
         args = parser.parse_args(argv)
+        if args.source is not None and args.module:
+            raise SystemExit(2)
     except SystemExit:
         print(
             "BROKEN: misinvocation\n  why: an option or value the report does not know would measure"
             " something other than what was asked\n"
-            "  fix: run with no arguments, with --module <name> (repeatable), with --json <path> or with"
-            " --json -, alone or together"
+            "  fix: run with --from <folder>, or with no --from and any --module <name>, each with or"
+            " without --json <path> or --json -"
         )
         return BROKEN
     notes: list[str] = []
     try:
-        if importlib.util.find_spec("coverage") is None:
-            raise Broken(
-                f"coverage.py is not installed for {sys.executable}\n"
-                "  why: the report runs each module's fixtures under it\n"
-                f"  fix: {FIX_INSTALL}, then run the report with that same python3"
-            )
-        folders = chosen(args.module)
-        measured: dict[str, Coverage] = {}
-        data: list[Path] = []
-        with tempfile.TemporaryDirectory(prefix="module-coverage-") as scratch:
-            for module in folders:
-                one, kept = measure(module, Path(scratch), notes)
-                measured[module.name] = one
-                if kept is not None:
-                    data.append(kept)
-            total = Coverage(shared=union(data, Path(scratch)))
-        for one in measured.values():
-            total.own.add(one.own)
-            total.runner_exit = max(total.runner_exit, one.runner_exit)
-            total.seconds += one.seconds
-        totals = flat(total)
-        del totals["files"]
-        written = json.dumps(
-            {
-                "advisory": "a report of law 5 of CLAUDE.md: it judges nothing",
-                "commit": commit(),
-                "modules": {name: flat(one) for name, one in measured.items()},
-                "totals": totals,
-                "notes": notes,
-            },
-            indent=2,
-            ensure_ascii=False,
-        )
-        if args.json == "-":
-            print(written)
+        if args.source is not None:
+            report(Path(args.source), listed(), args.json, notes)
         else:
-            write(args.json, written)
-            print(table(measured, total))
+            with tempfile.TemporaryDirectory(prefix="module-coverage-") as scratch:
+                ran = make(args.module, Path(scratch))
+                report(Path(scratch), ran, args.json, notes)
     except Broken as broken:
         print(f"BROKEN: {broken}")
         return BROKEN

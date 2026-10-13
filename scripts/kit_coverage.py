@@ -1,0 +1,128 @@
+"""Kit tooling, never shipped in a module: a module's fixtures run under coverage.py, and what they reach.
+
+`scripts/check-aspects.py --run` runs a module's runner under coverage.py when the environment variable
+`CONSTITUTION_KIT_COVERAGE` names a folder, and writes `<folder>/<module>.json`; the kit's CI sets it in
+each module's job, and `scripts/module-coverage.py` reads the files (decision
+dec-0089-module-coverage-report). An empty or absent variable runs the runner as before.
+
+The run is `python3 -m coverage run` with branch coverage and `patch = subprocess`: the fixtures run the
+gates as child processes, `sh` entry points that call `python3`, and each such child is measured too. So
+that a gate's `python3` is the measured interpreter, a folder holding a `python3` that calls the one
+running the check goes first on the runner's PATH. A child started with an environment of its own,
+without coverage's variable, is not measured, and its lines count as missed. coverage.py measures Python
+alone: a module's `.sh` files are not in these numbers. The measured code is the module's own Python
+under modules/<module>/scripts and the shared const_gate it links, read at shared/const_gate; a file
+there that no run imports counts with all its lines missed.
+
+The file of one module, the JSON keys as written:
+  module        the module folder's name;
+  runner_exit   the runner's exit: 0 when every item was green;
+  seconds       the run's wall-clock time, whole seconds;
+  files         per measured file, its path from the kit root and coverage.py's own lists of it:
+                `executed_lines`, `missing_lines`, `executed_branches`, `missing_branches`, a branch
+                a pair of line numbers.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+ENV = "CONSTITUTION_KIT_COVERAGE"
+PIN = "7.16.2"  # the version the kit's CI installs, .github/workflows/gates.yml
+FIX_INSTALL = f'python3 -m pip install "coverage=={PIN}"'
+LISTS = ("executed_lines", "missing_lines", "executed_branches", "missing_branches")
+
+
+class CoverageError(Exception):
+    """A coverage run cannot be made or read: the message says what failed and the fix."""
+
+
+def wanted() -> Path | None:
+    """The folder the environment asks the files for, or None."""
+    value = os.environ.get(ENV, "")
+    return Path(value) if value else None
+
+
+def prepare(root: Path, module: str, work: Path) -> tuple[list[str], dict[str, str]]:
+    """The command prefix and the environment that run a runner under coverage.py, its data kept in
+    `work`; CoverageError when coverage.py is not installed for this interpreter."""
+    found = subprocess.run(
+        [sys.executable, "-c", "import coverage"], capture_output=True, text=True, check=False
+    )
+    if found.returncode != 0:
+        raise CoverageError(
+            f"{ENV} asks for coverage, and coverage.py is not installed for {sys.executable}"
+            f" — fix: {FIX_INSTALL}, or unset {ENV}"
+        )
+    rc = work / "coveragerc"
+    sources = [root / "modules" / module / "scripts", root / "shared" / "const_gate"]
+    rc.write_text(
+        "[run]\nbranch = true\nparallel = true\npatch = subprocess\n"
+        f"data_file = {work / 'data'}\n"
+        "source =\n" + "".join(f"    {source}\n" for source in sources),
+        encoding="utf-8",
+    )
+    shim = work / "bin"
+    shim.mkdir()
+    python3 = shim / "python3"
+    python3.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n', encoding="utf-8")
+    python3.chmod(0o755)
+    env = dict(os.environ)
+    env["PATH"] = f"{shim}{os.pathsep}{env.get('PATH', '')}"
+    return [sys.executable, "-m", "coverage", "run", "--rcfile", str(rc)], env
+
+
+def cli(work: Path, *args: str) -> None:
+    done = subprocess.run(
+        [sys.executable, "-m", "coverage", *args, "--rcfile", str(work / "coveragerc")],
+        cwd=work,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if done.returncode != 0:
+        said = (done.stderr or done.stdout).strip().splitlines()
+        raise CoverageError(
+            f"`coverage {args[0]}` exited {done.returncode}: {said[-1] if said else 'no output'}"
+            f" — fix: install the version the kit's CI pins, {FIX_INSTALL}"
+        )
+
+
+def save(root: Path, module: str, work: Path, out: Path, runner_exit: int, seconds: int) -> Path:
+    """Combine the run's data in `work` and write `<out>/<module>.json`; CoverageError when a step fails.
+    A run that left no data is written with no files, every line of the module then missed."""
+    files: dict[str, dict[str, list[object]]] = {}
+    if any(work.glob("data.*")):
+        cli(work, "combine", "-q")
+        report = work / "coverage.json"
+        cli(work, "json", "-q", "-o", str(report))
+        try:
+            measured = json.loads(report.read_text(encoding="utf-8"))["files"]
+            for name, one in measured.items():
+                path = Path(name).resolve().relative_to(root.resolve()).as_posix()
+                files[path] = {key: one.get(key, []) for key in LISTS}
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as bad:
+            raise CoverageError(
+                f"coverage.py's JSON in {report} cannot be read ({bad}) — fix: {FIX_INSTALL}"
+            ) from bad
+    target = out / f"{module}.json"
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps(
+                {"module": module, "runner_exit": runner_exit, "seconds": seconds, "files": files},
+                indent=1,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    except OSError as bad:
+        raise CoverageError(
+            f"{target} cannot be written ({bad.strerror})"
+            f" — fix: name in {ENV} a folder that can be written to"
+        ) from bad
+    return target
