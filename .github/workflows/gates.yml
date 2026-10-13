@@ -103,29 +103,39 @@ jobs:
           echo "list: $LIST, checks: $CHECKS"
           test "$LIST" = success && test "$CHECKS" = success
       # The module metrics, a report and never a check (scripts/metrics.py): the steps below run after the
-      # verdict above, whatever it was, save on a cancelled run; continue-on-error keeps a failure of theirs
-      # from turning the job red, and the verdict step's own red stands, since it carries no such flag.
+      # verdict above, whatever it was, save on a cancelled run, whose newer push or stop wants no report
+      # (always() would run them there too); continue-on-error keeps a failure of theirs from turning the
+      # job red, and the verdict step's own red stands, since it carries no such flag; each step's timeout
+      # ends a hang long before the job's own limit, whose cancellation would end the job unfinished.
       - uses: actions/checkout@v7
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 5
         with:
           fetch-depth: 0 # churn_90d reads the last 90 days of history
       - uses: actions/setup-python@v7
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 5
         with:
           python-version: "3.12"
       - name: Module metrics, a report
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 5
         run: |
           python3 -m pip install --quiet "PyYAML==6.0.2"
-          python3 scripts/metrics.py --json metrics.json > metrics.txt
+          # the report's output, a BROKEN line with its fix included, reaches the log and the summary
+          # before the step takes the report's exit
+          status=0
+          python3 scripts/metrics.py --json metrics.json > metrics.txt || status=$?
           cat metrics.txt
           { echo '```'; cat metrics.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 5
         with:
           name: metrics
           path: metrics.json

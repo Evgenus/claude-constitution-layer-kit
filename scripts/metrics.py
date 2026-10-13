@@ -3,8 +3,10 @@
 
 Advisory in the sense of law 5 of CLAUDE.md: it judges nothing and blocks nothing. Its numbers are read
 by a person, who decides what they mean; no number here is a threshold, and none is held anywhere. The
-kit's CI runs it as the last step of the job `gates`, where its failure never changes that job's verdict
-(decision dec-0087-module-metrics-report).
+kit's CI runs it in the job `gates`, after that job's verdict, on every pull request and on main, where
+its failure never changes the verdict (decision dec-0087-module-metrics-report). Test coverage and
+mutation score are no metric of this report: each takes minutes per module, too slow for a step that runs
+on every change; they wait for a scheduled workflow of their own.
 
 Per module folder (the kit's one listing, `module_folders` of scripts/kit_module_doc.py), one row of
 these keys, the JSON keys as written:
@@ -49,10 +51,13 @@ Notes on stderr: a SessionStart command that exits other than 0 or times out (it
 none when it timed out), and a shallow clone, whose churn is short.
 Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BROKEN line that says what
         failed, why and the fix, when they cannot: the module folders, a module document whose section
-        is missing or out of order, hooks/hooks.json or a skill's front matter that does not parse, a
+        is missing or out of order, a module document or a skill that cannot be read, PyYAML not
+        installed, hooks/hooks.json or a skill's front matter that does not parse, a
         tracked Python file that does not parse, git that does not answer, the arguments misused, or the
         JSON file that cannot be written.
-No --self-test: no list runs it, and the CI step runs the script itself on every pull request.
+No --self-test: no list runs it, so a self-test would be a test that nothing runs. The CI step runs the
+script itself on every change, where only its output shows, and the kit's `lint` and `types` entries of
+scripts/gate-list.sh hold its code, as they hold every script at the top of scripts/.
 Its name is metrics, never check-: the kit's check-gate-lists holds every scripts/check-*.py to the gate
 group, and this script is no check.
 """
@@ -70,8 +75,14 @@ from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-import yaml
 from kit_module_doc import DocumentError, cells, module_folders, own_packages, section
+
+try:
+    import yaml
+except ImportError:
+    print("BROKEN: PyYAML is not installed\n  why: the report reads each skill's front matter as YAML")
+    print("  fix: python3 -m pip install pyyaml")
+    sys.exit(1)
 
 KIT = Path(__file__).resolve().parent.parent
 OK, BROKEN = 0, 1
@@ -236,7 +247,7 @@ def read_skills(module: Path, into: Metrics) -> int:
     """The skills' count and characters into `into`; returns the characters of their descriptions."""
     described = 0
     for skill in sorted(module.glob("skills/*/SKILL.md")):
-        text = skill.read_text(encoding="utf-8")
+        text = readable(skill)
         into.skills += 1
         into.skill_chars += len(text)
         where = skill.relative_to(KIT)
@@ -272,7 +283,7 @@ def session_start(module: Path) -> tuple[int, list[Handler]]:
     where = path.relative_to(KIT)
     fix = '  fix: restore it as a JSON object whose "hooks" maps each event to its handler groups'
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(readable(path))
     except ValueError as bad:
         raise Broken(f"{where} is no JSON ({bad})\n  why: {WHY_READ}\n{fix}") from bad
     events = data.get("hooks") if isinstance(data, dict) else None
@@ -356,7 +367,7 @@ def tracked(module: Path, folders: Iterable[str]) -> list[Path]:
 
 def parse(path: Path) -> ast.Module:
     try:
-        return ast.parse(path.read_text(encoding="utf-8"))
+        return ast.parse(readable(path))
     except (SyntaxError, ValueError) as bad:
         raise Broken(
             f"{path.relative_to(KIT)} does not parse as Python ({bad})\n  why: {WHY_READ}\n"
@@ -383,7 +394,7 @@ def docstring_lines(tree: ast.Module) -> set[int]:
 
 def lines_of(path: Path) -> int:
     """The file's non-blank lines that are no comment and, in Python, no docstring."""
-    text = path.read_text(encoding="utf-8")
+    text = readable(path)
     skipped = docstring_lines(parse(path)) if path.suffix == ".py" else set()
     return sum(
         1
@@ -448,10 +459,21 @@ def read_code(module: Path, into: Metrics) -> None:
                 into.own_imports += bool(tops & packages)
 
 
+def readable(path: Path) -> str:
+    """The file's text, or Broken naming it."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as bad:
+        raise Broken(
+            f"{path.relative_to(KIT)} cannot be read ({bad})\n  why: {WHY_READ}\n"
+            "  fix: restore it as a UTF-8 text file the user running the report can read"
+        ) from bad
+
+
 def measure(module: Path, notes: list[str]) -> Metrics:
     into = Metrics()
     path = module / "MODULE.md"
-    read_document(path.read_text(encoding="utf-8"), str(path.relative_to(KIT)), into)
+    read_document(readable(path), str(path.relative_to(KIT)), into)
     described = read_skills(module, into)
     into.hook_events, handlers = session_start(module)
     into.always_on_chars = described + sum(printed(module, h, notes) for h in handlers)
