@@ -4,7 +4,8 @@
 # written here. Every job runs on every run, none skipped for the paths a change touched: the scans
 # read the whole tree or the change's whole range, and the shared gate code sits in every module.
 # The job "gates" waits for all of them and is the one check the ruleset requires, so a new module or
-# entry never changes the ruleset.
+# entry never changes the ruleset; after its verdict it runs the module metrics, a report whose JSON it
+# uploads as the artifact `metrics`, and whose failure never changes that verdict.
 name: gates
 
 on:
@@ -101,3 +102,31 @@ jobs:
         run: |
           echo "list: $LIST, checks: $CHECKS"
           test "$LIST" = success && test "$CHECKS" = success
+      # The module metrics, a report and never a check (scripts/metrics.py): the steps below run after the
+      # verdict above, whatever it was, save on a cancelled run; continue-on-error keeps a failure of theirs
+      # from turning the job red, and the verdict step's own red stands, since it carries no such flag.
+      - uses: actions/checkout@v7
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        with:
+          fetch-depth: 0 # churn_90d reads the last 90 days of history
+      - uses: actions/setup-python@v7
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        with:
+          python-version: "3.12"
+      - name: Module metrics, a report
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet "PyYAML==6.0.2"
+          python3 scripts/metrics.py --json metrics.json > metrics.txt
+          cat metrics.txt
+          { echo '```'; cat metrics.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        with:
+          name: metrics
+          path: metrics.json
+          if-no-files-found: warn
