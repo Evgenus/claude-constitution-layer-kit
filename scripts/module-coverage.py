@@ -21,6 +21,8 @@ const_gate it links, read at shared/const_gate (`shared`). Per module, the JSON 
                                       reach it;
   runner_exit                         the runner's exit: 0 when every item was green;
   seconds                             the run's wall-clock time under coverage.py, whole seconds.
+The JSON object holds `advisory`, the line that it judges nothing; `commit`, the HEAD it was run at;
+`modules`, these keys per module; `totals`, the same keys for the totals row; and `notes`, the notes.
 The totals row joins the modules: its own keys count every module's own code, its shared keys the
 union of every module's runs over shared/const_gate, never a sum; its seconds are the sum, and its
 runner_exit the largest.
@@ -32,7 +34,8 @@ Modes:  --from <folder>   read the files in <folder>, one per module, and print 
         --module <name>   with no --from, that module alone, the option repeatable;
         --json <path>     the table on stdout and the same numbers as one JSON object in <path>;
         --json -          the JSON object on stdout, and no table.
-Notes on stderr: a runner that exited other than 0 (its numbers still count what ran), and, with
+Notes on stderr: a runner that exited other than 0 (its numbers still count what ran); a module whose
+file measured nothing, as when its run left no coverage data, shown with nothing to count; with
 --from, a module folder with no file, which the table leaves out; each module run, as it starts.
 Exit:   0 whenever the files could be read or made, whatever they measure; 1, with a BROKEN line that
         says what failed, why and the fix, when they cannot: the folder that cannot be read, a file that
@@ -159,15 +162,24 @@ def listed() -> list[str]:
 
 
 def gather(folder: Path, expected: list[str], notes: list[str]) -> dict[str, Module]:
+    why = "\n  why: the report reads the coverage files in that folder, one per module"
+    if not folder.is_dir():
+        raise Broken(f"{folder} is no folder{why}\n  fix: name the folder the coverage files were written to")
     try:
         files = sorted(folder.glob("*.json"))
     except OSError as bad:
-        raise Broken(f"{folder} cannot be read ({bad.strerror})\n  fix: name a folder that exists") from bad
+        raise Broken(
+            f"{folder} cannot be read ({bad.strerror}){why}\n  fix: name a folder that can be read"
+        ) from bad
     measured = dict(read(file) for file in files)
     for name in expected:
         if name not in measured:
             notes.append(f"{name}: no coverage file in {folder}; the table leaves it out")
     for name, module in measured.items():
+        if not module.own.lines and not module.shared.lines:
+            notes.append(
+                f"{name}: its coverage file measured nothing; its run may have left no coverage data"
+            )
         if module.runner_exit != 0:
             notes.append(
                 f"{name}: the runner exited {module.runner_exit}; its numbers count what ran — run"

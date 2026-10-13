@@ -12,7 +12,8 @@ running the check goes first on the runner's PATH. A child started with an envir
 without coverage's variable, is not measured, and its lines count as missed. coverage.py measures Python
 alone: a module's `.sh` files are not in these numbers. The measured code is the module's own Python
 under modules/<module>/scripts and the shared const_gate it links, read at shared/const_gate; a file
-there that no run imports counts with all its lines missed.
+there that no run imports counts with all its lines missed. Nothing else is measured: not the runner,
+not the module's tests/ or hooks/, not the shared test files.
 
 The file of one module, the JSON keys as written:
   module        the module folder's name;
@@ -32,8 +33,8 @@ import sys
 from pathlib import Path
 
 ENV = "CONSTITUTION_KIT_COVERAGE"
-PIN = "7.16.2"  # the version the kit's CI installs, .github/workflows/gates.yml
-FIX_INSTALL = f'python3 -m pip install "coverage=={PIN}"'
+# the version is the one .github/workflows/gates.yml pins, named there alone so that no copy drifts
+FIX_INSTALL = "python3 -m pip install coverage, at the version .github/workflows/gates.yml pins"
 LISTS = ("executed_lines", "missing_lines", "executed_branches", "missing_branches")
 
 
@@ -88,13 +89,14 @@ def cli(work: Path, *args: str) -> None:
         said = (done.stderr or done.stdout).strip().splitlines()
         raise CoverageError(
             f"`coverage {args[0]}` exited {done.returncode}: {said[-1] if said else 'no output'}"
-            f" — fix: install the version the kit's CI pins, {FIX_INSTALL}"
+            f" — fix: {FIX_INSTALL}"
         )
 
 
 def save(root: Path, module: str, work: Path, out: Path, runner_exit: int, seconds: int) -> Path:
     """Combine the run's data in `work` and write `<out>/<module>.json`; CoverageError when a step fails.
-    A run that left no data is written with no files, every line of the module then missed."""
+    A run that left no data is written with no files, so the report has nothing to count for the module
+    and says so in a note."""
     files: dict[str, dict[str, list[object]]] = {}
     if any(work.glob("data.*")):
         cli(work, "combine", "-q")

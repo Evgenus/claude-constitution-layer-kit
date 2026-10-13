@@ -111,10 +111,14 @@ Modes:  no arguments         the gate;
                              a file or form it cannot read BROKEN, the report as literal lines;
                              the coverage mode, a green run and a red one each writing the file,
                              a gate's child process measured and a file no run imports missed,
-                             and no file with the variable unset — it needs coverage.py.
+                             no file with the variable unset, and a red run whose file cannot be
+                             written printing its output before the BROKEN line — it needs
+                             coverage.py.
 With CONSTITUTION_KIT_COVERAGE naming a folder, `--run` runs each runner under coverage.py and writes
 `<folder>/<module>.json`, a red run too, before it reads the runner's lines (scripts/kit_coverage.py
-says how); coverage.py not installed, or a step of it that fails, is a BROKEN line. The kit's CI sets
+says how); a runner that runs past its time is a BROKEN line, as without the variable, and writes no
+file. coverage.py not installed, or a step of it that fails, is a BROKEN line, printed after the output
+of a runner that exited other than 0, never in its place. The kit's CI sets
 the variable in each module's job, and scripts/module-coverage.py reads the files: a report, whose
 numbers no check holds (decision dec-0089-module-coverage-report). Empty or absent, the runner runs as
 it always did.
@@ -811,10 +815,9 @@ def counts(matrix: dict[str, Row], modules: list[Module], shared: int) -> str:
     )
 
 
-def run_runner(root: Path, module: Module) -> dict[int, bool]:
-    runner = root / "modules" / module.name / "tests" / "run.py"
-    if not runner.is_file():
-        raise Broken(f"modules/{module.name}/tests/run.py does not exist — fix: restore the module's runner")
+def run_once(root: Path, module: Module, runner: Path) -> tuple[subprocess.CompletedProcess[str], str | None]:
+    """One run of the runner, under coverage.py when kit_coverage asks for it: the run, and the message
+    of a coverage step that failed after it, for the caller to raise once the runner's output is printed."""
     out = kit_coverage.wanted()
     with tempfile.TemporaryDirectory(prefix="aspects-coverage-") as scratch:
         prefix: list[str] = [sys.executable]
@@ -845,11 +848,21 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
             try:
                 kit_coverage.save(root, module.name, Path(scratch), out, done.returncode, seconds)
             except kit_coverage.CoverageError as bad:
-                raise Broken(str(bad)) from bad
+                return done, str(bad)
+    return done, None
+
+
+def run_runner(root: Path, module: Module) -> dict[int, bool]:
+    runner = root / "modules" / module.name / "tests" / "run.py"
+    if not runner.is_file():
+        raise Broken(f"modules/{module.name}/tests/run.py does not exist — fix: restore the module's runner")
+    done, lost = run_once(root, module, runner)
     if done.returncode != 0:  # the runner's own lines say what failed; the report says only which item
         print(f"the runner of {module.name} exited {done.returncode}; its output, as it printed it:")
         for text in done.stdout.splitlines() + done.stderr.splitlines():
             print(text)
+    if lost is not None:
+        raise Broken(lost)
     if done.returncode not in (0, 2):
         first = ((done.stderr or done.stdout).strip().splitlines() or ["no message"])[-1]
         raise Broken(
@@ -1754,16 +1767,23 @@ def coverage_runner(lines: list[str], code: int) -> str:
 def self_test_coverage() -> tuple[int, int]:
     """The coverage mode of kit_coverage: with the variable set, a green run and a red one each write
     the module's file, the gate a child process ran counted as executed and a file no run imported
-    as missed; with it unset, no file. The failed cases, and the cases."""
+    as missed; with it unset, no file; with it naming a path where no folder can be made, a red run
+    prints its runner's output and then the BROKEN line. The failed cases, and the cases."""
     red_run = [line.replace("[ok]   2.", "[FAIL] 2.") for line in GREEN_RUN[:-1]]
     red_run.append("3/4 acceptance items green — 1 red→green cases, 3 assertions examined")
-    cases = {  # case: the runner's lines, its exit, whether the variable is set, the check's exit
-        "a green run under coverage": (GREEN_RUN, 0, True, EXIT_GREEN),
-        "a red run under coverage": (red_run, 2, True, EXIT_RED),
-        "a run with the variable unset": (GREEN_RUN, 0, False, EXIT_GREEN),
+    cases = {  # case: the runner's lines, its exit, the variable (folder, unset or file), the exit
+        "a green run under coverage writes the coverage file": (GREEN_RUN, 0, "folder", EXIT_GREEN),
+        "a red run under coverage writes the coverage file": (red_run, 2, "folder", EXIT_RED),
+        "a run with the variable unset writes no coverage file": (GREEN_RUN, 0, "unset", EXIT_GREEN),
+        "a red run whose coverage file cannot be written prints its output, then BROKEN": (
+            red_run,
+            2,
+            "file",
+            EXIT_BROKEN,
+        ),
     }
     failed = 0
-    for name, (lines, runner_exit, wanted, want) in cases.items():
+    for name, (lines, runner_exit, variable, want) in cases.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE, runner=coverage_runner(lines, runner_exit))
@@ -1775,19 +1795,24 @@ def self_test_coverage() -> tuple[int, int]:
             (root / "shared" / "const_gate").mkdir()
             (root / "shared" / "const_gate" / "__init__.py").write_text("", encoding="utf-8")
             out = root / "coverage-out"
-            if wanted:
+            if variable == "file":
+                out.write_text("a file where the folder would go\n", encoding="utf-8")
+            if variable != "unset":
                 os.environ[kit_coverage.ENV] = str(out)
             printed = io.StringIO()
+            reason = ""
             try:
                 with contextlib.redirect_stdout(printed):
                     code = full_run(root, None)
             except Broken as why:
-                code, printed = EXIT_BROKEN, io.StringIO(str(why))
+                code, reason = EXIT_BROKEN, str(why)
             finally:
                 os.environ.pop(kit_coverage.ENV, None)
             written = out / "const-sample.json"
-            ok = code == want and written.is_file() == wanted
-            if ok and wanted:
+            ok = code == want and written.is_file() == (variable == "folder")
+            if ok and variable == "file":
+                ok = echoed(printed.getvalue(), lines, runner_exit) and "cannot be written" in reason
+            if ok and variable == "folder":
                 saved = json.loads(written.read_text(encoding="utf-8"))
                 files = saved["files"]
                 gate_file = files.get("modules/const-sample/scripts/gate.py", {})
@@ -1801,9 +1826,9 @@ def self_test_coverage() -> tuple[int, int]:
                     and unused.get("missing_lines") == [1]
                 )
         failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {name} {'writes' if wanted else 'writes no'} coverage file")
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
         if not ok:
-            print(f"exit {code}\n{printed.getvalue()}")
+            print(f"exit {code}\n{printed.getvalue()}{reason}")
     return failed, len(cases)
 
 

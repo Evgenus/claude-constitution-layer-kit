@@ -91,7 +91,8 @@ jobs:
           # fork the token cannot read fails
           CONSTITUTION_KIT_INSTALL_FROM: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && (github.event_name == 'pull_request' && format('{0}#{1}', github.event.pull_request.head.repo.full_name, github.head_ref) || format('{0}#{1}', github.repository, github.ref_name)) || '' }}
           # a module's fixtures entry runs its runner under coverage.py and writes the module's coverage file
-          # there (scripts/kit_coverage.py); a coverage failure is a BROKEN line of that entry, so a red
+          # there (scripts/kit_coverage.py); a coverage failure is a BROKEN line of that entry, and so turns
+          # the module's job red, the price decision dec-0089-module-coverage-report chose
           CONSTITUTION_KIT_COVERAGE: ${{ startsWith(matrix.job, 'const-') && format('{0}/coverage', runner.temp) || '' }}
         run: sh scripts/gate-list.sh --run "$JOB"
       - uses: actions/upload-artifact@v7
@@ -118,11 +119,12 @@ jobs:
         run: |
           echo "list: $LIST, checks: $CHECKS"
           test "$LIST" = success && test "$CHECKS" = success
-      # The module metrics, a report and never a check (scripts/metrics.py): the steps below run after the
-      # verdict above, whatever it was, save on a cancelled run, whose newer push or stop wants no report
-      # (always() would run them there too); continue-on-error keeps a failure of theirs from turning the
-      # job red, and the verdict step's own red stands, since it carries no such flag; each step's timeout
-      # bounds a hang at 5 minutes, where the job's own limit is 360 minutes.
+      # The module metrics and the fixture coverage, reports and never checks (scripts/metrics.py,
+      # scripts/module-coverage.py): the steps below run after the verdict above, whatever it was, save on
+      # a cancelled run, whose newer push or stop wants no report (always() would run them there too);
+      # continue-on-error keeps a failure of theirs from turning the job red, and the verdict step's own
+      # red stands, since it carries no such flag; each step's timeout bounds a hang at 5 minutes, where
+      # the job's own limit is 360 minutes.
       - uses: actions/checkout@v7
         if: ${{ !cancelled() }}
         continue-on-error: true
