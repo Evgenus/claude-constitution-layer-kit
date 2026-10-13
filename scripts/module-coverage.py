@@ -3,9 +3,10 @@
 
 Advisory in the sense of law 5 of CLAUDE.md: it judges nothing and blocks nothing. Its numbers are read
 by a person, who decides what they mean; no number here is a threshold, and none is held anywhere. The
-kit's scheduled workflow .github/workflows/coverage.yml runs it on main, never on a pull request and
-never as a required check (decision dec-0089-module-coverage-report). Mutation score is no metric of
-this report: it stays pending, at step 9 of the rollout plan.
+kit's workflow .github/workflows/coverage.yml runs it once a week on main, on request, and on a pull
+request that changes this script or that workflow; it is no job of the workflow gates, so no verdict
+waits for it (decision dec-0089-module-coverage-report). Mutation score is no metric of this report: it
+stays a work item of its own, pending at step 9 of the rollout plan.
 
 Per module folder (the kit's one listing, `module_folders` of scripts/kit_module_doc.py), the report
 runs the module's runner, modules/<module>/tests/run.py, once, from the kit root, under
