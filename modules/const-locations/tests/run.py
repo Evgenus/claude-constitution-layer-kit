@@ -204,6 +204,7 @@ GOLDEN: dict[str, str] = {
     " '!docs/notes/x.md']" + NO_HOME,
     "L5.7 glob": "BROKEN: no home follows from notes-policy's territory ['docs/notes/*-note.md']" + NO_HOME,
     "L5.7 directory": "BROKEN: no home follows from notes-policy's territory ['docs/notes/']" + NO_HOME,
+    "L5.7 git": "BROKEN: no home follows from notes-policy's territory ['./docs/notes/**']" + NO_HOME,
     "L5.8": "BROKEN: notes-policy's territory 'packages/*/README.md' has a free segment, and --segment was"
     " not given: the pattern fixes the file name and leaves that one segment to be named — fix: run it"
     " with --segment <the segment>; the file name is the pattern's, so --stem is not taken",
@@ -472,6 +473,7 @@ def no_home() -> tuple[bool, str]:
         (["docs/notes/**", "!docs/notes/x.md"], "L5.7 negation"),
         (["docs/notes/*-note.md"], "L5.7 glob"),
         (["docs/notes/"], "L5.7 directory"),
+        (["./docs/notes/**"], "L5.7 git"),  # a home derives, but git reads no ./ and claims none
     ):
         result = run(prepared(claim(territory)), *NOTE_ARGS)
         results.append(broken(result, messages.l5_no_home("notes-policy", territory), handle))
