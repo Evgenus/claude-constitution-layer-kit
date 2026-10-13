@@ -344,7 +344,7 @@ def t7() -> tuple[bool, str]:
 def t8() -> tuple[bool, str]:
     """red and green: all-ones numbering and a jump are red (Y9); a list starting anywhere and counting
     on is green, a paragraph ends a list so the next may start over, and a nested ordered list
-    counts on its own."""
+    counts on its own; a fence ends a list too, so the item after it may start anywhere."""
     ones = one_finding(
         {"docs/notes/n.md": "# T\n\n1. a\n1. b\n2. c\n"},
         "docs/notes/n.md:4: an ordered item numbered 1 after 1",
@@ -358,7 +358,8 @@ def t8() -> tuple[bool, str]:
             "   2. nested\n2. b\n   - bullet\n3. c\n\n1) a\n2) b\n\n## H\n\n1) again\n"
         }
     )
-    return all_of(ones, jump, fine)
+    after_fence = no_finding({"docs/notes/n.md": "# T\n\n1. one\n```text\nx\n```\n5. five\n"})
+    return all_of(ones, jump, fine, after_fence)
 
 
 def t9() -> tuple[bool, str]:
@@ -410,7 +411,7 @@ def t9() -> tuple[bool, str]:
 def t10() -> tuple[bool, str]:
     """red and green: a row with a cell too few (Y11) and an empty cell (Y12) are red, the delimiter row
     is counted too; a table with a key column and an escaped pipe is green; lines with pipes and no
-    delimiter row are no table."""
+    delimiter row are no table; a comment that opens on a row and runs on ends the table."""
     short = one_finding(
         {"docs/notes/t.md": "# T\n\n| key | value |\n|---|---|\n| a |\n"},
         "docs/notes/t.md:5: a table row with 1 cell(s) under a header of 2",
@@ -429,7 +430,10 @@ def t10() -> tuple[bool, str]:
             "a | b\nc | d\n\ncell | text\n---\n\n| one |\n"
         }
     )
-    return all_of(short, empty, delimiter, fine)
+    comment_ends = no_finding(
+        {"docs/notes/t.md": "# T\n\n| a | b |\n|---|---|\n| 1 | 2 | <!-- open\nhidden\n-->\n| x |\n"}
+    )
+    return all_of(short, empty, delimiter, fine, comment_ends)
 
 
 # ---------------------------------------------------------------- departures and territories
