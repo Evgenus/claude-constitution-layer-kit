@@ -50,16 +50,17 @@ Modes:  no arguments    the three tables on stdout: the documents, the proof kin
         --complexity [<n>]
                         the <n> most complex functions of the modules' own Python under scripts/ (the
                         functions counted above), 20 when <n> is not given, most complex first, ties
-                        by length; with --json, the same list as JSON, in <path> or on stdout. Per
-                        function, the JSON keys as written:
+                        by length, as one table on stdout; with --json <path> the table too and the
+                        same list as JSON in <path>; with --json -, the JSON on stdout and no table.
+                        Per function, the JSON keys as written:
                           module, path, line  where it stands;
                           function            its name, under its class or enclosing function;
                           cc                  its cyclomatic complexity, counted as above;
                           lines               the lines from its `def` to its last, docstring included;
                           depth               the deepest nesting of if, for, while, with, try and
                                               match blocks in its own body, an elif at its if's level;
-                          params              its parameters, `self` and `cls` left out, *args and
-                                              **kwargs counted;
+                          params              its parameters, a `self` or `cls` in the first place
+                                              left out, *args and **kwargs counted;
                           churn_90d           the commits, merges left out, of the last 90 days that
                                               touch its file.
                         This mode reads no module document and runs no hook. It names functions; it
@@ -704,7 +705,8 @@ def main(argv: list[str]) -> int:
         args = parser.parse_args(argv)
     except SystemExit:
         print(
-            "BROKEN: misinvocation\n  why: the report reads only the options and values below\n"
+            "BROKEN: misinvocation\n  why: an option or value the report does not know would measure"
+            " something other than what was asked\n"
             "  fix: run with no arguments, with --json <path>, with --json -, or with --complexity [<n>],"
             " <n> a whole number of at least 1, alone or with --json"
         )
@@ -715,6 +717,10 @@ def main(argv: list[str]) -> int:
             folders = module_folders(KIT)
         except DocumentError as bad:
             raise Broken(f"{bad}\n  why: the report measures each module folder") from bad
+        if git("rev-parse", "--is-shallow-repository").strip() == "true":
+            notes.append(
+                "a shallow clone: churn_90d counts only the commits fetched — fetch the whole history"
+            )
         if args.complexity is not None:
             functions = complex_functions(folders, args.complexity)
             listed = json.dumps(
@@ -731,13 +737,11 @@ def main(argv: list[str]) -> int:
             else:
                 write(args.json, listed)
                 print(ranking(functions))
+            for note in notes:
+                print(f"note: {note}", file=sys.stderr)
             return OK
         measured = {module.name: measure(module, notes) for module in folders}
         commit = git("rev-parse", "HEAD").strip()
-        if git("rev-parse", "--is-shallow-repository").strip() == "true":
-            notes.append(
-                "a shallow clone: churn_90d counts only the commits fetched — fetch the whole history"
-            )
         total = totals(measured)
         written = report(measured, total, commit, notes)
         if args.json == "-":
