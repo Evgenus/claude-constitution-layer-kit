@@ -11,9 +11,9 @@ that a gate's `python3` is the measured interpreter, a folder holding a `python3
 running the check goes first on the runner's PATH. A child started with an environment of its own,
 without coverage's variable, is not measured, and its lines count as missed. coverage.py measures Python
 alone: a module's `.sh` files are not in these numbers. The measured code is the module's own Python
-under modules/<module>/scripts and the shared const_gate it links, read at shared/const_gate; a file
-there that no run imports counts with all its lines missed. Nothing else is measured: not the runner,
-not the module's tests/ or hooks/, not the shared test files.
+under modules/<module>/scripts and the shared const_gate it links, read at shared/const_gate; when the
+run left coverage data, a file there that no run imports counts with all its lines missed. Nothing else
+is measured: not the runner, not the module's tests/ or hooks/, not the shared test files.
 
 The file of one module, the JSON keys as written:
   module        the module folder's name;
@@ -34,7 +34,9 @@ from pathlib import Path
 
 ENV = "CONSTITUTION_KIT_COVERAGE"
 # the version is the one .github/workflows/gates.yml pins, named there alone so that no copy drifts
-FIX_INSTALL = "python3 -m pip install coverage, at the version .github/workflows/gates.yml pins"
+FIX_INSTALL = (
+    "python3 -m pip install coverage (the kit's CI installs the version .github/workflows/gates.yml pins)"
+)
 LISTS = ("executed_lines", "missing_lines", "executed_branches", "missing_branches")
 
 

@@ -38,10 +38,10 @@ Notes on stderr: a runner that exited other than 0 (its numbers still count what
 file measured nothing, as when its run left no coverage data, shown with nothing to count; with
 --from, a module folder with no file, which the table leaves out; each module run, as it starts.
 Exit:   0 whenever the files could be read or made, whatever they measure; 1, with a BROKEN line that
-        says what failed, why and the fix, when they cannot: the folder that cannot be read, a file that
-        does not parse or lacks a key, a fixtures entry that wrote no file, the module folders that
-        cannot be listed, a module named that is no module folder, the arguments misused, or the JSON
-        file that cannot be written.
+        says what failed, why and the fix, when they cannot: the folder that is missing or cannot be
+        read, a file that does not parse or lacks a key, a fixtures entry that wrote no file, the
+        module folders that cannot be listed, a module named that is no module folder, the arguments
+        misused, or the JSON file that cannot be written.
 No --self-test: no list runs it, so a self-test would be a test that nothing runs. The job `gates`
 runs the script itself on every change, where only its output shows; the self-test of check-aspects
 holds the files it reads; and the kit's `lint` and `types` entries of scripts/gate-list.sh hold its
@@ -166,7 +166,7 @@ def gather(folder: Path, expected: list[str], notes: list[str]) -> dict[str, Mod
     if not folder.is_dir():
         raise Broken(f"{folder} is no folder{why}\n  fix: name the folder the coverage files were written to")
     try:
-        files = sorted(folder.glob("*.json"))
+        files = sorted(folder / name for name in os.listdir(folder) if name.endswith(".json"))
     except OSError as bad:
         raise Broken(
             f"{folder} cannot be read ({bad.strerror}){why}\n  fix: name a folder that can be read"
