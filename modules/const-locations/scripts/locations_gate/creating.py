@@ -22,7 +22,7 @@ from . import filling, homes, messages
 from .model import HomeClass, Plan, Request
 
 
-def act(output: Output, request: Request) -> int:
+def act(output: Output, request: Request) -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     if request.title is None and not request.dry_run:
         raise ConfigurationFailure(messages.l5_title_needed())
     if request.title is not None and not request.title.strip():  # a dry run too: the title is a value

@@ -434,7 +434,7 @@ def last_line(out: str, err: str) -> str:
     return said.splitlines()[-1] if said else "no output"
 
 
-def hooks_of(plugin: Path) -> list[Hook]:
+def hooks_of(plugin: Path) -> list[Hook]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """The hooks of a plugin's hooks/hooks.json, each with the seconds it is waited for: its own `timeout`,
     else the platform's default for a `command` hook on its event (`EVENT_HOOK_TIMEOUT`, else
     `HOOK_TIMEOUT`). A hooks file that is a regular file and cannot be read (an `OSError`: its
@@ -1140,7 +1140,7 @@ def report(module: str, findings: list[Finding], examined: str, note: str = "") 
     return EXIT_GREEN
 
 
-def self_test() -> int:
+def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """Red→green on throwaway source and copy folders, no install: a green copy is green; each branch
     of the link check — a link inside the module, the runner's link to its own package arrived as a
     directory, leading elsewhere, dangling or missing, a link left a link, missing, with files lost, added or
@@ -1156,7 +1156,7 @@ def self_test() -> int:
     hooks = {"hooks": {"PreToolUse": [{"matcher": "Write|Edit", "hooks": [command]}]}}
     deny = '{"hookSpecificOutput": {"permissionDecision": "deny"}}'
 
-    def folders(root: Path, change: str) -> tuple[Path, Path]:
+    def folders(root: Path, change: str) -> tuple[Path, Path]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
         source, shared = root / "source", root / "shared"
         (shared).mkdir()
         (shared / "code.py").write_text("x = 1\n", encoding="utf-8")
@@ -1546,7 +1546,7 @@ def self_test() -> int:
         if not ok:
             print(f"        got: {got}")
 
-    def hook_wait_cases() -> None:
+    def hook_wait_cases() -> None:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
         """A hook that declares no timeout is waited for as the platform gives its event; one that declares
         a timeout, for that: read from the `Hook` that `hooks_of` builds, nothing is waited for. A hooks
         file `hooks_of` cannot run, in each shape, is one BROKEN line and never another exception; one that
@@ -2062,7 +2062,7 @@ def self_test() -> int:
                         str(got_shut),
                     )
 
-    def start_and_lookup_cases() -> None:
+    def start_and_lookup_cases() -> None:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
         """A command `run` cannot start and a path the check cannot look at are each one BROKEN line, never a
         traceback and never a missing path read in the place of one that cannot be searched: `run` turns any
         `OSError` of starting the command and a `ValueError` (a NUL byte) into a line naming the command, the

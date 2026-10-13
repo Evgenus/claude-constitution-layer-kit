@@ -688,7 +688,7 @@ def report(findings: list[Finding], documents: int) -> int:
     return EXIT_GREEN
 
 
-def self_test() -> int:
+def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """Red→green on a throwaway repository: each form is red where the check reads, with the lines
     of its findings typed by hand, and its correct spelling is green; every place not read stays
     green with the wrong spelling; the report of one finding of each kind is its literal text with

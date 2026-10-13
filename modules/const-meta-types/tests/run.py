@@ -613,7 +613,7 @@ GOLDEN: dict[int, Sequence[str]] = {
 }
 
 
-def golden_lines() -> tuple[bool, str]:
+def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """Each case's red input run afresh on its setup; every literal of GOLDEN must stand in its stderr."""
     cases = {case.number: case for case in CASES}
     missing: list[str] = []

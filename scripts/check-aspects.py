@@ -575,7 +575,7 @@ def kind_of(cell: str) -> str | None:
     return None
 
 
-def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: list[Finding]) -> Module:
+def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: list[Finding]) -> Module:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     name = directory.name
     path = f"modules/{name}/MODULE.md"
     text = read(root, path)
@@ -919,7 +919,7 @@ def item_line(item: Item) -> str:
     return f"      {item.module} {item.handles}: {kind} — {result}"
 
 
-def full_run(
+def full_run(  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     root: Path, only: str | None, runner: Callable[[Path, Module], dict[int, bool]] = run_runner
 ) -> int:
     matrix, modules, findings, shared = check_structure(root, only)
@@ -1179,7 +1179,7 @@ def shared_names(text: str, names: str) -> str:
     return f"the range {text} names {names}, which the list of shared items does not hold"
 
 
-def self_test_shared() -> tuple[int, int]:
+def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """The shared acceptance items, over their whole set of cases, each on a throwaway tree: the numbers
     green and red (a swap, a duplicate, a start above 101, a reversed list, two swaps apart, the last two
     of 64), the table of GATE.md section 5 green and red (a range, a handle, a hyphen range, a range
@@ -1710,7 +1710,7 @@ def main_over(root: Path, argv: list[str]) -> tuple[int, list[str]]:
     return code, printed.getvalue().splitlines()
 
 
-def self_test() -> int:
+def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
     and green with the good table; the report of one finding as literal lines; a full run green,
     one red with a red item, one red for an item the runner did not print and one it printed

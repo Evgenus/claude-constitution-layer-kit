@@ -1937,7 +1937,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             f" the escape \\#drafts/** passes, exit {escaped.code}"
         )
 
-    def envelope_delimiters() -> tuple[bool, str]:
+    def envelope_delimiters() -> tuple[bool, str]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
         """A `---` line with trailing whitespace opens and closes the envelope, and a line ends at
         `\\n`, `\\r\\n` or a lone `\\r` only: a delimiter after any other break character is none. The
         offsets typed by hand, a byte-order mark counted."""

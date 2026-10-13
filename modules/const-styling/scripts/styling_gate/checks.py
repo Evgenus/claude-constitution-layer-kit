@@ -60,7 +60,7 @@ class _Table:
     header_line: int
 
 
-def examine(text: str) -> list[Hit]:
+def examine(text: str) -> list[Hit]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """Every trace of a signature in the document, in line order."""
     hits: list[Hit] = []
     fence: str | None = None
