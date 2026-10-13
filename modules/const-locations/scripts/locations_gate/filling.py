@@ -8,7 +8,7 @@ import re
 import yaml
 from const_gate.envelope import envelope_bounds, envelope_lines, parse_envelope
 from const_gate.errors import ConfigurationFailure
-from const_gate.model import EnvelopeState, MetaType, Status
+from const_gate.model import Envelope, EnvelopeState, MetaType, Status
 
 from . import messages
 
@@ -37,6 +37,21 @@ def from_template(template: str, path: str, doc_id: str, title: str, given_type:
     if envelope.state is not EnvelopeState.OK:
         detail = envelope.detail or envelope.state.value
         raise ConfigurationFailure(messages.l5_template_no_envelope(path, detail))
+    _refuse_type(envelope, path, given_type)
+    values = {"id": doc_id, "title": title, "status": Status.ACTIVE.value}
+    bounds = envelope_bounds(template)
+    if bounds is None or bounds.yaml_end is None or bounds.end is None:  # unreachable: read OK above
+        raise ConfigurationFailure(messages.l5_template_no_envelope(path, envelope.state.value))
+    # the block as lines, cut where the helper cuts them: each without its line ending
+    lines = [content for _, content, _ in envelope_lines(template, bounds.yaml_start, bounds.yaml_end)]
+    block = _block(lines, values)
+    closing = template[bounds.yaml_end : bounds.end]  # the closing line as written: a break ends it, or none
+    ending = "\n" if closing.endswith(("\n", "\r")) else ""
+    return "".join(f"{line}\n" for line in ["---", *block]) + "---" + ending + template[bounds.end :]
+
+
+def _refuse_type(envelope: Envelope, path: str, given_type: MetaType | None) -> None:
+    """Refuses a template whose type is missing or no meta-type, or not the type the command gave."""
     fixed = envelope.text("type")
     if fixed is None or fixed not in {t.value for t in MetaType}:
         raise ConfigurationFailure(
@@ -46,12 +61,11 @@ def from_template(template: str, path: str, doc_id: str, title: str, given_type:
         )
     if given_type is not None and given_type.value != fixed:
         raise ConfigurationFailure(messages.l5_type_conflict(given_type.value, path, fixed))
-    values = {"id": doc_id, "title": title, "status": Status.ACTIVE.value}
-    bounds = envelope_bounds(template)
-    if bounds is None or bounds.yaml_end is None or bounds.end is None:  # unreachable: read OK above
-        raise ConfigurationFailure(messages.l5_template_no_envelope(path, envelope.state.value))
-    # the block as lines, cut where the helper cuts them: each without its line ending
-    lines = [content for _, content, _ in envelope_lines(template, bounds.yaml_start, bounds.yaml_end)]
+
+
+def _block(lines: list[str], values: dict[str, str]) -> list[str]:
+    """The envelope's lines with the first line of each own field replaced by its value, its
+    continuation lines and any later line of the same field dropped; a field absent is added last."""
     block: list[str] = []
     written: set[str] = set()
     skipping = False
@@ -71,6 +85,4 @@ def from_template(template: str, path: str, doc_id: str, title: str, given_type:
     for key in OWN_FIELDS:
         if key not in written:
             block.append(_line(key, values[key]))
-    closing = template[bounds.yaml_end : bounds.end]  # the closing line as written: a break ends it, or none
-    ending = "\n" if closing.endswith(("\n", "\r")) else ""
-    return "".join(f"{line}\n" for line in ["---", *block]) + "---" + ending + template[bounds.end :]
+    return block

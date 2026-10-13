@@ -12,7 +12,7 @@ from const_gate.dials import load_dials
 from const_gate.envelope import id_of_text
 from const_gate.errors import ConfigurationFailure
 from const_gate.index import Index, build_index
-from const_gate.model import EXIT_GREEN
+from const_gate.model import EXIT_GREEN, Dials, Policy
 from const_gate.output import Output
 from const_gate.repository import repo_root
 from const_gate.territory import Matcher
@@ -22,20 +22,10 @@ from . import filling, homes, messages
 from .model import HomeClass, Plan, Request
 
 
-def act(output: Output, request: Request) -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    if request.title is None and not request.dry_run:
-        raise ConfigurationFailure(messages.l5_title_needed())
-    if request.title is not None and not request.title.strip():  # a dry run too: the title is a value
-        raise ConfigurationFailure(messages.l5_title_empty())
-    if request.title is not None and ("\n" in request.title or "\r" in request.title):
-        raise ConfigurationFailure(messages.l5_title_multiline())
-    for value, what in (
-        (request.stem, "the stem"),
-        (request.segment, "the segment"),
-        (request.doc_id, "the id"),
-    ):
-        if value is not None and not homes.is_kebab(value):
-            raise ConfigurationFailure(messages.l5_not_kebab(value, what))
+def act(output: Output, request: Request) -> int:
+    """Refuses whatever can refuse, in order, then plans the document and writes it — or, on a
+    dry run, prints the plan alone."""
+    _refuse_bad_values(request)
     root = repo_root(Path.cwd())
     if root is None:
         raise ConfigurationFailure(messages.l5_no_repository(str(Path.cwd())))
@@ -46,22 +36,9 @@ def act(output: Output, request: Request) -> int:  # noqa: C901 — over the lim
     dials = own_dials.parse(shared_dials.own)
     if shared_dials.root_policy is None:
         raise ConfigurationFailure(messages.l5_no_root_policy())
-    with Matcher() as matcher:
-        index = build_index(root, shared_dials, shared_dials.root_policy, matcher)
-        for note in index.notes:
-            output.out(note)
-        policy = index.policies.get(request.kind)
-        if policy is None:
-            raise ConfigurationFailure(messages.l5_not_a_policy(request.kind, sorted(index.policies)))
-        if not policy.territory:  # a policy with no territory line: the fix is the line, not a simpler one
-            raise ConfigurationFailure(messages.l5_no_territory(request.kind))
-        home, doc_id, pattern = _home_of(request, policy.territory)
-        for other in index.policies.values():
-            claimed = matcher.match(other.territory, [home])
-            if other.id != request.kind and claimed:
-                raise ConfigurationFailure(messages.l5_two_policies(home, other.id, claimed[home]))
-            if other.id == request.kind and not claimed:  # the derivation and git disagree: no home
-                raise ConfigurationFailure(messages.l5_no_home(request.kind, policy.territory))
+    index, policy, (home, doc_id, pattern) = _locate(
+        output, request, root, shared_dials, shared_dials.root_policy
+    )
     if (root / home).exists():
         raise ConfigurationFailure(messages.l5_exists(home))
     _refuse_id_in_use(index, doc_id)
@@ -77,6 +54,55 @@ def act(output: Output, request: Request) -> int:  # noqa: C901 — over the lim
     output.out(messages.l3_created(plan.home))
     output.out(messages.l4_count(plan.home))
     return EXIT_GREEN
+
+
+def _refuse_bad_values(request: Request) -> None:
+    """The command line's own refusals: a title missing, empty or of several lines; a stem, a
+    segment or an id that is not kebab-case."""
+    if request.title is None and not request.dry_run:
+        raise ConfigurationFailure(messages.l5_title_needed())
+    if request.title is not None and not request.title.strip():  # a dry run too: the title is a value
+        raise ConfigurationFailure(messages.l5_title_empty())
+    if request.title is not None and ("\n" in request.title or "\r" in request.title):
+        raise ConfigurationFailure(messages.l5_title_multiline())
+    for value, what in (
+        (request.stem, "the stem"),
+        (request.segment, "the segment"),
+        (request.doc_id, "the id"),
+    ):
+        if value is not None and not homes.is_kebab(value):
+            raise ConfigurationFailure(messages.l5_not_kebab(value, what))
+
+
+def _locate(
+    output: Output, request: Request, root: Path, shared_dials: Dials, root_policy: str
+) -> tuple[Index, Policy, tuple[str, str, str]]:
+    """The index, the kind's policy and the home it implies — the home, the id and the deciding
+    pattern — or the refusal of a kind that is no policy, has no territory or no home of its own."""
+    with Matcher() as matcher:
+        index = build_index(root, shared_dials, root_policy, matcher)
+        for note in index.notes:
+            output.out(note)
+        policy = index.policies.get(request.kind)
+        if policy is None:
+            raise ConfigurationFailure(messages.l5_not_a_policy(request.kind, sorted(index.policies)))
+        if not policy.territory:  # a policy with no territory line: the fix is the line, not a simpler one
+            raise ConfigurationFailure(messages.l5_no_territory(request.kind))
+        located = _home_of(request, policy.territory)
+        _refuse_other_claims(matcher, index, request.kind, policy.territory, located[0])
+    return index, policy, located
+
+
+def _refuse_other_claims(
+    matcher: Matcher, index: Index, kind: str, territory: tuple[str, ...], home: str
+) -> None:
+    """Refuses a home another policy's territory claims too, or one the kind's own does not."""
+    for other in index.policies.values():
+        claimed = matcher.match(other.territory, [home])
+        if other.id != kind and claimed:
+            raise ConfigurationFailure(messages.l5_two_policies(home, other.id, claimed[home]))
+        if other.id == kind and not claimed:  # the derivation and git disagree: no home
+            raise ConfigurationFailure(messages.l5_no_home(kind, territory))
 
 
 def _home_of(request: Request, territory: tuple[str, ...]) -> tuple[str, str, str]:
