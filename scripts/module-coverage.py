@@ -163,9 +163,11 @@ def listed() -> list[str]:
 
 def gather(folder: Path, expected: list[str], notes: list[str]) -> dict[str, Module]:
     why = "\n  why: the report reads the coverage files in that folder, one per module"
-    if not folder.is_dir():
-        raise Broken(f"{folder} is no folder{why}\n  fix: name the folder the coverage files were written to")
     try:
+        if not folder.is_dir():
+            raise Broken(
+                f"{folder} is no folder{why}\n  fix: name the folder the coverage files were written to"
+            )
         files = sorted(folder / name for name in os.listdir(folder) if name.endswith(".json"))
     except OSError as bad:
         raise Broken(

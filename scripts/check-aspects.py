@@ -119,10 +119,9 @@ With CONSTITUTION_KIT_COVERAGE naming a folder, `--run` runs each runner under c
 says how); a runner that runs past its time is a BROKEN line, as without the variable, and writes no
 file. coverage.py not installed is a BROKEN line before the runner starts; a step of it that fails
 after the run is one too, printed after the output of a runner that exited other than 0, never in its
-place. The kit's CI sets
-the variable in each module's job, and scripts/module-coverage.py reads the files: a report, whose
-numbers no check holds (decision dec-0089-module-coverage-report). Empty or absent, the runner runs as
-it always did.
+place. The kit's CI sets the variable in each module's job, and scripts/module-coverage.py reads the
+files: a report, whose numbers no check holds (decision dec-0089-module-coverage-report). Empty or
+absent, the runner runs as it always did.
 Exit:   0 green; 2 a finding or a red item; 1 the check could not run.
 """
 

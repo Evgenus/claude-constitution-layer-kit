@@ -28,15 +28,28 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 ENV = "CONSTITUTION_KIT_COVERAGE"
-# the version is the one .github/workflows/gates.yml pins, named there alone so that no copy drifts
-FIX_INSTALL = (
-    "python3 -m pip install coverage (the kit's CI installs the version .github/workflows/gates.yml pins)"
-)
+WORKFLOW = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "gates.yml"
+PINNED = re.compile(r'"coverage==([^"\s]+)"')
+
+
+def fix_install() -> str:
+    """The install command of the version the kit's CI pins, read from the workflow, which alone names
+    it, so that no copy drifts; a plain command naming the workflow when it cannot be read there."""
+    try:
+        found = PINNED.search(WORKFLOW.read_text(encoding="utf-8"))
+    except OSError:
+        found = None
+    if found is None:
+        return "python3 -m pip install coverage, at the version .github/workflows/gates.yml pins"
+    return f'python3 -m pip install "coverage=={found[1]}"'
+
+
 LISTS = ("executed_lines", "missing_lines", "executed_branches", "missing_branches")
 
 
@@ -59,7 +72,7 @@ def prepare(root: Path, module: str, work: Path) -> tuple[list[str], dict[str, s
     if found.returncode != 0:
         raise CoverageError(
             f"{ENV} asks for coverage, and coverage.py is not installed for {sys.executable}"
-            f" — fix: {FIX_INSTALL}, or unset {ENV}"
+            f" — fix: {fix_install()}, or unset {ENV}"
         )
     rc = work / "coveragerc"
     sources = [root / "modules" / module / "scripts", root / "shared" / "const_gate"]
@@ -91,7 +104,8 @@ def cli(work: Path, *args: str) -> None:
         said = (done.stderr or done.stdout).strip().splitlines()
         raise CoverageError(
             f"`coverage {args[0]}` exited {done.returncode}: {said[-1] if said else 'no output'}"
-            f" — fix: {FIX_INSTALL}"
+            f" — fix: {fix_install()}, the version the check is written against; at that version"
+            " already, repair the cause that coverage.py's own line, quoted before this fix, names"
         )
 
 
@@ -111,7 +125,8 @@ def save(root: Path, module: str, work: Path, out: Path, runner_exit: int, secon
                 files[path] = {key: one.get(key, []) for key in LISTS}
         except (OSError, ValueError, KeyError, TypeError, AttributeError) as bad:
             raise CoverageError(
-                f"coverage.py's JSON in {report} cannot be read ({bad}) — fix: {FIX_INSTALL}"
+                f"coverage.py's JSON in {report} cannot be read ({bad}) — fix: {fix_install()}, the"
+                " version whose JSON the check reads"
             ) from bad
     target = out / f"{module}.json"
     try:
