@@ -51,11 +51,10 @@ Notes on stderr: a SessionStart command that exits other than 0 or times out (it
 none when it timed out), and a shallow clone, whose churn is short.
 Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BROKEN line that says what
         failed, why and the fix, when they cannot: the module folders, a module document whose section
-        is missing or out of order, a module document, a skill, hooks/hooks.json or a tracked
-        file that cannot be read, PyYAML not
-        installed, hooks/hooks.json or a skill's front matter that does not parse, a
-        tracked Python file that does not parse, git that does not answer, the arguments misused, or the
-        JSON file that cannot be written.
+        is missing or out of order, a module document, a skill, hooks/hooks.json or a tracked file that
+        cannot be read, PyYAML not installed, hooks/hooks.json or a skill's front matter that does not
+        parse, a tracked Python file that does not parse, git that does not answer, the arguments
+        misused, or the JSON file that cannot be written.
 No --self-test: no list runs it, so a self-test would be a test that nothing runs. The CI step runs the
 script itself on every change, where only its output shows, and the kit's `lint` and `types` entries of
 scripts/gate-list.sh hold its code, as they hold every script at the top of scripts/.
