@@ -3,3 +3,7 @@
 # Browse every gate's output log as one timeline; extra arguments go to lnav
 logs *args:
     lnav {{args}} local/gate-logs
+
+# Print the module metrics report, a report and never a check; extra arguments go to the script (--json <path>|-)
+metrics *args:
+    python3 scripts/metrics.py {{args}}
