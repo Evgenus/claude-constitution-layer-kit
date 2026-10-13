@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
@@ -613,18 +614,28 @@ GOLDEN: dict[int, Sequence[str]] = {
 }
 
 
-def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
+@dataclass
+class GoldenRun:
+    """What the golden-lines item found missing so far, and how many long-value lines it looked for."""
+
+    missing: list[str]
+    found_paths: int = 0
+
+
+def golden_literals(run: GoldenRun) -> None:
     """Each case's red input run afresh on its setup; every literal of GOLDEN must stand in its stderr."""
     cases = {case.number: case for case in CASES}
-    missing: list[str] = []
     for number, lines in GOLDEN.items():
         case = cases[number]
         stderr = H.run_gate(event_json(H.fresh_consumer(case.setup).root, case.red)).stderr
-        missing += [f"case {number}: {line}" for line in lines if line not in stderr]
+        run.missing += [f"case {number}: {line}" for line in lines if line not in stderr]
         if not stderr.endswith("\n" + F10_LINE + "\n"):
-            missing.append(f"case {number}: the stderr does not end with F10: {F10_LINE}")
-    # an id, a type, a status and a declared policy holding a line break stay on one line, each break
-    # shown escaped, typed by hand
+            run.missing.append(f"case {number}: the stderr does not end with F10: {F10_LINE}")
+
+
+def golden_line_breaks(run: GoldenRun) -> None:
+    """An id, a type, a status and a declared policy holding a line break stay on one line, each break
+    shown escaped, typed by hand; the same four values at 100 characters only point, cut at 80."""
     breaks = H.run_gate(
         event_json(
             H.fresh_consumer().root,
@@ -640,8 +651,8 @@ def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when th
         " inactive; policy 'g\\nh' is not a kebab-case policy id"
     )
     if escaped not in breaks:
-        missing.append(f"escaped values: {escaped}")
-    # the same four values at 100 characters only point: each cut at 80, the cut said
+        run.missing.append(f"escaped values: {escaped}")
+    # the same four values at 100 characters: each cut at 80, the cut said
     long_values = H.run_gate(
         event_json(
             H.fresh_consumer().root,
@@ -658,9 +669,13 @@ def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when th
         f" policy '{'P' * 80}{cut_head} is not a kebab-case policy id"
     )
     if cut not in long_values:
-        missing.append(f"cut values: {cut}")
-    # a written file's path stands whole, over 80 characters, its break escaped; a YAML error keeps its
-    # text and shows its backslash doubled; an id or a declared policy that only points is cut at 80
+        run.missing.append(f"cut values: {cut}")
+
+
+def golden_pointing_runs() -> list[tuple[str, Write, str, list[Write]]]:
+    """A written file's path stands whole, over 80 characters, its break escaped; a YAML error keeps its
+    text and shows its backslash doubled; an id or a declared policy that only points is cut at 80.
+    Each run is a label, the write, the line wanted and the files the setup holds."""
     weird = "docs/notes/a\n" + "b" * 100 + ".md"
     shown = "docs/notes/a\\n" + "b" * 100 + ".md"
     other = "docs/notes/o\n" + "x" * 100 + ".md"
@@ -724,14 +739,22 @@ def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when th
             [],
         )
     )
+    return runs
+
+
+def golden_pointing(run: GoldenRun, runs: list[tuple[str, Write, str, list[Write]]]) -> None:
+    """Each pointing run's stderr holds the line wanted."""
     for label, action, wanted, setup in runs:
         said = H.run_gate(event_json(H.fresh_consumer(setup).root, action)).stderr
         if wanted not in said:
-            missing.append(f"{label}: {wanted}")
-    # every finding about a written file opens with its path whole, however long, the break escaped: the
-    # red half of each case, its target renamed to a name of 106 characters holding a line break
+            run.missing.append(f"{label}: {wanted}")
+
+
+def golden_long_paths(run: GoldenRun) -> None:
+    """Every finding about a written file opens with its path whole, however long, the break escaped: the
+    red half of each case, its target renamed to a name of 106 characters holding a line break; the same
+    for the root policy's own findings, where the root policy dial points at a file of that kind."""
     cases_by_number = {case.number: case for case in CASES}
-    found_paths = 0
     for number in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 35):
         case = cases_by_number[number]
         assert isinstance(case.red, Write)
@@ -739,10 +762,9 @@ def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when th
         renamed = (folder + "/" if folder else "") + "a\n" + "b" * 100 + ".md"
         said = H.run_gate(event_json(H.fresh_consumer(case.setup).root, Write(renamed, case.red.text))).stderr
         head = "RED: " + renamed.replace("\n", "\\n") + ": "
-        found_paths += 1
+        run.found_paths += 1
         if not said.startswith(head):
-            missing.append(f"case {number} with a long path: {head} — got {said[:300]}")
-    # the same for the root policy's own findings: the root policy dial points at a file of that kind
+            run.missing.append(f"case {number} with a long path: {head} — got {said[:300]}")
     shown_root = "docs/policies/r\\n" + "s" * 100 + ".md"
     root = "docs/policies/r\n" + "s" * 100 + ".md"
     for number in (12, 13, 14, 15, 34):
@@ -754,10 +776,13 @@ def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when th
             files={root: envelope("root-policy", "current-state")},
             remove=ROOT_POLICY,
         )
-        found_paths += 1
+        run.found_paths += 1
         if not result.stderr.startswith(f"RED: {shown_root}: "):
-            missing.append(f"case {number} with a long root path: {result.stderr[:300]}")
-    # a policy id and a territory pattern of 100 characters or more only point: cut at 80, the cut said
+            run.missing.append(f"case {number} with a long root path: {result.stderr[:300]}")
+
+
+def golden_long_policies(run: GoldenRun) -> None:
+    """A policy id and a territory pattern of 100 characters or more only point: cut at 80, the cut said."""
     long_id = "p" * 100
     pattern = "docs/notes/" + "a" * 100 + ".md"
     cut_policy = "p" * 80 + "… [100 characters]"
@@ -774,9 +799,9 @@ def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when th
         ),
     ):
         said = gate_on(Write(pattern, doc), dials_patch=overlap, files=twin)[0].stderr
-        found_paths += 1
+        run.found_paths += 1
         if wanted not in said:
-            missing.append(f"{label} long policy and pattern: {wanted} — got {said[:400]}")
+            run.missing.append(f"{label} long policy and pattern: {wanted} — got {said[:400]}")
     single = "docs/other/" + "c" * 100 + ".md"
     alone: dict[str, object] = {long_id: {"territory": [single]}}
     said = gate_on(Write(single, envelope("note-a", policy="root-policy")), dials_patch=alone, files=twin)[
@@ -788,11 +813,17 @@ def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when th
         + "c" * 69
         + "… [114 characters])"
     )
-    found_paths += 1
+    run.found_paths += 1
     if wanted not in said:
-        missing.append(f"F8 long policy and pattern: {wanted} — got {said[:400]}")
-    # a declared policy of 100 characters that exists and claims elsewhere: cut in the headline, in the
-    # fix's removal line and in the fix's pointer to its territory
+        run.missing.append(f"F8 long policy and pattern: {wanted} — got {said[:400]}")
+    golden_declared_policy(run, overlap, twin, mark)
+
+
+def golden_declared_policy(
+    run: GoldenRun, overlap: dict[str, object], twin: dict[str, str], mark: str
+) -> None:
+    """A declared policy of 100 characters that exists and claims elsewhere: cut in the headline, in the
+    fix's removal line and in the fix's pointer to its territory; and cut beside an overlap."""
     declared = "q" * 100
     cut_declared = "q" * 80 + "… [100 characters]"
     elsewhere: dict[str, object] = {declared: {"territory": ["docs/other/**"]}}
@@ -812,19 +843,34 @@ def golden_lines() -> tuple[bool, str]:  # noqa: C901 — over the limit when th
             f" of '{cut_declared}': ['docs/other/**']",
         ),
     ):
-        found_paths += 1
+        run.found_paths += 1
         if wanted not in said:
-            missing.append(f"{label} with a declared policy of 100 characters: {wanted} — got {said[:400]}")
+            run.missing.append(
+                f"{label} with a declared policy of 100 characters: {wanted} — got {said[:400]}"
+            )
+    pattern = "docs/notes/" + "a" * 100 + ".md"
     said = gate_on(Write(pattern, envelope("note-a", policy=declared)), dials_patch=overlap, files=twin)[
         0
     ].stderr
     wanted = (
         f"declares policy '{cut_declared}' but its path is claimed by notes-policy (docs/notes/**), {mark}"
     )
-    found_paths += 1
+    run.found_paths += 1
     if wanted not in said:
-        missing.append(f"F8b with a declared policy of 100 characters: {wanted} — got {said[:400]}")
-    found = sum(len(lines) for lines in GOLDEN.values()) + len(runs) + found_paths
+        run.missing.append(f"F8b with a declared policy of 100 characters: {wanted} — got {said[:400]}")
+
+
+def golden_lines() -> tuple[bool, str]:
+    """Each case's red input run afresh on its setup; every literal of GOLDEN must stand in its stderr."""
+    run = GoldenRun(missing=[])
+    golden_literals(run)
+    golden_line_breaks(run)
+    runs = golden_pointing_runs()
+    golden_pointing(run, runs)
+    golden_long_paths(run)
+    golden_long_policies(run)
+    found = sum(len(lines) for lines in GOLDEN.values()) + len(runs) + run.found_paths
+    missing = run.missing
     return not missing, f"{found} literal lines found" if not missing else "not found:\n" + "\n".join(missing)
 
 
