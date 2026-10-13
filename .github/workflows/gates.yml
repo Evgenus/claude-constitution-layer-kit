@@ -4,8 +4,9 @@
 # written here. Every job runs on every run, none skipped for the paths a change touched: the scans
 # read the whole tree or the change's whole range, and the shared gate code sits in every module.
 # The job "gates" waits for all of them and is the one check the ruleset requires, so a new module or
-# entry never changes the ruleset; after its verdict it runs the module metrics, a report whose JSON it
-# uploads as the artifact `metrics`, and whose failure never changes that verdict.
+# entry never changes the ruleset; after its verdict it runs the module metrics and the list of the most
+# complex functions, reports whose JSON it uploads as the artifact `metrics`, and whose failure never
+# changes that verdict.
 name: gates
 
 on:
@@ -125,12 +126,13 @@ jobs:
         timeout-minutes: 5
         run: |
           python3 -m pip install --quiet "PyYAML==6.0.2"
-          # the report's output, a BROKEN line with its fix included, reaches the log and the summary
-          # before the step takes the report's exit
+          # each report's output, a BROKEN line with its fix included, reaches the log and the summary
+          # before the step takes the worse of the two exits
           status=0
           python3 scripts/metrics.py --json metrics.json > metrics.txt || status=$?
-          cat metrics.txt
-          { echo '```'; cat metrics.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          python3 scripts/metrics.py --complexity --json complexity.json > complexity.txt || status=$?
+          cat metrics.txt complexity.txt
+          { echo '```'; cat metrics.txt; echo; cat complexity.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
@@ -138,5 +140,7 @@ jobs:
         timeout-minutes: 5
         with:
           name: metrics
-          path: metrics.json
+          path: |
+            metrics.json
+            complexity.json
           if-no-files-found: warn
