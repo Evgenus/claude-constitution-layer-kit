@@ -130,24 +130,9 @@ def _merged(
     for index, item in enumerate(value, 1):
         if not isinstance(item, dict):
             raise ConfigurationFailure(messages.c5_reader_entry(dial, index, "it is not a mapping"))
-        unknown = sorted(str(key) for key in item if key not in fields)
-        if unknown:
-            raise ConfigurationFailure(messages.c5_reader_unknown(dial, index, unknown[0]))
-        command = _reader_command(dial, index, item)
-        if command in seen:
-            raise ConfigurationFailure(messages.c5_reader_twice(dial, index, command, seen[command]))
-        seen[command] = index
+        command = _new_command(dial, index, item, fields, seen)
         if ReaderField.DROP in item:
-            if item[ReaderField.DROP] is not True:
-                raise ConfigurationFailure(messages.c5_reader_drop_value(dial, index))
-            beside = sorted(
-                ReaderField(key) for key in item if key not in (ReaderField.COMMAND, ReaderField.DROP)
-            )
-            if beside:
-                raise ConfigurationFailure(messages.c5_reader_drop_beside(dial, index, beside[0]))
-            if not any(_words_of(default) == command for default in defaults):
-                names = [" ".join(_words_of(default)) for default in defaults]
-                raise ConfigurationFailure(messages.c5_reader_drop_unknown(dial, index, command, names))
+            _refuse_bad_drop(dial, index, item, command, defaults)
             changed.append(Dropped(dial, command))
             merged = [entry for entry in merged if _words_of(entry) != command]
             continue
@@ -167,6 +152,43 @@ def _merged(
     if bare:  # judged after the loop: the twice check of a later entry is the first line of a list
         raise ConfigurationFailure(messages.c5_reader_no_flags(*bare[0]))
     return merged, tuple(changed)
+
+
+def _new_command(
+    dial: ReaderDial,
+    index: int,
+    item: dict[str, object],
+    fields: tuple[ReaderField, ...],
+    seen: dict[tuple[str, ...], int],
+) -> tuple[str, ...]:
+    """The command of an entry whose every key is a field, given by no earlier entry; `seen` records it
+    with the entry's number."""
+    unknown = sorted(str(key) for key in item if key not in fields)
+    if unknown:
+        raise ConfigurationFailure(messages.c5_reader_unknown(dial, index, unknown[0]))
+    command = _reader_command(dial, index, item)
+    if command in seen:
+        raise ConfigurationFailure(messages.c5_reader_twice(dial, index, command, seen[command]))
+    seen[command] = index
+    return command
+
+
+def _refuse_bad_drop(
+    dial: ReaderDial,
+    index: int,
+    item: dict[str, object],
+    command: tuple[str, ...],
+    defaults: Sequence[Wrapper | Shell],
+) -> None:
+    """A drop is `drop: true` beside the command alone, and names a default."""
+    if item[ReaderField.DROP] is not True:
+        raise ConfigurationFailure(messages.c5_reader_drop_value(dial, index))
+    beside = sorted(ReaderField(key) for key in item if key not in (ReaderField.COMMAND, ReaderField.DROP))
+    if beside:
+        raise ConfigurationFailure(messages.c5_reader_drop_beside(dial, index, beside[0]))
+    if not any(_words_of(default) == command for default in defaults):
+        names = [" ".join(_words_of(default)) for default in defaults]
+        raise ConfigurationFailure(messages.c5_reader_drop_unknown(dial, index, command, names))
 
 
 def _reader_command(dial: ReaderDial, index: int, item: dict[str, object]) -> tuple[str, ...]:
@@ -261,41 +283,49 @@ def _entries(value: object, reader: ReaderLists) -> tuple[Entry, ...]:
     entries, or a configuration failure naming the first bad one; an entry is read through the wrappers
     and shells `reader` holds, the lists being loaded."""
     if value is None:
-        for default in DEFAULT_DESTRUCTIVE:
-            read = tokens.reading(default.command, reader)
-            if read != list(default.command):
-                raise ConfigurationFailure(messages.c5_default_unread(default.command, read))
+        _refuse_defaults_unread(reader)
         return DEFAULT_DESTRUCTIVE
     if not isinstance(value, list):
         raise ConfigurationFailure(messages.c5_destructive())
-    entries: list[Entry] = []
-    for index, item in enumerate(value, 1):
-        if not isinstance(item, dict):
-            raise ConfigurationFailure(messages.c5_entry(index, "it is not a mapping"))
-        unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
-        if unknown:
-            raise ConfigurationFailure(
-                messages.c5_entry(index, f"'{echoed(unknown[0])}' is no field of an entry")
-            )
-        command = texts(item.get("command"))
-        if not command or any(" " in word for word in command):
-            raise ConfigurationFailure(messages.c5_entry(index, "command must be a non-empty list of words"))
-        read = tokens.reading(command, reader)
-        if read != list(command):
-            raise ConfigurationFailure(messages.c5_entry_unread(index, command, read))
-        raw_flags = item.get("flags", [])
-        flags = texts(raw_flags) if raw_flags != [] else ()
-        if raw_flags != [] and (not flags or any(not flag.startswith("-") or " " in flag for flag in flags)):
-            raise ConfigurationFailure(
-                messages.c5_entry(index, "flags must be a list of flags, each starting with '-'")
-            )
-        teach, alternative = item.get("teach"), item.get("alternative")
-        if not isinstance(teach, str) or not teach.strip():
-            raise ConfigurationFailure(messages.c5_entry(index, "teach must be a non-empty text"))
-        if not isinstance(alternative, str) or not alternative.strip():
-            raise ConfigurationFailure(messages.c5_entry(index, "alternative must be a non-empty text"))
-        entries.append(Entry(command, flags, teach.strip(), alternative.strip()))
-    return tuple(entries)
+    return tuple(_entry(index, item, reader) for index, item in enumerate(value, 1))
+
+
+def _refuse_defaults_unread(reader: ReaderLists) -> None:
+    """Each default entry is read through the reader lists as it is written."""
+    for default in DEFAULT_DESTRUCTIVE:
+        read = tokens.reading(default.command, reader)
+        if read != list(default.command):
+            raise ConfigurationFailure(messages.c5_default_unread(default.command, read))
+
+
+def _entry(index: int, item: object, reader: ReaderLists) -> Entry:
+    """Entry `index` of the list, well formed and read as written, or a configuration failure naming
+    what is wrong."""
+    if not isinstance(item, dict):
+        raise ConfigurationFailure(messages.c5_entry(index, "it is not a mapping"))
+    unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
+    if unknown:
+        raise ConfigurationFailure(
+            messages.c5_entry(index, f"'{echoed(unknown[0])}' is no field of an entry")
+        )
+    command = texts(item.get("command"))
+    if not command or any(" " in word for word in command):
+        raise ConfigurationFailure(messages.c5_entry(index, "command must be a non-empty list of words"))
+    read = tokens.reading(command, reader)
+    if read != list(command):
+        raise ConfigurationFailure(messages.c5_entry_unread(index, command, read))
+    raw_flags = item.get("flags", [])
+    flags = texts(raw_flags) if raw_flags != [] else ()
+    if raw_flags != [] and (not flags or any(not flag.startswith("-") or " " in flag for flag in flags)):
+        raise ConfigurationFailure(
+            messages.c5_entry(index, "flags must be a list of flags, each starting with '-'")
+        )
+    teach, alternative = item.get("teach"), item.get("alternative")
+    if not isinstance(teach, str) or not teach.strip():
+        raise ConfigurationFailure(messages.c5_entry(index, "teach must be a non-empty text"))
+    if not isinstance(alternative, str) or not alternative.strip():
+        raise ConfigurationFailure(messages.c5_entry(index, "alternative must be a non-empty text"))
+    return Entry(command, flags, teach.strip(), alternative.strip())
 
 
 def _verbosity(value: object) -> Verbosity:

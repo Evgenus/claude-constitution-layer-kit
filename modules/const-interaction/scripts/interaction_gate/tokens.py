@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 import shlex
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 
 from .model import ReaderLists, Subcommand, Wrapper
 
@@ -115,71 +116,99 @@ def _inside_quotes(line: str, position: int) -> bool:
 
 def _separate(text: str) -> list[str]:
     """Split on the operators outside quotes, parentheses and substitutions."""
-    pieces: list[str] = []
-    current: list[str] = []
+    separator = _Separator(text)
+    while separator.i < len(text):
+        separator.step()
+    separator.pieces.append("".join(separator.current))
+    return separator.pieces
+
+
+@dataclass(slots=True)
+class _Separator:
+    """The state of `_separate`: the pieces cut so far, the piece being read, the open quote, the
+    depth of the open substitutions and the quote each open `$(` interrupted, restored at its `)`."""
+
+    text: str
+    i: int = 0
+    pieces: list[str] = field(default_factory=list)
+    current: list[str] = field(default_factory=list)
     quote: str | None = None
-    depth = 0
-    interrupted: list[str | None] = []  # the quote each open `$(` interrupted, restored at its `)`
-    i = 0
-    while i < len(text):
-        ch = text[i]
-        if quote == '"' and text.startswith("$(", i):  # a substitution opens a new context
-            current.append("$(")
-            interrupted.append(quote)
-            quote = None
-            depth += 1
-            i += 2
-            continue
-        if quote:
-            current.append(ch)
-            if ch == "\\" and quote == '"' and i + 1 < len(text):
-                current.append(text[i + 1])
-                i += 2
-                continue
-            if ch == quote:
-                quote = None
-            i += 1
-            continue
-        if ch in ("'", '"', "`"):
-            quote = ch
-            current.append(ch)
-            i += 1
-            continue
-        if ch == "\\" and i + 1 < len(text):
-            current.append(ch)
-            current.append(text[i + 1])
-            i += 2
-            continue
-        if text.startswith("$(", i):
-            depth += 1
-            interrupted.append(None)
-            current.append("$(")
-            i += 2
-            continue
-        if depth > 0 and ch == "(":
-            depth += 1
-            interrupted.append(None)
-        elif depth > 0 and ch == ")":
-            depth -= 1
-            quote = interrupted.pop() if interrupted else None
-        elif ch in "()":  # a bare subshell or group: its commands are the text's own
-            pieces.append("".join(current))
-            current = []
-            i += 1
-            continue
-        if depth == 0:
-            operator = next((op for op in OPERATORS if text.startswith(op, i)), None)
-            if operator == "&" and ((i > 0 and text[i - 1] in REDIRECT_BEFORE) or text.startswith("&>", i)):
-                operator = None  # a redirection, not a background operator
-            if operator is not None:
-                pieces.append("".join(current))
-                current = []
-                i += len(operator)
-                continue
-        current.append(ch)
-        i += 1
-    pieces.append("".join(current))
-    return pieces
+    depth: int = 0
+    interrupted: list[str | None] = field(default_factory=list)
+
+    def step(self) -> None:
+        """Reads the character at `i` — two for a `$(` or an escape — and moves past it."""
+        ch = self.text[self.i]
+        if self.quote == '"' and self.text.startswith("$(", self.i):  # a substitution opens a new context
+            self._open_substitution()
+        elif self.quote:
+            self._quoted(ch)
+        elif ch in ("'", '"', "`"):
+            self.quote = ch
+            self._take(1)
+        elif ch == "\\" and self.i + 1 < len(self.text):
+            self._take(2)
+        elif self.text.startswith("$(", self.i):
+            self._open_substitution()
+        else:
+            self._unquoted(ch)
+
+    def _open_substitution(self) -> None:
+        """A `$(` opens a substitution, interrupting the open quote, if any."""
+        self.current.append("$(")
+        self.interrupted.append(self.quote)
+        self.quote = None
+        self.depth += 1
+        self.i += 2
+
+    def _quoted(self, ch: str) -> None:
+        """A character inside a quote: an escape in double quotes takes the next one with it, the
+        quote's own character closes it."""
+        if ch == "\\" and self.quote == '"' and self.i + 1 < len(self.text):
+            self._take(2)
+            return
+        if ch == self.quote:
+            self.quote = None
+        self._take(1)
+
+    def _unquoted(self, ch: str) -> None:
+        """A character outside quotes: a parenthesis inside a substitution is counted, a bare one
+        cuts the piece — a subshell's or a group's commands are the text's own — and an operator
+        outside substitutions cuts it."""
+        if self.depth > 0 and ch == "(":
+            self.depth += 1
+            self.interrupted.append(None)
+        elif self.depth > 0 and ch == ")":
+            self.depth -= 1
+            self.quote = self.interrupted.pop() if self.interrupted else None
+        elif ch in "()":
+            self._cut(1)
+            return
+        operator = self._operator() if self.depth == 0 else None
+        if operator is not None:
+            self._cut(len(operator))
+            return
+        self._take(1)
+
+    def _operator(self) -> str | None:
+        """The operator that starts at `i`, or None; `>&`, `&>` and `<&` are redirections."""
+        operator = next((op for op in OPERATORS if self.text.startswith(op, self.i)), None)
+        if operator == "&" and (
+            (self.i > 0 and self.text[self.i - 1] in REDIRECT_BEFORE) or self.text.startswith("&>", self.i)
+        ):
+            return None  # a redirection, not a background operator
+        return operator
+
+    def _take(self, size: int) -> None:
+        """The next `size` characters join the piece being read."""
+        self.current.append(self.text[self.i : self.i + size])
+        self.i += size
+
+    def _cut(self, size: int) -> None:
+        """The piece being read ends; the `size` characters that end it belong to no piece."""
+        self.pieces.append("".join(self.current))
+        self.current = []
+        self.i += size
 
 
 def _substitutions(text: str) -> list[str]:
@@ -188,37 +217,7 @@ def _substitutions(text: str) -> list[str]:
     i = 0
     while i < len(text):
         if text.startswith("$(", i):
-            depth, j = 1, i + 2
-            quote: str | None = None
-            opened: list[str | None] = []  # the quote each nested `$(` interrupted
-            while j < len(text) and depth:
-                ch = text[j]
-                if quote == '"' and text.startswith("$(", j):  # a nested substitution in a string
-                    opened.append(quote)
-                    quote = None
-                    depth += 1
-                    j += 2
-                    continue
-                if quote:  # a quoted `)` closes nothing
-                    if ch == "\\" and quote == '"':
-                        j += 1
-                    elif ch == quote:
-                        quote = None
-                elif ch in ("'", '"'):
-                    quote = ch
-                elif text.startswith("$(", j):  # a nested substitution, counted once
-                    depth += 1
-                    opened.append(None)
-                    j += 2
-                    continue
-                elif ch == "(":
-                    depth += 1
-                    opened.append(None)
-                elif ch == ")":
-                    depth -= 1
-                    if depth:
-                        quote = opened.pop() if opened else None
-                j += 1
+            j = _substitution_end(text, i + 2)
             inner.append(text[i + 2 : j - 1])
             i = j
             continue
@@ -231,6 +230,38 @@ def _substitutions(text: str) -> list[str]:
             continue
         i += 1
     return inner
+
+
+def _substitution_end(text: str, j: int) -> int:
+    """Where the `$(` whose contents start at `j` ends: just past its `)`, or at the text's end. A
+    quoted `)` closes nothing; a nested `$(`, unquoted or in a string, or a `(`, opens a level."""
+    depth = 1
+    quote: str | None = None
+    opened: list[str | None] = []  # the quote each nested `$(` interrupted
+    while j < len(text) and depth:
+        ch = text[j]
+        if quote != "'" and text.startswith("$(", j):  # a nested substitution, counted once
+            opened.append(quote)
+            quote = None
+            depth += 1
+            j += 2
+            continue
+        if quote:  # a quoted `)` closes nothing
+            if ch == "\\" and quote == '"':
+                j += 1
+            elif ch == quote:
+                quote = None
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == "(":
+            depth += 1
+            opened.append(None)
+        elif ch == ")":
+            depth -= 1
+            if depth:
+                quote = opened.pop() if opened else None
+        j += 1
+    return j
 
 
 def _words(text: str) -> list[str]:
@@ -372,17 +403,8 @@ def _walk_shell(
                     wants = True
             else:
                 _option(word, rest, with_value, ())
-        elif next_word:
-            for letter in word[1:]:  # every valued letter takes the next word, whatever its place
-                flag = word[0] + letter
-                if flag in command_flags:
-                    wants = True
-                elif flag in with_value and rest:
-                    rest.pop(0)
         else:
-            letters = "".join(letter for letter in word[1:] if word[0] + letter not in command_flags)
-            wants = len(letters) < len(word) - 1
-            _option(word[0] + letters, rest, with_value, ())  # its valued letter takes the rest, else a word
+            wants = _cluster(word, rest, with_value, command_flags, next_word)
         if wants:
             if rest and not rest[0].startswith(("-", "+")):
                 strings.append((total - len(rest), rest.pop(0)))
@@ -391,6 +413,25 @@ def _walk_shell(
     if waiting and rest:
         strings.append((total - len(rest), rest.pop(0)))
     return strings
+
+
+def _cluster(
+    word: str, rest: list[str], with_value: tuple[str, ...], command_flags: tuple[str, ...], next_word: bool
+) -> bool:
+    """Whether a shell's short cluster holds a command flag; the words its valued letters take are
+    taken off `rest` as one walk of `_walk_shell` reads them, `next_word` saying which."""
+    if not next_word:
+        letters = "".join(letter for letter in word[1:] if word[0] + letter not in command_flags)
+        _option(word[0] + letters, rest, with_value, ())  # its valued letter takes the rest, else a word
+        return len(letters) < len(word) - 1
+    wants = False
+    for letter in word[1:]:  # every valued letter takes the next word, whatever its place
+        flag = word[0] + letter
+        if flag in command_flags:
+            wants = True
+        elif flag in with_value and rest:
+            rest.pop(0)
+    return wants
 
 
 def _option(
