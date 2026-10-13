@@ -17,7 +17,7 @@ The lint entries of the gate list already run `ruff check` in CI: `lint-<module>
 
 The choice is the limit. Every function above it on the day the rule comes in turns CI red, unless it carries a `# noqa: C901` mark. One function already carries one: `shared_assertions` of the shared tests, marked since 2026-09-19 with a reason of its own. Counted by ruff with every mark ignored, each function once, a test file linked into the modules counted at its source:
 
-| # | limit | over it | module code | shared code | kit scripts (self-tests) | new marks |
+| # | limit | over it | module code | shared code | kit scripts (named `self_test…`) | new marks |
 |---|---|---|---|---|---|---|
 | L1 | 10, ruff's default | 60 | 19 | 2 | 39 (11) | 59 |
 | L2 | 15 | 22 | 3 | 2 | 17 (9) | 21 |
@@ -47,9 +47,9 @@ The decider chose B in chat on 2026-10-13.
 
 <a id="r1"></a>**R1.** `pyproject.toml` selects ruff's C901 with a maximum complexity of 15. The kit's existing lint entries hold it in CI over the modules, the shared code and the kit's scripts. No module ships the setting, as no module ships tool configuration.
 
-<a id="r2"></a>**R2.** Each function above 15 when the rule came in carries `# noqa: C901` on its `def` line, with its reason in plain words: 22 functions, 3 of module code, 2 of the shared tests and 17 of the kit's scripts. Of these, 21 took the mark with the rule; `shared_assertions` keeps the mark and the reason it had. A reason in a module's files or in the shared code names no record, since nothing a module ships cites the kit's records.
+<a id="r2"></a>**R2.** Each function above 15 when the rule came in carries `# noqa: C901` on its `def` line, with its reason: 22 functions, 3 of module code, 2 of the shared tests and 17 of the kit's scripts. Of these, 21 took the mark with the rule; `shared_assertions` keeps the mark and the reason it had. A reason in a module's files or in the shared code names no record, since a module's code and tests reach a consumer without the kit's records.
 
-<a id="r3"></a>**R3.** A new `# noqa: C901` mark is held by review, not by a check: the message of a commit of the change that adds it says why the function stays whole.
+<a id="r3"></a>**R3.** A new `# noqa: C901` mark carries its reason on the `def` line too, and is held by review, not by a check: the message of a commit of the change that adds it says why the function stays whole. Ruff reads neither reason.
 
 <a id="r4"></a>**R4.** A marked function is free of the limit at any complexity: ruff reads the mark, not the number. The functions marked with the rule stand in the commit that marked them.
 
@@ -60,6 +60,6 @@ The commit before the one that creates this record set the limit and the marks. 
 ## Carry list
 
 1. R1 — [`pyproject.toml`](../../pyproject.toml), `[tool.ruff.lint]` and `[tool.ruff.lint.mccabe]`; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
-2. R2 — [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; the marks on the `def` lines of the 22 functions; [template §6](../../module-template/MODULE.md#t6), installed components reference nothing in the kit.
+2. R2 — [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; the marks on the `def` lines of the 22 functions.
 3. R3 — [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
 4. R4 — history only: what a mark does is ruff's, and which functions were marked is the marking commit's fact.

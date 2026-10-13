@@ -42,7 +42,7 @@ target-version = "py312"
 select = ["E", "F", "B", "UP", "I", "PLC0415", "C901"]  # PLC0415: gate-script rule 16, imports at the top
 
 [tool.ruff.lint.mccabe]
-max-complexity = 15  # C901: a function above it is red unless it carries `# noqa: C901` with its reason (dec-0088-ruff-complexity-limit)
+max-complexity = 15  # C901: a function above it is red unless it carries `# noqa: C901`; review reads the reason beside it (dec-0088-ruff-complexity-limit)
 
 [tool.mypy]
 python_version = "3.12"
