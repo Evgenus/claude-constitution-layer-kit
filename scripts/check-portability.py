@@ -726,7 +726,7 @@ def self_test() -> int:
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
 
-def self_test_names() -> tuple[int, int]:
+def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """The kit documents' names, case by case: every fixed name and every id form typed by hand, each in an
     install note and in a skill; what is no name; the width, the default and a prefix added to the dials
     read from the dials file; fenced code, a code span and a URL read; what is not read; the order of

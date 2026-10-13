@@ -245,7 +245,7 @@ def listed_in_reverse() -> Iterator[None]:
         Path.iterdir = real  # type: ignore[method-assign]
 
 
-def self_test() -> int:
+def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """Red→green on a throwaway kit: each wrong state must be red, the right link green; what a module
     owes follows the folders (a new shared test file is owed at once, a name that starts `.` or `_` or is
     no `.py` file is not), and the shared code missing its floor is BROKEN."""

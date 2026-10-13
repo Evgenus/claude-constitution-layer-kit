@@ -2704,7 +2704,7 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     }
 
 
-def self_test() -> int:
+def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """Red→green on a throwaway tree: a scan missing from the gate group, and one in a kit whose
     workflow does not read the list or names it only in a comment line or a trailing comment, are red
     with one finding each and green once listed and read;

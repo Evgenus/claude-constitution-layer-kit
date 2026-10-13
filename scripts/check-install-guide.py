@@ -924,7 +924,7 @@ def differing(cache: Path, market: Path) -> str:
     return ""
 
 
-def claim(state: Run, name: str) -> str:
+def claim(state: Run, name: str) -> str:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     """What fails of the guide's claim at a name, or the empty string."""
     project = state.project
     if name == "new-repo":
@@ -1669,7 +1669,7 @@ def listed_in_reverse() -> Iterator[None]:
         Path.iterdir = real  # type: ignore[method-assign]
 
 
-def self_test() -> int:
+def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     failed = 0
     total = 0
 

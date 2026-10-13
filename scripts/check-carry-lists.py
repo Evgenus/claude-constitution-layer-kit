@@ -409,7 +409,7 @@ def check_order(shown: str, ruled: str) -> list[Finding]:
     return []
 
 
-def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding], list[str]]:
+def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding], list[str]]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     shown = record.relative_to(kit).as_posix()
     _, text = split_frontmatter(record.read_text(encoding="utf-8"))
     headings = list(HEADING.finditer(text))
@@ -1008,7 +1008,7 @@ def lists(root: Path, record: Path) -> tuple[list[Finding], list[str]]:
     return check_list(root, load_catalog(root), record)
 
 
-def self_test() -> int:
+def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
     folder = DEFAULT_LAYOUT.folder
     home = "../policies/p.md"
     wrong_lists: dict[str, Callable[[str], str]] = {
