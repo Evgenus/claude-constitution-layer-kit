@@ -47,7 +47,7 @@ The decider chose B in chat on 2026-10-13.
 
 <a id="r1"></a>**R1.** `pyproject.toml` selects ruff's C901 with a maximum complexity of 15. The kit's existing lint entries hold it in CI over the modules, the shared code and the kit's scripts. No module ships the setting, as no module ships tool configuration.
 
-<a id="r2"></a>**R2.** Each function above 15 when the rule came in carries `# noqa: C901` on its `def` line, with its reason: 22 functions, 3 of module code, 2 of the shared tests and 17 of the kit's scripts. Of these, 21 took the mark with the rule; `shared_assertions` keeps the mark and the reason it had. A reason in a module's files or in the shared code names no record, since a module's code and tests reach a consumer without the kit's records.
+<a id="r2"></a>**R2.** Each function above 15 when the rule came in carries `# noqa: C901` on its `def` line, with its reason: 22 functions, 3 of module code, 2 of the shared tests and 17 of the kit's scripts. Of these, 21 took the mark with the rule; `shared_assertions` keeps the mark and the reason it had. A reason in a module's files or in the shared code names no record.
 
 <a id="r3"></a>**R3.** A new `# noqa: C901` mark carries its reason on the `def` line too, and is held by review, not by a check: the message of a commit of the change that adds it says why the function stays whole. Ruff reads neither reason.
 
@@ -55,7 +55,7 @@ The decider chose B in chat on 2026-10-13.
 
 ## Applied
 
-The commit before the one that creates this record set the limit and the marks. The commit that creates this record states R1 to R3 in [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module". The record is born `inactive`.
+The commit before the one that creates this record set the limit and the marks. The commit that creates this record states R1 to R3 in [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module", and the rounds of its carry audit corrected the record and that step in place before the yes, as their commits name: among them, R2's counts with the older mark and its clause on what a reason names, and R3's reason on the `def` line of a new mark. The record is born `inactive`.
 
 ## Carry list
 
