@@ -2704,298 +2704,448 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     }
 
 
-def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    """Red→green on a throwaway tree: a scan missing from the gate group, and one in a kit whose
-    workflow does not read the list or names it only in a comment line or a trailing comment, are red
-    with one finding each and green once listed and read;
-    an extra entry is no gate; a span with a flag after `--scan` and the words is no scan; a module
-    with no scan needs no entry; a scan whose entry falls into `kit` or into another module's job is
-    red; a module folder the list's modules leave out, and a listed module with no folder, are red; a
-    tracked kit check no entry of the gate group runs is red; the forms of the enforcement table are
-    held by `form_probes`; the report of each kind of finding is its literal text with exit 2; a list
-    script that fails, jobs that are no JSON list, a module document without its enforcement anchor
-    or with it twice, a module folder without its document, a tree that is no repository and a git
-    that cannot be run are each a teaching BROKEN line; a scan declared as `<entry>.py --scan` is held
-    by its python3 line and taught by it; the files that name a module are held by `registry_cases`
-    (a copy changed one at a time), the name over a whole set of names, the reports of `messy_case`
-    written in order and backwards, the scans' and the list's findings of three folders in the folders'
-    sorted order, and `broken_cases` (each file the check cannot read, its literal
-    BROKEN line with exit 1)."""
-    module_text = (
-        '<a id="t9"></a>\n## 9\n\n| # | artifact | kind |\n|---|---|---|\n'
-        "| E1 | hook + `check-x` (hook mode) | `gate` |\n| E2 | `check-x --scan`: all | `gate` |\n"
-        "| E3 | `check-x --scan --since <date>`: the report, not a tree scan | `advisory` |\n\n"
-        "A sibling's `check-y` is not this module's.\n\n<a id=\"t10\"></a>\n## 10\n\n"
-        "| item | kind | rows | what it proves |\n|---|---|---|---|\n| T1 | fixture | none | x |\n\n"
-        '<a id="t11"></a>\n## 11\n\n<a id="t12"></a>\n## 12\n'
+@dataclass
+class Tally:
+    """The cases the self-test has judged, and those that failed."""
+
+    judged: int = 0
+    failed: int = 0
+
+    def judge(self, ok: bool, text: str) -> None:
+        """Count one case and print its line."""
+        self.judged += 1
+        self.failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {text}")
+
+
+MODULE_TEXT = (
+    '<a id="t9"></a>\n## 9\n\n| # | artifact | kind |\n|---|---|---|\n'
+    "| E1 | hook + `check-x` (hook mode) | `gate` |\n| E2 | `check-x --scan`: all | `gate` |\n"
+    "| E3 | `check-x --scan --since <date>`: the report, not a tree scan | `advisory` |\n\n"
+    "A sibling's `check-y` is not this module's.\n\n<a id=\"t10\"></a>\n## 10\n\n"
+    "| item | kind | rows | what it proves |\n|---|---|---|---|\n| T1 | fixture | none | x |\n\n"
+    '<a id="t11"></a>\n## 11\n\n<a id="t12"></a>\n## 12\n'
+)
+
+QUIET_TEXT = (
+    '<a id="t9"></a>\n| E1 | `explain --scan --command <text>`: not a tree scan | `gate` |\n'
+    '<a id="t10"></a>\n'
+)
+
+SCAN = "sh modules/const-x/scripts/check-x.sh --scan"
+
+
+def scans_of(text: str) -> list[str]:
+    """The scans a module document declares in its enforcement section."""
+    return declared_scans(text)[0]
+
+
+READS = f'jobs:\n  list:\n    run: {READS_LIST[0]}\n  check:\n    run: {READS_LIST[1]} "$JOB"\n'
+
+FILTER_LINES = [
+    "RED: .github/workflows/gates.yml:7: it runs a fixture runner with `--item`, which runs only the"
+    " items named",
+    "  why: the gate list and CI run every item of every runner, so that their green is a full pass",
+    "  fix: remove the `--item` option and its numbers from line 7 of .github/workflows/gates.yml",
+    "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+]
+
+
+def script(case: Case) -> str:
+    """A stand-in for the list script: `--names gate|all|<job>`, `--json` and `--show <entry>`."""
+    own = {f"{kind}-{m}": m for m in (case.folders if case.listed is None else case.listed) for kind in KINDS}
+    types = {} if case.types is None else {TYPES_ENTRY: case.types}
+    extras = {**dict.fromkeys((n for n in own if n not in case.gates), "true"), **types, **case.extras}
+    jobs = {**{name: "kit" for name in {**case.gates, **extras}}, "x": "const-x", **own, **case.jobs}
+    names = {"gate": list(case.gates), "all": [*case.gates, *extras]}
+    for name, job in jobs.items():
+        names.setdefault(job, []).append(name)
+    groups = "".join(f"            {key}) set -- {' '.join(value)} ;;\n" for key, value in names.items())
+    arms = "".join(f"            {name}) echo '{cmd}' ;;\n" for name, cmd in {**extras, **case.gates}.items())
+    listing = json.dumps(sorted(set(jobs.values())))
+    return (
+        f'#!/bin/sh\n{f"# {case.comment}" if case.comment else ""}\ncase "$1" in\n'
+        f'    --names) case "$2" in\n{groups}            *) exit 1 ;;\n        esac\n'
+        '        for n in "$@"; do echo "$n"; done ;;\n'
+        f"    --json) echo '{listing}' ;;\n"
+        f'    --show) case "$2" in\n{arms}            *) exit 1 ;;\n        esac ;;\n'
+        "    *) exit 1 ;;\nesac\n"
     )
-    quiet_text = (
-        '<a id="t9"></a>\n| E1 | `explain --scan --command <text>`: not a tree scan | `gate` |\n'
-        '<a id="t10"></a>\n'
-    )
-    scan = "sh modules/const-x/scripts/check-x.sh --scan"
 
-    def scans_of(text: str) -> list[str]:
-        return declared_scans(text)[0]
 
-    reads = f'jobs:\n  list:\n    run: {READS_LIST[0]}\n  check:\n    run: {READS_LIST[1]} "$JOB"\n'
-    report_lines = [  # typed by hand: a message function cannot check itself
-        "RED: const-x: its scan `check-x --scan` is not in the CI list",
-        "  why: a scan the kit does not run holds nothing, and the lists are where the kit says what it runs",
-        f"  fix: let {WORKFLOW} build its jobs from `{READS_LIST[0]}` and run each with"
-        f" `{READS_LIST[1]} <job>`",
-        "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
-    ]
-    placed_lines = [
-        "RED: const-x: its scan `check-x --scan`, the entry `x`, runs in the CI job `kit`, not in its own",
-        "  why: a module's scan runs in that module's job, so a red CI line names the module whose rule"
-        " the tree broke",
-        "  fix: map the entry to its module in job() of scripts/gate-list.sh: `x) echo const-x ;;`",
-        "RED: const-quiet: the list lacks its entries `install-const-quiet`, `fixtures-const-quiet`,"
-        " `lint-const-quiet`, `types-const-quiet`",
-        "  why: a module the list leaves out is never installed, run, linted or typed in CI",
-        "  fix: add `const-quiet` to MODULES in scripts/gate-list.sh, which gives each module its install,"
-        " fixtures, lint and types entries",
-        "RED: const-gone: the list has its entries `install-const-gone`, `fixtures-const-gone`,"
-        " `lint-const-gone`, `types-const-gone`, but modules/const-gone is no module folder",
-        "  why: the list's modules are exactly the module folders, and an entry of a missing module checks"
-        " nothing",
-        "  fix: remove `const-gone` from MODULES in scripts/gate-list.sh, or restore modules/const-gone"
-        " with its MODULE.md",
-        "RED: 3 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
-    ]
-    filter_lines = [
-        "RED: .github/workflows/gates.yml:7: it runs a fixture runner with `--item`, which runs only the"
-        " items named",
-        "  why: the gate list and CI run every item of every runner, so that their green is a full pass",
-        "  fix: remove the `--item` option and its numbers from line 7 of .github/workflows/gates.yml",
-        "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
-    ]
-
-    def script(case: Case) -> str:
-        """A stand-in for the list script: `--names gate|all|<job>`, `--json` and `--show <entry>`."""
-        own = {
-            f"{kind}-{m}": m for m in (case.folders if case.listed is None else case.listed) for kind in KINDS
-        }
-        types = {} if case.types is None else {TYPES_ENTRY: case.types}
-        extras = {**dict.fromkeys((n for n in own if n not in case.gates), "true"), **types, **case.extras}
-        jobs = {**{name: "kit" for name in {**case.gates, **extras}}, "x": "const-x", **own, **case.jobs}
-        names = {"gate": list(case.gates), "all": [*case.gates, *extras]}
-        for name, job in jobs.items():
-            names.setdefault(job, []).append(name)
-        groups = "".join(f"            {key}) set -- {' '.join(value)} ;;\n" for key, value in names.items())
-        arms = "".join(
-            f"            {name}) echo '{cmd}' ;;\n" for name, cmd in {**extras, **case.gates}.items()
-        )
-        listing = json.dumps(sorted(set(jobs.values())))
-        return (
-            f'#!/bin/sh\n{f"# {case.comment}" if case.comment else ""}\ncase "$1" in\n'
-            f'    --names) case "$2" in\n{groups}            *) exit 1 ;;\n        esac\n'
-            '        for n in "$@"; do echo "$n"; done ;;\n'
-            f"    --json) echo '{listing}' ;;\n"
-            f'    --show) case "$2" in\n{arms}            *) exit 1 ;;\n        esac ;;\n'
-            "    *) exit 1 ;;\nesac\n"
-        )
-
-    def build(root: Path, case: Case) -> None:
-        documents = {"const-x": case.document or module_text, "const-quiet": quiet_text, **case.documents}
-        for path, text in (
-            *((f"modules/{m}/MODULE.md", documents.get(m, quiet_text)) for m in case.folders),
-            (GATE_LIST, script(case)),
-            (WORKFLOW, case.workflow or reads),
-        ):
+def build(root: Path, case: Case) -> None:
+    """Write the throwaway kit of the case under root."""
+    documents = {"const-x": case.document or MODULE_TEXT, "const-quiet": QUIET_TEXT, **case.documents}
+    for path, text in (
+        *((f"modules/{m}/MODULE.md", documents.get(m, QUIET_TEXT)) for m in case.folders),
+        (GATE_LIST, script(case)),
+        (WORKFLOW, case.workflow or READS),
+    ):
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text(text, encoding="utf-8")
+    for path in case.scripts:
+        (root / path).parent.mkdir(parents=True, exist_ok=True)
+        (root / path).write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    for path, content in (case.files or registry_tree(case.folders, case.tag)).items():
+        if content is not None:
             (root / path).parent.mkdir(parents=True, exist_ok=True)
+            text = content if isinstance(content, str) else json.dumps(content, indent=2)
             (root / path).write_text(text, encoding="utf-8")
-        for path in case.scripts:
-            (root / path).parent.mkdir(parents=True, exist_ok=True)
-            (root / path).write_text("#!/usr/bin/env python3\n", encoding="utf-8")
-        for path, content in (case.files or registry_tree(case.folders, case.tag)).items():
-            if content is not None:
-                (root / path).parent.mkdir(parents=True, exist_ok=True)
-                text = content if isinstance(content, str) else json.dumps(content, indent=2)
-                (root / path).write_text(text, encoding="utf-8")
-        if case.guide is not None:  # the default guide lists the scans the case's documents declare
-            paths: list[str] = []
-            for m in case.folders:
-                with contextlib.suppress(Broken):  # a document the check cannot read declares none here
-                    paths += [scan_path(m, entry) for entry in scans_of(documents.get(m, quiet_text))]
-            (root / GUIDE_FILE).write_text(case.guide or guide_text(*paths), encoding="utf-8")
-        if case.repo:  # `git add` for the tracked files alone, so an untracked one is no kit check
-            git = ["git", "-c", "init.defaultBranch=main"]
-            subprocess.run([*git, "init", "-q"], cwd=root, check=True)
-            tracked = [path for path, yes in case.scripts.items() if yes]
-            if tracked:
-                subprocess.run(["git", "add", "--", *tracked], cwd=root, check=True)
+    if case.guide is not None:  # the default guide lists the scans the case's documents declare
+        paths: list[str] = []
+        for m in case.folders:
+            with contextlib.suppress(Broken):  # a document the check cannot read declares none here
+                paths += [scan_path(m, entry) for entry in scans_of(documents.get(m, QUIET_TEXT))]
+        (root / GUIDE_FILE).write_text(case.guide or guide_text(*paths), encoding="utf-8")
+    if case.repo:  # `git add` for the tracked files alone, so an untracked one is no kit check
+        git = ["git", "-c", "init.defaultBranch=main"]
+        subprocess.run([*git, "init", "-q"], cwd=root, check=True)
+        tracked = [path for path, yes in case.scripts.items() if yes]
+        if tracked:
+            subprocess.run(["git", "add", "--", *tracked], cwd=root, check=True)
 
-    def findings_of(case: Case) -> list[Finding]:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            build(root, case)
-            with coverage_owner(case.owner or COVERAGE.owner):
-                return check_kit(root)[0]
 
+def findings_of(case: Case) -> list[Finding]:
+    """The findings of the check on the throwaway kit of the case."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        build(root, case)
+        with coverage_owner(case.owner or COVERAGE.owner):
+            return check_kit(root)[0]
+
+
+NEW_CHECK = "scripts/check-new.py"
+
+TRACKED = {NEW_CHECK: True}
+
+RUN_NEW = f"python3 {NEW_CHECK}"
+
+NAME_WHY = (  # the registry reports, typed by hand: a message function cannot check itself
+    "  why: the kernel names every module `const-<aspect>`, lowercase kebab-case, and the CI gives a job"
+    " Claude Code by that prefix"
+)
+
+MANIFEST_WHY = (
+    "  why: a plugin installs under its manifest's name, so a name that is not the folder's splits the"
+    " install from the marketplace entry and the settings key"
+)
+
+SOURCE_WHY = (
+    "  why: the marketplace tells the platform where a plugin loads from, and a source that is not the"
+    " module's folder loads another plugin or none"
+)
+
+STRAY_WHY = (
+    "  why: the marketplace lists exactly the module folders, and an entry that names no module folder is"
+    " a plugin no module backs"
+)
+
+DESCRIPTION_WHY = (
+    "  why: a module's README opens with its manifest's description, so a marketplace entry that words it"
+    " otherwise shows an installer another text for the same module"
+)
+
+ENABLED_WHY = (
+    "  why: the kit's sessions load only the plugins its committed settings enable, and the one"
+    " switch-off, `false`, belongs in a clone's .claude/settings.local.json"
+)
+
+KEY_WHY = (
+    "  why: the settings enable exactly the module folders, and a key that names no module folder enables"
+    " a plugin no module backs"
+)
+
+MAKE_FIX = ", or make modules/{} a module folder holding its MODULE.md"  # a stray named `const-<aspect>`
+
+MARKET = ".claude-plugin/marketplace.json"
+
+SETTINGS = ".claude/settings.json"
+
+RENAMED = "and name its manifest, marketplace entry, settings key and entry in MODULES the same"
+
+MESSY_LINES = [
+    "RED: const-A: a module folder's name is not const-<aspect>",
+    NAME_WHY,
+    "  fix: rename modules/const-A to a name `const-<aspect>`, lowercase letters and digits joined by"
+    f" single hyphens, {RENAMED}",
+    'RED: const-m: its manifest modules/const-m/.claude-plugin/plugin.json is named "const-y", not "const-m"',
+    MANIFEST_WHY,
+    '  fix: set "name": "const-m" in modules/const-m/.claude-plugin/plugin.json',
+    "RED: const-n: its manifest modules/const-n/.claude-plugin/plugin.json has no name, where it must be"
+    ' "const-n"',
+    MANIFEST_WHY,
+    '  fix: set "name": "const-n" in modules/const-n/.claude-plugin/plugin.json',
+    "RED: glossary: a module folder's name is not const-<aspect>",
+    NAME_WHY,
+    f"  fix: rename modules/glossary to modules/const-glossary, {RENAMED}",
+    "RED: const-m: the marketplace has no entry for it",
+    "  why: a module the marketplace leaves out cannot be installed, by the kit's CI or by a consumer",
+    f'  fix: add {{"name": "const-m", "source": "./modules/const-m"}} to plugins in {MARKET}',
+    'RED: const-n: its marketplace entry has source {"repo": "a/b", "type": "github"}, not source'
+    ' "./modules/const-n"',
+    SOURCE_WHY,
+    f'  fix: set "source" to "./modules/const-n" in the entry named "const-n" of plugins in {MARKET}',
+    "RED: const-n: its marketplace entry's description differs from its manifest's, first at character"
+    " 19 (counting from 1)",
+    DESCRIPTION_WHY,
+    "  fix: copy `description` of modules/const-n/.claude-plugin/plugin.json, as written, into the entry"
+    f' named "const-n" of plugins in {MARKET}',
+    "RED: const-s: the marketplace has 2 entries for it",
+    "  why: a plugin's name must lead to one source, and with two entries it is open which one an install"
+    " reads",
+    f'  fix: remove all but one entry named "const-s" from plugins in {MARKET}, the one whose source is'
+    ' "./modules/const-s"',
+    "RED: const-x: its manifest modules/const-x/.claude-plugin/plugin.json has no description",
+    DESCRIPTION_WHY,
+    "  fix: set `description` in modules/const-x/.claude-plugin/plugin.json to a string, the words a"
+    ' module\'s README opens with, and copy it, as written, into the entry named "const-x" of plugins'
+    f" in {MARKET}",
+    "RED: glossary: its marketplace entry has a description that is 7, not a string",
+    DESCRIPTION_WHY,
+    "  fix: copy `description` of modules/glossary/.claude-plugin/plugin.json, as written, into the entry"
+    f' named "glossary" of plugins in {MARKET}',
+    *(  # the six strays of the marketplace, by name
+        line
+        for stray in ("away", "bar", "gone", "mid", "old", "zed")
+        for line in (
+            f"RED: const-{stray}: the marketplace has an entry for it, but modules/const-{stray} is no"
+            " module folder",
+            STRAY_WHY,
+            f'  fix: remove the entry named "const-{stray}" from plugins in {MARKET}'
+            + MAKE_FIX.format(f"const-{stray}"),
+        )
+    ),
+    'RED: const-m: the kit\'s settings set "const-m@kit-test" to false, not true',
+    ENABLED_WHY,
+    f'  fix: set "const-m@kit-test": true under enabledPlugins in {SETTINGS}',
+    "RED: const-n: the kit's settings do not enable it",
+    ENABLED_WHY,
+    f'  fix: set "const-n@kit-test": true under enabledPlugins in {SETTINGS}',
+    'RED: const-s: the kit\'s settings set "const-s@kit-test" to "true", not true',
+    ENABLED_WHY,
+    f'  fix: set "const-s@kit-test": true under enabledPlugins in {SETTINGS}',
+    "RED: const-away@kit-test: the kit's settings enable it, but modules/const-away is no module folder",
+    KEY_WHY,
+    f'  fix: remove the key "const-away@kit-test" from enabledPlugins in {SETTINGS}'
+    + MAKE_FIX.format("const-away"),
+    "RED: const-gone@kit-test: the kit's settings enable it, but modules/const-gone is no module folder",
+    KEY_WHY,
+    f'  fix: remove the key "const-gone@kit-test" from enabledPlugins in {SETTINGS}'
+    + MAKE_FIX.format("const-gone"),
+    "RED: kit-test: the kit's settings declare the marketplace with source"
+    ' {"path": "./x", "source": "directory"}, not source {"source": "directory", "path": "."}',
+    "  why: the kit loads its own modules from its own folder, so any other source loads another"
+    " marketplace or none",
+    f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {SETTINGS} to'
+    ' {"source": "directory", "path": "."}',
+    "RED: 22 finding(s) — 6 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+]
+
+KNOWN_WHY = (
+    "  why: a session finds the kit's plugins only through a marketplace its settings declare, and the"
+    " enabled keys name it"
+)
+
+ABSENT_LINES = [
+    'RED: const-quiet: its marketplace entry has no source, not source "./modules/const-quiet"',
+    SOURCE_WHY,
+    f'  fix: set "source" to "./modules/const-quiet" in the entry named "const-quiet" of plugins in {MARKET}',
+    "RED: const-quiet: its manifest modules/const-quiet/.claude-plugin/plugin.json has a description that"
+    ' is ["a"], not a string',
+    DESCRIPTION_WHY,
+    "  fix: set `description` in modules/const-quiet/.claude-plugin/plugin.json to a string, the words a"
+    ' module\'s README opens with, and copy it, as written, into the entry named "const-quiet" of'
+    f" plugins in {MARKET}",
+    "RED: const-x: its marketplace entry has no description",
+    DESCRIPTION_WHY,
+    "  fix: copy `description` of modules/const-x/.claude-plugin/plugin.json, as written, into the entry"
+    f' named "const-x" of plugins in {MARKET}',
+    "RED: const-quiet: the kit's settings do not enable it",
+    ENABLED_WHY,
+    f'  fix: set "const-quiet@kit-test": true under enabledPlugins in {SETTINGS}',
+    "RED: const-x: the kit's settings do not enable it",
+    ENABLED_WHY,
+    f'  fix: set "const-x@kit-test": true under enabledPlugins in {SETTINGS}',
+    "RED: kit-test: the kit's settings do not declare the marketplace under extraKnownMarketplaces",
+    KNOWN_WHY,
+    '  fix: add "kit-test": {"source": {"source": "directory", "path": "."}} under'
+    f" extraKnownMarketplaces in {SETTINGS}",
+    "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+]
+
+DECLARED_SOURCE_LINES = [
+    "RED: kit-test: the kit's settings declare the marketplace with no source, not source"
+    ' {"source": "directory", "path": "."}',
+    "  why: the kit loads its own modules from its own folder, so any other source loads another"
+    " marketplace or none",
+    f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {SETTINGS} to'
+    ' {"source": "directory", "path": "."}',
+]
+
+
+def cases_gate_list(tally: Tally) -> None:
+    """Each state of the gate list, the workflow, the registry files and the guide is held."""
     trailing = f"\t# {READS_LIST[1]}\n"
-    new = "scripts/check-new.py"
-    tracked = {new: True}
-    run_new = f"python3 {new}"
-    failed = 0
     cases: dict[str, tuple[Case, list[Where]]] = {
         "a gate runs the scan in its module's job, CI reads the list, a module with none needs none": (
-            Case({"x": scan}),
+            Case({"x": SCAN}),
             [],
         ),
         "the gate group lacks it (an extra entry does not count)": (
-            Case({"other": "python3 scripts/other.py"}, {"extra": scan}),
+            Case({"other": "python3 scripts/other.py"}, {"extra": SCAN}),
             [Where.GATE],
         ),
         "the workflow names --json only in a comment line": (
-            Case({"x": scan}, workflow=f"# {READS_LIST[0]}\njobs:\n  one:\n    run: {READS_LIST[1]} x\n"),
+            Case({"x": SCAN}, workflow=f"# {READS_LIST[0]}\njobs:\n  one:\n    run: {READS_LIST[1]} x\n"),
             [Where.CI],
         ),
         "the workflow names --run only in a trailing comment": (
             Case(
-                {"x": scan},
+                {"x": SCAN},
                 workflow=f"jobs:\n  one:\n    run: {READS_LIST[0]}\n  two:\n    run: make{trailing}",
             ),
             [Where.CI],
         ),
         "the workflow does not read the list": (
-            Case({"x": scan}, workflow="jobs:\n  one:\n    run: make\n"),
+            Case({"x": SCAN}, workflow="jobs:\n  one:\n    run: make\n"),
             [Where.CI],
         ),
-        "the scan's entry falls into `kit`": (Case({"x": scan}, jobs={"x": "kit"}), [Where.JOB]),
+        "the scan's entry falls into `kit`": (Case({"x": SCAN}, jobs={"x": "kit"}), [Where.JOB]),
         "the scan's entry stands in another module's job": (
-            Case({"x": scan}, jobs={"x": "const-quiet"}),
+            Case({"x": SCAN}, jobs={"x": "const-quiet"}),
             [Where.JOB],
         ),
         "a second entry runs the scan in its module's job": (
-            Case({"x": scan, "again": scan}, jobs={"x": "kit", "again": "const-x"}),
+            Case({"x": SCAN, "again": SCAN}, jobs={"x": "kit", "again": "const-x"}),
             [],
         ),
         "the list's modules leave a module folder out": (
-            Case({"x": scan}, listed=("const-x",)),
+            Case({"x": SCAN}, listed=("const-x",)),
             [Where.MISSING],
         ),
         "the list names a module with no folder": (
-            Case({"x": scan}, listed=("const-x", "const-quiet", "const-gone")),
+            Case({"x": SCAN}, listed=("const-x", "const-quiet", "const-gone")),
             [Where.STRAY],
         ),
         "the list runs a fixture runner with --item": (
-            Case({"x": scan}, {"filtered": "python3 modules/const-x/tests/run.py --item 3"}),
+            Case({"x": SCAN}, {"filtered": "python3 modules/const-x/tests/run.py --item 3"}),
             [Where.FILTER],
         ),
         "the workflow runs a fixture runner with --item=": (
             Case(
-                {"x": scan},
-                workflow=f"{reads}  more:\n    run: python3 modules/const-x/tests/run.py --item=3\n",
+                {"x": SCAN},
+                workflow=f"{READS}  more:\n    run: python3 modules/const-x/tests/run.py --item=3\n",
             ),
             [Where.FILTER],
         ),
         "a row of the enforcement table the check cannot read is a finding of its own": (
             Case(
-                {"x": scan},
+                {"x": SCAN},
                 document='<a id="t9"></a>\n| G2 | `check-x --scan` | `gate` |\n<a id="t10"></a>\n',
             ),
             [Where.FORM],
         ),
         "--item only in comments, and --items, filter nothing": (
             Case(
-                {"x": scan},
+                {"x": SCAN},
                 {"noted": "python3 modules/const-x/tests/run.py  # not --item 3"},
-                workflow=f"{reads}  # run.py --item 3\n  more:\n    run: run.py --items 3\n",
+                workflow=f"{READS}  # run.py --item 3\n  more:\n    run: run.py --items 3\n",
             ),
             [],
         ),
         "a tracked kit check an entry of the gate group runs": (
-            Case({"x": scan, "new": f"{run_new}\n{run_new} --self-test"}, scripts=tracked),
+            Case({"x": SCAN, "new": f"{RUN_NEW}\n{RUN_NEW} --self-test"}, scripts=TRACKED),
             [],
         ),
-        "a tracked kit check no entry runs": (Case({"x": scan}, scripts=tracked), [Where.CHECK]),
-        "the same file untracked is no kit check": (Case({"x": scan}, scripts={new: False}), []),
+        "a tracked kit check no entry runs": (Case({"x": SCAN}, scripts=TRACKED), [Where.CHECK]),
+        "the same file untracked is no kit check": (Case({"x": SCAN}, scripts={NEW_CHECK: False}), []),
         "a kit check run only by its --self-test": (
-            Case({"x": scan, "new": f"{run_new} --self-test"}, scripts=tracked),
+            Case({"x": SCAN, "new": f"{RUN_NEW} --self-test"}, scripts=TRACKED),
             [],
         ),
         "a kit check run only by --module in an install entry of the gate group": (
-            Case({"x": scan, "install-const-x": f"{run_new} --module const-x"}, scripts=tracked),
+            Case({"x": SCAN, "install-const-x": f"{RUN_NEW} --module const-x"}, scripts=TRACKED),
             [],
         ),
         "a kit check run only by the extra entry lint": (
-            Case({"x": scan}, {"lint": run_new}, scripts=tracked),
+            Case({"x": SCAN}, {"lint": RUN_NEW}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a kit check run only by a fixtures entry": (
-            Case({"x": scan}, {"fixtures-const-x": f"{run_new} --self-test"}, scripts=tracked),
+            Case({"x": SCAN}, {"fixtures-const-x": f"{RUN_NEW} --self-test"}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a kit check named in a comment of the list script only": (
-            Case({"x": scan}, comment=run_new, scripts=tracked),
+            Case({"x": SCAN}, comment=RUN_NEW, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a kit check named after a # in a gate's command only": (
-            Case({"x": scan, "noted": f"true  # {run_new}"}, scripts=tracked),
+            Case({"x": SCAN, "noted": f"true  # {RUN_NEW}"}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a kit check no entry runs, beside one whose name it opens": (
             Case(
-                {"x": scan, "newer": "python3 scripts/check-newer.py"},
-                scripts={**tracked, "scripts/check-newer.py": True},
+                {"x": SCAN, "newer": "python3 scripts/check-newer.py"},
+                scripts={**TRACKED, "scripts/check-newer.py": True},
             ),
             [Where.CHECK],
         ),
         "a module's script of that name is no run of the kit check": (
-            Case({"x": scan, "new": "python3 modules/const-x/scripts/check-new.py --scan"}, scripts=tracked),
+            Case({"x": SCAN, "new": "python3 modules/const-x/scripts/check-new.py --scan"}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a library and a helper no entry runs are no kit checks": (
-            Case({"x": scan}, scripts={"scripts/kit_module_doc.py": True, "scripts/helper.py": True}),
+            Case({"x": SCAN}, scripts={"scripts/kit_module_doc.py": True, "scripts/helper.py": True}),
             [],
         ),
         # the word bounds of the run match, one gate entry whose only command line is the form named
         "a name that continues past .py (check-new.py.bak) is no run of the kit check": (
-            Case({"x": scan, "new": f"{run_new}.bak"}, scripts=tracked),
+            Case({"x": SCAN, "new": f"{RUN_NEW}.bak"}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a name that continues past .py (check-new.pyc) is no run of the kit check": (
-            Case({"x": scan, "new": f"{run_new}c"}, scripts=tracked),
+            Case({"x": SCAN, "new": f"{RUN_NEW}c"}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a word that ends in python3 (xpython3) is no run of the kit check": (
-            Case({"x": scan, "new": f"x{run_new}"}, scripts=tracked),
+            Case({"x": SCAN, "new": f"x{RUN_NEW}"}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "an absolute python3 (/usr/bin/python3), as the code stands, is no run of the kit check": (
-            Case({"x": scan, "new": f"/usr/bin/{run_new}"}, scripts=tracked),
+            Case({"x": SCAN, "new": f"/usr/bin/{RUN_NEW}"}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a run after other commands on its line (cd x && python3 ...) is a run of the kit check": (
-            Case({"x": scan, "new": f"cd x && {run_new}"}, scripts=tracked),
+            Case({"x": SCAN, "new": f"cd x && {RUN_NEW}"}, scripts=TRACKED),
             [],
         ),
         "a name that follows a dot (.python3) is no run of the kit check": (
-            Case({"x": scan, "new": f".{run_new}"}, scripts=tracked),
+            Case({"x": SCAN, "new": f".{RUN_NEW}"}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a name that continues with a hyphen (check-new.py-x) is no run of the kit check": (
-            Case({"x": scan, "new": f"{run_new}-x"}, scripts=tracked),
+            Case({"x": SCAN, "new": f"{RUN_NEW}-x"}, scripts=TRACKED),
             [Where.CHECK],
         ),
         "a check named with a metacharacter (check-a+b.py) is run by its own line": (
-            Case({"x": scan, "new": "python3 scripts/check-a+b.py"}, scripts={"scripts/check-a+b.py": True}),
+            Case({"x": SCAN, "new": "python3 scripts/check-a+b.py"}, scripts={"scripts/check-a+b.py": True}),
             [],
         ),
         "a check named with a metacharacter (check-a+b.py) is no run by the line of check-aab.py": (
-            Case({"x": scan, "new": "python3 scripts/check-aab.py"}, scripts={"scripts/check-a+b.py": True}),
+            Case({"x": SCAN, "new": "python3 scripts/check-aab.py"}, scripts={"scripts/check-a+b.py": True}),
             [Where.CHECK],
         ),
     }
-    cases.update(registry_cases(scan))
-    cases.update(guide_cases(scan, module_text))
-    cases.update(coverage_cases(scan))
+    cases.update(registry_cases(SCAN))
+    cases.update(guide_cases(SCAN, MODULE_TEXT))
+    cases.update(coverage_cases(SCAN))
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+        tally.judge(ok, f"{name}")
+
+
+def cases_kit_check_names(tally: Tally) -> None:
+    """Only a script at the top of scripts/ named check-<x>.py is a kit check."""
     names = {  # which tracked path is a kit check: the name filter over its whole set
         "scripts/check-x.py": True,
         "scripts/check-x.sh": False,
@@ -3013,15 +3163,17 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     }
     ok = True
     for path, is_check in names.items():
-        got = [f.module for f in findings_of(Case({"x": scan}, scripts={path: True}))]
+        got = [f.module for f in findings_of(Case({"x": SCAN}, scripts={path: True}))]
         if got != ([path] if is_check else []):
             ok = False
             print(f"        name {path!r}: got {got}, a kit check is {is_check}")
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] only `scripts/check-<x>.py` at the top of scripts/ is a kit check,"
-        " over the whole set of names"
+    tally.judge(
+        ok, "only `scripts/check-<x>.py` at the top of scripts/ is a kit check, over the whole set of names"
     )
+
+
+def cases_module_folder_names(tally: Tally) -> None:
+    """Only `const-<aspect>` in full is a module's name."""
     folder_names = {  # which folder name is a module's: `const-<aspect>` in full, over the whole set of names
         "const-a": True,
         "const-a-b": True,
@@ -3048,16 +3200,16 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         # the list's names are read split on whitespace, so a name with a newline cannot stand in MODULES:
         # it is left out of `listed`, and of its findings only the name's own is held
         newline = "\n" in folder
-        case = Case({"x": scan}, folders=("const-x", folder), listed=("const-x",) if newline else None)
+        case = Case({"x": SCAN}, folders=("const-x", folder), listed=("const-x",) if newline else None)
         held = [(f.where, f.module) for f in findings_of(case) if f.where is Where.NAME or not newline]
         if held != ([] if is_module else [(Where.NAME, folder)]):
             ok = False
             print(f"        folder {folder!r}: got {held}, a module name is {is_module}")
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] only `const-<aspect>` in full is a module's name,"
-        " over the whole set of names"
-    )
+    tally.judge(ok, "only `const-<aspect>` in full is a module's name, over the whole set of names")
+
+
+def cases_folder_renames(tally: Tally) -> None:
+    """The rename told for a folder name offers `const-<name>` only where it would then be a module's."""
     name_report = (  # the NAME finding's whole report, typed by hand, `{fix}` what is said after "rename"
         "RED: {m}: a module folder's name is not const-<aspect>\n"
         "  why: the kernel names every module `const-<aspect>`, lowercase kebab-case, and the CI gives a job"
@@ -3077,17 +3229,21 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     for folder, fix in renames.items():
         got = [
             f.render()
-            for f in findings_of(Case({"x": scan}, folders=("const-x", folder)))
+            for f in findings_of(Case({"x": SCAN}, folders=("const-x", folder)))
             if f.where is Where.NAME
         ]
         if got != [name_report.format(m=folder, fix=fix)]:
             ok = False
             print(f"        folder {folder!r}: got {got}, wanted the rename {fix!r}")
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] the rename told for a folder name offers `const-<name>` only to a name"
-        " that does not open with `const` and would then be a module's name"
+    tally.judge(
+        ok,
+        "the rename told for a folder name offers `const-<name>` only to a name"
+        " that does not open with `const` and would then be a module's name",
     )
+
+
+def cases_stray_dials_keys(tally: Tally) -> None:
+    """Only a top-level key `const-<aspect>` in full with no module folder is a stray namespace."""
     key_names = {  # which top-level key of the dials file is a stray: a module's name in full with no folder
         "const-gone": True,
         "const-gone-2": True,
@@ -3115,31 +3271,30 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     for key, is_stray in key_names.items():
         files = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
         files[DIALS] = {"root_policy": "p", key: {}, TEST_OWNER: files[DIALS][TEST_OWNER]}
-        stray_keys = [(f.where, f.module) for f in findings_of(Case({"x": scan}, files=files))]
+        stray_keys = [(f.where, f.module) for f in findings_of(Case({"x": SCAN}, files=files))]
         if stray_keys != ([(Where.DIALS_KEY, key)] if is_stray else []):
             ok = False
             print(f"        key {key!r}: got {stray_keys}, a stray is {is_stray}")
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] only a top-level key `const-<aspect>` in full with no module folder is a"
-        " stray namespace, over the whole set of names"
+    tally.judge(
+        ok,
+        "only a top-level key `const-<aspect>` in full with no module folder is a"
+        " stray namespace, over the whole set of names",
     )
+
+
+def cases_scan_readers(tally: Tally) -> None:
+    """A scan is read from the enforcement section as declared, and its table forms and folders are probed."""
     with tempfile.TemporaryDirectory() as tmp:  # a scan declared by its Python file, run by python3
         root = Path(tmp).resolve()
-        build(root, guide_case(scan, module_text, ""))  # const-p declares `check-p.py --scan`
+        build(root, guide_case(SCAN, MODULE_TEXT, ""))  # const-p declares `check-p.py --scan`
         ok = check_kit(root)[0] == []
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] a scan declared as `<entry>.py --scan` is held by its python3 line")
-    ok = scans_of(module_text) == ["check-x"] and scans_of(quiet_text) == []
+    tally.judge(ok, "a scan declared as `<entry>.py --scan` is held by its python3 line")
+    ok = scans_of(MODULE_TEXT) == ["check-x"] and scans_of(QUIET_TEXT) == []
     ok = ok and "runs `python3 modules/const-y/scripts/check-y.py --scan`" in (
         Finding("const-y", Where.GATE, "check-y.py").render()
     )
-    ok = ok and scans_of(module_text.replace("`check-x --scan`", "`check-x.py --scan`")) == ["check-x.py"]
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] a span with more after the flag is no scan;"
-        " a .py entry is taught by python3"
-    )
+    ok = ok and scans_of(MODULE_TEXT.replace("`check-x --scan`", "`check-x.py --scan`")) == ["check-x.py"]
+    tally.judge(ok, "a span with more after the flag is no scan; a .py entry is taught by python3")
     last_section = '## 9 <a id="t9"></a> is prose here\n\n<a id="t9"></a>\n| E1 | `check-x --scan` |\n'
     ok = scans_of(last_section) == ["check-x"]  # the last section reads to the end of the file
     ok = ok and scans_of('<a id="t9"></a>\n<a id="t10"></a>\n| E1 | `check-x --scan` |\n') == []
@@ -3151,8 +3306,8 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     )
     ok = ok and scans_of(other_id) == ["check-x", "check-y"]
     # no anchor above the section's: it reads to the end, whether t12 is gone or t11 and t12 both
-    ok = ok and scans_of(module_text.replace('<a id="t12"></a>\n', "")) == ["check-x"]
-    ok = ok and scans_of(module_text[: module_text.index('<a id="t11"></a>')]) == ["check-x"]
+    ok = ok and scans_of(MODULE_TEXT.replace('<a id="t12"></a>\n', "")) == ["check-x"]
+    ok = ok and scans_of(MODULE_TEXT[: MODULE_TEXT.index('<a id="t11"></a>')]) == ["check-x"]
     try:  # nor does it count as doubled: two of one id are no error
         ok = ok and scans_of(other_id.replace('<a id="r2"></a>', '<a id="x"></a>')) == [
             "check-x",
@@ -3160,21 +3315,46 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ]
     except Broken:
         ok = False
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] the enforcement section reads to the end of the file when it is the"
+    tally.judge(
+        ok,
+        "the enforcement section reads to the end of the file when it is the"
         " last, is empty when the end anchor follows at once, an anchor inside prose is plain text, an"
         " anchor of another id alone on its line neither ends it nor counts as doubled, and it is read when"
-        " no anchor stands above it, t11 and t12, or t12, gone"
+        " no anchor stands above it, t11 and t12, or t12, gone",
     )
     ok = form_probes()
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] the enforcement table's forms, over the whole set of probes")
+    tally.judge(ok, "the enforcement table's forms, over the whole set of probes")
     ok = folder_probes()
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] the module folders of the kit's one listing, over every class of entry"
-    )
+    tally.judge(ok, "the module folders of the kit's one listing, over every class of entry")
+
+
+def reports_by_kind(tally: Tally) -> None:
+    """The report of each kind of finding is its literal text, exit 2."""
+    report_lines = [  # typed by hand: a message function cannot check itself
+        "RED: const-x: its scan `check-x --scan` is not in the CI list",
+        "  why: a scan the kit does not run holds nothing, and the lists are where the kit says what it runs",
+        f"  fix: let {WORKFLOW} build its jobs from `{READS_LIST[0]}` and run each with"
+        f" `{READS_LIST[1]} <job>`",
+        "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+    ]
+    placed_lines = [
+        "RED: const-x: its scan `check-x --scan`, the entry `x`, runs in the CI job `kit`, not in its own",
+        "  why: a module's scan runs in that module's job, so a red CI line names the module whose rule"
+        " the tree broke",
+        "  fix: map the entry to its module in job() of scripts/gate-list.sh: `x) echo const-x ;;`",
+        "RED: const-quiet: the list lacks its entries `install-const-quiet`, `fixtures-const-quiet`,"
+        " `lint-const-quiet`, `types-const-quiet`",
+        "  why: a module the list leaves out is never installed, run, linted or typed in CI",
+        "  fix: add `const-quiet` to MODULES in scripts/gate-list.sh, which gives each module its install,"
+        " fixtures, lint and types entries",
+        "RED: const-gone: the list has its entries `install-const-gone`, `fixtures-const-gone`,"
+        " `lint-const-gone`, `types-const-gone`, but modules/const-gone is no module folder",
+        "  why: the list's modules are exactly the module folders, and an entry of a missing module checks"
+        " nothing",
+        "  fix: remove `const-gone` from MODULES in scripts/gate-list.sh, or restore modules/const-gone"
+        " with its MODULE.md",
+        "RED: 3 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
+    ]
     form_text = (
         '<a id="t9"></a>\n| E1 | `check-x --scan` | `gate` |\n| G2 | `sh scripts/x.sh --scan` | `gate` |\n'
         "| E3 | `x --scan --since <date>` | `gate` |\n|  | none | `gate` |\n"
@@ -3217,155 +3397,6 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         "  fix: add an entry to GATES in scripts/gate-list.sh and an arm in commands() that runs"
         " `python3 scripts/check-b.py`, with its `--self-test` where it has one",
         "RED: 2 finding(s) — 2 module document(s) examined, 1 declared scan(s), 3 kit check(s)",
-    ]
-    name_why = (  # the registry reports, typed by hand: a message function cannot check itself
-        "  why: the kernel names every module `const-<aspect>`, lowercase kebab-case, and the CI gives a job"
-        " Claude Code by that prefix"
-    )
-    manifest_why = (
-        "  why: a plugin installs under its manifest's name, so a name that is not the folder's splits the"
-        " install from the marketplace entry and the settings key"
-    )
-    source_why = (
-        "  why: the marketplace tells the platform where a plugin loads from, and a source that is not the"
-        " module's folder loads another plugin or none"
-    )
-    stray_why = (
-        "  why: the marketplace lists exactly the module folders, and an entry that names no module folder is"
-        " a plugin no module backs"
-    )
-    description_why = (
-        "  why: a module's README opens with its manifest's description, so a marketplace entry that words it"
-        " otherwise shows an installer another text for the same module"
-    )
-    enabled_why = (
-        "  why: the kit's sessions load only the plugins its committed settings enable, and the one"
-        " switch-off, `false`, belongs in a clone's .claude/settings.local.json"
-    )
-    key_why = (
-        "  why: the settings enable exactly the module folders, and a key that names no module folder enables"
-        " a plugin no module backs"
-    )
-    make_fix = ", or make modules/{} a module folder holding its MODULE.md"  # a stray named `const-<aspect>`
-    market = ".claude-plugin/marketplace.json"
-    settings = ".claude/settings.json"
-    renamed = "and name its manifest, marketplace entry, settings key and entry in MODULES the same"
-    messy_lines = [
-        "RED: const-A: a module folder's name is not const-<aspect>",
-        name_why,
-        "  fix: rename modules/const-A to a name `const-<aspect>`, lowercase letters and digits joined by"
-        f" single hyphens, {renamed}",
-        'RED: const-m: its manifest modules/const-m/.claude-plugin/plugin.json is named "const-y", not'
-        ' "const-m"',
-        manifest_why,
-        '  fix: set "name": "const-m" in modules/const-m/.claude-plugin/plugin.json',
-        "RED: const-n: its manifest modules/const-n/.claude-plugin/plugin.json has no name, where it must be"
-        ' "const-n"',
-        manifest_why,
-        '  fix: set "name": "const-n" in modules/const-n/.claude-plugin/plugin.json',
-        "RED: glossary: a module folder's name is not const-<aspect>",
-        name_why,
-        f"  fix: rename modules/glossary to modules/const-glossary, {renamed}",
-        "RED: const-m: the marketplace has no entry for it",
-        "  why: a module the marketplace leaves out cannot be installed, by the kit's CI or by a consumer",
-        f'  fix: add {{"name": "const-m", "source": "./modules/const-m"}} to plugins in {market}',
-        'RED: const-n: its marketplace entry has source {"repo": "a/b", "type": "github"}, not source'
-        ' "./modules/const-n"',
-        source_why,
-        f'  fix: set "source" to "./modules/const-n" in the entry named "const-n" of plugins in {market}',
-        "RED: const-n: its marketplace entry's description differs from its manifest's, first at character"
-        " 19 (counting from 1)",
-        description_why,
-        "  fix: copy `description` of modules/const-n/.claude-plugin/plugin.json, as written, into the entry"
-        f' named "const-n" of plugins in {market}',
-        "RED: const-s: the marketplace has 2 entries for it",
-        "  why: a plugin's name must lead to one source, and with two entries it is open which one an install"
-        " reads",
-        f'  fix: remove all but one entry named "const-s" from plugins in {market}, the one whose source is'
-        ' "./modules/const-s"',
-        "RED: const-x: its manifest modules/const-x/.claude-plugin/plugin.json has no description",
-        description_why,
-        "  fix: set `description` in modules/const-x/.claude-plugin/plugin.json to a string, the words a"
-        ' module\'s README opens with, and copy it, as written, into the entry named "const-x" of plugins'
-        f" in {market}",
-        "RED: glossary: its marketplace entry has a description that is 7, not a string",
-        description_why,
-        "  fix: copy `description` of modules/glossary/.claude-plugin/plugin.json, as written, into the entry"
-        f' named "glossary" of plugins in {market}',
-        *(  # the six strays of the marketplace, by name
-            line
-            for stray in ("away", "bar", "gone", "mid", "old", "zed")
-            for line in (
-                f"RED: const-{stray}: the marketplace has an entry for it, but modules/const-{stray} is no"
-                " module folder",
-                stray_why,
-                f'  fix: remove the entry named "const-{stray}" from plugins in {market}'
-                + make_fix.format(f"const-{stray}"),
-            )
-        ),
-        'RED: const-m: the kit\'s settings set "const-m@kit-test" to false, not true',
-        enabled_why,
-        f'  fix: set "const-m@kit-test": true under enabledPlugins in {settings}',
-        "RED: const-n: the kit's settings do not enable it",
-        enabled_why,
-        f'  fix: set "const-n@kit-test": true under enabledPlugins in {settings}',
-        'RED: const-s: the kit\'s settings set "const-s@kit-test" to "true", not true',
-        enabled_why,
-        f'  fix: set "const-s@kit-test": true under enabledPlugins in {settings}',
-        "RED: const-away@kit-test: the kit's settings enable it, but modules/const-away is no module folder",
-        key_why,
-        f'  fix: remove the key "const-away@kit-test" from enabledPlugins in {settings}'
-        + make_fix.format("const-away"),
-        "RED: const-gone@kit-test: the kit's settings enable it, but modules/const-gone is no module folder",
-        key_why,
-        f'  fix: remove the key "const-gone@kit-test" from enabledPlugins in {settings}'
-        + make_fix.format("const-gone"),
-        "RED: kit-test: the kit's settings declare the marketplace with source"
-        ' {"path": "./x", "source": "directory"}, not source {"source": "directory", "path": "."}',
-        "  why: the kit loads its own modules from its own folder, so any other source loads another"
-        " marketplace or none",
-        f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {settings} to'
-        ' {"source": "directory", "path": "."}',
-        "RED: 22 finding(s) — 6 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
-    ]
-    known_why = (
-        "  why: a session finds the kit's plugins only through a marketplace its settings declare, and the"
-        " enabled keys name it"
-    )
-    absent_lines = [
-        'RED: const-quiet: its marketplace entry has no source, not source "./modules/const-quiet"',
-        source_why,
-        '  fix: set "source" to "./modules/const-quiet" in the entry named "const-quiet" of plugins in'
-        f" {market}",
-        "RED: const-quiet: its manifest modules/const-quiet/.claude-plugin/plugin.json has a description that"
-        ' is ["a"], not a string',
-        description_why,
-        "  fix: set `description` in modules/const-quiet/.claude-plugin/plugin.json to a string, the words a"
-        ' module\'s README opens with, and copy it, as written, into the entry named "const-quiet" of'
-        f" plugins in {market}",
-        "RED: const-x: its marketplace entry has no description",
-        description_why,
-        "  fix: copy `description` of modules/const-x/.claude-plugin/plugin.json, as written, into the entry"
-        f' named "const-x" of plugins in {market}',
-        "RED: const-quiet: the kit's settings do not enable it",
-        enabled_why,
-        f'  fix: set "const-quiet@kit-test": true under enabledPlugins in {settings}',
-        "RED: const-x: the kit's settings do not enable it",
-        enabled_why,
-        f'  fix: set "const-x@kit-test": true under enabledPlugins in {settings}',
-        "RED: kit-test: the kit's settings do not declare the marketplace under extraKnownMarketplaces",
-        known_why,
-        '  fix: add "kit-test": {"source": {"source": "directory", "path": "."}} under'
-        f" extraKnownMarketplaces in {settings}",
-        "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
-    ]
-    declared_source_lines = [
-        "RED: kit-test: the kit's settings declare the marketplace with no source, not source"
-        ' {"source": "directory", "path": "."}',
-        "  why: the kit loads its own modules from its own folder, so any other source loads another"
-        " marketplace or none",
-        f'  fix: set the source of "kit-test" under extraKnownMarketplaces in {settings} to'
-        ' {"source": "directory", "path": "."}',
     ]
     guide_lines = [  # typed by hand: a scan left out of the block, then a path no module declares
         "RED: const-x: its scan `check-x --scan` is not in the scan block of INSTALL.md",
@@ -3427,13 +3458,13 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     for name, case, lines in (
         (
             "the guide's scan block findings",
-            guide_case(scan, module_text, guide_text(GUIDE_P, GUIDE_GONE)),
+            guide_case(SCAN, MODULE_TEXT, guide_text(GUIDE_P, GUIDE_GONE)),
             guide_lines,
         ),
         (
             "the coverage map's findings, in the order of the modules and of the kinds",
             coverage_case(
-                scan,
+                SCAN,
                 [
                     full_pair("const-p"),
                     {
@@ -3452,7 +3483,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         (
             "the coverage map's pair missing under the real key, its folders listed",
             coverage_case(
-                scan,
+                SCAN,
                 [full_pair("const-task-close")],
                 "const-quiet/hooks",
                 "const-quiet/tests",
@@ -3464,25 +3495,25 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         (
             "two kit checks no entry runs, in sorted order",
             Case(
-                {"x": scan, "c": "python3 scripts/check-c.py"},
+                {"x": SCAN, "c": "python3 scripts/check-c.py"},
                 scripts={f"scripts/check-{n}.py": True for n in ("b", "c", "a")},
             ),
             two_lines,
         ),
-        ("one finding", Case({"x": scan}, workflow="jobs: {}\n"), report_lines),
-        ("the findings of a table the check cannot read", Case({"x": scan}, document=form_text), form_lines),
+        ("one finding", Case({"x": SCAN}, workflow="jobs: {}\n"), report_lines),
+        ("the findings of a table the check cannot read", Case({"x": SCAN}, document=form_text), form_lines),
         (
             "the job and module findings",
-            Case({"x": scan}, jobs={"x": "kit"}, listed=("const-x", "const-gone")),
+            Case({"x": SCAN}, jobs={"x": "kit"}, listed=("const-x", "const-gone")),
             placed_lines,
         ),
         (
             "an item filter",
             Case(
-                {"x": scan},
-                workflow=f"{reads}  filtered:\n    run: python3 modules/const-x/tests/run.py --item 3\n",
+                {"x": SCAN},
+                workflow=f"{READS}  filtered:\n    run: python3 modules/const-x/tests/run.py --item 3\n",
             ),
-            filter_lines,
+            FILTER_LINES,
         ),
     ):
         with tempfile.TemporaryDirectory() as tmp:
@@ -3492,14 +3523,17 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             with contextlib.redirect_stdout(printed), coverage_owner(case.owner or COVERAGE.owner):
                 code = report(*check_kit(root))
         ok = code == EXIT_RED and printed.getvalue().splitlines() == lines
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] the report of {name} is its literal text, exit 2")
+        tally.judge(ok, f"the report of {name} is its literal text, exit 2")
         if not ok:
             print(printed.getvalue())
+
+
+def fixes_of_the_guide(tally: Tally) -> None:
+    """The fixes the guide's findings teach, followed to the letter, turn it green."""
     # the fix texts of the guide's findings, followed to the letter on the tree: the path named is added to
     # the list after `for s in`, or removed from it, and the check is then green
     followed = guide_text(GUIDE_P, GUIDE_GONE)
-    taught = findings_of(guide_case(scan, module_text, followed))
+    taught = findings_of(guide_case(SCAN, MODULE_TEXT, followed))
     for finding in taught:
         act = re.search(r"fix: (add|remove) `([^`]+)`", finding.render())
         if act is None:
@@ -3508,32 +3542,32 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             followed = followed.replace("for s in ", f"for s in {act[2]} ", 1)
         else:
             followed = followed.replace(f" {act[2]}", "", 1)
-    ok = len(taught) == 2 and followed != "" and findings_of(guide_case(scan, module_text, followed)) == []
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] the fixes the guide's findings teach, followed to the letter,"
-        " turn it green"
-    )
+    ok = len(taught) == 2 and followed != "" and findings_of(guide_case(SCAN, MODULE_TEXT, followed)) == []
+    tally.judge(ok, "the fixes the guide's findings teach, followed to the letter, turn it green")
+
+
+def fixes_of_the_coverage(tally: Tally) -> None:
+    """The fixes the coverage hold teaches, followed to the letter, turn it green."""
     x_pair, q_pair = full_pair("const-x"), full_pair("const-quiet")
     some = ("const-x/scripts", "const-x/hooks")
     for name, (case, count) in {  # the fix texts of the coverage hold, followed to the letter on the tree
-        "a missing pair, with the folders the module has": (coverage_case(scan, [q_pair], *some), 1),
-        "no pair at all, the list empty": (coverage_case(scan, [], *some), 2),
-        "a pair twice": (coverage_case(scan, [x_pair, q_pair, x_pair, x_pair]), 1),
+        "a missing pair, with the folders the module has": (coverage_case(SCAN, [q_pair], *some), 1),
+        "no pair at all, the list empty": (coverage_case(SCAN, [], *some), 2),
+        "a pair twice": (coverage_case(SCAN, [x_pair, q_pair, x_pair, x_pair]), 1),
         "docs of two files": (
-            coverage_case(scan, [{**x_pair, "docs": ["a.md", "modules/const-x/MODULE.md"]}, q_pair]),
+            coverage_case(SCAN, [{**x_pair, "docs": ["a.md", "modules/const-x/MODULE.md"]}, q_pair]),
             1,
         ),
         "a pattern outside the module": (
-            coverage_case(scan, [{**x_pair, "code": [*x_pair["code"], "scripts/**"]}, q_pair]),
+            coverage_case(SCAN, [{**x_pair, "code": [*x_pair["code"], "scripts/**"]}, q_pair]),
             1,
         ),
         "a folder without its pattern": (
-            coverage_case(scan, [{**x_pair, "code": x_pair["code"][2:]}, q_pair], *some),
+            coverage_case(SCAN, [{**x_pair, "code": x_pair["code"][2:]}, q_pair], *some),
             2,
         ),
         "a pair with no pattern, docs and a pattern wrong": (
-            coverage_case(scan, [{**x_pair, "code": ["scripts/**"], "docs": []}, q_pair], *some),
+            coverage_case(SCAN, [{**x_pair, "code": ["scripts/**"], "docs": []}, q_pair], *some),
             4,
         ),
     }.items():
@@ -3543,17 +3577,19 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             text = follow_coverage_fix(text, finding.render())
         ok = len(taught) == count and text != case.files[DIALS]
         ok = ok and findings_of(replace(case, files={**case.files, DIALS: text})) == []
-        failed += 0 if ok else 1
-        print(
-            f"[{'ok' if ok else 'FAIL'}] the fix the coverage hold teaches for {name}, followed to the"
-            " letter, turns it green"
+        tally.judge(
+            ok, f"the fix the coverage hold teaches for {name}, followed to the letter, turns it green"
         )
+
+
+def report_of_a_green_kit(tally: Tally) -> None:
+    """The report of a kit whose checks all run is its literal green line."""
     with tempfile.TemporaryDirectory() as tmp:  # the green line, with every kit check run
         root = Path(tmp).resolve()
         green_files = registry_tree(("const-x", "const-quiet"), REGISTRY_TAG)
         # a key of another marketplace stands and is no enabled plugin of the kit: the count has two
         green_files[SETTINGS_FILE]["enabledPlugins"]["other@elsewhere"] = True
-        build(root, Case({"x": scan, "new": run_new}, scripts=tracked, files=green_files))
+        build(root, Case({"x": SCAN, "new": RUN_NEW}, scripts=TRACKED, files=green_files))
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
@@ -3567,11 +3603,13 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         " 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
     )
     ok = code == EXIT_GREEN and printed.getvalue().splitlines() == [green_line]
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] the report of a kit whose checks all run is its literal green line")
+    tally.judge(ok, "the report of a kit whose checks all run is its literal green line")
     if not ok:
         print(printed.getvalue())
 
+
+def reports_in_order(tally: Tally) -> None:
+    """The reports of findings of several kinds come in the order of the kinds, forwards and backwards."""
     scan_why = (
         "  why: a scan the kit does not run holds nothing, and the lists are where the kit says what it runs"
     )
@@ -3638,64 +3676,64 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         " fixtures, lint and types entries",
         "RED: const-quiet: the marketplace has no entry for it",
         "  why: a module the marketplace leaves out cannot be installed, by the kit's CI or by a consumer",
-        f'  fix: add {{"name": "const-quiet", "source": "./modules/const-quiet"}} to plugins in {market}',
-        *filter_lines[:-1],
+        f'  fix: add {{"name": "const-quiet", "source": "./modules/const-quiet"}} to plugins in {MARKET}',
+        *FILTER_LINES[:-1],
         "RED: scripts/check-new.py is run by no entry of the gate group",
         "  why: a kit check no entry runs is never run in CI, and its green says nothing",
         "  fix: add an entry to GATES in scripts/gate-list.sh and an arm in commands() that runs"
-        f" `{run_new}`, with its `--self-test` where it has one",
+        f" `{RUN_NEW}`, with its `--self-test` where it has one",
         *namespace_lines("const-gone"),  # the dials file, then the types entry: after every earlier kind
         *types_lines(f"`{pair_path}`", f"{pair_path}:../modules/const-r/scripts"),
         "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 1 kit check(s)",
     ]
     strays_lines = [  # typed by hand; a name that no folder can bear has the removal for its one fix
         "RED: : the marketplace has an entry for it, but modules/ is no module folder",
-        stray_why,
-        f'  fix: remove the entry named "" from plugins in {market}',
+        STRAY_WHY,
+        f'  fix: remove the entry named "" from plugins in {MARKET}',
         "RED: .x: the marketplace has an entry for it, but modules/.x is no module folder",
-        stray_why,
-        f'  fix: remove the entry named ".x" from plugins in {market}',
+        STRAY_WHY,
+        f'  fix: remove the entry named ".x" from plugins in {MARKET}',
         "RED: _x: the marketplace has an entry for it, but modules/_x is no module folder",
-        stray_why,
-        f'  fix: remove the entry named "_x" from plugins in {market}',
+        STRAY_WHY,
+        f'  fix: remove the entry named "_x" from plugins in {MARKET}',
         "RED: a/b: the marketplace has an entry for it, but modules/a/b is no module folder",
-        stray_why,
-        f'  fix: remove the entry named "a/b" from plugins in {market}',
+        STRAY_WHY,
+        f'  fix: remove the entry named "a/b" from plugins in {MARKET}',
         "RED: const-gone: the marketplace has an entry for it, but modules/const-gone is no module folder",
-        stray_why,
-        f'  fix: remove the entry named "const-gone" from plugins in {market}'
-        + make_fix.format("const-gone"),
+        STRAY_WHY,
+        f'  fix: remove the entry named "const-gone" from plugins in {MARKET}'
+        + MAKE_FIX.format("const-gone"),
         "RED: const-plain: the marketplace has an entry for it, but modules/const-plain is no module folder",
-        stray_why,
-        f'  fix: remove the entry named "const-plain" from plugins in {market}'
-        + make_fix.format("const-plain"),
+        STRAY_WHY,
+        f'  fix: remove the entry named "const-plain" from plugins in {MARKET}'
+        + MAKE_FIX.format("const-plain"),
         "RED: gone: the marketplace has an entry for it, but modules/gone is no module folder",
-        stray_why,
-        f'  fix: remove the entry named "gone" from plugins in {market}',
+        STRAY_WHY,
+        f'  fix: remove the entry named "gone" from plugins in {MARKET}',
         "RED: .x@kit-test: the kit's settings enable it, but modules/.x is no module folder",
-        key_why,
-        f'  fix: remove the key ".x@kit-test" from enabledPlugins in {settings}',
+        KEY_WHY,
+        f'  fix: remove the key ".x@kit-test" from enabledPlugins in {SETTINGS}',
         "RED: @kit-test: the kit's settings enable it, but modules/ is no module folder",
-        key_why,
-        f'  fix: remove the key "@kit-test" from enabledPlugins in {settings}',
+        KEY_WHY,
+        f'  fix: remove the key "@kit-test" from enabledPlugins in {SETTINGS}',
         "RED: _x@kit-test: the kit's settings enable it, but modules/_x is no module folder",
-        key_why,
-        f'  fix: remove the key "_x@kit-test" from enabledPlugins in {settings}',
+        KEY_WHY,
+        f'  fix: remove the key "_x@kit-test" from enabledPlugins in {SETTINGS}',
         "RED: a/b@kit-test: the kit's settings enable it, but modules/a/b is no module folder",
-        key_why,
-        f'  fix: remove the key "a/b@kit-test" from enabledPlugins in {settings}',
+        KEY_WHY,
+        f'  fix: remove the key "a/b@kit-test" from enabledPlugins in {SETTINGS}',
         "RED: const-gone@kit-test: the kit's settings enable it, but modules/const-gone is no module folder",
-        key_why,
-        f'  fix: remove the key "const-gone@kit-test" from enabledPlugins in {settings}'
-        + make_fix.format("const-gone"),
+        KEY_WHY,
+        f'  fix: remove the key "const-gone@kit-test" from enabledPlugins in {SETTINGS}'
+        + MAKE_FIX.format("const-gone"),
         "RED: const-plain@kit-test: the kit's settings enable it, but modules/const-plain is no module"
         " folder",
-        key_why,
-        f'  fix: remove the key "const-plain@kit-test" from enabledPlugins in {settings}'
-        + make_fix.format("const-plain"),
+        KEY_WHY,
+        f'  fix: remove the key "const-plain@kit-test" from enabledPlugins in {SETTINGS}'
+        + MAKE_FIX.format("const-plain"),
         "RED: gone@kit-test: the kit's settings enable it, but modules/gone is no module folder",
-        key_why,
-        f'  fix: remove the key "gone@kit-test" from enabledPlugins in {settings}',
+        KEY_WHY,
+        f'  fix: remove the key "gone@kit-test" from enabledPlugins in {SETTINGS}',
         "RED: 14 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     list_strays_lines = [  # typed by hand: the restore is offered only to a name `const-<aspect>`
@@ -3738,27 +3776,27 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     prefix_lines = [
         "RED: const-quiet: its marketplace entry's description differs from its manifest's, first at"
         " character 11 (counting from 1)",
-        description_why,
+        DESCRIPTION_WHY,
         "  fix: copy `description` of modules/const-quiet/.claude-plugin/plugin.json, as written, into the"
-        f' entry named "const-quiet" of plugins in {market}',
+        f' entry named "const-quiet" of plugins in {MARKET}',
         "RED: const-x: its marketplace entry's description differs from its manifest's, first at character"
         " 20 (counting from 1)",
-        description_why,
+        DESCRIPTION_WHY,
         "  fix: copy `description` of modules/const-x/.claude-plugin/plugin.json, as written, into the entry"
-        f' named "const-x" of plugins in {market}',
+        f' named "const-x" of plugins in {MARKET}',
         "RED: 2 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
     no_path = "cd shared && python3 -m mypy --strict const_gate\ncd scripts && python3 -m mypy --strict *.py"
     for name, case, lines in (
         (
             "a description that continues its manifest's and one that is cut short of it",
-            Case({"x": scan}, files=prefix),
+            Case({"x": SCAN}, files=prefix),
             prefix_lines,
         ),
         (
             "six dials namespaces with no module folder, and a kernel key and a policy's namespace beside"
             " them, in the order of their names",
-            Case({"x": scan}, files=dials_strays),
+            Case({"x": SCAN}, files=dials_strays),
             [
                 *(line for key in sorted(six) for line in namespace_lines(key)),
                 "RED: 6 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
@@ -3766,7 +3804,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ),
         (
             "a types entry with no MYPYPATH",
-            Case({"x": scan}, types=no_path),
+            Case({"x": SCAN}, types=no_path),
             [
                 *types_lines("nothing", pair_path),
                 "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
@@ -3776,7 +3814,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             "the list's modules naming folders that are no module: the restore is offered only to a name"
             " `const-<aspect>`, the removal to every name",
             Case(
-                {"x": scan},
+                {"x": SCAN},
                 listed=(
                     "const-x",
                     "const-quiet",
@@ -3796,24 +3834,24 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             "a marketplace entry and a settings key naming a module's missing folder or plain file, another"
             " missing folder, `_x`, `.x`, `a/b` or nothing, each told by the literal why and fix — the"
             " folder offered only to a module's name",
-            strays_case(scan),
+            strays_case(SCAN),
             strays_lines,
         ),
         (
             "every kind of finding about the files that name a module, written in order",
-            messy_case(scan, reverse=False),
-            messy_lines,
+            messy_case(SCAN, reverse=False),
+            MESSY_LINES,
         ),
         (
             "the same findings, every object's keys and every list written backwards",
-            messy_case(scan, reverse=True),
-            messy_lines,
+            messy_case(SCAN, reverse=True),
+            MESSY_LINES,
         ),
         (
             "the declaration and the enabled keys missing, an entry with no source, one with no"
             " description, a manifest whose description is no string",
             registry_case(
-                scan,
+                SCAN,
                 lambda f: (
                     f[SETTINGS_FILE].pop("enabledPlugins"),
                     f[SETTINGS_FILE].update({"extraKnownMarketplaces": {"elsewhere": {}}}),
@@ -3822,7 +3860,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                     f[MARKETPLACE_FILE]["plugins"][0].pop("description"),
                 ),
             ),
-            absent_lines,
+            ABSENT_LINES,
         ),
         (
             "findings of three folders written in the opposite order, the scans' and the list's together",
@@ -3830,17 +3868,17 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 {"other": "true"},
                 folders=("const-z", "const-y", "const-x"),
                 listed=(),
-                documents={"const-y": module_text.replace("check-x", "check-w")},
+                documents={"const-y": MODULE_TEXT.replace("check-x", "check-w")},
             ),
             ordered_lines,
         ),
         (
             "a list's module, a marketplace entry, an item filter and a kit check, in the order of the kinds",
             Case(
-                {"x": scan},
-                workflow=f"{reads}  filtered:\n    run: python3 modules/const-x/tests/run.py --item 3\n",
+                {"x": SCAN},
+                workflow=f"{READS}  filtered:\n    run: python3 modules/const-x/tests/run.py --item 3\n",
                 listed=("const-x",),
-                scripts=tracked,
+                scripts=TRACKED,
                 files=without_quiet,
             ),
             kinds_lines,
@@ -3853,19 +3891,24 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             with contextlib.redirect_stdout(printed), listed_in_reverse():
                 code = report(*check_kit(root))
         ok = code == EXIT_RED and printed.getvalue().splitlines() == lines
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] the report of {name} is its literal text, exit 2")
+        tally.judge(ok, f"the report of {name} is its literal text, exit 2")
         if not ok:
             print(printed.getvalue())
+
+
+def report_of_no_source(tally: Tally) -> None:
+    """The report of a declaration with no source is its literal text."""
     no_source = Finding("kit-test", Where.KNOWN_SOURCE, said="no source").render()
-    ok = no_source == "\n".join(declared_source_lines)
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] the report of a declaration with no source is its literal text")
+    ok = no_source == "\n".join(DECLARED_SOURCE_LINES)
+    tally.judge(ok, "the report of a declaration with no source is its literal text")
     if not ok:
         print(no_source)
 
+
+def sections_out_of_order(tally: Tally) -> None:
+    """A document whose t11 section stands before t10 is BROKEN, and read once put in order."""
     blocks: list[list[str]] = [[]]  # the document cut before each section anchor
-    for line in module_text.splitlines(keepends=True):
+    for line in MODULE_TEXT.splitlines(keepends=True):
         if re.fullmatch(r'<a id="t\d+"></a>', line.strip()):
             blocks.append([])
         blocks[-1].append(line)
@@ -3875,7 +3918,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     swapped = "".join("".join(block) for block in blocks)
     with tempfile.TemporaryDirectory() as tmp:  # t11 before t10: BROKEN; the fix applied, by number: read
         root = Path(tmp).resolve()
-        build(root, Case({"x": scan}, document=swapped, guide=guide_text(GUIDE_X)))
+        build(root, Case({"x": SCAN}, document=swapped, guide=guide_text(GUIDE_X)))
         try:
             check_kit(root)
             before = None
@@ -3885,12 +3928,47 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         build_text = "".join("".join(block) for block in blocks)
         (root / "modules/const-x/MODULE.md").write_text(build_text, encoding="utf-8")
         ok = before is not None and "the anchor after" in before
-        ok = ok and build_text == module_text and check_kit(root)[0] == []
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] a document whose t11 section stands before t10, put in the"
-        " template's order as the fix says, is read"
+        ok = ok and build_text == MODULE_TEXT and check_kit(root)[0] == []
+    tally.judge(
+        ok,
+        "a document whose t11 section stands before t10, put in the"
+        " template's order as the fix says, is read",
     )
+
+
+def damage_tree(root: Path, change: str) -> None:
+    """Make the throwaway kit at root unreadable in the way `change` names."""
+    if change == "LIST":
+        (root / GATE_LIST).write_text("#!/bin/sh\necho 'BROKEN: no list' >&2\nexit 1\n", encoding="utf-8")
+    if change == "JSON":
+        text = (root / GATE_LIST).read_text(encoding="utf-8")
+        (root / GATE_LIST).write_text(
+            re.sub(r"--json\) echo '[^']*'", "--json) echo '{\"kit\": 1}'", text), encoding="utf-8"
+        )
+    if change == "NO-T9":
+        (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
+    if change in ("T9-ON-HEADING", "T9-TWICE", "T10-TWICE", "NO-T10", "T11-BEFORE-T10", "T9-LAST"):
+        broken_text = {
+            "T9-ON-HEADING": MODULE_TEXT.replace('<a id="t9"></a>\n## 9', '## 9 <a id="t9"></a>'),
+            "T9-TWICE": MODULE_TEXT.replace("## 9\n", '## 9\n<a id="t9"></a>\n', 1),
+            "T10-TWICE": MODULE_TEXT.replace("| E2 |", '<a id="t10"></a>\n| E2 |', 1),
+            "NO-T10": MODULE_TEXT.replace('<a id="t10"></a>\n', ""),
+            "T9-LAST": MODULE_TEXT.replace('<a id="t9"></a>\n', "") + '<a id="t9"></a>\n',
+            "T11-BEFORE-T10": MODULE_TEXT.replace('<a id="t10"></a>\n', "@@")
+            .replace('<a id="t11"></a>\n', '<a id="t10"></a>\n')
+            .replace("@@", '<a id="t11"></a>\n'),
+        }[change]
+        (root / "modules/const-x/MODULE.md").write_text(broken_text, encoding="utf-8")
+    if change == "DIALS-DATE":
+        (root / DIALS).write_text("d: 2001-13-45\n", encoding="utf-8")
+    if change == "NO-DOC":
+        (root / "modules/empty").mkdir()
+    if change == "NO-MODULES":
+        shutil.rmtree(root / "modules")
+
+
+def broken_lines(tally: Tally) -> None:
+    """Each state the check cannot run on is a teaching BROKEN line."""
     for name, change, said in (
         ("a list script that fails", "LIST", f"{GATE_LIST} --names gate exited"),
         ("jobs that are no JSON list", "JSON", f"{GATE_LIST} --json printed no list of job names"),
@@ -3957,36 +4035,8 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 subprocess.run(["git", "init", "-q"], cwd=root, check=True)
                 root = root / "kit"
                 root.mkdir()
-            build(root, Case({"x": scan}, repo=change not in ("NO-REPO", "NESTED-NO-REPO")))
-            if change == "LIST":
-                (root / GATE_LIST).write_text(
-                    "#!/bin/sh\necho 'BROKEN: no list' >&2\nexit 1\n", encoding="utf-8"
-                )
-            if change == "JSON":
-                text = (root / GATE_LIST).read_text(encoding="utf-8")
-                (root / GATE_LIST).write_text(
-                    re.sub(r"--json\) echo '[^']*'", "--json) echo '{\"kit\": 1}'", text), encoding="utf-8"
-                )
-            if change == "NO-T9":
-                (root / "modules/const-x/MODULE.md").write_text("no anchor\n", encoding="utf-8")
-            if change in ("T9-ON-HEADING", "T9-TWICE", "T10-TWICE", "NO-T10", "T11-BEFORE-T10", "T9-LAST"):
-                broken_text = {
-                    "T9-ON-HEADING": module_text.replace('<a id="t9"></a>\n## 9', '## 9 <a id="t9"></a>'),
-                    "T9-TWICE": module_text.replace("## 9\n", '## 9\n<a id="t9"></a>\n', 1),
-                    "T10-TWICE": module_text.replace("| E2 |", '<a id="t10"></a>\n| E2 |', 1),
-                    "NO-T10": module_text.replace('<a id="t10"></a>\n', ""),
-                    "T9-LAST": module_text.replace('<a id="t9"></a>\n', "") + '<a id="t9"></a>\n',
-                    "T11-BEFORE-T10": module_text.replace('<a id="t10"></a>\n', "@@")
-                    .replace('<a id="t11"></a>\n', '<a id="t10"></a>\n')
-                    .replace("@@", '<a id="t11"></a>\n'),
-                }[change]
-                (root / "modules/const-x/MODULE.md").write_text(broken_text, encoding="utf-8")
-            if change == "DIALS-DATE":
-                (root / DIALS).write_text("d: 2001-13-45\n", encoding="utf-8")
-            if change == "NO-DOC":
-                (root / "modules/empty").mkdir()
-            if change == "NO-MODULES":
-                shutil.rmtree(root / "modules")
+            build(root, Case({"x": SCAN}, repo=change not in ("NO-REPO", "NESTED-NO-REPO")))
+            damage_tree(root, change)
             path = os.environ["PATH"]
             if change == "NO-GIT":
                 os.environ["PATH"] = ""
@@ -3997,9 +4047,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 ok = said in str(broken) and "fix:" in str(broken)
             finally:
                 os.environ["PATH"] = path
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line")
-    unreadable = broken_cases(scan)
+        tally.judge(ok, f"{name} is a teaching BROKEN line")
+
+
+def unreadable_files(tally: Tally) -> None:
+    """Each file the check cannot read gives its literal BROKEN line, exit 1."""
+    unreadable = broken_cases(SCAN)
     for name, (case, line) in unreadable.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -4009,10 +4062,13 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 code = run(root)
         lines = [f"BROKEN: {line}", "BROKEN: the check could not run — 0 module documents examined"]
         ok = code == EXIT_BROKEN and printed.getvalue().splitlines() == lines
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {name} is its literal BROKEN line, exit 1")
+        tally.judge(ok, f"{name} is its literal BROKEN line, exit 1")
         if not ok:
             print(printed.getvalue())
+
+
+def pyyaml_missing(tally: Tally) -> None:
+    """PyYAML missing is a BROKEN line with the install command, exit 1."""
     with tempfile.TemporaryDirectory() as tmp:  # PyYAML missing: a `yaml` that raises ImportError comes first
         (Path(tmp) / "yaml.py").write_text("raise ImportError('PyYAML is hidden')\n", encoding="utf-8")
         done = subprocess.run(
@@ -4031,11 +4087,45 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ]
         and done.stderr == ""
     )
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] PyYAML missing is a BROKEN line with the install command, exit 1")
-    total = len(cases) + len(unreadable) + 40 + 14
-    print(f"{total - failed}/{total} cases green")
-    return EXIT_GREEN if failed == 0 else EXIT_RED
+    tally.judge(ok, "PyYAML missing is a BROKEN line with the install command, exit 1")
+
+
+def self_test() -> int:
+    """Red→green on a throwaway tree: a scan missing from the gate group, and one in a kit whose
+    workflow does not read the list or names it only in a comment line or a trailing comment, are red
+    with one finding each and green once listed and read;
+    an extra entry is no gate; a span with a flag after `--scan` and the words is no scan; a module
+    with no scan needs no entry; a scan whose entry falls into `kit` or into another module's job is
+    red; a module folder the list's modules leave out, and a listed module with no folder, are red; a
+    tracked kit check no entry of the gate group runs is red; the forms of the enforcement table are
+    held by `form_probes`; the report of each kind of finding is its literal text with exit 2; a list
+    script that fails, jobs that are no JSON list, a module document without its enforcement anchor
+    or with it twice, a module folder without its document, a tree that is no repository and a git
+    that cannot be run are each a teaching BROKEN line; a scan declared as `<entry>.py --scan` is held
+    by its python3 line and taught by it; the files that name a module are held by `registry_cases`
+    (a copy changed one at a time), the name over a whole set of names, the reports of `messy_case`
+    written in order and backwards, the scans' and the list's findings of three folders in the folders'
+    sorted order, and `broken_cases` (each file the check cannot read, its literal
+    BROKEN line with exit 1)."""
+    tally = Tally()
+    cases_gate_list(tally)
+    cases_kit_check_names(tally)
+    cases_module_folder_names(tally)
+    cases_folder_renames(tally)
+    cases_stray_dials_keys(tally)
+    cases_scan_readers(tally)
+    reports_by_kind(tally)
+    fixes_of_the_guide(tally)
+    fixes_of_the_coverage(tally)
+    report_of_a_green_kit(tally)
+    reports_in_order(tally)
+    report_of_no_source(tally)
+    sections_out_of_order(tally)
+    broken_lines(tally)
+    unreadable_files(tally)
+    pyyaml_missing(tally)
+    print(f"{tally.judged - tally.failed}/{tally.judged} cases green")
+    return EXIT_GREEN if tally.failed == 0 else EXIT_RED
 
 
 def main(argv: list[str]) -> int:
