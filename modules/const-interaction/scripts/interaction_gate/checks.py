@@ -32,6 +32,8 @@ def match(entries: Sequence[Entry], subcommands: Sequence[Subcommand]) -> list[H
 
 
 def _matches(entry: Entry, subcommand: Subcommand) -> str | None:
+    """The flag the subcommand carries for the entry, empty when the entry names no flag; None when
+    the subcommand does not match the entry."""
     words = subcommand.words
     if not words or words[0] != entry.command[0]:
         return None
@@ -43,18 +45,25 @@ def _matches(entry: Entry, subcommand: Subcommand) -> str | None:
         after = found + 1
     if not entry.flags:
         return ""
-    for word in words[after:]:
+    return _first_flag(words[after:], entry.flags)
+
+
+def _first_flag(words: Sequence[str], flags: Sequence[str]) -> str | None:
+    """The first of the flags that a word before `--` carries, in the order of the words."""
+    for word in words:
         if word == "--":
             break
-        for flag in entry.flags:
-            if flag.startswith("--"):
-                if word == flag:
-                    return flag
-            elif (
-                len(flag) == 2 and word.startswith("-") and not word.startswith("--") and flag[1] in word[1:]
-            ):
+        for flag in flags:
+            if _carries(word, flag):
                 return flag
     return None
+
+
+def _carries(word: str, flag: str) -> bool:
+    """Whether the word carries the flag: a long flag by equality, a short one inside a cluster."""
+    if flag.startswith("--"):
+        return word == flag
+    return len(flag) == 2 and word.startswith("-") and not word.startswith("--") and flag[1] in word[1:]
 
 
 def _next_word(words: Sequence[str], start: int, wanted: str) -> int | None:
@@ -86,17 +95,6 @@ def examine_lists(text: str, handles: Sequence[str]) -> list[ListHit]:
     hits: list[ListHit] = []
     fence: str | None = None
     items: list[tuple[int, str]] = []
-
-    def close() -> None:
-        if len(items) >= 2:
-            for line, item in items:
-                unanchored = ANCHOR.sub("", item, count=1)
-                candidates = (unanchored, BOLD.sub("", unanchored, count=1))
-                if not any(p.match(c) for p in patterns for c in candidates):
-                    hits.append(ListHit(line, item))
-                    break
-        items.clear()
-
     for number, line in enumerate(text.split("\n"), 1):
         opener = FENCE.match(line)
         if fence is not None:
@@ -104,7 +102,7 @@ def examine_lists(text: str, handles: Sequence[str]) -> list[ListHit]:
                 fence = None
             continue
         if opener and (opener.group(1)[0] == "~" or "`" not in opener.group(2)):
-            close()
+            _close(items, patterns, hits)
             fence = opener.group(1)
             continue
         item = ITEM.match(line)
@@ -113,6 +111,18 @@ def examine_lists(text: str, handles: Sequence[str]) -> list[ListHit]:
             continue
         if line.strip() == "" or line.startswith((" ", "\t")):
             continue
-        close()
-    close()
+        _close(items, patterns, hits)
+    _close(items, patterns, hits)
     return hits
+
+
+def _close(items: list[tuple[int, str]], patterns: Sequence[re.Pattern[str]], hits: list[ListHit]) -> None:
+    """Ends the open list: of two items or more, the first that opens with no handle is a hit."""
+    if len(items) >= 2:
+        for line, item in items:
+            unanchored = ANCHOR.sub("", item, count=1)
+            candidates = (unanchored, BOLD.sub("", unanchored, count=1))
+            if not any(p.match(c) for p in patterns for c in candidates):
+                hits.append(ListHit(line, item))
+                break
+    items.clear()

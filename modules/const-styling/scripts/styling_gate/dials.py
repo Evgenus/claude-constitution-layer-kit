@@ -42,39 +42,41 @@ def _departures(value: object) -> tuple[Departure, ...]:
         return ()
     if not isinstance(value, list):
         raise ConfigurationFailure(messages.c5_departures())
-    entries: list[Departure] = []
-    for index, item in enumerate(value, 1):
-        if not isinstance(item, dict):
-            raise ConfigurationFailure(messages.c5_departure(index, "it is not a mapping"))
-        unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
-        if unknown:
+    return tuple(_departure(index, item) for index, item in enumerate(value, 1))
+
+
+def _departure(index: int, item: object) -> Departure:
+    """Entry `index` of the list, well formed, or a configuration failure naming what is wrong."""
+    if not isinstance(item, dict):
+        raise ConfigurationFailure(messages.c5_departure(index, "it is not a mapping"))
+    unknown = sorted(str(key) for key in item if key not in ENTRY_KEYS)
+    if unknown:
+        raise ConfigurationFailure(
+            messages.c5_departure(index, f"'{echoed(unknown[0])}' is no field of an entry")
+        )
+    paths = texts(item.get("paths"))
+    if not paths:
+        raise ConfigurationFailure(
+            messages.c5_departure(index, "paths must be a non-empty list of path patterns")
+        )
+    refuse_unreadable_patterns(f"{identity.current().namespace}.departures entry {index} paths", paths)
+    allow = texts(item.get("allow"))
+    if not allow:
+        raise ConfigurationFailure(
+            messages.c5_departure(index, "allow must be a non-empty list of signature keys")
+        )
+    known = {s.value for s in Signature}
+    for key in allow:
+        if key not in known:
             raise ConfigurationFailure(
-                messages.c5_departure(index, f"'{echoed(unknown[0])}' is no field of an entry")
+                messages.c5_departure(index, f"'{echoed(key)}' is no signature this scan knows")
             )
-        paths = texts(item.get("paths"))
-        if not paths:
-            raise ConfigurationFailure(
-                messages.c5_departure(index, "paths must be a non-empty list of path patterns")
-            )
-        refuse_unreadable_patterns(f"{identity.current().namespace}.departures entry {index} paths", paths)
-        allow = texts(item.get("allow"))
-        if not allow:
-            raise ConfigurationFailure(
-                messages.c5_departure(index, "allow must be a non-empty list of signature keys")
-            )
-        known = {s.value for s in Signature}
-        for key in allow:
-            if key not in known:
-                raise ConfigurationFailure(
-                    messages.c5_departure(index, f"'{echoed(key)}' is no signature this scan knows")
-                )
-        reason = item.get("reason")
-        if not _reason(reason):
-            raise ConfigurationFailure(
-                messages.c5_departure(index, "reason must be one non-empty line saying why")
-            )
-        entries.append(Departure(paths, tuple(Signature(key) for key in allow), str(reason).strip()))
-    return tuple(entries)
+    reason = item.get("reason")
+    if not _reason(reason):
+        raise ConfigurationFailure(
+            messages.c5_departure(index, "reason must be one non-empty line saying why")
+        )
+    return Departure(paths, tuple(Signature(key) for key in allow), str(reason).strip())
 
 
 def _reason(value: object) -> bool:
