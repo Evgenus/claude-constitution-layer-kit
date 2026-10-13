@@ -12,7 +12,7 @@ from __future__ import annotations
 import bisect
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from const_gate.envelope import Bounds, envelope_bounds
 
@@ -102,54 +102,82 @@ def _block_regions(document: str, bounds: Bounds | None) -> list[Span]:
     no line closes is this module's own rule, not the helper's: it masks to the end of the file. The
     rest — fences, indented code — is read line by line here; the block's end falls on a line break
     that `splitlines` also breaks at, so the loop resumes at the line after the block."""
-    regions: list[Span] = []
-    lines = document.splitlines(keepends=True)
+    blocks = _Blocks(bounds, in_envelope=bounds is not None)
     offset = 0
-    fence: str | None = None  # the run that opened the fence being read
-    fence_depth = 0  # the columns its opener was indented by
-    block_start = 0
-    in_envelope = bounds is not None
-    in_list = False  # the last unindented line was a list item: indented text continues it
-    after_blank = True
-    in_indented = False
-    for line in lines:
+    for line in document.splitlines(keepends=True):
         end = offset + len(line)
-        bare = line.rstrip("\r\n")
-        if in_envelope:
-            if bounds is not None and bounds.end is not None and end >= bounds.end:
-                regions.append(Span(0, bounds.end))
-                in_envelope = False
-        elif fence is not None:
-            closing = _FENCE_IN_LIST.match(bare)
-            if (
-                closing
-                and closing[1][0] == fence[0]
-                and len(closing[1]) >= len(fence)
-                and not bare.strip(" \t`~")
-                # at its opener's depth, give or take what a fence may be indented by: a deeper
-                # fence inside this one is shown, not closed
-                and _depth(bare) <= (3 if fence_depth <= 3 else fence_depth + 3)
-            ):
-                regions.append(Span(block_start, end))
-                fence = None
-        elif opening := (_FENCE_IN_LIST if in_list else _FENCE).match(bare):
-            fence, fence_depth, block_start, in_indented = opening[1], _depth(bare), offset, False
-        elif not bare.strip():
-            after_blank = True
-            offset = end
-            continue
-        elif _INDENTED.match(bare) and not in_list and (after_blank or in_indented):
-            regions.append(Span(offset, end))
-            in_indented = True
-        else:
-            in_indented = False
-            if not _INDENTED.match(bare):
-                in_list = bool(_LIST_ITEM.match(bare))
-        after_blank = False
+        blocks.read(line.rstrip("\r\n"), offset, end)
         offset = end
-    if in_envelope or fence is not None:  # never closed: it renders as one block to the end
-        regions.append(Span(0 if in_envelope else block_start, len(document)))
-    return regions
+    if blocks.in_envelope or blocks.fence is not None:  # never closed: it renders as one block to the end
+        blocks.regions.append(Span(0 if blocks.in_envelope else blocks.block_start, len(document)))
+    return blocks.regions
+
+
+@dataclass(slots=True)
+class _Blocks:
+    """The state `_block_regions` reads the lines in, and the regions found so far."""
+
+    bounds: Bounds | None
+    in_envelope: bool
+    regions: list[Span] = field(default_factory=list)
+    fence: str | None = None  # the run that opened the fence being read
+    fence_depth: int = 0  # the columns its opener was indented by
+    block_start: int = 0
+    in_list: bool = False  # the last unindented line was a list item: indented text continues it
+    after_blank: bool = True
+    in_indented: bool = False
+
+    def read(self, bare: str, offset: int, end: int) -> None:
+        """Reads one line, its line break taken off, that runs from `offset` to `end`."""
+        if self.in_envelope:
+            self._in_envelope(end)
+        elif self.fence is not None:
+            self._in_fence(bare, self.fence, end)
+        elif opening := (_FENCE_IN_LIST if self.in_list else _FENCE).match(bare):
+            self.fence, self.fence_depth, self.block_start, self.in_indented = (
+                opening[1],
+                _depth(bare),
+                offset,
+                False,
+            )
+        elif not bare.strip():
+            self.after_blank = True
+            return
+        else:
+            self._outside_blocks(bare, offset, end)
+        self.after_blank = False
+
+    def _in_envelope(self, end: int) -> None:
+        """A line of the YAML block: the one that holds the block's end closes it."""
+        if self.bounds is not None and self.bounds.end is not None and end >= self.bounds.end:
+            self.regions.append(Span(0, self.bounds.end))
+            self.in_envelope = False
+
+    def _in_fence(self, bare: str, fence: str, end: int) -> None:
+        """A line inside a fence: a bare run of its kind, at least as long, closes it."""
+        closing = _FENCE_IN_LIST.match(bare)
+        if (
+            closing
+            and closing[1][0] == fence[0]
+            and len(closing[1]) >= len(fence)
+            and not bare.strip(" \t`~")
+            # at its opener's depth, give or take what a fence may be indented by: a deeper
+            # fence inside this one is shown, not closed
+            and _depth(bare) <= (3 if self.fence_depth <= 3 else self.fence_depth + 3)
+        ):
+            self.regions.append(Span(self.block_start, end))
+            self.fence = None
+
+    def _outside_blocks(self, bare: str, offset: int, end: int) -> None:
+        """A line of text outside any block: indented code after a blank line, or continuing it,
+        save in a list; an unindented line says whether a list is open."""
+        if _INDENTED.match(bare) and not self.in_list and (self.after_blank or self.in_indented):
+            self.regions.append(Span(offset, end))
+            self.in_indented = True
+        else:
+            self.in_indented = False
+            if not _INDENTED.match(bare):
+                self.in_list = bool(_LIST_ITEM.match(bare))
 
 
 def _depth(line: str) -> int:

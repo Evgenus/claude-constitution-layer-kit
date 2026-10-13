@@ -155,13 +155,24 @@ def _refuse_what_cannot_move(root: Path, old: str, new: str, by_hand: bool) -> N
         if (root / old).exists() or not (root / new).is_file():
             raise ConfigurationFailure(messages.v5_not_moved(old, new))
         return
+    _refuse_unmovable_source(root, old)
+    if is_markdown(old) and not is_markdown(new):
+        raise ConfigurationFailure(messages.v5_leaves_markdown(old, new))
+    _refuse_blocked_target(root, old, new)
+
+
+def _refuse_unmovable_source(root: Path, old: str) -> None:
+    """The file to move is a file git lists, not a link."""
     listed = git(["ls-files", "--error-unmatch", "--", old], cwd=root)
     if listed.returncode != 0 or not (root / old).is_file():
         raise ConfigurationFailure(messages.v5_not_listed(old))
     if (root / old).is_symlink():
         raise ConfigurationFailure(messages.v5_is_a_link(old))
-    if is_markdown(old) and not is_markdown(new):
-        raise ConfigurationFailure(messages.v5_leaves_markdown(old, new))
+
+
+def _refuse_blocked_target(root: Path, old: str, new: str) -> None:
+    """The new path is free — save the file itself under a name in another case — and its nearest
+    existing ancestor is a directory."""
     # where the file system ignores case, a new name in another case "exists": it is the file itself
     renamed_in_case = (
         old.lower() == new.lower() and (root / new).exists() and (root / new).samefile(root / old)

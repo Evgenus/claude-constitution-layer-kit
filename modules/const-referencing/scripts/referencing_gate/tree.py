@@ -54,28 +54,45 @@ def examine(
         found.setdefault(b.source, []).append((b.line, _of_break(b, links.get(b.source, []), texts)))
     for rel, text in texts.items():
         for link in links[rel]:
-            if link.kind is LinkKind.USAGE:
-                continue  # its definition is the link that is resolved
-            target, fragment = target_of(rel, link.destination), _fragment(link)
-            if target is None or not fragment or target not in anchors or fragment in anchors[target]:
-                continue
-            if (rel, target, fragment) in broken:
-                continue  # already reported as it is: no such anchor of any kind
-            if about is not None and about not in (rel, target):
-                continue
-            line = line_of(text, link.start)
-            other_case = next((a for a in sorted(anchors[target]) if a.lower() == fragment.lower()), None)
-            if other_case is not None:
-                found[rel].append(
-                    (line, messages.r6_no_anchor(rel, line, link.destination, fragment, target, other_case))
-                )
-            elif heading_anchors is Switch.REFUSE:
-                found[rel].append((line, messages.r7_heading_anchor(rel, line, link.destination, target)))
+            finding = _unwritten_anchor(rel, text, link, anchors, broken, about, heading_anchors)
+            if finding is not None:
+                found[rel].append(finding)
     # two links alike on one line make one finding: said twice it teaches nothing more
     in_order = {
         rel: sorted(dict.fromkeys(pairs), key=lambda pair: pair[0]) for rel, pairs in found.items() if pairs
     }
     return in_order, sum(len(found_links) for found_links in links.values())
+
+
+def _unwritten_anchor(
+    rel: str,
+    text: str,
+    link: Link,
+    anchors: Mapping[str, frozenset[str]],
+    broken: set[tuple[str, str, str | None]],
+    about: str | None,
+    heading_anchors: Switch,
+) -> tuple[int, Finding] | None:
+    """The finding of a link that resolves into a covered document through no anchor written there:
+    an anchor in another case, or a heading's generated name where the dial refuses those. None for
+    a link that earns no such finding, one the checker reported broken, or one not `about` the
+    document named."""
+    if link.kind is LinkKind.USAGE:
+        return None  # its definition is the link that is resolved
+    target, fragment = target_of(rel, link.destination), _fragment(link)
+    if target is None or not fragment or target not in anchors or fragment in anchors[target]:
+        return None
+    if (rel, target, fragment) in broken:
+        return None  # already reported as it is: no such anchor of any kind
+    if about is not None and about not in (rel, target):
+        return None
+    line = line_of(text, link.start)
+    other_case = next((a for a in sorted(anchors[target]) if a.lower() == fragment.lower()), None)
+    if other_case is not None:
+        return line, messages.r6_no_anchor(rel, line, link.destination, fragment, target, other_case)
+    if heading_anchors is Switch.REFUSE:
+        return line, messages.r7_heading_anchor(rel, line, link.destination, target)
+    return None
 
 
 def _fragment(link: Link) -> str:
