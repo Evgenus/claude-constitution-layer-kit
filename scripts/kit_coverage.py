@@ -46,8 +46,8 @@ def fix_install() -> str:
     except OSError:
         found = None
     if found is None:
-        return "python3 -m pip install coverage, at the version .github/workflows/gates.yml pins"
-    return f'python3 -m pip install "coverage=={found[1]}"'
+        return f"{sys.executable} -m pip install coverage, at the version .github/workflows/gates.yml pins"
+    return f'{sys.executable} -m pip install "coverage=={found[1]}"'
 
 
 LISTS = ("executed_lines", "missing_lines", "executed_branches", "missing_branches")
@@ -126,7 +126,8 @@ def save(root: Path, module: str, work: Path, out: Path, runner_exit: int, secon
         except (OSError, ValueError, KeyError, TypeError, AttributeError) as bad:
             raise CoverageError(
                 f"coverage.py's JSON in {report} cannot be read ({bad}) — fix: {fix_install()}, the"
-                " version whose JSON the check reads"
+                " version whose JSON the check reads; at that version already, repair what the error in"
+                " the parentheses names"
             ) from bad
     target = out / f"{module}.json"
     try:

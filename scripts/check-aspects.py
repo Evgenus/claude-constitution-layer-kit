@@ -113,7 +113,7 @@ Modes:  no arguments         the gate;
                              a gate's child process measured and a file no run imports missed,
                              no file with the variable unset, and a red run whose file cannot be
                              written printing its output before the BROKEN line — it needs
-                             coverage.py.
+                             coverage.py, at the version .github/workflows/gates.yml pins.
 With CONSTITUTION_KIT_COVERAGE naming a folder, `--run` runs each runner under coverage.py and writes
 `<folder>/<module>.json`, a red run too, before it reads the runner's lines (scripts/kit_coverage.py
 says how); a runner that runs past its time is a BROKEN line, as without the variable, and writes no
