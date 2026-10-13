@@ -409,7 +409,119 @@ def check_order(shown: str, ruled: str) -> list[Finding]:
     return []
 
 
-def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding], list[str]]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
+def handle_findings(shown: str, handles: list[str]) -> list[Finding]:
+    """The findings of the ruling handles themselves: none opened, or one opened by two items."""
+    findings: list[Finding] = []
+    if not handles:
+        findings.append(
+            Finding(
+                f"{shown}: no ruling item carries a handle",
+                WHY_LIST,
+                "open every ruling item with a bold handle — **R1.**, **R2.** — a deferred trigger, "
+                "a fallback and an exception are items too",
+            )
+        )
+    for handle in sorted({h for h in handles if handles.count(h) > 1}):
+        findings.append(
+            Finding(f"{shown}: handle {handle} opens two ruling items", WHY_LIST, "renumber one of them")
+        )
+    return findings
+
+
+def home_findings(
+    kit: Path, catalog: Catalog, record: Path, shown: str, parsed: re.Match[str]
+) -> tuple[list[Finding], list[str]]:
+    """The findings and notes of one carry-list entry's home: no link, or a link that carries nothing."""
+    home = parsed.group(2).strip()
+    if home.lower().startswith("history only"):
+        return [], []
+    findings: list[Finding] = []
+    notes: list[str] = []
+    pending = home.lower().startswith("pending")
+    targets = LINK.findall(home)
+    if not targets:
+        findings.append(
+            Finding(
+                f"{shown}: {parsed.group(1)} names no home",
+                WHY_LIST,
+                PEND_IT
+                if pending
+                else 'link the current-state text that states it, or write "history only" when the item '
+                "binds nothing",
+            )
+        )
+    for target in targets:
+        problem = home_problem(kit, catalog, record, target, pending)
+        if problem:
+            where = "is pending nowhere" if pending else "is carried nowhere that binds"
+            findings.append(
+                Finding(f"{shown}: {parsed.group(1)} {where} — {problem[0]}", WHY_LIST, problem[1])
+            )
+        elif pending and (closed := closed_task(kit, record, target)):
+            notes.append(
+                f"NOTE: {record.stem}: {parsed.group(1)} was pending in {closed}, no longer active — "
+                "its close should have carried the intent into the current-state documents, and an "
+                "audit in full checks that"
+            )
+    return findings, notes
+
+
+def entry_findings(
+    kit: Path,
+    catalog: Catalog,
+    record: Path,
+    shown: str,
+    handles: list[str],
+    entry: str,
+    seen: dict[str, int],
+) -> tuple[list[Finding], list[str]]:
+    """The findings and notes of one carry-list entry; its handles are counted into seen."""
+    parsed = ENTRY.match(entry)
+    if not parsed:
+        return [
+            Finding(
+                f'{shown}: the carry-list entry "{entry[:60]}" does not open with its handles',
+                WHY_LIST,
+                'write it as "R1 — …" or "R1, R2 — …", with an em dash',
+            )
+        ], []
+    findings: list[Finding] = []
+    for handle in re.findall(r"R\d+", parsed.group(1)):
+        seen[handle] = seen.get(handle, 0) + 1
+        if handle not in handles:
+            findings.append(
+                Finding(
+                    f"{shown}: the carry list names {handle}, which opens no ruling item",
+                    WHY_LIST,
+                    f"remove {handle} from the list, or give the item it means its handle",
+                )
+            )
+    home, notes = home_findings(kit, catalog, record, shown, parsed)
+    return findings + home, notes
+
+
+def count_findings(shown: str, handles: list[str], seen: dict[str, int]) -> list[Finding]:
+    """The findings of the carry list's counts: a handle listed nowhere, or listed twice."""
+    findings: list[Finding] = []
+    for handle in dict.fromkeys(handles):
+        if seen.get(handle, 0) == 0:
+            findings.append(
+                Finding(
+                    f"{shown}: {handle} is missing from the carry list",
+                    WHY_LIST,
+                    f'add "{handle} — …" with the text that now states it, or "history only"',
+                )
+            )
+        elif seen[handle] > 1:
+            findings.append(
+                Finding(
+                    f"{shown}: {handle} is listed {seen[handle]} times", WHY_LIST, "keep one entry for it"
+                )
+            )
+    return findings
+
+
+def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding], list[str]]:
     shown = record.relative_to(kit).as_posix()
     _, text = split_frontmatter(record.read_text(encoding="utf-8"))
     headings = list(HEADING.finditer(text))
@@ -429,85 +541,13 @@ def check_list(kit: Path, catalog: Catalog, record: Path) -> tuple[list[Finding]
     number = catalog.stem.match(record.stem)
     if number and int(number.group(1)) >= IN_ORDER:
         findings.extend(check_order(shown, ruled))
-    if not handles:
-        findings.append(
-            Finding(
-                f"{shown}: no ruling item carries a handle",
-                WHY_LIST,
-                "open every ruling item with a bold handle — **R1.**, **R2.** — a deferred trigger, "
-                "a fallback and an exception are items too",
-            )
-        )
-    for handle in sorted({h for h in handles if handles.count(h) > 1}):
-        findings.append(
-            Finding(f"{shown}: handle {handle} opens two ruling items", WHY_LIST, "renumber one of them")
-        )
+    findings.extend(handle_findings(shown, handles))
     seen: dict[str, int] = {}
     for entry in carry_entries(listed):
-        parsed = ENTRY.match(entry)
-        if not parsed:
-            findings.append(
-                Finding(
-                    f'{shown}: the carry-list entry "{entry[:60]}" does not open with its handles',
-                    WHY_LIST,
-                    'write it as "R1 — …" or "R1, R2 — …", with an em dash',
-                )
-            )
-            continue
-        for handle in re.findall(r"R\d+", parsed.group(1)):
-            seen[handle] = seen.get(handle, 0) + 1
-            if handle not in handles:
-                findings.append(
-                    Finding(
-                        f"{shown}: the carry list names {handle}, which opens no ruling item",
-                        WHY_LIST,
-                        f"remove {handle} from the list, or give the item it means its handle",
-                    )
-                )
-        home = parsed.group(2).strip()
-        if home.lower().startswith("history only"):
-            continue
-        pending = home.lower().startswith("pending")
-        targets = LINK.findall(home)
-        if not targets:
-            findings.append(
-                Finding(
-                    f"{shown}: {parsed.group(1)} names no home",
-                    WHY_LIST,
-                    PEND_IT
-                    if pending
-                    else 'link the current-state text that states it, or write "history only" when the item '
-                    "binds nothing",
-                )
-            )
-        for target in targets:
-            problem = home_problem(kit, catalog, record, target, pending)
-            if problem:
-                where = "is pending nowhere" if pending else "is carried nowhere that binds"
-                findings.append(
-                    Finding(f"{shown}: {parsed.group(1)} {where} — {problem[0]}", WHY_LIST, problem[1])
-                )
-            elif pending and (closed := closed_task(kit, record, target)):
-                notes.append(
-                    f"NOTE: {record.stem}: {parsed.group(1)} was pending in {closed}, no longer active — "
-                    "its close should have carried the intent into the current-state documents, and an "
-                    "audit in full checks that"
-                )
-    for handle in dict.fromkeys(handles):
-        if seen.get(handle, 0) == 0:
-            findings.append(
-                Finding(
-                    f"{shown}: {handle} is missing from the carry list",
-                    WHY_LIST,
-                    f'add "{handle} — …" with the text that now states it, or "history only"',
-                )
-            )
-        elif seen[handle] > 1:
-            findings.append(
-                Finding(
-                    f"{shown}: {handle} is listed {seen[handle]} times", WHY_LIST, "keep one entry for it"
-                )
-            )
+        entry_found, entry_notes = entry_findings(kit, catalog, record, shown, handles, entry, seen)
+        findings.extend(entry_found)
+        notes.extend(entry_notes)
+    findings.extend(count_findings(shown, handles, seen))
     return findings, notes
 
 
@@ -1008,10 +1048,35 @@ def lists(root: Path, record: Path) -> tuple[list[Finding], list[str]]:
     return check_list(root, load_catalog(root), record)
 
 
-def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    folder = DEFAULT_LAYOUT.folder
-    home = "../policies/p.md"
-    wrong_lists: dict[str, Callable[[str], str]] = {
+@dataclass
+class Tally:
+    """The cases of the self-test judged so far, and how many of them failed."""
+
+    total: int = 0
+    failed: int = 0
+
+    def judge(self, ok: bool, text: str) -> None:
+        """Count one case and print its line."""
+        self.total += 1
+        self.failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {text}")
+
+
+HOME = "../policies/p.md"  # the home the sample record's carry list links
+NEWER = f"dec-{THRESHOLD + 2:04d}-newer"
+POLICY = "---\nid: p\ntype: current-state\nstatus: active\n---\nmore\n"
+CITES = f"1. [x](../../{DEFAULT_LAYOUT.folder}/{SAMPLE}.md)\n"
+ACCEPT = f"Accepted: {SAMPLE}"
+RIGHT = "yes\n\n" + ACCEPT + "\nCarry-Audit: at {at}; 3 records; 2 findings, 1 fixed, 1 justified\n"
+BARE = f"yes\n\n{ACCEPT}\n"
+RIGHT_FOR = "yes\n\nAccepted: {id}\nCarry-Audit: at {at}; 3 records; 0 findings, 0 fixed, 0 justified\n"
+WIDTH5, MOVED_TO, BOTH = Layout(width=5), Layout("docs/records"), Layout("docs/records", 5)
+
+
+def wrong_list_damages() -> dict[str, Callable[[str], str]]:
+    """Each way to damage the right record's carry list, by the name of the damage."""
+    home = HOME
+    return {
         "no carry list": lambda t: t[: t.index("## Carry list")],
         "a carry list that is not the last section": lambda t: t + "\n## After\n\ntext\n",
         "no handles": lambda t: re.sub(r"\*\*R\d\.\*\* |(?<=\d\. )R\d — ", "", t),
@@ -1042,13 +1107,10 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         "a ruling with no anchor": lambda t: t.replace('<a id="r2"></a>**R2.**', "**R2.**"),
         "a ruling after the anchor of another key": lambda t: t.replace('<a id="r2"></a>', '<a id="r9"></a>'),
     }
-    right_homes = {
-        "CLAUDE.md": "../../CLAUDE.md",
-        "a skill of the kit": "../../.claude/skills/s/SKILL.md",
-        "a module's own file": "../../modules/m/INSTALL.md",
-        "a file that is not markdown": "../../scripts/x.py",
-    }
-    failed = 0
+
+
+def run_wrong_lists(t: Tally, wrong_lists: dict[str, Callable[[str], str]]) -> None:
+    """The right record is green and each damage to its carry list is red."""
     for name, damage in wrong_lists.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1056,9 +1118,11 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             green_before = not lists(root, record)[0]
             record.write_text(damage(GOOD_RECORD), encoding="utf-8")
             red_after = bool(lists(root, record)[0])
-        ok = green_before and red_after
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] the right list is green, {name} is red")
+        t.judge(green_before and red_after, f"the right list is green, {name} is red")
+
+
+def run_older_records(t: Tally) -> None:
+    """A record below the threshold is held for its anchors alone."""
     old = f"dec-{1:0{DEFAULT_LAYOUT.width}d}-old"  # built, so that no file names a record that does not exist
     old_envelope = (
         f"---\nid: {old}\ntype: task-record\ntitle: Old\nstatus: inactive\nstakes: process\n"
@@ -1079,13 +1143,15 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             root = Path(tmp).resolve()
             git(root, "init", "-q")
             sample_kit(root)
-            (root / folder / f"{old}.md").write_text(old_envelope + body, encoding="utf-8")
+            (root / DEFAULT_LAYOUT.folder / f"{old}.md").write_text(old_envelope + body, encoding="utf-8")
             commit(root, "the records land")
             found = check_kit(root)[0]
         red = any(f"{old}.md" in f.headline for f in found)
-        ok = red == want_red
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+        t.judge(red == want_red, name)
+
+
+def run_readme_homes(t: Tally, wrong_lists: dict[str, Callable[[str], str]]) -> None:
+    """A module's README refused as a home or as a pending link teaches its own fix."""
     readme_texts = {  # case: the damage, the headline's end and the fix, typed by hand
         "a module's README refused as a home teaches CARRY_IT": (
             wrong_lists["a home in a module's README given an envelope"],
@@ -1103,31 +1169,47 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             found = lists(root, sample_kit(root, damage(GOOD_RECORD)))[0]
-        ok = len(found) == 1 and found[0].headline.endswith(ending) and found[0].fix == fix
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+        t.judge(len(found) == 1 and found[0].headline.endswith(ending) and found[0].fix == fix, name)
+
+
+def run_closed_pending(t: Tally) -> None:
+    """Pending intent in a task-record that has closed is green, with a note."""
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         found, noted = lists(root, sample_kit(root, GOOD_RECORD.replace("(../plan.md)", "(../done.md)")))
-    ok = not found and len(noted) == 1
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] pending intent in a task-record that has closed is green, with a note")
+    t.judge(
+        not found and len(noted) == 1,
+        "pending intent in a task-record that has closed is green, with a note",
+    )
+
+
+def run_right_homes(t: Tally) -> None:
+    """Each place a rule can live is a home."""
+    right_homes = {
+        "CLAUDE.md": "../../CLAUDE.md",
+        "a skill of the kit": "../../.claude/skills/s/SKILL.md",
+        "a module's own file": "../../modules/m/INSTALL.md",
+        "a file that is not markdown": "../../scripts/x.py",
+    }
     for name, target in right_homes.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            ok = not lists(root, sample_kit(root, GOOD_RECORD.replace(home, target)))[0]
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] a home in {name} is green")
+            ok = not lists(root, sample_kit(root, GOOD_RECORD.replace(HOME, target)))[0]
+        t.judge(ok, f"a home in {name} is green")
 
-    def run_of(handles: list[int], fence: str = "") -> str:
-        """A record whose rulings carry these handles in this order, each with its anchor and its entry."""
-        rulings = "".join(f'{i}. <a id="r{n}"></a>**R{n}.** A rule.\n' for i, n in enumerate(handles, 1))
-        entries = "".join(f"{i}. R{n} — history only.\n" for i, n in enumerate(handles, 1))
-        return (
-            GOOD_RECORD[: GOOD_RECORD.index("## Ruling")]
-            + f"## Ruling\n\n{rulings}{fence}\n## Carry list\n\n{entries}"
-        )
 
+def record_of_handles(handles: list[int], fence: str = "") -> str:
+    """A record whose rulings carry these handles in this order, each with its anchor and its entry."""
+    rulings = "".join(f'{i}. <a id="r{n}"></a>**R{n}.** A rule.\n' for i, n in enumerate(handles, 1))
+    entries = "".join(f"{i}. R{n} — history only.\n" for i, n in enumerate(handles, 1))
+    return (
+        GOOD_RECORD[: GOOD_RECORD.index("## Ruling")]
+        + f"## Ruling\n\n{rulings}{fence}\n## Carry list\n\n{entries}"
+    )
+
+
+def run_orders(t: Tally) -> None:
+    """The handles run R1, R2, … in a record from number 39 on, and in none below it."""
     breaks = "break their run at R{at}, where R{due} is due"
     orders = {  # case: the number of the record, the handles in document order, a fence, the break wanted
         "R1, R3 in a record numbered 39 is red, a gap": (39, [1, 3], "", breaks.format(at=3, due=2)),
@@ -1151,45 +1233,43 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             sample_kit(root)
-            record = root / folder / f"dec-{number:0{DEFAULT_LAYOUT.width}d}-order.md"
-            record.write_text(run_of(handles, fence), encoding="utf-8")
+            record = root / DEFAULT_LAYOUT.folder / f"dec-{number:0{DEFAULT_LAYOUT.width}d}-order.md"
+            record.write_text(record_of_handles(handles, fence), encoding="utf-8")
             found = [f for f in lists(root, record)[0] if "their run" in f.headline]
-        ok = (not found) if tail is None else (len(found) == 1 and found[0].headline.endswith(tail))
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+        t.judge((not found) if tail is None else (len(found) == 1 and found[0].headline.endswith(tail)), name)
 
-    accept = f"Accepted: {SAMPLE}"
+
+def run_receipts(t: Tally) -> None:
+    """The receipt of a carry audit, right and wrong, over a record that lands and is accepted."""
     stranger = f"dec-{THRESHOLD + 69:04d}-no-such-record"
-    right = "yes\n\n" + accept + "\nCarry-Audit: at {at}; 3 records; 2 findings, 1 fixed, 1 justified\n"
-    bare = f"yes\n\n{accept}\n"
     # name -> (the commit messages after the record lands, red wanted, notes wanted)
     receipts: dict[str, tuple[list[str], bool, int]] = {
-        "the right receipt is green": ([right], False, 0),
-        "an acceptance with no receipt is red": ([bare], True, 0),
-        "a receipt that cannot be read is red": ([bare + "Carry-Audit: done, all fine\n"], True, 0),
+        "the right receipt is green": ([RIGHT], False, 0),
+        "an acceptance with no receipt is red": ([BARE], True, 0),
+        "a receipt that cannot be read is red": ([BARE + "Carry-Audit: done, all fine\n"], True, 0),
         "an audit of 0 records is red": (
-            [bare + "Carry-Audit: at {at}; 0 records; 0 findings, 0 fixed, 0 justified\n"],
+            [BARE + "Carry-Audit: at {at}; 0 records; 0 findings, 0 fixed, 0 justified\n"],
             True,
             0,
         ),
         "findings unaccounted for are red": (
-            [bare + "Carry-Audit: at {at}; 3 records; 5 findings, 2 fixed, 1 justified\n"],
+            [BARE + "Carry-Audit: at {at}; 3 records; 5 findings, 2 fixed, 1 justified\n"],
             True,
             0,
         ),
         "an audit at no commit is red": (
-            [bare + "Carry-Audit: at " + "0" * 40 + "; 3 records; 0 findings, 0 fixed, 0 justified\n"],
+            [BARE + "Carry-Audit: at " + "0" * 40 + "; 3 records; 0 findings, 0 fixed, 0 justified\n"],
             True,
             0,
         ),
         "an audit pinned before the record existed is red": (
-            [bare + "Carry-Audit: at {before}; 3 records; 0 findings, 0 fixed, 0 justified\n"],
+            [BARE + "Carry-Audit: at {before}; 3 records; 0 findings, 0 fixed, 0 justified\n"],
             True,
             0,
         ),
-        "a wrong receipt mended by accepting again is green": ([bare, right], False, 0),
+        "a wrong receipt mended by accepting again is green": ([BARE, RIGHT], False, 0),
         "an acceptance of a record that is not there is a note": (
-            [right, f"yes\n\nAccepted: {stranger}\n"],
+            [RIGHT, f"yes\n\nAccepted: {stranger}\n"],
             False,
             1,
         ),
@@ -1217,11 +1297,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ok = ok and len(notes) == notes_wanted
         if name == "an acceptance of a record that is not there is a note":
             ok = ok and notes == [stranger_note.format(last=last[:7])]
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] a record awaiting its yes is a note; {name}")
+        t.judge(ok, f"a record awaiting its yes is a note; {name}")
 
-    # the acceptance read asks git log without signature lines: a signed merge, with log.showSignature
-    # on, is read as the unsigned right receipt is — green — and git was asked to verify it
+
+def run_signed_merge(t: Tally) -> None:
+    """The acceptance read asks git log without signature lines, so that a signed merge is read as an
+    unsigned one: with log.showSignature on, it is green and git was asked to verify it."""
     with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as tools:
         root = Path(tmp).resolve()
         git(root, "init", "-q")
@@ -1229,19 +1310,20 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         sample_kit(root)
         pinned = commit(root, "the record lands")
         signing = fake_signer(root, Path(tools).resolve())
-        signed_merge(root, right.format(at=pinned[:12]))
+        signed_merge(root, RIGHT.format(at=pinned[:12]))
         shown = git(root, "log", "-1", "--format=%h")
         calls = signing.read_text(encoding="utf-8") if signing.exists() else ""
         findings, notes, _, _ = check_kit(root)
     asked = "--verify" in calls and "fake signer" in shown.stdout + shown.stderr
-    ok = asked and not findings and not notes
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] a signed acceptance merge under showSignature is read as an unsigned one"
+    t.judge(
+        asked and not findings and not notes,
+        "a signed acceptance merge under showSignature is read as an unsigned one",
     )
 
-    # a git too old for the trailer options prints the placeholders as text: the check cannot run, and
-    # says which git; a receipt that merely quotes the placeholder is read as ever
+
+def run_old_git(t: Tally) -> None:
+    """A git too old for the trailer options prints the placeholders as text: the check cannot run, and
+    says which git."""
     real = shutil.which("git")
     with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as tools:
         root = Path(tmp).resolve()
@@ -1249,7 +1331,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         commit(root, "before the record")
         sample_kit(root)
         pinned = commit(root, "the record lands")
-        commit(root, right.format(at=pinned[:12]))
+        commit(root, RIGHT.format(at=pinned[:12]))
         for script in ("check-carry-lists.py", "kit_module_doc.py"):  # the check and the reader it imports
             (root / "scripts" / script).write_text(
                 (Path(__file__).parent / script).read_text(encoding="utf-8"), encoding="utf-8"
@@ -1276,64 +1358,78 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             "BROKEN: the check could not run — 0 records examined",
         ]
     ok = asked_for_options and ran.returncode == EXIT_BROKEN and ran.stdout.splitlines() == wanted
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] a git that prints the trailer placeholders as text is named, exit 1")
+    t.judge(ok, "a git that prints the trailer placeholders as text is named, exit 1")
+
+
+def run_quoted_placeholder(t: Tally) -> None:
+    """A receipt that merely quotes the placeholder is read as ever."""
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         git(root, "init", "-q")
         commit(root, "before the record")
         sample_kit(root)
         pinned = commit(root, "the record lands")
-        commit(root, right.format(at=pinned[:12]) + "Carry-Audit: the %(trailers placeholder, quoted\n")
+        commit(root, RIGHT.format(at=pinned[:12]) + "Carry-Audit: the %(trailers placeholder, quoted\n")
         try:
             findings, _, _, _ = check_kit(root)
             ok = any("cannot be read" in finding.headline for finding in findings)
         except CouldNotRun:
             ok = False
-    failed += 0 if ok else 1
-    print(f"[{'ok' if ok else 'FAIL'}] a receipt that quotes the placeholder is read, not a git too old")
+    t.judge(ok, "a receipt that quotes the placeholder is read, not a git too old")
 
-    newer = f"dec-{THRESHOLD + 2:04d}-newer"
+
+def add_record(root: Path) -> None:
+    """The change of a case: a record is added and a policy changes."""
+    (root / DEFAULT_LAYOUT.folder / f"{NEWER}.md").write_text(
+        GOOD_RECORD.replace(SAMPLE, NEWER), encoding="utf-8"
+    )
+    (root / "docs/policies/p.md").write_text(POLICY, encoding="utf-8")
+
+
+def edit_record(root: Path) -> None:
+    """The change of a case: the sample record is edited."""
+    (root / DEFAULT_LAYOUT.folder / f"{SAMPLE}.md").write_text(GOOD_RECORD + "\n", encoding="utf-8")
+
+
+def rename_record(root: Path) -> None:
+    """The change of a case: the sample record is renamed."""
+    folder = root / DEFAULT_LAYOUT.folder
+    (folder / f"{SAMPLE}.md").rename(folder / f"dec-{THRESHOLD + 3:04d}-moved.md")
+    git(root, "add", "-A")  # staged, so that git sees a rename: without --no-renames the case is red
+
+
+def cite_in(text: str) -> Callable[[Path], None]:
+    """The change of a case: the module's document becomes this text."""
+
+    def write(root: Path) -> None:
+        (root / "modules/m/MODULE.md").write_text(text, encoding="utf-8")
+
+    return write
+
+
+def scope_cases() -> dict[
+    str, tuple[Callable[[Path], None], str | None, dict[str, str], dict[str, list[str]]]
+]:
+    """Each change and what its closing audit must read: the change, the module, full, regression."""
     moved = f"dec-{THRESHOLD + 3:04d}-moved"
-    policy = "---\nid: p\ntype: current-state\nstatus: active\n---\nmore\n"
-    cites = f"1. [x](../../{folder}/{SAMPLE}.md)\n"
-    module_doc = f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}'
-    renumbered_doc = f'<a id="t3"></a>\n## 4. Rows\n\n<a id="t4"></a>\n## 5. Decisions\n\n{cites}'
+    other = f"dec-{THRESHOLD + 4:04d}-other"
+    cites_other = f"1. [y](../../{DEFAULT_LAYOUT.folder}/{other}.md)\n"
+    module_doc = f'<a id="t4"></a>\n## 4. Decisions\n\n{CITES}'
+    renumbered_doc = f'<a id="t3"></a>\n## 4. Rows\n\n<a id="t4"></a>\n## 5. Decisions\n\n{CITES}'
     stray_doc = (
         f'<a id="t3"></a>\n## 3. Rows\n\n## 4. Notes\n\nnothing is cited here\n\n<a id="t4"></a>\n'
-        f"## 5. Decisions\n\n{cites}"
+        f"## 5. Decisions\n\n{CITES}"
     )
-    other = f"dec-{THRESHOLD + 4:04d}-other"
-    cites_other = f"1. [y](../../{folder}/{other}.md)\n"
-    ends_doc = f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t5"></a>\n## 5. Next\n\n{cites_other}'
+    ends_doc = f'<a id="t4"></a>\n## 4. Decisions\n\n{CITES}\n<a id="t5"></a>\n## 5. Next\n\n{cites_other}'
     sub_heading_doc = (  # the section ends at the next anchor, not at the next "## " heading
-        f'<a id="t4"></a>\n## 4. Decisions\n\nthe records:\n\n## Some sub-heading\n\n{cites}\n'
+        f'<a id="t4"></a>\n## 4. Decisions\n\nthe records:\n\n## Some sub-heading\n\n{CITES}\n'
         f'<a id="t5"></a>\n## 5. Next\n\n{cites_other}'
     )
-
-    def add_record(root: Path) -> None:
-        (root / folder / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
-        (root / "docs/policies/p.md").write_text(policy, encoding="utf-8")
-
-    def edit_record(root: Path) -> None:
-        (root / folder / f"{SAMPLE}.md").write_text(GOOD_RECORD + "\n", encoding="utf-8")
-
-    def rename_record(root: Path) -> None:
-        (root / folder / f"{SAMPLE}.md").rename(root / folder / f"{moved}.md")
-        git(root, "add", "-A")  # staged, so that git sees a rename: without --no-renames the case is red
-
-    def cite_in(text: str) -> Callable[[Path], None]:
-        def write(root: Path) -> None:
-            (root / "modules/m/MODULE.md").write_text(text, encoding="utf-8")
-
-        return write
-
-    # name -> (the change, the module, full wanted, regression wanted)
-    scopes: dict[str, tuple[Callable[[Path], None], str | None, dict[str, str], dict[str, list[str]]]] = {
+    return {
         "an added record in full, a record citing a touched file for regression": (
             add_record,
             None,
-            {newer: "added"},
+            {NEWER: "added"},
             {SAMPLE: ["docs/policies/p.md"]},
         ),
         "an edited record in full": (edit_record, None, {SAMPLE: "edited"}, {}),
@@ -1364,7 +1460,11 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             {},
         ),
     }
-    for name, (change, module, full_wanted, regression_wanted) in scopes.items():
+
+
+def run_scopes(t: Tally) -> None:
+    """The records a closing audit must read, in full and for regression, for each change."""
+    for name, (change, module, full_wanted, regression_wanted) in scope_cases().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             git(root, "init", "-q")
@@ -1372,28 +1472,31 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             base = commit(root, "the base: one record, which cites the policy")
             change(root)
             ok = compute_scope(root, base, module) == (full_wanted, regression_wanted)
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] the scope: {name}")
+        t.judge(ok, f"the scope: {name}")
+
+
+def run_unscopable(t: Tally) -> None:
+    """A module document the scope cannot be read from is a failure to run, with the fix."""
     unscopable = {  # the module document, and what its scope cannot be read from
         "with no decisions section": ('<a id="t3"></a>\n## 3. Rows\n', "has no anchor"),
         "whose decisions anchor has text on its line": (
-            f'<a id="t3"></a>\n## 3. Rows\n\n## 4. Decisions <a id="t4"></a>\n\n{cites}',
+            f'<a id="t3"></a>\n## 3. Rows\n\n## 4. Decisions <a id="t4"></a>\n\n{CITES}',
             "has no anchor",
         ),
         "whose decisions anchor stands twice": (
-            f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t4"></a>\n',
+            f'<a id="t4"></a>\n## 4. Decisions\n\n{CITES}\n<a id="t4"></a>\n',
             "holds the anchor",
         ),
         "whose rows anchor stands twice, above the decisions": (
-            f'<a id="t3"></a>\n## 3. Rows\n\n<a id="t3"></a>\n\n<a id="t4"></a>\n## 4. Decisions\n\n{cites}',
+            f'<a id="t3"></a>\n## 3. Rows\n\n<a id="t3"></a>\n\n<a id="t4"></a>\n## 4. Decisions\n\n{CITES}',
             "holds the anchor",
         ),
         "whose decisions section's end anchor is gone, a later one standing": (
-            f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t6"></a>\n## 6\n',
+            f'<a id="t4"></a>\n## 4. Decisions\n\n{CITES}\n<a id="t6"></a>\n## 6\n',
             'has no anchor <a id="t5"></a> after <a id="t4"></a>',
         ),
         "whose acceptance anchor stands twice, below the decisions": (
-            f'<a id="t4"></a>\n## 4. Decisions\n\n{cites}\n<a id="t9"></a>\n\n<a id="t9"></a>\n',
+            f'<a id="t4"></a>\n## 4. Decisions\n\n{CITES}\n<a id="t9"></a>\n\n<a id="t9"></a>\n',
             "holds the anchor",
         ),
     }
@@ -1409,43 +1512,39 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 ok = False
             except CouldNotRun as bad:
                 ok = said in str(bad) and "modules/m/MODULE.md" in str(bad) and "— fix:" in str(bad)
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] the scope: a module document {name} cannot be scoped")
+        t.judge(ok, f"the scope: a module document {name} cannot be scoped")
 
-    # the records' folder and number width are the dials file's, read and never assumed
-    extra = 0
 
-    def judge(ok: bool, text: str) -> None:
-        nonlocal failed, extra
-        extra += 1
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {text}")
+def run_on_dials(dials: str | None) -> tuple[str, int]:
+    """What the check says when the sample kit's dials file is this text (None: no file), empty when it
+    runs, and how many records it examined."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root)
+        if dials is None:
+            (root / DIALS).unlink()
+        else:
+            (root / DIALS).write_text(dials, encoding="utf-8")
+        try:
+            return "", check_kit(root)[2]
+        except CouldNotRun as bad:
+            return str(bad), 0
 
-    def run_on_dials(dials: str | None) -> tuple[str, int]:
-        """What the check says when the sample kit's dials file is this text (None: no file), empty when it
-        runs, and how many records it examined."""
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            git(root, "init", "-q")
-            sample_kit(root)
-            if dials is None:
-                (root / DIALS).unlink()
-            else:
-                (root / DIALS).write_text(dials, encoding="utf-8")
-            try:
-                return "", check_kit(root)[2]
-            except CouldNotRun as bad:
-                return str(bad), 0
 
-    def examined(layout: Layout, damage: Callable[[str], str] = lambda text: text) -> tuple[int, int]:
-        """The findings and the records of the check over a sample kit of this layout, its record damaged."""
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            git(root, "init", "-q")
-            sample_kit(root, damage(GOOD_RECORD.replace(SAMPLE, layout.sample)), layout)
-            findings, _, records, _ = check_kit(root)
-        return len(findings), records
+def examined(layout: Layout, damage: Callable[[str], str] = lambda text: text) -> tuple[int, int]:
+    """The findings and the records of the check over a sample kit of this layout, its record damaged."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root, damage(GOOD_RECORD.replace(SAMPLE, layout.sample)), layout)
+        findings, _, records, _ = check_kit(root)
+    return len(findings), records
 
+
+def refused_dials() -> dict[str, tuple[str | None, tuple[str, ...]]]:
+    """Each dials text the check refuses to run on, with the fragments its failure must hold."""
+    folder = DEFAULT_LAYOUT.folder
     in_folder = f'["{folder}/**"]'
     refused: dict[str, tuple[str | None, tuple[str, ...]]] = {
         "no dials file": (None, (f"{DIALS} cannot be read", "restore the dials file")),
@@ -1510,11 +1609,21 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         dials_file("1", in_folder),
         ("width 1", f"a record at {THRESHOLD}", "set width to at least 2"),
     )
-    for name, (dials, fragments) in refused.items():
+    return refused
+
+
+def run_refused_dials(t: Tally) -> None:
+    """A dials file, an entry or a folder that is off cannot be checked, never a silent green."""
+    for name, (dials, fragments) in refused_dials().items():
         said = run_on_dials(dials)[0]
         ok = bool(said) and all(fragment in said for fragment in fragments) and "— fix:" in said
-        judge(ok, f"{name} cannot be checked, never a silent green")
+        t.judge(ok, f"{name} cannot be checked, never a silent green")
 
+
+def run_dials_reads(t: Tally) -> None:
+    """The dials file's text read as it is: not UTF-8, every width, no width, a territory by alias."""
+    folder = DEFAULT_LAYOUT.folder
+    in_folder = f'["{folder}/**"]'
     with tempfile.TemporaryDirectory() as tmp:  # a dials file that is no UTF-8 text: a teaching line
         root = Path(tmp).resolve()
         git(root, "init", "-q")
@@ -1525,7 +1634,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             said = ""
         except CouldNotRun as bad:
             said = str(bad)
-    judge(
+    t.judge(
         f"{DIALS} cannot be read" in said and "utf-8" in said and "— fix:" in said,
         "a dials file that is not UTF-8 text cannot be checked, never a traceback",
     )
@@ -1542,7 +1651,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 continue
         digits = "1" * width
         widths_ok = widths_ok and bool(stem.match(f"dec-{digits}-x")) and not stem.match(f"dec-{digits}1-x")
-    judge(
+    t.judge(
         widths_ok,
         f"every catalog width from {len(str(THRESHOLD))} to {MAX_WIDTH} is accepted, "
         "and numbers by exactly that many digits",
@@ -1551,47 +1660,54 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         'anchors:\n  territory: &decisions\n    - "/docs/decisions/**"\n'
         f"{NAMESPACE}:\n  catalogs:\n    - prefix: dec\n      territory: *decisions\n"
     )
-    judge(
+    t.judge(
         run_on_dials(dials_file(None, in_folder)) == ("", 1),
         "a catalog with no width numbers by four digits: the record is found",
     )
-    judge(
+    t.judge(
         run_on_dials(alias) == ("", 1),
         "a territory by alias, with a leading slash, is read: the record is found",
     )
 
-    width5, moved_to, both = Layout(width=5), Layout("docs/records"), Layout("docs/records", 5)
+
+def run_layouts(t: Tally) -> None:
+    """A record of another width or folder is found: green whole, red with its carry list cut."""
 
     def cut(text: str) -> str:
         return text[: text.index("## Carry list")]
 
     for name, layout in (
-        ("a catalog of width 5", width5),
-        ("a catalog in docs/records", moved_to),
+        ("a catalog of width 5", WIDTH5),
+        ("a catalog in docs/records", MOVED_TO),
     ):
-        judge(
+        t.judge(
             examined(layout) == (0, 1) and examined(layout, cut) == (1, 1),
             f"{name} is read: its record is found, green whole and red with its carry list cut",
         )
 
-    def stray_said(strays: tuple[str, ...], scoped: bool) -> str:
-        """What the check or the scope says when these files stand in the sample kit's records' folder."""
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            git(root, "init", "-q")
-            sample_kit(root)
-            base = commit(root, "the base")
-            for stray in strays:
-                (root / folder / stray).write_text("text\n", encoding="utf-8")
-            try:
-                if scoped:
-                    compute_scope(root, base, None)
-                else:
-                    check_kit(root)
-            except CouldNotRun as bad:
-                return str(bad)
-        return ""
 
+def stray_said(strays: tuple[str, ...], scoped: bool) -> str:
+    """What the check or the scope says when these files stand in the sample kit's records' folder."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        git(root, "init", "-q")
+        sample_kit(root)
+        base = commit(root, "the base")
+        for stray in strays:
+            (root / DEFAULT_LAYOUT.folder / stray).write_text("text\n", encoding="utf-8")
+        try:
+            if scoped:
+                compute_scope(root, base, None)
+            else:
+                check_kit(root)
+        except CouldNotRun as bad:
+            return str(bad)
+    return ""
+
+
+def run_strays(t: Tally) -> None:
+    """A file the width cannot number is a failure to run, naming the first of them in sorted order."""
+    folder = DEFAULT_LAYOUT.folder
     arabic = "dec-٠٠٣١-sample.md"  # 0031 in Arabic-Indic digits
     # the strays, and the first of them in sorted order, the one the failure names; the folder is listed
     # in reverse order for these cases (listed_in_reverse), so that the sorted first is listed last, on
@@ -1613,33 +1729,36 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             with listed_in_reverse():
                 said = stray_said(strays, scoped)
             others = [stray for stray in strays if stray != first]
-            judge(
+            t.judge(
                 f"{folder}/{first} " in said and not any(f"{folder}/{other} " in said for other in others),
                 ("the scope: " if scoped else "") + name.format(verb),
             )
 
+
+def run_both_scope(t: Tally) -> None:
+    """The scope of a catalog in docs/records of width 5, and of an edited record in each layout."""
     newest = f"dec-{THRESHOLD + 2:05d}-newer"
-    rows = f'<a id="t4"></a>\n## 4. Decisions\n\n1. [x](../../{both.folder}/{both.sample}.md)\n'
+    rows = f'<a id="t4"></a>\n## 4. Decisions\n\n1. [x](../../{BOTH.folder}/{BOTH.sample}.md)\n'
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         git(root, "init", "-q")
-        sample_kit(root, GOOD_RECORD.replace(SAMPLE, both.sample), both)
+        sample_kit(root, GOOD_RECORD.replace(SAMPLE, BOTH.sample), BOTH)
         base = commit(root, "the base")
-        (root / both.folder / f"{newest}.md").write_text(
+        (root / BOTH.folder / f"{newest}.md").write_text(
             GOOD_RECORD.replace(SAMPLE, newest), encoding="utf-8"
         )
-        (root / "docs/policies/p.md").write_text(policy, encoding="utf-8")
+        (root / "docs/policies/p.md").write_text(POLICY, encoding="utf-8")
         added = compute_scope(root, base, None)
         (root / "modules/m/MODULE.md").write_text(rows, encoding="utf-8")
         cited = compute_scope(root, base, "m")
-    judge(
-        added == ({newest: "added"}, {both.sample: ["docs/policies/p.md"]})
-        and cited == ({newest: "added", both.sample: "cited"}, {}),
+    t.judge(
+        added == ({newest: "added"}, {BOTH.sample: ["docs/policies/p.md"]})
+        and cited == ({newest: "added", BOTH.sample: "cited"}, {}),
         "the scope of a catalog in docs/records of width 5: a record added and a record cited, found there",
     )
     # a record the change edits is read in full; that another record, unedited, links to its file is no
     # reason to read that one for regression: the records' own folder is not among the files that count
-    for layout in (DEFAULT_LAYOUT, moved_to):
+    for layout in (DEFAULT_LAYOUT, MOVED_TO):
         other_record = f"dec-{THRESHOLD + 5:04d}-links"
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1652,12 +1771,16 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             base = commit(root, "the base: two records, the second linking the first")
             path.write_text(GOOD_RECORD.replace(SAMPLE, layout.sample) + "\n", encoding="utf-8")
             edited_scope = compute_scope(root, base, None)
-        judge(
+        t.judge(
             edited_scope == ({layout.sample: "edited"}, {}),
             f"the scope in {layout.folder}: an edited record is in full, and a record linking its file "
             "is not read for regression",
         )
-    accept = f"yes\n\nAccepted: {both.sample}\n"
+
+
+def run_both_receipts(t: Tally) -> None:
+    """An audit and a pending link in a catalog of docs/records of width 5."""
+    accept = f"yes\n\nAccepted: {BOTH.sample}\n"
     for name, at, red in (
         ("an audit at the record's commit", "{pinned}", False),
         ("an audit pinned before the record existed", "{before}", True),
@@ -1666,33 +1789,34 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             root = Path(tmp).resolve()
             git(root, "init", "-q")
             before = commit(root, "before the record")
-            sample_kit(root, GOOD_RECORD.replace(SAMPLE, both.sample), both)
+            sample_kit(root, GOOD_RECORD.replace(SAMPLE, BOTH.sample), BOTH)
             pinned = commit(root, "the record lands")
             at = at.format(pinned=pinned[:12], before=before[:12])
             commit(root, accept + f"Carry-Audit: at {at}; 3 records; 0 findings, 0 fixed, 0 justified\n")
             findings, notes, _, _ = check_kit(root)
-        judge(
+        t.judge(
             bool(findings) == red and not notes,
             f"in a catalog of docs/records, width 5: {name} is {'red' if red else 'green'}",
         )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        pending = GOOD_RECORD.replace(SAMPLE, both.sample).replace("(../plan.md)", f"({both.sample}.md)")
-        found, _ = lists(root, sample_kit(root, pending, both))
-    judge(
+        pending = GOOD_RECORD.replace(SAMPLE, BOTH.sample).replace("(../plan.md)", f"({BOTH.sample}.md)")
+        found, _ = lists(root, sample_kit(root, pending, BOTH))
+    t.judge(
         len(found) == 1 and "pending nowhere" in found[0].headline,
         "in a catalog of docs/records, pending intent in another record is red: the folder is the dials'",
     )
 
-    right_receipt = (
-        "yes\n\nAccepted: {id}\nCarry-Audit: at {at}; 3 records; 0 findings, 0 fixed, 0 justified\n"
-    )
+
+def run_moved_folder(t: Tally) -> None:
+    """A folder moved since the audit leaves the old receipt true; an audit commit's files are read once."""
+    folder = DEFAULT_LAYOUT.folder
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         git(root, "init", "-q")
         sample_kit(root)
         pinned = commit(root, "the record lands")
-        commit(root, right_receipt.format(id=SAMPLE, at=pinned[:12]))
+        commit(root, RIGHT_FOR.format(id=SAMPLE, at=pinned[:12]))
         (root / folder).rename(root / "docs/records")
         (root / DIALS).write_text(Layout("docs/records").dials(), encoding="utf-8")
         commit(root, "the records move")
@@ -1701,20 +1825,26 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         files_at(root, listings, pinned)
         listings[pinned] = {"cached.md"}
         cached = files_at(root, listings, pinned) == {"cached.md"}
-    judge(
+    t.judge(
         moved_after[0] == [] and moved_after[1] == [] and moved_after[2] == 1,
         "the folder moved since the audit: the record is found at the audit commit wherever it stood, green",
     )
-    judge(cached, "the files of an audit commit are read once per commit")
-    # two records whose receipts name the same audit commit: its listing is asked of git once
+    t.judge(cached, "the files of an audit commit are read once per commit")
+
+
+def run_shared_listing(t: Tally) -> None:
+    """Two records whose receipts name the same audit commit: its listing is asked of git once."""
+    real = shutil.which("git")
     with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as tools:
         root = Path(tmp).resolve()
         git(root, "init", "-q")
         sample_kit(root)
-        (root / folder / f"{newer}.md").write_text(GOOD_RECORD.replace(SAMPLE, newer), encoding="utf-8")
+        (root / DEFAULT_LAYOUT.folder / f"{NEWER}.md").write_text(
+            GOOD_RECORD.replace(SAMPLE, NEWER), encoding="utf-8"
+        )
         pinned = commit(root, "the records land")
-        for accepted_id in (SAMPLE, newer):
-            commit(root, right_receipt.format(id=accepted_id, at=pinned[:12]))
+        for accepted_id in (SAMPLE, NEWER):
+            commit(root, RIGHT_FOR.format(id=accepted_id, at=pinned[:12]))
         git_calls = fake_logging_git(Path(tools).resolve(), real or "git")
         search = os.environ["PATH"]
         os.environ["PATH"] = f"{Path(tools).resolve()}{os.pathsep}{search}"
@@ -1725,10 +1855,15 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         listings_read = [
             line for line in git_calls.read_text(encoding="utf-8").splitlines() if " ls-tree " in line
         ]
-    judge(
+    t.judge(
         shared[0] == [] and shared[1] == [] and shared[2] == 2 and len(listings_read) == 1,
         "two records with receipts at the same audit commit: the listing of that commit is read once",
     )
+
+
+def run_renamed(t: Tally) -> None:
+    """A record that stood under another id at the audit commit did not exist yet there."""
+    folder = DEFAULT_LAYOUT.folder
     renamed = f"dec-{THRESHOLD + 4:04d}-renamed"
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
@@ -1736,35 +1871,37 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         sample_kit(root)
         pinned = commit(root, "the record lands")
         (root / folder / f"{SAMPLE}.md").rename(root / folder / f"{renamed}.md")
-        commit(root, right_receipt.format(id=renamed, at=pinned[:12]))
+        commit(root, RIGHT_FOR.format(id=renamed, at=pinned[:12]))
         findings, _, _, _ = check_kit(root)
-    judge(
+    t.judge(
         len(findings) == 1 and "did not exist yet" in findings[0].headline,
         "a record that stood under another id at the audit commit did not exist yet there: red",
     )
 
-    # a home's envelope is read by the shared reader (limit 8 of shared/GATE.md section 4): a line ends at
-    # \n, \r\n or a lone \r, a closing line is --- with its trailing whitespace ignored, and byte-order
-    # marks before the opening line are no part of it
-    BOM = chr(0xFEFF)  # a byte-order mark, built so that no source line holds the invisible character
+
+def run_envelope_forms(t: Tally) -> None:
+    """A home's envelope is read by the shared reader (limit 8 of shared/GATE.md section 4): a line ends
+    at \\n, \\r\\n or a lone \\r, a closing line is --- with its trailing whitespace ignored, and
+    byte-order marks before the opening line are no part of it."""
+    bom = chr(0xFEFF)  # a byte-order mark, built so that no source line holds the invisible character
     forms = {  # name -> (line ending, closing line, byte-order mark) of every home of the sample kit
         "written with CRLF line ends": ("\r\n", "---", ""),
         "written with lone CR line ends": ("\r", "---", ""),
         "closed by --- and a trailing space": ("\n", "--- ", ""),
         "closed by --- and a trailing tab": ("\n", "---\t", ""),
-        "opened after a byte-order mark": ("\n", "---", BOM),
+        "opened after a byte-order mark": ("\n", "---", bom),
         "written with CRLF and closed by --- and a space": ("\r\n", "--- ", ""),
     }
-    for name, (line_end, closer, bom) in forms.items():
+    for name, (line_end, closer, mark) in forms.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            record = sample_kit(root, line_end=line_end, closer=closer, bom=bom)
+            record = sample_kit(root, line_end=line_end, closer=closer, bom=mark)
             green = not lists(root, record)[0]
-            record.write_text(GOOD_RECORD.replace(home, "../policies/old.md"), encoding="utf-8")
+            record.write_text(GOOD_RECORD.replace(HOME, "../policies/old.md"), encoding="utf-8")
             not_in_force = [f.headline.split(" — ")[-1] for f in lists(root, record)[0]]
-            record.write_text(GOOD_RECORD.replace(home, "../research/r.md"), encoding="utf-8")
+            record.write_text(GOOD_RECORD.replace(HOME, "../research/r.md"), encoding="utf-8")
             not_binding = [f.headline.split(" — ")[-1] for f in lists(root, record)[0]]
-        judge(
+        t.judge(
             green
             and not_in_force
             == ["docs/policies/old.md is not `active`, and a document that is not in force binds nothing"]
@@ -1775,13 +1912,18 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             ],
             f"homes {name}: the current-state one is a home, the others are refused for what they are",
         )
+
+
+def run_envelope_reads(t: Tally) -> None:
+    """The envelope split_frontmatter reads from each text, and a record written with CRLF."""
+    bom = chr(0xFEFF)
     gone = {  # a text -> (its envelope, its body) as split_frontmatter reads it, typed by hand
         "---\nid: x\n---\nbody\n": ({"id": "x"}, "body\n"),
         "---\r\nid: x\r\n---\r\nbody\r\n": ({"id": "x"}, "body\r\n"),
         "---\rid: x\r---\rbody\r": ({"id": "x"}, "body\r"),
         "---\nid: x\n--- \nbody\n": ({"id": "x"}, "body\n"),
         "---\nid: x\n---\t\nbody\n": ({"id": "x"}, "body\n"),
-        BOM + "---\nid: x\n---\nbody\n": ({"id": "x"}, "body\n"),
+        bom + "---\nid: x\n---\nbody\n": ({"id": "x"}, "body\n"),
         "---\nid: x\n---": ({"id": "x"}, ""),
         "---\nid: [\n---\nbody\n": ({}, "body\n"),
         "---\n- a\n---\nbody\n": ({}, "body\n"),
@@ -1790,7 +1932,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         "": ({}, ""),
     }
     for source, read in gone.items():
-        judge(split_frontmatter(source) == read, f"an envelope read from {source!r} is {read!r}")
+        t.judge(split_frontmatter(source) == read, f"an envelope read from {source!r} is {read!r}")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         crlf_record = sample_kit(root, GOOD_RECORD.replace("\n", "\r\n"))
@@ -1801,26 +1943,40 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             newline="",
         )
         crlf_found = [f.headline for f in lists(root, crlf_record)[0]]
-    judge(
+    t.judge(
         crlf_green and len(crlf_found) == 1 and "ruling R2 has no anchor" in crlf_found[0],
         "a record written with CRLF: its list is read and its missing anchor is found, as on LF",
     )
 
-    total = (
-        len(wrong_lists)
-        + len(older_cases)
-        + len(readme_texts)
-        + 1
-        + len(right_homes)
-        + len(receipts)
-        + len(scopes)
-        + len(unscopable)
-        + len(orders)
-        + 3
-        + extra
-    )
-    print(f"{total - failed}/{total} cases green")
-    return EXIT_GREEN if failed == 0 else EXIT_RED
+
+def self_test() -> int:
+    t = Tally()
+    wrong_lists = wrong_list_damages()
+    run_wrong_lists(t, wrong_lists)
+    run_older_records(t)
+    run_readme_homes(t, wrong_lists)
+    run_closed_pending(t)
+    run_right_homes(t)
+    run_orders(t)
+    run_receipts(t)
+    run_signed_merge(t)
+    run_old_git(t)
+    run_quoted_placeholder(t)
+    run_scopes(t)
+    run_unscopable(t)
+    run_refused_dials(t)
+    run_dials_reads(t)
+    run_layouts(t)
+    run_strays(t)
+    run_both_scope(t)
+    run_both_receipts(t)
+    run_moved_folder(t)
+    run_shared_listing(t)
+    run_renamed(t)
+    run_envelope_forms(t)
+    run_envelope_reads(t)
+    print(f"{t.total - t.failed}/{t.total} cases green")
+    return EXIT_GREEN if t.failed == 0 else EXIT_RED
 
 
 def main(argv: list[str]) -> int:
