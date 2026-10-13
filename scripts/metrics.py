@@ -6,7 +6,7 @@ by a person, who decides what they mean; no number here is a threshold, and none
 kit's CI runs it in the job `gates`, after that job's verdict, on every pull request and on main, where
 its failure never changes the verdict (decision dec-0087-module-metrics-report). Test coverage and
 mutation score are no metric of this report: each takes minutes per module, too slow for a step that runs
-on every change; they wait for a scheduled workflow of their own.
+on every change.
 
 Per module folder (the kit's one listing, `module_folders` of scripts/kit_module_doc.py), one row of
 these keys, the JSON keys as written:
@@ -51,7 +51,8 @@ Notes on stderr: a SessionStart command that exits other than 0 or times out (it
 none when it timed out), and a shallow clone, whose churn is short.
 Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BROKEN line that says what
         failed, why and the fix, when they cannot: the module folders, a module document whose section
-        is missing or out of order, a module document or a skill that cannot be read, PyYAML not
+        is missing or out of order, a module document, a skill, hooks/hooks.json or a tracked
+        file that cannot be read, PyYAML not
         installed, hooks/hooks.json or a skill's front matter that does not parse, a
         tracked Python file that does not parse, git that does not answer, the arguments misused, or the
         JSON file that cannot be written.

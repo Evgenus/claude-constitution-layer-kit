@@ -106,7 +106,7 @@ jobs:
       # verdict above, whatever it was, save on a cancelled run, whose newer push or stop wants no report
       # (always() would run them there too); continue-on-error keeps a failure of theirs from turning the
       # job red, and the verdict step's own red stands, since it carries no such flag; each step's timeout
-      # ends a hang long before the job's own limit, whose cancellation would end the job unfinished.
+      # bounds a hang at 5 minutes, where the job's own limit is 360.
       - uses: actions/checkout@v7
         if: ${{ !cancelled() }}
         continue-on-error: true
