@@ -4,7 +4,9 @@
 # written here. Every job runs on every run, none skipped for the paths a change touched: the scans
 # read the whole tree or the change's whole range, and the shared gate code sits in every module.
 # The job "gates" waits for all of them and is the one check the ruleset requires, so a new module or
-# entry never changes the ruleset.
+# entry never changes the ruleset; after its verdict it runs the module metrics and the list of the most
+# complex functions, reports whose JSON it uploads as the artifact `metrics`, and whose failure never
+# changes that verdict.
 name: gates
 
 on:
@@ -101,3 +103,44 @@ jobs:
         run: |
           echo "list: $LIST, checks: $CHECKS"
           test "$LIST" = success && test "$CHECKS" = success
+      # The module metrics, a report and never a check (scripts/metrics.py): the steps below run after the
+      # verdict above, whatever it was, save on a cancelled run, whose newer push or stop wants no report
+      # (always() would run them there too); continue-on-error keeps a failure of theirs from turning the
+      # job red, and the verdict step's own red stands, since it carries no such flag; each step's timeout
+      # bounds a hang at 5 minutes, where the job's own limit is 360 minutes.
+      - uses: actions/checkout@v7
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          fetch-depth: 0 # churn_90d reads the last 90 days of history
+      - uses: actions/setup-python@v7
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          python-version: "3.12"
+      - name: Module metrics, a report
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          python3 -m pip install --quiet "PyYAML==6.0.2"
+          # each report's output, a BROKEN line with its fix included, reaches the log and the summary
+          # before the step exits with a failing run's code, the later one's when both fail
+          status=0
+          python3 scripts/metrics.py --json metrics.json > metrics.txt || status=$?
+          python3 scripts/metrics.py --complexity --json complexity.json > complexity.txt || status=$?
+          cat metrics.txt complexity.txt
+          { echo '```'; cat metrics.txt; echo; cat complexity.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          name: metrics
+          path: |
+            metrics.json
+            complexity.json
+          if-no-files-found: warn
