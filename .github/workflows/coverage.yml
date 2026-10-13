@@ -1,0 +1,68 @@
+# Kit tooling, never shipped in a module: the fixture coverage of each module, a report and never a check.
+# It runs scripts/module-coverage.py — each module's fixtures under coverage.py, the gates they start as
+# child processes measured too — once a week on main, on request from the Actions page or
+# `gh workflow run coverage.yml`, and on a pull request that changes the report or this file, the one run
+# that proves a change to them. It is no job of the workflow gates, so the ruleset never requires it and
+# no verdict waits for it; it uploads the JSON as the artifact `coverage` (decision
+# dec-0089-module-coverage-report).
+name: coverage
+
+on:
+  schedule:
+    - cron: "17 4 * * 1" # Mondays 04:17 UTC, off the hour, when GitHub's scheduler is busiest
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/module-coverage.py
+      - .github/workflows/coverage.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  # a pull request's newer push replaces its older run; a scheduled or requested run is never cut short
+  group: coverage-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the fixtures run as the job gates runs them, on the whole history
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Python tools
+        # the fixtures' libraries at the pins of gates.yml, and coverage.py, the report's one tool of its own
+        run: python3 -m pip install --quiet "PyYAML==6.0.2" "jsonschema==4.26.0" "referencing==0.37.0" "coverage==7.16.2"
+      - name: Vale and lychee
+        # the fixtures of const-language and const-referencing run them, at the versions of gates.yml
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz \
+            | tar -xz -C "$HOME/.local/bin" vale
+          curl -fsSL https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz \
+            | tar -xz -C "$HOME/.local/bin" --strip-components=1 lychee-x86_64-unknown-linux-gnu/lychee
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Git identity for the fixtures' throwaway repositories
+        run: |
+          git config --global user.name "coverage"
+          git config --global user.email "coverage@example.invalid"
+      - name: Module coverage, a report
+        run: |
+          # the table, a BROKEN line with its fix included, and the notes reach the log and the summary
+          # before the step exits with the report's code
+          status=0
+          python3 scripts/module-coverage.py --json coverage.json > coverage.txt 2> notes.txt || status=$?
+          cat coverage.txt notes.txt
+          { echo '```'; cat coverage.txt notes.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: coverage
+          path: coverage.json
+          if-no-files-found: warn
