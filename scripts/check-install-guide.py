@@ -282,6 +282,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import itertools
 import json
 import os
 import re
@@ -397,10 +398,27 @@ class Block:
     text: str
 
 
-def blocks_of(guide: str) -> tuple[list[Block], list[Finding]]:
-    """Every fenced block of the guide with its mark, and the findings the marks give."""
+def fence_block(lines: list[str], start: int, opened: re.Match[str]) -> tuple[Block, int]:
+    """The block whose fence `opened` at `lines[start]`, and the index of the line after its closing fence."""
+    indent, fence, info = opened.group(1), opened.group(2), opened.group(3).strip()
+    body: list[str] = []
+    end = start + 1
+    while end < len(lines):
+        closing = FENCE.match(lines[end])
+        if closing and closing.group(2)[0] == fence[0] and len(closing.group(2)) >= len(fence):
+            if not closing.group(3).strip():
+                break
+        body.append(lines[end][len(indent) :] if lines[end].startswith(indent) else lines[end].lstrip())
+        end += 1
+    words = info.split()
+    language = words[0] if words else ""
+    mark = MARK.search(" ".join(words[1:]))
+    return Block(start + 1, language, mark.group(1) if mark else "", "\n".join(body) + "\n"), end + 1
+
+
+def fenced_blocks(guide: str) -> list[Block]:
+    """Every fenced block of the guide with its mark, in the order they stand."""
     found: list[Block] = []
-    findings: list[Finding] = []
     lines = guide.splitlines()
     i = 0
     while i < len(lines):
@@ -408,82 +426,77 @@ def blocks_of(guide: str) -> tuple[list[Block], list[Finding]]:
         if not opened:
             i += 1
             continue
-        indent, fence, info = opened.group(1), opened.group(2), opened.group(3).strip()
-        body: list[str] = []
-        j = i + 1
-        while j < len(lines):
-            closing = FENCE.match(lines[j])
-            if closing and closing.group(2)[0] == fence[0] and len(closing.group(2)) >= len(fence):
-                if not closing.group(3).strip():
-                    break
-            body.append(lines[j][len(indent) :] if lines[j].startswith(indent) else lines[j].lstrip())
-            j += 1
-        words = info.split()
-        language = words[0] if words else ""
-        mark = MARK.search(" ".join(words[1:]))
-        found.append(Block(i + 1, language, mark.group(1) if mark else "", "\n".join(body) + "\n"))
-        i = j + 1
-    seen: dict[str, int] = {}
-    for block in found:
-        if block.language.startswith("check="):
-            findings.append(
-                Finding(
-                    block.line,
-                    f"the fence opens with {block.language} where its language should stand",
-                    f"write the language first, then the mark: "
-                    f"```{'yaml' if block.language == 'check=dials' else 'bash'} {block.language}",
-                )
-            )
-            continue
-        if block.language == "bash" and not block.name:
-            findings.append(
-                Finding(
-                    block.line,
-                    "a `bash` block names no check",
-                    f"write `check=<name>` after `bash` in its fence — one of {', '.join(NAMES)} — "
-                    "or `check=none` for a block the check does not run",
-                )
-            )
-            continue
-        if not block.name or block.name == "none":
-            continue
-        if block.name not in NAMES:
-            findings.append(
-                Finding(
-                    block.line,
-                    f"check={block.name} is no name the check knows",
-                    f"use one of {', '.join(NAMES)}, or `none`",
-                )
-            )
-            continue
-        wanted = "yaml" if block.name == "dials" else "bash"
-        if block.language != wanted:
-            findings.append(
-                Finding(
-                    block.line,
-                    f"check={block.name} stands on a `{block.language}` fence",
-                    f"name a `{wanted}` fence check={block.name}",
-                )
-            )
-            continue
-        if block.name in seen:
-            findings.append(
-                Finding(
-                    block.line,
-                    f"check={block.name} stands a second time, first at line {seen[block.name]}",
-                    "give each named block a name of its own: join the two blocks, or name one `none`",
-                )
-            )
-            continue
-        seen[block.name] = block.line
+        block, i = fence_block(lines, i, opened)
+        found.append(block)
+    return found
+
+
+def mark_finding(block: Block, seen: dict[str, int]) -> Finding | None:
+    """The finding the mark of one block gives, None for a right mark; a first named block is entered in
+    `seen` with its line."""
+    if block.language.startswith("check="):
+        return Finding(
+            block.line,
+            f"the fence opens with {block.language} where its language should stand",
+            f"write the language first, then the mark: "
+            f"```{'yaml' if block.language == 'check=dials' else 'bash'} {block.language}",
+        )
+    if block.language == "bash" and not block.name:
+        return Finding(
+            block.line,
+            "a `bash` block names no check",
+            f"write `check=<name>` after `bash` in its fence — one of {', '.join(NAMES)} — "
+            "or `check=none` for a block the check does not run",
+        )
+    if not block.name or block.name == "none":
+        return None
+    if block.name not in NAMES:
+        return Finding(
+            block.line,
+            f"check={block.name} is no name the check knows",
+            f"use one of {', '.join(NAMES)}, or `none`",
+        )
+    wanted = "yaml" if block.name == "dials" else "bash"
+    if block.language != wanted:
+        return Finding(
+            block.line,
+            f"check={block.name} stands on a `{block.language}` fence",
+            f"name a `{wanted}` fence check={block.name}",
+        )
+    if block.name in seen:
+        return Finding(
+            block.line,
+            f"check={block.name} stands a second time, first at line {seen[block.name]}",
+            "give each named block a name of its own: join the two blocks, or name one `none`",
+        )
+    seen[block.name] = block.line
+    return None
+
+
+def missing_findings(seen: dict[str, int], findings: list[Finding]) -> list[Finding]:
+    """The finding for each name that no block carries and no finding already speaks of."""
+    missing: list[Finding] = []
     for name in NAMES:
         said = (f"check={name} ", f"the fence opens with check={name} ")
         if name not in seen and not any(f.what.startswith(said) for f in findings):
-            findings.append(
+            missing.append(
                 Finding(
                     0, f"no block is named check={name}", f"name the block that {DOES[name]} check={name}"
                 )
             )
+    return missing
+
+
+def blocks_of(guide: str) -> tuple[list[Block], list[Finding]]:
+    """Every fenced block of the guide with its mark, and the findings the marks give."""
+    found = fenced_blocks(guide)
+    findings: list[Finding] = []
+    seen: dict[str, int] = {}
+    for block in found:
+        finding = mark_finding(block, seen)
+        if finding:
+            findings.append(finding)
+    findings += missing_findings(seen, findings)
     return [b for b in found if b.name in NAMES and seen.get(b.name) == b.line], findings
 
 
@@ -1213,87 +1226,122 @@ def run_guide(guide: str, kit: Path, base_env: dict[str, str]) -> tuple[list[Fin
     return found, examined, note
 
 
+def home_env(home: Path, base_env: dict[str, str]) -> dict[str, str]:
+    """The run's home folder made, with git's identity in its global configuration and the outer
+    credential settings carried, and the environment of the run: none of the four variables, the plugins
+    root being <config>/plugins."""
+    config = home / ".claude"
+    config.mkdir(parents=True)
+    (home / ".gitconfig").write_text(
+        "[user]\n\tname = install-guide\n\temail = install-guide@example.invalid\n"
+        "[init]\n\tdefaultBranch = main\n[commit]\n\tgpgsign = false\n",
+        encoding="utf-8",
+    )
+    carry_credentials(base_env, home / ".gitconfig")
+    return claude_env(base_env) | {
+        "HOME": str(home),
+        "CLAUDE_CONFIG_DIR": str(config),
+        "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
+        "DISABLE_AUTOUPDATER": "1",
+    }
+
+
+def cloned_kit(kit: Path, home: Path, env: dict[str, str]) -> Path:
+    """The kit cloned from its working folder's HEAD into the run's home, the clone's path."""
+    clone = home / CLONE
+    clone.parent.mkdir(parents=True)
+    head = subprocess.run(  # standard output alone, so no warning on stderr joins the commit
+        ["git", "rev-parse", "HEAD"], cwd=kit, env=env, capture_output=True, text=True, check=False
+    )
+    if head.returncode != 0:
+        raise Broken(
+            f"{kit} is no git clone ({last_line(head.stderr.strip())}) — "
+            "fix: run the check from a clone of the kit"
+        )
+    for argv, where in (
+        (["git", "clone", "--quiet", "--no-checkout", str(kit), str(clone)], home),
+        (["git", "checkout", "--quiet", "--detach", head.stdout.strip()], clone),
+    ):
+        code, said = run(argv, where, env)
+        if code != 0:
+            raise Broken(f"the kit could not be cloned ({last_line(said)}) — fix: check the clone")
+    return clone
+
+
+def prepared_run(scratch: Path, kit: Path, base_env: dict[str, str], source: str, note: Note) -> Run:
+    """The state of a run over a home folder and a clone of the kit made under `scratch`."""
+    home = scratch / "home"
+    env = home_env(home, base_env)
+    clone = cloned_kit(kit, home, env)
+    try:
+        marketplace = marketplace_name(clone)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+    return Run(home, clone, home / ".claude", env, modules_of(clone), home, source, marketplace, note)
+
+
+def dials_refusal(block: Block, state: Run, ran: int) -> tuple[list[Finding], str] | None:
+    """The dials example written into the project; None, or the finding and the count when no project exists
+    yet."""
+    if state.project is None:
+        finding = Finding(
+            block.line,
+            "the dials example comes before the project exists",
+            fix_for("dials", state.marketplace),
+        )
+        return [finding], f"{ran} block(s) run"
+    fixture(state.project, block.text)
+    return None
+
+
+def run_block(block: Block, state: Run, scratch: Path, source: str) -> tuple[int, str, Path]:
+    """One block sourced by a fresh `bash -eu` in the folder the block before it ended in: its exit, its
+    output and the file that holds the folder this one ended in."""
+    text = block.text
+    if block.name == "marketplace":
+        text = ADD.sub(lambda m: m.group(1) + source, text, count=1)
+    script = scratch / f"{block.name}.sh"
+    where = scratch / f"{block.name}.cwd"
+    body = scratch / f"{block.name}.block.sh"
+    body.write_text(text, encoding="utf-8")
+    script.write_text(f'. "{body}"\npwd > "{where}"\n', encoding="utf-8")
+    code, said = run(["bash", "-eu", str(script)], state.cwd, state.env)
+    return code, said, where
+
+
+def after_block(block: Block, state: Run, code: int, said: str) -> Finding | None:
+    """The finding a block that ran gives: its exit, else what its claim finds."""
+    if code != 0:
+        what = f"the block named check={block.name} exited {code} — {last_line(said)}"
+        return Finding(block.line, what, fix_for(block.name, state.marketplace))
+    try:
+        failed, fix = claim(state, block.name), fix_for(block.name, state.marketplace)
+    except Misfit as misfit:
+        failed, fix = misfit.what, misfit.fix
+    return Finding(block.line, f"after check={block.name}: {failed}", fix) if failed else None
+
+
 def run_blocks(
     named: list[Block], kit: Path, base_env: dict[str, str], source: str, note: Note
 ) -> tuple[list[Finding], str]:
     """The named blocks run in the guide's order in a home folder of their own, and what was examined."""
     with tempfile.TemporaryDirectory(prefix="install-guide-") as scratch:
-        home = Path(scratch) / "home"
-        config = home / ".claude"
-        config.mkdir(parents=True)
-        (home / ".gitconfig").write_text(
-            "[user]\n\tname = install-guide\n\temail = install-guide@example.invalid\n"
-            "[init]\n\tdefaultBranch = main\n[commit]\n\tgpgsign = false\n",
-            encoding="utf-8",
-        )
-        carry_credentials(base_env, home / ".gitconfig")
-        env = claude_env(base_env) | {  # none of the four: the plugins root is <config>/plugins
-            "HOME": str(home),
-            "CLAUDE_CONFIG_DIR": str(config),
-            "GIT_CONFIG_GLOBAL": str(home / ".gitconfig"),
-            "DISABLE_AUTOUPDATER": "1",
-        }
-        clone = home / CLONE
-        clone.parent.mkdir(parents=True)
-        head = subprocess.run(  # standard output alone, so no warning on stderr joins the commit
-            ["git", "rev-parse", "HEAD"], cwd=kit, env=env, capture_output=True, text=True, check=False
-        )
-        if head.returncode != 0:
-            raise Broken(
-                f"{kit} is no git clone ({last_line(head.stderr.strip())}) — "
-                "fix: run the check from a clone of the kit"
-            )
-        for argv, where in (
-            (["git", "clone", "--quiet", "--no-checkout", str(kit), str(clone)], home),
-            (["git", "checkout", "--quiet", "--detach", head.stdout.strip()], clone),
-        ):
-            code, said = run(argv, where, env)
-            if code != 0:
-                raise Broken(f"the kit could not be cloned ({last_line(said)}) — fix: check the clone")
-        try:
-            marketplace = marketplace_name(clone)
-        except DocumentError as bad:
-            raise Broken(str(bad)) from bad
-        state = Run(home, clone, config, env, modules_of(clone), home, source, marketplace, note)
+        state = prepared_run(Path(scratch), kit, base_env, source, note)
         ran = 0
         try:
             for block in named:
                 if block.name == "dials":
-                    if state.project is None:
-                        return [
-                            Finding(
-                                block.line,
-                                "the dials example comes before the project exists",
-                                fix_for("dials", state.marketplace),
-                            )
-                        ], f"{ran} block(s) run"
-                    fixture(state.project, block.text)
+                    refused = dials_refusal(block, state, ran)
+                    if refused:
+                        return refused
                     continue
-                text = block.text
-                if block.name == "marketplace":
-                    text = ADD.sub(lambda m: m.group(1) + source, text, count=1)
-                script = Path(scratch) / f"{block.name}.sh"
-                where = Path(scratch) / f"{block.name}.cwd"
-                body = Path(scratch) / f"{block.name}.block.sh"
-                body.write_text(text, encoding="utf-8")
-                script.write_text(f'. "{body}"\npwd > "{where}"\n', encoding="utf-8")
-                code, said = run(["bash", "-eu", str(script)], state.cwd, env)
+                code, said, where = run_block(block, state, Path(scratch), source)
                 ran += 1
                 if where.is_file():
                     state.cwd = Path(where.read_text(encoding="utf-8").strip())
-                if code != 0:
-                    what = f"the block named check={block.name} exited {code} — {last_line(said)}"
-                    return [
-                        Finding(block.line, what, fix_for(block.name, state.marketplace))
-                    ], f"{ran} block(s) run"
-                try:
-                    failed, fix = claim(state, block.name), fix_for(block.name, state.marketplace)
-                except Misfit as misfit:
-                    failed, fix = misfit.what, misfit.fix
-                if failed:
-                    return [
-                        Finding(block.line, f"after check={block.name}: {failed}", fix)
-                    ], f"{ran} block(s) run"
+                found = after_block(block, state, code, said)
+                if found:
+                    return [found], f"{ran} block(s) run"
         except Broken as bad:  # a failure of the loop or of a claim: the count is what ran before it
             bad.ran = ran
             raise
@@ -1714,6 +1762,11 @@ def listed_in_reverse() -> Iterator[None]:
         Path.iterdir = real  # type: ignore[method-assign]
 
 
+def without(entry: dict[str, object], *fields: str) -> dict[str, object]:
+    """The entry of a reply with `fields` left out."""
+    return {k: v for k, v in entry.items() if k not in fields}
+
+
 def whats(findings: list[Finding]) -> str:
     """What each finding says, joined, or "no finding"."""
     return " | ".join(f.what for f in findings) or "no finding"
@@ -1739,13 +1792,483 @@ def broken_said(kit: Path) -> str:
     return "no Broken"
 
 
+@dataclass(frozen=True)
+class Texts:
+    """The notes and lines the groups of cases type by hand and share, built once: a message function
+    cannot check itself, so none is taken from the check."""
+
+    pin_note: Note  # the state of a run on the pin: the note empty
+    other_note: Note  # the state of a run on 2.1.286 with the opt-out set
+    off_fix: str  # the run is on 2.1.286, not the pinned 2.1.282
+    pin_fix: str
+    settings_fix: str
+    off_what: str
+    put_first: str
+    cache_fix: str
+    off_cache_fix: str  # off the pin: the run on the pinned version, not a reader to correct
+    strict: str
+    noted: str
+    reinstall: str
+    too_old: str
+    seen_when_removed: str  # the fake's log after a command's arguments
+    mkt_command: str
+    listed_command: str
+    no_json: str
+    list_where: str
+    alpha_pick: str
+    beta_pick: str
+
+    def stuck(self, what: str) -> str:
+        """The BROKEN line of a `claude --version` that `what` describes."""
+        return f"BROKEN: `claude --version` {what}{self.reinstall}"
+
+    def stop_after(self, blocks: int) -> str:
+        """The could-not-run line of a failure after `blocks` blocks ran."""
+        return f"BROKEN: the check could not run — {blocks} block(s) run"  # typed by hand
+
+    def picks(self, alpha: str = "", beta: str = "") -> str:
+        """What `plugins_said` gives over the entries picked for the two toy modules."""
+        return f"const-alpha={alpha}; const-beta={beta}"
+
+    def exited_fix(self, command: str) -> str:
+        """The fix of a list command that wrote no reply."""  # typed by hand
+        return f" — fix: run `{command}` in {self.list_where}, read why it fails, then run the check again"
+
+    def silent_fix(self, raw: str, code: int, on_pin: bool) -> str:
+        """The command's own fix of the list command `raw` that exited `code` and wrote no reply, or timed
+        out (124), on the pin or off it."""
+        if code == 124:
+            if on_pin:
+                return " — fix: run the check again"
+            return f" — fix: {self.off_what}: run the check again on the pinned version, {self.put_first}"
+        read = f" — fix: run `{raw}` in {self.list_where}, read why it fails"
+        if on_pin:
+            return read + ", then run the check again"
+        return (
+            read + f"; {self.off_what}, so then run the check again on the pinned version, {self.put_first}"
+        )
+
+    def reply_fix(self, rest: str, reader: str) -> str:
+        """The fix a BROKEN line ends with, by the function that reads: `reader`, which is
+        `platform_clone` or `project_entries`, for what it asks of an entry or finds in the list (two
+        entries of a name, a field that is no string, an installLocation that is no folder), and
+        `listed` for the rest, as `rest` says what was found; a command that exited other than 0 wrote
+        no reply, and has the command's own fix."""
+        if re.search(r"\bexited \d+ \(", rest):
+            return self.exited_fix(
+                "claude plugin marketplace list --json"
+                if reader == "platform_clone"
+                else "claude plugin list --json"
+            )
+        asked = (
+            "entries named",
+            "project-scope entries",
+            "gives no ",
+            "installLocation that is no folder",
+        )
+        return fix_of(reader if any(word in rest for word in asked) else "listed")
+
+
+def typed_texts() -> Texts:
+    """The notes and lines typed by hand, made once for every group of cases."""
+    off_what = "this run is on 2.1.286, not the pinned 2.1.282"
+    put_first = (
+        "put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the"
+        " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
+        " for the guide's check), which puts it first, or install it beside your own by hand (npm install"
+        " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
+        " then PATH=<folder>/node_modules/.bin:$PATH)"
+    )
+    return Texts(
+        pin_note=Note("2.1.282"),
+        other_note=Note("2.1.282", "2.1.286"),
+        off_fix=(
+            " — fix: this run is on 2.1.286, not the pinned 2.1.282: run it again on the pinned version,"
+            " put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh"
+            " in the kit's clone, then the check through sh scripts/gate-list.sh --run install-<module>"
+            " (--run guide for the guide's check), which puts it first, or install it beside your own by"
+            " hand (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282, then"
+            " PATH=<folder>/node_modules/.bin:$PATH)"
+        ),
+        pin_fix=(
+            " — fix: write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's"
+            " only line"
+        ),  # typed by hand
+        settings_fix=fix_of("enabled", "a settings file"),
+        off_what=off_what,
+        put_first=put_first,
+        cache_fix=(
+            "make the block install each module from the marketplace, `claude plugin install "
+            "<module>@<marketplace> --scope project`, and set none of CLAUDE_CODE_PLUGIN_CACHE_DIR, "
+            "CLAUDE_CODE_PLUGIN_SEED_DIR, CLAUDE_CODE_PLUGIN_DIRS and CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE in a "
+            "block: the platform copies the module to <plugins root>/cache/<marketplace>/<module>/<version>, "
+            "where Claude Code's loading page documents it; if it now copies elsewhere, correct `Run.cached` "
+            "of the check"
+        ),
+        off_cache_fix=f"{off_what}: run the check again on the pinned version, {put_first}",
+        strict=(
+            "claude is {0}, and the kit's install checks read the platform as 2.1.282 writes it"
+            " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run:"
+            " either run sh scripts/setup-claude.sh in the kit's clone, then the check through"
+            " sh scripts/gate-list.sh --run install-<module> (--run guide for the guide's check), which puts"
+            " it first, or install it beside your own by hand (npm install --prefix <folder>"
+            " @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:$PATH), or set"
+            " CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
+            " {0} with a note on every headline line"
+        ),
+        noted=" [claude {0}, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]",
+        reinstall=(
+            " — fix: check that `claude` on PATH is Claude Code (`command -v claude`), and reinstall it"
+        ),
+        too_old="2.1.286 (Claude Code)\\n",
+        seen_when_removed="|absent|absent|absent|absent|1|1|45000|keep|sync|30000|force|disable|watch",
+        mkt_command="`claude plugin marketplace list --json`",
+        listed_command="`claude plugin list --json`",
+        no_json="Expecting value: line 1 column 1 (char 0)",
+        list_where="a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder",
+        alpha_pick="project:0.0.1:/copies/const-alpha",
+        beta_pick="project:0.0.1:/copies/const-beta",
+    )
+
+
+@dataclass(frozen=True)
+class Toy:
+    """The toy kit, a nameless one, and the environment the runs over them share."""
+
+    root: Path
+    kit: Path
+    nameless: Path
+    base: dict[str, str]  # the person's environment less the four variables, with the fake claude first
+    four: dict[str, str]  # the four variables `claude_env` removes, each as a person who sets it would
+    kept_vars: dict[str, str]  # the variables a run keeps, each its own value
+    git: dict[str, str]
+
+
+def toy_run(root: Path) -> Toy:
+    """The toy kit and a nameless one under `root`, the fake claude, and the environment of the runs."""
+    kit = toy_kit(root)
+    fake = root / "bin"
+    fake.mkdir()
+    (fake / "claude").write_text(FAKE, encoding="utf-8")
+    (fake / "claude").chmod(0o755)
+    # typed by hand, a constant cannot check itself: the four variables `claude_env` removes, each with
+    # what a person who sets it would set, a folder of the run's or `1`; the person's own are never the
+    # environment of these runs, nor are the variables it keeps
+    four = {
+        "CLAUDE_CODE_PLUGIN_CACHE_DIR": "plugins-root",
+        "CLAUDE_CODE_PLUGIN_SEED_DIR": "plugins-seed",
+        "CLAUDE_CODE_PLUGIN_DIRS": "plugins-dirs",
+        "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE": "1",
+    }
+    documented_kept = {  # typed by hand, never the code's: the seven documented ones, each its own value
+        "CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS": "45000",
+        "CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE": "keep",
+        "CLAUDE_CODE_SYNC_PLUGIN_INSTALL": "sync",
+        "CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS": "30000",
+        "FORCE_AUTOUPDATE_PLUGINS": "force",
+        "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "disable",
+        "CLAUDE_CODE_PLUGIN_DIR_WATCH": "watch",
+    }
+    # the kit's CI's CLAUDE_CODE_PLUGIN_PREFER_HTTPS, an unrelated FAKE_KEEP and the seven: the platform's
+    # environment-variables page documents them as tuning a clone's time, transport or retry, an update or
+    # a wait, none as steering where plugins are found, kept or loaded
+    kept_vars = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"} | documented_kept
+    base = {
+        k: v for k, v in os.environ.items() if k not in four and k not in kept_vars
+    } | {  # the plugins root is the fake's own
+        "PATH": f"{fake}{os.pathsep}{os.environ.get('PATH', '')}",
+        FROM_ENV: "toy/kit#main",
+        "FAKE_SOURCE": str(kit),
+    }
+    nameless = toy_kit(root / "nameless", {"plugins": []})
+    return Toy(root, kit, nameless, base, four, kept_vars, os.environ | {"GIT_CONFIG_GLOBAL": os.devnull})
+
+
+@dataclass(frozen=True)
+class Listings:
+    """The temporary folder of the listing cases, and the numbers of the folders they make in it."""
+
+    folder: Path
+    numbers: Iterator[int]
+
+    def next_folder(self, prefix: str) -> Path:
+        """The path of the next numbered folder in the temporary folder, not yet made."""
+        return self.folder / f"{prefix}-{next(self.numbers)}"
+
+
+@dataclass(frozen=True)
+class Unit:
+    """The folder of the readers' cases and the platform's replies, whole sets of them: the fake prints the
+    text of a file as `plugin marketplace list --json` or `plugin list --json`, and the readers are held to
+    each reply. It holds the places the replies name, and the helpers that print one and read it."""
+
+    toy: Toy
+    note: Note
+    folder: Path
+    platform: Path  # the platform's clone of the marketplace, a folder
+    a_file: Path  # a place that exists and is no folder
+    gone: Path  # a place that does not exist
+    project: Path
+    linked: Path
+    replies: Iterator[int]
+
+    def state(self, **extra: str) -> Run:
+        """The state of a run over the toy kit in this folder, `extra` added to its environment."""
+        env = self.toy.base | {
+            "CLAUDE_CONFIG_DIR": str(self.folder / "config"),
+            "FAKE_LOG": str(self.folder / "fake.log"),
+        }
+        return Run(
+            self.folder,
+            self.toy.kit,
+            self.folder / "config",
+            env | extra,
+            modules_of(self.toy.kit),
+            self.folder,
+            "toy/kit#main",
+            TOY_MP,
+            self.note,
+        )
+
+    def reply_file(self, text: str) -> str:
+        """The path of a new file in this folder that holds `text`, for the fake to print."""
+        path = self.folder / f"reply-{next(self.replies)}.txt"
+        path.write_text(text, encoding="utf-8")
+        return str(path)
+
+    def mkt(self, **fields: object) -> dict[str, object]:
+        """An entry of the marketplace list for the toy marketplace, `fields` replacing its own."""
+        return {
+            "name": TOY_MP,
+            "source": "github",
+            "repo": "toy/kit",
+            "installLocation": str(self.platform),
+        } | fields
+
+    def plug(self, module: str = "const-alpha", /, **fields: object) -> dict[str, object]:
+        """An entry of the plugin list for a toy module installed for the project, `fields` set over it."""
+        return {
+            "id": f"{module}@{TOY_MP}",
+            "version": "0.0.1",
+            "scope": "project",
+            "enabled": True,
+            "installPath": f"/copies/{module}",
+            "projectPath": str(self.project),
+        } | fields
+
+    @property
+    def both(self) -> list[dict[str, object]]:
+        """The entries of both toy modules for the project."""
+        return [self.plug(), self.plug("const-beta")]
+
+    @property
+    def other(self) -> dict[str, object]:
+        """An entry of another marketplace."""
+        return {"name": "other-mp", "source": "directory", "path": "/p", "installLocation": "/q"}
+
+    @property
+    def clone_of(self) -> str:
+        """What `mkt_said` gives over a list that names the platform's clone."""
+        return f"clone {self.platform}"
+
+    def mkt_said(self, text: str, code: int = 0, **extra: str) -> str:
+        """What `platform_clone` says over a marketplace list that prints `text` and exits `code`."""
+        state = self.state(FAKE_MKT=self.reply_file(text), FAKE_MKT_EXIT=str(code), **extra)
+        try:
+            return f"clone {platform_clone(state)}"
+        except Misfit as misfit:
+            return f"RED {misfit.what}"
+        except Broken as bad:
+            return f"BROKEN {bad}"
+
+    def plugins_said(self, text: str, code: int = 0, project: Path | None = None, **extra: str) -> str:
+        """What `project_entries` picks over a plugin list that prints `text` and exits `code`."""
+        state = self.state(FAKE_LIST=self.reply_file(text), FAKE_LIST_EXIT=str(code), **extra)
+        try:
+            found = project_entries(state, self.project if project is None else project)
+        except Broken as bad:
+            return f"BROKEN {bad}"
+        return "; ".join(
+            f"{m}=" + ",".join(f"{e['scope']}:{e['version']}:{e['installPath']}" for e in found[m])
+            for m in sorted(found)
+        )
+
+    def held_copy(self, module: str) -> Path:
+        """The module's copy in the plugin cache of the unit tests' configuration, where claims look."""
+        return self.state().cached(module)
+
+    def update_held(
+        self,
+        entries: list[dict[str, object]],
+        config: Path | None = None,
+        note: Note | None = None,
+        env: dict[str, str] | None = None,
+    ) -> str:
+        """What the update claim, whose picks the install and the reinstall share, says of a list: its
+        finding, `RED` and the finding of a Misfit, with its fix after ` | `, or the empty string; the
+        run's configuration folder is `config` when one is given, else the default, its plugins root
+        `plugins` in it, `env` is added to the run's environment and `note` is its state."""
+        held = self.state(FAKE_LIST=self.reply_file(json.dumps(entries)), **(env or {}))
+        if config is not None:
+            held.config = config
+            held.env = held.env | {"CLAUDE_CONFIG_DIR": str(config)}
+        held.project = self.project
+        held.note = self.note if note is None else note
+        try:
+            return claim(held, "update")
+        except Misfit as misfit:
+            return f"RED {misfit.what} | {misfit.fix}"
+
+    def update_said(
+        self,
+        entries: list[dict[str, object]],
+        config: Path | None = None,
+        note: Note | None = None,
+        env: dict[str, str] | None = None,
+    ) -> str:
+        """`update_held` without the fix of a finding."""
+        return self.update_held(entries, config, note, env).split(" | ", 1)[0]
+
+
+def unit_of(toy: Toy, note: Note) -> Unit:
+    """The folder of the readers' cases under the toy root, with the places the replies name made."""
+    folder = toy.root / "unit"
+    (folder / "config").mkdir(parents=True)
+    platform = folder / "platform" / "toy-mp"
+    platform.mkdir(parents=True)
+    a_file = folder / "platform" / "a-file"
+    a_file.write_text("not a folder\n", encoding="utf-8")
+    project = folder / "project"
+    project.mkdir()
+    linked = folder / "linked"
+    linked.symlink_to(project)
+    return Unit(
+        toy, note, folder, platform, a_file, folder / "platform" / "gone", project, linked, itertools.count(1)
+    )
+
+
+@dataclass(frozen=True)
+class Copies:
+    """The folders the reinstall and update claims compare, and the copies the project lists."""
+
+    wanted_clone: Path  # the platform's clone, which the reinstall's comparison reads from the state
+    other_clone: Path  # a clone whose modules differ
+    listed: list[dict[str, object]]  # the project-scope entries of both toy modules, at their cached copies
+
+
+def copies_placed(unit: Unit) -> Copies:
+    """The clones and the cached copies made in the unit folder, the project's settings enabling both
+    modules, and the entries that list the copies."""
+    wanted_clone, other_clone = unit.folder / "clone", unit.folder / "other-clone"
+    for module in ("const-alpha", "const-beta"):
+        for folder, text in (
+            (wanted_clone / "modules" / module, "same\n"),
+            (unit.held_copy(module), "same\n"),
+            (other_clone / "modules" / module, "odd\n"),
+        ):
+            folder.mkdir(parents=True)
+            (folder / "a.txt").write_text(text, encoding="utf-8")
+    (unit.project / ".claude").mkdir()
+    (unit.project / ".claude" / "settings.json").write_text(
+        json.dumps({"enabledPlugins": {f"{m}@{TOY_MP}": True for m in ("const-alpha", "const-beta")}}),
+        encoding="utf-8",
+    )
+    listed = [unit.plug(m, installPath=str(unit.held_copy(m))) for m in ("const-alpha", "const-beta")]
+    return Copies(wanted_clone, other_clone, listed)
+
+
+@dataclass(frozen=True)
+class Person:
+    """What a person sets of the four variables in their own environment, and the log the fake writes."""
+
+    values: dict[str, tuple[str, str]]  # for each variable, how the value reads in a case name and the value
+    seen_log: Path
+    folders: tuple[Path, ...]  # the folders the variables name, made empty, to stay so
+
+
+def person_of(unit: Unit, four: dict[str, str]) -> Person:
+    """The folders the four variables name, made empty in the unit folder, and the values a person sets."""
+    values: dict[str, tuple[str, str]] = {}
+    folders: list[Path] = []
+    for variable, shape in four.items():
+        if shape != "1":
+            (unit.folder / shape).mkdir()
+            folders.append(unit.folder / shape)
+        values[variable] = (
+            ("set to 1", "1") if shape == "1" else ("set to a folder", str(unit.folder / shape))
+        )
+    return Person(values, unit.folder / "cache-seen.log", tuple(folders))
+
+
+@dataclass(frozen=True)
+class Versions:
+    """The runs that ask `claude --version`: the answers the fake gives, and the file it logs them to."""
+
+    toy: Toy
+    log: Path
+
+    def says_env(
+        self, says: str, exits: int, optout: str | None, source: Path | None = None
+    ) -> dict[str, str]:
+        """The environment of a run whose `claude --version` says `says` and exits `exits`, the opt-out set
+        to `optout` unless that is None."""
+        env = {k: v for k, v in self.toy.base.items() if k != "CONSTITUTION_KIT_ANY_CLAUDE"} | {
+            "FAKE_SAYS": says,
+            "FAKE_EXIT": str(exits),
+            "FAKE_LOG": str(self.log),
+            "FAKE_SOURCE": str(self.toy.kit if source is None else source),
+        }
+        if optout is not None:
+            env["CONSTITUTION_KIT_ANY_CLAUDE"] = optout
+        return env
+
+    def logged(self) -> list[str]:
+        """The lines the fake logged for the runs since the log was last cleared."""
+        return self.log.read_text(encoding="utf-8").splitlines() if self.log.exists() else []
+
+    def outcome(self, env: dict[str, str]) -> str:
+        """What the check does before its clone: the note it goes on with, or its BROKEN line."""
+        self.log.unlink(missing_ok=True)
+        try:
+            return f"note:{claude_noted(self.toy.kit, env)}"
+        except Broken as broken:
+            return f"BROKEN: {broken}"
+
+    def stopped_run(self, env: dict[str, str], where: Path | None = None) -> tuple[str, str]:
+        """What `run_guide` over the toy guide ends in when it is Broken: its line and its note."""
+        self.log.unlink(missing_ok=True)
+        try:
+            run_guide(toy_guide(), self.toy.kit if where is None else where, env)
+        except Broken as broken:
+            return str(broken), broken.note
+        return "no Broken", ""
+
+    def whole_run(self, env: dict[str, str], where: Path | None = None) -> tuple[int, list[str]]:
+        """The exit and the lines `main` prints over the toy kit, whose guide is committed."""
+        self.log.unlink(missing_ok=True)
+        printed_lines = io.StringIO()
+        with (
+            mock.patch.dict(os.environ, env, clear=True),
+            mock.patch.dict(globals(), {"KIT": self.toy.kit if where is None else where}),
+            contextlib.redirect_stdout(printed_lines),
+        ):
+            status = main([])
+        return status, printed_lines.getvalue().splitlines()
+
+
+def outcome_kind(said_outcome: str) -> str:
+    """What `Versions.outcome` says, in words for a case name."""
+    if said_outcome == "note:":
+        return "the run goes on"
+    return "the run goes on with the note" if said_outcome.startswith("note:") else "BROKEN"
+
+
 class SelfTestRun:
-    """The self-test's cases, run in groups in order; a group keeps for the next what it made."""
+    """The self-test's cases, run in groups in order; each group is given the state it works on."""
 
     def __init__(self) -> None:
         self.failed = 0
         self.total = 0
-        self.folders = 0  # the numbered folders the listing cases made so far
 
     def case(self, name: str, ok: bool, got: str) -> None:
         """Print one case's line, and count it; a case that fails prints what it got."""
@@ -1755,26 +2278,41 @@ class SelfTestRun:
             self.failed += 1
             print(f"        got: {got}")
 
-    def next_folder(self, prefix: str) -> Path:
-        """The path of the next numbered folder in the listing cases' temporary folder, not yet made."""
-        self.folders += 1
-        return Path(self.listings) / f"{prefix}-{self.folders}"
+    def listing_cases(self, texts: Texts) -> None:
+        """The cases that read trees made in a temporary folder."""
+        with tempfile.TemporaryDirectory(prefix="install-guide-listings-") as folder:
+            listings = Listings(Path(folder), itertools.count(1))
+            self.module_listing_cases(listings)
+            self.marketplace_name_cases(listings)
+            self.pin_file_cases(listings, texts)
+            self.settings_file_cases(listings, texts)
+
+    def guide_run_cases(self, texts: Texts) -> None:
+        """The cases that run the guide against the fake claude in a temporary folder."""
+        with tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch:
+            toy = toy_run(Path(scratch))
+            green_examined = self.green_run_cases(toy)
+            unit = unit_of(toy, texts.pin_note)
+            self.marketplace_list_cases(unit, texts)
+            self.plugin_list_cases(unit, texts)
+            self.list_identity_cases(unit, texts)
+            self.list_command_cases(toy, unit, texts)
+            copies = copies_placed(unit)
+            self.reinstall_claim_cases(unit, copies)
+            self.update_claim_cases(unit, copies)
+            person = person_of(unit, toy.four)
+            self.plugin_cache_location_cases(unit, texts, copies)
+            self.install_run_cases(toy, texts, green_examined)
+            self.person_environment_cases(toy, unit, texts, person, green_examined)
+            self.broken_reply_cases(toy, unit, texts)
+            versions = Versions(toy, toy.root / "version.log")
+            self.claude_version_cases(toy, texts, person, versions)
+            self.whole_run_cases(toy, texts, versions)
+            self.run_finding_cases(toy, texts, versions)
+            self.clone_and_source_cases(toy)
 
     def mark_cases(self) -> None:
         """The block-mark reader: each malformed fence one finding, a clean guide none."""
-        case = self.case
-
-        pin_note = Note("2.1.282")  # the state of a run on the pin: the note empty
-
-        off_fix = (  # typed by hand: the run is on 2.1.286, not the pinned 2.1.282
-            " — fix: this run is on 2.1.286, not the pinned 2.1.282: run it again on the pinned version,"
-            " put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh"
-            " in the kit's clone, then the check through sh scripts/gate-list.sh --run install-<module>"
-            " (--run guide for the guide's check), which puts it first, or install it beside your own by"
-            " hand (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282, then"
-            " PATH=<folder>/node_modules/.bin:$PATH)"
-        )
-
         marks = [
             (
                 "an unmarked `bash` block red",
@@ -1814,26 +2352,25 @@ class SelfTestRun:
         ]
         for name, guide, expected in marks:
             _, findings = blocks_of(guide)
-            case(name, len(findings) == 1 and findings[0].what.startswith(expected), whats(findings))
+            self.case(name, len(findings) == 1 and findings[0].what.startswith(expected), whats(findings))
         _, misplaced = blocks_of(toy_guide().replace("```yaml check=dials", "```check=dials"))
-        case(
+        self.case(
             "a misplaced dials mark red once, its fix a yaml fence",
             len(misplaced) == 1 and misplaced[0].fix.endswith("```yaml check=dials"),
             " | ".join(f"{f.what} / {f.fix}" for f in misplaced),
         )
         _, clean = blocks_of(toy_guide() + "\n```text\nnot a command\n```\n")
-        case("a green guide gives no mark finding; a `text` fence needs no mark", not clean, whats(clean))
-        self.off_fix, self.pin_note = off_fix, pin_note
+        self.case(
+            "a green guide gives no mark finding; a `text` fence needs no mark", not clean, whats(clean)
+        )
 
-    def module_listing_cases(self) -> None:
+    def module_listing_cases(self, listings: Listings) -> None:
         """The module folders of a tree: which are modules, in what order, and what a bad one says."""
-        case = self.case
-        listings = self.listings
 
         def tree(*folders: str, files: tuple[str, ...] = (), documents: bool = True) -> Path:
             """A tree whose modules/ holds each folder, with a manifest of version 1.0 and, unless
             `documents` is off, its MODULE.md, and each plain file; `modules/` is made even for none."""
-            root = self.next_folder("tree")
+            root = listings.next_folder("tree")
             (root / "modules").mkdir(parents=True)
             for folder in folders:
                 (root / "modules" / folder / ".claude-plugin").mkdir(parents=True)
@@ -1846,39 +2383,39 @@ class SelfTestRun:
             return root
 
         hidden = list(modules_of(tree("const-b", ".x", "_x", "const-a")))
-        case(
+        self.case(
             "a folder `.x` and a folder `_x` are skipped silently",
             hidden == ["const-a", "const-b"],
             str(hidden),
         )
         mixed = list(modules_of(tree("glossary", "const-a")))
-        case("a folder named without const- is a module", mixed == ["const-a", "glossary"], str(mixed))
+        self.case("a folder named without const- is a module", mixed == ["const-a", "glossary"], str(mixed))
         plain = list(modules_of(tree("const-a", files=("const-file",))))
-        case("a plain file of modules/ is no module, and no BROKEN", plain == ["const-a"], str(plain))
+        self.case("a plain file of modules/ is no module, and no BROKEN", plain == ["const-a"], str(plain))
         with listed_in_reverse():  # modules/ is listed reversed, whatever the filesystem lists
             ordered = list(modules_of(tree("const-b", "const-c", "const-a")))
-        case(
+        self.case(
             "the modules are sorted by name, whatever order the folder lists",
             ordered == ["const-a", "const-b", "const-c"],
             str(ordered),
         )
         said = broken_said(tree("const-ghost", documents=False))
-        case(
+        self.case(
             "a module folder without its MODULE.md is a teaching BROKEN line",
             said == "modules/const-ghost has no MODULE.md — fix: restore the module document",
             said,
         )
-        no_modules = Path(listings) / "no-modules"
+        no_modules = listings.folder / "no-modules"
         no_modules.mkdir()
         said = broken_said(no_modules)
-        case(
+        self.case(
             "a tree with no modules/ is a teaching BROKEN line",
             said == f"{no_modules} has no modules/ directory — fix: run the check from a checkout of the kit",
             said,
         )
         empty = tree(files=("const-file",))
         said = broken_said(empty)
-        case(
+        self.case(
             "a modules/ with no module folder is BROKEN, as the check always said",
             said == f"no module under {empty / 'modules'} — fix: run the check from a clone of the kit",
             said,
@@ -1888,7 +2425,7 @@ class SelfTestRun:
             "{}", encoding="utf-8"
         )
         said = broken_said(versionless)
-        case(
+        self.case(
             "a manifest with no version is BROKEN, its version read as always",
             said.endswith("gives no version ('version') — fix: restore the module's manifest"),
             said,
@@ -1903,7 +2440,7 @@ class SelfTestRun:
             odd_manifest = odd / "modules" / "const-a" / ".claude-plugin" / "plugin.json"
             odd_manifest.write_text(manifest_text, encoding="utf-8")
             said = broken_said(odd)
-            case(
+            self.case(
                 f"a manifest that is {shape} is BROKEN, naming it and the kind it holds, never a traceback",
                 said
                 == f"{odd_manifest} is no JSON object, it holds a {held} — fix: restore it as a JSON object",
@@ -1919,7 +2456,7 @@ class SelfTestRun:
             odd_manifest = odd / "modules" / "const-a" / ".claude-plugin" / "plugin.json"
             odd_manifest.write_text(manifest_text, encoding="utf-8")
             said = broken_said(odd)
-            case(
+            self.case(
                 f"a manifest whose version is {shape} is BROKEN, naming the kind it holds",
                 said == f"{odd_manifest} gives a version that is no string or number, it holds a {held}"
                 " — fix: restore the module's manifest",
@@ -1935,21 +2472,20 @@ class SelfTestRun:
                 manifest_text, encoding="utf-8"
             )
             read_back = modules_of(fine)
-            case(
+            self.case(
                 f"a manifest whose version is {shape} is read as the text of it",
                 read_back == {"const-a": version_text},
                 str(read_back),
             )
 
-    def marketplace_and_pin_cases(self) -> None:
-        """The marketplace file's name and the pin file's version, each read as the check reads it."""
-        case = self.case
+    def marketplace_name_cases(self, listings: Listings) -> None:
+        """The marketplace file's name, read as the check reads it."""
 
         def market_said(text: str | None, as_folder: bool = False) -> tuple[Path, str]:
             """The folder of a kit whose .claude-plugin/marketplace.json holds `text` (no file for None,
             a folder of that name for `as_folder`), and what `marketplace_name` gives over it: the name, or
             its DocumentError's message, or the OSError a read of it let escape."""
-            folder = self.next_folder("market")
+            folder = listings.next_folder("market")
             (folder / ".claude-plugin").mkdir(parents=True)
             if as_folder:
                 (folder / ".claude-plugin" / "marketplace.json").mkdir()
@@ -1963,7 +2499,7 @@ class SelfTestRun:
                 return folder, f"escaped {type(bad).__name__}: {bad}"
 
         folder, got = market_said('{"name": "toy-mp", "plugins": []}')
-        case("the marketplace's name is the file's top-level name", got == "toy-mp", got)
+        self.case("the marketplace's name is the file's top-level name", got == "toy-mp", got)
         for name, text, tail in (
             (
                 "a marketplace.json that is missing",
@@ -1999,23 +2535,26 @@ class SelfTestRun:
             ),
         ):
             folder, got = market_said(text)
-            case(
+            self.case(
                 f"{name} is a teaching DocumentError",
                 got == f"{folder}/.claude-plugin/marketplace.json{tail}",
                 got,
             )
         folder, got = market_said(None, as_folder=True)  # the file "unreadable" of the reader's docstring
-        case(
+        self.case(
             "a marketplace.json that is a folder, unreadable though it exists, is a teaching DocumentError",
             got == f"{folder}/.claude-plugin/marketplace.json cannot be read (Is a directory) — fix: run the"
             " check from a checkout of the kit, which holds the file",
             got,
         )
 
+    def pin_file_cases(self, listings: Listings, texts: Texts) -> None:
+        """The pin file's version, read as the check reads it."""
+
         def pin_said(content: bytes | None) -> tuple[Path, str]:
             """The folder of a kit whose scripts/claude-code.version holds `content` (no file for None),
             and what `pinned_claude` gives over it: the version, or its DocumentError's message."""
-            folder = self.next_folder("pin")
+            folder = listings.next_folder("pin")
             (folder / "scripts").mkdir(parents=True)
             if content is not None:
                 (folder / "scripts" / "claude-code.version").write_bytes(content)
@@ -2026,89 +2565,86 @@ class SelfTestRun:
 
         for name, one_line in (("without a final line break", b"2.1.282"), ("with one", b"2.1.282\n")):
             folder, got = pin_said(one_line)
-            case(f"a pin file holding one version {name} gives the version", got == "2.1.282", got)
-        pin_fix = (
-            " — fix: write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's"
-            " only line"
-        )  # typed by hand
+            self.case(f"a pin file holding one version {name} gives the version", got == "2.1.282", got)
         for name, content, tail in (
             (
                 "missing",
                 None,
-                f" cannot be read (No such file or directory){pin_fix}",
+                f" cannot be read (No such file or directory){texts.pin_fix}",
             ),
-            ("empty", b"", f" is empty{pin_fix}"),
-            ("holding CRLF", b"2.1.282\r\n", f" is not one version ('2.1.282\\r\\n'){pin_fix}"),
+            ("empty", b"", f" is empty{texts.pin_fix}"),
+            ("holding CRLF", b"2.1.282\r\n", f" is not one version ('2.1.282\\r\\n'){texts.pin_fix}"),
             (
                 "holding a byte-order mark",
                 b"\xef\xbb\xbf2.1.282\n",
-                f" is not one version ('\\ufeff2.1.282\\n'){pin_fix}",
+                f" is not one version ('\\ufeff2.1.282\\n'){texts.pin_fix}",
             ),
             (
                 "holding two lines",
                 b"2.1.282\n2.1.286\n",
-                f" is not one version ('2.1.282\\n2.1.286\\n'){pin_fix}",
+                f" is not one version ('2.1.282\\n2.1.286\\n'){texts.pin_fix}",
             ),
-            ("holding a word", b"latest\n", f" is not one version ('latest\\n'){pin_fix}"),
+            ("holding a word", b"latest\n", f" is not one version ('latest\\n'){texts.pin_fix}"),
             (
                 "holding a blank line after the version",
                 b"2.1.282\n\n",
-                f" is not one version ('2.1.282\\n\\n'){pin_fix}",
+                f" is not one version ('2.1.282\\n\\n'){texts.pin_fix}",
             ),
-            ("holding a line break alone", b"\n", f" is not one version ('\\n'){pin_fix}"),
-            ("holding two numbers", b"2.1\n", f" is not one version ('2.1\\n'){pin_fix}"),
-            ("holding a fourth number", b"2.1.282.1\n", f" is not one version ('2.1.282.1\\n'){pin_fix}"),
+            ("holding a line break alone", b"\n", f" is not one version ('\\n'){texts.pin_fix}"),
+            ("holding two numbers", b"2.1\n", f" is not one version ('2.1\\n'){texts.pin_fix}"),
+            (
+                "holding a fourth number",
+                b"2.1.282.1\n",
+                f" is not one version ('2.1.282.1\\n'){texts.pin_fix}",
+            ),
             (
                 "holding a v before the version",
                 b"v2.1.282\n",
-                f" is not one version ('v2.1.282\\n'){pin_fix}",
+                f" is not one version ('v2.1.282\\n'){texts.pin_fix}",
             ),
             (
                 "holding a space after the version",
                 b"2.1.282 \n",
-                f" is not one version ('2.1.282 \\n'){pin_fix}",
+                f" is not one version ('2.1.282 \\n'){texts.pin_fix}",
             ),
             (
                 "holding a space before the version",
                 b" 2.1.282\n",
-                f" is not one version (' 2.1.282\\n'){pin_fix}",
+                f" is not one version (' 2.1.282\\n'){texts.pin_fix}",
             ),
             (
                 "holding another script's digits",
                 "٢.١.٢٨٢\n".encode(),
-                f" is not one version ('٢.١.٢٨٢\\n'){pin_fix}",
+                f" is not one version ('٢.١.٢٨٢\\n'){texts.pin_fix}",
             ),
             (
                 "holding bytes that are no UTF-8",
                 b"2.1.282\xff\n",
-                f" is not one version ('2.1.282�\\n'){pin_fix}",
+                f" is not one version ('2.1.282�\\n'){texts.pin_fix}",
             ),
         ):
             folder, got = pin_said(content)
-            case(
+            self.case(
                 f"a pin file {name} is a teaching DocumentError",
                 got == f"{folder}/scripts/claude-code.version{tail}",
                 got,
             )
-        self.pin_fix = pin_fix
 
-    def settings_file_cases(self) -> None:
+    def settings_file_cases(self, listings: Listings, texts: Texts) -> None:
         """The project's settings file: what it enables and what a bad one says."""
-        case = self.case
-        pin_note = self.pin_note
 
         def settings_said(text: str | None, as_folder: bool = False) -> tuple[Path, str]:
             """The project whose .claude/settings.json holds `text` (no file for None, a folder of that name
             for `as_folder`), and what `enabled` gives over it: the plugins it enables, sorted and joined by
             commas, or "none", or its Broken's message."""
-            project = self.next_folder("settings")
+            project = listings.next_folder("settings")
             (project / ".claude").mkdir(parents=True)
             if as_folder:
                 (project / ".claude" / "settings.json").mkdir()
             elif text is not None:
                 (project / ".claude" / "settings.json").write_text(text, encoding="utf-8")
             try:
-                return project, ",".join(sorted(enabled(project, pin_note))) or "none"
+                return project, ",".join(sorted(enabled(project, texts.pin_note))) or "none"
             except Broken as bad:
                 return project, str(bad)
 
@@ -2124,104 +2660,64 @@ class SelfTestRun:
             ),
         ):
             folder, got = settings_said(text)
-            case(f"a project's settings file that {name} enables {enables}", got == enables, got)
-        settings_fix = fix_of("enabled", "a settings file")
+            self.case(f"a project's settings file that {name} enables {enables}", got == enables, got)
         for name, text, tail in (
             (
                 "is empty",
                 "",
-                f" is no JSON (Expecting value: line 1 column 1 (char 0)){settings_fix}",
+                f" is no JSON (Expecting value: line 1 column 1 (char 0)){texts.settings_fix}",
             ),
             (
                 "is no JSON",
                 "not json",
-                f" is no JSON (Expecting value: line 1 column 1 (char 0)){settings_fix}",
+                f" is no JSON (Expecting value: line 1 column 1 (char 0)){texts.settings_fix}",
             ),
-            ("is a JSON list", "[]", f" is a JSON list, not an object{settings_fix}"),
-            ("is a JSON string", '"x"', f" is a JSON str, not an object{settings_fix}"),
-            ("is a JSON null", "null", f" is a JSON NoneType, not an object{settings_fix}"),
+            ("is a JSON list", "[]", f" is a JSON list, not an object{texts.settings_fix}"),
+            ("is a JSON string", '"x"', f" is a JSON str, not an object{texts.settings_fix}"),
+            ("is a JSON null", "null", f" is a JSON NoneType, not an object{texts.settings_fix}"),
             (
                 "holds an enabledPlugins list",
                 '{"enabledPlugins": ["a@m"]}',
-                f" gives an enabledPlugins that is a list, not an object{settings_fix}",
+                f" gives an enabledPlugins that is a list, not an object{texts.settings_fix}",
             ),
             (
                 "holds an enabledPlugins null",
                 '{"enabledPlugins": null}',
-                f" gives an enabledPlugins that is a NoneType, not an object{settings_fix}",
+                f" gives an enabledPlugins that is a NoneType, not an object{texts.settings_fix}",
             ),
             (
                 "holds an enabledPlugins string",
                 '{"enabledPlugins": "a@m"}',
-                f" gives an enabledPlugins that is a str, not an object{settings_fix}",
+                f" gives an enabledPlugins that is a str, not an object{texts.settings_fix}",
             ),
         ):
             folder, got = settings_said(text)
-            case(
+            self.case(
                 f"a project's settings file that {name} is a teaching BROKEN",
                 got == f"{folder}/.claude/settings.json{tail}",
                 got,
             )
         folder, got = settings_said(None, as_folder=True)
-        case(
+        self.case(
             "a project's settings file that is a folder is a teaching BROKEN",
-            got == f"{folder}/.claude/settings.json cannot be read (Is a directory){settings_fix}",
+            got == f"{folder}/.claude/settings.json cannot be read (Is a directory){texts.settings_fix}",
             got,
         )
-        self.settings_fix = settings_fix
 
-    def green_run_cases(self) -> None:
-        """The toy kit, the fake claude and the runs' environment; a green run, and a nameless kit."""
-        case = self.case
-        scratch = self.scratch
-        root = Path(scratch)
-        kit = toy_kit(root)
-        fake = root / "bin"
-        fake.mkdir()
-        (fake / "claude").write_text(FAKE, encoding="utf-8")
-        (fake / "claude").chmod(0o755)
-        # typed by hand, a constant cannot check itself: the four variables `claude_env` removes, each with
-        # what a person who sets it would set, a folder of the run's or `1`; the person's own are never the
-        # environment of these runs, nor are the variables it keeps
-        four = {
-            "CLAUDE_CODE_PLUGIN_CACHE_DIR": "plugins-root",
-            "CLAUDE_CODE_PLUGIN_SEED_DIR": "plugins-seed",
-            "CLAUDE_CODE_PLUGIN_DIRS": "plugins-dirs",
-            "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE": "1",
-        }
-        documented_kept = {  # typed by hand, never the code's: the seven documented ones, each its own value
-            "CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS": "45000",
-            "CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE": "keep",
-            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL": "sync",
-            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS": "30000",
-            "FORCE_AUTOUPDATE_PLUGINS": "force",
-            "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "disable",
-            "CLAUDE_CODE_PLUGIN_DIR_WATCH": "watch",
-        }
-        # the kit's CI's CLAUDE_CODE_PLUGIN_PREFER_HTTPS, an unrelated FAKE_KEEP and the seven: the platform's
-        # environment-variables page documents them as tuning a clone's time, transport or retry, an update or
-        # a wait, none as steering where plugins are found, kept or loaded
-        kept_vars = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"} | documented_kept
-        base = {
-            k: v for k, v in os.environ.items() if k not in four and k not in kept_vars
-        } | {  # the plugins root is the fake's own
-            "PATH": f"{fake}{os.pathsep}{os.environ.get('PATH', '')}",
-            FROM_ENV: "toy/kit#main",
-            "FAKE_SOURCE": str(kit),
-        }
-        green, examined, green_note = run_guide(toy_guide(), kit, base)
-        case(
+    def green_run_cases(self, toy: Toy) -> str:
+        """A green run over the toy kit, and a run over the nameless one; what the green run examined."""
+        green, examined, green_note = run_guide(toy_guide(), toy.kit, toy.base)
+        self.case(
             "a green toy run on the pinned version green, with no note",
             not green and green_note == "",
             f"{whats(green)} ({examined}) {green_note!r}",
         )
-        nameless = toy_kit(root / "nameless", {"plugins": []})
         try:
-            run_guide(toy_guide(), nameless, base | {"FAKE_SOURCE": str(nameless)})
+            run_guide(toy_guide(), toy.nameless, toy.base | {"FAKE_SOURCE": str(toy.nameless)})
             unnamed = "no Broken"
         except Broken as broken:
             unnamed = str(broken)
-        case(
+        self.case(
             "a kit whose marketplace.json gives no name is a BROKEN, naming the clone's file",
             unnamed.endswith(
                 '/dev/constitution-kit/.claude-plugin/marketplace.json has no "name"'
@@ -2229,460 +2725,338 @@ class SelfTestRun:
             ),
             unnamed,
         )
-        green_examined = examined
-        self.base = base
-        self.four = four
-        self.green_examined = green_examined
-        self.kept_vars = kept_vars
-        self.kit = kit
-        self.nameless = nameless
-        self.root = root
+        return examined
 
-    def marketplace_list_cases(self) -> None:
+    def marketplace_list_cases(self, unit: Unit, texts: Texts) -> None:
         """The replies to the marketplace list: the clone they name, and each reply the reader refuses."""
-        case = self.case
-        base, kit, pin_note, root = self.base, self.kit, self.pin_note, self.root
-        # the platform's replies, whole sets of them: the fake prints the text of a file as `plugin
-        # marketplace list --json` or `plugin list --json`, and the readers are held to each reply
-        unit = root / "unit"
-        (unit / "config").mkdir(parents=True)
-        platform_folder = unit / "platform" / "toy-mp"  # the platform's clone of the marketplace, a folder
-        platform_folder.mkdir(parents=True)
-        a_file = unit / "platform" / "a-file"  # a place that exists and is no folder
-        a_file.write_text("not a folder\n", encoding="utf-8")
-        gone_folder = unit / "platform" / "gone"  # a place that does not exist
-        project_dir = unit / "project"
-        project_dir.mkdir()
-        linked_dir = unit / "linked"
-        linked_dir.symlink_to(project_dir)
-        files = 0
-
-        def unit_state(**extra: str) -> Run:
-            env = base | {"CLAUDE_CONFIG_DIR": str(unit / "config"), "FAKE_LOG": str(unit / "fake.log")}
-            return Run(
-                unit,
-                kit,
-                unit / "config",
-                env | extra,
-                modules_of(kit),
-                unit,
-                "toy/kit#main",
-                TOY_MP,
-                pin_note,
-            )
-
-        def reply_file(text: str) -> str:
-            nonlocal files
-            files += 1
-            (unit / f"reply-{files}.txt").write_text(text, encoding="utf-8")
-            return str(unit / f"reply-{files}.txt")
-
-        def without(entry: dict[str, object], *fields: str) -> dict[str, object]:
-            return {k: v for k, v in entry.items() if k not in fields}
-
-        list_where = "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"
-
-        def exited_fix(command: str) -> str:  # typed by hand: the fix of a list command that wrote no reply
-            return f" — fix: run `{command}` in {list_where}, read why it fails, then run the check again"
-
-        def reply_fix(rest: str, reader: str) -> str:
-            """The fix a BROKEN line ends with, by the function that reads: `reader`, which is
-            `platform_clone` or `project_entries`, for what it asks of an entry or finds in the list (two
-            entries of a name, a field that is no string, an installLocation that is no folder), and
-            `listed` for the rest, as `rest` says what was found; a command that exited other than 0 wrote
-            no reply, and has the command's own fix."""
-            if re.search(r"\bexited \d+ \(", rest):
-                return exited_fix(
-                    "claude plugin marketplace list --json"
-                    if reader == "platform_clone"
-                    else "claude plugin list --json"
-                )
-            asked = (
-                "entries named",
-                "project-scope entries",
-                "gives no ",
-                "installLocation that is no folder",
-            )
-            return fix_of(reader if any(word in rest for word in asked) else "listed")
-
-        mkt_command = "`claude plugin marketplace list --json`"
-        listed_command = "`claude plugin list --json`"
-        no_json = "Expecting value: line 1 column 1 (char 0)"
-
-        def mkt_said(text: str, code: int = 0, **extra: str) -> str:
-            state = unit_state(FAKE_MKT=reply_file(text), FAKE_MKT_EXIT=str(code), **extra)
-            try:
-                return f"clone {platform_clone(state)}"
-            except Misfit as misfit:
-                return f"RED {misfit.what}"
-            except Broken as bad:
-                return f"BROKEN {bad}"
-
-        def mkt(**fields: object) -> dict[str, object]:
-            return {
-                "name": TOY_MP,
-                "source": "github",
-                "repo": "toy/kit",
-                "installLocation": str(platform_folder),
-            } | fields
-
-        other: dict[str, object] = {
-            "name": "other-mp",
-            "source": "directory",
-            "path": "/p",
-            "installLocation": "/q",
-        }
-        stray = mkt(name="stray-mp", installLocation="/wrong")  # a GitHub entry of the right repository
-        clone_of = f"clone {platform_folder}"
+        stray = unit.mkt(name="stray-mp", installLocation="/wrong")  # a GitHub entry of the right repository
         for name, entries, result in (
-            ("one entry", [mkt()], clone_of),
-            ("another marketplace's entry first", [other, mkt()], clone_of),
-            ("another marketplace's entry last", [mkt(), other], clone_of),
-            ("a GitHub entry of another name first", [stray, mkt()], clone_of),
-            ("a GitHub entry of another name last", [mkt(), stray], clone_of),
+            ("one entry", [unit.mkt()], unit.clone_of),
+            ("another marketplace's entry first", [unit.other, unit.mkt()], unit.clone_of),
+            ("another marketplace's entry last", [unit.mkt(), unit.other], unit.clone_of),
+            ("a GitHub entry of another name first", [stray, unit.mkt()], unit.clone_of),
+            ("a GitHub entry of another name last", [unit.mkt(), stray], unit.clone_of),
             ("no entry", [], "RED the configuration knows no marketplace toy-mp"),
-            ("only another marketplace's", [other], "RED the configuration knows no marketplace toy-mp"),
+            ("only another marketplace's", [unit.other], "RED the configuration knows no marketplace toy-mp"),
             (
                 "a directory source",
-                [mkt(source="directory", path="/p")],
+                [unit.mkt(source="directory", path="/p")],
                 "RED the marketplace is registered from a directory source, not from GitHub",
             ),
             (
                 "another repository",
-                [mkt(repo="other/kit")],
+                [unit.mkt(repo="other/kit")],
                 "RED the marketplace is registered from other/kit, not from toy/kit",
             ),
             (
                 "a directory source with no repository, whose clone is no folder: the source is the finding",
-                [without(mkt(source="directory", path="/p", installLocation=str(gone_folder)), "repo")],
+                [without(unit.mkt(source="directory", path="/p", installLocation=str(unit.gone)), "repo")],
                 "RED the marketplace is registered from a directory source, not from GitHub",
             ),
             (
                 "another repository, whose clone is no folder: the repository is the finding",
-                [mkt(repo="other/kit", installLocation=str(gone_folder))],
+                [unit.mkt(repo="other/kit", installLocation=str(unit.gone))],
                 "RED the marketplace is registered from other/kit, not from toy/kit",
             ),
         ):
-            got = mkt_said(json.dumps(entries))
-            case(f"marketplace list, {name}: {result.split(' ')[0]}", got == result, got)
+            got = unit.mkt_said(json.dumps(entries))
+            self.case(f"marketplace list, {name}: {result.split(' ')[0]}", got == result, got)
         for name, text, code, rest in (
             (
                 "not JSON",
                 "garbled",
                 0,
-                f"printed no JSON ('garbled': {no_json})",
+                f"printed no JSON ('garbled': {texts.no_json})",
             ),
-            ("empty", "", 0, f"printed no JSON ('': {no_json})"),
+            ("empty", "", 0, f"printed no JSON ('': {texts.no_json})"),
             (
                 "text whose quotation is exactly 200 characters",
                 "x" * 198,
                 0,
-                f"printed no JSON ('{'x' * 198}': {no_json})",
+                f"printed no JSON ('{'x' * 198}': {texts.no_json})",
             ),
             (
                 "text whose quotation is 201 characters, cut at 200 and ended with …",
                 "x" * 199,
                 0,
-                f"printed no JSON ('{'x' * 199}…: {no_json})",
+                f"printed no JSON ('{'x' * 199}…: {texts.no_json})",
             ),
             (
                 "text much longer than that, cut at 200 characters",
                 "garbled " * 40,
                 0,
-                f"printed no JSON ({('garbled ' * 40)!r:.200}…: {no_json})",
+                f"printed no JSON ({('garbled ' * 40)!r:.200}…: {texts.no_json})",
             ),
             ("an object", "{}", 0, "printed a JSON dict, not a list"),
             ("a string", '"toy-mp"', 0, "printed a JSON str, not a list"),
             ("null", "null", 0, "printed a JSON NoneType, not a list"),
             ("a number", "7", 0, "printed a JSON int, not a list"),
             ("a string entry", '["x"]', 0, "lists an entry that is no object ('x')"),
-            ("a number entry last", json.dumps([mkt(), 7]), 0, "lists an entry that is no object (7)"),
-            ("a number entry first", json.dumps([7, mkt()]), 0, "lists an entry that is no object (7)"),
-            ("a null entry last", json.dumps([mkt(), None]), 0, "lists an entry that is no object (None)"),
-            ("two entries of the name", json.dumps([mkt(), mkt()]), 0, "lists 2 entries named toy-mp"),
+            ("a number entry last", json.dumps([unit.mkt(), 7]), 0, "lists an entry that is no object (7)"),
+            ("a number entry first", json.dumps([7, unit.mkt()]), 0, "lists an entry that is no object (7)"),
+            (
+                "a null entry last",
+                json.dumps([unit.mkt(), None]),
+                0,
+                "lists an entry that is no object (None)",
+            ),
+            (
+                "two entries of the name",
+                json.dumps([unit.mkt(), unit.mkt()]),
+                0,
+                "lists 2 entries named toy-mp",
+            ),
             (
                 "two entries of the name round another",
-                json.dumps([mkt(), other, mkt(repo="other/kit")]),
+                json.dumps([unit.mkt(), unit.other, unit.mkt(repo="other/kit")]),
                 0,
                 "lists 2 entries named toy-mp",
             ),
             (
                 "no source",
-                json.dumps([without(mkt(), "source")]),
+                json.dumps([without(unit.mkt(), "source")]),
                 0,
                 "gives no source string for toy-mp (source is absent)",
             ),
             (
                 "a source that is a number",
-                json.dumps([mkt(source=7)]),
+                json.dumps([unit.mkt(source=7)]),
                 0,
                 "gives no source string for toy-mp (source is 7)",
             ),
             (
                 "an empty source",
-                json.dumps([mkt(source="")]),
+                json.dumps([unit.mkt(source="")]),
                 0,
                 "gives no source string for toy-mp (source is '')",
             ),
             (
                 "a source that is null",
-                json.dumps([mkt(source=None)]),
+                json.dumps([unit.mkt(source=None)]),
                 0,
                 "gives no source string for toy-mp (source is None)",
             ),
             (
                 "no installLocation",
-                json.dumps([without(mkt(), "installLocation")]),
+                json.dumps([without(unit.mkt(), "installLocation")]),
                 0,
                 "gives no installLocation string for toy-mp (installLocation is absent)",
             ),
             (
                 "an installLocation that is a number",
-                json.dumps([mkt(installLocation=7)]),
+                json.dumps([unit.mkt(installLocation=7)]),
                 0,
                 "gives no installLocation string for toy-mp (installLocation is 7)",
             ),
             (
                 "an installLocation that is a list",
-                json.dumps([mkt(installLocation=["x"])]),
+                json.dumps([unit.mkt(installLocation=["x"])]),
                 0,
                 "gives no installLocation string for toy-mp (installLocation is ['x'])",
             ),
             (
                 "an empty installLocation",
-                json.dumps([mkt(installLocation="")]),
+                json.dumps([unit.mkt(installLocation="")]),
                 0,
                 "gives no installLocation string for toy-mp (installLocation is '')",
             ),
             (
                 "no installLocation on a directory source, before the finding on its source",
-                json.dumps([without(mkt(source="directory", path="/p"), "installLocation")]),
+                json.dumps([without(unit.mkt(source="directory", path="/p"), "installLocation")]),
                 0,
                 "gives no installLocation string for toy-mp (installLocation is absent)",
             ),
             (
                 "no installLocation on another repository's entry, before the finding on its repository",
-                json.dumps([without(mkt(repo="other/kit"), "installLocation")]),
+                json.dumps([without(unit.mkt(repo="other/kit"), "installLocation")]),
                 0,
                 "gives no installLocation string for toy-mp (installLocation is absent)",
             ),
             (
                 "no repository on a GitHub entry",
-                json.dumps([without(mkt(), "repo")]),
+                json.dumps([without(unit.mkt(), "repo")]),
                 0,
                 "gives no repo string for toy-mp (repo is absent)",
             ),
             (
                 "a repository that is a number",
-                json.dumps([mkt(repo=7)]),
+                json.dumps([unit.mkt(repo=7)]),
                 0,
                 "gives no repo string for toy-mp (repo is 7)",
             ),
             (
                 "an empty repository",
-                json.dumps([mkt(repo="")]),
+                json.dumps([unit.mkt(repo="")]),
                 0,
                 "gives no repo string for toy-mp (repo is '')",
             ),
             (
                 "a repository that is null",
-                json.dumps([mkt(repo=None)]),
+                json.dumps([unit.mkt(repo=None)]),
                 0,
                 "gives no repo string for toy-mp (repo is None)",
             ),
             (
                 "a repository that is a list",
-                json.dumps([mkt(repo=["toy/kit"])]),
+                json.dumps([unit.mkt(repo=["toy/kit"])]),
                 0,
                 "gives no repo string for toy-mp (repo is ['toy/kit'])",
             ),
             (
                 "an installLocation that does not exist",
-                json.dumps([mkt(installLocation=str(gone_folder))]),
+                json.dumps([unit.mkt(installLocation=str(unit.gone))]),
                 0,
-                f"names an installLocation that is no folder ({gone_folder})",
+                f"names an installLocation that is no folder ({unit.gone})",
             ),
             (
                 "an installLocation that is a file",
-                json.dumps([mkt(installLocation=str(a_file))]),
+                json.dumps([unit.mkt(installLocation=str(unit.a_file))]),
                 0,
-                f"names an installLocation that is no folder ({a_file})",
+                f"names an installLocation that is no folder ({unit.a_file})",
             ),
             (
                 "an installLocation that does not exist, on an entry round another marketplace's",
-                json.dumps([other, mkt(installLocation=str(gone_folder)), stray]),
+                json.dumps([unit.other, unit.mkt(installLocation=str(unit.gone)), stray]),
                 0,
-                f"names an installLocation that is no folder ({gone_folder})",
+                f"names an installLocation that is no folder ({unit.gone})",
             ),
             ("an exit 1 with a message", "boom", 1, "exited 1 (boom)"),
             ("an exit 3 with a valid reply", "[]", 3, "exited 3 ([])"),
         ):
-            got = mkt_said(text, code)
-            case(
+            got = unit.mkt_said(text, code)
+            self.case(
                 f"marketplace list, {name}: BROKEN",
-                got == f"BROKEN {mkt_command} {rest}{reply_fix(rest, 'platform_clone')}",
+                got == f"BROKEN {texts.mkt_command} {rest}{texts.reply_fix(rest, 'platform_clone')}",
                 got,
             )
-        self.clone_of = clone_of
-        self.gone_folder = gone_folder
-        self.linked_dir = linked_dir
-        self.list_where = list_where
-        self.listed_command = listed_command
-        self.mkt = mkt
-        self.mkt_command = mkt_command
-        self.mkt_said = mkt_said
-        self.no_json = no_json
-        self.other = other
-        self.project_dir = project_dir
-        self.reply_file = reply_file
-        self.reply_fix = reply_fix
-        self.unit = unit
-        self.unit_state = unit_state
-        self.without = without
 
-    def plugin_list_cases(self) -> None:
+    def plugin_list_cases(self, unit: Unit, texts: Texts) -> None:
         """The replies to the plugin list: the entries they hold, and each reply the reader refuses."""
-        case = self.case
-        linked_dir = self.linked_dir
-        listed_command = self.listed_command
-        no_json = self.no_json
-        project_dir = self.project_dir
-        reply_file = self.reply_file
-        reply_fix = self.reply_fix
-        unit_state = self.unit_state
-        without = self.without
-
-        def plug(module: str = "const-alpha", /, **fields: object) -> dict[str, object]:
-            return {
-                "id": f"{module}@{TOY_MP}",
-                "version": "0.0.1",
-                "scope": "project",
-                "enabled": True,
-                "installPath": f"/copies/{module}",
-                "projectPath": str(project_dir),
-            } | fields
-
-        def plugins_said(text: str, code: int = 0, project: Path = project_dir, **extra: str) -> str:
-            state = unit_state(FAKE_LIST=reply_file(text), FAKE_LIST_EXIT=str(code), **extra)
-            try:
-                found = project_entries(state, project)
-            except Broken as bad:
-                return f"BROKEN {bad}"
-            return "; ".join(
-                f"{m}=" + ",".join(f"{e['scope']}:{e['version']}:{e['installPath']}" for e in found[m])
-                for m in sorted(found)
-            )
-
-        def picks(alpha: str = "", beta: str = "") -> str:
-            return f"const-alpha={alpha}; const-beta={beta}"
-
-        alpha, beta = "project:0.0.1:/copies/const-alpha", "project:0.0.1:/copies/const-beta"
-        alone = without(plug(scope="user", version="9.9.9", installPath="/nowhere/u"), "projectPath")
-        away = plug(version="9.9.9", installPath="/nowhere/o", projectPath="/elsewhere/project")
-        both = [plug(), plug("const-beta")]
+        alone = without(unit.plug(scope="user", version="9.9.9", installPath="/nowhere/u"), "projectPath")
+        away = unit.plug(version="9.9.9", installPath="/nowhere/o", projectPath="/elsewhere/project")
         for name, entries, result, where in (
-            ("no entries", [], picks(), project_dir),
-            ("both modules", both, picks(alpha, beta), project_dir),
-            ("a user-scope entry of the id first", [alone, *both], picks(alpha, beta), project_dir),
-            ("a user-scope entry of the id last", [*both, alone], picks(alpha, beta), project_dir),
+            ("no entries", [], texts.picks(), unit.project),
+            ("both modules", unit.both, texts.picks(texts.alpha_pick, texts.beta_pick), unit.project),
+            (
+                "a user-scope entry of the id first",
+                [alone, *unit.both],
+                texts.picks(texts.alpha_pick, texts.beta_pick),
+                unit.project,
+            ),
+            (
+                "a user-scope entry of the id last",
+                [*unit.both, alone],
+                texts.picks(texts.alpha_pick, texts.beta_pick),
+                unit.project,
+            ),
             (
                 "a user-scope entry between",
-                [plug(), alone, plug("const-beta")],
-                picks(alpha, beta),
-                project_dir,
+                [unit.plug(), alone, unit.plug("const-beta")],
+                texts.picks(texts.alpha_pick, texts.beta_pick),
+                unit.project,
             ),
-            ("an entry for another project first", [away, *both], picks(alpha, beta), project_dir),
-            ("an entry for another project last", [*both, away], picks(alpha, beta), project_dir),
+            (
+                "an entry for another project first",
+                [away, *unit.both],
+                texts.picks(texts.alpha_pick, texts.beta_pick),
+                unit.project,
+            ),
+            (
+                "an entry for another project last",
+                [*unit.both, away],
+                texts.picks(texts.alpha_pick, texts.beta_pick),
+                unit.project,
+            ),
             (
                 "an entry for another project and a user-scope one round the right one",
-                [away, alone, plug(), alone, away],
-                picks(alpha),
-                project_dir,
+                [away, alone, unit.plug(), alone, away],
+                texts.picks(texts.alpha_pick),
+                unit.project,
             ),
-            ("two user-scope entries of the id", [alone, alone], picks(), project_dir),
+            ("two user-scope entries of the id", [alone, alone], texts.picks(), unit.project),
             (
                 "an entry of another marketplace first, whatever its fields",
-                [{"id": "const-alpha@other-mp", "scope": "project"}, *both],
-                picks(alpha, beta),
-                project_dir,
+                [{"id": "const-alpha@other-mp", "scope": "project"}, *unit.both],
+                texts.picks(texts.alpha_pick, texts.beta_pick),
+                unit.project,
             ),
             (
                 "an entry of a module the kit has not, whatever its fields",
-                [{"id": f"const-ghost@{TOY_MP}", "scope": "project"}, *both],
-                picks(alpha, beta),
-                project_dir,
+                [{"id": f"const-ghost@{TOY_MP}", "scope": "project"}, *unit.both],
+                texts.picks(texts.alpha_pick, texts.beta_pick),
+                unit.project,
             ),
             (
                 "a project and a local entry of the id for the project",
-                [plug(), plug(scope="local", installPath="/copies/local-alpha")],
-                picks(alpha + ",local:0.0.1:/copies/local-alpha"),
-                project_dir,
+                [unit.plug(), unit.plug(scope="local", installPath="/copies/local-alpha")],
+                texts.picks(texts.alpha_pick + ",local:0.0.1:/copies/local-alpha"),
+                unit.project,
             ),
             (
                 "the project given by a link, the entry holding its resolved path",
-                [plug(projectPath=str(project_dir.resolve()))],
-                picks(alpha),
-                linked_dir,
+                [unit.plug(projectPath=str(unit.project.resolve()))],
+                texts.picks(texts.alpha_pick),
+                unit.linked,
             ),
             (
                 "the project given by a link, the entry holding the link's path",
-                [plug(projectPath=str(linked_dir))],
-                picks(alpha),
-                linked_dir,
+                [unit.plug(projectPath=str(unit.linked))],
+                texts.picks(texts.alpha_pick),
+                unit.linked,
             ),
         ):
-            got = plugins_said(json.dumps(entries), project=where)
-            case(f"plugin list, {name}", got == result, got)
+            got = unit.plugins_said(json.dumps(entries), project=where)
+            self.case(f"plugin list, {name}", got == result, got)
         for name, text, code, rest in (
-            ("not JSON", "garbled", 0, f"printed no JSON ('garbled': {no_json})"),
-            ("empty", "", 0, f"printed no JSON ('': {no_json})"),
+            ("not JSON", "garbled", 0, f"printed no JSON ('garbled': {texts.no_json})"),
+            ("empty", "", 0, f"printed no JSON ('': {texts.no_json})"),
             ("an object", "{}", 0, "printed a JSON dict, not a list"),
             ("null", "null", 0, "printed a JSON NoneType, not a list"),
             ("a string entry", '["x"]', 0, "lists an entry that is no object ('x')"),
-            ("a number entry last", json.dumps([*both, 7]), 0, "lists an entry that is no object (7)"),
-            ("a number entry first", json.dumps([7, *both]), 0, "lists an entry that is no object (7)"),
+            ("a number entry last", json.dumps([*unit.both, 7]), 0, "lists an entry that is no object (7)"),
+            ("a number entry first", json.dumps([7, *unit.both]), 0, "lists an entry that is no object (7)"),
             ("an exit 1 with a message", "boom", 1, "exited 1 (boom)"),
-            ("an exit 2 with a valid reply", json.dumps(both), 2, f"exited 2 ({json.dumps(both)})"),
+            ("an exit 2 with a valid reply", json.dumps(unit.both), 2, f"exited 2 ({json.dumps(unit.both)})"),
         ):
-            got = plugins_said(text, code)
-            case(
+            got = unit.plugins_said(text, code)
+            self.case(
                 f"plugin list, {name}: BROKEN",
-                got == f"BROKEN {listed_command} {rest}{reply_fix(rest, 'project_entries')}",
+                got == f"BROKEN {texts.listed_command} {rest}{texts.reply_fix(rest, 'project_entries')}",
                 got,
             )
         for field in ("installPath", "version", "scope"):
             for shape, entry, said in (
-                ("absent", without(plug(), field), "absent"),
-                ("a number", plug(**{field: 7}), "7"),
-                ("empty", plug(**{field: ""}), "''"),
-                ("null", plug(**{field: None}), "None"),
+                ("absent", without(unit.plug(), field), "absent"),
+                ("a number", unit.plug(**{field: 7}), "7"),
+                ("empty", unit.plug(**{field: ""}), "''"),
+                ("null", unit.plug(**{field: None}), "None"),
             ):
                 rest = f"gives no {field} string for const-alpha@toy-mp ({field} is {said})"
                 # the user-scope entry of the id, which the check never takes, is read too: first and last
                 for placed, entries in (
                     ("a project entry alone", [entry]),
-                    ("a project entry last", [plug("const-beta"), entry]),
-                    ("a project entry first", [entry, plug("const-beta")]),
+                    ("a project entry last", [unit.plug("const-beta"), entry]),
+                    ("a project entry first", [entry, unit.plug("const-beta")]),
                     (
                         "a user-scope entry last",
                         [
-                            *both,
+                            *unit.both,
                             without(entry, "projectPath") | ({} if field == "scope" else {"scope": "user"}),
                         ],
                     ),
                 ):
-                    got = plugins_said(json.dumps(entries))
-                    case(
+                    got = unit.plugins_said(json.dumps(entries))
+                    self.case(
                         f"plugin list, {field} {shape} on {placed}: BROKEN",
-                        got == f"BROKEN {listed_command} {rest}{fix_of('project_entries')}",
+                        got == f"BROKEN {texts.listed_command} {rest}{fix_of('project_entries')}",
                         got,
                     )
         for scope in ("project", "local"):
             for shape, entry, said in (
-                ("absent", without(plug(scope=scope), "projectPath"), "absent"),
-                ("a number", plug(scope=scope, projectPath=7), "7"),
-                ("empty", plug(scope=scope, projectPath=""), "''"),
-                ("null", plug(scope=scope, projectPath=None), "None"),
+                ("absent", without(unit.plug(scope=scope), "projectPath"), "absent"),
+                ("a number", unit.plug(scope=scope, projectPath=7), "7"),
+                ("empty", unit.plug(scope=scope, projectPath=""), "''"),
+                ("null", unit.plug(scope=scope, projectPath=None), "None"),
             ):
                 rest = (
                     "gives no projectPath string for const-alpha@toy-mp"
@@ -2690,182 +3064,156 @@ class SelfTestRun:
                 )
                 for placed, entries in (
                     ("alone", [entry]),
-                    ("last", [*both, entry]),
-                    ("first", [entry, *both]),
+                    ("last", [*unit.both, entry]),
+                    ("first", [entry, *unit.both]),
                 ):
-                    got = plugins_said(json.dumps(entries))
-                    case(
+                    got = unit.plugins_said(json.dumps(entries))
+                    self.case(
                         f"plugin list, a {scope}-scope entry with projectPath {shape}, {placed}: BROKEN",
-                        got == f"BROKEN {listed_command} {rest}{fix_of('project_entries')}",
+                        got == f"BROKEN {texts.listed_command} {rest}{fix_of('project_entries')}",
                         got,
                     )
         twice = (
             f"lists 2 project-scope entries of const-alpha@toy-mp for the project{fix_of('project_entries')}"
         )
         for name, entries, rest in (
-            ("two entries of the id", [plug(), plug()], twice),
-            ("two entries round another module's", [plug(), plug("const-beta"), plug()], twice),
-            ("two entries round a user-scope one", [plug(), alone, plug()], twice),
-            ("three entries", [plug(), plug(), plug()], twice.replace("lists 2", "lists 3")),
+            ("two entries of the id", [unit.plug(), unit.plug()], twice),
+            (
+                "two entries round another module's",
+                [unit.plug(), unit.plug("const-beta"), unit.plug()],
+                twice,
+            ),
+            ("two entries round a user-scope one", [unit.plug(), alone, unit.plug()], twice),
+            ("three entries", [unit.plug(), unit.plug(), unit.plug()], twice.replace("lists 2", "lists 3")),
             (
                 "two entries of the second module",
-                [plug("const-beta"), plug(), plug("const-beta")],
+                [unit.plug("const-beta"), unit.plug(), unit.plug("const-beta")],
                 twice.replace("const-alpha", "const-beta"),
             ),
             (
                 "a shape fault of the second module before the two entries of the first",
-                [plug(), plug(), without(plug("const-beta"), "version")],
+                [unit.plug(), unit.plug(), without(unit.plug("const-beta"), "version")],
                 "gives no version string for const-beta@toy-mp (version is absent)"
                 + fix_of("project_entries"),
             ),
         ):
-            got = plugins_said(json.dumps(entries))
-            case(f"plugin list, {name}: BROKEN", got == f"BROKEN {listed_command} {rest}", got)
-        self.alpha = alpha
-        self.beta = beta
-        self.both = both
-        self.picks = picks
-        self.plug = plug
-        self.plugins_said = plugins_said
+            got = unit.plugins_said(json.dumps(entries))
+            self.case(f"plugin list, {name}: BROKEN", got == f"BROKEN {texts.listed_command} {rest}", got)
 
-    def list_identity_cases(self) -> None:
+    def list_identity_cases(self, unit: Unit, texts: Texts) -> None:
         """Names and ids in a reply, and a warning beside a valid list."""
-        case = self.case
-        alpha = self.alpha
-        beta = self.beta
-        both = self.both
-        clone_of = self.clone_of
-        listed_command = self.listed_command
-        mkt = self.mkt
-        mkt_command = self.mkt_command
-        mkt_said = self.mkt_said
-        other = self.other
-        picks = self.picks
-        plug = self.plug
-        plugins_said = self.plugins_said
-        without = self.without
         # every entry of either reply carries its identifying field as a string, an entry of another
         # marketplace or plugin too: an entry without it is a reply of the wrong shape, never an entry to skip
         for shape, entry, said in (
-            ("absent", without(mkt(), "name"), "absent"),
-            ("absent, a `title` where the name stands", without(mkt(), "name") | {"title": TOY_MP}, "absent"),
-            ("absent on an entry that is another marketplace's", without(other, "name"), "absent"),
-            ("a number", mkt(name=7), "7"),
-            ("empty", mkt(name=""), "''"),
-            ("null", mkt(name=None), "None"),
+            ("absent", without(unit.mkt(), "name"), "absent"),
+            (
+                "absent, a `title` where the name stands",
+                without(unit.mkt(), "name") | {"title": TOY_MP},
+                "absent",
+            ),
+            ("absent on an entry that is another marketplace's", without(unit.other, "name"), "absent"),
+            ("a number", unit.mkt(name=7), "7"),
+            ("empty", unit.mkt(name=""), "''"),
+            ("null", unit.mkt(name=None), "None"),
         ):
             for placed, entries, position in (
                 ("alone", [entry], 1),
-                ("first", [entry, mkt()], 1),
-                ("between", [other, entry, mkt()], 2),
-                ("last", [mkt(), entry], 2),
+                ("first", [entry, unit.mkt()], 1),
+                ("between", [unit.other, entry, unit.mkt()], 2),
+                ("last", [unit.mkt(), entry], 2),
             ):
                 rest = f"gives no name string for the list's entry {position} (name is {said})"
-                got = mkt_said(json.dumps(entries))
-                case(
+                got = unit.mkt_said(json.dumps(entries))
+                self.case(
                     f"marketplace list, a name {shape}, {placed}: BROKEN",
-                    got == f"BROKEN {mkt_command} {rest}{fix_of('platform_clone')}",
+                    got == f"BROKEN {texts.mkt_command} {rest}{fix_of('platform_clone')}",
                     got,
                 )
         id_faults: list[tuple[str, dict[str, object], str]] = [
-            ("absent", without(plug(), "id"), "absent"),
+            ("absent", without(unit.plug(), "id"), "absent"),
             ("absent on an entry of nothing else", {"scope": "project"}, "absent"),
-            ("a number", plug(id=7), "7"),
-            ("empty", plug(id=""), "''"),
-            ("null", plug(id=None), "None"),
+            ("a number", unit.plug(id=7), "7"),
+            ("empty", unit.plug(id=""), "''"),
+            ("null", unit.plug(id=None), "None"),
         ]
         for shape, entry, said in id_faults:
             for placed, entries, position in (
                 ("alone", [entry], 1),
-                ("first", [entry, *both], 1),
-                ("between", [plug(), entry, plug("const-beta")], 2),
-                ("last", [*both, entry], 3),
+                ("first", [entry, *unit.both], 1),
+                ("between", [unit.plug(), entry, unit.plug("const-beta")], 2),
+                ("last", [*unit.both, entry], 3),
             ):
                 rest = f"gives no id string for the list's entry {position} (id is {said})"
-                got = plugins_said(json.dumps(entries))
-                case(
+                got = unit.plugins_said(json.dumps(entries))
+                self.case(
                     f"plugin list, an id {shape}, {placed}: BROKEN",
-                    got == f"BROKEN {listed_command} {rest}{fix_of('project_entries')}",
+                    got == f"BROKEN {texts.listed_command} {rest}{fix_of('project_entries')}",
                     got,
                 )
         # the list commands' output: standard output alone is the reply, a warning on standard error is not
         warning = "warning: the plugin cache is out of date"
-        got = mkt_said(json.dumps([mkt()]), FAKE_STDERR=warning)
-        case(
+        got = unit.mkt_said(json.dumps([unit.mkt()]), FAKE_STDERR=warning)
+        self.case(
             "marketplace list, a valid list on standard output and a warning on standard error, exit 0: "
             "the list is read",
-            got == clone_of,
+            got == unit.clone_of,
             got,
         )
-        got = plugins_said(json.dumps(both), FAKE_STDERR=warning)
-        case(
+        got = unit.plugins_said(json.dumps(unit.both), FAKE_STDERR=warning)
+        self.case(
             "plugin list, a valid list on standard output and a warning on standard error, exit 0: "
             "the list is read",
-            got == picks(alpha, beta),
+            got == texts.picks(texts.alpha_pick, texts.beta_pick),
             got,
         )
 
-    def list_command_cases(self) -> None:
+    def list_command_cases(self, toy: Toy, unit: Unit, texts: Texts) -> None:
         """Where the list commands run, and a command that times out or says nothing."""
-        case = self.case
-        base = self.base
-        both = self.both
-        list_where = self.list_where
-        listed_command = self.listed_command
-        mkt = self.mkt
-        mkt_command = self.mkt_command
-        mkt_said = self.mkt_said
-        pin_note = self.pin_note
-        plugins_said = self.plugins_said
-        project_dir = self.project_dir
-        reply_file = self.reply_file
-        unit = self.unit
-        unit_state = self.unit_state
         # the folder each list runs in: the marketplace list where the block ended, the plugin list in the
         # project; neither in the run's home folder
-        block_end = unit / "block-end"
+        block_end = unit.folder / "block-end"
         block_end.mkdir()
-        cwd_log = unit / "cwd.log"
-        where_state = unit_state(
-            FAKE_MKT=reply_file(json.dumps([mkt()])),
-            FAKE_LIST=reply_file(json.dumps(both)),
+        cwd_log = unit.folder / "cwd.log"
+        where_state = unit.state(
+            FAKE_MKT=unit.reply_file(json.dumps([unit.mkt()])),
+            FAKE_LIST=unit.reply_file(json.dumps(unit.both)),
             FAKE_CWD=str(cwd_log),
         )
         where_state.cwd = block_end
         platform_clone(where_state)
-        project_entries(where_state, project_dir)
+        project_entries(where_state, unit.project)
         ran_in = dict(line.split("|", 1) for line in cwd_log.read_text(encoding="utf-8").splitlines())
-        case(
+        self.case(
             "marketplace list runs in the folder the block ended in",
             Path(ran_in.get("marketplace", "none")).resolve() == block_end.resolve(),
             str(ran_in),
         )
-        case(
+        self.case(
             "plugin list runs in the project",
-            Path(ran_in.get("plugins", "none")).resolve() == project_dir.resolve(),
+            Path(ran_in.get("plugins", "none")).resolve() == unit.project.resolve(),
             str(ran_in),
         )
         # a list that times out is a BROKEN, never an empty list: the timeout is the runner's exit 124
         with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["claude"], 7)) as timing:
-            apart = run_apart(["claude", "plugin", "list", "--json"], unit, base, timeout=7)
-        case(
+            apart = run_apart(["claude", "plugin", "list", "--json"], unit.folder, toy.base, timeout=7)
+        self.case(
             "a command that times out is exit 124 with no output and the reason, at the timeout it was given",
             apart == (124, "", "timed out after 7 s") and timing.call_args.kwargs["timeout"] == 7,
             f"{apart} {timing.call_args}",
         )
         for which, command, reader in (
-            ("marketplace", mkt_command, "platform_clone"),
-            ("plugin", listed_command, "project_entries"),
+            ("marketplace", texts.mkt_command, "platform_clone"),
+            ("plugin", texts.listed_command, "project_entries"),
         ):
             with mock.patch(
                 "subprocess.run", side_effect=subprocess.TimeoutExpired(["claude"], TIMEOUT)
             ) as timing:
                 got = (
-                    mkt_said(json.dumps([mkt()]))
+                    unit.mkt_said(json.dumps([unit.mkt()]))
                     if which == "marketplace"
-                    else plugins_said(json.dumps(both))
+                    else unit.plugins_said(json.dumps(unit.both))
                 )
-            case(
+            self.case(
                 f"{which} list that times out: BROKEN, never an empty list, after the runner's timeout",
                 got == f"BROKEN {command} exited 124 (timed out after {TIMEOUT} s) — fix: run the check again"
                 and timing.call_args.kwargs["timeout"] == TIMEOUT,
@@ -2873,23 +3221,14 @@ class SelfTestRun:
             )
         # a list command that wrote no reply has no reader to update: the command's own fix, on the pin and
         # off it; the lines are typed by hand
-        other_note = Note("2.1.282", "2.1.286")  # the state of a run on 2.1.286 with the opt-out set
-        put_first = (
-            "put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the"
-            " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
-            " for the guide's check), which puts it first, or install it beside your own by hand (npm install"
-            " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
-            " then PATH=<folder>/node_modules/.bin:$PATH)"
-        )
-        off_what = "this run is on 2.1.286, not the pinned 2.1.282"
 
         def silent_said(which: str, code: int, note: Note, timed_out: bool = False) -> str:
             """What the reader of the marketplace list or the plugin list says over a command that exits
             `code`, or that times out (the process mocked, no wait), in the state `note` records."""
-            state = unit_state(
-                FAKE_MKT=reply_file(json.dumps([mkt()])),
+            state = unit.state(
+                FAKE_MKT=unit.reply_file(json.dumps([unit.mkt()])),
                 FAKE_MKT_EXIT=str(code),
-                FAKE_LIST=reply_file(json.dumps(both)),
+                FAKE_LIST=unit.reply_file(json.dumps(unit.both)),
                 FAKE_LIST_EXIT=str(code),
             )
             state.note = note
@@ -2901,172 +3240,101 @@ class SelfTestRun:
                     if which == "marketplace":
                         platform_clone(state)
                     else:
-                        project_entries(state, project_dir)
+                        project_entries(state, unit.project)
                 except Broken as bad:
                     return f"BROKEN {bad}"
             return "no Broken"
 
         for which, command, raw in (
-            ("marketplace", mkt_command, "claude plugin marketplace list --json"),
-            ("plugin", listed_command, "claude plugin list --json"),
+            ("marketplace", texts.mkt_command, "claude plugin marketplace list --json"),
+            ("plugin", texts.listed_command, "claude plugin list --json"),
         ):
-            reply = json.dumps([mkt()]) if which == "marketplace" else json.dumps(both)
+            reply = json.dumps([unit.mkt()]) if which == "marketplace" else json.dumps(unit.both)
             for code, timed_out in ((1, False), (3, False), (124, False), (124, True)):
-                for state_name, note in (("on the pin", pin_note), ("off the pin", other_note)):
-                    on_pin = note is pin_note
-                    if code == 124:
-                        said = "timed out after " + str(TIMEOUT) + " s" if timed_out else reply
-                        fix = (
-                            " — fix: run the check again"
-                            if on_pin
-                            else f" — fix: {off_what}: run the check again on the pinned version, {put_first}"
-                        )
-                    else:
-                        said = reply
-                        read = f" — fix: run `{raw}` in {list_where}, read why it fails"
-                        fix = (
-                            read + ", then run the check again"
-                            if on_pin
-                            else read
-                            + f"; {off_what}, so then run the check again on the pinned version, {put_first}"
-                        )
+                for state_name, note in (("on the pin", texts.pin_note), ("off the pin", texts.other_note)):
+                    said = "timed out after " + str(TIMEOUT) + " s" if code == 124 and timed_out else reply
+                    fix = texts.silent_fix(raw, code, note is texts.pin_note)
                     got = silent_said(which, code, note, timed_out)
                     what = "times out" if timed_out else "exits " + str(code)
-                    case(
+                    self.case(
                         f"{which} list that {what}, {state_name}: BROKEN, the command's own fix, no reader",
                         got == f"BROKEN {command} exited {code} ({said}){fix}",
                         got,
                     )
-        self.off_what, self.other_note, self.put_first = off_what, other_note, put_first
 
-    def reinstall_and_update_cases(self) -> None:
-        """The reinstall and update claims over the copies a project lists."""
-        case = self.case
-        gone_folder = self.gone_folder
-        mkt = self.mkt
-        pin_note = self.pin_note
-        plug = self.plug
-        project_dir = self.project_dir
-        reply_file = self.reply_file
-        unit = self.unit
-        unit_state = self.unit_state
+    def reinstall_claim_cases(self, unit: Unit, copies: Copies) -> None:
+        """The reinstall claim over the copies a project lists: where it reads the platform's clone from."""
         # the reinstall's comparison reads the platform's clone from the state, else from marketplace list
-        wanted_clone, other_clone = unit / "clone", unit / "other-clone"
-
-        def held_copy(module: str) -> Path:
-            """The module's copy in the plugin cache of the unit tests' configuration, where claims look."""
-            return unit_state().cached(module)
-
-        for module in ("const-alpha", "const-beta"):
-            for folder, text in (
-                (wanted_clone / "modules" / module, "same\n"),
-                (held_copy(module), "same\n"),
-                (other_clone / "modules" / module, "odd\n"),
-            ):
-                folder.mkdir(parents=True)
-                (folder / "a.txt").write_text(text, encoding="utf-8")
-        (project_dir / ".claude").mkdir()
-        (project_dir / ".claude" / "settings.json").write_text(
-            json.dumps({"enabledPlugins": {f"{m}@{TOY_MP}": True for m in ("const-alpha", "const-beta")}}),
-            encoding="utf-8",
+        reinstalling = unit.state(
+            FAKE_LIST=unit.reply_file(json.dumps(copies.listed)),
+            FAKE_MKT=unit.reply_file(json.dumps([unit.mkt(installLocation=str(copies.wanted_clone))])),
         )
-        copies_listed = [plug(m, installPath=str(held_copy(m))) for m in ("const-alpha", "const-beta")]
-        reinstalling = unit_state(
-            FAKE_LIST=reply_file(json.dumps(copies_listed)),
-            FAKE_MKT=reply_file(json.dumps([mkt(installLocation=str(wanted_clone))])),
-        )
-        reinstalling.project = project_dir
+        reinstalling.project = unit.project
         reinstalling.clone = None
         got = claim(reinstalling, "reinstall")
-        case(
+        self.case(
             "a reinstall with no clone on the state reads it from marketplace list: alike, no finding",
             got == "",
             got,
         )
-        (held_copy("const-alpha") / "a.txt").write_text("changed\n", encoding="utf-8")
+        (unit.held_copy("const-alpha") / "a.txt").write_text("changed\n", encoding="utf-8")
         got = claim(reinstalling, "reinstall")
-        case(
+        self.case(
             "a reinstall with no clone on the state, a copy that differs from the listed clone's module",
             got == "const-alpha's a.txt is not alike in the cache and the marketplace",
             got,
         )
-        (held_copy("const-alpha") / "a.txt").write_text("same\n", encoding="utf-8")
-        reinstalling.clone = other_clone
+        (unit.held_copy("const-alpha") / "a.txt").write_text("same\n", encoding="utf-8")
+        reinstalling.clone = copies.other_clone
         got = claim(reinstalling, "reinstall")
-        case(
+        self.case(
             "a reinstall compares with the clone the state keeps, not with a fresh read",
             got == "const-alpha's a.txt is not alike in the cache and the marketplace",
             got,
         )
 
-        def update_held(
-            entries: list[dict[str, object]],
-            config: Path | None = None,
-            note: Note = pin_note,
-            env: dict[str, str] | None = None,
-        ) -> str:
-            """What the update claim, whose picks the install and the reinstall share, says of a list: its
-            finding, `RED` and the finding of a Misfit, with its fix after ` | `, or the empty string; the
-            run's configuration folder is `config` when one is given, else the default, its plugins root
-            `plugins` in it, `env` is added to the run's environment and `note` is its state."""
-            held = unit_state(FAKE_LIST=reply_file(json.dumps(entries)), **(env or {}))
-            if config is not None:
-                held.config = config
-                held.env = held.env | {"CLAUDE_CONFIG_DIR": str(config)}
-            held.project = project_dir
-            held.note = note
-            try:
-                return claim(held, "update")
-            except Misfit as misfit:
-                return f"RED {misfit.what} | {misfit.fix}"
-
-        def update_said(
-            entries: list[dict[str, object]],
-            config: Path | None = None,
-            note: Note = pin_note,
-            env: dict[str, str] | None = None,
-        ) -> str:
-            """`update_held` without the fix of a finding."""
-            return update_held(entries, config, note, env).split(" | ", 1)[0]
+    def update_claim_cases(self, unit: Unit, copies: Copies) -> None:
+        """The update claim over the copies a project lists: which entries it picks, and an installPath that
+        is no folder of the cache."""
 
         def local(module: str) -> dict[str, object]:
             """A local-scope entry for the project the claim must not pick: another version, no folder."""
-            return plug(module, scope="local", version="9.9.9", installPath=str(gone_folder / module))
+            return unit.plug(module, scope="local", version="9.9.9", installPath=str(unit.gone / module))
 
-        right_alpha, right_beta = copies_listed
-        got = update_said(copies_listed)
-        case("update claim, the project-scope entries alone: no finding", got == "", got)
+        right_alpha, right_beta = copies.listed
+        got = unit.update_said(copies.listed)
+        self.case("update claim, the project-scope entries alone: no finding", got == "", got)
         for name, entries in (
-            ("before", [local("const-alpha"), *copies_listed]),
-            ("after", [*copies_listed, local("const-alpha")]),
+            ("before", [local("const-alpha"), *copies.listed]),
+            ("after", [*copies.listed, local("const-alpha")]),
             (
                 "round each of two modules'",
                 [local("const-alpha"), right_alpha, local("const-alpha"), local("const-beta"), right_beta]
                 + [local("const-beta")],
             ),
         ):
-            got = update_said(entries)
-            case(
+            got = unit.update_said(entries)
+            self.case(
                 f"update claim, a local-scope entry of the id {name} the project-scope one: it is picked",
                 got == "",
                 got,
             )
-        got = update_said([local("const-alpha"), right_beta])
-        case(
+        got = unit.update_said([local("const-alpha"), right_beta])
+        self.case(
             "update claim, only a local-scope entry for a module: not installed for the project",
             got == "const-alpha is not installed for the project",
             got,
         )
         # the cache's copy is where the layout puts it, so the folder that fails is the cache's own
         for name, own_config, as_file in (
-            ("a file", unit / "config-file", True),
-            ("no folder at all", unit / "config-none", False),
+            ("a file", unit.folder / "config-file", True),
+            ("no folder at all", unit.folder / "config-none", False),
         ):
             plugins_root = own_config / "plugins"
-            at_config = unit_state()
+            at_config = unit.state()
             at_config.config = own_config
             target = at_config.cached("const-alpha")
-            case(
+            self.case(
                 f"the copy of an installPath case, {name}, is under the plugins root of its configuration",
                 plugins_root in target.parents,
                 str(target),
@@ -3076,44 +3344,21 @@ class SelfTestRun:
             if as_file:
                 target.parent.mkdir(parents=True)
                 target.write_text("not a folder\n", encoding="utf-8")
-            got = update_said([plug(installPath=str(target)), right_beta], own_config)
-            case(
+            got = unit.update_said([unit.plug(installPath=str(target)), right_beta], own_config)
+            self.case(
                 f"update claim, an installPath in the cache that is {name}: not in the plugin cache",
                 got == f"const-alpha is not in the plugin cache at {target}",
                 got,
             )
-        self.copies_listed = copies_listed
-        self.held_copy = held_copy
-        self.right_beta = right_beta
-        self.update_held = update_held
-        self.update_said = update_said
-        self.wanted_clone = wanted_clone
 
-    def plugin_cache_cases(self) -> None:
-        """Where the plugin cache is, what steers it, and the runs that drop a module or place one."""
-        case = self.case
-        base = self.base
-        copies_listed = self.copies_listed
-        four = self.four
-        green_examined = self.green_examined
-        held_copy = self.held_copy
-        kept_vars = self.kept_vars
-        kit = self.kit
-        off_what = self.off_what
-        other_note = self.other_note
-        plug = self.plug
-        put_first = self.put_first
-        right_beta = self.right_beta
-        unit = self.unit
-        unit_state = self.unit_state
-        update_held = self.update_held
-        update_said = self.update_said
-        wanted_clone = self.wanted_clone
+    def plugin_cache_location_cases(self, unit: Unit, texts: Texts, copies: Copies) -> None:
+        """Where the plugin cache is, and what the update claim holds of an installPath and what steers it."""
         # R4 of dec-0062, R4 and R5 of dec-0071: each module stands in the plugin cache, at its manifest
         # version; an installPath is held to the platform's documented layout, resolved on both sides
-        alpha_cache = held_copy("const-alpha")
-        default_root = unit / "config" / "plugins"
-        case(
+        _, right_beta = copies.listed
+        alpha_cache = unit.held_copy("const-alpha")
+        default_root = unit.folder / "config" / "plugins"
+        self.case(
             "the plugin cache's copy of a module is cache/<marketplace>/<module>/<version> under the plugins "
             "root, which is plugins in the configuration folder by default",
             alpha_cache == default_root / "cache" / TOY_MP / "const-alpha" / "0.0.1",
@@ -3121,38 +3366,29 @@ class SelfTestRun:
         )
         # the run drops CLAUDE_CODE_PLUGIN_CACHE_DIR from its environment, so the plugins root is the
         # configuration folder's and `Run.cached` reads no variable, whatever the state's environment holds
-        env_root = unit / "env-root"
+        env_root = unit.folder / "env-root"
         for name, value in (("set to a folder", str(env_root)), ("set and empty", "")):
-            held_by_env = unit_state(**{CACHE_ENV: value}).cached("const-alpha")
-            case(
+            held_by_env = unit.state(**{CACHE_ENV: value}).cached("const-alpha")
+            self.case(
                 "the plugins root is plugins in the configuration folder, whatever"
                 f" CLAUDE_CODE_PLUGIN_CACHE_DIR the environment holds ({name})",
                 held_by_env == alpha_cache,
                 str(held_by_env),
             )
-        cache_fix = (  # typed by hand: a message function cannot check itself
-            "make the block install each module from the marketplace, `claude plugin install "
-            "<module>@<marketplace> --scope project`, and set none of CLAUDE_CODE_PLUGIN_CACHE_DIR, "
-            "CLAUDE_CODE_PLUGIN_SEED_DIR, CLAUDE_CODE_PLUGIN_DIRS and CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE in a "
-            "block: the platform copies the module to <plugins root>/cache/<marketplace>/<module>/<version>, "
-            "where Claude Code's loading page documents it; if it now copies elsewhere, correct `Run.cached` "
-            "of the check"
-        )
-        off_cache_fix = (  # off the pin: the run on the pinned version, not a reader to correct
-            f"{off_what}: run the check again on the pinned version, {put_first}"
-        )
-        got = update_held([plug(installPath=str(alpha_cache.parent / "0.0.0")), right_beta])
-        case(
+        got = unit.update_held([unit.plug(installPath=str(alpha_cache.parent / "0.0.0")), right_beta])
+        self.case(
             "update claim, an installPath outside the cache, on the pin: the cache's fix and its reader to"
             " correct",
-            got.endswith(f" | {cache_fix}"),
+            got.endswith(f" | {texts.cache_fix}"),
             got,
         )
-        got = update_held([plug(installPath=str(alpha_cache.parent / "0.0.0")), right_beta], note=other_note)
-        case(
+        got = unit.update_held(
+            [unit.plug(installPath=str(alpha_cache.parent / "0.0.0")), right_beta], note=texts.other_note
+        )
+        self.case(
             "update claim, an installPath outside the cache, off the pin: the run on the pinned version, no"
             " reader to correct",
-            got.endswith(f" | {off_cache_fix}") and "Run.cached" not in got,
+            got.endswith(f" | {texts.off_cache_fix}") and "Run.cached" not in got,
             got,
         )
         outside = alpha_cache.parent / "0.0.0"  # the right cache, another version
@@ -3160,72 +3396,77 @@ class SelfTestRun:
         not_module = alpha_cache.parent  # the module's folder, without its version
         under = alpha_cache / "sub"
         for name, place in (
-            ("in the marketplace's clone, in place", wanted_clone / "modules" / "const-alpha"),
+            ("in the marketplace's clone, in place", copies.wanted_clone / "modules" / "const-alpha"),
             ("in the right cache at another version", outside),
             ("in another marketplace's cache", other_market),
             ("at the module's folder, without its version", not_module),
             ("below the module's copy", under),
         ):
             place.mkdir(parents=True, exist_ok=True)
-            got = update_said([plug(installPath=str(place)), right_beta])
-            case(
+            got = unit.update_said([unit.plug(installPath=str(place)), right_beta])
+            self.case(
                 f"update claim, an installPath {name}: not in the plugin cache, naming where it should be",
                 got == f"RED const-alpha is not in the plugin cache at {alpha_cache} but at {place}",
                 got,
             )
-        by_link = unit / "link-to-cache"
+        by_link = unit.folder / "link-to-cache"
         by_link.symlink_to(alpha_cache)
-        got = update_said([plug(installPath=str(by_link)), right_beta])
-        case("update claim, an installPath that is a link to the cache's copy: no finding", got == "", got)
-        got = update_said([plug(installPath=str(alpha_cache) + "/../0.0.1"), right_beta])
-        case(
+        got = unit.update_said([unit.plug(installPath=str(by_link)), right_beta])
+        self.case(
+            "update claim, an installPath that is a link to the cache's copy: no finding", got == "", got
+        )
+        got = unit.update_said([unit.plug(installPath=str(alpha_cache) + "/../0.0.1"), right_beta])
+        self.case(
             "update claim, an installPath reaching the cache's copy through `..`: no finding", got == "", got
         )
         env_copies = [
-            plug(m, installPath=str(env_root / "cache" / TOY_MP / m / "0.0.1"))
+            unit.plug(m, installPath=str(env_root / "cache" / TOY_MP / m / "0.0.1"))
             for m in ("const-alpha", "const-beta")
         ]
         for module in ("const-alpha", "const-beta"):
             (env_root / "cache" / TOY_MP / module / "0.0.1").mkdir(parents=True, exist_ok=True)
         # the plugins root itself may be a link: the path listed and the path built are both resolved
-        real_config, linked_config = unit / "config-real", unit / "config-linked"
+        real_config, linked_config = unit.folder / "config-real", unit.folder / "config-linked"
         (real_config / "plugins").mkdir(parents=True)
         linked_config.mkdir()
         (linked_config / "plugins").symlink_to(real_config / "plugins")
         real_copies = [
-            plug(m, installPath=str(real_config / "plugins" / "cache" / TOY_MP / m / "0.0.1"))
+            unit.plug(m, installPath=str(real_config / "plugins" / "cache" / TOY_MP / m / "0.0.1"))
             for m in ("const-alpha", "const-beta")
         ]
         for module in ("const-alpha", "const-beta"):
             (real_config / "plugins" / "cache" / TOY_MP / module / "0.0.1").mkdir(parents=True)
-        got = update_said(real_copies, linked_config)
-        case(
+        got = unit.update_said(real_copies, linked_config)
+        self.case(
             "update claim, the plugins root a link, the installPath the real folder it leads to: no finding",
             got == "",
             got,
         )
-        got = update_said(copies_listed, env={CACHE_ENV: str(env_root)})
-        case(
+        got = unit.update_said(copies.listed, env={CACHE_ENV: str(env_root)})
+        self.case(
             "update claim, CLAUDE_CODE_PLUGIN_CACHE_DIR in the state's environment, copies under the"
             " configuration's plugins root: no finding, the variable is not followed",
             got == "",
             got,
         )
-        got = update_said(env_copies, env={CACHE_ENV: str(env_root)})
-        case(
+        got = unit.update_said(env_copies, env={CACHE_ENV: str(env_root)})
+        self.case(
             "update claim, CLAUDE_CODE_PLUGIN_CACHE_DIR in the state's environment, copies under the"
             " variable's folder: not in the cache, the variable is not followed",
             got == f"RED const-alpha is not in the plugin cache at {alpha_cache} but at "
             f"{env_root / 'cache' / TOY_MP / 'const-alpha' / '0.0.1'}",
             got,
         )
-        got = update_said(env_copies)
-        case(
+        got = unit.update_said(env_copies)
+        self.case(
             "update claim, copies under a folder the environment does not name: not in the cache",
             got == f"RED const-alpha is not in the plugin cache at {alpha_cache} but at "
             f"{env_root / 'cache' / TOY_MP / 'const-alpha' / '0.0.1'}",
             got,
         )
+
+    def install_run_cases(self, toy: Toy, texts: Texts, green_examined: str) -> None:
+        """Whole runs over the toy guide that drop a module or place one, and entries the check skips."""
         still_installed = (
             "after check=uninstall: const-alpha@toy-mp, const-beta@toy-mp still installed for the project"
         )
@@ -3388,14 +3629,16 @@ class SelfTestRun:
             ),
         ]
         for name, replace, mutant, expected in runs:
-            findings, examined, _ = run_guide(toy_guide(**replace), kit, base | {"FAKE_MUTANT": mutant})
-            case(
+            findings, examined, _ = run_guide(
+                toy_guide(**replace), toy.kit, toy.base | {"FAKE_MUTANT": mutant}
+            )
+            self.case(
                 name,
                 len(findings) == 1 and findings[0].what.startswith(expected),
                 f"{whats(findings)} ({examined})",
             )
-        dropped, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "update-drops"})
-        case(
+        dropped, _, _ = run_guide(toy_guide(), toy.kit, toy.base | {"FAKE_MUTANT": "update-drops"})
+        self.case(
             "an update that drops a module red, naming the folder the platform lists for it",
             len(dropped) == 1
             and dropped[0].what.startswith("after check=update: const-alpha is not in the plugin cache at ")
@@ -3416,8 +3659,8 @@ class SelfTestRun:
             ("in a zip file the install's block asked for", {"install": zips}, ""),
         ]
         for name, replace, mutant in placements:
-            elsewhere, _, _ = run_guide(toy_guide(**replace), kit, base | {"FAKE_MUTANT": mutant})
-            case(
+            elsewhere, _, _ = run_guide(toy_guide(**replace), toy.kit, toy.base | {"FAKE_MUTANT": mutant})
+            self.case(
                 f"an install the platform lists {name}: one finding, not in the plugin cache, naming both "
                 "places, with the cache's fix",
                 len(elsewhere) == 1
@@ -3425,7 +3668,7 @@ class SelfTestRun:
                     "after check=install: const-alpha is not in the plugin cache at "
                 )
                 and "/.claude/plugins/cache/toy-mp/const-alpha/0.0.1 but at /" in elsewhere[0].what
-                and elsewhere[0].fix == cache_fix,
+                and elsewhere[0].fix == texts.cache_fix,
                 " | ".join(f"{f.what} / {f.fix}" for f in elsewhere),
             )
         # the decoys: entries the check must not take, first and last, and the run green
@@ -3437,38 +3680,38 @@ class SelfTestRun:
             "mkt-other-first",
             "mkt-other-last",
         ):
-            decoyed, decoyed_examined, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
-            case(
+            decoyed, decoyed_examined, _ = run_guide(toy_guide(), toy.kit, toy.base | {"FAKE_MUTANT": mutant})
+            self.case(
                 f"{mutant}: an entry that is not the module's, or the marketplace's, is skipped",
                 not decoyed and decoyed_examined == green_examined,
                 f"{whats(decoyed)} ({decoyed_examined})",
             )
 
+    def person_environment_cases(
+        self, toy: Toy, unit: Unit, texts: Texts, person: Person, green_examined: str
+    ) -> None:
+        """Runs with the four variables set in the person's environment, and a block that sets one itself."""
         # none of the four variables reaches a `claude` the run starts, whichever the person sets and to what:
         # the version command, the blocks' commands and the headless session all see the four unset, the
         # platform's copies are made under the run's own configuration, and the folders the variables name
         # stay empty; CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the seven documented ones reach every
         # command as the person set them, and CONSTITUTION_KIT_INSTALL_FROM, in `base`, is still read: the
         # run is green from its source
-        seen_when_removed = "|absent|absent|absent|absent|1|1|45000|keep|sync|30000|force|disable|watch"
-        # ^ the fake's log after a command's arguments
-        person_values: dict[str, tuple[str, str]] = {}
-        for variable, shape in four.items():
-            if shape != "1":
-                (unit / shape).mkdir()
-            person_values[variable] = (
-                ("set to 1", "1") if shape == "1" else ("set to a folder", str(unit / shape))
-            )
-        seen_log = unit / "cache-seen.log"
-        for variable, (what, set_value) in person_values.items():
+        for variable, (what, set_value) in person.values.items():
             for name, value in ((what, set_value), ("set and empty", "")):
-                seen_log.unlink(missing_ok=True)
+                person.seen_log.unlink(missing_ok=True)
                 rooted, rooted_examined, _ = run_guide(
-                    toy_guide(), kit, base | kept_vars | {variable: value, "FAKE_CACHE": str(seen_log)}
+                    toy_guide(),
+                    toy.kit,
+                    toy.base | toy.kept_vars | {variable: value, "FAKE_CACHE": str(person.seen_log)},
                 )
-                seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
+                seen = (
+                    person.seen_log.read_text(encoding="utf-8").splitlines()
+                    if person.seen_log.exists()
+                    else []
+                )
                 first_words = {line.split("|")[0].split()[0] for line in seen}
-                case(
+                self.case(
                     f"{variable} {name} in the person's environment: a green run, the whole of it, every"
                     " claude command (the version, the plugin commands, the session) run with the four"
                     " absent and CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the seven documented ones as"
@@ -3476,30 +3719,32 @@ class SelfTestRun:
                     not rooted
                     and rooted_examined == green_examined
                     and bool(seen)
-                    and all(line.endswith(seen_when_removed) for line in seen)
+                    and all(line.endswith(texts.seen_when_removed) for line in seen)
                     and {"--version", "plugin", "-p"} <= first_words
-                    and all(list((unit / f).iterdir()) == [] for f in four.values() if f != "1"),
+                    and all(list(folder.iterdir()) == [] for folder in person.folders),
                     f"{whats(rooted)} ({rooted_examined}) {seen[:4]}",
                 )
         # a block that exports one of the four itself has it for its own commands, and no other command
-        for variable in four:
-            block_value = "1" if four[variable] == "1" else "$HOME/block-value"
-            seen_log.unlink(missing_ok=True)
+        for variable in toy.four:
+            block_value = "1" if toy.four[variable] == "1" else "$HOME/block-value"
+            person.seen_log.unlink(missing_ok=True)
             run_guide(
                 toy_guide(
                     install=f"export {variable}={block_value} && "
                     "for m in ~/dev/constitution-kit/modules/const-*; "
                     f'do claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
                 ),
-                kit,
-                base | kept_vars | {"FAKE_CACHE": str(seen_log)},
+                toy.kit,
+                toy.base | toy.kept_vars | {"FAKE_CACHE": str(person.seen_log)},
             )
-            seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
+            seen = (
+                person.seen_log.read_text(encoding="utf-8").splitlines() if person.seen_log.exists() else []
+            )
             at_command = [(line.split("|")[0], line.split("|")[1:5]) for line in seen]
-            slot = list(four).index(variable)
+            slot = list(toy.four).index(variable)
             holds = [i for i, (_, fields) in enumerate(at_command) if fields[slot] != "absent"]
             installs = [i for i, (words, _) in enumerate(at_command) if words.startswith("plugin install")]
-            case(
+            self.case(
                 f"a block that exports {variable} itself: the variable reaches the two `plugin install`"
                 " commands of that block, one for each toy module, and no other claude command, and the"
                 " other three reach none",
@@ -3508,26 +3753,12 @@ class SelfTestRun:
                 and all(f == "absent" for _, fields in at_command for i, f in enumerate(fields) if i != slot),
                 " | ".join(seen[:6]),
             )
-        self.off_cache_fix = off_cache_fix
-        self.person_values = person_values
-        self.seen_log = seen_log
-        self.seen_when_removed = seen_when_removed
 
-    def broken_reply_cases(self) -> None:
+    def broken_reply_cases(self, toy: Toy, unit: Unit, texts: Texts) -> None:
         """The BROKEN lines for replies the platform gets wrong, and the guide as the commit holds it."""
-        case = self.case
-        base = self.base
-        kit = self.kit
-        listed_command = self.listed_command
-        mkt_command = self.mkt_command
-        no_json = self.no_json
-        reply_fix = self.reply_fix
-        settings_fix = self.settings_fix
-        unit = self.unit
-
         # the folders in a whole run: the marketplace list where its block ended, not in the project, the
         # plugin list in the project, and neither in the run's home folder
-        run_cwd = unit / "run-cwd.log"
+        run_cwd = unit.folder / "run-cwd.log"
         installing = (
             "cd ~/dev/my-project && for m in ~/dev/constitution-kit/modules/const-*; do "
             f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
@@ -3537,13 +3768,13 @@ class SelfTestRun:
                 marketplace="mkdir -p ~/elsewhere && cd ~/elsewhere && claude plugin marketplace add toy/kit",
                 install=installing,
             ),
-            kit,
-            base | {"FAKE_CWD": str(run_cwd)},
+            toy.kit,
+            toy.base | {"FAKE_CWD": str(run_cwd)},
         )
         listed_in = [line.split("|", 1) for line in run_cwd.read_text(encoding="utf-8").splitlines()]
         market_in = {where for which, where in listed_in if which == "marketplace"}
         plugins_in = {where for which, where in listed_in if which == "plugins"}
-        case(
+        self.case(
             "a run whose marketplace block ends outside the project: green, the marketplace list run where "
             "the block ended, the plugin list in the project",
             not away_run
@@ -3557,84 +3788,90 @@ class SelfTestRun:
         def broke(mutant: str) -> str:
             """The Broken a run over the toy guide ends in with the fake doing `mutant`, or its findings."""
             try:
-                found, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
+                found, _, _ = run_guide(toy_guide(), toy.kit, toy.base | {"FAKE_MUTANT": mutant})
             except Broken as bad:
                 return str(bad)
             return f"no Broken: {whats(found)}"
 
         for mutant, rest in (
-            ("mkt-not-json", f"{mkt_command} printed no JSON ('marketplaces: none\\n': {no_json})"),
-            ("mkt-not-list", f"{mkt_command} printed a JSON dict, not a list"),
-            ("mkt-two", f"{mkt_command} lists 2 entries named toy-mp"),
-            ("mkt-entry-not-object", f"{mkt_command} lists an entry that is no object ('x')"),
-            ("mkt-exit-1", f"{mkt_command} exited 1 (boom)"),
+            (
+                "mkt-not-json",
+                f"{texts.mkt_command} printed no JSON ('marketplaces: none\\n': {texts.no_json})",
+            ),
+            ("mkt-not-list", f"{texts.mkt_command} printed a JSON dict, not a list"),
+            ("mkt-two", f"{texts.mkt_command} lists 2 entries named toy-mp"),
+            ("mkt-entry-not-object", f"{texts.mkt_command} lists an entry that is no object ('x')"),
+            ("mkt-exit-1", f"{texts.mkt_command} exited 1 (boom)"),
             (
                 "mkt-no-installLocation",
-                f"{mkt_command} gives no installLocation string for toy-mp (installLocation is absent)",
+                f"{texts.mkt_command} gives no installLocation string for toy-mp (installLocation is absent)",
             ),
             (
                 "mkt-installLocation-number",
-                f"{mkt_command} gives no installLocation string for toy-mp (installLocation is 7)",
+                f"{texts.mkt_command} gives no installLocation string for toy-mp (installLocation is 7)",
             ),
             (
                 "mkt-title-for-name",
-                f"{mkt_command} gives no name string for the list's entry 1 (name is absent)",
+                f"{texts.mkt_command} gives no name string for the list's entry 1 (name is absent)",
             ),
-            ("mkt-no-source", f"{mkt_command} gives no source string for toy-mp (source is absent)"),
-            ("mkt-no-repo", f"{mkt_command} gives no repo string for toy-mp (repo is absent)"),
-            ("mkt-source-number", f"{mkt_command} gives no source string for toy-mp (source is 7)"),
-            ("list-not-json", f"{listed_command} printed no JSON ('no plugins yet\\n': {no_json})"),
-            ("list-not-list", f"{listed_command} printed a JSON dict, not a list"),
-            ("list-entry-not-object", f"{listed_command} lists an entry that is no object ('x')"),
-            ("list-exit-1", f"{listed_command} exited 1 (boom)"),
+            ("mkt-no-source", f"{texts.mkt_command} gives no source string for toy-mp (source is absent)"),
+            ("mkt-no-repo", f"{texts.mkt_command} gives no repo string for toy-mp (repo is absent)"),
+            ("mkt-source-number", f"{texts.mkt_command} gives no source string for toy-mp (source is 7)"),
+            (
+                "list-not-json",
+                f"{texts.listed_command} printed no JSON ('no plugins yet\\n': {texts.no_json})",
+            ),
+            ("list-not-list", f"{texts.listed_command} printed a JSON dict, not a list"),
+            ("list-entry-not-object", f"{texts.listed_command} lists an entry that is no object ('x')"),
+            ("list-exit-1", f"{texts.listed_command} exited 1 (boom)"),
             (
                 "list-without-id",
-                f"{listed_command} gives no id string for the list's entry 1 (id is absent)",
+                f"{texts.listed_command} gives no id string for the list's entry 1 (id is absent)",
             ),
             (
                 "list-without-projectPath",
-                f"{listed_command} gives no projectPath string for const-alpha@toy-mp at scope project"
+                f"{texts.listed_command} gives no projectPath string for const-alpha@toy-mp at scope project"
                 " (projectPath is absent)",
             ),
             (
                 "list-without-installPath",
-                f"{listed_command} gives no installPath string for const-alpha@toy-mp"
+                f"{texts.listed_command} gives no installPath string for const-alpha@toy-mp"
                 " (installPath is absent)",
             ),
             (
                 "list-without-version",
-                f"{listed_command} gives no version string for const-alpha@toy-mp (version is absent)",
+                f"{texts.listed_command} gives no version string for const-alpha@toy-mp (version is absent)",
             ),
             (
                 "list-without-scope",
-                f"{listed_command} gives no scope string for const-alpha@toy-mp (scope is absent)",
+                f"{texts.listed_command} gives no scope string for const-alpha@toy-mp (scope is absent)",
             ),
             (
                 "list-two-for-project",
-                f"{listed_command} lists 2 project-scope entries of const-alpha@toy-mp for the project",
+                f"{texts.listed_command} lists 2 project-scope entries of const-alpha@toy-mp for the project",
             ),
         ):
             got = broke(mutant)
-            case(
+            self.case(
                 f"{mutant}: a BROKEN pointing at the Claude Code version, never a finding against INSTALL.md",
                 got
                 == rest
-                + reply_fix(rest, "platform_clone" if mutant.startswith("mkt-") else "project_entries"),
+                + texts.reply_fix(rest, "platform_clone" if mutant.startswith("mkt-") else "project_entries"),
                 got,
             )
         got = broke("mkt-clone-gone")
-        case(
+        self.case(
             "mkt-clone-gone: an installLocation that is no folder is a BROKEN pointing at the Claude Code"
             " version, never a finding against INSTALL.md",
-            got.startswith(f"{mkt_command} names an installLocation that is no folder (/")
+            got.startswith(f"{texts.mkt_command} names an installLocation that is no folder (/")
             and got.endswith(f"/.claude/fake-clone/toy-mp-gone){fix_of('platform_clone')}"),
             got,
         )
         got = broke("settings-corrupt-on-update")
-        case(
+        self.case(
             "settings.json the platform wrote as no JSON is a BROKEN at the update claim",
             got.startswith("/")
-            and got.endswith(f"/.claude/settings.json is no JSON ({no_json}){settings_fix}"),
+            and got.endswith(f"/.claude/settings.json is no JSON ({texts.no_json}){texts.settings_fix}"),
             got,
         )
         for name, replace, fix in (
@@ -3653,14 +3890,14 @@ class SelfTestRun:
                 "`claude plugin install <module>@toy-mp --scope project`",  # typed by hand: the toy's name
             ),
         ):
-            exited, _, _ = run_guide(toy_guide(**replace), kit, base)
-            case(
+            exited, _, _ = run_guide(toy_guide(**replace), toy.kit, toy.base)
+            self.case(
                 f"{name} teaches its block's fix",
                 len(exited) == 1 and "exited 1" in exited[0].what and exited[0].fix == fix,
                 " | ".join(f"{f.what} / {f.fix}" for f in exited),
             )
-        stopped, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "session-no-start"})
-        case(
+        stopped, _, _ = run_guide(toy_guide(), toy.kit, toy.base | {"FAKE_MUTANT": "session-no-start"})
+        self.case(
             "a session that reports no start says why, and teaches to reproduce it",
             len(stopped) == 1
             and stopped[0].what.endswith("reported no start (Error: the session could not start)")
@@ -3694,13 +3931,13 @@ class SelfTestRun:
             ("session-dup-newline", f"{event} gives plugins entries 1 and 2 both named 'a\\nb'"),
         ):
             got = broke(mutant)
-            case(
+            self.case(
                 f"{mutant}: a BROKEN pointing at the Claude Code version, never a finding against INSTALL.md",
                 got == rest + fix_of("session_paths"),
                 got,
             )
-        builtin, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "session-builtin"})
-        case(
+        builtin, _, _ = run_guide(toy_guide(), toy.kit, toy.base | {"FAKE_MUTANT": "session-builtin"})
+        self.case(
             "a built-in plugin beside the modules in the init event: green, its path being no folder",
             not builtin,
             whats(builtin),
@@ -3709,13 +3946,13 @@ class SelfTestRun:
             # the first init event is the one read: a second after a good first, malformed or with paths that
             # differ, is never looked at
             got = broke(mutant)
-            case(
+            self.case(
                 f"{mutant}: the first init event is the one read, green", got == "no Broken: no finding", got
             )
         never, _, _ = run_guide(
-            toy_guide(marketplace="true || claude plugin marketplace add toy/kit"), kit, base
+            toy_guide(marketplace="true || claude plugin marketplace add toy/kit"), toy.kit, toy.base
         )
-        case(
+        self.case(
             "a marketplace never added teaches to register the repository",
             len(never) == 1 and never[0].fix.startswith("make the block register the kit's repository"),
             " | ".join(f.fix for f in never),
@@ -3730,14 +3967,16 @@ class SelfTestRun:
             # a well-formed list that holds a built-in plugin and lacks the modules: the same finding
             ("session-builtin-only", "run §2 steps 1 to 3 in a project of your own and read the Errors tab"),
         ):
-            taught, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": mutant})
-            case(
+            taught, _, _ = run_guide(toy_guide(), toy.kit, toy.base | {"FAKE_MUTANT": mutant})
+            self.case(
                 f"{mutant} teaches its own fix, one fix",
                 len(taught) == 1 and taught[0].fix.startswith(fix) and taught[0].render().count("fix:") == 1,
                 " | ".join(f"{f.what} / {f.fix}" for f in taught),
             )
-        mended, _, _ = run_guide(toy_guide(), kit, base | {"FAKE_MUTANT": "marketplace-fewer-modules"})
-        case(
+        mended, _, _ = run_guide(
+            toy_guide(), toy.kit, toy.base | {"FAKE_MUTANT": "marketplace-fewer-modules"}
+        )
+        self.case(
             "a marketplace whose modules differ teaches to bring the branch to the clone",
             len(mended) == 1 and mended[0].fix.startswith("bring the source branch to the kit's clone"),
             " | ".join(f.fix for f in mended),
@@ -3746,96 +3985,43 @@ class SelfTestRun:
         moved = dials[0].replace(
             "# Toy guide\n", "# Toy guide\n\nStep dials:" + dials[1].split("Step scan:")[0], 1
         )
-        early, _, _ = run_guide(moved + "Step scan:" + dials[1].split("Step scan:")[1], kit, base)
-        case(
+        early, _, _ = run_guide(moved + "Step scan:" + dials[1].split("Step scan:")[1], toy.kit, toy.base)
+        self.case(
             "the dials before the project red",
             len(early) == 1 and early[0].what.startswith("the dials example comes before the project exists"),
             whats(early),
         )
         try:
-            committed_guide(kit, os.environ | {"GIT_TRACE": "2"})
+            committed_guide(toy.kit, os.environ | {"GIT_TRACE": "2"})
             absent = "no Broken"
         except Broken as broken:
             absent = str(broken)
-        case(
+        self.case(
             "a guide not committed at HEAD is a configuration failure",
             "is not committed at HEAD" in absent,
             absent,
         )
-        (kit / GUIDE).write_text(toy_guide(), encoding="utf-8")
+        (toy.kit / GUIDE).write_text(toy_guide(), encoding="utf-8")
         try:
-            committed_guide(kit, os.environ | {"GIT_TRACE": "2"})
+            committed_guide(toy.kit, os.environ | {"GIT_TRACE": "2"})
             unread = "no Broken"
         except Broken as broken:
             unread = str(broken)
-        case("a guide written but not committed is not read", "is not committed at HEAD" in unread, unread)
-        git = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull}
-        run(["git", "add", GUIDE], kit, git)
+        self.case(
+            "a guide written but not committed is not read", "is not committed at HEAD" in unread, unread
+        )
+        run(["git", "add", GUIDE], toy.kit, toy.git)
         run(
-            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "guide"], kit, git
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "guide"],
+            toy.kit,
+            toy.git,
         )
-        read = committed_guide(kit, os.environ | {"GIT_TRACE": "2"})  # git writes its trace to stderr
-        case("the committed guide is read whole, standard output alone", read == toy_guide(), read[:80])
-        self.git = git
+        read = committed_guide(toy.kit, os.environ | {"GIT_TRACE": "2"})  # git writes its trace to stderr
+        self.case("the committed guide is read whole, standard output alone", read == toy_guide(), read[:80])
 
-    def claude_version_cases(self) -> None:
+    def claude_version_cases(self, toy: Toy, texts: Texts, person: Person, versions: Versions) -> None:
         """The version the run is on: the pin, the opt-out and the person's own environment."""
-        case = self.case
-        base = self.base
-        kept_vars = self.kept_vars
-        kit = self.kit
-        person_values = self.person_values
-        root = self.root
-        seen_log = self.seen_log
-        seen_when_removed = self.seen_when_removed
         # the version check, over every answer of `claude --version`; the lines are typed by hand
-        version_log = root / "version.log"
-        strict = (
-            "claude is {0}, and the kit's install checks read the platform as 2.1.282 writes it"
-            " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run:"
-            " either run sh scripts/setup-claude.sh in the kit's clone, then the check through"
-            " sh scripts/gate-list.sh --run install-<module> (--run guide for the guide's check), which puts"
-            " it first, or install it beside your own by hand (npm install --prefix <folder>"
-            " @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:$PATH), or set"
-            " CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
-            " {0} with a note on every headline line"
-        )
-        noted = " [claude {0}, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"
-        reinstall = (
-            " — fix: check that `claude` on PATH is Claude Code (`command -v claude`), and reinstall it"
-        )
-        no_opt_out = {k: v for k, v in base.items() if k != "CONSTITUTION_KIT_ANY_CLAUDE"}
-
-        def stuck(what: str) -> str:
-            return f"BROKEN: `claude --version` {what}{reinstall}"
-
-        def says_env(says: str, exits: int, optout: str | None, source: Path = kit) -> dict[str, str]:
-            env = no_opt_out | {
-                "FAKE_SAYS": says,
-                "FAKE_EXIT": str(exits),
-                "FAKE_LOG": str(version_log),
-                "FAKE_SOURCE": str(source),
-            }
-            if optout is not None:
-                env["CONSTITUTION_KIT_ANY_CLAUDE"] = optout
-            return env
-
-        def outcome(env: dict[str, str]) -> str:
-            """What the check does before its clone: the note it goes on with, or its BROKEN line."""
-            version_log.unlink(missing_ok=True)
-            try:
-                return f"note:{claude_noted(kit, env)}"
-            except Broken as broken:
-                return f"BROKEN: {broken}"
-
-        def logged() -> list[str]:
-            return version_log.read_text(encoding="utf-8").splitlines() if version_log.exists() else []
-
-        def kind(said_outcome: str) -> str:
-            if said_outcome == "note:":
-                return "the run goes on"
-            return "the run goes on with the note" if said_outcome.startswith("note:") else "BROKEN"
-
         # what `--version` says, its exit, what the run does with the variable unset, and with it at 1
         # (None: the same)
         rows: list[tuple[str, int, str, str | None]] = [
@@ -3847,255 +4033,223 @@ class SelfTestRun:
             (
                 "2.1.286 (Claude Code)\\n",
                 0,
-                "BROKEN: " + strict.format("2.1.286"),
-                "note:" + noted.format("2.1.286"),
+                "BROKEN: " + texts.strict.format("2.1.286"),
+                "note:" + texts.noted.format("2.1.286"),
             ),
             (
                 "2.1.2820 (Claude Code)\\n",
                 0,
-                "BROKEN: " + strict.format("2.1.2820"),
-                "note:" + noted.format("2.1.2820"),
+                "BROKEN: " + texts.strict.format("2.1.2820"),
+                "note:" + texts.noted.format("2.1.2820"),
             ),
             (
                 "2.1.28 (Claude Code)\\n",
                 0,
-                "BROKEN: " + strict.format("2.1.28"),
-                "note:" + noted.format("2.1.28"),
+                "BROKEN: " + texts.strict.format("2.1.28"),
+                "note:" + texts.noted.format("2.1.28"),
             ),
-            ("2.1.286", 0, "BROKEN: " + strict.format("2.1.286"), "note:" + noted.format("2.1.286")),
-            ("v2.1.282\\n", 0, stuck("printed no version (v2.1.282)"), None),
-            ("", 0, stuck("printed no version (no output)"), None),
-            ("", 1, stuck("exited 1 (no output)"), None),
-            ("2.1.282 (Claude Code)\\n", 1, stuck("exited 1 (2.1.282 (Claude Code))"), None),
-            ("2.1.286 (Claude Code)\\n", 1, stuck("exited 1 (2.1.286 (Claude Code))"), None),
-            ("", 139, stuck("exited 139 (no output)"), None),
+            (
+                "2.1.286",
+                0,
+                "BROKEN: " + texts.strict.format("2.1.286"),
+                "note:" + texts.noted.format("2.1.286"),
+            ),
+            ("v2.1.282\\n", 0, texts.stuck("printed no version (v2.1.282)"), None),
+            ("", 0, texts.stuck("printed no version (no output)"), None),
+            ("", 1, texts.stuck("exited 1 (no output)"), None),
+            ("2.1.282 (Claude Code)\\n", 1, texts.stuck("exited 1 (2.1.282 (Claude Code))"), None),
+            ("2.1.286 (Claude Code)\\n", 1, texts.stuck("exited 1 (2.1.286 (Claude Code))"), None),
+            ("", 139, texts.stuck("exited 139 (no output)"), None),
             (
                 "extra\\n2.1.282 (Claude Code)\\n",
                 0,
-                stuck("printed no version (2.1.282 (Claude Code))"),
+                texts.stuck("printed no version (2.1.282 (Claude Code))"),
                 None,
             ),
         ]
         for says, exits, unset_out, one_out in rows:
             at_one = unset_out if one_out is None else one_out
-            seen = [outcome(says_env(says, exits, None)), outcome(says_env(says, exits, "1"))]
-            ran = logged()  # the second run only: each run leaves the one line its own command logged
-            case(
-                f'`claude --version` printing "{says}" with exit {exits}: {kind(unset_out)} with the variable'
-                f" unset, {kind(at_one)} with it at 1",
+            seen = [
+                versions.outcome(versions.says_env(says, exits, None)),
+                versions.outcome(versions.says_env(says, exits, "1")),
+            ]
+            ran = (
+                versions.logged()
+            )  # the second run only: each run leaves the one line its own command logged
+            self.case(
+                f'`claude --version` printing "{says}" with exit {exits}: {outcome_kind(unset_out)}'
+                f" with the variable unset, {outcome_kind(at_one)} with it at 1",
                 seen == [unset_out, at_one] and ran == ["--version"],
                 f"{seen} {ran}",
             )
-        too_old = "2.1.286 (Claude Code)\\n"
         for value in ("", "0", "yes", "true", " 1", "1 ", "TRUE", "01"):
-            got = outcome(says_env(too_old, 0, value))
-            case(
+            got = versions.outcome(versions.says_env(texts.too_old, 0, value))
+            self.case(
                 f"CONSTITUTION_KIT_ANY_CLAUDE={value!r} is not the opt-out: the other version is BROKEN",
-                got == "BROKEN: " + strict.format("2.1.286"),
+                got == "BROKEN: " + texts.strict.format("2.1.286"),
                 got,
             )
 
-        person = root / "person"  # the configuration folder of the person who runs the check
-        person.mkdir()
-        (person / "keep").write_text("the person's own configuration\n", encoding="utf-8")
-        env_log = root / "env.log"
+        own_config = toy.root / "person"  # the configuration folder of the person who runs the check
+        own_config.mkdir()
+        (own_config / "keep").write_text("the person's own configuration\n", encoding="utf-8")
+        env_log = toy.root / "env.log"
         for name, own in (
             ("the person's CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER=0", True),
             ("neither of the two variables", False),
         ):
             env_log.unlink(missing_ok=True)
-            env = says_env("2.1.282 (Claude Code)\\n", 0, None) | {"FAKE_ENV": str(env_log)}
+            env = versions.says_env("2.1.282 (Claude Code)\\n", 0, None) | {"FAKE_ENV": str(env_log)}
             env = {
                 k: v for k, v in env.items() if own or k not in ("CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER")
             }
             if own:
-                env |= {"CLAUDE_CONFIG_DIR": str(person), "DISABLE_AUTOUPDATER": "0"}
-            outcome(env)
+                env |= {"CLAUDE_CONFIG_DIR": str(own_config), "DISABLE_AUTOUPDATER": "0"}
+            versions.outcome(env)
             seen_env = env_log.read_text(encoding="utf-8").splitlines() if env_log.exists() else []
             config, updater, held, is_dir = (seen_env[0].split("|") + ["", "", "", ""])[:4]
-            case(
+            self.case(
                 f"`claude --version` runs in an empty configuration folder of its own, auto-updater off,"
                 f" with {name}",
                 len(seen_env) == 1
-                and config not in ("", str(person))
+                and config not in ("", str(own_config))
                 and is_dir == "dir"
                 and held == "0"
                 and updater == "1"
-                and sorted(path.name for path in person.iterdir()) == ["keep"],
-                f"{seen_env} {sorted(path.name for path in person.iterdir())}",
+                and sorted(path.name for path in own_config.iterdir()) == ["keep"],
+                f"{seen_env} {sorted(path.name for path in own_config.iterdir())}",
             )
 
-        seen_log.unlink(missing_ok=True)
+        person.seen_log.unlink(missing_ok=True)
         opted, opted_examined, opted_note = run_guide(
             toy_guide(),
-            kit,
-            says_env(too_old, 0, "1")
-            | kept_vars
-            | {variable: set_value for variable, (_, set_value) in person_values.items()}
-            | {"FAKE_CACHE": str(seen_log)},
+            toy.kit,
+            versions.says_env(texts.too_old, 0, "1")
+            | toy.kept_vars
+            | {variable: set_value for variable, (_, set_value) in person.values.items()}
+            | {"FAKE_CACHE": str(person.seen_log)},
         )
-        seen = seen_log.read_text(encoding="utf-8").splitlines() if seen_log.exists() else []
-        case(
+        seen = person.seen_log.read_text(encoding="utf-8").splitlines() if person.seen_log.exists() else []
+        self.case(
             "all four set in the person's environment with CONSTITUTION_KIT_ANY_CLAUDE=1 on another version:"
             " the opt-out is still read (a green run with its note), every claude command run with the four"
             " absent",
             not opted
-            and opted_note == noted.format("2.1.286")
+            and opted_note == texts.noted.format("2.1.286")
             and bool(seen)
-            and all(line.endswith(seen_when_removed) for line in seen),
+            and all(line.endswith(texts.seen_when_removed) for line in seen),
             f"{whats(opted)} ({opted_examined}) {opted_note!r} {seen[:4]}",
         )
-        self.logged = logged
-        self.noted = noted
-        self.says_env = says_env
-        self.strict = strict
-        self.stuck = stuck
-        self.too_old = too_old
-        self.version_log = version_log
 
-    def whole_run_cases(self) -> None:
+    def whole_run_cases(self, toy: Toy, texts: Texts, versions: Versions) -> None:
         """Whole runs on another version, on a crashed claude and over unreadable replies."""
-        case = self.case
-        base = self.base
-        git = self.git
-        kit = self.kit
-        listed_command = self.listed_command
-        logged = self.logged
-        nameless = self.nameless
-        no_json = self.no_json
-        noted = self.noted
-        off_cache_fix = self.off_cache_fix
-        off_fix = self.off_fix
-        pin_fix = self.pin_fix
-        root = self.root
-        says_env = self.says_env
-        settings_fix = self.settings_fix
-        strict = self.strict
-        stuck = self.stuck
-        too_old = self.too_old
-        version_log = self.version_log
-
-        def stopped_run(env: dict[str, str], where: Path = kit) -> tuple[str, str]:
-            """What `run_guide` over the toy guide ends in when it is Broken: its line and its note."""
-            version_log.unlink(missing_ok=True)
-            try:
-                run_guide(toy_guide(), where, env)
-            except Broken as broken:
-                return str(broken), broken.note
-            return "no Broken", ""
-
-        line, kept = stopped_run(says_env(too_old, 0, None))
-        case(
+        line, kept = versions.stopped_run(versions.says_env(texts.too_old, 0, None))
+        self.case(
             "a run on another version stops before the clone and any block: only --version is run",
-            line == strict.format("2.1.286") and kept == "" and logged() == ["--version"],
-            f"{line} {kept!r} {logged()}",
+            line == texts.strict.format("2.1.286") and kept == "" and versions.logged() == ["--version"],
+            f"{line} {kept!r} {versions.logged()}",
         )
-        pinless = toy_kit(root / "pinless")
+        pinless = toy_kit(toy.root / "pinless")
         (pinless / "scripts" / "claude-code.version").unlink()
-        line, kept = stopped_run(says_env(too_old, 0, "1", pinless), pinless)
-        case(
+        line, kept = versions.stopped_run(versions.says_env(texts.too_old, 0, "1", pinless), pinless)
+        self.case(
             "a kit with no pin file is BROKEN with the reader's line, before claude is run",
             line
-            == f"{pinless}/scripts/claude-code.version cannot be read (No such file or directory){pin_fix}"
+            == f"{pinless}/scripts/claude-code.version cannot be read (No such file or directory)"
+            f"{texts.pin_fix}"
             and kept == ""
-            and logged() == [],
-            f"{line} {kept!r} {logged()}",
+            and versions.logged() == [],
+            f"{line} {kept!r} {versions.logged()}",
         )
-        line, kept = stopped_run(says_env("", 139, "1"))
-        case(
+        line, kept = versions.stopped_run(versions.says_env("", 139, "1"))
+        self.case(
             "a crashed claude stops the run before the clone, with no note, the opt-out notwithstanding",
-            line == stuck("exited 139 (no output)").removeprefix("BROKEN: ")
+            line == texts.stuck("exited 139 (no output)").removeprefix("BROKEN: ")
             and kept == ""
-            and logged() == ["--version"],
-            f"{line} {kept!r} {logged()}",
+            and versions.logged() == ["--version"],
+            f"{line} {kept!r} {versions.logged()}",
         )
-        version_log.unlink(missing_ok=True)
-        off_findings, off_examined, off_note = run_guide(toy_guide(), kit, says_env(too_old, 0, "1"))
-        case(
+        versions.log.unlink(missing_ok=True)
+        off_findings, off_examined, off_note = run_guide(
+            toy_guide(), toy.kit, versions.says_env(texts.too_old, 0, "1")
+        )
+        self.case(
             "with the opt-out a green run on another version goes on, asks the version once, and notes both",
             not off_findings
-            and off_note == noted.format("2.1.286")
-            and logged()[0] == "--version"
-            and logged().count("--version") == 1
-            and len(logged()) > 1,
-            f"{whats(off_findings)} ({off_examined}) {off_note!r} {logged()[:3]}",
+            and off_note == texts.noted.format("2.1.286")
+            and versions.logged()[0] == "--version"
+            and versions.logged().count("--version") == 1
+            and len(versions.logged()) > 1,
+            f"{whats(off_findings)} ({off_examined}) {off_note!r} {versions.logged()[:3]}",
         )
         in_place, _, _ = run_guide(
-            toy_guide(), kit, says_env(too_old, 0, "1") | {"FAKE_MUTANT": "install-in-place"}
+            toy_guide(),
+            toy.kit,
+            versions.says_env(texts.too_old, 0, "1") | {"FAKE_MUTANT": "install-in-place"},
         )
-        case(
+        self.case(
             "an install listed in the marketplace's clone, on another version with the opt-out: one finding"
             " against the cache, its fix the run on the pinned version and no reader to correct",
             len(in_place) == 1
             and in_place[0].what.startswith("after check=install: const-alpha is not in the plugin cache at ")
-            and in_place[0].fix == off_cache_fix,
+            and in_place[0].fix == texts.off_cache_fix,
             " | ".join(f"{f.what} / {f.fix}" for f in in_place),
         )
-        line, kept = stopped_run(says_env(too_old, 0, "1", nameless), nameless)
-        case(
+        line, kept = versions.stopped_run(
+            versions.says_env(texts.too_old, 0, "1", toy.nameless), toy.nameless
+        )
+        self.case(
             "a BROKEN after the version is known carries the note",
             line.endswith(
                 '/marketplace.json has no "name" — fix: give the marketplace its name, at the top of'
                 " the object"
             )
-            and kept == noted.format("2.1.286"),
+            and kept == texts.noted.format("2.1.286"),
             f"{line} {kept!r}",
         )
         nameless_main = toy_kit(
-            root / "nameless-main", {"plugins": []}
+            toy.root / "nameless-main", {"plugins": []}
         )  # its guide committed, as main reads it
         (nameless_main / GUIDE).write_text(toy_guide(), encoding="utf-8")
-        run(["git", "add", GUIDE], nameless_main, git)
+        run(["git", "add", GUIDE], nameless_main, toy.git)
         run(
             ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "guide"],
             nameless_main,
-            git,
+            toy.git,
         )
-
-        def whole_run(env: dict[str, str], where: Path = kit) -> tuple[int, list[str]]:
-            """The exit and the lines `main` prints over the toy kit, whose guide is committed."""
-            version_log.unlink(missing_ok=True)
-            printed_lines = io.StringIO()
-            with (
-                mock.patch.dict(os.environ, env, clear=True),
-                mock.patch.dict(globals(), {"KIT": where}),
-                contextlib.redirect_stdout(printed_lines),
-            ):
-                status = main([])
-            return status, printed_lines.getvalue().splitlines()
 
         stop = "BROKEN: the check could not run — 0 blocks run"  # a failure before any block ran
 
-        def stop_after(blocks: int) -> str:  # typed by hand: a message function cannot check itself
-            return f"BROKEN: the check could not run — {blocks} block(s) run"
-
-        ended, lines = whole_run(says_env(too_old, 0, None))
-        case(
+        ended, lines = versions.whole_run(versions.says_env(texts.too_old, 0, None))
+        self.case(
             "a whole run on another version prints the two BROKEN lines, and runs no other claude command",
             ended == EXIT_BROKEN
-            and lines == ["BROKEN: " + strict.format("2.1.286"), stop]
-            and logged() == ["--version"],
-            f"{ended} {lines} {logged()}",
+            and lines == ["BROKEN: " + texts.strict.format("2.1.286"), stop]
+            and versions.logged() == ["--version"],
+            f"{ended} {lines} {versions.logged()}",
         )
-        ended, lines = whole_run(says_env(too_old, 0, "1", nameless_main), nameless_main)
-        case(
+        ended, lines = versions.whole_run(
+            versions.says_env(texts.too_old, 0, "1", nameless_main), nameless_main
+        )
+        self.case(
             "a whole run with the opt-out ends each BROKEN line it prints with the note",
             ended == EXIT_BROKEN
             and len(lines) == 2
             and lines[0].endswith(
                 '/dev/constitution-kit/.claude-plugin/marketplace.json has no "name"'
-                " — fix: give the marketplace its name, at the top of the object" + noted.format("2.1.286")
+                " — fix: give the marketplace its name, at the top of the object"
+                + texts.noted.format("2.1.286")
             )
-            and lines[1] == stop + noted.format("2.1.286"),
+            and lines[1] == stop + texts.noted.format("2.1.286"),
             f"{ended} {lines}",
         )
-        ended, lines = whole_run(says_env("", 139, "1"))
-        case(
+        ended, lines = versions.whole_run(versions.says_env("", 139, "1"))
+        self.case(
             "a whole run on a crashed claude prints no note, the opt-out notwithstanding",
             ended == EXIT_BROKEN
-            and lines == [stuck("exited 139 (no output)"), stop]
-            and logged() == ["--version"],
-            f"{ended} {lines} {logged()}",
+            and lines == [texts.stuck("exited 139 (no output)"), stop]
+            and versions.logged() == ["--version"],
+            f"{ended} {lines} {versions.logged()}",
         )
         for shape, manifest_text, said_tail in (  # a manifest of a module, committed, over the whole run
             (
@@ -4117,22 +4271,22 @@ class SelfTestRun:
                 " — fix: restore the module's manifest",
             ),
         ):
-            odd_kit = toy_kit(root / f"manifest-{shape.replace(' ', '-')}")
+            odd_kit = toy_kit(toy.root / f"manifest-{shape.replace(' ', '-')}")
             (odd_kit / GUIDE).write_text(toy_guide(), encoding="utf-8")
             (odd_kit / "modules" / "const-alpha" / ".claude-plugin" / "plugin.json").write_text(
                 manifest_text, encoding="utf-8"
             )
-            run(["git", "add", "-A"], odd_kit, git)
+            run(["git", "add", "-A"], odd_kit, toy.git)
             run(
                 ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "odd"],
                 odd_kit,
-                git,
+                toy.git,
             )
             try:
-                ended, lines = whole_run(base | {"FAKE_SOURCE": str(odd_kit)}, odd_kit)
+                ended, lines = versions.whole_run(toy.base | {"FAKE_SOURCE": str(odd_kit)}, odd_kit)
             except TypeError as crash:  # a traceback is a case that fails, not the run
                 ended, lines = -1, [f"{type(crash).__name__}: {crash}"]
-            case(
+            self.case(
                 f"a whole run over a manifest that is {shape} prints the BROKEN line and the could-not-run"
                 " line, exit 1, after the clone and the marketplace's name",
                 ended == EXIT_BROKEN
@@ -4142,64 +4296,73 @@ class SelfTestRun:
                 and lines[1] == stop,
                 f"{ended} {lines}",
             )
-        unreadable_head = f"{listed_command} printed no JSON ('no plugins yet\\n': {no_json})"
-        ended, lines = whole_run(says_env(too_old, 0, "1") | {"FAKE_MUTANT": "list-not-json"})
-        case(
+        unreadable_head = f"{texts.listed_command} printed no JSON ('no plugins yet\\n': {texts.no_json})"
+        ended, lines = versions.whole_run(
+            versions.says_env(texts.too_old, 0, "1") | {"FAKE_MUTANT": "list-not-json"}
+        )
+        self.case(
             "a whole run on a reply of the wrong shape off the pin prints the two BROKEN lines, the note at"
             " the end of each",
             ended == EXIT_BROKEN
             and lines
             == [
-                "BROKEN: " + unreadable_head + off_fix + noted.format("2.1.286"),
-                stop_after(3) + noted.format("2.1.286"),  # new-repo, marketplace and install had run
+                "BROKEN: " + unreadable_head + texts.off_fix + texts.noted.format("2.1.286"),
+                texts.stop_after(3)
+                + texts.noted.format("2.1.286"),  # new-repo, marketplace and install had run
             ],
             f"{ended} {lines}",
         )
-        ended, lines = whole_run(base | {"FAKE_MUTANT": "list-not-json"})
-        case(
+        ended, lines = versions.whole_run(toy.base | {"FAKE_MUTANT": "list-not-json"})
+        self.case(
             "a whole run on a reply of the wrong shape on the pin prints the two BROKEN lines, no note, the"
             " second counting the three blocks that ran",
             ended == EXIT_BROKEN
-            and lines == ["BROKEN: " + unreadable_head + fix_of("listed"), stop_after(3)],
+            and lines == ["BROKEN: " + unreadable_head + fix_of("listed"), texts.stop_after(3)],
             f"{ended} {lines}",
         )
         unreadable_event = (  # the init event's, typed by hand
             "the headless session's `system/init` event gives no path string for plugins entry 2 (path is 7)"
         )
-        ended, lines = whole_run(says_env(too_old, 0, "1") | {"FAKE_MUTANT": "session-path-number"})
-        case(
+        ended, lines = versions.whole_run(
+            versions.says_env(texts.too_old, 0, "1") | {"FAKE_MUTANT": "session-path-number"}
+        )
+        self.case(
             "a whole run on an init event of the wrong shape off the pin prints the two BROKEN lines, the"
             " note at the end of each, the fix the run on the pinned version",
             ended == EXIT_BROKEN
             and lines
             == [
-                "BROKEN: " + unreadable_event + off_fix + noted.format("2.1.286"),
-                stop_after(3) + noted.format("2.1.286"),
+                "BROKEN: " + unreadable_event + texts.off_fix + texts.noted.format("2.1.286"),
+                texts.stop_after(3) + texts.noted.format("2.1.286"),
             ],
             f"{ended} {lines}",
         )
-        ended, lines = whole_run(base | {"FAKE_MUTANT": "session-path-number"})
-        case(
+        ended, lines = versions.whole_run(toy.base | {"FAKE_MUTANT": "session-path-number"})
+        self.case(
             "a whole run on an init event of the wrong shape on the pin prints the two BROKEN lines, no note,"
             " the second counting the three blocks that ran",
             ended == EXIT_BROKEN
-            and lines == ["BROKEN: " + unreadable_event + fix_of("session_paths"), stop_after(3)],
+            and lines == ["BROKEN: " + unreadable_event + fix_of("session_paths"), texts.stop_after(3)],
             f"{ended} {lines}",
         )
-        ended, lines = whole_run(base | {"FAKE_MUTANT": "settings-corrupt-on-update"})
-        case(
+        ended, lines = versions.whole_run(toy.base | {"FAKE_MUTANT": "settings-corrupt-on-update"})
+        self.case(
             "a whole run on a settings file the update left as no JSON prints the two BROKEN lines, the"
             " second counting the seven blocks that ran, the update's the last",
             ended == EXIT_BROKEN
             and len(lines) == 2
-            and lines[0].endswith(f"/.claude/settings.json is no JSON ({no_json}){settings_fix}")
-            and lines[1] == stop_after(7),
+            and lines[0].endswith(f"/.claude/settings.json is no JSON ({texts.no_json}){texts.settings_fix}")
+            and lines[1] == texts.stop_after(7),
             f"{ended} {lines}",
         )
-        ended, lines = whole_run(says_env(too_old, 0, "1") | {"FAKE_MUTANT": "settings-corrupt-on-update"})
-        case(
+        ended, lines = versions.whole_run(
+            versions.says_env(texts.too_old, 0, "1") | {"FAKE_MUTANT": "settings-corrupt-on-update"}
+        )
+        self.case(
             "the same off the pin: the note ends the second line after the count",
-            ended == EXIT_BROKEN and len(lines) == 2 and lines[1] == stop_after(7) + noted.format("2.1.286"),
+            ended == EXIT_BROKEN
+            and len(lines) == 2
+            and lines[1] == texts.stop_after(7) + texts.noted.format("2.1.286"),
             f"{ended} {lines}",
         )
         green_line = (
@@ -4207,44 +4370,37 @@ class SelfTestRun:
             " — 9 block(s) run, 2 module(s), from toy/kit#main"
         )
         for name, env, note_wanted in (
-            ("off the pin", says_env(too_old, 0, "1"), noted.format("2.1.286")),
-            ("on the pin", base, ""),
+            ("off the pin", versions.says_env(texts.too_old, 0, "1"), texts.noted.format("2.1.286")),
+            ("on the pin", toy.base, ""),
         ):
-            ended, lines = whole_run(env)
-            case(
+            ended, lines = versions.whole_run(env)
+            self.case(
                 f"a whole green run {name} prints one GREEN line, the note at the end of it",
                 ended == EXIT_GREEN and lines == [green_line + note_wanted],
                 f"{ended} {lines}",
             )
-        self.stop_after, self.whole_run = stop_after, whole_run
 
-    def run_setup_cases(self) -> None:
-        """Runs ending in a finding, folders that are no clone, carried credentials and the source."""
-        case = self.case
-        base = self.base
-        git = self.git
-        kit = self.kit
-        noted = self.noted
-        root = self.root
-        says_env = self.says_env
-        stop_after = self.stop_after
-        too_old = self.too_old
-        whole_run = self.whole_run
-        red_main = toy_kit(root / "red-main")  # its guide committed, with a block that exits 1
+    def run_finding_cases(self, toy: Toy, texts: Texts, versions: Versions) -> None:
+        """Whole runs that end in a finding, and in a file the run cannot read."""
+        red_main = toy_kit(toy.root / "red-main")  # its guide committed, with a block that exits 1
         (red_main / GUIDE).write_text(toy_guide(scan="false"), encoding="utf-8")
-        run(["git", "add", GUIDE], red_main, git)
+        run(["git", "add", GUIDE], red_main, toy.git)
         run(
             ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "-m", "guide"],
             red_main,
-            git,
+            toy.git,
         )
         scan_line = toy_guide(scan="false").splitlines().index("```bash check=scan") + 1
         for name, env, note_wanted in (
-            ("off the pin", says_env(too_old, 0, "1", red_main), noted.format("2.1.286")),
-            ("on the pin", base | {"FAKE_SOURCE": str(red_main)}, ""),
+            (
+                "off the pin",
+                versions.says_env(texts.too_old, 0, "1", red_main),
+                texts.noted.format("2.1.286"),
+            ),
+            ("on the pin", toy.base | {"FAKE_SOURCE": str(red_main)}, ""),
         ):
-            ended, lines = whole_run(env, red_main)
-            case(
+            ended, lines = versions.whole_run(env, red_main)
+            self.case(
                 f"a whole run {name} to a finding prints the RED lines, the note at the end of each headline",
                 ended == EXIT_RED
                 and lines
@@ -4266,7 +4422,7 @@ class SelfTestRun:
                 raise PermissionError(13, "Permission denied", "/the/file")
 
             with mock.patch.dict(globals(), {"run_blocks": refuses}):
-                return whole_run(env)
+                return versions.whole_run(env)
 
         unreadable_wanted = (  # typed by hand
             "BROKEN: a file could not be read or written ([Errno 13] Permission denied: '/the/file')"
@@ -4274,11 +4430,11 @@ class SelfTestRun:
             "BROKEN: the check could not run — 0 blocks run{}",
         )
         for name, env, note_wanted in (
-            ("off the pin", says_env(too_old, 0, "1"), noted.format("2.1.286")),
-            ("on the pin", base, ""),
+            ("off the pin", versions.says_env(texts.too_old, 0, "1"), texts.noted.format("2.1.286")),
+            ("on the pin", toy.base, ""),
         ):
             ended, lines = unreadable_run(env)
-            case(
+            self.case(
                 f"a file the blocks' run cannot read, {name}: the two BROKEN lines, the note at each end",
                 ended == EXIT_BROKEN and lines == [line.format(note_wanted) for line in unreadable_wanted],
                 f"{ended} {lines}",
@@ -4293,105 +4449,112 @@ class SelfTestRun:
             return real_claim(state, block)
 
         for name, env, note_wanted in (
-            ("off the pin", says_env(too_old, 0, "1"), noted.format("2.1.286")),
-            ("on the pin", base, ""),
+            ("off the pin", versions.says_env(texts.too_old, 0, "1"), texts.noted.format("2.1.286")),
+            ("on the pin", toy.base, ""),
         ):
             # the case above mocks run_blocks whole, so it cannot reach an OSError after blocks have run
             with mock.patch.dict(globals(), {"claim": unreadable_claim}):
-                ended, lines = whole_run(env)
-            case(
+                ended, lines = versions.whole_run(env)
+            self.case(
                 f"a file a claim cannot read after three blocks ran, {name}: the two BROKEN lines, the second"
                 " counting the three, the note at each end",
                 ended == EXIT_BROKEN
                 and lines
                 == [
                     unreadable_wanted[0].format(note_wanted),
-                    stop_after(3) + note_wanted,
+                    texts.stop_after(3) + note_wanted,
                 ],
                 f"{ended} {lines}",
             )
+
+    def clone_and_source_cases(self, toy: Toy) -> None:
+        """Folders that are no clone, the carried credentials, and the source the marketplace block takes."""
         try:
-            committed_guide(root / "bin", os.environ | {"GIT_CEILING_DIRECTORIES": str(root)})
+            committed_guide(toy.root / "bin", os.environ | {"GIT_CEILING_DIRECTORIES": str(toy.root)})
             bare = "no Broken"
         except Broken as broken:
             bare = str(broken)
-        case(
+        self.case(
             "a folder that is no clone is a configuration failure",
             "is no git clone with a commit" in bare,
             bare,
         )
-        no_clone = root / "no-clone"  # holds the pin, which is asked before the clone, and no git history
+        no_clone = toy.root / "no-clone"  # holds the pin, which is asked before the clone, and no git history
         (no_clone / "scripts").mkdir(parents=True)
         (no_clone / "scripts" / "claude-code.version").write_text(TOY_PIN + "\n", encoding="utf-8")
         try:
-            run_guide(toy_guide(), no_clone, base | {"GIT_CEILING_DIRECTORIES": str(root)})
+            run_guide(toy_guide(), no_clone, toy.base | {"GIT_CEILING_DIRECTORIES": str(toy.root)})
             unrun = "no Broken"
         except Broken as broken:
             unrun = str(broken)
-        case(
+        self.case(
             "a run from a folder that is no clone is a configuration failure",
             "is no git clone (" in unrun,
             unrun,
         )
-        traced, examined, _ = run_guide(toy_guide(), kit, base | {"GIT_TRACE": "2"})
-        case("a run whose git writes a trace to stderr green", not traced, f"{whats(traced)} ({examined})")
-        _, status = run(["git", "status", "--porcelain"], kit, git, joined=False)
-        case("the toy kit is left as it was: the run works on a clone", not status, status)
-        sourceless, _, _ = run_guide(toy_guide(marketplace="claude plugin marketplace list"), kit, base)
-        case(
+        traced, examined, _ = run_guide(toy_guide(), toy.kit, toy.base | {"GIT_TRACE": "2"})
+        self.case(
+            "a run whose git writes a trace to stderr green", not traced, f"{whats(traced)} ({examined})"
+        )
+        _, status = run(["git", "status", "--porcelain"], toy.kit, toy.git, joined=False)
+        self.case("the toy kit is left as it was: the run works on a clone", not status, status)
+        sourceless, _, _ = run_guide(
+            toy_guide(marketplace="claude plugin marketplace list"), toy.kit, toy.base
+        )
+        self.case(
             "a marketplace block with no source to point red",
             len(sourceless) == 1 and "runs no `claude plugin marketplace add <source>`" in sourceless[0].what,
             whats(sourceless),
         )
-        outer = root / "outer.gitconfig"  # gh's helpers, the forms a hand-written file breaks, an alias
-        (root / "more.gitconfig").write_text('[credential]\n\tusername = "José"\n', encoding="utf-8")
+        outer = toy.root / "outer.gitconfig"  # gh's helpers, the forms a hand-written file breaks, an alias
+        (toy.root / "more.gitconfig").write_text('[credential]\n\tusername = "José"\n', encoding="utf-8")
         outer.write_text(
             '[credential "https://github.com"]\n\thelper =\n\thelper = !gh auth git-credential\n'
             '[credential "https://x y"]\n\thelper = "a \\"quoted\\" \\\\ value"\n'
             '[credential]\n\tuseHttpPath\n\tmultiline = "one\\ntwo"\n'
-            f"[include]\n\tpath = {root / 'more.gitconfig'}\n"
+            f"[include]\n\tpath = {toy.root / 'more.gitconfig'}\n"
             "[alias]\n\tco = checkout\n",
             encoding="utf-8",
         )
-        carried = root / "carried.gitconfig"
+        carried = toy.root / "carried.gitconfig"
         carried.write_text("", encoding="utf-8")
-        carry_credentials(git | {"GIT_CONFIG_GLOBAL": str(outer)}, carried)
+        carry_credentials(toy.git | {"GIT_CONFIG_GLOBAL": str(outer)}, carried)
         want = ["config", "--includes", "-z", "--get-regexp", r"^credential\."]
-        had = run(["git", *want[:1], "--file", str(outer), *want[1:]], root, git, joined=False)[1]
-        got = run(["git", *want[:1], "--file", str(carried), *want[1:]], root, git, joined=False)[1]
-        case(
+        had = run(["git", *want[:1], "--file", str(outer), *want[1:]], toy.root, toy.git, joined=False)[1]
+        got = run(["git", *want[:1], "--file", str(carried), *want[1:]], toy.root, toy.git, joined=False)[1]
+        self.case(
             "the outer credential settings carried as git reads them, includes followed, nothing else",
             got == had.replace("credential.usehttppath\0", "credential.usehttppath\ntrue\0")
             and "alias" not in carried.read_text(encoding="utf-8"),
             f"{had!r} / {got!r}",
         )
-        helped = base | {"GIT_CONFIG_GLOBAL": str(outer), "FAKE_NEEDS_HELPER": "1"}
-        wired, examined, _ = run_guide(toy_guide(), kit, helped)
-        case("the carried helper reaches the run's git", not wired, f"{whats(wired)} ({examined})")
-        given = source_of(kit, git | {FROM_ENV: "owner/repo#work/x"})
-        case("the source taken from the environment", given == "owner/repo#work/x", given)
+        helped = toy.base | {"GIT_CONFIG_GLOBAL": str(outer), "FAKE_NEEDS_HELPER": "1"}
+        wired, examined, _ = run_guide(toy_guide(), toy.kit, helped)
+        self.case("the carried helper reaches the run's git", not wired, f"{whats(wired)} ({examined})")
+        given = source_of(toy.kit, toy.git | {FROM_ENV: "owner/repo#work/x"})
+        self.case("the source taken from the environment", given == "owner/repo#work/x", given)
         try:
-            source_of(kit, {k: v for k, v in git.items() if k != FROM_ENV})
+            source_of(toy.kit, {k: v for k, v in toy.git.items() if k != FROM_ENV})
             originless = "no Broken"
         except Broken as broken:
             originless = str(broken)
-        case(
+        self.case(
             "a kit with no origin on GitHub is a configuration failure",
             originless.startswith("the kit has no origin on GitHub to install from — fix:"),
             originless,
         )
-        originals = {k: v for k, v in git.items() if k != FROM_ENV}
-        remote = root / "github.com" / "toy" / "kit.git"  # a local origin whose URL reads as GitHub's
-        run(["git", "clone", "--quiet", "--bare", str(kit), str(remote)], root, originals)
-        run(["git", "remote", "add", "origin", str(remote)], kit, originals)
-        branch = run(["git", "symbolic-ref", "--short", "HEAD"], kit, originals, joined=False)[1]
-        found = source_of(kit, originals)
-        case("the source taken from origin at the branch's HEAD", found == f"toy/kit#{branch}", found)
+        originals = {k: v for k, v in toy.git.items() if k != FROM_ENV}
+        remote = toy.root / "github.com" / "toy" / "kit.git"  # a local origin whose URL reads as GitHub's
+        run(["git", "clone", "--quiet", "--bare", str(toy.kit), str(remote)], toy.root, originals)
+        run(["git", "remote", "add", "origin", str(remote)], toy.kit, originals)
+        branch = run(["git", "symbolic-ref", "--short", "HEAD"], toy.kit, originals, joined=False)[1]
+        found = source_of(toy.kit, originals)
+        self.case("the source taken from origin at the branch's HEAD", found == f"toy/kit#{branch}", found)
 
         def refused(argv: list[str]) -> str:
-            run(argv, kit, originals)
+            run(argv, toy.kit, originals)
             try:
-                return f"no Broken: {source_of(kit, originals)}"
+                return f"no Broken: {source_of(toy.kit, originals)}"
             except Broken as broken:
                 return str(broken)
 
@@ -4409,13 +4572,13 @@ class SelfTestRun:
                 "x",
             ]
         )
-        case(
+        self.case(
             "an origin behind HEAD is a configuration failure",
             behind.startswith(f"origin's {branch} is not at HEAD, so the install would not come from"),
             behind,
         )
         detached = refused(["git", "checkout", "--quiet", "--detach"])
-        case(
+        self.case(
             "a detached HEAD is a configuration failure",
             detached.startswith("HEAD is detached, so no branch to install from — fix:"),
             detached,
@@ -4423,8 +4586,6 @@ class SelfTestRun:
 
     def report_cases(self) -> None:
         """The report: its literal text for one finding, for a run off the pin and for a green run."""
-        case = self.case
-
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(
@@ -4437,7 +4598,7 @@ class SelfTestRun:
             "  fix: write `check=<name>`\n"
             "RED: 1 finding(s) — 3 named block(s), not run\n"
         )
-        case(
+        self.case(
             "the report of one finding is its literal text, exit 2",
             code == EXIT_RED and printed.getvalue() == literal,
             printed.getvalue(),
@@ -4456,7 +4617,7 @@ class SelfTestRun:
             "  fix: write `check=<name>`\n"
             f"RED: 1 finding(s) — 3 named block(s), not run{off_pin}\n"
         )
-        case(
+        self.case(
             "the report of a run off the pin ends each headline line with the note",
             code == EXIT_RED and printed.getvalue() == literal,
             printed.getvalue(),
@@ -4472,40 +4633,15 @@ class SelfTestRun:
             "GREEN: the install guide runs and does what it says — 9 block(s) run, 2 module(s),"
             " from toy/kit#main\n"
         )
-        case(
+        self.case(
             "the green report ends with the note off the pin, and with none on it",
             code == plain_code == EXIT_GREEN and printed.getvalue() == literal,
             printed.getvalue(),
         )
 
-    def listing_cases(self) -> None:
-        """The cases that read trees made in a temporary folder."""
-        with tempfile.TemporaryDirectory(prefix="install-guide-listings-") as listings:
-            self.listings = listings
-            self.module_listing_cases()
-            self.marketplace_and_pin_cases()
-            self.settings_file_cases()
-
-    def guide_run_cases(self) -> None:
-        """The cases that run the guide against the fake claude in a temporary folder."""
-        with tempfile.TemporaryDirectory(prefix="install-guide-self-test-") as scratch:
-            self.scratch = scratch
-            self.green_run_cases()
-            self.marketplace_list_cases()
-            self.plugin_list_cases()
-            self.list_identity_cases()
-            self.list_command_cases()
-            self.reinstall_and_update_cases()
-            self.plugin_cache_cases()
-            self.broken_reply_cases()
-            self.claude_version_cases()
-            self.whole_run_cases()
-            self.run_setup_cases()
-
     def fixture_cases(self) -> None:
         """The reader's hand-written files: record #1 is placed under its catalog's folder territory, and a
         dials example whose first catalog has no folder territory is refused."""
-        case = self.case
         no_home = (  # typed by hand
             "the dials example lists no catalog with a folder territory, so record #1 has no home — fix:"
             " correct the guide's check=dials block"
@@ -4521,7 +4657,9 @@ class SelfTestRun:
             folder.mkdir()
             fixture(folder, catalog("docs/decisions/**"))
             placed = (folder / "docs" / "decisions" / f"dec-0001-{RECORD_SLUG}.md").is_file()
-            case("record #1 is written under its catalog's folder territory", placed, f"placed: {placed}")
+            self.case(
+                "record #1 is written under its catalog's folder territory", placed, f"placed: {placed}"
+            )
             file_pattern = Path(tmp) / "file-pattern"
             file_pattern.mkdir()
             try:
@@ -4529,7 +4667,7 @@ class SelfTestRun:
                 said = "nothing raised"
             except Broken as refused:
                 said = str(refused)
-            case(
+            self.case(
                 "a first catalog whose territory is no folder is refused, record #1 having no home",
                 said == no_home,
                 said,
@@ -4537,9 +4675,10 @@ class SelfTestRun:
 
     def run(self) -> int:
         """Run every group in order, print the tally, and give the exit code."""
+        texts = typed_texts()
         self.mark_cases()
-        self.listing_cases()
-        self.guide_run_cases()
+        self.listing_cases(texts)
+        self.guide_run_cases(texts)
         self.report_cases()
         self.fixture_cases()
         print(f"{self.total - self.failed}/{self.total} cases green")

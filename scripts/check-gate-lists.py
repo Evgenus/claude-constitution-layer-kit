@@ -422,7 +422,46 @@ class Finding:
     # folders the module has when its pair is missing
 
     def render(self) -> str:
-        spans = ", ".join(f"`{name}`" for name in self.names)
+        if self.where in (Where.FILTER, Where.CHECK, Where.FORM):
+            return self.report_alone()
+        what, why, fix = self.parts()
+        return f"RED: {self.module}: {what}\n  why: {why}\n  fix: {fix}"
+
+    def report_alone(self) -> str:
+        """The whole report of a finding about a line of a file, a kit check or a form, whose `module` holds
+        the path: it names no module."""
+        if self.where is Where.FILTER:
+            return (
+                f"RED: {self.module}:{self.line}: it runs a fixture runner with `--item`, which runs only"
+                f" the items named\n  why: {WHY_FILTER}\n  fix: remove the `--item` option and its numbers"
+                f" from line {self.line} of {self.module}"
+            )
+        if self.where is Where.CHECK:  # `module` holds the check's path
+            return (
+                f"RED: {self.module} is run by no entry of the gate group\n  why: {WHY_CHECK}"
+                f"\n  fix: add an entry to GATES in {GATE_LIST} and an arm in commands() that runs"
+                f" `python3 {self.module}`, with its `--self-test` where it has one"
+            )
+        shown = f"`{self.entry}`" if self.entry else "nothing"
+        return (
+            f"RED: {self.module}:{self.line}: {FORM_WHAT[self.fault].format(shown)}"
+            f"\n  why: {WHY_FORM}\n  fix: {FORM_FIX[self.fault]}"
+        )
+
+    def parts(self) -> tuple[str, str, str]:
+        """What, why and fix of every finding that reports under its module's name."""
+        if self.where in REGISTRY:
+            return self.registry()
+        if self.where in COVERAGE_WHERE:
+            return self.coverage()
+        if self.where in (Where.GATE, Where.CI, Where.JOB):
+            return self.scan_parts()
+        if self.where in (Where.DIALS_KEY, Where.GUIDE_ADD, Where.GUIDE_DROP, Where.TYPES_PATH):
+            return self.file_parts()
+        return self.list_parts()
+
+    def scan_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a declared scan that the gate list, the CI list or the module's job lacks."""
         if self.where is Where.GATE:
             run = (
                 f"python3 modules/{self.module}/scripts/{self.entry} --scan"
@@ -430,94 +469,70 @@ class Finding:
                 else f"sh modules/{self.module}/scripts/{self.entry}.sh --scan"
             )
             what = f"its scan `{self.entry} --scan` is not in the {self.where}"
-            why, fix = WHY, f"add an entry to the gate group of {GATE_LIST} that runs `{run}`"
-        elif self.where is Where.CI:
+            return what, WHY, f"add an entry to the gate group of {GATE_LIST} that runs `{run}`"
+        if self.where is Where.CI:
             what = f"its scan `{self.entry} --scan` is not in the {self.where}"
-            why = WHY
             fix = (
                 f"let {WORKFLOW} build its jobs from `{READS_LIST[0]}` and run each with"
                 f" `{READS_LIST[1]} <job>`"
             )
-        elif self.where is Where.JOB:
-            held = f"the CI job `{self.job}`" if self.job else "no CI job"
-            what = (
-                f"its scan `{self.entry} --scan`, the entry `{self.runner}`, runs in {held}, not in its own"
-            )
-            why = WHY_JOB
-            fix = (
-                f"map the entry to its module in job() of {GATE_LIST}: `{self.runner}) echo {self.module} ;;`"
-            )
-        elif self.where is Where.FILTER:
-            return (
-                f"RED: {self.module}:{self.line}: it runs a fixture runner with `--item`, which runs only"
-                f" the items named\n  why: {WHY_FILTER}\n  fix: remove the `--item` option and its numbers"
-                f" from line {self.line} of {self.module}"
-            )
-        elif self.where is Where.CHECK:  # `module` holds the check's path
-            return (
-                f"RED: {self.module} is run by no entry of the gate group\n  why: {WHY_CHECK}"
-                f"\n  fix: add an entry to GATES in {GATE_LIST} and an arm in commands() that runs"
-                f" `python3 {self.module}`, with its `--self-test` where it has one"
-            )
-        elif self.where is Where.FORM:
-            shown = f"`{self.entry}`" if self.entry else "nothing"
-            return (
-                f"RED: {self.module}:{self.line}: {FORM_WHAT[self.fault].format(shown)}"
-                f"\n  why: {WHY_FORM}\n  fix: {FORM_FIX[self.fault]}"
-            )
-        elif self.where is Where.DIALS_KEY:  # `module` holds the key
+            return what, WHY, fix
+        held = f"the CI job `{self.job}`" if self.job else "no CI job"
+        what = f"its scan `{self.entry} --scan`, the entry `{self.runner}`, runs in {held}, not in its own"
+        fix = f"map the entry to its module in job() of {GATE_LIST}: `{self.runner}) echo {self.module} ;;`"
+        return what, WHY_JOB, fix
+
+    def file_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a finding about the dials file, the install guide or the `types` entry."""
+        if self.where is Where.DIALS_KEY:  # `module` holds the key
             what = f"{DIALS} has a top-level key for it, but modules/{self.module} is no module folder"
-            why = WHY_NAMESPACE
             fix = (
                 f"rename the key `{self.module}` in {DIALS} to the name of the module folder whose dials it"
                 " holds, or remove the key and what is under it"
             )
-        elif self.where is Where.GUIDE_ADD:
+            return what, WHY_NAMESPACE, fix
+        if self.where is Where.GUIDE_ADD:
             what = f"its scan `{self.entry} --scan` is not in the scan block of {GUIDE_FILE}"
-            why = WHY_GUIDE
             fix = (
                 f"add `{scan_path(self.module, self.entry)}` to the list after `for s in` in the {BLOCK}"
                 f" block of {GUIDE_FILE}"
             )
-        elif self.where is Where.GUIDE_DROP:  # `module` holds the path
+            return what, WHY_GUIDE, fix
+        if self.where is Where.GUIDE_DROP:  # `module` holds the path
             what = f"the scan block of {GUIDE_FILE} lists it, but no module declares that scan"
-            why = WHY_GUIDE
             fix = (
                 f"remove `{self.module}` from the list after `for s in` in the {BLOCK} block of {GUIDE_FILE}"
             )
-        elif self.where is Where.TYPES_PATH:  # `module` holds the list's path, `said` the entry's MYPYPATH
-            folders = ":".join(f"../modules/{name}/scripts" for name in self.names)
-            held = f"`{self.said}`" if self.said else "nothing"
-            what = f"its `{TYPES_ENTRY}` entry puts {held} on MYPYPATH, but {MIRROR} imports from `{folders}`"
-            why = WHY_TYPES
-            fix = (
-                f"in the `{TYPES_ENTRY}` entry of {GATE_LIST}, set MYPYPATH to `{folders}`, one setting, on"
-                " the command that type-checks scripts/*.py"
-            )
-        elif self.where in REGISTRY:
-            what, why, fix = self.registry()
-        elif self.where in COVERAGE_WHERE:
-            what, why, fix = self.coverage()
-        elif self.where is Where.MISSING:
-            what = f"the list lacks its entries {spans}"
-            why = WHY_MISSING
+            return what, WHY_GUIDE, fix
+        # Where.TYPES_PATH: `module` holds the list's path, `said` the entry's MYPYPATH
+        folders = ":".join(f"../modules/{name}/scripts" for name in self.names)
+        held = f"`{self.said}`" if self.said else "nothing"
+        what = f"its `{TYPES_ENTRY}` entry puts {held} on MYPYPATH, but {MIRROR} imports from `{folders}`"
+        fix = (
+            f"in the `{TYPES_ENTRY}` entry of {GATE_LIST}, set MYPYPATH to `{folders}`, one setting, on"
+            " the command that type-checks scripts/*.py"
+        )
+        return what, WHY_TYPES, fix
+
+    def list_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a module the list lacks entries for, or entries of a name with no folder."""
+        spans = ", ".join(f"`{name}`" for name in self.names)
+        if self.where is Where.MISSING:
             fix = (
                 f"add `{self.module}` to MODULES in {GATE_LIST}, which gives each module its install,"
                 " fixtures, lint and types entries"
             )
-        else:
-            what = f"the list has its entries {spans}, but modules/{self.module} is no module folder"
-            why = WHY_STRAY
-            # restoring the folder turns the check green only for a name that can be a module folder's,
-            # `const-<aspect>`; for any other name a restored folder stays red, being skipped as no module
-            # (`_draft`, `.x`) or turning the folder-name finding on (`glossary`), and the removal is the fix
-            restore = (
-                f", or restore modules/{self.module} with its MODULE.md"
-                if NAME.fullmatch(self.module) is not None
-                else ""
-            )
-            fix = f"remove `{self.module}` from MODULES in {GATE_LIST}{restore}"
-        return f"RED: {self.module}: {what}\n  why: {why}\n  fix: {fix}"
+            return f"the list lacks its entries {spans}", WHY_MISSING, fix
+        what = f"the list has its entries {spans}, but modules/{self.module} is no module folder"
+        # restoring the folder turns the check green only for a name that can be a module folder's,
+        # `const-<aspect>`; for any other name a restored folder stays red, being skipped as no module
+        # (`_draft`, `.x`) or turning the folder-name finding on (`glossary`), and the removal is the fix
+        restore = (
+            f", or restore modules/{self.module} with its MODULE.md"
+            if NAME.fullmatch(self.module) is not None
+            else ""
+        )
+        return what, WHY_STRAY, f"remove `{self.module}` from MODULES in {GATE_LIST}{restore}"
 
     def coverage(self) -> tuple[str, str, str]:
         """What, why and fix of a finding about a module's pair in the coverage map: `module` is the folder,
@@ -545,108 +560,170 @@ class Finding:
         what = f"modules/{m}/{said} is a folder, but its pair in {held} lists no pattern for it"
         return what, WHY_COVERAGE, f'add the line `- "modules/{m}/{said}/**"` to `code` of {pair}'
 
+    @property
+    def manifest_file(self) -> str:
+        """The path of the manifest of the module folder `module`."""
+        return f"modules/{self.module}/.claude-plugin/plugin.json"
+
+    def stray_folder(self) -> str:
+        """A stray's folder name: the entry's name, the key's before `@`."""
+        return self.module.removesuffix(f"@{self.tag}")
+
+    def make_folder_hint(self) -> str:
+        """The other way to fix a stray, naming its folder, only where the name could be a module's."""
+        named = self.stray_folder()
+        # modules/<named> could become a module folder, and pass every hold, only when it bears a module's
+        # name, `const-<aspect>`; for any other name, "" included, the removal is the one fix
+        if NAME.fullmatch(named) is None:
+            return ""
+        return f", or make modules/{named} a module folder holding its MODULE.md"
+
     def registry(self) -> tuple[str, str, str]:
         """What, why and fix of a finding about the files that name a module: `module` is the folder, the
         entry's name or the key, `said` what the file holds there as JSON text, `tag` the marketplace name."""
-        m, said, tag = self.module, self.said, self.tag
-        manifest = f"modules/{m}/.claude-plugin/plugin.json"
-        enable = f"{json.dumps(f'{m}@{tag}')}: true"
-        named = m.removesuffix(f"@{tag}")  # a stray's folder name: the entry's name, the key's before `@`
-        # modules/<named> could become a module folder, and pass every hold, only when it bears a module's
-        # name, `const-<aspect>`; for any other name, "" included, the removal is the one fix
-        possible = NAME.fullmatch(named) is not None
-        make = f", or make modules/{named} a module folder holding its MODULE.md" if possible else ""
-        if self.where is Where.NAME:
-            if not m.startswith("const") and NAME.fullmatch(f"const-{m}"):
-                rename = f"to modules/const-{m}"
-            else:
-                rename = "to a name `const-<aspect>`, lowercase letters and digits joined by single hyphens"
-            fix = (
-                f"rename modules/{m} {rename}, and name its manifest, marketplace entry, settings key and"
-                " entry in MODULES the same"
-            )
-            return "a module folder's name is not const-<aspect>", WHY_NAME, fix
-        if self.where is Where.MANIFEST:
-            named = (
-                f"is named {said}, not {json.dumps(m)}"
-                if said
-                else f"has no name, where it must be {json.dumps(m)}"
-            )
-            return (
-                f"its manifest {manifest} {named}",
-                WHY_MANIFEST,
-                f'set "name": {json.dumps(m)} in {manifest}',
-            )
-        if self.where is Where.MARKETPLACE:
-            entry = json.dumps({"name": m, "source": f"./modules/{m}"})
-            return (
-                "the marketplace has no entry for it",
-                WHY_MARKET,
-                f"add {entry} to plugins in {MARKETPLACE_FILE}",
-            )
-        if self.where is Where.MARKET_SOURCE:
-            what = f"its marketplace entry has {said}, not source {json.dumps(f'./modules/{m}')}"
-            fix = (
-                f'set "source" to {json.dumps(f"./modules/{m}")} in the entry named {json.dumps(m)}'
-                f" of plugins in {MARKETPLACE_FILE}"
-            )
-            return what, WHY_SOURCE, fix
-        if self.where is Where.MARKET_TWICE:
-            fix = (
-                f"remove all but one entry named {json.dumps(m)} from plugins in {MARKETPLACE_FILE},"
-                f" the one whose source is {json.dumps(f'./modules/{m}')}"
-            )
-            return f"the marketplace has {said} entries for it", WHY_TWICE, fix
-        if self.where is Where.MARKET_STRAY:
-            what = f"the marketplace has an entry for it, but modules/{m} is no module folder"
-            fix = f"remove the entry named {json.dumps(m)} from plugins in {MARKETPLACE_FILE}{make}"
-            return what, WHY_MARKET_STRAY, fix
-        if self.where is Where.MARKET_DESCRIPTION:
-            entry = f"the entry named {json.dumps(m)} of plugins in {MARKETPLACE_FILE}"
-            if self.side == "manifest":
-                what = (
-                    f"its manifest {manifest} has a description that is {said}, not a string"
-                    if said
-                    else f"its manifest {manifest} has no description"
-                )
-                fix = (
-                    f"set `description` in {manifest} to a string, the words a module's README opens with,"
-                    f" and copy it, as written, into {entry}"
-                )
-                return what, WHY_DESCRIPTION, fix
-            if self.side == "entry":
-                what = (
-                    f"its marketplace entry has a description that is {said}, not a string"
-                    if said
-                    else "its marketplace entry has no description"
-                )
-            else:
-                what = (
-                    f"its marketplace entry's description differs from its manifest's, first at character"
-                    f" {said} (counting from 1)"
-                )
-            return what, WHY_DESCRIPTION, f"copy `description` of {manifest}, as written, into {entry}"
-        if self.where is Where.SETTINGS:
+        parts = {
+            Where.NAME: self.folder_name_parts,
+            Where.MANIFEST: self.manifest_parts,
+            Where.MARKETPLACE: self.marketplace_parts,
+            Where.MARKET_SOURCE: self.market_source_parts,
+            Where.MARKET_TWICE: self.market_twice_parts,
+            Where.MARKET_STRAY: self.market_stray_parts,
+            Where.MARKET_DESCRIPTION: self.description_parts,
+            Where.SETTINGS: self.settings_parts,
+            Where.SETTINGS_STRAY: self.settings_stray_parts,
+            Where.KNOWN_MISSING: self.known_missing_parts,
+        }
+        return parts.get(self.where, self.known_source_parts)()
+
+    def folder_name_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a module folder whose name is not `const-<aspect>`."""
+        m = self.module
+        if not m.startswith("const") and NAME.fullmatch(f"const-{m}"):
+            rename = f"to modules/const-{m}"
+        else:
+            rename = "to a name `const-<aspect>`, lowercase letters and digits joined by single hyphens"
+        fix = (
+            f"rename modules/{m} {rename}, and name its manifest, marketplace entry, settings key and"
+            " entry in MODULES the same"
+        )
+        return "a module folder's name is not const-<aspect>", WHY_NAME, fix
+
+    def manifest_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a manifest whose name is not its folder's."""
+        m = self.module
+        named = (
+            f"is named {self.said}, not {json.dumps(m)}"
+            if self.said
+            else f"has no name, where it must be {json.dumps(m)}"
+        )
+        return (
+            f"its manifest {self.manifest_file} {named}",
+            WHY_MANIFEST,
+            f'set "name": {json.dumps(m)} in {self.manifest_file}',
+        )
+
+    def marketplace_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a module the marketplace has no entry for."""
+        m = self.module
+        entry = json.dumps({"name": m, "source": f"./modules/{m}"})
+        return (
+            "the marketplace has no entry for it",
+            WHY_MARKET,
+            f"add {entry} to plugins in {MARKETPLACE_FILE}",
+        )
+
+    def market_source_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a marketplace entry whose source is not the module's folder."""
+        m = self.module
+        what = f"its marketplace entry has {self.said}, not source {json.dumps(f'./modules/{m}')}"
+        fix = (
+            f'set "source" to {json.dumps(f"./modules/{m}")} in the entry named {json.dumps(m)}'
+            f" of plugins in {MARKETPLACE_FILE}"
+        )
+        return what, WHY_SOURCE, fix
+
+    def market_twice_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a module the marketplace has more than one entry for."""
+        m = self.module
+        fix = (
+            f"remove all but one entry named {json.dumps(m)} from plugins in {MARKETPLACE_FILE},"
+            f" the one whose source is {json.dumps(f'./modules/{m}')}"
+        )
+        return f"the marketplace has {self.said} entries for it", WHY_TWICE, fix
+
+    def market_stray_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a marketplace entry that is no module folder's."""
+        m = self.module
+        what = f"the marketplace has an entry for it, but modules/{m} is no module folder"
+        fix = (
+            f"remove the entry named {json.dumps(m)} from plugins in {MARKETPLACE_FILE}"
+            f"{self.make_folder_hint()}"
+        )
+        return what, WHY_MARKET_STRAY, fix
+
+    def description_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a marketplace entry whose description is not its manifest's; `side` tells
+        which text is wrong."""
+        m, said, manifest = self.module, self.said, self.manifest_file
+        entry = f"the entry named {json.dumps(m)} of plugins in {MARKETPLACE_FILE}"
+        if self.side == "manifest":
             what = (
-                f"the kit's settings set {json.dumps(f'{m}@{tag}')} to {said}, not true"
+                f"its manifest {manifest} has a description that is {said}, not a string"
                 if said
-                else "the kit's settings do not enable it"
+                else f"its manifest {manifest} has no description"
             )
-            return what, WHY_ENABLED, f"set {enable} under enabledPlugins in {SETTINGS_FILE}"
-        if self.where is Where.SETTINGS_STRAY:
-            what = f"the kit's settings enable it, but modules/{named} is no module folder"
-            fix = f"remove the key {json.dumps(m)} from enabledPlugins in {SETTINGS_FILE}{make}"
-            return what, WHY_ENABLED_STRAY, fix
-        declared = f'{json.dumps(m)}: {{"source": {json.dumps(DIRECTORY_SOURCE)}}}'
-        if self.where is Where.KNOWN_MISSING:
-            what = "the kit's settings do not declare the marketplace under extraKnownMarketplaces"
-            return what, WHY_KNOWN, f"add {declared} under extraKnownMarketplaces in {SETTINGS_FILE}"
+            fix = (
+                f"set `description` in {manifest} to a string, the words a module's README opens with,"
+                f" and copy it, as written, into {entry}"
+            )
+            return what, WHY_DESCRIPTION, fix
+        if self.side == "entry":
+            what = (
+                f"its marketplace entry has a description that is {said}, not a string"
+                if said
+                else "its marketplace entry has no description"
+            )
+        else:
+            what = (
+                f"its marketplace entry's description differs from its manifest's, first at character"
+                f" {said} (counting from 1)"
+            )
+        return what, WHY_DESCRIPTION, f"copy `description` of {manifest}, as written, into {entry}"
+
+    def settings_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a module the kit's settings do not enable with `true`."""
+        m, tag = self.module, self.tag
+        enable = f"{json.dumps(f'{m}@{tag}')}: true"
         what = (
-            f"the kit's settings declare the marketplace with {said},"
+            f"the kit's settings set {json.dumps(f'{m}@{tag}')} to {self.said}, not true"
+            if self.said
+            else "the kit's settings do not enable it"
+        )
+        return what, WHY_ENABLED, f"set {enable} under enabledPlugins in {SETTINGS_FILE}"
+
+    def settings_stray_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of an enabled key of the marketplace that is no module folder's."""
+        what = f"the kit's settings enable it, but modules/{self.stray_folder()} is no module folder"
+        fix = (
+            f"remove the key {json.dumps(self.module)} from enabledPlugins in {SETTINGS_FILE}"
+            f"{self.make_folder_hint()}"
+        )
+        return what, WHY_ENABLED_STRAY, fix
+
+    def known_missing_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a marketplace the kit's settings do not declare."""
+        declared = f'{json.dumps(self.module)}: {{"source": {json.dumps(DIRECTORY_SOURCE)}}}'
+        what = "the kit's settings do not declare the marketplace under extraKnownMarketplaces"
+        return what, WHY_KNOWN, f"add {declared} under extraKnownMarketplaces in {SETTINGS_FILE}"
+
+    def known_source_parts(self) -> tuple[str, str, str]:
+        """What, why and fix of a declared marketplace whose source is not the directory at `.`."""
+        what = (
+            f"the kit's settings declare the marketplace with {self.said},"
             f" not source {json.dumps(DIRECTORY_SOURCE)}"
         )
         fix = (
-            f"set the source of {json.dumps(m)} under extraKnownMarketplaces in {SETTINGS_FILE}"
+            f"set the source of {json.dumps(self.module)} under extraKnownMarketplaces in {SETTINGS_FILE}"
             f" to {json.dumps(DIRECTORY_SOURCE)}"
         )
         return what, WHY_KNOWN_SOURCE, fix
@@ -881,15 +958,9 @@ def description_finding(module: str, manifest: dict[str, Any], entry: dict[str, 
     return Finding(module, Where.MARKET_DESCRIPTION, said=str(first), side="differs")
 
 
-def check_registries(root: Path, modules: list[str]) -> tuple[list[Finding], int, int]:
-    """Each module folder is named `const-<aspect>` (kernel §7), is named so by its manifest, stands once in
-    the marketplace with `./modules/<folder>` as its source, and is enabled, `true`, in the kit's settings,
-    which declare the marketplace by a `directory` source at `.`; neither file names anything else of the
-    marketplace. The marketplace's name is read from marketplace.json. The findings come in a fixed
-    order, whatever the files' key order: by folder, name then manifest; the marketplace entries by folder,
-    each one's source then its description, then the strays by name; the enabled keys the same; the
-    declaration last. Returns them, the entry
-    count of the marketplace and the count of its keys in `enabledPlugins`."""
+def manifest_findings(root: Path, modules: list[str]) -> tuple[list[Finding], dict[str, dict[str, Any]]]:
+    """The folders whose name is not `const-<aspect>` and the manifests that do not bear their folder's
+    name, by folder, name then manifest; and the manifests read."""
     findings: list[Finding] = []
     manifests: dict[str, dict[str, Any]] = {}
     for module in modules:
@@ -899,23 +970,44 @@ def check_registries(root: Path, modules: list[str]) -> tuple[list[Finding], int
         if manifest.get("name") != module:
             said = shown(manifest["name"]) if "name" in manifest else ""
             findings.append(Finding(module, Where.MANIFEST, said=said))
-    tag, entries, plugins = read_marketplace(root)
+    return findings, manifests
+
+
+def entry_finding(module: str, got: list[dict[str, Any]]) -> Finding | None:
+    """The finding about a module's entries in the marketplace, `got`: none, more than one, or one whose
+    source is not the module's folder."""
+    if not got:
+        return Finding(module, Where.MARKETPLACE)
+    if len(got) > 1:
+        return Finding(module, Where.MARKET_TWICE, said=str(len(got)))
+    if got[0].get("source") != f"./modules/{module}":
+        said = f"source {shown(got[0]['source'])}" if "source" in got[0] else "no source"
+        return Finding(module, Where.MARKET_SOURCE, said=said)
+    return None
+
+
+def marketplace_findings(
+    modules: list[str], entries: dict[str, list[dict[str, Any]]], manifests: dict[str, dict[str, Any]]
+) -> list[Finding]:
+    """The findings about the marketplace's entries, by folder: each one's source then its description;
+    then the strays by name."""
+    findings: list[Finding] = []
     for module in modules:
         got = entries.get(module, [])
-        wanted = f"./modules/{module}"
-        if not got:
-            findings.append(Finding(module, Where.MARKETPLACE))
-        elif len(got) > 1:
-            findings.append(Finding(module, Where.MARKET_TWICE, said=str(len(got))))
-        elif got[0].get("source") != wanted:
-            said = f"source {shown(got[0]['source'])}" if "source" in got[0] else "no source"
-            findings.append(Finding(module, Where.MARKET_SOURCE, said=said))
+        if (found := entry_finding(module, got)) is not None:
+            findings.append(found)
         if len(got) == 1 and (told := description_finding(module, manifests[module], got[0])) is not None:
             findings.append(told)
     findings += [Finding(name, Where.MARKET_STRAY) for name in sorted(set(entries) - set(modules))]
-    settings = read_json(root, SETTINGS_FILE)
-    enabled = settings_object(settings, "enabledPlugins")
-    known = settings_object(settings, "extraKnownMarketplaces")
+    return findings
+
+
+def enabled_findings(
+    modules: list[str], tag: str, enabled: dict[str, Any]
+) -> tuple[list[Finding], list[str]]:
+    """The findings about the keys of `enabledPlugins`, by folder then the strays by name; and the keys of
+    the marketplace `tag`, sorted."""
+    findings: list[Finding] = []
     for module in modules:
         value = enabled.get(f"{module}@{tag}")
         if value is not True:
@@ -927,14 +1019,40 @@ def check_registries(root: Path, modules: list[str]) -> tuple[list[Finding], int
         for key in ours
         if key.removesuffix(f"@{tag}") not in modules
     ]
+    return findings, ours
+
+
+def known_findings(tag: str, known: dict[str, Any]) -> list[Finding]:
+    """The finding about the settings' declaration of the marketplace `tag`: absent, or not a directory
+    source at `.`."""
     if tag not in known:
-        findings.append(Finding(tag, Where.KNOWN_MISSING))
-    else:
-        entry = known[tag]
-        source = entry.get("source") if isinstance(entry, dict) else None
-        if source != DIRECTORY_SOURCE:
-            said = f"source {shown(source)}" if isinstance(entry, dict) and "source" in entry else "no source"
-            findings.append(Finding(tag, Where.KNOWN_SOURCE, said=said))
+        return [Finding(tag, Where.KNOWN_MISSING)]
+    entry = known[tag]
+    source = entry.get("source") if isinstance(entry, dict) else None
+    if source == DIRECTORY_SOURCE:
+        return []
+    said = f"source {shown(source)}" if isinstance(entry, dict) and "source" in entry else "no source"
+    return [Finding(tag, Where.KNOWN_SOURCE, said=said)]
+
+
+def check_registries(root: Path, modules: list[str]) -> tuple[list[Finding], int, int]:
+    """Each module folder is named `const-<aspect>` (kernel §7), is named so by its manifest, stands once in
+    the marketplace with `./modules/<folder>` as its source, and is enabled, `true`, in the kit's settings,
+    which declare the marketplace by a `directory` source at `.`; neither file names anything else of the
+    marketplace. The marketplace's name is read from marketplace.json. The findings come in a fixed
+    order, whatever the files' key order: by folder, name then manifest; the marketplace entries by folder,
+    each one's source then its description, then the strays by name; the enabled keys the same; the
+    declaration last. Returns them, the entry
+    count of the marketplace and the count of its keys in `enabledPlugins`."""
+    findings, manifests = manifest_findings(root, modules)
+    tag, entries, plugins = read_marketplace(root)
+    findings += marketplace_findings(modules, entries, manifests)
+    settings = read_json(root, SETTINGS_FILE)
+    enabled = settings_object(settings, "enabledPlugins")
+    known = settings_object(settings, "extraKnownMarketplaces")
+    told, ours = enabled_findings(modules, tag, enabled)
+    findings += told
+    findings += known_findings(tag, known)
     return findings, plugins, len(ours)
 
 
@@ -1700,6 +1818,67 @@ def registry_case(
     return Case({"x": scan}, folders=folders, files=files, types=types)
 
 
+def registry_entry(f: dict[str, Any], at: int = 0) -> dict[str, Any]:
+    """The `at`-th plugin entry of the marketplace file among the registry files `f`."""
+    entries: dict[str, Any] = f[MARKETPLACE_FILE]["plugins"][at]
+    return entries
+
+
+def registry_enabled(f: dict[str, Any]) -> dict[str, Any]:
+    """The `enabledPlugins` object of the settings among the registry files `f`."""
+    keys: dict[str, Any] = f[SETTINGS_FILE]["enabledPlugins"]
+    return keys
+
+
+def registry_known(f: dict[str, Any]) -> dict[str, Any]:
+    """The `extraKnownMarketplaces` object of the settings among the registry files `f`."""
+    declared: dict[str, Any] = f[SETTINGS_FILE]["extraKnownMarketplaces"]
+    return declared
+
+
+def with_dials(content: object) -> Callable[[dict[str, Any]], object]:
+    """The dials file replaced by `content`, the coverage map of the tree's two folders kept beside it;
+    an object is written as JSON, which YAML reads."""
+    owned = {COVERAGE_KEY: [full_pair(m) for m in ("const-x", "const-quiet")]}
+
+    def put(f: dict[str, Any]) -> None:
+        f[DIALS] = (
+            {**content, TEST_OWNER: owned}
+            if isinstance(content, dict)
+            else f"{content}{TEST_OWNER}: {json.dumps(owned)}\n"
+        )
+
+    return put
+
+
+def with_mirror(*folders: str) -> Callable[[dict[str, Any]], object]:
+    """The schema mirror replaced by one that loops over `folders`."""
+    return lambda f: f.update({MIRROR: mirror_text(folders)})
+
+
+def mypypath(*folders: str) -> str:
+    """The folders as the items of a MYPYPATH setting."""
+    return ":".join(f"../modules/{name}/scripts" for name in folders)
+
+
+def types_with(setting: str) -> str:
+    """The `types` entry's commands, the scripts' one with `setting` first."""
+    return (
+        "cd shared && python3 -m mypy --strict const_gate\n"
+        f"cd scripts && {setting}python3 -m mypy --strict *.py"
+    )
+
+
+def declared_as(source: object) -> Callable[[dict[str, Any]], object]:
+    """The settings' declaration of the marketplace with its `source` set to `source`."""
+    return lambda f: registry_known(f)[REGISTRY_TAG].update({"source": source})
+
+
+def enabled_as(value: object) -> Callable[[dict[str, Any]], object]:
+    """The settings' key that enables const-x set to `value`."""
+    return lambda f: registry_enabled(f).update({f"const-x@{REGISTRY_TAG}": value})
+
+
 def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
     """The cases of the files that name a module, each a matching registry edited once: the findings it
     must give, in their fixed order. The registry's plugins stand in the order of its folders, const-x
@@ -1708,48 +1887,10 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
     are two files of the registry, and the entry's commands a parameter of the case."""
     market, settings, tag = MARKETPLACE_FILE, SETTINGS_FILE, REGISTRY_TAG
 
-    def entry(f: dict[str, Any], at: int = 0) -> dict[str, Any]:
-        entries: dict[str, Any] = f[market]["plugins"][at]
-        return entries
-
-    def enabled(f: dict[str, Any]) -> dict[str, Any]:
-        keys: dict[str, Any] = f[settings]["enabledPlugins"]
-        return keys
-
-    def known(f: dict[str, Any]) -> dict[str, Any]:
-        declared: dict[str, Any] = f[settings]["extraKnownMarketplaces"]
-        return declared
-
     def edit(
         change: Callable[[dict[str, Any]], object], wanted: list[Where], types: str | None = TYPES_COMMAND
     ) -> tuple[Case, list[Where]]:
         return registry_case(scan, change, types=types), wanted
-
-    def with_dials(content: object) -> Callable[[dict[str, Any]], object]:
-        """The dials file replaced by `content`, the coverage map of the tree's two folders kept beside it;
-        an object is written as JSON, which YAML reads."""
-        owned = {COVERAGE_KEY: [full_pair(m) for m in ("const-x", "const-quiet")]}
-
-        def put(f: dict[str, Any]) -> None:
-            f[DIALS] = (
-                {**content, TEST_OWNER: owned}
-                if isinstance(content, dict)
-                else f"{content}{TEST_OWNER}: {json.dumps(owned)}\n"
-            )
-
-        return put
-
-    def with_mirror(*folders: str) -> Callable[[dict[str, Any]], object]:
-        return lambda f: f.update({MIRROR: mirror_text(folders)})
-
-    def mypypath(*folders: str) -> str:  # the folders as MYPYPATH items
-        return ":".join(f"../modules/{name}/scripts" for name in folders)
-
-    def types_with(setting: str) -> str:  # the entry's commands, the scripts' one with `setting` first
-        return (
-            "cd shared && python3 -m mypy --strict const_gate\n"
-            f"cd scripts && {setting}python3 -m mypy --strict *.py"
-        )
 
     p, q = MIRROR_FOLDERS
     stray, one = [Where.DIALS_KEY], [Where.TYPES_PATH]
@@ -1763,20 +1904,14 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         "const-x: *base\n"
     )
 
-    def declared_as(source: object) -> Callable[[dict[str, Any]], object]:
-        return lambda f: known(f)[tag].update({"source": source})
-
-    def enabled_as(value: object) -> Callable[[dict[str, Any]], object]:
-        return lambda f: enabled(f).update({f"const-x@{tag}": value})
-
     cases: dict[str, tuple[Case, list[Where]]] = {
         "an entry, a manifest and the settings carry the platform's other keys: allowed": edit(
             lambda f: (
-                enabled(f).update({"other@elsewhere": True, "const-gone@elsewhere": False}),
-                enabled(f).update({f"const-gone@{tag}-2": True, f"const-gone@x{tag}": True}),
-                known(f).update({"elsewhere": {"source": {"source": "github", "repo": "a/b"}}}),
-                known(f)[tag].update({"autoUpdate": True}),
-                entry(f).update({"version": "9", "homepage": "https://example.org"}),
+                registry_enabled(f).update({"other@elsewhere": True, "const-gone@elsewhere": False}),
+                registry_enabled(f).update({f"const-gone@{tag}-2": True, f"const-gone@x{tag}": True}),
+                registry_known(f).update({"elsewhere": {"source": {"source": "github", "repo": "a/b"}}}),
+                registry_known(f)[tag].update({"autoUpdate": True}),
+                registry_entry(f).update({"version": "9", "homepage": "https://example.org"}),
             ),
             [],
         ),
@@ -1818,44 +1953,48 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
             lambda f: f[market].update({"plugins": []}), [Where.MARKETPLACE, Where.MARKETPLACE]
         ),
         "an entry whose source is another folder": edit(
-            lambda f: entry(f).update({"source": "./modules/other"}), [Where.MARKET_SOURCE]
+            lambda f: registry_entry(f).update({"source": "./modules/other"}), [Where.MARKET_SOURCE]
         ),
         "an entry whose source is another module's folder": edit(
-            lambda f: entry(f).update({"source": "./modules/const-quiet"}), [Where.MARKET_SOURCE]
+            lambda f: registry_entry(f).update({"source": "./modules/const-quiet"}), [Where.MARKET_SOURCE]
         ),
         "an entry whose source is an object": edit(
-            lambda f: entry(f).update({"source": {"source": "github", "repo": "a/b"}}), [Where.MARKET_SOURCE]
+            lambda f: registry_entry(f).update({"source": {"source": "github", "repo": "a/b"}}),
+            [Where.MARKET_SOURCE],
         ),
-        "an entry with no source": edit(lambda f: entry(f).pop("source"), [Where.MARKET_SOURCE]),
+        "an entry with no source": edit(lambda f: registry_entry(f).pop("source"), [Where.MARKET_SOURCE]),
         "an entry whose source ends in a slash": edit(
-            lambda f: entry(f).update({"source": "./modules/const-x/"}), [Where.MARKET_SOURCE]
+            lambda f: registry_entry(f).update({"source": "./modules/const-x/"}), [Where.MARKET_SOURCE]
         ),
         "an entry whose source has no `./`": edit(
-            lambda f: entry(f).update({"source": "modules/const-x"}), [Where.MARKET_SOURCE]
+            lambda f: registry_entry(f).update({"source": "modules/const-x"}), [Where.MARKET_SOURCE]
         ),
         "an entry whose description differs from its manifest's": edit(
-            lambda f: entry(f).update({"description": "Another."}), [Where.MARKET_DESCRIPTION]
+            lambda f: registry_entry(f).update({"description": "Another."}), [Where.MARKET_DESCRIPTION]
         ),
         "an entry whose description differs in its last character only": edit(
-            lambda f: entry(f).update({"description": "The module const-x!"}), [Where.MARKET_DESCRIPTION]
+            lambda f: registry_entry(f).update({"description": "The module const-x!"}),
+            [Where.MARKET_DESCRIPTION],
         ),
         "an entry whose description differs by a trailing space": edit(
-            lambda f: entry(f).update({"description": "The module const-x. "}), [Where.MARKET_DESCRIPTION]
+            lambda f: registry_entry(f).update({"description": "The module const-x. "}),
+            [Where.MARKET_DESCRIPTION],
         ),
         "an entry whose description differs in case": edit(
-            lambda f: entry(f).update({"description": "the module const-x."}), [Where.MARKET_DESCRIPTION]
+            lambda f: registry_entry(f).update({"description": "the module const-x."}),
+            [Where.MARKET_DESCRIPTION],
         ),
         "an entry whose description is empty": edit(
-            lambda f: entry(f).update({"description": ""}), [Where.MARKET_DESCRIPTION]
+            lambda f: registry_entry(f).update({"description": ""}), [Where.MARKET_DESCRIPTION]
         ),
         "an entry with no description": edit(
-            lambda f: entry(f).pop("description"), [Where.MARKET_DESCRIPTION]
+            lambda f: registry_entry(f).pop("description"), [Where.MARKET_DESCRIPTION]
         ),
         "an entry whose description is no string": edit(
-            lambda f: entry(f).update({"description": 5}), [Where.MARKET_DESCRIPTION]
+            lambda f: registry_entry(f).update({"description": 5}), [Where.MARKET_DESCRIPTION]
         ),
         "an entry whose description is null": edit(
-            lambda f: entry(f).update({"description": None}), [Where.MARKET_DESCRIPTION]
+            lambda f: registry_entry(f).update({"description": None}), [Where.MARKET_DESCRIPTION]
         ),
         "a manifest with no description": edit(
             lambda f: f[MANIFEST_X].pop("description"), [Where.MARKET_DESCRIPTION]
@@ -1865,18 +2004,18 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
             [Where.MARKET_DESCRIPTION],
         ),
         "a manifest and its entry with no description are one finding": edit(
-            lambda f: (f[MANIFEST_X].pop("description"), entry(f).pop("description")),
+            lambda f: (f[MANIFEST_X].pop("description"), registry_entry(f).pop("description")),
             [Where.MARKET_DESCRIPTION],
         ),
         "a description of long, accented and dashed words, equal in both": edit(
             lambda f: (
                 f[MANIFEST_X].update({"description": "Ask — only at stakes; é, ü and 한 \u2014 " * 20}),
-                entry(f).update({"description": "Ask — only at stakes; é, ü and 한 \u2014 " * 20}),
+                registry_entry(f).update({"description": "Ask — only at stakes; é, ü and 한 \u2014 " * 20}),
             ),
             [],
         ),
         "an entry with another source and another description: the source first": edit(
-            lambda f: entry(f).update({"source": "./modules/other", "description": "Another."}),
+            lambda f: registry_entry(f).update({"source": "./modules/other", "description": "Another."}),
             [Where.MARKET_SOURCE, Where.MARKET_DESCRIPTION],
         ),
         "a module the marketplace leaves out is not judged on its description": edit(
@@ -1897,8 +2036,8 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "the descriptions of both modules differ: both are found": edit(
             lambda f: (
-                entry(f).update({"description": "Another."}),
-                entry(f, 1).update({"description": "Another."}),
+                registry_entry(f).update({"description": "Another."}),
+                registry_entry(f, 1).update({"description": "Another."}),
             ),
             [Where.MARKET_DESCRIPTION, Where.MARKET_DESCRIPTION],
         ),
@@ -1911,26 +2050,28 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
             [Where.MARKET_STRAY],
         ),
         "two entries for one module": edit(
-            lambda f: f[market]["plugins"].append(dict(entry(f))), [Where.MARKET_TWICE]
+            lambda f: f[market]["plugins"].append(dict(registry_entry(f))), [Where.MARKET_TWICE]
         ),
         "two entries for one module, one with another source, are one finding": edit(
             lambda f: f[market]["plugins"].append({"name": "const-x", "source": "./modules/other"}),
             [Where.MARKET_TWICE],
         ),
-        "a module the settings leave out": edit(lambda f: enabled(f).pop(f"const-x@{tag}"), [Where.SETTINGS]),
+        "a module the settings leave out": edit(
+            lambda f: registry_enabled(f).pop(f"const-x@{tag}"), [Where.SETTINGS]
+        ),
         "settings with no enabledPlugins at all": edit(
             lambda f: f[settings].pop("enabledPlugins"), [Where.SETTINGS, Where.SETTINGS]
         ),
         "a key with no folder": edit(
-            lambda f: enabled(f).update({f"const-gone@{tag}": True}), [Where.SETTINGS_STRAY]
+            lambda f: registry_enabled(f).update({f"const-gone@{tag}": True}), [Where.SETTINGS_STRAY]
         ),
         "a key with no folder, set to false": edit(
-            lambda f: enabled(f).update({f"const-gone@{tag}": False}), [Where.SETTINGS_STRAY]
+            lambda f: registry_enabled(f).update({f"const-gone@{tag}": False}), [Where.SETTINGS_STRAY]
         ),
         "a key of the marketplace with no module name": edit(
-            lambda f: enabled(f).update({f"@{tag}": True}), [Where.SETTINGS_STRAY]
+            lambda f: registry_enabled(f).update({f"@{tag}": True}), [Where.SETTINGS_STRAY]
         ),
-        "a declaration the settings lack": edit(lambda f: known(f).pop(tag), [Where.KNOWN_MISSING]),
+        "a declaration the settings lack": edit(lambda f: registry_known(f).pop(tag), [Where.KNOWN_MISSING]),
         "a declaration of another marketplace only": edit(
             lambda f: f[settings].update(
                 {"extraKnownMarketplaces": {"elsewhere": {"source": dict(DIRECTORY_SOURCE)}}}
@@ -2019,9 +2160,11 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         "null": None,
     }.items():
         cases[f"a declaration whose source is {what}"] = edit(declared_as(source), [Where.KNOWN_SOURCE])
-    cases["a declaration with no source"] = edit(lambda f: known(f)[tag].pop("source"), [Where.KNOWN_SOURCE])
+    cases["a declaration with no source"] = edit(
+        lambda f: registry_known(f)[tag].pop("source"), [Where.KNOWN_SOURCE]
+    )
     cases["a declaration that is a string"] = edit(
-        lambda f: known(f).update({tag: "."}), [Where.KNOWN_SOURCE]
+        lambda f: registry_known(f).update({tag: "."}), [Where.KNOWN_SOURCE]
     )
     for what, value in {  # a module is enabled by the JSON boolean `true` and nothing else
         "false": False,
@@ -2422,12 +2565,62 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
     return cases
 
 
+def broken_no_json(path: str, said: str = "Expecting property name enclosed in double quotes, line 1") -> str:
+    """The BROKEN line of a JSON file that does not parse, `said` the parser's words."""
+    return f"{path} is no JSON ({said}) — fix: restore it as a JSON object"
+
+
+def broken_no_object(path: str, kind: str) -> str:
+    """The BROKEN line of a JSON file that holds a `kind` and no object."""
+    return f"{path} is no JSON object, it holds a {kind} — fix: restore it as a JSON object"
+
+
+def broken_no_file(path: str) -> str:
+    """The BROKEN line of a JSON file that is missing."""
+    return f"{path} is no file — fix: restore it as a JSON file holding an object"
+
+
+def broken_dials_fix(what: str) -> str:
+    """The BROKEN line of the dials file that is missing: `what`, then the fix."""
+    return f"{what} — fix: restore the kit's dials file at the kit root"
+
+
+def broken_not_mapping(kind: str) -> str:
+    """The BROKEN line of a dials file that holds a `kind` and no mapping."""
+    return f"{DIALS} is no YAML mapping, it holds a {kind} — fix: restore it as a mapping of namespaces"
+
+
+def broken_loops(count: int) -> str:
+    """The BROKEN line of a schema mirror with `count` loops over its folders, not one."""
+    return (
+        f"{MIRROR} has {count} loops `for module in (...)` over a tuple of folder names, not one"
+        " — fix: restore the one loop that puts the module folders on its import path"
+    )
+
+
+def broken_no_list(said: str, key: str = TEST_OWNER) -> str:
+    """The BROKEN line of a coverage map under `key` that is no list, `said` what it is."""
+    return (
+        f"{DIALS}: `{key}.coverage` is no list ({said}) — fix: restore it as a list of pairs, each"
+        f" `- name: <territory>` with a `code` list and a `docs` list, under `coverage:` in the `{key}`"
+        " namespace"
+    )
+
+
+def broken_bad_entry(position: int) -> str:
+    """The BROKEN line of the coverage map's entry `position` that is no pair of the right form."""
+    return (
+        f"{DIALS}: entry {position} of `{TEST_OWNER}.coverage` is no mapping with a string `name`, a"
+        " `code` list and a `docs` list of strings — fix: write each pair as `- name: <territory>` with"
+        " `code:` and `docs:` lists of path patterns"
+    )
+
+
 def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     """The files the check cannot read, each a matching registry with one file or key spoilt: the first
     line of the BROKEN report, which names the file and how to fix it."""
     m, s, x = MARKETPLACE_FILE, SETTINGS_FILE, MANIFEST_X
     quiet = "modules/const-quiet/.claude-plugin/plugin.json"
-    object_fix = "restore it as a JSON object"
     entry_fix = '{"name": …, "source": …}'
 
     def spoil(change: Callable[[dict[str, Any]], object]) -> Case:
@@ -2435,16 +2628,6 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
 
     def put(path: str, text: str | None) -> Case:  # `text`: the file's whole text, None for no file
         return spoil(lambda f: f.update({path: text}))
-
-    def no_json(path: str) -> str:
-        said = "Expecting property name enclosed in double quotes, line 1"
-        return f"{path} is no JSON ({said}) — fix: {object_fix}"
-
-    def no_object(path: str, kind: str) -> str:
-        return f"{path} is no JSON object, it holds a {kind} — fix: {object_fix}"
-
-    def no_file(path: str) -> str:
-        return f"{path} is no file — fix: restore it as a JSON file holding an object"
 
     name_line = (
         f'{m} has no marketplace name, "name" is no non-empty string'
@@ -2454,18 +2637,6 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     one_line = (
         f"{m}: entry 2 of plugins is no object with a string name — fix: write each entry as {entry_fix}"
     )
-
-    def dials_fix(what: str) -> str:
-        return f"{what} — fix: restore the kit's dials file at the kit root"
-
-    def not_mapping(kind: str) -> str:
-        return f"{DIALS} is no YAML mapping, it holds a {kind} — fix: restore it as a mapping of namespaces"
-
-    def loops(count: int) -> str:
-        return (
-            f"{MIRROR} has {count} loops `for module in (...)` over a tuple of folder names, not one"
-            " — fix: restore the one loop that puts the module folders on its import path"
-        )
 
     def market(change: Callable[[dict[str, Any]], object]) -> Case:
         return spoil(lambda f: change(f[MARKETPLACE_FILE]))
@@ -2487,46 +2658,29 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         + form_fix
     )
 
-    def no_list(said: str, key: str = TEST_OWNER) -> str:
-        return (
-            f"{DIALS}: `{key}.coverage` is no list ({said}) — fix: restore it as a list of pairs, each"
-            f" `- name: <territory>` with a `code` list and a `docs` list, under `coverage:` in the `{key}`"
-            " namespace"
-        )
-
-    def bad_entry(position: int) -> str:
-        return (
-            f"{DIALS}: entry {position} of `{TEST_OWNER}.coverage` is no mapping with a string `name`, a"
-            " `code` list and a `docs` list of strings — fix: write each pair as `- name: <territory>` with"
-            " `code:` and `docs:` lists of path patterns"
-        )
-
     def coverage(*entries: str) -> Case:  # the map's entries as YAML lines, under the self-test's key
         return put(DIALS, f"{TEST_OWNER}:\n  coverage:\n" + "".join(f"    {line}\n" for line in entries))
 
     good = ["- name: const-x", "  code: []", "  docs: []"]
 
     return {
-        "a manifest that is missing": (put(x, None), no_file(x)),
-        "a manifest that is no JSON": (put(x, "{ not json\n"), no_json(x)),
-        "a manifest that is empty": (
-            put(x, ""),
-            f"{x} is no JSON (Expecting value, line 1) — fix: {object_fix}",
-        ),
-        "a manifest that is a list": (put(x, "[]\n"), no_object(x, "list")),
-        "a manifest that is a string": (put(x, '"const-x"\n'), no_object(x, "str")),
-        "a manifest that is null": (put(x, "null\n"), no_object(x, "NoneType")),
+        "a manifest that is missing": (put(x, None), broken_no_file(x)),
+        "a manifest that is no JSON": (put(x, "{ not json\n"), broken_no_json(x)),
+        "a manifest that is empty": (put(x, ""), broken_no_json(x, "Expecting value, line 1")),
+        "a manifest that is a list": (put(x, "[]\n"), broken_no_object(x, "list")),
+        "a manifest that is a string": (put(x, '"const-x"\n'), broken_no_object(x, "str")),
+        "a manifest that is null": (put(x, "null\n"), broken_no_object(x, "NoneType")),
         "two manifests that are broken: the first folder in sorted order is named": (
             spoil(lambda f: f.update({x: None, quiet: "[]"})),
-            no_object(quiet, "list"),
+            broken_no_object(quiet, "list"),
         ),
         "a manifest and the marketplace broken: the manifest is named": (
             spoil(lambda f: f.update({x: "[]", m: "[]"})),
-            no_object(x, "list"),
+            broken_no_object(x, "list"),
         ),
-        "a marketplace that is missing": (put(m, None), no_file(m)),
-        "a marketplace that is no JSON": (put(m, "{ not json\n"), no_json(m)),
-        "a marketplace that is a list": (put(m, "[]\n"), no_object(m, "list")),
+        "a marketplace that is missing": (put(m, None), broken_no_file(m)),
+        "a marketplace that is no JSON": (put(m, "{ not json\n"), broken_no_json(m)),
+        "a marketplace that is a list": (put(m, "[]\n"), broken_no_object(m, "list")),
         "a marketplace with no name": (market(lambda d: d.pop("name")), name_line),
         "a marketplace whose name is empty": (market(lambda d: d.update({"name": ""})), name_line),
         "a marketplace whose name is no string": (market(lambda d: d.update({"name": 5})), name_line),
@@ -2548,9 +2702,9 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
             market(lambda d: d["plugins"][1].update({"name": 7})),
             one_line,
         ),
-        "settings that are missing": (put(s, None), no_file(s)),
-        "settings that are no JSON": (put(s, "{ not json\n"), no_json(s)),
-        "settings that are a list": (put(s, "[]\n"), no_object(s, "list")),
+        "settings that are missing": (put(s, None), broken_no_file(s)),
+        "settings that are no JSON": (put(s, "{ not json\n"), broken_no_json(s)),
+        "settings that are a list": (put(s, "[]\n"), broken_no_object(s, "list")),
         "settings whose enabledPlugins are a list": (
             settings(lambda d: d.update({"enabledPlugins": ["const-x@kit-test"]})),
             f"{s}: enabledPlugins is no JSON object — fix: restore it as an object",
@@ -2567,37 +2721,40 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
             settings(lambda d: d.update({"enabledPlugins": [], "extraKnownMarketplaces": []})),
             f"{s}: enabledPlugins is no JSON object — fix: restore it as an object",
         ),
-        "a dials file that is missing": (put(DIALS, None), dials_fix(f"{DIALS} is no file")),
+        "a dials file that is missing": (put(DIALS, None), broken_dials_fix(f"{DIALS} is no file")),
         "a dials file that is no YAML": (
             put(DIALS, "a: b: c\n"),
             f"{DIALS} is no YAML (mapping values are not allowed here) — fix: repair the file",
         ),
-        "a dials file that is a list": (put(DIALS, "- a\n"), not_mapping("list")),
-        "a dials file that is empty": (put(DIALS, ""), not_mapping("NoneType")),
-        "a dials file that is a string": (put(DIALS, "x\n"), not_mapping("str")),
+        "a dials file that is a list": (put(DIALS, "- a\n"), broken_not_mapping("list")),
+        "a dials file that is empty": (put(DIALS, ""), broken_not_mapping("NoneType")),
+        "a dials file that is a string": (put(DIALS, "x\n"), broken_not_mapping("str")),
         "a schema mirror that is missing": (put(MIRROR, None), f"{MIRROR} is no file — fix: restore it"),
         "a schema mirror that is no Python": (
             put(MIRROR, "for module in (:\n"),
             f"{MIRROR} is no Python (a syntax error at line 1) — fix: repair the file",
         ),
-        "a schema mirror with no loop over its folders": (put(MIRROR, "x = 1\n"), loops(0)),
+        "a schema mirror with no loop over its folders": (put(MIRROR, "x = 1\n"), broken_loops(0)),
         "a schema mirror with two such loops": (
             put(MIRROR, mirror_text(("a",)) + mirror_text(("b",))),
-            loops(2),
+            broken_loops(2),
         ),
         "a schema mirror whose loop runs over a list": (
             put(MIRROR, "for module in ['a']:\n    pass\n"),
-            loops(0),
+            broken_loops(0),
         ),
         "a schema mirror whose tuple holds a non-string": (
             put(MIRROR, "for module in ('a', 3):\n    pass\n"),
-            loops(0),
+            broken_loops(0),
         ),
         "a schema mirror whose loop variable is not `module`": (
             put(MIRROR, "for folder in ('a',):\n    pass\n"),
-            loops(0),
+            broken_loops(0),
         ),
-        "a schema mirror whose tuple is empty": (put(MIRROR, "for module in ():\n    pass\n"), loops(0)),
+        "a schema mirror whose tuple is empty": (
+            put(MIRROR, "for module in ():\n    pass\n"),
+            broken_loops(0),
+        ),
         "a gate list with no types entry": (
             Case({"x": scan}, types=None),
             f"{GATE_LIST} --show types exited 1 (no output) — fix: restore the list script",
@@ -2658,48 +2815,54 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         ),
         "a coverage map under the real key, const-task-close, when only the self-test's key holds one": (
             Case({"x": scan}, owner=COVERAGE_OWNER),
-            no_list("it is absent", COVERAGE_OWNER),
+            broken_no_list("it is absent", COVERAGE_OWNER),
         ),
-        "a dials file with no coverage namespace": (put(DIALS, "root_policy: p\n"), no_list("it is absent")),
-        "a coverage namespace that is a string": (put(DIALS, f"{TEST_OWNER}: x\n"), no_list("it is absent")),
+        "a dials file with no coverage namespace": (
+            put(DIALS, "root_policy: p\n"),
+            broken_no_list("it is absent"),
+        ),
+        "a coverage namespace that is a string": (
+            put(DIALS, f"{TEST_OWNER}: x\n"),
+            broken_no_list("it is absent"),
+        ),
         "a coverage map that is empty": (
             put(DIALS, f"{TEST_OWNER}:\n  coverage:\n"),
-            no_list("it is absent"),
+            broken_no_list("it is absent"),
         ),
         "a coverage map that is a mapping": (
             put(DIALS, f"{TEST_OWNER}:\n  coverage: {{a: 1}}\n"),
-            no_list("it holds a dict"),
+            broken_no_list("it holds a dict"),
         ),
         "a coverage map that is a string": (
             put(DIALS, f"{TEST_OWNER}:\n  coverage: x\n"),
-            no_list("it holds a str"),
+            broken_no_list("it holds a str"),
         ),
-        "a coverage entry that is a string": (coverage("- const-x"), bad_entry(1)),
+        "a coverage entry that is a string": (coverage("- const-x"), broken_bad_entry(1)),
         "a coverage entry that is the second and has no name": (
             coverage(*good, "- code: []", "  docs: []"),
-            bad_entry(2),
+            broken_bad_entry(2),
         ),
         "a coverage entry whose name is no string": (
             coverage("- name: 7", "  code: []", "  docs: []"),
-            bad_entry(1),
+            broken_bad_entry(1),
         ),
-        "a coverage entry with no code": (coverage("- name: const-x", "  docs: []"), bad_entry(1)),
-        "a coverage entry with no docs": (coverage("- name: const-x", "  code: []"), bad_entry(1)),
+        "a coverage entry with no code": (coverage("- name: const-x", "  docs: []"), broken_bad_entry(1)),
+        "a coverage entry with no docs": (coverage("- name: const-x", "  code: []"), broken_bad_entry(1)),
         "a coverage entry whose code is a mapping": (
             coverage("- name: const-x", "  code: {a: 1}", "  docs: []"),
-            bad_entry(1),
+            broken_bad_entry(1),
         ),
         "a coverage entry whose code holds a non-string": (
             coverage("- name: const-x", "  code: [1]", "  docs: []"),
-            bad_entry(1),
+            broken_bad_entry(1),
         ),
         "a coverage entry whose docs hold a non-string": (
             coverage("- name: const-x", "  code: []", "  docs: [1]"),
-            bad_entry(1),
+            broken_bad_entry(1),
         ),
         "a coverage entry whose docs are a string": (
             coverage("- name: const-x", "  code: []", "  docs: MODULE.md"),
-            bad_entry(1),
+            broken_bad_entry(1),
         ),
     }
 
