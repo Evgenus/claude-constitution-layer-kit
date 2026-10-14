@@ -688,114 +688,187 @@ def report(findings: list[Finding], documents: int) -> int:
     return EXIT_GREEN
 
 
-def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    """Red→green on a throwaway repository: each form is red where the check reads, with the lines
-    of its findings typed by hand, and its correct spelling is green; every place not read stays
-    green with the wrong spelling; the report of one finding of each kind is its literal text with
-    exit 2; and a file that is not UTF-8 and a misinvocation are teaching BROKEN lines. The total
-    counts every case judged, never a sum typed by hand."""
-    record = "docs/decisions/dec-0016-yes-on-the-change.md"
-    note = "docs/policies/p.md"
-    bad_a = "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md) here.\n"
+RECORD_PATH = "docs/decisions/dec-0016-yes-on-the-change.md"
+NOTE_PATH = "docs/policies/p.md"
+BAD_NO_ANCHOR = "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md) here.\n"
+GATE_PATH = "shared/GATE.md"
+MODULE_PATH = "modules/const-x/MODULE.md"
+SHARED_LINES = (  # the shared document in miniature: a table, and the paragraph of g3a
+    '<a id="g3"></a>\n## 3. Shared messages\n\nLead.\n\n<a id="g3a"></a>\n'
+    "A module takes `G1` and `C5` for its part, as `scripts/check-handle-forms.py` reads it.\n\n"
+    "| key | text |\n|---|---|\n| G1 | a |\n| G1.1 | b |\n| N1.1 | c |\n| N1.2 | d |\n"
+    "| C4b | e |\n| C5.1 | f |\n| H2 | g |\n\n"
+    '<a id="g4"></a>\n## 4. Limits\n'
+)
+BARE_ITEM = "| 1 | fixture | none | a |\n"  # the items table's default row
+RULINGS = "## Rulings\n\n1. **R1.** A rule.\n\n| key | what |\n|---|---|\n"  # the first row is line 7
+
+
+@dataclass
+class Tally:
+    """The cases the self-test has judged, and those that failed."""
+
+    judged: int = 0
+    failed: int = 0
+
+    def judge(self, ok: bool, text: str) -> None:
+        """Count one case and print its line."""
+        self.judged += 1
+        self.failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {text}")
+
+
+def miniature_doc(
+    rows: str = "| X1 | a |\n",
+    after: str = "",
+    enforcement: str = "| E1 | a |\n",
+    items: str = "| 1 | fixture | none | a |\n",
+) -> str:
+    """The sections the rules read, in miniature. With one row in each of the first two tables and
+    nothing after t7, the message rows start at line 6, the enforcement rows at 17 and the items
+    at 24."""
+    return (
+        '<a id="t6"></a>\n## 6. Artifacts\n\n| key | text |\n|---|---|\n'
+        + rows
+        + '\n<a id="t7"></a>\n## 7. Next\n\n'
+        + after
+        + '\n<a id="t9"></a>\n## 9. Enforcement\n\n| # | artifact | kind |\n|---|---|---|\n'
+        + enforcement
+        + '\n<a id="t10"></a>\n## 10. Acceptance\n\n| item | kind | rows | what |\n|---|---|---|---|\n'
+        + items
+        + '\n<a id="t11"></a>\n## 11. Siblings\n'
+    )
+
+
+def record_at(number: int) -> str:
+    """The path of the decision record of this number in a throwaway repository."""
+    return f"docs/decisions/dec-{number:04d}-t.md"
+
+
+def fresh_repo(root: Path) -> None:
+    """A git repository at root holding a record and the policy of decision records."""
+    try:
+        subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+    except OSError as missing:
+        raise Broken(
+            f"git cannot start ({missing.strerror}) — fix: install git, then run the self-test"
+        ) from missing
+    except subprocess.CalledProcessError as failed:
+        said = (failed.stderr.decode(errors="replace").splitlines() or ["no message"])[0]
+        raise Broken(
+            f"git init failed in {root}: {said} — fix: repair what git names, then run the self-test"
+        ) from failed
+    write_file(root, RECORD_PATH, "A record.\n")
+    write_file(root, "docs/policies/plc-0004-decision-records.md", "A policy.\n")
+
+
+def write_file(root: Path, path: str, text: str) -> None:
+    """Write text to path under root, making its folders."""
+    (root / path).parent.mkdir(parents=True, exist_ok=True)
+    (root / path).write_text(text, encoding="utf-8")
+
+
+def cases_forms(tally: Tally) -> None:
+    """A ruling citation is red where the check reads, and green where the place is not read."""
     red: dict[str, tuple[str, str, str, tuple[int, ...]]] = {  # case: path, green, red, lines by hand
         "a ruling of a record linked with no anchor": (
-            note,
+            NOTE_PATH,
             "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md#r7) here.\n",
-            bad_a,
+            BAD_NO_ANCHOR,
             (1,),
         ),
         "a ruling linked to another ruling's anchor": (
-            note,
+            NOTE_PATH,
             "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md#r7) here.\n",
             "See R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md#r8) here.\n",
             (1,),
         ),
         "a ruling called an item, with no anchor": (
-            note,
+            NOTE_PATH,
             "The deferred item R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) holds.\n",
             "The deferred item R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) holds.\n",
             (1,),
         ),
         "a range with a hyphen linking its last ruling": (
-            note,
+            NOTE_PATH,
             "R1-R4 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r1) holds.\n",
             "R1-R4 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r4) holds.\n",
             (1,),
         ),
         "a range with a spaced dash, read as its last ruling": (
-            note,
+            NOTE_PATH,
             "R2–R3 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r2) holds.\n",
             "R2 – R3 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r2) holds.\n",
             (1,),
         ),
         "a range linking its last ruling": (
-            note,
+            NOTE_PATH,
             "R18 to R27 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r18) holds.\n",
             "R18 to R27 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r27) holds.\n",
             (1,),
         ),
         "a list with 'and' linking its second ruling": (
-            note,
+            NOTE_PATH,
             "R5 and R34 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r5) hold.\n",
             "R5 and R34 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r34) hold.\n",
             (1,),
         ),
         "a list with a comma and 'or' linking no anchor": (
-            note,
+            NOTE_PATH,
             "R5, R6 or R7 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r5) hold.\n",
             "R5, R6 or R7 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md) hold.\n",
             (1,),
         ),
         "a list with an en dash linking a wrong anchor": (
-            note,
+            NOTE_PATH,
             "R5–R7 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r5) hold.\n",
             "R5–R7 of [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r7) hold.\n",
             (1,),
         ),
         "a citation wrapped over two lines": (
-            note,
+            NOTE_PATH,
             "Text R7 of\n[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) here.\n",
             "Text R7 of\n[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) here.\n",
             (1,),
         ),
         "a citation in a list item's continuation line": (
-            note,
+            NOTE_PATH,
             "- a note\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
             "- a note\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md)\n",
             (2,),
         ),
         "a record linked, then its handle, with no anchor": (
-            note,
+            NOTE_PATH,
             "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) R7 holds.\n",
             "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md) R7 holds.\n",
             (1,),
         ),
         "a record linked, then its handle, with another anchor": (
-            note,
+            NOTE_PATH,
             "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) R7 holds.\n",
             "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r6) R7 holds.\n",
             (1,),
         ),
         "a record's 's handle with another anchor": (
-            note,
+            NOTE_PATH,
             "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r24)'s R24 holds.\n",
             "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r4)'s R24 holds.\n",
             (1,),
         ),
         "a ruling of a record named by its bare id": (
-            note,
+            NOTE_PATH,
             "See R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) here.\n",
             "See R7 of dec-0016-yes-on-the-change here.\n",
             (1,),
         ),
         "a ruling of a record named by a short bare id": (
-            note,
+            NOTE_PATH,
             "See R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) here.\n",
             "See R7 of dec-0016 here.\n",
             (1,),
         ),
         "two findings on two lines, one correct between them": (
-            note,
+            NOTE_PATH,
             "R1 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r1)\n"
             "R2 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r2)\n"
             "R3 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r3)\n",
@@ -813,21 +886,21 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             (7,),
         ),
         "a citation after a fenced block closes": (
-            note,
+            NOTE_PATH,
             "```\nR7 of dec-0016-yes-on-the-change\n```\n"
             "R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
             "```\nR7 of dec-0016-yes-on-the-change\n```\nR7 of dec-0016-yes-on-the-change\n",
             (4,),
         ),
         "a citation after a code span on the same line": (
-            note,
+            NOTE_PATH,
             "`R1 of dec-0016-yes-on-the-change` and "
             "R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
             "`R1 of dec-0016-yes-on-the-change` and R7 of dec-0016-yes-on-the-change\n",
             (1,),
         ),
         "a citation after a comment closes": (
-            note,
+            NOTE_PATH,
             "<!-- R7 of dec-0016-yes-on-the-change -->\n"
             "R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
             "<!-- R7 of dec-0016-yes-on-the-change -->\nR7 of dec-0016-yes-on-the-change\n",
@@ -848,59 +921,79 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             "docs/decisions/dec-0005-reference-forms.md",
             "## Rulings\n\n### Carry list\n\n" + wrong + "\n#### Inside\n\n" + wrong,
         ),
-        "a fenced block": (note, "```\n" + wrong + "```\n"),
-        "a tilde fence": (note, "~~~\n" + wrong + "~~~\n"),
-        "an indented code block": (note, "Text.\n\n    " + wrong),
+        "a fenced block": (NOTE_PATH, "```\n" + wrong + "```\n"),
+        "a tilde fence": (NOTE_PATH, "~~~\n" + wrong + "~~~\n"),
+        "an indented code block": (NOTE_PATH, "Text.\n\n    " + wrong),
         "a code span": (
-            note,
+            NOTE_PATH,
             "Write `R7 of dec-0016-yes-on-the-change`, never `[a](dec-0016-yes-on-the-change.md) R7`.\n",
         ),
-        "a double-backtick code span": (note, "Write `` R7 of dec-0016-yes-on-the-change ``.\n"),
-        "an HTML comment": (note, "<!-- " + wrong + "-->\n"),
-        "an HTML comment over several lines": (note, "<!--\n" + wrong + "-->\n"),
+        "a double-backtick code span": (NOTE_PATH, "Write `` R7 of dec-0016-yes-on-the-change ``.\n"),
+        "an HTML comment": (NOTE_PATH, "<!-- " + wrong + "-->\n"),
+        "an HTML comment over several lines": (NOTE_PATH, "<!--\n" + wrong + "-->\n"),
         "a handle with a suffix letter": (
-            note,
+            NOTE_PATH,
             "R4b of dec-0016-yes-on-the-change and R4b of [a](dec-0016-yes-on-the-change.md).\n",
         ),
-        "a record's own ruling": (note, "R3 holds, R3 of this record too, and that record's R3.\n"),
+        "a record's own ruling": (NOTE_PATH, "R3 holds, R3 of this record too, and that record's R3.\n"),
         "a key qualified by its kind": (
-            note,
+            NOTE_PATH,
             "The table keys R1 to R4 of [a](dec-0016-yes-on-the-change.md) and message\n"
             "R4 of dec-0016-yes-on-the-change.\n",
         ),
         "a link to what is no record": (
-            note,
+            NOTE_PATH,
             "R3 of [plc-0004](plc-0004-decision-records.md#r2)"
             " and [plc-0004](plc-0004-decision-records.md) R3.\n",
         ),
         "a link to a record with the right anchor, then 'R7'": (
-            note,
+            NOTE_PATH,
             "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) R7 and"
             " [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)'s R7.\n",
         ),
         "a link at a line's end, a handle at the next line's start": (
-            note,
+            NOTE_PATH,
             "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md)\nR7 holds, see below.\n",
         ),
         "a range linking its first ruling": (
-            note,
+            NOTE_PATH,
             "R18 to R27 of [dec-0018-dials-schema](dec-0018-dials-schema.md#r18), R5 and R34 of"
             " [dec-0020-gate-script-rules](dec-0020-gate-script-rules.md#r5).\n",
         ),
-        "a handle with no 'of' after it": (note, "R3 and the record dec-0016-yes-on-the-change, R7.\n"),
+        "a handle with no 'of' after it": (NOTE_PATH, "R3 and the record dec-0016-yes-on-the-change, R7.\n"),
         "a link with a title": (
-            note,
+            NOTE_PATH,
             'R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7 "t") holds.\n',
         ),
         "a link whose destination stands in <>": (
-            note,
+            NOTE_PATH,
             "R7 of [dec-0016-yes-on-the-change](<dec-0016-yes-on-the-change.md#r7>).\n",
         ),
         "a citation in a list item, indented four spaces": (
-            note,
+            NOTE_PATH,
             "- item\n\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
         ),
     }
+    for name, (path, good, bad, lines) in red.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            write_file(root, path, good)
+            green_before = not check_kit(root)[0]
+            write_file(root, path, bad)
+            findings = check_kit(root)[0]
+        red_after = tuple(f.line for f in findings) == lines and all(f.path == path for f in findings)
+        tally.judge(green_before and red_after, f"the correct form is green, {name} is red")
+    for name, (path, text) in green.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            write_file(root, path, text)
+            tally.judge(not check_kit(root)[0], f"the wrong form in {name} is not read")
+
+
+def cases_reports(tally: Tally) -> None:
+    """The report of one finding of each form of citation is its literal text, exit 2."""
     why_line = (  # typed by hand: a message function cannot check itself
         "  why: a link to the ruling's own anchor takes a reader to the ruling in one click, and a"
         " record moved by the mover is repaired in every link (rule 2 of plc-0004-decision-records)"
@@ -908,7 +1001,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     reports: dict[str, tuple[str, str, list[str]]] = {  # case: path, text, literal lines by hand
         "no anchor": (
             "docs/policies/c.md",
-            bad_a,
+            BAD_NO_ANCHOR,
             [
                 "RED: docs/policies/c.md:1: the citation"
                 ' "R7 of [dec-0016-yes-on-the-change](../decisions/dec-0016-yes-on-the-change.md)"'
@@ -983,43 +1076,27 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             ],
         ),
     }
-
-    gate_path = "shared/GATE.md"
-    module_path = "modules/const-x/MODULE.md"
-    shared_lines = (  # the shared document in miniature: a table, and the paragraph of g3a
-        '<a id="g3"></a>\n## 3. Shared messages\n\nLead.\n\n<a id="g3a"></a>\n'
-        "A module takes `G1` and `C5` for its part, as `scripts/check-handle-forms.py` reads it.\n\n"
-        "| key | text |\n|---|---|\n| G1 | a |\n| G1.1 | b |\n| N1.1 | c |\n| N1.2 | d |\n"
-        "| C4b | e |\n| C5.1 | f |\n| H2 | g |\n\n"
-        '<a id="g4"></a>\n## 4. Limits\n'
-    )
-
-    def module_doc(
-        rows: str = "| X1 | a |\n",
-        after: str = "",
-        enforcement: str = "| E1 | a |\n",
-        items: str = "| 1 | fixture | none | a |\n",
-    ) -> str:
-        """The sections the rules read, in miniature. With one row in each of the first two tables and
-        nothing after t7, the message rows start at line 6, the enforcement rows at 17 and the items
-        at 24."""
-        return (
-            '<a id="t6"></a>\n## 6. Artifacts\n\n| key | text |\n|---|---|\n'
-            + rows
-            + '\n<a id="t7"></a>\n## 7. Next\n\n'
-            + after
-            + '\n<a id="t9"></a>\n## 9. Enforcement\n\n| # | artifact | kind |\n|---|---|---|\n'
-            + enforcement
-            + '\n<a id="t10"></a>\n## 10. Acceptance\n\n| item | kind | rows | what |\n|---|---|---|---|\n'
-            + items
-            + '\n<a id="t11"></a>\n## 11. Siblings\n'
+    for name, (path, text, expected) in reports.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            write_file(root, path, text)
+            printed = io.StringIO()
+            with contextlib.redirect_stdout(printed):
+                code = report(*check_kit(root))
+        tally.judge(
+            code == EXIT_RED and printed.getvalue().splitlines() == expected,
+            f"the report of one finding, {name}, is its literal text, exit 2",
         )
 
+
+def cases_keys(tally: Tally) -> None:
+    """A message key of the shared table is red in a module's table, and each unreadable state is BROKEN."""
     after_paragraph = "a key named in a code span of a table row after the paragraph, N1"
     own_shared = {  # the cases that read a shared document of their own, by case name: a table row
         # right after the paragraph names N1 in a code span; the paragraph ends at its blank line,
         # so the row's span is no allowed key
-        after_paragraph: shared_lines.replace("| N1.2 | d |", "| N1.2 | see `N1` |"),
+        after_paragraph: SHARED_LINES.replace("| N1.2 | d |", "| N1.2 | see `N1` |"),
     }
     keys_red: dict[str, tuple[str, str, tuple[int, ...]]] = {  # case: rows green, rows red, lines by hand
         after_paragraph: ("| X1 | a |\n", "| N1 | a |\n", (6,)),
@@ -1049,12 +1126,92 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         "a shared key in a section after the table": ("| X1 | a |\n", "| N1 | a |\n"),
         "a shared key in a later cell": ("| X1 | N1 and H2 |\n", ""),
     }
-    bare = "| 1 | fixture | none | a |\n"  # the items table's default row
+    keys_broken: dict[str, tuple[str | None, str, str]] = {  # case: shared text, rows, start
+        "the shared document missing": (
+            None,
+            "| X1 | a |\n",
+            "BROKEN: shared/GATE.md is missing, and a module's message table is read against it",
+        ),
+        "the paragraph of g3a missing": (
+            SHARED_LINES.replace('<a id="g3a"></a>\n', ""),
+            "| X1 | a |\n",
+            'BROKEN: shared/GATE.md has no anchor <a id="g3a"></a> alone on a line',
+        ),
+        "the paragraph of g3a naming no key": (
+            SHARED_LINES.replace("`G1` and `C5`", "none"),
+            "| X1 | a |\n",
+            "BROKEN: shared/GATE.md: the paragraph after the anchor g3a names no key in a code span",
+        ),
+        "the paragraph of g3a naming a key the table lacks": (
+            SHARED_LINES.replace("`C5`", "`Q9`"),
+            "| X1 | a |\n",
+            "BROKEN: shared/GATE.md: the paragraph of g3a names Q9, which the table of section 3 lacks",
+        ),
+        "the anchor g3a twice": (
+            SHARED_LINES.replace('<a id="g4"></a>', '<a id="g3a"></a>\n<a id="g4"></a>'),
+            "| X1 | a |\n",
+            'BROKEN: shared/GATE.md holds the anchor <a id="g3a"></a> 2 times',
+        ),
+        "the anchors out of order": (
+            '<a id="g3a"></a>\nA module takes `G1`.\n\n<a id="g3"></a>\n| key | text |\n|---|---|\n'
+            '| G1 | a |\n\n<a id="g4"></a>\n',
+            "| X1 | a |\n",
+            "BROKEN: shared/GATE.md holds the anchors g3, g3a and g4 out of order",
+        ),
+        "the table with no key in its first column": (
+            '<a id="g3"></a>\nLead.\n\n<a id="g3a"></a>\nA module takes `G1`.\n\n| key | text |\n|---|---|\n'
+            '| first | a |\n\n<a id="g4"></a>\n',
+            "| X1 | a |\n",
+            "BROKEN: shared/GATE.md has no message key in the first column of its section 3",
+        ),
+        "a module document without its anchor t6": (
+            SHARED_LINES,
+            "",
+            'BROKEN: modules/const-x/MODULE.md has no anchor <a id="t6"></a>',
+        ),
+    }
+    for name, (good_rows, bad_rows, lines) in keys_red.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            write_file(root, GATE_PATH, own_shared.get(name, SHARED_LINES))
+            write_file(root, MODULE_PATH, miniature_doc(good_rows))
+            green_before = not check_kit(root)[0]
+            write_file(root, MODULE_PATH, miniature_doc(bad_rows))
+            findings = check_kit(root)[0]
+        red_after = tuple(f.line for f in findings) == lines and all(f.path == MODULE_PATH for f in findings)
+        tally.judge(green_before and red_after, f"the correct key is green, {name} is red")
+    for name, (rows, after) in keys_green.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            write_file(root, GATE_PATH, SHARED_LINES)
+            write_file(root, MODULE_PATH, miniature_doc(rows, after))
+            tally.judge(not check_kit(root)[0], f"{name} is not a finding")
+    for name, (gate_text, rows, start) in keys_broken.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            if gate_text is not None:
+                write_file(root, GATE_PATH, gate_text)
+            write_file(root, MODULE_PATH, miniature_doc(rows) if rows else "A document with no sections.\n")
+            try:
+                check_kit(root)
+                said = "no BROKEN: the check passed"
+            except Broken as broken:
+                said = f"BROKEN: {broken}"
+        tally.judge(
+            said.startswith(start) and " — fix: " in said, f"{name} is a teaching BROKEN line, never a pass"
+        )
+
+
+def cases_prefixes(tally: Tally) -> None:
+    """A prefix of two kinds of handle in a module document is red, with the kind that moves named."""
     kinds_red: dict[str, tuple[dict[str, str], dict[str, str], tuple[int, ...]]] = {
         # case: the arguments of module_doc green, red, and the lines by hand
         "a message key L1 and a live item L1": (
-            {"rows": "| L1 | a |\n", "items": bare + "| V1 | live | none | a |\n"},
-            {"rows": "| L1 | a |\n", "items": bare + "| L1 | live | none | a |\n"},
+            {"rows": "| L1 | a |\n", "items": BARE_ITEM + "| V1 | live | none | a |\n"},
+            {"rows": "| L1 | a |\n", "items": BARE_ITEM + "| L1 | live | none | a |\n"},
             (25,),
         ),
         "a message key E1 and an enforcement row E1": (
@@ -1252,140 +1409,147 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             ),
         ),
     }
-    keys_broken: dict[str, tuple[str | None, str, str]] = {  # case: shared text, rows, start
-        "the shared document missing": (
-            None,
-            "| X1 | a |\n",
-            "BROKEN: shared/GATE.md is missing, and a module's message table is read against it",
-        ),
-        "the paragraph of g3a missing": (
-            shared_lines.replace('<a id="g3a"></a>\n', ""),
-            "| X1 | a |\n",
-            'BROKEN: shared/GATE.md has no anchor <a id="g3a"></a> alone on a line',
-        ),
-        "the paragraph of g3a naming no key": (
-            shared_lines.replace("`G1` and `C5`", "none"),
-            "| X1 | a |\n",
-            "BROKEN: shared/GATE.md: the paragraph after the anchor g3a names no key in a code span",
-        ),
-        "the paragraph of g3a naming a key the table lacks": (
-            shared_lines.replace("`C5`", "`Q9`"),
-            "| X1 | a |\n",
-            "BROKEN: shared/GATE.md: the paragraph of g3a names Q9, which the table of section 3 lacks",
-        ),
-        "the anchor g3a twice": (
-            shared_lines.replace('<a id="g4"></a>', '<a id="g3a"></a>\n<a id="g4"></a>'),
-            "| X1 | a |\n",
-            'BROKEN: shared/GATE.md holds the anchor <a id="g3a"></a> 2 times',
-        ),
-        "the anchors out of order": (
-            '<a id="g3a"></a>\nA module takes `G1`.\n\n<a id="g3"></a>\n| key | text |\n|---|---|\n'
-            '| G1 | a |\n\n<a id="g4"></a>\n',
-            "| X1 | a |\n",
-            "BROKEN: shared/GATE.md holds the anchors g3, g3a and g4 out of order",
-        ),
-        "the table with no key in its first column": (
-            '<a id="g3"></a>\nLead.\n\n<a id="g3a"></a>\nA module takes `G1`.\n\n| key | text |\n|---|---|\n'
-            '| first | a |\n\n<a id="g4"></a>\n',
-            "| X1 | a |\n",
-            "BROKEN: shared/GATE.md has no message key in the first column of its section 3",
-        ),
-        "a module document without its anchor t6": (
-            shared_lines,
-            "",
-            'BROKEN: modules/const-x/MODULE.md has no anchor <a id="t6"></a>',
-        ),
-    }
+    for name, (good_args, bad_args, lines) in kinds_red.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            write_file(root, GATE_PATH, SHARED_LINES)
+            write_file(root, MODULE_PATH, miniature_doc(**good_args))
+            green_before = not check_kit(root)[0]
+            write_file(root, MODULE_PATH, miniature_doc(**bad_args))
+            findings = check_kit(root)[0]
+        red_after = tuple(f.line for f in findings) == lines and all(f.path == MODULE_PATH for f in findings)
+        tally.judge(green_before and red_after, f"the correct prefixes are green, {name} is red")
+    for name, args in kinds_green.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            write_file(root, GATE_PATH, SHARED_LINES)
+            write_file(root, MODULE_PATH, miniature_doc(**args))
+            tally.judge(not check_kit(root)[0], f"{name} is not a finding")
+    for name, (args, expected_lines) in prefix_pairs.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            write_file(root, GATE_PATH, SHARED_LINES)
+            write_file(root, MODULE_PATH, miniature_doc(**args))
+            printed = io.StringIO()
+            with contextlib.redirect_stdout(printed):
+                code = report(*check_kit(root))
+        got = printed.getvalue().splitlines()
+        tally.judge(
+            code == EXIT_RED
+            and len(got) == len(expected_lines) + 1
+            and (got[0], got[2], got[3]) == expected_lines,
+            f"the report of a prefix of several kinds, {name}, has its literal first and fix lines, exit 2",
+        )
+
+
+def cases_sections(tally: Tally) -> None:
+    """A module document without an anchor the rules read is a teaching BROKEN line."""
     sections_broken: dict[str, tuple[str, str]] = {  # case: module document, start of the BROKEN line
         "a module document without its anchor t9": (
-            module_doc().replace('<a id="t9"></a>\n', ""),
+            miniature_doc().replace('<a id="t9"></a>\n', ""),
             'BROKEN: modules/const-x/MODULE.md has no anchor <a id="t9"></a>',
         ),
         "a module document without its anchor t10": (
-            module_doc().replace('<a id="t10"></a>\n', ""),
+            miniature_doc().replace('<a id="t10"></a>\n', ""),
             'BROKEN: modules/const-x/MODULE.md has no anchor <a id="t10"></a>',
         ),
     }
+    for name, (text, start) in sections_broken.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            fresh_repo(root)
+            write_file(root, GATE_PATH, SHARED_LINES)
+            write_file(root, MODULE_PATH, text)
+            try:
+                check_kit(root)
+                said = "no BROKEN: the check passed"
+            except Broken as broken:
+                said = f"BROKEN: {broken}"
+        tally.judge(
+            said.startswith(start) and " — fix: " in said, f"{name} is a teaching BROKEN line, never a pass"
+        )
 
-    def record_at(number: int) -> str:
-        return f"docs/decisions/dec-{number:04d}-t.md"
 
-    rulings = "## Rulings\n\n1. **R1.** A rule.\n\n| key | what |\n|---|---|\n"  # the first row is line 7
+def cases_tables(tally: Tally) -> None:
+    """A table row keyed as a ruling of its record is red, and what is not read is green."""
     after_carry = (
         "## Carry list\n\n| R1 | x |\n\n## After\n\n| key | what |\n|---|---|\n"  # the first row is 9
     )
     tables_red: dict[str, tuple[int, str, str, tuple[int, ...]]] = {
         # case: the record's number, the text green, the text red, the lines by hand
-        "a row R1 in a record numbered 39": (39, rulings + "| K1 | a |\n", rulings + "| R1 | a |\n", (7,)),
-        "a row R1 in a record numbered 100": (100, rulings + "| K1 | a |\n", rulings + "| R1 | a |\n", (7,)),
-        "a bold row key R1": (40, rulings + "| **K1** | a |\n", rulings + "| **R1** | a |\n", (7,)),
+        "a row R1 in a record numbered 39": (39, RULINGS + "| K1 | a |\n", RULINGS + "| R1 | a |\n", (7,)),
+        "a row R1 in a record numbered 100": (100, RULINGS + "| K1 | a |\n", RULINGS + "| R1 | a |\n", (7,)),
+        "a bold row key R1": (40, RULINGS + "| **K1** | a |\n", RULINGS + "| **R1** | a |\n", (7,)),
         "a bold row key with a full stop, R2.": (
             40,
-            rulings + "| K2. | a |\n",
-            rulings + "| **R2.** | a |\n",
+            RULINGS + "| K2. | a |\n",
+            RULINGS + "| **R2.** | a |\n",
             (7,),
         ),
-        "a row key with a full stop, R3.": (40, rulings + "| K3. | a |\n", rulings + "| R3. | a |\n", (7,)),
+        "a row key with a full stop, R3.": (40, RULINGS + "| K3. | a |\n", RULINGS + "| R3. | a |\n", (7,)),
         "a second row R2 beside a correct one": (
             41,
-            rulings + "| K1 | a |\n| K2 | b |\n",
-            rulings + "| K1 | a |\n| R2 | b |\n",
+            RULINGS + "| K1 | a |\n| K2 | b |\n",
+            RULINGS + "| K1 | a |\n| R2 | b |\n",
             (8,),
         ),
-        "a row key R1 in a code span": (40, rulings + "| K1 | a |\n", rulings + "| `R1` | a |\n", (7,)),
+        "a row key R1 in a code span": (40, RULINGS + "| K1 | a |\n", RULINGS + "| `R1` | a |\n", (7,)),
         "a row key R1 in a bold code span": (
             40,
-            rulings + "| K1 | a |\n",
-            rulings + "| **`R1`** | a |\n",
+            RULINGS + "| K1 | a |\n",
+            RULINGS + "| **`R1`** | a |\n",
             (7,),
         ),
         "a row key range R2–R3 with an en dash": (
             40,
-            rulings + "| K2–K3 | a |\n",
-            rulings + "| R2–R3 | a |\n",
+            RULINGS + "| K2–K3 | a |\n",
+            RULINGS + "| R2–R3 | a |\n",
             (7,),
         ),
         "a row key range R2-R3 with a hyphen": (
             40,
-            rulings + "| K2-K3 | a |\n",
-            rulings + "| R2-R3 | a |\n",
+            RULINGS + "| K2-K3 | a |\n",
+            RULINGS + "| R2-R3 | a |\n",
             (7,),
         ),
         "a row key range in a code span, R2–R3": (
             40,
-            rulings + "| K2–K3 | a |\n",
-            rulings + "| `R2–R3` | a |\n",
+            RULINGS + "| K2–K3 | a |\n",
+            RULINGS + "| `R2–R3` | a |\n",
             (7,),
         ),
-        "a row key list R4, R5": (40, rulings + "| K4, K5 | a |\n", rulings + "| R4, R5 | a |\n", (7,)),
+        "a row key list R4, R5": (40, RULINGS + "| K4, K5 | a |\n", RULINGS + "| R4, R5 | a |\n", (7,)),
         "a row key list in a code span, R4, R5": (
             40,
-            rulings + "| K4, K5 | a |\n",
-            rulings + "| `R4, R5` | a |\n",
+            RULINGS + "| K4, K5 | a |\n",
+            RULINGS + "| `R4, R5` | a |\n",
             (7,),
         ),
         "a row key R7 followed by other words": (
             40,
-            rulings + "| K7 (x) | a |\n",
-            rulings + "| R7 (x) | a |\n",
+            RULINGS + "| K7 (x) | a |\n",
+            RULINGS + "| R7 (x) | a |\n",
             (7,),
         ),
         "a row key range R2–R3 whose of follows other words, not the range": (
             40,
-            rulings + "| K2–K3 (x) of the module | a |\n",
-            rulings + "| R2–R3 (x) of the module | a |\n",
+            RULINGS + "| K2–K3 (x) of the module | a |\n",
+            RULINGS + "| R2–R3 (x) of the module | a |\n",
             (7,),
         ),
         "a row key range with a spaced dash, R2 – R3 of the module": (
             40,
-            rulings + "| R2–R3 of the module | a |\n",
-            rulings + "| R2 – R3 of the module | a |\n",
+            RULINGS + "| R2–R3 of the module | a |\n",
+            RULINGS + "| R2 – R3 of the module | a |\n",
             (7,),
         ),
         "a row key R7 after other words, not a qualifier": (
             40,
-            rulings + "| the K7 row | a |\n",
-            rulings + "| the R7 row | a |\n",
+            RULINGS + "| the K7 row | a |\n",
+            RULINGS + "| the R7 row | a |\n",
             (7,),
         ),
         "a row R1 in a table after the section Carry list ends": (
@@ -1396,8 +1560,8 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ),
     }
     tables_green: dict[str, tuple[str, str]] = {  # case: path, text
-        "a record numbered 38": (record_at(38), rulings + "| R1 | a |\n"),
-        "a document that is no record": ("docs/policies/p.md", rulings + "| R1 | a |\n"),
+        "a record numbered 38": (record_at(38), RULINGS + "| R1 | a |\n"),
+        "a document that is no record": ("docs/policies/p.md", RULINGS + "| R1 | a |\n"),
         "the section Carry list": (record_at(39), "## Carry list\n\n| key | what |\n|---|---|\n| R1 | a |\n"),
         "a fenced block": (record_at(39), "```\n| R1 | a |\n```\n"),
         "a code span in a fenced block": (record_at(39), "```\n| `R1` | a |\n```\n"),
@@ -1405,209 +1569,77 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             record_at(39),
             "## Carry list\n\n| key | what |\n|---|---|\n| `R1` | a |\n",
         ),
-        "a later cell": (record_at(39), rulings + "| K1 | R1 |\n"),
+        "a later cell": (record_at(39), RULINGS + "| K1 | R1 |\n"),
         "a first cell whose first handle is no ruling's, K1, R1": (
             record_at(39),
-            rulings + "| K1, R1 | a |\n",
+            RULINGS + "| K1, R1 | a |\n",
         ),
         "a first handle of another document, R1 of the module": (
             record_at(39),
-            rulings + "| R1 of the module | a |\n",
+            RULINGS + "| R1 of the module | a |\n",
         ),
         "a first handle of another document, R1 of a link to it": (
             record_at(39),
-            rulings
+            RULINGS
             + "| R1 of [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r1) | a |\n",
         ),
         "a range of another document, R2–R3 of the module": (
             record_at(39),
-            rulings + "| R2–R3 of the module | a |\n",
+            RULINGS + "| R2–R3 of the module | a |\n",
         ),
         "a list of another document, R4, R5 of the module": (
             record_at(39),
-            rulings + "| R4, R5 of the module | a |\n",
+            RULINGS + "| R4, R5 of the module | a |\n",
         ),
         "a first handle of another document, in a code span": (
             record_at(39),
-            rulings + "| `R1` of the module | a |\n",
+            RULINGS + "| `R1` of the module | a |\n",
         ),
-        "a handle after the word message": (record_at(39), rulings + "| message R1 | a |\n"),
-        "a handle after the word key": (record_at(39), rulings + "| the key R1 | a |\n"),
-        "a handle after the word row": (record_at(39), rulings + "| **row R1** | a |\n"),
+        "a handle after the word message": (record_at(39), RULINGS + "| message R1 | a |\n"),
+        "a handle after the word key": (record_at(39), RULINGS + "| the key R1 | a |\n"),
+        "a handle after the word row": (record_at(39), RULINGS + "| **row R1** | a |\n"),
         "a path with a handle in its name, hooks/R1.json": (
             record_at(39),
-            rulings + "| hooks/R1.json | a |\n",
+            RULINGS + "| hooks/R1.json | a |\n",
         ),
-        "a file name that opens with a handle, R1.json": (record_at(39), rulings + "| `R1.json` | a |\n"),
-        "a handle with a suffix letter, R1b": (record_at(39), rulings + "| R1b | a |\n"),
-        "a cell with no handle": (record_at(39), rulings + "| the rule | a |\n"),
+        "a file name that opens with a handle, R1.json": (record_at(39), RULINGS + "| `R1.json` | a |\n"),
+        "a handle with a suffix letter, R1b": (record_at(39), RULINGS + "| R1b | a |\n"),
+        "a cell with no handle": (record_at(39), RULINGS + "| the rule | a |\n"),
         "a ruling outside a table": (record_at(39), "1. **R1.** A rule.\n\nR1 stands.\n"),
     }
-
-    def fresh(root: Path) -> None:
-        try:
-            subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
-        except OSError as missing:
-            raise Broken(
-                f"git cannot start ({missing.strerror}) — fix: install git, then run the self-test"
-            ) from missing
-        except subprocess.CalledProcessError as failed:
-            said = (failed.stderr.decode(errors="replace").splitlines() or ["no message"])[0]
-            raise Broken(
-                f"git init failed in {root}: {said} — fix: repair what git names, then run the self-test"
-            ) from failed
-        write(root, record, "A record.\n")
-        write(root, "docs/policies/plc-0004-decision-records.md", "A policy.\n")
-
-    def write(root: Path, path: str, text: str) -> None:
-        (root / path).parent.mkdir(parents=True, exist_ok=True)
-        (root / path).write_text(text, encoding="utf-8")
-
-    judged = 0
-    failed = 0
-
-    def judge(ok: bool, text: str) -> None:
-        nonlocal judged, failed
-        judged += 1
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {text}")
-
-    for name, (path, good, bad, lines) in red.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            write(root, path, good)
-            green_before = not check_kit(root)[0]
-            write(root, path, bad)
-            findings = check_kit(root)[0]
-        red_after = tuple(f.line for f in findings) == lines and all(f.path == path for f in findings)
-        judge(green_before and red_after, f"the correct form is green, {name} is red")
-    for name, (path, text) in green.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            write(root, path, text)
-            judge(not check_kit(root)[0], f"the wrong form in {name} is not read")
-    for name, (path, text, expected) in reports.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            write(root, path, text)
-            printed = io.StringIO()
-            with contextlib.redirect_stdout(printed):
-                code = report(*check_kit(root))
-        judge(
-            code == EXIT_RED and printed.getvalue().splitlines() == expected,
-            f"the report of one finding, {name}, is its literal text, exit 2",
-        )
-    for name, (good_rows, bad_rows, lines) in keys_red.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            write(root, gate_path, own_shared.get(name, shared_lines))
-            write(root, module_path, module_doc(good_rows))
-            green_before = not check_kit(root)[0]
-            write(root, module_path, module_doc(bad_rows))
-            findings = check_kit(root)[0]
-        red_after = tuple(f.line for f in findings) == lines and all(f.path == module_path for f in findings)
-        judge(green_before and red_after, f"the correct key is green, {name} is red")
-    for name, (rows, after) in keys_green.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            write(root, gate_path, shared_lines)
-            write(root, module_path, module_doc(rows, after))
-            judge(not check_kit(root)[0], f"{name} is not a finding")
-    for name, (gate_text, rows, start) in keys_broken.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            if gate_text is not None:
-                write(root, gate_path, gate_text)
-            write(root, module_path, module_doc(rows) if rows else "A document with no sections.\n")
-            try:
-                check_kit(root)
-                said = "no BROKEN: the check passed"
-            except Broken as broken:
-                said = f"BROKEN: {broken}"
-        judge(
-            said.startswith(start) and " — fix: " in said, f"{name} is a teaching BROKEN line, never a pass"
-        )
-    for name, (good_args, bad_args, lines) in kinds_red.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            write(root, gate_path, shared_lines)
-            write(root, module_path, module_doc(**good_args))
-            green_before = not check_kit(root)[0]
-            write(root, module_path, module_doc(**bad_args))
-            findings = check_kit(root)[0]
-        red_after = tuple(f.line for f in findings) == lines and all(f.path == module_path for f in findings)
-        judge(green_before and red_after, f"the correct prefixes are green, {name} is red")
-    for name, args in kinds_green.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            write(root, gate_path, shared_lines)
-            write(root, module_path, module_doc(**args))
-            judge(not check_kit(root)[0], f"{name} is not a finding")
-    for name, (args, expected_lines) in prefix_pairs.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            write(root, gate_path, shared_lines)
-            write(root, module_path, module_doc(**args))
-            printed = io.StringIO()
-            with contextlib.redirect_stdout(printed):
-                code = report(*check_kit(root))
-        got = printed.getvalue().splitlines()
-        judge(
-            code == EXIT_RED
-            and len(got) == len(expected_lines) + 1
-            and (got[0], got[2], got[3]) == expected_lines,
-            f"the report of a prefix of several kinds, {name}, has its literal first and fix lines, exit 2",
-        )
-    for name, (text, start) in sections_broken.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            fresh(root)
-            write(root, gate_path, shared_lines)
-            write(root, module_path, text)
-            try:
-                check_kit(root)
-                said = "no BROKEN: the check passed"
-            except Broken as broken:
-                said = f"BROKEN: {broken}"
-        judge(
-            said.startswith(start) and " — fix: " in said, f"{name} is a teaching BROKEN line, never a pass"
-        )
     for name, (number, good_text, bad_text, lines) in tables_red.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            fresh(root)
-            write(root, record_at(number), good_text)
+            fresh_repo(root)
+            write_file(root, record_at(number), good_text)
             green_before = not check_kit(root)[0]
-            write(root, record_at(number), bad_text)
+            write_file(root, record_at(number), bad_text)
             findings = check_kit(root)[0]
         red_after = tuple(f.line for f in findings) == lines and all(
             f.path == record_at(number) for f in findings
         )
-        judge(green_before and red_after, f"the correct row key is green, {name} is red")
+        tally.judge(green_before and red_after, f"the correct row key is green, {name} is red")
     for name, (path, text) in tables_green.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            fresh(root)
-            write(root, path, text)
-            judge(not check_kit(root)[0], f"{name} is not a finding")
+            fresh_repo(root)
+            write_file(root, path, text)
+            tally.judge(not check_kit(root)[0], f"{name} is not a finding")
+
+
+def cases_literal_reports(tally: Tally) -> None:
+    """The report of one finding of each module rule is its literal text, exit 2."""
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        fresh(root)
-        write(root, gate_path, shared_lines)
-        write(root, module_path, module_doc("| L1 | a |\n", items=bare + "| L1 | live | none | a |\n"))
+        fresh_repo(root)
+        write_file(root, GATE_PATH, SHARED_LINES)
+        write_file(
+            root, MODULE_PATH, miniature_doc("| L1 | a |\n", items=BARE_ITEM + "| L1 | live | none | a |\n")
+        )
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
-    judge(
+    tally.judge(
         code == EXIT_RED
         and printed.getvalue().splitlines()
         == [
@@ -1625,12 +1657,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        fresh(root)
-        write(root, record_at(39), rulings + "| R1 | a |\n")
+        fresh_repo(root)
+        write_file(root, record_at(39), RULINGS + "| R1 | a |\n")
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
-    judge(
+    tally.judge(
         code == EXIT_RED
         and printed.getvalue().splitlines()
         == [
@@ -1649,12 +1681,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        fresh(root)
-        write(root, record_at(39), rulings + "| **`R2–R3`** | a |\n")
+        fresh_repo(root)
+        write_file(root, record_at(39), RULINGS + "| **`R2–R3`** | a |\n")
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
-    judge(
+    tally.judge(
         code == EXIT_RED
         and printed.getvalue().splitlines()
         == [
@@ -1673,13 +1705,13 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        fresh(root)
-        write(root, gate_path, shared_lines)
-        write(root, module_path, module_doc("| N1 | a |\n"))
+        fresh_repo(root)
+        write_file(root, GATE_PATH, SHARED_LINES)
+        write_file(root, MODULE_PATH, miniature_doc("| N1 | a |\n"))
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
-    judge(
+    tally.judge(
         code == EXIT_RED
         and printed.getvalue().splitlines()
         == [
@@ -1694,13 +1726,17 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ],
         "the report of one finding, a shared key in a module's table, is its literal text, exit 2",
     )
+
+
+def cases_edges(tally: Tally) -> None:
+    """A green tree, a file that is not UTF-8 and a misinvocation each give the line the check promises."""
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        fresh(root)
+        fresh_repo(root)
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
-        judge(
+        tally.judge(
             code == EXIT_GREEN
             and printed.getvalue().splitlines()
             == ["GREEN: every handle is written in its form — 2 document(s) examined"],
@@ -1708,7 +1744,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        fresh(root)
+        fresh_repo(root)
         (root / "docs" / "latin1.md").write_bytes(b"caf\xe9\n")
         try:
             check_kit(root)
@@ -1719,11 +1755,11 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             ok = str(broken).startswith("docs/latin1.md is not UTF-8") and "fix: save it as UTF-8" in str(
                 broken
             )
-    judge(ok, "a file that is not UTF-8 is a teaching BROKEN line, never a traceback")
+    tally.judge(ok, "a file that is not UTF-8 is a teaching BROKEN line, never a traceback")
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed), contextlib.redirect_stderr(io.StringIO()):
         code = main(["--bogus"])
-    judge(
+    tally.judge(
         code == EXIT_BROKEN
         and printed.getvalue().splitlines()
         == [
@@ -1732,8 +1768,25 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ],
         "a misinvocation is a teaching BROKEN line, exit 1",
     )
-    print(f"{judged - failed}/{judged} cases green")
-    return EXIT_GREEN if failed == 0 else EXIT_RED
+
+
+def self_test() -> int:
+    """Red→green on a throwaway repository: each form is red where the check reads, with the lines
+    of its findings typed by hand, and its correct spelling is green; every place not read stays
+    green with the wrong spelling; the report of one finding of each kind is its literal text with
+    exit 2; and a file that is not UTF-8 and a misinvocation are teaching BROKEN lines. The total
+    counts every case judged, never a sum typed by hand."""
+    tally = Tally()
+    cases_forms(tally)
+    cases_reports(tally)
+    cases_keys(tally)
+    cases_prefixes(tally)
+    cases_sections(tally)
+    cases_tables(tally)
+    cases_literal_reports(tally)
+    cases_edges(tally)
+    print(f"{tally.judged - tally.failed}/{tally.judged} cases green")
+    return EXIT_GREEN if tally.failed == 0 else EXIT_RED
 
 
 def main(argv: list[str]) -> int:

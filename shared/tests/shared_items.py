@@ -236,46 +236,119 @@ class Subject:
     # gate names none for that mode, and the item about the line is left out
 
 
-def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 — a flat list of small items
-    h, ns = s.harness, s.harness.namespace
-    stop = s.event == "Stop"
-    shell = s.event == "Bash"
-    no_file = stop or shell  # the gate examines no written file: the items about one are not its own
+AS_ROOT = (
+    "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 unreadable files examined"
+)
 
-    def payload(root: Path, action: Write | Edit) -> str:
+
+def reader_delimiter_failures() -> list[str]:
+    """What the envelope reader makes of a break character before the closer and of the closers that
+    still close, on text typed by hand."""
+    failed = []
+    for breaker in "\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029":
+        if parse_envelope(f"---\nid: a\n{breaker}---\nBODY\n").state is not EnvelopeState.UNTERMINATED:
+            failed.append(f"{breaker!r} before the closer makes a delimiter")
+    for what, text in {"closer `--- `": "---\nid: a\n--- \n", "CRLF": "---\r\nid: a\r\n---\r\n"}.items():
+        if parse_envelope(text).state is not EnvelopeState.OK:
+            failed.append(f"the {what} does not close the envelope")
+    return failed
+
+
+def envelope_bounds_failures() -> list[str]:
+    """The offsets the shared helper `envelope_bounds` gives, typed by hand, a byte-order mark counted."""
+    bounds_of = getattr(envelope_reader, "envelope_bounds", None)  # the helper, by its name
+    if bounds_of is None:
+        return ["no envelope_bounds in the shared envelope reader"]
+    failed = []
+    offsets = {
+        "BOM, then a plain envelope": ("\ufeff---\nid: a\n---\nBODY\n", (5, 11, 15)),
+        "two BOMs, both skipped and counted": ("\ufeff\ufeff---\nid: a\n---\nB", (6, 12, 16)),
+        "CRLF, the closer `--- `": ("---\r\nid: a\r\n--- \r\nB", (5, 12, 18)),
+        "a closer that is the last line, with no ending": ("---\nid: a\n---", (4, 10, 13)),
+        "a lone CR ends a line": ("---\rid: a\r---\rB", (4, 10, 14)),
+        "a form feed before the closer": ("---\nid: a\n\x0c---\n", (4, None, None)),
+    }
+    for what, (text, wanted) in offsets.items():
+        got = bounds_of(text)
+        if got is None or (got.yaml_start, got.yaml_end, got.end) != wanted:
+            failed.append(f"{what}: got {got}, wanted {wanted}")
+    if bounds_of("# no envelope\n---\n") is not None or bounds_of("") is not None:
+        failed.append("an envelope found where the first line is no `---`")
+    return failed
+
+
+def envelope_lines_failures() -> list[str]:
+    """The cuts the shared line splitter `envelope_lines` makes, as (offset, content, next offset)."""
+    lines_of = getattr(envelope_reader, "envelope_lines", None)
+    if lines_of is None:
+        return ["no envelope_lines in the shared envelope reader"]
+    failed = []
+    cuts = {
+        "LF, CRLF and a lone CR": (
+            "a\nb\r\nc\rd",
+            [(0, "a", 2), (2, "b", 5), (5, "c", 7), (7, "d", 8)],
+        ),
+        "an empty line, a CRLF and a lone CR in a row": (
+            "a\n\r\n\rb\n",
+            [(0, "a", 2), (2, "", 4), (4, "", 5), (5, "b", 7)],
+        ),
+        "a form feed and U+2028 end nothing": ("a\x0cb\u2028c\n", [(0, "a\x0cb\u2028c", 6)]),
+    }
+    for what, (text, wanted_lines) in cuts.items():
+        got_lines = list(lines_of(text, 0, len(text)))
+        if got_lines != wanted_lines:
+            failed.append(f"envelope_lines, {what}: got {got_lines}, wanted {wanted_lines}")
+    # the stop is a wall: a CR at the stop is a lone CR, though a LF follows it
+    if list(lines_of("a\r\nb", 0, 2)) != [(0, "a", 2)]:
+        failed.append("envelope_lines read past its stop")
+    return failed
+
+
+class SharedItems:
+    """The shared acceptance items of one Subject, one method each, and the helpers they use."""
+
+    def __init__(self, s: Subject) -> None:
+        self.s = s
+        self.h = s.harness
+        self.ns = s.harness.namespace
+        self.stop = s.event == "Stop"
+        self.shell = s.event == "Bash"
+        # the gate examines no written file: the items about one are not its own
+        self.no_file = self.stop or self.shell
+        self.red_code = 0 if s.ask else 2
+
+    def payload(self, root: Path, action: Write | Edit) -> str:
         """The event an item sends itself: the write, or, for a Stop gate, a Stop in that repository,
         or, for a shell gate, the shell tool with the action's text as its command."""
-        if stop:
+        if self.stop:
             return stop_json(root)
-        if shell:
+        if self.shell:
             return bash_json(root, action.text if isinstance(action, Write) else action.new)
         return event_json(root, action)
 
-    def red_said(result: Result) -> str:
+    def red_said(self, result: Result) -> str:
         """What a red run said: stderr for a block, the reason of the ask verdict for an asking gate,
         stdout for a scan."""
-        if s.scan_only:
+        if self.s.scan_only:
             return result.stdout
-        return (ask_reason(result) or "") if s.ask else result.stderr
+        return (ask_reason(result) or "") if self.s.ask else result.stderr
 
-    red_code = 0 if s.ask else 2
-
-    def scan_args(root: Path) -> list[str]:
+    def scan_args(self, root: Path) -> list[str]:
         """The scan of a gate without a hook mode, on the consumer's root."""
         return ["--scan", str(root)]
 
-    def broken(result: Result, failure: Broken) -> tuple[bool, str]:
-        return broken_as_typed(result, failure.render())
+    def broken(self, result: Result, failure: Broken) -> tuple[bool, str]:
+        return self.broken_as_typed(result, failure.render())
 
-    def broken_as_typed(result: Result, line: str) -> tuple[bool, str]:
+    def broken_as_typed(self, result: Result, line: str) -> tuple[bool, str]:
         """The failure's line first — typed by hand where the item types it — then the closing line."""
         ok, evidence = broken_first_line(result, line)
-        counted = s.closing in result.stderr  # a run that examined, or changed, nothing says so
+        counted = self.s.closing in result.stderr  # a run that examined, or changed, nothing says so
         return ok and counted, evidence if counted else f"no count line after: {evidence}"
 
-    def bin_with(*tools: str) -> str:
+    def bin_with(self, *tools: str) -> str:
         """A PATH directory holding only the named tools, to simulate the absence of the rest."""
-        directory = h.scratch_dir()
+        directory = self.h.scratch_dir()
         for tool in tools:
             source = os.path.realpath(sys.executable) if tool == "python3" else shutil.which(tool)
             assert source, tool
@@ -284,35 +357,39 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     # ---------------------------------------------------------------- the dials file
 
-    def malformed_dials() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, raw_dials="root-policy: [\n")
+    def malformed_dials(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.valid, raw_dials="root-policy: [\n")
         return expect(result, 1, "BROKEN: constitution.yaml is not valid YAML", "stderr")
 
-    def dials_not_mapping() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, raw_dials="- a\n- b\n")
+    def dials_not_mapping(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.valid, raw_dials="- a\n- b\n")
         line = (  # typed by hand: both kernel keys, the second said to be needed only off the default
             "BROKEN: constitution.yaml is not a mapping — fix: the file holds top-level keys: root_policy,"
             " and territory_dialect when the dialect is not gitignore, then one namespace per policy or"
             " module"
         )
-        return broken_as_typed(result, line)
+        return self.broken_as_typed(result, line)
 
-    def dials_bad_severity() -> tuple[bool, str]:
+    def dials_bad_severity(self) -> tuple[bool, str]:
         line = (  # typed by hand
-            f"BROKEN: constitution.yaml: {ns}.severity must be block or warn — fix: under {ns}, set severity:"
-            " block or severity: warn, or remove that line"
+            f"BROKEN: constitution.yaml: {self.ns}.severity must be block or warn — fix: under {self.ns},"
+            " set severity: block or severity: warn, or remove that line"
         )
-        return broken_as_typed(s.gate_on(s.valid, dials_patch=s.own(severity="loud"))[0], line)
+        return self.broken_as_typed(
+            self.s.gate_on(self.s.valid, dials_patch=self.s.own(severity="loud"))[0], line
+        )
 
-    def dials_own_namespace() -> tuple[bool, str]:
+    def dials_own_namespace(self) -> tuple[bool, str]:
         line = (  # typed by hand
-            f"BROKEN: constitution.yaml: namespace '{ns}' must be a mapping of this module's dials — fix:"
-            " write this module's dials under it as a mapping, or remove the key"
+            f"BROKEN: constitution.yaml: namespace '{self.ns}' must be a mapping of this module's dials —"
+            " fix: write this module's dials under it as a mapping, or remove the key"
         )
-        return broken_as_typed(s.gate_on(s.valid, dials_patch={ns: "x"})[0], line)
+        return self.broken_as_typed(self.s.gate_on(self.s.valid, dials_patch={self.ns: "x"})[0], line)
 
-    def dials_comment_pattern() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, dials_patch={"notes-policy": {"territory": ["#docs/notes/**"]}})
+    def dials_comment_pattern(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(
+            self.s.valid, dials_patch={"notes-policy": {"territory": ["#docs/notes/**"]}}
+        )
         line = (  # typed by hand: the dial's whole path, then the pattern in single quotes
             "BROKEN: constitution.yaml: notes-policy.territory holds a pattern git would not read as one:"
             " '#docs/notes/**' — fix: a pattern may not start with '#' (a comment to git) nor contain a line"
@@ -320,16 +397,19 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "escape a leading # as \\# bare or in single quotes, "
             "as \\\\# in double quotes, and remove a line break"
         )
-        return broken_as_typed(result, line)
+        return self.broken_as_typed(result, line)
 
-    def dials_unsupported_dialect() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, dials_patch={"territory_dialect": "regex"})
-        return broken(result, messages.c5_dialect_unsupported("regex"))
+    def dials_unsupported_dialect(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.valid, dials_patch={"territory_dialect": "regex"})
+        return self.broken(result, messages.c5_dialect_unsupported("regex"))
 
-    def dials_own_namespace_null() -> tuple[bool, str]:
-        return broken(s.gate_on(s.valid, dials_patch={ns: None})[0], messages.c5_own_namespace_not_mapping())
+    def dials_own_namespace_null(self) -> tuple[bool, str]:
+        return self.broken(
+            self.s.gate_on(self.s.valid, dials_patch={self.ns: None})[0],
+            messages.c5_own_namespace_not_mapping(),
+        )
 
-    def dials_other_pairs() -> tuple[bool, str]:
+    def dials_other_pairs(self) -> tuple[bool, str]:
         pairs: list[tuple[dict[str, object], Broken | str]] = [  # a string is a line typed by hand
             (
                 {"root_policy": "/absolute/root.md"},
@@ -349,70 +429,74 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 messages.c5_territory_shape("notes-policy"),
             ),
             (
-                s.own(log_dir="/absolute/logs"),
-                f"BROKEN: constitution.yaml: {ns}.log_dir must be a repository-relative directory — fix:"
-                f" under {ns}, set log_dir: <a git-ignored directory>, or remove that line",
+                self.s.own(log_dir="/absolute/logs"),
+                f"BROKEN: constitution.yaml: {self.ns}.log_dir must be a repository-relative directory — fix:"
+                f" under {self.ns}, set log_dir: <a git-ignored directory>, or remove that line",
             ),
             # a path that leaves the repository by `..`, written plain or after a step down
             ({"root_policy": "../root.md"}, messages.c5_root_policy_path()),
             ({"root_policy": "docs/../../root.md"}, messages.c5_root_policy_path()),
-            (s.own(log_dir="../logs"), messages.c5_log_dir()),
-            (s.own(log_dir="logs/../../logs"), messages.c5_log_dir()),
+            (self.s.own(log_dir="../logs"), messages.c5_log_dir()),
+            (self.s.own(log_dir="logs/../../logs"), messages.c5_log_dir()),
             ({"root_policy": " "}, messages.c5_root_policy_path()),
         ]
         results = [
-            broken_as_typed(s.gate_on(s.valid, dials_patch=patch)[0], failure)
+            self.broken_as_typed(self.s.gate_on(self.s.valid, dials_patch=patch)[0], failure)
             if isinstance(failure, str)
-            else broken(s.gate_on(s.valid, dials_patch=patch)[0], failure)
+            else self.broken(self.s.gate_on(self.s.valid, dials_patch=patch)[0], failure)
             for patch, failure in pairs
         ]
         failed = [evidence for ok, evidence in results if not ok]
         # the same dials written the long way read as written the short way: the verdict is the plain
         # run's, never a refusal — `./` and `//` dropped, a step down and back up undone
-        plain = s.gate_on(s.valid)[0]
+        plain = self.s.gate_on(self.s.valid)[0]
         long_way: list[tuple[str, dict[str, object]]] = [
             ("root_policy", {"root_policy": "./docs//../" + ROOT_POLICY}),
             # the kernel's one dialect, written out: a kernel-owned key, never refused as a namespace
             ("territory_dialect", {"territory_dialect": DIALECT}),
         ]
         for name, patch in long_way:
-            got = s.gate_on(s.valid, dials_patch=patch)[0]
+            got = self.s.gate_on(self.s.valid, dials_patch=patch)[0]
             if (got.code, "BROKEN" in got.stderr) != (plain.code, "BROKEN" in plain.stderr):
                 failed.append(f"{name}: exit {got.code}, the plain run exit {plain.code}: {got.stderr[:200]}")
         return not failed, "; ".join(failed) or (
             f"{len(pairs)} dial failures, each exit 1 with its own line; the long way reads as plain"
         )
 
-    def root_missing() -> tuple[bool, str]:
-        return broken(s.gate_on(s.valid, remove=ROOT_POLICY)[0], messages.c6_root_missing(ROOT_POLICY))
+    def root_missing(self) -> tuple[bool, str]:
+        return self.broken(
+            self.s.gate_on(self.s.valid, remove=ROOT_POLICY)[0], messages.c6_root_missing(ROOT_POLICY)
+        )
 
-    def root_without_id() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, files={ROOT_POLICY: NO_ENVELOPE})
-        return broken(result, messages.c7_root_without_id(ROOT_POLICY))
+    def root_without_id(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.valid, files={ROOT_POLICY: NO_ENVELOPE})
+        return self.broken(result, messages.c7_root_without_id(ROOT_POLICY))
 
-    def root_claims_nothing() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, dials_patch={"root-policy": {}})
-        return broken(result, messages.c8_root_claims_nothing("root-policy"))
+    def root_claims_nothing(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.valid, dials_patch={"root-policy": {}})
+        return self.broken(result, messages.c8_root_claims_nothing("root-policy"))
 
-    def root_outside_own_territory() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, dials_patch={"root-policy": {"territory": ["docs/elsewhere/**"]}})
-        return broken(
+    def root_outside_own_territory(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(
+            self.s.valid, dials_patch={"root-policy": {"territory": ["docs/elsewhere/**"]}}
+        )
+        return self.broken(
             result, messages.c9_root_outside_own_territory(ROOT_POLICY, ["docs/elsewhere/**"], "root-policy")
         )
 
     # ---------------------------------------------------------------- absence of what the gate needs
 
-    def python_absent() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, env={"PATH": bin_with("dirname")})
-        return expect(result, 1, f"BROKEN: {ns} needs python3", "stderr")
+    def python_absent(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.valid, env={"PATH": self.bin_with("dirname")})
+        return expect(result, 1, f"BROKEN: {self.ns} needs python3", "stderr")
 
-    def python_below_floor() -> tuple[bool, str]:
+    def python_below_floor(self) -> tuple[bool, str]:
         """The entry file run, under the interpreter at hand, as one a minor below the floor would run it:
         a shim sets `sys.version_info` to that minor, puts the entry's folder first on the path as a real
         run does, and runs the entry as `__main__`. The line is C14's, up to its clause."""
         floor, below = preflight.FLOOR, (preflight.FLOOR[0], preflight.FLOOR[1] - 1)
         line = (
-            f"BROKEN: {ns} needs Python {floor[0]}.{floor[1]} or newer, found {below[0]}.{below[1]}"
+            f"BROKEN: {self.ns} needs Python {floor[0]}.{floor[1]} or newer, found {below[0]}.{below[1]}"
             " — fix: install a current Python 3 (https://www.python.org/downloads/) and put it first on PATH"
         )
         shim = (
@@ -423,8 +507,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "sys.path.insert(0, os.path.dirname(entry))\n"
             "runpy.run_path(entry, run_name='__main__')\n"
         )
-        result = h.run_gate(
-            "{}", command=[sys.executable, "-c", shim, str(h.entry), f"{below[0]}.{below[1]}"]
+        result = self.h.run_gate(
+            "{}", command=[sys.executable, "-c", shim, str(self.h.entry), f"{below[0]}.{below[1]}"]
         )
         first = result.stderr.splitlines()[0] if result.stderr else ""
         ok = result.code == 1 and (first == line or first.startswith(line + " — "))
@@ -437,223 +521,233 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             f" stdout {result.stdout.strip()[:200]!r}"
         )
 
-    def git_absent() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, env={"PATH": bin_with("python3", "dirname")})
-        return broken(result, messages.c3_git_missing())
+    def git_absent(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.valid, env={"PATH": self.bin_with("python3", "dirname")})
+        return self.broken(result, messages.c3_git_missing())
 
-    def git_failing() -> tuple[bool, str]:
+    def git_failing(self) -> tuple[bool, str]:
         """A git that fails for any reason other than "not a repository" is never a green skip."""
-        config = h.scratch_dir() / "gitconfig"
+        config = self.h.scratch_dir() / "gitconfig"
         config.write_text("[broken\n", encoding="utf-8")
-        result, _ = s.gate_on(s.valid, env={"GIT_CONFIG_GLOBAL": str(config)})
+        result, _ = self.s.gate_on(self.s.valid, env={"GIT_CONFIG_GLOBAL": str(config)})
         return expect(result, 1, "BROKEN: git could not answer where the repository is", "stderr")
 
-    def library_absent() -> tuple[bool, str]:
-        shadow = h.scratch_dir()
+    def library_absent(self) -> tuple[bool, str]:
+        shadow = self.h.scratch_dir()
         (shadow / "yaml.py").write_text("raise ImportError('simulated absence')\n", encoding="utf-8")
-        result, _ = s.gate_on(s.valid, env={"PYTHONPATH": str(shadow)})
-        return broken(result, messages.c2_library_missing("PyYAML", str(preflight.requirements_file())))
+        result, _ = self.s.gate_on(self.s.valid, env={"PYTHONPATH": str(shadow)})
+        return self.broken(result, messages.c2_library_missing("PyYAML", str(preflight.requirements_file())))
 
-    def shared_code_absent() -> tuple[bool, str]:
+    def shared_code_absent(self) -> tuple[bool, str]:
         """The plugin as an install that dropped the link to the shared code would leave it."""
-        plugin = h.scratch_dir() / "plugin"
-        shutil.copytree(h.scripts, plugin / "scripts", symlinks=True)
+        plugin = self.h.scratch_dir() / "plugin"
+        shutil.copytree(self.h.scripts, plugin / "scripts", symlinks=True)
         shared = plugin / "scripts" / "const_gate"
         shared.unlink() if shared.is_symlink() else shutil.rmtree(shared)
-        consumer = h.fresh_consumer()
-        result = h.run_gate(
-            payload(consumer.root, s.valid), command=[h.sh, str(plugin / "scripts" / h.wrapper.name)]
+        consumer = self.h.fresh_consumer()
+        result = self.h.run_gate(
+            self.payload(consumer.root, self.s.valid),
+            command=[self.h.sh, str(plugin / "scripts" / self.h.wrapper.name)],
         )
-        first = expect(result, 1, f"BROKEN: {ns} is installed without its shared code", "stderr")
+        first = expect(result, 1, f"BROKEN: {self.ns} is installed without its shared code", "stderr")
         shared.mkdir()  # an install that left an empty directory behind: importable, and still no code
-        result = h.run_gate(
-            payload(consumer.root, s.valid), command=[h.sh, str(plugin / "scripts" / h.wrapper.name)]
+        result = self.h.run_gate(
+            self.payload(consumer.root, self.s.valid),
+            command=[self.h.sh, str(plugin / "scripts" / self.h.wrapper.name)],
         )
-        second = expect(result, 1, f"BROKEN: {ns} is installed without its shared code", "stderr")
+        second = expect(result, 1, f"BROKEN: {self.ns} is installed without its shared code", "stderr")
         return first[0] and second[0], f"link removed: {first[1][:60]}…; empty directory: {second[1][:60]}…"
 
-    def copy_with_links_followed() -> tuple[bool, str]:
+    def copy_with_links_followed(self) -> tuple[bool, str]:
         """The plugin's scripts copied the way an install copies them: what the link points at."""
-        plugin = h.scratch_dir() / "plugin"
-        shutil.copytree(h.scripts, plugin / "scripts", symlinks=False)
+        plugin = self.h.scratch_dir() / "plugin"
+        shutil.copytree(self.h.scripts, plugin / "scripts", symlinks=False)
         shutil.copy(preflight.requirements_file(), plugin / "requirements.txt")
-        copied = [h.sh, str(plugin / "scripts" / h.wrapper.name)]
-        consumer = h.fresh_consumer()
-        if not s.event_driven:  # a generator: a run that completes, from inside the consumer
-            result = h.run_gate("", args=s.act_args, command=copied, cwd=consumer.root)
-            return expect(result, 0, s.green, "stdout")
-        if s.scan_only:  # the consumer holding the passed document, scanned by the copy
-            consumer.write(s.valid.target, s.valid.text)
-            result = h.run_gate("", args=scan_args(consumer.root), command=copied)
-            return expect(result, 0, s.green, "stdout")
-        if no_file:  # a clean consumer at a turn's end, or a command the gate passes: the gate's green
-            result = h.run_gate(payload(consumer.root, s.valid), command=copied)
-            return expect(result, 0, s.green, "stdout")
-        result = h.run_gate(event_json(consumer.root, Write("README.md", NO_ENVELOPE)), command=copied)
-        return expect(result, 0, s.bare_readme, "stdout")
+        copied = [self.h.sh, str(plugin / "scripts" / self.h.wrapper.name)]
+        consumer = self.h.fresh_consumer()
+        if not self.s.event_driven:  # a generator: a run that completes, from inside the consumer
+            result = self.h.run_gate("", args=self.s.act_args, command=copied, cwd=consumer.root)
+            return expect(result, 0, self.s.green, "stdout")
+        if self.s.scan_only:  # the consumer holding the passed document, scanned by the copy
+            consumer.write(self.s.valid.target, self.s.valid.text)
+            result = self.h.run_gate("", args=self.scan_args(consumer.root), command=copied)
+            return expect(result, 0, self.s.green, "stdout")
+        if self.no_file:  # a clean consumer at a turn's end, or a command the gate passes: the gate's green
+            result = self.h.run_gate(self.payload(consumer.root, self.s.valid), command=copied)
+            return expect(result, 0, self.s.green, "stdout")
+        result = self.h.run_gate(event_json(consumer.root, Write("README.md", NO_ENVELOPE)), command=copied)
+        return expect(result, 0, self.s.bare_readme, "stdout")
 
-    def unexpected_failure() -> tuple[bool, str]:
+    def unexpected_failure(self) -> tuple[bool, str]:
         """Not fail-open: an exception nobody planned for exits 1, its BROKEN line first, the
         traceback after it."""
-        shadow = h.scratch_dir()
+        shadow = self.h.scratch_dir()
         (shadow / "yaml.py").write_text(
             "class YAMLError(Exception): pass\n\n\n"
             "def safe_load(text): raise RuntimeError('simulated defect')\n",
             encoding="utf-8",
         )
-        result, _ = s.gate_on(s.valid, env={"PYTHONPATH": str(shadow)})
+        result, _ = self.s.gate_on(self.s.valid, env={"PYTHONPATH": str(shadow)})
         failure = messages.c12_unexpected("RuntimeError: simulated defect")
-        ok, evidence = broken(result, failure)
+        ok, evidence = self.broken(result, failure)
         return ok and "Traceback (most recent call last)" in result.stderr, evidence
 
     # ---------------------------------------------------------------- invocation and hook input
 
-    def misinvocation() -> tuple[bool, str]:
-        return expect(h.run_gate("", args=["--bogus"]), 1, "BROKEN: misinvocation:", "stderr")
+    def misinvocation(self) -> tuple[bool, str]:
+        return expect(self.h.run_gate("", args=["--bogus"]), 1, "BROKEN: misinvocation:", "stderr")
 
-    def help_is_not_special() -> tuple[bool, str]:
-        return expect(h.run_gate("", args=["--help"]), 1, "BROKEN: misinvocation:", "stderr")
+    def help_is_not_special(self) -> tuple[bool, str]:
+        return expect(self.h.run_gate("", args=["--help"]), 1, "BROKEN: misinvocation:", "stderr")
 
-    def abbreviated_flag() -> tuple[bool, str]:
-        return expect(h.run_gate("", args=["--sc", "."]), 1, "BROKEN: misinvocation:", "stderr")
+    def abbreviated_flag(self) -> tuple[bool, str]:
+        return expect(self.h.run_gate("", args=["--sc", "."]), 1, "BROKEN: misinvocation:", "stderr")
 
-    def unparseable_input() -> tuple[bool, str]:
+    def unparseable_input(self) -> tuple[bool, str]:
         return expect(
-            h.run_gate("not json"), 1, "BROKEN: hook input cannot be used (it is not JSON", "stderr"
+            self.h.run_gate("not json"), 1, "BROKEN: hook input cannot be used (it is not JSON", "stderr"
         )
 
-    def input_not_an_object() -> tuple[bool, str]:
+    def input_not_an_object(self) -> tuple[bool, str]:
         detail = "it is JSON, but the top level is not an object"  # typed by hand
-        return broken(h.run_gate("[1, 2]"), messages.c12_input(detail))
+        return self.broken(self.h.run_gate("[1, 2]"), messages.c12_input(detail))
 
-    def malformed_event() -> tuple[bool, str]:
+    def malformed_event(self) -> tuple[bool, str]:
         event = json.dumps({"tool_name": "Write", "tool_input": ["not", "an", "object"]})
-        return broken(h.run_gate(event), messages.c12_input(messages.detail_tool_input("Write", "file_path")))
+        return self.broken(
+            self.h.run_gate(event), messages.c12_input(messages.detail_tool_input("Write", "file_path"))
+        )
 
-    def edit_without_fields() -> tuple[bool, str]:
+    def edit_without_fields(self) -> tuple[bool, str]:
         event = json.dumps({"tool_name": "Edit", "tool_input": {"file_path": "/x/a.md", "old_string": "a"}})
-        return broken(h.run_gate(event), messages.c12_input(messages.detail_tool_input("Edit", "new_string")))
+        return self.broken(
+            self.h.run_gate(event), messages.c12_input(messages.detail_tool_input("Edit", "new_string"))
+        )
 
-    def stdout_cannot_encode() -> tuple[bool, str]:
+    def stdout_cannot_encode(self) -> tuple[bool, str]:
         """The count line carries a dash; a stream that cannot encode it must not swallow the line."""
-        if no_file:
-            result, _ = s.gate_on(s.valid, env={"PYTHONIOENCODING": "ascii"})
-            return expect(result, 0, s.green, "stdout")
-        result, _ = s.gate_on(Write("README.md", NO_ENVELOPE), env={"PYTHONIOENCODING": "ascii"})
-        return expect(result, 0, s.bare_readme, "stdout")
+        if self.no_file:
+            result, _ = self.s.gate_on(self.s.valid, env={"PYTHONIOENCODING": "ascii"})
+            return expect(result, 0, self.s.green, "stdout")
+        result, _ = self.s.gate_on(Write("README.md", NO_ENVELOPE), env={"PYTHONIOENCODING": "ascii"})
+        return expect(result, 0, self.s.bare_readme, "stdout")
 
-    def deeply_nested_envelope() -> tuple[bool, str]:
+    def deeply_nested_envelope(self) -> tuple[bool, str]:
         """Brackets nested past the parser's depth are an unreadable envelope, never a crash that
         lets the write through."""
         text = "---\nid: " + "[" * 600 + "\n---\n"
-        result, _ = s.gate_on(Write(s.valid.target, text))  # a path where the envelope is the only defect
+        result, _ = self.s.gate_on(
+            Write(self.s.valid.target, text)
+        )  # a path where the envelope is the only defect
         return expect(result, 2, "brackets are nested too deeply to read", "stderr")  # typed by hand
 
-    def other_tool() -> tuple[bool, str]:
+    def other_tool(self) -> tuple[bool, str]:
         """`MultiEdit` carries a `file_path`, and is still no tool this gate judges: the visible skip says so,
         and names the tools it does judge. The whole line is typed by hand."""
         event = json.dumps({"tool_name": "MultiEdit", "tool_input": {"file_path": "x.md"}})
         skip = (
-            f"GREEN: {ns}: 0 documents examined — tool 'MultiEdit' is not one this gate judges"
+            f"GREEN: {self.ns}: 0 documents examined — tool 'MultiEdit' is not one this gate judges"
             " (it judges Write and Edit)"
         )
-        return expect(h.run_gate(event), 0, skip, "stdout")
+        return expect(self.h.run_gate(event), 0, skip, "stdout")
 
-    def scan_missing_path() -> tuple[bool, str]:
-        result = h.run_gate("", args=["--scan", "no-such-directory"])
-        return broken(result, messages.c12_scan_path("no-such-directory"))
+    def scan_missing_path(self) -> tuple[bool, str]:
+        result = self.h.run_gate("", args=["--scan", "no-such-directory"])
+        return self.broken(result, messages.c12_scan_path("no-such-directory"))
 
-    def scan_outside_repository() -> tuple[bool, str]:
-        directory = h.scratch_dir()
-        result = h.run_gate(
+    def scan_outside_repository(self) -> tuple[bool, str]:
+        directory = self.h.scratch_dir()
+        result = self.h.run_gate(
             "", args=["--scan", str(directory)], env={"GIT_CEILING_DIRECTORIES": str(directory.parent)}
         )
-        return broken(result, messages.c12_no_repo(str(directory)))
+        return self.broken(result, messages.c12_no_repo(str(directory)))
 
-    def scan_forms() -> tuple[bool, str]:
+    def scan_forms(self) -> tuple[bool, str]:
         """--scan=DIR, and a scan started from a subdirectory, examine the same repository."""
-        _, root = s.gate_on(s.valid, files={s.valid.target: s.valid.text})
-        whole = h.run_gate("", args=["--scan", str(root)])
-        equals = h.run_gate("", args=[f"--scan={root}"])
-        below = h.run_gate("", args=["--scan", str((root / s.valid.target).parent)])
+        _, root = self.s.gate_on(self.s.valid, files={self.s.valid.target: self.s.valid.text})
+        whole = self.h.run_gate("", args=["--scan", str(root)])
+        equals = self.h.run_gate("", args=[f"--scan={root}"])
+        below = self.h.run_gate("", args=["--scan", str((root / self.s.valid.target).parent)])
         ok = whole.code == 0 and whole.stdout == equals.stdout == below.stdout
         return ok, whole.stdout.strip().splitlines()[-1] if ok else f"{whole}\n{equals}\n{below}"
 
     # ---------------------------------------------------------------- paths and skips
 
-    def not_markdown() -> tuple[bool, str]:
+    def not_markdown(self) -> tuple[bool, str]:
         """Markdown means `.md`: a `.markdown` file is skipped, and the reason names the ending, not
         the format, since the file may well be Markdown."""
-        target = str(Path(s.valid.target).with_suffix(".markdown"))
-        result, root = s.gate_on(Write(target, "x"))
+        target = str(Path(self.s.valid.target).with_suffix(".markdown"))
+        result, root = self.s.gate_on(Write(target, "x"))
         skip = messages.g1_green_skip(messages.g1_skip_not_markdown(str(root / target)))
         ok, said = expect(result, 0, skip, "stdout")
         # a path of over 80 characters with a line break in it: shown whole, the break escaped — typed
         # by hand, since the reader opens that path and the line is read by a later step
         name = "docs/" + "d" * 90 + "\nx.markdown"
-        long_result, long_root = s.gate_on(Write(name, "x"))
+        long_result, long_root = self.s.gate_on(Write(name, "x"))
         line = (
-            f"GREEN: {ns}: 0 documents examined — {long_root}/docs/"
+            f"GREEN: {self.ns}: 0 documents examined — {long_root}/docs/"
             + "d" * 90
             + "\\nx.markdown is not a .md file"
         )
         long_ok, long_said = expect(long_result, 0, line, "stdout")
         return ok and long_ok, said if ok and long_ok else f"{said}; {long_said}"
 
-    def relative_path() -> tuple[bool, str]:
+    def relative_path(self) -> tuple[bool, str]:
         """A relative file_path is resolved against the event's cwd."""
-        _, root = s.gate_on(s.valid)  # prepares the consumer; the event below is the one judged
-        event = json.loads(event_json(root, s.red))
-        event["tool_input"]["file_path"] = s.red.target
-        return expect(h.run_gate(json.dumps(event)), 2, s.red_finding.render(), "stderr")
+        _, root = self.s.gate_on(self.s.valid)  # prepares the consumer; the event below is the one judged
+        event = json.loads(event_json(root, self.s.red))
+        event["tool_input"]["file_path"] = self.s.red.target
+        return expect(self.h.run_gate(json.dumps(event)), 2, self.s.red_finding.render(), "stderr")
 
-    def outside_any_repository() -> tuple[bool, str]:
-        directory = h.scratch_dir()
-        event = payload(directory, Write("loose.md", NO_ENVELOPE))
-        result = h.run_gate(event, env={"GIT_CEILING_DIRECTORIES": str(directory.parent)})
-        where = directory if no_file else directory / "loose.md"  # no file named: its cwd is the place
+    def outside_any_repository(self) -> tuple[bool, str]:
+        directory = self.h.scratch_dir()
+        event = self.payload(directory, Write("loose.md", NO_ENVELOPE))
+        result = self.h.run_gate(event, env={"GIT_CEILING_DIRECTORIES": str(directory.parent)})
+        where = directory if self.no_file else directory / "loose.md"  # no file named: its cwd is the place
         skip = messages.g1_green_skip(messages.g1_skip_no_repo(str(where)))
         ok, said = expect(result, 0, skip, "stdout")
-        if no_file:
+        if self.no_file:
             return ok, said
         # the written file's path with a line break in it and over 80 characters: whole, escaped
         name = "a\n" + "b" * 90 + ".md"
-        long_event = payload(directory, Write(name, NO_ENVELOPE))
-        long_result = h.run_gate(long_event, env={"GIT_CEILING_DIRECTORIES": str(directory.parent)})
+        long_event = self.payload(directory, Write(name, NO_ENVELOPE))
+        long_result = self.h.run_gate(long_event, env={"GIT_CEILING_DIRECTORIES": str(directory.parent)})
         line = (
-            f"GREEN: {ns}: 0 documents examined — {directory}/a\\n" + "b" * 90 + ".md is not inside a git"
+            f"GREEN: {self.ns}: 0 documents examined — {directory}/a\\n"
+            + "b" * 90
+            + ".md is not inside a git"
             " repository; the constitution is silent there"
         )
         long_ok, long_said = expect(long_result, 0, line, "stdout")
         return ok and long_ok, said if ok and long_ok else f"{said}; {long_said}"
 
-    def no_dials_file() -> tuple[bool, str]:
-        consumer = h.fresh_consumer()
+    def no_dials_file(self) -> tuple[bool, str]:
+        consumer = self.h.fresh_consumer()
         (consumer.root / "constitution.yaml").unlink()
-        if s.scan_only:
-            consumer.write(s.red.target, s.red.text)
-            result = h.run_gate("", args=scan_args(consumer.root))
+        if self.s.scan_only:
+            consumer.write(self.s.red.target, self.s.red.text)
+            result = self.h.run_gate("", args=self.scan_args(consumer.root))
         else:
-            result = h.run_gate(payload(consumer.root, s.red))
+            result = self.h.run_gate(self.payload(consumer.root, self.s.red))
         skip = messages.g1_green_skip(messages.g1_skip_no_dials(str(consumer.root)))
         return expect(result, 0, skip, "stdout")
 
-    def no_root_policy() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.red, raw_dials="notes-policy:\n  territory: ['docs/notes/**']\n")
+    def no_root_policy(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.red, raw_dials="notes-policy:\n  territory: ['docs/notes/**']\n")
         reason = "constitution.yaml has no root_policy: nothing is claimed"  # typed by hand
         return expect(result, 0, messages.g1_green_skip(reason), "stdout")
 
-    def byte_order_mark() -> tuple[bool, str]:
-        result, _ = s.gate_on(Write(s.valid.target, "\ufeff" + s.valid.text))
-        return expect(result, 0, s.green, "stdout")
+    def byte_order_mark(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(Write(self.s.valid.target, "\ufeff" + self.s.valid.text))
+        return expect(result, 0, self.s.green, "stdout")
 
-    def negated_pattern() -> tuple[bool, str]:
+    def negated_pattern(self) -> tuple[bool, str]:
         """A file-level negated pattern takes the file out of the territory, and the skip says why."""
-        if s.outside is None:  # an empty default would make the item pass on any skip at all
+        if self.s.outside is None:  # an empty default would make the item pass on any skip at all
             return False, "Subject.outside not given"
-        territory = [*s.territory, "!" + s.red.target]
-        result, _ = s.gate_on(s.red, dials_patch=s.claim(territory))
-        line = f"GREEN: {ns}: 0 documents examined — {s.outside}"
+        territory = [*self.s.territory, "!" + self.s.red.target]
+        result, _ = self.s.gate_on(self.s.red, dials_patch=self.s.claim(territory))
+        line = f"GREEN: {self.ns}: 0 documents examined — {self.s.outside}"
         ok = result.code == 0 and line in result.stdout.splitlines()
         return (
             ok,
@@ -662,14 +756,14 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             else f"wanted exit 0 printing {line!r}; got exit {result.code}: {result.stdout}",
         )
 
-    def policy_without_id_note() -> tuple[bool, str]:
+    def policy_without_id_note(self) -> tuple[bool, str]:
         """A document where policies live with no readable id earns note N1.1. An id written as a YAML
         block scalar ends in a line break, which the kernel schema's pattern does not accept: it is no
         readable id either, and earns the note too — the note typed by hand."""
         block = "---\nid: |\n  zz-block\ntype: current-state\ntitle: T\nstatus: active\n---\n"
         files = {"docs/policies/zz-no-id.md": NO_ENVELOPE, "docs/policies/zz-block.md": block}
-        result, _ = s.gate_on(s.valid, files=files)
-        said = Result(result.code, green_said(result), result.stderr)
+        result, _ = self.s.gate_on(self.s.valid, files=files)
+        said = Result(result.code, self.green_said(result), result.stderr)
         lead = (
             " lies in the root policy's territory but carries no readable id; it claims nothing until it does"
         )
@@ -684,20 +778,20 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             else f"{evidence}; no note for the block-scalar id: {said.stdout[:300]}",
         )
 
-    def edit_empty_old_string() -> tuple[bool, str]:
+    def edit_empty_old_string(self) -> tuple[bool, str]:
         """An empty old_string on a file that exists matches everywhere: the tool refuses it."""
-        action = Edit(s.valid.target, "", "junk ")
-        result, _ = s.gate_on(action, files={s.valid.target: s.valid.text})
-        skip = messages.g1_green_skip(messages.g1_skip_edit_unappliable(s.valid.target))
+        action = Edit(self.s.valid.target, "", "junk ")
+        result, _ = self.s.gate_on(action, files={self.s.valid.target: self.s.valid.text})
+        skip = messages.g1_green_skip(messages.g1_skip_edit_unappliable(self.s.valid.target))
         return expect(result, 0, skip, "stdout")
 
-    def edit_unappliable() -> tuple[bool, str]:
-        action = Edit(s.valid.target, "no such text anywhere", "x")
-        result, _ = s.gate_on(action, files={s.valid.target: s.valid.text})
-        skip = messages.g1_green_skip(messages.g1_skip_edit_unappliable(s.valid.target))
+    def edit_unappliable(self) -> tuple[bool, str]:
+        action = Edit(self.s.valid.target, "no such text anywhere", "x")
+        result, _ = self.s.gate_on(action, files={self.s.valid.target: self.s.valid.text})
+        skip = messages.g1_green_skip(messages.g1_skip_edit_unappliable(self.s.valid.target))
         return expect(result, 0, skip, "stdout")
 
-    def green_said(result: Result) -> str:
+    def green_said(self, result: Result) -> str:
         """What a green run said: the additionalContext of the one JSON object a hook run with notes
         prints, or stdout as it is — a run without notes, a scan, a generator."""
         try:
@@ -711,32 +805,32 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return context if isinstance(context, str) else result.stdout
 
-    def notes_reach_the_model() -> tuple[bool, str]:
+    def notes_reach_the_model(self) -> tuple[bool, str]:
         """A green hook run with notes answers with one JSON object, the notes and the green line in
         additionalContext: the platform writes a write event's plain stdout to its debug log, where the
         model never reads it. A green run without notes prints its green line alone, as before."""
-        if s.noted is None:  # the item is left out then; a direct call must not pass vacuously
+        if self.s.noted is None:  # the item is left out then; a direct call must not pass vacuously
             return False, "Subject.noted not given"
-        result, _ = s.gate_on(s.noted)
+        result, _ = self.s.gate_on(self.s.noted)
         try:
             answer = json.loads(result.stdout)
         except json.JSONDecodeError:
             return False, f"exit {result.code}; stdout is not one JSON object: {result.stdout.strip()[:400]}"
         output = answer.get("hookSpecificOutput") if isinstance(answer, dict) else None
         lines = str(output.get("additionalContext", "")).split("\n") if isinstance(output, dict) else []
-        plain, _ = s.gate_on(s.valid)
+        plain, _ = self.s.gate_on(self.s.valid)
         ok = (
             result.code == 0
             and isinstance(output, dict)
             and set(answer) == {"hookSpecificOutput"}
             and set(output) == {"hookEventName", "additionalContext"}
-            and output["hookEventName"] == s.event
-            and s.note in lines
-            and lines[-1].startswith(f"GREEN: {ns}: ")
+            and output["hookEventName"] == self.s.event
+            and self.s.note in lines
+            and lines[-1].startswith(f"GREEN: {self.ns}: ")
             and not any(line.startswith("RED") for line in lines)
             and not result.stderr
             and plain.code == 0
-            and plain.stdout.startswith(f"GREEN: {ns}: ")
+            and plain.stdout.startswith(f"GREEN: {self.ns}: ")
         )
         return ok, (
             "exit 0; the note and the green line in additionalContext, one JSON object; no note, a plain line"
@@ -746,16 +840,16 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     # ---------------------------------------------------------------- the warn channel
 
-    def severity_warn() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.red, dials_patch=s.own(severity="warn"))
+    def severity_warn(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.red, dials_patch=self.s.own(severity="warn"))
         if result.code != 0:
             return False, f"warn must let the write through; exit {result.code}: {result.stderr}"
         answer = json.loads(result.stdout)
-        if stop:  # the user's notice alone: context handed to the model at a turn's end continues it
+        if self.stop:  # the user's notice alone: context handed to the model at a turn's end continues it
             ok = (
                 set(answer) == {"systemMessage"}
-                and s.red_finding.render() in answer["systemMessage"]
-                and answer["systemMessage"].startswith(f"{ns} (warn):\n")  # typed by hand
+                and self.s.red_finding.render() in answer["systemMessage"]
+                and answer["systemMessage"].startswith(f"{self.ns} (warn):\n")  # typed by hand
             )
             return (
                 ok,
@@ -763,23 +857,26 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             )
         context = answer["hookSpecificOutput"]["additionalContext"]
         ok = (
-            s.red_finding.render() in context
-            and f"{ns}: severity is warn: the write proceeds, but the finding stands and recurs on every"
+            self.s.red_finding.render() in context
+            and f"{self.ns}: severity is warn: the write proceeds, but the finding stands and recurs on every"
             " write until fixed"
             in context  # typed by hand, as the system line below
-            and answer["systemMessage"] == f"{ns} (warn): {s.red_finding.headline}"
+            and answer["systemMessage"] == f"{self.ns} (warn): {self.s.red_finding.headline}"
         )
         return ok, "exit 0, finding in additionalContext and systemMessage" if ok else f"bad: {answer}"
 
-    def skill_named_after_red() -> tuple[bool, str]:
+    def skill_named_after_red(self) -> tuple[bool, str]:
         """A red names the skill that teaches the rule and its fix in one line right after the count
         line, the last line of the block, the asking reason or the scan; the warn context the model
         reads holds the line once, the warn note after it."""
-        line = f"{ns}: load the skill {ns}:{s.skill} before you fix this — it teaches the rule and the fix"
-        result, _ = s.gate_on(s.red)  # the line typed by hand above
-        lines = red_said(result).splitlines()
+        line = (
+            f"{self.ns}: load the skill {self.ns}:{self.s.skill} before you fix this"
+            " — it teaches the rule and the fix"
+        )
+        result, _ = self.s.gate_on(self.s.red)  # the line typed by hand above
+        lines = self.red_said(result).splitlines()
         ok = (
-            result.code == red_code
+            result.code == self.red_code
             and len(lines) >= 2
             and lines[-1] == line
             and lines[-2].startswith("RED: ")
@@ -787,16 +884,16 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         if not ok:
             return False, f"exit {result.code}, the last lines: {lines[-2:]}"
-        if s.scan_only or stop:  # a scan has no warn; a Stop's warn is the user's notice alone
+        if self.s.scan_only or self.stop:  # a scan has no warn; a Stop's warn is the user's notice alone
             return True, "the skill's line last, after the count line"
-        warned, _ = s.gate_on(s.red, dials_patch=s.own(severity="warn"))
+        warned, _ = self.s.gate_on(self.s.red, dials_patch=self.s.own(severity="warn"))
         context = json.loads(warned.stdout)["hookSpecificOutput"]["additionalContext"].splitlines()
         ok = (  # the count line, then F10, then the warn note, typed by hand, last
             context.count(line) == 1
             and len(context) >= 3
             and context[-2] == line
             and context[-3].startswith("RED: ")
-            and context[-1].startswith(f"{ns}: severity is warn: the write proceeds")
+            and context[-1].startswith(f"{self.ns}: severity is warn: the write proceeds")
         )
         return (
             ok,
@@ -808,81 +905,83 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     # ---------------------------------------------------------------- the output log
 
-    def log_lines(path: Path) -> list[dict[str, str]]:
+    def log_lines(self, path: Path) -> list[dict[str, str]]:
         return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
-    def log_in_plugin_data() -> tuple[bool, str]:
-        data = h.scratch_dir()
-        result, _ = s.gate_on(s.red, env={"CLAUDE_PLUGIN_DATA": str(data)})
-        lines = log_lines(data / log_name())
+    def log_in_plugin_data(self) -> tuple[bool, str]:
+        data = self.h.scratch_dir()
+        result, _ = self.s.gate_on(self.s.red, env={"CLAUDE_PLUGIN_DATA": str(data)})
+        lines = self.log_lines(data / log_name())
         line = lines[0]
-        first = ("RED: " if s.event_driven else "BROKEN: ") + s.red_finding.headline
+        first = ("RED: " if self.s.event_driven else "BROKEN: ") + self.s.red_finding.headline
         said = {
             stream: [each["text"] for each in lines if each["stream"] == stream]
             for stream in ("stdout", "stderr")
         }
         # an asking gate prints its verdict as one JSON object on stdout, the finding inside it; a scan
         # prints its finding and its count line on stdout, one record each
-        verdict_stream = "stdout" if (s.ask or s.scan_only) else "stderr"
-        records = (3 if s.skill else 2) if s.scan_only else 1  # a scan prints F10 as a record of its own
+        verdict_stream = "stdout" if (self.s.ask or self.s.scan_only) else "stderr"
+        records = (
+            (3 if self.s.skill else 2) if self.s.scan_only else 1
+        )  # a scan prints F10 as a record of its own
         ok = (
             set(line) == {"ts", "module", "gate", "mode", "session", "stream", "text"}
-            and (first in line["text"] if s.ask else line["text"].startswith(first))
-            and line["module"] == ns
+            and (first in line["text"] if self.s.ask else line["text"].startswith(first))
+            and line["module"] == self.ns
             and line["stream"] == verdict_stream
-            and line["session"] == ("fixture-session" if s.event_driven and not s.scan_only else "")
+            and line["session"] == ("fixture-session" if self.s.event_driven and not self.s.scan_only else "")
             # one record per print: the records rebuild both streams exactly, and a block verdict,
             # printed at once, is one record of several lines
             and "".join(text + "\n" for text in said["stdout"]) == result.stdout
             and "".join(text + "\n" for text in said["stderr"]) == result.stderr
             and (
-                not s.event_driven
-                or (len(said[verdict_stream]) == records and (s.ask or "\n" in line["text"]))
+                not self.s.event_driven
+                or (len(said[verdict_stream]) == records and (self.s.ask or "\n" in line["text"]))
             )
         )
         return ok, f"{len(lines)} log lines; first: {line}"
 
-    def log_in_ignored_dir() -> tuple[bool, str]:
-        data = h.scratch_dir()
-        result, root = s.gate_on(
-            s.valid,
+    def log_in_ignored_dir(self) -> tuple[bool, str]:
+        data = self.h.scratch_dir()
+        result, root = self.s.gate_on(
+            self.s.valid,
             files={".gitignore": ".gate-logs/\n"},
             env={"CLAUDE_PLUGIN_DATA": str(data)},
-            dials_patch=s.own(log_dir="./docs//../.gate-logs//"),  # read as `.gate-logs`
+            dials_patch=self.s.own(log_dir="./docs//../.gate-logs//"),  # read as `.gate-logs`
         )
         log = root / ".gate-logs" / log_name()
         ok = (
             result.code == 0
             and log.is_file()
-            and s.green in log_lines(log)[-1]["text"]
+            and self.s.green in self.log_lines(log)[-1]["text"]
             and not (data / log_name()).exists()
         )
         return ok, f"exit {result.code}; the whole run logged inside the repository, nothing split off"
 
-    def log_dir_not_ignored() -> tuple[bool, str]:
-        result, _ = s.gate_on(s.valid, dials_patch=s.own(log_dir="gate-logs"))
-        return broken(result, messages.c13_log_dir_not_ignored("gate-logs"))
+    def log_dir_not_ignored(self) -> tuple[bool, str]:
+        result, _ = self.s.gate_on(self.s.valid, dials_patch=self.s.own(log_dir="gate-logs"))
+        return self.broken(result, messages.c13_log_dir_not_ignored("gate-logs"))
 
-    def log_rotates() -> tuple[bool, str]:
-        data = h.scratch_dir()
+    def log_rotates(self) -> tuple[bool, str]:
+        data = self.h.scratch_dir()
         (data / log_name()).write_text("x" * (ROTATE_AT + 1), encoding="utf-8")
-        s.gate_on(s.valid, env={"CLAUDE_PLUGIN_DATA": str(data)})
+        self.s.gate_on(self.s.valid, env={"CLAUDE_PLUGIN_DATA": str(data)})
         kept = (data / (log_name() + ".1")).stat().st_size > ROTATE_AT
-        started = log_lines(data / log_name())  # only this run's lines: a gate's one, a generator's few
-        return kept and bool(started) and all(line["module"] == ns for line in started), (
+        started = self.log_lines(data / log_name())  # only this run's lines: a gate's one, a generator's few
+        return kept and bool(started) and all(line["module"] == self.ns for line in started), (
             "the old log kept as .1, a new one started"
         )
 
-    def log_failure_keeps_verdict() -> tuple[bool, str]:
-        blocker = h.scratch_dir() / "a-file-not-a-directory"
+    def log_failure_keeps_verdict(self) -> tuple[bool, str]:
+        blocker = self.h.scratch_dir() / "a-file-not-a-directory"
         blocker.write_text("", encoding="utf-8")
-        red, _ = s.gate_on(s.red, env={"CLAUDE_PLUGIN_DATA": str(blocker)})
-        green, _ = s.gate_on(s.valid, env={"CLAUDE_PLUGIN_DATA": str(blocker)})
-        refused = red_code if s.event_driven else 1  # a gate's finding; a generator's refusal
-        ok = red.code == refused and green.code == 0 and (not s.ask or ask_reason(red) is not None)
+        red, _ = self.s.gate_on(self.s.red, env={"CLAUDE_PLUGIN_DATA": str(blocker)})
+        green, _ = self.s.gate_on(self.s.valid, env={"CLAUDE_PLUGIN_DATA": str(blocker)})
+        refused = self.red_code if self.s.event_driven else 1  # a gate's finding; a generator's refusal
+        ok = red.code == refused and green.code == 0 and (not self.s.ask or ask_reason(red) is not None)
         return ok, f"log location unwritable: red still exits {red.code}, green still exits {green.code}"
 
-    def declared_libraries() -> tuple[bool, str]:
+    def declared_libraries(self) -> tuple[bool, str]:
         declared = {
             line.split(">=")[0].split("==")[0].strip()
             for line in preflight.requirements_file().read_text().splitlines()
@@ -891,22 +990,23 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ok = declared == set(preflight.declared())
         return ok, f"requirements.txt {sorted(declared)} == preflight table {sorted(preflight.declared())}"
 
-    def long_value_is_cut() -> tuple[bool, str]:
+    def long_value_is_cut(self) -> tuple[bool, str]:
         """A value a page long is echoed cut, so the whole verdict stays under the platform's cap —
         and the cut is said, not silent."""
-        if s.long_value is None:  # the item is left out then; a direct call must not pass vacuously
+        if self.s.long_value is None:  # the item is left out then; a direct call must not pass vacuously
             return False, "Subject.long_value not given"
-        result, _ = s.gate_on(s.long_value)
-        said = red_said(result)
+        result, _ = self.s.gate_on(self.s.long_value)
+        said = self.red_said(result)
         ok = (
-            result.code == red_code
+            result.code == self.red_code
             and len(red_lines(said)) == 2  # the one finding and the count line
             and "… [12000 characters]" in said  # the marker, typed by hand
             and "x" * 81 not in said
             and len(said) < 2_000
         )
         return ok, (
-            f"exit {red_code}; {len(said)} characters of verdict for a 12,000-character value, cut and said"
+            f"exit {self.red_code}; {len(said)} characters of verdict for a 12,000-character value,"
+            " cut and said"
             if ok
             else f"exit {result.code}; {len(said)} characters of verdict: {said[:400]}"
         )
@@ -914,6 +1014,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     # ---------------------------------------------------------------- git failing in one way; a file unread
 
     def git_failing_at(
+        self,
         trigger: str,
         code: int,
         line: Callable[[Path], str],
@@ -931,7 +1032,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         real, silent = shutil.which("git"), shutil.which("tail")
         if real is None or silent is None:
             return False, "no git or no tail on PATH: the fake git hands every other call to the real one"
-        directory = h.scratch_dir()
+        directory = self.h.scratch_dir()
         fake = directory / "git"
         said = [f"fatal: simulated {trigger} failure", *([then] if then else [])]
         refusal = "".join(f"    echo {shlex.quote(line)} >&2\n" for line in said) + f"    exit {code}\n"
@@ -947,17 +1048,17 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         fake.chmod(0o755)
         env = {"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
         if hangs:
-            env.update(git_patch(h, HANG_SECONDS, trigger)[0])
-        with h.bounded(HANG_BOUND) if hangs else nullcontext():
+            env.update(git_patch(self.h, HANG_SECONDS, trigger)[0])
+        with self.h.bounded(HANG_BOUND) if hangs else nullcontext():
             if through_scan:
-                _, root = s.gate_on(s.valid)
-                result = h.run_gate("", args=scan_args(root), env=env)
+                _, root = self.s.gate_on(self.s.valid)
+                result = self.h.run_gate("", args=self.scan_args(root), env=env)
             else:
-                result, root = s.gate_on(s.valid, env=env)
-        return broken_as_typed(result, line(root))
+                result, root = self.s.gate_on(self.s.valid, env=env)
+        return self.broken_as_typed(result, line(root))
 
-    def ls_files_fails() -> tuple[bool, str]:
-        return git_failing_at(
+    def ls_files_fails(self) -> tuple[bool, str]:
+        return self.git_failing_at(
             "ls-files",
             1,
             lambda root: (
@@ -965,11 +1066,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 " — fix: repair what git names in the message, then check by hand: git -C <that directory>"
                 " ls-files"
             ),
-            through_scan=not s.hook_lists_files,
+            through_scan=not self.s.hook_lists_files,
         )
 
-    def init_fails() -> tuple[bool, str]:
-        return git_failing_at(
+    def init_fails(self) -> tuple[bool, str]:
+        return self.git_failing_at(
             "init",
             128,
             lambda _: (
@@ -979,10 +1080,10 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             ),
         )
 
-    def check_ignore_fails() -> tuple[bool, str]:
+    def check_ignore_fails(self) -> tuple[bool, str]:
         """Exit 128: check-ignore's exit 1 means no path matched, which is no failure. Git's second
         line of stderr stays out of the message, whose first line is the one that reaches the user."""
-        return git_failing_at(
+        return self.git_failing_at(
             "--no-index",
             128,
             lambda _: (
@@ -994,7 +1095,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     # ---------------------------------------------------------------- the budget of a git call
 
-    def silent_git(subcommand: str, directory: str, call: str, quoted: str | None = None) -> str:
+    def silent_git(self, subcommand: str, directory: str, call: str, quoted: str | None = None) -> str:
         """C12.12 as the hang cases type it, for the budget they lower it to: a call in the person's
         repository, the directory and the call as a person types them into the fix. `quoted`: the
         directory as the fix shows it to a shell, typed by the case; none, the directory quoted here."""
@@ -1008,7 +1109,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             " answers; the scan, which gives git as long as it takes, checks the same tree"
         )
 
-    def silent_scratch(subcommand: str) -> str:
+    def silent_scratch(self, subcommand: str) -> str:
         """C12.13 as the hang cases type it: a call in the scratch repository, which names the system's
         temporary directory and the configuration outside any repository, and asks for nothing by hand
         in the scratch repository."""
@@ -1023,26 +1124,26 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             " tree"
         )
 
-    def quoted_by_hand(path: str) -> str:
+    def quoted_by_hand(self, path: str) -> str:
         """A path as a shell takes it whole, typed out: single quotes, and each single quote inside closed,
         written between double quotes, and opened again."""
         return "'" + path.replace("'", "'\"'\"'") + "'"
 
-    def nearest_folder(root: Path) -> str:
+    def nearest_folder(self, root: Path) -> str:
         """Where the hook's `rev-parse` runs: the written file's folder, or the nearest one that exists,
         for a gate on a file; the event's directory for one without a file."""
-        probe = root if no_file else (root / s.valid.target).parent
+        probe = root if self.no_file else (root / self.s.valid.target).parent
         while not probe.is_dir():
             probe = probe.parent
         return str(probe)
 
-    def git_calls(run: Callable[[dict[str, str]], object]) -> list[str]:
+    def git_calls(self, run: Callable[[dict[str, str]], object]) -> list[str]:
         """The `timeout=` of each git call `run` made, as logged by the patch in its environment."""
-        env, log = git_patch(h)
+        env, log = git_patch(self.h)
         run(env)
         return git_timeouts(log)
 
-    def budget_by_mode() -> tuple[bool, str]:
+    def budget_by_mode(self) -> tuple[bool, str]:
         """The rule at its one decision point, in a process of its own for each mode: a hook gives git
         `GIT_SECONDS`; a scan, an act and a process declared with no mode give it no clock."""
         program = (
@@ -1058,7 +1159,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         seen: dict[str, object] = {}
         for mode in ("hook", "scan", "act", "none"):
             done = subprocess.run(
-                [sys.executable, "-c", program, str(h.scripts), mode],
+                [sys.executable, "-c", program, str(self.h.scripts), mode],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -1067,7 +1168,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         wanted: dict[str, object] = {"hook": repository.GIT_SECONDS, "scan": None, "act": None, "none": None}
         return seen == wanted, f"the budget by mode: {seen}"
 
-    def git_words() -> tuple[bool, str]:
+    def git_words(self) -> tuple[bool, str]:
         """git's subcommand is the first argument that is no option and no option's value; the call as a
         person runs it keeps the arguments, quoted, without `-z`, and reads `/dev/null` for a stdin."""
         subcommands = {
@@ -1088,7 +1189,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         ok = got == subcommands and all(real == typed for real, typed in words)
         return ok, f"subcommands {got}; the call as typed {[real for real, _ in words]}"
 
-    def declaration_is_one() -> tuple[bool, str]:
+    def declaration_is_one(self) -> tuple[bool, str]:
         """A process is one gate in one mode: the same identity twice with different modes is a defect,
         the same identity and mode twice is not."""
         program = (
@@ -1107,7 +1208,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "    print('other mode: RuntimeError', failure)\n"
         )
         done = subprocess.run(
-            [sys.executable, "-c", program, str(h.scripts)], capture_output=True, text=True, check=False
+            [sys.executable, "-c", program, str(self.h.scripts)], capture_output=True, text=True, check=False
         )
         lines = done.stdout.splitlines()
         ok = (
@@ -1117,7 +1218,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return ok, f"exit {done.returncode}: {lines or done.stderr.strip()[-200:]}"
 
-    def is_file(word: str) -> bool:
+    def is_file(self, word: str) -> bool:
         """A word that is an existing file; one the filesystem will not answer for counts as one, since
         a script that cannot be read is held to the rule."""
         try:
@@ -1125,7 +1226,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         except OSError:
             return True
 
-    def handlers_outlive_git(plugin: Path, hook_seconds: float) -> tuple[bool, str]:
+    def handlers_outlive_git(self, plugin: Path, hook_seconds: float) -> tuple[bool, str]:
         """Every handler of the plugin's hooks file whose script names python3 has a timeout of at least
         `hook_seconds` (the one the gate is declared with) plus `LEFT_FOR_THE_REST` (limit 16): the hook's
         deadline, and so a git that hangs, ends with the gate's own line before the platform cuts the hook,
@@ -1162,7 +1263,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
                 a.replace("${CLAUDE_PLUGIN_ROOT}", root)
                 for a in handler.get("args", [])
                 if not a.startswith("-")
-            ] + [w for w in words if w.startswith(root + os.sep) or is_file(w)]
+            ] + [w for w in words if w.startswith(root + os.sep) or self.is_file(w)]
             try:
                 names_python = re.search(r"(?<![\w-])python3(?![\w-])", command) is not None or any(
                     b"python3" in Path(a).read_bytes() for a in scripts
@@ -1190,13 +1291,13 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             f" ({hook_seconds:g} s) and LEFT_FOR_THE_REST ({identity.LEFT_FOR_THE_REST:g} s)",
         )
 
-    def the_tie_catches_a_short_handler() -> tuple[bool, str]:
+    def the_tie_catches_a_short_handler(self) -> tuple[bool, str]:
         """The tie on hooks files made here, for a hook budget of 10 s: a timeout one second under the
         floor, the budget and LEFT_FOR_THE_REST, fails and one at the floor passes, for a handler whose
         script names python3 given as `command: sh` with `args` and given in shell form (`command` alone,
         naming python3 or a script that does), and a handler whose command and scripts name no python3 is
         not held to it."""
-        plugin = h.scratch_dir()
+        plugin = self.h.scratch_dir()
         (plugin / "hooks").mkdir()
         (plugin / "scripts").mkdir()
         (plugin / "scripts" / "gate.sh").write_text('exec python3 "$0.py"\n', encoding="utf-8")
@@ -1223,7 +1324,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         def holds(*handlers: dict[str, object]) -> tuple[bool, str]:
             spec = {"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": list(handlers)}]}}
             (plugin / "hooks" / "hooks.json").write_text(json.dumps(spec), encoding="utf-8")
-            return handlers_outlive_git(plugin, hook_seconds)
+            return self.handlers_outlive_git(plugin, hook_seconds)
 
         cases: list[tuple[str, bool, tuple[dict[str, object], ...]]] = [
             ("exec form, one second under the floor", False, (exec_form("gate.sh", under),)),
@@ -1318,7 +1419,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         # D-a: a word outside the plugin, in a folder that cannot be searched. Where the filesystem will
         # not answer, `is_file` raises (Python 3.12) and the word counts as a script that cannot be read:
         # red. Where it answers, as for root or on a newer Python, the word is what the answer says.
-        locked = h.scratch_dir() / "locked"
+        locked = self.h.scratch_dir() / "locked"
         locked.mkdir()
         (locked / "x.sh").write_text("exec python3 x.py\n", encoding="utf-8")
         locked.chmod(0o000)
@@ -1343,70 +1444,75 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         )
         return ok, said
 
-    def hangs_in_a_folder_to_quote() -> tuple[bool, str]:
+    def hangs_in_a_folder_to_quote(self) -> tuple[bool, str]:
         """The folder C12.12 names stands in the fix's two commands quoted for a shell: a repository
         whose folder holds a space and a single quote, a git that hangs at the root's `rev-parse` (the call
         every hook makes first), the line typed with the folder as a shell takes it whole."""
-        kept = h.scratch
+        kept = self.h.scratch
         odd = kept / "a folder it's"
         odd.mkdir()
-        h.scratch = odd  # every consumer the gate runs on is made under it, for as long as the case runs
+        self.h.scratch = odd  # every consumer the gate runs on is made under it, for as long as the case runs
         try:
-            return git_failing_at(
+            return self.git_failing_at(
                 "rev-parse",
                 0,
-                lambda root: silent_git(
+                lambda root: self.silent_git(
                     "rev-parse",
-                    nearest_folder(root),
+                    self.nearest_folder(root),
                     "rev-parse --show-toplevel",
-                    quoted_by_hand(nearest_folder(root)),
+                    self.quoted_by_hand(self.nearest_folder(root)),
                 ),
                 hangs=True,
             )
         finally:
-            h.scratch = kept
+            self.h.scratch = kept
 
-    def attempted(check: Callable[[], tuple[bool, str]]) -> tuple[bool, str]:
+    def attempted(self, check: Callable[[], tuple[bool, str]]) -> tuple[bool, str]:
         """One check of the item that cannot run is a red check with its error, and hides no other."""
         try:
             return check()
         except Exception as error:  # noqa: BLE001 — any failure of the check is its red
             return False, f"{check.__name__} raised {type(error).__name__}: {error}"
 
-    def git_has_a_budget_in_a_hook() -> tuple[bool, str]:
+    def git_has_a_budget_in_a_hook(self) -> tuple[bool, str]:
         """N22: the shared `git` gives a call `GIT_SECONDS` in a hook and no clock in a scan or an act. In a
         hook a git that never answers — at the file list, at the scratch repository, at the repository's
         root — ends in the shared line `C12.12` with the count line after it; a git that answers is
         unchanged; and the plugin's handlers hold the hook's budget and `LEFT_FOR_THE_REST`, so that the
         line is the hook's last word."""
         results: list[tuple[bool, str]] = [
-            attempted(check)
-            for check in (budget_by_mode, declaration_is_one, git_words, the_tie_catches_a_short_handler)
+            self.attempted(check)
+            for check in (
+                self.budget_by_mode,
+                self.declaration_is_one,
+                self.git_words,
+                self.the_tie_catches_a_short_handler,
+            )
         ]
-        if s.event_driven and not s.scan_only:  # a gate with a hook run
+        if self.s.event_driven and not self.s.scan_only:  # a gate with a hook run
             lines: dict[str, Callable[[Path], str]] = {
-                "rev-parse": lambda root: silent_git(
-                    "rev-parse", nearest_folder(root), "rev-parse --show-toplevel"
+                "rev-parse": lambda root: self.silent_git(
+                    "rev-parse", self.nearest_folder(root), "rev-parse --show-toplevel"
                 ),
-                "ls-files": lambda root: silent_git(
+                "ls-files": lambda root: self.silent_git(
                     "ls-files", str(root), "ls-files --cached --others --exclude-standard"
                 ),
-                "init": lambda _: silent_scratch("init"),
-                "check-ignore": lambda _: silent_scratch("check-ignore"),
+                "init": lambda _: self.silent_scratch("init"),
+                "check-ignore": lambda _: self.silent_scratch("check-ignore"),
             }
             reached = ["rev-parse"]
-            if not no_file:
+            if not self.no_file:
                 reached += ["init", "check-ignore"]
-                if s.hook_lists_files:  # the hook asks git for the file list
+                if self.s.hook_lists_files:  # the hook asks git for the file list
                     reached.append("ls-files")
 
             def hangs_at(trigger: str) -> tuple[bool, str]:
-                return git_failing_at(trigger, 0, lines[trigger], hangs=True)
+                return self.git_failing_at(trigger, 0, lines[trigger], hangs=True)
 
             results += [hangs_at(trigger) for trigger in reached]
-            results.append(attempted(hangs_in_a_folder_to_quote))
-            env, log = git_patch(h)
-            s.gate_on(s.valid, env=env)
+            results.append(self.attempted(self.hangs_in_a_folder_to_quote))
+            env, log = git_patch(self.h)
+            self.s.gate_on(self.s.valid, env=env)
             budgeted = git_timeouts(log)
             every_call = set(budgeted) == {repr(repository.GIT_SECONDS)}
             results.append(
@@ -1414,18 +1520,18 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             )
             declared = set(declared_hook_seconds(log))  # the hook budget the gate declared itself with
             results.append(
-                handlers_outlive_git(preflight.requirements_file().parent, float(declared.pop()))
+                self.handlers_outlive_git(preflight.requirements_file().parent, float(declared.pop()))
                 if len(declared) == 1
                 else (False, f"a hook run declared the gate with {sorted(declared)} hook budgets, not one")
             )
-        if s.event_driven or s.scan_only:  # a scan, on the prepared consumer
-            _, scanned = s.gate_on(s.valid)
-            unclocked = git_calls(lambda env: h.run_gate("", args=scan_args(scanned), env=env))
+        if self.s.event_driven or self.s.scan_only:  # a scan, on the prepared consumer
+            _, scanned = self.s.gate_on(self.s.valid)
+            unclocked = self.git_calls(lambda env: self.h.run_gate("", args=self.scan_args(scanned), env=env))
             results.append(
                 (bool(unclocked) and set(unclocked) == {"None"}, f"a scan's git calls: {unclocked}")
             )
         else:  # a generator's act
-            acted = git_calls(lambda env: s.gate_on(s.valid, env=env))
+            acted = self.git_calls(lambda env: self.s.gate_on(self.s.valid, env=env))
             results.append((bool(acted) and set(acted) == {"None"}, f"an act's git calls: {acted}"))
         failed = [evidence for ok, evidence in results if not ok]
         if failed:
@@ -1437,7 +1543,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
 
     # ---------------------------------------------------------------- the one deadline of a hook run
 
-    def spent(seconds: str, before: str) -> str:
+    def spent(self, seconds: str, before: str) -> str:
         """C12.14 as the deadline cases type it, for a hook budget of `seconds` (as `{:g}` writes it)."""
         return (
             f"BROKEN: the hook's budget of {seconds} s is spent before {before} — fix: a hook of many waits,"
@@ -1448,7 +1554,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             " stalled file system, and repair it"
         )
 
-    def deadline_by_mode() -> tuple[bool, str]:
+    def deadline_by_mode(self) -> tuple[bool, str]:
         """The rule at its decision point, in a process of its own for each mode, the gate declared with a
         hook budget of 2 s: a hook run has a deadline, so a wait takes the smaller of its cap and what is
         left (a cap of 10 s gets under 2 s, a cap of 0.5 s gets 0.5 s) and a git call gets under 2 s, never
@@ -1468,7 +1574,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         seen: dict[str, object] = {}
         for mode in ("hook", "scan", "act", "none"):
             done = subprocess.run(
-                [sys.executable, "-c", program, str(h.scripts), mode],
+                [sys.executable, "-c", program, str(self.h.scripts), mode],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -1489,7 +1595,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             f" {identity.Identity('x', 'y', Path('.')).hook_seconds:g} s"
         )
 
-    def spent_deadline() -> tuple[bool, str]:
+    def spent_deadline(self) -> tuple[bool, str]:
         """A wait asked after the deadline is the shared failure C12.14, typed by hand, before the wait
         begins: in a hook process whose clock is moved 100 s on after its declaration (budget 2 s),
         `identity.remaining` and a shared git call both end in it, and no git process was started."""
@@ -1516,11 +1622,11 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "print(len(started))\n"
         )
         done = subprocess.run(
-            [sys.executable, "-c", program, str(h.scripts)], capture_output=True, text=True, check=False
+            [sys.executable, "-c", program, str(self.h.scripts)], capture_output=True, text=True, check=False
         )
         wanted = [
-            spent("2", "the prose linter finished"),
-            spent("2", "git ls-files answered"),
+            self.spent("2", "the prose linter finished"),
+            self.spent("2", "git ls-files answered"),
             "0",
         ]
         lines = done.stdout.splitlines()
@@ -1528,14 +1634,14 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             f"exit {done.returncode}: {lines or done.stderr.strip()[-300:]}"
         )
 
-    def slow_git_env(delay: float) -> dict[str, str]:
+    def slow_git_env(self, delay: float) -> dict[str, str]:
         """A git first on PATH that answers every call correctly, `delay` seconds late."""
         real, nap = shutil.which("git"), shutil.which("sleep")
         if real is None or nap is None:
             raise FileNotFoundError(
                 "no git or no sleep on PATH: the slow git hands every call to the real one"
             )
-        directory = h.scratch_dir()
+        directory = self.h.scratch_dir()
         fake = directory / "git"
         fake.write_text(
             f'#!/bin/sh\n{shlex.quote(nap)} {delay}\nexec {shlex.quote(real)} "$@"\n', encoding="utf-8"
@@ -1543,64 +1649,69 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         fake.chmod(0o755)
         return {"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
 
-    def git_call_log(log: Path) -> list[tuple[float, list[str]]]:
+    def git_call_log(self, log: Path) -> list[tuple[float, list[str]]]:
         """Each git call the log holds: the `timeout=` it was given and its arguments."""
         lines = log.read_text().splitlines() if log.exists() else []
         return [(float(line.split(" ", 1)[0]), ast.literal_eval(line.split(" ", 1)[1])) for line in lines]
 
-    def slow_git_within_the_cap() -> tuple[bool, str]:
+    def slow_git_within_the_cap(self) -> tuple[bool, str]:
         """A git that answers every call 0.15 s late, in a hook with its own 25 s: the cap of 3 s binds every
         call, and no line of the hook's budget is said."""
-        env, log = git_patch(h)
-        env.update(slow_git_env(0.15))
-        result, _ = s.gate_on(s.valid, env=env)
+        env, log = git_patch(self.h)
+        env.update(self.slow_git_env(0.15))
+        result, _ = self.s.gate_on(self.s.valid, env=env)
         timeouts = git_timeouts(log)
         ok = result.code == 0 and bool(timeouts) and set(timeouts) == {repr(repository.GIT_SECONDS)}
         return ok and "budget" not in result.stderr, (
             f"exit {result.code}, {len(timeouts)} git calls, each late, timeouts {sorted(set(timeouts))}"
         )
 
-    def slow_git_spends_the_deadline() -> tuple[bool, str]:
+    def slow_git_spends_the_deadline(self) -> tuple[bool, str]:
         """A hook budget of 1 s, lowered for the run by the patch, and a git that answers late: the calls are
         given the smaller of the 3 s and what is left — each less than the one before, none over the 1 s —
         and the call the deadline meets ends the run in C12.14 as the first stderr line, the count line after
         it, exit 1, the call naming itself. A gate that makes three calls or more meets it at the second or
         the third (each answers 0.45 s late); one that makes fewer, at its first (1.5 s late). The run is
         bounded at the hang cases' 20 s, and no assertion is made on its time."""
-        calibrate, counted = git_patch(h)
-        s.gate_on(s.valid, env=calibrate)
+        calibrate, counted = git_patch(self.h)
+        self.s.gate_on(self.s.valid, env=calibrate)
         calls = len(git_timeouts(counted))
         lowered = 1.0
-        env, log = git_patch(h, hook_seconds=lowered)
-        env.update(slow_git_env(0.45 if calls >= 3 else lowered * 1.5))
-        with h.bounded(HANG_BOUND):
-            result, _ = s.gate_on(s.valid, env=env)
-        made = git_call_log(log)
+        env, log = git_patch(self.h, hook_seconds=lowered)
+        env.update(self.slow_git_env(0.45 if calls >= 3 else lowered * 1.5))
+        with self.h.bounded(HANG_BOUND):
+            result, _ = self.s.gate_on(self.s.valid, env=env)
+        made = self.git_call_log(log)
         timeouts = [timeout for timeout, _ in made]
         falling = all(0 < b < a for a, b in zip(timeouts, timeouts[1:], strict=False))
         within = bool(timeouts) and 0 < timeouts[0] <= lowered
         met = len(made) <= 3 if calls >= 3 else len(made) == 1
         sub = repository.subcommand(made[-1][1]) if made else "none"
-        ok, evidence = broken_as_typed(result, spent("1", f"git {sub} answered"))
+        ok, evidence = self.broken_as_typed(result, self.spent("1", f"git {sub} answered"))
         return ok and falling and within and met, (
             f"{len(made)} git calls (the run makes {calls}), timeouts {timeouts}: {evidence}"
         )
 
-    def hook_has_one_deadline() -> tuple[bool, str]:
+    def hook_has_one_deadline(self) -> tuple[bool, str]:
         """N52: a hook run has one deadline, from its declaration, and every wait takes the smaller of its
         own cap and what is left of it; past it the gate says so in the shared line C12.14, non-blocking like
         every configuration failure, the count line after it. A scan, an act and a process declared with no
         mode have no deadline. Read at the decision point, in a process for each mode, in a process whose
         clock is moved past the deadline, and through the gate with a git that answers late."""
-        results: list[tuple[bool, str]] = [attempted(check) for check in (deadline_by_mode, spent_deadline)]
-        if s.event_driven and not s.scan_only:  # a gate with a hook run
-            results += [attempted(slow_git_within_the_cap), attempted(slow_git_spends_the_deadline)]
+        results: list[tuple[bool, str]] = [
+            self.attempted(check) for check in (self.deadline_by_mode, self.spent_deadline)
+        ]
+        if self.s.event_driven and not self.s.scan_only:  # a gate with a hook run
+            results += [
+                self.attempted(self.slow_git_within_the_cap),
+                self.attempted(self.slow_git_spends_the_deadline),
+            ]
         failed = [evidence for ok, evidence in results if not ok]
         if failed:
             return False, f"{len(failed)} of {len(results)} checks red: " + " | ".join(failed)
         return True, f"{len(results)} checks: the hook run's deadline is one; scan, act: none"
 
-    def unreadable(path: Path, run: Callable[[], Result], line: str) -> tuple[bool, str]:
+    def unreadable(self, path: Path, run: Callable[[], Result], line: str) -> tuple[bool, str]:
         """`run` with `path` made unreadable, its mode restored whatever happens: the runner's cleanup
         must be able to remove it."""
         mode = path.stat().st_mode
@@ -1609,90 +1720,90 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             result = run()
         finally:
             path.chmod(mode)
-        return broken_as_typed(result, line)
+        return self.broken_as_typed(result, line)
 
-    as_root = (
-        "NOT EXERCISED: running as root, where a mode bit does not deny a read — 0 unreadable files examined"
-    )
-
-    def dials_unreadable() -> tuple[bool, str]:
+    def dials_unreadable(self) -> tuple[bool, str]:
         if os.geteuid() == 0:
-            return True, as_root
-        _, root = s.gate_on(s.valid)
+            return True, AS_ROOT
+        _, root = self.s.gate_on(self.s.valid)
         dials = root / "constitution.yaml"
 
         def again() -> Result:
-            if s.scan_only:
-                return h.run_gate("", args=scan_args(root))
-            if s.event_driven:
-                return h.run_gate(payload(root, s.valid))
-            return h.run_gate("", args=list(s.act_args), cwd=root)  # refused before the home is looked at
+            if self.s.scan_only:
+                return self.h.run_gate("", args=self.scan_args(root))
+            if self.s.event_driven:
+                return self.h.run_gate(self.payload(root, self.s.valid))
+            return self.h.run_gate(
+                "", args=list(self.s.act_args), cwd=root
+            )  # refused before the home is looked at
 
         line = (
             f"BROKEN: constitution.yaml cannot be read ([Errno 13] Permission denied: '{dials}') — fix: check"
             " the file's permissions"
         )
-        return unreadable(dials, again, line)
+        return self.unreadable(dials, again, line)
 
-    def document_unreadable() -> tuple[bool, str]:
+    def document_unreadable(self) -> tuple[bool, str]:
         if os.geteuid() == 0:
-            return True, as_root
-        sibling = str(Path(s.valid.target).with_name("unreadable.md"))
-        _, root = s.gate_on(s.valid, files={sibling: s.valid.text})
+            return True, AS_ROOT
+        sibling = str(Path(self.s.valid.target).with_name("unreadable.md"))
+        _, root = self.s.gate_on(self.s.valid, files={sibling: self.s.valid.text})
         line = (
             f"BROKEN: {sibling} is listed by git but cannot be read — fix: check that the file can be read:"
             " its permissions, or a link that leads nowhere"
         )
-        return unreadable(root / sibling, lambda: h.run_gate("", args=["--scan", str(root)]), line)
+        return self.unreadable(root / sibling, lambda: self.h.run_gate("", args=["--scan", str(root)]), line)
 
-    def policy_unreadable() -> tuple[bool, str]:
+    def policy_unreadable(self) -> tuple[bool, str]:
         """A file where policies live is a policy by the kernel's rule: one nobody can read is C12.10
         in a hook run too, never a policy with no id and the green skip that would follow."""
         if os.geteuid() == 0:
-            return True, as_root
+            return True, AS_ROOT
         policy = "docs/policies/zz-unreadable.md"
-        _, root = s.gate_on(s.valid, files={policy: NO_ENVELOPE})
+        _, root = self.s.gate_on(self.s.valid, files={policy: NO_ENVELOPE})
         runs: list[Result] = []
 
         def again() -> Result:
-            if s.event_driven:
-                runs.append(h.run_gate(payload(root, s.valid)))
+            if self.s.event_driven:
+                runs.append(self.h.run_gate(self.payload(root, self.s.valid)))
             else:
-                (root / s.valid.target).unlink(missing_ok=True)  # the first run wrote it
-                runs.append(h.run_gate("", args=list(s.act_args), cwd=root))
+                (root / self.s.valid.target).unlink(missing_ok=True)  # the first run wrote it
+                runs.append(self.h.run_gate("", args=list(self.s.act_args), cwd=root))
             return runs[-1]
 
         line = (
             f"BROKEN: {policy} is listed by git but cannot be read — fix: check that the file can be read:"
             " its permissions, or a link that leads nowhere"
         )
-        ok, evidence = unreadable(root / policy, again, line)
+        ok, evidence = self.unreadable(root / policy, again, line)
         said = (runs[-1].stdout + runs[-1].stderr).splitlines()
         noted = [each for each in said if "carries no readable id" in each]
         if noted:  # note N1.1, its fragment typed by hand: the file taken for a policy with no id
             return False, f"note N1.1 printed for a file nobody can read: {noted[0]}"
         return ok, evidence
 
-    def dials_not_utf8() -> tuple[bool, str]:
+    def dials_not_utf8(self) -> tuple[bool, str]:
         """A byte that is not UTF-8 is the file's content: C4 naming its line and column, never C12.11."""
-        _, root = s.gate_on(s.valid)
+        _, root = self.s.gate_on(self.s.valid)
         dials = root / "constitution.yaml"
         # "# é", then the byte: two bytes, one character, so the column counts characters, not bytes
         dials.write_bytes(b"# \xc3\xa9\xff\n" + dials.read_bytes())
-        if s.scan_only:
-            result = h.run_gate("", args=scan_args(root))
-        elif s.event_driven:
-            result = h.run_gate(payload(root, s.valid))
+        if self.s.scan_only:
+            result = self.h.run_gate("", args=self.scan_args(root))
+        elif self.s.event_driven:
+            result = self.h.run_gate(self.payload(root, self.s.valid))
         else:
-            result = h.run_gate("", args=list(s.act_args), cwd=root)  # refused before the home is looked at
+            result = self.h.run_gate(
+                "", args=list(self.s.act_args), cwd=root
+            )  # refused before the home is looked at
         line = (
             "BROKEN: constitution.yaml is not valid YAML (byte 0xff at line 1, column 4 is not UTF-8; save"
             " the file as UTF-8) — fix: repair the YAML at the place the message names; nothing is checked"
             " until the file parses"
         )
-        return broken_as_typed(result, line)
+        return self.broken_as_typed(result, line)
 
-    def shared_texts_escape_or_cut() -> tuple[bool, str]:
+    def shared_texts_escape_or_cut(self) -> tuple[bool, str]:
         """The two helpers and the shared texts that use them, every expectation typed by hand. A
         value the reader opens or types into a fix — a path, an id in a fix, git's diagnosis — stands
         whole, however long, with its backslash and line breaks escaped; a value that only points —
@@ -1728,8 +1839,8 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "C5.3 dialect": "BROKEN: constitution.yaml: territory_dialect 'd\\n"
             + "e" * 78
             + "… [102 characters]'"
-            f" is not supported by {ns} (supports: gitignore) — fix: set territory_dialect: gitignore, or"
-            " remove the key",
+            f" is not supported by {self.ns} (supports: gitignore) — fix: set territory_dialect:"
+            " gitignore, or remove the key",
             "C5.4 key": "BROKEN: constitution.yaml: namespace 'a\\nb' must be a mapping — fix: write it as"
             " a\\nb: {territory: [...]}",
             "C5.6 key": f"BROKEN: constitution.yaml: {cut}.territory must be a list of non-empty strings"
@@ -1768,7 +1879,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "C12.10": f"BROKEN: {esc} is listed by git but cannot be read — fix: check that the file can be"
             " read: its permissions, or a link that leads nowhere",
             "C12.11": "unexpected failure inside the checker: ValueError: " + "v" * 68 + "… [112 characters]",
-            "C13": f"BROKEN: constitution.yaml: {ns}.log_dir '{esc}' is not ignored by git — fix: a log"
+            "C13": f"BROKEN: constitution.yaml: {self.ns}.log_dir '{esc}' is not ignored by git — fix: a log"
             " inside the working tree must be git-ignored, or every verdict dirties the tree; add the"
             " directory to .gitignore, or remove the key",
         }
@@ -1844,32 +1955,34 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             f"{len(rendered)} typed expectations of the shared texts hold" if not wrong else wrong[0][:600]
         )
 
-    def unknown_dial_is_one_line() -> tuple[bool, str]:
+    def unknown_dial_is_one_line(self) -> tuple[bool, str]:
         """A key of the module's namespace that holds a line break and is a page long: C5 on one line,
         the backslash and the line break shown escaped, the key cut — in hook mode only the first stderr
         line reaches the user — and, of two keys, the first in sorted order named."""
         key = "ba\\d\nkey" + "x" * 12_000  # a backslash and a line break, each shown escaped
         # a second key that sorts later, written first: the one named is the first in sorted order
-        result, _ = s.gate_on(s.valid, dials_patch=s.own(**{"zz_second": 1, key: 1}))
+        result, _ = self.s.gate_on(self.s.valid, dials_patch=self.s.own(**{"zz_second": 1, key: 1}))
         first = (  # typed by hand: the key cut at 80 characters, its break escaped; the list that
             # follows is the module's own
-            f"BROKEN: constitution.yaml: {ns}.ba\\\\d\\nkey" + "x" * 72 + "… [12008 characters] is no dial of"
+            f"BROKEN: constitution.yaml: {self.ns}.ba\\\\d\\nkey"
+            + "x" * 72
+            + "… [12008 characters] is no dial of"
             " this module — fix: a misspelt dial would be ignored in silence, so none is: write one of "
         )
         lines = result.stderr.splitlines()
-        one_line = len(lines) == 1 + len(s.closing.splitlines())  # the failure, then the closing line
+        one_line = len(lines) == 1 + len(self.s.closing.splitlines())  # the failure, then the closing line
         ok = result.code == 1 and one_line and lines[0].startswith(first) and len(result.stderr) < 2_000
-        texts_ok, texts = shared_texts_escape_or_cut()  # the same two helpers at the other shared texts
+        texts_ok, texts = self.shared_texts_escape_or_cut()  # the same two helpers at the other shared texts
         return ok and texts_ok, (
             f"exit 1; the failure on one line, {len(result.stderr)} characters in all; {texts}"
             if ok and texts_ok
             else f"exit {result.code}; {len(lines)} lines; {result.stderr[:300]}; {texts}"
         )
 
-    def file_named_md() -> tuple[bool, str]:
+    def file_named_md(self) -> tuple[bool, str]:
         """A file named just `.md` is Markdown to the hook as to the scan, which lists it: the hook
         does not skip it for its ending."""
-        result, root = s.gate_on(Write(".md", NO_ENVELOPE))
+        result, root = self.s.gate_on(Write(".md", NO_ENVELOPE))
         said = result.stdout + result.stderr
         (root / ".md").write_text(NO_ENVELOPE, encoding="utf-8")  # the hook never applied the write
         listed = ".md" in list_markdown(root)  # what the scan examines
@@ -1880,7 +1993,7 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             else f"listed by the scan: {listed}; the hook said: {said[:400]}"
         )
 
-    def cap_keeps_the_first() -> tuple[bool, str]:
+    def cap_keeps_the_first(self) -> tuple[bool, str]:
         """The findings a hook shows after one write: the first always, however long; then while the
         text fits 8,000 characters; never more than `most` — each number typed by hand."""
 
@@ -1903,16 +2016,16 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         failed = [what for ok, what in checks if not ok]
         return not failed, "; ".join(failed) or "the first always, then what fits, never more than `most`"
 
-    def pattern_in_own_dial_is_one_line() -> tuple[bool, str]:
+    def pattern_in_own_dial_is_one_line(self) -> tuple[bool, str]:
         """A pattern git would read as a comment, in a dial of the module's own, a page long: C5.7
         naming the dial as it is written — no policy's `.territory` after it — on one line, the pattern
         cut."""
-        if s.pattern_dial is None:  # the item is left out then; a direct call must not pass vacuously
+        if self.s.pattern_dial is None:  # the item is left out then; a direct call must not pass vacuously
             return False, "Subject.pattern_dial not given"
-        dial = s.pattern_dial
-        result, _ = s.gate_on(s.valid, dials_patch=dial.patch("#" + "x" * 12_000))
+        dial = self.s.pattern_dial
+        result, _ = self.s.gate_on(self.s.valid, dials_patch=dial.patch("#" + "x" * 12_000))
         first = (  # typed by hand
-            f"BROKEN: constitution.yaml: {ns}.{dial.path} holds a pattern git would not read as one: '#"
+            f"BROKEN: constitution.yaml: {self.ns}.{dial.path} holds a pattern git would not read as one: '#"
             + "x" * 79
             + "… [12001 characters]' — fix: a pattern may not start with '#' (a comment to git) nor contain"
             " a line break; "
@@ -1920,99 +2033,38 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             "as \\\\# in double quotes, and remove a line break"
         )
         lines = result.stderr.splitlines()
-        one_line = len(lines) == 1 + len(s.closing.splitlines())
+        one_line = len(lines) == 1 + len(self.s.closing.splitlines())
         ok = result.code == 1 and one_line and lines[0] == first and len(result.stderr) < 2_000
         if not ok:
             return ok, f"exit {result.code}; {len(lines)} lines; {result.stderr[:300]}"
         # the escape the message teaches passes: `\#drafts/**`, typed by hand, is a pattern git reads as one,
         # so it is no C5.7 and no configuration failure
-        escaped, _ = s.gate_on(s.valid, dials_patch=dial.patch("\\#drafts/**"))
+        escaped, _ = self.s.gate_on(self.s.valid, dials_patch=dial.patch("\\#drafts/**"))
         refused = "holds a pattern git would not read as one" in escaped.stderr + escaped.stdout
         if escaped.code == 1 or refused:
             return False, (
                 f"the taught escape \\#drafts/** was refused: exit {escaped.code}; {escaped.stderr[:300]}"
             )
         return True, (
-            f"exit 1; {ns}.{dial.path} named whole, on one line, {len(result.stderr)} characters in all;"
+            f"exit 1; {self.ns}.{dial.path} named whole, on one line, {len(result.stderr)} characters in all;"
             f" the escape \\#drafts/** passes, exit {escaped.code}"
         )
 
-    def envelope_delimiters() -> tuple[bool, str]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
+    def envelope_delimiters(self) -> tuple[bool, str]:
         """A `---` line with trailing whitespace opens and closes the envelope, and a line ends at
         `\\n`, `\\r\\n` or a lone `\\r` only: a delimiter after any other break character is none. The
         offsets typed by hand, a byte-order mark counted."""
         closer = "\n---\n"
-        at = s.valid.text.find(closer)
-        if not s.valid.text.startswith("---\n") or at < 0:
+        at = self.s.valid.text.find(closer)
+        if not self.s.valid.text.startswith("---\n") or at < 0:
             return False, "the module's valid write holds no plain envelope to vary"
-        head, body = s.valid.text[:at], s.valid.text[at + len(closer) :]
-        # an envelope that stays whole in every case: the opener, the closer and the line endings vary
-        green = {
-            "the opener `--- `": "--- \n" + s.valid.text[4:],
-            "the closer `--- `": head + "\n--- \n" + body,
-            "the closer `---` and a tab": head + "\n---\t\n" + body,
-            "CRLF throughout": s.valid.text.replace("\n", "\r\n"),
-        }
-        failed = []
-        for what, text in green.items():
-            result, _ = s.gate_on(Write(s.valid.target, text))
-            ok, evidence = expect(result, 0, s.green, "stdout")
-            if not ok:
-                failed.append(f"{what}: {evidence[:300]}")
-        # a form feed before the only closer is no delimiter: the envelope never closes, whatever the
-        # reader's `splitlines()` would say
-        unclosed = head + "\n\x0c---\n" + body
-        result, _ = s.gate_on(Write(s.valid.target, unclosed))
-        if result.code != red_code or s.green in result.stdout:
-            failed.append(f"a form feed before the closer was not blocked: exit {result.code}")
-        # the reader and the helper themselves, on text typed by hand
-        for breaker in "\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029":
-            if parse_envelope(f"---\nid: a\n{breaker}---\nBODY\n").state is not EnvelopeState.UNTERMINATED:
-                failed.append(f"{breaker!r} before the closer makes a delimiter")
-        for what, text in {"closer `--- `": "---\nid: a\n--- \n", "CRLF": "---\r\nid: a\r\n---\r\n"}.items():
-            if parse_envelope(text).state is not EnvelopeState.OK:
-                failed.append(f"the {what} does not close the envelope")
-        bounds_of = getattr(envelope_reader, "envelope_bounds", None)  # the helper, by its name
-        if bounds_of is None:
-            failed.append("no envelope_bounds in the shared envelope reader")
-        else:
-            offsets = {
-                "BOM, then a plain envelope": ("\ufeff---\nid: a\n---\nBODY\n", (5, 11, 15)),
-                "two BOMs, both skipped and counted": ("\ufeff\ufeff---\nid: a\n---\nB", (6, 12, 16)),
-                "CRLF, the closer `--- `": ("---\r\nid: a\r\n--- \r\nB", (5, 12, 18)),
-                "a closer that is the last line, with no ending": ("---\nid: a\n---", (4, 10, 13)),
-                "a lone CR ends a line": ("---\rid: a\r---\rB", (4, 10, 14)),
-                "a form feed before the closer": ("---\nid: a\n\x0c---\n", (4, None, None)),
-            }
-            for what, (text, wanted) in offsets.items():
-                got = bounds_of(text)
-                if got is None or (got.yaml_start, got.yaml_end, got.end) != wanted:
-                    failed.append(f"{what}: got {got}, wanted {wanted}")
-            if bounds_of("# no envelope\n---\n") is not None or bounds_of("") is not None:
-                failed.append("an envelope found where the first line is no `---`")
-        # the line splitter every reader of a block shares, by its name: (offset, content, next offset)
-        lines_of = getattr(envelope_reader, "envelope_lines", None)
-        if lines_of is None:
-            failed.append("no envelope_lines in the shared envelope reader")
-        else:
-            cuts = {
-                "LF, CRLF and a lone CR": (
-                    "a\nb\r\nc\rd",
-                    [(0, "a", 2), (2, "b", 5), (5, "c", 7), (7, "d", 8)],
-                ),
-                "an empty line, a CRLF and a lone CR in a row": (
-                    "a\n\r\n\rb\n",
-                    [(0, "a", 2), (2, "", 4), (4, "", 5), (5, "b", 7)],
-                ),
-                "a form feed and U+2028 end nothing": ("a\x0cb c\n", [(0, "a\x0cb c", 6)]),
-            }
-            for what, (text, wanted_lines) in cuts.items():
-                got_lines = list(lines_of(text, 0, len(text)))
-                if got_lines != wanted_lines:
-                    failed.append(f"envelope_lines, {what}: got {got_lines}, wanted {wanted_lines}")
-            # the stop is a wall: a CR at the stop is a lone CR, though a LF follows it
-            if list(lines_of("a\r\nb", 0, 2)) != [(0, "a", 2)]:
-                failed.append("envelope_lines read past its stop")
+        head, body = self.s.valid.text[:at], self.s.valid.text[at + len(closer) :]
+        failed = [
+            *self.delimiter_failures_in_writes(head, body),
+            *reader_delimiter_failures(),
+            *envelope_bounds_failures(),
+            *envelope_lines_failures(),
+        ]
         return not failed, (
             "trailing whitespace and CRLF delimit the envelope, a form feed before the closer does not;"
             " the offsets and the line cuts hold"
@@ -2020,170 +2072,205 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
             else "; ".join(failed)[:600]
         )
 
+    def delimiter_failures_in_writes(self, head: str, body: str) -> list[str]:
+        """What the gate does with a write whose delimiters vary: the envelope stays whole in the first
+        cases, a form feed before the only closer leaves it open."""
+        # an envelope that stays whole in every case: the opener, the closer and the line endings vary
+        green = {
+            "the opener `--- `": "--- \n" + self.s.valid.text[4:],
+            "the closer `--- `": head + "\n--- \n" + body,
+            "the closer `---` and a tab": head + "\n---\t\n" + body,
+            "CRLF throughout": self.s.valid.text.replace("\n", "\r\n"),
+        }
+        failed = []
+        for what, text in green.items():
+            result, _ = self.s.gate_on(Write(self.s.valid.target, text))
+            ok, evidence = expect(result, 0, self.s.green, "stdout")
+            if not ok:
+                failed.append(f"{what}: {evidence[:300]}")
+        # a form feed before the only closer is no delimiter: the envelope never closes, whatever the
+        # reader's `splitlines()` would say
+        unclosed = head + "\n\x0c---\n" + body
+        result, _ = self.s.gate_on(Write(self.s.valid.target, unclosed))
+        if result.code != self.red_code or self.s.green in result.stdout:
+            failed.append(f"a form feed before the closer was not blocked: exit {result.code}")
+        return failed
+
+
+def shared_assertions(s: Subject, first: int) -> list[Assertion]:
+    it = SharedItems(s)
     items: list[tuple[int, str, Callable[[], tuple[bool, str]]]] = [
-        (101, "exit-code split: a malformed dials file exits 1, never 2, never 0", malformed_dials),
-        (102, "C4b: a dials file that is not a mapping", dials_not_mapping),
-        (103, "C5: a severity outside block | warn", dials_bad_severity),
-        (104, "C5: the module's own namespace must be a mapping", dials_own_namespace),
-        (105, "C5: a territory pattern git would read as a comment", dials_comment_pattern),
-        (106, "C5: an unsupported territory dialect", dials_unsupported_dialect),
-        (107, "C6: the root policy file is missing", root_missing),
-        (108, "C7: the root policy on disk has no readable id", root_without_id),
-        (109, "C8: the root policy claims no territory", root_claims_nothing),
-        (110, "C9: the root policy lies outside its own territory", root_outside_own_territory),
-        (111, "absence: python3", python_absent),
-        (112, "absence: an interpreter below the floor", python_below_floor),
-        (113, "absence: git", git_absent),
-        (114, "absence: a declared library (PyYAML)", library_absent),
+        (101, "exit-code split: a malformed dials file exits 1, never 2, never 0", it.malformed_dials),
+        (102, "C4b: a dials file that is not a mapping", it.dials_not_mapping),
+        (103, "C5: a severity outside block | warn", it.dials_bad_severity),
+        (104, "C5: the module's own namespace must be a mapping", it.dials_own_namespace),
+        (105, "C5: a territory pattern git would read as a comment", it.dials_comment_pattern),
+        (106, "C5: an unsupported territory dialect", it.dials_unsupported_dialect),
+        (107, "C6: the root policy file is missing", it.root_missing),
+        (108, "C7: the root policy on disk has no readable id", it.root_without_id),
+        (109, "C8: the root policy claims no territory", it.root_claims_nothing),
+        (110, "C9: the root policy lies outside its own territory", it.root_outside_own_territory),
+        (111, "absence: python3", it.python_absent),
+        (112, "absence: an interpreter below the floor", it.python_below_floor),
+        (113, "absence: git", it.git_absent),
+        (114, "absence: a declared library (PyYAML)", it.library_absent),
         (
             115,
             "absence: the shared code, as an install that dropped its link would leave the plugin",
-            shared_code_absent,
+            it.shared_code_absent,
         ),
-        (116, "a failing git is a configuration failure, never a green skip", git_failing),
-        (117, "misinvocation exits 1: argparse's exit 2 is overridden", misinvocation),
+        (116, "a failing git is a configuration failure, never a green skip", it.git_failing),
+        (117, "misinvocation exits 1: argparse's exit 2 is overridden", it.misinvocation),
         (
             118,
             "--help is a misinvocation like any other: no exit path past the guard and the log",
-            help_is_not_special,
+            it.help_is_not_special,
         ),
-        (119, "an abbreviated flag is a misinvocation, not a scan logged as a hook run", abbreviated_flag),
-        (120, "unparseable hook input is a configuration failure, not an empty event", unparseable_input),
-        (121, "hook input that is JSON but no object says so", input_not_an_object),
-        (122, "a Write event without its documented fields is a configuration failure", malformed_event),
-        (123, "an event for a tool the gates do not judge is a visible skip", other_tool),
-        (124, "--scan on a path that does not exist is a configuration failure", scan_missing_path),
-        (125, "examined count: a non-Markdown file prints 0 and exits 0", not_markdown),
-        (126, "a relative file_path is resolved against the event's cwd", relative_path),
-        (127, "a file outside any git repository is a visible skip", outside_any_repository),
-        (128, "no dials file: a visible skip", no_dials_file),
-        (129, "a dials file with no root_policy: a visible skip", no_root_policy),
-        (130, "an Edit whose old_string is absent is a visible skip; the tool reports it", edit_unappliable),
+        (119, "an abbreviated flag is a misinvocation, not a scan logged as a hook run", it.abbreviated_flag),
+        (120, "unparseable hook input is a configuration failure, not an empty event", it.unparseable_input),
+        (121, "hook input that is JSON but no object says so", it.input_not_an_object),
+        (122, "a Write event without its documented fields is a configuration failure", it.malformed_event),
+        (123, "an event for a tool the gates do not judge is a visible skip", it.other_tool),
+        (124, "--scan on a path that does not exist is a configuration failure", it.scan_missing_path),
+        (125, "examined count: a non-Markdown file prints 0 and exits 0", it.not_markdown),
+        (126, "a relative file_path is resolved against the event's cwd", it.relative_path),
+        (127, "a file outside any git repository is a visible skip", it.outside_any_repository),
+        (128, "no dials file: a visible skip", it.no_dials_file),
+        (129, "a dials file with no root_policy: a visible skip", it.no_root_policy),
+        (
+            130,
+            "an Edit whose old_string is absent is a visible skip; the tool reports it",
+            it.edit_unappliable,
+        ),
         (
             131,
             "severity warn: exit 0 with the whole finding as JSON for the model and the user",
-            severity_warn,
+            it.severity_warn,
         ),
-        (132, "output log: each print is one record, in the plugin data directory", log_in_plugin_data),
+        (132, "output log: each print is one record, in the plugin data directory", it.log_in_plugin_data),
         (
             133,
             "output log: the log_dir dial routes the whole run to a git-ignored directory",
-            log_in_ignored_dir,
+            it.log_in_ignored_dir,
         ),
         (
             134,
             "output log: a log_dir that git does not ignore is a configuration failure",
-            log_dir_not_ignored,
+            it.log_dir_not_ignored,
         ),
-        (135, "output log: rotation past the size limit", log_rotates),
-        (136, "output log: a logging failure never changes the verdict", log_failure_keeps_verdict),
-        (137, "declared dependencies: requirements.txt equals the preflight table", declared_libraries),
-        (138, "C5: the module's own namespace given as null", dials_own_namespace_null),
+        (135, "output log: rotation past the size limit", it.log_rotates),
+        (136, "output log: a logging failure never changes the verdict", it.log_failure_keeps_verdict),
+        (137, "declared dependencies: requirements.txt equals the preflight table", it.declared_libraries),
+        (138, "C5: the module's own namespace given as null", it.dials_own_namespace_null),
         (
             139,
             "C5: root_policy, an empty dialect, a namespace and a territory of the wrong shape, log_dir;"
             " the dials written the long way, and the dialect written out, read as plain",
-            dials_other_pairs,
+            it.dials_other_pairs,
         ),
         (
             140,
             "absence, the other way round: the scripts copied with links followed run",
-            copy_with_links_followed,
+            it.copy_with_links_followed,
         ),
         (
             141,
             "not fail-open: an unexpected exception exits 1, BROKEN first, the traceback after",
-            unexpected_failure,
+            it.unexpected_failure,
         ),
-        (142, "an Edit event without its documented fields is a configuration failure", edit_without_fields),
-        (143, "a stdout that cannot encode the dash still carries the count line", stdout_cannot_encode),
+        (
+            142,
+            "an Edit event without its documented fields is a configuration failure",
+            it.edit_without_fields,
+        ),
+        (143, "a stdout that cannot encode the dash still carries the count line", it.stdout_cannot_encode),
         (
             144,
             "an envelope nested past the parser's depth is blocked, never a crash that lets it through",
-            deeply_nested_envelope,
+            it.deeply_nested_envelope,
         ),
-        (145, "--scan outside any repository is a configuration failure", scan_outside_repository),
-        (146, "--scan=DIR and a scan from a subdirectory examine the same repository", scan_forms),
-        (147, "a byte-order mark before the envelope is not part of it", byte_order_mark),
-        (148, "a file-level negated pattern takes the file out, and the skip names why", negated_pattern),
-        (149, "a document where policies live with no readable id earns a note", policy_without_id_note),
+        (145, "--scan outside any repository is a configuration failure", it.scan_outside_repository),
+        (146, "--scan=DIR and a scan from a subdirectory examine the same repository", it.scan_forms),
+        (147, "a byte-order mark before the envelope is not part of it", it.byte_order_mark),
+        (148, "a file-level negated pattern takes the file out, and the skip names why", it.negated_pattern),
+        (149, "a document where policies live with no readable id earns a note", it.policy_without_id_note),
         (
             150,
             "an Edit with an empty old_string on an existing file is a visible skip",
-            edit_empty_old_string,
+            it.edit_empty_old_string,
         ),
         (
             151,
             "an echoed value a page long is cut, and the cut is said: the verdict stays a message",
-            long_value_is_cut,
+            it.long_value_is_cut,
         ),
-        (152, "C12.1: git failing to list the files is a configuration failure", ls_files_fails),
-        (153, "C12.2: git failing to make the scratch repository is a configuration failure", init_fails),
+        (152, "C12.1: git failing to list the files is a configuration failure", it.ls_files_fails),
+        (153, "C12.2: git failing to make the scratch repository is a configuration failure", it.init_fails),
         (
             154,
             "C12.3: git check-ignore failing, not merely matching nothing, is a configuration failure",
-            check_ignore_fails,
+            it.check_ignore_fails,
         ),
-        (155, "C12.7: a dials file the process cannot read is a configuration failure", dials_unreadable),
+        (155, "C12.7: a dials file the process cannot read is a configuration failure", it.dials_unreadable),
         (
             156,
             "C12.10: a document git lists and the scan cannot read is a configuration failure",
-            document_unreadable,
+            it.document_unreadable,
         ),
         (
             157,
             "C4: a dials file that is not UTF-8 is C4, its line and column named, never a defect of the gate",
-            dials_not_utf8,
+            it.dials_not_utf8,
         ),
         (
             158,
             "C12.10: a file where policies live that nobody can read is a configuration failure, never a"
             " policy with no id",
-            policy_unreadable,
+            it.policy_unreadable,
         ),
         (
             159,
             "a green hook run with notes hands them to the model as JSON, one without notes stays plain",
-            notes_reach_the_model,
+            it.notes_reach_the_model,
         ),
         (
             160,
             "C5: a key with a line break, a page long, in the module's namespace is one line, cut",
-            unknown_dial_is_one_line,
+            it.unknown_dial_is_one_line,
         ),
         (
             161,
             "C5.7: a pattern git would misread in a dial of the module's own is one line, naming it",
-            pattern_in_own_dial_is_one_line,
+            it.pattern_in_own_dial_is_one_line,
         ),
-        (162, "a file named just .md is Markdown to the hook as to the scan", file_named_md),
+        (162, "a file named just .md is Markdown to the hook as to the scan", it.file_named_md),
         (
             163,
             "the findings shown after a write: the first always, then what fits, never more than most",
-            cap_keeps_the_first,
+            it.cap_keeps_the_first,
         ),
         (
             164,
             "a `---` line with trailing whitespace opens and closes the envelope, and a line-break character"
             " other than \\n, \\r\\n or \\r makes no delimiter",
-            envelope_delimiters,
+            it.envelope_delimiters,
         ),
         (
             165,
             "C12.12, C12.13: a git that gives no answer in a hook ends in a shared line within the budget,"
             " a scan and an act give git no clock, and the hook's handlers hold its budget and the margin",
-            git_has_a_budget_in_a_hook,
+            it.git_has_a_budget_in_a_hook,
         ),
         (
             166,
             "F10: a red names the skill that teaches the rule and its fix, after the count line",
-            skill_named_after_red,
+            it.skill_named_after_red,
         ),
         (
             167,
             "C12.14: a hook run has one deadline, every wait takes the smaller of its cap and what is left,"
             " and a run that spends it ends in a shared line; a scan and an act have none",
-            hook_has_one_deadline,
+            it.hook_has_one_deadline,
         ),
     ]
     # Each item carries its number, so it keeps that number in every module and when the list is
@@ -2191,72 +2278,72 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
     # item takes the next number after the last, and a removed item leaves its number free: a number
     # is never reissued (rule 4 of plc-0009-shared-code). The numbers are held below, on every build.
     about_policies = {
-        root_missing,
-        root_without_id,
-        root_claims_nothing,
-        root_outside_own_territory,
-        no_root_policy,
-        policy_without_id_note,
-        policy_unreadable,
+        it.root_missing,
+        it.root_without_id,
+        it.root_claims_nothing,
+        it.root_outside_own_territory,
+        it.no_root_policy,
+        it.policy_without_id_note,
+        it.policy_unreadable,
     }
     # A generator has no event, no verdict and no scan: these items are a gate's alone.
     about_events = {
-        unparseable_input,
-        input_not_an_object,
-        malformed_event,
-        edit_without_fields,
-        other_tool,
-        scan_missing_path,
-        scan_outside_repository,
-        scan_forms,
-        not_markdown,
-        relative_path,
-        outside_any_repository,
-        no_dials_file,
-        no_root_policy,
-        edit_unappliable,
-        edit_empty_old_string,
-        severity_warn,
-        stdout_cannot_encode,
-        deeply_nested_envelope,
-        envelope_delimiters,
-        byte_order_mark,
-        negated_pattern,
-        document_unreadable,
-        file_named_md,
+        it.unparseable_input,
+        it.input_not_an_object,
+        it.malformed_event,
+        it.edit_without_fields,
+        it.other_tool,
+        it.scan_missing_path,
+        it.scan_outside_repository,
+        it.scan_forms,
+        it.not_markdown,
+        it.relative_path,
+        it.outside_any_repository,
+        it.no_dials_file,
+        it.no_root_policy,
+        it.edit_unappliable,
+        it.edit_empty_old_string,
+        it.severity_warn,
+        it.stdout_cannot_encode,
+        it.deeply_nested_envelope,
+        it.envelope_delimiters,
+        it.byte_order_mark,
+        it.negated_pattern,
+        it.document_unreadable,
+        it.file_named_md,
     }
     # A gate wired to Stop examines a repository, never a written file: these items are a tool gate's.
     about_files = {
-        other_tool,
-        not_markdown,
-        relative_path,
-        edit_unappliable,
-        edit_empty_old_string,
-        byte_order_mark,
-        negated_pattern,
-        deeply_nested_envelope,
-        envelope_delimiters,
-        file_named_md,
+        it.other_tool,
+        it.not_markdown,
+        it.relative_path,
+        it.edit_unappliable,
+        it.edit_empty_old_string,
+        it.byte_order_mark,
+        it.negated_pattern,
+        it.deeply_nested_envelope,
+        it.envelope_delimiters,
+        it.file_named_md,
     }
     # A gate wired to Stop never reaches git's file list, the territory's scratch repository or its
     # check-ignore, nor reads a document the scan lists: these items are a tool gate's.
-    about_listing = {ls_files_fails, init_fails, check_ignore_fails, document_unreadable}
+    about_listing = {it.ls_files_fails, it.init_fails, it.check_ignore_fails, it.document_unreadable}
     # A gate without a hook mode never reads hook input, a written file or the warn channel, and
     # takes a file out of its territory with a count, not a skip: these items are a hook gate's.
     about_hooks = {
-        unparseable_input,
-        input_not_an_object,
-        malformed_event,
-        edit_without_fields,
-        other_tool,
-        not_markdown,
-        relative_path,
-        outside_any_repository,
-        edit_unappliable,
-        edit_empty_old_string,
-        severity_warn,
-        negated_pattern,
-        file_named_md,
+        it.unparseable_input,
+        it.input_not_an_object,
+        it.malformed_event,
+        it.edit_without_fields,
+        it.other_tool,
+        it.not_markdown,
+        it.relative_path,
+        it.outside_any_repository,
+        it.edit_unappliable,
+        it.edit_empty_old_string,
+        it.severity_warn,
+        it.negated_pattern,
+        it.file_named_md,
     }
     numbers = [number for number, _, _ in items]
     for before, after in zip(numbers, numbers[1:], strict=False):
@@ -2270,13 +2357,13 @@ def shared_assertions(s: Subject, first: int) -> list[Assertion]:  # noqa: C901 
         Assertion(number, title, check)
         for number, title, check in items
         if (s.resolves_policies or check not in about_policies)
-        and (s.judges_envelopes or check not in (deeply_nested_envelope, envelope_delimiters))
+        and (s.judges_envelopes or check not in (it.deeply_nested_envelope, it.envelope_delimiters))
         and (s.event_driven or check not in about_events)
-        and (not no_file or check not in about_files)
-        and (not no_file or check not in about_listing)
+        and (not it.no_file or check not in about_files)
+        and (not it.no_file or check not in about_listing)
         and (not s.scan_only or check not in about_hooks)
-        and (s.long_value is not None or check is not long_value_is_cut)
-        and (s.pattern_dial is not None or check is not pattern_in_own_dial_is_one_line)
-        and (s.noted is not None or check is not notes_reach_the_model)
-        and (s.skill != "" or check is not skill_named_after_red)
+        and (s.long_value is not None or check != it.long_value_is_cut)
+        and (s.pattern_dial is not None or check != it.pattern_in_own_dial_is_one_line)
+        and (s.noted is not None or check != it.notes_reach_the_model)
+        and (s.skill != "" or check != it.skill_named_after_red)
     ]

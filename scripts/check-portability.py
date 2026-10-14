@@ -726,201 +726,256 @@ def self_test() -> int:
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
 
-def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    """The kit documents' names, case by case: every fixed name and every id form typed by hand, each in an
-    install note and in a skill; what is no name; the width, the default and a prefix added to the dials
-    read from the dials file; fenced code, a code span and a URL read; what is not read; the order of
-    the findings; the report as literal lines; each dials file that cannot be read, with its literal line;
-    PyYAML missing. Returns the number of cases and of those that failed."""
-    cases = failed = 0
-    note, skill = at("INSTALL.md"), at("skills/s/SKILL.md")
+@dataclass
+class Cases:
+    """The cases of the names self-test judged so far, and how many of them failed."""
 
-    def case(ok: bool, text: str) -> None:
-        nonlocal cases, failed
-        cases += 1
-        failed += 0 if ok else 1
+    cases: int = 0
+    failed: int = 0
+
+    def case(self, ok: bool, text: str) -> None:
+        """Count one case and print its line."""
+        self.cases += 1
+        self.failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {text}")
 
-    def seen(root: Path, path: str, text: str) -> list[tuple[str, int, str, str]]:
-        """The findings with `path` holding `text` and the install note and the skill clean."""
-        write(root, note, "Install.\n")
-        write(root, skill, "A skill.\n")
-        write(root, path, text)
-        return [(f.path, f.line, f.kind, f.text) for f in check_kit(root)[0]]
 
-    def broken_line(root: Path) -> str | None:
-        try:
-            check_kit(root)
-        except Broken as broken:
-            return str(broken)
-        return None
+NOTE, SKILL = at("INSTALL.md"), at("skills/s/SKILL.md")
+TYPED_FIXED_NAMES = ("MODULE.md", "requirements.md", "rollout-plan", "CONVENTIONS.md", "GATE.md", "kernel/")
+TYPED_FOLDERS = ("docs/decisions", "docs/research", "docs/policies", "docs/requirements")
 
-    fixed = ("MODULE.md", "requirements.md", "rollout-plan", "CONVENTIONS.md", "GATE.md", "kernel/")
-    case(
-        set(fixed) == set(FIXED_NAMES) and len(FIXED_NAMES) == len(fixed),
+
+def seen(root: Path, path: str, text: str) -> list[tuple[str, int, str, str]]:
+    """The findings with `path` holding `text` and the install note and the skill clean."""
+    write(root, NOTE, "Install.\n")
+    write(root, SKILL, "A skill.\n")
+    write(root, path, text)
+    return [(f.path, f.line, f.kind, f.text) for f in check_kit(root)[0]]
+
+
+def broken_line(root: Path) -> str | None:
+    """The BROKEN line the check ends on over this tree, None when it runs."""
+    try:
+        check_kit(root)
+    except Broken as broken:
+        return str(broken)
+    return None
+
+
+def run_fixed_names(c: Cases, root: Path) -> None:
+    """Each fixed name is red in an install note and in a skill, once."""
+    for name in TYPED_FIXED_NAMES:
+        ok = all(
+            seen(root, path, f"See {name} for more.\n") == [(path, 1, "kit_file", name)]
+            for path in (NOTE, SKILL)
+        )
+        c.case(ok, f"{name} is red in an install note and in a skill, once")
+
+
+def run_id_forms(c: Cases, root: Path) -> None:
+    """Each id form typed by hand is red in an install note and in a skill, as the id it matched."""
+    for written, matched in (
+        ("dec-0049", "dec-0049"),
+        ("DEC-0049", "DEC-0049"),
+        ("Dec-0049", "Dec-0049"),
+        ("dec-0049-module-links-held-by-a-kit-check", "dec-0049"),
+        ("plc-0001", "plc-0001"),
+        ("PLC-0001-x", "PLC-0001"),
+        ("res-0012", "res-0012"),
+        ("x-dec-0049", "dec-0049"),
+        ("(see dec-0049.)", "dec-0049"),
+    ):
+        ok = all(
+            seen(root, path, f"See {written} here.\n") == [(path, 1, "kit_id", matched)]
+            for path in (NOTE, SKILL)
+        )
+        c.case(ok, f"{written} is red in an install note and in a skill, as '{matched}'")
+
+
+def run_no_names(c: Cases, root: Path) -> None:
+    """What is no name of the kit is green in an install note and in a skill."""
+    for written in (
+        "dec-49",
+        "dec-00490",
+        "xdec-0049",
+        "dec-0049x",
+        "_dec-0049",
+        "dec-0049_x",
+        "1dec-0049",
+        "édec-0049",
+        "dec 0049",
+        "plc-00001",  # plc declares no width: the default, 4
+        "adr-0007",
+        "ADR-0007",
+        "module.md",  # the fixed names are a plain match, case as written
+        "gate.md",
+        "Kernel/",
+        "Requirements.md",
+        "conventions.md",
+        "Rollout-plan",
+        "MODULExmd",  # and the dot of a name is a dot, no wildcard
+        "requirementsXmd",
+        "CONVENTIONS_md",
+        "GATExmd",
+    ):
+        ok = all(seen(root, path, f"See {written} here.\n") == [] for path in (NOTE, SKILL))
+        c.case(ok, f"{written} is no name of the kit, green in an install note and in a skill")
+
+
+def run_text_read(c: Cases, root: Path) -> None:
+    """Fenced code, a code span and a URL are read like any other text."""
+    found = seen(root, NOTE, "```\nsee dec-0049\n```\nand `GATE.md` and `kernel/`.\n")
+    c.case(
+        found
+        == [
+            (NOTE, 2, "kit_id", "dec-0049"),
+            (NOTE, 4, "kit_file", "GATE.md"),
+            (NOTE, 4, "kit_file", "kernel/"),
+        ],
+        "a fenced block and a code span are read like any other text",
+    )
+    found = seen(root, NOTE, "https://example.org/dec-0049/MODULE.md\n")
+    c.case(
+        found == [(NOTE, 1, "kit_id", "dec-0049"), (NOTE, 1, "kit_file", "MODULE.md")],
+        "a public URL is no exception",
+    )
+
+
+def run_unread(c: Cases, root: Path) -> None:
+    """A module's own documents and tests, and the shared files outside the code, are not read."""
+    for path in ("MODULE.md", "README.md", "tests/run.py"):
+        c.case(
+            seen(root, at(path), "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
+            f"{path} of a module is not read",
+        )
+    for path in ("shared/GATE.md", "shared/tests/run.py"):
+        c.case(
+            seen(root, path, "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
+            f"{path} is not read: only {SHARED}/ is",
+        )
+
+
+def run_line_order(c: Cases, root: Path) -> None:
+    """The findings go by line, a place before the names of its line, then by column."""
+    found = seen(
+        root,
+        NOTE,
+        "MODULE.md\n~/x\n~/a dec-0049 GATE.md MODULE.md\nplc-0001 rollout-plan\nMODULE.md GATE.md res-0012\n",
+    )
+    c.case(
+        found
+        == [
+            (NOTE, 1, "kit_file", "MODULE.md"),
+            (NOTE, 2, "tilde", "~/"),
+            (NOTE, 3, "tilde", "~/"),
+            (NOTE, 3, "kit_id", "dec-0049"),
+            (NOTE, 3, "kit_file", "GATE.md"),
+            (NOTE, 3, "kit_file", "MODULE.md"),
+            (NOTE, 4, "kit_id", "plc-0001"),
+            (NOTE, 4, "kit_file", "rollout-plan"),
+            (NOTE, 5, "kit_file", "MODULE.md"),
+            (NOTE, 5, "kit_file", "GATE.md"),
+            (NOTE, 5, "kit_id", "res-0012"),
+        ],
+        "the findings go by line whatever the form, a place before the names of its line, then by column",
+    )
+
+
+def run_folder_forms(c: Cases, root: Path) -> None:
+    """Each kit folder, as written, with a slash or with a path below it, is red once."""
+    c.case(
+        set(TYPED_FOLDERS) == set(KIT_FOLDERS) and len(KIT_FOLDERS) == len(TYPED_FOLDERS),
+        "the self-test types the four folders of the check, no more and no fewer",
+    )
+    for folder in TYPED_FOLDERS:
+        for written, matched in ((folder, folder), (f"{folder}/", folder), (f"{folder}/a/b", folder)):
+            ok = all(
+                seen(root, path, f"See {written} for more.\n") == [(path, 1, "kit_folder", matched)]
+                for path in (NOTE, SKILL)
+            )
+            c.case(ok, f"{written} is red in an install note and in a skill, once, as '{matched}'")
+
+
+def run_folder_places(c: Cases, root: Path) -> None:
+    """A kit folder inside a place gives the one finding of the place, never a second for the folder."""
+    for written, wanted in (
+        ("edit docs/decisions/index.md now", [(NOTE, 1, "relative", "docs/decisions/index.md")]),
+        ("a **/docs/decisions/*.md glob", [(NOTE, 1, "relative", "**/docs/decisions/*.md")]),
+        ("at /Users/ann/docs/decisions now", [(NOTE, 1, "home", "/Users/ann/docs/decisions")]),
+        ("at $HOME/docs/research now", [(NOTE, 1, "home", "$HOME/docs/research")]),
+        ("at ~/docs/policies now", [(NOTE, 1, "tilde", "~/")]),
+        ("at file:///docs/requirements now", [(NOTE, 1, "file", "file:/")]),
+        ("docs/decisions.md", [(NOTE, 1, "relative", "docs/decisions.md")]),
+        (
+            "a docs/decisions/x.md and docs/research",
+            [(NOTE, 1, "relative", "docs/decisions/x.md"), (NOTE, 1, "kit_folder", "docs/research")],
+        ),
+    ):
+        c.case(
+            seen(root, NOTE, f"{written}\n") == wanted,
+            f"'{written}' gives the one finding of its place, never a second for the kit folder in it",
+        )
+
+
+def run_folder_order(c: Cases, root: Path) -> None:
+    """A kit folder sorts after the places of its line and before the documents; fenced text is not read."""
+    found = seen(root, NOTE, "docs/decisions\n~/a docs/research x/y.md dec-0049 docs/policies\n")
+    c.case(
+        found
+        == [
+            (NOTE, 1, "kit_folder", "docs/decisions"),
+            (NOTE, 2, "tilde", "~/"),
+            (NOTE, 2, "relative", "x/y.md"),
+            (NOTE, 2, "kit_folder", "docs/research"),
+            (NOTE, 2, "kit_folder", "docs/policies"),
+            (NOTE, 2, "kit_id", "dec-0049"),
+        ],
+        "a kit folder sorts after the places of its line, in the order they stand, before the documents",
+    )
+    found = seen(root, NOTE, "see docs/decisions/dec-0049 and MODULE.md\n")
+    c.case(
+        found
+        == [
+            (NOTE, 1, "kit_folder", "docs/decisions"),
+            (NOTE, 1, "kit_id", "dec-0049"),
+            (NOTE, 1, "kit_file", "MODULE.md"),
+        ],
+        "a kit folder and the id after it are two findings, the folder first",
+    )
+    found = seen(
+        root,
+        NOTE,
+        "```\ndocs/decisions\n```\n`docs/research` and docs/policies. https://a.b/docs/requirements\n",
+    )
+    c.case(
+        found == [(NOTE, 4, "kit_folder", "docs/policies")],
+        "a fenced block, a code span and a URL are not read, the rest of the line is",
+    )
+
+
+def run_names_in_one_tree(c: Cases) -> None:
+    """The cases that read one tree of a module with the kit's own dials, one after the other."""
+    c.case(
+        set(TYPED_FIXED_NAMES) == set(FIXED_NAMES) and len(FIXED_NAMES) == len(TYPED_FIXED_NAMES),
         "the self-test types the six fixed names of the check, no more and no fewer",
     )
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
-        for name in fixed:
-            ok = all(
-                seen(root, path, f"See {name} for more.\n") == [(path, 1, "kit_file", name)]
-                for path in (note, skill)
-            )
-            case(ok, f"{name} is red in an install note and in a skill, once")
-        for written, matched in (
-            ("dec-0049", "dec-0049"),
-            ("DEC-0049", "DEC-0049"),
-            ("Dec-0049", "Dec-0049"),
-            ("dec-0049-module-links-held-by-a-kit-check", "dec-0049"),
-            ("plc-0001", "plc-0001"),
-            ("PLC-0001-x", "PLC-0001"),
-            ("res-0012", "res-0012"),
-            ("x-dec-0049", "dec-0049"),
-            ("(see dec-0049.)", "dec-0049"),
-        ):
-            ok = all(
-                seen(root, path, f"See {written} here.\n") == [(path, 1, "kit_id", matched)]
-                for path in (note, skill)
-            )
-            case(ok, f"{written} is red in an install note and in a skill, as '{matched}'")
-        for written in (
-            "dec-49",
-            "dec-00490",
-            "xdec-0049",
-            "dec-0049x",
-            "_dec-0049",
-            "dec-0049_x",
-            "1dec-0049",
-            "édec-0049",
-            "dec 0049",
-            "plc-00001",  # plc declares no width: the default, 4
-            "adr-0007",
-            "ADR-0007",
-            "module.md",  # the fixed names are a plain match, case as written
-            "gate.md",
-            "Kernel/",
-            "Requirements.md",
-            "conventions.md",
-            "Rollout-plan",
-            "MODULExmd",  # and the dot of a name is a dot, no wildcard
-            "requirementsXmd",
-            "CONVENTIONS_md",
-            "GATExmd",
-        ):
-            ok = all(seen(root, path, f"See {written} here.\n") == [] for path in (note, skill))
-            case(ok, f"{written} is no name of the kit, green in an install note and in a skill")
-        found = seen(root, note, "```\nsee dec-0049\n```\nand `GATE.md` and `kernel/`.\n")
-        case(
-            found
-            == [
-                (note, 2, "kit_id", "dec-0049"),
-                (note, 4, "kit_file", "GATE.md"),
-                (note, 4, "kit_file", "kernel/"),
-            ],
-            "a fenced block and a code span are read like any other text",
-        )
-        found = seen(root, note, "https://example.org/dec-0049/MODULE.md\n")
-        case(
-            found == [(note, 1, "kit_id", "dec-0049"), (note, 1, "kit_file", "MODULE.md")],
-            "a public URL is no exception",
-        )
-        for path in ("MODULE.md", "README.md", "tests/run.py"):
-            case(
-                seen(root, at(path), "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
-                f"{path} of a module is not read",
-            )
-        for path in ("shared/GATE.md", "shared/tests/run.py"):
-            case(
-                seen(root, path, "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
-                f"{path} is not read: only {SHARED}/ is",
-            )
-        found = seen(
-            root,
-            note,
-            "MODULE.md\n~/x\n~/a dec-0049 GATE.md MODULE.md\n"
-            "plc-0001 rollout-plan\nMODULE.md GATE.md res-0012\n",
-        )
-        case(
-            found
-            == [
-                (note, 1, "kit_file", "MODULE.md"),
-                (note, 2, "tilde", "~/"),
-                (note, 3, "tilde", "~/"),
-                (note, 3, "kit_id", "dec-0049"),
-                (note, 3, "kit_file", "GATE.md"),
-                (note, 3, "kit_file", "MODULE.md"),
-                (note, 4, "kit_id", "plc-0001"),
-                (note, 4, "kit_file", "rollout-plan"),
-                (note, 5, "kit_file", "MODULE.md"),
-                (note, 5, "kit_file", "GATE.md"),
-                (note, 5, "kit_id", "res-0012"),
-            ],
-            "the findings go by line whatever the form, a place before the names of its line, then by column",
-        )
-        folders = ("docs/decisions", "docs/research", "docs/policies", "docs/requirements")
-        case(
-            set(folders) == set(KIT_FOLDERS) and len(KIT_FOLDERS) == len(folders),
-            "the self-test types the four folders of the check, no more and no fewer",
-        )
-        for folder in folders:
-            for written, matched in ((folder, folder), (f"{folder}/", folder), (f"{folder}/a/b", folder)):
-                ok = all(
-                    seen(root, path, f"See {written} for more.\n") == [(path, 1, "kit_folder", matched)]
-                    for path in (note, skill)
-                )
-                case(ok, f"{written} is red in an install note and in a skill, once, as '{matched}'")
-        for written, wanted in (
-            ("edit docs/decisions/index.md now", [(note, 1, "relative", "docs/decisions/index.md")]),
-            ("a **/docs/decisions/*.md glob", [(note, 1, "relative", "**/docs/decisions/*.md")]),
-            ("at /Users/ann/docs/decisions now", [(note, 1, "home", "/Users/ann/docs/decisions")]),
-            ("at $HOME/docs/research now", [(note, 1, "home", "$HOME/docs/research")]),
-            ("at ~/docs/policies now", [(note, 1, "tilde", "~/")]),
-            ("at file:///docs/requirements now", [(note, 1, "file", "file:/")]),
-            ("docs/decisions.md", [(note, 1, "relative", "docs/decisions.md")]),
-            (
-                "a docs/decisions/x.md and docs/research",
-                [(note, 1, "relative", "docs/decisions/x.md"), (note, 1, "kit_folder", "docs/research")],
-            ),
-        ):
-            case(
-                seen(root, note, f"{written}\n") == wanted,
-                f"'{written}' gives the one finding of its place, never a second for the kit folder in it",
-            )
-        found = seen(root, note, "docs/decisions\n~/a docs/research x/y.md dec-0049 docs/policies\n")
-        case(
-            found
-            == [
-                (note, 1, "kit_folder", "docs/decisions"),
-                (note, 2, "tilde", "~/"),
-                (note, 2, "relative", "x/y.md"),
-                (note, 2, "kit_folder", "docs/research"),
-                (note, 2, "kit_folder", "docs/policies"),
-                (note, 2, "kit_id", "dec-0049"),
-            ],
-            "a kit folder sorts after the places of its line, in the order they stand, before the documents",
-        )
-        found = seen(root, note, "see docs/decisions/dec-0049 and MODULE.md\n")
-        case(
-            found
-            == [
-                (note, 1, "kit_folder", "docs/decisions"),
-                (note, 1, "kit_id", "dec-0049"),
-                (note, 1, "kit_file", "MODULE.md"),
-            ],
-            "a kit folder and the id after it are two findings, the folder first",
-        )
-        found = seen(
-            root,
-            note,
-            "```\ndocs/decisions\n```\n`docs/research` and docs/policies. https://a.b/docs/requirements\n",
-        )
-        case(
-            found == [(note, 4, "kit_folder", "docs/policies")],
-            "a fenced block, a code span and a URL are not read, the rest of the line is",
-        )
-    with tempfile.TemporaryDirectory() as tmp:  # the modules in reverse: the findings still go by name
+        run_fixed_names(c, root)
+        run_id_forms(c, root)
+        run_no_names(c, root)
+        run_text_read(c, root)
+        run_unread(c, root)
+        run_line_order(c, root)
+        run_folder_forms(c, root)
+        run_folder_places(c, root)
+        run_folder_order(c, root)
+
+
+def run_names_by_module(c: Cases) -> None:
+    """The modules in reverse: the findings still go by name."""
+    with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
         for module in ("const-b", "const-a"):
@@ -928,22 +983,26 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
             write(root, f"modules/{module}/INSTALL.md", "See dec-0049.\n")
         with listed_in_reverse():
             paths = [f.path for f in check_kit(root)[0]]
-    case(
+    c.case(
         paths == ["modules/const-a/INSTALL.md", "modules/const-b/INSTALL.md"],
         "a name in two modules is reported by module name, whatever order the folder lists",
     )
+
+
+def run_widths(c: Cases) -> None:
+    """The width and the prefix of an entry of the dials file decide which ids are red."""
     width_five = (
         'const-catalogs:\n  catalogs:\n    - prefix: dec\n      width: 5\n      territory: ["d/**"]\n'
     )
     for name, dials, text, expect in (
-        ("width 5 makes dec-00049 red", width_five, "dec-00049", [(note, 1, "kit_id", "dec-00049")]),
+        ("width 5 makes dec-00049 red", width_five, "dec-00049", [(NOTE, 1, "kit_id", "dec-00049")]),
         ("width 5 makes dec-0049 green", width_five, "dec-0049", []),
         ("width 5 makes dec-000490 green", width_five, "dec-000490", []),
         (
             "an entry with no width reads 4: dec-0049 red",
             "const-catalogs:\n  catalogs:\n    - prefix: dec\n",
             "dec-0049",
-            [(note, 1, "kit_id", "dec-0049")],
+            [(NOTE, 1, "kit_id", "dec-0049")],
         ),
         (
             "an entry with no width reads 4: dec-00490 green",
@@ -961,42 +1020,46 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
             "`catalogs: []` leaves the fixed names red",
             "const-catalogs:\n  catalogs: []\n",
             "MODULE.md",
-            [(note, 1, "kit_file", "MODULE.md")],
+            [(NOTE, 1, "kit_file", "MODULE.md")],
         ),
         (
             "a prefix with a digit, in either case: W3C-0001 red",
             "const-catalogs:\n  catalogs:\n    - prefix: w3c\n",
             "W3C-0001",
-            [(note, 1, "kit_id", "W3C-0001")],
+            [(NOTE, 1, "kit_id", "W3C-0001")],
         ),
     ):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             fresh(root, dials)
-            case(seen(root, note, f"See {text}.\n") == expect, name)
+            c.case(seen(root, NOTE, f"See {text}.\n") == expect, name)
     with tempfile.TemporaryDirectory() as tmp:  # width 9, the upper bound the catalog module accepts
         root = Path(tmp).resolve()
         fresh(root, width_five.replace("width: 5", "width: 9"))
-        case(
+        c.case(
             broken_line(root) is None  # `and` stops here on a BROKEN: one FAIL line, no abort
-            and seen(root, note, "See dec-000000049 and dec-00000049 and dec-0000000049.\n")
-            == [(note, 1, "kit_id", "dec-000000049")],
+            and seen(root, NOTE, "See dec-000000049 and dec-00000049 and dec-0000000049.\n")
+            == [(NOTE, 1, "kit_id", "dec-000000049")],
             "width 9, the upper bound, is no BROKEN line and reads dec-000000049 red, 8 and 10 digits green",
         )
     with tempfile.TemporaryDirectory() as tmp:  # a prefix added to the dials, no code change
         root = Path(tmp).resolve()
         fresh(root)
-        before = seen(root, note, "See rfc-0001.\n")
+        before = seen(root, NOTE, "See rfc-0001.\n")
         write(root, DIALS, KIT_DIALS + '    - prefix: rfc\n      territory: ["docs/rfc/**"]\n')
-        after = seen(root, note, "See rfc-0001.\n")
-    case(
-        before == [] and after == [(note, 1, "kit_id", "rfc-0001")],
+        after = seen(root, NOTE, "See rfc-0001.\n")
+    c.case(
+        before == [] and after == [(NOTE, 1, "kit_id", "rfc-0001")],
         "rfc-0001 is green until the dials declare rfc, then red",
     )
+
+
+def run_name_reports(c: Cases) -> None:
+    """The report of a file name with an id, and of a kit folder, as literal lines."""
     with tempfile.TemporaryDirectory() as tmp:  # the report of two findings, typed by hand
         root = Path(tmp).resolve()
         fresh(root)
-        write(root, note, "See MODULE.md and dec-0049-module-links-held-by-a-kit-check.\n")
+        write(root, NOTE, "See MODULE.md and dec-0049-module-links-held-by-a-kit-check.\n")
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
@@ -1014,7 +1077,7 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
         " a prefix that const-catalogs.catalogs in the kit's constitution.yaml does not declare",
         "RED: 2 finding(s) — 3 installed file(s) of 1 module(s) and the shared code examined",
     ]
-    case(
+    c.case(
         code == EXIT_RED and printed.getvalue().splitlines() == literal,
         "the report of a file name and an id is its literal text, exit 2",
     )
@@ -1023,7 +1086,7 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
     with tempfile.TemporaryDirectory() as tmp:  # the report of a kit folder, typed by hand
         root = Path(tmp).resolve()
         fresh(root)
-        write(root, note, "See docs/decisions for more.\n")
+        write(root, NOTE, "See docs/decisions for more.\n")
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
@@ -1035,12 +1098,17 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
         " fenced block or a code span",
         "RED: 1 finding(s) — 3 installed file(s) of 1 module(s) and the shared code examined",
     ]
-    case(
+    c.case(
         code == EXIT_RED and printed.getvalue().splitlines() == folder_report,
         "the report of a kit folder is its literal text, exit 2",
     )
     if printed.getvalue().splitlines() != folder_report:
         print(printed.getvalue())
+
+
+def broken_dials_cases() -> list[tuple[str, str | bytes | None, str | tuple[str, str]]]:
+    """Each dials file that cannot be read: its name, its content (None: no file) and the line wanted,
+    whole or as its start and its end."""
     where = "const-catalogs.catalogs entry"
     absent = (
         "const-catalogs.catalogs in constitution.yaml is absent or no list, so the kit's numbered kinds"
@@ -1059,7 +1127,7 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
         " catalog module refuses — fix: write the width as one, or leave it out for 4"
     )
     one = "const-catalogs:\n  catalogs:\n"
-    for name, content, expect in (
+    return [
         (
             "a dials file that is missing",
             None,
@@ -1116,7 +1184,12 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
             f"{where} 3 in constitution.yaml lists the prefix 'dec' a second time, which the catalog module"
             " refuses — fix: list each prefix once",
         ),
-    ):
+    ]
+
+
+def run_broken_dials(c: Cases) -> None:
+    """A dials file that cannot be read is a teaching BROKEN line, with its literal text."""
+    for name, content, expect in broken_dials_cases():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             fresh(root, content)
@@ -1127,16 +1200,20 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
                 holds = text.startswith(start) and text.endswith(end) and len(text) > len(start) + len(end)
             else:
                 holds = line == expect
-            case(holds, f"{name} is a teaching BROKEN line")
+            c.case(holds, f"{name} is a teaching BROKEN line")
     with tempfile.TemporaryDirectory() as tmp:  # the dials file is read after the module folders
         root = Path(tmp).resolve()
         fresh(root, None)
         write(root, "modules/other/INSTALL.md", "Install.\n")
-        case(
+        c.case(
             broken_line(root) == "modules/other has no MODULE.md — fix: restore the module document",
             "a missing dials file and a module without MODULE.md: the module is reported",
         )
-    with tempfile.TemporaryDirectory() as tmp:  # PyYAML missing: a `yaml` that raises ImportError comes first
+
+
+def run_yaml_missing(c: Cases) -> None:
+    """PyYAML missing: a `yaml` that raises ImportError comes first."""
+    with tempfile.TemporaryDirectory() as tmp:
         (Path(tmp) / "yaml.py").write_text("raise ImportError('PyYAML is hidden')\n", encoding="utf-8")
         done = subprocess.run(
             [sys.executable, str(Path(__file__).resolve())],
@@ -1145,7 +1222,7 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
             text=True,
             check=False,
         )
-    case(
+    c.case(
         done.returncode == EXIT_BROKEN
         and done.stdout.splitlines()
         == [
@@ -1155,7 +1232,22 @@ def self_test_names() -> tuple[int, int]:  # noqa: C901 — over the limit when 
         and done.stderr == "",
         "PyYAML missing is a BROKEN line with the install command, exit 1, no traceback",
     )
-    return cases, failed
+
+
+def self_test_names() -> tuple[int, int]:
+    """The kit documents' names, case by case: every fixed name and every id form typed by hand, each in an
+    install note and in a skill; what is no name; the width, the default and a prefix added to the dials
+    read from the dials file; fenced code, a code span and a URL read; what is not read; the order of
+    the findings; the report as literal lines; each dials file that cannot be read, with its literal line;
+    PyYAML missing. Returns the number of cases and of those that failed."""
+    c = Cases()
+    run_names_in_one_tree(c)
+    run_names_by_module(c)
+    run_widths(c)
+    run_name_reports(c)
+    run_broken_dials(c)
+    run_yaml_missing(c)
+    return c.cases, c.failed
 
 
 def main(argv: list[str]) -> int:

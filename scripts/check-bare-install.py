@@ -434,7 +434,7 @@ def last_line(out: str, err: str) -> str:
     return said.splitlines()[-1] if said else "no output"
 
 
-def hooks_of(plugin: Path) -> list[Hook]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
+def hooks_of(plugin: Path) -> list[Hook]:
     """The hooks of a plugin's hooks/hooks.json, each with the seconds it is waited for: its own `timeout`,
     else the platform's default for a `command` hook on its event (`EVENT_HOOK_TIMEOUT`, else
     `HOOK_TIMEOUT`). A hooks file that is a regular file and cannot be read (an `OSError`: its
@@ -454,30 +454,48 @@ def hooks_of(plugin: Path) -> list[Hook]:  # noqa: C901 — over the limit when 
     no finite number (a boolean is none); and a valid hook of a type other than `command`, which the
     check does not run and so cannot prove."""
     path = plugin / "hooks" / "hooks.json"
+    text = hooks_file_text(path)
+    if text is None:
+        return []
+    table = hooks_table(path, text)
+    found: list[Hook] = []
+    for event, groups in table.items():
+        if not isinstance(groups, list):
+            raise not_a_hooks_file(path, f"event {shown(event)}: {shown(groups)} is no list of groups")
+        for number, group in enumerate(groups, 1):
+            found.extend(group_hooks(path, event, number, group))
+    return found
+
+
+def not_a_hooks_file(path: Path, detail: str) -> Broken:
+    """The Broken for a hooks file whose shape the check cannot run, with the fix to restore the shape."""
+    fix = (
+        "restore hooks/hooks.json to the shape the hooks reference gives,"
+        " so that the check can read each hook it runs"
+    )
+    return Broken(f"{path} is not a hooks file ({detail}) — fix: {fix}")
+
+
+def hooks_file_text(path: Path) -> str | None:
+    """The text of a hooks file that is a regular file, None where there is none to read (no file, a
+    folder in its place, a dangling link, a path through a file, a link loop); a Broken where the place
+    cannot be looked up or the file cannot be read as UTF-8."""
     try:
         mode = path.stat().st_mode  # follows a link; `is_file` hides a PermissionError from release 3.14 on
     except (FileNotFoundError, NotADirectoryError):  # no file, a dangling link, a path through a file
-        return []
+        return None
     except OSError as bad:
         if bad.errno == errno.ELOOP:  # a link loop leads to no file either
-            return []
+            return None
         # the place cannot be looked up: no file to read, no shape to restore
         raise Broken(
             f"{path} cannot be looked up ({bad.strerror}) — fix: make its folder {path.parent} searchable"
             f" (its permissions), so that the check can find hooks/hooks.json and read each hook it runs"
         ) from bad
     if not stat.S_ISREG(mode):  # a folder in the file's place
-        return []
-    fix = (
-        "restore hooks/hooks.json to the shape the hooks reference gives,"
-        " so that the check can read each hook it runs"
-    )
-
-    def unreadable(detail: str) -> Broken:
-        return Broken(f"{path} is not a hooks file ({detail}) — fix: {fix}")
-
+        return None
     try:
-        text = path.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8")
     except OSError as bad:  # the file is there and cannot be read: no shape to restore
         raise Broken(
             f"{path} cannot be read ({bad.strerror}) — fix: make it a readable file (its"
@@ -485,66 +503,78 @@ def hooks_of(plugin: Path) -> list[Hook]:  # noqa: C901 — over the limit when 
             f" hook it runs"
         ) from bad
     except ValueError as bad:  # not UTF-8
-        raise unreadable(str(bad)) from bad
+        raise not_a_hooks_file(path, str(bad)) from bad
+
+
+def hooks_table(path: Path, text: str) -> dict[str, object]:
+    """The "hooks" object of events in the text of a hooks file; a Broken where the text is no JSON object
+    holding one."""
     try:
         data: object = json.loads(text)
     except (ValueError, RecursionError) as bad:
-        raise unreadable(str(bad)) from bad
+        raise not_a_hooks_file(path, str(bad)) from bad
     if not isinstance(data, dict):
-        raise unreadable(f"the top level is {shown(data)}, not a JSON object")
+        raise not_a_hooks_file(path, f"the top level is {shown(data)}, not a JSON object")
     if "hooks" not in data:
-        raise unreadable('the top level has no "hooks" key')
+        raise not_a_hooks_file(path, 'the top level has no "hooks" key')
     table = data["hooks"]
     if not isinstance(table, dict):
-        raise unreadable(f'"hooks" is {shown(table)}, not an object of events')
-    found: list[Hook] = []
-    for event, groups in table.items():
-        if not isinstance(groups, list):
-            raise unreadable(f"event {shown(event)}: {shown(groups)} is no list of groups")
-        for number, group in enumerate(groups, 1):
-            in_group = f"event {shown(event)}, group {number}"
-            if not isinstance(group, dict):
-                raise unreadable(f"{in_group}: {shown(group)} is no object")
-            if "hooks" not in group:
-                raise unreadable(f'{in_group}: no "hooks" key')
-            if not isinstance(group["hooks"], list):
-                raise unreadable(f'{in_group}: "hooks" is {shown(group["hooks"])}, not a list')
-            matcher = group.get("matcher", "")
-            if not isinstance(matcher, str):
-                raise unreadable(f'{in_group}: "matcher" is {shown(matcher)}, not a string')
-            for place, hook in enumerate(group["hooks"], 1):
-                where = f"{in_group}, hook {place}"
-                if not isinstance(hook, dict):
-                    raise unreadable(f"{where}: {shown(hook)} is no object")
-                kind = hook.get("type")
-                if "type" not in hook:
-                    raise unreadable(f'{where}: "type" is absent')
-                if kind not in HOOK_TYPES:
-                    raise unreadable(f'{where}: "type" is {shown(kind)}, not one of {", ".join(HOOK_TYPES)}')
-                if kind != "command":
-                    raise Broken(
-                        f"{path} holds a hook of type {kind} ({where}) that check-bare-install does not run"
-                        f" — it runs only `command` hooks, and cannot prove a hook it does not run"
-                        f" — fix: make it a `command` hook, or teach `hooks_of` and `check_installed` in"
-                        f" {SCRIPT} to run a {kind} hook"
-                    )
-                if "command" not in hook:
-                    raise unreadable(f'{where}: "command" is absent')
-                if not isinstance(hook["command"], str):
-                    raise unreadable(f'{where}: "command" is {shown(hook["command"])}, not a string')
-                args = hook.get("args", [])
-                if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
-                    raise unreadable(f'{where}: "args" is {shown(args)}, not a list of strings')
-                seconds = EVENT_HOOK_TIMEOUT.get(event, HOOK_TIMEOUT)
-                if "timeout" in hook:
-                    declared = declared_seconds(hook["timeout"])
-                    if declared is None:
-                        raise unreadable(
-                            f'{where}: "timeout" is {shown(hook["timeout"])}, not a finite number of seconds'
-                        )
-                    seconds = declared
-                found.append(Hook(event, matcher, hook["command"], tuple(args), seconds))
-    return found
+        raise not_a_hooks_file(path, f'"hooks" is {shown(table)}, not an object of events')
+    return table
+
+
+def group_hooks(path: Path, event: str, number: int, group: object) -> list[Hook]:
+    """The hooks of one group of an event, `number` counted from 1; a Broken where the group is no object
+    with a "hooks" list and a string "matcher", or one of its hooks cannot be run."""
+    in_group = f"event {shown(event)}, group {number}"
+    if not isinstance(group, dict):
+        raise not_a_hooks_file(path, f"{in_group}: {shown(group)} is no object")
+    if "hooks" not in group:
+        raise not_a_hooks_file(path, f'{in_group}: no "hooks" key')
+    if not isinstance(group["hooks"], list):
+        raise not_a_hooks_file(path, f'{in_group}: "hooks" is {shown(group["hooks"])}, not a list')
+    matcher = group.get("matcher", "")
+    if not isinstance(matcher, str):
+        raise not_a_hooks_file(path, f'{in_group}: "matcher" is {shown(matcher)}, not a string')
+    return [
+        command_hook(path, event, matcher, f"{in_group}, hook {place}", hook)
+        for place, hook in enumerate(group["hooks"], 1)
+    ]
+
+
+def command_hook(path: Path, event: str, matcher: str, where: str, hook: object) -> Hook:
+    """One hook object as a `Hook`, its wait its own `timeout` or the default of its event; a Broken where
+    it is no valid `command` hook."""
+    if not isinstance(hook, dict):
+        raise not_a_hooks_file(path, f"{where}: {shown(hook)} is no object")
+    kind = hook.get("type")
+    if "type" not in hook:
+        raise not_a_hooks_file(path, f'{where}: "type" is absent')
+    if kind not in HOOK_TYPES:
+        raise not_a_hooks_file(path, f'{where}: "type" is {shown(kind)}, not one of {", ".join(HOOK_TYPES)}')
+    if kind != "command":
+        raise Broken(
+            f"{path} holds a hook of type {kind} ({where}) that check-bare-install does not run"
+            f" — it runs only `command` hooks, and cannot prove a hook it does not run"
+            f" — fix: make it a `command` hook, or teach `hooks_of` and `check_installed` in"
+            f" {SCRIPT} to run a {kind} hook"
+        )
+    if "command" not in hook:
+        raise not_a_hooks_file(path, f'{where}: "command" is absent')
+    if not isinstance(hook["command"], str):
+        raise not_a_hooks_file(path, f'{where}: "command" is {shown(hook["command"])}, not a string')
+    args = hook.get("args", [])
+    if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
+        raise not_a_hooks_file(path, f'{where}: "args" is {shown(args)}, not a list of strings')
+    seconds = EVENT_HOOK_TIMEOUT.get(event, HOOK_TIMEOUT)
+    if "timeout" in hook:
+        declared = declared_seconds(hook["timeout"])
+        if declared is None:
+            raise not_a_hooks_file(
+                path, f'{where}: "timeout" is {shown(hook["timeout"])}, not a finite number of seconds'
+            )
+        seconds = declared
+    return Hook(event, matcher, hook["command"], tuple(args), seconds)
 
 
 def declared_seconds(timeout: object) -> float | None:
@@ -1140,279 +1170,355 @@ def report(module: str, findings: list[Finding], examined: str, note: str = "") 
     return EXIT_GREEN
 
 
-def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    """Red→green on throwaway source and copy folders, no install: a green copy is green; each branch
-    of the link check — a link inside the module, the runner's link to its own package arrived as a
-    directory, leading elsewhere, dangling or missing, a link left a link, missing, with files lost, added or
-    changed, a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
-    the hooks-file, hook and scan checks, and a red scan the source declares where the copy lost its
-    document, are each a finding; a source document that cannot be read is a teaching BROKEN line, and
-    the scans are read from rows of each form; the report of one finding is its literal text, exit 2."""
-    module_text = (
-        '<a id="t9"></a>\n| E1 | `check-x --scan`: all | `gate` |\n| E2 | `check-p.py --scan` | `gate` |\n'
-        '<a id="t10"></a>\n'
-    )
-    command = {"type": "command", "command": "sh", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.sh"]}
-    hooks = {"hooks": {"PreToolUse": [{"matcher": "Write|Edit", "hooks": [command]}]}}
-    deny = '{"hookSpecificOutput": {"permissionDecision": "deny"}}'
+# The self-test, `self_test` below: groups of cases, each a function that takes the `Tally` of the run,
+# and the fixtures they share, each named for the cases it serves. The groups run in the order they print.
+@dataclass
+class Tally:
+    """What a self-test run has counted: the cases failed, and the cases of the version check and of step 2,
+    which print one by one."""
 
-    def folders(root: Path, change: str) -> tuple[Path, Path]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-        source, shared = root / "source", root / "shared"
-        (shared).mkdir()
-        (shared / "code.py").write_text("x = 1\n", encoding="utf-8")
-        (source / "hooks").mkdir(parents=True)
-        (source / "scripts").mkdir()
-        (source / "hooks" / "hooks.json").write_text(json.dumps(hooks), encoding="utf-8")
-        document = {
-            "no-t9": "no anchor\n",
-            "t9-on-heading": module_text.replace('<a id="t9"></a>\n', '## 9 <a id="t9"></a>\n'),
-            "t9-twice": module_text.replace('<a id="t9"></a>\n', '<a id="t9"></a>\n<a id="t9"></a>\n'),
-            "t10-twice": module_text.replace("| E2", '<a id="t10"></a>\n| E2'),
-            "t10-missing": module_text.replace('<a id="t10"></a>\n', '<a id="t11"></a>\n'),
-            "indented-scan-red": module_text.replace("| E1 |", "   | E1 |"),
-            "explain-marked": module_text.replace(
-                '<a id="t10"></a>',
-                "| E3 | `check-y --scan --since <date>`: the report, not a tree scan | `advisory` |\n"
-                '<a id="t10"></a>',
+    failed: int = 0
+    extra: int = 0
+
+
+def version_case(tally: Tally, name: str, ok: bool, got: str) -> None:
+    """Print one case as ok or FAIL, what was got beside a FAIL, and count it."""
+    tally.extra += 1
+    tally.failed += 0 if ok else 1
+    print(f"[{'ok' if ok else 'FAIL'}] {name}")
+    if not ok:
+        print(f"        got: {got}")
+
+
+# The fixtures of the link, hook and scan cases: a throwaway source and the copy an install made of it.
+FIXTURE_MODULE_TEXT = (
+    '<a id="t9"></a>\n| E1 | `check-x --scan`: all | `gate` |\n| E2 | `check-p.py --scan` | `gate` |\n'
+    '<a id="t10"></a>\n'
+)
+FIXTURE_COMMAND = {"type": "command", "command": "sh", "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/hook.sh"]}
+FIXTURE_HOOKS = {"hooks": {"PreToolUse": [{"matcher": "Write|Edit", "hooks": [FIXTURE_COMMAND]}]}}
+FIXTURE_DENY = '{"hookSpecificOutput": {"permissionDecision": "deny"}}'
+
+
+def fixture_document(change: str) -> str:
+    """The text of the source's MODULE.md that `change` asks for."""
+    return {
+        "no-t9": "no anchor\n",
+        "t9-on-heading": FIXTURE_MODULE_TEXT.replace('<a id="t9"></a>\n', '## 9 <a id="t9"></a>\n'),
+        "t9-twice": FIXTURE_MODULE_TEXT.replace('<a id="t9"></a>\n', '<a id="t9"></a>\n<a id="t9"></a>\n'),
+        "t10-twice": FIXTURE_MODULE_TEXT.replace("| E2", '<a id="t10"></a>\n| E2'),
+        "t10-missing": FIXTURE_MODULE_TEXT.replace('<a id="t10"></a>\n', '<a id="t11"></a>\n'),
+        "indented-scan-red": FIXTURE_MODULE_TEXT.replace("| E1 |", "   | E1 |"),
+        "explain-marked": FIXTURE_MODULE_TEXT.replace(
+            '<a id="t10"></a>',
+            "| E3 | `check-y --scan --since <date>`: the report, not a tree scan | `advisory` |\n"
+            '<a id="t10"></a>',
+        ),
+    }.get(change, FIXTURE_MODULE_TEXT)
+
+
+def fixture_hook_line(change: str) -> str:
+    """The line that the source's hook script runs after it has checked its event, as `change` asks."""
+    return {
+        "hook-exit-1": "exit 1",
+        "hook-exit-2": "exit 2",
+        "hook-denies": f"echo '{FIXTURE_DENY}'",
+        "hook-denies-and-warns": f"echo '{FIXTURE_DENY}'; echo 'WARNING: logged' >&2",
+        "hook-blocks": """echo '{"decision": "block"}'""",
+        "hook-asks": """echo '{"hookSpecificOutput": {"permissionDecision": "ask"}}'""",
+        "hook-stops": """echo '{"continue": false}'""",
+    }.get(change, "exit 0")
+
+
+def fixture_source(root: Path, change: str) -> tuple[Path, Path]:
+    """The source module and the shared folder its `scripts/shared` links to, as `change` asks."""
+    source, shared = root / "source", root / "shared"
+    (shared).mkdir()
+    (shared / "code.py").write_text("x = 1\n", encoding="utf-8")
+    (source / "hooks").mkdir(parents=True)
+    (source / "scripts").mkdir()
+    (source / "hooks" / "hooks.json").write_text(json.dumps(FIXTURE_HOOKS), encoding="utf-8")
+    if change != "no-document":
+        (source / "MODULE.md").write_text(fixture_document(change), encoding="utf-8")
+    hook = fixture_hook_line(change)
+    (source / "scripts" / "hook.sh").write_text(
+        f'grep -q \'"hook_event_name": "PreToolUse"\' || exit 3\n{hook}\n', encoding="utf-8"
+    )
+    (source / "scripts" / "check-x.sh").write_text(
+        f"exit {2 if change in ('scan-red', 'copy-without-document', 'indented-scan-red') else 0}\n",
+        encoding="utf-8",
+    )
+    (source / "scripts" / "check-p.py").write_text(
+        f"raise SystemExit({2 if change == 'py-scan-red' else 0})\n", encoding="utf-8"
+    )
+    (source / "scripts" / "shared").symlink_to(shared)
+    if change == "inner-link":
+        (source / "scripts" / "again").symlink_to(source / "hooks")
+    return source, shared
+
+
+def fixture_copy_of(root: Path, source: Path, change: str) -> Path:
+    """The copy an install made of the source: its files, and its links left as real files."""
+    copy = root / "copy"
+    shutil.copytree(source, copy, symlinks=False)
+    if change == "inner-link":
+        shutil.rmtree(copy / "scripts" / "again")
+        (copy / "scripts" / "again").symlink_to(copy / "hooks")
+    return copy
+
+
+def fixture_runner_package(root: Path, change: str, source: Path) -> tuple[str, str]:
+    """The package and the folder of the runner's link in the source, as a case named runner-link-* asks."""
+    package = {
+        "runner-link-no-package": "data",
+        "runner-link-const-gate": "const_gate",
+        "runner-link-underscore": "_own_gate",
+    }.get(change, "own_gate")
+    if change == "runner-link-to-a-link":  # scripts/own_gate a link out of the module, as const_gate
+        (root / "outside_gate").mkdir()
+        (root / "outside_gate" / "__init__.py").write_text("", encoding="utf-8")
+        (source / "scripts" / package).symlink_to(root / "outside_gate")
+    else:
+        (source / "scripts" / package).mkdir()
+    if change not in ("runner-link-no-package", "runner-link-to-a-link"):
+        (source / "scripts" / package / "__init__.py").write_text("", encoding="utf-8")
+    holder = "skills" if change == "runner-link-outside-tests" else "tests"
+    (source / holder).mkdir()
+    (source / holder / package).symlink_to(f"../scripts/{package}")
+    return package, holder
+
+
+def fixture_runner_copy(change: str, source: Path, copy: Path, package: str, holder: str) -> None:
+    """The runner's link in the copy: kept, or arrived as a folder, leading elsewhere, dangling or missing."""
+    shutil.copytree(source / "scripts" / package, copy / "scripts" / package)
+    (copy / holder).mkdir()
+    if change == "runner-link-outside-tests":
+        (copy / holder / package).symlink_to(f"../scripts/{package}")
+    elif change == "runner-link-copied":
+        shutil.copytree(source / "scripts" / package, copy / "tests" / package)
+    elif change == "runner-link-to-a-link":
+        (copy / "tests" / package).symlink_to(f"../scripts/{package}")
+    elif change == "runner-link-dangling":
+        shutil.rmtree(copy / "scripts" / package)
+        (copy / "tests" / package).symlink_to(f"../scripts/{package}")
+    elif change == "runner-link-elsewhere":
+        (copy / "tests" / package).symlink_to("../hooks")
+    elif change != "runner-link-missing":
+        (copy / "tests" / package).symlink_to(f"../scripts/{package}")
+
+
+def fixture_source_changes(change: str, source: Path, shared: Path, copy: Path) -> None:
+    """The changes of a case that touch the source as well as the copy."""
+    if change == "inner-link-copied":
+        (source / "scripts" / "again").symlink_to(source / "hooks")
+        shutil.copytree(source / "hooks", copy / "scripts" / "again")
+    if change == "link-other-bytes":
+        (source / "scripts" / "one").symlink_to(shared / "code.py")
+        (copy / "scripts" / "one").write_text("x = 2\n", encoding="utf-8")
+    if change == "file-link-as-folder":
+        (source / "scripts" / "one").symlink_to(shared / "code.py")
+        (copy / "scripts" / "one").mkdir()
+    if change == "no-event":
+        (source / "hooks" / "hooks.json").write_text(
+            json.dumps({"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": [FIXTURE_COMMAND]}]}}).replace(
+                "PreToolUse", "PostToolUse"
             ),
-        }.get(change, module_text)
-        if change != "no-document":
-            (source / "MODULE.md").write_text(document, encoding="utf-8")
-        hook = {
-            "hook-exit-1": "exit 1",
-            "hook-exit-2": "exit 2",
-            "hook-denies": f"echo '{deny}'",
-            "hook-denies-and-warns": f"echo '{deny}'; echo 'WARNING: logged' >&2",
-            "hook-blocks": """echo '{"decision": "block"}'""",
-            "hook-asks": """echo '{"hookSpecificOutput": {"permissionDecision": "ask"}}'""",
-            "hook-stops": """echo '{"continue": false}'""",
-        }.get(change, "exit 0")
-        (source / "scripts" / "hook.sh").write_text(
-            f'grep -q \'"hook_event_name": "PreToolUse"\' || exit 3\n{hook}\n', encoding="utf-8"
-        )
-        (source / "scripts" / "check-x.sh").write_text(
-            f"exit {2 if change in ('scan-red', 'copy-without-document', 'indented-scan-red') else 0}\n",
             encoding="utf-8",
         )
-        (source / "scripts" / "check-p.py").write_text(
-            f"raise SystemExit({2 if change == 'py-scan-red' else 0})\n", encoding="utf-8"
-        )
-        (source / "scripts" / "shared").symlink_to(shared)
-        if change == "inner-link":
-            (source / "scripts" / "again").symlink_to(source / "hooks")
-        copy = root / "copy"
-        shutil.copytree(source, copy, symlinks=False)
-        if change == "inner-link":
-            shutil.rmtree(copy / "scripts" / "again")
-            (copy / "scripts" / "again").symlink_to(copy / "hooks")
-        if change.startswith("runner-link"):
-            package = {
-                "runner-link-no-package": "data",
-                "runner-link-const-gate": "const_gate",
-                "runner-link-underscore": "_own_gate",
-            }.get(change, "own_gate")
-            if change == "runner-link-to-a-link":  # scripts/own_gate a link out of the module, as const_gate
-                (root / "outside_gate").mkdir()
-                (root / "outside_gate" / "__init__.py").write_text("", encoding="utf-8")
-                (source / "scripts" / package).symlink_to(root / "outside_gate")
-            else:
-                (source / "scripts" / package).mkdir()
-            if change not in ("runner-link-no-package", "runner-link-to-a-link"):
-                (source / "scripts" / package / "__init__.py").write_text("", encoding="utf-8")
-            holder = "skills" if change == "runner-link-outside-tests" else "tests"
-            (source / holder).mkdir()
-            (source / holder / package).symlink_to(f"../scripts/{package}")
-            shutil.copytree(source / "scripts" / package, copy / "scripts" / package)
-            (copy / holder).mkdir()
-            if change == "runner-link-outside-tests":
-                (copy / holder / package).symlink_to(f"../scripts/{package}")
-            elif change == "runner-link-copied":
-                shutil.copytree(source / "scripts" / package, copy / "tests" / package)
-            elif change == "runner-link-to-a-link":
-                (copy / "tests" / package).symlink_to(f"../scripts/{package}")
-            elif change == "runner-link-dangling":
-                shutil.rmtree(copy / "scripts" / package)
-                (copy / "tests" / package).symlink_to(f"../scripts/{package}")
-            elif change == "runner-link-elsewhere":
-                (copy / "tests" / package).symlink_to("../hooks")
-            elif change != "runner-link-missing":
-                (copy / "tests" / package).symlink_to(f"../scripts/{package}")
-        if change == "inner-link-copied":
-            (source / "scripts" / "again").symlink_to(source / "hooks")
-            shutil.copytree(source / "hooks", copy / "scripts" / "again")
-        if change == "link-other-bytes":
-            (source / "scripts" / "one").symlink_to(shared / "code.py")
-            (copy / "scripts" / "one").write_text("x = 2\n", encoding="utf-8")
-        if change == "file-link-as-folder":
-            (source / "scripts" / "one").symlink_to(shared / "code.py")
-            (copy / "scripts" / "one").mkdir()
-        if change == "link-left":
-            shutil.rmtree(copy / "scripts" / "shared")
-            (copy / "scripts" / "shared").symlink_to(shared)
-        if change == "link-missing":
-            shutil.rmtree(copy / "scripts" / "shared")
-        if change == "no-hooks-file":
-            (copy / "hooks" / "hooks.json").unlink()
-        if change == "copy-without-document":
-            (copy / "MODULE.md").unlink()
-        if change == "link-emptied":
-            (copy / "scripts" / "shared" / "code.py").unlink()
-        if change == "folder-link-as-file":
-            shutil.rmtree(copy / "scripts" / "shared")
-            (copy / "scripts" / "shared").write_text("x = 1\n", encoding="utf-8")
-        if change == "link-edited":
-            (copy / "scripts" / "shared" / "code.py").write_text("x = 3\n", encoding="utf-8")
-        if change == "link-grown":
-            (copy / "scripts" / "shared" / "added.py").write_text("y = 1\n", encoding="utf-8")
-        if change == "extra-link":
-            (copy / "scripts" / "made").symlink_to(copy / "hooks")
-        if change == "no-event":
-            (source / "hooks" / "hooks.json").write_text(
-                json.dumps({"hooks": {"PreToolUse": [{"matcher": "Write", "hooks": [command]}]}}).replace(
-                    "PreToolUse", "PostToolUse"
-                ),
-                encoding="utf-8",
-            )
-        return source, copy
 
-    def findings_of(change: str) -> list[Finding]:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            (root / "repo" / "docs").mkdir(parents=True)
-            (root / "data").mkdir()
-            source, copy = folders(root, change)
-            return check_installed("const-x", source, copy, root / "repo", root / "data")
 
-    failed = 0
-    cases = {
-        "a copy whose hook and scans pass, its outside link a real directory, is green": ("", ""),
-        "a link left a link in the copy is a finding": ("link-left", "is left a link"),
-        "a link missing from the copy is a finding": ("link-missing", "is missing"),
-        "a link inside the module left a link is a finding, fixed by the file it points at": (
-            "inner-link",
-            "again",
-        ),
-        "a link inside the module that arrived as a real directory is a finding": (
-            "inner-link-copied",
-            "leads inside the module",
-        ),
-        "the runner's link to a package of the module's own, kept a link to it, is green": (
-            "runner-link",
-            "",
-        ),
-        "the runner's link that arrived as a real directory is a finding": (
-            "runner-link-copied",
-            "the runner's link tests/own_gate did not arrive as a link to its package",
-        ),
-        "the runner's link that arrived leading elsewhere is a finding": (
-            "runner-link-elsewhere",
-            "the runner's link tests/own_gate did not arrive as a link to its package",
-        ),
-        "the runner's link kept, its package missing from the copy, is a finding": (
-            "runner-link-dangling",
-            "the runner's link tests/own_gate did not arrive as a link to its package",
-        ),
-        "the runner's link missing from the copy is a finding": (
-            "runner-link-missing",
-            "the runner's link tests/own_gate did not arrive as a link to its package",
-        ),
-        "a link to a package of the module's own from outside tests/ leads inside the module": (
-            "runner-link-outside-tests",
-            "the link skills/own_gate is left a link",
-        ),
-        "a link of tests/ to a folder of scripts/ that is itself a link is no runner's link": (
-            "runner-link-to-a-link",
-            "the link tests/own_gate is left a link",
-        ),
-        "a link of tests/ to a real folder scripts/const_gate leads inside the module": (
-            "runner-link-const-gate",
-            "the link tests/const_gate is left a link",
-        ),
-        "a link of tests/ to a package named with a leading _ leads inside the module": (
-            "runner-link-underscore",
-            "the link tests/_own_gate is left a link",
-        ),
-        "a link of tests/ to a folder of scripts/ with no __init__.py leads inside the module": (
-            "runner-link-no-package",
-            "the link tests/data is left a link",
-        ),
-        "a link to a file that arrived with other bytes is a finding": ("link-other-bytes", "other bytes"),
-        "a copy without its hooks file is a finding": ("no-hooks-file", "no hooks/hooks.json"),
-        "a hook that exits 1 is a finding": ("hook-exit-1", "exits 1"),
-        "a hook that exits 2 is a finding": ("hook-exit-2", "exits 2"),
-        "a hook that exits 0 but denies is a finding": ("hook-denies", "answers deny"),
-        "a hook that denies and writes a warning to standard error is a finding": (
-            "hook-denies-and-warns",
-            "answers deny",
-        ),
-        "a hook that exits 0 but blocks is a finding": ("hook-blocks", "answers block"),
-        "a hook that exits 0 but asks is a finding": ("hook-asks", "answers ask"),
-        "a hook that exits 0 but stops is a finding": ("hook-stops", "answers stop"),
-        "a scan the source declares is run though the copy lost its document": (
-            "copy-without-document",
-            "check-x --scan",
-        ),
-        "a link that arrived without its files is a finding": ("link-emptied", "code.py"),
-        "a link that arrived with a file its target lacks is a finding": ("link-grown", "added.py"),
-        "a link to a file that arrived as a folder is a finding": (
-            "file-link-as-folder",
-            "arrived as a folder",
-        ),
-        "a linked folder whose file arrived with other bytes is a finding": ("link-edited", "code.py"),
-        "a link to a folder that arrived as a file is a finding": (
-            "folder-link-as-file",
-            "arrived as a file",
-        ),
-        "a link in the copy that the source lacks is a finding": ("extra-link", "a link its source lacks"),
-        "a hook given another event than its own is a finding": ("no-event", "exits 3"),
-        "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
-        "a Python scan that is red is a finding": ("py-scan-red", "check-p.py --scan"),
-        "a red scan in an indented row is run, and is a finding": ("indented-scan-red", "check-x --scan"),
-        "an explain with the mark is no scan, so none is run for it": ("explain-marked", ""),
-    }
-    for name, (change, wanted) in cases.items():
-        got = [f.what for f in findings_of(change)]
+def fixture_copy_changes(change: str, shared: Path, copy: Path) -> None:
+    """The changes of a case that touch the copy alone."""
+    if change == "link-left":
+        shutil.rmtree(copy / "scripts" / "shared")
+        (copy / "scripts" / "shared").symlink_to(shared)
+    if change == "link-missing":
+        shutil.rmtree(copy / "scripts" / "shared")
+    if change == "no-hooks-file":
+        (copy / "hooks" / "hooks.json").unlink()
+    if change == "copy-without-document":
+        (copy / "MODULE.md").unlink()
+    if change == "link-emptied":
+        (copy / "scripts" / "shared" / "code.py").unlink()
+    if change == "folder-link-as-file":
+        shutil.rmtree(copy / "scripts" / "shared")
+        (copy / "scripts" / "shared").write_text("x = 1\n", encoding="utf-8")
+    if change == "link-edited":
+        (copy / "scripts" / "shared" / "code.py").write_text("x = 3\n", encoding="utf-8")
+    if change == "link-grown":
+        (copy / "scripts" / "shared" / "added.py").write_text("y = 1\n", encoding="utf-8")
+    if change == "extra-link":
+        (copy / "scripts" / "made").symlink_to(copy / "hooks")
+
+
+def fixture_folders(root: Path, change: str) -> tuple[Path, Path]:
+    """The source and the copy for a case: a green pair, `change` made to the pair."""
+    source, shared = fixture_source(root, change)
+    copy = fixture_copy_of(root, source, change)
+    if change.startswith("runner-link"):
+        package, holder = fixture_runner_package(root, change, source)
+        fixture_runner_copy(change, source, copy, package, holder)
+    fixture_source_changes(change, source, shared, copy)
+    fixture_copy_changes(change, shared, copy)
+    return source, copy
+
+
+def fixture_findings(change: str) -> list[Finding]:
+    """The findings of `check_installed` over the source and the copy that `change` makes."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        (root / "repo" / "docs").mkdir(parents=True)
+        (root / "data").mkdir()
+        source, copy = fixture_folders(root, change)
+        return check_installed("const-x", source, copy, root / "repo", root / "data")
+
+
+LINK_CASES = {
+    "a copy whose hook and scans pass, its outside link a real directory, is green": ("", ""),
+    "a link left a link in the copy is a finding": ("link-left", "is left a link"),
+    "a link missing from the copy is a finding": ("link-missing", "is missing"),
+    "a link inside the module left a link is a finding, fixed by the file it points at": (
+        "inner-link",
+        "again",
+    ),
+    "a link inside the module that arrived as a real directory is a finding": (
+        "inner-link-copied",
+        "leads inside the module",
+    ),
+    "the runner's link to a package of the module's own, kept a link to it, is green": (
+        "runner-link",
+        "",
+    ),
+    "the runner's link that arrived as a real directory is a finding": (
+        "runner-link-copied",
+        "the runner's link tests/own_gate did not arrive as a link to its package",
+    ),
+    "the runner's link that arrived leading elsewhere is a finding": (
+        "runner-link-elsewhere",
+        "the runner's link tests/own_gate did not arrive as a link to its package",
+    ),
+    "the runner's link kept, its package missing from the copy, is a finding": (
+        "runner-link-dangling",
+        "the runner's link tests/own_gate did not arrive as a link to its package",
+    ),
+    "the runner's link missing from the copy is a finding": (
+        "runner-link-missing",
+        "the runner's link tests/own_gate did not arrive as a link to its package",
+    ),
+    "a link to a package of the module's own from outside tests/ leads inside the module": (
+        "runner-link-outside-tests",
+        "the link skills/own_gate is left a link",
+    ),
+    "a link of tests/ to a folder of scripts/ that is itself a link is no runner's link": (
+        "runner-link-to-a-link",
+        "the link tests/own_gate is left a link",
+    ),
+    "a link of tests/ to a real folder scripts/const_gate leads inside the module": (
+        "runner-link-const-gate",
+        "the link tests/const_gate is left a link",
+    ),
+    "a link of tests/ to a package named with a leading _ leads inside the module": (
+        "runner-link-underscore",
+        "the link tests/_own_gate is left a link",
+    ),
+    "a link of tests/ to a folder of scripts/ with no __init__.py leads inside the module": (
+        "runner-link-no-package",
+        "the link tests/data is left a link",
+    ),
+    "a link to a file that arrived with other bytes is a finding": ("link-other-bytes", "other bytes"),
+    "a copy without its hooks file is a finding": ("no-hooks-file", "no hooks/hooks.json"),
+    "a hook that exits 1 is a finding": ("hook-exit-1", "exits 1"),
+    "a hook that exits 2 is a finding": ("hook-exit-2", "exits 2"),
+    "a hook that exits 0 but denies is a finding": ("hook-denies", "answers deny"),
+    "a hook that denies and writes a warning to standard error is a finding": (
+        "hook-denies-and-warns",
+        "answers deny",
+    ),
+    "a hook that exits 0 but blocks is a finding": ("hook-blocks", "answers block"),
+    "a hook that exits 0 but asks is a finding": ("hook-asks", "answers ask"),
+    "a hook that exits 0 but stops is a finding": ("hook-stops", "answers stop"),
+    "a scan the source declares is run though the copy lost its document": (
+        "copy-without-document",
+        "check-x --scan",
+    ),
+    "a link that arrived without its files is a finding": ("link-emptied", "code.py"),
+    "a link that arrived with a file its target lacks is a finding": ("link-grown", "added.py"),
+    "a link to a file that arrived as a folder is a finding": (
+        "file-link-as-folder",
+        "arrived as a folder",
+    ),
+    "a linked folder whose file arrived with other bytes is a finding": ("link-edited", "code.py"),
+    "a link to a folder that arrived as a file is a finding": (
+        "folder-link-as-file",
+        "arrived as a file",
+    ),
+    "a link in the copy that the source lacks is a finding": ("extra-link", "a link its source lacks"),
+    "a hook given another event than its own is a finding": ("no-event", "exits 3"),
+    "a shell scan that is red is a finding": ("scan-red", "check-x --scan"),
+    "a Python scan that is red is a finding": ("py-scan-red", "check-p.py --scan"),
+    "a red scan in an indented row is run, and is a finding": ("indented-scan-red", "check-x --scan"),
+    "an explain with the mark is no scan, so none is run for it": ("explain-marked", ""),
+}
+
+
+UNREADABLE_ANCHOR = "on a line of its own — fix: restore the template's anchor, alone on its line"
+UNREADABLE_CASES = {  # the source's document: its change, what the BROKEN line says
+    "a source with no MODULE.md": ("no-document", "MODULE.md does not exist — fix: restore"),
+    "a source whose document has no t9 anchor": (
+        "no-t9",
+        f'has no anchor <a id="t9"></a> {UNREADABLE_ANCHOR}',
+    ),
+    "a source whose t9 anchor has text on its line": (
+        "t9-on-heading",
+        f'has no anchor <a id="t9"></a> {UNREADABLE_ANCHOR}',
+    ),
+    "a source whose t9 anchor stands twice": (
+        "t9-twice",
+        'holds the anchor <a id="t9"></a> twice, lines 1 and 2 — fix: keep the one before',
+    ),
+    "a source whose t10 anchor is gone while t11 stands": (
+        "t10-missing",
+        'has no anchor <a id="t10"></a> after <a id="t9"></a> — fix: restore it',
+    ),
+    "a source with a second t10 anchor above an E-row": (
+        "t10-twice",
+        'holds the anchor <a id="t10"></a> twice, lines 3 and 5 — fix: keep the one before',
+    ),
+}
+
+
+def link_cases(tally: Tally) -> None:
+    """Each change of `LINK_CASES` over a source and its copy is green, or a finding that says what it is."""
+    for name, (change, wanted) in LINK_CASES.items():
+        got = [f.what for f in fixture_findings(change)]
         ok = got == [] if not wanted else len(got) >= 1 and all(wanted in g for g in got[:1])
         if change == "no-hooks-file":
             ok = ok and len(got) == 1  # the file is missing; the hook the source names still runs in the copy
         if change == "inner-link":
-            fixes = [f.fix for f in findings_of(change)]
+            fixes = [f.fix for f in fixture_findings(change)]
             ok = ok and fixes[:1] == ["replace the link inside the module with the file it points at"]
-        failed += 0 if ok else 1
+        tally.failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
         if not ok:
             print(f"        got: {got}")
-    anchor = "on a line of its own — fix: restore the template's anchor, alone on its line"
-    unreadable = {  # the source's document: its change, what the BROKEN line says
-        "a source with no MODULE.md": ("no-document", "MODULE.md does not exist — fix: restore"),
-        "a source whose document has no t9 anchor": ("no-t9", f'has no anchor <a id="t9"></a> {anchor}'),
-        "a source whose t9 anchor has text on its line": (
-            "t9-on-heading",
-            f'has no anchor <a id="t9"></a> {anchor}',
-        ),
-        "a source whose t9 anchor stands twice": (
-            "t9-twice",
-            'holds the anchor <a id="t9"></a> twice, lines 1 and 2 — fix: keep the one before',
-        ),
-        "a source whose t10 anchor is gone while t11 stands": (
-            "t10-missing",
-            'has no anchor <a id="t10"></a> after <a id="t9"></a> — fix: restore it',
-        ),
-        "a source with a second t10 anchor above an E-row": (
-            "t10-twice",
-            'holds the anchor <a id="t10"></a> twice, lines 3 and 5 — fix: keep the one before',
-        ),
-    }
-    for name, (change, said) in unreadable.items():
+
+
+def unreadable_cases(tally: Tally) -> None:
+    """Each source document that cannot be read is a teaching BROKEN line, never a scan left unrun."""
+    for name, (change, said) in UNREADABLE_CASES.items():
         try:
-            findings_of(change)
+            fixture_findings(change)
             ok, line = False, "no BROKEN"
         except Broken as broken:
             ok, line = said in str(broken), str(broken)
-        failed += 0 if ok else 1
+        tally.failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name} is a teaching BROKEN line, never a scan left unrun")
         if not ok:
             print(f"        got: {line}")
+
+
+def scan_row_case(tally: Tally) -> None:
+    """The scans a module declares are the rows it declares, read whatever their form."""
     with tempfile.TemporaryDirectory() as tmp:  # what a row reads as, its problems left to check-gate-lists
         plugin = Path(tmp)
         declares: dict[str, list[str]] = {
@@ -1433,8 +1539,15 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 f'<a id="t9"></a>\n{text_row}<a id="t10"></a>\n', encoding="utf-8"
             )
             ok = ok and declared_scans(plugin) == expected
-    failed += 0 if ok else 1
+    tally.failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a module's scans are the rows it declares, read whatever their form")
+
+
+OFF_PIN = " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"  # typed by hand
+
+
+def report_cases(tally: Tally) -> None:
+    """The report of one finding, of a run off the pin and of a green run is its literal text."""
     report_lines = [  # typed by hand: a message function cannot check itself
         "RED: const-x: its scan `check-x --scan` exits 2 on a bare repository (no output)",
         f"  why: {WHY}",
@@ -1443,24 +1556,23 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     ]
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed):
-        code = report("const-x", findings_of("scan-red"), "1 hook(s), 2 scan(s)")
+        code = report("const-x", fixture_findings("scan-red"), "1 hook(s), 2 scan(s)")
     ok = code == EXIT_RED and printed.getvalue().splitlines() == report_lines
-    failed += 0 if ok else 1
+    tally.failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the report of one finding is its literal text, exit 2")
     if not ok:
         print(printed.getvalue())
-    off_pin = " [claude 2.1.286, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"  # typed by hand
     noted_lines = [  # a run off the pin: the note ends the headline line, not the why: and fix: lines
-        f"RED: const-x: its scan `check-x --scan` exits 2 on a bare repository (no output){off_pin}",
+        f"RED: const-x: its scan `check-x --scan` exits 2 on a bare repository (no output){OFF_PIN}",
         f"  why: {WHY}",
         "  fix: make the scan green, with a visible zero, where no constitution.yaml claims anything",
-        f"RED: 1 finding(s) — 1 hook(s), 2 scan(s){off_pin}",
+        f"RED: 1 finding(s) — 1 hook(s), 2 scan(s){OFF_PIN}",
     ]
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed):
-        code = report("const-x", findings_of("scan-red"), "1 hook(s), 2 scan(s)", off_pin)
+        code = report("const-x", fixture_findings("scan-red"), "1 hook(s), 2 scan(s)", OFF_PIN)
     ok = code == EXIT_RED and printed.getvalue().splitlines() == noted_lines
-    failed += 0 if ok else 1
+    tally.failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the report of a run off the pin ends each headline line with the note")
     if not ok:
         print(printed.getvalue())
@@ -1471,13 +1583,17 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
     ]
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed):
-        code = report("const-x", [], "1 hook(s), 2 scan(s)", off_pin)
+        code = report("const-x", [], "1 hook(s), 2 scan(s)", OFF_PIN)
         plain = report("const-x", [], "1 hook(s), 2 scan(s)")
     ok = code == plain == EXIT_GREEN and printed.getvalue().splitlines() == green_lines
-    failed += 0 if ok else 1
+    tally.failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the green report ends with the note off the pin, and with none on it")
     if not ok:
         print(printed.getvalue())
+
+
+def marketplace_case(tally: Tally) -> None:
+    """The marketplace's name is read from the kit's own file, and none is BROKEN."""
     with tempfile.TemporaryDirectory() as tmp:  # the marketplace's name is read from the kit's own file
         kit = Path(tmp) / "kit"
         (kit / ".claude-plugin").mkdir(parents=True)
@@ -1495,2404 +1611,2737 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         ok = ok and unnamed == (
             f'{market} has no "name" — fix: give the marketplace its name, at the top of the object'
         )
-    failed += 0 if ok else 1
+    tally.failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the marketplace's name is read from the kit's file, none is BROKEN")
-    # a fake claude that logs its arguments (to FAKE_LOG, else to the configuration folder; to FAKE_CALLS
-    # too, with its folder and configuration, when set), answers `--version` with FAKE_SAYS (printf's escapes
-    # read) and the exit FAKE_EXIT, hangs on FAKE_HANG, or on an install on FAKE_HANG_INSTALL, and answers
-    # an install with the text FAKE_INSTALL_OUT and the exit FAKE_INSTALL_EXIT after writing the record
-    # FAKE_RECORD, a plugin list with FAKE_LIST_OUT and FAKE_LIST_EXIT, each text as it stands; for
-    # `--version` it logs to FAKE_ENV, when set, its configuration folder, its auto-updater setting, how many
-    # entries the folder holds and whether it is a folder; to FAKE_CACHE, when set, each command's first two
-    # words and, in this order, the values of CLAUDE_CODE_PLUGIN_CACHE_DIR, CLAUDE_CODE_PLUGIN_SEED_DIR,
-    # CLAUDE_CODE_PLUGIN_DIRS, CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP,
-    # CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS, CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE,
-    # CLAUDE_CODE_SYNC_PLUGIN_INSTALL, CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS, FORCE_AUTOUPDATE_PLUGINS,
-    # CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL and CLAUDE_CODE_PLUGIN_DIR_WATCH it holds
-    # (`absent` when unset), each after a `|`; and it writes the record where the platform does, in
-    # CLAUDE_CODE_PLUGIN_CACHE_DIR's folder when it is set, else in the configuration's plugins/
-    fake_claude = (
-        '#!/bin/sh\necho "$*" >> "${FAKE_LOG:-$CLAUDE_CONFIG_DIR/fake.log}"\n'
-        '[ -n "$FAKE_CALLS" ] && echo "$* | $PWD | $CLAUDE_CONFIG_DIR" >> "$FAKE_CALLS"\n'
-        '[ "$1" = --version ] && [ -n "$FAKE_ENV" ] && echo "$CLAUDE_CONFIG_DIR|$DISABLE_AUTOUPDATER|'
-        '$(ls -A "$CLAUDE_CONFIG_DIR" | wc -l | tr -d " ")|'
-        '$([ -d "$CLAUDE_CONFIG_DIR" ] && echo dir)" >> "$FAKE_ENV"\n'
-        '[ -n "$FAKE_CACHE" ] && echo "$1 $2|${CLAUDE_CODE_PLUGIN_CACHE_DIR-absent}|'
-        "${CLAUDE_CODE_PLUGIN_SEED_DIR-absent}|${CLAUDE_CODE_PLUGIN_DIRS-absent}|"
-        "${CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE-absent}|${CLAUDE_CODE_PLUGIN_PREFER_HTTPS-absent}|"
-        "${FAKE_KEEP-absent}|${CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS-absent}|"
-        "${CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE-absent}|${CLAUDE_CODE_SYNC_PLUGIN_INSTALL-absent}|"
-        "${CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS-absent}|${FORCE_AUTOUPDATE_PLUGINS-absent}|"
-        "${CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL-absent}|"
-        '${CLAUDE_CODE_PLUGIN_DIR_WATCH-absent}" >> "$FAKE_CACHE"\n'
-        '[ -n "$FAKE_HANG" ] && exec tail -f /dev/null\n'
-        '[ "$1" = --version ] && { printf \'%b\' "$FAKE_SAYS"; exit "${FAKE_EXIT:-0}"; }\n'
-        '[ "$2" = install ] && [ -n "$FAKE_HANG_INSTALL" ] && exec tail -f /dev/null\n'
-        '[ "$2" = install ] && {\n'
-        '  root="${CLAUDE_CODE_PLUGIN_CACHE_DIR:-$CLAUDE_CONFIG_DIR/plugins}"\n'
-        '  [ -n "$FAKE_RECORD" ] && mkdir -p "$root" &&\n'
-        '    printf \'%s\' "$FAKE_RECORD" > "$root/installed_plugins.json"\n'
-        '  printf \'%s\' "$FAKE_INSTALL_OUT"; exit "${FAKE_INSTALL_EXIT:-0}"; }\n'
-        '[ "$2" = list ] && { printf \'%s\' "$FAKE_LIST_OUT"; exit "${FAKE_LIST_EXIT:-0}"; }\n'
-        "exit 0\n"
+
+
+# a fake claude that logs its arguments (to FAKE_LOG, else to the configuration folder; to FAKE_CALLS
+# too, with its folder and configuration, when set), answers `--version` with FAKE_SAYS (printf's escapes
+# read) and the exit FAKE_EXIT, hangs on FAKE_HANG, or on an install on FAKE_HANG_INSTALL, and answers
+# an install with the text FAKE_INSTALL_OUT and the exit FAKE_INSTALL_EXIT after writing the record
+# FAKE_RECORD, a plugin list with FAKE_LIST_OUT and FAKE_LIST_EXIT, each text as it stands; for
+# `--version` it logs to FAKE_ENV, when set, its configuration folder, its auto-updater setting, how many
+# entries the folder holds and whether it is a folder; to FAKE_CACHE, when set, each command's first two
+# words and, in this order, the values of CLAUDE_CODE_PLUGIN_CACHE_DIR, CLAUDE_CODE_PLUGIN_SEED_DIR,
+# CLAUDE_CODE_PLUGIN_DIRS, CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP,
+# CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS, CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE,
+# CLAUDE_CODE_SYNC_PLUGIN_INSTALL, CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS, FORCE_AUTOUPDATE_PLUGINS,
+# CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL and CLAUDE_CODE_PLUGIN_DIR_WATCH it holds
+# (`absent` when unset), each after a `|`; and it writes the record where the platform does, in
+# CLAUDE_CODE_PLUGIN_CACHE_DIR's folder when it is set, else in the configuration's plugins/
+FAKE_CLAUDE = (
+    '#!/bin/sh\necho "$*" >> "${FAKE_LOG:-$CLAUDE_CONFIG_DIR/fake.log}"\n'
+    '[ -n "$FAKE_CALLS" ] && echo "$* | $PWD | $CLAUDE_CONFIG_DIR" >> "$FAKE_CALLS"\n'
+    '[ "$1" = --version ] && [ -n "$FAKE_ENV" ] && echo "$CLAUDE_CONFIG_DIR|$DISABLE_AUTOUPDATER|'
+    '$(ls -A "$CLAUDE_CONFIG_DIR" | wc -l | tr -d " ")|'
+    '$([ -d "$CLAUDE_CONFIG_DIR" ] && echo dir)" >> "$FAKE_ENV"\n'
+    '[ -n "$FAKE_CACHE" ] && echo "$1 $2|${CLAUDE_CODE_PLUGIN_CACHE_DIR-absent}|'
+    "${CLAUDE_CODE_PLUGIN_SEED_DIR-absent}|${CLAUDE_CODE_PLUGIN_DIRS-absent}|"
+    "${CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE-absent}|${CLAUDE_CODE_PLUGIN_PREFER_HTTPS-absent}|"
+    "${FAKE_KEEP-absent}|${CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS-absent}|"
+    "${CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE-absent}|${CLAUDE_CODE_SYNC_PLUGIN_INSTALL-absent}|"
+    "${CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS-absent}|${FORCE_AUTOUPDATE_PLUGINS-absent}|"
+    "${CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL-absent}|"
+    '${CLAUDE_CODE_PLUGIN_DIR_WATCH-absent}" >> "$FAKE_CACHE"\n'
+    '[ -n "$FAKE_HANG" ] && exec tail -f /dev/null\n'
+    '[ "$1" = --version ] && { printf \'%b\' "$FAKE_SAYS"; exit "${FAKE_EXIT:-0}"; }\n'
+    '[ "$2" = install ] && [ -n "$FAKE_HANG_INSTALL" ] && exec tail -f /dev/null\n'
+    '[ "$2" = install ] && {\n'
+    '  root="${CLAUDE_CODE_PLUGIN_CACHE_DIR:-$CLAUDE_CONFIG_DIR/plugins}"\n'
+    '  [ -n "$FAKE_RECORD" ] && mkdir -p "$root" &&\n'
+    '    printf \'%s\' "$FAKE_RECORD" > "$root/installed_plugins.json"\n'
+    '  printf \'%s\' "$FAKE_INSTALL_OUT"; exit "${FAKE_INSTALL_EXIT:-0}"; }\n'
+    '[ "$2" = list ] && { printf \'%s\' "$FAKE_LIST_OUT"; exit "${FAKE_LIST_EXIT:-0}"; }\n'
+    "exit 0\n"
+)
+
+
+BARE_HOOK: dict[str, object] = {"type": "command", "command": "true"}
+BARE_RUN = Hook("PreToolUse", "", "true", (), 600.0)  # what `hooks_of` makes of BARE_HOOK
+HookShape = tuple[str, str | bytes | OSError, list[Hook] | str | tuple[str, str]]
+
+HOOKS_NOT_FOUND = (  # typed by hand; the folder is the one the fix names
+    "BROKEN {path} cannot be looked up ({why}) — fix: make its folder {folder} searchable (its"
+    " permissions), so that the check can find hooks/hooks.json and read each hook it runs"
+)
+
+
+def hook_waits_of(hooked: Path, hooks: dict[str, list[dict[str, object]]]) -> dict[str, float]:
+    """The seconds `hooks_of` gives each hook of a hooks file with one hook per event."""
+    table = {event: [{"hooks": [hook]}] for event, hook in ((e, h[0]) for e, h in hooks.items())}
+    (hooked / "hooks" / "hooks.json").write_text(json.dumps({"hooks": table}), encoding="utf-8")
+    return {hook.event: hook.timeout for hook in hooks_of(hooked)}
+
+
+def single_hook_file(hook: object, **group: object) -> str:
+    """A hooks file with one event, one group (with the keys of `group`) and one hook."""
+    return json.dumps({"hooks": {"PreToolUse": [{"hooks": [hook]} | group]}})
+
+
+def whole_hooks_file(table: object) -> str:
+    """A hooks file of the table, as it stands."""
+    return json.dumps({"hooks": table})
+
+
+def hook_default_wait_cases(tally: Tally, hooked: Path) -> None:
+    """A hook with no timeout is waited for as the default of its event, one with a timeout for that."""
+    for event, seconds in (  # typed by hand from the hooks reference, as read on 2026-10-08
+        ("PreToolUse", 600.0),
+        ("PostToolUse", 600.0),
+        ("SessionStart", 600.0),
+        ("Stop", 600.0),
+        ("UserPromptSubmit", 30.0),
+        ("PreModelSwitch", 30.0),
+        ("PostModelSwitch", 30.0),
+        ("MessageDisplay", 10.0),
+        ("SessionEnd", 1.5),
+        ("SomeEventTheKitDoesNotKnow", 600.0),
+    ):
+        got = hook_waits_of(hooked, {event: [BARE_HOOK]})
+        version_case(
+            tally,
+            f"a {event} hook that declares no timeout is waited for {seconds:g} s",
+            got == {event: seconds} and all(isinstance(s, float) for s in got.values()),
+            str(got),
+        )
+    for event, declared in (
+        ("PreToolUse", 5),
+        ("UserPromptSubmit", 90),
+        ("SessionEnd", 5),
+        ("MessageDisplay", 2.5),
+        ("SomeEventTheKitDoesNotKnow", 1),
+    ):
+        got = hook_waits_of(hooked, {event: [BARE_HOOK | {"timeout": declared}]})
+        version_case(
+            tally,
+            f"a {event} hook that declares a timeout of {declared:g} is waited for {declared:g} s",
+            got == {event: float(declared)},
+            str(got),
+        )
+    got = hook_waits_of(
+        hooked,
+        {event: [BARE_HOOK] for event in ("PreToolUse", "SessionEnd")}
+        | {"Stop": [BARE_HOOK | {"timeout": 7}]},
     )
-    extra = 0  # the cases of the version check and of step 2, printed one by one
+    version_case(
+        tally,
+        "the hooks of a file are each waited for by their own event and timeout",
+        got == {"PreToolUse": 600.0, "SessionEnd": 1.5, "Stop": 7.0},
+        str(got),
+    )
 
-    def version_case(name: str, ok: bool, got: str) -> None:
-        nonlocal failed, extra
-        extra += 1
-        failed += 0 if ok else 1
-        print(f"[{'ok' if ok else 'FAIL'}] {name}")
-        if not ok:
-            print(f"        got: {got}")
 
-    def hook_wait_cases() -> None:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-        """A hook that declares no timeout is waited for as the platform gives its event; one that declares
-        a timeout, for that: read from the `Hook` that `hooks_of` builds, nothing is waited for. A hooks
-        file `hooks_of` cannot run, in each shape, is one BROKEN line and never another exception; one that
-        is a regular file and cannot be read (a denied read, an I/O error) has a line and fix of its own, and
-        so has one whose place cannot be looked up (a folder that cannot be searched, an I/O error)."""
-        with tempfile.TemporaryDirectory() as tmp:
-            hooked = Path(tmp)
-            (hooked / "hooks").mkdir()
-            bare_hook: dict[str, object] = {"type": "command", "command": "true"}
+def hook_spied_wait_case(tally: Tally, hooked: Path) -> None:
+    """`check_installed` hands `run` the wait `hooks_of` gives each hook, and no hook is run."""
+    # The wait `hooks_of` computes is the one `check_installed` hands `run`: `run` is spied, and
+    # answers at once, so that no hook runs and nothing is waited for.
+    (hooked / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+    (hooked / "repo").mkdir()
+    handed: dict[str, float] = {}
 
-            def hook_waits(hooks: dict[str, list[dict[str, object]]]) -> dict[str, float]:
-                """The seconds `hooks_of` gives each hook of a hooks file with one hook per event."""
-                table = {event: [{"hooks": [hook]}] for event, hook in ((e, h[0]) for e, h in hooks.items())}
-                (hooked / "hooks" / "hooks.json").write_text(json.dumps({"hooks": table}), encoding="utf-8")
-                return {hook.event: hook.timeout for hook in hooks_of(hooked)}
+    def run_spy(
+        argv: list[str],
+        cwd: Path,
+        env: dict[str, str],
+        stdin: str = "",
+        timeout: float = 300,
+        fix: str = "",
+    ) -> tuple[int, str, str]:
+        """`run`, but the timeout of each hook is kept by its event, and the hook is not run."""
+        handed[json.loads(stdin)["hook_event_name"]] = timeout
+        return 0, "", ""
 
-            for event, seconds in (  # typed by hand from the hooks reference, as read on 2026-10-08
-                ("PreToolUse", 600.0),
-                ("PostToolUse", 600.0),
-                ("SessionStart", 600.0),
-                ("Stop", 600.0),
-                ("UserPromptSubmit", 30.0),
-                ("PreModelSwitch", 30.0),
-                ("PostModelSwitch", 30.0),
-                ("MessageDisplay", 10.0),
-                ("SessionEnd", 1.5),
-                ("SomeEventTheKitDoesNotKnow", 600.0),
-            ):
-                got = hook_waits({event: [bare_hook]})
-                version_case(
-                    f"a {event} hook that declares no timeout is waited for {seconds:g} s",
-                    got == {event: seconds} and all(isinstance(s, float) for s in got.values()),
-                    str(got),
-                )
-            for event, declared in (
-                ("PreToolUse", 5),
-                ("UserPromptSubmit", 90),
-                ("SessionEnd", 5),
-                ("MessageDisplay", 2.5),
-                ("SomeEventTheKitDoesNotKnow", 1),
-            ):
-                got = hook_waits({event: [bare_hook | {"timeout": declared}]})
-                version_case(
-                    f"a {event} hook that declares a timeout of {declared:g} is waited for {declared:g} s",
-                    got == {event: float(declared)},
-                    str(got),
-                )
-            got = hook_waits(
-                {event: [bare_hook] for event in ("PreToolUse", "SessionEnd")}
-                | {"Stop": [bare_hook | {"timeout": 7}]}
-            )
-            version_case(
-                "the hooks of a file are each waited for by their own event and timeout",
-                got == {"PreToolUse": 600.0, "SessionEnd": 1.5, "Stop": 7.0},
-                str(got),
-            )
-            # The wait `hooks_of` computes is the one `check_installed` hands `run`: `run` is spied, and
-            # answers at once, so that no hook runs and nothing is waited for.
-            (hooked / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
-            (hooked / "repo").mkdir()
-            handed: dict[str, float] = {}
+    hook_waits_of(
+        hooked,
+        {"PreToolUse": [BARE_HOOK | {"timeout": 5}], "UserPromptSubmit": [BARE_HOOK]}
+        | {"Stop": [BARE_HOOK | {"timeout": 90}], "SessionEnd": [BARE_HOOK]},
+    )
+    with mock.patch.dict(globals(), {"run": run_spy}):
+        found = check_installed("const-x", hooked, hooked, hooked / "repo", hooked / "data")
+    version_case(
+        tally,
+        "`check_installed` runs each hook with the wait `hooks_of` gives it: the declared timeout"
+        " (5, 90), else the event's (30, 1.5), no hook run",
+        handed == {"PreToolUse": 5.0, "UserPromptSubmit": 30.0, "Stop": 90.0, "SessionEnd": 1.5}
+        and found == [],
+        f"{handed} {found}",
+    )
 
-            def run_spy(
-                argv: list[str],
-                cwd: Path,
-                env: dict[str, str],
-                stdin: str = "",
-                timeout: float = 300,
-                fix: str = "",
-            ) -> tuple[int, str, str]:
-                """`run`, but the timeout of each hook is kept by its event, and the hook is not run."""
-                handed[json.loads(stdin)["hook_event_name"]] = timeout
-                return 0, "", ""
 
-            hook_waits(
-                {"PreToolUse": [bare_hook | {"timeout": 5}], "UserPromptSubmit": [bare_hook]}
-                | {"Stop": [bare_hook | {"timeout": 90}], "SessionEnd": [bare_hook]}
-            )
-            with mock.patch.dict(globals(), {"run": run_spy}):
-                found = check_installed("const-x", hooked, hooked, hooked / "repo", hooked / "data")
-            version_case(
-                "`check_installed` runs each hook with the wait `hooks_of` gives it: the declared timeout"
-                " (5, 90), else the event's (30, 1.5), no hook run",
-                handed == {"PreToolUse": 5.0, "UserPromptSubmit": 30.0, "Stop": 90.0, "SessionEnd": 1.5}
-                and found == [],
-                f"{handed} {found}",
-            )
-            # The shapes of a hooks file `hooks_of` reads: one table, each case a whole file and either the
-            # hooks it gives or the whole BROKEN line, typed by hand; nothing but `Broken` may be raised. A
-            # line that holds the interpreter's own words for the reason is a pair instead: the line's start
-            # and its end, with a reason of any wording between them.
-            hooks_path = hooked / "hooks" / "hooks.json"
-            shape_fix = (  # typed by hand
-                " — fix: restore hooks/hooks.json to the shape the hooks reference gives, so that the check"
-                " can read each hook it runs"
-            )
-            at = "event 'PreToolUse', group 1, hook 1"
+def hook_shape_table(hooks_path: Path) -> list[HookShape]:
+    """The shapes of a hooks file `hooks_of` reads: each a whole file and either the hooks it gives or the
+    whole BROKEN line, typed by hand; nothing but `Broken` may be raised. A line that holds the
+    interpreter's own words for the reason is a pair instead: the line's start and its end, with a reason
+    of any wording between them."""
+    shape_fix = (  # typed by hand
+        " — fix: restore hooks/hooks.json to the shape the hooks reference gives, so that the check"
+        " can read each hook it runs"
+    )
+    at = "event 'PreToolUse', group 1, hook 1"
 
-            def single(hook: object, **group: object) -> str:
-                """A hooks file with one event, one group (with the keys of `group`) and one hook."""
-                return json.dumps({"hooks": {"PreToolUse": [{"hooks": [hook]} | group]}})
+    single, whole = single_hook_file, whole_hooks_file
 
-            def whole(table: object) -> str:
-                """A hooks file of the table, as it stands."""
-                return json.dumps({"hooks": table})
+    def not_hooks(detail: str) -> str:
+        return f"BROKEN {hooks_path} is not a hooks file ({detail}){shape_fix}"
 
-            def not_hooks(detail: str) -> str:
-                return f"BROKEN {hooks_path} is not a hooks file ({detail}){shape_fix}"
+    def not_read(why: str) -> str:
+        return (
+            f"BROKEN {hooks_path} cannot be read ({why}) — fix: make it a readable file (its"
+            f" permissions), or restore it with git checkout -- {hooks_path}, so that the check can"
+            f" read each hook it runs"
+        )
 
-            def not_read(why: str) -> str:
-                return (
-                    f"BROKEN {hooks_path} cannot be read ({why}) — fix: make it a readable file (its"
-                    f" permissions), or restore it with git checkout -- {hooks_path}, so that the check can"
-                    f" read each hook it runs"
-                )
+    def not_run(kind: str) -> str:
+        return (
+            f"BROKEN {hooks_path} holds a hook of type {kind} ({at}) that check-bare-install does"
+            f" not run — it runs only `command` hooks, and cannot prove a hook it does not run —"
+            f" fix: make it a `command` hook, or teach `hooks_of` and `check_installed` in"
+            f" scripts/check-bare-install.py to run a {kind} hook"
+        )
 
-            def not_run(kind: str) -> str:
-                return (
-                    f"BROKEN {hooks_path} holds a hook of type {kind} ({at}) that check-bare-install does"
-                    f" not run — it runs only `command` hooks, and cannot prove a hook it does not run —"
-                    f" fix: make it a `command` hook, or teach `hooks_of` and `check_installed` in"
-                    f" scripts/check-bare-install.py to run a {kind} hook"
-                )
-
-            cmd: dict[str, object] = {"type": "command", "command": "true"}
-            one = Hook("PreToolUse", "", "true", (), 600.0)
-            long_int = "1" + "0" * 400  # no float holds it
-            shapes: list[tuple[str, str | bytes | OSError, list[Hook] | str | tuple[str, str]]] = [
-                ("a command hook runs", single(cmd), [one]),
-                ("an http hook is BROKEN, not a skip", single({"type": "http", "url": "u"}), not_run("http")),
-                (
-                    "an mcp_tool hook is BROKEN, not a skip",
-                    single({"type": "mcp_tool", "server": "s", "tool": "t"}),
-                    not_run("mcp_tool"),
-                ),
-                (
-                    "a prompt hook is BROKEN, not a skip",
-                    single({"type": "prompt", "prompt": "p"}),
-                    not_run("prompt"),
-                ),
-                (
-                    "an agent hook is BROKEN, not a skip",
-                    single({"type": "agent", "prompt": "p"}),
-                    not_run("agent"),
-                ),
-                (
-                    "a hook with no type",
-                    single({"command": "true"}),
-                    not_hooks(f'{at}: "type" is absent'),
-                ),
-                (
-                    "a hook of type shell",
-                    single({"type": "shell", "command": "true"}),
-                    not_hooks(
-                        f"""{at}: "type" is 'shell', not one of command, http, mcp_tool, prompt, agent"""
-                    ),
-                ),
-                (
-                    "a hook of a type that is no string",
-                    single({"type": ["command"], "command": "true"}),
-                    not_hooks(
-                        f"""{at}: "type" is ['command'], not one of command, http, mcp_tool, prompt, agent"""
-                    ),
-                ),
-                (
-                    "a command hook with no command",
-                    single({"type": "command"}),
-                    not_hooks(f'{at}: "command" is absent'),
-                ),
-                (
-                    "a command that is a number",
-                    single({"type": "command", "command": 7}),
-                    not_hooks(f'{at}: "command" is 7, not a string'),
-                ),
-                (
-                    "a command that is a list",
-                    single({"type": "command", "command": ["sh", "-c"]}),
-                    not_hooks(f"""{at}: "command" is ['sh', '-c'], not a string"""),
-                ),
-                ("args absent", single(cmd), [one]),
-                ("args an empty list", single(cmd | {"args": []}), [one]),
-                (
-                    "args a list of strings",
-                    single(cmd | {"args": ["a", "b"]}),
-                    [Hook("PreToolUse", "", "true", ("a", "b"), 600.0)],
-                ),
-                (
-                    "args a string",
-                    single(cmd | {"args": "x"}),
-                    not_hooks(f"""{at}: "args" is 'x', not a list of strings"""),
-                ),
-                (
-                    "args a list holding a number",
-                    single(cmd | {"args": ["a", 1]}),
-                    not_hooks(f"""{at}: "args" is ['a', 1], not a list of strings"""),
-                ),
-                (
-                    "args null",
-                    single(cmd | {"args": None}),
-                    not_hooks(f"""{at}: "args" is None, not a list of strings"""),
-                ),
-                ("timeout absent, the event's default", single(cmd), [one]),
-                ("timeout 5", single(cmd | {"timeout": 5}), [replace(one, timeout=5.0)]),
-                ("timeout 5.5", single(cmd | {"timeout": 5.5}), [replace(one, timeout=5.5)]),
-                (
-                    "timeout 0 is a number and accepted",
-                    single(cmd | {"timeout": 0}),
-                    [replace(one, timeout=0.0)],
-                ),
-                (
-                    "timeout -1 is a number and accepted",
-                    single(cmd | {"timeout": -1}),
-                    [replace(one, timeout=-1.0)],
-                ),
-                (
-                    "timeout the string 5",
-                    single(cmd | {"timeout": "5"}),
-                    not_hooks(f"""{at}: "timeout" is '5', not a finite number of seconds"""),
-                ),
-                (
-                    "timeout true",
-                    single(cmd | {"timeout": True}),
-                    not_hooks(f'{at}: "timeout" is True, not a finite number of seconds'),
-                ),
-                (
-                    "timeout false",
-                    single(cmd | {"timeout": False}),
-                    not_hooks(f'{at}: "timeout" is False, not a finite number of seconds'),
-                ),
-                (
-                    "timeout null",
-                    single(cmd | {"timeout": None}),
-                    not_hooks(f'{at}: "timeout" is None, not a finite number of seconds'),
-                ),
-                (
-                    "timeout NaN",
-                    single(cmd | {"timeout": float("nan")}),
-                    not_hooks(f'{at}: "timeout" is nan, not a finite number of seconds'),
-                ),
-                (
-                    "timeout Infinity",
-                    single(cmd | {"timeout": float("inf")}),
-                    not_hooks(f'{at}: "timeout" is inf, not a finite number of seconds'),
-                ),
-                (
-                    "timeout -Infinity",
-                    single(cmd | {"timeout": float("-inf")}),
-                    not_hooks(f'{at}: "timeout" is -inf, not a finite number of seconds'),
-                ),
-                (
-                    "timeout an integer no float holds",
-                    '{"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "true", "timeout": '
-                    + long_int
-                    + "}]}]}}",
-                    not_hooks(f'{at}: "timeout" is {long_int[:200]}…, not a finite number of seconds'),
-                ),
-                (
-                    "timeout a list",
-                    single(cmd | {"timeout": [5]}),
-                    not_hooks(f'{at}: "timeout" is [5], not a finite number of seconds'),
-                ),
-                (
-                    "a hooks key that is a list",
-                    '{"hooks": []}',
-                    not_hooks('"hooks" is [], not an object of events'),
-                ),
-                (
-                    "an event whose value is no list",
-                    whole({"PreToolUse": {}}),
-                    not_hooks("event 'PreToolUse': {} is no list of groups"),
-                ),
-                (
-                    "a group that is no object",
-                    whole({"PreToolUse": ["x"]}),
-                    not_hooks("event 'PreToolUse', group 1: 'x' is no object"),
-                ),
-                (
-                    "a group without hooks",
-                    whole({"PreToolUse": [{"matcher": "Write"}]}),
-                    not_hooks("event 'PreToolUse', group 1: no \"hooks\" key"),
-                ),
-                (
-                    "a group whose hooks are no list",
-                    whole({"PreToolUse": [{"hooks": {}}]}),
-                    not_hooks("event 'PreToolUse', group 1: \"hooks\" is {}, not a list"),
-                ),
-                (
-                    "a hook that is a string",
-                    whole({"PreToolUse": [{"hooks": ["true"]}]}),
-                    not_hooks(f"{at}: 'true' is no object"),
-                ),
-                (
-                    "a matcher that is a number",
-                    single(cmd, matcher=7),
-                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is 7, not a string"),
-                ),
-                (
-                    "a matcher that is null",
-                    single(cmd, matcher=None),
-                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is None, not a string"),
-                ),
-                (
-                    "a matcher that is 0",
-                    single(cmd, matcher=0),
-                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is 0, not a string"),
-                ),
-                (
-                    "a matcher that is an empty list",
-                    single(cmd, matcher=[]),
-                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is [], not a string"),
-                ),
-                (
-                    "a matcher that is an empty object",
-                    single(cmd, matcher={}),
-                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is {}, not a string"),
-                ),
-                (
-                    "a matcher that is false",
-                    single(cmd, matcher=False),
-                    not_hooks("event 'PreToolUse', group 1: \"matcher\" is False, not a string"),
-                ),
-                (
-                    "a matcher that is the empty string is a string and accepted",
-                    single(cmd, matcher=""),
-                    [one],
-                ),
-                ("a matcher that is a string", single(cmd, matcher="Write"), [replace(one, matcher="Write")]),
-                (
-                    "the second hook of the second group is named by its place",
-                    whole({"Stop": [{"hooks": [cmd]}, {"hooks": [cmd, {"type": "command"}]}]}),
-                    not_hooks("event 'Stop', group 2, hook 2: \"command\" is absent"),
-                ),
-                (
-                    "hooks come in the order of the file: events, groups, hooks",
-                    whole(
-                        {
-                            "Stop": [
-                                {"matcher": "m", "hooks": [cmd | {"command": "a"}, cmd | {"command": "b"}]},
-                                {"hooks": [cmd | {"command": "c"}]},
-                            ],
-                            "PreToolUse": [{"hooks": [cmd | {"command": "d"}]}],
-                        }
-                    ),
-                    [
-                        Hook("Stop", "m", "a", (), 600.0),
-                        Hook("Stop", "m", "b", (), 600.0),
-                        Hook("Stop", "", "c", (), 600.0),
-                        Hook("PreToolUse", "", "d", (), 600.0),
+    cmd, one = BARE_HOOK, BARE_RUN
+    long_int = "1" + "0" * 400  # no float holds it
+    shapes: list[HookShape] = [
+        ("a command hook runs", single(cmd), [one]),
+        ("an http hook is BROKEN, not a skip", single({"type": "http", "url": "u"}), not_run("http")),
+        (
+            "an mcp_tool hook is BROKEN, not a skip",
+            single({"type": "mcp_tool", "server": "s", "tool": "t"}),
+            not_run("mcp_tool"),
+        ),
+        (
+            "a prompt hook is BROKEN, not a skip",
+            single({"type": "prompt", "prompt": "p"}),
+            not_run("prompt"),
+        ),
+        (
+            "an agent hook is BROKEN, not a skip",
+            single({"type": "agent", "prompt": "p"}),
+            not_run("agent"),
+        ),
+        (
+            "a hook with no type",
+            single({"command": "true"}),
+            not_hooks(f'{at}: "type" is absent'),
+        ),
+        (
+            "a hook of type shell",
+            single({"type": "shell", "command": "true"}),
+            not_hooks(f"""{at}: "type" is 'shell', not one of command, http, mcp_tool, prompt, agent"""),
+        ),
+        (
+            "a hook of a type that is no string",
+            single({"type": ["command"], "command": "true"}),
+            not_hooks(f"""{at}: "type" is ['command'], not one of command, http, mcp_tool, prompt, agent"""),
+        ),
+        (
+            "a command hook with no command",
+            single({"type": "command"}),
+            not_hooks(f'{at}: "command" is absent'),
+        ),
+        (
+            "a command that is a number",
+            single({"type": "command", "command": 7}),
+            not_hooks(f'{at}: "command" is 7, not a string'),
+        ),
+        (
+            "a command that is a list",
+            single({"type": "command", "command": ["sh", "-c"]}),
+            not_hooks(f"""{at}: "command" is ['sh', '-c'], not a string"""),
+        ),
+        ("args absent", single(cmd), [one]),
+        ("args an empty list", single(cmd | {"args": []}), [one]),
+        (
+            "args a list of strings",
+            single(cmd | {"args": ["a", "b"]}),
+            [Hook("PreToolUse", "", "true", ("a", "b"), 600.0)],
+        ),
+        (
+            "args a string",
+            single(cmd | {"args": "x"}),
+            not_hooks(f"""{at}: "args" is 'x', not a list of strings"""),
+        ),
+        (
+            "args a list holding a number",
+            single(cmd | {"args": ["a", 1]}),
+            not_hooks(f"""{at}: "args" is ['a', 1], not a list of strings"""),
+        ),
+        (
+            "args null",
+            single(cmd | {"args": None}),
+            not_hooks(f"""{at}: "args" is None, not a list of strings"""),
+        ),
+        ("timeout absent, the event's default", single(cmd), [one]),
+        ("timeout 5", single(cmd | {"timeout": 5}), [replace(one, timeout=5.0)]),
+        ("timeout 5.5", single(cmd | {"timeout": 5.5}), [replace(one, timeout=5.5)]),
+        (
+            "timeout 0 is a number and accepted",
+            single(cmd | {"timeout": 0}),
+            [replace(one, timeout=0.0)],
+        ),
+        (
+            "timeout -1 is a number and accepted",
+            single(cmd | {"timeout": -1}),
+            [replace(one, timeout=-1.0)],
+        ),
+        (
+            "timeout the string 5",
+            single(cmd | {"timeout": "5"}),
+            not_hooks(f"""{at}: "timeout" is '5', not a finite number of seconds"""),
+        ),
+        (
+            "timeout true",
+            single(cmd | {"timeout": True}),
+            not_hooks(f'{at}: "timeout" is True, not a finite number of seconds'),
+        ),
+        (
+            "timeout false",
+            single(cmd | {"timeout": False}),
+            not_hooks(f'{at}: "timeout" is False, not a finite number of seconds'),
+        ),
+        (
+            "timeout null",
+            single(cmd | {"timeout": None}),
+            not_hooks(f'{at}: "timeout" is None, not a finite number of seconds'),
+        ),
+        (
+            "timeout NaN",
+            single(cmd | {"timeout": float("nan")}),
+            not_hooks(f'{at}: "timeout" is nan, not a finite number of seconds'),
+        ),
+        (
+            "timeout Infinity",
+            single(cmd | {"timeout": float("inf")}),
+            not_hooks(f'{at}: "timeout" is inf, not a finite number of seconds'),
+        ),
+        (
+            "timeout -Infinity",
+            single(cmd | {"timeout": float("-inf")}),
+            not_hooks(f'{at}: "timeout" is -inf, not a finite number of seconds'),
+        ),
+        (
+            "timeout an integer no float holds",
+            '{"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": "true", "timeout": '
+            + long_int
+            + "}]}]}}",
+            not_hooks(f'{at}: "timeout" is {long_int[:200]}…, not a finite number of seconds'),
+        ),
+        (
+            "timeout a list",
+            single(cmd | {"timeout": [5]}),
+            not_hooks(f'{at}: "timeout" is [5], not a finite number of seconds'),
+        ),
+        (
+            "a hooks key that is a list",
+            '{"hooks": []}',
+            not_hooks('"hooks" is [], not an object of events'),
+        ),
+        (
+            "an event whose value is no list",
+            whole({"PreToolUse": {}}),
+            not_hooks("event 'PreToolUse': {} is no list of groups"),
+        ),
+        (
+            "a group that is no object",
+            whole({"PreToolUse": ["x"]}),
+            not_hooks("event 'PreToolUse', group 1: 'x' is no object"),
+        ),
+        (
+            "a group without hooks",
+            whole({"PreToolUse": [{"matcher": "Write"}]}),
+            not_hooks("event 'PreToolUse', group 1: no \"hooks\" key"),
+        ),
+        (
+            "a group whose hooks are no list",
+            whole({"PreToolUse": [{"hooks": {}}]}),
+            not_hooks("event 'PreToolUse', group 1: \"hooks\" is {}, not a list"),
+        ),
+        (
+            "a hook that is a string",
+            whole({"PreToolUse": [{"hooks": ["true"]}]}),
+            not_hooks(f"{at}: 'true' is no object"),
+        ),
+        (
+            "a matcher that is a number",
+            single(cmd, matcher=7),
+            not_hooks("event 'PreToolUse', group 1: \"matcher\" is 7, not a string"),
+        ),
+        (
+            "a matcher that is null",
+            single(cmd, matcher=None),
+            not_hooks("event 'PreToolUse', group 1: \"matcher\" is None, not a string"),
+        ),
+        (
+            "a matcher that is 0",
+            single(cmd, matcher=0),
+            not_hooks("event 'PreToolUse', group 1: \"matcher\" is 0, not a string"),
+        ),
+        (
+            "a matcher that is an empty list",
+            single(cmd, matcher=[]),
+            not_hooks("event 'PreToolUse', group 1: \"matcher\" is [], not a string"),
+        ),
+        (
+            "a matcher that is an empty object",
+            single(cmd, matcher={}),
+            not_hooks("event 'PreToolUse', group 1: \"matcher\" is {}, not a string"),
+        ),
+        (
+            "a matcher that is false",
+            single(cmd, matcher=False),
+            not_hooks("event 'PreToolUse', group 1: \"matcher\" is False, not a string"),
+        ),
+        (
+            "a matcher that is the empty string is a string and accepted",
+            single(cmd, matcher=""),
+            [one],
+        ),
+        ("a matcher that is a string", single(cmd, matcher="Write"), [replace(one, matcher="Write")]),
+        (
+            "the second hook of the second group is named by its place",
+            whole({"Stop": [{"hooks": [cmd]}, {"hooks": [cmd, {"type": "command"}]}]}),
+            not_hooks("event 'Stop', group 2, hook 2: \"command\" is absent"),
+        ),
+        (
+            "hooks come in the order of the file: events, groups, hooks",
+            whole(
+                {
+                    "Stop": [
+                        {"matcher": "m", "hooks": [cmd | {"command": "a"}, cmd | {"command": "b"}]},
+                        {"hooks": [cmd | {"command": "c"}]},
                     ],
-                ),
-                (
-                    "a hooks file that is not JSON",
-                    "not json",
-                    not_hooks("Expecting value: line 1 column 1 (char 0)"),
-                ),
-                ("a top level that is a list", "[]", not_hooks("the top level is [], not a JSON object")),
-                ("a top level without hooks", "{}", not_hooks('the top level has no "hooks" key')),
-                (
-                    "a file that is not UTF-8",
-                    b"\xff",
-                    not_hooks("'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"),
-                ),
-                (
-                    "a value with a line break is quoted on one line",
-                    whole({"Pre\nTool": [{"hooks": [cmd | {"command": "a\nb", "timeout": "5\n6"}]}]}),
-                    not_hooks(
-                        "event 'Pre\\nTool', group 1, hook 1:"
-                        """ "timeout" is '5\\n6', not a finite number of seconds"""
-                    ),
-                ),
-                (
-                    "a file nested too deep to be read",
-                    "[" * 100000,
-                    (f"BROKEN {hooks_path} is not a hooks file (", f"){shape_fix}"),
-                ),
-                # A file that is there and cannot be read: the read is made to raise (a chmod alone would
-                # not hold when run as root), and the line is its own, never the shape fix.
-                (
-                    "a hooks file that is denied",
-                    PermissionError(13, "Permission denied"),
-                    not_read("Permission denied"),
-                ),
-                (
-                    "a hooks file with an I/O error",
-                    OSError(5, "Input/output error"),
-                    not_read("Input/output error"),
-                ),
-            ]
-            for name, text, want in shapes:
-                reading: contextlib.AbstractContextManager[object] = contextlib.nullcontext()
-                if isinstance(text, OSError):
-                    hooks_path.write_text("{}", encoding="utf-8")  # the file is there; the read fails
-                    reading = mock.patch.object(Path, "read_text", side_effect=text)
-                elif isinstance(text, bytes):
-                    hooks_path.write_bytes(text)
-                else:
-                    hooks_path.write_text(text, encoding="utf-8")
-                try:
-                    with reading:
-                        got_shape: list[Hook] | str = hooks_of(hooked)
-                except Broken as broken:
-                    got_shape = f"BROKEN {broken}"
-                except Exception as other:  # any other is the defect this table holds
-                    got_shape = f"raised {type(other).__name__}: {other}"
-                if isinstance(want, tuple):
-                    start, end = want
-                    got_text = got_shape if isinstance(got_shape, str) else ""
-                    shape_ok = (
-                        got_text.startswith(start)
-                        and got_text.endswith(end)
-                        and len(got_text) > len(start) + len(end)
-                    )
-                else:
-                    shape_ok = got_shape == want
-                version_case(f"hooks file: {name}", shape_ok, str(got_shape))
-            with tempfile.TemporaryDirectory() as other_tmp:  # a real folder, nothing mocked
-                (Path(other_tmp) / "hooks" / "hooks.json").mkdir(parents=True)
-                try:
-                    got_folder: list[Hook] | str = hooks_of(Path(other_tmp))
-                except Exception as other:  # a Broken here too is the defect this case holds
-                    got_folder = f"raised {type(other).__name__}: {other}"
-                version_case(
-                    "hooks file: a folder in its place gives no hooks, as a missing file does",
-                    got_folder == [],
-                    str(got_folder),
-                )
-            # A hooks file whose place cannot be looked up (its folder cannot be searched, an I/O error):
-            # the lookup `Path.stat` makes is made to raise, and the line is its own, since the file's
-            # permissions and `git checkout` do not mend a folder that cannot be searched. `Path.is_file` is
-            # made to return False meanwhile, as it does from release 3.14 on, so that a lookup made by it
-            # fails here on every Python, as it does on 3.14 for the real folder below.
-            not_found = (  # typed by hand; the folder is the one the fix names
-                "BROKEN {path} cannot be looked up ({why}) — fix: make its folder {folder} searchable (its"
-                " permissions), so that the check can find hooks/hooks.json and read each hook it runs"
-            )
-            for name, lookup, why in (
-                (
-                    "a hooks folder that cannot be searched",
-                    PermissionError(13, "Permission denied"),
-                    "Permission denied",
-                ),
-                (
-                    "a hooks file whose lookup has an I/O error",
-                    OSError(5, "Input/output error"),
-                    "Input/output error",
-                ),
-            ):
-                try:
-                    with (
-                        mock.patch.object(Path, "stat", side_effect=lookup),
-                        mock.patch.object(Path, "is_file", return_value=False),
-                    ):
-                        got_lookup: list[Hook] | str = hooks_of(hooked)
-                except Broken as broken:
-                    got_lookup = f"BROKEN {broken}"
-                except Exception as other:  # any other is the defect this case holds
-                    got_lookup = f"raised {type(other).__name__}: {other}"
-                version_case(
-                    f"hooks file: {name}",
-                    got_lookup == not_found.format(path=hooks_path, why=why, folder=hooks_path.parent),
-                    str(got_lookup),
-                )
-            # What stands at hooks/hooks.json, real and nothing mocked: a dangling link, a link to itself (a
-            # loop) and a path through a file are no hooks file, as a missing file is none; a link to a folder
-            # is no regular file; a link to a regular file is that file, read.
-            for name, kind, want_links in (
-                ("a dangling link", "dangling", []),
-                ("a link loop", "loop", []),
-                ("a path through a file", "through a file", []),
-                ("a link to a folder", "to a folder", []),
-                ("a link to a regular file", "to a file", [one]),
-            ):
-                with tempfile.TemporaryDirectory() as link_tmp:
-                    link_root = Path(link_tmp)
-                    link_place = link_root / "hooks" / "hooks.json"
-                    if kind == "through a file":
-                        (link_root / "hooks").write_text("", encoding="utf-8")  # hooks is a file
-                    else:
-                        (link_root / "hooks").mkdir()
-                        if kind == "dangling":
-                            link_place.symlink_to("nowhere.json")
-                        elif kind == "loop":
-                            link_place.symlink_to("hooks.json")  # itself
-                        elif kind == "to a folder":
-                            (link_root / "real").mkdir()
-                            link_place.symlink_to("../real")
-                        else:
-                            (link_root / "real.json").write_text(single(cmd), encoding="utf-8")
-                            link_place.symlink_to("../real.json")
-                    try:
-                        got_link: list[Hook] | str = hooks_of(link_root)
-                    except Exception as other:  # a Broken here too is the defect this case holds
-                        got_link = f"raised {type(other).__name__}: {other}"
-                    version_case(f"hooks file: {name} at its place", got_link == want_links, str(got_link))
-            if os.geteuid() != 0:  # root searches any folder: there, the mocked cases above are the proof
-                with tempfile.TemporaryDirectory() as shut_tmp:
-                    shut = Path(shut_tmp) / "hooks"
-                    shut.mkdir()
-                    (shut / "hooks.json").write_text("{}", encoding="utf-8")
-                    shut.chmod(0o000)  # a real folder that cannot be searched; its mode is restored below
-                    try:
-                        got_shut: list[Hook] | str = hooks_of(Path(shut_tmp))
-                    except Broken as broken:
-                        got_shut = f"BROKEN {broken}"
-                    except Exception as other:  # any other is the defect this case holds
-                        got_shut = f"raised {type(other).__name__}: {other}"
-                    finally:
-                        shut.chmod(0o755)
-                    version_case(
-                        "hooks file: a real hooks folder with no permissions is the line naming the folder",
-                        got_shut
-                        == not_found.format(path=shut / "hooks.json", why="Permission denied", folder=shut),
-                        str(got_shut),
-                    )
-
-    def start_and_lookup_cases() -> None:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-        """A command `run` cannot start and a path the check cannot look at are each one BROKEN line, never a
-        traceback and never a missing path read in the place of one that cannot be searched: `run` turns any
-        `OSError` of starting the command and a `ValueError` (a NUL byte) into a line naming the command, the
-        reason and a fix (the hook's own where a hook is run), the not-found and timeout branches as they
-        were; `file_at`, `folder_at`, `there` and `link_at` tell a missing path (no entry, a path through a
-        file, a link loop, a NUL in the name), whose meaning each site keeps, from one that cannot be
-        searched, a line naming the path and the folder to open, on every Python (`Path.is_file` and
-        `exists` return False for it from release 3.14 on). No existing case fits: the hook cases read a
-        hooks file, the bare-repository cases git's exits, and the rest a `claude`; the lookups are in
-        different functions of the check, so this table is new; its real folders of mode 000 are skipped as
-        root, which searches any folder."""
-        fix_run = (
-            "give it a command that exists and can run, with no NUL byte in it or its arguments: a program on"
-            " PATH, or a file with the execute permission (`chmod u+x` it), then run the check again"
-        )
-        fix_hook = (
-            'give the hook\'s "command" and "args" in the module\'s hooks/hooks.json a command that'
-            " exists and can run, with no NUL byte in it or its arguments: a program on PATH, or a file of"
-            " the module with the execute permission (`chmod u+x` it, and commit the mode), then run the"
-            " check again"
-        )
-
-        def said(call: Callable[[], object]) -> str:
-            """What the call does: its result, or the BROKEN line it raises, or the other exception."""
-            try:
-                return f"returned {call()!r}"
-            except Broken as bad:
-                return f"BROKEN: {bad}"
-            except Exception as other:  # any other is the defect these cases hold
-                return f"raised {type(other).__name__}: {other}"
-
-        def cannot_search(path: Path, folder: Path) -> str:
-            """The line for a path under a folder that refuses the search, typed by hand."""
-            return (
-                f"BROKEN: {path} cannot be searched (Permission denied) — fix: give the folder {folder}"
-                f" search permission, `chmod u+rx '{folder}'`, then run the check again"
-            )
-
-        def declared_of(plugin_at: Path) -> str:
-            return said(lambda: declared_scans(plugin_at))
-
-        def started(argv: list[str]) -> str:
-            return said(lambda: run(argv, Path.cwd(), dict(os.environ)))
-
-        for name, raised, why in (
-            ("a PermissionError", PermissionError(13, "Permission denied"), "Permission denied"),
-            ("an OSError of another kind", OSError(8, "Exec format error"), "Exec format error"),
-            ("an OSError with no reason", OSError("odd"), "odd"),
-            ("a NotADirectoryError", NotADirectoryError(20, "Not a directory"), "Not a directory"),
-            ("a ValueError", ValueError("embedded null byte"), "embedded null byte"),
-        ):
-            with mock.patch("subprocess.run", side_effect=raised):
-                got_start = started(["tool", "-x"])
-            version_case(
-                f"run: {name} of starting a command is one BROKEN line naming the command",
-                got_start
-                == f"BROKEN: the command ['tool', '-x'] could not be started ({why}) — fix: {fix_run}",
-                got_start,
-            )
-        with mock.patch("subprocess.run", side_effect=FileNotFoundError(2, "No such file or directory")):
-            got_start = started(["tool"])
-        version_case(
-            "run: a command that is not found is the line it was, install it",
-            got_start
-            == "BROKEN: tool is not installed (No such file or directory) — fix: install it and put it on"
-            " PATH",
-            got_start,
-        )
-        with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["tool"], 5)):
-            got_start = started(["tool"])
-        version_case(
-            "run: a command that outlasts its time is still the exit 124",
-            got_start == "returned (124, '', 'timed out after 300 s')",
-            got_start,
-        )
-        with tempfile.TemporaryDirectory() as run_tmp:
-            plain = Path(run_tmp) / "plain"
-            plain.write_text("#!/bin/sh\n", encoding="utf-8")
-            plain.chmod(0o644)
-            got_start = said(lambda: run([str(plain)], Path(run_tmp), dict(os.environ)))
-            version_case(
-                "run: a file with no execute permission is one BROKEN line naming it",
-                got_start
-                == f"BROKEN: the command [{str(plain)!r}] could not be started (Permission denied) — fix:"
-                f" {fix_run}",
-                got_start,
-            )
-        got_start = started(["a\0b"])
-        version_case(
-            "run: a command holding a NUL byte is one BROKEN line naming it, escaped",
-            got_start
-            == f"BROKEN: the command ['a\\x00b'] could not be started (embedded null byte) — fix: {fix_run}",
-            got_start,
-        )
-        got_start = started(["a\0b" + "x" * 300])
-        cut_at = repr(["a\0b" + "x" * 300])[:200]
-        version_case(
-            "run: a long command is cut at 200 characters, as every quoted reply is",
-            got_start
-            == f"BROKEN: the command {cut_at}… could not be started (embedded null byte) — fix: {fix_run}",
-            got_start,
-        )
-        got_start = started([""])  # a PermissionError here, a missing file on Linux: both name the command
-        version_case(
-            "run: an empty command is one BROKEN line, never a traceback",
-            got_start
-            in (
-                f"BROKEN: the command [''] could not be started (Permission denied) — fix: {fix_run}",
-                "BROKEN: '' is not installed (No such file or directory) — fix: install it and put it on"
-                " PATH",
+                    "PreToolUse": [{"hooks": [cmd | {"command": "d"}]}],
+                }
             ),
-            got_start,
-        )
-        # A command that is not found is echoed as `shown` quotes it when it is no plain word, so that a
-        # space, a quote or a line break reads as one token; a working folder that does not exist is its own
-        # cause, whichever command is asked for. Both are real, no process mocked.
-        got_start = started(["my tool's\nname"])
+            [
+                Hook("Stop", "m", "a", (), 600.0),
+                Hook("Stop", "m", "b", (), 600.0),
+                Hook("Stop", "", "c", (), 600.0),
+                Hook("PreToolUse", "", "d", (), 600.0),
+            ],
+        ),
+        (
+            "a hooks file that is not JSON",
+            "not json",
+            not_hooks("Expecting value: line 1 column 1 (char 0)"),
+        ),
+        ("a top level that is a list", "[]", not_hooks("the top level is [], not a JSON object")),
+        ("a top level without hooks", "{}", not_hooks('the top level has no "hooks" key')),
+        (
+            "a file that is not UTF-8",
+            b"\xff",
+            not_hooks("'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"),
+        ),
+        (
+            "a value with a line break is quoted on one line",
+            whole({"Pre\nTool": [{"hooks": [cmd | {"command": "a\nb", "timeout": "5\n6"}]}]}),
+            not_hooks(
+                "event 'Pre\\nTool', group 1, hook 1:"
+                """ "timeout" is '5\\n6', not a finite number of seconds"""
+            ),
+        ),
+        (
+            "a file nested too deep to be read",
+            "[" * 100000,
+            (f"BROKEN {hooks_path} is not a hooks file (", f"){shape_fix}"),
+        ),
+        # A file that is there and cannot be read: the read is made to raise (a chmod alone would
+        # not hold when run as root), and the line is its own, never the shape fix.
+        (
+            "a hooks file that is denied",
+            PermissionError(13, "Permission denied"),
+            not_read("Permission denied"),
+        ),
+        (
+            "a hooks file with an I/O error",
+            OSError(5, "Input/output error"),
+            not_read("Input/output error"),
+        ),
+    ]
+    return shapes
+
+
+def hooks_file_shape_cases(tally: Tally, hooked: Path) -> None:
+    """Each shape of a hooks file is read as the table says; nothing but `Broken` may be raised."""
+    hooks_path = hooked / "hooks" / "hooks.json"
+    for name, text, want in hook_shape_table(hooks_path):
+        reading: contextlib.AbstractContextManager[object] = contextlib.nullcontext()
+        if isinstance(text, OSError):
+            hooks_path.write_text("{}", encoding="utf-8")  # the file is there; the read fails
+            reading = mock.patch.object(Path, "read_text", side_effect=text)
+        elif isinstance(text, bytes):
+            hooks_path.write_bytes(text)
+        else:
+            hooks_path.write_text(text, encoding="utf-8")
+        try:
+            with reading:
+                got_shape: list[Hook] | str = hooks_of(hooked)
+        except Broken as broken:
+            got_shape = f"BROKEN {broken}"
+        except Exception as other:  # any other is the defect this table holds
+            got_shape = f"raised {type(other).__name__}: {other}"
+        if isinstance(want, tuple):
+            start, end = want
+            got_text = got_shape if isinstance(got_shape, str) else ""
+            shape_ok = (
+                got_text.startswith(start)
+                and got_text.endswith(end)
+                and len(got_text) > len(start) + len(end)
+            )
+        else:
+            shape_ok = got_shape == want
+        version_case(tally, f"hooks file: {name}", shape_ok, str(got_shape))
+
+
+def hooks_folder_case(tally: Tally) -> None:
+    """A folder in the hooks file's place gives no hooks, as a missing file does."""
+    with tempfile.TemporaryDirectory() as other_tmp:  # a real folder, nothing mocked
+        (Path(other_tmp) / "hooks" / "hooks.json").mkdir(parents=True)
+        try:
+            got_folder: list[Hook] | str = hooks_of(Path(other_tmp))
+        except Exception as other:  # a Broken here too is the defect this case holds
+            got_folder = f"raised {type(other).__name__}: {other}"
         version_case(
-            "run: a command with a space, a quote and a line break, not found, is quoted as one token",
+            tally,
+            "hooks file: a folder in its place gives no hooks, as a missing file does",
+            got_folder == [],
+            str(got_folder),
+        )
+
+
+def hook_lookup_cases(tally: Tally, hooked: Path) -> None:
+    """A hooks file whose place cannot be looked up is the line naming the folder to open."""
+    hooks_path = hooked / "hooks" / "hooks.json"
+    # A hooks file whose place cannot be looked up (its folder cannot be searched, an I/O error):
+    # the lookup `Path.stat` makes is made to raise, and the line is its own, since the file's
+    # permissions and `git checkout` do not mend a folder that cannot be searched. `Path.is_file` is
+    # made to return False meanwhile, as it does from release 3.14 on, so that a lookup made by it
+    # fails here on every Python, as it does on 3.14 for the real folder below.
+    for name, lookup, why in (
+        (
+            "a hooks folder that cannot be searched",
+            PermissionError(13, "Permission denied"),
+            "Permission denied",
+        ),
+        (
+            "a hooks file whose lookup has an I/O error",
+            OSError(5, "Input/output error"),
+            "Input/output error",
+        ),
+    ):
+        try:
+            with (
+                mock.patch.object(Path, "stat", side_effect=lookup),
+                mock.patch.object(Path, "is_file", return_value=False),
+            ):
+                got_lookup: list[Hook] | str = hooks_of(hooked)
+        except Broken as broken:
+            got_lookup = f"BROKEN {broken}"
+        except Exception as other:  # any other is the defect this case holds
+            got_lookup = f"raised {type(other).__name__}: {other}"
+        version_case(
+            tally,
+            f"hooks file: {name}",
+            got_lookup == HOOKS_NOT_FOUND.format(path=hooks_path, why=why, folder=hooks_path.parent),
+            str(got_lookup),
+        )
+
+
+def hook_link_cases(tally: Tally) -> None:
+    """What stands at hooks/hooks.json, real and nothing mocked, is a hooks file or none."""
+    # What stands at hooks/hooks.json, real and nothing mocked: a dangling link, a link to itself (a
+    # loop) and a path through a file are no hooks file, as a missing file is none; a link to a folder
+    # is no regular file; a link to a regular file is that file, read.
+    for name, kind, want_links in (
+        ("a dangling link", "dangling", []),
+        ("a link loop", "loop", []),
+        ("a path through a file", "through a file", []),
+        ("a link to a folder", "to a folder", []),
+        ("a link to a regular file", "to a file", [BARE_RUN]),
+    ):
+        with tempfile.TemporaryDirectory() as link_tmp:
+            link_root = Path(link_tmp)
+            link_place = link_root / "hooks" / "hooks.json"
+            if kind == "through a file":
+                (link_root / "hooks").write_text("", encoding="utf-8")  # hooks is a file
+            else:
+                (link_root / "hooks").mkdir()
+                if kind == "dangling":
+                    link_place.symlink_to("nowhere.json")
+                elif kind == "loop":
+                    link_place.symlink_to("hooks.json")  # itself
+                elif kind == "to a folder":
+                    (link_root / "real").mkdir()
+                    link_place.symlink_to("../real")
+                else:
+                    (link_root / "real.json").write_text(single_hook_file(BARE_HOOK), encoding="utf-8")
+                    link_place.symlink_to("../real.json")
+            try:
+                got_link: list[Hook] | str = hooks_of(link_root)
+            except Exception as other:  # a Broken here too is the defect this case holds
+                got_link = f"raised {type(other).__name__}: {other}"
+            version_case(tally, f"hooks file: {name} at its place", got_link == want_links, str(got_link))
+
+
+def hook_shut_case(tally: Tally) -> None:
+    """A real hooks folder that cannot be searched is the line naming it (not as root)."""
+    if os.geteuid() != 0:  # root searches any folder: there, the mocked cases above are the proof
+        with tempfile.TemporaryDirectory() as shut_tmp:
+            shut = Path(shut_tmp) / "hooks"
+            shut.mkdir()
+            (shut / "hooks.json").write_text("{}", encoding="utf-8")
+            shut.chmod(0o000)  # a real folder that cannot be searched; its mode is restored below
+            try:
+                got_shut: list[Hook] | str = hooks_of(Path(shut_tmp))
+            except Broken as broken:
+                got_shut = f"BROKEN {broken}"
+            except Exception as other:  # any other is the defect this case holds
+                got_shut = f"raised {type(other).__name__}: {other}"
+            finally:
+                shut.chmod(0o755)
+            version_case(
+                tally,
+                "hooks file: a real hooks folder with no permissions is the line naming the folder",
+                got_shut
+                == HOOKS_NOT_FOUND.format(path=shut / "hooks.json", why="Permission denied", folder=shut),
+                str(got_shut),
+            )
+
+
+def hook_wait_cases(tally: Tally) -> None:
+    """A hook that declares no timeout is waited for as the platform gives its event; one that declares
+    a timeout, for that: read from the `Hook` that `hooks_of` builds, nothing is waited for. A hooks
+    file `hooks_of` cannot run, in each shape, is one BROKEN line and never another exception; one that
+    is a regular file and cannot be read (a denied read, an I/O error) has a line and fix of its own, and
+    so has one whose place cannot be looked up (a folder that cannot be searched, an I/O error)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        hooked = Path(tmp)
+        (hooked / "hooks").mkdir()
+        hook_default_wait_cases(tally, hooked)
+        hook_spied_wait_case(tally, hooked)
+        hooks_file_shape_cases(tally, hooked)
+        hooks_folder_case(tally)
+        hook_lookup_cases(tally, hooked)
+        hook_link_cases(tally)
+        hook_shut_case(tally)
+
+
+TYPED_RUN_FIX = (
+    "give it a command that exists and can run, with no NUL byte in it or its arguments: a program on"
+    " PATH, or a file with the execute permission (`chmod u+x` it), then run the check again"
+)
+TYPED_HOOK_FIX = (
+    'give the hook\'s "command" and "args" in the module\'s hooks/hooks.json a command that'
+    " exists and can run, with no NUL byte in it or its arguments: a program on PATH, or a file of"
+    " the module with the execute permission (`chmod u+x` it, and commit the mode), then run the"
+    " check again"
+)
+
+
+def result_of(call: Callable[[], object]) -> str:
+    """What the call does: its result, or the BROKEN line it raises, or the other exception."""
+    try:
+        return f"returned {call()!r}"
+    except Broken as bad:
+        return f"BROKEN: {bad}"
+    except Exception as other:  # any other is the defect these cases hold
+        return f"raised {type(other).__name__}: {other}"
+
+
+def cannot_search(path: Path, folder: Path) -> str:
+    """The line for a path under a folder that refuses the search, typed by hand."""
+    return (
+        f"BROKEN: {path} cannot be searched (Permission denied) — fix: give the folder {folder}"
+        f" search permission, `chmod u+rx '{folder}'`, then run the check again"
+    )
+
+
+def declared_of(plugin_at: Path) -> str:
+    return result_of(lambda: declared_scans(plugin_at))
+
+
+def started(argv: list[str]) -> str:
+    return result_of(lambda: run(argv, Path.cwd(), dict(os.environ)))
+
+
+# A folder the walks cannot list, and a file they cannot read: the walks (`files_under`, the
+# source's and the copy's links in `link_findings`, a link's target folder, `counted`) each give one
+# BROKEN line naming the folder, the same on every Python (`Path.rglob` raises on one and lists
+# nothing on the other), and the byte comparisons of `link_findings` (a folder link's files, its
+# differing files, a file link) one naming the file. The listing and the read are made to raise
+# here, so that the cases hold as root too; the real folder and file of mode 000 follow below. No
+# existing case fits: the walk cases above hold an entry that cannot be looked at, in a folder that
+# lists, and the read cases a hooks file; these two failures are new.
+def cannot_list(folder: Path) -> str:
+    return (
+        f"BROKEN: {folder} cannot be listed (Permission denied) — fix: give the folder {folder}"
+        f" search permission, `chmod u+rx {shlex.quote(str(folder))}`, then run the check again"
+    )
+
+
+def cannot_read(path: Path, installed: bool) -> str:
+    fix = (
+        "run the check again, and if it repeats, report that the install wrote a file the check"
+        " cannot read, at the version the kit pins"
+        if installed
+        else f"give the file read permission, `chmod u+r {shlex.quote(str(path))}`, then run the check again"
+    )
+    return f"BROKEN: {path} cannot be read (Permission denied) — fix: {fix}"
+
+
+def walk_fixtures(root: Path, bad: Path) -> list[tuple[str, Callable[[], object]]]:
+    """The walk sites, each reaching the folder `bad`: as the source, as the copy, as a link's target,
+    and in the count."""
+    empty = root / "empty copy"
+    links_source = root / "links source"
+    target_source, target_copy = root / "target source", root / "target copy"
+    for folder in (empty, links_source, target_source, target_copy):
+        folder.mkdir(parents=True)
+    (links_source / "ln.txt").symlink_to("../outside.txt")
+    (target_source / "shared").symlink_to(bad)
+    (target_copy / "shared").mkdir()
+    return [
+        ("files_under", lambda: files_under(bad)),
+        ("the source's links", lambda: link_findings("m", bad, empty)),
+        ("the copy's extra links", lambda: link_findings("m", links_source, bad)),
+        ("a link's target folder", lambda: link_findings("m", target_source, target_copy)),
+        ("the count of the source", lambda: counted(bad)),
+    ]
+
+
+def bytes_fixture(root: Path) -> tuple[Path, Path, Path]:
+    """A source with a link to a folder of two files and a link to a file, and a copy that holds the
+    same bytes: the source, the copy, and the folder the first link leads to (its `locked.txt` is the
+    file the cases make unreadable)."""
+    folder = root / "shared dir"
+    folder.mkdir(parents=True)
+    (folder / "a.txt").write_text("a", encoding="utf-8")
+    (folder / "locked.txt").write_text("l", encoding="utf-8")
+    (root / "outside.txt").write_text("o", encoding="utf-8")
+    source = root / "source"
+    (source / "scripts").mkdir(parents=True)
+    (source / "scripts" / "shared").symlink_to(folder)
+    (source / "scripts" / "one.txt").symlink_to("../../outside.txt")
+    copy = root / "copy"
+    shutil.copytree(folder, copy / "scripts" / "shared")
+    shutil.copy(root / "outside.txt", copy / "scripts" / "one.txt")
+    return source, copy, folder
+
+
+def run_start_cases(tally: Tally) -> None:
+    """`run` turns a command that cannot start into one BROKEN line naming it, with the right fix."""
+    for name, raised, why in (
+        ("a PermissionError", PermissionError(13, "Permission denied"), "Permission denied"),
+        ("an OSError of another kind", OSError(8, "Exec format error"), "Exec format error"),
+        ("an OSError with no reason", OSError("odd"), "odd"),
+        ("a NotADirectoryError", NotADirectoryError(20, "Not a directory"), "Not a directory"),
+        ("a ValueError", ValueError("embedded null byte"), "embedded null byte"),
+    ):
+        with mock.patch("subprocess.run", side_effect=raised):
+            got_start = started(["tool", "-x"])
+        version_case(
+            tally,
+            f"run: {name} of starting a command is one BROKEN line naming the command",
             got_start
-            == 'BROKEN: "my tool\'s\\nname" is not installed (No such file or directory) — fix: install it'
-            " and put it on PATH",
+            == f"BROKEN: the command ['tool', '-x'] could not be started ({why}) — fix: {TYPED_RUN_FIX}",
             got_start,
         )
-        with tempfile.TemporaryDirectory() as gone_tmp:
-            gone = Path(gone_tmp) / "gone dir"
-            no_folder = (
-                f"BROKEN: the working folder {gone} does not exist — fix: make the folder"
-                f" (`mkdir -p '{gone}'`), then run the check again"
-            )
-            for name, argv in (
-                ("an existing command", ["sh", "-c", "true"]),
-                ("a missing one", ["no-such-tool"]),
-            ):
-                got_start = said(partial(run, argv, gone, dict(os.environ)))
-                version_case(
-                    f"run: a working folder that does not exist is named, not {name} read as not installed",
-                    got_start == no_folder,
-                    got_start,
-                )
-        with (
-            tempfile.TemporaryDirectory() as hook_tmp
-        ):  # a hook run through check_installed has the hook's fix
-            hooked_root = Path(hook_tmp)
-            (hooked_root / "hooks").mkdir()
-            (hooked_root / "repo").mkdir()
-            (hooked_root / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
-            nul_hook = {
-                "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "\0tool", "args": []}]}]}
-            }
-            (hooked_root / "hooks" / "hooks.json").write_text(json.dumps(nul_hook), encoding="utf-8")
-            got_start = said(
-                lambda: check_installed("m", hooked_root, hooked_root, hooked_root / "repo", hooked_root)
-            )
+    with mock.patch("subprocess.run", side_effect=FileNotFoundError(2, "No such file or directory")):
+        got_start = started(["tool"])
+    version_case(
+        tally,
+        "run: a command that is not found is the line it was, install it",
+        got_start
+        == "BROKEN: tool is not installed (No such file or directory) — fix: install it and put it on"
+        " PATH",
+        got_start,
+    )
+    with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["tool"], 5)):
+        got_start = started(["tool"])
+    version_case(
+        tally,
+        "run: a command that outlasts its time is still the exit 124",
+        got_start == "returned (124, '', 'timed out after 300 s')",
+        got_start,
+    )
+    with tempfile.TemporaryDirectory() as run_tmp:
+        plain = Path(run_tmp) / "plain"
+        plain.write_text("#!/bin/sh\n", encoding="utf-8")
+        plain.chmod(0o644)
+        got_start = result_of(lambda: run([str(plain)], Path(run_tmp), dict(os.environ)))
+        version_case(
+            tally,
+            "run: a file with no execute permission is one BROKEN line naming it",
+            got_start
+            == f"BROKEN: the command [{str(plain)!r}] could not be started (Permission denied) — fix:"
+            f" {TYPED_RUN_FIX}",
+            got_start,
+        )
+    got_start = started(["a\0b"])
+    version_case(
+        tally,
+        "run: a command holding a NUL byte is one BROKEN line naming it, escaped",
+        got_start == f"BROKEN: the command ['a\\x00b'] could not be started (embedded null byte) — fix:"
+        f" {TYPED_RUN_FIX}",
+        got_start,
+    )
+    got_start = started(["a\0b" + "x" * 300])
+    cut_at = repr(["a\0b" + "x" * 300])[:200]
+    version_case(
+        tally,
+        "run: a long command is cut at 200 characters, as every quoted reply is",
+        got_start
+        == f"BROKEN: the command {cut_at}… could not be started (embedded null byte) — fix: {TYPED_RUN_FIX}",
+        got_start,
+    )
+    got_start = started([""])  # a PermissionError here, a missing file on Linux: both name the command
+    version_case(
+        tally,
+        "run: an empty command is one BROKEN line, never a traceback",
+        got_start
+        in (
+            f"BROKEN: the command [''] could not be started (Permission denied) — fix: {TYPED_RUN_FIX}",
+            "BROKEN: '' is not installed (No such file or directory) — fix: install it and put it on PATH",
+        ),
+        got_start,
+    )
+    # A command that is not found is echoed as `shown` quotes it when it is no plain word, so that a
+    # space, a quote or a line break reads as one token; a working folder that does not exist is its own
+    # cause, whichever command is asked for. Both are real, no process mocked.
+    got_start = started(["my tool's\nname"])
+    version_case(
+        tally,
+        "run: a command with a space, a quote and a line break, not found, is quoted as one token",
+        got_start
+        == 'BROKEN: "my tool\'s\\nname" is not installed (No such file or directory) — fix: install it'
+        " and put it on PATH",
+        got_start,
+    )
+    with tempfile.TemporaryDirectory() as gone_tmp:
+        gone = Path(gone_tmp) / "gone dir"
+        no_folder = (
+            f"BROKEN: the working folder {gone} does not exist — fix: make the folder"
+            f" (`mkdir -p '{gone}'`), then run the check again"
+        )
+        for name, argv in (
+            ("an existing command", ["sh", "-c", "true"]),
+            ("a missing one", ["no-such-tool"]),
+        ):
+            got_start = result_of(partial(run, argv, gone, dict(os.environ)))
             version_case(
-                "run: a hook whose command cannot be started is one BROKEN line with the hook's own fix",
-                got_start
-                == f"BROKEN: the command ['\\x00tool'] could not be started (embedded null byte) — fix:"
-                f" {fix_hook}",
+                tally,
+                f"run: a working folder that does not exist is named, not {name} read as not installed",
+                got_start == no_folder,
                 got_start,
             )
-        # A missing path keeps its meaning at each site; a NUL in a name, a link loop and a path through a
-        # file are missing paths too, as `Path.exists` has them.
-        with tempfile.TemporaryDirectory() as miss_tmp:
-            miss_root = Path(miss_tmp)
-            (miss_root / "empty").mkdir()
-            (miss_root / "loop").mkdir()
-            (miss_root / "loop" / "MODULE.md").symlink_to("MODULE.md")
-            (miss_root / "afile").write_text("", encoding="utf-8")
-            no_doc = (
-                "BROKEN: {} does not exist — fix: restore the module's document, which declares its scans"
-            )
-            for name, plugin_at in (
-                ("a folder with no document", miss_root / "empty"),
-                ("a document that is a link loop", miss_root / "loop"),
-                ("a plugin that is a file, the document a path through it", miss_root / "afile"),
-                ("a plugin that is no entry", miss_root / "nothing"),
-            ):
-                got_miss = declared_of(plugin_at)
-                version_case(
-                    f"lookups: {name} is the missing document it was",
-                    got_miss == no_doc.format(plugin_at / "MODULE.md"),
-                    got_miss,
-                )
+    with tempfile.TemporaryDirectory() as hook_tmp:  # a hook run through check_installed has the hook's fix
+        hooked_root = Path(hook_tmp)
+        (hooked_root / "hooks").mkdir()
+        (hooked_root / "repo").mkdir()
+        (hooked_root / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+        nul_hook = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "\0tool", "args": []}]}]}}
+        (hooked_root / "hooks" / "hooks.json").write_text(json.dumps(nul_hook), encoding="utf-8")
+        got_start = result_of(
+            lambda: check_installed("m", hooked_root, hooked_root, hooked_root / "repo", hooked_root)
+        )
+        version_case(
+            tally,
+            "run: a hook whose command cannot be started is one BROKEN line with the hook's own fix",
+            got_start == f"BROKEN: the command ['\\x00tool'] could not be started (embedded null byte) — fix:"
+            f" {TYPED_HOOK_FIX}",
+            got_start,
+        )
+
+
+def lookup_cases(tally: Tally) -> None:
+    """A path that cannot be looked at is one BROKEN line, a missing one keeps its meaning."""
+    # A missing path keeps its meaning at each site; a NUL in a name, a link loop and a path through a
+    # file are missing paths too, as `Path.exists` has them.
+    with tempfile.TemporaryDirectory() as miss_tmp:
+        miss_root = Path(miss_tmp)
+        (miss_root / "empty").mkdir()
+        (miss_root / "loop").mkdir()
+        (miss_root / "loop" / "MODULE.md").symlink_to("MODULE.md")
+        (miss_root / "afile").write_text("", encoding="utf-8")
+        no_doc = "BROKEN: {} does not exist — fix: restore the module's document, which declares its scans"
+        for name, plugin_at in (
+            ("a folder with no document", miss_root / "empty"),
+            ("a document that is a link loop", miss_root / "loop"),
+            ("a plugin that is a file, the document a path through it", miss_root / "afile"),
+            ("a plugin that is no entry", miss_root / "nothing"),
+        ):
+            got_miss = declared_of(plugin_at)
             version_case(
-                "lookups: a name that holds a NUL byte is a missing path, at every kind of lookup",
-                not (
-                    there(Path("a\0b"))
-                    or file_at(Path("a\0b"))
-                    or folder_at(Path("a\0b"))
-                    or link_at(Path("a\0b"))
-                ),
-                "one of them found it",
-            )
-            toy_missing = miss_root / "kit"
-            toy_missing.mkdir()
-            with mock.patch.dict(globals(), {"KIT": toy_missing}):
-                got_miss = said(lambda: check_module("m", str(miss_root), Note("2.1.282")))
-            version_case(
-                "lookups: a module with no plugin.json is the line it was",
-                got_miss
-                == "BROKEN: no module m in the kit — fix: name a folder under modules/ that holds a plugin",
+                tally,
+                f"lookups: {name} is the missing document it was",
+                got_miss == no_doc.format(plugin_at / "MODULE.md"),
                 got_miss,
+            )
+        version_case(
+            tally,
+            "lookups: a name that holds a NUL byte is a missing path, at every kind of lookup",
+            not (
+                there(Path("a\0b"))
+                or file_at(Path("a\0b"))
+                or folder_at(Path("a\0b"))
+                or link_at(Path("a\0b"))
+            ),
+            "one of them found it",
+        )
+        toy_missing = miss_root / "kit"
+        toy_missing.mkdir()
+        with mock.patch.dict(globals(), {"KIT": toy_missing}):
+            got_miss = result_of(lambda: check_module("m", str(miss_root), Note("2.1.282")))
+        version_case(
+            tally,
+            "lookups: a module with no plugin.json is the line it was",
+            got_miss
+            == "BROKEN: no module m in the kit — fix: name a folder under modules/ that holds a plugin",
+            got_miss,
+        )
+        with (
+            mock.patch.dict(globals(), {"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}),
+            contextlib.redirect_stdout(io.StringIO()) as printed_miss,
+        ):
+            status_miss = main(["--module", "m", "--from", str(miss_root / "nothing")])
+        version_case(
+            tally,
+            "lookups: a source that is no entry goes on as a remote, as it did",
+            (status_miss, printed_miss.getvalue().splitlines())
+            == (
+                EXIT_BROKEN,
+                ["BROKEN: stopped here", "BROKEN: the check could not run — 0 modules examined"],
+            ),
+            f"{status_miss} {printed_miss.getvalue()}",
+        )
+    with tempfile.TemporaryDirectory() as odd_tmp:  # an error that is no search permission: the other fix
+        odd = Path(odd_tmp) / "odd plugin"
+        odd.mkdir()
+        with mock.patch.object(Path, "stat", side_effect=OSError(5, "Input/output error")):
+            got_odd = result_of(lambda: declared_scans(odd))
+        version_case(
+            tally,
+            "lookups: an I/O error is one BROKEN line, its fix to read why the folder is not searchable",
+            got_odd == f"BROKEN: {odd / 'MODULE.md'} cannot be searched (Input/output error) — fix: make the"
+            f" folder {odd} searchable, `ls -ld '{odd}'` shows why not, then run the check again",
+            got_odd,
+        )
+
+
+def walk_list_cases(tally: Tally) -> None:
+    """A subfolder that cannot be listed is one BROKEN line naming it, at every walk site."""
+    with tempfile.TemporaryDirectory() as list_tmp:
+        list_root = Path(list_tmp).resolve()
+        walked = list_root / "walked folder"
+        closed_sub = walked / "closed sub"
+        closed_sub.mkdir(parents=True)
+        (walked / "f.txt").write_text("f", encoding="utf-8")
+        real_scandir = os.scandir
+
+        def scandir_denying(path: str | os.PathLike[str] | None = None) -> object:
+            if path is not None and os.fspath(path) == str(closed_sub):
+                raise PermissionError(errno.EACCES, "Permission denied", str(closed_sub))
+            return real_scandir(path)
+
+        for name, call in walk_fixtures(list_root, walked):
+            with mock.patch.object(os, "scandir", scandir_denying):
+                got_list = result_of(call)
+            version_case(
+                tally,
+                f"walks: a subfolder that cannot be listed ({name}) is one BROKEN line naming it",
+                got_list == cannot_list(closed_sub),
+                got_list,
+            )
+
+
+def read_denied_cases(tally: Tally) -> None:
+    """A file that cannot be read is one BROKEN line naming it, at every byte comparison."""
+    with tempfile.TemporaryDirectory() as bytes_tmp:
+        bytes_root = Path(bytes_tmp).resolve()
+        bytes_source, bytes_copy, shared_dir = bytes_fixture(bytes_root)
+        copied_locked = bytes_copy / "scripts" / "shared" / "locked.txt"
+        real_read = Path.read_bytes
+
+        def read_denying(blocked: Path) -> contextlib.AbstractContextManager[object]:
+            def read_bytes(self: Path) -> bytes:
+                if self == blocked:
+                    raise PermissionError(errno.EACCES, "Permission denied")
+                return real_read(self)
+
+            return mock.patch.object(Path, "read_bytes", read_bytes)
+
+        got_bytes = result_of(lambda: link_findings("m", bytes_source, bytes_copy))
+        version_case(
+            tally, "reads: the copy and the source compared are green", got_bytes == "returned []", got_bytes
+        )
+        for name, blocked, installed in (
+            ("a folder link's file of the source", shared_dir / "locked.txt", False),
+            ("a folder link's file of the copy", copied_locked, True),
+            ("a file link's file of the source", bytes_root / "outside.txt", False),
+            ("a file link's file of the copy", bytes_copy / "scripts" / "one.txt", True),
+        ):
+            with read_denying(blocked):
+                got_bytes = result_of(lambda: link_findings("m", bytes_source, bytes_copy))
+            version_case(
+                tally,
+                f"reads: {name} that cannot be read is one BROKEN line naming it",
+                got_bytes == cannot_read(blocked, installed),
+                got_bytes,
+            )
+        (
+            bytes_copy / "scripts" / "shared" / "a.txt"
+        ).unlink()  # the trees differ: the differing files are named
+        for name, blocked, installed in (
+            ("a differing folder link's file of the source", shared_dir / "locked.txt", False),
+            ("a differing folder link's file of the copy", copied_locked, True),
+        ):
+            with read_denying(blocked):
+                got_bytes = result_of(lambda: link_findings("m", bytes_source, bytes_copy))
+            version_case(
+                tally,
+                f"reads: {name} that cannot be read is one BROKEN line naming it",
+                got_bytes == cannot_read(blocked, installed),
+                got_bytes,
+            )
+
+
+def shut_folder_cases(tally: Tally) -> None:
+    """The same cases over real folders and files of mode 000, which root would search."""
+    with tempfile.TemporaryDirectory() as shut_tmp:
+        shut_root = Path(shut_tmp).resolve()  # a link's target is resolved, so the folders are too
+        closed = shut_root / "closed folder"
+        document = closed / "deep" / "plugin"
+        document.mkdir(parents=True)
+        (document / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+        (closed / "kit" / "modules" / "m" / ".claude-plugin").mkdir(parents=True)
+        (closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json").write_text(
+            "{}", encoding="utf-8"
+        )
+        (closed / "src").mkdir()
+        (closed / "copy").mkdir()
+        source_links = shut_root / "links"  # a source with a link to a file outside the module
+        (source_links / "module").mkdir(parents=True)
+        (shut_root / "links" / "outside.txt").write_text("o", encoding="utf-8")
+        (source_links / "module" / "ln.txt").symlink_to("../outside.txt")
+        listing = shut_root / "listing folder"  # a folder that lists but cannot be searched
+        listing.mkdir()
+        (listing / "f.txt").write_text("x", encoding="utf-8")
+        hooks_source, hooks_copy = shut_root / "hooks source", shut_root / "hooks copy"
+        for tree in (hooks_source, hooks_copy):
+            (tree / "hooks").mkdir(parents=True)
+            (tree / "hooks" / "hooks.json").write_text('{"hooks": {}}', encoding="utf-8")
+            (tree / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+        (shut_root / "repo").mkdir()
+        listing_json = json.dumps([{"id": "m@mp", "scope": "user", "installPath": str(document)}])
+        walk, empty_copy = shut_root / "walk", shut_root / "empty copy"  # a subfolder that lists only
+        (walk / "sub folder").mkdir(parents=True)
+        (walk / "sub folder" / "y.txt").write_text("y", encoding="utf-8")
+        empty_copy.mkdir()
+        unlisted = shut_root / "unlisted folder"  # a subfolder that cannot be listed
+        (unlisted / "closed sub").mkdir(parents=True)
+        half = shut_root / "half root" / "half folder"  # a folder that lists but cannot be searched
+        (half / "inner").mkdir(parents=True)
+        (shut_root / "sites").mkdir()
+        sites = walk_fixtures(shut_root / "sites", unlisted)
+        real_source, real_copy, real_shared = bytes_fixture(shut_root / "real bytes")
+        shut_modes = [
+            (closed, 0o755),
+            (listing, 0o755),
+            (hooks_copy / "hooks", 0o755),
+            (walk / "sub folder", 0o755),
+            (unlisted / "closed sub", 0o755),
+            (half, 0o755),
+            (real_shared / "locked.txt", 0o644),
+            (real_copy / "scripts" / "shared" / "locked.txt", 0o644),
+        ]
+        try:
+            closed.chmod(0o000)
+            listing.chmod(0o444)
+            (walk / "sub folder").chmod(0o444)
+            hooks_copy_hooks = hooks_copy / "hooks"
+            hooks_copy_hooks.chmod(0o000)
+            got_shut = result_of(lambda: declared_scans(document))
+            version_case(
+                tally,
+                "lookups: a module document under a folder of mode 000 is one BROKEN line naming the"
+                " folder to open",
+                got_shut == cannot_search(document / "MODULE.md", closed),
+                got_shut,
+            )
+            with mock.patch.dict(globals(), {"KIT": closed / "kit"}):
+                got_shut = result_of(lambda: check_module("m", "owner/repo", Note("2.1.282")))
+            version_case(
+                tally,
+                "lookups: a module's plugin.json under such a folder is the same line",
+                got_shut
+                == cannot_search(closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json", closed),
+                got_shut,
+            )
+            with mock.patch.dict(globals(), {"run": lambda *args, **kwargs: (0, listing_json, "")}):
+                got_shut = result_of(lambda: listed_install("m@mp", "user", shut_root, {}, Note("2.1.282")))
+            version_case(
+                tally,
+                "lookups: an installPath under such a folder is the same line, not 'no folder'",
+                got_shut == cannot_search(document, closed),
+                got_shut,
             )
             with (
                 mock.patch.dict(globals(), {"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}),
-                contextlib.redirect_stdout(io.StringIO()) as printed_miss,
+                contextlib.redirect_stdout(io.StringIO()) as printed_shut,
             ):
-                status_miss = main(["--module", "m", "--from", str(miss_root / "nothing")])
+                status_shut = main(["--module", "m", "--from", str(closed / "src")])
             version_case(
-                "lookups: a source that is no entry goes on as a remote, as it did",
-                (status_miss, printed_miss.getvalue().splitlines())
+                tally,
+                "lookups: a --from source under such a folder is the same line, not a remote source",
+                (status_shut, printed_shut.getvalue().splitlines())
                 == (
                     EXIT_BROKEN,
-                    ["BROKEN: stopped here", "BROKEN: the check could not run — 0 modules examined"],
+                    [
+                        cannot_search(closed / "src", closed),
+                        "BROKEN: the check could not run — 0 modules examined",
+                    ],
                 ),
-                f"{status_miss} {printed_miss.getvalue()}",
+                f"{status_shut} {printed_shut.getvalue()}",
             )
-        with tempfile.TemporaryDirectory() as odd_tmp:  # an error that is no search permission: the other fix
-            odd = Path(odd_tmp) / "odd plugin"
-            odd.mkdir()
-            with mock.patch.object(Path, "stat", side_effect=OSError(5, "Input/output error")):
-                got_odd = said(lambda: declared_scans(odd))
+            got_shut = result_of(lambda: link_findings("m", source_links / "module", closed / "copy"))
             version_case(
-                "lookups: an I/O error is one BROKEN line, its fix to read why the folder is not searchable",
-                got_odd
-                == f"BROKEN: {odd / 'MODULE.md'} cannot be searched (Input/output error) — fix: make the"
-                f" folder {odd} searchable, `ls -ld '{odd}'` shows why not, then run the check again",
-                got_odd,
+                tally,
+                "lookups: a link's place in the copy under such a folder is the same line",
+                got_shut == cannot_search(closed / "copy" / "ln.txt", closed),
+                got_shut,
             )
-
-        # A folder the walks cannot list, and a file they cannot read: the walks (`files_under`, the
-        # source's and the copy's links in `link_findings`, a link's target folder, `counted`) each give one
-        # BROKEN line naming the folder, the same on every Python (`Path.rglob` raises on one and lists
-        # nothing on the other), and the byte comparisons of `link_findings` (a folder link's files, its
-        # differing files, a file link) one naming the file. The listing and the read are made to raise
-        # here, so that the cases hold as root too; the real folder and file of mode 000 follow below. No
-        # existing case fits: the walk cases above hold an entry that cannot be looked at, in a folder that
-        # lists, and the read cases a hooks file; these two failures are new.
-        def cannot_list(folder: Path) -> str:
-            return (
-                f"BROKEN: {folder} cannot be listed (Permission denied) — fix: give the folder {folder}"
-                f" search permission, `chmod u+rx {shlex.quote(str(folder))}`, then run the check again"
-            )
-
-        def cannot_read(path: Path, installed: bool) -> str:
-            fix = (
-                "run the check again, and if it repeats, report that the install wrote a file the check"
-                " cannot read, at the version the kit pins"
-                if installed
-                else f"give the file read permission, `chmod u+r {shlex.quote(str(path))}`,"
-                " then run the check again"
-            )
-            return f"BROKEN: {path} cannot be read (Permission denied) — fix: {fix}"
-
-        def walk_fixtures(root: Path, bad: Path) -> list[tuple[str, Callable[[], object]]]:
-            """The walk sites, each reaching the folder `bad`: as the source, as the copy, as a link's target,
-            and in the count."""
-            empty = root / "empty copy"
-            links_source = root / "links source"
-            target_source, target_copy = root / "target source", root / "target copy"
-            for folder in (empty, links_source, target_source, target_copy):
-                folder.mkdir(parents=True)
-            (links_source / "ln.txt").symlink_to("../outside.txt")
-            (target_source / "shared").symlink_to(bad)
-            (target_copy / "shared").mkdir()
-            return [
-                ("files_under", lambda: files_under(bad)),
-                ("the source's links", lambda: link_findings("m", bad, empty)),
-                ("the copy's extra links", lambda: link_findings("m", links_source, bad)),
-                ("a link's target folder", lambda: link_findings("m", target_source, target_copy)),
-                ("the count of the source", lambda: counted(bad)),
-            ]
-
-        def bytes_fixture(root: Path) -> tuple[Path, Path, Path]:
-            """A source with a link to a folder of two files and a link to a file, and a copy that holds the
-            same bytes: the source, the copy, and the folder the first link leads to (its `locked.txt` is the
-            file the cases make unreadable)."""
-            folder = root / "shared dir"
-            folder.mkdir(parents=True)
-            (folder / "a.txt").write_text("a", encoding="utf-8")
-            (folder / "locked.txt").write_text("l", encoding="utf-8")
-            (root / "outside.txt").write_text("o", encoding="utf-8")
-            source = root / "source"
-            (source / "scripts").mkdir(parents=True)
-            (source / "scripts" / "shared").symlink_to(folder)
-            (source / "scripts" / "one.txt").symlink_to("../../outside.txt")
-            copy = root / "copy"
-            shutil.copytree(folder, copy / "scripts" / "shared")
-            shutil.copy(root / "outside.txt", copy / "scripts" / "one.txt")
-            return source, copy, folder
-
-        with tempfile.TemporaryDirectory() as list_tmp:
-            list_root = Path(list_tmp).resolve()
-            walked = list_root / "walked folder"
-            closed_sub = walked / "closed sub"
-            closed_sub.mkdir(parents=True)
-            (walked / "f.txt").write_text("f", encoding="utf-8")
-            real_scandir = os.scandir
-
-            def scandir_denying(path: str | os.PathLike[str] | None = None) -> object:
-                if path is not None and os.fspath(path) == str(closed_sub):
-                    raise PermissionError(errno.EACCES, "Permission denied", str(closed_sub))
-                return real_scandir(path)
-
-            for name, call in walk_fixtures(list_root, walked):
-                with mock.patch.object(os, "scandir", scandir_denying):
-                    got_list = said(call)
-                version_case(
-                    f"walks: a subfolder that cannot be listed ({name}) is one BROKEN line naming it",
-                    got_list == cannot_list(closed_sub),
-                    got_list,
-                )
-        with tempfile.TemporaryDirectory() as bytes_tmp:
-            bytes_root = Path(bytes_tmp).resolve()
-            bytes_source, bytes_copy, shared_dir = bytes_fixture(bytes_root)
-            copied_locked = bytes_copy / "scripts" / "shared" / "locked.txt"
-            real_read = Path.read_bytes
-
-            def read_denying(blocked: Path) -> contextlib.AbstractContextManager[object]:
-                def read_bytes(self: Path) -> bytes:
-                    if self == blocked:
-                        raise PermissionError(errno.EACCES, "Permission denied")
-                    return real_read(self)
-
-                return mock.patch.object(Path, "read_bytes", read_bytes)
-
-            got_bytes = said(lambda: link_findings("m", bytes_source, bytes_copy))
-            version_case(
-                "reads: the copy and the source compared are green", got_bytes == "returned []", got_bytes
-            )
-            for name, blocked, installed in (
-                ("a folder link's file of the source", shared_dir / "locked.txt", False),
-                ("a folder link's file of the copy", copied_locked, True),
-                ("a file link's file of the source", bytes_root / "outside.txt", False),
-                ("a file link's file of the copy", bytes_copy / "scripts" / "one.txt", True),
+            entry = walk / "sub folder" / "y.txt"  # an entry of a walk that cannot be looked at
+            for name, call in (
+                ("a source's links", lambda: link_findings("m", walk, empty_copy)),
+                ("the copy's extra links", lambda: link_findings("m", source_links / "module", walk)),
+                ("the count of the source", lambda: counted(walk)),
             ):
-                with read_denying(blocked):
-                    got_bytes = said(lambda: link_findings("m", bytes_source, bytes_copy))
+                got_shut = result_of(call)
                 version_case(
-                    f"reads: {name} that cannot be read is one BROKEN line naming it",
-                    got_bytes == cannot_read(blocked, installed),
-                    got_bytes,
+                    tally,
+                    f"lookups: an entry of a walk that cannot be looked at ({name}) is the same line",
+                    got_shut == cannot_search(entry, walk / "sub folder"),
+                    got_shut,
                 )
-            (
-                bytes_copy / "scripts" / "shared" / "a.txt"
-            ).unlink()  # the trees differ: the differing files are named
-            for name, blocked, installed in (
-                ("a differing folder link's file of the source", shared_dir / "locked.txt", False),
-                ("a differing folder link's file of the copy", copied_locked, True),
+            got_shut = result_of(lambda: files_under(listing))
+            version_case(
+                tally,
+                "lookups: a file of a folder that lists but cannot be searched is the same line",
+                got_shut == cannot_search(listing / "f.txt", listing),
+                got_shut,
+            )
+            got_shut = result_of(
+                lambda: check_installed("m", hooks_source, hooks_copy, shut_root / "repo", shut_root)
+            )
+            version_case(
+                tally,
+                "lookups: the copy's hooks file under a folder of mode 000 is the same line",
+                got_shut == cannot_search(hooks_copy / "hooks" / "hooks.json", hooks_copy / "hooks"),
+                got_shut,
+            )
+            hooks_copy_hooks.chmod(0o755)
+            (hooks_source / "hooks").chmod(0o000)
+            shut_modes.append((hooks_source / "hooks", 0o755))
+            got_shut = result_of(
+                lambda: check_installed("m", hooks_source, hooks_copy, shut_root / "repo", shut_root)
+            )
+            version_case(
+                tally,
+                "lookups: the source's hooks file under such a folder is the line `hooks_of` had",
+                got_shut == f"BROKEN: {hooks_source / 'hooks' / 'hooks.json'} cannot be looked up (Permission"
+                f" denied) — fix: make its folder {hooks_source / 'hooks'} searchable (its permissions),"
+                " so that the check can find hooks/hooks.json and read each hook it runs",
+                got_shut,
+            )
+            (unlisted / "closed sub").chmod(0o000)  # a real subfolder that cannot be listed
+            for name, site_call in sites:
+                got_shut = result_of(site_call)
+                version_case(
+                    tally,
+                    f"walks: a real subfolder of mode 000 ({name}) is one BROKEN line naming it",
+                    got_shut == cannot_list(unlisted / "closed sub"),
+                    got_shut,
+                )
+            half.chmod(0o444)
+            got_shut = result_of(lambda: files_under(half.parent))
+            version_case(
+                tally,
+                "walks: a folder below one that lists but cannot be searched names the folder to open",
+                got_shut
+                == (
+                    f"BROKEN: {half / 'inner'} cannot be listed (Permission denied) — fix: give the"
+                    f" folder {half} search permission, `chmod u+rx {shlex.quote(str(half))}`, then run"
+                    " the check again"
+                ),
+                got_shut,
+            )
+            locked_shared = real_shared / "locked.txt"
+            locked_copy = real_copy / "scripts" / "shared" / "locked.txt"
+            for name, locked, installed in (
+                ("a real file of the source", locked_shared, False),
+                ("a real file of the copy", locked_copy, True),
             ):
-                with read_denying(blocked):
-                    got_bytes = said(lambda: link_findings("m", bytes_source, bytes_copy))
+                locked.chmod(0o000)
+                got_shut = result_of(lambda: link_findings("m", real_source, real_copy))
+                locked.chmod(0o644)
                 version_case(
-                    f"reads: {name} that cannot be read is one BROKEN line naming it",
-                    got_bytes == cannot_read(blocked, installed),
-                    got_bytes,
-                )
-        if os.geteuid() == 0:  # root searches any folder: there, the cases above are the proof
-            return
-        with tempfile.TemporaryDirectory() as shut_tmp:
-            shut_root = Path(shut_tmp).resolve()  # a link's target is resolved, so the folders are too
-            closed = shut_root / "closed folder"
-            document = closed / "deep" / "plugin"
-            document.mkdir(parents=True)
-            (document / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
-            (closed / "kit" / "modules" / "m" / ".claude-plugin").mkdir(parents=True)
-            (closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json").write_text(
-                "{}", encoding="utf-8"
-            )
-            (closed / "src").mkdir()
-            (closed / "copy").mkdir()
-            source_links = shut_root / "links"  # a source with a link to a file outside the module
-            (source_links / "module").mkdir(parents=True)
-            (shut_root / "links" / "outside.txt").write_text("o", encoding="utf-8")
-            (source_links / "module" / "ln.txt").symlink_to("../outside.txt")
-            listing = shut_root / "listing folder"  # a folder that lists but cannot be searched
-            listing.mkdir()
-            (listing / "f.txt").write_text("x", encoding="utf-8")
-            hooks_source, hooks_copy = shut_root / "hooks source", shut_root / "hooks copy"
-            for tree in (hooks_source, hooks_copy):
-                (tree / "hooks").mkdir(parents=True)
-                (tree / "hooks" / "hooks.json").write_text('{"hooks": {}}', encoding="utf-8")
-                (tree / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
-            (shut_root / "repo").mkdir()
-            listing_json = json.dumps([{"id": "m@mp", "scope": "user", "installPath": str(document)}])
-            walk, empty_copy = shut_root / "walk", shut_root / "empty copy"  # a subfolder that lists only
-            (walk / "sub folder").mkdir(parents=True)
-            (walk / "sub folder" / "y.txt").write_text("y", encoding="utf-8")
-            empty_copy.mkdir()
-            unlisted = shut_root / "unlisted folder"  # a subfolder that cannot be listed
-            (unlisted / "closed sub").mkdir(parents=True)
-            half = shut_root / "half root" / "half folder"  # a folder that lists but cannot be searched
-            (half / "inner").mkdir(parents=True)
-            (shut_root / "sites").mkdir()
-            sites = walk_fixtures(shut_root / "sites", unlisted)
-            real_source, real_copy, real_shared = bytes_fixture(shut_root / "real bytes")
-            shut_modes = [
-                (closed, 0o755),
-                (listing, 0o755),
-                (hooks_copy / "hooks", 0o755),
-                (walk / "sub folder", 0o755),
-                (unlisted / "closed sub", 0o755),
-                (half, 0o755),
-                (real_shared / "locked.txt", 0o644),
-                (real_copy / "scripts" / "shared" / "locked.txt", 0o644),
-            ]
-            try:
-                closed.chmod(0o000)
-                listing.chmod(0o444)
-                (walk / "sub folder").chmod(0o444)
-                hooks_copy_hooks = hooks_copy / "hooks"
-                hooks_copy_hooks.chmod(0o000)
-                got_shut = said(lambda: declared_scans(document))
-                version_case(
-                    "lookups: a module document under a folder of mode 000 is one BROKEN line naming the"
-                    " folder to open",
-                    got_shut == cannot_search(document / "MODULE.md", closed),
+                    tally,
+                    f"reads: {name} of mode 000 under a folder link is one BROKEN line naming it",
+                    got_shut == cannot_read(locked, installed),
                     got_shut,
                 )
-                with mock.patch.dict(globals(), {"KIT": closed / "kit"}):
-                    got_shut = said(lambda: check_module("m", "owner/repo", Note("2.1.282")))
-                version_case(
-                    "lookups: a module's plugin.json under such a folder is the same line",
-                    got_shut
-                    == cannot_search(
-                        closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json", closed
-                    ),
-                    got_shut,
-                )
-                with mock.patch.dict(globals(), {"run": lambda *args, **kwargs: (0, listing_json, "")}):
-                    got_shut = said(lambda: listed_install("m@mp", "user", shut_root, {}, Note("2.1.282")))
-                version_case(
-                    "lookups: an installPath under such a folder is the same line, not 'no folder'",
-                    got_shut == cannot_search(document, closed),
-                    got_shut,
-                )
-                with (
-                    mock.patch.dict(
-                        globals(), {"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}
-                    ),
-                    contextlib.redirect_stdout(io.StringIO()) as printed_shut,
-                ):
-                    status_shut = main(["--module", "m", "--from", str(closed / "src")])
-                version_case(
-                    "lookups: a --from source under such a folder is the same line, not a remote source",
-                    (status_shut, printed_shut.getvalue().splitlines())
-                    == (
-                        EXIT_BROKEN,
-                        [
-                            cannot_search(closed / "src", closed),
-                            "BROKEN: the check could not run — 0 modules examined",
-                        ],
-                    ),
-                    f"{status_shut} {printed_shut.getvalue()}",
-                )
-                got_shut = said(lambda: link_findings("m", source_links / "module", closed / "copy"))
-                version_case(
-                    "lookups: a link's place in the copy under such a folder is the same line",
-                    got_shut == cannot_search(closed / "copy" / "ln.txt", closed),
-                    got_shut,
-                )
-                entry = walk / "sub folder" / "y.txt"  # an entry of a walk that cannot be looked at
-                for name, call in (
-                    ("a source's links", lambda: link_findings("m", walk, empty_copy)),
-                    ("the copy's extra links", lambda: link_findings("m", source_links / "module", walk)),
-                    ("the count of the source", lambda: counted(walk)),
-                ):
-                    got_shut = said(call)
-                    version_case(
-                        f"lookups: an entry of a walk that cannot be looked at ({name}) is the same line",
-                        got_shut == cannot_search(entry, walk / "sub folder"),
-                        got_shut,
-                    )
-                got_shut = said(lambda: files_under(listing))
-                version_case(
-                    "lookups: a file of a folder that lists but cannot be searched is the same line",
-                    got_shut == cannot_search(listing / "f.txt", listing),
-                    got_shut,
-                )
-                got_shut = said(
-                    lambda: check_installed("m", hooks_source, hooks_copy, shut_root / "repo", shut_root)
-                )
-                version_case(
-                    "lookups: the copy's hooks file under a folder of mode 000 is the same line",
-                    got_shut == cannot_search(hooks_copy / "hooks" / "hooks.json", hooks_copy / "hooks"),
-                    got_shut,
-                )
-                hooks_copy_hooks.chmod(0o755)
-                (hooks_source / "hooks").chmod(0o000)
-                shut_modes.append((hooks_source / "hooks", 0o755))
-                got_shut = said(
-                    lambda: check_installed("m", hooks_source, hooks_copy, shut_root / "repo", shut_root)
-                )
-                version_case(
-                    "lookups: the source's hooks file under such a folder is the line `hooks_of` had",
-                    got_shut
-                    == f"BROKEN: {hooks_source / 'hooks' / 'hooks.json'} cannot be looked up (Permission"
-                    f" denied) — fix: make its folder {hooks_source / 'hooks'} searchable (its permissions),"
-                    " so that the check can find hooks/hooks.json and read each hook it runs",
-                    got_shut,
-                )
-                (unlisted / "closed sub").chmod(0o000)  # a real subfolder that cannot be listed
-                for name, call in sites:
-                    got_shut = said(call)
-                    version_case(
-                        f"walks: a real subfolder of mode 000 ({name}) is one BROKEN line naming it",
-                        got_shut == cannot_list(unlisted / "closed sub"),
-                        got_shut,
-                    )
-                half.chmod(0o444)
-                got_shut = said(lambda: files_under(half.parent))
-                version_case(
-                    "walks: a folder below one that lists but cannot be searched names the folder to open",
-                    got_shut
-                    == (
-                        f"BROKEN: {half / 'inner'} cannot be listed (Permission denied) — fix: give the"
-                        f" folder {half} search permission, `chmod u+rx {shlex.quote(str(half))}`, then run"
-                        " the check again"
-                    ),
-                    got_shut,
-                )
-                locked_shared = real_shared / "locked.txt"
-                locked_copy = real_copy / "scripts" / "shared" / "locked.txt"
-                for name, locked, installed in (
-                    ("a real file of the source", locked_shared, False),
-                    ("a real file of the copy", locked_copy, True),
-                ):
-                    locked.chmod(0o000)
-                    got_shut = said(lambda: link_findings("m", real_source, real_copy))
-                    locked.chmod(0o644)
-                    version_case(
-                        f"reads: {name} of mode 000 under a folder link is one BROKEN line naming it",
-                        got_shut == cannot_read(locked, installed),
-                        got_shut,
-                    )
-            finally:
-                for folder_back, mode_back in shut_modes:
-                    folder_back.chmod(mode_back)
+        finally:
+            for folder_back, mode_back in shut_modes:
+                folder_back.chmod(mode_back)
 
-    def bare_repository_cases() -> None:
-        """A git command of `bare_repository` that exits other than 0 is one BROKEN line naming it as
-        `git <subcommand>` and a fix that can be followed (git ran, so "install git" is none); a missing
-        git is `run`'s own line, unchanged. No existing case fits: the hook cases read a hooks file and the
-        version cases a `claude`, so this one table is new. Any exit other than 0 counts (1, 2, 124, 128),
-        and the line quotes the last line of the standard error, else of the standard output."""
-        by_hand = "run {0} in a new repository by hand and read why it fails"
-        init_line = (
-            "BROKEN: git init failed in the bare repository (fatal: simulated) — fix: "
-            + by_hand.format("git init")
-        )
-        add_line = (
-            "BROKEN: git add failed in the bare repository (fatal: simulated) — fix: "
-            + by_hand.format("git add")
-        )
-        commit_line = (
-            "BROKEN: git commit failed in the bare repository (fatal: simulated) — fix: "
-            + by_hand.format("git commit")
-        )
-        ran: list[list[str]] = []
 
-        simulated = (1, "", "warning: x\nfatal: simulated")  # the exit, stdout and stderr of a failure
+def start_and_lookup_cases(tally: Tally) -> None:
+    """A command `run` cannot start and a path the check cannot look at are each one BROKEN line, never a
+    traceback and never a missing path read in the place of one that cannot be searched: `run` turns any
+    `OSError` of starting the command and a `ValueError` (a NUL byte) into a line naming the command, the
+    reason and a fix (the hook's own where a hook is run), the not-found and timeout branches as they
+    were; `file_at`, `folder_at`, `there` and `link_at` tell a missing path (no entry, a path through a
+    file, a link loop, a NUL in the name), whose meaning each site keeps, from one that cannot be
+    searched, a line naming the path and the folder to open, on every Python (`Path.is_file` and
+    `exists` return False for it from release 3.14 on). No existing case fits: the hook cases read a
+    hooks file, the bare-repository cases git's exits, and the rest a `claude`; the lookups are in
+    different functions of the check, so this table is new; its real folders of mode 000 are skipped as
+    root, which searches any folder."""
+    run_start_cases(tally)
+    lookup_cases(tally)
+    walk_list_cases(tally)
+    read_denied_cases(tally)
+    if os.geteuid() == 0:  # root searches any folder: there, the cases above are the proof
+        return
+    shut_folder_cases(tally)
 
-        def failing_at(
-            word: str | None, failure: tuple[int, str, str]
-        ) -> Callable[..., tuple[int, str, str]]:
-            def fake_run(
-                argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: float = 300
-            ) -> tuple[int, str, str]:
-                """`run`, but nothing is run: every command exits 0, the one with `word` gives `failure`."""
-                ran.append(argv)
-                return failure if word in argv else (0, "", "")
 
-            return fake_run
+def bare_repository_cases(tally: Tally) -> None:
+    """A git command of `bare_repository` that exits other than 0 is one BROKEN line naming it as
+    `git <subcommand>` and a fix that can be followed (git ran, so "install git" is none); a missing
+    git is `run`'s own line, unchanged. No existing case fits: the hook cases read a hooks file and the
+    version cases a `claude`, so this one table is new. Any exit other than 0 counts (1, 2, 124, 128),
+    and the line quotes the last line of the standard error, else of the standard output."""
+    by_hand = "run {0} in a new repository by hand and read why it fails"
+    init_line = "BROKEN: git init failed in the bare repository (fatal: simulated) — fix: " + by_hand.format(
+        "git init"
+    )
+    add_line = "BROKEN: git add failed in the bare repository (fatal: simulated) — fix: " + by_hand.format(
+        "git add"
+    )
+    commit_line = (
+        "BROKEN: git commit failed in the bare repository (fatal: simulated) — fix: "
+        + by_hand.format("git commit")
+    )
+    ran: list[list[str]] = []
 
-        def line_of(
-            word: str | None, path: str | None = None, failure: tuple[int, str, str] = simulated
-        ) -> str:
-            """The BROKEN line `bare_repository` raises with `run` giving `failure` at `word`, or `ok`; with
-            `path`, the real `run` and that PATH."""
-            ran.clear()
-            with tempfile.TemporaryDirectory() as tmp:
-                with mock.patch.dict(globals(), {"run": failing_at(word, failure)} if path is None else {}):
-                    with mock.patch.dict(os.environ, {} if path is None else {"PATH": path}):
-                        try:
-                            bare_repository(Path(tmp))
-                        except Broken as broken:
-                            return f"BROKEN: {broken}"
-                        except Exception as other:  # any other is the defect this table holds
-                            return f"raised {type(other).__name__}: {other}"
-            return "ok"
+    simulated = (1, "", "warning: x\nfatal: simulated")  # the exit, stdout and stderr of a failure
 
-        for name, word, want in (
-            ("`git init` failing", "init", init_line),
-            ("`git add` failing", "add", add_line),
-            ("the `git -c … commit` failing is `git commit`, never `git -c`", "commit", commit_line),
-        ):
-            got_line = line_of(word)
-            version_case(f"bare repository: {name}", got_line == want, got_line)
-
-        def failed(name: str, said: str) -> str:
-            """The whole line of git command `name` failing with `said` as the last line it printed."""
-            return f"BROKEN: git {name} failed in the bare repository ({said}) — fix: " + by_hand.format(
-                f"git {name}"
-            )
-
-        # Any exit other than 0 is a failure (git's fatal is 128, `run`'s own timeout 124 with a message
-        # of its own), at each of the three commands; and the last line quoted is the standard error's,
-        # the standard output's only when the standard error is empty.
-        for name in ("init", "add", "commit"):
-            for code, said in ((128, "fatal: simulated"), (124, "timed out after 300 s"), (2, "error: x")):
-                got_line = line_of(name, failure=(code, "", said))
-                version_case(
-                    f"bare repository: `git {name}` exiting {code}",
-                    got_line == failed(name, said),
-                    got_line,
-                )
-            got_line = line_of(name, failure=(1, "out one\nout last", "err one\nerr last"))
-            version_case(
-                f"bare repository: `git {name}` printing on both streams quotes the standard error",
-                got_line == failed(name, "err last"),
-                got_line,
-            )
-            got_line = line_of(name, failure=(1, "out one\nout last", ""))
-            version_case(
-                f"bare repository: `git {name}` printing on the standard output alone quotes it",
-                got_line == failed(name, "out last"),
-                got_line,
-            )
-        got_line = line_of(None)
-        version_case(
-            "bare repository: no failure: the three commands, in their order",
-            got_line == "ok"
-            and ran
-            == [
-                ["git", "init", "-q", "-b", "main"],
-                ["git", "add", "-A"],
-                [
-                    "git",
-                    "-c",
-                    "user.name=bare",
-                    "-c",
-                    "user.email=bare@example.invalid",
-                    "commit",
-                    "-q",
-                    "-m",
-                    "kernel",
-                ],
-            ],
-            f"{got_line} {ran}",
-        )
-        with tempfile.TemporaryDirectory() as none_here:
-            got_line = line_of(None, none_here)
-        version_case(
-            "bare repository: git missing from PATH is run's own line, unchanged",
-            got_line
-            == "BROKEN: git is not installed (No such file or directory) — fix: install it and put it"
-            " on PATH",
-            got_line,
-        )
-        for argv, named in (
-            (["git", "init", "-q", "-b", "main"], "git init"),
-            (["git", "add", "-A"], "git add"),
-            (["git", "-c", "user.name=a", "-c", "user.email=b", "commit", "-q"], "git commit"),
-            (["git", "-C", "x", "status"], "git status"),
-            (["git", "-c", "commit.gpgsign=false", "-C", "x", "-c", "a=b", "log"], "git log"),
-            (["git", "--git-dir=x", "status"], "git status"),
-            (["git", "--no-pager", "-p", "diff", "HEAD"], "git diff"),
-            (["git", "-c", "status"], "git"),
-            (["git", "-C"], "git"),
-            (["git", "--version"], "git"),
-            (["git"], "git"),
-        ):
-            try:
-                got_name = git_command(argv)
-            except Exception as other:  # any other is the defect this table holds
-                got_name = f"raised {type(other).__name__}: {other}"
-            version_case(f"bare repository: {argv} is named {named!r}", got_name == named, got_name)
-
-    hook_wait_cases()
-    start_and_lookup_cases()
-    bare_repository_cases()
-    with tempfile.TemporaryDirectory() as tmp:  # the version check over every answer of `claude --version`
-        base_dir = Path(tmp)
-        toy_kit, fake_dir, fake_log = base_dir / "kit", base_dir / "bin", base_dir / "claude.log"
-        (toy_kit / "scripts").mkdir(parents=True)
-        (toy_kit / "scripts" / "claude-code.version").write_text("2.1.282\n", encoding="utf-8")
-        fake_dir.mkdir()
-        (fake_dir / "claude").write_text(fake_claude, encoding="utf-8")
-        (fake_dir / "claude").chmod(0o755)
-        (base_dir / "empty").mkdir()
-        # the lines, typed by hand: a message function cannot check itself
-        strict = (
-            "claude is {0}, and the kit's install checks read the platform as 2.1.282 writes it"
-            " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run:"
-            " either run sh scripts/setup-claude.sh in the kit's clone, then the check through"
-            " sh scripts/gate-list.sh --run install-<module> (--run guide for the guide's check), which puts"
-            " it first, or install it beside your own by hand (npm install --prefix <folder>"
-            " @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:$PATH), or set"
-            " CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
-            " {0} with a note on every headline line"
-        )
-        noted = " [claude {0}, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"
-        reinstall = (
-            " — fix: check that `claude` on PATH is Claude Code (`command -v claude`), and reinstall it"
-        )
-
-        # typed by hand, a constant cannot check itself: the four variables `claude_env` removes, each with
-        # what a person who sets it would set, a folder of the run's or `1`, and the variables it keeps, the
-        # kit's CI's CLAUDE_CODE_PLUGIN_PREFER_HTTPS, an unrelated FAKE_KEEP and the seven other plugin
-        # variables of the platform's environment-variables page that tune a clone's time, transport or retry,
-        # an update or a wait, and steer nowhere plugins are found, kept or loaded, each with a value of its
-        # own; `seen_when_removed` is what the fake logs after a command's first two words
-        # (CLAUDE_CODE_PLUGIN_CACHE_DIR, …_SEED_DIR, …_DIRS, …_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS,
-        # FAKE_KEEP, then …_PLUGIN_GIT_TIMEOUT_MS, …_KEEP_MARKETPLACE_ON_FAILURE,
-        # CLAUDE_CODE_SYNC_PLUGIN_INSTALL, …_TIMEOUT_MS, FORCE_AUTOUPDATE_PLUGINS,
-        # …_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL, …_PLUGIN_DIR_WATCH) when the four are gone and the rest
-        # stay
-        plugin_vars = {
-            "CLAUDE_CODE_PLUGIN_CACHE_DIR": "person-cache",
-            "CLAUDE_CODE_PLUGIN_SEED_DIR": "person-seed",
-            "CLAUDE_CODE_PLUGIN_DIRS": "person-dirs",
-            "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE": "1",
-        }
-        documented_kept = {  # typed by hand, never the code's: the seven documented ones, each its own value
-            "CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS": "45000",
-            "CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE": "keep",
-            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL": "sync",
-            "CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS": "30000",
-            "FORCE_AUTOUPDATE_PLUGINS": "force",
-            "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "disable",
-            "CLAUDE_CODE_PLUGIN_DIR_WATCH": "watch",
-        }
-        kept_vars = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"} | documented_kept
-        seen_when_removed = "|absent|absent|absent|absent|1|1|45000|keep|sync|30000|force|disable|watch"
-
-        def person_plugin_values(under: Path) -> dict[str, tuple[str, str]]:
-            """Each of the four variables with the words for its set value and the value, the folders made
-            empty under `under`."""
-            values: dict[str, tuple[str, str]] = {}
-            for variable, folder in plugin_vars.items():
-                if folder == "1":
-                    values[variable] = ("set to 1", "1")
-                else:
-                    (under / folder).mkdir()
-                    values[variable] = ("set to a folder", str(under / folder))
-            return values
-
-        def claude_env(said: str, code: int, optout: str | None, path: str | None = None) -> dict[str, str]:
-            env = {k: v for k, v in os.environ.items() if k != "CONSTITUTION_KIT_ANY_CLAUDE"}
-            env |= {
-                "PATH": path if path is not None else f"{fake_dir}{os.pathsep}{env.get('PATH', '')}",
-                "FAKE_SAYS": said,
-                "FAKE_EXIT": str(code),
-                "FAKE_LOG": str(fake_log),
-            }
-            if optout is not None:
-                env["CONSTITUTION_KIT_ANY_CLAUDE"] = optout
-            return env
-
-        def outcome(env: dict[str, str], root: Path = toy_kit) -> str:
-            """What the check does before its install: the note it goes on with, or its BROKEN line."""
-            fake_log.unlink(missing_ok=True)
-            try:
-                return f"note:{claude_noted(root, env)}"
-            except Broken as broken:
-                return f"BROKEN: {broken}"
-
-        def logged() -> list[str]:
-            return fake_log.read_text(encoding="utf-8").splitlines() if fake_log.exists() else []
-
-        def stuck(what: str) -> str:
-            return f"BROKEN: `claude --version` {what}{reinstall}"
-
-        # what `--version` says, its exit, what the run does with the variable unset, and with it at 1
-        # (None: the same)
-        rows: list[tuple[str, int, str, str | None]] = [
-            ("2.1.282 (Claude Code)\\n", 0, "note:", None),
-            ("2.1.282 (Claude Code)\\r\\n", 0, "note:", None),  # CR is white space: the first word is read
-            ("2.1.282 (Claude Code)\\nextra\\n", 0, "note:", None),  # the first line alone is read
-            ("\\n2.1.282 (Claude Code)\\n", 0, "note:", None),  # blank lines before it are skipped
-            ("  \\n\\n 2.1.282 (Claude Code)\\n", 0, "note:", None),  # white space too, and before the word
-            (
-                "2.1.286 (Claude Code)\\n",
-                0,
-                "BROKEN: " + strict.format("2.1.286"),
-                "note:" + noted.format("2.1.286"),
-            ),
-            (
-                "2.1.2820 (Claude Code)\\n",
-                0,
-                "BROKEN: " + strict.format("2.1.2820"),
-                "note:" + noted.format("2.1.2820"),
-            ),
-            (
-                "2.1.28 (Claude Code)\\n",
-                0,
-                "BROKEN: " + strict.format("2.1.28"),
-                "note:" + noted.format("2.1.28"),
-            ),
-            ("2.1.286", 0, "BROKEN: " + strict.format("2.1.286"), "note:" + noted.format("2.1.286")),
-            ("v2.1.282\\n", 0, stuck("printed no version (v2.1.282)"), None),
-            ("", 0, stuck("printed no version (no output)"), None),
-            ("", 1, stuck("exited 1 (no output)"), None),
-            ("2.1.282 (Claude Code)\\n", 1, stuck("exited 1 (2.1.282 (Claude Code))"), None),
-            ("2.1.286 (Claude Code)\\n", 1, stuck("exited 1 (2.1.286 (Claude Code))"), None),
-            ("", 139, stuck("exited 139 (no output)"), None),
-            (
-                "extra\\n2.1.282 (Claude Code)\\n",
-                0,
-                stuck("printed no version (2.1.282 (Claude Code))"),
-                None,
-            ),
-        ]
-
-        def kind(said_outcome: str) -> str:
-            if said_outcome == "note:":
-                return "the run goes on"
-            return "the run goes on with the note" if said_outcome.startswith("note:") else "BROKEN"
-
-        for says, exits, unset_out, one_out in rows:
-            at_one = unset_out if one_out is None else one_out
-            seen = [outcome(claude_env(says, exits, None)), outcome(claude_env(says, exits, "1"))]
-            ran = logged()  # the second run only: each run leaves the one line its own command logged
-            version_case(
-                f'`claude --version` printing "{says}" with exit {exits}: {kind(unset_out)} with the variable'
-                f" unset, {kind(at_one)} with it at 1",
-                seen == [unset_out, at_one] and ran == ["--version"],
-                f"{seen} {ran}",
-            )
-        too_old = "2.1.286 (Claude Code)\\n"
-        for value in ("", "0", "yes", "true", " 1", "1 ", "TRUE", "01"):
-            version_case(
-                f"CONSTITUTION_KIT_ANY_CLAUDE={value!r} is not the opt-out: the other version is BROKEN",
-                outcome(claude_env(too_old, 0, value)) == "BROKEN: " + strict.format("2.1.286"),
-                outcome(claude_env(too_old, 0, value)),
-            )
-        no_pin = base_dir / "empty"
-        said_no_pin = outcome(claude_env(too_old, 0, "1"), no_pin)
-        version_case(
-            "a kit with no pin file is BROKEN with the reader's line, and claude is not run",
-            said_no_pin
-            == f"BROKEN: {no_pin}/scripts/claude-code.version cannot be read (No such file or directory)"
-            " — fix: write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's"
-            " only line"
-            and logged() == [],
-            f"{said_no_pin} {logged()}",
-        )
-        said_no_claude = outcome(claude_env(too_old, 0, "1", path=str(no_pin)))
-        version_case(
-            "no claude on PATH is BROKEN, the opt-out notwithstanding",
-            said_no_claude
-            == "BROKEN: claude is not installed (No such file or directory) — fix: install it and put it on"
-            " PATH",
-            said_no_claude,
-        )
-        fake_log.unlink(missing_ok=True)
-        try:
-            claude_note(toy_kit, claude_env("", 0, "1") | {"FAKE_HANG": "1"}, timeout=0.2)
-            said_hung = "no DocumentError"
-        except DocumentError as hung:
-            said_hung = str(hung)
-        version_case(
-            "a claude that does not answer in time is no version, the opt-out notwithstanding",
-            said_hung == f"`claude --version` exited 124 (timed out after 0.2 s){reinstall}"
-            and logged() == ["--version"],
-            f"{said_hung} {logged()}",
-        )
-
-        person = base_dir / "person"  # the configuration folder of the person who runs the check
-        person.mkdir()
-        (person / "keep").write_text("the person's own configuration\n", encoding="utf-8")
-        env_log = base_dir / "env.log"
-        for name, own in (
-            ("the person's CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER=0", True),
-            ("neither of the two variables", False),
-        ):
-            env_log.unlink(missing_ok=True)
-            env = claude_env("2.1.282 (Claude Code)\\n", 0, None) | {"FAKE_ENV": str(env_log)}
-            env = {
-                k: v for k, v in env.items() if own or k not in ("CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER")
-            }
-            if own:
-                env |= {"CLAUDE_CONFIG_DIR": str(person), "DISABLE_AUTOUPDATER": "0"}
-            outcome(env)
-            seen_env = env_log.read_text(encoding="utf-8").splitlines() if env_log.exists() else []
-            config, updater, held, is_dir = (seen_env[0].split("|") + ["", "", "", ""])[:4]
-            version_case(
-                f"`claude --version` runs in an empty configuration folder of its own, auto-updater off,"
-                f" with {name}",
-                len(seen_env) == 1
-                and config not in ("", str(person))
-                and is_dir == "dir"
-                and held == "0"
-                and updater == "1"
-                and sorted(path.name for path in person.iterdir()) == ["keep"],
-                f"{seen_env} {sorted(path.name for path in person.iterdir())}",
-            )
-
-        cache_seen = base_dir / "cache-seen.log"
-        person_values = person_plugin_values(base_dir)
-        for variable, (what, set_value) in person_values.items():
-            for name, value in ((what, set_value), ("set and empty", "")):
-                cache_seen.unlink(missing_ok=True)
-                env = claude_env("2.1.282 (Claude Code)\\n", 0, None) | kept_vars
-                env |= {"FAKE_CACHE": str(cache_seen), variable: value}
-                said_version = outcome(env)
-                seen_version = (
-                    cache_seen.read_text(encoding="utf-8").splitlines() if cache_seen.exists() else []
-                )
-                version_case(
-                    f"{variable} {name} in the person's environment: `claude --version` runs with the four"
-                    " absent, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the seven documented as set",
-                    said_version == "note:" and seen_version == ["--version " + seen_when_removed],
-                    f"{said_version} {seen_version}",
-                )
-        cache_seen.unlink(missing_ok=True)
-        env = claude_env(too_old, 0, "1") | kept_vars | {"FAKE_CACHE": str(cache_seen)}
-        env |= {variable: set_value for variable, (_, set_value) in person_values.items()}
-        said_all = outcome(env)
-        seen_all = cache_seen.read_text(encoding="utf-8").splitlines() if cache_seen.exists() else []
-        version_case(
-            "all four set in the person's environment with CONSTITUTION_KIT_ANY_CLAUDE=1 on another version:"
-            " the opt-out is still read, and `claude --version` runs with the four absent",
-            said_all == "note:" + noted.format("2.1.286") and seen_all == ["--version " + seen_when_removed],
-            f"{said_all} {seen_all}",
-        )
-
-        def whole_run(
-            said: str, code: int, optout: str | None, *args: str
-        ) -> tuple[int, list[str], list[str]]:
-            """The exit and the lines `main` prints on the toy kit, and what the fake claude logged."""
-            fake_log.unlink(missing_ok=True)
-            printed_lines = io.StringIO()
-            with (
-                mock.patch.dict(os.environ, claude_env(said, code, optout)),
-                mock.patch.dict(globals(), {"KIT": toy_kit}),
-                contextlib.redirect_stdout(printed_lines),
-            ):
-                if optout is None:  # patch.dict adds to the environment, so the ambient variable goes by hand
-                    os.environ.pop("CONSTITUTION_KIT_ANY_CLAUDE", None)
-                status = main(["--module", "const-nope", *args])
-            return status, printed_lines.getvalue().splitlines(), logged()
-
-        stop = "BROKEN: the check could not run — 0 modules examined"
-        status, lines, ran = whole_run("2.1.286 (Claude Code)\\n", 0, None)
-        version_case(
-            "a run on another version stops at its first line, and no other claude command runs",
-            status == EXIT_BROKEN
-            and lines == ["BROKEN: " + strict.format("2.1.286"), stop]
-            and ran == ["--version"],
-            f"{status} {lines} {ran}",
-        )
-        status, lines, ran = whole_run("2.1.286 (Claude Code)\\n", 0, "1")
-        version_case(
-            "with the opt-out the run goes on, and each BROKEN line it ends with ends with the note",
-            status == EXIT_BROKEN
-            and lines
-            == [
-                "BROKEN: no module const-nope in the kit — fix: name a folder under modules/ that holds a"
-                " plugin" + noted.format("2.1.286"),
-                stop + noted.format("2.1.286"),
-            ]
-            and ran == ["--version"],
-            f"{status} {lines} {ran}",
-        )
-        status, lines, ran = whole_run("", 139, "1")
-        version_case(
-            "a crashed claude stops the run with no note, the opt-out notwithstanding",
-            status == EXIT_BROKEN
-            and lines == [f"BROKEN: `claude --version` exited 139 (no output){reinstall}", stop]
-            and ran == ["--version"],
-            f"{status} {lines} {ran}",
-        )
-    with (
-        tempfile.TemporaryDirectory() as tmp
-    ):  # step 2 over a toy kit, its marketplace named toy-mp, and a fake claude
-        base = Path(tmp).resolve()
-        toy, bin_dir, cache = base / "kit", base / "bin", base / "cache"
-        (toy / ".claude-plugin").mkdir(parents=True)
-        (toy / ".claude-plugin" / "marketplace.json").write_text('{"name": "toy-mp"}', encoding="utf-8")
-        (toy / "scripts").mkdir()
-        (toy / "scripts" / "claude-code.version").write_text("2.1.282\n", encoding="utf-8")
-        (toy / "kernel").mkdir()
-        (toy / "kernel" / "CONVENTIONS.md").write_text("A kernel.\n", encoding="utf-8")
-        toy_module = toy / "modules" / "const-x"
-        (toy_module / ".claude-plugin").mkdir(parents=True)
-        (toy_module / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
-        (toy_module / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
-        copy, other = cache / "const-x", cache / "other"
-        shutil.copytree(toy_module, copy)  # the installed copy; `other` is a folder that is not it
-        other.mkdir()
-        (cache / "a-file").write_text("not a folder\n", encoding="utf-8")
-        bin_dir.mkdir()
-        (bin_dir / "claude").write_text(fake_claude, encoding="utf-8")
-        (bin_dir / "claude").chmod(0o755)
-        fake_log, calls_log, cache_log = base / "fake.log", base / "calls.log", base / "cache.log"
-        key = "const-x@toy-mp"
-        pin_note = Note("2.1.282")  # the state of a run on the pin: the note empty
-        gone = 'Plugin "const-x" not found in any configured marketplace'
-        # what the platform replies, typed by hand
-        ok_line = json.dumps({"command": "install", "outcome": "ok", "message": "Installed", "scope": "user"})
-        failed_line = json.dumps(
-            {"command": "install", "outcome": "failed", "message": gone, "failureCode": "not_found"}
-        )
-
-        def listed(**over: object) -> dict[str, object]:
-            return {"id": key, "scope": "user", "installPath": str(copy)} | over
-
-        sha = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"  # an object id: 40 lower-case hexadecimal characters
-        sha_wrong, sha_right = "0f" * 20, "c0ffee" * 6 + "c0ff"
-
-        def recorded(*entries: dict[str, object]) -> str:
-            return json.dumps({"version": 2, "plugins": {key: list(entries)}})
-
-        def commit(**over: object) -> dict[str, object]:
-            return {"installPath": str(copy), "scope": "user", "gitCommitSha": sha} | over
-
-        @dataclass(frozen=True)
-        class Scene:
-            """One run of the check over the fake claude: what its install, its list and the record say."""
-
-            out: str = ok_line
-            code: int = 0
-            listing: str = json.dumps([listed()])
-            list_code: int = 0
-            record: str = recorded(commit())
-            source: str = (
-                "remote"  # `remote`: no folder, `local`: the toy kit's folder, `linked`: one with a link
-            )
-
-        def environment(scene: Scene, says: str = "2.1.282 (Claude Code)\\n") -> dict[str, str]:
-            for log in (fake_log, calls_log, cache_log):
-                log.unlink(missing_ok=True)
-            return {
-                "PATH": f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
-                "FAKE_SAYS": says,
-                "FAKE_LOG": str(fake_log),
-                "FAKE_CALLS": str(calls_log),
-                "FAKE_CACHE": str(cache_log),
-                "FAKE_INSTALL_OUT": scene.out,
-                "FAKE_INSTALL_EXIT": str(scene.code),
-                "FAKE_LIST_OUT": scene.listing,
-                "FAKE_LIST_EXIT": str(scene.list_code),
-                "FAKE_RECORD": scene.record,
-            }
-
-        linked = base / "linked-kit"  # the toy kit whose module holds a link its installed copy lacks
-        shutil.copytree(toy, linked, symlinks=True)
-        (linked / "modules" / "const-x" / "linked").symlink_to("MODULE.md")
-        no_kernel = base / "no-kernel"  # the toy kit without its kernel/, which a bare repository copies
-        shutil.copytree(toy, no_kernel)
-        shutil.rmtree(no_kernel / "kernel")
-
-        def where(scene: Scene) -> str:
-            return {"local": str(toy), "linked": str(linked)}.get(scene.source, "owner/repo")
-
-        def unrecord(text: str) -> str:  # the record's place is under a folder the run makes and removes
-            return re.sub(r"[^\s(]+/config/plugins/installed_plugins\.json", "<record>", text)
-
-        def drive(scene: Scene, extra: dict[str, str] | None = None) -> tuple[str, list[str], list[str]]:
-            """What `check_module` does: `on` (the copy is compared), the finding, or the BROKEN line; the
-            commits the source was asked at, and the copies it was compared with; `extra` is added to the
-            environment the check runs in."""
-            fetched: list[str] = []
-            compared: list[str] = []
-
-            def source_spy(at: str, name: str, root: Path) -> Path:
-                fetched.append(at)
-                return toy / "modules" / name
-
-            def installed_spy(name: str, src: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
-                compared.append(str(plugin))
-                return []
-
-            patched = {"KIT": toy, "source_at": source_spy, "check_installed": installed_spy}
-            with (
-                mock.patch.dict(os.environ, environment(scene) | (extra or {})),
-                mock.patch.dict(globals(), patched),
-            ):
-                try:
-                    found, _ = check_module("const-x", where(scene), pin_note)
-                except Broken as broken:
-                    return unrecord(f"BROKEN: {broken}"), fetched, compared
-                except (KeyError, TypeError) as escaped:  # a record's entry read wrongly: a case that fails
-                    return f"escaped {type(escaped).__name__}: {escaped}", fetched, compared
-            return "; ".join(f"RED: {f.what} | {f.fix}" for f in found) or "on", fetched, compared
-
-        def expect(name: str, scene: Scene, wanted: str, fetched: list[str] | None = None) -> None:
-            """`wanted` is what `drive` says, `fetched` the commits the source was asked at; when it goes on,
-            the copy compared is the installed one."""
-            got = drive(scene)
-            version_case(
-                name, got == (wanted, fetched or [], [str(copy)] if wanted == "on" else []), str(got)
-            )
-
-        install_command = f"`claude plugin install {key} --json`"
-        listing_command = "`claude plugin list --json`"
-
-        def fix_of(reader: str, wrote: str = "a reply") -> str:  # typed by hand: a message function cannot
-            return (  # check itself
-                f" — fix: Claude Code 2.1.282 wrote {wrote} that the kit's reader, `{reader}` in"
-                " scripts/check-bare-install.py, does not read: update that reader to what 2.1.282 writes"
-            )
-
-        off_fix = (  # typed by hand: the run is on 2.1.286, not the pinned 2.1.282
-            " — fix: this run is on 2.1.286, not the pinned 2.1.282: run it again on the pinned version,"
-            " put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh"
-            " in the kit's clone, then the check through sh scripts/gate-list.sh --run install-<module>"
-            " (--run guide for the guide's check), which puts it first, or install it beside your own by hand"
-            " (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
-            " then PATH=<folder>/node_modules/.bin:$PATH)"
-        )
-        install_fix, list_fix = fix_of("install_scope"), fix_of("listed_install")
-        refused = (
-            "RED: Claude Code refuses to install it ({}) | fix its manifest or its entry in marketplace.json"
-        )
-        no_object = "not one JSON object (exit {})"
-        bad_outcome = 'an object that {}, not "ok" or "failed" (exit 0)'
-        timed_out = (
-            " gave no result in {} s — fix: run the check again, and check that git can reach the source"
-        )
-        install_rows: list[tuple[str, str, int, str]] = [
-            ("an ok result, exit 0, goes on", ok_line, 0, "on"),
-            (
-                "an ok result after two other lines goes on: the last line is read",
-                f"A\nB\n{ok_line}",
-                0,
-                "on",
-            ),
-            ("an ok result with blank lines after it goes on", f"{ok_line}\n\n  \n", 0, "on"),
-            (
-                "a failed result with its failureCode is a refusal naming both",
-                failed_line,
-                1,
-                refused.format(f"not_found: {gone}"),
-            ),
-            (
-                "a failed result without a failureCode is a refusal naming its message",
-                json.dumps({"outcome": "failed", "message": gone}),
-                1,
-                refused.format(gone),
-            ),
-            (
-                "a failed result with exit 0 is a refusal",
-                failed_line,
-                0,
-                refused.format(f"not_found: {gone}"),
-            ),
-            (
-                "a failed result with neither field is a refusal naming the exit",
-                '{"outcome": "failed"}',
-                1,
-                refused.format("exit 1"),
-            ),
-            (
-                "an empty standard output, exit 1, is BROKEN",
-                "",
-                1,
-                f"BROKEN: {install_command} printed nothing on standard output (exit 1){install_fix}",
-            ),
-            (
-                "an empty standard output, exit 0, is BROKEN",
-                "",
-                0,
-                f"BROKEN: {install_command} printed nothing on standard output (exit 0){install_fix}",
-            ),
-            (
-                "the JSON line followed by a human line is BROKEN: the last line is no JSON",
-                f"{ok_line}\nInstalled const-x",
-                0,
-                f"BROKEN: {install_command} ended with 'Installed const-x', "
-                + no_object.format(0)
-                + install_fix,
-            ),
-            (
-                "a human line only, exit 0, is BROKEN",
-                "✔ Installed const-x",
-                0,
-                f"BROKEN: {install_command} ended with '✔ Installed const-x', "
-                + no_object.format(0)
-                + install_fix,
-            ),
-            (
-                "a human line only, exit 1, is BROKEN",
-                "✘ Failed to install const-x",
-                1,
-                f"BROKEN: {install_command} ended with '✘ Failed to install const-x', "
-                + no_object.format(1)
-                + install_fix,
-            ),
-            (
-                "an ok line with exit 1 is BROKEN",
-                ok_line,
-                1,
-                f"BROKEN: {install_command} said ok and exited 1{install_fix}",
-            ),
-            (
-                "exit 124 with nothing printed is BROKEN, no refusal",
-                "",
-                124,
-                f"BROKEN: {install_command}{timed_out.format(300)}",
-            ),
-            ("exit 124 beats an ok line", ok_line, 124, f"BROKEN: {install_command}{timed_out.format(300)}"),
-            (
-                "exit 124 beats a failed line",
-                failed_line,
-                124,
-                f"BROKEN: {install_command}{timed_out.format(300)}",
-            ),
-            (
-                "a human line whose quotation is exactly 200 characters is quoted whole",
-                "x" * 198,
-                0,
-                f"BROKEN: {install_command} ended with '{'x' * 198}', {no_object.format(0)}{install_fix}",
-            ),
-            (
-                "a human line whose quotation is 201 characters is cut at 200 and ends with …",
-                "x" * 199,
-                0,
-                f"BROKEN: {install_command} ended with '{'x' * 199}…, {no_object.format(0)}{install_fix}",
-            ),
-            (
-                "a long human line is cut at 200 characters",
-                "✔ " + " ".join(["installed"] * 30),
-                0,
-                f"BROKEN: {install_command} ended with {('✔ ' + ' '.join(['installed'] * 30))!r:.200}…, "
-                + no_object.format(0)
-                + install_fix,
-            ),
-            (
-                "a JSON list is BROKEN",
-                "[1, 2]",
-                0,
-                f"BROKEN: {install_command} ended with '[1, 2]', {no_object.format(0)}{install_fix}",
-            ),
-            (
-                "an ok result without a scope is BROKEN",
-                json.dumps({"outcome": "ok"}),
-                0,
-                f"BROKEN: {install_command} said ok without a scope string (scope is absent){install_fix}",
-            ),
-            (
-                "an ok result whose scope is a number is BROKEN",
-                json.dumps({"outcome": "ok", "scope": 5}),
-                0,
-                f"BROKEN: {install_command} said ok without a scope string (scope is 5){install_fix}",
-            ),
-            (
-                "an object with no outcome is BROKEN",
-                json.dumps({"scope": "user"}),
-                0,
-                f"BROKEN: {install_command} ended with " + bad_outcome.format("has no outcome") + install_fix,
-            ),
-            (
-                "an outcome of another word is BROKEN",
-                json.dumps({"outcome": "maybe", "scope": "user"}),
-                0,
-                f"BROKEN: {install_command} ended with "
-                + bad_outcome.format("has the outcome 'maybe'")
-                + install_fix,
-            ),
-            (
-                "an outcome that is no string is BROKEN",
-                json.dumps({"outcome": True, "scope": "user"}),
-                0,
-                f"BROKEN: {install_command} ended with "
-                + bad_outcome.format("has the outcome True")
-                + install_fix,
-            ),
-        ]
-        for name, out, code, wanted in install_rows:
-            expect(f"install replies: {name}", Scene(out=out, code=code, source="local"), wanted)
-        work, repo = base / "work", base / "repo"
-        work.mkdir()
-        repo.mkdir()
-        real_run = run
-        waits: list[float] = []  # the timeout each `claude plugin install` is run with, by `run`'s parameter
-
-        def run_cut(
+    def failing_at(word: str | None, failure: tuple[int, str, str]) -> Callable[..., tuple[int, str, str]]:
+        def fake_run(
             argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: float = 300
         ) -> tuple[int, str, str]:
-            """`run`, but a command that hangs is cut after 2 s whatever its timeout: a timeout that never
-            reached `run` is then seen in `waits` at once, not after the 300 s of the default."""
-            if argv[:3] == ["claude", "plugin", "install"]:
-                waits.append(timeout)
-            return real_run(argv, cwd, env, stdin, min(timeout, 2))
+            """`run`, but nothing is run: every command exits 0, the one with `word` gives `failure`."""
+            ran.append(argv)
+            return failure if word in argv else (0, "", "")
 
-        with (
-            mock.patch.dict(os.environ, environment(Scene()) | {"FAKE_HANG_INSTALL": "1"}),
-            mock.patch.dict(globals(), {"run": run_cut}),
-        ):
-            try:
-                install("const-x", work, repo, "owner/repo", "toy-mp", pin_note, timeout=0.3)
-                said_slow = "nothing raised"
-            except (Broken, Refused) as slow:
-                said_slow = f"{type(slow).__name__}: {slow}"
-        version_case(
-            "an install that gives no result within its timeout is BROKEN, no refusal, and its timeout is the"
-            " one `run` waits for",
-            said_slow == f"Broken: {install_command}{timed_out.format('0.3')}" and waits == [0.3],
-            f"{said_slow} {waits}",
-        )
-        no_entry = "lists no entry whose id is " + key + " at the scope user the install wrote ({})"
-        no_path = "gives no installPath string for " + key + " at scope user (installPath is {})"
-        no_json = "printed no JSON ({!r}: Expecting value: line 1 column 1 (char 0))"
-        missing, a_file = str(cache / "missing"), str(cache / "a-file")
-        bare = {"id": key, "scope": "user"}
+        return fake_run
 
-        def others(count: int) -> str:
-            """A list of `count` entries at the install's scope, none of them with the id looked for."""
-            return json.dumps([listed(id=f"const-{i}@toy-mp", installPath=str(other)) for i in range(count)])
+    def line_of(word: str | None, path: str | None = None, failure: tuple[int, str, str] = simulated) -> str:
+        """The BROKEN line `bare_repository` raises with `run` giving `failure` at `word`, or `ok`; with
+        `path`, the real `run` and that PATH."""
+        ran.clear()
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(globals(), {"run": failing_at(word, failure)} if path is None else {}):
+                with mock.patch.dict(os.environ, {} if path is None else {"PATH": path}):
+                    try:
+                        bare_repository(Path(tmp))
+                    except Broken as broken:
+                        return f"BROKEN: {broken}"
+                    except Exception as other:  # any other is the defect this table holds
+                        return f"raised {type(other).__name__}: {other}"
+        return "ok"
 
-        list_rows: list[tuple[str, str, str]] = [
-            ("an empty list", "[]", no_entry.format("no entries")),
-            (
-                "an entry at another scope only",
-                json.dumps([listed(scope="project")]),
-                no_entry.format("entries: 'const-x@toy-mp' at 'project'"),
-            ),
-            (
-                "two entries of the id at the install's scope",
-                json.dumps([listed(), listed(installPath=str(other))]),
-                "lists 2 entries whose id is " + key + " at the scope user the install wrote"
-                " (entries: 'const-x@toy-mp' at 'user', 'const-x@toy-mp' at 'user')",
-            ),
-            ("an entry without installPath", json.dumps([bare]), no_path.format("absent")),
-            ("an installPath that is a number", json.dumps([listed(installPath=7)]), no_path.format("7")),
-            (
-                "an installPath that is no folder",
-                json.dumps([listed(installPath=missing)]),
-                f"names an installPath that is no folder ({missing})",
-            ),
-            (
-                "an installPath that is a file",
-                json.dumps([listed(installPath=a_file)]),
-                f"names an installPath that is no folder ({a_file})",
-            ),
-            ("an object", '{"id": "x"}', "printed a JSON dict, not a list"),
-            (
-                "five entries of other ids, all named",
-                others(5),
-                no_entry.format("entries: " + ", ".join(f"'const-{i}@toy-mp' at 'user'" for i in range(5))),
-            ),
-            (
-                "six entries of other ids, the first five named and the rest cut with …",
-                others(6),
-                no_entry.format(
-                    "entries: " + ", ".join(f"'const-{i}@toy-mp' at 'user'" for i in range(5)) + ", …"
-                ),
-            ),
-            (
-                "entries that are no objects, shown as they are",
-                json.dumps(["x", 7]),
-                no_entry.format("entries: 'x', 7"),
-            ),
-            ("text that is no JSON", "no plugins installed", no_json.format("no plugins installed")),
-            ("nothing", "", no_json.format("")),
-        ]
-        for name, listing, wanted in list_rows:
-            expect(
-                f"list replies: {name} is BROKEN",
-                Scene(listing=listing, source="local"),
-                f"BROKEN: {listing_command} {wanted}{list_fix}",
-            )
-        good = json.dumps([listed()])
-        # A list command that wrote no reply (it exited other than 0, or timed out) has no reader to update:
-        # its fix is the command's own, not `fix_of`'s; the lines are typed by hand
-        list_where = "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"
-        put_first = (
-            "put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the"
-            " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
-            " for the guide's check), which puts it first, or install it beside your own by hand (npm install"
-            " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
-            " then PATH=<folder>/node_modules/.bin:$PATH)"
-        )
-        off_what = "this run is on 2.1.286, not the pinned 2.1.282"
-        fix_timed_out = " — fix: run the check again"
-        fix_timed_out_off = f" — fix: {off_what}: run the check again on the pinned version, {put_first}"
-        fix_exited = (
-            f" — fix: run `claude plugin list --json` in {list_where}, read why it fails,"
-            " then run the check again"
-        )
-        fix_exited_off = (
-            f" — fix: run `claude plugin list --json` in {list_where}, read why it fails; {off_what}, so then"
-            f" run the check again on the pinned version, {put_first}"
-        )
-        off_note = Note("2.1.282", "2.1.286")  # the state of a run on 2.1.286 with the opt-out set
+    for name, word, want in (
+        ("`git init` failing", "init", init_line),
+        ("`git add` failing", "add", add_line),
+        ("the `git -c … commit` failing is `git commit`, never `git -c`", "commit", commit_line),
+    ):
+        got_line = line_of(word)
+        version_case(tally, f"bare repository: {name}", got_line == want, got_line)
 
-        def list_said(scene: Scene, note: Note) -> str:
-            """What `listed_install` says over the fake's list for `scene` in the state `note` records."""
-            try:
-                listed_install(key, "user", repo, environment(scene), note)
-            except Broken as bad:
-                return f"BROKEN: {bad}"
-            return "no Broken"
-
-        for code, wanted_on, wanted_off in (
-            (1, fix_exited, fix_exited_off),
-            (3, fix_exited, fix_exited_off),
-            (124, fix_timed_out, fix_timed_out_off),
-        ):
-            for state, note, fix in (
-                ("on the pin", pin_note, wanted_on),
-                ("off the pin", off_note, wanted_off),
-            ):
-                said_list = list_said(Scene(listing=good, list_code=code), note)
-                version_case(
-                    f"list replies: a good list with exit {code} is BROKEN, {state},"
-                    f" its fix the command's own{' (a timeout)' if code == 124 else ''}",
-                    said_list == f"BROKEN: {listing_command} exited {code} ({good}){fix}",
-                    said_list,
-                )
-        expect(
-            "list replies: a good list with exit 1 is BROKEN, through the run",
-            Scene(listing=good, list_code=1, source="local"),
-            f"BROKEN: {listing_command} exited 1 ({good}){fix_exited}",
+    def failed(name: str, said: str) -> str:
+        """The whole line of git command `name` failing with `said` as the last line it printed."""
+        return f"BROKEN: git {name} failed in the bare repository ({said}) — fix: " + by_hand.format(
+            f"git {name}"
         )
-        for state, note, fix in (
-            ("on the pin", pin_note, fix_timed_out),
-            ("off the pin", off_note, fix_timed_out_off),
-        ):
-            with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["claude"], 300)):
-                said_list = list_said(Scene(listing=good), note)
+
+    # Any exit other than 0 is a failure (git's fatal is 128, `run`'s own timeout 124 with a message
+    # of its own), at each of the three commands; and the last line quoted is the standard error's,
+    # the standard output's only when the standard error is empty.
+    for name in ("init", "add", "commit"):
+        for code, said in ((128, "fatal: simulated"), (124, "timed out after 300 s"), (2, "error: x")):
+            got_line = line_of(name, failure=(code, "", said))
             version_case(
-                f"list replies: a list that times out is BROKEN, {state}, never a reader to update",
-                said_list == f"BROKEN: {listing_command} exited 124 (timed out after 300 s){fix}",
+                tally,
+                f"bare repository: `git {name}` exiting {code}",
+                got_line == failed(name, said),
+                got_line,
+            )
+        got_line = line_of(name, failure=(1, "out one\nout last", "err one\nerr last"))
+        version_case(
+            tally,
+            f"bare repository: `git {name}` printing on both streams quotes the standard error",
+            got_line == failed(name, "err last"),
+            got_line,
+        )
+        got_line = line_of(name, failure=(1, "out one\nout last", ""))
+        version_case(
+            tally,
+            f"bare repository: `git {name}` printing on the standard output alone quotes it",
+            got_line == failed(name, "out last"),
+            got_line,
+        )
+    got_line = line_of(None)
+    version_case(
+        tally,
+        "bare repository: no failure: the three commands, in their order",
+        got_line == "ok"
+        and ran
+        == [
+            ["git", "init", "-q", "-b", "main"],
+            ["git", "add", "-A"],
+            [
+                "git",
+                "-c",
+                "user.name=bare",
+                "-c",
+                "user.email=bare@example.invalid",
+                "commit",
+                "-q",
+                "-m",
+                "kernel",
+            ],
+        ],
+        f"{got_line} {ran}",
+    )
+    with tempfile.TemporaryDirectory() as none_here:
+        got_line = line_of(None, none_here)
+    version_case(
+        tally,
+        "bare repository: git missing from PATH is run's own line, unchanged",
+        got_line == "BROKEN: git is not installed (No such file or directory) — fix: install it and put it"
+        " on PATH",
+        got_line,
+    )
+    for argv, named in (
+        (["git", "init", "-q", "-b", "main"], "git init"),
+        (["git", "add", "-A"], "git add"),
+        (["git", "-c", "user.name=a", "-c", "user.email=b", "commit", "-q"], "git commit"),
+        (["git", "-C", "x", "status"], "git status"),
+        (["git", "-c", "commit.gpgsign=false", "-C", "x", "-c", "a=b", "log"], "git log"),
+        (["git", "--git-dir=x", "status"], "git status"),
+        (["git", "--no-pager", "-p", "diff", "HEAD"], "git diff"),
+        (["git", "-c", "status"], "git"),
+        (["git", "-C"], "git"),
+        (["git", "--version"], "git"),
+        (["git"], "git"),
+    ):
+        try:
+            got_name = git_command(argv)
+        except Exception as other:  # any other is the defect this table holds
+            got_name = f"raised {type(other).__name__}: {other}"
+        version_case(tally, f"bare repository: {argv} is named {named!r}", got_name == named, got_name)
+
+
+# the lines, typed by hand: a message function cannot check itself
+STRICT = (
+    "claude is {0}, and the kit's install checks read the platform as 2.1.282 writes it"
+    " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run:"
+    " either run sh scripts/setup-claude.sh in the kit's clone, then the check through"
+    " sh scripts/gate-list.sh --run install-<module> (--run guide for the guide's check), which puts"
+    " it first, or install it beside your own by hand (npm install --prefix <folder>"
+    " @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:$PATH), or set"
+    " CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
+    " {0} with a note on every headline line"
+)
+NOTED = " [claude {0}, not the pinned 2.1.282: CONSTITUTION_KIT_ANY_CLAUDE=1]"
+REINSTALL = " — fix: check that `claude` on PATH is Claude Code (`command -v claude`), and reinstall it"
+
+
+# typed by hand, a constant cannot check itself: the four variables `claude_env` removes, each with
+# what a person who sets it would set, a folder of the run's or `1`, and the variables it keeps, the
+# kit's CI's CLAUDE_CODE_PLUGIN_PREFER_HTTPS, an unrelated FAKE_KEEP and the seven other plugin
+# variables of the platform's environment-variables page that tune a clone's time, transport or retry,
+# an update or a wait, and steer nowhere plugins are found, kept or loaded, each with a value of its
+# own; `seen_when_removed` is what the fake logs after a command's first two words
+# (CLAUDE_CODE_PLUGIN_CACHE_DIR, …_SEED_DIR, …_DIRS, …_USE_ZIP_CACHE, CLAUDE_CODE_PLUGIN_PREFER_HTTPS,
+# FAKE_KEEP, then …_PLUGIN_GIT_TIMEOUT_MS, …_KEEP_MARKETPLACE_ON_FAILURE,
+# CLAUDE_CODE_SYNC_PLUGIN_INSTALL, …_TIMEOUT_MS, FORCE_AUTOUPDATE_PLUGINS,
+# …_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL, …_PLUGIN_DIR_WATCH) when the four are gone and the rest
+# stay
+PLUGIN_VARS = {
+    "CLAUDE_CODE_PLUGIN_CACHE_DIR": "person-cache",
+    "CLAUDE_CODE_PLUGIN_SEED_DIR": "person-seed",
+    "CLAUDE_CODE_PLUGIN_DIRS": "person-dirs",
+    "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE": "1",
+}
+DOCUMENTED_KEPT = {  # typed by hand, never the code's: the seven documented ones, each its own value
+    "CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS": "45000",
+    "CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE": "keep",
+    "CLAUDE_CODE_SYNC_PLUGIN_INSTALL": "sync",
+    "CLAUDE_CODE_SYNC_PLUGIN_INSTALL_TIMEOUT_MS": "30000",
+    "FORCE_AUTOUPDATE_PLUGINS": "force",
+    "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "disable",
+    "CLAUDE_CODE_PLUGIN_DIR_WATCH": "watch",
+}
+KEPT_VARS = {"CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1", "FAKE_KEEP": "1"} | DOCUMENTED_KEPT
+SEEN_WHEN_REMOVED = "|absent|absent|absent|absent|1|1|45000|keep|sync|30000|force|disable|watch"
+
+
+def person_plugin_values(under: Path) -> dict[str, tuple[str, str]]:
+    """Each of the four variables with the words for its set value and the value, the folders made
+    empty under `under`."""
+    values: dict[str, tuple[str, str]] = {}
+    for variable, folder in PLUGIN_VARS.items():
+        if folder == "1":
+            values[variable] = ("set to 1", "1")
+        else:
+            (under / folder).mkdir()
+            values[variable] = ("set to a folder", str(under / folder))
+    return values
+
+
+def stuck_line(what: str) -> str:
+    return f"BROKEN: `claude --version` {what}{REINSTALL}"
+
+
+# what `--version` says, its exit, what the run does with the variable unset, and with it at 1
+# (None: the same)
+VERSION_ROWS: list[tuple[str, int, str, str | None]] = [
+    ("2.1.282 (Claude Code)\\n", 0, "note:", None),
+    ("2.1.282 (Claude Code)\\r\\n", 0, "note:", None),  # CR is white space: the first word is read
+    ("2.1.282 (Claude Code)\\nextra\\n", 0, "note:", None),  # the first line alone is read
+    ("\\n2.1.282 (Claude Code)\\n", 0, "note:", None),  # blank lines before it are skipped
+    ("  \\n\\n 2.1.282 (Claude Code)\\n", 0, "note:", None),  # white space too, and before the word
+    (
+        "2.1.286 (Claude Code)\\n",
+        0,
+        "BROKEN: " + STRICT.format("2.1.286"),
+        "note:" + NOTED.format("2.1.286"),
+    ),
+    (
+        "2.1.2820 (Claude Code)\\n",
+        0,
+        "BROKEN: " + STRICT.format("2.1.2820"),
+        "note:" + NOTED.format("2.1.2820"),
+    ),
+    (
+        "2.1.28 (Claude Code)\\n",
+        0,
+        "BROKEN: " + STRICT.format("2.1.28"),
+        "note:" + NOTED.format("2.1.28"),
+    ),
+    ("2.1.286", 0, "BROKEN: " + STRICT.format("2.1.286"), "note:" + NOTED.format("2.1.286")),
+    ("v2.1.282\\n", 0, stuck_line("printed no version (v2.1.282)"), None),
+    ("", 0, stuck_line("printed no version (no output)"), None),
+    ("", 1, stuck_line("exited 1 (no output)"), None),
+    ("2.1.282 (Claude Code)\\n", 1, stuck_line("exited 1 (2.1.282 (Claude Code))"), None),
+    ("2.1.286 (Claude Code)\\n", 1, stuck_line("exited 1 (2.1.286 (Claude Code))"), None),
+    ("", 139, stuck_line("exited 139 (no output)"), None),
+    (
+        "extra\\n2.1.282 (Claude Code)\\n",
+        0,
+        stuck_line("printed no version (2.1.282 (Claude Code))"),
+        None,
+    ),
+]
+
+
+TOO_OLD = "2.1.286 (Claude Code)\\n"
+
+
+def kind_of(said_outcome: str) -> str:
+    if said_outcome == "note:":
+        return "the run goes on"
+    return "the run goes on with the note" if said_outcome.startswith("note:") else "BROKEN"
+
+
+@dataclass(frozen=True)
+class ClaudeStub:
+    """The toy kit of the version check, the folder of the fake `claude`, and the log the fake writes."""
+
+    base_dir: Path
+    toy_kit: Path
+    fake_dir: Path
+    fake_log: Path
+
+    def claude_env(self, said: str, code: int, optout: str | None, path: str | None = None) -> dict[str, str]:
+        env = {k: v for k, v in os.environ.items() if k != "CONSTITUTION_KIT_ANY_CLAUDE"}
+        env |= {
+            "PATH": path if path is not None else f"{self.fake_dir}{os.pathsep}{env.get('PATH', '')}",
+            "FAKE_SAYS": said,
+            "FAKE_EXIT": str(code),
+            "FAKE_LOG": str(self.fake_log),
+        }
+        if optout is not None:
+            env["CONSTITUTION_KIT_ANY_CLAUDE"] = optout
+        return env
+
+    def outcome(self, env: dict[str, str], root: Path | None = None) -> str:
+        """What the check does before its install: the note it goes on with, or its BROKEN line."""
+        self.fake_log.unlink(missing_ok=True)
+        try:
+            return f"note:{claude_noted(self.toy_kit if root is None else root, env)}"
+        except Broken as broken:
+            return f"BROKEN: {broken}"
+
+    def logged(self) -> list[str]:
+        return self.fake_log.read_text(encoding="utf-8").splitlines() if self.fake_log.exists() else []
+
+    def whole_run(
+        self, said: str, code: int, optout: str | None, *args: str
+    ) -> tuple[int, list[str], list[str]]:
+        """The exit and the lines `main` prints on the toy kit, and what the fake claude logged."""
+        self.fake_log.unlink(missing_ok=True)
+        printed_lines = io.StringIO()
+        with (
+            mock.patch.dict(os.environ, self.claude_env(said, code, optout)),
+            mock.patch.dict(globals(), {"KIT": self.toy_kit}),
+            contextlib.redirect_stdout(printed_lines),
+        ):
+            if optout is None:  # patch.dict adds to the environment, so the ambient variable goes by hand
+                os.environ.pop("CONSTITUTION_KIT_ANY_CLAUDE", None)
+            status = main(["--module", "const-nope", *args])
+        return status, printed_lines.getvalue().splitlines(), self.logged()
+
+
+def claude_stub(base_dir: Path) -> ClaudeStub:
+    """The toy kit that pins 2.1.282, a folder holding the fake `claude`, and its log, under `base_dir`."""
+    toy_kit, fake_dir, fake_log = base_dir / "kit", base_dir / "bin", base_dir / "claude.log"
+    (toy_kit / "scripts").mkdir(parents=True)
+    (toy_kit / "scripts" / "claude-code.version").write_text("2.1.282\n", encoding="utf-8")
+    fake_dir.mkdir()
+    (fake_dir / "claude").write_text(FAKE_CLAUDE, encoding="utf-8")
+    (fake_dir / "claude").chmod(0o755)
+    (base_dir / "empty").mkdir()
+    return ClaudeStub(base_dir, toy_kit, fake_dir, fake_log)
+
+
+def version_answer_cases(tally: Tally, stub: ClaudeStub) -> None:
+    """The version check over every answer of `claude --version`: a pinned one, another one, none."""
+    base_dir, toy_kit, fake_log, claude_env, outcome, logged = (
+        stub.base_dir,
+        stub.toy_kit,
+        stub.fake_log,
+        stub.claude_env,
+        stub.outcome,
+        stub.logged,
+    )
+    for says, exits, unset_out, one_out in VERSION_ROWS:
+        at_one = unset_out if one_out is None else one_out
+        seen = [outcome(claude_env(says, exits, None)), outcome(claude_env(says, exits, "1"))]
+        ran = logged()  # the second run only: each run leaves the one line its own command logged
+        version_case(
+            tally,
+            f'`claude --version` printing "{says}" with exit {exits}: {kind_of(unset_out)} with the variable'
+            f" unset, {kind_of(at_one)} with it at 1",
+            seen == [unset_out, at_one] and ran == ["--version"],
+            f"{seen} {ran}",
+        )
+    for value in ("", "0", "yes", "true", " 1", "1 ", "TRUE", "01"):
+        version_case(
+            tally,
+            f"CONSTITUTION_KIT_ANY_CLAUDE={value!r} is not the opt-out: the other version is BROKEN",
+            outcome(claude_env(TOO_OLD, 0, value)) == "BROKEN: " + STRICT.format("2.1.286"),
+            outcome(claude_env(TOO_OLD, 0, value)),
+        )
+    no_pin = base_dir / "empty"
+    said_no_pin = outcome(claude_env(TOO_OLD, 0, "1"), no_pin)
+    version_case(
+        tally,
+        "a kit with no pin file is BROKEN with the reader's line, and claude is not run",
+        said_no_pin
+        == f"BROKEN: {no_pin}/scripts/claude-code.version cannot be read (No such file or directory)"
+        " — fix: write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's"
+        " only line"
+        and logged() == [],
+        f"{said_no_pin} {logged()}",
+    )
+    said_no_claude = outcome(claude_env(TOO_OLD, 0, "1", path=str(no_pin)))
+    version_case(
+        tally,
+        "no claude on PATH is BROKEN, the opt-out notwithstanding",
+        said_no_claude
+        == "BROKEN: claude is not installed (No such file or directory) — fix: install it and put it on"
+        " PATH",
+        said_no_claude,
+    )
+    fake_log.unlink(missing_ok=True)
+    try:
+        claude_note(toy_kit, claude_env("", 0, "1") | {"FAKE_HANG": "1"}, timeout=0.2)
+        said_hung = "no DocumentError"
+    except DocumentError as hung:
+        said_hung = str(hung)
+    version_case(
+        tally,
+        "a claude that does not answer in time is no version, the opt-out notwithstanding",
+        said_hung == f"`claude --version` exited 124 (timed out after 0.2 s){REINSTALL}"
+        and logged() == ["--version"],
+        f"{said_hung} {logged()}",
+    )
+
+
+def config_folder_cases(tally: Tally, stub: ClaudeStub) -> None:
+    """`claude --version` runs in an empty configuration folder of its own, auto-updater off."""
+    base_dir, claude_env, outcome = stub.base_dir, stub.claude_env, stub.outcome
+    person = base_dir / "person"  # the configuration folder of the person who runs the check
+    person.mkdir()
+    (person / "keep").write_text("the person's own configuration\n", encoding="utf-8")
+    env_log = base_dir / "env.log"
+    for name, own in (
+        ("the person's CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER=0", True),
+        ("neither of the two variables", False),
+    ):
+        env_log.unlink(missing_ok=True)
+        env = claude_env("2.1.282 (Claude Code)\\n", 0, None) | {"FAKE_ENV": str(env_log)}
+        env = {k: v for k, v in env.items() if own or k not in ("CLAUDE_CONFIG_DIR", "DISABLE_AUTOUPDATER")}
+        if own:
+            env |= {"CLAUDE_CONFIG_DIR": str(person), "DISABLE_AUTOUPDATER": "0"}
+        outcome(env)
+        seen_env = env_log.read_text(encoding="utf-8").splitlines() if env_log.exists() else []
+        config, updater, held, is_dir = (seen_env[0].split("|") + ["", "", "", ""])[:4]
+        version_case(
+            tally,
+            f"`claude --version` runs in an empty configuration folder of its own, auto-updater off,"
+            f" with {name}",
+            len(seen_env) == 1
+            and config not in ("", str(person))
+            and is_dir == "dir"
+            and held == "0"
+            and updater == "1"
+            and sorted(path.name for path in person.iterdir()) == ["keep"],
+            f"{seen_env} {sorted(path.name for path in person.iterdir())}",
+        )
+
+
+def plugin_variable_cases(tally: Tally, stub: ClaudeStub) -> None:
+    """None of the four plugin variables of the person reaches `claude --version`; the kept ones do."""
+    base_dir, claude_env, outcome = stub.base_dir, stub.claude_env, stub.outcome
+    cache_seen = base_dir / "cache-seen.log"
+    person_values = person_plugin_values(base_dir)
+    for variable, (what, set_value) in person_values.items():
+        for name, value in ((what, set_value), ("set and empty", "")):
+            cache_seen.unlink(missing_ok=True)
+            env = claude_env("2.1.282 (Claude Code)\\n", 0, None) | KEPT_VARS
+            env |= {"FAKE_CACHE": str(cache_seen), variable: value}
+            said_version = outcome(env)
+            seen_version = cache_seen.read_text(encoding="utf-8").splitlines() if cache_seen.exists() else []
+            version_case(
+                tally,
+                f"{variable} {name} in the person's environment: `claude --version` runs with the four"
+                " absent, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the seven documented as set",
+                said_version == "note:" and seen_version == ["--version " + SEEN_WHEN_REMOVED],
+                f"{said_version} {seen_version}",
+            )
+    cache_seen.unlink(missing_ok=True)
+    env = claude_env(TOO_OLD, 0, "1") | KEPT_VARS | {"FAKE_CACHE": str(cache_seen)}
+    env |= {variable: set_value for variable, (_, set_value) in person_values.items()}
+    said_all = outcome(env)
+    seen_all = cache_seen.read_text(encoding="utf-8").splitlines() if cache_seen.exists() else []
+    version_case(
+        tally,
+        "all four set in the person's environment with CONSTITUTION_KIT_ANY_CLAUDE=1 on another version:"
+        " the opt-out is still read, and `claude --version` runs with the four absent",
+        said_all == "note:" + NOTED.format("2.1.286") and seen_all == ["--version " + SEEN_WHEN_REMOVED],
+        f"{said_all} {seen_all}",
+    )
+
+
+def whole_run_cases(tally: Tally, stub: ClaudeStub) -> None:
+    """A whole run of `main` stops at the version it cannot accept, and goes on with a note when allowed."""
+    whole_run = stub.whole_run
+    stop = "BROKEN: the check could not run — 0 modules examined"
+    status, lines, ran = whole_run("2.1.286 (Claude Code)\\n", 0, None)
+    version_case(
+        tally,
+        "a run on another version stops at its first line, and no other claude command runs",
+        status == EXIT_BROKEN
+        and lines == ["BROKEN: " + STRICT.format("2.1.286"), stop]
+        and ran == ["--version"],
+        f"{status} {lines} {ran}",
+    )
+    status, lines, ran = whole_run("2.1.286 (Claude Code)\\n", 0, "1")
+    version_case(
+        tally,
+        "with the opt-out the run goes on, and each BROKEN line it ends with ends with the note",
+        status == EXIT_BROKEN
+        and lines
+        == [
+            "BROKEN: no module const-nope in the kit — fix: name a folder under modules/ that holds a"
+            " plugin" + NOTED.format("2.1.286"),
+            stop + NOTED.format("2.1.286"),
+        ]
+        and ran == ["--version"],
+        f"{status} {lines} {ran}",
+    )
+    status, lines, ran = whole_run("", 139, "1")
+    version_case(
+        tally,
+        "a crashed claude stops the run with no note, the opt-out notwithstanding",
+        status == EXIT_BROKEN
+        and lines == [f"BROKEN: `claude --version` exited 139 (no output){REINSTALL}", stop]
+        and ran == ["--version"],
+        f"{status} {lines} {ran}",
+    )
+
+
+def version_check_cases(tally: Tally) -> None:
+    """The version check over every answer of `claude --version`."""
+    with tempfile.TemporaryDirectory() as tmp:  # the version check over every answer of `claude --version`
+        stub = claude_stub(Path(tmp))
+        version_answer_cases(tally, stub)
+        config_folder_cases(tally, stub)
+        plugin_variable_cases(tally, stub)
+        whole_run_cases(tally, stub)
+
+
+# Step 2 over a toy kit, its marketplace named toy-mp, and a fake claude.
+TOY_KEY = "const-x@toy-mp"
+PIN_NOTE = Note("2.1.282")  # the state of a run on the pin: the note empty
+GONE = 'Plugin "const-x" not found in any configured marketplace'
+# what the platform replies, typed by hand
+OK_LINE = json.dumps({"command": "install", "outcome": "ok", "message": "Installed", "scope": "user"})
+FAILED_LINE = json.dumps(
+    {"command": "install", "outcome": "failed", "message": GONE, "failureCode": "not_found"}
+)
+SHA = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"  # an object id: 40 lower-case hexadecimal characters
+SHA_WRONG, SHA_RIGHT = "0f" * 20, "c0ffee" * 6 + "c0ff"
+
+
+def recorded(*entries: dict[str, object]) -> str:
+    return json.dumps({"version": 2, "plugins": {TOY_KEY: list(entries)}})
+
+
+def unrecord(text: str) -> str:  # the record's place is under a folder the run makes and removes
+    return re.sub(r"[^\s(]+/config/plugins/installed_plugins\.json", "<record>", text)
+
+
+INSTALL_COMMAND = f"`claude plugin install {TOY_KEY} --json`"
+LISTING_COMMAND = "`claude plugin list --json`"
+
+
+def fix_of(reader: str, wrote: str = "a reply") -> str:  # typed by hand: a message function cannot
+    return (  # check itself
+        f" — fix: Claude Code 2.1.282 wrote {wrote} that the kit's reader, `{reader}` in"
+        " scripts/check-bare-install.py, does not read: update that reader to what 2.1.282 writes"
+    )
+
+
+OFF_FIX = (  # typed by hand: the run is on 2.1.286, not the pinned 2.1.282
+    " — fix: this run is on 2.1.286, not the pinned 2.1.282: run it again on the pinned version,"
+    " put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh"
+    " in the kit's clone, then the check through sh scripts/gate-list.sh --run install-<module>"
+    " (--run guide for the guide's check), which puts it first, or install it beside your own by hand"
+    " (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
+    " then PATH=<folder>/node_modules/.bin:$PATH)"
+)
+INSTALL_FIX, LIST_FIX = fix_of("install_scope"), fix_of("listed_install")
+REFUSED = "RED: Claude Code refuses to install it ({}) | fix its manifest or its entry in marketplace.json"
+NO_OBJECT = "not one JSON object (exit {})"
+BAD_OUTCOME = 'an object that {}, not "ok" or "failed" (exit 0)'
+TIMED_OUT = " gave no result in {} s — fix: run the check again, and check that git can reach the source"
+INSTALL_ROWS: list[tuple[str, str, int, str]] = [
+    ("an ok result, exit 0, goes on", OK_LINE, 0, "on"),
+    (
+        "an ok result after two other lines goes on: the last line is read",
+        f"A\nB\n{OK_LINE}",
+        0,
+        "on",
+    ),
+    ("an ok result with blank lines after it goes on", f"{OK_LINE}\n\n  \n", 0, "on"),
+    (
+        "a failed result with its failureCode is a refusal naming both",
+        FAILED_LINE,
+        1,
+        REFUSED.format(f"not_found: {GONE}"),
+    ),
+    (
+        "a failed result without a failureCode is a refusal naming its message",
+        json.dumps({"outcome": "failed", "message": GONE}),
+        1,
+        REFUSED.format(GONE),
+    ),
+    (
+        "a failed result with exit 0 is a refusal",
+        FAILED_LINE,
+        0,
+        REFUSED.format(f"not_found: {GONE}"),
+    ),
+    (
+        "a failed result with neither field is a refusal naming the exit",
+        '{"outcome": "failed"}',
+        1,
+        REFUSED.format("exit 1"),
+    ),
+    (
+        "an empty standard output, exit 1, is BROKEN",
+        "",
+        1,
+        f"BROKEN: {INSTALL_COMMAND} printed nothing on standard output (exit 1){INSTALL_FIX}",
+    ),
+    (
+        "an empty standard output, exit 0, is BROKEN",
+        "",
+        0,
+        f"BROKEN: {INSTALL_COMMAND} printed nothing on standard output (exit 0){INSTALL_FIX}",
+    ),
+    (
+        "the JSON line followed by a human line is BROKEN: the last line is no JSON",
+        f"{OK_LINE}\nInstalled const-x",
+        0,
+        f"BROKEN: {INSTALL_COMMAND} ended with 'Installed const-x', " + NO_OBJECT.format(0) + INSTALL_FIX,
+    ),
+    (
+        "a human line only, exit 0, is BROKEN",
+        "✔ Installed const-x",
+        0,
+        f"BROKEN: {INSTALL_COMMAND} ended with '✔ Installed const-x', " + NO_OBJECT.format(0) + INSTALL_FIX,
+    ),
+    (
+        "a human line only, exit 1, is BROKEN",
+        "✘ Failed to install const-x",
+        1,
+        f"BROKEN: {INSTALL_COMMAND} ended with '✘ Failed to install const-x', "
+        + NO_OBJECT.format(1)
+        + INSTALL_FIX,
+    ),
+    (
+        "an ok line with exit 1 is BROKEN",
+        OK_LINE,
+        1,
+        f"BROKEN: {INSTALL_COMMAND} said ok and exited 1{INSTALL_FIX}",
+    ),
+    (
+        "exit 124 with nothing printed is BROKEN, no refusal",
+        "",
+        124,
+        f"BROKEN: {INSTALL_COMMAND}{TIMED_OUT.format(300)}",
+    ),
+    ("exit 124 beats an ok line", OK_LINE, 124, f"BROKEN: {INSTALL_COMMAND}{TIMED_OUT.format(300)}"),
+    (
+        "exit 124 beats a failed line",
+        FAILED_LINE,
+        124,
+        f"BROKEN: {INSTALL_COMMAND}{TIMED_OUT.format(300)}",
+    ),
+    (
+        "a human line whose quotation is exactly 200 characters is quoted whole",
+        "x" * 198,
+        0,
+        f"BROKEN: {INSTALL_COMMAND} ended with '{'x' * 198}', {NO_OBJECT.format(0)}{INSTALL_FIX}",
+    ),
+    (
+        "a human line whose quotation is 201 characters is cut at 200 and ends with …",
+        "x" * 199,
+        0,
+        f"BROKEN: {INSTALL_COMMAND} ended with '{'x' * 199}…, {NO_OBJECT.format(0)}{INSTALL_FIX}",
+    ),
+    (
+        "a long human line is cut at 200 characters",
+        "✔ " + " ".join(["installed"] * 30),
+        0,
+        f"BROKEN: {INSTALL_COMMAND} ended with {('✔ ' + ' '.join(['installed'] * 30))!r:.200}…, "
+        + NO_OBJECT.format(0)
+        + INSTALL_FIX,
+    ),
+    (
+        "a JSON list is BROKEN",
+        "[1, 2]",
+        0,
+        f"BROKEN: {INSTALL_COMMAND} ended with '[1, 2]', {NO_OBJECT.format(0)}{INSTALL_FIX}",
+    ),
+    (
+        "an ok result without a scope is BROKEN",
+        json.dumps({"outcome": "ok"}),
+        0,
+        f"BROKEN: {INSTALL_COMMAND} said ok without a scope string (scope is absent){INSTALL_FIX}",
+    ),
+    (
+        "an ok result whose scope is a number is BROKEN",
+        json.dumps({"outcome": "ok", "scope": 5}),
+        0,
+        f"BROKEN: {INSTALL_COMMAND} said ok without a scope string (scope is 5){INSTALL_FIX}",
+    ),
+    (
+        "an object with no outcome is BROKEN",
+        json.dumps({"scope": "user"}),
+        0,
+        f"BROKEN: {INSTALL_COMMAND} ended with " + BAD_OUTCOME.format("has no outcome") + INSTALL_FIX,
+    ),
+    (
+        "an outcome of another word is BROKEN",
+        json.dumps({"outcome": "maybe", "scope": "user"}),
+        0,
+        f"BROKEN: {INSTALL_COMMAND} ended with "
+        + BAD_OUTCOME.format("has the outcome 'maybe'")
+        + INSTALL_FIX,
+    ),
+    (
+        "an outcome that is no string is BROKEN",
+        json.dumps({"outcome": True, "scope": "user"}),
+        0,
+        f"BROKEN: {INSTALL_COMMAND} ended with " + BAD_OUTCOME.format("has the outcome True") + INSTALL_FIX,
+    ),
+]
+NO_ENTRY = "lists no entry whose id is " + TOY_KEY + " at the scope user the install wrote ({})"
+# A list command that wrote no reply (it exited other than 0, or timed out) has no reader to update:
+# its fix is the command's own, not `fix_of`'s; the lines are typed by hand
+CASE_LIST_WHERE = "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"
+PUT_FIRST = (
+    "put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the"
+    " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
+    " for the guide's check), which puts it first, or install it beside your own by hand (npm install"
+    " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
+    " then PATH=<folder>/node_modules/.bin:$PATH)"
+)
+OFF_WHAT = "this run is on 2.1.286, not the pinned 2.1.282"
+FIX_TIMED_OUT = " — fix: run the check again"
+FIX_TIMED_OUT_OFF = f" — fix: {OFF_WHAT}: run the check again on the pinned version, {PUT_FIRST}"
+FIX_EXITED = (
+    f" — fix: run `claude plugin list --json` in {CASE_LIST_WHERE}, read why it fails,"
+    " then run the check again"
+)
+FIX_EXITED_OFF = (
+    f" — fix: run `claude plugin list --json` in {CASE_LIST_WHERE}, read why it fails; {OFF_WHAT}, so then"
+    f" run the check again on the pinned version, {PUT_FIRST}"
+)
+OFF_NOTE = Note("2.1.282", "2.1.286")  # the state of a run on 2.1.286 with the opt-out set
+NO_COMMIT = "BROKEN: the install record names no commit for " + TOY_KEY + " (<record>: {})"  # by hand
+UNNAMED = NO_COMMIT + fix_of("installed_commit", "a record")
+UNNAMED_OFF = NO_COMMIT + OFF_FIX
+SAYS_OFF, SAYS_PINNED = "2.1.286 (Claude Code)\\n", "2.1.282 (Claude Code)\\n"
+GREEN_LINE = "GREEN: const-x installs and operates on a bare repository with its defaults"
+
+
+@dataclass(frozen=True)
+class Scene:
+    """One run of the check over the fake claude: what its install, its list and the record say."""
+
+    out: str
+    code: int
+    listing: str
+    list_code: int
+    record: str
+    source: str  # `remote`: no folder, `local`: the toy kit's folder, `linked`: one with a link
+
+
+@dataclass(frozen=True)
+class StepTwo:
+    """The toy kit of step 2, its installed copy, the folders round them, the fake `claude`, its logs."""
+
+    base: Path
+    toy: Path
+    bin_dir: Path
+    cache: Path
+    copy: Path
+    other: Path
+    fake_log: Path
+    calls_log: Path
+    cache_log: Path
+    linked: Path
+    no_kernel: Path
+    work: Path
+    repo: Path
+
+    def listed(self, **over: object) -> dict[str, object]:
+        return {"id": TOY_KEY, "scope": "user", "installPath": str(self.copy)} | over
+
+    def commit(self, **over: object) -> dict[str, object]:
+        return {"installPath": str(self.copy), "scope": "user", "gitCommitSha": SHA} | over
+
+    @property
+    def good(self) -> str:
+        """The list of one entry, the installed copy, as the fake's `plugin list` says it."""
+        return json.dumps([self.listed()])
+
+    @property
+    def no_sha(self) -> dict[str, object]:
+        """An entry of the install record that names the installed copy and no commit."""
+        return {"installPath": str(self.copy)}
+
+    def new_scene(
+        self,
+        out: str = OK_LINE,
+        code: int = 0,
+        listing: str | None = None,
+        list_code: int = 0,
+        record: str | None = None,
+        source: str = "remote",
+    ) -> Scene:
+        """A scene of the installed copy, its list and its record, whatever it is not given."""
+        return Scene(
+            out,
+            code,
+            self.good if listing is None else listing,
+            list_code,
+            recorded(self.commit()) if record is None else record,
+            source,
+        )
+
+    def environment(self, scene: Scene, says: str = "2.1.282 (Claude Code)\\n") -> dict[str, str]:
+        for log in (self.fake_log, self.calls_log, self.cache_log):
+            log.unlink(missing_ok=True)
+        return {
+            "PATH": f"{self.bin_dir}{os.pathsep}{os.environ.get('PATH', '')}",
+            "FAKE_SAYS": says,
+            "FAKE_LOG": str(self.fake_log),
+            "FAKE_CALLS": str(self.calls_log),
+            "FAKE_CACHE": str(self.cache_log),
+            "FAKE_INSTALL_OUT": scene.out,
+            "FAKE_INSTALL_EXIT": str(scene.code),
+            "FAKE_LIST_OUT": scene.listing,
+            "FAKE_LIST_EXIT": str(scene.list_code),
+            "FAKE_RECORD": scene.record,
+        }
+
+    def where(self, scene: Scene) -> str:
+        return {"local": str(self.toy), "linked": str(self.linked)}.get(scene.source, "owner/repo")
+
+    def drive(self, scene: Scene, extra: dict[str, str] | None = None) -> tuple[str, list[str], list[str]]:
+        """What `check_module` does: `on` (the copy is compared), the finding, or the BROKEN line; the
+        commits the source was asked at, and the copies it was compared with; `extra` is added to the
+        environment the check runs in."""
+        fetched: list[str] = []
+        compared: list[str] = []
+
+        def source_spy(at: str, name: str, root: Path) -> Path:
+            fetched.append(at)
+            return self.toy / "modules" / name
+
+        def installed_spy(name: str, src: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
+            compared.append(str(plugin))
+            return []
+
+        patched = {"KIT": self.toy, "source_at": source_spy, "check_installed": installed_spy}
+        with (
+            mock.patch.dict(os.environ, self.environment(scene) | (extra or {})),
+            mock.patch.dict(globals(), patched),
+        ):
+            try:
+                found, _ = check_module("const-x", self.where(scene), PIN_NOTE)
+            except Broken as broken:
+                return unrecord(f"BROKEN: {broken}"), fetched, compared
+            except (KeyError, TypeError) as escaped:  # a record's entry read wrongly: a case that fails
+                return f"escaped {type(escaped).__name__}: {escaped}", fetched, compared
+        return "; ".join(f"RED: {f.what} | {f.fix}" for f in found) or "on", fetched, compared
+
+    def expect(
+        self, tally: Tally, name: str, scene: Scene, wanted: str, fetched: list[str] | None = None
+    ) -> None:
+        """`wanted` is what `drive` says, `fetched` the commits the source was asked at; when it goes on,
+        the copy compared is the installed one."""
+        got = self.drive(scene)
+        version_case(
+            tally, name, got == (wanted, fetched or [], [str(self.copy)] if wanted == "on" else []), str(got)
+        )
+
+    def list_said(self, scene: Scene, note: Note) -> str:
+        """What `listed_install` says over the fake's list for `scene` in the state `note` records."""
+        try:
+            listed_install(TOY_KEY, "user", self.repo, self.environment(scene), note)
+        except Broken as bad:
+            return f"BROKEN: {bad}"
+        return "no Broken"
+
+    def lines_of(
+        self, scene: Scene, says: str, optout: bool, kit: Path | None = None
+    ) -> tuple[int, list[str]]:
+        """The exit and the lines `main` prints for the toy kit's module over the fake claude."""
+        printed_lines = io.StringIO()
+        with (
+            mock.patch.dict(os.environ, self.environment(scene, says)),
+            mock.patch.dict(globals(), {"KIT": self.toy if kit is None else kit}),
+            contextlib.redirect_stdout(printed_lines),
+        ):
+            os.environ.pop("CONSTITUTION_KIT_ANY_CLAUDE", None)
+            if optout:
+                os.environ["CONSTITUTION_KIT_ANY_CLAUDE"] = "1"
+            status = main(["--module", "const-x", "--from", self.where(scene)])
+        return status, [unrecord(line) for line in printed_lines.getvalue().splitlines()]
+
+
+def step_two_scene(base: Path) -> StepTwo:
+    """The toy kit of step 2 under `base`: an installed copy, a folder that is not it, the fake claude."""
+    toy, bin_dir, cache = base / "kit", base / "bin", base / "cache"
+    (toy / ".claude-plugin").mkdir(parents=True)
+    (toy / ".claude-plugin" / "marketplace.json").write_text('{"name": "toy-mp"}', encoding="utf-8")
+    (toy / "scripts").mkdir()
+    (toy / "scripts" / "claude-code.version").write_text("2.1.282\n", encoding="utf-8")
+    (toy / "kernel").mkdir()
+    (toy / "kernel" / "CONVENTIONS.md").write_text("A kernel.\n", encoding="utf-8")
+    toy_module = toy / "modules" / "const-x"
+    (toy_module / ".claude-plugin").mkdir(parents=True)
+    (toy_module / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+    (toy_module / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+    copy, other = cache / "const-x", cache / "other"
+    shutil.copytree(toy_module, copy)  # the installed copy; `other` is a folder that is not it
+    other.mkdir()
+    (cache / "a-file").write_text("not a folder\n", encoding="utf-8")
+    bin_dir.mkdir()
+    (bin_dir / "claude").write_text(FAKE_CLAUDE, encoding="utf-8")
+    (bin_dir / "claude").chmod(0o755)
+    fake_log, calls_log, cache_log = base / "fake.log", base / "calls.log", base / "cache.log"
+    linked = base / "linked-kit"  # the toy kit whose module holds a link its installed copy lacks
+    shutil.copytree(toy, linked, symlinks=True)
+    (linked / "modules" / "const-x" / "linked").symlink_to("MODULE.md")
+    no_kernel = base / "no-kernel"  # the toy kit without its kernel/, which a bare repository copies
+    shutil.copytree(toy, no_kernel)
+    shutil.rmtree(no_kernel / "kernel")
+    work, repo = base / "work", base / "repo"
+    work.mkdir()
+    repo.mkdir()
+    return StepTwo(
+        base, toy, bin_dir, cache, copy, other, fake_log, calls_log, cache_log, linked, no_kernel, work, repo
+    )
+
+
+def install_reply_cases(tally: Tally, step: StepTwo) -> None:
+    """What `claude plugin install` replies, row by row, and an install that gives no result in time."""
+    work, repo, environment, expect, new_scene = (
+        step.work,
+        step.repo,
+        step.environment,
+        step.expect,
+        step.new_scene,
+    )
+    for name, out, code, wanted in INSTALL_ROWS:
+        expect(tally, f"install replies: {name}", new_scene(out=out, code=code, source="local"), wanted)
+    real_run = run
+    waits: list[float] = []  # the timeout each `claude plugin install` is run with, by `run`'s parameter
+
+    def run_cut(
+        argv: list[str], cwd: Path, env: dict[str, str], stdin: str = "", timeout: float = 300
+    ) -> tuple[int, str, str]:
+        """`run`, but a command that hangs is cut after 2 s whatever its timeout: a timeout that never
+        reached `run` is then seen in `waits` at once, not after the 300 s of the default."""
+        if argv[:3] == ["claude", "plugin", "install"]:
+            waits.append(timeout)
+        return real_run(argv, cwd, env, stdin, min(timeout, 2))
+
+    with (
+        mock.patch.dict(os.environ, environment(new_scene()) | {"FAKE_HANG_INSTALL": "1"}),
+        mock.patch.dict(globals(), {"run": run_cut}),
+    ):
+        try:
+            install("const-x", work, repo, "owner/repo", "toy-mp", PIN_NOTE, timeout=0.3)
+            said_slow = "nothing raised"
+        except (Broken, Refused) as slow:
+            said_slow = f"{type(slow).__name__}: {slow}"
+    version_case(
+        tally,
+        "an install that gives no result within its timeout is BROKEN, no refusal, and its timeout is the"
+        " one `run` waits for",
+        said_slow == f"Broken: {INSTALL_COMMAND}{TIMED_OUT.format('0.3')}" and waits == [0.3],
+        f"{said_slow} {waits}",
+    )
+
+
+def list_reply_cases(tally: Tally, step: StepTwo) -> None:
+    """What `claude plugin list` replies, row by row, is the entry looked for or a BROKEN line."""
+    cache, other, listed, expect, new_scene = step.cache, step.other, step.listed, step.expect, step.new_scene
+    no_path = "gives no installPath string for " + TOY_KEY + " at scope user (installPath is {})"
+    no_json = "printed no JSON ({!r}: Expecting value: line 1 column 1 (char 0))"
+    missing, a_file = str(cache / "missing"), str(cache / "a-file")
+    bare = {"id": TOY_KEY, "scope": "user"}
+
+    def others(count: int) -> str:
+        """A list of `count` entries at the install's scope, none of them with the id looked for."""
+        return json.dumps([listed(id=f"const-{i}@toy-mp", installPath=str(other)) for i in range(count)])
+
+    list_rows: list[tuple[str, str, str]] = [
+        ("an empty list", "[]", NO_ENTRY.format("no entries")),
+        (
+            "an entry at another scope only",
+            json.dumps([listed(scope="project")]),
+            NO_ENTRY.format("entries: 'const-x@toy-mp' at 'project'"),
+        ),
+        (
+            "two entries of the id at the install's scope",
+            json.dumps([listed(), listed(installPath=str(other))]),
+            "lists 2 entries whose id is " + TOY_KEY + " at the scope user the install wrote"
+            " (entries: 'const-x@toy-mp' at 'user', 'const-x@toy-mp' at 'user')",
+        ),
+        ("an entry without installPath", json.dumps([bare]), no_path.format("absent")),
+        ("an installPath that is a number", json.dumps([listed(installPath=7)]), no_path.format("7")),
+        (
+            "an installPath that is no folder",
+            json.dumps([listed(installPath=missing)]),
+            f"names an installPath that is no folder ({missing})",
+        ),
+        (
+            "an installPath that is a file",
+            json.dumps([listed(installPath=a_file)]),
+            f"names an installPath that is no folder ({a_file})",
+        ),
+        ("an object", '{"id": "x"}', "printed a JSON dict, not a list"),
+        (
+            "five entries of other ids, all named",
+            others(5),
+            NO_ENTRY.format("entries: " + ", ".join(f"'const-{i}@toy-mp' at 'user'" for i in range(5))),
+        ),
+        (
+            "six entries of other ids, the first five named and the rest cut with …",
+            others(6),
+            NO_ENTRY.format(
+                "entries: " + ", ".join(f"'const-{i}@toy-mp' at 'user'" for i in range(5)) + ", …"
+            ),
+        ),
+        (
+            "entries that are no objects, shown as they are",
+            json.dumps(["x", 7]),
+            NO_ENTRY.format("entries: 'x', 7"),
+        ),
+        ("text that is no JSON", "no plugins installed", no_json.format("no plugins installed")),
+        ("nothing", "", no_json.format("")),
+    ]
+    for name, listing, wanted in list_rows:
+        expect(
+            tally,
+            f"list replies: {name} is BROKEN",
+            new_scene(listing=listing, source="local"),
+            f"BROKEN: {LISTING_COMMAND} {wanted}{LIST_FIX}",
+        )
+
+
+def list_exit_cases(tally: Tally, step: StepTwo) -> None:
+    """A list that exits other than 0 or times out has a fix of its own; the right entry is picked."""
+    other, good, listed, expect, list_said, new_scene = (
+        step.other,
+        step.good,
+        step.listed,
+        step.expect,
+        step.list_said,
+        step.new_scene,
+    )
+    for code, wanted_on, wanted_off in (
+        (1, FIX_EXITED, FIX_EXITED_OFF),
+        (3, FIX_EXITED, FIX_EXITED_OFF),
+        (124, FIX_TIMED_OUT, FIX_TIMED_OUT_OFF),
+    ):
+        for state, note, fix in (
+            ("on the pin", PIN_NOTE, wanted_on),
+            ("off the pin", OFF_NOTE, wanted_off),
+        ):
+            said_list = list_said(new_scene(listing=good, list_code=code), note)
+            version_case(
+                tally,
+                f"list replies: a good list with exit {code} is BROKEN, {state},"
+                f" its fix the command's own{' (a timeout)' if code == 124 else ''}",
+                said_list == f"BROKEN: {LISTING_COMMAND} exited {code} ({good}){fix}",
                 said_list,
             )
-        on_project = json.dumps({"outcome": "ok", "scope": "project"})
-        picks: list[tuple[str, Scene]] = [
-            (
-                "the entry at the right scope, an entry at another scope first, is the one",
-                Scene(listing=json.dumps([listed(scope="project", installPath=str(other)), listed()])),
-            ),
-            (
-                "the entry at the right scope, an entry at another scope last, is the one",
-                Scene(listing=json.dumps([listed(), listed(scope="project", installPath=str(other))])),
-            ),
-            (
-                "the entry of the id, entries of other ids around it, is the one",
-                Scene(
-                    listing=json.dumps(
-                        [
-                            listed(id="const-y@toy-mp", installPath=str(other)),
-                            listed(id="const-x@other-mp", installPath=str(other)),
-                            listed(),
-                        ]
-                    )
-                ),
-            ),
-            (
-                "the entry at the scope the install wrote, not at `user`, is the one",
-                Scene(
-                    out=on_project,
-                    listing=json.dumps([listed(installPath=str(other)), listed(scope="project")]),
-                ),
-            ),
-        ]
-        for name, scene in picks:
-            expect(f"list replies: {name}", replace(scene, source="local"), "on")
-        no_commit = "BROKEN: the install record names no commit for " + key + " (<record>: {})"  # by hand
-        unnamed = no_commit + fix_of("installed_commit", "a record")
-        unnamed_off = no_commit + off_fix
-        no_list = f"holds no list under plugins['{key}']"
-        no_sha: dict[str, object] = {"installPath": str(copy)}
-        record_rows: list[tuple[str, str, str]] = [
-            ("a commit that is absent", recorded(no_sha), "gitCommitSha is absent"),
-            ("a commit that is empty", recorded(commit(gitCommitSha="")), "gitCommitSha is empty"),
-            (
-                "a commit that is a number",
-                recorded(commit(gitCommitSha=12345)),
-                "gitCommitSha is no string, 12345",
-            ),
-            ("a commit that is null", recorded(commit(gitCommitSha=None)), "gitCommitSha is no string, None"),
-            (
-                "a commit that is a list",
-                recorded(commit(gitCommitSha=["a"])),
-                "gitCommitSha is no string, ['a']",
-            ),
-            ("no record", "", "cannot be read, No such file or directory"),
-            ("a record that is no JSON", "not json", "is no JSON, Expecting value: line 1 column 1 (char 0)"),
-            ("a record that is a list", "[]", no_list),
-            ("a record without a plugins object", '{"version": 2}', no_list),
-            (
-                "a record of another marketplace's name",
-                json.dumps({"plugins": {"const-x@constitution-kit": [commit()]}}),
-                no_list,
-            ),
-            (
-                "a record whose entry for the id is an object",
-                json.dumps({"plugins": {key: commit()}}),
-                no_list,
-            ),
-            (
-                "an entry whose installPath is another folder",
-                recorded(commit(installPath=str(other))),
-                f"holds no entry for {key} whose installPath is {copy}",
-            ),
-            (
-                "entries that are no objects",
-                json.dumps({"plugins": {key: ["x", 7]}}),
-                f"holds no entry for {key} whose installPath is {copy}",
-            ),
-        ]
-        for name, text, why in record_rows:
-            expect(
-                f"the record: {name} is BROKEN for a remote source", Scene(record=text), unnamed.format(why)
-            )
-        expect("the record: a commit gives the source at that commit", Scene(), "on", [sha])
-        # none of the four variables reaches `claude`, whichever the person sets and to what: the platform's
-        # plugins root is the check's own configuration's plugins/, where the record is read, and the folders
-        # the person's variables name stay empty; the kept variables, PREFER_HTTPS, FAKE_KEEP and the seven
-        # documented ones, reach it unchanged
-        person_values = person_plugin_values(base)
-        for variable, (what, set_value) in person_values.items():
-            for name, value in ((what, set_value), ("set and empty", "")):
-                driven = drive(Scene(), {variable: value} | kept_vars)
-                seen_cache = cache_log.read_text(encoding="utf-8").splitlines() if cache_log.exists() else []
-                version_case(
-                    f"{variable} {name} in the person's environment: the marketplace add, the install and"
-                    " the list run with the four absent, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the"
-                    " seven documented ones as set, the record is read from the check's own configuration,"
-                    " and the folders stay empty",
-                    driven == ("on", [sha], [str(copy)])
-                    and seen_cache
-                    == [
-                        f"plugin marketplace{seen_when_removed}",
-                        f"plugin install{seen_when_removed}",
-                        f"plugin list{seen_when_removed}",
+    expect(
+        tally,
+        "list replies: a good list with exit 1 is BROKEN, through the run",
+        new_scene(listing=good, list_code=1, source="local"),
+        f"BROKEN: {LISTING_COMMAND} exited 1 ({good}){FIX_EXITED}",
+    )
+    for state, note, fix in (
+        ("on the pin", PIN_NOTE, FIX_TIMED_OUT),
+        ("off the pin", OFF_NOTE, FIX_TIMED_OUT_OFF),
+    ):
+        with mock.patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["claude"], 300)):
+            said_list = list_said(new_scene(listing=good), note)
+        version_case(
+            tally,
+            f"list replies: a list that times out is BROKEN, {state}, never a reader to update",
+            said_list == f"BROKEN: {LISTING_COMMAND} exited 124 (timed out after 300 s){fix}",
+            said_list,
+        )
+    on_project = json.dumps({"outcome": "ok", "scope": "project"})
+    picks: list[tuple[str, Scene]] = [
+        (
+            "the entry at the right scope, an entry at another scope first, is the one",
+            new_scene(listing=json.dumps([listed(scope="project", installPath=str(other)), listed()])),
+        ),
+        (
+            "the entry at the right scope, an entry at another scope last, is the one",
+            new_scene(listing=json.dumps([listed(), listed(scope="project", installPath=str(other))])),
+        ),
+        (
+            "the entry of the id, entries of other ids around it, is the one",
+            new_scene(
+                listing=json.dumps(
+                    [
+                        listed(id="const-y@toy-mp", installPath=str(other)),
+                        listed(id="const-x@other-mp", installPath=str(other)),
+                        listed(),
                     ]
-                    and all(list(Path(f).iterdir()) == [] for _, f in person_values.values() if f != "1"),
-                    f"{driven} {seen_cache}",
                 )
-        wrong = commit(installPath=str(other), gitCommitSha=sha_wrong)
-        right = commit(gitCommitSha=sha_right)
-        # an entry whose installPath is the copy's leaf name in another folder: the whole path decides
-        same_leaf = commit(installPath=str(other / copy.name), gitCommitSha=sha_wrong)
-        no_install_path: dict[str, object] = {"scope": "user", "gitCommitSha": sha_wrong}
-        for name, entries in (
-            ("an entry of another installPath first", (wrong, right)),
-            ("an entry of another installPath last", (right, wrong)),
-            ("an entry with the copy's leaf name in another folder first", (same_leaf, right)),
-            ("an entry with the copy's leaf name in another folder between", (wrong, same_leaf, right)),
-            ("an entry without an installPath first", (no_install_path, right)),
-            ("an entry whose installPath is a number first", (commit(installPath=7), right)),
-            ("an entry without an installPath, others round the right one", (wrong, no_install_path, right)),
-        ):
-            expect(
-                f"the record: the entry of the installed copy is the one read, {name}",
-                Scene(record=recorded(*entries)),
-                "on",
-                [sha_right],
-            )
-        marker = base / "git-ran-this"  # made by `touch` if git is ever handed the next value as an option
-        option = f"--upload-pack=touch {marker}"
-        sha64 = "0123456789abcdef" * 4
-        id_form = "40 or 64 lower-case hexadecimal characters"
-        for name, value in (
-            ("an option, -x", "-x"),
-            ("an option that makes git run a command, --upload-pack", option),
-            ("a word that is no hexadecimal", "not a sha"),
-            ("a branch name", "main"),
-            ("39 hexadecimal characters", sha[:-1]),
-            ("41 hexadecimal characters", sha + "0"),
-            ("63 hexadecimal characters", sha64[:-1]),
-            ("65 hexadecimal characters", sha64 + "0"),
-            ("an id in upper case, which git never writes", sha.upper()),
-            ("an id in mixed case", sha[:20] + sha[20:].upper()),
-            ("an id with a line break after it", sha + "\n"),
-            ("an id with a space before it", " " + sha),
-            ("an abbreviated id", sha[:7]),
-            ("an id of 40 characters, one of them not hexadecimal", sha[:-1] + "g"),
-        ):
-            expect(
-                f"the record: a commit that is {name} is BROKEN for a remote source, never handed to git",
-                Scene(record=recorded(commit(gitCommitSha=value))),
-                unnamed.format(f"gitCommitSha is no git object id ({id_form}), {value!r}"),
-            )
-        for name, value in (("40 hexadecimal characters", sha), ("64 hexadecimal characters", sha64)):
-            expect(
-                f"the record: a commit of {name} is an object id: the source is read at it",
-                Scene(record=recorded(commit(gitCommitSha=value))),
-                "on",
-                [value],
-            )
-        long_value = "x" * 250
+            ),
+        ),
+        (
+            "the entry at the scope the install wrote, not at `user`, is the one",
+            new_scene(
+                out=on_project,
+                listing=json.dumps([listed(installPath=str(other)), listed(scope="project")]),
+            ),
+        ),
+    ]
+    for name, scene in picks:
+        expect(tally, f"list replies: {name}", replace(scene, source="local"), "on")
+
+
+def record_cases(tally: Tally, step: StepTwo) -> None:
+    """The install record names the commit of a remote source, or each row is a BROKEN line."""
+    copy, other, no_sha, commit, expect, new_scene = (
+        step.copy,
+        step.other,
+        step.no_sha,
+        step.commit,
+        step.expect,
+        step.new_scene,
+    )
+    no_list = f"holds no list under plugins['{TOY_KEY}']"
+    record_rows: list[tuple[str, str, str]] = [
+        ("a commit that is absent", recorded(no_sha), "gitCommitSha is absent"),
+        ("a commit that is empty", recorded(commit(gitCommitSha="")), "gitCommitSha is empty"),
+        (
+            "a commit that is a number",
+            recorded(commit(gitCommitSha=12345)),
+            "gitCommitSha is no string, 12345",
+        ),
+        ("a commit that is null", recorded(commit(gitCommitSha=None)), "gitCommitSha is no string, None"),
+        (
+            "a commit that is a list",
+            recorded(commit(gitCommitSha=["a"])),
+            "gitCommitSha is no string, ['a']",
+        ),
+        ("no record", "", "cannot be read, No such file or directory"),
+        ("a record that is no JSON", "not json", "is no JSON, Expecting value: line 1 column 1 (char 0)"),
+        ("a record that is a list", "[]", no_list),
+        ("a record without a plugins object", '{"version": 2}', no_list),
+        (
+            "a record of another marketplace's name",
+            json.dumps({"plugins": {"const-x@constitution-kit": [commit()]}}),
+            no_list,
+        ),
+        (
+            "a record whose entry for the id is an object",
+            json.dumps({"plugins": {TOY_KEY: commit()}}),
+            no_list,
+        ),
+        (
+            "an entry whose installPath is another folder",
+            recorded(commit(installPath=str(other))),
+            f"holds no entry for {TOY_KEY} whose installPath is {copy}",
+        ),
+        (
+            "entries that are no objects",
+            json.dumps({"plugins": {TOY_KEY: ["x", 7]}}),
+            f"holds no entry for {TOY_KEY} whose installPath is {copy}",
+        ),
+    ]
+    for name, text, why in record_rows:
         expect(
-            "the record: a commit that is a long word is quoted, cut at 200 characters",
-            Scene(record=recorded(commit(gitCommitSha=long_value))),
-            unnamed.format(f"gitCommitSha is no git object id ({id_form}), " + repr(long_value)[:200] + "…"),
+            tally,
+            f"the record: {name} is BROKEN for a remote source",
+            new_scene(record=text),
+            UNNAMED.format(why),
         )
-        git_kit = base / "git-kit"  # the toy kit as a git clone whose origin is itself: git can really be run
-        shutil.copytree(toy, git_kit)
-        for argv in (
-            ["git", "init", "-q"],
-            ["git", "add", "-A"],
-            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "toy"],
-            ["git", "remote", "add", "origin", str(git_kit)],
-        ):
-            run(argv, git_kit, os.environ | {"GIT_CONFIG_GLOBAL": os.devnull})
-        with (
-            mock.patch.dict(os.environ, environment(Scene(record=recorded(commit(gitCommitSha=option))))),
-            mock.patch.dict(globals(), {"KIT": git_kit}),
-        ):
-            try:
-                check_module("const-x", "owner/repo", pin_note)
-                handed = "no Broken"
-            except Broken as broken:
-                handed = unrecord(str(broken))
-        version_case(
-            "the record: a commit that is an option, with git really run, is BROKEN and git runs no command",
-            handed.startswith("the install record names no commit for const-x@toy-mp (<record>:")
-            and "gitCommitSha is no git object id" in handed
-            and not marker.exists(),
-            f"{handed} {marker.exists()}",
-        )
-        for name, text in (
-            ("no record", ""),
-            ("a record that is no JSON", "not json"),
-            ("a record without a commit", recorded(no_sha)),
-            ("a record of another install", recorded(commit(installPath=str(other)))),
-        ):
-            expect(
-                f"the record: a local folder is compared with itself, {name} is read by no one",
-                Scene(record=text, source="local"),
-                "on",
-            )
-        drive(Scene())
-        asked = fake_log.read_text(encoding="utf-8").splitlines()
-        calls = [line.split(" | ") for line in calls_log.read_text(encoding="utf-8").splitlines()]
-        version_case(
-            "a run asks the marketplace, the install with --json and the list with --json, in the bare"
-            " repository and the configuration folder of the run",
-            asked
-            == ["plugin marketplace add owner/repo", f"plugin install {key} --json", "plugin list --json"]
-            and len(calls) == 3
-            and calls[0][1:] == calls[1][1:] == calls[2][1:]
-            and calls[0][1].endswith("/repo")
-            and calls[0][2].endswith("/config"),
-            f"{asked} {calls}",
-        )
+    expect(tally, "the record: a commit gives the source at that commit", new_scene(), "on", [SHA])
 
-        def lines_of(scene: Scene, says: str, optout: bool, kit: Path = toy) -> tuple[int, list[str]]:
-            """The exit and the lines `main` prints for the toy kit's module over the fake claude."""
-            printed_lines = io.StringIO()
-            with (
-                mock.patch.dict(os.environ, environment(scene, says)),
-                mock.patch.dict(globals(), {"KIT": kit}),
-                contextlib.redirect_stdout(printed_lines),
-            ):
-                os.environ.pop("CONSTITUTION_KIT_ANY_CLAUDE", None)
-                if optout:
-                    os.environ["CONSTITUTION_KIT_ANY_CLAUDE"] = "1"
-                status = main(["--module", "const-x", "--from", where(scene)])
-            return status, [unrecord(line) for line in printed_lines.getvalue().splitlines()]
 
-        off, pinned = "2.1.286 (Claude Code)\\n", "2.1.282 (Claude Code)\\n"
-        stop = "BROKEN: the check could not run — 0 modules examined"
-        refused_lines = [  # typed by hand: a message function cannot check itself
-            f"RED: const-x: Claude Code refuses to install it (not_found: {gone}){{}}",
-            f"  why: {WHY}",
-            "  fix: fix its manifest or its entry in marketplace.json",
-            "RED: 1 finding(s) — no install, from owner/repo{}",
-        ]
-        green = "GREEN: const-x installs and operates on a bare repository with its defaults"
-        link_lines = [  # typed by hand: a module's link its copy lacks, a finding that is no refusal
-            "RED: const-x: the link linked is missing in the installed copy{}",
-            f"  why: {WHY}",
-            "  fix: replace the link inside the module with the file it points at",
-            f"RED: 1 finding(s) — 0 hook(s), 0 scan(s), 1 link(s), from {linked}{{}}",
-        ]
-        unreadable_lines = [  # typed by hand: a file the run could not read, after the version is known
-            f"BROKEN: a file could not be read ([Errno 2] No such file or directory: '{no_kernel}/kernel')"
-            " — fix: make the module's files readable{}",
-            "BROKEN: the check could not run — 0 modules examined{}",
-        ]
-        reports: list[tuple[str, Scene, str, bool, int, list[str]]] = [
-            (
-                "a green run, off the pin",
-                Scene(source="local"),
-                off,
-                True,
-                EXIT_GREEN,
-                [f"{green} — 0 hook(s), 0 scan(s), 0 link(s), from {toy}{off_pin}"],
-            ),
-            (
-                "a green run, on the pin",
-                Scene(source="local"),
-                pinned,
-                False,
-                EXIT_GREEN,
-                [f"{green} — 0 hook(s), 0 scan(s), 0 link(s), from {toy}"],
-            ),
-            (
-                "a finding of the installed copy, off the pin",
-                Scene(source="linked"),
-                off,
-                True,
-                EXIT_RED,
-                [line.format(off_pin) for line in link_lines],
-            ),
-            (
-                "a finding of the installed copy, on the pin",
-                Scene(source="linked"),
-                pinned,
-                False,
-                EXIT_RED,
-                [line.format("") for line in link_lines],
-            ),
-            (
-                "a refusal, off the pin",
-                Scene(out=failed_line, code=1),
-                off,
-                True,
-                EXIT_RED,
-                [line.format(off_pin) for line in refused_lines],
-            ),
-            (
-                "a refusal, on the pin",
-                Scene(out=failed_line, code=1),
-                pinned,
-                False,
-                EXIT_RED,
-                [line.format("") for line in refused_lines],
-            ),
-            (
-                "an install that printed nothing, off the pin",
-                Scene(out=""),
-                off,
-                True,
-                EXIT_BROKEN,
-                [
-                    f"BROKEN: {install_command} printed nothing on standard output (exit 0)"
-                    + off_fix
-                    + off_pin,
-                    stop + off_pin,
-                ],
-            ),
-            (
-                "an install that printed nothing, on the pin",
-                Scene(out=""),
-                pinned,
-                False,
-                EXIT_BROKEN,
-                [f"BROKEN: {install_command} printed nothing on standard output (exit 0){install_fix}", stop],
-            ),
-            (
-                "an install record without a commit, off the pin",
-                Scene(record=recorded(no_sha)),
-                off,
-                True,
-                EXIT_BROKEN,
-                [unnamed_off.format("gitCommitSha is absent") + off_pin, stop + off_pin],
-            ),
-            (
-                "a list without the install, off the pin",
-                Scene(listing="[]"),
-                off,
-                True,
-                EXIT_BROKEN,
-                [
-                    f"BROKEN: {listing_command} {no_entry.format('no entries')}{off_fix}{off_pin}",
-                    stop + off_pin,
-                ],
-            ),
-            (
-                "a list that exits 1, off the pin",
-                Scene(listing=good, list_code=1),
-                off,
-                True,
-                EXIT_BROKEN,
-                [f"BROKEN: {listing_command} exited 1 ({good}){fix_exited_off}{off_pin}", stop + off_pin],
-            ),
-            (
-                "a list that exits 1, on the pin",
-                Scene(listing=good, list_code=1),
-                pinned,
-                False,
-                EXIT_BROKEN,
-                [f"BROKEN: {listing_command} exited 1 ({good}){fix_exited}", stop],
-            ),
-        ]
-        for name, scene, says, optout, status_wanted, lines_wanted in reports:
-            got_status, got_lines = lines_of(scene, says, optout)
+def person_variable_cases(tally: Tally, step: StepTwo) -> dict[str, tuple[str, str]]:
+    """None of the four plugin variables of the person reaches `claude`; the kept ones do."""
+    base, copy, cache_log, drive, new_scene = step.base, step.copy, step.cache_log, step.drive, step.new_scene
+    # none of the four variables reaches `claude`, whichever the person sets and to what: the platform's
+    # plugins root is the check's own configuration's plugins/, where the record is read, and the folders
+    # the person's variables name stay empty; the kept variables, PREFER_HTTPS, FAKE_KEEP and the seven
+    # documented ones, reach it unchanged
+    person_values = person_plugin_values(base)
+    for variable, (what, set_value) in person_values.items():
+        for name, value in ((what, set_value), ("set and empty", "")):
+            driven = drive(new_scene(), {variable: value} | KEPT_VARS)
+            seen_cache = cache_log.read_text(encoding="utf-8").splitlines() if cache_log.exists() else []
             version_case(
-                f"the report of {name} is its literal lines, the note at the end of each headline",
-                (got_status, got_lines) == (status_wanted, lines_wanted),
-                f"{got_status} {got_lines}",
+                tally,
+                f"{variable} {name} in the person's environment: the marketplace add, the install and"
+                " the list run with the four absent, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, FAKE_KEEP and the"
+                " seven documented ones as set, the record is read from the check's own configuration,"
+                " and the folders stay empty",
+                driven == ("on", [SHA], [str(copy)])
+                and seen_cache
+                == [
+                    f"plugin marketplace{SEEN_WHEN_REMOVED}",
+                    f"plugin install{SEEN_WHEN_REMOVED}",
+                    f"plugin list{SEEN_WHEN_REMOVED}",
+                ]
+                and all(list(Path(f).iterdir()) == [] for _, f in person_values.values() if f != "1"),
+                f"{driven} {seen_cache}",
             )
-        # the kit's own variables are read by the check itself, not taken away with the four: the source is
-        # CONSTITUTION_KIT_INSTALL_FROM and the run on another version goes on by CONSTITUTION_KIT_ANY_CLAUDE
-        # while all four are set; the fake claude, run by the same check, holds none of the four
-        env_kit = {variable: set_value for variable, (_, set_value) in person_values.items()}
-        env_kit |= kept_vars | {FROM_ENV: str(toy), "CONSTITUTION_KIT_ANY_CLAUDE": "1"}
-        env_kit |= environment(Scene(source="local"), off)
-        printed_kit = io.StringIO()
-        with (
-            mock.patch.dict(os.environ, env_kit),
-            mock.patch.dict(globals(), {"KIT": toy}),
-            contextlib.redirect_stdout(printed_kit),
-        ):
-            status_kit = main(["--module", "const-x"])
-        seen_kit = cache_log.read_text(encoding="utf-8").splitlines() if cache_log.exists() else []
-        version_case(
-            "all four set in the person's environment, with CONSTITUTION_KIT_INSTALL_FROM and"
-            " CONSTITUTION_KIT_ANY_CLAUDE=1: both still read by the check (the source, the run on another"
-            " version with its note), and every claude command runs with the four absent",
-            (status_kit, [unrecord(line) for line in printed_kit.getvalue().splitlines()])
-            == (EXIT_GREEN, [f"{green} — 0 hook(s), 0 scan(s), 0 link(s), from {toy}{off_pin}"])
-            and seen_kit
-            == [
-                f"--version {seen_when_removed}",
-                f"plugin marketplace{seen_when_removed}",
-                f"plugin install{seen_when_removed}",
-                f"plugin list{seen_when_removed}",
+    return person_values
+
+
+def record_entry_cases(tally: Tally, step: StepTwo) -> None:
+    """The entry of the installed copy is the one read, whichever entries stand round it."""
+    copy, other, commit, expect, new_scene = step.copy, step.other, step.commit, step.expect, step.new_scene
+    wrong = commit(installPath=str(other), gitCommitSha=SHA_WRONG)
+    right = commit(gitCommitSha=SHA_RIGHT)
+    # an entry whose installPath is the copy's leaf name in another folder: the whole path decides
+    same_leaf = commit(installPath=str(other / copy.name), gitCommitSha=SHA_WRONG)
+    no_install_path: dict[str, object] = {"scope": "user", "gitCommitSha": SHA_WRONG}
+    for name, entries in (
+        ("an entry of another installPath first", (wrong, right)),
+        ("an entry of another installPath last", (right, wrong)),
+        ("an entry with the copy's leaf name in another folder first", (same_leaf, right)),
+        ("an entry with the copy's leaf name in another folder between", (wrong, same_leaf, right)),
+        ("an entry without an installPath first", (no_install_path, right)),
+        ("an entry whose installPath is a number first", (commit(installPath=7), right)),
+        ("an entry without an installPath, others round the right one", (wrong, no_install_path, right)),
+    ):
+        expect(
+            tally,
+            f"the record: the entry of the installed copy is the one read, {name}",
+            new_scene(record=recorded(*entries)),
+            "on",
+            [SHA_RIGHT],
+        )
+
+
+def record_form_cases(tally: Tally, step: StepTwo) -> None:
+    """A commit that is no git object id is BROKEN and never handed to git; one that is, is read at."""
+    base, toy, commit, environment, expect, new_scene = (
+        step.base,
+        step.toy,
+        step.commit,
+        step.environment,
+        step.expect,
+        step.new_scene,
+    )
+    marker = base / "git-ran-this"  # made by `touch` if git is ever handed the next value as an option
+    option = f"--upload-pack=touch {marker}"
+    sha64 = "0123456789abcdef" * 4
+    id_form = "40 or 64 lower-case hexadecimal characters"
+    for name, value in (
+        ("an option, -x", "-x"),
+        ("an option that makes git run a command, --upload-pack", option),
+        ("a word that is no hexadecimal", "not a sha"),
+        ("a branch name", "main"),
+        ("39 hexadecimal characters", SHA[:-1]),
+        ("41 hexadecimal characters", SHA + "0"),
+        ("63 hexadecimal characters", sha64[:-1]),
+        ("65 hexadecimal characters", sha64 + "0"),
+        ("an id in upper case, which git never writes", SHA.upper()),
+        ("an id in mixed case", SHA[:20] + SHA[20:].upper()),
+        ("an id with a line break after it", SHA + "\n"),
+        ("an id with a space before it", " " + SHA),
+        ("an abbreviated id", SHA[:7]),
+        ("an id of 40 characters, one of them not hexadecimal", SHA[:-1] + "g"),
+    ):
+        expect(
+            tally,
+            f"the record: a commit that is {name} is BROKEN for a remote source, never handed to git",
+            new_scene(record=recorded(commit(gitCommitSha=value))),
+            UNNAMED.format(f"gitCommitSha is no git object id ({id_form}), {value!r}"),
+        )
+    for name, value in (("40 hexadecimal characters", SHA), ("64 hexadecimal characters", sha64)):
+        expect(
+            tally,
+            f"the record: a commit of {name} is an object id: the source is read at it",
+            new_scene(record=recorded(commit(gitCommitSha=value))),
+            "on",
+            [value],
+        )
+    long_value = "x" * 250
+    expect(
+        tally,
+        "the record: a commit that is a long word is quoted, cut at 200 characters",
+        new_scene(record=recorded(commit(gitCommitSha=long_value))),
+        UNNAMED.format(f"gitCommitSha is no git object id ({id_form}), " + repr(long_value)[:200] + "…"),
+    )
+    git_kit = base / "git-kit"  # the toy kit as a git clone whose origin is itself: git can really be run
+    shutil.copytree(toy, git_kit)
+    for argv in (
+        ["git", "init", "-q"],
+        ["git", "add", "-A"],
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "toy"],
+        ["git", "remote", "add", "origin", str(git_kit)],
+    ):
+        run(argv, git_kit, os.environ | {"GIT_CONFIG_GLOBAL": os.devnull})
+    with (
+        mock.patch.dict(os.environ, environment(new_scene(record=recorded(commit(gitCommitSha=option))))),
+        mock.patch.dict(globals(), {"KIT": git_kit}),
+    ):
+        try:
+            check_module("const-x", "owner/repo", PIN_NOTE)
+            handed = "no Broken"
+        except Broken as broken:
+            handed = unrecord(str(broken))
+    version_case(
+        tally,
+        "the record: a commit that is an option, with git really run, is BROKEN and git runs no command",
+        handed.startswith("the install record names no commit for const-x@toy-mp (<record>:")
+        and "gitCommitSha is no git object id" in handed
+        and not marker.exists(),
+        f"{handed} {marker.exists()}",
+    )
+
+
+def local_source_cases(tally: Tally, step: StepTwo) -> None:
+    """A local folder is compared with itself, and a run asks the three claude commands in order."""
+    other, fake_log, calls_log, no_sha, commit, drive, expect, new_scene = (
+        step.other,
+        step.fake_log,
+        step.calls_log,
+        step.no_sha,
+        step.commit,
+        step.drive,
+        step.expect,
+        step.new_scene,
+    )
+    for name, text in (
+        ("no record", ""),
+        ("a record that is no JSON", "not json"),
+        ("a record without a commit", recorded(no_sha)),
+        ("a record of another install", recorded(commit(installPath=str(other)))),
+    ):
+        expect(
+            tally,
+            f"the record: a local folder is compared with itself, {name} is read by no one",
+            new_scene(record=text, source="local"),
+            "on",
+        )
+    drive(new_scene())
+    asked = fake_log.read_text(encoding="utf-8").splitlines()
+    calls = [line.split(" | ") for line in calls_log.read_text(encoding="utf-8").splitlines()]
+    version_case(
+        tally,
+        "a run asks the marketplace, the install with --json and the list with --json, in the bare"
+        " repository and the configuration folder of the run",
+        asked
+        == ["plugin marketplace add owner/repo", f"plugin install {TOY_KEY} --json", "plugin list --json"]
+        and len(calls) == 3
+        and calls[0][1:] == calls[1][1:] == calls[2][1:]
+        and calls[0][1].endswith("/repo")
+        and calls[0][2].endswith("/config"),
+        f"{asked} {calls}",
+    )
+
+
+def step_report_cases(tally: Tally, step: StepTwo) -> None:
+    """The report of a run is its literal lines, the note at the end of each headline."""
+    toy, linked, good, no_sha, lines_of, new_scene = (
+        step.toy,
+        step.linked,
+        step.good,
+        step.no_sha,
+        step.lines_of,
+        step.new_scene,
+    )
+    stop = "BROKEN: the check could not run — 0 modules examined"
+    refused_lines = [  # typed by hand: a message function cannot check itself
+        f"RED: const-x: Claude Code refuses to install it (not_found: {GONE}){{}}",
+        f"  why: {WHY}",
+        "  fix: fix its manifest or its entry in marketplace.json",
+        "RED: 1 finding(s) — no install, from owner/repo{}",
+    ]
+    link_lines = [  # typed by hand: a module's link its copy lacks, a finding that is no refusal
+        "RED: const-x: the link linked is missing in the installed copy{}",
+        f"  why: {WHY}",
+        "  fix: replace the link inside the module with the file it points at",
+        f"RED: 1 finding(s) — 0 hook(s), 0 scan(s), 1 link(s), from {linked}{{}}",
+    ]
+    reports: list[tuple[str, Scene, str, bool, int, list[str]]] = [
+        (
+            "a green run, off the pin",
+            new_scene(source="local"),
+            SAYS_OFF,
+            True,
+            EXIT_GREEN,
+            [f"{GREEN_LINE} — 0 hook(s), 0 scan(s), 0 link(s), from {toy}{OFF_PIN}"],
+        ),
+        (
+            "a green run, on the pin",
+            new_scene(source="local"),
+            SAYS_PINNED,
+            False,
+            EXIT_GREEN,
+            [f"{GREEN_LINE} — 0 hook(s), 0 scan(s), 0 link(s), from {toy}"],
+        ),
+        (
+            "a finding of the installed copy, off the pin",
+            new_scene(source="linked"),
+            SAYS_OFF,
+            True,
+            EXIT_RED,
+            [line.format(OFF_PIN) for line in link_lines],
+        ),
+        (
+            "a finding of the installed copy, on the pin",
+            new_scene(source="linked"),
+            SAYS_PINNED,
+            False,
+            EXIT_RED,
+            [line.format("") for line in link_lines],
+        ),
+        (
+            "a refusal, off the pin",
+            new_scene(out=FAILED_LINE, code=1),
+            SAYS_OFF,
+            True,
+            EXIT_RED,
+            [line.format(OFF_PIN) for line in refused_lines],
+        ),
+        (
+            "a refusal, on the pin",
+            new_scene(out=FAILED_LINE, code=1),
+            SAYS_PINNED,
+            False,
+            EXIT_RED,
+            [line.format("") for line in refused_lines],
+        ),
+        (
+            "an install that printed nothing, off the pin",
+            new_scene(out=""),
+            SAYS_OFF,
+            True,
+            EXIT_BROKEN,
+            [
+                f"BROKEN: {INSTALL_COMMAND} printed nothing on standard output (exit 0)" + OFF_FIX + OFF_PIN,
+                stop + OFF_PIN,
             ],
-            f"{status_kit} {printed_kit.getvalue()!r} {seen_kit}",
+        ),
+        (
+            "an install that printed nothing, on the pin",
+            new_scene(out=""),
+            SAYS_PINNED,
+            False,
+            EXIT_BROKEN,
+            [f"BROKEN: {INSTALL_COMMAND} printed nothing on standard output (exit 0){INSTALL_FIX}", stop],
+        ),
+        (
+            "an install record without a commit, off the pin",
+            new_scene(record=recorded(no_sha)),
+            SAYS_OFF,
+            True,
+            EXIT_BROKEN,
+            [UNNAMED_OFF.format("gitCommitSha is absent") + OFF_PIN, stop + OFF_PIN],
+        ),
+        (
+            "a list without the install, off the pin",
+            new_scene(listing="[]"),
+            SAYS_OFF,
+            True,
+            EXIT_BROKEN,
+            [
+                f"BROKEN: {LISTING_COMMAND} {NO_ENTRY.format('no entries')}{OFF_FIX}{OFF_PIN}",
+                stop + OFF_PIN,
+            ],
+        ),
+        (
+            "a list that exits 1, off the pin",
+            new_scene(listing=good, list_code=1),
+            SAYS_OFF,
+            True,
+            EXIT_BROKEN,
+            [f"BROKEN: {LISTING_COMMAND} exited 1 ({good}){FIX_EXITED_OFF}{OFF_PIN}", stop + OFF_PIN],
+        ),
+        (
+            "a list that exits 1, on the pin",
+            new_scene(listing=good, list_code=1),
+            SAYS_PINNED,
+            False,
+            EXIT_BROKEN,
+            [f"BROKEN: {LISTING_COMMAND} exited 1 ({good}){FIX_EXITED}", stop],
+        ),
+    ]
+    for name, scene, says, optout, status_wanted, lines_wanted in reports:
+        got_status, got_lines = lines_of(scene, says, optout)
+        version_case(
+            tally,
+            f"the report of {name} is its literal lines, the note at the end of each headline",
+            (got_status, got_lines) == (status_wanted, lines_wanted),
+            f"{got_status} {got_lines}",
         )
-        for name, says, optout, note_wanted in (
-            ("off the pin", off, True, off_pin),
-            ("on the pin", pinned, False, ""),
-        ):
-            got_status, got_lines = lines_of(Scene(), says, optout, no_kernel)
-            version_case(
-                f"a file the run cannot read, {name}: the two BROKEN lines, the note at the end of each",
-                (got_status, got_lines)
-                == (EXIT_BROKEN, [line.format(note_wanted) for line in unreadable_lines]),
-                f"{got_status} {got_lines}",
-            )
+
+
+def person_variable_run_case(tally: Tally, step: StepTwo, person_values: dict[str, tuple[str, str]]) -> None:
+    """The kit's own variables are read by the check itself, not taken away with the four."""
+    toy, cache_log, environment, new_scene = step.toy, step.cache_log, step.environment, step.new_scene
+    # the kit's own variables are read by the check itself, not taken away with the four: the source is
+    # CONSTITUTION_KIT_INSTALL_FROM and the run on another version goes on by CONSTITUTION_KIT_ANY_CLAUDE
+    # while all four are set; the fake claude, run by the same check, holds none of the four
+    env_kit = {variable: set_value for variable, (_, set_value) in person_values.items()}
+    env_kit |= KEPT_VARS | {FROM_ENV: str(toy), "CONSTITUTION_KIT_ANY_CLAUDE": "1"}
+    env_kit |= environment(new_scene(source="local"), SAYS_OFF)
+    printed_kit = io.StringIO()
+    with (
+        mock.patch.dict(os.environ, env_kit),
+        mock.patch.dict(globals(), {"KIT": toy}),
+        contextlib.redirect_stdout(printed_kit),
+    ):
+        status_kit = main(["--module", "const-x"])
+    seen_kit = cache_log.read_text(encoding="utf-8").splitlines() if cache_log.exists() else []
+    version_case(
+        tally,
+        "all four set in the person's environment, with CONSTITUTION_KIT_INSTALL_FROM and"
+        " CONSTITUTION_KIT_ANY_CLAUDE=1: both still read by the check (the source, the run on another"
+        " version with its note), and every claude command runs with the four absent",
+        (status_kit, [unrecord(line) for line in printed_kit.getvalue().splitlines()])
+        == (EXIT_GREEN, [f"{GREEN_LINE} — 0 hook(s), 0 scan(s), 0 link(s), from {toy}{OFF_PIN}"])
+        and seen_kit
+        == [
+            f"--version {SEEN_WHEN_REMOVED}",
+            f"plugin marketplace{SEEN_WHEN_REMOVED}",
+            f"plugin install{SEEN_WHEN_REMOVED}",
+            f"plugin list{SEEN_WHEN_REMOVED}",
+        ],
+        f"{status_kit} {printed_kit.getvalue()!r} {seen_kit}",
+    )
+
+
+def unreadable_file_cases(tally: Tally, step: StepTwo) -> None:
+    """A file the run cannot read is the two BROKEN lines, the note at the end of each."""
+    no_kernel, lines_of, new_scene = step.no_kernel, step.lines_of, step.new_scene
+    unreadable_lines = [  # typed by hand: a file the run could not read, after the version is known
+        f"BROKEN: a file could not be read ([Errno 2] No such file or directory: '{no_kernel}/kernel')"
+        " — fix: make the module's files readable{}",
+        "BROKEN: the check could not run — 0 modules examined{}",
+    ]
+    for name, says, optout, note_wanted in (
+        ("off the pin", SAYS_OFF, True, OFF_PIN),
+        ("on the pin", SAYS_PINNED, False, ""),
+    ):
+        got_status, got_lines = lines_of(new_scene(), says, optout, no_kernel)
+        version_case(
+            tally,
+            f"a file the run cannot read, {name}: the two BROKEN lines, the note at the end of each",
+            (got_status, got_lines) == (EXIT_BROKEN, [line.format(note_wanted) for line in unreadable_lines]),
+            f"{got_status} {got_lines}",
+        )
+
+
+def step_two_cases(tally: Tally) -> None:
+    """Step 2 over a toy kit, its marketplace named toy-mp, and a fake claude."""
+    with tempfile.TemporaryDirectory() as tmp:
+        step = step_two_scene(Path(tmp).resolve())
+        install_reply_cases(tally, step)
+        list_reply_cases(tally, step)
+        list_exit_cases(tally, step)
+        record_cases(tally, step)
+        person_values = person_variable_cases(tally, step)
+        record_entry_cases(tally, step)
+        record_form_cases(tally, step)
+        local_source_cases(tally, step)
+        step_report_cases(tally, step)
+        person_variable_run_case(tally, step, person_values)
+        unreadable_file_cases(tally, step)
+
+
+def source_at_commit_case(tally: Tally) -> None:
+    """The source at a commit is read from the kit's own history."""
     with tempfile.TemporaryDirectory() as tmp:  # the kit's own history: the source at the commit checked out
         head = run(["git", "rev-parse", "HEAD"], KIT, os.environ.copy())[1]
         root = Path(tmp).resolve()
@@ -3903,11 +4352,33 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         )
         target = (extracted / "scripts" / "const_gate").resolve()
         ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
-    failed += 0 if ok else 1
+    tally.failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")
-    total = len(cases) + len(unreadable) + 6 + extra
-    print(f"{total - failed}/{total} cases green")
-    return EXIT_GREEN if failed == 0 else EXIT_RED
+
+
+def self_test() -> int:
+    """Red→green on throwaway source and copy folders, no install: a green copy is green; each branch
+    of the link check — a link inside the module, the runner's link to its own package arrived as a
+    directory, leading elsewhere, dangling or missing, a link left a link, missing, with files lost, added or
+    changed, a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
+    the hooks-file, hook and scan checks, and a red scan the source declares where the copy lost its
+    document, are each a finding; a source document that cannot be read is a teaching BROKEN line, and
+    the scans are read from rows of each form; the report of one finding is its literal text, exit 2."""
+    tally = Tally()
+    link_cases(tally)
+    unreadable_cases(tally)
+    scan_row_case(tally)
+    report_cases(tally)
+    marketplace_case(tally)
+    hook_wait_cases(tally)
+    start_and_lookup_cases(tally)
+    bare_repository_cases(tally)
+    version_check_cases(tally)
+    step_two_cases(tally)
+    source_at_commit_case(tally)
+    total = len(LINK_CASES) + len(UNREADABLE_CASES) + 6 + tally.extra
+    print(f"{total - tally.failed}/{total} cases green")
+    return EXIT_GREEN if tally.failed == 0 else EXIT_RED
 
 
 def main(argv: list[str]) -> int:

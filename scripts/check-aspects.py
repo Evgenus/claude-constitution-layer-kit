@@ -591,10 +591,9 @@ def kind_of(cell: str) -> str | None:
     return None
 
 
-def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: list[Finding]) -> Module:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
+def module_version(directory: Path) -> str:
+    """The version a module's manifest holds; Broken when the manifest is unreadable or no JSON object."""
     name = directory.name
-    path = f"modules/{name}/MODULE.md"
-    text = read(root, path)
     manifest = directory / ".claude-plugin" / "plugin.json"
     try:
         data = json.loads(manifest.read_text(encoding="utf-8"))
@@ -607,11 +606,11 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
             f"modules/{name}/.claude-plugin/plugin.json is no JSON object, it holds a {type(data).__name__}"
             " — fix: restore it as a JSON object"
         )
-    version = str(data.get("version", "?"))
-    try:
-        rows_section, acceptance_section = section(text, "t3", path), section(text, "t10", path)
-    except DocumentError as bad:
-        raise Broken(str(bad)) from bad
+    return str(data.get("version", "?"))
+
+
+def held_rows(rows_section: list[tuple[int, str]], matrix: dict[str, Row]) -> dict[str, int]:
+    """The matrix rows a module's rows section links, each at the line of its first link."""
     held: dict[str, int] = {}
     for number, raw in rows_section:
         line = raw.strip()
@@ -622,6 +621,141 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
             path_part, _, anchor = link[2].partition("#")
             if path_part.endswith(SPEC) and anchor in matrix:
                 held.setdefault(anchor, number)
+    return held
+
+
+def fixture_numbers(
+    module: Module, number: int, handles: str, parsed: list[tuple[str, int, int, str]]
+) -> list[int] | Finding:
+    """The runner numbers a fixture item names, or the finding when a handle is no runner number."""
+    if any(p not in ("", "T", "S") or s for p, _, _, s in parsed):
+        return Finding(
+            module.path,
+            number,
+            f"the fixture item {handles} has a handle that is no runner number",
+            WHY_HANDLES,
+            "write a fixture item as its runner number, bare or under `T` or `S`",
+        )
+    return [n for _, first, last, _ in parsed for n in range(first, last + 1)]
+
+
+def row_findings(
+    module: Module, number: int, handles: str, anchors: list[str], matrix: dict[str, Row]
+) -> list[Finding]:
+    """The findings for the rows an item links that the matrix or the module's rows section does not hold."""
+    found: list[Finding] = []
+    for anchor in anchors:
+        if anchor not in matrix:
+            found.append(
+                Finding(
+                    module.path,
+                    number,
+                    f"item {handles} links #{anchor}, a row the matrix does not hold",
+                    WHY_TAG,
+                    "link a row the matrix holds, or remove the link",
+                )
+            )
+        elif anchor not in module.held:
+            found.append(
+                Finding(
+                    module.path,
+                    number,
+                    f"item {handles} names {matrix[anchor].handle}, a row the rows section does not hold",
+                    WHY_SCOPE,
+                    "remove the link, or add the row to the rows section if the module implements it",
+                )
+            )
+    return found
+
+
+def read_item(
+    module: Module, number: int, parts: list[str], matrix: dict[str, Row], findings: list[Finding]
+) -> Item | None:
+    """The acceptance item of one table row, or None after a finding for a row that cannot be read."""
+    path = module.path
+    if len(parts) != 4:
+        findings.append(
+            Finding(
+                path,
+                number,
+                f"the acceptance item has {len(parts)} cells, not 4",
+                WHY_TAG,
+                "give the item its four cells: item, kind, rows, what it proves",
+            )
+        )
+        return None
+    handles, kind_cell, rows_cell, proves = parts
+    parsed = parse_handles(handles)
+    if parsed is None:
+        findings.append(
+            Finding(
+                path,
+                number,
+                f"the item cell '{handles}' is not a list of handles and closed ranges",
+                WHY_HANDLES,
+                "write each handle out, as `T1–T4, T7` or `S101–S106, S111`",
+            )
+        )
+        return None
+    kind = kind_of(kind_cell)
+    if kind is None:
+        findings.append(
+            Finding(
+                path,
+                number,
+                f"the kind '{kind_cell}' of item {handles} is none of the set",
+                WHY_KIND,
+                "open the cell with one of `fixture`, `kit check`, `live`, `live, deferred`, `review`",
+            )
+        )
+        return None
+    numbers: list[int] = []
+    if kind == "fixture":
+        named = fixture_numbers(module, number, handles, parsed)
+        if isinstance(named, Finding):
+            findings.append(named)
+            return None
+        numbers = named
+    anchors, rest = row_anchors(rows_cell)
+    if rows_cell == "none":
+        anchors = []
+    elif not anchors or rest:
+        findings.append(
+            Finding(
+                path,
+                number,
+                f"the rows cell of item {handles} is '{rows_cell}'",
+                WHY_TAG,
+                "link each row the item proves, [A1.4](../../docs/requirements.md#a1-4), or write"
+                " `none` for an item that proves no row of the module",
+            )
+        )
+        return None
+    findings.extend(row_findings(module, number, handles, anchors, matrix))
+    done = DONE.search(proves)
+    return Item(
+        module.name,
+        number,
+        handles,
+        kind,
+        [a for a in anchors if a in module.held],
+        numbers,
+        done[1] if done else None,
+    )
+
+
+def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: list[Finding]) -> Module:
+    """One module document read: its version, the rows it holds and its acceptance items, each finding
+    of its tables added to `findings`."""
+    name = directory.name
+    path = f"modules/{name}/MODULE.md"
+    text = read(root, path)
+    version = module_version(directory)
+    try:
+        rows_section, acceptance_section = section(text, "t3", path), section(text, "t10", path)
+    except DocumentError as bad:
+        raise Broken(str(bad)) from bad
+    held = held_rows(rows_section, matrix)
     module = Module(name, path, version, held, [], acceptance_section)
     table = [(n, raw.strip()) for n, raw in acceptance_section if raw.strip().startswith("|")]
     header = next(((n, cells(line)) for n, line in table if cells(line) and cells(line)[0] == "item"), None)
@@ -641,104 +775,9 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
         parts = cells(line)
         if not parts or parts[0] == "item" or set(parts[0]) <= {"-", ":"}:
             continue
-        if len(parts) != 4:
-            findings.append(
-                Finding(
-                    path,
-                    number,
-                    f"the acceptance item has {len(parts)} cells, not 4",
-                    WHY_TAG,
-                    "give the item its four cells: item, kind, rows, what it proves",
-                )
-            )
-            continue
-        handles, kind_cell, rows_cell, proves = parts
-        parsed = parse_handles(handles)
-        if parsed is None:
-            findings.append(
-                Finding(
-                    path,
-                    number,
-                    f"the item cell '{handles}' is not a list of handles and closed ranges",
-                    WHY_HANDLES,
-                    "write each handle out, as `T1–T4, T7` or `S101–S106, S111`",
-                )
-            )
-            continue
-        kind = kind_of(kind_cell)
-        if kind is None:
-            findings.append(
-                Finding(
-                    path,
-                    number,
-                    f"the kind '{kind_cell}' of item {handles} is none of the set",
-                    WHY_KIND,
-                    "open the cell with one of `fixture`, `kit check`, `live`, `live, deferred`, `review`",
-                )
-            )
-            continue
-        numbers: list[int] = []
-        if kind == "fixture":
-            if any(p not in ("", "T", "S") or s for p, _, _, s in parsed):
-                findings.append(
-                    Finding(
-                        path,
-                        number,
-                        f"the fixture item {handles} has a handle that is no runner number",
-                        WHY_HANDLES,
-                        "write a fixture item as its runner number, bare or under `T` or `S`",
-                    )
-                )
-                continue
-            numbers = [n for _, first, last, _ in parsed for n in range(first, last + 1)]
-        anchors, rest = row_anchors(rows_cell)
-        if rows_cell == "none":
-            anchors = []
-        elif not anchors or rest:
-            findings.append(
-                Finding(
-                    path,
-                    number,
-                    f"the rows cell of item {handles} is '{rows_cell}'",
-                    WHY_TAG,
-                    "link each row the item proves, [A1.4](../../docs/requirements.md#a1-4), or write"
-                    " `none` for an item that proves no row of the module",
-                )
-            )
-            continue
-        for anchor in anchors:
-            if anchor not in matrix:
-                findings.append(
-                    Finding(
-                        path,
-                        number,
-                        f"item {handles} links #{anchor}, a row the matrix does not hold",
-                        WHY_TAG,
-                        "link a row the matrix holds, or remove the link",
-                    )
-                )
-            elif anchor not in held:
-                findings.append(
-                    Finding(
-                        path,
-                        number,
-                        f"item {handles} names {matrix[anchor].handle}, a row the rows section does not hold",
-                        WHY_SCOPE,
-                        "remove the link, or add the row to the rows section if the module implements it",
-                    )
-                )
-        done = DONE.search(proves)
-        module.items.append(
-            Item(
-                name,
-                number,
-                handles,
-                kind,
-                [a for a in anchors if a in held],
-                numbers,
-                done[1] if done else None,
-            )
-        )
+        item = read_item(module, number, parts, matrix, findings)
+        if item is not None:
+            module.items.append(item)
     for anchor, number in held.items():
         if not any(anchor in item.rows for item in module.items):
             findings.append(
@@ -961,10 +1000,44 @@ def item_line(item: Item) -> str:
     return f"      {item.module} {item.handles}: {kind} — {result}"
 
 
-def full_run(  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    root: Path, only: str | None, runner: Callable[[Path, Module], dict[int, bool]] = run_runner
+def attach_results(module: Module, results: dict[int, bool], findings: list[Finding]) -> None:
+    """Give each item the results of the numbers it names; a number the runner did not print, and a runner
+    item no item names, are findings."""
+    named: set[int] = set()
+    for item in module.items:
+        for n in item.numbers:
+            named.add(n)
+            if n in results:
+                item.results[n] = results[n]
+            else:
+                findings.append(
+                    Finding(
+                        module.path,
+                        item.line,
+                        f"item {item.handles} names runner item {n}, which the runner did not print",
+                        WHY_RUN,
+                        "remove the number from the item cell, or restore the item in the runner",
+                    )
+                )
+    for n in sorted(set(results) - named):
+        findings.append(
+            Finding(
+                module.path,
+                0,
+                f"runner item {n} is named by no acceptance item",
+                WHY_RUN,
+                "add its number to the item cell that proves the same thing, or a new item",
+            )
+        )
+
+
+def run_modules(
+    root: Path,
+    modules: list[Module],
+    findings: list[Finding],
+    runner: Callable[[Path, Module], dict[int, bool]],
 ) -> int:
-    matrix, modules, findings, shared = check_structure(root, only)
+    """Run each module's runner and hold its items to the results; the number of runner items read."""
     read_items = 0
     for module in modules:
         results = runner(root, module)
@@ -972,32 +1045,14 @@ def full_run(  # noqa: C901 — over the limit when the rule came in; a split is
         mismatch = count_finding(module, len(results))  # run_runner held len(results) to the last line's T
         if mismatch is not None:
             findings.append(mismatch)
-        named: set[int] = set()
-        for item in module.items:
-            for n in item.numbers:
-                named.add(n)
-                if n in results:
-                    item.results[n] = results[n]
-                else:
-                    findings.append(
-                        Finding(
-                            module.path,
-                            item.line,
-                            f"item {item.handles} names runner item {n}, which the runner did not print",
-                            WHY_RUN,
-                            "remove the number from the item cell, or restore the item in the runner",
-                        )
-                    )
-        for n in sorted(set(results) - named):
-            findings.append(
-                Finding(
-                    module.path,
-                    0,
-                    f"runner item {n} is named by no acceptance item",
-                    WHY_RUN,
-                    "add its number to the item cell that proves the same thing, or a new item",
-                )
-            )
+        attach_results(module, results, findings)
+    return read_items
+
+
+def print_rows(
+    matrix: dict[str, Row], modules: list[Module], only: str | None
+) -> tuple[dict[str, int], bool]:
+    """Print each row with its verdict and items; the tally of verdicts, and whether one is red."""
     tally: dict[str, int] = {}
     red = False
     aspect = None
@@ -1020,6 +1075,12 @@ def full_run(  # noqa: C901 — over the limit when the rule came in; a split is
             continue
         red = red or v == "red"
         tally[v] = tally.get(v, 0) + 1
+    return tally, red
+
+
+def print_loose(modules: list[Module]) -> bool:
+    """Print each module's items that prove no row; whether one of them is red."""
+    red = False
     for module in modules:
         loose = [i for i in module.items if not i.rows]
         if loose:
@@ -1027,6 +1088,16 @@ def full_run(  # noqa: C901 — over the limit when the rule came in; a split is
             for item in loose:
                 print(item_line(item))
                 red = red or item.outcome() == "red"
+    return red
+
+
+def full_run(
+    root: Path, only: str | None, runner: Callable[[Path, Module], dict[int, bool]] = run_runner
+) -> int:
+    matrix, modules, findings, shared = check_structure(root, only)
+    read_items = run_modules(root, modules, findings, runner)
+    tally, red = print_rows(matrix, modules, only)
+    red = print_loose(modules) or red
     summary = "; ".join(f"{n} {v}" for v, n in sorted(tally.items(), key=lambda kv: -kv[1]))
     runs = f"{read_items} runner item(s) read from {len(modules)} runner(s)"
     for finding in findings:
@@ -1221,16 +1292,25 @@ def shared_names(text: str, names: str) -> str:
     return f"the range {text} names {names}, which the list of shared items does not hold"
 
 
-def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    """The shared acceptance items, over their whole set of cases, each on a throwaway tree: the numbers
-    green and red (a swap, a duplicate, a start above 101, a reversed list, two swaps apart, the last two
-    of 64), the table of GATE.md section 5 green and red (a range, a handle, a hyphen range, a range
-    that ends at its start, more missing numbers than are named, a section read to the end of the file,
-    another section not read), a file or a form it cannot read as a BROKEN line in the plain run and in
-    the run of one module, and the report as literal lines. Returns (failed, total)."""
-    failed = 0
-    total = 0
-    n64 = entries(*range(101, 165))
+@dataclass
+class Tally:
+    """The cases a self-test group has run and the ones that failed."""
+
+    failed: int = 0
+    total: int = 0
+
+    def record(self, ok: bool) -> None:
+        """Count one case, failed unless `ok`."""
+        self.failed += 0 if ok else 1
+        self.total += 1
+
+
+N64 = entries(*range(101, 165))
+
+
+def shared_green(tally: Tally) -> None:
+    """The cases where the numbers and the table of GATE.md section 5 read green."""
+    n64 = N64
     green: dict[str, tuple[list[str], str, int]] = {  # case: the entries, the GATE.md text, items read
         "101 to 164 in the file's order": (n64, gate_text(["S101–S164"]), 64),
         "101 to 164 with a hyphen range": (n64, gate_text(["S101-S164"]), 64),
@@ -1272,11 +1352,14 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
             build(root, GOOD_TABLE, shared=shared_source(entry_lines), gate=doc)
             found, read_count = check_shared(root)
         ok = not found and read_count == items_read
-        failed += 0 if ok else 1
-        total += 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] shared items: {name} is green, {items_read} read")
         if not ok:
             print(f"        got: {[f.render() for f in found]}, {read_count} read")
+
+
+def shared_decoys(tally: Tally) -> None:
+    """The cases where a list or a function stands where the check must not read."""
     decoys = {  # case: a list `items` or a function standing where the check must not read
         "a list `items` outside the function, out of order": shared_source(
             entries(101, 102, 103), head="items = [(103, 'x', None), (102, 'y', None)]\n"
@@ -1299,10 +1382,14 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
             build(root, GOOD_TABLE, shared=source)
             found, read_count = check_shared(root)
         ok = not found and read_count == 3
-        failed += 0 if ok else 1
-        total += 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] shared items: {name} is not read, the function's own list is")
-    # case: the entries, the GATE.md text, what each finding says, the text of the line that each names
+
+
+def shared_red_data() -> dict[str, tuple[list[str], str, list[tuple[str, str]]]]:
+    """The red cases of the shared items: the entries, the GATE.md text, what each finding says and the text
+    of the line that each names."""
+    n64 = N64
     red: dict[str, tuple[list[str], str, list[tuple[str, str]]]] = {
         "a swap, 102 after 103": (
             entries(101, 103, 102),
@@ -1427,7 +1514,12 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
             ],
         ),
     }
-    for name, (entry_lines, doc, wanted) in red.items():
+    return red
+
+
+def shared_red(tally: Tally) -> None:
+    """The cases where a list or a table of the shared items is red, each finding on its line."""
+    for name, (entry_lines, doc, wanted) in shared_red_data().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE, shared=shared_source(entry_lines), gate=doc)
@@ -1448,15 +1540,17 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
             ok = ok and finding.why in (WHY_NUMBERS_TYPED, WHY_TABLE_TYPED)
             ok = ok and bool(finding.fix)
         ok = ok and code == EXIT_RED and all(f.render() in printed.getvalue() for f in found)
-        failed += 0 if ok else 1
-        total += 1
+        tally.record(ok)
         print(
             f"[{'ok' if ok else 'FAIL'}] shared items: {name} is red with {len(wanted)} finding(s),"
             " each on its line, in the plain run and in the run of one module"
         )
         if not ok:
             print(f"        got: {[(f.path, f.line, f.what) for f in found]}")
-    # the whole set of numbers a red list can start with, and of the steps that keep it red
+
+
+def shared_starts(tally: Tally) -> None:
+    """The whole set of numbers a red list can start with, and of the steps that keep it red."""
     for start in (0, 1, 100, 102, 164):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1464,9 +1558,12 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
             found, _ = check_shared(root)
         starts = [f for f in found if f.what.startswith("the first shared item")]
         ok = len(starts) == 1 and starts[0].what == f"the first shared item is numbered {start}, not 101"
-        failed += 0 if ok else 1
-        total += 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] shared items: a list that starts at {start} is red")
+
+
+def shared_steps(tally: Tally) -> None:
+    """The steps of a list that make it red at one place."""
     for before, after in ((101, 101), (102, 101), (164, 163), (110, 109), (110, 110)):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1478,14 +1575,13 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
             )
             found, _ = check_shared(root)
         ok = [f.what for f in found] == [shared_follows(after, before)]
-        failed += 0 if ok else 1
-        total += 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] shared items: {after} after {before} is the one red step")
-    drop = {  # case: the file taken from the tree
-        "the shared test file missing": (SHARED_ITEMS, f"{SHARED_ITEMS} cannot be read"),
-        "GATE.md missing": (SHARED_GATE, f"{SHARED_GATE} cannot be read"),
-    }
-    # case: the entries, the text, what the BROKEN line says; a text of None is the file's own good one
+
+
+def shared_broken_data() -> dict[str, tuple[str | None, str | None, str]]:
+    """The cases of a file or a form the check cannot read: the entries, the text, what the BROKEN line says;
+    a text of None is the file's own good one."""
     anchor_words = f"{SHARED_GATE} holds the anchor {SHARED_ANCHOR}"
     nowhere = f"{anchor_words} nowhere on a line of its own — why: "
     in_file = f"in {SHARED_ITEMS}"
@@ -1575,7 +1671,12 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
         GATE_GOOD.replace(SHARED_ANCHOR + "\n", ""),
         nowhere,
     )
-    for name, (shared_text, gate_text_or_none, said) in broken.items():
+    return broken
+
+
+def shared_broken(tally: Tally) -> None:
+    """The cases where the shared items cannot be read, as one BROKEN line each."""
+    for name, (shared_text, gate_text_or_none, said) in shared_broken_data().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE, shared=shared_text or SHARED_GOOD, gate=gate_text_or_none or GATE_GOOD)
@@ -1593,14 +1694,21 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
                 except Broken as bad:
                     ok = ok and str(bad).startswith(said) and "— fix: " in str(bad)
                     got.append(str(bad))
-        failed += 0 if ok else 1
-        total += 1
+        tally.record(ok)
         print(
             f"[{'ok' if ok else 'FAIL'}] shared items: {name} is one BROKEN line naming it,"
             " in the plain run and in the run of one module"
         )
         if not ok:
             print(f"        got: {got}")
+
+
+def shared_dropped(tally: Tally) -> None:
+    """The cases where a file of the shared items is gone from the tree."""
+    drop = {  # case: the file taken from the tree
+        "the shared test file missing": (SHARED_ITEMS, f"{SHARED_ITEMS} cannot be read"),
+        "GATE.md missing": (SHARED_GATE, f"{SHARED_GATE} cannot be read"),
+    }
     for name, (gone, said) in drop.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1617,12 +1725,16 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
                     ok = False
                 except Broken as bad:
                     ok = ok and str(bad).startswith(said) and "— fix: " in str(bad)
-        failed += 0 if ok else 1
-        total += 1
+        tally.record(ok)
         print(
             f"[{'ok' if ok else 'FAIL'}] shared items: {name} is one BROKEN line naming it,"
             " in the plain run and in the run of one module"
         )
+
+
+def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
+    """The reports of the shared items as literal lines: the entries, the GATE.md text, the lines printed."""
+    n64 = N64
     literal = {  # typed by hand: a message function cannot check itself
         "a swap": (
             shared_source(entries(101, 103, 102)),
@@ -1686,7 +1798,12 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
             ],
         ),
     }
-    for name, (source, doc, want_lines) in literal.items():
+    return literal
+
+
+def shared_literal(tally: Tally) -> None:
+    """The cases where the report of a shared finding is its literal text, exit 2."""
+    for name, (source, doc, want_lines) in shared_literal_data().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE, shared=source, gate=doc)
@@ -1694,11 +1811,14 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
             with contextlib.redirect_stdout(printed):
                 code = gate(root)
         ok = code == EXIT_RED and printed.getvalue().splitlines() == want_lines
-        failed += 0 if ok else 1
-        total += 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] shared items: the report of {name} is its literal text, exit 2")
         if not ok:
             print(printed.getvalue())
+
+
+def shared_counts(tally: Tally) -> None:
+    """The case where the green lines of the gate and of a full run say how many shared items were read."""
     with tempfile.TemporaryDirectory() as tmp:  # the green line, and the full run's, say how many were read
         root = Path(tmp).resolve()
         build(root, GOOD_TABLE)
@@ -1713,12 +1833,30 @@ def self_test_shared() -> tuple[int, int]:  # noqa: C901 — over the limit when
         " — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined, 3 shared item(s)"
     ]
     ok = ok and full_code == EXIT_GREEN and ", 3 shared item(s); " in full.getvalue().splitlines()[-1]
-    failed += 0 if ok else 1
-    total += 1
+    tally.record(ok)
     print(
         f"[{'ok' if ok else 'FAIL'}] shared items: the green lines of the gate and of a full run count them"
     )
-    return failed, total
+
+
+def self_test_shared() -> tuple[int, int]:
+    """The shared acceptance items, over their whole set of cases, each on a throwaway tree: the numbers
+    green and red (a swap, a duplicate, a start above 101, a reversed list, two swaps apart, the last two
+    of 64), the table of GATE.md section 5 green and red (a range, a handle, a hyphen range, a range
+    that ends at its start, more missing numbers than are named, a section read to the end of the file,
+    another section not read), a file or a form it cannot read as a BROKEN line in the plain run and in
+    the run of one module, and the report as literal lines. Returns (failed, total)."""
+    tally = Tally()
+    shared_green(tally)
+    shared_decoys(tally)
+    shared_red(tally)
+    shared_starts(tally)
+    shared_steps(tally)
+    shared_broken(tally)
+    shared_dropped(tally)
+    shared_literal(tally)
+    shared_counts(tally)
+    return tally.failed, tally.total
 
 
 @contextlib.contextmanager
@@ -1832,62 +1970,57 @@ def self_test_coverage() -> tuple[int, int]:
     return failed, len(cases)
 
 
-def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; a split is a change of its own
-    """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
-    and green with the good table; the report of one finding as literal lines; a full run green,
-    one red with a red item, one red for an item the runner did not print and one it printed
-    unnamed; a runner out of form and one whose count disagrees as BROKEN; the destination classes,
-    the form of the matrix and of the module documents, and the tie to the preamble, each over its
-    whole set of cases."""
-    os.environ.pop(kit_coverage.ENV, None)  # every case runs its runner plain, save those that set it
-    header = "| item | kind | rows | what it proves |\n|---|---|---|---|\n"
-    red: dict[str, tuple[str, str | None]] = {  # case: its table (or rows section), what the finding says
-        "no rows column": (
-            "| item | kind | what it proves |\n|---|---|---|\n| T1 | fixture | x |\n",
-            "no `rows` column",
-        ),
-        "an open range": (
-            GOOD_TABLE + f"| S101– | fixture, shared | {LINK_1} | s |\n",
-            "not a list of handles",
-        ),
-        "prose in the item cell": (
-            GOOD_TABLE + f"| S101–S158 less seven | fixture | {LINK_1} | s |\n",
-            "not a list of handles",
-        ),
-        "a kind outside the set": (GOOD_TABLE + f"| T9 | probe | {LINK_1} | x |\n", "is none of the set"),
-        "a kind that is a longer word": (
-            GOOD_TABLE + f"| T9 | fixtures | {LINK_1} | x |\n",
-            "is none of the set",
-        ),
-        "a live handle as a fixture": (GOOD_TABLE + f"| L3 | fixture | {LINK_1} | x |\n", "no runner number"),
-        "an empty rows cell": (GOOD_TABLE + "| T9 | fixture |  | x |\n", "the rows cell of item T9"),
-        "a bare handle in the rows cell": (
-            GOOD_TABLE + "| T9 | fixture | A1.1 | x |\n",
-            "the rows cell of item T9",
-        ),
-        "none beside a link": (
-            GOOD_TABLE + f"| T9 | fixture | none, {LINK_1} | x |\n",
-            "the rows cell of item T9",
-        ),
-        "a row the matrix does not hold": (
-            GOOD_TABLE + "| T9 | fixture | [A1.9](../../docs/requirements.md#a1-9) | x |\n",
-            "a row the matrix does not hold",
-        ),
-        "a row the module does not hold": (
-            GOOD_TABLE + "| T9 | fixture | [A1.2](../../docs/requirements.md#a1-2) | x |\n",
-            "does not hold",
-        ),
-        "a held row no item names": (
-            header + f"| T1 | fixture | {LINK_1} | x |\n",
-            "named by no acceptance item",
-        ),
-        "an indented item whose rows cell is no link": (
-            GOOD_TABLE + "  | T9 | fixture | A1.1 | x |\n",
-            "the rows cell of item T9",
-        ),
-    }
-    failed = 0
-    for name, (table, said) in red.items():
+TABLE_HEAD = "| item | kind | rows | what it proves |\n|---|---|---|---|\n"
+RED_TABLES: dict[str, tuple[str, str | None]] = {  # case: its table (or rows section), what the finding says
+    "no rows column": (
+        "| item | kind | what it proves |\n|---|---|---|\n| T1 | fixture | x |\n",
+        "no `rows` column",
+    ),
+    "an open range": (
+        GOOD_TABLE + f"| S101– | fixture, shared | {LINK_1} | s |\n",
+        "not a list of handles",
+    ),
+    "prose in the item cell": (
+        GOOD_TABLE + f"| S101–S158 less seven | fixture | {LINK_1} | s |\n",
+        "not a list of handles",
+    ),
+    "a kind outside the set": (GOOD_TABLE + f"| T9 | probe | {LINK_1} | x |\n", "is none of the set"),
+    "a kind that is a longer word": (
+        GOOD_TABLE + f"| T9 | fixtures | {LINK_1} | x |\n",
+        "is none of the set",
+    ),
+    "a live handle as a fixture": (GOOD_TABLE + f"| L3 | fixture | {LINK_1} | x |\n", "no runner number"),
+    "an empty rows cell": (GOOD_TABLE + "| T9 | fixture |  | x |\n", "the rows cell of item T9"),
+    "a bare handle in the rows cell": (
+        GOOD_TABLE + "| T9 | fixture | A1.1 | x |\n",
+        "the rows cell of item T9",
+    ),
+    "none beside a link": (
+        GOOD_TABLE + f"| T9 | fixture | none, {LINK_1} | x |\n",
+        "the rows cell of item T9",
+    ),
+    "a row the matrix does not hold": (
+        GOOD_TABLE + "| T9 | fixture | [A1.9](../../docs/requirements.md#a1-9) | x |\n",
+        "a row the matrix does not hold",
+    ),
+    "a row the module does not hold": (
+        GOOD_TABLE + "| T9 | fixture | [A1.2](../../docs/requirements.md#a1-2) | x |\n",
+        "does not hold",
+    ),
+    "a held row no item names": (
+        TABLE_HEAD + f"| T1 | fixture | {LINK_1} | x |\n",
+        "named by no acceptance item",
+    ),
+    "an indented item whose rows cell is no link": (
+        GOOD_TABLE + "  | T9 | fixture | A1.1 | x |\n",
+        "the rows cell of item T9",
+    ),
+}
+
+
+def case_red_tables(tally: Tally) -> None:
+    """Each finding of the gate: red with its table broken one way, green with the good table."""
+    for name, (table, said) in RED_TABLES.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE)
@@ -1895,49 +2028,59 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             build(root, table)
             findings = check_structure(root)[2]
         ok = green_before and len(findings) == 1 and said is not None and said in findings[0].what
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] the good table is green, {name} is red with one finding")
+
+
+def case_unheld_row(tally: Tally) -> None:
+    """The case where a row the matrix gives a module, and no rows section holds, is red."""
     with tempfile.TemporaryDirectory() as tmp:  # a module row no module holds
         root = Path(tmp).resolve()
-        build(root, header + f"| T1 | fixture | {LINK_1} | x |\n", rows=f"| {LINK_1} | r |\n")
+        build(root, TABLE_HEAD + f"| T1 | fixture | {LINK_1} | x |\n", rows=f"| {LINK_1} | r |\n")
         findings = check_structure(root)[2]
     ok = (
         len(findings) == 1
         and findings[0].what == "A1.3 is given to a module, and no module's rows section holds it"
     )
-    failed += 0 if ok else 1
+    tally.record(ok)
     print(f"[{'ok' if ok else 'FAIL'}] a row the matrix gives a module that no rows section holds is red")
-    destinations = {  # the whole set of openings: the cell, whether the check classes it
-        "M1 hook": True,
-        "M47 skill + hook": True,
-        "**M1** skill": True,
-        "[kernel §2](../kernel/CONVENTIONS.md#k2)": True,
-        "kernel §12": True,
-        "[kernel §2](../kernel/CONVENTIONS.md#k2) + template": True,
-        "binding": True,
-        "binding (thresholds)": True,
-        "template": True,
-        "module `const-x` skill": False,
-        "kernel": False,
-        "kernel §": False,
-        "kernel §n": False,
-        "kernel§2": False,  # a space is part of the class, `kernel §`
-        "M 1 hook": False,  # so is the number's place: `M` directly before its digits
-        "kernel §2x": False,  # the class ends at a word boundary: a digit run that goes on in letters is none
-        "Mx": False,
-        "M": False,
-        "m1": False,
-        "M1x": False,
-        "bindings": False,
-        "templates": False,
-        "Template": False,
-        "": False,
-        "—": False,
-        "K2": False,
-        "M١ hook": False,  # an Arabic-Indic digit, not an ASCII one
-        "kernel §٢": False,
-    }
-    for cell, classed in destinations.items():
+
+
+DESTINATIONS = {  # the whole set of openings: the cell, whether the check classes it
+    "M1 hook": True,
+    "M47 skill + hook": True,
+    "**M1** skill": True,
+    "[kernel §2](../kernel/CONVENTIONS.md#k2)": True,
+    "kernel §12": True,
+    "[kernel §2](../kernel/CONVENTIONS.md#k2) + template": True,
+    "binding": True,
+    "binding (thresholds)": True,
+    "template": True,
+    "module `const-x` skill": False,
+    "kernel": False,
+    "kernel §": False,
+    "kernel §n": False,
+    "kernel§2": False,  # a space is part of the class, `kernel §`
+    "M 1 hook": False,  # so is the number's place: `M` directly before its digits
+    "kernel §2x": False,  # the class ends at a word boundary: a digit run that goes on in letters is none
+    "Mx": False,
+    "M": False,
+    "m1": False,
+    "M1x": False,
+    "bindings": False,
+    "templates": False,
+    "Template": False,
+    "": False,
+    "—": False,
+    "K2": False,
+    "M١ hook": False,  # an Arabic-Indic digit, not an ASCII one
+    "kernel §٢": False,
+}
+
+
+def case_destinations(tally: Tally) -> None:
+    """Each opening of a destination cell: classed, or red as one the check cannot class."""
+    for cell, classed in DESTINATIONS.items():
         seen: list[list[str]] = []
         for old in ("M1 hook", "[kernel §2](../kernel/CONVENTIONS.md#k2)"):
             with tempfile.TemporaryDirectory() as tmp:  # A1.1 a module holds, A1.2 none holds
@@ -1955,7 +2098,7 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             # R7's own red (MODULE_DEST, read as before, takes any digit) is held by its case above
             unheld_red = [what for what in on_unheld if what != given[0]]
             ok = on_held == [f"A1.1 {refused}"] and unheld_red == [f"A1.2 {refused}"]
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(
             f"[{'ok' if ok else 'FAIL'}] the destination '{cell}' is"
             f" {'classed' if classed else 'red as one the check cannot class'},"
@@ -1963,6 +2106,10 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         )
         if not ok:
             print(f"        got: {seen}")
+
+
+def case_indented_rows(tally: Tally) -> None:
+    """The case where an indented table line is read whatever its indent."""
     with tempfile.TemporaryDirectory() as tmp:  # a table line is read whatever its indent
         root = Path(tmp).resolve()
         indented_rows = f"  | {LINK_1} | r |\n\t|{LINK_3} | r |\n"  # the second row: no space after the bar
@@ -1973,22 +2120,30 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         )
         _, modules, findings, _ = check_structure(root)
     ok = not findings and len(modules[0].items) == 7 and sorted(modules[0].held.values()) == [6, 7]
-    failed += 0 if ok else 1
+    tally.record(ok)
     print(
         f"[{'ok' if ok else 'FAIL'}] an indented row of the rows section and an indented acceptance item,"
         " each also with no space after the bar, are read, never dropped"
     )
+
+
+def case_unclosed_rows(tally: Tally) -> None:
+    """The case where the last cell is read when a line has no closing bar."""
     with tempfile.TemporaryDirectory() as tmp:  # the last cell is read when the line has no closing bar
         root = Path(tmp).resolve()
         unclosed_rows = f"| {LINK_1} | r\n| {LINK_3}\n"  # the second row is one cell, `| link`
         build(root, GOOD_TABLE + f"| T7 | fixture | {LINK_1} | x\n", rows=unclosed_rows)
         _, modules, findings, _ = check_structure(root)
     ok = not findings and len(modules[0].items) == 6 and sorted(modules[0].held.values()) == [6, 7]
-    failed += 0 if ok else 1
+    tally.record(ok)
     print(
         f"[{'ok' if ok else 'FAIL'}] a row of the rows section and an acceptance item with no closing bar"
         " are read to their last cell, never dropped or short of one"
     )
+
+
+def case_open_ended_section(tally: Tally) -> None:
+    """The case where a section with no anchor above it reads to the end of the document."""
     with tempfile.TemporaryDirectory() as tmp:  # no anchor stands above the last one: it reads to the end
         root = Path(tmp).resolve()
         build(root, GOOD_TABLE)
@@ -2001,11 +2156,15 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         )  # t11, t12 gone
         findings += check_structure(root)[2]
     ok = not findings
-    failed += 0 if ok else 1
+    tally.record(ok)
     print(
         f"[{'ok' if ok else 'FAIL'}] a document without its t12 anchor, or without t11 and t12, is read:"
         " the acceptance section reads to the end when no anchor stands above it"
     )
+
+
+def case_sections_reordered(tally: Tally) -> None:
+    """The case where sections t10 and t11 trade places, and the fix the BROKEN line gives restores them."""
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         build(root, GOOD_TABLE)
@@ -2029,11 +2188,15 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         module_file.write_text("".join("".join(block) for block in blocks), encoding="utf-8")
         ok = before is not None and "the anchor after" in before and not check_structure(root)[2]
         ok = ok and module_file.read_text(encoding="utf-8") == original
-    failed += 0 if ok else 1
+    tally.record(ok)
     print(
         f"[{'ok' if ok else 'FAIL'}] a document whose t11 section stands before t10, put in the template's"
         " order as the fix says, is read"
     )
+
+
+def unreadable_anchors() -> dict[str, tuple[str, str, str]]:
+    """The module documents whose section anchors are missing, doubled or out of order."""
     path = "modules/const-sample/MODULE.md"
     text = module_text(GOOD_TABLE)
     unreadable = {  # case: the document, its text, what the BROKEN line says
@@ -2088,10 +2251,19 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             f'{path} holds the anchor <a id="t4"></a> twice, lines 7 and 10',
         ),
     }
-    # the matrix, line 6 the row A1.1 (a module holds it), line 7 the row A1.2 (none does), line 5 the
-    # aspect: every way its line can leave the form `ROW` or `ASPECT` states, each on both rows
-    row_line = {1: MATRIX.splitlines()[5], 2: MATRIX.splitlines()[6]}
-    aspect_line = MATRIX.splitlines()[4]
+    return unreadable
+
+
+# the matrix, line 6 the row A1.1 (a module holds it), line 7 the row A1.2 (none does), line 5 the
+# aspect: every way its line can leave the form `ROW` or `ASPECT` states, each on both rows
+ROW_LINE = {1: MATRIX.splitlines()[5], 2: MATRIX.splitlines()[6]}
+ASPECT_LINE = MATRIX.splitlines()[4]
+
+
+def unreadable_matrix_lines() -> dict[str, tuple[str, str, str]]:
+    """The matrix with a row or an aspect line off its form or doubled; a module folder with no document."""
+    unreadable: dict[str, tuple[str, str, str]] = {}
+    row_line, aspect_line = ROW_LINE, ASPECT_LINE
     row_forms: dict[str, Callable[[str, int], str]] = {  # case: the line's edit
         "a space after the anchor": lambda x, n: x.replace(f'"></a>A1.{n}', f'"></a> A1.{n}'),
         "no space after the first pipe": lambda x, n: x.replace("| <a", "|<a", 1),
@@ -2170,8 +2342,17 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         "a folder with no module document\n",
         "modules/const-empty has no MODULE.md — fix: restore the module document",
     )
-    manifest_path = "modules/const-sample/.claude-plugin/plugin.json"
-    manifest_fix = "— fix: restore it as a JSON object"
+    return unreadable
+
+
+MANIFEST_PATH = "modules/const-sample/.claude-plugin/plugin.json"
+MANIFEST_FIX = "— fix: restore it as a JSON object"
+
+
+def unreadable_manifests() -> dict[str, tuple[str, str, str]]:
+    """The manifests that are valid JSON and no object, or no JSON."""
+    unreadable: dict[str, tuple[str, str, str]] = {}
+    manifest_path, manifest_fix = MANIFEST_PATH, MANIFEST_FIX
     for kind, manifest_text in (("a list", "[]\n"), ("a str", '"const-sample"\n'), ("a NoneType", "null\n")):
         unreadable[f"a manifest that is valid JSON and no object, it holds {kind}"] = (
             manifest_path,
@@ -2184,13 +2365,23 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         f"{manifest_path} cannot be read (Expecting property name enclosed in double quotes: line 1 column 2"
         " (char 1)) — fix: restore the manifest",
     )
-    classes_text = PREAMBLE[PREAMBLE.index(CLASSES_SENTENCE) : PREAMBLE.index(" An authoring")]
+    return unreadable
+
+
+CLASSES_TEXT = PREAMBLE[PREAMBLE.index(CLASSES_SENTENCE) : PREAMBLE.index(" An authoring")]
+
+
+def preamble_as(edited: str) -> str:
+    """The matrix with its preamble replaced by `edited`."""
+    return MATRIX.replace(PREAMBLE, edited)
+
+
+def unreadable_preamble() -> dict[str, tuple[str, str, str]]:
+    """The matrix with the preamble's sentence of classes missing, reworded or off the typed four."""
+    unreadable: dict[str, tuple[str, str, str]] = {}
+    classes_text = CLASSES_TEXT
     typed_names = "'Mx', 'binding', 'kernel §n', 'template'"
     names_found = f'{SPEC} names the destination classes %s in its "Destination classes:" sentence, and this'
-
-    def preamble_as(edited: str) -> str:
-        return MATRIX.replace(PREAMBLE, edited)
-
     unreadable["the preamble's classes sentence missing"] = (
         SPEC,
         preamble_as(PREAMBLE.replace(classes_text, "")),
@@ -2228,6 +2419,17 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         preamble_as(PREAMBLE.replace("**binding**", "binding")),
         names_found % "'Mx', 'kernel §n', 'template'",
     )
+    return unreadable
+
+
+def case_unreadable(tally: Tally) -> None:
+    """Each tree the check cannot read is one BROKEN line naming it, in the plain run and in a module's."""
+    unreadable = {
+        **unreadable_anchors(),
+        **unreadable_matrix_lines(),
+        **unreadable_manifests(),
+        **unreadable_preamble(),
+    }
     fix_forms = {  # the fix of an off-form line names the form of its own kind, never the other's
         "A1.1's line with a space after the anchor": 'write it as `| <a id="aN-M"></a>AN.M | …`',
         "A1.2's line with a tab indent": 'write it as `| <a id="aN-M"></a>AN.M | …`',
@@ -2258,13 +2460,18 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 except (AttributeError, TypeError) as crash:  # a traceback is a case that fails, not the run
                     ok = False
                     got.append(f"{type(crash).__name__}: {crash}")
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(
             f"[{'ok' if ok else 'FAIL'}] a kit tree with {name} is one BROKEN line naming it,"
             " in the plain run and in the run of one module"
         )
         if not ok:
             print(f"        got: {got}")
+
+
+def case_manifest_commands(tally: Tally) -> None:
+    """A manifest that is no JSON object is one BROKEN line and the could-not-run line, under each command."""
+    manifest_path, manifest_fix = MANIFEST_PATH, MANIFEST_FIX
     command_lines: tuple[list[str], ...] = ([], ["--run"], ["--run", "--module", "const-sample"])
     for kind, manifest_text in (("a list", "[]\n"), ("a str", '"const-sample"\n')):
         for command_line in command_lines:
@@ -2281,13 +2488,17 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 "BROKEN: the check could not run — 0 rows examined",
             ]
             ok = code == EXIT_BROKEN and main_lines == expected
-            failed += 0 if ok else 1
+            tally.record(ok)
             print(
                 f"[{'ok' if ok else 'FAIL'}] a manifest that holds {kind} is one BROKEN line and the"
                 f" could-not-run line, exit 1, under `{' '.join(command_line) or 'no argument'}`"
             )
             if not ok:
                 print(f"        got: {code} {main_lines}")
+
+
+def case_manifest_versions(tally: Tally) -> None:
+    """A manifest object is read with its version as text, or with `?` when it holds none."""
     version_read = {  # case: the manifest's text; the version the module is read with
         "a manifest object without a version is read with the version ?": ('{"name": "const-sample"}\n', "?"),
         "a manifest object with a numeric version is read with it as text": ('{"version": 3}\n', "3"),
@@ -2297,14 +2508,19 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE)
-            (root / manifest_path).write_text(manifest_text, encoding="utf-8")
+            (root / MANIFEST_PATH).write_text(manifest_text, encoding="utf-8")
             try:
                 _, modules, findings, _ = check_structure(root)
                 ok = not findings and [m.version for m in modules] == [version]
             except Broken:
                 ok = False
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
+
+
+def read_as_before_data() -> dict[str, tuple[str, list[str]]]:
+    """The matrices that are read as before: the matrix, the rows it gives."""
+    row_line, classes_text = ROW_LINE, CLASSES_TEXT
     prose = "See [A1.2](#a1-2) and [A1.1](../docs/requirements.md#a1-1); an aspect is [A1](#a1).\n"
     read_as_before = {  # case: the matrix, the rows it gives; what holds no anchor of a row or an aspect
         "a prose line that links a row and a module's own anchor are no anchor": (
@@ -2358,7 +2574,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             ),
         }
     )
-    for name, (matrix_text, anchors) in read_as_before.items():
+    return read_as_before
+
+
+def case_read_as_before(tally: Tally) -> None:
+    """Each matrix whose rows are the same whatever stands round them."""
+    for name, (matrix_text, anchors) in read_as_before_data().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE, matrix=matrix_text)
@@ -2367,8 +2588,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 ok = not findings and sorted(matrix) == anchors
             except Broken:
                 ok = False
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
+
+
+def case_skipped_folders(tally: Tally) -> None:
+    """A folder of modules/ that starts with an underscore or a dot is no module."""
     skipped = {  # case: the folders added beside const-sample, each holding a MODULE.md and no manifest
         "a folder starting with an underscore": "_draft",
         "a folder starting with a dot": ".hidden",
@@ -2385,9 +2610,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 ok = not findings and [m.name for m in modules] == ["const-sample"]
             except Broken:
                 ok = False
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] {name} of modules/ is no module, and is skipped")
-    # the kit's one listing: a name without `const-` is a module, and the modules come sorted by name
+
+
+def case_listing(tally: Tally) -> None:
+    """The kit's one listing: a name without `const-` is a module, and the modules come sorted by name."""
     listed = {  # case: the reading of a tree that holds const-sample and a copy of it named `glossary`
         "a folder named without const- is a module": False,
         "the modules are read sorted by name, whatever order the folder lists": True,
@@ -2403,8 +2631,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 ok = not findings and [m.name for m in modules] == ["const-sample", "glossary"]
             except Broken:
                 ok = False
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
+
+
+def case_no_modules(tally: Tally) -> None:
+    """A tree with no modules/ is a teaching BROKEN line."""
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         build(root, GOOD_TABLE)
@@ -2417,8 +2649,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 str(why)
                 == f"{root} has no modules/ directory — fix: run the check from a checkout of the kit"
             )
-    failed += 0 if ok else 1
+    tally.record(ok)
     print(f"[{'ok' if ok else 'FAIL'}] a tree with no modules/ is a teaching BROKEN line")
+
+
+def case_reports(tally: Tally) -> None:
+    """The report of a finding in a module's document, and of an unclassed destination, as literal lines."""
     literal = [  # typed by hand: a message function cannot check itself
         "RED: modules/const-sample/MODULE.md:22: the rows cell of item T9 is 'A1.1'",
         "  why: a row's result comes only from the items that name it,"
@@ -2439,7 +2675,11 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         " 3 shared item(s)",
     ]
     reports = {  # case: the table, the matrix, the lines the gate prints
-        "of a finding in a module's document": (red["a bare handle in the rows cell"][0], MATRIX, literal),
+        "of a finding in a module's document": (
+            RED_TABLES["a bare handle in the rows cell"][0],
+            MATRIX,
+            literal,
+        ),
         "of a destination the check cannot class": (
             GOOD_TABLE,
             MATRIX.replace("[kernel §2](../kernel/CONVENTIONS.md#k2)", "kernel"),
@@ -2454,10 +2694,43 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             with contextlib.redirect_stdout(printed):
                 code = gate(root)
         ok = code == EXIT_RED and printed.getvalue().splitlines() == want_lines
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] the report {name} is its literal text, exit 2")
         if not ok:
             print(printed.getvalue())
+
+
+def case_carrier_row(tally: Tally) -> None:
+    """An advisory row that a green fixture names is carrier green, never green."""
+    carrier_table = GOOD_TABLE.replace(
+        "| T3 | fixture, assertion | none |", f"| T3 | fixture, assertion | {LINK_3} |"
+    )
+    with tempfile.TemporaryDirectory() as tmp:  # an advisory row a green fixture names is carrier green
+        root = Path(tmp).resolve()
+        build(root, carrier_table)
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = full_run(root, None)
+    out = printed.getvalue()
+    ok = code == EXIT_GREEN and "  A1.3  carrier green — M1 skill — const-sample 0.0.1" in out
+    ok = ok and "  A1.1  green — M1 hook" in out and "1 carrier green" in out
+    ok = (
+        ok
+        and not advisory_only("advisory; optional gate-lite: a script")
+        and advisory_only("advisory — honestly ungateable")
+        and not advisory_only("advisoryish — a word of its own")
+        and not advisory_only("advisory procedure — caught by A1.4 gates")
+    )
+    tally.record(ok)
+    print(
+        f"[{'ok' if ok else 'FAIL'}] an advisory row proved by a green fixture is carrier green, never green"
+    )
+    if not ok:
+        print(out)
+
+
+def case_full_runs(tally: Tally) -> None:
+    """A full run with each kind of runner output exits as it should and says so."""
     runs: dict[
         str, tuple[list[str], int, int, str]
     ] = {  # case: runner lines, its exit, the check's exit, a line to find
@@ -2500,31 +2773,6 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             "runner item 7 is named by no acceptance item",
         ),
     }
-    carrier_table = GOOD_TABLE.replace(
-        "| T3 | fixture, assertion | none |", f"| T3 | fixture, assertion | {LINK_3} |"
-    )
-    with tempfile.TemporaryDirectory() as tmp:  # an advisory row a green fixture names is carrier green
-        root = Path(tmp).resolve()
-        build(root, carrier_table)
-        printed = io.StringIO()
-        with contextlib.redirect_stdout(printed):
-            code = full_run(root, None)
-    out = printed.getvalue()
-    ok = code == EXIT_GREEN and "  A1.3  carrier green — M1 skill — const-sample 0.0.1" in out
-    ok = ok and "  A1.1  green — M1 hook" in out and "1 carrier green" in out
-    ok = (
-        ok
-        and not advisory_only("advisory; optional gate-lite: a script")
-        and advisory_only("advisory — honestly ungateable")
-        and not advisory_only("advisoryish — a word of its own")
-        and not advisory_only("advisory procedure — caught by A1.4 gates")
-    )
-    failed += 0 if ok else 1
-    print(
-        f"[{'ok' if ok else 'FAIL'}] an advisory row proved by a green fixture is carrier green, never green"
-    )
-    if not ok:
-        print(out)
     for name, (lines, runner_exit, want, needle) in runs.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -2540,11 +2788,19 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
         )
         ok = ok and "      const-sample L1: live, done 2026-09-01 — not run" in out
         ok = ok and echoed(out, lines, runner_exit)
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] a full run with {name} exits {want} and says so")
         if not ok:
             print(out)
-    runner_line = "Runner: `python3 tests/run.py` (needs git), {} items green."
+
+
+RUNNER_LINE = "Runner: `python3 tests/run.py` (needs git), {} items green."
+
+
+def runner_counts_data() -> dict[str, tuple[str, list[str], int | None]]:
+    """The Runner lines of section 10 and the command lines they are read under, with the count the one
+    finding says is written (None: no finding)."""
+    runner_line = RUNNER_LINE
     counted: dict[str, tuple[str, list[str], int | None]] = {  # case: section 10 before the table, the
         # command line, the count the one finding says is written (None: no finding); the runner's total is 4
         "a Runner line whose count is the total": (runner_line.format(4), ["--run"], None),
@@ -2604,7 +2860,13 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             None,
         ),
     }
-    for name, (preface, command_line, written) in counted.items():
+    return counted
+
+
+def case_runner_counts(tally: Tally) -> None:
+    """A count typed on the Runner line of section 10 is red when it differs from the runner's total, and
+    green again once the fix is followed."""
+    for name, (preface, command_line, written) in runner_counts_data().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, preface + "\n\n" + GOOD_TABLE)
@@ -2641,10 +2903,15 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 )
                 code, after = main_over(root, command_line)
                 ok = ok and code == EXIT_GREEN and not any(line.startswith("RED:") for line in after)
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] section 10 with {name} is {'green' if written is None else 'red'}")
         if not ok:
             print(f"        got: {code} {got}")
+
+
+def case_broken_runners(tally: Tally) -> None:
+    """A runner out of form, one whose last line does not count and one with an exit that is no verdict are
+    BROKEN lines, never a pass."""
     broken: dict[str, tuple[list[str], int, str]] = {
         "an item line out of form": (
             ["[ok] one (assertion) a", *GREEN_RUN[1:]],
@@ -2670,8 +2937,12 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             except Broken as said:
                 ok = needle in str(said) and "fix:" in str(said)
         ok = ok and echoed(printed.getvalue(), lines, runner_exit)
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] a runner with {name} is a BROKEN line, never a pass")
+
+
+def case_runner_echo(tally: Tally) -> None:
+    """A runner's stdout without its last line break, then its stderr, are echoed as lines of their own."""
     with tempfile.TemporaryDirectory() as tmp:  # stdout without its last line break, then stderr
         root = Path(tmp).resolve()
         body = "import sys\nsys.stdout.write('tail')\nsys.stderr.write('err\\n')\nsys.exit(1)\n"
@@ -2683,8 +2954,16 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             ok = False
         except Broken:
             ok = printed.getvalue().splitlines()[-2:] == ["tail", "err"]
-    failed += 0 if ok else 1
+    tally.record(ok)
     print(f"[{'ok' if ok else 'FAIL'}] a runner's stdout and stderr are echoed as lines of their own")
+
+
+def harness_runs_data() -> dict[
+    str, tuple[list[str], int, int, list[str], str | None, tuple[tuple[int, str], ...]]
+]:
+    """The runs of the shared harness under a command line: the command line; the runner's exit; its item
+    lines; its last lines, on stdout, or all its lines on stderr when it could not run; what the full run's
+    BROKEN line says, None when it reads green; the items it holds."""
     unknown = (  # typed by hand: a message function cannot check itself
         "BROKEN: --item 7: no item numbered 7 in this runner — why: a filter that matches nothing runs"
         " nothing, and nothing run looks green — fix: name items this runner holds: 1–3, 101"
@@ -2890,7 +3169,13 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
             seven_twice,
         ),
     }
-    for name, (argv, runner_exit, count, tail, reason, named) in filtered.items():
+    return filtered
+
+
+def case_harness_runs(tally: Tally) -> None:
+    """The shared harness run under each command line prints its literal last lines, and the full run reads
+    green or is a BROKEN line, never a pass."""
+    for name, (argv, runner_exit, count, tail, reason, named) in harness_runs_data().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE, runner=harness_runner(argv, named))
@@ -2918,37 +3203,49 @@ def self_test() -> int:  # noqa: C901 — over the limit when the rule came in; 
                 ok = ok and reason is None and code == EXIT_GREEN
             except Broken as why:
                 ok = ok and reason is not None and reason in str(why)
-        failed += 0 if ok else 1
+        tally.record(ok)
         print(
             f"[{'ok' if ok else 'FAIL'}] the shared harness run with {name} prints its literal last lines"
             f" and {'reads green' if reason is None else 'is a BROKEN line, never a pass'}"
         )
         if not ok:
             print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
-    shared_cases = self_test_shared()
-    coverage_cases = self_test_coverage()
-    total = (
-        len(red)
-        + 6  # the row no module holds, the indented rows, the carrier row, the unclosed rows, t12 gone, the
-        # sections put in the template's order
-        + len(destinations)
-        + len(reports)
-        + len(read_as_before)
-        + len(unreadable)
-        + 6  # a manifest that is a list and one that is a string, each under three command lines
-        + len(version_read)
-        + len(skipped)
-        + len(listed)
-        + 1  # no modules/
-        + len(runs)
-        + len(counted)
-        + len(broken)
-        + 1  # stdout without its last line break, then stderr
-        + len(filtered)
-        + shared_cases[1]
-        + coverage_cases[1]
-    )
-    failed += shared_cases[0] + coverage_cases[0]
+
+
+def self_test() -> int:
+    """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
+    and green with the good table; the report of one finding as literal lines; a full run green,
+    one red with a red item, one red for an item the runner did not print and one it printed
+    unnamed; a runner out of form and one whose count disagrees as BROKEN; the destination classes,
+    the form of the matrix and of the module documents, and the tie to the preamble, each over its
+    whole set of cases."""
+    os.environ.pop(kit_coverage.ENV, None)  # every case runs its runner plain, save those that set it
+    tally = Tally()
+    case_red_tables(tally)
+    case_unheld_row(tally)
+    case_destinations(tally)
+    case_indented_rows(tally)
+    case_unclosed_rows(tally)
+    case_open_ended_section(tally)
+    case_sections_reordered(tally)
+    case_unreadable(tally)
+    case_manifest_commands(tally)
+    case_manifest_versions(tally)
+    case_read_as_before(tally)
+    case_skipped_folders(tally)
+    case_listing(tally)
+    case_no_modules(tally)
+    case_reports(tally)
+    case_carrier_row(tally)
+    case_full_runs(tally)
+    case_runner_counts(tally)
+    case_broken_runners(tally)
+    case_runner_echo(tally)
+    case_harness_runs(tally)
+    shared_failed, shared_total = self_test_shared()
+    coverage_failed, coverage_total = self_test_coverage()
+    total = tally.total + shared_total + coverage_total
+    failed = tally.failed + shared_failed + coverage_failed
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
