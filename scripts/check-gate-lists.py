@@ -2621,7 +2621,6 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     line of the BROKEN report, which names the file and how to fix it."""
     m, s, x = MARKETPLACE_FILE, SETTINGS_FILE, MANIFEST_X
     quiet = "modules/const-quiet/.claude-plugin/plugin.json"
-    object_fix = "restore it as a JSON object"
     entry_fix = '{"name": …, "source": …}'
 
     def spoil(change: Callable[[dict[str, Any]], object]) -> Case:
@@ -2667,10 +2666,7 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
     return {
         "a manifest that is missing": (put(x, None), broken_no_file(x)),
         "a manifest that is no JSON": (put(x, "{ not json\n"), broken_no_json(x)),
-        "a manifest that is empty": (
-            put(x, ""),
-            f"{x} is no JSON (Expecting value, line 1) — fix: {object_fix}",
-        ),
+        "a manifest that is empty": (put(x, ""), broken_no_json(x, "Expecting value, line 1")),
         "a manifest that is a list": (put(x, "[]\n"), broken_no_object(x, "list")),
         "a manifest that is a string": (put(x, '"const-x"\n'), broken_no_object(x, "str")),
         "a manifest that is null": (put(x, "null\n"), broken_no_object(x, "NoneType")),

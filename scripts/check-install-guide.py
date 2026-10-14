@@ -2183,18 +2183,21 @@ class Person:
 
     values: dict[str, tuple[str, str]]  # for each variable, how the value reads in a case name and the value
     seen_log: Path
+    folders: tuple[Path, ...]  # the folders the variables name, made empty, to stay so
 
 
 def person_of(unit: Unit, four: dict[str, str]) -> Person:
     """The folders the four variables name, made empty in the unit folder, and the values a person sets."""
     values: dict[str, tuple[str, str]] = {}
+    folders: list[Path] = []
     for variable, shape in four.items():
         if shape != "1":
             (unit.folder / shape).mkdir()
+            folders.append(unit.folder / shape)
         values[variable] = (
             ("set to 1", "1") if shape == "1" else ("set to a folder", str(unit.folder / shape))
         )
-    return Person(values, unit.folder / "cache-seen.log")
+    return Person(values, unit.folder / "cache-seen.log", tuple(folders))
 
 
 @dataclass(frozen=True)
@@ -3718,7 +3721,7 @@ class SelfTestRun:
                     and bool(seen)
                     and all(line.endswith(texts.seen_when_removed) for line in seen)
                     and {"--version", "plugin", "-p"} <= first_words
-                    and all(list((unit.folder / f).iterdir()) == [] for f in toy.four.values() if f != "1"),
+                    and all(list(folder.iterdir()) == [] for folder in person.folders),
                     f"{whats(rooted)} ({rooted_examined}) {seen[:4]}",
                 )
         # a block that exports one of the four itself has it for its own commands, and no other command
