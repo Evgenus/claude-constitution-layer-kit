@@ -917,6 +917,27 @@ def run_folder_places(c: Cases, root: Path) -> None:
         )
 
 
+def run_long_places(c: Cases, root: Path) -> None:
+    """A place longer than 60 characters is quoted in its finding by its first 60."""
+    for written, wanted in (
+        (
+            "at /Users/ann/projects/a-long-folder-name/and-a-second-long-one/notes.md now",
+            [
+                (NOTE, 1, "home", "/Users/ann/projects/a-long-folder-name/and-a-second-long-one")
+            ],  # typed by hand
+        ),
+        (
+            "edit docs/projects/a-long-folder-name/and-a-second-long-one/notes.md now",
+            [
+                (NOTE, 1, "relative", "docs/projects/a-long-folder-name/and-a-second-long-one/notes")
+            ],  # by hand
+        ),
+    ):
+        c.case(
+            seen(root, NOTE, f"{written}\n") == wanted, f"a long place is cut to 60 characters: '{written}'"
+        )
+
+
 def run_folder_order(c: Cases, root: Path) -> None:
     """A kit folder sorts after the places of its line and before the documents; fenced text is not read."""
     found = seen(root, NOTE, "docs/decisions\n~/a docs/research x/y.md dec-0049 docs/policies\n")
@@ -971,6 +992,7 @@ def run_names_in_one_tree(c: Cases) -> None:
         run_folder_forms(c, root)
         run_folder_places(c, root)
         run_folder_order(c, root)
+        run_long_places(c, root)
 
 
 def run_names_by_module(c: Cases) -> None:

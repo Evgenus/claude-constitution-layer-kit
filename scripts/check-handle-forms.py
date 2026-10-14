@@ -837,6 +837,18 @@ def cases_forms(tally: Tally) -> None:
             "- a note\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md)\n",
             (2,),
         ),
+        "a citation on an indented line that continues a paragraph": (
+            NOTE_PATH,
+            "Text.\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
+            "Text.\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md)\n",
+            (2,),
+        ),
+        "a citation in a list item's paragraph after a blank line, indented four spaces": (
+            NOTE_PATH,
+            "- item\n\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7)\n",
+            "- item\n\n    R7 of [dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md)\n",
+            (3,),
+        ),
         "a record linked, then its handle, with no anchor": (
             NOTE_PATH,
             "[dec-0016-yes-on-the-change](dec-0016-yes-on-the-change.md#r7) R7 holds.\n",
@@ -1729,7 +1741,8 @@ def cases_literal_reports(tally: Tally) -> None:
 
 
 def cases_edges(tally: Tally) -> None:
-    """A green tree, a file that is not UTF-8 and a misinvocation each give the line the check promises."""
+    """A green tree, a file that is not UTF-8, a folder that is no repository and a misinvocation each
+    give the line the check promises."""
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh_repo(root)
@@ -1756,6 +1769,17 @@ def cases_edges(tally: Tally) -> None:
                 broken
             )
     tally.judge(ok, "a file that is not UTF-8 is a teaching BROKEN line, never a traceback")
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            check_kit(Path(tmp).resolve())
+            said = "nothing raised"
+        except Broken as broken:
+            said = str(broken)
+    tally.judge(
+        said.startswith("git ls-files failed: fatal: not a git repository")  # typed by hand: git's own words
+        and said.endswith(" — fix: run the check from a checkout of the kit"),
+        "a folder that is no repository is a BROKEN line quoting git's first line",
+    )
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed), contextlib.redirect_stderr(io.StringIO()):
         code = main(["--bogus"])
