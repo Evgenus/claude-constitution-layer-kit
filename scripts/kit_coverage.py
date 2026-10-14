@@ -1,8 +1,9 @@
 """Kit tooling, never shipped in a module: a module's fixtures run under coverage.py, and what they reach.
 
-`scripts/check-aspects.py --run` runs a module's runner under coverage.py when the environment variable
-`CONSTITUTION_KIT_COVERAGE` names a folder, and writes `<folder>/<module>.json`; the kit's CI sets it in
-each module's job, and `scripts/module-coverage.py` reads the files (decision
+`scripts/check-aspects.py --run` runs a module's runner — its tests/run.py, or pytest over its tests/ —
+under coverage.py when the environment variable `CONSTITUTION_KIT_COVERAGE` names a folder, and writes
+`<folder>/<module>.json`; the kit's CI sets it in each module's job, and `scripts/module-coverage.py`
+reads the files (decision
 dec-0089-module-coverage-report). An empty or absent variable runs the runner as before.
 
 The run is `python3 -m coverage run` with branch coverage and `patch = subprocess`: the fixtures run the

@@ -75,6 +75,17 @@ green`, the first such line outside code fences, the first such match on it) tha
 the runner's last line; a Runner line without that form, or none, is no finding, and the gate, which runs
 no runner, compares nothing.
 
+A module whose tests/ holds a conftest.py runs under pytest instead, `python3 -m pytest
+modules/<name>/tests -p no:cacheprovider -W error`, with `-n <value>` from pytest-xdist when the
+environment's CONSTITUTION_KIT_JOBS names a value: first collected serially, so that a stop of the shared
+acceptance.collected is read whole, the run's output printed and the check BROKEN when collection fails;
+then run with a JUnit report, from which each item's result is read, its number the testcase's property
+`item`, a skipped item left out and so not counted in the total T. pytest exit 0 is green and 1 a run with
+red items; any other exit, a report whose counts differ from its testcases or a testcase without one
+number, a number twice, or an exit that disagrees with the report means the runner could not be read.
+pytest, or xdist where a value is named, not installed is BROKEN before the run, with the pinned install
+command.
+
 Each row a module holds is printed with its destination as the matrix states it, every module
 that holds a part of it with the version of its manifest, and every item that names it — from
 every such module alike — with its kind and its result. Then one verdict. `red` when an item of
@@ -150,7 +161,11 @@ import tempfile
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from functools import partial
+from importlib.machinery import ModuleSpec
 from pathlib import Path
+from typing import Any
+from xml.etree import ElementTree
 
 import kit_coverage
 from kit_module_doc import DocumentError, cells, module_folders, section
@@ -159,6 +174,9 @@ KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SPEC = "docs/requirements.md"
 RUNNER_TIMEOUT = 1800  # seconds; the slowest runner takes a few minutes
+JOBS_ENV = "CONSTITUTION_KIT_JOBS"  # pytest-xdist workers, a number or `auto`; empty or unset: one process
+PYTEST_RED = 1  # pytest's exit when a test failed; 0 is green, and every other exit could not run
+JUNIT_PROPERTY = "item"  # the property acceptance.collected hands each test's number to the report as
 
 ASPECT = re.compile(r'^\| <a id="(a\d+)"></a>\*\*(A\d+ — [^*]+)\*\*')
 ROW = re.compile(r'^\| <a id="(a\d+-\d+)"></a>(A\d+\.\d+) \|')
@@ -926,9 +944,12 @@ def counts(matrix: dict[str, Row], modules: list[Module], shared: int) -> str:
     )
 
 
-def run_once(root: Path, module: Module, runner: Path) -> tuple[subprocess.CompletedProcess[str], str | None]:
-    """One run of the runner, under coverage.py when kit_coverage asks for it: the run, and the message
-    of a coverage step that failed after it, for the caller to raise once the runner's output is printed."""
+def run_once(
+    root: Path, module: Module, command: list[str]
+) -> tuple[subprocess.CompletedProcess[str], str | None]:
+    """One run of the runner, `command` after the interpreter, under coverage.py when kit_coverage asks
+    for it: the run, and the message of a coverage step that failed after it, for the caller to raise once
+    the runner's output is printed."""
     out = kit_coverage.wanted()
     with tempfile.TemporaryDirectory(prefix="aspects-coverage-") as scratch:
         prefix: list[str] = [sys.executable]
@@ -941,7 +962,7 @@ def run_once(root: Path, module: Module, runner: Path) -> tuple[subprocess.Compl
         started = time.monotonic()
         try:
             done = subprocess.run(
-                [*prefix, str(runner)],
+                [*prefix, *command],
                 cwd=root,
                 env=env,
                 capture_output=True,
@@ -963,15 +984,138 @@ def run_once(root: Path, module: Module, runner: Path) -> tuple[subprocess.Compl
     return done, None
 
 
+def pins(*names: str) -> str:
+    """The install command of the named packages at the versions the kit's CI pins, read from the
+    workflow, which alone names them."""
+    try:
+        text = kit_coverage.WORKFLOW.read_text(encoding="utf-8")
+    except OSError:
+        text = ""
+    wanted = []
+    for name in names:
+        found = re.search(rf'"{re.escape(name)}==([^"\s]+)"', text)
+        wanted.append(f'"{name}=={found[1]}"' if found else name)
+    return f"{sys.executable} -m pip install {' '.join(wanted)}"
+
+
+def echo(module: Module, done: subprocess.CompletedProcess[str]) -> None:
+    """A run that exited other than 0, printed whole, stdout then stderr, under one line naming it."""
+    print(f"the runner of {module.name} exited {done.returncode}; its output, as it printed it:")
+    for text in done.stdout.splitlines() + done.stderr.splitlines():
+        print(text)
+
+
+def last_words(done: subprocess.CompletedProcess[str]) -> str:
+    return ((done.stderr.strip() or done.stdout.strip()).splitlines() or ["no message"])[-1]
+
+
+def read_report(path: Path, name: str) -> dict[int, bool]:
+    """Each item's result from pytest's JUnit report: its number the property `item`, red on a failure
+    or an error, a skipped item left out. BROKEN when the report cannot be read or does not hold to
+    itself: a testcase without one `item` property, a number twice, counts that differ from the
+    testcases."""
+    fix = f"run python3 -m pytest modules/{name}/tests and repair what it names"
+    try:
+        top = ElementTree.parse(path).getroot()
+    except (OSError, ElementTree.ParseError) as bad:
+        raise Broken(f"the JUnit report of {name}'s tests cannot be read ({bad}) — fix: {fix}") from bad
+    suites = [top] if top.tag == "testsuite" else list(top.iter("testsuite"))
+    declared = sum(int(suite.get("tests", "0")) for suite in suites)
+    declared_skips = sum(int(suite.get("skipped", "0")) for suite in suites)
+    cases = [case for suite in suites for case in suite.findall("testcase")]
+    results: dict[int, bool] = {}
+    seen: set[int] = set()
+    skips = 0
+    for case in cases:
+        numbers = [p.get("value", "") for p in case.iter("property") if p.get("name") == JUNIT_PROPERTY]
+        test = f"{case.get('classname')}::{case.get('name')}"
+        if len(numbers) != 1 or not numbers[0].isascii() or not numbers[0].isdigit():
+            raise Broken(
+                f"the test {test} of {name} carries {len(numbers)} `{JUNIT_PROPERTY}` properties in the"
+                f" JUnit report, not one number — fix: let the module's conftest call acceptance.collected"
+                " from its pytest_collection_modifyitems"
+            )
+        number = int(numbers[0])
+        if number in seen:
+            raise Broken(f"two tests of {name} report the item number {number} — fix: {fix}")
+        seen.add(number)
+        tags = {child.tag for child in case}
+        if "skipped" in tags:
+            skips += 1
+            continue
+        results[number] = not ({"failure", "error"} & tags)
+    if len(cases) != declared or skips != declared_skips:
+        raise Broken(
+            f"the JUnit report of {name}'s tests counts {declared} tests and {declared_skips} skips, and"
+            f" holds {len(cases)} testcases, {skips} of them skipped — fix: {fix}"
+        )
+    return results
+
+
+def run_pytest(root: Path, module: Module) -> dict[int, bool]:
+    """The module's pytest tests: collected serially first, so that a stop of acceptance.collected is
+    read whole even where the run is parallel; then run, under coverage.py when kit_coverage asks for it,
+    with `-n <value>` when the environment's CONSTITUTION_KIT_JOBS names one; then each item's result
+    read from the JUnit report. pytest exit 0 is green and 1 a run with red items; any other exit, a
+    report that does not hold to itself, or an exit that disagrees with the report, could not run."""
+    jobs = os.environ.get(JOBS_ENV, "").strip()
+    needed = ["pytest", *(["xdist"] if jobs else [])]
+    missing = [package for package in needed if importlib.util.find_spec(package) is None]
+    if missing:
+        named = ["pytest", *(["pytest-xdist"] if jobs else [])]
+        raise Broken(
+            f"{' and '.join(missing)} not installed for {sys.executable}, and the tests of {module.name}"
+            f" run under pytest{f' with -n {jobs}' if jobs else ''} — fix: {pins(*named)}"
+        )
+    base = [f"modules/{module.name}/tests", "-p", "no:cacheprovider", "-W", "error", "-q"]
+    collect = subprocess.run(
+        [sys.executable, "-m", "pytest", *base, "--collect-only"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=RUNNER_TIMEOUT,
+        check=False,
+    )
+    if collect.returncode != 0:
+        echo(module, collect)
+        raise Broken(
+            f"pytest could not collect the tests of {module.name} (exit {collect.returncode}):"
+            f" {last_words(collect)} — fix: run python3 -m pytest modules/{module.name}/tests --collect-only"
+            " and repair what it names"
+        )
+    with tempfile.TemporaryDirectory(prefix="aspects-junit-") as scratch:
+        report = Path(scratch) / "report.xml"
+        command = ["-m", "pytest", *base, f"--junitxml={report}", *(["-n", jobs] if jobs else [])]
+        done, lost = run_once(root, module, command)
+        if done.returncode != 0:
+            echo(module, done)
+        if lost is not None:
+            raise Broken(lost)
+        if done.returncode not in (0, PYTEST_RED):
+            raise Broken(
+                f"the runner of {module.name} exited {done.returncode}: {last_words(done)} — fix: run"
+                f" python3 -m pytest modules/{module.name}/tests and repair what it names"
+            )
+        results = read_report(report, module.name)
+    if (done.returncode == 0) != all(results.values()):
+        raise Broken(
+            f"the runner of {module.name} exited {done.returncode} against its own report — fix: run"
+            f" python3 -m pytest modules/{module.name}/tests"
+        )
+    return results
+
+
 def run_runner(root: Path, module: Module) -> dict[int, bool]:
+    """Each item's result: from pytest, for a module whose tests/ holds a conftest.py, else from the
+    module's own runner tests/run.py, by its item lines."""
+    if (root / "modules" / module.name / "tests" / "conftest.py").is_file():
+        return run_pytest(root, module)
     runner = root / "modules" / module.name / "tests" / "run.py"
     if not runner.is_file():
         raise Broken(f"modules/{module.name}/tests/run.py does not exist — fix: restore the module's runner")
-    done, lost = run_once(root, module, runner)
+    done, lost = run_once(root, module, [str(runner)])
     if done.returncode != 0:  # the runner's own lines say what failed; the report says only which item
-        print(f"the runner of {module.name} exited {done.returncode}; its output, as it printed it:")
-        for text in done.stdout.splitlines() + done.stderr.splitlines():
-            print(text)
+        echo(module, done)
     if lost is not None:
         raise Broken(lost)
     if done.returncode not in (0, 2):
@@ -2026,19 +2170,6 @@ def main_over(root: Path, argv: list[str]) -> tuple[int, list[str]]:
     return code, printed.getvalue().splitlines()
 
 
-PYTEST_PIN = re.compile(r'"pytest==([^"\s]+)"')
-
-
-def pytest_install() -> str:
-    """The install command of the pytest the kit's CI pins, read from the workflow, which alone names it."""
-    try:
-        found = PYTEST_PIN.search(kit_coverage.WORKFLOW.read_text(encoding="utf-8"))
-    except OSError:
-        found = None
-    pin = f'=={found[1]}"' if found else '", at the version .github/workflows/gates.yml pins'
-    return f'{sys.executable} -m pip install "pytest{pin}'
-
-
 ACCEPTANCE_GATE = (  # a fake gate: MODE decides whether it blocks the text it is handed
     "import json, sys\n"
     "text = json.load(sys.stdin)['tool_input'].get('content', '')\n"
@@ -2149,7 +2280,9 @@ def case_acceptance(tally: Tally) -> None:
     missing = [name for name in ("pytest", "xdist") if importlib.util.find_spec(name) is None]
     if missing:
         tally.record(False)
-        print(f"[FAIL] acceptance: {', '.join(missing)} not installed — fix: {pytest_install()} pytest-xdist")
+        print(
+            f"[FAIL] acceptance: {', '.join(missing)} not installed — fix: {pins('pytest', 'pytest-xdist')}"
+        )
         return
     for name, (mode, extra, args, code, said) in acceptance_cases().items():
         with tempfile.TemporaryDirectory() as tmp:
@@ -2187,6 +2320,168 @@ def case_acceptance(tally: Tally) -> None:
 
 
 COVERED_GATE = "import sys\nif len(sys.argv) > 5:\n    print('many')\nprint('gate')\n"
+
+
+def pytest_module(
+    root: Path, red: tuple[int, ...] = (), extra: str = "", conftest: str = ACCEPTANCE_CONFTEST
+) -> None:
+    """The throwaway module's tests made pytest's, linking the kit's own shared test files: one test for
+    each item of GREEN_RUN (1, 2, 3 and 101), red where `red` names it, item 2 running the module's gate
+    as a child process; then `extra`."""
+    tests = root / "modules" / "const-sample" / "tests"
+    scripts = tests.parent / "scripts"
+    scripts.mkdir(exist_ok=True)
+    (scripts / "entry.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
+    (scripts / "gate.py").write_text(COVERED_GATE, encoding="utf-8")
+    (scripts / "unused.py").write_text("print('never run')\n", encoding="utf-8")
+    for name in ("acceptance.py", "harness.py", "consumer.py"):
+        (tests / name).symlink_to(KIT / "shared" / "tests" / name)
+    (tests / "const_gate").symlink_to(KIT / "shared" / "const_gate")
+    (tests / "conftest.py").write_text(conftest, encoding="utf-8")
+    body = "import subprocess\nfrom pathlib import Path\n\nfrom acceptance import item\n\n"
+    body += "ENTRY = Path(__file__).resolve().parent.parent / 'scripts' / 'entry.sh'\n"
+    for number, title in HARNESS_ITEMS:
+        run = "    subprocess.run(['sh', str(ENTRY)], check=True)\n" if number == 2 else ""
+        head = f"\n\n@item({number}, {title!r})\ndef test_{number}() -> None:\n"
+        body += f"{head}{run}    assert {number not in red}\n"
+    (tests / "test_sample.py").write_text(body + extra, encoding="utf-8")
+
+
+def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None, int, list[str]]]:
+    """case: the red items, what the test file adds, the conftest, CONSTITUTION_KIT_JOBS, the check's
+    exit, the texts its output must hold."""
+    bare = (  # a conftest that registers the marker and hands no number to the report
+        "import acceptance\nimport pytest\n\n\n"
+        "def pytest_configure(config: pytest.Config) -> None:\n    acceptance.configure(config)\n"
+    )
+    doubled = "\n\n@item(3, 'again')\ndef test_again() -> None:\n    pass\n"
+    green_row = "  A1.1  green — M1 hook — const-sample 0.0.1"
+    header = "the runner of const-sample exited"
+    return {  # typed by hand
+        "pytest, every item green": ((), "", ACCEPTANCE_CONFTEST, None, EXIT_GREEN, [green_row]),
+        "pytest with -n 2, every item green": ((), "", ACCEPTANCE_CONFTEST, "2", EXIT_GREEN, [green_row]),
+        "pytest, item 2 red: the row red and pytest's output echoed": (
+            (2,),
+            "",
+            ACCEPTANCE_CONFTEST,
+            None,
+            EXIT_RED,
+            ["  A1.1  red — M1 hook — const-sample 0.0.1", f"{header} 1; its output, as it printed it:"],
+        ),
+        "pytest, a number two tests carry: could not collect, the lines echoed first": (
+            (),
+            doubled,
+            ACCEPTANCE_CONFTEST,
+            "2",
+            EXIT_BROKEN,
+            [
+                f"{header} 4; its output, as it printed it:",
+                "item number 3 is carried by 2 items",
+                "BROKEN: pytest could not collect the tests of const-sample (exit 4)",
+            ],
+        ),
+        "pytest, a conftest that hands no number to the report": (
+            (),
+            "",
+            bare,
+            None,
+            EXIT_BROKEN,
+            ["BROKEN: the test modules.const-sample.tests.test_sample::test_1 of const-sample carries 0"],
+        ),
+    }
+
+
+def missing_spec(
+    package: str, real: Callable[[str, str | None], ModuleSpec | None], name: str, near: str | None = None
+) -> ModuleSpec | None:
+    """importlib.util.find_spec as it answers where `package` is not installed."""
+    return None if name == package else real(name, near)
+
+
+def case_pytest_runs(tally: Tally) -> None:
+    """A full run of a module whose tests are pytest's: green, red, stopped at collection, run in
+    parallel, a report without the numbers, and the libraries missing."""
+    for name, (red, extra, conftest, jobs, want, needles) in pytest_run_cases().items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            pytest_module(root, red, extra, conftest)
+            saved = os.environ.pop(JOBS_ENV, None)
+            if jobs is not None:
+                os.environ[JOBS_ENV] = jobs
+            try:
+                code, lines = main_over(root, ["--run", "--module", "const-sample"])
+            finally:
+                os.environ.pop(JOBS_ENV, None)
+                if saved is not None:
+                    os.environ[JOBS_ENV] = saved
+        out = "\n".join(lines)
+        ok = code == want and all(needle in out for needle in needles)
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] a run of {name} exits {want} and says so")
+        if not ok:
+            print(f"        exit {code}: {out.strip()[-900:]}")
+    for jobs in (None, "2"):  # the coverage mode, serial and in parallel: the gate a test runs is measured
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            pytest_module(root)
+            (root / "shared" / "const_gate").mkdir()
+            (root / "shared" / "const_gate" / "__init__.py").write_text("", encoding="utf-8")
+            folder = root / "coverage-out"
+            os.environ[kit_coverage.ENV] = str(folder)
+            if jobs is not None:
+                os.environ[JOBS_ENV] = jobs
+            try:
+                code, lines = main_over(root, ["--run", "--module", "const-sample"])
+            finally:
+                os.environ.pop(kit_coverage.ENV, None)
+                os.environ.pop(JOBS_ENV, None)
+            written = folder / "const-sample.json"
+            measured: dict[str, Any] = (
+                json.loads(written.read_text(encoding="utf-8")) if written.is_file() else {}
+            )
+        files = measured.get("files", {})
+        gate_file = files.get("modules/const-sample/scripts/gate.py", {})
+        unused = files.get("modules/const-sample/scripts/unused.py", {})
+        ok = (
+            code == EXIT_GREEN
+            and measured.get("runner_exit") == 0
+            and gate_file.get("executed_lines") == [1, 2, 4]
+            and unused.get("missing_lines") == [1]
+        )
+        tally.record(ok)
+        parallel = " with -n 2" if jobs else ""
+        print(f"[{'ok' if ok else 'FAIL'}] pytest's tests under coverage{parallel}: the gate measured")
+        if not ok:
+            print(f"        exit {code}: {measured or 'no file'} {lines[-5:]}")
+    for package, jobs in (("pytest", None), ("xdist", "2")):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            pytest_module(root)
+            real = importlib.util.find_spec
+            importlib.util.find_spec = partial(missing_spec, package, real)
+            os.environ.pop(JOBS_ENV, None)
+            if jobs is not None:
+                os.environ[JOBS_ENV] = jobs
+            try:
+                code, lines = main_over(root, ["--run", "--module", "const-sample"])
+            finally:
+                importlib.util.find_spec = real
+                os.environ.pop(JOBS_ENV, None)
+        out = "\n".join(lines)
+        wanted = (
+            f"BROKEN: {package} not installed for {sys.executable}, and the tests of const-sample run under"
+        )
+        ok = code == EXIT_BROKEN and wanted in out and "-m pip install" in out and '"pytest==' in out
+        tally.record(ok)
+        print(
+            f"[{'ok' if ok else 'FAIL'}] a run of pytest's tests with {package} missing is BROKEN,"
+            " naming the pin"
+        )
+        if not ok:
+            print(f"        exit {code}: {out.strip()[-600:]}")
 
 
 def coverage_runner(lines: list[str], code: int) -> str:
@@ -3539,6 +3834,7 @@ def self_test() -> int:
     case_runner_echo(tally)
     case_harness_runs(tally)
     case_acceptance(tally)
+    case_pytest_runs(tally)
     shared_failed, shared_total = self_test_shared()
     coverage_failed, coverage_total = self_test_coverage()
     total = tally.total + shared_total + coverage_total
