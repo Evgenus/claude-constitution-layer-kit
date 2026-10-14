@@ -745,6 +745,8 @@ def read_item(
 
 
 def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: list[Finding]) -> Module:
+    """One module document read: its version, the rows it holds and its acceptance items, each finding
+    of its tables added to `findings`."""
     name = directory.name
     path = f"modules/{name}/MODULE.md"
     text = read(root, path)
