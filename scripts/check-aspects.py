@@ -42,8 +42,11 @@ check could not run (BROKEN, exit 1), with the fix, on
     run reads it, `--run --module` too);
   - `shared/tests/shared_items.py`, read by `ast` and never by import, without the function
     `shared_assertions`, or the list `items` in it, or with an entry that is no tuple opening
-    with an int literal (a string, a float, a boolean, a negative number); and `shared/GATE.md`
-    without its anchor `g5` alone on a line, or with it twice;
+    with an int literal (a string, a float, a boolean, a negative number);
+    `shared/tests/test_shared_items.py`, the same items as pytest tests, while it stands beside that
+    file, when it cannot be parsed, holds no test marked `@item(<n>, …)`, has a marker that opens with
+    no int literal, or numbers the items otherwise, or in another order, than the list; and
+    `shared/GATE.md` without its anchor `g5` alone on a line, or with it twice;
   - a module folder with no MODULE.md, or no modules/ at all (the folders are those of
     `kit_module_doc.module_folders`, the kit's one listing: sorted by name, a folder whose name opens
     with a dot or an underscore and a plain file no module, a name without `const-` one), and a module
@@ -112,8 +115,12 @@ Modes:  no arguments         the gate;
                              the coverage mode, a green run and a red one each writing the file,
                              a gate's child process measured and a file no run imports missed,
                              no file with the variable unset, and a red run whose file cannot be
-                             written printing its output before the BROKEN line — it needs
-                             coverage.py, at the version .github/workflows/gates.yml pins.
+                             written printing its output before the BROKEN line; the shared pytest
+                             wiring on a throwaway module that links the kit's own shared test
+                             files, check_case red on either half, a test with no number and a
+                             number carried twice stopping the run, serially and with xdist, and
+                             the number in the JUnit report — it needs coverage.py, pytest and
+                             pytest-xdist, at the versions .github/workflows/gates.yml pins.
 With CONSTITUTION_KIT_COVERAGE naming a folder, `--run` runs each runner under coverage.py and writes
 `<folder>/<module>.json`, a red run too, before it reads the runner's lines (scripts/kit_coverage.py
 says how); a runner that runs past its time is a BROKEN line, as without the variable, and writes no
@@ -130,6 +137,7 @@ from __future__ import annotations
 import argparse
 import ast
 import contextlib
+import importlib.util
 import io
 import itertools
 import json
@@ -199,6 +207,8 @@ WHY_CLASSES = (
 # The shared acceptance items (shared/GATE.md section 5): the pinned numbers of the list, read by `ast`,
 # and the handles of the section's table, from its anchor to the next `g<n>` anchor or the file's end.
 SHARED_ITEMS = "shared/tests/shared_items.py"
+SHARED_TESTS = "shared/tests/test_shared_items.py"  # the same items as pytest tests, `@item(<n>, …)` each
+SHARED_MARKER = "item"
 SHARED_GATE = "shared/GATE.md"
 SHARED_FUNCTION, SHARED_LIST, SHARED_FIRST = "shared_assertions", "items", 101
 SHARED_ANCHOR = '<a id="g5"></a>'
@@ -447,6 +457,68 @@ def shared_numbers(root: Path) -> list[tuple[int, int]]:
     return found
 
 
+def marker_numbers(root: Path) -> list[tuple[int, int]] | None:
+    """(number, line) of each top-level test of the shared pytest file decorated `@item(<n>, …)`, in the
+    file's order, read by `ast`, never by import; None when the file does not exist. BROKEN when it
+    cannot be parsed, holds no such test, or a decorator `item(…)` opens with no int literal."""
+    path = root / SHARED_TESTS
+    if not path.is_file():
+        return None
+    reading = "the check reads the numbers of the shared tests from their markers, by `ast`, never by import"
+    try:
+        tree = ast.parse(read(root, SHARED_TESTS))
+    except SyntaxError as bad:
+        raise Broken(
+            f"{SHARED_TESTS} cannot be parsed ({bad.msg}, line {bad.lineno}) — why: {reading}"
+            " — fix: repair the file's syntax"
+        ) from bad
+    found: list[tuple[int, int]] = []
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for decorator in node.decorator_list:
+            if not (isinstance(decorator, ast.Call) and getattr(decorator.func, "id", None) == SHARED_MARKER):
+                continue
+            number = decorator.args[0] if decorator.args else None
+            if not (isinstance(number, ast.Constant) and type(number.value) is int):
+                raise Broken(
+                    f"{SHARED_TESTS}:{decorator.lineno}: a marker `{SHARED_MARKER}(…)` opens with no int"
+                    f" literal — why: {reading}, and a test with no number of its own is no item"
+                    f' — fix: write it as `@{SHARED_MARKER}(<number>, "<title>")`'
+                )
+            found.append((number.value, decorator.lineno))
+    if not found:
+        raise Broken(
+            f"{SHARED_TESTS} holds no test marked `@{SHARED_MARKER}(<number>, …)` — why: {reading}"
+            f" — fix: restore the shared tests, each with its marker, or remove the file"
+        )
+    return found
+
+
+def held_shared_numbers(root: Path) -> list[tuple[int, int]]:
+    """The shared items' numbers: those of `shared_assertions`, and while the shared pytest file stands
+    beside it, the same numbers in the same order from its markers, else BROKEN — so that neither file
+    drifts from the other while the runners move to pytest."""
+    entries = shared_numbers(root)
+    markers = marker_numbers(root)
+    if markers is not None and [n for n, _ in markers] != [n for n, _ in entries]:
+        listed, marked = [n for n, _ in entries], [n for n, _ in markers]
+        only_listed = sorted(set(listed) - set(marked))
+        only_marked = sorted(set(marked) - set(listed))
+        detail = (
+            f"only in {SHARED_ITEMS}: {only_listed or 'none'};"
+            f" only in {SHARED_TESTS}: {only_marked or 'none'}"
+            if only_listed or only_marked
+            else "the same numbers in another order"
+        )
+        raise Broken(
+            f"{SHARED_ITEMS} and {SHARED_TESTS} number the shared items differently ({detail}) — why: both"
+            " forms run the same items until the old runners go, so a number in one form and not the"
+            " other is an item one runner lost — fix: give both files the same items, in the same order"
+        )
+    return entries
+
+
 def gate_section(root: Path) -> list[tuple[int, str]]:
     """The lines (1-based number in the file, text) of GATE.md's section 5: after the line that is
     its anchor alone to the next anchor `g<n>` alone on a line, or to the end of the file. BROKEN
@@ -478,7 +550,7 @@ def check_shared(root: Path) -> tuple[list[Finding], int]:
     rise above the one before it, the first number if not 101, and in section 5 of GATE.md, its table
     and its prose, every handle or range that names a number the list does not hold, and every range
     whose end is not above its start."""
-    entries = shared_numbers(root)
+    entries = held_shared_numbers(root)
     section_lines = gate_section(root)
     findings: list[Finding] = []
     previous: int | None = None
@@ -1703,6 +1775,69 @@ def shared_broken(tally: Tally) -> None:
             print(f"        got: {got}")
 
 
+def marked_source(*numbers: int, bad: str = "") -> str:
+    """A shared pytest file: one test per number, each `@item(<n>, "item <n>")`, then `bad`."""
+    tests = "".join(f'@item({n}, "item {n}")\ndef test_{n}(subject):\n    pass\n\n\n' for n in numbers)
+    return f"from acceptance import item\n\n\n{tests}{bad}"
+
+
+def shared_markers(tally: Tally) -> None:
+    """The shared pytest file beside the list: the same numbers green, other numbers or another order and
+    a file the check cannot read BROKEN, in the plain run and in the run of one module."""
+    reading = "— why: the check reads the numbers of the shared tests from their markers"
+    cases: dict[str, tuple[str, str | None]] = {  # case: the pytest file, what the BROKEN line opens with
+        "the same numbers, in the same order": (marked_source(101, 102, 103), None),
+        "a number the list does not hold": (
+            marked_source(101, 102, 103, 104),
+            f"{SHARED_ITEMS} and {SHARED_TESTS} number the shared items differently (only in {SHARED_ITEMS}:"
+            f" none; only in {SHARED_TESTS}: [104])",
+        ),
+        "a number of the list missing": (
+            marked_source(101, 103),
+            f"{SHARED_ITEMS} and {SHARED_TESTS} number the shared items differently (only in {SHARED_ITEMS}:"
+            f" [102]; only in {SHARED_TESTS}: none)",
+        ),
+        "the same numbers in another order": (
+            marked_source(101, 103, 102),
+            f"{SHARED_ITEMS} and {SHARED_TESTS} number the shared items differently (the same numbers in"
+            " another order)",
+        ),
+        "a marker with no int literal": (
+            marked_source(101, 102, bad='@item("103", "t")\ndef test_x(subject):\n    pass\n'),
+            f"{SHARED_TESTS}:14: a marker `item(…)` opens with no int literal {reading}",
+        ),
+        "no marked test at all": (
+            "def test_x(subject):\n    pass\n",
+            f"{SHARED_TESTS} holds no test marked `@item(<number>, …)` {reading}",
+        ),
+        "a file that does not parse": ("def test_x(:\n", f"{SHARED_TESTS} cannot be parsed"),
+    }
+    for name, (text, said) in cases.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            (root / SHARED_TESTS).write_text(text, encoding="utf-8")
+            ok = True
+            got: list[str] = []
+            for only in (None, "const-sample"):
+                try:
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        if only is None:
+                            check_structure(root)
+                        else:
+                            full_run(root, only)
+                    ok = ok and said is None
+                    got.append("no BROKEN")
+                except Broken as bad:
+                    ok = ok and said is not None and str(bad).startswith(said) and "— fix: " in str(bad)
+                    got.append(str(bad))
+        tally.record(ok)
+        verdict = "is green" if said is None else "is one BROKEN line naming it"
+        print(f"[{'ok' if ok else 'FAIL'}] shared items: the pytest file, {name}, {verdict}, in both runs")
+        if not ok:
+            print(f"        got: {got}")
+
+
 def shared_dropped(tally: Tally) -> None:
     """The cases where a file of the shared items is gone from the tree."""
     drop = {  # case: the file taken from the tree
@@ -1854,6 +1989,7 @@ def self_test_shared() -> tuple[int, int]:
     shared_steps(tally)
     shared_broken(tally)
     shared_dropped(tally)
+    shared_markers(tally)
     shared_literal(tally)
     shared_counts(tally)
     return tally.failed, tally.total
@@ -1888,6 +2024,166 @@ def main_over(root: Path, argv: list[str]) -> tuple[int, list[str]]:
     finally:
         KIT = real
     return code, printed.getvalue().splitlines()
+
+
+PYTEST_PIN = re.compile(r'"pytest==([^"\s]+)"')
+
+
+def pytest_install() -> str:
+    """The install command of the pytest the kit's CI pins, read from the workflow, which alone names it."""
+    try:
+        found = PYTEST_PIN.search(kit_coverage.WORKFLOW.read_text(encoding="utf-8"))
+    except OSError:
+        found = None
+    pin = f'=={found[1]}"' if found else '", at the version .github/workflows/gates.yml pins'
+    return f'{sys.executable} -m pip install "pytest{pin}'
+
+
+ACCEPTANCE_GATE = (  # a fake gate: MODE decides whether it blocks the text it is handed
+    "import json, sys\n"
+    "text = json.load(sys.stdin)['tool_input'].get('content', '')\n"
+    "red = {'right': 'RED-TEXT' in text, 'always-pass': False, 'always-block': True}[MODE]\n"
+    "if red:\n"
+    "    sys.stderr.write('RED: doc.md: a red text\\n  why: a fixture\\n  fix: take it out\\n'\n"
+    "                     'RED: 1 finding(s) — 1 document examined (doc.md)\\n')\n"
+    "    sys.exit(2)\n"
+    "print('GREEN: const-sample: 1 document examined, a covered document')\n"
+)
+ACCEPTANCE_CONFTEST = (
+    "import acceptance\nimport pytest\n\n\n"
+    "def pytest_configure(config: pytest.Config) -> None:\n    acceptance.configure(config)\n\n\n"
+    "def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:\n    acceptance.collected(items)\n"
+)
+ACCEPTANCE_TESTS = (
+    "from enum import StrEnum\nfrom pathlib import Path\n\nimport pytest\n"
+    "from acceptance import check_case, item\nfrom const_gate.model import Finding\n"
+    "from harness import Case, Harness, Write\n\n\n"
+    "class Key(StrEnum):\n    X1 = 'X1'\n\n\n"
+    "H = Harness(Path(__file__).resolve().parent.parent / 'scripts', 'gate.sh', 'gate.py', 'const-sample')\n"
+    "CASE = Case(1, 'a red text', Write('doc.md', 'RED-TEXT\\n'), Write('doc.md', 'fine\\n'),\n"
+    "            Finding(Key.X1, 'doc.md: a red text', 'a fixture', 'take it out'),\n"
+    "            'a covered document')\n\n\n"
+    "@pytest.mark.parametrize('case', [pytest.param(CASE, id='T1', marks=item(1, CASE.title))])\n"
+    "def test_case(case: Case) -> None:\n    check_case(H, case)\n"
+)
+
+
+def acceptance_tree(root: Path, mode: str, extra: str = "") -> Path:
+    """A throwaway module whose tests use the kit's own shared test files, linked: the fake gate in
+    `mode`, one red→green case, and `extra` appended to its test file. The tests folder."""
+    scripts = root / "modules" / "const-sample" / "scripts"
+    tests = scripts.parent / "tests"
+    scripts.mkdir(parents=True)
+    tests.mkdir()
+    (scripts / "gate.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
+    (scripts / "gate.py").write_text(f"MODE = {mode!r}\n{ACCEPTANCE_GATE}", encoding="utf-8")
+    for name in ("acceptance.py", "harness.py", "consumer.py"):
+        (tests / name).symlink_to(KIT / "shared" / "tests" / name)
+    (tests / "const_gate").symlink_to(KIT / "shared" / "const_gate")
+    (tests / "conftest.py").write_text(ACCEPTANCE_CONFTEST, encoding="utf-8")
+    (tests / "test_sample.py").write_text(ACCEPTANCE_TESTS + extra, encoding="utf-8")
+    return tests
+
+
+def acceptance_cases() -> dict[str, tuple[str, str, list[str], int, list[str]]]:
+    """case: the gate's mode, what the test file adds, pytest's extra arguments, the exit, the texts
+    the output must hold."""
+    doubled = "\n\n@item(1, 'again')\ndef test_again() -> None:\n    pass\n"
+    unmarked = "\n\ndef test_unmarked() -> None:\n    pass\n"
+    return {  # typed by hand: the messages of check_case and of acceptance.collected
+        "a gate that does both halves right: the case is green": ("right", "", [], 0, ["1 passed"]),
+        "a gate that always passes: check_case is red on the red half": (
+            "always-pass",
+            "",
+            [],
+            1,
+            ["red half exited 0, not 2"],
+        ),
+        "a gate that always blocks: check_case is red on the green half": (
+            "always-block",
+            "",
+            [],
+            1,
+            ["green half did not print 'GREEN: const-sample: 1 document examined, a covered document'"],
+        ),
+        "a test without item(…): the run stops before any test": (
+            "right",
+            unmarked,
+            [],
+            4,
+            [
+                "test_sample.py::test_unmarked carries no item(<number>, <title>) — why: a test outside the"
+                " acceptance table is examined by no row — fix: give it @item(<number>, <title>) from"
+                " acceptance",
+                "no tests ran",
+            ],
+        ),
+        "a number two tests carry: the run stops before any test, the fix naming the module's file": (
+            "right",
+            doubled,
+            [],
+            4,
+            [
+                "item number 1 is carried by 2 items, 'a red text', 'again' — why: one number, one item, or a"
+                " result and a node id cannot say which item they mean — fix: keep one of them at 1, and in"
+                " the module's own tests/test_sample.py give the other one the number 2 — a number no other"
+                " item holds, below 101",
+                "no tests ran",
+            ],
+        ),
+        "a number two tests carry, run with -n 2: xdist's internal error, never green": (
+            "right",
+            doubled,
+            ["-n", "2"],
+            3,
+            ["no tests ran"],
+        ),
+    }
+
+
+def case_acceptance(tally: Tally) -> None:
+    """The shared pytest wiring, `acceptance`, on a throwaway module that links the kit's own shared test
+    files: check_case red on either half of a gate that always answers the same, the run stopped on a
+    test without a number and on a number two tests carry — serially with the lines, with xdist as its
+    internal error — and the number handed to the JUnit report."""
+    missing = [name for name in ("pytest", "xdist") if importlib.util.find_spec(name) is None]
+    if missing:
+        tally.record(False)
+        print(f"[FAIL] acceptance: {', '.join(missing)} not installed — fix: {pytest_install()} pytest-xdist")
+        return
+    for name, (mode, extra, args, code, said) in acceptance_cases().items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            tests = acceptance_tree(root, mode, extra)
+            report = root / "report.xml"
+            done = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    str(tests),
+                    "-p",
+                    "no:cacheprovider",
+                    "-W",
+                    "error",
+                    "-q",
+                    f"--junitxml={report}",
+                    *args,
+                ],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=RUNNER_TIMEOUT,
+            )
+            out = done.stdout + done.stderr
+            ok = done.returncode == code and all(text in out for text in said)
+            if code == 0:  # the green run: the item's number in the report, as the property `item`
+                ok = ok and '<property name="item" value="1" />' in report.read_text(encoding="utf-8")
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] acceptance: {name}")
+        if not ok:
+            print(f"        exit {done.returncode}, wanted {code}: {out.strip()[-800:]}")
 
 
 COVERED_GATE = "import sys\nif len(sys.argv) > 5:\n    print('many')\nprint('gate')\n"
@@ -3242,6 +3538,7 @@ def self_test() -> int:
     case_broken_runners(tally)
     case_runner_echo(tally)
     case_harness_runs(tally)
+    case_acceptance(tally)
     shared_failed, shared_total = self_test_shared()
     coverage_failed, coverage_total = self_test_coverage()
     total = tally.total + shared_total + coverage_total

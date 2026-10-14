@@ -340,13 +340,19 @@ class Harness:
 FIRST_SHARED = 101  # the number of the first shared item; the shared numbers are never moved or reissued
 
 
-def number_collisions(items: Sequence[Case | Assertion]) -> list[str]:
+def number_collisions(
+    items: Sequence[Case | Assertion],
+    runner: str = "tests/run.py",
+    selection: str = "",
+) -> list[str]:
     """One message for each number that two or more of `items` carry, in number order — what failed,
     why, and the exact fix. The harness does not know which item is a shared one, so a number from the
     first shared one up is worded conditionally. The fix names the free numbers below the first shared
     one — those above the highest number the items hold there, since a number an item left free is
     never reissued — as many as the items that must move need; the items left without one are counted,
-    and that is a decision to raise, since the shared numbers never move."""
+    and that is a decision to raise, since the shared numbers never move. `runner` is the file the fix
+    names, `selection` what a number selects an item by, the old runner's flag when empty."""
+    selection = selection or f"an {ITEM_FLAG}"
     titles: dict[int, list[str]] = {}
     for item in items:
         titles.setdefault(item.number, []).append(item.title)
@@ -369,7 +375,7 @@ def number_collisions(items: Sequence[Case | Assertion]) -> list[str]:
             noun, other = ("number", "a number") if len(given) == 1 else ("numbers", "numbers")
             who = others if not left else f"{len(given)} of the other {moving}"
             fix = (
-                f"{keep}, and in the module's own tests/run.py give {who} the {noun}"
+                f"{keep}, and in the module's own {runner} give {who} the {noun}"
                 f" {', '.join(map(str, given))} — {other} no other item holds, below {FIRST_SHARED}"
             )
             if left:
@@ -377,7 +383,7 @@ def number_collisions(items: Sequence[Case | Assertion]) -> list[str]:
                 fix += f"; {left} {are} then left with no free number — {decision}"
         lines.append(
             f"item number {number} is carried by {len(held)} items, {named} — why: one number, one"
-            f" item, or a result and an {ITEM_FLAG} cannot say which item they mean — fix: {fix}"
+            f" item, or a result and {selection} cannot say which item they mean — fix: {fix}"
         )
     return lines
 
