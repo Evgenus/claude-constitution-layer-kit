@@ -40,7 +40,7 @@ The decider chose A in chat on 2026-10-14.
 
 <a id="r2"></a>**R2.** The last sentence of R2 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r2) stands: a reason in a module's files or in the shared code names no record.
 
-<a id="r3"></a>**R3.** A function above the limit carries `# noqa: C901` only where a later change marked it under R3 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r3); no mark stands from the day the rule came in.
+<a id="r3"></a>**R3.** Any function above the limit, one of the 22 included, carries `# noqa: C901` only where a change marks it under R3 of [dec-0088-ruff-complexity-limit](dec-0088-ruff-complexity-limit.md#r3); no mark stands from the day the rule came in, 2026-10-13.
 
 ## Applied
 

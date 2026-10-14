@@ -1964,6 +1964,7 @@ def self_test() -> int:
     run_quoted_placeholder(t)
     run_scopes(t)
     run_unscopable(t)
+    # the records' folder and number width are the dials file's, read and never assumed
     run_refused_dials(t)
     run_dials_reads(t)
     run_layouts(t)

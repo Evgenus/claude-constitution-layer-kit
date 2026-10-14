@@ -1770,8 +1770,9 @@ def hook_spied_wait_case(tally: Tally, hooked: Path) -> None:
 
 def hook_shape_table(hooks_path: Path) -> list[HookShape]:
     """The shapes of a hooks file `hooks_of` reads: each a whole file and either the hooks it gives or the
-    whole BROKEN line, typed by hand; a line that holds the interpreter's own words is a pair, the line's
-    start and its end."""
+    whole BROKEN line, typed by hand; nothing but `Broken` may be raised. A line that holds the
+    interpreter's own words for the reason is a pair instead: the line's start and its end, with a reason
+    of any wording between them."""
     shape_fix = (  # typed by hand
         " — fix: restore hooks/hooks.json to the shape the hooks reference gives, so that the check"
         " can read each hook it runs"
