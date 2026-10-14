@@ -62,6 +62,7 @@ import dataclasses
 import os
 import subprocess
 import sys
+import types
 
 scripts = os.environ["GIT_PATCH_SCRIPTS"]
 sys.path.insert(0, scripts)
@@ -71,7 +72,11 @@ sys.path.remove(scripts)
 lowered = os.environ.get("GIT_PATCH_SECONDS")
 trigger = os.environ.get("GIT_PATCH_TRIGGER")
 hook_lowered = os.environ.get("GIT_PATCH_HOOK_SECONDS")
+late = os.environ.get("GIT_PATCH_LATE")
 log, run, declare = os.environ["GIT_PATCH_LOG"], subprocess.run, identity.declare
+if late:  # the deadline's clock stands still but for the lateness of git's answers
+    clock = [0.0]
+    identity.time = types.SimpleNamespace(monotonic=lambda: clock[0])
 
 
 def spy(command, *args, **kwargs):
@@ -80,6 +85,12 @@ def spy(command, *args, **kwargs):
             out.write(repr(kwargs.get("timeout")) + " " + repr(command[1:]) + "\\n")
         if lowered and trigger in command[1:] and kwargs.get("timeout") is not None:
             repository.GIT_SECONDS = kwargs["timeout"] = float(lowered)
+        if late and kwargs.get("timeout") is not None:  # the fake clock alone decides whether it is cut
+            given = kwargs.pop("timeout")
+            if float(late) >= given:
+                clock[0] += given
+                raise subprocess.TimeoutExpired(command, given)
+            clock[0] += float(late)
     return run(command, *args, **kwargs)
 
 
@@ -101,12 +112,20 @@ HANG_BOUND = 20.0
 
 
 def git_patch(
-    h: Harness, seconds: float | None = None, trigger: str | None = None, hook_seconds: float | None = None
+    h: Harness,
+    seconds: float | None = None,
+    trigger: str | None = None,
+    hook_seconds: float | None = None,
+    late: float | None = None,
 ) -> tuple[dict[str, str], Path]:
     """The environment that makes a gate's process log the `timeout=` of each git call it makes and the
     `hook_seconds` it is declared with, and, with `seconds` and a `trigger`, give the call whose arguments
     hold the trigger that many seconds, and, with `hook_seconds`, declare the gate with that hook budget
-    in place of its own; with the log it writes."""
+    in place of its own; with the log it writes. With `late`, the deadline reads a clock of the patch's
+    own, which starts at 0 and moves only when git answers: by `late` seconds for each call given more,
+    and by the whole of what a call was given when `late` is as much or more, that call then cut as the
+    timeout cuts it, with no git started. So which call the deadline meets follows from the numbers
+    alone, never from how fast the machine runs; a call that answers runs with no clock."""
     folder = h.scratch_dir()
     (folder / "sitecustomize.py").write_text(GIT_PATCH, encoding="utf-8")
     log = folder / "git-calls"
@@ -120,6 +139,8 @@ def git_patch(
         env["GIT_PATCH_TRIGGER"] = trigger
     if hook_seconds is not None:
         env["GIT_PATCH_HOOK_SECONDS"] = repr(hook_seconds)
+    if late is not None:
+        env["GIT_PATCH_LATE"] = repr(late)
     return env, log
 
 
@@ -1634,31 +1655,15 @@ class SharedItems:
             f"exit {done.returncode}: {lines or done.stderr.strip()[-300:]}"
         )
 
-    def slow_git_env(self, delay: float) -> dict[str, str]:
-        """A git first on PATH that answers every call correctly, `delay` seconds late."""
-        real, nap = shutil.which("git"), shutil.which("sleep")
-        if real is None or nap is None:
-            raise FileNotFoundError(
-                "no git or no sleep on PATH: the slow git hands every call to the real one"
-            )
-        directory = self.h.scratch_dir()
-        fake = directory / "git"
-        fake.write_text(
-            f'#!/bin/sh\n{shlex.quote(nap)} {delay}\nexec {shlex.quote(real)} "$@"\n', encoding="utf-8"
-        )
-        fake.chmod(0o755)
-        return {"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
-
     def git_call_log(self, log: Path) -> list[tuple[float, list[str]]]:
         """Each git call the log holds: the `timeout=` it was given and its arguments."""
         lines = log.read_text().splitlines() if log.exists() else []
         return [(float(line.split(" ", 1)[0]), ast.literal_eval(line.split(" ", 1)[1])) for line in lines]
 
     def slow_git_within_the_cap(self) -> tuple[bool, str]:
-        """A git that answers every call 0.15 s late, in a hook with its own 25 s: the cap of 3 s binds every
-        call, and no line of the hook's budget is said."""
-        env, log = git_patch(self.h)
-        env.update(self.slow_git_env(0.15))
+        """A git that answers every call 0.15 s late on the patch's clock, in a hook with its own 25 s: the
+        cap of 3 s binds every call, and no line of the hook's budget is said."""
+        env, log = git_patch(self.h, late=0.15)
         result, _ = self.s.gate_on(self.s.valid, env=env)
         timeouts = git_timeouts(log)
         ok = result.code == 0 and bool(timeouts) and set(timeouts) == {repr(repository.GIT_SECONDS)}
@@ -1667,29 +1672,29 @@ class SharedItems:
         )
 
     def slow_git_spends_the_deadline(self) -> tuple[bool, str]:
-        """A hook budget of 1 s, lowered for the run by the patch, and a git that answers late: the calls are
-        given the smaller of the 3 s and what is left — each less than the one before, none over the 1 s —
-        and the call the deadline meets ends the run in C12.14 as the first stderr line, the count line after
-        it, exit 1, the call naming itself. A gate that makes three calls or more meets it at the second or
-        the third (each answers 0.45 s late); one that makes fewer, at its first (1.5 s late). The run is
-        bounded at the hang cases' 20 s, and no assertion is made on its time."""
+        """A hook budget of 1 s, lowered for the run by the patch, and a git that answers late on the patch's
+        clock, which nothing else moves: each call is given exactly the smaller of the 3 s and what is left —
+        1 s, then 1 s less the lateness of each call before it — and the call the deadline meets ends the
+        run in C12.14 as the first stderr line, the count line after it, exit 1, the call naming itself. A
+        gate that makes three calls or more meets it at the third (each 0.375 s late: given 1, 0.625 and
+        0.25 s), one that makes two at the second (0.625 s late), one that makes one at its first (1.5 s
+        late). The numbers are exact in binary, so no rounding moves the cut. The run is bounded at the hang
+        cases' 20 s, and no assertion is made on its time."""
         calibrate, counted = git_patch(self.h)
         self.s.gate_on(self.s.valid, env=calibrate)
         calls = len(git_timeouts(counted))
-        lowered = 1.0
-        env, log = git_patch(self.h, hook_seconds=lowered)
-        env.update(self.slow_git_env(0.45 if calls >= 3 else lowered * 1.5))
+        lowered, meets = 1.0, min(calls, 3)
+        late = {1: 1.5, 2: 0.625}.get(meets, 0.375)
+        env, log = git_patch(self.h, hook_seconds=lowered, late=late)
         with self.h.bounded(HANG_BOUND):
             result, _ = self.s.gate_on(self.s.valid, env=env)
         made = self.git_call_log(log)
         timeouts = [timeout for timeout, _ in made]
-        falling = all(0 < b < a for a, b in zip(timeouts, timeouts[1:], strict=False))
-        within = bool(timeouts) and 0 < timeouts[0] <= lowered
-        met = len(made) <= 3 if calls >= 3 else len(made) == 1
+        given = [min(repository.GIT_SECONDS, lowered - late * call) for call in range(meets)]
         sub = repository.subcommand(made[-1][1]) if made else "none"
         ok, evidence = self.broken_as_typed(result, self.spent("1", f"git {sub} answered"))
-        return ok and falling and within and met, (
-            f"{len(made)} git calls (the run makes {calls}), timeouts {timeouts}: {evidence}"
+        return ok and calls > 0 and timeouts == given, (
+            f"{len(made)} git calls (the run makes {calls}), timeouts {timeouts}, wanted {given}: {evidence}"
         )
 
     def hook_has_one_deadline(self) -> tuple[bool, str]:
@@ -1697,7 +1702,8 @@ class SharedItems:
         own cap and what is left of it; past it the gate says so in the shared line C12.14, non-blocking like
         every configuration failure, the count line after it. A scan, an act and a process declared with no
         mode have no deadline. Read at the decision point, in a process for each mode, in a process whose
-        clock is moved past the deadline, and through the gate with a git that answers late."""
+        clock is moved past the deadline, and through the gate with a git that answers late on a clock of the
+        test's own, which only git's answers move."""
         results: list[tuple[bool, str]] = [
             self.attempted(check) for check in (self.deadline_by_mode, self.spent_deadline)
         ]
