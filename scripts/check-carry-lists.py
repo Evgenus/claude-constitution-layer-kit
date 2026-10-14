@@ -1198,6 +1198,19 @@ def run_right_homes(t: Tally) -> None:
         t.judge(ok, f"a home in {name} is green")
 
 
+def run_list_prose(t: Tally) -> None:
+    """A sentence before a carry list's first entry belongs to no entry: the right list stays green."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        prose = GOOD_RECORD.replace(
+            "## Carry list\n\n1.", "## Carry list\n\nWhere each ruling lives now.\n\n1."
+        )
+        ok = not lists(root, sample_kit(root, prose))[0]
+    t.judge(
+        ok, "a sentence before the first entry of the carry list is no entry, and the right list is green"
+    )
+
+
 def record_of_handles(handles: list[int], fence: str = "") -> str:
     """A record whose rulings carry these handles in this order, each with its anchor and its entry."""
     rulings = "".join(f'{i}. <a id="r{n}"></a>**R{n}.** A rule.\n' for i, n in enumerate(handles, 1))
@@ -1957,6 +1970,7 @@ def self_test() -> int:
     run_readme_homes(t, wrong_lists)
     run_closed_pending(t)
     run_right_homes(t)
+    run_list_prose(t)
     run_orders(t)
     run_receipts(t)
     run_signed_merge(t)

@@ -4502,12 +4502,46 @@ class SelfTestRun:
             self.whole_run_cases()
             self.run_setup_cases()
 
+    def fixture_cases(self) -> None:
+        """The reader's hand-written files: record #1 is placed under its catalog's folder territory, and a
+        dials example whose first catalog has no folder territory is refused."""
+        case = self.case
+        no_home = (  # typed by hand
+            "the dials example lists no catalog with a folder territory, so record #1 has no home — fix:"
+            " correct the guide's check=dials block"
+        )
+
+        def catalog(territory: str) -> str:
+            return yaml.safe_dump(
+                {"const-catalogs": {"catalogs": [{"prefix": "dec", "territory": [territory]}]}}
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "folder"
+            folder.mkdir()
+            fixture(folder, catalog("docs/decisions/**"))
+            placed = (folder / "docs" / "decisions" / f"dec-0001-{RECORD_SLUG}.md").is_file()
+            case("record #1 is written under its catalog's folder territory", placed, f"placed: {placed}")
+            file_pattern = Path(tmp) / "file-pattern"
+            file_pattern.mkdir()
+            try:
+                fixture(file_pattern, catalog("docs/*.md"))
+                said = "nothing raised"
+            except Broken as refused:
+                said = str(refused)
+            case(
+                "a first catalog whose territory is no folder is refused, record #1 having no home",
+                said == no_home,
+                said,
+            )
+
     def run(self) -> int:
         """Run every group in order, print the tally, and give the exit code."""
         self.mark_cases()
         self.listing_cases()
         self.guide_run_cases()
         self.report_cases()
+        self.fixture_cases()
         print(f"{self.total - self.failed}/{self.total} cases green")
         return EXIT_GREEN if self.failed == 0 else EXIT_RED
 

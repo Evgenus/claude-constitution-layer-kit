@@ -4090,6 +4090,29 @@ def pyyaml_missing(tally: Tally) -> None:
     tally.judge(ok, "PyYAML missing is a BROKEN line with the install command, exit 1")
 
 
+def failing_list_script(tally: Tally) -> None:
+    """A list script that exits other than 0 is a BROKEN line that quotes the last line it said: the
+    last of its standard error, or of its standard output when its standard error is empty."""
+    said_by = {
+        "standard error and standard output": ("echo out; echo err >&2", "err"),
+        "standard output alone": ("echo first; echo last", "last"),
+    }
+    for name, (body, quoted) in said_by.items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / GATE_LIST).parent.mkdir(parents=True)
+            (root / GATE_LIST).write_text(f"#!/bin/sh\n{body}\nexit 3\n", encoding="utf-8")
+            try:
+                listed(root, "--names", "gate")
+                got = "nothing raised"
+            except Broken as broken:
+                got = str(broken)
+        want = f"{GATE_LIST} --names gate exited 3 ({quoted}) — fix: restore the list script"  # typed by hand
+        tally.judge(got == want, f"a list script that fails after printing on {name} is quoted by that line")
+        if got != want:
+            print(f"        got: {got}")
+
+
 def self_test() -> int:
     """Red→green on a throwaway tree: a scan missing from the gate group, and one in a kit whose
     workflow does not read the list or names it only in a comment line or a trailing comment, are red
@@ -4124,6 +4147,7 @@ def self_test() -> int:
     broken_lines(tally)
     unreadable_files(tally)
     pyyaml_missing(tally)
+    failing_list_script(tally)
     print(f"{tally.judged - tally.failed}/{tally.judged} cases green")
     return EXIT_GREEN if tally.failed == 0 else EXIT_RED
 
