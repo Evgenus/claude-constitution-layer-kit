@@ -20,17 +20,17 @@ The message gives you the module's path, the scratch directory, and the probes, 
 handle and the change to make. Procedure:
 
 1. Make a fresh folder, `C=$(mktemp -d "<scratch>/probe.XXXXXX")`, and copy the module there
-   with links followed: `cp -RL <kit>/modules/<module> $C/probe-copy` (`tests/run.py` imports the
-   shared code through `scripts/const_gate`, which the copy dereferences). Keep a second copy,
+   with links followed: `cp -RL <kit>/modules/<module> $C/probe-copy` (the tests import the shared
+   code through links, which the copy dereferences). Keep a second copy,
    `$C/pristine`, and never edit it. Shell variables do not survive between commands: write the
    printed path out, or bind `C` again, in every later command. Delete nothing in the scratch
    directory, no `rm`: each run makes its own folder, and the session removes them all before the
    merge.
-2. Baseline: `python3 $C/probe-copy/tests/run.py`; record the count line — `N/N acceptance
-   items green` — and the item numbers run. A red baseline stops the work: report it and do
+2. Baseline: `python3 -m pytest $C/probe-copy/tests -p no:cacheprovider -q`; record pytest's
+   summary line, `N passed`, and the skips. A red baseline stops the work: report it and do
    nothing more.
 3. Per probe, in order: make exactly the change described, in the copy; run the runner; record
-   the exit code and every item that went red by number; restore the changed file from
+   the exit code and every test that went red, its node id and the number of its `item(…)`; restore the changed file from
    `pristine`; run the runner again only if the restore is in doubt. If the change as described
    cannot be made — the code differs from the description — say so and skip the probe; invent no
    substitute.

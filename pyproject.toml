@@ -15,7 +15,7 @@
 #   python3 scripts/check-yaml-style.py && python3 scripts/check-yaml-style.py --self-test   (block style of constitution.yaml; --fix rewrites it)
 #   python3 scripts/check-module-links.py && python3 scripts/check-module-links.py --self-test   (a module linked outside module prose)
 #   python3 scripts/check-handle-forms.py && python3 scripts/check-handle-forms.py --self-test   (a citation of a ruling links its anchor; a module's message keys take no shared key save g3a's; one prefix per kind of handle in a module document; no record table row keyed as a ruling)
-#   python3 scripts/check-aspects.py && python3 scripts/check-aspects.py --self-test   (every acceptance item names its rows; --run reports each row; the self-test needs coverage.py: python3 -m pip install coverage, at the version of .github/workflows/gates.yml)
+#   python3 scripts/check-aspects.py && python3 scripts/check-aspects.py --self-test   (every acceptance item names its rows; --run --module <name> runs a module's tests under pytest, one module per run, -n <n> from CONSTITUTION_KIT_JOBS; the self-test needs coverage.py, pytest and pytest-xdist at the versions of .github/workflows/gates.yml)
 #   python3 scripts/check-portability.py && python3 scripts/check-portability.py --self-test   (the A12.1 grep over the installed components)
 #   python3 scripts/list-message-literals.py   (review aid of template §6 rule 14: message functions no fixture types by hand; a list, never a gate)
 #   python3 scripts/check-copies.py && python3 scripts/check-copies.py --self-test   (every copy of the Python floor names the minor of FLOOR in shared/const_gate/preflight.py; each entry's C1, C14 and C15 close with its Identity's clause)
