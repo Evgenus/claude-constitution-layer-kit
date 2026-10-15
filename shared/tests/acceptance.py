@@ -2,7 +2,9 @@
 one numbered acceptance item, and the checks that assert.
 
 A module's tests/conftest.py calls `configure` from its own `pytest_configure` and `collected` from its
-own `pytest_collection_modifyitems`. `collected` stops the run before any test runs when a test
+own `pytest_collection_modifyitems`, and names no plugin in `pytest_plugins`: it imports the module's test
+file for its `subject` fixture, and a file imported before pytest registers it as a plugin keeps plain
+asserts, a warning that `-W error` makes fatal. `collected` stops the run before any test runs when a test
 carries no `item(<number>, <title>)` or when two tests carry one number, one line per fault, the
 numbers in order; and it hands each test's number to pytest's JUnit report as the property `item`.
 One module's folder is one run: the shared items carry the same numbers in every module, and each
