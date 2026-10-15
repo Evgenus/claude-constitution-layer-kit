@@ -5,13 +5,12 @@ A Case is one acceptance item with both halves: the red half must exit 2 AND tea
 expected message, its RED lines exactly that finding's headline and the count line, so a
 second finding or a stray line fails it; the green half must pass, printing the whole green
 line the case names. A fixture that proves only one half cannot tell a working check from
-one that always answers the same. An Assertion is an acceptance item with no failing half
-(an exit-code property, a count, a log line); the two kinds are reported separately so they
-are never mistaken for each other.
+one that always answers the same. The other items, with no failing half (an exit-code
+property, a count, a log line), are plain tests; `acceptance` holds the checks that assert.
 
-The runner that imports this file reaches the shared package and the module's own packages
-through links in its own folder, which Python puts first on the import path: no Python file a
-module ships edits the import path of its own process, the runner included.
+The tests that import this file reach the shared package and the module's own packages through
+links in their own folder, which pytest puts first on the import path: no Python file a module
+ships edits the import path of its own process, the tests included.
 """
 
 from __future__ import annotations
@@ -19,14 +18,11 @@ from __future__ import annotations
 import atexit
 import json
 import os
-import re
-import shlex
 import shutil
 import signal
 import subprocess
-import sys
 import tempfile
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -72,13 +68,6 @@ class Case:
     setup: Sequence[Write] = ()
     count: str | None = None  # a gate without a hook mode only: the scan's count line for the red
     # half, typed by hand, since "1 document examined" is a hook's
-
-
-@dataclass(frozen=True)
-class Assertion:
-    number: int
-    title: str
-    check: Callable[[], tuple[bool, str]]
 
 
 def event_json(
@@ -291,172 +280,3 @@ class Harness:
                 f"green half did not print {line!r} (exit {green.code}): {green.stdout}{green.stderr}",
             )
         return True, f"red → {case.expect.key}: {case.expect.headline}"
-
-    def run_all(
-        self, cases: Sequence[Case], assertions: Sequence[Assertion], argv: Sequence[str] | None = None
-    ) -> int:
-        """Run every item, or with `--item <n>[,<n>…]` on the command line only the items named.
-        A filtered run never prints the full line, `N/T acceptance items green — …`, which only a full
-        run may print: its last line says how many items of how many ran and that it is not a full
-        pass. A filter the runner cannot honour — an unknown number, a malformed list, any other
-        argument — is a configuration failure, exit 1, never a silent full or empty run. Before the
-        filter is read and before any item runs, a number that two items carry — a module's own and a
-        shared one, or any two — is the same kind of failure: one BROKEN line for each such number, in
-        number order, then the could-not-run line (a number names one item, and rule 4 of plc-0009-shared-code
-        never reissues one)."""
-        items: list[Case | Assertion] = sorted([*cases, *assertions], key=lambda i: i.number)
-        total = len(items)
-        doubled = number_collisions(items)
-        if doubled:
-            for line in doubled:
-                print(f"BROKEN: {line}", file=sys.stderr)
-            print(f"BROKEN: the runner could not run — 0 of {total} items run", file=sys.stderr)
-            return 1
-        try:
-            wanted = item_filter(sys.argv[1:] if argv is None else argv, [i.number for i in items])
-        except Misuse as misuse:
-            print(f"BROKEN: {misuse}", file=sys.stderr)
-            print(f"BROKEN: the runner could not run — 0 of {total} items run", file=sys.stderr)
-            return 1
-        failed = run = 0
-        for item in items:
-            if wanted is not None and item.number not in wanted:
-                continue
-            kind = "red→green" if isinstance(item, Case) else "assertion"
-            ok, evidence = self.run_case(item) if isinstance(item, Case) else item.check()
-            failed += 0 if ok else 1
-            run += 1
-            print(f"[{'ok' if ok else 'FAIL'}] {item.number:>3}. ({kind}) {item.title}\n        {evidence}")
-        if wanted is not None:
-            print(f"{run - failed}/{run} selected items green — {run} of {total} items run, not a full pass")
-        else:
-            print(
-                f"{total - failed}/{total} acceptance items green — {len(cases)} red→green cases,"
-                f" {len(assertions)} assertions examined"
-            )
-        return 0 if failed == 0 else 2
-
-
-FIRST_SHARED = 101  # the number of the first shared item; the shared numbers are never moved or reissued
-
-
-def number_collisions(
-    items: Sequence[Case | Assertion],
-    runner: str = "tests/run.py",
-    selection: str = "",
-) -> list[str]:
-    """One message for each number that two or more of `items` carry, in number order — what failed,
-    why, and the exact fix. The harness does not know which item is a shared one, so a number from the
-    first shared one up is worded conditionally. The fix names the free numbers below the first shared
-    one — those above the highest number the items hold there, since a number an item left free is
-    never reissued — as many as the items that must move need; the items left without one are counted,
-    and that is a decision to raise, since the shared numbers never move. `runner` is the file the fix
-    names, `selection` what a number selects an item by, the old runner's flag when empty."""
-    selection = selection or f"an {ITEM_FLAG}"
-    titles: dict[int, list[str]] = {}
-    for item in items:
-        titles.setdefault(item.number, []).append(item.title)
-    free = list(range(max((n for n in titles if n < FIRST_SHARED), default=0) + 1, FIRST_SHARED))
-    lines: list[str] = []
-    for number in sorted(n for n, held in titles.items() if len(held) > 1):
-        held = titles[number]
-        named = ", ".join(repr(title) for title in held)
-        moving = len(held) - 1
-        given, free = free[:moving], free[moving:]
-        left = moving - len(given)
-        keep = f"keep one of them at {number}"
-        if number >= FIRST_SHARED:
-            keep += " — the shared one, if one is shared, since a shared number is never moved or reissued"
-        others = "the other one" if moving == 1 else f"each of the other {moving}"
-        decision = "raise it as a decision, since the shared numbers are never moved"
-        if not given:
-            fix = f"{keep}; but no number is free below {FIRST_SHARED} for {others} — {decision}"
-        else:
-            noun, other = ("number", "a number") if len(given) == 1 else ("numbers", "numbers")
-            who = others if not left else f"{len(given)} of the other {moving}"
-            fix = (
-                f"{keep}, and in the module's own {runner} give {who} the {noun}"
-                f" {', '.join(map(str, given))} — {other} no other item holds, below {FIRST_SHARED}"
-            )
-            if left:
-                are = "item is" if left == 1 else "items are"
-                fix += f"; {left} {are} then left with no free number — {decision}"
-        lines.append(
-            f"item number {number} is carried by {len(held)} items, {named} — why: one number, one"
-            f" item, or a result and {selection} cannot say which item they mean — fix: {fix}"
-        )
-    return lines
-
-
-class Misuse(Exception):
-    """The runner's command line cannot be honoured; the message says what, why and the fix."""
-
-
-ITEM_FLAG = "--item"
-ITEM_LIST = re.compile(r"[0-9]+(?:,[0-9]+)*")
-RUN_FORMS = f"run with no arguments for a full run, or with {ITEM_FLAG} <n>[,<n>…] to run only those items"
-
-
-def item_filter(argv: Sequence[str], numbers: Sequence[int]) -> frozenset[int] | None:
-    """The item numbers `--item <n>[,<n>…]` (or `--item=<n>[,<n>…]`) names, or None for a full run
-    when the command line is empty. Every number must be one of `numbers`."""
-    if not argv:
-        return None
-    if len(argv) == 2 and argv[0] == ITEM_FLAG:
-        given = argv[1]
-    elif len(argv) == 1 and argv[0].startswith(ITEM_FLAG + "="):
-        given = argv[0].removeprefix(ITEM_FLAG + "=")
-    else:
-        raise Misuse(
-            f"misinvocation: {shlex.join(argv)} — why: the runner takes one option, and an argument it"
-            f" ignored could pass for a filter — fix: {RUN_FORMS}"
-        )
-    if ITEM_LIST.fullmatch(given) is None:
-        raise Misuse(
-            f"{ITEM_FLAG} {given!r} is no list of item numbers — why: a filter the runner cannot read"
-            f" would run nothing, or everything — fix: {RUN_FORMS}"
-        )
-    wanted = frozenset(int(part) for part in given.split(","))
-    unknown = sorted(wanted - set(numbers))
-    if unknown:
-        held = ", ".join(spans(sorted(set(numbers))))
-        raise Misuse(
-            f"{ITEM_FLAG} {given}: no item numbered {', '.join(map(str, unknown))} in this runner — why: a"
-            f" filter that matches nothing runs nothing, and nothing run looks green — fix: name items this"
-            f" runner holds: {held}"
-        )
-    return wanted
-
-
-def spans(numbers: Sequence[int]) -> list[str]:
-    """Sorted numbers as runs: [1, 2, 3, 101] gives ["1–3", "101"]."""
-    runs: list[list[int]] = []
-    for number in numbers:
-        if runs and number == runs[-1][1] + 1:
-            runs[-1][1] = number
-        else:
-            runs.append([number, number])
-    return [f"{a}–{b}" if a != b else f"{a}" for a, b in runs]
-
-
-def expect(result: Result, code: int, text: str, where: str = "both") -> tuple[bool, str]:
-    haystack = {"stdout": result.stdout, "stderr": result.stderr, "both": result.stdout + result.stderr}[
-        where
-    ]
-    ok = result.code == code and text in haystack
-    return ok, (
-        f"exit {result.code}: {text}"
-        if ok
-        else f"wanted exit {code} teaching {text!r}; got exit {result.code}: {haystack.strip()}"
-    )
-
-
-def broken_first_line(result: Result, first_line: str) -> tuple[bool, str]:
-    """A configuration failure: exit 1 — never 2, never 0 — and its line is the FIRST stderr line."""
-    first = result.stderr.splitlines()[0] if result.stderr else ""
-    ok = result.code == 1 and first == first_line
-    return ok, (
-        f"exit 1, first stderr line: {first}"
-        if ok
-        else f"wanted exit 1 with first line {first_line!r}; got exit {result.code}: {result.stderr.strip()}"
-    )

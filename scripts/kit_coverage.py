@@ -1,10 +1,10 @@
 """Kit tooling, never shipped in a module: a module's fixtures run under coverage.py, and what they reach.
 
-`scripts/check-aspects.py --run` runs a module's runner — its tests/run.py, or pytest over its tests/ —
+`scripts/check-aspects.py --run` runs a module's runner — pytest over its tests/ —
 under coverage.py when the environment variable `CONSTITUTION_KIT_COVERAGE` names a folder, and writes
 `<folder>/<module>.json`; the kit's CI sets it in each module's job, and `scripts/module-coverage.py`
 reads the files (decision
-dec-0089-module-coverage-report). An empty or absent variable runs the runner as before.
+dec-0089-module-coverage-report). An empty or absent variable runs the runner plain.
 
 The run is `python3 -m coverage run` with branch coverage and `patch = subprocess`: the fixtures run the
 gates as child processes, `sh` entry points that call `python3`, and each such child is measured too. So
@@ -18,7 +18,7 @@ is measured: not the runner, not the module's tests/ or hooks/, not the shared t
 
 The file of one module, the JSON keys as written:
   module        the module folder's name;
-  runner_exit   the runner's exit: 0 when every item was green;
+  runner_exit   pytest's exit: 0 when every item was green, 1 when one was red;
   seconds       the run's wall-clock time, whole seconds;
   files         per measured file, its path from the kit root and coverage.py's own lists of it:
                 `executed_lines`, `missing_lines`, `executed_branches`, `missing_branches`, a branch

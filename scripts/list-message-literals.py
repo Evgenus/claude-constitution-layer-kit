@@ -12,9 +12,10 @@ __init__.py, whose name starts with neither . nor _, save const_gate, as kit_mod
 own_packages derives them — docstrings aside, it takes the constant text the function
 holds — string literals, f-string parts and the module's string constants, split where a value is
 filled in — and asks whether one piece of at least 15 characters, its edge punctuation trimmed,
-stands inside a string of the fixtures that run it: the module's tests/run.py for a module's
-messages; for the shared ones every module's tests/run.py, shared/tests/shared_items.py and the
-harness that runs those items, shared/tests/harness.py. A string
+stands inside a string of the fixtures that run it: the module's own test file,
+tests/test_<name>.py, `<name>` the folder's name without `const-`, hyphens made underscores, for a
+module's messages; for the shared ones every module's own test file, the shared tests
+shared/tests/test_shared_items.py and the harness that runs them, shared/tests/harness.py. A string
 of a fixture is a literal, an f-string or a `+` chain, docstrings aside. A function with no piece
 that long is listed apart: its text is too short to find, and the review reads it whole.
 
@@ -29,7 +30,7 @@ Modes:  no arguments   list for the kit;
         --module <m>   list for one module, the shared messages left out.
 Exit:   0 always, save 1, with a BROKEN line and its fix, when the list cannot be made: the kit's
         folders cannot be read, the arguments are misused, --module names no module, a module with
-        messages has no tests/run.py, the shared messages module is gone, or a file it reads cannot
+        messages has no test file of its own, the shared messages module is gone, or a file it reads cannot
         be read or does not parse.
 Its name is list-, never check-: the kit's check-gate-lists holds every scripts/check-*.py to the
 gate group, and this script is no check.
@@ -49,7 +50,7 @@ KIT = Path(__file__).resolve().parent.parent
 LENGTH = 15  # the shortest piece of a message's text the list looks for
 TRIM = " .,:;'\"(){}[]—-"
 SHARED = "shared/const_gate/messages.py"
-SHARED_TESTS = ("shared/tests/shared_items.py", "shared/tests/harness.py")
+SHARED_TESTS = ("shared/tests/test_shared_items.py", "shared/tests/harness.py")
 
 
 class Broken(Exception):
@@ -62,6 +63,12 @@ class Verdict:
     line: int
     typed: str  # the piece found typed, or ""
     longest: str  # the longest piece the function holds
+
+
+def own_tests(module: Path) -> Path:
+    """The module's own test file: tests/test_<name>.py, the name its folder's without `const-`, hyphens
+    made underscores, as acceptance.own_test_file names it."""
+    return module / "tests" / f"test_{module.name.removeprefix('const-').replace('-', '_')}.py"
 
 
 def parsed(path: Path, fix: str) -> ast.Module:
@@ -233,10 +240,10 @@ def main(argv: list[str]) -> int:
                     listed += 1
                     continue
                 fix = "restore the package's messages.py"
-                found = verdicts(package / "messages.py", fix, [module / "tests" / "run.py"])
+                found = verdicts(package / "messages.py", fix, [own_tests(module)])
                 listed += report(module.name, found)
         if not args.module:
-            fixtures = [KIT / p for p in SHARED_TESTS] + [m / "tests" / "run.py" for m in modules]
+            fixtures = [KIT / p for p in SHARED_TESTS] + [own_tests(m) for m in modules]
             found = verdicts(
                 KIT / SHARED, "restore the shared messages module", [f for f in fixtures if f.is_file()]
             )

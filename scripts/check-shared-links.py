@@ -7,9 +7,9 @@ for the fixture harness. A module's scripts/const_gate and tests/const_gate, and
 in its tests/, are symbolic links to it, relative ones leading straight to it, never through another
 link, so that they survive a clone into any directory. The platform copies what such a link points at
 into an installed plugin, so an installed module carries the code; inside the kit there is one copy to
-read, to fix and to review. The runner, tests/run.py, imports from its own folder, which Python puts
-first on the import path, so it reaches each package of the module's scripts/ through a link
-tests/<package> -> ../scripts/<package>: it never edits its own import path, and never imports a
+read, to fix and to review. The tests, run by pytest, import from their own folder, which pytest puts
+first on the import path, so they reach each package of the module's scripts/ through a link
+tests/<package> -> ../scripts/<package>: they never edit their own import path, and never import a
 copy that has drifted from what the gate runs.
 
 The links a module owes are derived from the folders, never typed apart from them: scripts/const_gate
@@ -17,7 +17,7 @@ and tests/const_gate, each `.py` file at the top of shared/tests/ whose name sta
 nor `_`, as tests/<name>, and each folder at the top of the module's scripts/, itself no link, that
 holds an `__init__.py`, whose name starts with neither `.` nor `_`, save const_gate, as tests/<name>.
 The check is a failure to run (BROKEN) when shared/const_gate/ is no directory or when
-shared/tests/ lacks one of the three files shared/GATE.md names (the FLOOR), so that a list read from
+shared/tests/ lacks one of the four files shared/GATE.md names (the FLOOR), so that a list read from
 the folders cannot shrink in silence. The modules are the folders of `kit_module_doc.module_folders`, the
 kit's one listing — each folder under modules/ whose name starts with neither `.` nor `_` and holds its
 MODULE.md, a folder without it a BROKEN whether it uses the shared code or not. A module owes the links
@@ -67,7 +67,7 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 # The links a module owes are never typed: links_of() derives them from the kit's own folders.
 GATE_LINK = ("scripts/const_gate", "shared/const_gate")  # the gate package: link in a module -> its source
 RUNNER_GATE_LINK = ("tests/const_gate", "shared/const_gate")  # the same package, for the fixture runner
-FLOOR = ("harness.py", "consumer.py", "shared_items.py")  # the files shared/GATE.md item 7 names today
+FLOOR = ("harness.py", "consumer.py", "acceptance.py", "test_shared_items.py")  # those GATE.md item 7 names
 IMPORT = re.compile(r"^\s*(from|import)\s+const_gate\b")  # a line that imports the shared gate package
 WHY = "the shared code has one source; a module that carries its own copy drifts from it silently"
 OWN_WHY = "the runner must import the code the gate runs; a copy in tests/ drifts from it silently"
@@ -604,7 +604,7 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
             new_file_in_two_modules,
             EXIT_RED,
             (
-                "RED: 2 finding(s) — 12 link(s) in 2 module(s) examined",
+                "RED: 2 finding(s) — 14 link(s) in 2 module(s) examined",
                 "RED: modules/const-sample/tests/new.py is missing",
                 "fix: from modules/const-sample/tests/ run: ln -s ../../../shared/tests/new.py new.py",
                 "RED: modules/const-other/tests/new.py is missing",
@@ -618,7 +618,7 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
         "the module's own package, linked from tests/, taught and counted": (
             own_package(linked="../scripts/sample_gate"),
             EXIT_GREEN,
-            ("GREEN:", "6 link(s) in 1 module(s) examined"),
+            ("GREEN:", "7 link(s) in 1 module(s) examined"),
         ),
         "the module's own package missing in tests/, taught with its ln -s": (
             own_package(),
@@ -627,28 +627,28 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
                 "RED: modules/const-sample/tests/sample_gate is missing",
                 f"why: {OWN_WHY}",
                 "fix: from modules/const-sample/tests/ run: ln -s ../scripts/sample_gate sample_gate",
-                "RED: 1 finding(s) — 6 link(s) in 1 module(s) examined",
+                "RED: 1 finding(s) — 7 link(s) in 1 module(s) examined",
             ),
         ),
         "folders of scripts/ that are no package of the module's own owe nothing": (
             not_packages,
             EXIT_GREEN,
-            ("GREEN:", "5 link(s) in 1 module(s) examined"),
+            ("GREEN:", "6 link(s) in 1 module(s) examined"),
         ),
         "folders . and _ of modules/ holding a hook skipped": (
             hidden_folders,
             EXIT_GREEN,
-            ("GREEN:", "5 link(s) in 1 module(s) examined"),
+            ("GREEN:", "6 link(s) in 1 module(s) examined"),
         ),
         "a plain file of modules/ named like a module is no module": (
             plain_file,
             EXIT_GREEN,
-            ("GREEN:", "5 link(s) in 1 module(s) examined"),
+            ("GREEN:", "6 link(s) in 1 module(s) examined"),
         ),
         "a README and a folder in shared/tests/ not owed": (
             not_shared_files,
             EXIT_GREEN,
-            ("GREEN:", "5 link(s) in 1 module(s) examined"),
+            ("GREEN:", "6 link(s) in 1 module(s) examined"),
         ),
         "a comment holding the word const_gate owes nothing": (
             hookless("tool.py", "# const_gate\n"),
@@ -707,7 +707,10 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
         "shared/tests/ emptied": (
             tests_emptied,
             EXIT_BROKEN,
-            ("BROKEN: shared/tests/ lacks harness.py, consumer.py, shared_items.py, which",),
+            (
+                "BROKEN: shared/tests/ lacks harness.py, consumer.py, acceptance.py, test_shared_items.py,"
+                " which",
+            ),
         ),
         "a hooked folder without its MODULE.md": (
             unlinked_module("const-ghost", document=False),
@@ -736,7 +739,10 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
         "shared/tests/ gone": (
             tests_gone,
             EXIT_BROKEN,
-            ("BROKEN: shared/tests/ lacks harness.py, consumer.py, shared_items.py, which",),
+            (
+                "BROKEN: shared/tests/ lacks harness.py, consumer.py, acceptance.py, test_shared_items.py,"
+                " which",
+            ),
         ),
     }
 
@@ -796,9 +802,10 @@ def judge_order(tally: Tally) -> None:
         for link in (
             "scripts/const_gate",
             "tests/const_gate",
+            "tests/acceptance.py",
             "tests/consumer.py",
             "tests/harness.py",
-            "tests/shared_items.py",
+            "tests/test_shared_items.py",
             "tests/a_gate",
             "tests/b_gate",
         )
