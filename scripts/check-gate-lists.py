@@ -72,11 +72,15 @@ absent, `enabledPlugins` or `extraKnownMarketplaces` in the settings, is read as
 what it leaves out. The green line counts the marketplace's entries and the enabled keys it read.
 No line of the list script or of the workflow, comments aside, selects some tests only, so that the gate
 list and CI always run every item and their green is a full pass: no line passes `--item`, the old
-runners' filter, and on a line that runs `-m pytest` no word after it is an option that selects or skips
-tests — `-k`, `-m`, `--deselect`, `--ignore`, `--ignore-glob`, `--lf`, `--last-failed`, `--ff`,
-`--failed-first`, `--sw`, `--stepwise`, `--sw-skip`, `--stepwise-skip`, `--pyargs`, with its value attached
-or apart — nor an argument holding `::` after its first character, a test's node id; a GitHub
-annotation, `::group::` or `::error`, opens with `::` and stays legal.
+runners' filter, or names `PYTEST_ADDOPTS`, through which any option reaches every run; on a line that
+runs `-m pytest` no word after it is an option that selects, skips or only collects tests — `-k`, `-m`,
+`--deselect`, `--ignore`, `--ignore-glob`, `--lf`, `--last-failed`, `--ff`, `--failed-first`, `--sw`,
+`--stepwise`, `--sw-skip`, `--stepwise-skip`, `--pyargs`, `--co`, `--collect-only`, with its value attached
+or apart, `-k` and `-m` also after other short options in one word, `-qk` — nor a test file, an argument
+ending `.py`, or a node id, one holding `.py::`; a GitHub annotation, `::group::` or `::error`, and a
+warning filter, `error::DeprecationWarning`, are neither. And no pytest configuration file at the kit
+root — `pytest.ini`, `pyproject.toml`, `tox.ini`, `setup.cfg` — holds a line `addopts =`, which adds
+options to every run.
 Every `scripts/check-*.py` that git tracks at the top of `scripts/` (`git ls-files`; an untracked
 file, a library such as `kit_module_doc.py` and a file in a folder are none) is run by an entry of the
 gate group: a code line of that entry's `--show`, comments aside, holds `python3 scripts/check-<x>.py`
@@ -232,9 +236,14 @@ SELECTING = frozenset(  # pytest's long options that select or skip tests, read 
         "--sw-skip",
         "--stepwise-skip",
         "--pyargs",
+        "--co",
+        "--collect-only",
     )
 )
-SELECTING_SHORT = ("-k", "-m")  # pytest's short options that select tests, a value attached or apart
+SELECTING_SHORT = "km"  # pytest's short options that select tests, a value attached or apart
+SHORT_VALUED = "cnoprW"  # pytest's short options that take a value: in `-W…` what follows is the value
+PYTEST_CONFIGS = ("pytest.ini", "pyproject.toml", "tox.ini", "setup.cfg")  # read by pytest at the kit root
+ADDOPTS = re.compile(r"^\s*addopts\s*=")
 WHY_FILTER = "the gate list and CI run every item of every runner, so that their green is a full pass"
 WHY_FORM = "a scan the check cannot read is never held in the gate list and CI"
 KIT_CHECK = re.compile(
@@ -854,32 +863,54 @@ def words_of(code: str) -> list[str]:
     return [part for word in words for part in (words_of(word) if word.split() != [word] else [word])]
 
 
+def short_selects(word: str) -> bool:
+    """A word of short options, `-k`, `-kslow` or `-qk`, that holds one of SELECTING_SHORT before any
+    option that takes a value, whose rest is that value."""
+    for letter in word[1:]:
+        if letter in SELECTING_SHORT:
+            return True
+        if letter in SHORT_VALUED or not letter.isalpha():
+            return False
+    return False
+
+
 def selections(code: str) -> list[str]:
-    """The words of a code line that select some tests only: `--item` anywhere, and after `-m pytest`
-    each option of SELECTING or SELECTING_SHORT, and each argument holding `::` that does not open with
-    it, a node id — a GitHub annotation, `::group::`, opens with it."""
+    """The words of a code line that select some tests only: `--item` and `PYTEST_ADDOPTS` anywhere, and
+    after `-m pytest` each option of SELECTING, each word of short options that short_selects, and each
+    test file or node id — an argument ending `.py` or holding `.py::`."""
     found = [match[0] for match in ITEM_FILTER.finditer(code)]
+    found += ["PYTEST_ADDOPTS"] * code.count("PYTEST_ADDOPTS")
     words = words_of(code)
     runs = [n for n in range(1, len(words)) if words[n] == "pytest" and words[n - 1] == "-m"]
     for word in words[runs[0] + 1 :] if runs else []:
         if word.startswith("--"):
             selecting = word.split("=", 1)[0] in SELECTING
+        elif word.startswith("-"):
+            selecting = short_selects(word)
         else:
-            selecting = word[:2] in SELECTING_SHORT
-        if selecting or ("::" in word and not word.startswith("::")):
+            selecting = word.endswith(".py") or ".py::" in word
+        if selecting:
             found.append(word)
     return found
 
 
 def item_filters(root: Path) -> list[Finding]:
-    """Every word of the list script and of the workflow, comments aside, that selects some tests only:
-    a run that selects is never a full pass, so neither list may run one."""
-    return [
+    """Every word of the list script and of the workflow, comments aside, that selects some tests only,
+    and every `addopts` line of a pytest configuration file at the kit root: a run that selects is never a
+    full pass, so neither list may run one."""
+    found = [
         Finding(path, Where.FILTER, entry=word, line=number)
         for path in (GATE_LIST, WORKFLOW)
         if (root / path).is_file()
         for number, line in enumerate(read(root, path).splitlines(), start=1)
         for word in selections(code_of(line))
+    ]
+    return found + [
+        Finding(path, Where.FILTER, entry="addopts", line=number)
+        for path in PYTEST_CONFIGS
+        if (root / path).is_file()
+        for number, line in enumerate(read(root, path).splitlines(), start=1)
+        if ADDOPTS.match(line)
     ]
 
 
@@ -3370,7 +3401,7 @@ def cases_selections(tally: Tally) -> None:
         "-kslow",
         "-m slow",
         "-mslow",
-        "--deselect modules/const-x/tests/test_x.py",
+        "--deselect modules/const-x/tests/old",
         "--ignore=modules/const-x/tests/test_y.py",
         "--ignore-glob=*_y.py",
         "--lf",
@@ -3382,6 +3413,10 @@ def cases_selections(tally: Tally) -> None:
         "--sw-skip",
         "--stepwise-skip",
         "--pyargs",
+        "--co",
+        "--collect-only",
+        "-qk slow",
+        "-vmslow",
     ]
     cases: dict[str, tuple[Case, list[str]]] = {  # case: the tree, the words its findings name, in order
         f"the list runs pytest with {word.split()[0]}": (
@@ -3395,6 +3430,18 @@ def cases_selections(tally: Tally) -> None:
             "the list runs pytest on a node id": (
                 Case({"x": SCAN}, {"run": f"{run} modules/const-x/tests/test_x.py::test_a"}),
                 ["modules/const-x/tests/test_x.py::test_a"],
+            ),
+            "the list runs pytest on one test file": (
+                Case({"x": SCAN}, {"run": f"{run} modules/const-x/tests/test_x.py"}),
+                ["modules/const-x/tests/test_x.py"],
+            ),
+            "the workflow sets PYTEST_ADDOPTS": (
+                Case({"x": SCAN}, workflow=f"{READS}  more:\n    env:\n      PYTEST_ADDOPTS: -k slow\n"),
+                ["PYTEST_ADDOPTS"],
+            ),
+            "a warning filter, a value of -p and of -n, and -x, select nothing": (
+                Case({"x": SCAN}, {"run": f"{run} -W error::DeprecationWarning -p no:randomly -n 4 -x"}),
+                [],
             ),
             "the workflow runs pytest with a quoted -k and a --deselect of a node id": (
                 Case(
@@ -3425,6 +3472,20 @@ def cases_selections(tally: Tally) -> None:
         found = findings_of(case)
         ok = [f.where for f in found] == [Where.FILTER] * len(wanted) and [f.entry for f in found] == wanted
         tally.judge(ok, name)
+    for config, text, wanted_line in (  # a pytest configuration file at the kit root, its addopts line red
+        ("pyproject.toml", "[tool.pytest.ini_options]\naddopts = -k slow\n", 2),
+        ("pytest.ini", "[pytest]\n  addopts=--lf\n", 2),
+        ("setup.cfg", "[tool:pytest]\nmarkers = item\n", 0),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, Case({"x": SCAN}))
+            (root / config).write_text(text, encoding="utf-8")
+            with coverage_owner(COVERAGE.owner):
+                found = check_kit(root)[0]
+        got = [(f.module, f.entry, f.line) for f in found]
+        ok = got == ([(config, "addopts", wanted_line)] if wanted_line else [])
+        tally.judge(ok, f"{config} {'with' if wanted_line else 'without'} an addopts line")
 
 
 def cases_kit_check_names(tally: Tally) -> None:

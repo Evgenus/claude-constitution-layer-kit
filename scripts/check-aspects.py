@@ -2114,10 +2114,11 @@ def sample_tests(
     extra: str = "",
     conftest: str = ACCEPTANCE_CONFTEST,
     named: tuple[tuple[int, str], ...] = SAMPLE_ITEMS,
+    module: str = "const-sample",
 ) -> None:
     """The sample module's conftest and its test file: one test for each of `named`, red where `red`
     names its number, item 2 running the module's gate as a child process; then `extra`."""
-    tests = root / "modules" / "const-sample" / "tests"
+    tests = root / "modules" / module / "tests"
     (tests / "conftest.py").write_text(conftest, encoding="utf-8")
     body = "import subprocess\nfrom pathlib import Path\n\nfrom acceptance import item\n\n"
     body += "ENTRY = Path(__file__).resolve().parent.parent / 'scripts' / 'entry.sh'\n"
@@ -2131,10 +2132,10 @@ def sample_tests(
     (tests / "test_sample.py").write_text(body + extra, encoding="utf-8")
 
 
-def sample_module(root: Path) -> None:
+def sample_module(root: Path, module: str = "const-sample") -> None:
     """The sample module's scripts and tests: a gate one item runs and a file no item runs, the kit's own
     shared test files linked, and the items of SAMPLE_ITEMS, each green."""
-    tests = root / "modules" / "const-sample" / "tests"
+    tests = root / "modules" / module / "tests"
     scripts = tests.parent / "scripts"
     scripts.mkdir(parents=True, exist_ok=True)
     tests.mkdir(exist_ok=True)
@@ -2146,7 +2147,7 @@ def sample_module(root: Path) -> None:
     for name, target in links.items():
         if not (tests / name).is_symlink():
             (tests / name).symlink_to(target)
-    sample_tests(root)
+    sample_tests(root, module=module)
 
 
 def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None, int, list[str]]]:
@@ -2226,6 +2227,26 @@ def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None,
             [
                 f"{header} 1; its output, as it printed it:",
                 "BROKEN: the runner of const-sample exited 1 against",
+            ],
+        ),
+        "pytest, a skipped test: left out of the results, never named by no item": (
+            (),
+            "\n\nimport pytest\n\n\n@item(9, 'not this gate')\ndef test_skipped() -> None:\n"
+            "    pytest.skip('not this gate')\n",
+            ACCEPTANCE_CONFTEST,
+            None,
+            EXIT_GREEN,
+            [green_row, "4 runner item(s) read from 1 runner(s)"],
+        ),
+        "pytest, a warning a test file gives: an error under -W error, could not collect": (
+            (),
+            "\n\nimport warnings\n\nwarnings.warn('a warning at import', UserWarning)\n",
+            ACCEPTANCE_CONFTEST,
+            None,
+            EXIT_BROKEN,
+            [
+                "UserWarning: a warning at import",
+                "BROKEN: pytest could not collect the tests of const-sample",
             ],
         ),
     }
@@ -3453,6 +3474,27 @@ def case_collisions(tally: Tally) -> None:
         print(f"[{'ok' if ok else 'FAIL'}] acceptance: {name} stops the collection with its literal lines")
         if not ok:
             print(f"        exit {done.returncode}: {said}")
+    with tempfile.TemporaryDirectory() as tmp:  # a module named with a hyphen: the fix names its file
+        root = Path(tmp).resolve()
+        build(root, GOOD_TABLE)
+        sample_module(root, "const-two-words")
+        sample_tests(root, named=(*SAMPLE_ITEMS, (7, "x"), (7, "y")), module="const-two-words")
+        done = subprocess.run(
+            [sys.executable, "-m", "pytest", "modules/const-two-words/tests", "-p", "no:cacheprovider", "-q"]
+            + ["--collect-only"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=RUNNER_TIMEOUT,
+        )
+    ok = done.returncode == 4 and (
+        "in the module's own tests/test_two_words.py give the other one the number 8" in done.stderr
+    )
+    tally.record(ok)
+    print(f"[{'ok' if ok else 'FAIL'}] acceptance: in const-two-words the fix names tests/test_two_words.py")
+    if not ok:
+        print(f"        exit {done.returncode}: {done.stderr.strip()[-600:]}")
 
 
 def self_test() -> int:
