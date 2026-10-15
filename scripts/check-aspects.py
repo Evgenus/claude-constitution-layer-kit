@@ -909,7 +909,7 @@ def read_report(path: Path, name: str) -> dict[int, bool]:
     or an error, a skipped item left out. BROKEN when the report cannot be read or does not hold to
     itself: a testcase without one `item` property, a number twice, counts that differ from the
     testcases."""
-    fix = f"run python3 -m pytest modules/{name}/tests and repair what it names"
+    fix = f"run python3 -m pytest modules/{name}/tests -W error and repair what it names"
     try:
         top = ElementTree.parse(path).getroot()
     except (OSError, ElementTree.ParseError) as bad:
@@ -975,8 +975,8 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
         echo(module, collect)
         raise Broken(
             f"pytest could not collect the tests of {module.name} (exit {collect.returncode}):"
-            f" {last_words(collect)} — fix: run python3 -m pytest modules/{module.name}/tests --collect-only"
-            " and repair what it names"
+            f" {last_words(collect)} — fix: run python3 -m pytest modules/{module.name}/tests -W error"
+            " --collect-only and repair what it names"
         )
     with tempfile.TemporaryDirectory(prefix="aspects-junit-") as scratch:
         report = Path(scratch) / "report.xml"
@@ -989,7 +989,7 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
         if done.returncode not in (0, PYTEST_RED):
             raise Broken(
                 f"the runner of {module.name} exited {done.returncode}: {last_words(done)} — fix: run"
-                f" python3 -m pytest modules/{module.name}/tests and repair what it names"
+                f" python3 -m pytest modules/{module.name}/tests -W error and repair what it names"
             )
         results = read_report(report, module.name)
     if (done.returncode == 0) != all(results.values()):
@@ -2229,7 +2229,7 @@ def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None,
                 "BROKEN: the runner of const-sample exited 1 against",
             ],
         ),
-        "pytest, a skipped test: left out of the results, never named by no item": (
+        "pytest, a skipped test: left out of the results, and no finding of an unnamed item": (
             (),
             "\n\nimport pytest\n\n\n@item(9, 'not this gate')\ndef test_skipped() -> None:\n"
             "    pytest.skip('not this gate')\n",
