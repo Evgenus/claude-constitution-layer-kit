@@ -2,7 +2,7 @@
 id: dec-0091-module-fixtures-run-as-pytest
 type: task-record
 title: The module fixtures run as native pytest tests, one test per acceptance item, and may run in parallel
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
@@ -79,6 +79,10 @@ D, chosen by the decider in chat on 2026-10-14, over the recommendation, with th
 <a id="r12"></a>**R12.** No item depends on the order the items run in, or on running in the same process as another: each builds its own consumer and leaves nothing behind, so a module's tests may run in any order and side by side. A run with the collected tests shuffled by a seed, through a `pytest_collection_modifyitems` hook of the run's own, serial and with `-n auto`, three times each, is the proof a change to the fixtures keeps; review holds it, and no check runs it.
 
 <a id="r13"></a>**R13.** A research comparison may survey a mechanism of the kit's own tooling as well as a module's: its slug names that mechanism, and it is frozen when the record that accepts its change is accepted. This widens R1 of [dec-0034-research-and-policies-numbered](dec-0034-research-and-policies-numbered.md#r1), R19 of [dec-0039-policies-state-their-kinds](dec-0039-policies-state-their-kinds.md#r19) and R6 of [dec-0040-rules-fit-their-documents](dec-0040-rules-fit-their-documents.md#r6), which stand for a module's survey.
+
+## Applied
+
+Applied on the branch `work/pytest-fixtures`, the eleven modules one commit each, then the switch, the texts, the parallel run in CI and the fixes of the review and the carry audit; this record is set `inactive` in the branch's last commit. At the cut and after it: 1,025 items green in each of the eleven modules' runs; the fixtures' lines and branches reached equal under the old runner and under pytest, module by module; three shuffled runs of each module, serial and with `-n auto`, green; the eleven run one after another in about 12 minutes before, unloaded, and in about 5 minutes after, each with `-n auto`.
 
 ## Carry list
 
