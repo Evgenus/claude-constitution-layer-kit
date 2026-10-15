@@ -70,9 +70,13 @@ entry that is no object with a string `name`, since it is then no marketplace th
 `enabledPlugins` or `extraKnownMarketplaces` present and no object. A key the platform lets stand
 absent, `enabledPlugins` or `extraKnownMarketplaces` in the settings, is read as empty and is RED for
 what it leaves out. The green line counts the marketplace's entries and the enabled keys it read.
-No line of the list script or of the workflow, comments aside, passes a fixture runner's filter,
-`--item <n>` or `--item=<n>`: a filtered run runs only the items named and is never a full pass,
-so the gate list and CI always run every item.
+No line of the list script or of the workflow, comments aside, selects some tests only, so that the gate
+list and CI always run every item and their green is a full pass: no line passes `--item`, the old
+runners' filter, and on a line that runs `-m pytest` no word after it is an option that selects or skips
+tests — `-k`, `-m`, `--deselect`, `--ignore`, `--ignore-glob`, `--lf`, `--last-failed`, `--ff`,
+`--failed-first`, `--sw`, `--stepwise`, `--sw-skip`, `--stepwise-skip`, `--pyargs`, with its value attached
+or apart — nor an argument holding `::` after its first character, a test's node id; a GitHub
+annotation, `::group::` or `::error`, opens with `::` and stays legal.
 Every `scripts/check-*.py` that git tracks at the top of `scripts/` (`git ls-files`; an untracked
 file, a library such as `kit_module_doc.py` and a file in a folder are none) is run by an entry of the
 gate group: a code line of that entry's `--show`, comments aside, holds `python3 scripts/check-<x>.py`
@@ -124,7 +128,10 @@ Modes:  no arguments   check the kit;
                        module's job red; a module folder the list leaves out, and a listed module
                        with no folder, red, its fix offering to restore the folder only to a name
                        `const-<aspect>`; an `--item` in the list or the workflow red, and one in
-                       a comment green; the folder name over a whole set of names; a manifest, a
+                       a comment green; each option of pytest that selects tests, and a node id,
+                       red after `-m pytest`, and none of them before it, an annotation, a value
+                       that merely holds the letters and a comment green; the folder name over a
+                       whole set of names; a manifest, a
                        marketplace entry, its description included, an enabled key and the
                        declaration each changed one at a time, the platform's other keys allowed,
                        the marketplace renamed in all three places green and in each pair of them
@@ -173,6 +180,7 @@ import io
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -207,7 +215,26 @@ WHY_MISSING = "a module the list leaves out is never installed, run, linted or t
 WHY_STRAY = (
     "the list's modules are exactly the module folders, and an entry of a missing module checks nothing"
 )
-ITEM_FILTER = re.compile(r"(?<![\w-])--item(?![\w-])")  # the runners' filter, `--item <n>` or `--item=<n>`
+ITEM_FILTER = re.compile(
+    r"(?<![\w-])--item(?![\w-])"
+)  # the old runners' filter, `--item <n>` or `--item=<n>`
+SELECTING = frozenset(  # pytest's long options that select or skip tests, read before any `=`
+    (
+        "--deselect",
+        "--ignore",
+        "--ignore-glob",
+        "--lf",
+        "--last-failed",
+        "--ff",
+        "--failed-first",
+        "--sw",
+        "--stepwise",
+        "--sw-skip",
+        "--stepwise-skip",
+        "--pyargs",
+    )
+)
+SELECTING_SHORT = ("-k", "-m")  # pytest's short options that select tests, a value attached or apart
 WHY_FILTER = "the gate list and CI run every item of every runner, so that their green is a full pass"
 WHY_FORM = "a scan the check cannot read is never held in the gate list and CI"
 KIT_CHECK = re.compile(
@@ -354,7 +381,7 @@ class Where(StrEnum):
     JOB = "module's job"
     MISSING = "list's modules"
     STRAY = "module folders"
-    FILTER = "item filter"
+    FILTER = "test selection"
     FORM = "enforcement table"
     CHECK = "kit checks"
     NAME = "folder name"
@@ -413,7 +440,7 @@ class Finding:
     runner: str = ""  # the list's entry that runs the scan
     job: str = ""  # the job that entry stands in, empty for none
     names: tuple[str, ...] = field(default=())  # the list's entries of a module
-    line: int = 0  # an item filter or a form: its line in the file, `module` holding the file's path
+    line: int = 0  # a selection or a form: its line in the file, `module` holding the file's path
     fault: Fault = Fault.SPAN  # a form: what is wrong; `entry` then holds the first cell or the span
     said: str = ""  # a registry finding: what the file holds, as JSON text; empty: it holds nothing there
     tag: str = ""  # a registry finding: the marketplace name, read from marketplace.json
@@ -432,9 +459,9 @@ class Finding:
         the path: it names no module."""
         if self.where is Where.FILTER:
             return (
-                f"RED: {self.module}:{self.line}: it runs a fixture runner with `--item`, which runs only"
-                f" the items named\n  why: {WHY_FILTER}\n  fix: remove the `--item` option and its numbers"
-                f" from line {self.line} of {self.module}"
+                f"RED: {self.module}:{self.line}: it passes `{self.entry}`, which selects some tests only"
+                f"\n  why: {WHY_FILTER}\n  fix: remove `{self.entry}` and what it selects from line"
+                f" {self.line} of {self.module}"
             )
         if self.where is Where.CHECK:  # `module` holds the check's path
             return (
@@ -817,15 +844,42 @@ def ci_reads_list(root: Path) -> bool:
     return all(phrase in steps for phrase in READS_LIST)
 
 
+def words_of(code: str) -> list[str]:
+    """The shell words of a code line, and a quoted word that holds a command, as the list script's
+    `echo "<command>"` does, split into its own words; an unclosed quote split at white space."""
+    try:
+        words = shlex.split(code)
+    except ValueError:
+        return code.split()
+    return [part for word in words for part in (words_of(word) if word.split() != [word] else [word])]
+
+
+def selections(code: str) -> list[str]:
+    """The words of a code line that select some tests only: `--item` anywhere, and after `-m pytest`
+    each option of SELECTING or SELECTING_SHORT, and each argument holding `::` that does not open with
+    it, a node id — a GitHub annotation, `::group::`, opens with it."""
+    found = [match[0] for match in ITEM_FILTER.finditer(code)]
+    words = words_of(code)
+    runs = [n for n in range(1, len(words)) if words[n] == "pytest" and words[n - 1] == "-m"]
+    for word in words[runs[0] + 1 :] if runs else []:
+        if word.startswith("--"):
+            selecting = word.split("=", 1)[0] in SELECTING
+        else:
+            selecting = word[:2] in SELECTING_SHORT
+        if selecting or ("::" in word and not word.startswith("::")):
+            found.append(word)
+    return found
+
+
 def item_filters(root: Path) -> list[Finding]:
-    """Every line of the list script and of the workflow, comments aside, that passes a runner's
-    `--item`: a filtered run is never a full pass, so neither list may run one."""
+    """Every word of the list script and of the workflow, comments aside, that selects some tests only:
+    a run that selects is never a full pass, so neither list may run one."""
     return [
-        Finding(path, Where.FILTER, line=number)
+        Finding(path, Where.FILTER, entry=word, line=number)
         for path in (GATE_LIST, WORKFLOW)
         if (root / path).is_file()
         for number, line in enumerate(read(root, path).splitlines(), start=1)
-        if ITEM_FILTER.search(code_of(line))
+        for word in selections(code_of(line))
     ]
 
 
@@ -2906,10 +2960,9 @@ def scans_of(text: str) -> list[str]:
 READS = f'jobs:\n  list:\n    run: {READS_LIST[0]}\n  check:\n    run: {READS_LIST[1]} "$JOB"\n'
 
 FILTER_LINES = [
-    "RED: .github/workflows/gates.yml:7: it runs a fixture runner with `--item`, which runs only the"
-    " items named",
+    "RED: .github/workflows/gates.yml:7: it passes `--item`, which selects some tests only",
     "  why: the gate list and CI run every item of every runner, so that their green is a full pass",
-    "  fix: remove the `--item` option and its numbers from line 7 of .github/workflows/gates.yml",
+    "  fix: remove `--item` and what it selects from line 7 of .github/workflows/gates.yml",
     "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
 ]
 
@@ -3305,6 +3358,73 @@ def cases_gate_list(tally: Tally) -> None:
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
         tally.judge(ok, f"{name}")
+
+
+def cases_selections(tally: Tally) -> None:
+    """A line that runs `-m pytest` and selects some tests only is red, one finding for each word that
+    selects, in the list and in the workflow alike; the same words before `-m pytest`, an annotation, a
+    value that merely holds the letters and a comment are green."""
+    run = "python3 -m pytest modules/const-x/tests -p no:cacheprovider -W error -q"
+    words = [  # every option of SELECTING and SELECTING_SHORT, apart from its value or attached to it
+        "-k slow",
+        "-kslow",
+        "-m slow",
+        "-mslow",
+        "--deselect modules/const-x/tests/test_x.py",
+        "--ignore=modules/const-x/tests/test_y.py",
+        "--ignore-glob=*_y.py",
+        "--lf",
+        "--last-failed",
+        "--ff",
+        "--failed-first",
+        "--sw",
+        "--stepwise",
+        "--sw-skip",
+        "--stepwise-skip",
+        "--pyargs",
+    ]
+    cases: dict[str, tuple[Case, list[str]]] = {  # case: the tree, the words its findings name, in order
+        f"the list runs pytest with {word.split()[0]}": (
+            Case({"x": SCAN}, {"run": f"{run} {word}"}),
+            [word.split()[0]],
+        )
+        for word in words
+    }
+    cases.update(
+        {
+            "the list runs pytest on a node id": (
+                Case({"x": SCAN}, {"run": f"{run} modules/const-x/tests/test_x.py::test_a"}),
+                ["modules/const-x/tests/test_x.py::test_a"],
+            ),
+            "the workflow runs pytest with a quoted -k and a --deselect of a node id": (
+                Case(
+                    {"x": SCAN},
+                    workflow=f'{READS}  more:\n    run: {run} -k "a or b" --deselect=t.py::test_b\n',
+                ),
+                ["-k", "--deselect=t.py::test_b"],
+            ),
+            "the same words before -m pytest select nothing": (
+                Case({"x": SCAN}, {"run": f"grep -m 1 -k x f --lf && {run}"}),
+                [],
+            ),
+            "a full run with its own options selects nothing": (
+                Case({"x": SCAN}, {"run": f"{run} -n auto --junitxml=k-m.xml --maxfail=1 -x"}),
+                [],
+            ),
+            "an annotation after the run selects nothing": (
+                Case({"x": SCAN}, workflow=f'{READS}  more:\n    run: {run} && echo "::error::red"\n'),
+                [],
+            ),
+            "-k only in a comment selects nothing": (
+                Case({"x": SCAN}, {"run": f"{run}  # not -k slow"}),
+                [],
+            ),
+        }
+    )
+    for name, (case, wanted) in cases.items():
+        found = findings_of(case)
+        ok = [f.where for f in found] == [Where.FILTER] * len(wanted) and [f.entry for f in found] == wanted
+        tally.judge(ok, name)
 
 
 def cases_kit_check_names(tally: Tally) -> None:
@@ -4295,6 +4415,7 @@ def self_test() -> int:
     BROKEN line with exit 1)."""
     tally = Tally()
     cases_gate_list(tally)
+    cases_selections(tally)
     cases_kit_check_names(tally)
     cases_module_folder_names(tally)
     cases_folder_renames(tally)
