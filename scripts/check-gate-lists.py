@@ -70,22 +70,17 @@ entry that is no object with a string `name`, since it is then no marketplace th
 `enabledPlugins` or `extraKnownMarketplaces` present and no object. A key the platform lets stand
 absent, `enabledPlugins` or `extraKnownMarketplaces` in the settings, is read as empty and is RED for
 what it leaves out. The green line counts the marketplace's entries and the enabled keys it read.
-No line of the list script or of the workflow, comments aside, selects some tests only, or adds options to
-every run, so that the gate list and CI always run every item and their green is a full pass: no line
-passes `--item`, the old runners' filter, or names `PYTEST_ADDOPTS`, through which any option reaches
-every run. In every run `-m pytest` opens on a line, to the end of that run — `&&`, `||`, `;`, `|` or `&`,
-standing apart or against a word — no word is an option that selects, skips or only collects tests, `-k`,
-`-m`, `--deselect`, `--ignore`, `--ignore-glob`, `--lf`, `--last-failed`, `--ff`, `--failed-first`, `--sw`,
-`--stepwise`, `--sw-skip`, `--stepwise-skip`, `--pyargs`, `--co`, `--collect-only`, with its value attached
-or apart, `-k` and `-m` also after other short options in one word, `-qk`; nor one that adds options to the
-run, a configuration file of its own, `-c` or `--config-file`, or `-o` or `--override-ini` setting
-`addopts`; nor a test file, an argument ending `.py`, or a node id, one holding `.py::`. A GitHub
-annotation, `::group::` or `::error`, a warning filter, `error::DeprecationWarning`, and `-o` setting
-another ini value are none. And no pytest configuration file in the folders a run of a module's tests
-reads from the kit down — `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`, `pyproject.toml`,
-`tox.ini`, `setup.cfg`, at the kit root, in `modules/`, in a module's folder or its `tests/` — holds a line
-`addopts =` or `addopts:`, which adds its options to every run. A file above the kit root, which pytest
-may also read, is outside the kit and not held.
+No line of the list script or of the workflow, comments aside, runs a module's tests otherwise than whole,
+so that the gate list and CI always run every item and their green is a full pass: a module's tests run only
+through `python3 scripts/check-aspects.py --run --module <module>`, which builds the pytest command and runs
+it whole. So no line runs pytest itself — the word `pytest` as a command or a module, `pytest`,
+`…/bin/pytest`, `-m pytest`, never a pin such as `pytest==9.1.1`, `pytest-xdist` or `pytest.ini` — passes
+`--item`, the old runners' filter, or names `PYTEST_ADDOPTS`, through which any option reaches every run.
+And no pytest configuration file in the folders a run of a module's tests reads from the kit down —
+`pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`, `pyproject.toml`, `tox.ini`, `setup.cfg`, at the
+kit root, in `modules/`, in a module's folder or its `tests/` — holds a line `addopts =` or `addopts:`,
+which adds its options to every run. A file above the kit root, which pytest may also read, is outside the
+kit and not held.
 Every `scripts/check-*.py` that git tracks at the top of `scripts/` (`git ls-files`; an untracked
 file, a library such as `kit_module_doc.py` and a file in a folder are none) is run by an entry of the
 gate group: a code line of that entry's `--show`, comments aside, holds `python3 scripts/check-<x>.py`
@@ -137,9 +132,9 @@ Modes:  no arguments   check the kit;
                        module's job red; a module folder the list leaves out, and a listed module
                        with no folder, red, its fix offering to restore the folder only to a name
                        `const-<aspect>`; an `--item` in the list or the workflow red, and one in
-                       a comment green; each option of pytest that selects tests, and a node id,
-                       red after `-m pytest`, and none of them before it, an annotation, a value
-                       that merely holds the letters and a comment green; the folder name over a
+                       a comment green; a run of pytest itself, by `-m pytest` or by its path,
+                       PYTEST_ADDOPTS and an addopts line of a configuration file a module's run
+                       reads red, pytest's pins and a comment green; the folder name over a
                        whole set of names; a manifest, a
                        marketplace entry, its description included, an enabled key and the
                        declaration each changed one at a time, the platform's other keys allowed,
@@ -189,7 +184,6 @@ import io
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import sys
@@ -227,29 +221,9 @@ WHY_STRAY = (
 ITEM_FILTER = re.compile(
     r"(?<![\w-])--item(?![\w-])"
 )  # the old runners' filter, `--item <n>` or `--item=<n>`
-SELECTING = frozenset(  # pytest's long options that select or skip tests, read before any `=`
-    (
-        "--deselect",
-        "--ignore",
-        "--ignore-glob",
-        "--lf",
-        "--last-failed",
-        "--ff",
-        "--failed-first",
-        "--sw",
-        "--stepwise",
-        "--sw-skip",
-        "--stepwise-skip",
-        "--pyargs",
-        "--co",
-        "--collect-only",
-    )
-)
-SELECTING_SHORT = "km"  # pytest's short options that select tests, a value attached or apart
-SHORT_VALUED = "cnoprW"  # pytest's short options that take a value: in `-W…` what follows is the value
-EVERY_RUN_SHORT = (
-    "co"  # of those, the two whose value reaches the whole run: a configuration file, an ini value
-)
+RUNS_PYTEST = re.compile(  # pytest run as a command or a module: `pytest`, `…/bin/pytest`, `-m pytest`
+    r"(?<![\w.=-])(?:[\w.-]*/)*pytest(?![\w.=-])"
+)  # never `pytest==9.1.1`, `pytest-xdist`, `pytest.ini`
 # the configuration files pytest 9 looks for, in the folder of its arguments and each one above it
 PYTEST_CONFIGS = (
     "pytest.toml",
@@ -261,10 +235,8 @@ PYTEST_CONFIGS = (
     "setup.cfg",
 )
 ADDOPTS = re.compile(r"^\s*addopts\s*[=:]")  # an ini file takes `addopts =` and `addopts:`
-SEPARATORS = frozenset(("&&", "||", ";", "|", "&"))  # a word that ends the command `-m pytest` opened
-EVERY_RUN = (
-    "through which any option, a selection included, reaches"  # the finding of a word that adds options
-)
+EVERY_RUN = "through which any option, a selection included, reaches every pytest run"
+ASPECTS_RUN = "python3 scripts/check-aspects.py --run --module <module>"  # the one way a module's tests run
 WHY_FILTER = "the gate list and CI run every item of every runner, so that their green is a full pass"
 WHY_FORM = "a scan the check cannot read is never held in the gate list and CI"
 KIT_CHECK = re.compile(
@@ -489,29 +461,26 @@ class Finding:
         the path: it names no module."""
         if self.where is Where.FILTER and self.entry == "PYTEST_ADDOPTS":
             return (
-                f"RED: {self.module}:{self.line}: it names `PYTEST_ADDOPTS`, {EVERY_RUN} every pytest run"
-                f"\n  why: {WHY_FILTER}\n  fix: remove `PYTEST_ADDOPTS` and its value from line"
-                f" {self.line} of {self.module}"
+                f"RED: {self.module}:{self.line}: it names `PYTEST_ADDOPTS`, {EVERY_RUN}\n  why: {WHY_FILTER}"
+                f"\n  fix: remove `PYTEST_ADDOPTS` and its value from line {self.line} of {self.module}"
             )
         if self.where is Where.FILTER and self.entry == "addopts":  # a line of a configuration file
             return (
-                f"RED: {self.module}:{self.line}: it sets `addopts`, {EVERY_RUN} every pytest run"
-                f"\n  why: {WHY_FILTER}\n  fix: remove the `addopts` setting at line {self.line}, with any"
-                f" lines that continue it, from {self.module}"
+                f"RED: {self.module}:{self.line}: it sets `addopts`, {EVERY_RUN}\n  why: {WHY_FILTER}"
+                f"\n  fix: remove the `addopts` setting at line {self.line}, with any lines that continue it,"
+                f" from {self.module}"
             )
-        if self.where is Where.FILTER and self.entry.startswith(
-            ("-c", "--config-file", "-o", "--override-ini")
-        ):
-            what = "a configuration file" if self.entry.startswith(("-c", "--config-file")) else "`addopts`"
+        if self.where is Where.FILTER and self.entry == "--item":
             return (
-                f"RED: {self.module}:{self.line}: it passes `{self.entry}`, {what} {EVERY_RUN} the run"
-                f"\n  why: {WHY_FILTER}\n  fix: remove `{self.entry}` from line {self.line} of {self.module}"
+                f"RED: {self.module}:{self.line}: it passes `--item`, which selects some tests only"
+                f"\n  why: {WHY_FILTER}\n  fix: remove `--item` and what it selects from line {self.line} of"
+                f" {self.module}"
             )
-        if self.where is Where.FILTER:
+        if self.where is Where.FILTER:  # a run of pytest itself
             return (
-                f"RED: {self.module}:{self.line}: it passes `{self.entry}`, which selects some tests only"
-                f"\n  why: {WHY_FILTER}\n  fix: remove `{self.entry}` and what it selects from line"
-                f" {self.line} of {self.module}"
+                f"RED: {self.module}:{self.line}: it runs `{self.entry}` itself, where a module's tests run"
+                f" only through `{ASPECTS_RUN}`, which runs them whole\n  why: {WHY_FILTER}\n  fix: run the"
+                f" module's tests through `{ASPECTS_RUN}` in place of line {self.line} of {self.module}"
             )
         if self.where is Where.CHECK:  # `module` holds the check's path
             return (
@@ -894,78 +863,13 @@ def ci_reads_list(root: Path) -> bool:
     return all(phrase in steps for phrase in READS_LIST)
 
 
-def words_of(code: str) -> list[str]:
-    """The shell words of a code line, each of `&&`, `||`, `;`, `|` and `&` a word of its own even where
-    it stands against another, and a quoted word that holds a command, as the list script's
-    `echo "<command>"` does, split into its own words; an unclosed quote split at white space."""
-    try:
-        lexer = shlex.shlex(code, posix=True, punctuation_chars=";&|")
-        lexer.whitespace_split = True
-        words = list(lexer)
-    except ValueError:
-        return code.split()
-    return [part for word in words for part in (words_of(word) if word.split() != [word] else [word])]
-
-
-def short_options(word: str, following: str) -> str | None:
-    """What a word of short options, `-k`, `-kslow`, `-qk`, `-o addopts=…`, `-c file.ini`, does to a run:
-    "select" for one of SELECTING_SHORT before any option that takes a value, "every" for `-c`, or `-o`
-    setting `addopts`, whose value is the word's rest or `following`, else None."""
-    for at, letter in enumerate(word[1:], start=2):
-        if letter in SELECTING_SHORT:
-            return "select"
-        if letter in EVERY_RUN_SHORT:
-            value = word[at:] or following
-            return "every" if letter == "c" or "addopts" in value else None
-        if letter in SHORT_VALUED or not letter.isalpha():
-            return None
-    return None
-
-
-def pytest_runs(words: list[str]) -> list[list[str]]:
-    """The words of each run `-m pytest` opens on a line, each run to its own separator."""
-    runs: list[list[str]] = []
-    current: list[str] | None = None
-    for at, word in enumerate(words):
-        if word in SEPARATORS:
-            current = None
-        elif current is not None:
-            current.append(word)
-        elif word == "pytest" and at and words[at - 1] == "-m":
-            current = []
-            runs.append(current)
-    return runs
-
-
-def run_word(word: str, following: str) -> str | None:
-    """The entry a word of a pytest run makes a finding of — the word, or the option with its value apart
-    — or None: an option of SELECTING, a short option that selects, a configuration file, `addopts` set
-    on the command line, a test file or a node id, an argument ending `.py` or holding `.py::`."""
-    if word in ("-o", "--override-ini", "--config-file"):
-        every = word == "--config-file" or "addopts" in following
-        return f"{word} {following}" if every else None
-    if word.startswith(("--override-ini=", "--config-file=")):
-        return word if word.startswith("--config-file=") or "addopts" in word else None
-    if word.startswith("--"):
-        return word if word.split("=", 1)[0] in SELECTING else None
-    if word.startswith("-"):
-        does = short_options(word, following)
-        apart = does == "every" and word[-1] in EVERY_RUN_SHORT
-        return None if does is None else (f"{word} {following}" if apart else word)
-    return word if word.endswith(".py") or ".py::" in word else None
-
-
 def selections(code: str) -> list[str]:
-    """The entries of a code line that select some tests only, or reach every run: `--item` and
-    `PYTEST_ADDOPTS` anywhere, and in each run `-m pytest` opens, each word run_word reads so."""
+    """The entries of a code line that run tests otherwise than whole through check-aspects, or reach
+    every run: `--item`, each `PYTEST_ADDOPTS`, and each run of pytest itself, `pytest` as a command or a
+    module, the text that runs it."""
     found = [match[0] for match in ITEM_FILTER.finditer(code)]
     found += ["PYTEST_ADDOPTS"] * code.count("PYTEST_ADDOPTS")
-    for run in pytest_runs(words_of(code)):
-        for at, word in enumerate(run):
-            entry = run_word(word, run[at + 1] if at + 1 < len(run) else "")
-            if entry is not None:
-                found.append(entry)
-    return found
+    return found + [match[0] for match in RUNS_PYTEST.finditer(code)]
 
 
 def config_folders(root: Path) -> list[Path]:
@@ -3482,114 +3386,40 @@ def cases_gate_list(tally: Tally) -> None:
 
 
 def cases_selections(tally: Tally) -> None:
-    """A line that runs `-m pytest` and selects some tests only is red, one finding for each word that
-    selects, in the list and in the workflow alike; the same words before `-m pytest`, an annotation, a
-    value that merely holds the letters and a comment are green."""
-    run = "python3 -m pytest modules/const-x/tests -p no:cacheprovider -W error -q"
-    words = [  # every option of SELECTING and SELECTING_SHORT, apart from its value or attached to it
-        "-k slow",
-        "-kslow",
-        "-m slow",
-        "-mslow",
-        "--deselect modules/const-x/tests/old",
-        "--ignore=modules/const-x/tests/test_y.py",
-        "--ignore-glob=*_y.py",
-        "--lf",
-        "--last-failed",
-        "--ff",
-        "--failed-first",
-        "--sw",
-        "--stepwise",
-        "--sw-skip",
-        "--stepwise-skip",
-        "--pyargs",
-        "--co",
-        "--collect-only",
-        "-qk slow",
-        "-vmslow",
-    ]
-    cases: dict[str, tuple[Case, list[str]]] = {  # case: the tree, the words its findings name, in order
-        f"the list runs pytest with {word.split()[0]}": (
-            Case({"x": SCAN}, {"run": f"{run} {word}"}),
-            [word.split()[0]],
-        )
-        for word in words
+    """A line of the list or the workflow that runs pytest itself is red, one finding for each run, and so
+    is one that names PYTEST_ADDOPTS; pytest's pins, its plugin's name, its configuration file's name, a
+    run of check-aspects and a comment are green. An `addopts` line of a pytest configuration file in a
+    folder a module's run reads is red, and the reports are literal lines."""
+    aspects = "python3 scripts/check-aspects.py --run --module const-x"
+    cases: dict[str, tuple[Case, list[str]]] = {  # case: the tree, the entries its findings name, in order
+        "the list runs python3 -m pytest": (
+            Case({"x": SCAN}, {"run": "python3 -m pytest modules/const-x/tests"}),
+            ["pytest"],
+        ),
+        "the list runs pytest by its path, and runs it twice": (
+            Case({"x": SCAN}, {"run": "venv/bin/pytest modules/const-x/tests -k slow; pytest -q"}),
+            ["venv/bin/pytest", "pytest"],
+        ),
+        "the workflow runs pytest after coverage": (
+            Case({"x": SCAN}, workflow=f"{READS}  more:\n    run: python3 -m coverage run -m pytest t\n"),
+            ["pytest"],
+        ),
+        "the workflow sets PYTEST_ADDOPTS": (
+            Case({"x": SCAN}, workflow=f"{READS}  more:\n    env:\n      PYTEST_ADDOPTS: -k slow\n"),
+            ["PYTEST_ADDOPTS"],
+        ),
+        "pytest's pins, its plugin, its configuration file and check-aspects run nothing of pytest": (
+            Case(
+                {"x": SCAN},
+                {"run": f'{aspects} && pip install "pytest==9.1.1" pytest-xdist && cat pytest.ini'},
+            ),
+            [],
+        ),
+        "pytest only in a comment runs nothing": (
+            Case({"x": SCAN}, {"run": f"{aspects}  # not python3 -m pytest -k slow"}),
+            [],
+        ),
     }
-    cases.update(
-        {
-            "the list runs pytest on a node id": (
-                Case({"x": SCAN}, {"run": f"{run} modules/const-x/tests/test_x.py::test_a"}),
-                ["modules/const-x/tests/test_x.py::test_a"],
-            ),
-            "the list runs pytest on one test file": (
-                Case({"x": SCAN}, {"run": f"{run} modules/const-x/tests/test_x.py"}),
-                ["modules/const-x/tests/test_x.py"],
-            ),
-            "the workflow sets PYTEST_ADDOPTS": (
-                Case({"x": SCAN}, workflow=f"{READS}  more:\n    env:\n      PYTEST_ADDOPTS: -k slow\n"),
-                ["PYTEST_ADDOPTS"],
-            ),
-            "the list runs pytest with -o addopts=": (
-                Case({"x": SCAN}, {"run": f"{run} -o addopts=-kslow"}),
-                ["-o addopts=-kslow"],
-            ),
-            "the list runs pytest with -o addopts= that selects nothing": (
-                Case({"x": SCAN}, {"run": f"{run} -o addopts=-ra"}),
-                ["-o addopts=-ra"],
-            ),
-            "the list runs pytest with a configuration file of its own, -c and --config-file=": (
-                Case({"x": SCAN}, {"run": f"{run} -c other.ini", "again": f"{run} --config-file=other.ini"}),
-                ["-c other.ini", "--config-file=other.ini"],
-            ),
-            "a selection in a second run on the line, after &&": (
-                Case({"x": SCAN}, {"run": f"{run} && {run} -k slow"}),
-                ["-k"],
-            ),
-            "a separator against a word ends the run: a script after it is no test file": (
-                Case({"x": SCAN}, {"run": f"{run} modules/const-x/tests;python3 scripts/other.py"}),
-                [],
-            ),
-            "the list runs pytest with --override-ini=addopts=": (
-                Case({"x": SCAN}, {"run": f"{run} --override-ini=addopts=--lf"}),
-                ["--override-ini=addopts=--lf"],
-            ),
-            "a script after && on the line of a full run selects nothing": (
-                Case({"x": SCAN}, {"run": f"{run} && python3 scripts/other.py"}),
-                [],
-            ),
-            "-o setting another ini value selects nothing": (
-                Case({"x": SCAN}, {"run": f"{run} -o console_output_style=classic"}),
-                [],
-            ),
-            "a warning filter, a value of -p and of -n, and -x, select nothing": (
-                Case({"x": SCAN}, {"run": f"{run} -W error::DeprecationWarning -p no:randomly -n 4 -x"}),
-                [],
-            ),
-            "the workflow runs pytest with a quoted -k and a --deselect of a node id": (
-                Case(
-                    {"x": SCAN},
-                    workflow=f'{READS}  more:\n    run: {run} -k "a or b" --deselect=t.py::test_b\n',
-                ),
-                ["-k", "--deselect=t.py::test_b"],
-            ),
-            "the same words before -m pytest select nothing": (
-                Case({"x": SCAN}, {"run": f"grep -m 1 -k x f --lf && {run}"}),
-                [],
-            ),
-            "a full run with its own options selects nothing": (
-                Case({"x": SCAN}, {"run": f"{run} -n auto --junitxml=k-m.xml --maxfail=1 -x"}),
-                [],
-            ),
-            "an annotation after the run selects nothing": (
-                Case({"x": SCAN}, workflow=f'{READS}  more:\n    run: {run} && echo "::error::red"\n'),
-                [],
-            ),
-            "-k only in a comment selects nothing": (
-                Case({"x": SCAN}, {"run": f"{run}  # not -k slow"}),
-                [],
-            ),
-        }
-    )
     for name, (case, wanted) in cases.items():
         found = findings_of(case)
         ok = [f.where for f in found] == [Where.FILTER] * len(wanted) and [f.entry for f in found] == wanted
@@ -3615,10 +3445,11 @@ def cases_selections(tally: Tally) -> None:
         got = [(f.module, f.entry, f.line) for f in found]
         ok = got == ([(config, "addopts", wanted_line)] if wanted_line else [])
         tally.judge(ok, f"{config} {'with' if wanted_line else 'without'} an addopts line read")
+    why = "  why: the gate list and CI run every item of every runner, so that their green is a full pass"
     addopts_lines = [  # typed by hand: the report of a configuration file's addopts line
         "RED: pytest.ini:2: it sets `addopts`, through which any option, a selection included, reaches every"
         " pytest run",
-        "  why: the gate list and CI run every item of every runner, so that their green is a full pass",
+        why,
         "  fix: remove the `addopts` setting at line 2, with any lines that continue it, from pytest.ini",
     ]
     with tempfile.TemporaryDirectory() as tmp:
@@ -3631,8 +3462,7 @@ def cases_selections(tally: Tally) -> None:
         [line for f in found for line in f.render().splitlines()] == addopts_lines,
         "the report of an addopts line is its literal text",
     )
-    why = "  why: the gate list and CI run every item of every runner, so that their green is a full pass"
-    reports = {  # typed by hand: the reports of PYTEST_ADDOPTS, of -c and of -o on a pytest run of the list
+    reports = {  # typed by hand: the reports of PYTEST_ADDOPTS and of a run of pytest itself
         "PYTEST_ADDOPTS": (
             Case({"x": SCAN}, workflow=f"{READS}  more:\n    env:\n      PYTEST_ADDOPTS: -k slow\n"),
             [
@@ -3642,22 +3472,14 @@ def cases_selections(tally: Tally) -> None:
                 "  fix: remove `PYTEST_ADDOPTS` and its value from line 8 of .github/workflows/gates.yml",
             ],
         ),
-        "-c other.ini": (
-            Case({"x": SCAN}, workflow=f"{READS}  more:\n    run: python3 -m pytest t -c other.ini\n"),
+        "a run of pytest itself": (
+            Case({"x": SCAN}, workflow=f"{READS}  more:\n    run: python3 -m pytest t -k slow\n"),
             [
-                "RED: .github/workflows/gates.yml:7: it passes `-c other.ini`, a configuration file through"
-                " which any option, a selection included, reaches the run",
+                "RED: .github/workflows/gates.yml:7: it runs `pytest` itself, where a module's tests run only"
+                " through `python3 scripts/check-aspects.py --run --module <module>`, which runs them whole",
                 why,
-                "  fix: remove `-c other.ini` from line 7 of .github/workflows/gates.yml",
-            ],
-        ),
-        "-o addopts=-ra": (
-            Case({"x": SCAN}, workflow=f"{READS}  more:\n    run: python3 -m pytest t -o addopts=-ra\n"),
-            [
-                "RED: .github/workflows/gates.yml:7: it passes `-o addopts=-ra`, `addopts` through which any"
-                " option, a selection included, reaches the run",
-                why,
-                "  fix: remove `-o addopts=-ra` from line 7 of .github/workflows/gates.yml",
+                "  fix: run the module's tests through `python3 scripts/check-aspects.py --run --module"
+                " <module>` in place of line 7 of .github/workflows/gates.yml",
             ],
         ),
     }

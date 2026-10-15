@@ -70,7 +70,7 @@ D, chosen by the decider in chat on 2026-10-14, over the recommendation, with th
 
 <a id="r8"></a>**R8.** The checks a test calls assert: `check_case`, `expect` and `broken_first_line` in `acceptance.py`. Every message typed by hand once in a module's fixtures stays typed by hand once in its tests (rule 14 of [template §6](../../module-template/MODULE.md#t6)).
 
-<a id="r9"></a>**R9.** The kit's gate list and CI run no selection of a module's tests: no `-k`, `-m` or other option that selects, skips or only collects tests, no test file, no node id, no `--item`, and no options that reach every run, through `PYTEST_ADDOPTS`, a configuration file named on the command line, `addopts` set there, or an `addopts` line of a pytest configuration file at the kit root, in `modules/`, in a module's folder or in its `tests/`; `scripts/check-gate-lists.py` holds it.
+<a id="r9"></a>**R9.** The kit's gate list and CI run a module's tests only through `scripts/check-aspects.py --run --module`, which runs them whole: no line of either runs pytest itself or passes `--item`, and no options reach every run, through `PYTEST_ADDOPTS` or an `addopts` line of a pytest configuration file at the kit root, in `modules/`, in a module's folder or in its `tests/`; `scripts/check-gate-lists.py` holds it.
 
 <a id="r10"></a>**R10.** Coverage stays `coverage run -m pytest` through `scripts/kit_coverage.py`; pytest-cov is not used. With `CONSTITUTION_KIT_JOBS` set, the run takes `-n <value>` from pytest-xdist; CI sets it to `auto` in every module's job.
 
