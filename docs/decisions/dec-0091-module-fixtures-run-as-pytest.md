@@ -70,7 +70,7 @@ D, chosen by the decider in chat on 2026-10-14, over the recommendation, with th
 
 <a id="r8"></a>**R8.** The checks a test calls assert: `check_case`, `expect` and `broken_first_line` in `acceptance.py`. Every message typed by hand once in a module's fixtures stays typed by hand once in its tests (rule 14 of [template §6](../../module-template/MODULE.md#t6)).
 
-<a id="r9"></a>**R9.** The kit's gate list and CI run no selection of a module's tests: no `-k`, `-m` or other option that selects, skips or only collects tests, no test file, no node id, no `--item`, and no options that reach every run, through `PYTEST_ADDOPTS` or an `addopts` line of a pytest configuration file a module's run finds; `scripts/check-gate-lists.py` holds it.
+<a id="r9"></a>**R9.** The kit's gate list and CI run no selection of a module's tests: no `-k`, `-m` or other option that selects, skips or only collects tests, no test file, no node id, no `--item`, and no options that reach every run, through `PYTEST_ADDOPTS`, a configuration file named on the command line, `addopts` set there, or an `addopts` line of a pytest configuration file at the kit root, in `modules/`, in a module's folder or in its `tests/`; `scripts/check-gate-lists.py` holds it.
 
 <a id="r10"></a>**R10.** Coverage stays `coverage run -m pytest` through `scripts/kit_coverage.py`; pytest-cov is not used. With `CONSTITUTION_KIT_JOBS` set, the run takes `-n <value>` from pytest-xdist; CI sets it to `auto` in every module's job.
 
@@ -85,7 +85,7 @@ D, chosen by the decider in chat on 2026-10-14, over the recommendation, with th
 1. R1 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2), and [its §5](../../shared/GATE.md#g5); rule 14 of [template §6](../../module-template/MODULE.md#t6). That the numbers and titles are those the items held before is history.
 2. R2 — item 8 of [kit-shared-gate-code §2](../../shared/GATE.md#g2); [the shared wiring](../../shared/tests/acceptance.py), its docstring.
 3. R3 — [the shared wiring](../../shared/tests/acceptance.py), `collected`; rows H5 and H6 of [kit-shared-gate-code §3](../../shared/GATE.md#g3). The replacement of R2 of dec-0078's closing line and exit 1 is history.
-4. R4 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring and `run_runner`; [CLAUDE.md](../../CLAUDE.md), "The gate list and CI". That R1 and R2 of dec-0080 stand, and the replacement of R6 of dec-0054, are history.
+4. R4 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring and `run_runner`; [CLAUDE.md](../../CLAUDE.md), "The gate list and CI". That R1 and R2 of dec-0080 stand, and the replacement of parts of R6 of dec-0054, are history; the handles of an item that R6 keeps stand in that docstring.
 5. R5 — [the shared items](../../shared/tests/test_shared_items.py), their docstring.
 6. R6 — [`scripts/check-aspects.py`](../../scripts/check-aspects.py), `shared_numbers` and its docstring; [the shared wiring](../../shared/tests/acceptance.py), `collected`. The replacement of the file and the check R7 of dec-0069 names is history.
 7. R7 — item 7 of [kit-shared-gate-code §2](../../shared/GATE.md#g2); [`scripts/check-shared-links.py`](../../scripts/check-shared-links.py), `FLOOR`. The replacement of the list of item 2 of dec-0025 is history.

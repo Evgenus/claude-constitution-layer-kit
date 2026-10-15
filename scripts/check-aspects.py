@@ -995,7 +995,7 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
     if (done.returncode == 0) != all(results.values()):
         raise Broken(
             f"the runner of {module.name} exited {done.returncode} against its own report — fix: run"
-            f" python3 -m pytest modules/{module.name}/tests"
+            f" python3 -m pytest modules/{module.name}/tests -W error"
         )
     return results
 
@@ -2196,7 +2196,11 @@ def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None,
             bare,
             None,
             EXIT_BROKEN,
-            ["BROKEN: the test modules.const-sample.tests.test_sample::test_1 of const-sample carries 0"],
+            [
+                "BROKEN: the test modules.const-sample.tests.test_sample::test_1 of const-sample carries 0",
+                "fix: let the module's conftest call acceptance.collected from its"
+                " pytest_collection_modifyitems",
+            ],
         ),
         "pytest, a test file that does not parse: could not collect, the lines echoed first": (
             (),
@@ -2208,6 +2212,8 @@ def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None,
                 f"{header} 2; its output, as it printed it:",
                 "SyntaxError",
                 "BROKEN: pytest could not collect the tests of const-sample (exit 2)",
+                "fix: run python3 -m pytest modules/const-sample/tests -W error --collect-only and repair"
+                " what it names",
             ],
         ),
         "pytest, an exit that is no verdict: the output echoed, then BROKEN": (
@@ -2216,7 +2222,11 @@ def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None,
             ACCEPTANCE_CONFTEST,
             None,
             EXIT_BROKEN,
-            [f"{header} 3; its output, as it printed it:", "BROKEN: the runner of const-sample exited 3"],
+            [
+                f"{header} 3; its output, as it printed it:",
+                "BROKEN: the runner of const-sample exited 3",
+                "fix: run python3 -m pytest modules/const-sample/tests -W error and repair what it names",
+            ],
         ),
         "pytest, an exit of 1 against a green report": (
             (),
@@ -2226,7 +2236,8 @@ def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None,
             EXIT_BROKEN,
             [
                 f"{header} 1; its output, as it printed it:",
-                "BROKEN: the runner of const-sample exited 1 against",
+                "BROKEN: the runner of const-sample exited 1 against its own report — fix: run python3 -m"
+                " pytest modules/const-sample/tests -W error",
             ],
         ),
         "pytest, a skipped test: left out of the results, and no finding of an unnamed item": (
