@@ -82,7 +82,7 @@ The advisory rules beside it, each `advisory` in its own text and carried always
 | package | `scripts/interaction_gate/` | The module's own code: `model`, `messages` (every text below), `dials`, `tokens`, `checks`, `modes`, `lists`, `session`, `start`. |
 | shared code | `scripts/const_gate` → the kit's `shared/const_gate/` | A relative symbolic link to what every gate shares ([kit-shared-gate-code](../../shared/GATE.md)). This module resolves no policy and builds no index; it widened the shared code for a shell event carrying its command and for the `ask` verdict, each defaulting to what other modules pass. |
 | install note | `INSTALL.md` | The copy-into-guide fallback labelled manual and version-drifting; no CLAUDE.md pointer. |
-| tests | `tests/test_interaction.py` and the shared test files and packages linked beside it | The fixtures of [§10](#t10). |
+| tests | `tests/test_interaction.py`, `conftest.py` and the shared test files and packages linked beside them | The fixtures of [§10](#t10). |
 | skill | none | the rules have no trigger — they govern every reply — so a skill would fire every turn and its body never be reached ([res-0008-const-interaction](../../docs/research/res-0008-const-interaction.md), a9). |
 | command | none | no act here is one a human deliberately types: the scans are lines of CI, the explain a debugging aid. |
 | agent | none | a reply's shape is the reply's own, not a delegation. |

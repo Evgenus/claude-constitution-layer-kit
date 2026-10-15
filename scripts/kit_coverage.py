@@ -19,7 +19,7 @@ hooks/, not the shared test files.
 
 The file of one module, the JSON keys as written:
   module        the module folder's name;
-  runner_exit   pytest's exit: 0 when every item was green, 1 when one was red;
+  runner_exit   pytest's exit: 0 when every item was green, 1 when one was red, another when it could not run;
   seconds       the run's wall-clock time, whole seconds;
   files         per measured file, its path from the kit root and coverage.py's own lists of it:
                 `executed_lines`, `missing_lines`, `executed_branches`, `missing_branches`, a branch

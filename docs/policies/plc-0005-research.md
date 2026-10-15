@@ -1,7 +1,7 @@
 ---
 id: plc-0005-research
 type: current-state
-title: Research policy — a module's dated comparison of candidate mechanisms
+title: Research policy — a dated comparison of candidate mechanisms, a module's or the kit's tooling's
 status: active
 ---
 

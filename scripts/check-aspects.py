@@ -85,7 +85,7 @@ matrix opens with the word `advisory` and holds the word `gate` or `gates` nowhe
 whole words, so that "ungateable" is no gate and "gate-lite" is one — since a fixture there
 proves the carrier of a judgment, never the judgment. Otherwise the kinds of its items joined
 by " + ": `live, done <date>`, `live` for a live item that names no date, `live, deferred`,
-`review`, `kit check`, and `fixture, not read` for a fixture item the runner did not print —
+`review`, `kit check`, and `fixture, not read` for a fixture item the runner did not report —
 none of them a green. A row a module holds that no item names is `no item`, a finding of the
 gate as well. A row no module holds is printed as
 "held by" its destination and its enforcement cell as the matrix states them, counted as
@@ -1068,7 +1068,7 @@ def item_line(item: Item) -> str:
 
 
 def attach_results(module: Module, results: dict[int, bool], findings: list[Finding]) -> None:
-    """Give each item the results of the numbers it names; a number the runner did not print, and a runner
+    """Give each item the results of the numbers it names; a number the runner did not report, and a runner
     item no item names, are findings."""
     named: set[int] = set()
     for item in module.items:
@@ -1081,7 +1081,7 @@ def attach_results(module: Module, results: dict[int, bool], findings: list[Find
                     Finding(
                         module.path,
                         item.line,
-                        f"item {item.handles} names runner item {n}, which the runner did not print",
+                        f"item {item.handles} names runner item {n}, which the runner did not report",
                         WHY_RUN,
                         "remove the number from the item cell, or restore the item in the runner",
                     )
@@ -3175,7 +3175,7 @@ def case_full_runs(tally: Tally) -> None:
             (),
             ((1, "a"), (2, "b"), (101, "s")),
             EXIT_RED,
-            "names runner item 3, which the runner did not print",
+            "names runner item 3, which the runner did not report",
         ),
         "an item not read on a row": (
             (),
