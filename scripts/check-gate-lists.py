@@ -137,7 +137,8 @@ Modes:  no arguments   check the kit;
                        `const-<aspect>`; an `--item` in the list or the workflow red, and one in
                        a comment green; a word that names pytest — `-m pytest`, a path, `py.test`,
                        `-mpytest`, an unpinned install or a range pin — PYTEST_ADDOPTS and an
-                       addopts line of a configuration file a module's run reads red, an exact pin,
+                       addopts line of a configuration file in the kit's folders a module's run
+                       reads red, one in another folder green, an exact pin,
                        a name that goes on or has another before it and a comment green; the
                        folder name over a whole set of names; a manifest, a
                        marketplace entry, its description included, an enabled key and the
@@ -489,12 +490,12 @@ class Finding:
             )
         if self.where is Where.FILTER:  # a word that names pytest
             return (
-                f"RED: {self.module}:{self.line}: it names `{self.entry}`, and the lists name pytest only in"
-                f" an exact pin `pytest==<version>`: a module's tests run only through `{ASPECTS_RUN}`,"
-                f" which runs them whole\n  why: {WHY_FILTER}\n  fix: where line {self.line} of"
-                f" {self.module} runs pytest, run the module's tests through `{ASPECTS_RUN}` in its place;"
-                " where it installs pytest, pin it as `pytest==<version>`; elsewhere, reword the line so that"
-                " it names pytest no more"
+                f"RED: {self.module}:{self.line}: it names `{self.entry}`, and the lists' code lines "
+                "name pytest only in an exact pin `pytest==<version>`: a module's tests run only "
+                f"through `{ASPECTS_RUN}`, which runs them whole\n  why: {WHY_FILTER}\n  fix: where "
+                f"line {self.line} of {self.module} runs pytest, run the module's tests through "
+                f"`{ASPECTS_RUN}` in its place; where it installs pytest, pin it as "
+                "`pytest==<version>`; elsewhere, reword the line so that it names pytest no more"
             )
         if self.where is Where.CHECK:  # `module` holds the check's path
             return (
@@ -1427,12 +1428,12 @@ def report(findings: list[Finding], modules: int, scans: int, checks: int, plugi
     print(
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's "
         "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
-        "marketplace and enabled in the kit's settings, which declare the marketplace, neither list names "
-        "pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest configuration file of "
-        "the kit's folders a module's run reads sets addopts, every kit check is run by an entry of the gate "
-        "group, the install guide's scan block names exactly the declared scans, and the coverage map of the "
-        f"range check holds one pair for each module folder — {counts}, {plugins} marketplace plugin(s), "
-        f"{enabled} enabled plugin(s)"
+        "marketplace and enabled in the kit's settings, which declare the marketplace, neither list, "
+        "comments aside, names pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest "
+        "configuration file of the kit's folders a module's run reads sets addopts, every kit check is run "
+        "by an entry of the gate group, the install guide's scan block names exactly the declared scans, and "
+        f"the coverage map of the range check holds one pair for each module folder — {counts}, {plugins} "
+        f"marketplace plugin(s), {enabled} enabled plugin(s)"
     )
     return EXIT_GREEN
 
@@ -3417,11 +3418,12 @@ def cases_gate_list(tally: Tally) -> None:
 
 
 def cases_selections(tally: Tally) -> None:
-    """A word of a line of the list or the workflow that names pytest is red — a run by `-m pytest`, by a
-    path, as `py.test` or stuck to `-m`, an unpinned install, a range pin, a message — one finding for
-    each, and so is one that names PYTEST_ADDOPTS; an exact pin, a name that goes on or has another before
-    it, a run of check-aspects and a comment are green. An `addopts` line of a pytest configuration file
-    in a folder a module's run reads is red, and the reports are literal lines."""
+    """A word of a code line of the list or the workflow that names pytest is red — a run by `-m pytest`,
+    by a path, as `py.test` or stuck to `-m`, an unpinned install, a range pin, a message — one finding
+    for each, and so is one that names PYTEST_ADDOPTS; an exact pin, a name that goes on or has another
+    before it, a run of check-aspects and a comment are green. An `addopts` line of a pytest configuration
+    file in the kit's folders a module's run reads is red, one in another folder green, and the reports
+    are literal lines."""
     aspects = "python3 scripts/check-aspects.py --run --module const-x"
     cases: dict[str, tuple[Case, list[str]]] = {  # case: the tree, the entries its findings name, in order
         "the list runs python3 -m pytest": (
@@ -3527,9 +3529,9 @@ def cases_selections(tally: Tally) -> None:
         "a run of pytest itself": (
             Case({"x": SCAN}, workflow=f"{READS}  more:\n    run: python3 -m pytest t -k slow\n"),
             [
-                "RED: .github/workflows/gates.yml:7: it names `pytest`, and the lists name pytest only in an"
-                " exact pin `pytest==<version>`: a module's tests run only through `python3"
-                " scripts/check-aspects.py --run --module <module>`, which runs them whole",
+                "RED: .github/workflows/gates.yml:7: it names `pytest`, and the lists' code lines name "
+                "pytest only in an exact pin `pytest==<version>`: a module's tests run only through "
+                "`python3 scripts/check-aspects.py --run --module <module>`, which runs them whole",
                 why,
                 "  fix: where line 7 of .github/workflows/gates.yml runs pytest, run the module's tests"
                 " through `python3 scripts/check-aspects.py --run --module <module>` in its place; where it"
@@ -3995,12 +3997,12 @@ def report_of_a_green_kit(tally: Tally) -> None:
     green_line = (
         "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's "
         "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
-        "marketplace and enabled in the kit's settings, which declare the marketplace, neither list names "
-        "pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest configuration file of "
-        "the kit's folders a module's run reads sets addopts, every kit check is run by an entry of the gate "
-        "group, the install guide's scan block names exactly the declared scans, and the coverage map of the "
-        "range check holds one pair for each module folder — 2 module document(s) examined, 1 declared "
-        "scan(s), 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
+        "marketplace and enabled in the kit's settings, which declare the marketplace, neither list, "
+        "comments aside, names pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest "
+        "configuration file of the kit's folders a module's run reads sets addopts, every kit check is run "
+        "by an entry of the gate group, the install guide's scan block names exactly the declared scans, and "
+        "the coverage map of the range check holds one pair for each module folder — 2 module document(s) "
+        "examined, 1 declared scan(s), 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
     )
     ok = code == EXIT_GREEN and printed.getvalue().splitlines() == [green_line]
     tally.judge(ok, "the report of a kit whose checks all run is its literal green line")
