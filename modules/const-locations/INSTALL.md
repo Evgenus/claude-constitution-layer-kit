@@ -8,8 +8,7 @@ silently skipped.
 1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
    session). No hooks: the plugin ships two skills and one script, and nothing here blocks a
    write. A copy of this plugin's folder made outside the repository it comes from must follow
-   links (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and
-   `shared_items.py` in `tests/`, are links to code the plugin shares with its siblings, and an
+   links (`cp -RL`): `scripts/const_gate`, and `const_gate` and the shared test files in `tests/`, are links to code the plugin shares with its siblings, and an
    install from the marketplace copies what they point at; `tests/locations_gate` is a link to this plugin's own `scripts/locations_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink
    support leaves one-line text files in their place (`git config core.symlinks true`, then
    check out again).
@@ -59,7 +58,7 @@ silently skipped.
    trace in git. By default it lives in the platform's per-plugin data directory. Set `log_dir`
    to keep it inside the repository; the directory must be git-ignored, and the command refuses
    to run otherwise.
-7. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+7. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
 8. CLAUDE.md pointer: none. The skill's description is in the session's skill listing, and the
    skill loads on its own when a document is about to be created — in a session that cannot
    ask, under the allow rules of step 3.

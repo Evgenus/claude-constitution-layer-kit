@@ -10,7 +10,7 @@ reported by the scan with the fix on its first line; nothing is silently skipped
    template is written, and reads the project's style guide. The scan reads the covered Markdown
    files for twelve traces of the defaults and reports each that no departure allows. A copy of
    this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
+   `scripts/const_gate`, and `const_gate` and the shared test files in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
    what they point at; `tests/styling_gate` is a link to this plugin's own `scripts/styling_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in their
    place (`git config core.symlinks true`, then check out again).
@@ -72,7 +72,7 @@ reported by the scan with the fix on its first line; nothing is silently skipped
    module, gate, mode, session, stream, text), to `const-styling.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the scan refuses to run otherwise.
-8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+8. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
 9. CLAUDE.md pointer: none. The skill is named by a pointer line of 196 characters, advisory, that the
    plugin prints at session start and gives to every subagent at its start, and by the last line of
    every red of the scan; the defaults ride on the skill and the traces on the scan. The scan itself

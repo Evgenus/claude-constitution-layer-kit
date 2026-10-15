@@ -16,8 +16,7 @@ silently skipped.
    is the compound `git add -A && git commit …`, and a rule must match each part on its own, so
    both `Bash(git add *)` and `Bash(git commit *)` go in `permissions.allow` or `--allowedTools`;
    or set `severity: warn`. A copy of this plugin's folder made outside the repository it comes
-   from must follow links (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and
-   `shared_items.py` in `tests/`, are links to code the plugin shares with its siblings, and an
+   from must follow links (`cp -RL`): `scripts/const_gate`, and `const_gate` and the shared test files in `tests/`, are links to code the plugin shares with its siblings, and an
    install from the marketplace copies what they point at; `tests/task_close_gate` is a link to this plugin's own `scripts/task_close_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink
    support leaves one-line text files in their place (`git config core.symlinks true`, then check
    out again).
@@ -84,7 +83,7 @@ silently skipped.
    blocked turn ends and warnings leave no trace in git. By default it lives in the platform's
    per-plugin data directory. Set `log_dir` to keep it inside the repository; the directory must
    be git-ignored, and the gate refuses to run otherwise.
-8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green. The fixtures need
+8. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green. The fixtures need
    git 2.45 or newer, since item 36 builds a repository in each ref store; on an older git that item
    is red and the rest run.
 9. CLAUDE.md pointer: none. The skills `/const-task-close:close-task` and
