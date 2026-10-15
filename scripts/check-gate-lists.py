@@ -138,7 +138,8 @@ Modes:  no arguments   check the kit;
                        a comment green; a word that names pytest — `-m pytest`, a path, `py.test`,
                        `-mpytest`, an unpinned install or a range pin — PYTEST_ADDOPTS and an
                        addopts line of a configuration file a module's run reads red, an exact pin,
-                       a name that goes on and a comment green; the folder name over a
+                       a name that goes on or has another before it and a comment green; the
+                       folder name over a
                        whole set of names; a manifest, a
                        marketplace entry, its description included, an enabled key and the
                        declaration each changed one at a time, the platform's other keys allowed,
@@ -879,8 +880,9 @@ def ci_reads_list(root: Path) -> bool:
 
 def pytest_names(code: str) -> list[str]:
     """Each word of a code line that names pytest — `pytest` or `py.test` standing as a word, after a
-    path or stuck to `-m` — as the word stands; a name that goes on, `pytest-xdist`, `pytest_plugins`,
-    `pytest.ini`, and an exact pin, `pytest==9.1.1`, name none."""
+    path or stuck to `-m` — quoted with that path or `-m`, without brackets or quotes around it; a name
+    that goes on, `pytest-xdist`, `pytest_plugins`, `pytest.ini`, one with another name before it,
+    `allure-pytest`, and an exact pin, `pytest==9.1.1`, name none."""
     found = []
     for match in PYTEST_NAME.finditer(code):
         before, after = code[: match.start()], code[match.end() :]
@@ -1424,15 +1426,14 @@ def report(findings: list[Finding], modules: int, scans: int, checks: int, plugi
         print(f"RED: {len(findings)} finding(s) — {counts}")
         return EXIT_RED
     print(
-        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the"
-        " list's modules are the module folders, each named const-<aspect> and by its manifest, listed"
-        " once in the marketplace and enabled in the kit's settings, which declare the marketplace,"
-        " neither list names pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no"
-        " pytest configuration file of the kit's folders sets addopts, every kit check is run by an entry"
-        " of the gate group, the install guide's scan block names exactly the declared scans, and the"
-        " coverage map of the range"
-        f" check holds one pair for each module folder — {counts}, {plugins} marketplace plugin(s),"
-        f" {enabled} enabled plugin(s)"
+        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's "
+        "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
+        "marketplace and enabled in the kit's settings, which declare the marketplace, neither list names "
+        "pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest configuration file of "
+        "the folders a module's run reads sets addopts, every kit check is run by an entry of the gate "
+        "group, the install guide's scan block names exactly the declared scans, and the coverage map of the "
+        f"range check holds one pair for each module folder — {counts}, {plugins} marketplace plugin(s), "
+        f"{enabled} enabled plugin(s)"
     )
     return EXIT_GREEN
 
@@ -3419,7 +3420,8 @@ def cases_gate_list(tally: Tally) -> None:
 def cases_selections(tally: Tally) -> None:
     """A word of a line of the list or the workflow that names pytest is red — a run by `-m pytest`, by a
     path, as `py.test` or stuck to `-m`, an unpinned install, a range pin, a message — one finding for each,
-    and so is one that names PYTEST_ADDOPTS; an exact pin, a name that goes on, a run of check-aspects and
+    and so is one that names PYTEST_ADDOPTS; an exact pin, a name that goes on or has another before it, a
+    run of check-aspects and
     a comment are green. An `addopts` line of a pytest configuration file in a folder a module's run reads
     is red, and the reports are literal lines."""
     aspects = "python3 scripts/check-aspects.py --run --module const-x"
@@ -3997,10 +3999,10 @@ def report_of_a_green_kit(tally: Tally) -> None:
         "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
         "marketplace and enabled in the kit's settings, which declare the marketplace, neither list names "
         "pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest configuration file of "
-        "the kit's folders sets addopts, every kit check is run by an entry of the gate group, the install "
-        "guide's scan block names exactly the declared scans, and the coverage map of the range check holds "
-        "one pair for each module folder — 2 module document(s) examined, 1 declared scan(s), 1 kit "
-        "check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
+        "the folders a module's run reads sets addopts, every kit check is run by an entry of the gate "
+        "group, the install guide's scan block names exactly the declared scans, and the coverage map of the "
+        "range check holds one pair for each module folder — 2 module document(s) examined, 1 declared "
+        "scan(s), 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
     )
     ok = code == EXIT_GREEN and printed.getvalue().splitlines() == [green_line]
     tally.judge(ok, "the report of a kit whose checks all run is its literal green line")
