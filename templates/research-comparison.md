@@ -1,5 +1,5 @@
 ---
-id: <res-nnnn-const-name — the next number of the res catalog, the slug naming the module surveyed>
+id: <res-nnnn-const-name — the next number of the res catalog, the slug naming the module surveyed, or the mechanism of the kit's own tooling>
 type: non-authoritative
 title: Research comparison — const-<name> (<survey date>)
 status: active
@@ -43,4 +43,4 @@ The surveyed tools, keyed once; a date is the latest release on the survey date,
 
 ## Recommendations summary
 
-1. <Row, as a link> — **CONFIRMED** / **OVERTURNED** / **build** / **not needed**: <one line per mechanism, the reasoning's core>.
+1. <Row, as a link; for the kit's tooling, the mechanism> — **CONFIRMED** / **OVERTURNED** / **build** / **not needed**: <one line per mechanism, the reasoning's core>.
