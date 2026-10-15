@@ -466,7 +466,7 @@ def test_no_home() -> None:
         broken(result, messages.l5_no_territory("notes-policy"), "L5.24")
     long_policy = {f"docs/policies/{LONG_KIND}.md": envelope(LONG_KIND, "current-state")}
     long_run = run(prepared(files=long_policy), "--kind", LONG_KIND, "--stem", "a", "--title", "T")
-    broken(long_run, messages.l5_no_territory(LONG_KIND), "L5.24 long")
+    broken(long_run, messages.l5_no_territory(LONG_KIND), "L5.24 long")  # typed into the dials
 
 
 @item(

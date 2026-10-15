@@ -227,6 +227,7 @@ def test_t1() -> None:
     assert found.render() == typed, "L1 typed whole equals the function's text"
     one_finding(GRADE_RED, found.headline)
     no_finding(PLAIN)
+    # over the grade: not a finding
     no_finding(GRADE_RED, own(grade_ceiling=43.6))
     one_finding(GRADE_RED, messages.l1_grade(DOC, GRADE_RED_VALUE, 43.5).headline, own(grade_ceiling=43.5))
     expect(result, 2, f"RED: 1 finding(s) — 1 document examined ({DOC})", "stderr")
@@ -276,6 +277,7 @@ def test_t3() -> None:
     no_finding("# T\n\nThe phrase `hit the ground running` is quoted here.\n")
     no_finding("# T\n\n```text\nhit the ground running\n```\n")
     no_finding(IDIOM_RED, own(exceptions=["hit the ground running"]))
+    # an exception, like the lists, in any case
     no_finding(IDIOM_RED, own(exceptions=["Hit The Ground Running"]))
     one_finding(
         "# T\n\nWe ship a synergy.\n",
@@ -302,6 +304,7 @@ def test_t4() -> None:
         " const-language.exceptions in constitution.yaml" + ALLOW_SIMPLER,
     ], "the plain word cut in the headline and whole in the fix, its backslash doubled: " + odd.stderr[:600]
     weird, _ = gate_on(Write(WEIRD, SIMPLER_RED))
+    # the path whole in the headline and in the count line, though over 80 characters
     assert (
         weird.stderr.splitlines()[0]
         == "RED: " + WEIRD_SHOWN + ":3: 'prior to' where the plain word is 'before'"
@@ -364,6 +367,7 @@ def test_t5() -> None:
     both, _ = gate_on(Write(DOC, PASSIVE + "\nDo it prior to noon.\n"))
     inside, _ = gate_on(Write(DOC, "# T\n\nThis used car is fine.\n"))  # "is" inside "This": no passive
     assert found.render() == typed, "L5 typed whole equals the function's text"
+    # a form of be and its participle on two lines: Vale's match holds the line break, shown escaped
     one_finding(
         "# T\n\nThe report was\nwritten yesterday.\n",
         f"{DOC}:3: passive voice — 'was\\nwritten'",
@@ -380,6 +384,7 @@ def test_t5() -> None:
     assert bare.code == 0 and "note:" not in bare.stdout, (
         f"a bare off, false to YAML: exit {bare.code}, no note"
     )
+    # the note travels with the block verdict
     expect(both, 2, note, "stderr")
     assert inside.code == 0 and "note:" not in inside.stdout, (
         f"a form of be inside a word: exit {inside.code}, no note"
@@ -448,6 +453,7 @@ def test_t7() -> None:
     no_finding("﻿" + with_title)
     no_finding("")
     one_finding(unterminated, messages.l4_simpler(DOC, 4, "prior to", "before").headline)
+    # nested past the parser's depth: blanked, no crash
     no_finding("---\nid: " + "[" * 600 + "\n---\n\nShort.\n")
     no_finding(with_title.replace("status: active\n---\n", "status: active\n--- \n"))
     no_finding(with_title.replace("\n", "\r\n"))
@@ -702,6 +708,7 @@ def test_t10() -> None:
     block_scalar = own(departures=[{"paths": ["a.md"], "allow": ["grade"], "reason": "why\n"}])
     for patch, line in pairs:
         broken(gate_on(Write(DOC, PLAIN), patch)[0], line)
+    # what `reason: |` gives, a line break at the end: trimmed and taken, as in the other two gates
     expect(gate_on(Write(DOC, PLAIN), block_scalar)[0], 0, green_hook(), "stdout")
 
 
@@ -878,13 +885,16 @@ def test_t11() -> None:
         f"under a hook that declares 2 s the probe, which answers after 4 s, ended after"
         f" {probe_lowered_took:.1f} s: {probe_lowered_hook.stderr[:160]}"
     )
+    # the same budget in the event the plugin does not wire
     broken(before_hook, too_slow)
     assert before_took > vale.HOOK_SECONDS - 1, f"the check before a write gave up after {before_took:.1f} s"
     expect(scan_slow, 0, green_scan(4), "stdout")
     assert scan_took > vale.HOOK_SECONDS, (
         f"the scan stopped after {scan_took:.1f} s, within the hook's budget"
     )
+    # the probe's bound holds in a check after a write ...
     broken(version_hook, no_answer)
+    # ... and in the scan, which waits on the run but not on this
     broken(version_scan, no_answer)
     assert vale.VERSION_SECONDS - 1 < min(version_hook_took, version_scan_took), (
         f"the probe gave up after {version_hook_took:.1f} s (hook), {version_scan_took:.1f} s (scan)"
@@ -908,6 +918,7 @@ def test_t11() -> None:
     broken(results[1], too_old)
     broken(results[2], failed)
     broken(results[3], no_version)
+    # a version line with a failing exit is a failure, not a pass
     broken(results[4], exit_one)
     broken(scan_old, too_old)
     assert set((old / "calls").read_text().split("\n")) <= {"--version", ""}, (
