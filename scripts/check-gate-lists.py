@@ -139,8 +139,7 @@ Modes:  no arguments   check the kit;
                        `-mpytest`, an unpinned install or a range pin — PYTEST_ADDOPTS and an
                        addopts line of a configuration file a module's run reads red, an exact pin,
                        a name that goes on or has another before it and a comment green; the
-                       folder name over a
-                       whole set of names; a manifest, a
+                       folder name over a whole set of names; a manifest, a
                        marketplace entry, its description included, an enabled key and the
                        declaration each changed one at a time, the platform's other keys allowed,
                        the marketplace renamed in all three places green and in each pair of them
@@ -1430,7 +1429,7 @@ def report(findings: list[Finding], modules: int, scans: int, checks: int, plugi
         "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
         "marketplace and enabled in the kit's settings, which declare the marketplace, neither list names "
         "pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest configuration file of "
-        "the folders a module's run reads sets addopts, every kit check is run by an entry of the gate "
+        "the kit's folders a module's run reads sets addopts, every kit check is run by an entry of the gate "
         "group, the install guide's scan block names exactly the declared scans, and the coverage map of the "
         f"range check holds one pair for each module folder — {counts}, {plugins} marketplace plugin(s), "
         f"{enabled} enabled plugin(s)"
@@ -3419,11 +3418,10 @@ def cases_gate_list(tally: Tally) -> None:
 
 def cases_selections(tally: Tally) -> None:
     """A word of a line of the list or the workflow that names pytest is red — a run by `-m pytest`, by a
-    path, as `py.test` or stuck to `-m`, an unpinned install, a range pin, a message — one finding for each,
-    and so is one that names PYTEST_ADDOPTS; an exact pin, a name that goes on or has another before it, a
-    run of check-aspects and
-    a comment are green. An `addopts` line of a pytest configuration file in a folder a module's run reads
-    is red, and the reports are literal lines."""
+    path, as `py.test` or stuck to `-m`, an unpinned install, a range pin, a message — one finding for
+    each, and so is one that names PYTEST_ADDOPTS; an exact pin, a name that goes on or has another before
+    it, a run of check-aspects and a comment are green. An `addopts` line of a pytest configuration file
+    in a folder a module's run reads is red, and the reports are literal lines."""
     aspects = "python3 scripts/check-aspects.py --run --module const-x"
     cases: dict[str, tuple[Case, list[str]]] = {  # case: the tree, the entries its findings name, in order
         "the list runs python3 -m pytest": (
@@ -3999,7 +3997,7 @@ def report_of_a_green_kit(tally: Tally) -> None:
         "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
         "marketplace and enabled in the kit's settings, which declare the marketplace, neither list names "
         "pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest configuration file of "
-        "the folders a module's run reads sets addopts, every kit check is run by an entry of the gate "
+        "the kit's folders a module's run reads sets addopts, every kit check is run by an entry of the gate "
         "group, the install guide's scan block names exactly the declared scans, and the coverage map of the "
         "range check holds one pair for each module folder — 2 module document(s) examined, 1 declared "
         "scan(s), 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
