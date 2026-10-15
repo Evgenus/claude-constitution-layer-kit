@@ -10,11 +10,13 @@ module's test file declares its own gate.
 
 The checks assert in place of returning a pair: `check_case` both halves of a red→green case,
 `expect` an exit and a text, `broken_first_line` a configuration failure. Until the old runners go,
-each calls the harness's function that returns the pair, so the logic has one home.
+each calls the harness's function that returns the pair, so the logic has one home. `failure_of` turns a
+check that fails into its message, for an item that gathers several and reports every failure.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -45,6 +47,16 @@ def expect(result: Result, code: int, text: str, where: str = "both", label: str
 def broken_first_line(result: Result, first_line: str, label: str = "") -> None:
     ok, evidence = broken_first_line_pair(result, first_line)
     assert ok, f"{label}: {evidence}" if label else evidence
+
+
+def failure_of(check: Callable[[], object]) -> str | None:
+    """The message of `check` when it fails — an assertion or a `pytest.fail` — or None: for an item that
+    gathers several checks and reports every failure, where one failing check must hide no other."""
+    try:
+        check()
+    except (AssertionError, pytest.fail.Exception) as error:
+        return str(error)
+    return None
 
 
 def configure(config: pytest.Config) -> None:
