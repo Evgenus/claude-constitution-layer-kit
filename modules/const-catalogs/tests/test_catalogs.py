@@ -37,7 +37,7 @@ from const_gate import messages as shared
 from const_gate.envelope import yaml_error_line
 from const_gate.model import Broken, EnvelopeState, Finding
 from consumer import BASE_MARKDOWN, ROOT_POLICY, Consumer
-from harness import Case, Edit, Harness, Result, Write, event_json
+from harness import Case, Edit, Harness, Result, Write, event_json, fake_program
 from test_shared_items import NO_ENVELOPE, PatternDial, Subject, git_patch, git_timeouts, hook_budget
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
@@ -853,7 +853,9 @@ def fake_git(on_log: str = ":", on_verify: str = ":") -> tuple[dict[str, str], P
     """A PATH that holds python3, dirname and a git that notes every `log` call in a file, does
     `on_log` then, does `on_verify` when asked whether HEAD exists, and is the real git otherwise.
     Returns the environment and the file of calls — a file, because the gate captures what its
-    git prints, so nothing a fake writes to stderr would ever reach this runner."""
+    git prints, so nothing a fake writes to stderr would ever reach this runner. The fake is started
+    once before it is used (`fake_program`): its first start inside a hook, slow on a loaded machine,
+    took more than the 3 s the hook gives git."""
     directory = H.scratch_dir()
     calls = directory / "calls"
     for tool in ("python3", "dirname"):
@@ -861,15 +863,13 @@ def fake_git(on_log: str = ":", on_verify: str = ":") -> tuple[dict[str, str], P
         assert source, tool
         os.symlink(source, directory / tool)
     script = (
-        "#!/bin/sh\n"
         'for a in "$@"; do\n'
         f'  if [ "$a" = log ]; then echo log >> "{calls}"; {on_log}; fi\n'
         f'  if [ "$a" = --verify ]; then {on_verify}; fi\n'
         "done\n"
         f'exec "{shutil.which("git")}" "$@"\n'
     )
-    (directory / "git").write_text(script)
-    (directory / "git").chmod(0o755)
+    fake_program(directory / "git", script)
     return {"PATH": str(directory)}, calls
 
 

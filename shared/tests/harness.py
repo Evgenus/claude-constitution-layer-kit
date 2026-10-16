@@ -53,6 +53,19 @@ class Result:
 
 
 NO_ANSWER = 124  # the code of a run that did not end within its bound, as timeout(1) gives it
+WARM = "CONSTITUTION_KIT_FAKE_WARM"  # set only for the one start `fake_program` makes
+
+
+def fake_program(path: Path, body: str) -> Path:
+    """A fake program at `path`: a shell script that runs `body`, made executable and started once. The
+    first start of a file just made executable is slow on a loaded machine (0.2 to 3.1 s measured on macOS
+    on 2026-10-16, then 0.02 s each time), and inside a gate's clock it can cut a wait no case chose to
+    cut. So the script's first line ends it at once under `WARM`, and that start is made here, before any
+    clock: nothing the body does, logs or waits for happens in it."""
+    path.write_text(f'#!/bin/sh\n[ -z "${WARM}" ] || exit 0\n{body}', encoding="utf-8")
+    path.chmod(0o755)
+    subprocess.run([str(path)], env={WARM: "1"}, capture_output=True, check=False)
+    return path
 
 
 @dataclass(frozen=True)

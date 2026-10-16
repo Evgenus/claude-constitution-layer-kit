@@ -19,7 +19,6 @@ import json
 import os
 import re
 import shutil
-import stat
 import subprocess
 import sys
 import time
@@ -35,7 +34,7 @@ from const_gate import messages as shared
 from const_gate.model import Finding
 from const_gate.repository import list_markdown
 from consumer import Consumer
-from harness import Case, Edit, Harness, Result, Write, event_json, red_lines, stop_json
+from harness import Case, Edit, Harness, Result, Write, event_json, fake_program, red_lines, stop_json
 from language_gate import dials as own_dials
 from language_gate import messages, rules, start, vale
 from language_gate.model import Departure, Rule
@@ -719,13 +718,12 @@ def command_path(tool: str) -> str:
 
 def fake_vale(directory: Path, script: str) -> Path:
     """A PATH directory with the real python3, git, sh and dirname, and a `vale` that runs `script`
-    (a shell body) and logs every invocation to `calls` beside it."""
+    (a shell body) and logs every invocation to `calls` beside it. It is started once, unlogged, before it
+    is used (`fake_program`), so that its slow first start falls inside no clock of the gate."""
     for tool in ("python3", "git", "sh", "dirname"):
         source = os.path.realpath(sys.executable) if tool == "python3" else command_path(tool)
         os.symlink(source, directory / tool)
-    fake = directory / "vale"
-    fake.write_text(f'#!/bin/sh\necho "$@" >> "{directory / "calls"}"\n{script}\n', encoding="utf-8")
-    fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+    fake_program(directory / "vale", f'echo "$@" >> "{directory / "calls"}"\n{script}\n')
     return directory
 
 

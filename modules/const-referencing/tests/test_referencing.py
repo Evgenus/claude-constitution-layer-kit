@@ -30,7 +30,7 @@ from const_gate import identity
 from const_gate import messages as shared
 from const_gate.model import Broken, Finding
 from consumer import Consumer, document
-from harness import Case, Edit, Harness, Result, Write, event_json, red_lines
+from harness import Case, Edit, Harness, Result, Write, event_json, fake_program, red_lines
 from referencing_gate import lychee, messages, start
 from test_shared_items import NO_ENVELOPE, PatternDial, Subject, git_patch, git_timeouts, no_clock
 
@@ -444,16 +444,13 @@ def _ignored_by_git() -> None:
 
 def _repository_check_ignores(event: str) -> int:
     """The `git check-ignore` calls without `--no-index` one hook run makes: a fake git first on PATH logs
-    the arguments of each call to a file and hands the call to the real git."""
+    the arguments of each call to a file and hands the call to the real git; it is started once before
+    the run (`fake_program`), so its slow first start cuts no git call of the hook."""
     real = shutil.which("git")
     assert real is not None
     directory = H.scratch_dir()
     log = directory / "git.log"
-    fake = directory / "git"
-    fake.write_text(
-        f'#!/bin/sh\necho "$*" >> {shlex.quote(str(log))}\nexec {shlex.quote(real)} "$@"\n', encoding="utf-8"
-    )
-    fake.chmod(0o755)
+    fake_program(directory / "git", f'echo "$*" >> {shlex.quote(str(log))}\nexec {shlex.quote(real)} "$@"\n')
     H.run_gate(event, env={"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)})
     lines = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
     return sum("check-ignore" in line and "--no-index" not in line for line in lines)
@@ -788,15 +785,15 @@ def test_links_in_code_are_not_checked() -> None:
 
 
 def path_with(lychee_script: str | None) -> dict[str, str]:
-    """A PATH holding python3, git and dirname, and the given script as lychee — or none at all."""
+    """A PATH holding python3, git and dirname, and the given script as lychee — or none at all. The fake
+    is started once before it is used (`fake_program`), so that its slow first start falls in no clock."""
     directory = H.scratch_dir()
     for tool in ("python3", "git", "dirname"):
         found = os.path.realpath(sys.executable) if tool == "python3" else shutil.which(tool)
         assert found, tool
         os.symlink(found, directory / tool)
     if lychee_script is not None:
-        (directory / "lychee").write_text("#!/bin/sh\n" + lychee_script)
-        (directory / "lychee").chmod(0o755)
+        fake_program(directory / "lychee", lychee_script)
     return {"PATH": str(directory)}
 
 
@@ -2273,8 +2270,7 @@ def deadline_line(seconds: int, before: str) -> str:
 # since the first start of a fake just written has taken 3.1 s on a loaded one.
 CUT_BOUND = 20.0
 BUDGET_LYCHEE = (  # logs the first argument of each call; says its version, then an empty report or nothing
-    'echo "$1" >> "$LYCHEE_LOG"\n'
-    "case \"$1\" in --warm) ;; --version) {wait}echo '{version}';; *) {run};; esac\n"
+    'echo "$1" >> "$LYCHEE_LOG"\ncase "$1" in --version) {wait}echo \'{version}\';; *) {run};; esac\n'
 )
 
 
@@ -2291,9 +2287,9 @@ def on_a_patched_clock(
     the clock patched as `clock` says (the seconds, as LIST_STEP, MATCH_STEP, MASK_FIRST, MASK_STEP, READ_STEP
     and PROBE_STEP). `version` is what the fake lychee says to --version, None for no lychee on PATH, after
     `probe_seconds` of real waiting where that is not 0. The fake is a file just written, whose first start
-    on a loaded machine has taken seconds (0.2 to 3.1 s measured on macOS on 2026-10-16): so the fake is
-    started once before the run, the hook's deadline stands still on a clock of the driver's own, and a
-    probe with no real wait runs with no clock; only the waits a case sets can run out. Gives
+    on a loaded machine has taken seconds (0.2 to 3.1 s measured on macOS on 2026-10-16): so `path_with`
+    starts the fake once before the run, the hook's deadline stands still on a clock of the driver's own,
+    and a probe with no real wait runs with no clock; only the waits a case sets can run out. Gives
     the result, the trace, the fake lychee's own log of its calls, the real seconds it took, and the
     number of documents the tree holds."""
     consumer = H.fresh_consumer()
@@ -2306,12 +2302,8 @@ def on_a_patched_clock(
     wait = f"{shutil.which('sleep') or '/bin/sleep'} {probe_seconds}; " if probe_seconds else ""
     waits = {"PROBE_WAITS": "1"} if probe_seconds else {}
     script = None if version is None else BUDGET_LYCHEE.format(run=run, version=version, wait=wait)
-    on_path = path_with(script)
-    if script is not None:  # the fake's first start, paid before the run, outside every clock and log
-        warm = [str(Path(on_path["PATH"]) / "lychee"), "--warm"]
-        subprocess.run(warm, env={"LYCHEE_LOG": os.devnull}, capture_output=True, check=False)
     env = {
-        **on_path,
+        **path_with(script),
         "TRACE": str(scratch / "trace"),
         "LYCHEE_LOG": str(scratch / "lychee"),
         **waits,
@@ -2544,9 +2536,9 @@ def test_a_link_checker_that_hangs() -> None:
     budget belongs to the check after a write, and it is one budget with the reading and the masking
     of the tree (`the_budget_is_one`): the scan waits for a slow checker, as long as it takes.
     The three runs go side by side, the longest about 21 s, and the budget cases follow one after the
-    other: the item costs about 30 s. The two fakes that must answer the probe are started once before the
-    runs, since the first start of a file just written has taken seconds on a loaded machine, and the hook
-    run's deadline stands still (`git_patch`, `unclocked`): the start of a slow machine shortens no wait."""
+    other: the item costs about 30 s. Each fake is started once before the runs (`path_with`), since the
+    first start of a file just written has taken seconds on a loaded machine, and the hook run's deadline
+    stands still (`git_patch`, `unclocked`): the start of a slow machine shortens no wait."""
     sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
     slow_version = f'case "$1" in --version) {sleep} 30; echo "lychee 0.24.2";; *) exit 0;; esac\n'
     # answers --version at once; any other call is 1 s past the hook's 20 s, then an empty report
@@ -2562,8 +2554,6 @@ def test_a_link_checker_that_hangs() -> None:
     event = event_json(in_the_hook.root, Write(SOURCE, source("See [x](t.md).")), event=AFTER)
     scan_env = path_with(slow_run)
     hook_env = {**path_with(slow_run), **git_patch(H, unclocked=True)[0]}
-    for env in (scan_env, hook_env):  # the first start, paid here: the probe's 5 s are for the answer
-        subprocess.run([str(Path(env["PATH"]) / "lychee"), "--version"], capture_output=True, check=False)
 
     def timed(stdin: str, args: list[str], env: dict[str, str]) -> tuple[Result, float]:
         began = time.monotonic()
