@@ -82,7 +82,7 @@ D, chosen by the decider in chat on 2026-10-14, over the recommendation, with th
 
 ## Applied
 
-Applied on the branch `work/pytest-fixtures`, the eleven modules one commit each, then the switch, the texts, the parallel run in CI and the fixes of the review and the carry audit, and last the serial run in CI again with the fixes of the items that failed on a loaded machine; this record is set `inactive` in the branch's last commit. At the cut and after it: 1,025 items green in each of the eleven modules' runs; the fixtures' lines and branches reached equal under the old runner and under pytest, module by module; three shuffled runs of each module, serial and with `-n auto`, green; the eleven run one after another in about 12 minutes before, unloaded, and in about 5 minutes after, each with `-n auto`.
+Applied on the branch `work/pytest-fixtures`, the eleven modules one commit each, then the switch, the texts, the parallel run in CI and the fixes of the review and the carry audit, and last the serial run in CI again with the fixes of the items that failed on a loaded machine; this record is `inactive` by the branch's last commit. At the cut and after it: 1,025 items green across the eleven modules' runs; the fixtures' lines and branches reached equal under the old runner and under pytest, module by module; three shuffled runs of each module, serial and with `-n auto`, green; the eleven run one after another in about 12 minutes before, unloaded, and in about 5 minutes after, each with `-n auto`.
 
 ## Carry list
 

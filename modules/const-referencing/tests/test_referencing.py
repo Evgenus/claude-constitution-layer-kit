@@ -2187,8 +2187,9 @@ OUT_OF_TIME_BEFORE_TYPED = (
 # advances by the seconds the environment names for the file list, for the territory matching, for each
 # document read, each masked, once more at the first masking, and once at the version probe. Nothing waits
 # for real. The trace holds one word per read and per masking, and what lychee's run was given as its
-# timeout, with the clock then. The clock moved by hand is the check's own; the hook's deadline stands on
-# the real one, and HOOK_BUDGET declares the gate with that many seconds in place of its own.
+# timeout, with the clock then. The clock moved by hand is the check's own; the hook's deadline reads a
+# clock of the driver's own that stands still, and HOOK_BUDGET declares the gate with that many seconds in
+# place of its own.
 BUDGET_DRIVER = """\
 import dataclasses
 import os

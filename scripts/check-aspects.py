@@ -133,9 +133,10 @@ files: a report, whose numbers no check holds (decision dec-0089-module-coverage
 absent, the runner runs plain.
 With GITHUB_STEP_SUMMARY naming a file, as GitHub Actions does in every job, `--run` appends to it, for
 each module whose report was read, a red run too, a Markdown section: the module and its counts of passed,
-failed, error and skipped tests, then one table row for each test, its item number, its name and its result,
-in number order. A report for a person, never a verdict: a summary that cannot be written is a note, and
-the run's verdict stands; the self-test clears the variable, save in the case that sets it.
+failed, error and skipped tests, each count that is not zero, then one table row for each test, its item
+number, its name and its result, in number order. A report for a person, never a verdict: a summary that
+cannot be written is a note, and the run's verdict stands; the self-test clears the variable, save in the
+case that sets it.
 Exit:   0 green; 2 a finding or a red item; 1 the check could not run.
 """
 
