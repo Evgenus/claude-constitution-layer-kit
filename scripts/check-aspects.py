@@ -131,6 +131,11 @@ after the run is one too, printed after the output of a runner that exited other
 place. The kit's CI sets the variable in each module's job, and scripts/module-coverage.py reads the
 files: a report, whose numbers no check holds (decision dec-0089-module-coverage-report). Empty or
 absent, the runner runs plain.
+With GITHUB_STEP_SUMMARY naming a file, as GitHub Actions does in every job, `--run` appends to it, for
+each module whose report was read, a red run too, a Markdown section: the module and its counts of passed,
+failed, error and skipped tests, then one table row for each test, its item number, its name and its result,
+in number order. A report for a person, never a verdict: a summary that cannot be written is a note, and
+the run's verdict stands; the self-test clears the variable, save in the case that sets it.
 Exit:   0 green; 2 a finding or a red item; 1 the check could not run.
 """
 
@@ -168,6 +173,8 @@ RUNNER_TIMEOUT = 1800  # seconds; the slowest runner takes a few minutes
 JOBS_ENV = "CONSTITUTION_KIT_JOBS"  # pytest-xdist workers, a number or `auto`; empty or unset: one process
 PYTEST_RED = 1  # pytest's exit when a test failed; 0 is green, and every other exit could not run
 JUNIT_PROPERTY = "item"  # the property acceptance.collected hands each test's number to the report as
+SUMMARY_ENV = "GITHUB_STEP_SUMMARY"  # the file GitHub Actions shows on a run's page; unset outside a job
+RESULTS = ("passed", "failed", "error", "skipped")  # a test's result in the job summary, in its counts' order
 
 ASPECT = re.compile(r'^\| <a id="(a\d+)"></a>\*\*(A\d+ — [^*]+)\*\*')
 ROW = re.compile(r'^\| <a id="(a\d+-\d+)"></a>(A\d+\.\d+) \|')
@@ -947,6 +954,39 @@ def read_report(path: Path, name: str) -> dict[int, bool]:
     return results
 
 
+def report_rows(path: Path) -> list[tuple[int, str, str]]:
+    """(item number, test name, result) of each testcase of a JUnit report read_report has held to
+    itself, in number order; the result one of RESULTS."""
+    rows = []
+    for case in ElementTree.parse(path).getroot().iter("testcase"):
+        number = next(p.get("value", "") for p in case.iter("property") if p.get("name") == JUNIT_PROPERTY)
+        tags = {child.tag for child in case}
+        result = (
+            "failed" if "failure" in tags else next((t for t in ("error", "skipped") if t in tags), "passed")
+        )
+        rows.append((int(number), case.get("name", ""), result))
+    return sorted(rows)
+
+
+def write_summary(module: str, rows: list[tuple[int, str, str]]) -> None:
+    """Append the module's section to the job summary GITHUB_STEP_SUMMARY names, when it names one: a
+    heading with the module and its counts, then one table row for each test. A report, never a verdict:
+    a summary that cannot be written is a note, and the run's verdict stands."""
+    target = os.environ.get(SUMMARY_ENV, "").strip()
+    if not target:
+        return
+    counts = ", ".join(f"{n} {r}" for r in RESULTS if (n := sum(1 for *_, x in rows if x == r)))
+    table = [f"| {n} | `{name.replace('|', '\\|')}` | {result} |" for n, name, result in rows]
+    text = "\n".join([f"### {module}: {counts}", "", "| item | test | result |", "|---|---|---|", *table, ""])
+    try:
+        with open(target, "a", encoding="utf-8") as summary:
+            summary.write(text + "\n")
+    except OSError as bad:
+        print(
+            f"note: the job summary {target} could not be written ({bad.strerror}); the run's verdict stands"
+        )
+
+
 def run_runner(root: Path, module: Module) -> dict[int, bool]:
     """The module's pytest tests: collected serially first, so that a stop of acceptance.collected is
     read whole even where the run is parallel; then run, under coverage.py when kit_coverage asks for it,
@@ -992,6 +1032,7 @@ def run_runner(root: Path, module: Module) -> dict[int, bool]:
                 f" python3 -m pytest modules/{module.name}/tests -W error and repair what it names"
             )
         results = read_report(report, module.name)
+        write_summary(module.name, report_rows(report))
     if (done.returncode == 0) != all(results.values()):
         raise Broken(
             f"the runner of {module.name} exited {done.returncode} against its own report — fix: run"
@@ -2263,6 +2304,55 @@ def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None,
     }
 
 
+def case_job_summary(tally: Tally) -> None:
+    """With GITHUB_STEP_SUMMARY naming a file, a run appends its module's section, every test in number
+    order with its result, as literal lines, a red run too; unset, it writes nothing; naming a folder, a
+    note, the verdict standing."""
+    skipped = (
+        "\n\nimport pytest\n\n\n@item(9, 'not this gate')\ndef test_skipped() -> None:\n"
+        "    pytest.skip('no')\n"
+    )
+    wanted = [  # typed by hand: the section of a run with item 2 red and item 9 skipped
+        "### const-sample: 3 passed, 1 failed, 1 skipped",
+        "",
+        "| item | test | result |",
+        "|---|---|---|",
+        "| 1 | `test_1` | passed |",
+        "| 2 | `test_2` | failed |",
+        "| 3 | `test_3` | passed |",
+        "| 9 | `test_skipped` | skipped |",
+        "| 101 | `test_101` | passed |",
+        "",
+    ]
+    for case, red, want in (
+        ("a file", (2,), EXIT_RED),
+        ("unset", (), EXIT_GREEN),
+        ("a folder", (), EXIT_GREEN),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            sample_tests(root, red, skipped)
+            target = root / ("summary.md" if case != "a folder" else "docs")
+            if case != "unset":
+                os.environ[SUMMARY_ENV] = str(target)
+            try:
+                code, lines = main_over(root, ["--run", "--module", "const-sample"])
+            finally:
+                os.environ.pop(SUMMARY_ENV, None)
+            written = target.read_text(encoding="utf-8").split("\n") if target.is_file() else None
+        if case == "a file":
+            ok = code == want and written == [*wanted, ""]
+        elif case == "unset":
+            ok = code == want and written is None and not (root / "summary.md").exists()
+        else:
+            ok = code == want and any(line.startswith(f"note: the job summary {target}") for line in lines)
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] the job summary, its variable {case}: as the rule says")
+        if not ok:
+            print(f"        exit {code}: {written} {lines[-3:]}")
+
+
 def missing_spec(
     package: str, real: Callable[[str, str | None], ModuleSpec | None], name: str, near: str | None = None
 ) -> ModuleSpec | None:
@@ -3516,6 +3606,9 @@ def self_test() -> int:
     the form of the matrix and of the module documents, and the tie to the preamble, each over its
     whole set of cases."""
     os.environ.pop(kit_coverage.ENV, None)  # every case runs its runner plain, save those that set it
+    os.environ.pop(
+        SUMMARY_ENV, None
+    )  # and writes no job summary, CI's own page included, save the case that sets it
     tally = Tally()
     case_red_tables(tally)
     case_unheld_row(tally)
@@ -3539,6 +3632,7 @@ def self_test() -> int:
     case_acceptance(tally)
     case_collisions(tally)
     case_pytest_runs(tally)
+    case_job_summary(tally)
     shared_failed, shared_total = self_test_shared()
     coverage_failed, coverage_total = self_test_coverage()
     total = tally.total + shared_total + coverage_total
