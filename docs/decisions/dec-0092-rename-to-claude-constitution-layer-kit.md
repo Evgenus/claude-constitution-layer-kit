@@ -77,7 +77,7 @@ A, chosen by the decider in chat on 2026-10-16, over the recommendation. The ses
 
 <a id="r5"></a>**R5.** This change rewrites, in place, the eleven mentions of the old repository's or marketplace's name in [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md), [dec-0043-kit-plugins-through-project-settings](dec-0043-kit-plugins-through-project-settings.md), [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md), [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md), [dec-0060-ci-installs-from-the-github-remote](dec-0060-ci-installs-from-the-github-remote.md) and [dec-0071-projects-install-from-github](dec-0071-projects-install-from-github.md). Each now names `claude-constitution-layer-kit`, the five dated facts included, though the repository had the old name on those dates; git keeps each record as it was accepted. No other word of those records changes.
 
-<a id="r6"></a>**R6.** The edit of R5 is an exception to [kernel §5](../../kernel/CONVENTIONS.md#k5) and to rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), which stand unchanged. It sets no precedent: a later rename of a repository, a marketplace or a plugin id leaves accepted records as they stand.
+<a id="r6"></a>**R6.** The edit of R5 is an exception to [kernel §5](../../kernel/CONVENTIONS.md#k5) and to rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), which stand unchanged. It sets no precedent: a later rename of a repository, a marketplace or a plugin id leaves accepted records as they stand, save the mechanical edits [kernel §5](../../kernel/CONVENTIONS.md#k5) allows.
 
 ## Applied
 
