@@ -2,6 +2,9 @@
 
 # Local working files, never part of the kit (law 2).
 local/
+
+# What a run of the eval cases writes inside a module's folder (decision dec-0093-module-evals-with-local-receipts).
+modules/*/evals/results/
 __pycache__/
 .claude/settings.local.json
 
