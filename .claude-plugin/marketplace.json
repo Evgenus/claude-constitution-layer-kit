@@ -1,5 +1,5 @@
 {
-  "name": "constitution-kit",
+  "name": "claude-constitution-layer-kit",
   "description": "The constitution kit: a portable governance layer for Claude Code projects, one plugin per module",
   "owner": {
     "name": "Eugene Chernyshov"

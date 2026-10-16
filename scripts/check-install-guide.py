@@ -23,8 +23,8 @@ read; the fourth, the install write a zip file where the claims read a folder. E
 the version command and the run unchanged, CLAUDE_CODE_PLUGIN_PREFER_HTTPS, which the kit's CI sets for the
 clone of its private repository over HTTPS, and the kit's own CONSTITUTION_KIT_* ones included, save those
 the check sets itself, CLAUDE_CONFIG_DIR and DISABLE_AUTOUPDATER for both, HOME and GIT_CONFIG_GLOBAL for
-the run; the kit cloned from the working
-folder's HEAD to ~/dev/constitution-kit, so what is not committed is not run; the source the marketplace
+the run; the kit cloned from the working folder's HEAD to
+~/dev/claude-constitution-layer-kit, so what is not committed is not run; the source the marketplace
 block registers pointed at the change: the argument of its `claude plugin marketplace add` replaced by the
 environment's CONSTITUTION_KIT_INSTALL_FROM, `<owner>/<repo>#<branch>` (the kit's CI names the change's GitHub
 repository and branch), else by the working folder's origin on GitHub at the branch checked out,
@@ -314,7 +314,9 @@ from kit_module_doc import (
 KIT = Path(__file__).resolve().parent.parent
 GUIDE = "INSTALL.md"
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
-CLONE = Path("dev") / "constitution-kit"  # the guide's placeholder for the kit's clone, rule 4 of plc-0011
+CLONE = (
+    Path("dev") / "claude-constitution-layer-kit"
+)  # the guide's placeholder for the kit's clone, rule 4 of plc-0011
 SCRIPT = "scripts/check-install-guide.py"  # named in the fix of a reply the check's readers do not read
 LIST_WHERE = (
     "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"  # where a failed list is run again
@@ -1686,21 +1688,24 @@ def toy_guide(**replace: str) -> str:
         "new-repo": "mkdir -p ~/dev/my-project && cd ~/dev/my-project && git init --quiet && "
         'git commit --quiet --allow-empty -m "Initial commit"',
         "marketplace": "claude plugin marketplace add toy/kit",
-        "install": "for m in ~/dev/constitution-kit/modules/const-*; do "
+        "install": "for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do "
         f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done',
-        "kernel": "mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/\n"
-        "cp ~/dev/constitution-kit/LICENSE ~/dev/constitution-kit/NOTICE docs/constitution/",
+        "kernel": "mkdir -p docs/constitution && "
+        "cp -r ~/dev/claude-constitution-layer-kit/kernel/. docs/constitution/\n"
+        "cp ~/dev/claude-constitution-layer-kit/LICENSE "
+        "~/dev/claude-constitution-layer-kit/NOTICE docs/constitution/",
         "dials": TOY_DIALS.rstrip("\n"),
         "scan": "test -f constitution.yaml && test -f docs/policies/root-policy.md && "
         "test -f docs/policies/records.md && test -f docs/records/rec-0001-adopt-constitution-kernel.md",
         "commit": 'git add -A && git commit --quiet -m "Adopt the constitution kernel"',
         "update": f"claude plugin marketplace update {TOY_MP} && "
-        "for m in ~/dev/constitution-kit/modules/const-*; "
+        "for m in ~/dev/claude-constitution-layer-kit/modules/const-*; "
         f'do claude plugin update "$(basename "$m")@{TOY_MP}" --scope project; done',
-        "reinstall": "for m in ~/dev/constitution-kit/modules/const-*; do claude plugin uninstall "
+        "reinstall": "for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do "
+        "claude plugin uninstall "
         f'"$(basename "$m")@{TOY_MP}" --scope project && claude plugin install '
         f'"$(basename "$m")@{TOY_MP}" --scope project; done',
-        "uninstall": "for m in ~/dev/constitution-kit/modules/const-*; do "
+        "uninstall": "for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do "
         f'claude plugin uninstall "$(basename "$m")@{TOY_MP}" --scope project; done',
     } | replace
     parts = ["# Toy guide\n", "```bash check=none\nbrew install vale\n```\n"]
@@ -2720,7 +2725,7 @@ class SelfTestRun:
         self.case(
             "a kit whose marketplace.json gives no name is a BROKEN, naming the clone's file",
             unnamed.endswith(
-                '/dev/constitution-kit/.claude-plugin/marketplace.json has no "name"'
+                '/dev/claude-constitution-layer-kit/.claude-plugin/marketplace.json has no "name"'
                 " — fix: give the marketplace its name, at the top of the object"
             ),
             unnamed,
@@ -3505,11 +3510,11 @@ class SelfTestRun:
             (
                 "a block that reads another block's variable red",
                 {
-                    "new-repo": "KIT=~/dev/constitution-kit && mkdir -p ~/dev/my-project && "
+                    "new-repo": "KIT=~/dev/claude-constitution-layer-kit && mkdir -p ~/dev/my-project && "
                     "cd ~/dev/my-project && git init --quiet && "
                     'git commit --quiet --allow-empty -m "Initial commit"',
                     "kernel": 'echo "$KIT" && mkdir -p docs/constitution && '
-                    "cp -r ~/dev/constitution-kit/kernel/. docs/constitution/",
+                    "cp -r ~/dev/claude-constitution-layer-kit/kernel/. docs/constitution/",
                 },
                 "",
                 "the block named check=kernel exited",
@@ -3536,7 +3541,7 @@ class SelfTestRun:
                 "a kernel copy that leaves the license out red",
                 {
                     "kernel": "mkdir -p docs/constitution && "
-                    "cp -r ~/dev/constitution-kit/kernel/. docs/constitution/"
+                    "cp -r ~/dev/claude-constitution-layer-kit/kernel/. docs/constitution/"
                 },
                 "",
                 "after check=kernel: docs/constitution/LICENSE is not the kit's file",
@@ -3648,7 +3653,8 @@ class SelfTestRun:
         # an install the platform lists outside the plugin cache is a finding, and the cache's layout is the
         # documented one: in place, at another version, or where a block moved the plugins root to
         moves = (  # a block that sets the plugins root for the install alone
-            f"export {CACHE_ENV}=$HOME/other-plugins && for m in ~/dev/constitution-kit/modules/const-*; do "
+            f"export {CACHE_ENV}=$HOME/other-plugins && "
+            "for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do "
             f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
         )
         zips = moves.replace(CACHE_ENV + "=$HOME/other-plugins", "CLAUDE_CODE_PLUGIN_USE_ZIP_CACHE=1")
@@ -3731,7 +3737,7 @@ class SelfTestRun:
             run_guide(
                 toy_guide(
                     install=f"export {variable}={block_value} && "
-                    "for m in ~/dev/constitution-kit/modules/const-*; "
+                    "for m in ~/dev/claude-constitution-layer-kit/modules/const-*; "
                     f'do claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
                 ),
                 toy.kit,
@@ -3760,7 +3766,7 @@ class SelfTestRun:
         # plugin list in the project, and neither in the run's home folder
         run_cwd = unit.folder / "run-cwd.log"
         installing = (
-            "cd ~/dev/my-project && for m in ~/dev/constitution-kit/modules/const-*; do "
+            "cd ~/dev/my-project && for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do "
             f'claude plugin install "$(basename "$m")@{TOY_MP}" --scope project; done'
         )
         away_run, _, _ = run_guide(
@@ -4236,7 +4242,7 @@ class SelfTestRun:
             ended == EXIT_BROKEN
             and len(lines) == 2
             and lines[0].endswith(
-                '/dev/constitution-kit/.claude-plugin/marketplace.json has no "name"'
+                '/dev/claude-constitution-layer-kit/.claude-plugin/marketplace.json has no "name"'
                 " — fix: give the marketplace its name, at the top of the object"
                 + texts.noted.format("2.1.286")
             )

@@ -9,13 +9,13 @@ status: active
 
 How to install the constitution kit into a project, keep it up to date and remove it. For what the kit is and why, read the [README](README.md) and the [intent page](INTENT.md); for its vocabulary, the [kernel](kernel/CONVENTIONS.md).
 
-Every module is a draft at manifest version `0.0.x` until Phase D of the [rollout plan](docs/rollout-plan.md#phase-d) publishes it, and no module has had its consumer-live proof yet: the first project's bootstrap is that proof, and a finding there is a fix in the kit. A draft is not offered for installation, save for its live proofs ([rule 4 of plc-0006-module-documents](docs/policies/plc-0006-module-documents.md#r4)): a project that installs the kit today is that proof, and loads the modules from the kit's path, a clone in live mode or with `--plugin-dir` ([§3](#s3)), so that a fix in the kit reaches it at once. Once the modules are published at `0.1.0` ([step 10 of the rollout plan](docs/rollout-plan.md#s10)), every project installs them from the kit's GitHub repository, `Evgenus/constitution-kit`, as [§2](#s2) says, the proof's project included ([step 11](docs/rollout-plan.md#s11)). The kit's `scripts/check-install-guide.py` runs the commands of this guide on the Claude Code version the kit's CI pins, on every pull request and on `main` after each merge, and tests what the guide says they do ([plc-0011-install-guide](docs/policies/plc-0011-install-guide.md#r4)). The commands write the kit's clone as `~/dev/constitution-kit` and the project as `~/dev/my-project`: put your own paths there.
+Every module is a draft at manifest version `0.0.x` until Phase D of the [rollout plan](docs/rollout-plan.md#phase-d) publishes it, and no module has had its consumer-live proof yet: the first project's bootstrap is that proof, and a finding there is a fix in the kit. A draft is not offered for installation, save for its live proofs ([rule 4 of plc-0006-module-documents](docs/policies/plc-0006-module-documents.md#r4)): a project that installs the kit today is that proof, and loads the modules from the kit's path, a clone in live mode or with `--plugin-dir` ([§3](#s3)), so that a fix in the kit reaches it at once. Once the modules are published at `0.1.0` ([step 10 of the rollout plan](docs/rollout-plan.md#s10)), every project installs them from the kit's GitHub repository, `Evgenus/claude-constitution-layer-kit`, as [§2](#s2) says, the proof's project included ([step 11](docs/rollout-plan.md#s11)). The kit's `scripts/check-install-guide.py` runs the commands of this guide on the Claude Code version the kit's CI pins, on every pull request and on `main` after each merge, and tests what the guide says they do ([plc-0011-install-guide](docs/policies/plc-0011-install-guide.md#r4)). The commands write the kit's clone as `~/dev/claude-constitution-layer-kit` and the project as `~/dev/my-project`: put your own paths there.
 
 <a id="s1"></a>
 ## Prerequisites
 
 1. Claude Code installed and authenticated (`claude --version`).
-2. Read access to the kit's GitHub repository, `Evgenus/constitution-kit`, from which the modules are installed: git clones it with your own credentials while the repository is private. And a local clone of it, for example at `~/dev/constitution-kit`: the commands below take the module names, the kernel, the scans and the fixtures from it.
+2. Read access to the kit's GitHub repository, `Evgenus/claude-constitution-layer-kit`, from which the modules are installed: git clones it with your own credentials while the repository is private. And a local clone of it, for example at `~/dev/claude-constitution-layer-kit`: the commands below take the module names, the kernel, the scans and the fixtures from it.
 3. git, and Python 3.12 or newer as `python3` with PyYAML, for every gate, and pytest for the fixtures:
    ```bash check=none
    python3 -m pip install 'PyYAML>=6.0' pytest
@@ -37,16 +37,16 @@ The modules are loaded first, so that no governed document is ever written witho
    ```
 2. **Register the kit as a marketplace, from GitHub.** The platform clones the repository into its own configuration, and each install then copies a module from there into its plugin cache, the copy a session runs. The marketplace goes to your user settings; with `--scope project` it goes to the project's `.claude/settings.json` instead, where a team shares it ([§3](#s3) has the team form). While the modules are drafts, a project is their live proof and loads them as the opening says: in live mode it registers its clone in place of this step, then enables the modules with the next, and a kit edit reaches it at once; with `--plugin-dir` it skips this step and the next. Do not register your local clone for a project's working install: a marketplace added from a local folder runs that folder's working files in place, whatever branch is checked out there ([§3](#s3), live mode).
    ```bash check=marketplace
-   claude plugin marketplace add Evgenus/constitution-kit
+   claude plugin marketplace add Evgenus/claude-constitution-layer-kit
    ```
 3. **Install the modules at project scope.** Each install copies the module into the plugin cache at its manifest version and enables it in the project's `.claude/settings.json`. From the GitHub marketplace a session runs that copy, and a later edit in the kit reaches the project only as [§4](#s4) says; from a clone registered in live mode a session runs the clone instead ([§3](#s3)). All the modules at once:
    ```bash check=install
-   for m in ~/dev/constitution-kit/modules/const-*; do claude plugin install "$(basename "$m")@constitution-kit" --scope project; done
+   for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do claude plugin install "$(basename "$m")@claude-constitution-layer-kit" --scope project; done
    ```
 4. **Copy the kernel.** Only the kernel is copied, and the kit's `LICENSE` and `NOTICE` with it; module source never lives in a project. `docs/constitution/CONVENTIONS.md` carries its own envelope, so the kernel is the first document its own rules govern. The kit is under the Apache License 2.0, so its `LICENSE` and its credit, `NOTICE`, travel with the copy: the block puts both beside the kernel. They cover the kernel copy alone, never your project, and carry no envelope, which [kernel §1](kernel/CONVENTIONS.md#k1) asks of Markdown documents only. A project that passes its kernel copy on to others, as a public repository does, keeps both files there and says in each kernel file it changed that it changed it.
    ```bash check=kernel
-   mkdir -p docs/constitution && cp -r ~/dev/constitution-kit/kernel/. docs/constitution/
-   cp ~/dev/constitution-kit/LICENSE ~/dev/constitution-kit/NOTICE docs/constitution/
+   mkdir -p docs/constitution && cp -r ~/dev/claude-constitution-layer-kit/kernel/. docs/constitution/
+   cp ~/dev/claude-constitution-layer-kit/LICENSE ~/dev/claude-constitution-layer-kit/NOTICE docs/constitution/
    ```
 5. **Write one policy per document kind** under `docs/policies/`, each with the kernel envelope ([kernel §1](kernel/CONVENTIONS.md#k1)): a root policy, the policy for policies, whose territory is `docs/policies/**`, itself included; a policy for the kernel copy, `docs/constitution/**`, with an id of its own, never [constitution-kernel](kernel/CONVENTIONS.md), which the kernel document already carries; a policy for decision records, `docs/decisions/**`. One policy governs exactly one kind, and a policy never lists its documents: the territory does ([kernel §3](kernel/CONVENTIONS.md#k3)). Write them yourself; the kit's own policies are examples to read, not to copy, since they cite rules only the kit has. Policies are your project's content, never the kernel's or a module's. The skill `/const-locations:new-kind` walks the order: policy, territory, document.
 6. **Write the dials file** at the repository's root, each policy's territory under its id:
@@ -79,11 +79,11 @@ The modules are loaded first, so that no governed document is ever written witho
 7. **Write decision record #1** at `docs/decisions/dec-0001-adopt-constitution-kernel.md`: "Adopt constitution kernel", its `id` the file name without `.md`, `type: task-record`, `stakes: process`, `decider: <you>`, born `inactive` since it is applied in the same commit ([kernel §5](kernel/CONVENTIONS.md#k5)). Create it through `/const-locations:new-document` in a session, so the gates check it as it is written: the envelope by [`const-meta-types`](docs/requirements.md#const-meta-types), and its type, stakes and decider by [`const-decision-records`](docs/requirements.md#const-decision-records), once `record_policies` names the record policy. The kit ships no validator of its own for the kernel's record schema.
 8. **Verify.** Open a session with `claude` in the project: the session-start text of [`const-questions`](docs/requirements.md#const-questions), [`const-referencing`](docs/requirements.md#const-referencing) and [`const-interaction`](docs/requirements.md#const-interaction) appears, `/plugin list` shows every module enabled, and the Errors tab of `/plugin` is empty. A live proof loaded with `--plugin-dir` opens that session with the flags of [§3](#s3), one per module, and takes the session-start text as the sign the modules loaded; it enabled nothing in step 3, so it reads no list of enabled plugins. Then run every module's scan from the project's root; each exits 0 when green, 2 on a finding and 1 when it could not run:
    ```bash check=scan
-   for s in const-referencing/scripts/check-references.sh const-meta-types/scripts/check-governed-document.sh const-catalogs/scripts/check-catalog-item.sh const-decision-records/scripts/check-decision-record.sh const-questions/scripts/check-open-questions.sh const-styling/scripts/check-style.sh const-language/scripts/check-language.sh const-doc-budgets/scripts/check-budgets.sh const-interaction/scripts/check-list-handles.sh const-task-close/scripts/check-task-close.sh; do sh ~/dev/constitution-kit/modules/"$s" --scan; done
+   for s in const-referencing/scripts/check-references.sh const-meta-types/scripts/check-governed-document.sh const-catalogs/scripts/check-catalog-item.sh const-decision-records/scripts/check-decision-record.sh const-questions/scripts/check-open-questions.sh const-styling/scripts/check-style.sh const-language/scripts/check-language.sh const-doc-budgets/scripts/check-budgets.sh const-interaction/scripts/check-list-handles.sh const-task-close/scripts/check-task-close.sh; do sh ~/dev/claude-constitution-layer-kit/modules/"$s" --scan; done
    ```
    [`const-locations`](docs/requirements.md#const-locations) has no scan. Each module's fixtures run on throwaway repositories, never on the project:
    ```bash check=none
-   for m in ~/dev/constitution-kit/modules/const-*; do python3 -m pytest "$m/tests" -p no:cacheprovider; done
+   for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do python3 -m pytest "$m/tests" -p no:cacheprovider; done
    ```
 9. **Commit** the kernel copy, the policies, `constitution.yaml`, `.claude/settings.json` and the record, with one human yes, since the record is at `process` stakes.
    ```bash check=commit
@@ -96,15 +96,15 @@ The modules are loaded first, so that no governed document is ever written witho
 Each module is one plugin named `const-<aspect>`; it works with its defaults alone, and the steps after loading it are optional calibration.
 
 1. **Load the plugin**, by one of four paths.
-   - **Development.** For one session, from your clone: `claude --plugin-dir ~/dev/constitution-kit/modules/const-<aspect>`, the flag once per module. This reads the clone in place, so after an edit in the kit `/reload-plugins` in the session takes it. Do not point `--plugin-dir` at the `modules/` folder: on Claude Code below 2.1.265 that loads nothing and prints nothing; check your version with `claude --version`.
+   - **Development.** For one session, from your clone: `claude --plugin-dir ~/dev/claude-constitution-layer-kit/modules/const-<aspect>`, the flag once per module. This reads the clone in place, so after an edit in the kit `/reload-plugins` in the session takes it. Do not point `--plugin-dir` at the `modules/` folder: on Claude Code below 2.1.265 that loads nothing and prints nothing; check your version with `claude --version`.
    - **Marketplace.** As steps 2 and 3 of [§2](#s2), with the one module's name. The same commands work as `/plugin marketplace add …` and `/plugin install …` in a session.
-   - **Live mode.** `claude plugin marketplace add ~/dev/constitution-kit` registers your clone itself, and the install of step 3 of [§2](#s2), with the one module's name, enables the module. A session runs the module from the clone's working files in place and never from the copy its install writes to the cache, so every edit, and every branch checked out there, reaches the project: a hook script at its next run, the plugin's hooks file, skills and session-start text at the next session or `/reload-plugins`. That a session runs the clone was seen on Claude Code 2.1.286 on 2026-10-07. Use it for the kit's own development and a module's live proof, never for a project's working install.
-   - **Team.** Commit the marketplace to the project's `.claude/settings.json`, so the catalog is added when a teammate trusts the folder; each person still installs a plugin from an external source once. A repository that holds the marketplace itself, as the kit does, declares it with `{ "source": "directory", "path": "." }` and lists each plugin under `enabledPlugins` as `"<name>@constitution-kit": true`; its relative-path plugins then load with no install, once the folder is trusted.
+   - **Live mode.** `claude plugin marketplace add ~/dev/claude-constitution-layer-kit` registers your clone itself, and the install of step 3 of [§2](#s2), with the one module's name, enables the module. A session runs the module from the clone's working files in place and never from the copy its install writes to the cache, so every edit, and every branch checked out there, reaches the project: a hook script at its next run, the plugin's hooks file, skills and session-start text at the next session or `/reload-plugins`. That a session runs the clone was seen on Claude Code 2.1.286 on 2026-10-07. Use it for the kit's own development and a module's live proof, never for a project's working install.
+   - **Team.** Commit the marketplace to the project's `.claude/settings.json`, so the catalog is added when a teammate trusts the folder; each person still installs a plugin from an external source once. A repository that holds the marketplace itself, as the kit does, declares it with `{ "source": "directory", "path": "." }` and lists each plugin under `enabledPlugins` as `"<name>@claude-constitution-layer-kit": true`; its relative-path plugins then load with no install, once the folder is trusted.
      ```json
      {
        "extraKnownMarketplaces": {
-         "constitution-kit": {
-           "source": { "source": "github", "repo": "Evgenus/constitution-kit" }
+         "claude-constitution-layer-kit": {
+           "source": { "source": "github", "repo": "Evgenus/claude-constitution-layer-kit" }
          }
        }
      }
@@ -120,13 +120,13 @@ Each module is one plugin named `const-<aspect>`; it works with its defaults alo
 Modules are versioned, and a project takes a new version without editing anything of its own. For a published module, refresh the marketplace and update each plugin, then run `/reload-plugins` in a session:
 
 ```bash check=update
-claude plugin marketplace update constitution-kit && for m in ~/dev/constitution-kit/modules/const-*; do claude plugin update "$(basename "$m")@constitution-kit" --scope project; done
+claude plugin marketplace update claude-constitution-layer-kit && for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do claude plugin update "$(basename "$m")@claude-constitution-layer-kit" --scope project; done
 ```
 
 A draft keeps its version across changes (decision [dec-0053-drafts-keep-their-versions](docs/decisions/dec-0053-drafts-keep-their-versions.md)). The marketplace update takes the repository's newest commit, and the plugin update still reports a draft at its version as current even after the kit has changed it: seen on Claude Code 2.1.286 on 2026-10-07, and not run by the kit's check, which cannot put a change on GitHub. To take such a change, uninstall each module and install it again — or load it with `--plugin-dir`, which reads the clone in place:
 
 ```bash check=reinstall
-for m in ~/dev/constitution-kit/modules/const-*; do claude plugin uninstall "$(basename "$m")@constitution-kit" --scope project && claude plugin install "$(basename "$m")@constitution-kit" --scope project; done
+for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do claude plugin uninstall "$(basename "$m")@claude-constitution-layer-kit" --scope project && claude plugin install "$(basename "$m")@claude-constitution-layer-kit" --scope project; done
 ```
 
 <a id="s5"></a>
@@ -135,7 +135,7 @@ for m in ~/dev/constitution-kit/modules/const-*; do claude plugin uninstall "$(b
 Remove the plugins, then each module's namespace from `constitution.yaml` and its `CLAUDE.md` line. The kernel copy in `docs/constitution/` stays; delete it only by a recorded `process` decision.
 
 ```bash check=uninstall
-for m in ~/dev/constitution-kit/modules/const-*; do claude plugin uninstall "$(basename "$m")@constitution-kit" --scope project; done
+for m in ~/dev/claude-constitution-layer-kit/modules/const-*; do claude plugin uninstall "$(basename "$m")@claude-constitution-layer-kit" --scope project; done
 ```
 
 <a id="s6"></a>

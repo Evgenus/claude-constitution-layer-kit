@@ -16,7 +16,7 @@ The install guide told a project to register a local clone of the kit as its mar
 On 2026-10-07, on Claude Code 2.1.286, the session ran both forms in throwaway configurations, a marked file in each place a session might read:
 
 - **A local clone.** A project that registered a local clone ran the clone's working files: its session reported the clone's module folder as the plugin's path, and the hook printed the clone's marker;
-- **GitHub.** A project that registered `Evgenus/constitution-kit` ran the copy in the plugin cache: its session reported the cache path, and the hook printed the cache copy's marker, never the marketplace clone's.
+- **GitHub.** A project that registered `Evgenus/claude-constitution-layer-kit` ran the copy in the plugin cache: its session reported the cache path, and the hook printed the cache copy's marker, never the marketplace clone's.
 
 Two questions followed, put to the decider in chat that day, one per message.
 
@@ -34,7 +34,7 @@ Two questions followed, put to the decider in chat that day, one per message.
 
 Recommendation: A, since only the GitHub form gives a project a frozen copy per version; the session recommended it. The decider chose A in chat on 2026-10-07.
 
-<a id="r1"></a>**R1.** A project installs the kit's modules from its GitHub repository: the install guide's bootstrap registers `Evgenus/constitution-kit` as the marketplace, and its prerequisites name read access to the repository beside the local clone, from which the guide's commands take the module names, the kernel copy, the scans and the fixtures. A draft's live proof still loads the modules from the kit's path, as rule 4 of [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r4) says; every project, the proof's included, installs from GitHub once the modules are published, at `0.1.0` as [step 10 of the rollout plan](../rollout-plan.md#s10) says, the switch being [its step 11](../rollout-plan.md#s11).
+<a id="r1"></a>**R1.** A project installs the kit's modules from its GitHub repository: the install guide's bootstrap registers `Evgenus/claude-constitution-layer-kit` as the marketplace, and its prerequisites name read access to the repository beside the local clone, from which the guide's commands take the module names, the kernel copy, the scans and the fixtures. A draft's live proof still loads the modules from the kit's path, as rule 4 of [plc-0006-module-documents](../policies/plc-0006-module-documents.md#r4) says; every project, the proof's included, installs from GitHub once the modules are published, at `0.1.0` as [step 10 of the rollout plan](../rollout-plan.md#s10) says, the switch being [its step 11](../rollout-plan.md#s11).
 
 <a id="r2"></a>**R2.** Registering a local clone as the marketplace is live mode: a session runs each module from the clone's working files in place, so every edit and every branch checked out there reaches the project, a hook script at its next run and the rest at the next session or reload. It serves the kit's own development and a module's live proof — a project that is a draft's proof loads the modules so, and switches to the GitHub install once the modules are published — never a project's working install.
 

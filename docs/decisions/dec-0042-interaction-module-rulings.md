@@ -78,7 +78,7 @@ An item of the audit of 2026-09-22: the kit's sessions load no plugin unless sta
   - **Pros:** nothing of the kit touches the user's global settings.
   - **Cons:** the `directory` source in a local settings file is documented for development only and its in-place loading is unverified by any run.
 
-The session recommended A, with C tried during the implementation. <a id="r4"></a>**R4.** A, chosen by the decider in chat on 2026-09-25: the kit loads its own plugins per clone through a marketplace file at its root, relative entries, one per module; the project's settings file enables each; the clone setup script registers the marketplace and installs the plugins once per clone; the work is a routine change on its own branch after this module lands, held by step 10 of the rollout plan, and the local-settings form of C replaces the user-settings write there if one headless run proves it loads in place; the marketplace is named `constitution-kit`.
+The session recommended A, with C tried during the implementation. <a id="r4"></a>**R4.** A, chosen by the decider in chat on 2026-09-25: the kit loads its own plugins per clone through a marketplace file at its root, relative entries, one per module; the project's settings file enables each; the clone setup script registers the marketplace and installs the plugins once per clone; the work is a routine change on its own branch after this module lands, held by step 10 of the rollout plan, and the local-settings form of C replaces the user-settings write there if one headless run proves it loads in place; the marketplace is named `claude-constitution-layer-kit`.
 
 ## 5. Whether the addressable-lists scan ships
 
