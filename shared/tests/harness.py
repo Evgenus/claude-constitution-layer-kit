@@ -54,6 +54,27 @@ class Result:
 
 NO_ANSWER = 124  # the code of a run that did not end within its bound, as timeout(1) gives it
 WARM = "CONSTITUTION_KIT_FAKE_WARM"  # set only for the one start `fake_program` makes
+# Run at the start of every gate process `run_gate` starts, through a `sitecustomize` on PYTHONPATH,
+# unless the test sets PYTHONPATH itself: git is asked with no clock. In a hook the gate gives each git
+# call 3 s, and on a loaded machine a real git that answers in 0.02 s at rest has taken longer
+# (2026-10-16, -n auto at a load average of 16), so a verdict no case is about would hang on the
+# machine's speed. A test that proves a git budget sets its own PYTHONPATH (`git_patch` of the shared
+# items, or a patch of its own) and keeps the clock, as does one that sets it to hide a library. The patch
+# imports only the standard library and prints nothing.
+UNCLOCKED_GIT = """\
+import subprocess
+
+_run = subprocess.run
+
+
+def _unclocked(command, *args, **kwargs):
+    if command and command[0] == "git":
+        kwargs.pop("timeout", None)
+    return _run(command, *args, **kwargs)
+
+
+subprocess.run = _unclocked
+"""
 
 
 def fake_program(path: Path, body: str) -> Path:
@@ -165,6 +186,9 @@ class Harness:
         self.bound: float | None = None  # set by `bounded`: the seconds a run may take
         self.scratch = Path(tempfile.mkdtemp(prefix=namespace + "-fixtures-"))
         atexit.register(shutil.rmtree, self.scratch, ignore_errors=True)
+        self.unclocked = self.scratch / "unclocked-git"  # the folder of `UNCLOCKED_GIT`, put on PYTHONPATH
+        self.unclocked.mkdir()
+        (self.unclocked / "sitecustomize.py").write_text(UNCLOCKED_GIT, encoding="utf-8")
 
     def run_gate(
         self,
@@ -175,9 +199,13 @@ class Harness:
         cwd: Path | None = None,
     ) -> Result:
         """`cwd` is where the entry point runs — a generator that locates the repository from where it
-        stands is run inside a consumer; a gate, which reads the path from its event, runs anywhere."""
+        stands is run inside a consumer; a gate, which reads the path from its event, runs anywhere. The
+        gate asks git with no clock (`UNCLOCKED_GIT`) unless `env` names a PYTHONPATH of its own."""
         merged = dict(os.environ)
         merged.pop("CLAUDE_PLUGIN_DATA", None)
+        merged["PYTHONPATH"] = os.pathsep.join(
+            filter(None, [str(self.unclocked), os.environ.get("PYTHONPATH")])
+        )
         merged.update(env or {})
         argv = [*(command or [self.sh, str(self.wrapper)]), *args]
         if self.bound is not None:
