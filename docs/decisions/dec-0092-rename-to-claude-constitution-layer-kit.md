@@ -2,7 +2,7 @@
 id: dec-0092-rename-to-claude-constitution-layer-kit
 type: task-record
 title: The kit is renamed claude-constitution-layer-kit, its records following under a one-time exception
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
