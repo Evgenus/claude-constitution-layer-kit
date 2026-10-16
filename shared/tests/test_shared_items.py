@@ -52,7 +52,10 @@ NO_ENVELOPE = "# Fixture\n\nNo envelope at all.\n"
 # point, whatever its wrapper. It logs the `timeout=` each git call is given, one line, the call after it;
 # and where the environment names a trigger and a lower budget, it lowers the budget of the one call whose
 # arguments hold the trigger — and only where the gate gave that call a budget at all, so that a gate with
-# none stays without one. Every other call keeps the real budget, so a loaded machine cannot trip it.
+# none stays without one. Where the environment asks for it, every other call runs with no clock and the
+# deadline's clock stands still: a fake git the case has just written takes seconds to start the first time
+# on a loaded machine (0.2 to 3.1 s measured on macOS on 2026-10-16, 0.02 s each time after), so the real
+# budget of 3 s could cut a call the case never meant to cut.
 # It also logs the `hook_seconds` of each declaration the process makes, and where the environment names
 # a lower hook budget it declares the gate with that many seconds in place of its own: the one deadline of
 # a hook run, lowered for the case that spends it.
@@ -72,8 +75,9 @@ lowered = os.environ.get("GIT_PATCH_SECONDS")
 trigger = os.environ.get("GIT_PATCH_TRIGGER")
 hook_lowered = os.environ.get("GIT_PATCH_HOOK_SECONDS")
 late = os.environ.get("GIT_PATCH_LATE")
+unclocked = os.environ.get("GIT_PATCH_UNCLOCKED")
 log, run, declare = os.environ["GIT_PATCH_LOG"], subprocess.run, identity.declare
-if late:  # the deadline's clock stands still but for the lateness of git's answers
+if late or unclocked:  # the deadline's clock stands still but for the lateness of git's answers
     clock = [0.0]
     identity.time = types.SimpleNamespace(monotonic=lambda: clock[0])
 
@@ -84,6 +88,8 @@ def spy(command, *args, **kwargs):
             out.write(repr(kwargs.get("timeout")) + " " + repr(command[1:]) + "\\n")
         if lowered and trigger in command[1:] and kwargs.get("timeout") is not None:
             repository.GIT_SECONDS = kwargs["timeout"] = float(lowered)
+        elif unclocked:  # only the call the case cuts waits on a clock: the machine's speed cuts none
+            kwargs.pop("timeout", None)
         if late and kwargs.get("timeout") is not None:  # the fake clock alone decides whether it is cut
             given = kwargs.pop("timeout")
             if float(late) >= given:
@@ -116,6 +122,7 @@ def git_patch(
     trigger: str | None = None,
     hook_seconds: float | None = None,
     late: float | None = None,
+    unclocked: bool = False,
 ) -> tuple[dict[str, str], Path]:
     """The environment that makes a gate's process log the `timeout=` of each git call it makes and the
     `hook_seconds` it is declared with, and, with `seconds` and a `trigger`, give the call whose arguments
@@ -124,7 +131,10 @@ def git_patch(
     own, which starts at 0 and moves only when git answers: by `late` seconds for each call given more,
     and by the whole of what a call was given when `late` is as much or more, that call then cut as the
     timeout cuts it, with no git started. So which call the deadline meets follows from the numbers
-    alone, never from how fast the machine runs; a call that answers runs with no clock."""
+    alone, never from how fast the machine runs; a call that answers runs with no clock. With `unclocked`,
+    every call but the one `trigger` and `seconds` lower runs with no clock, and the deadline's clock stands
+    still: the log still holds the budget the gate gave each call, and no call the case did not choose is cut
+    by a slow start of a fake git just written."""
     folder = h.scratch_dir()
     (folder / "sitecustomize.py").write_text(GIT_PATCH, encoding="utf-8")
     log = folder / "git-calls"
@@ -140,6 +150,8 @@ def git_patch(
         env["GIT_PATCH_HOOK_SECONDS"] = repr(hook_seconds)
     if late is not None:
         env["GIT_PATCH_LATE"] = repr(late)
+    if unclocked:
+        env["GIT_PATCH_UNCLOCKED"] = "1"
     return env, log
 
 
@@ -421,7 +433,9 @@ class SharedItems:
         the call. `then`: a second stderr line the failing git adds, which no message may carry.
         `hangs`: the git does not fail but never answers — it becomes a process that waits for ever,
         which the budget kills — and the hook run, whose budget is lowered to `HANG_SECONDS`, is bounded
-        by the case itself, so that a gate with no budget reads as a red item, not an endless wait."""
+        by the case itself, so that a gate with no budget reads as a red item, not an endless wait. Every
+        other call runs with no clock (`git_patch`, `unclocked`): the fake is a file just written, whose
+        first start on a loaded machine has taken longer than the 3 s a hook gives git."""
         real, silent = shutil.which("git"), shutil.which("tail")
         if real is None or silent is None:
             pytest.fail("no git or no tail on PATH: the fake git hands every other call to the real one")
@@ -440,8 +454,8 @@ class SharedItems:
         )
         fake.chmod(0o755)
         env = {"PATH": str(directory) + os.pathsep + os.environ.get("PATH", os.defpath)}
-        if hangs:
-            env.update(git_patch(self.h, HANG_SECONDS, trigger)[0])
+        cut = (HANG_SECONDS, trigger) if hangs else (None, None)
+        env.update(git_patch(self.h, *cut, unclocked=True)[0])
         with self.h.bounded(HANG_BOUND) if hangs else nullcontext():
             if through_scan:
                 _, root = self.s.gate_on(self.s.valid)
