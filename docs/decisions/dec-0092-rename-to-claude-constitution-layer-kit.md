@@ -27,7 +27,7 @@ The platform refuses a marketplace name that imitates an official one ([marketpl
 - **B. The repository and the marketplace.** A, the marketplace's name and the clone's folder in the install guide; the variables `CONSTITUTION_KIT_*` and the prose name "constitution kit" stay.
   - **Pros:** the name a user types matches the repository; the second kit can follow the pattern; the repository is private and has no consumer, so changing the ids breaks nothing.
   - **Cons:** about sixty edits and a record; the platform's rule on imitated names is not written as an exact test, so a later version could refuse a name that starts with `claude-`.
-- **C. Everything.** B, the 89 uses of the variables `CONSTITUTION_KIT_*` and the 17 uses of the prose name.
+- **C. Everything.** B, the 89 uses of the variables `CONSTITUTION_KIT_*` and the 17 uses of the prose name, in either case.
   - **Pros:** one name everywhere.
   - **Cons:** about twice the size of B, for names no user sees.
 
@@ -77,7 +77,7 @@ A, chosen by the decider in chat on 2026-10-16, over the recommendation. The ses
 
 <a id="r5"></a>**R5.** This change rewrites, in place, the eleven mentions of the old repository's or marketplace's name in [dec-0042-interaction-module-rulings](dec-0042-interaction-module-rulings.md), [dec-0043-kit-plugins-through-project-settings](dec-0043-kit-plugins-through-project-settings.md), [dec-0057-pr-flow-merge-names-the-yes](dec-0057-pr-flow-merge-names-the-yes.md), [dec-0059-bare-repo-install-in-ci](dec-0059-bare-repo-install-in-ci.md), [dec-0060-ci-installs-from-the-github-remote](dec-0060-ci-installs-from-the-github-remote.md) and [dec-0071-projects-install-from-github](dec-0071-projects-install-from-github.md). Each now names `claude-constitution-layer-kit`, the five dated facts included, though the repository had the old name on those dates; git keeps each record as it was accepted. No other word of those records changes.
 
-<a id="r6"></a>**R6.** The edit of R5 is an exception to [kernel §5](../../kernel/CONVENTIONS.md#k5) and to rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), which stand unchanged. It sets no precedent: a later rename of a repository, a marketplace or a plugin id leaves accepted records as they stand, unless a record of its own rules otherwise.
+<a id="r6"></a>**R6.** The edit of R5 is an exception to [kernel §5](../../kernel/CONVENTIONS.md#k5) and to rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), which stand unchanged. It sets no precedent: a later rename of a repository, a marketplace or a plugin id leaves accepted records as they stand.
 
 ## Applied
 
