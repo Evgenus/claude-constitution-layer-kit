@@ -2197,10 +2197,15 @@ import dataclasses
 import os
 import subprocess
 import sys
+import types
 
 sys.path.insert(0, {scripts!r})
+from const_gate import identity
 from referencing_gate import lychee, modes, start, tree
 
+# the hook's one deadline reads a clock that stands still, so it is the whole of its seconds at every wait:
+# the real seconds before the check's budget begins, which a loaded machine stretches, never shorten it
+identity.time = types.SimpleNamespace(monotonic=lambda: 0.0)
 if os.environ.get("HOOK_BUDGET"):
     start.GATE = dataclasses.replace(start.GATE, hook_seconds=float(os.environ["HOOK_BUDGET"]))
 
@@ -2230,6 +2235,8 @@ def masking(text):
 def spy(command, *args, **kwargs):
     if os.path.basename(str(command[0])) == "lychee" and command[1] == "--version":
         now[0] += float(os.environ.get("PROBE_STEP", "0"))
+        if not os.environ.get("PROBE_WAITS"):  # a probe that answers at once: no clock can cut it
+            kwargs.pop("timeout", None)
     elif os.path.basename(str(command[0])) == "lychee":
         note("run timeout=%r clock=%r" % (kwargs.get("timeout"), now[0]))
     return run(command, *args, **kwargs)
@@ -2260,8 +2267,14 @@ def deadline_line(seconds: int, before: str) -> str:
     return shared.c12_hook_budget(seconds, before).render()
 
 
+# What a run cut at its timeout may take in all, the gate's start included. It only tells a cut run from one
+# that waited out its fake's 30 s, so it stays far above any start a loaded machine takes; the trace's
+# timeout and the line prove the cut. It was 6 s and, for the version probe, 8: those measured the machine,
+# since the first start of a fake just written has taken 3.1 s on a loaded one.
+CUT_BOUND = 20.0
 BUDGET_LYCHEE = (  # logs the first argument of each call; says its version, then an empty report or nothing
-    'echo "$1" >> "$LYCHEE_LOG"\ncase "$1" in --version) {wait}echo \'{version}\';; *) {run};; esac\n'
+    'echo "$1" >> "$LYCHEE_LOG"\n'
+    "case \"$1\" in --warm) ;; --version) {wait}echo '{version}';; *) {run};; esac\n"
 )
 
 
@@ -2277,7 +2290,10 @@ def on_a_patched_clock(
     documents, run through the entry point with
     the clock patched as `clock` says (the seconds, as LIST_STEP, MATCH_STEP, MASK_FIRST, MASK_STEP, READ_STEP
     and PROBE_STEP). `version` is what the fake lychee says to --version, None for no lychee on PATH, after
-    `probe_seconds` of real waiting where that is not 0. Gives
+    `probe_seconds` of real waiting where that is not 0. The fake is a file just written, whose first start
+    on a loaded machine has taken seconds (0.2 to 3.1 s measured on macOS on 2026-10-16): so the fake is
+    started once before the run, the hook's deadline stands still on a clock of the driver's own, and a
+    probe with no real wait runs with no clock; only the waits a case sets can run out. Gives
     the result, the trace, the fake lychee's own log of its calls, the real seconds it took, and the
     number of documents the tree holds."""
     consumer = H.fresh_consumer()
@@ -2288,11 +2304,17 @@ def on_a_patched_clock(
     scratch = H.scratch_dir()
     (scratch / "driver.py").write_text(BUDGET_DRIVER.format(scripts=str(SCRIPTS)))
     wait = f"{shutil.which('sleep') or '/bin/sleep'} {probe_seconds}; " if probe_seconds else ""
+    waits = {"PROBE_WAITS": "1"} if probe_seconds else {}
     script = None if version is None else BUDGET_LYCHEE.format(run=run, version=version, wait=wait)
+    on_path = path_with(script)
+    if script is not None:  # the fake's first start, paid before the run, outside every clock and log
+        warm = [str(Path(on_path["PATH"]) / "lychee"), "--warm"]
+        subprocess.run(warm, env={"LYCHEE_LOG": os.devnull}, capture_output=True, check=False)
     env = {
-        **path_with(script),
+        **on_path,
         "TRACE": str(scratch / "trace"),
         "LYCHEE_LOG": str(scratch / "lychee"),
+        **waits,
         **clock,
     }
     stdin = "" if scan else event_json(consumer.root, Write(SOURCE, source("See [x](t.md).")), event=event)
@@ -2315,7 +2337,7 @@ def the_budget_is_one() -> None:
     """The check after a write has one deadline for the reads, the masking and lychee's run, and the
     check before a write the same deadline for its reads; the scan has none. Every case moves a patched
     clock by the document: the longest real wait is half a second, bar the probe cut by a hook of 2 s,
-    which waits those 2.
+    which waits those 2. The hook's deadline stands still, so the seconds it leaves are exact.
     A wait the hook's deadline cut short that runs out ends in the shared C12.14 line, for each of the four
     waits: the probe, the run, the reads and the masking after a write, the reads before one.
     The order of two configuration failures is held here too: with a missing lychee and a document that
@@ -2359,7 +2381,7 @@ def the_budget_is_one() -> None:
         {"MASK_FIRST": "19.5"}, run=f"exec {shutil.which('sleep') or '/bin/sleep'} 30"
     )
     broken_typed(hung, TOO_SLOW_TYPED)
-    assert "run timeout=0.5 clock=19.5" in trace and took < 6, (
+    assert "run timeout=0.5 clock=19.5" in trace and took < CUT_BOUND, (
         f"the run was given 0.5 s and ended after {took:.1f} s: {trace}"
     )
     # the reads and the masking leave 0.005 s, the deadline not yet passed: the run is given the floor,
@@ -2389,11 +2411,11 @@ def the_budget_is_one() -> None:
         f" {clock!r}: {trace}, lychee {ran}"
     )
     # the hook's own deadline, declared as 12 s, is shorter than the check's cap of 20 s: the run is given
-    # what that deadline has left, a little under 12 s, never the cap
+    # what that deadline has left, all 12 s on its standing clock, never the cap
     short, trace, ran, _, _ = on_a_patched_clock({"HOOK_BUDGET": "12"})
     given = [line for line in trace if line.startswith("run ")]
     timeout = float(given[0].split()[1].split("=")[1]) if given else -1.0
-    assert short.code == 0 and 11 < timeout <= 12, (
+    assert short.code == 0 and timeout == 12.0, (
         f"exit {short.code}, the run was given {timeout!r} s of a hook that declares 12 s: {trace}"
     )
     # a wait the hook's deadline cut short that then runs out ends in the deadline's shared line, naming the
@@ -2404,7 +2426,7 @@ def the_budget_is_one() -> None:
         {"HOOK_BUDGET": "12", "MASK_FIRST": "11.5"}, run=f"exec {sleep} 30"
     )
     broken_typed(cut_run, deadline_line(12, "lychee finished the link check"))
-    assert any(line.startswith("run timeout=0.") for line in trace) and took < 6, (
+    assert any(line.startswith("run timeout=0.") for line in trace) and took < CUT_BOUND, (
         f"the run was given under a second and ended after {took:.1f} s: {trace}"
     )
     # the reads of a check after a write pass that deadline before any masking
@@ -2522,9 +2544,11 @@ def test_a_link_checker_that_hangs() -> None:
     budget belongs to the check after a write, and it is one budget with the reading and the masking
     of the tree (`the_budget_is_one`): the scan waits for a slow checker, as long as it takes.
     The three runs go side by side, the longest about 21 s, and the budget cases follow one after the
-    other: the item costs about 30 s."""
+    other: the item costs about 30 s. The two fakes that must answer the probe are started once before the
+    runs, since the first start of a file just written has taken seconds on a loaded machine, and the hook
+    run's deadline stands still (`git_patch`, `unclocked`): the start of a slow machine shortens no wait."""
     sleep = shutil.which("sleep") or "/bin/sleep"  # the fake's PATH holds no sleep
-    slow_version = f'case "$1" in --version) {sleep} 8; echo "lychee 0.24.2";; *) exit 0;; esac\n'
+    slow_version = f'case "$1" in --version) {sleep} 30; echo "lychee 0.24.2";; *) exit 0;; esac\n'
     # answers --version at once; any other call is 1 s past the hook's 20 s, then an empty report
     report = '{"error_map": {}}'
     slow_run = f"case \"$1\" in --version) echo 'lychee 0.24.2';; *) {sleep} 21; echo '{report}';; esac\n"
@@ -2536,15 +2560,19 @@ def test_a_link_checker_that_hangs() -> None:
         tree.write(TARGET, TARGET_TEXT)
         tree.write(SOURCE, source("See [x](t.md)."))
     event = event_json(in_the_hook.root, Write(SOURCE, source("See [x](t.md).")), event=AFTER)
+    scan_env = path_with(slow_run)
+    hook_env = {**path_with(slow_run), **git_patch(H, unclocked=True)[0]}
+    for env in (scan_env, hook_env):  # the first start, paid here: the probe's 5 s are for the answer
+        subprocess.run([str(Path(env["PATH"]) / "lychee"), "--version"], capture_output=True, check=False)
 
-    def timed(stdin: str, args: list[str], script: str) -> tuple[Result, float]:
+    def timed(stdin: str, args: list[str], env: dict[str, str]) -> tuple[Result, float]:
         began = time.monotonic()
-        return H.run_gate(stdin, args=args, env=path_with(script)), time.monotonic() - began
+        return H.run_gate(stdin, args=args, env=env), time.monotonic() - began
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        probe = pool.submit(timed, "", ["--scan", str(consumer.root)], slow_version)
-        scanned = pool.submit(timed, "", ["--scan", str(in_the_scan.root)], slow_run)
-        hooked = pool.submit(timed, event, [], slow_run)
+        probe = pool.submit(timed, "", ["--scan", str(consumer.root)], path_with(slow_version))
+        scanned = pool.submit(timed, "", ["--scan", str(in_the_scan.root)], scan_env)
+        hooked = pool.submit(timed, event, [], hook_env)
     result, took = probe.result()
     scan, scan_took = scanned.result()
     hook, hook_took = hooked.result()
@@ -2557,7 +2585,7 @@ def test_a_link_checker_that_hangs() -> None:
     broken_typed(result, probe_typed)
     hand_typed = TOO_SLOW_TYPED
     the_budget_is_one()
-    assert result.code == 1 and 4 < took < 8, (
+    assert result.code == 1 and 4 < took < CUT_BOUND, (
         f"the version: exit {result.code} after {took:.1f} s: {result.stderr}"
     )
     expect(scan, 0, shared.g1_green_scan(messages.f9_scan_tail(5, 1, 5, 0, 0, 0)), "stdout")
