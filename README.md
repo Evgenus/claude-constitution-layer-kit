@@ -67,6 +67,17 @@ The modules ship as drafts, each at version `0.0.x` until Phase D of the [rollou
 
 The [install guide](INSTALL.md) bootstraps a new project step by step: the prerequisites, the modules loaded first, the kernel copied, the first policies, the dials file and the first record, then a scan of every module. It also covers installing one module, updating and uninstalling. CI runs its commands on every change to the kit.
 
+## Running the gates
+
+The kit keeps one list of its checks, `scripts/gate-list.sh`. CI runs the whole list on every pull request and on `main` after each merge, so no local run is required. To see a red before you push, run the list from the kit root:
+
+```bash
+sh scripts/gate-list.sh --names gate
+sh scripts/gate-list.sh --run <entry>
+```
+
+The first command lists the gates; `--names extra` lists the fixtures, lint and types. The second runs one entry, or every entry of a CI job when you name the job. A local run needs the Python packages that `.github/workflows/gates.yml` installs, at the versions it pins. The install entries also need the Claude Code version the kit pins: run `sh scripts/setup-claude.sh` once per clone to get it.
+
 ## Repository map
 
 | No. | Path | What it holds |
