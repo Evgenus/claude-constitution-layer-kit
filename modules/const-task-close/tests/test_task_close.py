@@ -35,7 +35,7 @@ from consumer import Consumer
 from harness import Edit, Harness, Result, Write, stop_json
 from task_close_gate import dials, messages, start
 from task_close_gate.model import BODY, Declaration, Pair
-from test_shared_items import PatternDial, Subject
+from test_shared_items import PatternDial, Subject, git_patch
 
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 
@@ -1823,7 +1823,9 @@ def test_unrelated_histories() -> None:
 
 def fake_git(real: str, failing: str, said: str | None = None, when: str = "") -> dict[str, str]:
     """A git first on PATH that fails one subcommand as git does, with the line it says, and hands every
-    other to the real one; with `when`, only a call whose arguments hold that text."""
+    other to the real one; with `when`, only a call whose arguments hold that text. Its calls run with no
+    clock (`git_patch`, `unclocked`): the fake is a file just written, whose first start on a loaded machine
+    has taken longer than the 3 s a hook gives git, which would end the hook before the planted failure."""
     line = f"fatal: planted {failing} failure" if said is None else said
     script = H.scratch_dir() / "git"
     script.write_text(
@@ -1833,7 +1835,7 @@ def fake_git(real: str, failing: str, said: str | None = None, when: str = "") -
         encoding="utf-8",
     )
     script.chmod(0o755)
-    return {"PATH": f"{script.parent}{os.pathsep}{os.environ['PATH']}"}
+    return {"PATH": f"{script.parent}{os.pathsep}{os.environ['PATH']}", **git_patch(H, unclocked=True)[0]}
 
 
 CLOSING = "until then neither the tree at turn end nor a change's documents are checked"
