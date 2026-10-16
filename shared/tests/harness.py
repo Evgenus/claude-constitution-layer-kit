@@ -1,5 +1,6 @@
 """The case runner. It drives a module's real entry point — the POSIX wrapper, stdin, exit
-code — with real PreToolUse events, exactly as the platform does.
+code — with real PreToolUse events, as the platform does, save that git is asked with no clock
+(`UNCLOCKED_GIT`).
 
 A Case is one acceptance item with both halves: the red half must exit 2 AND teach the
 expected message, its RED lines exactly that finding's headline and the count line, so a
@@ -54,13 +55,14 @@ class Result:
 
 NO_ANSWER = 124  # the code of a run that did not end within its bound, as timeout(1) gives it
 WARM = "CONSTITUTION_KIT_FAKE_WARM"  # set only for the one start `fake_program` makes
-# Run at the start of every gate process `run_gate` starts, through a `sitecustomize` on PYTHONPATH,
-# unless the test sets PYTHONPATH itself: git is asked with no clock. In a hook the gate gives each git
-# call 3 s, and on a loaded machine a real git that answers in 0.02 s at rest has taken longer
-# (2026-10-16, -n auto at a load average of 16), so a verdict no case is about would hang on the
-# machine's speed. A test that proves a git budget sets its own PYTHONPATH (`git_patch` of the shared
-# items, or a patch of its own) and keeps the clock, as does one that sets it to hide a library. The patch
-# imports only the standard library and prints nothing.
+# Run at the start of every gate process `run_gate` starts, through a `sitecustomize` last on PYTHONPATH:
+# git is asked with no clock. In a hook the gate gives each git call 3 s, and on a loaded machine a real git
+# that answers in 0.02 s at rest has taken longer (2026-10-16, -n auto at a load average of 16), so a
+# verdict no case is about would hang on the machine's speed. Python loads the first `sitecustomize` on the
+# path, so a test that puts one of its own on PYTHONPATH (`git_patch` of the shared items, or a patch of
+# its own) sets the clocks itself: a test that proves a time limit keeps the one it proves. A folder that
+# only hides a library holds none, and this one still loads. It imports only the standard library and
+# prints nothing.
 UNCLOCKED_GIT = """\
 import subprocess
 
@@ -200,13 +202,12 @@ class Harness:
     ) -> Result:
         """`cwd` is where the entry point runs — a generator that locates the repository from where it
         stands is run inside a consumer; a gate, which reads the path from its event, runs anywhere. The
-        gate asks git with no clock (`UNCLOCKED_GIT`) unless `env` names a PYTHONPATH of its own."""
+        gate asks git with no clock (`UNCLOCKED_GIT`, last on PYTHONPATH) unless a `sitecustomize` the test
+        puts before it sets the clocks."""
         merged = dict(os.environ)
         merged.pop("CLAUDE_PLUGIN_DATA", None)
-        merged["PYTHONPATH"] = os.pathsep.join(
-            filter(None, [str(self.unclocked), os.environ.get("PYTHONPATH")])
-        )
         merged.update(env or {})
+        merged["PYTHONPATH"] = os.pathsep.join(filter(None, [merged.get("PYTHONPATH"), str(self.unclocked)]))
         argv = [*(command or [self.sh, str(self.wrapper)]), *args]
         if self.bound is not None:
             return self.run_bounded(argv, stdin, merged, cwd, self.bound)

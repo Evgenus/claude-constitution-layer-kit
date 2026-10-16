@@ -1115,7 +1115,9 @@ def test_t19() -> None:
     """Nothing while a ceiling is set; the zero line typed by hand when the dial is empty or absent, of
     the size the module document states; no dials file (the first also from a subfolder of the root) and no
     repository said in the module's words, roots and folders whose names hold `:` too."""
-    patch, log = git_patch(SESSION)  # the printer is a hook: each of its git calls has the hook's budget
+    # the printer is a hook: each of its git calls has the hook's budget, logged before the call is made
+    # with no clock, so that a slow git on a loaded machine cuts none of them
+    patch, log = git_patch(SESSION, unclocked=True)
     set_ = SESSION.run_gate(session_json(prepared()), env=patch)
     empty = SESSION.run_gate(session_json(prepared({NAMESPACE: {"ceilings": []}})))
     absent = SESSION.run_gate(session_json(prepared({NAMESPACE: {}})))

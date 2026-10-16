@@ -1761,7 +1761,9 @@ def test_t30() -> None:
     """The rules first, whole; then nothing when the default list gates; the zero line when the
     dial is empty; the project's pairs numbered."""
     root = prepared()
-    patch, log = git_patch(SESSION)  # the printer is a hook: each of its git calls has the hook's budget
+    # the printer is a hook: each of its git calls has the hook's budget, logged before the call is made
+    # with no clock, so that a slow git on a loaded machine cuts none of them
+    patch, log = git_patch(SESSION, unclocked=True)
     plain = SESSION.run_gate(session_json(root), env=patch)
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
     verbosity = (

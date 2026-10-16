@@ -708,7 +708,9 @@ ZERO_LINE = (
 def test_session_start_zero_line() -> None:
     """Nothing while a record policy is named; the zero line typed by hand when the dial is an empty
     list and when it is absent, of the size the module document states."""
-    patch, log = git_patch(SESSION)  # the printer is a hook: each of its git calls has the hook's budget
+    # the printer is a hook: each of its git calls has the hook's budget, logged before the call is made
+    # with no clock, so that a slow git on a loaded machine cuts none of them
+    patch, log = git_patch(SESSION, unclocked=True)
     named = SESSION.run_gate(session_json(session_root()), env=patch)
     named_ok = named.code == 0 and named.stdout == "" and named.stderr == ""
     module_doc = (MODULE_ROOT / "MODULE.md").read_text(encoding="utf-8")
