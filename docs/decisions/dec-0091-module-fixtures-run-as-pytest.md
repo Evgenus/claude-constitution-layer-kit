@@ -50,7 +50,7 @@ B, recommended by the session: it scored highest with A under the baseline weigh
 
 ## Choice
 
-D, chosen by the decider in chat on 2026-10-14, over the recommendation, with these conditions: one pull request; the plan approved before implementation; the work orchestrated by one session, with implementers and verifiers in parallel by module; type checking and coverage kept; stability and drift held by named checks; no code outside the tests touched but the kit tooling that reads the runner. Asked then whether CI runs the fixtures in parallel too, the decider chose that it does, in chat on 2026-10-14, once the shuffled runs are green for every module. Asked whether the change owes a research comparison, the decider chose one, in chat on 2026-10-14, over the session's recommendation of none: the survey is kept in the repository as [res-0013-fixture-runner](../research/res-0013-fixture-runner.md), and the research policy is widened to hold it.
+D, chosen by the decider in chat on 2026-10-14, over the recommendation, with these conditions: one pull request; the plan approved before implementation; the work orchestrated by one session, with implementers and verifiers in parallel by module; type checking and coverage kept; stability and drift held by named checks; no code outside the tests touched but the kit tooling that reads the runner. Asked then whether CI runs the fixtures in parallel too, the decider chose that it does, in chat on 2026-10-14, once the shuffled runs are green for every module. The decider reversed that in chat on 2026-10-16, after an audit of the branch found that items with time limits fail on a loaded machine: CI runs each module's tests one by one. Asked whether the change owes a research comparison, the decider chose one, in chat on 2026-10-14, over the session's recommendation of none: the survey is kept in the repository as [res-0013-fixture-runner](../research/res-0013-fixture-runner.md), and the research policy is widened to hold it.
 
 ## Ruling
 
@@ -72,7 +72,7 @@ D, chosen by the decider in chat on 2026-10-14, over the recommendation, with th
 
 <a id="r9"></a>**R9.** The kit's gate list and CI run a module's tests only through `scripts/check-aspects.py --run --module`, as R1 of [dec-0080-fixtures-run-through-check-aspects](dec-0080-fixtures-run-through-check-aspects.md#r1) rules for each module's fixtures entry, which runs them whole and so selects none. `scripts/check-gate-lists.py` holds what their lines can show: no code line names pytest save in an exact pin `pytest==<version>`, passes `--item` or names `PYTEST_ADDOPTS`, and no pytest configuration file at the kit root, in `modules/`, in a module's folder or in its `tests/` sets `addopts`.
 
-<a id="r10"></a>**R10.** Coverage stays `coverage run -m pytest` through `scripts/kit_coverage.py`; pytest-cov is not used. With `CONSTITUTION_KIT_JOBS` set, the run takes `-n <value>` from pytest-xdist; CI sets it to `auto` in every module's job.
+<a id="r10"></a>**R10.** Coverage stays `coverage run -m pytest` through `scripts/kit_coverage.py`; pytest-cov is not used. With `CONSTITUTION_KIT_JOBS` set, the run takes `-n <value>` from pytest-xdist. CI does not set it, so each module's job runs its tests one by one.
 
 <a id="r11"></a>**R11.** CI pins `pytest==9.1.1` and `pytest-xdist==3.8.0` on its tools line. A consumer verifies an install with `python3 -m pytest <plugin root>/tests -p no:cacheprovider`, pytest installed for it; a module's `requirements.txt` names none of them, since no gate needs them.
 
@@ -82,7 +82,7 @@ D, chosen by the decider in chat on 2026-10-14, over the recommendation, with th
 
 ## Applied
 
-Applied on the branch `work/pytest-fixtures`, the eleven modules one commit each, then the switch, the texts, the parallel run in CI and the fixes of the review and the carry audit; this record is set `inactive` in the branch's last commit. At the cut and after it: 1,025 items green in each of the eleven modules' runs; the fixtures' lines and branches reached equal under the old runner and under pytest, module by module; three shuffled runs of each module, serial and with `-n auto`, green; the eleven run one after another in about 12 minutes before, unloaded, and in about 5 minutes after, each with `-n auto`.
+Applied on the branch `work/pytest-fixtures`, the eleven modules one commit each, then the switch, the texts, the parallel run in CI and the fixes of the review and the carry audit, and last the serial run in CI again with the fixes of the items that failed on a loaded machine; this record is set `inactive` in the branch's last commit. At the cut and after it: 1,025 items green in each of the eleven modules' runs; the fixtures' lines and branches reached equal under the old runner and under pytest, module by module; three shuffled runs of each module, serial and with `-n auto`, green; the eleven run one after another in about 12 minutes before, unloaded, and in about 5 minutes after, each with `-n auto`.
 
 ## Carry list
 

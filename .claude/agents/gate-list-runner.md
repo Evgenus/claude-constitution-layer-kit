@@ -36,7 +36,7 @@ any, a `claude` of another version included, is reported as such, never skipped.
 run was made with it, and keep the note that ends each headline line.
 
 When the message asks, run the extra group too, `sh scripts/gate-list.sh --names extra`: the
-branch gate's fixture, the fixture of `scripts/setup-claude.sh`, each module's fixtures — its tests under pytest, side by side with `CONSTITUTION_KIT_JOBS=auto` set as CI sets it, run through
+branch gate's fixture, the fixture of `scripts/setup-claude.sh`, each module's fixtures — its tests under pytest, one by one as CI runs them, with no `CONSTITUTION_KIT_JOBS`, run through
 `python3 scripts/check-aspects.py --run --module <module>`, which also holds their items against the module's
 acceptance table (the tests write temporary repositories in the system's temporary directory, never in the kit) —
 the lint and the type commands. And, only when
