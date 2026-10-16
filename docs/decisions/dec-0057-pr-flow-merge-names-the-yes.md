@@ -27,7 +27,7 @@ On 2026-09-30 the decider asked to publish the kit to GitHub. The kit had no rem
 
 The session recommended A, since it took the decider's plan to be GitHub Free, where a private repository has no branch protection. <a id="r1"></a>**R1.** C, chosen by the decider in chat on 2026-09-30: the repository is private and is made public after the first consumer project's live proof. The license and whether the author's email stays in the history are decided at that step. The decider holds GitHub Pro, so a private repository can be protected.
 
-<a id="r2"></a>**R2.** The repository `Evgenus/constitution-kit` was created on 2026-09-30 as the clone's `origin`, and `main` and all 77 local branches were pushed, at the decider's word in chat.
+<a id="r2"></a>**R2.** The repository `Evgenus/claude-constitution-layer-kit` was created on 2026-09-30 as the clone's `origin`, and `main` and all 77 local branches were pushed, at the decider's word in chat.
 
 ## 2. When to protect main
 

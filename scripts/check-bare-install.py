@@ -3924,7 +3924,7 @@ def record_cases(tally: Tally, step: StepTwo) -> None:
         ("a record without a plugins object", '{"version": 2}', no_list),
         (
             "a record of another marketplace's name",
-            json.dumps({"plugins": {"const-x@constitution-kit": [commit()]}}),
+            json.dumps({"plugins": {"const-x@other-mp": [commit()]}}),
             no_list,
         ),
         (
