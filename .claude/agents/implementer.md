@@ -15,8 +15,8 @@ tool before you write.
 Apply the rule the message gives, keep every exception it names, and hold every case it lists.
 Extend an existing test where one fits before adding a new item. Prove each behaviour change
 red without the fix and green with it, and keep the red output for the commit message. You run
-no mutations: they are the verifier's. Before the commit, run the full runner of every module
-you touched; a run with `--item` never counts as the green of a commit. Commit on the work
+no mutations: they are the verifier's. Before the commit, run the whole tests of every module
+you touched; a run that selects tests never counts as the green of a commit. Commit on the work
 branch the message names, never on `main`, with the trailer line the message gives. Never write
 "he" or "him" for the decider. Set the marks the message names.
 
@@ -39,9 +39,9 @@ SHELL RULES, strict:
    copy in what you need; the session removes the folders before the merge.
 5. Never `git stash`, `git push`, `git merge`, `git reset`, `git checkout --` or `git rebase`.
 
-Before your final reply, run `ps -ax -o pid,command | grep -E 'sleep|until|tests/run.py|check-'`
+Before your final reply, run `ps -ax -o pid,command | grep -E 'sleep|until|pytest|check-'`
 and `git status --short`; stop any process you started that still runs.
 
-Report: the commit hash; the red and the green output, the item lines and the last line; the
-full runner result of each touched module; each exception kept and how; the candidate new
+Report: the commit hash; the red and the green output, the failures and the summary line; the
+whole run's result of each touched module; each exception kept and how; the candidate new
 items; the `ps` and `git status` readings.

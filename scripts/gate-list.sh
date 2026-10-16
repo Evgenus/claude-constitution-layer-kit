@@ -12,9 +12,9 @@
 # The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types: each
 # module's, the branch gate's fixture, the fixture of scripts/setup-claude.sh, and the kit's own lint of scripts/ and shared/ and types of its
 # checks and shared/const_gate, the shared tests typed through each module's links. A module's fixtures
-# run through `check-aspects.py --run --module <module>`, which runs its tests/run.py once, prints the
-# runner's own output whenever it exits other than 0, and holds the runner's items against the module's
-# acceptance table both ways (decision dec-0080-fixtures-run-through-check-aspects).
+# run through `check-aspects.py --run --module <module>`, which collects its tests under pytest, runs
+# them once, prints pytest's own output whenever it exits other than 0, and holds the items against the
+# module's acceptance table both ways (decision dec-0080-fixtures-run-through-check-aspects).
 # A CI job is a module — its scan, its install, its fixtures, its lint and its types — or `install-guide`,
 # the run of the install guide, or `kit`, every other entry no module holds; an entry is in exactly one job, and one no line of job() maps falls into `kit`.
 # The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's

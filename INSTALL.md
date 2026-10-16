@@ -15,10 +15,10 @@ Every module is a draft at manifest version `0.0.x` until Phase D of the [rollou
 ## Prerequisites
 
 1. Claude Code installed and authenticated (`claude --version`).
-2. Read access to the kit's GitHub repository, `Evgenus/constitution-kit`, from which the modules are installed: git clones it with your own credentials while the repository is private. And a local clone of it, for example at `~/dev/constitution-kit`: the commands below take the module names from it, and copy the kernel, run the scans and run the fixtures from it.
-3. git, and Python 3.12 or newer as `python3` with PyYAML, for every module's gate:
+2. Read access to the kit's GitHub repository, `Evgenus/constitution-kit`, from which the modules are installed: git clones it with your own credentials while the repository is private. And a local clone of it, for example at `~/dev/constitution-kit`: the commands below take the module names, the kernel, the scans and the fixtures from it.
+3. git, and Python 3.12 or newer as `python3` with PyYAML, for every gate, and pytest for the fixtures:
    ```bash check=none
-   python3 -m pip install 'PyYAML>=6.0'
+   python3 -m pip install 'PyYAML>=6.0' pytest
    ```
 4. Vale 3.23.0 or newer for [`const-language`](docs/requirements.md#const-language), and lychee 0.24.2 or newer for [`const-referencing`](docs/requirements.md#const-referencing):
    ```bash check=none
@@ -81,9 +81,9 @@ The modules are loaded first, so that no governed document is ever written witho
    ```bash check=scan
    for s in const-referencing/scripts/check-references.sh const-meta-types/scripts/check-governed-document.sh const-catalogs/scripts/check-catalog-item.sh const-decision-records/scripts/check-decision-record.sh const-questions/scripts/check-open-questions.sh const-styling/scripts/check-style.sh const-language/scripts/check-language.sh const-doc-budgets/scripts/check-budgets.sh const-interaction/scripts/check-list-handles.sh const-task-close/scripts/check-task-close.sh; do sh ~/dev/constitution-kit/modules/"$s" --scan; done
    ```
-   [`const-locations`](docs/requirements.md#const-locations) has no scan. Each module's fixtures run on throwaway repositories of their own, never on the project:
+   [`const-locations`](docs/requirements.md#const-locations) has no scan. Each module's fixtures run on throwaway repositories, never on the project:
    ```bash check=none
-   for m in ~/dev/constitution-kit/modules/const-*; do python3 "$m/tests/run.py"; done
+   for m in ~/dev/constitution-kit/modules/const-*; do python3 -m pytest "$m/tests" -p no:cacheprovider; done
    ```
 9. **Commit** the kernel copy, the policies, `constitution.yaml`, `.claude/settings.json` and the record, with one human yes, since the record is at `process` stakes.
    ```bash check=commit
@@ -111,7 +111,7 @@ Each module is one plugin named `const-<aspect>`; it works with its defaults alo
      ```
 2. **Calibrate.** Add the module's namespace, which equals the plugin's name, to `constitution.yaml`; the module reads nothing else, and its defaults apply while the namespace is absent. Three dials switch a check on: `record_policies` of [`const-decision-records`](docs/requirements.md#const-decision-records), `catalogs` of [`const-catalogs`](docs/requirements.md#const-catalogs), and `coverage` for the range check of [`const-task-close`](docs/requirements.md#const-task-close); each gate says so on every run until its dial is written. The module's `INSTALL.md` lists its dials.
 3. **The `CLAUDE.md` pointer.** Only if the module's `MODULE.md` declares one: the single line its `INSTALL.md` gives, never more than one line per module.
-4. **Verify.** `/plugin list` shows the module enabled, its skills appear as `/const-<aspect>:<skill>` under `/help`, its scan, as its `INSTALL.md` names it, exits 0 from the project's root, and its fixtures, `python3 <plugin root>/tests/run.py`, are green on throwaway repositories of their own.
+4. **Verify.** `/plugin list` shows the module enabled, its skills appear as `/const-<aspect>:<skill>` under `/help`, its scan, as its `INSTALL.md` names it, exits 0 from the project's root, and its fixtures, `python3 -m pytest <plugin root>/tests -p no:cacheprovider`, are green.
 5. **Commit** `constitution.yaml`, `.claude/settings.json` and any `CLAUDE.md` line, the install noted in the message: routine, no record. With [`const-task-close`](docs/requirements.md#const-task-close) loaded, a turn that ends with uncommitted changes is reported once and the model is asked to commit; a change that touches code named in `coverage` updates the paired document or carries a `No-Doc-Impact: <pair> — <reason>` trailer on one of its commits.
 
 <a id="s4"></a>

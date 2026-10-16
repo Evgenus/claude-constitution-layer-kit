@@ -1,23 +1,25 @@
 """Kit tooling, never shipped in a module: a module's fixtures run under coverage.py, and what they reach.
 
-`scripts/check-aspects.py --run` runs a module's runner under coverage.py when the environment variable
-`CONSTITUTION_KIT_COVERAGE` names a folder, and writes `<folder>/<module>.json`; the kit's CI sets it in
-each module's job, and `scripts/module-coverage.py` reads the files (decision
-dec-0089-module-coverage-report). An empty or absent variable runs the runner as before.
+`scripts/check-aspects.py --run` runs a module's runner — pytest over its tests/ —
+under coverage.py when the environment variable `CONSTITUTION_KIT_COVERAGE` names a folder, and writes
+`<folder>/<module>.json`; the kit's CI sets it in each module's job, and `scripts/module-coverage.py`
+reads the files (decision
+dec-0089-module-coverage-report). An empty or absent variable runs the runner plain.
 
-The run is `python3 -m coverage run` with branch coverage and `patch = subprocess`: the fixtures run the
-gates as child processes, `sh` entry points that call `python3`, and each such child is measured too. So
-that a gate's `python3` is the measured interpreter, a folder holding a `python3` that calls the one
-running the check goes first on the runner's PATH. A child started with an environment of its own,
-without coverage's variable, is not measured, and its lines count as missed. coverage.py measures Python
-alone: a module's `.sh` files are not in these numbers. The measured code is the module's own Python
-under modules/<module>/scripts and the shared const_gate it links, read at shared/const_gate; when the
-run left coverage data, a file there that no run imports counts with all its lines missed. Nothing else
-is measured: not the runner, not the module's tests/ or hooks/, not the shared test files.
+The run is `python3 -m coverage run -m pytest …`, never pytest-cov, with branch coverage and
+`patch = subprocess`: the fixtures run the gates as child processes, `sh` entry points that call
+`python3`, and each such child is measured too. So that a gate's `python3` is the measured interpreter, a
+folder holding a `python3` that calls the one running the check goes first on the runner's PATH. A child
+started with an environment of its own, without coverage's variable, is not measured, and its lines count
+as missed. coverage.py measures Python alone: a module's `.sh` files are not in these numbers. The
+measured code is the module's own Python under modules/<module>/scripts and the shared const_gate it
+links, read at shared/const_gate; when the run left coverage data, a file there that no run imports
+counts with all its lines missed. Nothing else is measured: not the runner, not the module's tests/ or
+hooks/, not the shared test files.
 
 The file of one module, the JSON keys as written:
   module        the module folder's name;
-  runner_exit   the runner's exit: 0 when every item was green;
+  runner_exit   pytest's exit: 0 when every item was green, 1 when one was red, another when it could not run;
   seconds       the run's wall-clock time, whole seconds;
   files         per measured file, its path from the kit root and coverage.py's own lists of it:
                 `executed_lines`, `missing_lines`, `executed_branches`, `missing_branches`, a branch

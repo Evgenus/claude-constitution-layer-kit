@@ -20,7 +20,7 @@ the line for each; that every claim of the commit messages holds against the fil
 that the tests the message names pass when you rerun them; that no test was added beside an
 existing one that would have fit; that the documents the change edits state what the code does,
 no more and no less. Mutations: at most three per module, each on a line the diff changed, each
-followed by the one check or the runner's `--item` that should catch it, the file restored
+followed by the one check or the test, by node id, that should catch it, the file restored
 between; a mutant that survives is a finding.
 
 Name each finding a defect — wrong behaviour, a case not held, a surviving mutant, a false
@@ -48,7 +48,7 @@ SHELL RULES, strict:
    the session removes the folders before the merge.
 5. Never `git stash`, nor any git command that changes state.
 
-Before your final reply, run `ps -ax -o pid,command | grep -E 'sleep|until|tests/run.py|check-'`
+Before your final reply, run `ps -ax -o pid,command | grep -E 'sleep|until|pytest|check-'`
 and `git status --short`; stop any process you started that still runs.
 
 Report: the git readings; one line per check with its evidence; the mutation table, each target

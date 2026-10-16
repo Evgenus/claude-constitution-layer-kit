@@ -8,7 +8,7 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    session). The hook fires on every `Write` and `Edit`; it examines Markdown files inside
    the territories declared in the repository's `constitution.yaml` and nothing else.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
+   (`cp -RL`): `scripts/const_gate`, and `const_gate` and the shared test files in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
    what they point at; `tests/meta_types_gate` is a link to this plugin's own `scripts/meta_types_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in
    their place (`git config core.symlinks true`, then check out again). A plugin without it says so on
@@ -35,7 +35,7 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
    Beside the log lives `const-meta-types.pointed`, the memo of the pointers below: one line per
    pointer, the session, the repository and the policy, its last 200 lines kept.
-5. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+5. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
 6. CLAUDE.md pointer: none. The session-start hook prints one pointer line, 182 characters,
    advisory, naming the skill `/const-meta-types:choose-meta-type` and its moment; every
    subagent's start gets the same line, and every red of the gate carries, after its count line, a line naming the skill.

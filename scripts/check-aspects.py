@@ -22,13 +22,13 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
   - a row whose destination opens with none of the four classes `kernel §<n>`, `M<n>`, `binding`,
     `template`, typed here once with their patterns and matched at the start of the cell, its links
     read for their text, a name that goes on in a word or a digit that is not ASCII being none;
-  - a shared acceptance item whose number does not follow the one before it, the numbers of
-    `shared/tests/shared_items.py` standing unique and rising from 101 (an item's number is never
-    reissued, rule 4 of plc-0009-shared-code), and every `S<n>` handle and range `S<n>–S<m>` (a hyphen
-    too) in section 5 of `shared/GATE.md`, its table and its prose, anchor `g5` to the next `g<n>`
-    anchor or the end of the file, that names a number the list does not hold, a range whose end is
-    not above its start included. Every run holds them, `--run --module` too, and the counts line says
-    how many shared items were read.
+  - a shared acceptance item whose number does not follow the one before it, the numbers of the
+    `@item(<n>, …)` markers of `shared/tests/test_shared_items.py` standing unique and rising from 101
+    (an item's number is never reissued, rule 4 of plc-0009-shared-code), and every `S<n>` handle and
+    range `S<n>–S<m>` (a hyphen too) in section 5 of `shared/GATE.md`, its table and its prose, anchor
+    `g5` to the next `g<n>` anchor or the end of the file, that names a number the shared tests do not
+    hold, a range whose end is not above its start included. Every run holds them, `--run --module`
+    too, and the counts line says how many shared items were read.
 
 The documents are read in the forms their rules state, and a read that cannot be sure is no pass: the
 check could not run (BROKEN, exit 1), with the fix, on
@@ -40,10 +40,10 @@ check could not run (BROKEN, exit 1), with the fix, on
   - a preamble without the sentence "Destination classes: …", or one whose bold names are not exactly
     the four classes the check types, so that the typed set never drifts from the preamble (every
     run reads it, `--run --module` too);
-  - `shared/tests/shared_items.py`, read by `ast` and never by import, without the function
-    `shared_assertions`, or the list `items` in it, or with an entry that is no tuple opening
-    with an int literal (a string, a float, a boolean, a negative number); and `shared/GATE.md`
-    without its anchor `g5` alone on a line, or with it twice;
+  - `shared/tests/test_shared_items.py`, read by `ast` and never by import, when it cannot be parsed,
+    holds no top-level test marked `@item(<n>, …)`, or has such a marker that opens with no int literal
+    (a string, a float, a boolean, a negative number, a keyword); and `shared/GATE.md` without its
+    anchor `g5` alone on a line, or with it twice;
   - a module folder with no MODULE.md, or no modules/ at all (the folders are those of
     `kit_module_doc.module_folders`, the kit's one listing: sorted by name, a folder whose name opens
     with a dot or an underscore and a plain file no module, a name without `const-` one), and a module
@@ -55,22 +55,25 @@ A table line of those two sections is read whatever its indent: a line whose str
 with `|`. The last cell of any table line it reads, the matrix's rows too, is read whether or not
 the line closes with a bar (`kit_module_doc.cells`).
 
-The report, `--run`, also runs each module's `tests/run.py` and reads its item lines, which
-the shared harness prints as `[ok]` or `[FAIL]`, the number, the kind in round brackets and the
-title, and its last line, `N/T acceptance items green — …`. An item line out of that form, a
-count of item lines that differs from T, a count N of green lines that differs from the `[ok]`
-lines, an exit other than 0 or 2, or an exit that disagrees with the item lines means the runner
-could not be read: the check could not run, never a pass. A runner that exits other than 0 has
-its whole output, stdout then stderr, printed first, line for line, under one line naming the
-runner and its exit, so that a red item's own lines stand where the run is read — as in the
-kit's CI, which runs each module's fixtures through `--run --module <name>`. A fixture item's
-handle is its runner number, bare or under `T` or `S` — `T12` and `12` are item 12, `S101` is
-item 101. Also red under `--run`, with or without `--module`: a runner item no table row names,
-and a fixture item a table names that the runner did not print. Also red under `--run`, for each module
-whose runner ran: a number typed on the `Runner:` line of section 10 of its document (`<digits> items
-green`, the first such line outside code fences, the first such match on it) that is not the total T of
-the runner's last line; a Runner line without that form, or none, is no finding, and the gate, which runs
-no runner, compares nothing.
+The report, `--run`, also runs each module's tests, its runner, under pytest, `python3 -m pytest
+modules/<name>/tests -p no:cacheprovider -W error -q`, with `-n <value>` from pytest-xdist when the
+environment's CONSTITUTION_KIT_JOBS names a value: first collected serially, so that a stop of the shared
+acceptance.collected is read whole; then run with a JUnit report, from which each item's result is read,
+its number the testcase's property `item`, a skipped item left out and so not counted in the runner's
+total T. pytest exit 0 is green and 1 a run with red items; a collection that fails, any other exit, a
+report whose counts differ from its testcases or a testcase without one number, a number twice, or an exit
+that disagrees with the report means the runner could not be read: the check could not run, never a pass.
+pytest, or xdist where a value is named, not installed is BROKEN before the run, with the pinned install
+command. A run, or a collection, that exits other than 0 has its whole output, stdout then stderr, printed
+first, line for line, under one line naming the runner and its exit, so that a red item's own lines stand
+where the run is read — as in the kit's CI, which runs each module's fixtures through `--run --module
+<name>`. A fixture item's handle is its test's number, bare or under `T` or `S` — `T12` and `12` are item
+12, `S101` is item 101. Also red under `--run`, with or without `--module`: a runner item no table row
+names, and a fixture item a table names that the runner did not report. Also red under `--run`, for each
+module whose runner ran: a number typed on the `Runner:` line of section 10 of its document (`<digits>
+items green`, the first such line outside code fences, the first such match on it) that is not the
+runner's total T; a Runner line without that form, or none, is no finding, and the gate, which runs no
+runner, compares nothing.
 
 Each row a module holds is printed with its destination as the matrix states it, every module
 that holds a part of it with the version of its manifest, and every item that names it — from
@@ -82,7 +85,7 @@ matrix opens with the word `advisory` and holds the word `gate` or `gates` nowhe
 whole words, so that "ungateable" is no gate and "gate-lite" is one — since a fixture there
 proves the carrier of a judgment, never the judgment. Otherwise the kinds of its items joined
 by " + ": `live, done <date>`, `live` for a live item that names no date, `live, deferred`,
-`review`, `kit check`, and `fixture, not read` for a fixture item the runner did not print —
+`review`, `kit check`, and `fixture, not read` for a fixture item the runner did not report —
 none of them a green. A row a module holds that no item names is `no item`, a finding of the
 gate as well. A row no module holds is printed as
 "held by" its destination and its enforcement cell as the matrix states them, counted as
@@ -104,7 +107,8 @@ Modes:  no arguments         the gate;
                              skipped, a name without `const-` listed, sorted whatever order the
                              folder lists, the report
                              of one finding as literal lines, a full run green and red, a runner
-                             that cannot be read as a BROKEN line, a typed runner count equal to the
+                             that cannot be read as a BROKEN line, each run pytest's on a throwaway
+                             module, a typed runner count equal to the
                              total, off it, absent, in another form, inside a fence, and off it
                              run without `--run`; the shared items over their
                              whole set of cases: numbers and ranges of the table green and red,
@@ -112,8 +116,13 @@ Modes:  no arguments         the gate;
                              the coverage mode, a green run and a red one each writing the file,
                              a gate's child process measured and a file no run imports missed,
                              no file with the variable unset, and a red run whose file cannot be
-                             written printing its output before the BROKEN line — it needs
-                             coverage.py, at the version .github/workflows/gates.yml pins.
+                             written printing its output before the BROKEN line; the shared pytest
+                             wiring on a throwaway module that links the kit's own shared test
+                             files, check_case red on either half, a test with no number and a
+                             number carried twice stopping the run, serially and with xdist, the
+                             message of a number carried twice over its cases as literal lines,
+                             and the number in the JUnit report — it needs coverage.py, pytest and
+                             pytest-xdist, at the versions .github/workflows/gates.yml pins.
 With CONSTITUTION_KIT_COVERAGE naming a folder, `--run` runs each runner under coverage.py and writes
 `<folder>/<module>.json`, a red run too, before it reads the runner's lines (scripts/kit_coverage.py
 says how); a runner that runs past its time is a BROKEN line, as without the variable, and writes no
@@ -121,7 +130,13 @@ file. coverage.py not installed is a BROKEN line before the runner starts; a ste
 after the run is one too, printed after the output of a runner that exited other than 0, never in its
 place. The kit's CI sets the variable in each module's job, and scripts/module-coverage.py reads the
 files: a report, whose numbers no check holds (decision dec-0089-module-coverage-report). Empty or
-absent, the runner runs as it always did.
+absent, the runner runs plain.
+With GITHUB_STEP_SUMMARY naming a file, as GitHub Actions does in every job, `--run` appends to it, for
+each module whose report was read, a red run too, a Markdown section: the module and its counts of passed,
+failed, error and skipped tests, each count that is not zero, then one table row for each test, its item
+number, its name and its result, in number order. A report for a person, never a verdict: a summary that
+cannot be written is a note, and the run's verdict stands; the self-test clears the variable, save in the
+case that sets it.
 Exit:   0 green; 2 a finding or a red item; 1 the check could not run.
 """
 
@@ -130,6 +145,7 @@ from __future__ import annotations
 import argparse
 import ast
 import contextlib
+import importlib.util
 import io
 import itertools
 import json
@@ -142,7 +158,11 @@ import tempfile
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from functools import partial
+from importlib.machinery import ModuleSpec
 from pathlib import Path
+from typing import Any
+from xml.etree import ElementTree
 
 import kit_coverage
 from kit_module_doc import DocumentError, cells, module_folders, section
@@ -151,6 +171,11 @@ KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 SPEC = "docs/requirements.md"
 RUNNER_TIMEOUT = 1800  # seconds; the slowest runner takes a few minutes
+JOBS_ENV = "CONSTITUTION_KIT_JOBS"  # pytest-xdist workers, a number or `auto`; empty or unset: one process
+PYTEST_RED = 1  # pytest's exit when a test failed; 0 is green, and every other exit could not run
+JUNIT_PROPERTY = "item"  # the property acceptance.collected hands each test's number to the report as
+SUMMARY_ENV = "GITHUB_STEP_SUMMARY"  # the file GitHub Actions shows on a run's page; unset outside a job
+RESULTS = ("passed", "failed", "error", "skipped")  # a test's result in the job summary, in its counts' order
 
 ASPECT = re.compile(r'^\| <a id="(a\d+)"></a>\*\*(A\d+ — [^*]+)\*\*')
 ROW = re.compile(r'^\| <a id="(a\d+-\d+)"></a>(A\d+\.\d+) \|')
@@ -161,9 +186,6 @@ LINK_TEXT = re.compile(r"\[([^\[\]]*)\]\([^()]*\)")
 HANDLE = r"[A-Z]?\d+[a-z]?"
 ITEM_TOKEN = re.compile(rf"^(?P<a>{HANDLE})(?:–(?P<b>{HANDLE}))?$")
 HANDLE_PARTS = re.compile(r"^(?P<p>[A-Z]?)(?P<n>\d+)(?P<s>[a-z]?)$")
-ITEM_LINE = re.compile(r"^\[(ok|FAIL)\] +(\d+)\. \((red→green|assertion)\) ")
-ITEM_LIKE = re.compile(r"^\[(?:ok|FAIL)\]")
-LAST_LINE = re.compile(r"^(\d+)/(\d+) acceptance items green — ")
 RUNNER_COUNT = re.compile(r"\b([0-9]+) items green\b")  # the one form of a typed count that is read
 FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 DONE = re.compile(r"\bdone (\d{4}-\d{2}-\d{2})\b")
@@ -196,24 +218,26 @@ WHY_CLASSES = (
     " plc-0007-requirements), and a destination outside it takes its row out of every check that reads it"
 )
 
-# The shared acceptance items (shared/GATE.md section 5): the pinned numbers of the list, read by `ast`,
-# and the handles of the section's table, from its anchor to the next `g<n>` anchor or the file's end.
-SHARED_ITEMS = "shared/tests/shared_items.py"
+# The shared acceptance items (shared/GATE.md section 5): the pinned numbers of their tests' markers,
+# read by `ast`, and the handles of the section's table, from its anchor to the next `g<n>` anchor or the
+# file's end.
+SHARED_TESTS = "shared/tests/test_shared_items.py"  # the shared items as pytest tests, `@item(<n>, …)` each
+SHARED_MARKER = "item"
 SHARED_GATE = "shared/GATE.md"
-SHARED_FUNCTION, SHARED_LIST, SHARED_FIRST = "shared_assertions", "items", 101
+SHARED_FIRST = 101
 SHARED_ANCHOR = '<a id="g5"></a>'
 GATE_ANCHOR = re.compile(r'^<a id="g\d+"></a>$')
 # `S<n>` or a range `S<n>–S<m>` (an en dash, or a hyphen), not part of a longer word or a dotted name
 SHARED_HANDLE = re.compile(r"(?<![A-Za-z0-9_.])S(\d+)(?:[–-]S?(\d+))?(?![A-Za-z0-9_])")
 SHARED_SHOWN = 5  # the numbers a finding names before it counts the rest
 WHY_SHARED_NUMBERS = (
-    "an item's number is never reissued (rule 4 of docs/policies/plc-0009-shared-code.md), so the list"
-    " holds each number once, in rising order from 101, and the tables that name an item by its"
+    "an item's number is never reissued (rule 4 of docs/policies/plc-0009-shared-code.md), so the shared"
+    " tests hold each number once, in rising order from 101, and the tables that name an item by its"
     " number keep naming the same item"
 )
 WHY_SHARED_TABLE = (
     "the table of shared/GATE.md section 5 is where the kit says what each shared item proves, so every"
-    " number it names must be an item the list holds"
+    " number it names must be an item the shared tests hold"
 )
 
 
@@ -381,69 +405,38 @@ def check_classes(root: Path) -> None:
 
 
 def shared_numbers(root: Path) -> list[tuple[int, int]]:
-    """(number, line) of each entry of the list `items` inside `shared_assertions` in the shared test
-    file, read by `ast`, never by import. BROKEN when the file, the function, the list or a numbered
-    entry cannot be found: an entry is a tuple whose first element is an int literal (a boolean, a
-    string, a float and a negative number are none)."""
-    text = read(root, SHARED_ITEMS)
+    """(number, line) of each top-level test of the shared pytest file decorated `@item(<n>, …)`, in the
+    file's order, read by `ast`, never by import. BROKEN when the file cannot be read or parsed, holds no
+    such test, or a decorator `item(…)` opens with no int literal (a boolean, a string, a float, a negative
+    number and a keyword are none)."""
+    reading = "the check reads the numbers of the shared tests from their markers, by `ast`, never by import"
     try:
-        tree = ast.parse(text)
+        tree = ast.parse(read(root, SHARED_TESTS))
     except SyntaxError as bad:
         raise Broken(
-            f"{SHARED_ITEMS} cannot be parsed ({bad.msg}, line {bad.lineno}) — why: the check reads the"
-            " shared items' numbers by `ast`, never by import — fix: repair the file's syntax"
+            f"{SHARED_TESTS} cannot be parsed ({bad.msg}, line {bad.lineno}) — why: {reading}"
+            " — fix: repair the file's syntax"
         ) from bad
-    where = f"in {SHARED_ITEMS}"
-    reading = "the check reads the numbers of the shared items from there, by `ast`, never by import"
-    functions = [
-        node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == SHARED_FUNCTION
-    ]
-    if len(functions) != 1:
-        raise Broken(
-            f"{SHARED_ITEMS} holds {'no' if not functions else str(len(functions))} top-level"
-            f" {'function' if len(functions) < 2 else 'functions'} {SHARED_FUNCTION}"
-            f" — why: {reading} — fix: keep one function {SHARED_FUNCTION}, or change the check's reading"
-            " and the file together"
-        )
-    lists: list[ast.expr | None] = []
-    for node in functions[0].body:
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            named, value = node.target.id, node.value
-        elif (
-            isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
-        ):
-            named, value = node.targets[0].id, node.value
-        else:
-            continue
-        if named == SHARED_LIST:
-            lists.append(value)
-    if len(lists) != 1:
-        raise Broken(
-            f"{SHARED_FUNCTION} {where} assigns the list `{SHARED_LIST}`"
-            f" {'nowhere' if not lists else 'twice'} in its own body — why: {reading}"
-            f" — fix: keep one `{SHARED_LIST}: list[…] = […]` among the function's own statements"
-        )
-    listed = lists[0]
-    if not isinstance(listed, ast.List):
-        raise Broken(
-            f"`{SHARED_LIST}` of {SHARED_FUNCTION} {where} is no list literal — why: {reading}"
-            f" — fix: write it as a list of `(number, title, check)` tuples"
-        )
-    if not listed.elts:
-        raise Broken(
-            f"`{SHARED_LIST}` of {SHARED_FUNCTION} {where} holds no entry — why: {reading}"
-            f" — fix: restore the shared items, each a `(number, title, check)` tuple"
-        )
     found: list[tuple[int, int]] = []
-    for entry in listed.elts:
-        number = entry.elts[0] if isinstance(entry, ast.Tuple) and entry.elts else None
-        if not (isinstance(number, ast.Constant) and type(number.value) is int):
-            raise Broken(
-                f"{SHARED_ITEMS}:{entry.lineno}: an entry of `{SHARED_LIST}` is no tuple opening with an int"
-                f" literal — why: {reading}, and an item with no number of its own is numbered by its"
-                ' place, which moves — fix: write the entry as `(<number>, "<title>", <check>)`'
-            )
-        found.append((number.value, entry.lineno))
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for decorator in node.decorator_list:
+            if not (isinstance(decorator, ast.Call) and getattr(decorator.func, "id", None) == SHARED_MARKER):
+                continue
+            number = decorator.args[0] if decorator.args else None
+            if not (isinstance(number, ast.Constant) and type(number.value) is int):
+                raise Broken(
+                    f"{SHARED_TESTS}:{decorator.lineno}: a marker `{SHARED_MARKER}(…)` opens with no int"
+                    f" literal — why: {reading}, and a test with no number of its own is no item"
+                    f' — fix: write it as `@{SHARED_MARKER}(<number>, "<title>")`'
+                )
+            found.append((number.value, decorator.lineno))
+    if not found:
+        raise Broken(
+            f"{SHARED_TESTS} holds no test marked `@{SHARED_MARKER}(<number>, …)` — why: {reading}"
+            f" — fix: restore the shared tests, each with its marker"
+        )
     return found
 
 
@@ -476,8 +469,8 @@ def check_shared(root: Path) -> tuple[list[Finding], int]:
     """The findings of the shared acceptance items and how many items were read. Both files are read
     first, so a file that cannot be read is BROKEN whatever else is red. RED: a number that does not
     rise above the one before it, the first number if not 101, and in section 5 of GATE.md, its table
-    and its prose, every handle or range that names a number the list does not hold, and every range
-    whose end is not above its start."""
+    and its prose, every handle or range that names a number the shared tests do not hold, and every
+    range whose end is not above its start."""
     entries = shared_numbers(root)
     section_lines = gate_section(root)
     findings: list[Finding] = []
@@ -486,23 +479,23 @@ def check_shared(root: Path) -> tuple[list[Finding], int]:
         if previous is None and number != SHARED_FIRST:
             findings.append(
                 Finding(
-                    SHARED_ITEMS,
+                    SHARED_TESTS,
                     line,
                     f"the first shared item is numbered {number}, not {SHARED_FIRST}",
                     WHY_SHARED_NUMBERS,
                     f"number the first item {SHARED_FIRST}, and give a new item a number no item has had, at"
-                    " the end of the list",
+                    " the end of the file",
                 )
             )
         elif previous is not None and number <= previous:
             findings.append(
                 Finding(
-                    SHARED_ITEMS,
+                    SHARED_TESTS,
                     line,
                     f"the shared item numbered {number} follows {previous}, and the numbers are not unique"
                     " and rising",
                     WHY_SHARED_NUMBERS,
-                    "give a new item a number no item has had, at the end of the list, and put a moved item"
+                    "give a new item a number no item has had, at the end of the file, and put a moved item"
                     " back in its place; a removed item's number is never given again",
                 )
             )
@@ -533,12 +526,12 @@ def check_shared(root: Path) -> tuple[list[Finding], int]:
                         SHARED_GATE,
                         line,
                         f"the range {found[0]} names {', '.join(shown[:SHARED_SHOWN])}{more},"
-                        " which the list of shared items does not hold"
+                        " which the shared tests do not hold"
                         if found[2] is not None
-                        else f"the handle {found[0]} names an item the list of shared items does not hold",
+                        else f"the handle {found[0]} names an item the shared tests do not hold",
                         WHY_SHARED_TABLE,
                         f"change the {'range' if found[2] is not None else 'handle'} to numbers"
-                        f" {SHARED_ITEMS} holds, or give the item that number in the list",
+                        f" {SHARED_TESTS} holds, or give the item that number in its marker",
                     )
                 )
     return findings, len(entries)
@@ -854,9 +847,12 @@ def counts(matrix: dict[str, Row], modules: list[Module], shared: int) -> str:
     )
 
 
-def run_once(root: Path, module: Module, runner: Path) -> tuple[subprocess.CompletedProcess[str], str | None]:
-    """One run of the runner, under coverage.py when kit_coverage asks for it: the run, and the message
-    of a coverage step that failed after it, for the caller to raise once the runner's output is printed."""
+def run_once(
+    root: Path, module: Module, command: list[str]
+) -> tuple[subprocess.CompletedProcess[str], str | None]:
+    """One run of the runner, `command` after the interpreter, under coverage.py when kit_coverage asks
+    for it: the run, and the message of a coverage step that failed after it, for the caller to raise once
+    the runner's output is printed."""
     out = kit_coverage.wanted()
     with tempfile.TemporaryDirectory(prefix="aspects-coverage-") as scratch:
         prefix: list[str] = [sys.executable]
@@ -869,7 +865,7 @@ def run_once(root: Path, module: Module, runner: Path) -> tuple[subprocess.Compl
         started = time.monotonic()
         try:
             done = subprocess.run(
-                [*prefix, str(runner)],
+                [*prefix, *command],
                 cwd=root,
                 env=env,
                 capture_output=True,
@@ -891,44 +887,157 @@ def run_once(root: Path, module: Module, runner: Path) -> tuple[subprocess.Compl
     return done, None
 
 
-def run_runner(root: Path, module: Module) -> dict[int, bool]:
-    runner = root / "modules" / module.name / "tests" / "run.py"
-    if not runner.is_file():
-        raise Broken(f"modules/{module.name}/tests/run.py does not exist — fix: restore the module's runner")
-    done, lost = run_once(root, module, runner)
-    if done.returncode != 0:  # the runner's own lines say what failed; the report says only which item
-        print(f"the runner of {module.name} exited {done.returncode}; its output, as it printed it:")
-        for text in done.stdout.splitlines() + done.stderr.splitlines():
-            print(text)
-    if lost is not None:
-        raise Broken(lost)
-    if done.returncode not in (0, 2):
-        first = ((done.stderr or done.stdout).strip().splitlines() or ["no message"])[-1]
-        raise Broken(
-            f"the runner of {module.name} exited {done.returncode}: {first} — fix: run"
-            f" python3 modules/{module.name}/tests/run.py and repair what it names"
-        )
+def pins(*names: str) -> str:
+    """The install command of the named packages at the versions the kit's CI pins, read from the
+    workflow, which alone names them."""
+    try:
+        text = kit_coverage.WORKFLOW.read_text(encoding="utf-8")
+    except OSError:
+        text = ""
+    wanted = []
+    for name in names:
+        found = re.search(rf'"{re.escape(name)}==([^"\s]+)"', text)
+        wanted.append(f'"{name}=={found[1]}"' if found else name)
+    return f"{sys.executable} -m pip install {' '.join(wanted)}"
+
+
+def echo(module: Module, done: subprocess.CompletedProcess[str]) -> None:
+    """A run that exited other than 0, printed whole, stdout then stderr, under one line naming it."""
+    print(f"the runner of {module.name} exited {done.returncode}; its output, as it printed it:")
+    for text in done.stdout.splitlines() + done.stderr.splitlines():
+        print(text)
+
+
+def last_words(done: subprocess.CompletedProcess[str]) -> str:
+    return ((done.stderr.strip() or done.stdout.strip()).splitlines() or ["no message"])[-1]
+
+
+def read_report(path: Path, name: str) -> dict[int, bool]:
+    """Each item's result from pytest's JUnit report: its number the property `item`, red on a failure
+    or an error, a skipped item left out. BROKEN when the report cannot be read or does not hold to
+    itself: a testcase without one `item` property, a number twice, counts that differ from the
+    testcases."""
+    fix = f"run python3 -m pytest modules/{name}/tests -W error and repair what it names"
+    try:
+        top = ElementTree.parse(path).getroot()
+    except (OSError, ElementTree.ParseError) as bad:
+        raise Broken(f"the JUnit report of {name}'s tests cannot be read ({bad}) — fix: {fix}") from bad
+    suites = [top] if top.tag == "testsuite" else list(top.iter("testsuite"))
+    declared = sum(int(suite.get("tests", "0")) for suite in suites)
+    declared_skips = sum(int(suite.get("skipped", "0")) for suite in suites)
+    cases = [case for suite in suites for case in suite.findall("testcase")]
     results: dict[int, bool] = {}
-    lines = [text for text in done.stdout.splitlines() if text.strip()]
-    for line in lines:
-        if ITEM_LIKE.match(line):
-            m = ITEM_LINE.match(line)
-            if m is None:
-                raise Broken(
-                    f"the runner of {module.name} printed an item line out of form: {line[:80]} — fix: the"
-                    " harness prints `[ok] N. (kind) title`; repair the runner or this check's reading"
-                )
-            results[int(m[2])] = m[1] == "ok"
-    last = LAST_LINE.match(lines[-1]) if lines else None
-    if last is None or int(last[2]) != len(results) or int(last[1]) != sum(results.values()):
+    seen: set[int] = set()
+    skips = 0
+    for case in cases:
+        numbers = [p.get("value", "") for p in case.iter("property") if p.get("name") == JUNIT_PROPERTY]
+        test = f"{case.get('classname')}::{case.get('name')}"
+        if len(numbers) != 1 or not numbers[0].isascii() or not numbers[0].isdigit():
+            raise Broken(
+                f"the test {test} of {name} carries {len(numbers)} `{JUNIT_PROPERTY}` properties in the"
+                f" JUnit report, not one number — fix: let the module's conftest call acceptance.collected"
+                " from its pytest_collection_modifyitems"
+            )
+        number = int(numbers[0])
+        if number in seen:
+            raise Broken(f"two tests of {name} report the item number {number} — fix: {fix}")
+        seen.add(number)
+        tags = {child.tag for child in case}
+        if "skipped" in tags:
+            skips += 1
+            continue
+        results[number] = not ({"failure", "error"} & tags)
+    if len(cases) != declared or skips != declared_skips:
         raise Broken(
-            f"the runner of {module.name} printed {len(results)} item line(s), and its last line does not"
-            " count them — fix: run it alone; the harness's last line is `N/T acceptance items green — …`"
+            f"the JUnit report of {name}'s tests counts {declared} tests and {declared_skips} skips, and"
+            f" holds {len(cases)} testcases, {skips} of them skipped — fix: {fix}"
         )
+    return results
+
+
+def report_rows(path: Path) -> list[tuple[int, str, str]]:
+    """(item number, test name, result) of each testcase of a JUnit report read_report has held to
+    itself, in number order; the result one of RESULTS."""
+    rows = []
+    for case in ElementTree.parse(path).getroot().iter("testcase"):
+        number = next(p.get("value", "") for p in case.iter("property") if p.get("name") == JUNIT_PROPERTY)
+        tags = {child.tag for child in case}
+        result = (
+            "failed" if "failure" in tags else next((t for t in ("error", "skipped") if t in tags), "passed")
+        )
+        rows.append((int(number), case.get("name", ""), result))
+    return sorted(rows)
+
+
+def write_summary(module: str, rows: list[tuple[int, str, str]]) -> None:
+    """Append the module's section to the job summary GITHUB_STEP_SUMMARY names, when it names one: a
+    heading with the module and its counts, then one table row for each test. A report, never a verdict:
+    a summary that cannot be written is a note, and the run's verdict stands."""
+    target = os.environ.get(SUMMARY_ENV, "").strip()
+    if not target:
+        return
+    counts = ", ".join(f"{n} {r}" for r in RESULTS if (n := sum(1 for *_, x in rows if x == r)))
+    table = [f"| {n} | `{name.replace('|', '\\|')}` | {result} |" for n, name, result in rows]
+    text = "\n".join([f"### {module}: {counts}", "", "| item | test | result |", "|---|---|---|", *table, ""])
+    try:
+        with open(target, "a", encoding="utf-8") as summary:
+            summary.write(text + "\n")
+    except OSError as bad:
+        print(
+            f"note: the job summary {target} could not be written ({bad.strerror}); the run's verdict stands"
+        )
+
+
+def run_runner(root: Path, module: Module) -> dict[int, bool]:
+    """The module's pytest tests: collected serially first, so that a stop of acceptance.collected is
+    read whole even where the run is parallel; then run, under coverage.py when kit_coverage asks for it,
+    with `-n <value>` when the environment's CONSTITUTION_KIT_JOBS names one; then each item's result
+    read from the JUnit report. pytest exit 0 is green and 1 a run with red items; any other exit, a
+    report that does not hold to itself, or an exit that disagrees with the report, could not run."""
+    jobs = os.environ.get(JOBS_ENV, "").strip()
+    needed = ["pytest", *(["xdist"] if jobs else [])]
+    missing = [package for package in needed if importlib.util.find_spec(package) is None]
+    if missing:
+        named = ["pytest", *(["pytest-xdist"] if jobs else [])]
+        raise Broken(
+            f"{' and '.join(missing)} not installed for {sys.executable}, and the tests of {module.name}"
+            f" run under pytest{f' with -n {jobs}' if jobs else ''} — fix: {pins(*named)}"
+        )
+    base = [f"modules/{module.name}/tests", "-p", "no:cacheprovider", "-W", "error", "-q"]
+    collect = subprocess.run(
+        [sys.executable, "-m", "pytest", *base, "--collect-only"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=RUNNER_TIMEOUT,
+        check=False,
+    )
+    if collect.returncode != 0:
+        echo(module, collect)
+        raise Broken(
+            f"pytest could not collect the tests of {module.name} (exit {collect.returncode}):"
+            f" {last_words(collect)} — fix: run python3 -m pytest modules/{module.name}/tests -W error"
+            " --collect-only and repair what it names"
+        )
+    with tempfile.TemporaryDirectory(prefix="aspects-junit-") as scratch:
+        report = Path(scratch) / "report.xml"
+        command = ["-m", "pytest", *base, f"--junitxml={report}", *(["-n", jobs] if jobs else [])]
+        done, lost = run_once(root, module, command)
+        if done.returncode != 0:
+            echo(module, done)
+        if lost is not None:
+            raise Broken(lost)
+        if done.returncode not in (0, PYTEST_RED):
+            raise Broken(
+                f"the runner of {module.name} exited {done.returncode}: {last_words(done)} — fix: run"
+                f" python3 -m pytest modules/{module.name}/tests -W error and repair what it names"
+            )
+        results = read_report(report, module.name)
+        write_summary(module.name, report_rows(report))
     if (done.returncode == 0) != all(results.values()):
         raise Broken(
-            f"the runner of {module.name} exited {done.returncode} against its own item lines"
-            " — fix: run it alone"
+            f"the runner of {module.name} exited {done.returncode} against its own report — fix: run"
+            f" python3 -m pytest modules/{module.name}/tests -W error"
         )
     return results
 
@@ -1001,7 +1110,7 @@ def item_line(item: Item) -> str:
 
 
 def attach_results(module: Module, results: dict[int, bool], findings: list[Finding]) -> None:
-    """Give each item the results of the numbers it names; a number the runner did not print, and a runner
+    """Give each item the results of the numbers it names; a number the runner did not report, and a runner
     item no item names, are findings."""
     named: set[int] = set()
     for item in module.items:
@@ -1014,7 +1123,7 @@ def attach_results(module: Module, results: dict[int, bool], findings: list[Find
                     Finding(
                         module.path,
                         item.line,
-                        f"item {item.handles} names runner item {n}, which the runner did not print",
+                        f"item {item.handles} names runner item {n}, which the runner did not report",
                         WHY_RUN,
                         "remove the number from the item cell, or restore the item in the runner",
                     )
@@ -1042,7 +1151,7 @@ def run_modules(
     for module in modules:
         results = runner(root, module)
         read_items += len(results)
-        mismatch = count_finding(module, len(results))  # run_runner held len(results) to the last line's T
+        mismatch = count_finding(module, len(results))  # read_report held len(results) to the report's counts
         if mismatch is not None:
             findings.append(mismatch)
         attach_results(module, results, findings)
@@ -1169,64 +1278,32 @@ GOOD_TABLE = (
 )
 
 
-def echoed(out: str, lines: list[str], code: int) -> bool:
-    """A runner that exited other than 0 has its whole output printed, line for line, under one
-    header; a green one prints nothing of its own."""
+def echoed(out: str, code: int, said: str = "") -> bool:
+    """A runner that exited other than 0 has its whole output printed under one header, `said` among
+    the lines after it; a green one prints nothing of its own."""
     header = f"the runner of const-sample exited {code}; its output, as it printed it:"
     printed = out.splitlines()
     if code == 0:
-        return "the runner of const-sample exited" not in out and "        evidence" not in printed
+        return "the runner of const-sample exited" not in out
     if header not in printed:
         return False
-    start = printed.index(header) + 1
-    return printed[start : start + len(lines)] == lines
+    return any(said in line for line in printed[printed.index(header) + 1 :])
 
 
-def fake_runner(lines: list[str], code: int) -> str:
-    body = "\n".join(f"print({line!r})" for line in lines)
-    return f"import sys\n{body}\nsys.exit({code})\n"
-
-
-GREEN_RUN = [
-    "[ok]   1. (red→green) a",
-    "        evidence",
-    "[ok]   2. (assertion) b",
-    "[ok]   3. (assertion) c",
-    "[ok] 101. (assertion) s",
-    "4/4 acceptance items green — 1 red→green cases, 3 assertions examined",
-]
-
-
-HARNESS_ITEMS = ((1, "a"), (2, "b"), (3, "c"), (101, "s"))
-
-
-def harness_runner(argv: list[str], named: tuple[tuple[int, str], ...] = HARNESS_ITEMS) -> str:
-    """A runner on the kit's own shared harness — the items of GREEN_RUN, each an assertion, or the
-    `named` ones — with `argv` as its command line, so the self-test reads what the harness prints,
-    never a copy of it."""
-    shared = KIT / "shared"
-    return (
-        "import sys\n"
-        f"sys.path[:0] = [{str(shared)!r}, {str(shared / 'tests')!r}]\n"
-        f"sys.argv[1:] = {argv!r}\n"
-        "from pathlib import Path\n"
-        "from harness import Assertion, Harness\n"
-        "H = Harness(Path('.'), 'none.sh', 'none.py', 'const-sample')\n"
-        f"NAMED = {named!r}\n"
-        "ITEMS = [Assertion(n, t, lambda: (True, 'evidence')) for n, t in NAMED]\n"
-        "sys.exit(H.run_all([], ITEMS))\n"
-    )
+SAMPLE_ITEMS = ((1, "a"), (2, "b"), (3, "c"), (101, "s"))  # the sample module's items: number, title
 
 
 def entries(*numbers: int) -> list[str]:
-    """The source of the entries of the shared list, each `(<n>, "<title>", check)`."""
-    return [f'({n}, "item {n}", check)' for n in numbers]
+    """The shared tests, one for each number, each `@item(<n>, "item <n>")`: in `shared_source` each takes
+    five lines, the two blank ones after it included, so the marker of the k-th, from 0, stands on line
+    4 + 5k of the file."""
+    return [f'@item({n}, "item {n}")\ndef test_{n}(subject):\n    pass\n' for n in numbers]
 
 
-def shared_source(entry_lines: list[str], head: str = "", tail: str = "") -> str:
-    """A shared test file: the function `shared_assertions`, its list `items` holding the entries."""
-    body = "".join(f"        {line},\n" for line in entry_lines)
-    return f"{head}def shared_assertions(s, first):\n    items = [\n{body}    ]\n    return items\n{tail}"
+def shared_source(tests: list[str], head: str = "", tail: str = "") -> str:
+    """A shared test file: `head`, the import of the marker, the tests, then `tail`."""
+    body = "".join(f"{test}\n\n" for test in tests)
+    return f"{head}from acceptance import item\n\n\n{body}{tail}"
 
 
 def gate_text(rows: list[str], after: str = "") -> str:
@@ -1248,13 +1325,12 @@ def build(
     root: Path,
     table: str,
     rows: str | None = None,
-    runner: str | None = None,
     matrix: str = MATRIX,
     shared: str = SHARED_GOOD,
     gate: str = GATE_GOOD,
 ) -> None:
     (root / "shared" / "tests").mkdir(parents=True, exist_ok=True)
-    (root / SHARED_ITEMS).write_text(shared, encoding="utf-8")
+    (root / SHARED_TESTS).write_text(shared, encoding="utf-8")
     (root / SHARED_GATE).write_text(gate, encoding="utf-8")
     (root / "docs").mkdir(parents=True, exist_ok=True)
     (root / SPEC).write_text(matrix, encoding="utf-8")
@@ -1265,21 +1341,20 @@ def build(
     )
     text = module_text(table) if rows is None else module_text(table, rows)
     (module / "MODULE.md").write_text(text, encoding="utf-8")
-    (module / "tests").mkdir(exist_ok=True)
-    (module / "tests" / "run.py").write_text(runner or fake_runner(GREEN_RUN, 0), encoding="utf-8")
+    sample_module(root)
 
 
 WHY_NUMBERS_TYPED = (
-    "an item's number is never reissued (rule 4 of docs/policies/plc-0009-shared-code.md), so the list"
-    " holds each number once, in rising order from 101, and the tables that name an item by its number"
+    "an item's number is never reissued (rule 4 of docs/policies/plc-0009-shared-code.md), so the shared"
+    " tests hold each number once, in rising order from 101, and the tables that name an item by its number"
     " keep naming the same item"
 )
 WHY_TABLE_TYPED = (
     "the table of shared/GATE.md section 5 is where the kit says what each shared item proves, so every"
-    " number it names must be an item the list holds"
+    " number it names must be an item the shared tests hold"
 )
 FIX_FOLLOWS_TYPED = (
-    "give a new item a number no item has had, at the end of the list, and put a moved item back in its"
+    "give a new item a number no item has had, at the end of the file, and put a moved item back in its"
     " place; a removed item's number is never given again"
 )
 
@@ -1289,7 +1364,7 @@ def shared_follows(number: int, before: int) -> str:
 
 
 def shared_names(text: str, names: str) -> str:
-    return f"the range {text} names {names}, which the list of shared items does not hold"
+    return f"the range {text} names {names}, which the shared tests do not hold"
 
 
 @dataclass
@@ -1346,10 +1421,10 @@ def shared_green(tally: Tally) -> None:
             1,
         ),
     }
-    for name, (entry_lines, doc, items_read) in green.items():
+    for name, (tests, doc, items_read) in green.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, GOOD_TABLE, shared=shared_source(entry_lines), gate=doc)
+            build(root, GOOD_TABLE, shared=shared_source(tests), gate=doc)
             found, read_count = check_shared(root)
         ok = not found and read_count == items_read
         tally.record(ok)
@@ -1359,22 +1434,22 @@ def shared_green(tally: Tally) -> None:
 
 
 def shared_decoys(tally: Tally) -> None:
-    """The cases where a list or a function stands where the check must not read."""
-    decoys = {  # case: a list `items` or a function standing where the check must not read
-        "a list `items` outside the function, out of order": shared_source(
-            entries(101, 102, 103), head="items = [(103, 'x', None), (102, 'y', None)]\n"
+    """The cases where a number stands where the check must not read it."""
+    good = entries(101, 102, 103)
+    decoys = {  # case: the shared test file, a number standing where the check must not read it
+        "a call of item(…) that marks no test, out of order": shared_source(
+            good, tail='LATER = [item(103, "x"), item(102, "y")]\n'
         ),
-        "a list `items` in another function, out of order": shared_source(
-            entries(101, 102, 103),
-            tail="\n\ndef other():\n    items = [(103, 'x', None), (102, 'y', None)]\n",
+        "a marker on a function inside a function, out of order": shared_source(
+            good, tail='def helper():\n    @item(103, "x")\n    def inner():\n        pass\n'
         ),
-        "a list `items` in a function inside it, out of order": SHARED_GOOD.replace(
-            "    return items",
-            "    def inner():\n        items = [(103, 'x', None), (102, 'y', None)]\n\n    return items",
+        "a marker on a method of a class, out of order": shared_source(
+            good, tail='class Later:\n    @item(103, "x")\n    def test_x(self):\n        pass\n'
         ),
-        "a second list of another name beside it, out of order": shared_source(
-            entries(101, 102, 103), head="other = [(103, 'x', None), (102, 'y', None)]\n"
+        "another decorator's numbers beside item(…), out of order": shared_source(good).replace(
+            '@item(101, "item 101")\n', '@item(101, "item 101")\n@other(103, "x")\n@other(102, "y")\n'
         ),
+        "a marker inside a string, out of order": shared_source(good, head='"""@item(103, "x")"""\n'),
     }
     for name, source in decoys.items():
         with tempfile.TemporaryDirectory() as tmp:
@@ -1383,7 +1458,7 @@ def shared_decoys(tally: Tally) -> None:
             found, read_count = check_shared(root)
         ok = not found and read_count == 3
         tally.record(ok)
-        print(f"[{'ok' if ok else 'FAIL'}] shared items: {name} is not read, the function's own list is")
+        print(f"[{'ok' if ok else 'FAIL'}] shared items: {name} is not read, the tests' own markers are")
 
 
 def shared_red_data() -> dict[str, tuple[list[str], str, list[tuple[str, str]]]]:
@@ -1443,7 +1518,7 @@ def shared_red_data() -> dict[str, tuple[list[str], str, list[tuple[str, str]]]]
         "a single handle S170": (
             n64,
             gate_text(["S101–S164", "S170"]),
-            [("the handle S170 names an item the list of shared items does not hold", "| S170 |")],
+            [("the handle S170 names an item the shared tests do not hold", "| S170 |")],
         ),
         "a range whose end is below its start": (
             n64,
@@ -1483,22 +1558,22 @@ def shared_red_data() -> dict[str, tuple[list[str], str, list[tuple[str, str]]]]
         "a handle on the last line of the file, no anchor after it": (
             n64,
             gate_text(["S101–S164"], "S170"),
-            [("the handle S170 names an item the list of shared items does not hold", "S170")],
+            [("the handle S170 names an item the shared tests do not hold", "S170")],
         ),
         "a handle in the section's last line before the next anchor": (
             n64,
             gate_text(["S101–S164"], "S170\n" + '<a id="g6"></a>\nS101\n'),
-            [("the handle S170 names an item the list of shared items does not hold", "S170")],
+            [("the handle S170 names an item the shared tests do not hold", "S170")],
         ),
         "the anchor g5 indented by spaces and followed by spaces, its handles read": (
             n64,
             gate_text(["S101–S164"], "S170\n").replace(SHARED_ANCHOR, f"   {SHARED_ANCHOR}   "),
-            [("the handle S170 names an item the list of shared items does not hold", "S170")],
+            [("the handle S170 names an item the shared tests do not hold", "S170")],
         ),
         "the anchor g5 after a tab, its handles read": (
             n64,
             gate_text(["S101–S164"], "S170\n").replace(SHARED_ANCHOR, f"\t{SHARED_ANCHOR}"),
-            [("the handle S170 names an item the list of shared items does not hold", "S170")],
+            [("the handle S170 names an item the shared tests do not hold", "S170")],
         ),
         "a swap and a range naming 104 together": (
             entries(101, 103, 102),
@@ -1509,7 +1584,7 @@ def shared_red_data() -> dict[str, tuple[list[str], str, list[tuple[str, str]]]]
             entries(101),
             gate_text(["`S101`, **S102**, `S103–S104`"]),
             [
-                ("the handle S102 names an item the list of shared items does not hold", "**S102**"),
+                ("the handle S102 names an item the shared tests do not hold", "**S102**"),
                 (shared_names("S103–S104", "S103, S104"), "`S103–S104`"),
             ],
         ),
@@ -1517,19 +1592,25 @@ def shared_red_data() -> dict[str, tuple[list[str], str, list[tuple[str, str]]]]
     return red
 
 
+def sample_results(root: Path, module: Module) -> dict[int, bool]:
+    """The sample module's items, each green, read without a run: for the cases that hold what a run
+    prints of the shared items, not what its runner does."""
+    return {number: True for number, _ in SAMPLE_ITEMS}
+
+
 def shared_red(tally: Tally) -> None:
-    """The cases where a list or a table of the shared items is red, each finding on its line."""
-    for name, (entry_lines, doc, wanted) in shared_red_data().items():
+    """The cases where the numbers or the table of the shared items are red, each finding on its line."""
+    for name, (tests, doc, wanted) in shared_red_data().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, GOOD_TABLE, shared=shared_source(entry_lines), gate=doc)
+            build(root, GOOD_TABLE, shared=shared_source(tests), gate=doc)
             found, _ = check_shared(root)
             _, _, structure, _ = check_structure(root)
             printed = io.StringIO()
             with contextlib.redirect_stdout(printed):
-                code = full_run(root, "const-sample")
+                code = full_run(root, "const-sample", sample_results)
         sources = {
-            SHARED_ITEMS: shared_source(entry_lines).splitlines(),
+            SHARED_TESTS: shared_source(tests).splitlines(),
             SHARED_GATE: doc.splitlines(),
         }
         ok = [f.what for f in found] == [what for what, _ in wanted] and structure == found
@@ -1550,7 +1631,7 @@ def shared_red(tally: Tally) -> None:
 
 
 def shared_starts(tally: Tally) -> None:
-    """The whole set of numbers a red list can start with, and of the steps that keep it red."""
+    """The whole set of numbers the shared tests can start with and be red."""
     for start in (0, 1, 100, 102, 164):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1559,11 +1640,11 @@ def shared_starts(tally: Tally) -> None:
         starts = [f for f in found if f.what.startswith("the first shared item")]
         ok = len(starts) == 1 and starts[0].what == f"the first shared item is numbered {start}, not 101"
         tally.record(ok)
-        print(f"[{'ok' if ok else 'FAIL'}] shared items: a list that starts at {start} is red")
+        print(f"[{'ok' if ok else 'FAIL'}] shared items: numbers that start at {start} are red")
 
 
 def shared_steps(tally: Tally) -> None:
-    """The steps of a list that make it red at one place."""
+    """The steps of the shared numbers that make them red at one place."""
     for before, after in ((101, 101), (102, 101), (164, 163), (110, 109), (110, 110)):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
@@ -1580,67 +1661,42 @@ def shared_steps(tally: Tally) -> None:
 
 
 def shared_broken_data() -> dict[str, tuple[str | None, str | None, str]]:
-    """The cases of a file or a form the check cannot read: the entries, the text, what the BROKEN line says;
-    a text of None is the file's own good one."""
+    """The cases of a file or a form the check cannot read: the shared test file, the GATE.md text, what the
+    BROKEN line says; a text of None is the file's own good one."""
     anchor_words = f"{SHARED_GATE} holds the anchor {SHARED_ANCHOR}"
     nowhere = f"{anchor_words} nowhere on a line of its own — why: "
-    in_file = f"in {SHARED_ITEMS}"
-    function_none = f"{SHARED_ITEMS} holds no top-level function shared_assertions — why: "
-    entry_bad = "is no tuple opening with an int literal — why: "
-    bad_entries: dict[str, str] = {  # case: the bad entry; each in a list of good ones, line 5
-        "a bare name for an entry": "check",
-        "a string number": '("101", "t", check)',
-        "a float number": '(101.0, "t", check)',
-        "a boolean number": '(True, "t", check)',
-        "a negative number": '(-1, "t", check)',
-        "a number given by a sum": '(100 + 1, "t", check)',
-        "a number given by a name": '(FIRST, "t", check)',
-        "an empty tuple": "()",
-        "a number that is no first element": '("t", 101, check)',
-        "a starred entry": "*more",
+    reading = "— why: the check reads the numbers of the shared tests from their markers"
+    none_marked = f"{SHARED_TESTS} holds no test marked `@item(<number>, …)` {reading}"
+    bad_marker = f"{SHARED_TESTS}:14: a marker `item(…)` opens with no int literal {reading}"
+    bad_markers: dict[str, str] = {  # case: the bad marker; each on a test after two good ones, line 14
+        "no argument": "@item()",
+        "a string number": '@item("101", "t")',
+        "a float number": '@item(101.0, "t")',
+        "a boolean number": '@item(True, "t")',
+        "a negative number": '@item(-1, "t")',
+        "a number given by a sum": '@item(100 + 1, "t")',
+        "a number given by a name": '@item(FIRST, "t")',
+        "a number given by keyword": '@item(number=101, title="t")',
+        "a number that is no first argument": '@item("t", 101)',
+        "a starred argument": "@item(*more)",
     }
     broken: dict[str, tuple[str | None, str | None, str]] = {
         "a syntax error in the shared test file": (
-            "def shared_assertions(:\n",
+            "def test_x(:\n",
             None,
-            f"{SHARED_ITEMS} cannot be parsed (",
+            f"{SHARED_TESTS} cannot be parsed (",
         ),
-        "no function shared_assertions": ("items = [(101, 'a', None)]\n", None, function_none),
-        "shared_assertions inside a class": (
-            "class K:\n    def shared_assertions(s, first):\n        items = [(101, 'a', None)]\n",
+        "no marked test": ("def test_x(subject):\n    pass\n", None, none_marked),
+        "an empty shared test file": ("", None, none_marked),
+        "markers on the methods of a class only": (
+            "class TestK:\n    @item(101, 'a')\n    def test_x(self):\n        pass\n",
             None,
-            function_none,
+            none_marked,
         ),
-        "shared_assertions twice": (
-            SHARED_GOOD + "\n" + SHARED_GOOD,
+        "markers on a function inside a test only": (
+            "def test_x(subject):\n    @item(101, 'a')\n    def inner():\n        pass\n",
             None,
-            f"{SHARED_ITEMS} holds 2 top-level functions shared_assertions — why: ",
-        ),
-        "the list under another name": (
-            SHARED_GOOD.replace("items", "entries"),
-            None,
-            f"shared_assertions {in_file} assigns the list `items` nowhere in its own body — why: ",
-        ),
-        "the list in a nested function only": (
-            "def shared_assertions(s, first):\n    def inner():\n        items = [(101, 'a', None)]\n"
-            "    return inner\n",
-            None,
-            f"shared_assertions {in_file} assigns the list `items` nowhere in its own body — why: ",
-        ),
-        "the list assigned twice": (
-            SHARED_GOOD.replace("    return items", "    items = [(101, 'a', None)]\n    return items"),
-            None,
-            f"shared_assertions {in_file} assigns the list `items` twice in its own body — why: ",
-        ),
-        "the list built by a call": (
-            "def shared_assertions(s, first):\n    items = make()\n    return items\n",
-            None,
-            f"`items` of shared_assertions {in_file} is no list literal — why: ",
-        ),
-        "an empty list": (
-            shared_source([]),
-            None,
-            f"`items` of shared_assertions {in_file} holds no entry — why: ",
+            none_marked,
         ),
         "the anchor g5 missing": (None, GATE_GOOD.replace(SHARED_ANCHOR + "\n", ""), nowhere),
         "the anchor g5 renamed g4": (None, GATE_GOOD.replace("g5", "g4"), nowhere),
@@ -1655,18 +1711,20 @@ def shared_broken_data() -> dict[str, tuple[str | None, str | None, str]]:
             f"{anchor_words} twice — why: ",
         ),
     }
-    for entry, source in bad_entries.items():
-        broken[f"{entry} in the list"] = (
-            shared_source([*entries(101, 102), source, *entries(104)]),
+    for case, marker in bad_markers.items():
+        broken[f"a marker with {case}"] = (
+            shared_source(
+                [*entries(101, 102), f"{marker}\ndef test_bad(subject):\n    pass\n", *entries(104)]
+            ),
             None,
-            f"{SHARED_ITEMS}:5: an entry of `items` {entry_bad}",
+            bad_marker,
         )
-    broken["an unnumbered entry in a list that is also out of order, BROKEN and no RED"] = (
-        shared_source([*entries(103, 101), "check"]),
+    broken["an unnumbered marker in tests also out of order, BROKEN and no RED"] = (
+        shared_source([*entries(103, 101), "@item()\ndef test_bad(subject):\n    pass\n"]),
         gate_text(["S101–S190"]),
-        f"{SHARED_ITEMS}:5: an entry of `items` {entry_bad}",
+        bad_marker,
     )
-    broken["a bad GATE.md anchor beside a list out of order, BROKEN and no RED"] = (
+    broken["a bad GATE.md anchor beside numbers out of order, BROKEN and no RED"] = (
         shared_source(entries(103, 101)),
         GATE_GOOD.replace(SHARED_ANCHOR + "\n", ""),
         nowhere,
@@ -1679,7 +1737,13 @@ def shared_broken(tally: Tally) -> None:
     for name, (shared_text, gate_text_or_none, said) in shared_broken_data().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, GOOD_TABLE, shared=shared_text or SHARED_GOOD, gate=gate_text_or_none or GATE_GOOD)
+            shared = SHARED_GOOD if shared_text is None else shared_text
+            build(
+                root,
+                GOOD_TABLE,
+                shared=shared,
+                gate=GATE_GOOD if gate_text_or_none is None else gate_text_or_none,
+            )
             ok = True
             got: list[str] = []
             for only in (None, "const-sample"):
@@ -1706,7 +1770,7 @@ def shared_broken(tally: Tally) -> None:
 def shared_dropped(tally: Tally) -> None:
     """The cases where a file of the shared items is gone from the tree."""
     drop = {  # case: the file taken from the tree
-        "the shared test file missing": (SHARED_ITEMS, f"{SHARED_ITEMS} cannot be read"),
+        "the shared test file missing": (SHARED_TESTS, f"{SHARED_TESTS} cannot be read"),
         "GATE.md missing": (SHARED_GATE, f"{SHARED_GATE} cannot be read"),
     }
     for name, (gone, said) in drop.items():
@@ -1733,14 +1797,15 @@ def shared_dropped(tally: Tally) -> None:
 
 
 def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
-    """The reports of the shared items as literal lines: the entries, the GATE.md text, the lines printed."""
+    """The reports of the shared items as literal lines: the shared test file, the GATE.md text, the lines
+    printed."""
     n64 = N64
     literal = {  # typed by hand: a message function cannot check itself
         "a swap": (
             shared_source(entries(101, 103, 102)),
             gate_text(["S101–S103"]),
             [
-                "RED: shared/tests/shared_items.py:5: the shared item numbered 102 follows 103, and the"
+                "RED: shared/tests/test_shared_items.py:14: the shared item numbered 102 follows 103, and the"
                 " numbers are not unique and rising",
                 f"  why: {WHY_NUMBERS_TYPED}",
                 f"  fix: {FIX_FOLLOWS_TYPED}",
@@ -1752,10 +1817,10 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             shared_source(entries(102, 103)),
             gate_text(["S102–S103"]),
             [
-                "RED: shared/tests/shared_items.py:3: the first shared item is numbered 102, not 101",
+                "RED: shared/tests/test_shared_items.py:4: the first shared item is numbered 102, not 101",
                 f"  why: {WHY_NUMBERS_TYPED}",
                 "  fix: number the first item 101, and give a new item a number no item has had, at the end"
-                " of the list",
+                " of the file",
                 "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
                 " examined, 2 shared item(s)",
             ],
@@ -1764,11 +1829,10 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             shared_source(n64),
             gate_text(["S101–S165"]),
             [
-                "RED: shared/GATE.md:14: the range S101–S165 names S165, which the list of shared items does"
-                " not hold",
+                "RED: shared/GATE.md:14: the range S101–S165 names S165, which the shared tests do not hold",
                 f"  why: {WHY_TABLE_TYPED}",
-                "  fix: change the range to numbers shared/tests/shared_items.py holds, or give the item that"
-                " number in the list",
+                "  fix: change the range to numbers shared/tests/test_shared_items.py holds, or give the item"
+                " that number in its marker",
                 "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
                 " examined, 64 shared item(s)",
             ],
@@ -1777,11 +1841,10 @@ def shared_literal_data() -> dict[str, tuple[str, str, list[str]]]:
             shared_source(n64),
             gate_text(["S101–S164", "S170"]),
             [
-                "RED: shared/GATE.md:15: the handle S170 names an item the list of shared items does not"
-                " hold",
+                "RED: shared/GATE.md:15: the handle S170 names an item the shared tests do not hold",
                 f"  why: {WHY_TABLE_TYPED}",
-                "  fix: change the handle to numbers shared/tests/shared_items.py holds, or give the item"
-                " that number in the list",
+                "  fix: change the handle to numbers shared/tests/test_shared_items.py holds, or give the"
+                " item that number in its marker",
                 "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s)"
                 " examined, 64 shared item(s)",
             ],
@@ -1841,11 +1904,11 @@ def shared_counts(tally: Tally) -> None:
 
 def self_test_shared() -> tuple[int, int]:
     """The shared acceptance items, over their whole set of cases, each on a throwaway tree: the numbers
-    green and red (a swap, a duplicate, a start above 101, a reversed list, two swaps apart, the last two
-    of 64), the table of GATE.md section 5 green and red (a range, a handle, a hyphen range, a range
-    that ends at its start, more missing numbers than are named, a section read to the end of the file,
-    another section not read), a file or a form it cannot read as a BROKEN line in the plain run and in
-    the run of one module, and the report as literal lines. Returns (failed, total)."""
+    of the markers green and red (a swap, a duplicate, a start above 101, the numbers reversed, two swaps
+    apart, the last two of 64), the table of GATE.md section 5 green and red (a range, a handle, a hyphen
+    range, a range that ends at its start, more missing numbers than are named, a section read to the
+    end of the file, another section not read), a file or a form it cannot read as a BROKEN line in the
+    plain run and in the run of one module, and the report as literal lines. Returns (failed, total)."""
     tally = Tally()
     shared_green(tally)
     shared_decoys(tally)
@@ -1890,16 +1953,496 @@ def main_over(root: Path, argv: list[str]) -> tuple[int, list[str]]:
     return code, printed.getvalue().splitlines()
 
 
+ACCEPTANCE_GATE = (  # a fake gate: MODE decides whether it blocks the text it is handed
+    "import json, sys\n"
+    "text = json.load(sys.stdin)['tool_input'].get('content', '')\n"
+    "red = {'right': 'RED-TEXT' in text, 'always-pass': False, 'always-block': True}[MODE]\n"
+    "if red:\n"
+    "    sys.stderr.write('RED: doc.md: a red text\\n  why: a fixture\\n  fix: take it out\\n'\n"
+    "                     'RED: 1 finding(s) — 1 document examined (doc.md)\\n')\n"
+    "    sys.exit(2)\n"
+    "print('GREEN: const-sample: 1 document examined, a covered document')\n"
+)
+ACCEPTANCE_CONFTEST = (
+    "import acceptance\nimport pytest\n\n\n"
+    "def pytest_configure(config: pytest.Config) -> None:\n    acceptance.configure(config)\n\n\n"
+    "def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:\n    acceptance.collected(items)\n"
+)
+ACCEPTANCE_TESTS = (
+    "from enum import StrEnum\nfrom pathlib import Path\n\nimport pytest\n"
+    "from acceptance import check_case, item\nfrom const_gate.model import Finding\n"
+    "from harness import Case, Harness, Write\n\n\n"
+    "class Key(StrEnum):\n    X1 = 'X1'\n\n\n"
+    "H = Harness(Path(__file__).resolve().parent.parent / 'scripts', 'gate.sh', 'gate.py', 'const-sample')\n"
+    "CASE = Case(1, 'a red text', Write('doc.md', 'RED-TEXT\\n'), Write('doc.md', 'fine\\n'),\n"
+    "            Finding(Key.X1, 'doc.md: a red text', 'a fixture', 'take it out'),\n"
+    "            'a covered document')\n\n\n"
+    "@pytest.mark.parametrize('case', [pytest.param(CASE, id='T1', marks=item(1, CASE.title))])\n"
+    "def test_case(case: Case) -> None:\n    check_case(H, case)\n"
+)
+
+
+def acceptance_tree(root: Path, mode: str, extra: str = "") -> Path:
+    """A throwaway module whose tests use the kit's own shared test files, linked: the fake gate in
+    `mode`, one red→green case, and `extra` appended to its test file. The tests folder."""
+    scripts = root / "modules" / "const-sample" / "scripts"
+    tests = scripts.parent / "tests"
+    scripts.mkdir(parents=True)
+    tests.mkdir()
+    (scripts / "gate.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
+    (scripts / "gate.py").write_text(f"MODE = {mode!r}\n{ACCEPTANCE_GATE}", encoding="utf-8")
+    for name in ("acceptance.py", "harness.py", "consumer.py"):
+        (tests / name).symlink_to(KIT / "shared" / "tests" / name)
+    (tests / "const_gate").symlink_to(KIT / "shared" / "const_gate")
+    (tests / "conftest.py").write_text(ACCEPTANCE_CONFTEST, encoding="utf-8")
+    (tests / "test_sample.py").write_text(ACCEPTANCE_TESTS + extra, encoding="utf-8")
+    return tests
+
+
+def acceptance_cases() -> dict[str, tuple[str, str, list[str], int, list[str]]]:
+    """case: the gate's mode, what the test file adds, pytest's extra arguments, the exit, the texts
+    the output must hold."""
+    doubled = "\n\n@item(1, 'again')\ndef test_again() -> None:\n    pass\n"
+    unmarked = "\n\ndef test_unmarked() -> None:\n    pass\n"
+    checks = (  # expect and broken_first_line on the results RUN, EXIT and FIRST, typed after them
+        "\n\nfrom acceptance import broken_first_line, expect\nfrom harness import Result\n\n\n"
+        "@item(2, 'expect')\ndef test_expect() -> None:\n"
+        "    expect(RUN, 2, 'RED: x', 'stderr', label='case a')\n    expect(EXIT, 2, 'RED: x')\n\n\n"
+        "@item(3, 'first line')\ndef test_first() -> None:\n    broken_first_line(FIRST, 'BROKEN: a')\n"
+    )
+    shown = (
+        "RUN = Result(2, '', 'RED: x\\n')\nEXIT = Result(2, 'RED: x\\n', '')\n"
+        "FIRST = Result(1, '', 'BROKEN: a\\nBROKEN: b\\n')\n"
+    )
+    return {  # typed by hand: the messages of check_case, expect, broken_first_line and acceptance.collected
+        "a gate that does both halves right: the case is green": ("right", "", [], 0, ["1 passed"]),
+        "a gate that always passes: check_case is red on the red half": (
+            "always-pass",
+            "",
+            [],
+            1,
+            ["red half exited 0, not 2"],
+        ),
+        "a gate that always blocks: check_case is red on the green half": (
+            "always-block",
+            "",
+            [],
+            1,
+            ["green half did not print 'GREEN: const-sample: 1 document examined, a covered document'"],
+        ),
+        "expect and broken_first_line on runs that show what they ask: green": (
+            "right",
+            checks + shown,
+            [],
+            0,
+            ["3 passed"],
+        ),
+        "expect on its text on the other stream: red, its label first": (
+            "right",
+            checks + shown.replace("RUN = Result(2, '', 'RED: x\\n')", "RUN = Result(2, 'RED: x\\n', '')"),
+            [],
+            1,
+            ["case a: wanted exit 2 teaching 'RED: x'; got exit 2:", "1 failed, 2 passed"],
+        ),
+        "expect on another exit: red": (
+            "right",
+            checks + shown.replace("EXIT = Result(2,", "EXIT = Result(0,"),
+            [],
+            1,
+            ["wanted exit 2 teaching 'RED: x'; got exit 0: RED: x", "1 failed, 2 passed"],
+        ),
+        "broken_first_line on another first line, and on another exit: red": (
+            "right",
+            checks
+            + shown.replace("'BROKEN: a\\nBROKEN: b", "'BROKEN: b\\nBROKEN: a")
+            + "\n\n@item(4, 'exit')\ndef test_exit() -> None:\n"
+            "    broken_first_line(Result(2, '', 'BROKEN: a\\n'), 'BROKEN: a')\n",
+            [],
+            1,
+            [
+                "wanted exit 1 with first line 'BROKEN: a'; got exit 1: BROKEN: b",
+                "wanted exit 1 with first line 'BROKEN: a'; got exit 2: BROKEN: a",
+                "2 failed, 2 passed",
+            ],
+        ),
+        "a test without item(…): the run stops before any test": (
+            "right",
+            unmarked,
+            [],
+            4,
+            [
+                "test_sample.py::test_unmarked carries no item(<number>, <title>) — why: a test outside the"
+                " acceptance table is examined by no row — fix: give it @item(<number>, <title>) from"
+                " acceptance",
+                "no tests ran",
+            ],
+        ),
+        "a number two tests carry: the run stops before any test, the fix naming the module's file": (
+            "right",
+            doubled,
+            [],
+            4,
+            [
+                "item number 1 is carried by 2 items, 'a red text', 'again' — why: one number, one item, or a"
+                " result and a node id cannot say which item they mean — fix: keep one of them at 1, and in"
+                " the module's own tests/test_sample.py give the other one the number 2 — a number no other"
+                " item holds, below 101",
+                "no tests ran",
+            ],
+        ),
+        "a number two tests carry, run with -n 2: xdist's internal error, never green": (
+            "right",
+            doubled,
+            ["-n", "2"],
+            3,
+            ["no tests ran"],
+        ),
+    }
+
+
+def case_acceptance(tally: Tally) -> None:
+    """The shared pytest wiring, `acceptance`, on a throwaway module that links the kit's own shared test
+    files: check_case red on either half of a gate that always answers the same, the run stopped on a
+    test without a number and on a number two tests carry — serially with the lines, with xdist as its
+    internal error — and the number handed to the JUnit report."""
+    missing = [name for name in ("pytest", "xdist") if importlib.util.find_spec(name) is None]
+    if missing:
+        tally.record(False)
+        print(
+            f"[FAIL] acceptance: {', '.join(missing)} not installed — fix: {pins('pytest', 'pytest-xdist')}"
+        )
+        return
+    for name, (mode, extra, args, code, said) in acceptance_cases().items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            tests = acceptance_tree(root, mode, extra)
+            report = root / "report.xml"
+            done = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    str(tests),
+                    "-p",
+                    "no:cacheprovider",
+                    "-W",
+                    "error",
+                    "-q",
+                    f"--junitxml={report}",
+                    *args,
+                ],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=RUNNER_TIMEOUT,
+            )
+            out = done.stdout + done.stderr
+            ok = done.returncode == code and all(text in out for text in said)
+            if code == 0:  # the green run: the item's number in the report, as the property `item`
+                ok = ok and '<property name="item" value="1" />' in report.read_text(encoding="utf-8")
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] acceptance: {name}")
+        if not ok:
+            print(f"        exit {done.returncode}, wanted {code}: {out.strip()[-800:]}")
+
+
 COVERED_GATE = "import sys\nif len(sys.argv) > 5:\n    print('many')\nprint('gate')\n"
 
 
-def coverage_runner(lines: list[str], code: int) -> str:
-    """A fake runner that runs the sample module's gate as the fixtures do, `sh` calling `python3`."""
-    return (
-        "import subprocess, sys\nfrom pathlib import Path\n"
-        "entry = Path(__file__).resolve().parent.parent / 'scripts' / 'entry.sh'\n"
-        "subprocess.run(['sh', str(entry)], check=True, capture_output=True)\n"
-    ) + fake_runner(lines, code)
+def sample_tests(
+    root: Path,
+    red: tuple[int, ...] = (),
+    extra: str = "",
+    conftest: str = ACCEPTANCE_CONFTEST,
+    named: tuple[tuple[int, str], ...] = SAMPLE_ITEMS,
+    module: str = "const-sample",
+) -> None:
+    """The sample module's conftest and its test file: one test for each of `named`, red where `red`
+    names its number, item 2 running the module's gate as a child process; then `extra`."""
+    tests = root / "modules" / module / "tests"
+    (tests / "conftest.py").write_text(conftest, encoding="utf-8")
+    body = "import subprocess\nfrom pathlib import Path\n\nfrom acceptance import item\n\n"
+    body += "ENTRY = Path(__file__).resolve().parent.parent / 'scripts' / 'entry.sh'\n"
+    seen: set[int] = set()
+    for index, (number, title) in enumerate(named):
+        name = f"test_{number}" if number not in seen else f"test_{number}_{index}"
+        seen.add(number)
+        run = "    subprocess.run(['sh', str(ENTRY)], check=True)\n" if number == 2 else ""
+        head = f"\n\n@item({number}, {title!r})\ndef {name}() -> None:\n"
+        body += f"{head}{run}    assert {number not in red}\n"
+    (tests / "test_sample.py").write_text(body + extra, encoding="utf-8")
+
+
+def sample_module(root: Path, module: str = "const-sample") -> None:
+    """The sample module's scripts and tests: a gate one item runs and a file no item runs, the kit's own
+    shared test files linked, and the items of SAMPLE_ITEMS, each green."""
+    tests = root / "modules" / module / "tests"
+    scripts = tests.parent / "scripts"
+    scripts.mkdir(parents=True, exist_ok=True)
+    tests.mkdir(exist_ok=True)
+    (scripts / "entry.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
+    (scripts / "gate.py").write_text(COVERED_GATE, encoding="utf-8")
+    (scripts / "unused.py").write_text("print('never run')\n", encoding="utf-8")
+    links = {name: KIT / "shared" / "tests" / name for name in ("acceptance.py", "harness.py", "consumer.py")}
+    links["const_gate"] = KIT / "shared" / "const_gate"
+    for name, target in links.items():
+        if not (tests / name).is_symlink():
+            (tests / name).symlink_to(target)
+    sample_tests(root, module=module)
+
+
+def pytest_run_cases() -> dict[str, tuple[tuple[int, ...], str, str, str | None, int, list[str]]]:
+    """case: the red items, what the test file adds, the conftest, CONSTITUTION_KIT_JOBS, the check's
+    exit, the texts its output must hold."""
+    exited = (  # a test that ends the run with an exit pytest never gives a verdict by
+        "\n\n@item(7, 'x')\ndef test_exit() -> None:\n    import os\n\n    os._exit(3)\n"
+    )
+    against = (  # a conftest whose run, never its collection, exits 1 with every item green
+        ACCEPTANCE_CONFTEST + "\n\ndef pytest_sessionfinish(session: pytest.Session) -> None:\n"
+        "    if not session.config.getoption('collectonly'):\n        session.exitstatus = 1\n"
+    )
+    bare = (  # a conftest that registers the marker and hands no number to the report
+        "import acceptance\nimport pytest\n\n\n"
+        "def pytest_configure(config: pytest.Config) -> None:\n    acceptance.configure(config)\n"
+    )
+    doubled = "\n\n@item(3, 'again')\ndef test_again() -> None:\n    pass\n"
+    green_row = "  A1.1  green — M1 hook — const-sample 0.0.1"
+    header = "the runner of const-sample exited"
+    return {  # typed by hand
+        "pytest, every item green": ((), "", ACCEPTANCE_CONFTEST, None, EXIT_GREEN, [green_row]),
+        "pytest with -n 2, every item green": ((), "", ACCEPTANCE_CONFTEST, "2", EXIT_GREEN, [green_row]),
+        "pytest, item 2 red: the row red and pytest's output echoed": (
+            (2,),
+            "",
+            ACCEPTANCE_CONFTEST,
+            None,
+            EXIT_RED,
+            ["  A1.1  red — M1 hook — const-sample 0.0.1", f"{header} 1; its output, as it printed it:"],
+        ),
+        "pytest, a number two tests carry: could not collect, the lines echoed first": (
+            (),
+            doubled,
+            ACCEPTANCE_CONFTEST,
+            "2",
+            EXIT_BROKEN,
+            [
+                f"{header} 4; its output, as it printed it:",
+                "item number 3 is carried by 2 items",
+                "BROKEN: pytest could not collect the tests of const-sample (exit 4)",
+            ],
+        ),
+        "pytest, a conftest that hands no number to the report": (
+            (),
+            "",
+            bare,
+            None,
+            EXIT_BROKEN,
+            [
+                "BROKEN: the test modules.const-sample.tests.test_sample::test_1 of const-sample carries 0",
+                "fix: let the module's conftest call acceptance.collected from its"
+                " pytest_collection_modifyitems",
+            ],
+        ),
+        "pytest, a test file that does not parse: could not collect, the lines echoed first": (
+            (),
+            "\ndef broken(:\n",
+            ACCEPTANCE_CONFTEST,
+            None,
+            EXIT_BROKEN,
+            [
+                f"{header} 2; its output, as it printed it:",
+                "SyntaxError",
+                "BROKEN: pytest could not collect the tests of const-sample (exit 2)",
+                "fix: run python3 -m pytest modules/const-sample/tests -W error --collect-only and repair"
+                " what it names",
+            ],
+        ),
+        "pytest, an exit that is no verdict: the output echoed, then BROKEN": (
+            (),
+            exited,
+            ACCEPTANCE_CONFTEST,
+            None,
+            EXIT_BROKEN,
+            [
+                f"{header} 3; its output, as it printed it:",
+                "BROKEN: the runner of const-sample exited 3",
+                "fix: run python3 -m pytest modules/const-sample/tests -W error and repair what it names",
+            ],
+        ),
+        "pytest, an exit of 1 against a green report": (
+            (),
+            "",
+            against,
+            None,
+            EXIT_BROKEN,
+            [
+                f"{header} 1; its output, as it printed it:",
+                "BROKEN: the runner of const-sample exited 1 against its own report — fix: run python3 -m"
+                " pytest modules/const-sample/tests -W error",
+            ],
+        ),
+        "pytest, a skipped test: left out of the results, and no finding of an unnamed item": (
+            (),
+            "\n\nimport pytest\n\n\n@item(9, 'not this gate')\ndef test_skipped() -> None:\n"
+            "    pytest.skip('not this gate')\n",
+            ACCEPTANCE_CONFTEST,
+            None,
+            EXIT_GREEN,
+            [green_row, "4 runner item(s) read from 1 runner(s)"],
+        ),
+        "pytest, a warning a test file gives: an error under -W error, could not collect": (
+            (),
+            "\n\nimport warnings\n\nwarnings.warn('a warning at import', UserWarning)\n",
+            ACCEPTANCE_CONFTEST,
+            None,
+            EXIT_BROKEN,
+            [
+                "UserWarning: a warning at import",
+                "BROKEN: pytest could not collect the tests of const-sample",
+            ],
+        ),
+    }
+
+
+def case_job_summary(tally: Tally) -> None:
+    """With GITHUB_STEP_SUMMARY naming a file, a run appends its module's section, every test in number
+    order with its result, as literal lines, a red run too; unset, it writes nothing; naming a folder, a
+    note, the verdict standing."""
+    skipped = (
+        "\n\nimport pytest\n\n\n@item(9, 'not this gate')\ndef test_skipped() -> None:\n"
+        "    pytest.skip('no')\n"
+    )
+    wanted = [  # typed by hand: the section of a run with item 2 red and item 9 skipped
+        "### const-sample: 3 passed, 1 failed, 1 skipped",
+        "",
+        "| item | test | result |",
+        "|---|---|---|",
+        "| 1 | `test_1` | passed |",
+        "| 2 | `test_2` | failed |",
+        "| 3 | `test_3` | passed |",
+        "| 9 | `test_skipped` | skipped |",
+        "| 101 | `test_101` | passed |",
+        "",
+    ]
+    for case, red, want in (
+        ("a file", (2,), EXIT_RED),
+        ("unset", (), EXIT_GREEN),
+        ("a folder", (), EXIT_GREEN),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            sample_tests(root, red, skipped)
+            target = root / ("summary.md" if case != "a folder" else "docs")
+            if case != "unset":
+                os.environ[SUMMARY_ENV] = str(target)
+            try:
+                code, lines = main_over(root, ["--run", "--module", "const-sample"])
+            finally:
+                os.environ.pop(SUMMARY_ENV, None)
+            written = target.read_text(encoding="utf-8").split("\n") if target.is_file() else None
+        if case == "a file":
+            ok = code == want and written == [*wanted, ""]
+        elif case == "unset":
+            ok = code == want and written is None and not (root / "summary.md").exists()
+        else:
+            ok = code == want and any(line.startswith(f"note: the job summary {target}") for line in lines)
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] the job summary, its variable {case}: as the rule says")
+        if not ok:
+            print(f"        exit {code}: {written} {lines[-3:]}")
+
+
+def missing_spec(
+    package: str, real: Callable[[str, str | None], ModuleSpec | None], name: str, near: str | None = None
+) -> ModuleSpec | None:
+    """importlib.util.find_spec as it answers where `package` is not installed."""
+    return None if name == package else real(name, near)
+
+
+def case_pytest_runs(tally: Tally) -> None:
+    """A full run of a module whose tests are pytest's: green, red, stopped at collection, run in
+    parallel, a report without the numbers, and the libraries missing."""
+    for name, (red, extra, conftest, jobs, want, needles) in pytest_run_cases().items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            sample_tests(root, red, extra, conftest)
+            saved = os.environ.pop(JOBS_ENV, None)
+            if jobs is not None:
+                os.environ[JOBS_ENV] = jobs
+            try:
+                code, lines = main_over(root, ["--run", "--module", "const-sample"])
+            finally:
+                os.environ.pop(JOBS_ENV, None)
+                if saved is not None:
+                    os.environ[JOBS_ENV] = saved
+        out = "\n".join(lines)
+        ok = code == want and all(needle in out for needle in needles)
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] a run of {name} exits {want} and says so")
+        if not ok:
+            print(f"        exit {code}: {out.strip()[-900:]}")
+    for jobs in (None, "2"):  # the coverage mode, serial and in parallel: the gate a test runs is measured
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            (root / "shared" / "const_gate").mkdir()
+            (root / "shared" / "const_gate" / "__init__.py").write_text("", encoding="utf-8")
+            folder = root / "coverage-out"
+            os.environ[kit_coverage.ENV] = str(folder)
+            if jobs is not None:
+                os.environ[JOBS_ENV] = jobs
+            try:
+                code, lines = main_over(root, ["--run", "--module", "const-sample"])
+            finally:
+                os.environ.pop(kit_coverage.ENV, None)
+                os.environ.pop(JOBS_ENV, None)
+            written = folder / "const-sample.json"
+            measured: dict[str, Any] = (
+                json.loads(written.read_text(encoding="utf-8")) if written.is_file() else {}
+            )
+        files = measured.get("files", {})
+        gate_file = files.get("modules/const-sample/scripts/gate.py", {})
+        unused = files.get("modules/const-sample/scripts/unused.py", {})
+        ok = (
+            code == EXIT_GREEN
+            and measured.get("runner_exit") == 0
+            and gate_file.get("executed_lines") == [1, 2, 4]
+            and unused.get("missing_lines") == [1]
+        )
+        tally.record(ok)
+        parallel = " with -n 2" if jobs else ""
+        print(f"[{'ok' if ok else 'FAIL'}] pytest's tests under coverage{parallel}: the gate measured")
+        if not ok:
+            print(f"        exit {code}: {measured or 'no file'} {lines[-5:]}")
+    for package, jobs in (("pytest", None), ("xdist", "2")):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, GOOD_TABLE)
+            real = importlib.util.find_spec
+            importlib.util.find_spec = partial(missing_spec, package, real)
+            os.environ.pop(JOBS_ENV, None)
+            if jobs is not None:
+                os.environ[JOBS_ENV] = jobs
+            try:
+                code, lines = main_over(root, ["--run", "--module", "const-sample"])
+            finally:
+                importlib.util.find_spec = real
+                os.environ.pop(JOBS_ENV, None)
+        out = "\n".join(lines)
+        wanted = (
+            f"BROKEN: {package} not installed for {sys.executable}, and the tests of const-sample run under"
+        )
+        ok = code == EXIT_BROKEN and wanted in out and "-m pip install" in out and '"pytest==' in out
+        tally.record(ok)
+        print(
+            f"[{'ok' if ok else 'FAIL'}] a run of pytest's tests with {package} missing is BROKEN,"
+            " naming the pin"
+        )
+        if not ok:
+            print(f"        exit {code}: {out.strip()[-600:]}")
 
 
 def self_test_coverage() -> tuple[int, int]:
@@ -1907,29 +2450,23 @@ def self_test_coverage() -> tuple[int, int]:
     the module's file, the gate a child process ran counted as executed and a file no run imported
     as missed; with it unset, no file; with it naming a path where no folder can be made, a red run
     prints its runner's output and then the BROKEN line. The failed cases, and the cases."""
-    red_run = [line.replace("[ok]   2.", "[FAIL] 2.") for line in GREEN_RUN[:-1]]
-    red_run.append("3/4 acceptance items green — 1 red→green cases, 3 assertions examined")
-    cases = {  # case: the runner's lines, its exit, the variable (folder, unset or file), the exit
-        "a green run under coverage writes the coverage file": (GREEN_RUN, 0, "folder", EXIT_GREEN),
-        "a red run under coverage writes the coverage file": (red_run, 2, "folder", EXIT_RED),
-        "a run with the variable unset writes no coverage file": (GREEN_RUN, 0, "unset", EXIT_GREEN),
+    cases = {  # case: the red items, pytest's exit, the variable (folder, unset or file), the exit
+        "a green run under coverage writes the coverage file": ((), 0, "folder", EXIT_GREEN),
+        "a red run under coverage writes the coverage file": ((3,), PYTEST_RED, "folder", EXIT_RED),
+        "a run with the variable unset writes no coverage file": ((), 0, "unset", EXIT_GREEN),
         "a red run whose coverage file cannot be written prints its output, then BROKEN": (
-            red_run,
-            2,
+            (3,),
+            PYTEST_RED,
             "file",
             EXIT_BROKEN,
         ),
     }
     failed = 0
-    for name, (lines, runner_exit, variable, want) in cases.items():
+    for name, (red, runner_exit, variable, want) in cases.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, GOOD_TABLE, runner=coverage_runner(lines, runner_exit))
-            scripts = root / "modules" / "const-sample" / "scripts"
-            scripts.mkdir()
-            (scripts / "entry.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
-            (scripts / "gate.py").write_text(COVERED_GATE, encoding="utf-8")
-            (scripts / "unused.py").write_text("print('never run')\n", encoding="utf-8")
+            build(root, GOOD_TABLE)
+            sample_tests(root, red)
             (root / "shared" / "const_gate").mkdir()
             (root / "shared" / "const_gate" / "__init__.py").write_text("", encoding="utf-8")
             out = root / "coverage-out"
@@ -1949,7 +2486,7 @@ def self_test_coverage() -> tuple[int, int]:
             written = out / "const-sample.json"
             ok = code == want and written.is_file() == (variable == "folder")
             if ok and variable == "file":
-                ok = echoed(printed.getvalue(), lines, runner_exit) and "cannot be written" in reason
+                ok = echoed(printed.getvalue(), runner_exit, "FAILED") and "cannot be written" in reason
             if ok and variable == "folder":
                 saved = json.loads(written.read_text(encoding="utf-8"))
                 files = saved["files"]
@@ -2730,53 +3267,36 @@ def case_carrier_row(tally: Tally) -> None:
 
 
 def case_full_runs(tally: Tally) -> None:
-    """A full run with each kind of runner output exits as it should and says so."""
+    """A full run with each kind of pytest run exits as it should and says so."""
     runs: dict[
-        str, tuple[list[str], int, int, str]
-    ] = {  # case: runner lines, its exit, the check's exit, a line to find
-        "all green": (GREEN_RUN, 0, EXIT_GREEN, "  A1.1  green — M1 hook — const-sample 0.0.1"),
-        "a red item": (
-            [
-                *GREEN_RUN[:2],
-                "[FAIL]   2. (assertion) b",
-                *GREEN_RUN[3:5],
-                "3/4 acceptance items green — 1 red→green cases, 3 assertions examined",
-            ],
-            2,
+        str, tuple[tuple[int, ...], tuple[tuple[int, str], ...], int, str]
+    ] = {  # case: the red items, the items the module's tests hold, the check's exit, a line to find
+        "all green": ((), SAMPLE_ITEMS, EXIT_GREEN, "  A1.1  green — M1 hook — const-sample 0.0.1"),
+        "a red item": ((2,), SAMPLE_ITEMS, EXIT_RED, "  A1.1  red — M1 hook — const-sample 0.0.1"),
+        "an item the runner did not report": (
+            (),
+            ((1, "a"), (2, "b"), (101, "s")),
             EXIT_RED,
-            "  A1.1  red — M1 hook — const-sample 0.0.1",
-        ),
-        "an item the runner did not print": (
-            [
-                *GREEN_RUN[:3],
-                GREEN_RUN[4],
-                "3/3 acceptance items green — 1 red→green cases, 2 assertions examined",
-            ],
-            0,
-            EXIT_RED,
-            "names runner item 3, which the runner did not print",
+            "names runner item 3, which the runner did not report",
         ),
         "an item not read on a row": (
-            [GREEN_RUN[3], "1/1 acceptance items green — 0 red→green cases, 1 assertions examined"],
-            0,
+            (),
+            ((3, "c"),),
             EXIT_RED,
             "  A1.1  fixture, not read + review — M1 hook — const-sample 0.0.1",
         ),
         "a runner item no table names": (
-            [
-                *GREEN_RUN[:5],
-                "[ok]   7. (assertion) x",
-                "5/5 acceptance items green — 1 red→green cases, 4 assertions examined",
-            ],
-            0,
+            (),
+            (*SAMPLE_ITEMS, (7, "x")),
             EXIT_RED,
             "runner item 7 is named by no acceptance item",
         ),
     }
-    for name, (lines, runner_exit, want, needle) in runs.items():
+    for name, (red, named, want, needle) in runs.items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, GOOD_TABLE, runner=fake_runner(lines, runner_exit))
+            build(root, GOOD_TABLE)
+            sample_tests(root, red, named=named)
             printed = io.StringIO()
             with contextlib.redirect_stdout(printed):
                 code = full_run(root, None)
@@ -2787,14 +3307,14 @@ def case_full_runs(tally: Tally) -> None:
             and "  A1.2  held by kernel §2 — definitional — through A1.1" in out
         )
         ok = ok and "      const-sample L1: live, done 2026-09-01 — not run" in out
-        ok = ok and echoed(out, lines, runner_exit)
+        ok = ok and echoed(out, PYTEST_RED if red else 0, "FAILED modules/const-sample/tests/test_sample.py")
         tally.record(ok)
         print(f"[{'ok' if ok else 'FAIL'}] a full run with {name} exits {want} and says so")
         if not ok:
             print(out)
 
 
-RUNNER_LINE = "Runner: `python3 tests/run.py` (needs git), {} items green."
+RUNNER_LINE = "Runner: `python3 -m pytest tests` (needs git), {} items green."
 
 
 def runner_counts_data() -> dict[str, tuple[str, list[str], int | None]]:
@@ -2811,9 +3331,9 @@ def runner_counts_data() -> dict[str, tuple[str, list[str], int | None]]:
             ["--run", "--module", "const-sample"],
             5,
         ),
-        "a Runner line without a count": ("Runner: `python3 tests/run.py` (needs git).", ["--run"], None),
+        "a Runner line without a count": ("Runner: `python3 -m pytest tests` (needs git).", ["--run"], None),
         "a Runner line with the count in another form": (
-            "Runner: `python3 tests/run.py`, 9 items, green: 7, 8 tests green.",
+            "Runner: `python3 -m pytest tests`, 9 items, green: 7, 8 tests green.",
             ["--run"],
             None,
         ),
@@ -2909,317 +3429,187 @@ def case_runner_counts(tally: Tally) -> None:
             print(f"        got: {code} {got}")
 
 
-def case_broken_runners(tally: Tally) -> None:
-    """A runner out of form, one whose last line does not count and one with an exit that is no verdict are
-    BROKEN lines, never a pass."""
-    broken: dict[str, tuple[list[str], int, str]] = {
-        "an item line out of form": (
-            ["[ok] one (assertion) a", *GREEN_RUN[1:]],
-            0,
-            "an item line out of form",
-        ),
-        "a last line that does not count": (
-            [*GREEN_RUN[:5], "9/9 acceptance items green — x"],
-            0,
-            "does not count them",
-        ),
-        "an exit that is no verdict": (GREEN_RUN, 1, "exited 1"),
-    }
-    for name, (lines, runner_exit, needle) in broken.items():
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            build(root, GOOD_TABLE, runner=fake_runner(lines, runner_exit))
-            printed = io.StringIO()
-            try:
-                with contextlib.redirect_stdout(printed):
-                    full_run(root, None)
-                ok = False
-            except Broken as said:
-                ok = needle in str(said) and "fix:" in str(said)
-        ok = ok and echoed(printed.getvalue(), lines, runner_exit)
-        tally.record(ok)
-        print(f"[{'ok' if ok else 'FAIL'}] a runner with {name} is a BROKEN line, never a pass")
-
-
 def case_runner_echo(tally: Tally) -> None:
     """A runner's stdout without its last line break, then its stderr, are echoed as lines of their own."""
-    with tempfile.TemporaryDirectory() as tmp:  # stdout without its last line break, then stderr
-        root = Path(tmp).resolve()
-        body = "import sys\nsys.stdout.write('tail')\nsys.stderr.write('err\\n')\nsys.exit(1)\n"
-        build(root, GOOD_TABLE, runner=body)
-        printed = io.StringIO()
-        try:
-            with contextlib.redirect_stdout(printed):
-                full_run(root, None)
-            ok = False
-        except Broken:
-            ok = printed.getvalue().splitlines()[-2:] == ["tail", "err"]
+    sample = Module("const-sample", "modules/const-sample/MODULE.md", "0.0.1", {}, [])
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        echo(sample, subprocess.CompletedProcess(["pytest"], 1, "tail", "err\n"))
+    ok = printed.getvalue().splitlines() == [
+        "the runner of const-sample exited 1; its output, as it printed it:",
+        "tail",
+        "err",
+    ]
     tally.record(ok)
     print(f"[{'ok' if ok else 'FAIL'}] a runner's stdout and stderr are echoed as lines of their own")
 
 
-def harness_runs_data() -> dict[
-    str, tuple[list[str], int, int, list[str], str | None, tuple[tuple[int, str], ...]]
-]:
-    """The runs of the shared harness under a command line: the command line; the runner's exit; its item
-    lines; its last lines, on stdout, or all its lines on stderr when it could not run; what the full run's
-    BROKEN line says, None when it reads green; the items it holds."""
-    unknown = (  # typed by hand: a message function cannot check itself
-        "BROKEN: --item 7: no item numbered 7 in this runner — why: a filter that matches nothing runs"
-        " nothing, and nothing run looks green — fix: name items this runner holds: 1–3, 101"
-    )
-    misused = (
-        "BROKEN: misinvocation: --items 2 — why: the runner takes one option, and an argument it ignored"
-        " could pass for a filter — fix: run with no arguments for a full run, or with --item <n>[,<n>…]"
-        " to run only those items"
-    )
-    could_not = "BROKEN: the runner could not run — 0 of {} items run"
-
-    def carried(n: int, held: int, titles: str, fix: str) -> str:  # typed by hand: as run_all prints it
-        return (
-            f"BROKEN: item number {n} is carried by {held} items, {titles} — why: one number, one item, or"
-            f" a result and an --item cannot say which item they mean — fix: {fix}"
-        )
-
+def collisions_data() -> dict[str, tuple[tuple[tuple[int, str], ...], list[str]]]:
+    """The tests a module may hold that acceptance.collected refuses: the items, beside the four of
+    SAMPLE_ITEMS, and the lines of its stop, each a fault, in order."""
     shared_kept = " — the shared one, if one is shared, since a shared number is never moved or reissued"
     below = "no other item holds, below 101"
     decision = "raise it as a decision, since the shared numbers are never moved"
+
+    def carried(n: int, held: int, titles: str, fix: str) -> str:  # typed by hand: as collected says it
+        return (
+            f"item number {n} is carried by {held} items, {titles} — why: one number, one item, or a result"
+            f" and a node id cannot say which item they mean — fix: {fix}"
+        )
 
     def own_101(to: int) -> str:
         return carried(
             101,
             2,
             "'s', 'own'",
-            f"keep one of them at 101{shared_kept}, and in the module's own tests/run.py give the other one"
-            f" the number {to} — a number {below}",
+            f"keep one of them at 101{shared_kept}, and in the module's own tests/test_sample.py give the"
+            f" other one the number {to} — a number {below}",
         )
 
     twice_7 = carried(
         7,
         2,
         "'x', 'y'",
-        "keep one of them at 7, and in the module's own tests/run.py give the other one the number 8"
+        f"keep one of them at 7, and in the module's own tests/test_sample.py give the other one the number 8"
         f" — a number {below}",
     )
-    shared_and_own = (*HARNESS_ITEMS, (101, "own"))
-    seven_twice = (*HARNESS_ITEMS, (7, "x"), (7, "y"))
-    both = (*seven_twice, (101, "own"))
-    seven_thrice = (*HARNESS_ITEMS, (7, "x"), (7, "y"), (7, "z"))
-    top_100 = (*seven_twice, (100, "top"))
-    top_99 = (*seven_thrice, (99, "top"))
-    top_99_four = (*top_99, (7, "w"))
-    own_170 = (*HARNESS_ITEMS, (170, "p"), (170, "q"))
-    filtered: dict[str, tuple[list[str], int, int, list[str], str | None, tuple[tuple[int, str], ...]]] = {
-        # case: the command line; the runner's exit; its item lines; its last lines, on stdout, or all
-        # its lines on stderr when it could not run; what the full run's BROKEN line says, None when it
-        # reads green; the items it holds, the shared harness's four when nothing else is named
-        "no filter, a full run": (
-            [],
-            0,
-            4,
-            ["4/4 acceptance items green — 0 red→green cases, 4 assertions examined"],
-            None,
-            HARNESS_ITEMS,
-        ),
-        "--item 2,101": (
-            ["--item", "2,101"],
-            0,
-            2,
-            ["2/2 selected items green — 2 of 4 items run, not a full pass"],
-            "does not count them",
-            HARNESS_ITEMS,
-        ),
-        "--item 7, a number it does not hold": (
-            ["--item", "7"],
-            1,
-            0,
-            [unknown, could_not.format(4)],
-            "exited 1",
-            HARNESS_ITEMS,
-        ),
-        "--items 2, an argument it does not take": (
-            ["--items", "2"],
-            1,
-            0,
-            [misused, could_not.format(4)],
-            "exited 1",
-            HARNESS_ITEMS,
-        ),
-        "an own item 101 beside the shared 101": (
-            [],
-            1,
-            0,
-            [own_101(4), could_not.format(5)],
-            "exited 1",
-            shared_and_own,
-        ),
-        "two own items numbered 7": ([], 1, 0, [twice_7, could_not.format(6)], "exited 1", seven_twice),
+    unmarked = (
+        "modules/const-sample/tests/test_sample.py::test_unmarked carries no item(<number>, <title>) — why: a"
+        " test outside the acceptance table is examined by no row — fix: give it @item(<number>, <title>)"
+        " from acceptance"
+    )
+    twice = ((7, "x"), (7, "y"))
+    thrice = (*twice, (7, "z"))
+    return {  # case: the items beside the four, the lines of the stop
+        "an own item 101 beside the shared 101": (((101, "own"),), [own_101(4)]),
+        "two own items numbered 7": (twice, [twice_7]),
         "two numbers carried twice, 7 and 101, one line each in number order": (
-            [],
-            1,
-            0,
-            [
-                twice_7,
-                own_101(9),
-                could_not.format(7),
-            ],
-            "exited 1",
-            both,
+            (*twice, (101, "own")),
+            [twice_7, own_101(9)],
         ),
         "three own items numbered 7": (
-            [],
-            1,
-            0,
+            thrice,
             [
                 carried(
                     7,
                     3,
                     "'x', 'y', 'z'",
-                    f"keep one of them at 7, and in the module's own tests/run.py give each of the other 2"
-                    f" the numbers 8, 9 — numbers {below}",
-                ),
-                could_not.format(7),
+                    "keep one of them at 7, and in the module's own tests/test_sample.py give each of the"
+                    f" other 2 the numbers 8, 9 — numbers {below}",
+                )
             ],
-            "exited 1",
-            seven_thrice,
         ),
         "an own item 100 and 7 twice, no number free below 101": (
-            [],
-            1,
-            0,
+            (*twice, (100, "top")),
             [
                 carried(
                     7,
                     2,
                     "'x', 'y'",
                     f"keep one of them at 7; but no number is free below 101 for the other one — {decision}",
-                ),
-                could_not.format(7),
+                )
             ],
-            "exited 1",
-            top_100,
         ),
         "an own item 99 and 7 three times, one number free below 101 and two needed": (
-            [],
-            1,
-            0,
+            (*thrice, (99, "top")),
             [
                 carried(
                     7,
                     3,
                     "'x', 'y', 'z'",
-                    f"keep one of them at 7, and in the module's own tests/run.py give 1 of the other 2"
-                    f" the number 100 — a number {below}; 1 item is then left with no free number"
+                    "keep one of them at 7, and in the module's own tests/test_sample.py give 1 of the other"
+                    f" 2 the number 100 — a number {below}; 1 item is then left with no free number"
                     f" — {decision}",
-                ),
-                could_not.format(8),
+                )
             ],
-            "exited 1",
-            top_99,
         ),
         "an own item 99 and 7 four times, one number free below 101 and three needed": (
-            [],
-            1,
-            0,
+            (*thrice, (99, "top"), (7, "w")),
             [
                 carried(
                     7,
                     4,
                     "'x', 'y', 'z', 'w'",
-                    f"keep one of them at 7, and in the module's own tests/run.py give 1 of the other 3"
-                    f" the number 100 — a number {below}; 2 items are then left with no free number"
+                    "keep one of them at 7, and in the module's own tests/test_sample.py give 1 of the other"
+                    f" 3 the number 100 — a number {below}; 2 items are then left with no free number"
                     f" — {decision}",
-                ),
-                could_not.format(9),
+                )
             ],
-            "exited 1",
-            top_99_four,
         ),
         "two own items numbered 170, no shared item there": (
-            [],
-            1,
-            0,
+            ((170, "p"), (170, "q")),
             [
                 carried(
                     170,
                     2,
                     "'p', 'q'",
-                    f"keep one of them at 170{shared_kept}, and in the module's own tests/run.py give the"
-                    f" other one the number 4 — a number {below}",
-                ),
-                could_not.format(6),
+                    f"keep one of them at 170{shared_kept}, and in the module's own tests/test_sample.py give"
+                    f" the other one the number 4 — a number {below}",
+                )
             ],
-            "exited 1",
-            own_170,
         ),
-        "a number carried twice and --item 7, a number it holds": (
-            ["--item", "7"],
-            1,
-            0,
-            [twice_7, could_not.format(6)],
-            "exited 1",
-            seven_twice,
-        ),
-        "a number carried twice and --item 99, a number it does not hold, the collision first and alone": (
-            ["--item", "99"],
-            1,
-            0,
-            [twice_7, could_not.format(6)],
-            "exited 1",
-            seven_twice,
-        ),
+        "a test without item(…) and 7 twice, the test first": (twice, [unmarked, twice_7]),
     }
-    return filtered
 
 
-def case_harness_runs(tally: Tally) -> None:
-    """The shared harness run under each command line prints its literal last lines, and the full run reads
-    green or is a BROKEN line, never a pass."""
-    for name, (argv, runner_exit, count, tail, reason, named) in harness_runs_data().items():
+def case_collisions(tally: Tally) -> None:
+    """acceptance.collected stops the collection of a module's tests with its literal lines on stderr, in
+    order, for each set of tests it refuses, pytest's usage error 4."""
+    for name, (more, lines) in collisions_data().items():
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
-            build(root, GOOD_TABLE, runner=harness_runner(argv, named))
+            build(root, GOOD_TABLE)
+            extra = "\n\ndef test_unmarked() -> None:\n    pass\n" if lines[0].startswith("modules/") else ""
+            sample_tests(root, extra=extra, named=(*SAMPLE_ITEMS, *more))
             done = subprocess.run(
-                [sys.executable, str(root / "modules" / "const-sample" / "tests" / "run.py")],
+                [sys.executable, "-m", "pytest", "modules/const-sample/tests", "-p", "no:cacheprovider", "-q"]
+                + ["--collect-only"],
                 cwd=root,
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=RUNNER_TIMEOUT,
             )
-            lines_out = done.stdout.splitlines()
-            shown = done.stderr.splitlines() if runner_exit == 1 else lines_out
-            # a runner that could not run prints its BROKEN lines and nothing else: all of stderr, so that
-            # a line before the first, or between, is seen; a run that ran is judged by its last lines
-            ok = done.returncode == runner_exit and (
-                shown == tail if runner_exit == 1 else shown[-len(tail) :] == tail
-            )
-            ok = ok and sum(1 for line in lines_out if ITEM_LINE.match(line)) == count
-            ok = ok and (
-                not argv or not any(LAST_LINE.match(line) for line in lines_out)
-            )  # never the full line
-            try:
-                with contextlib.redirect_stdout(io.StringIO()):
-                    code = full_run(root, None)
-                ok = ok and reason is None and code == EXIT_GREEN
-            except Broken as why:
-                ok = ok and reason is not None and reason in str(why)
+        said = [line for line in done.stderr.splitlines() if line]
+        ok = done.returncode == 4 and said == [f"ERROR: {lines[0]}", *lines[1:]]
         tally.record(ok)
-        print(
-            f"[{'ok' if ok else 'FAIL'}] the shared harness run with {name} prints its literal last lines"
-            f" and {'reads green' if reason is None else 'is a BROKEN line, never a pass'}"
-        )
+        print(f"[{'ok' if ok else 'FAIL'}] acceptance: {name} stops the collection with its literal lines")
         if not ok:
-            print(f"exit {done.returncode}\n{done.stdout}{done.stderr}")
+            print(f"        exit {done.returncode}: {said}")
+    with tempfile.TemporaryDirectory() as tmp:  # a module named with a hyphen: the fix names its file
+        root = Path(tmp).resolve()
+        build(root, GOOD_TABLE)
+        sample_module(root, "const-two-words")
+        sample_tests(root, named=(*SAMPLE_ITEMS, (7, "x"), (7, "y")), module="const-two-words")
+        done = subprocess.run(
+            [sys.executable, "-m", "pytest", "modules/const-two-words/tests", "-p", "no:cacheprovider", "-q"]
+            + ["--collect-only"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=RUNNER_TIMEOUT,
+        )
+    ok = done.returncode == 4 and (
+        "in the module's own tests/test_two_words.py give the other one the number 8" in done.stderr
+    )
+    tally.record(ok)
+    print(f"[{'ok' if ok else 'FAIL'}] acceptance: in const-two-words the fix names tests/test_two_words.py")
+    if not ok:
+        print(f"        exit {done.returncode}: {done.stderr.strip()[-600:]}")
 
 
 def self_test() -> int:
     """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
     and green with the good table; the report of one finding as literal lines; a full run green,
-    one red with a red item, one red for an item the runner did not print and one it printed
-    unnamed; a runner out of form and one whose count disagrees as BROKEN; the destination classes,
+    one red with a red item, one red for an item the runner did not report and one it reported
+    unnamed; a run that cannot be read as BROKEN; the stop of acceptance.collected; the destination classes,
     the form of the matrix and of the module documents, and the tie to the preamble, each over its
     whole set of cases."""
     os.environ.pop(kit_coverage.ENV, None)  # every case runs its runner plain, save those that set it
+    os.environ.pop(
+        SUMMARY_ENV, None
+    )  # and writes no job summary, CI's own page included, save the case that sets it
     tally = Tally()
     case_red_tables(tally)
     case_unheld_row(tally)
@@ -3239,9 +3629,11 @@ def self_test() -> int:
     case_carrier_row(tally)
     case_full_runs(tally)
     case_runner_counts(tally)
-    case_broken_runners(tally)
     case_runner_echo(tally)
-    case_harness_runs(tally)
+    case_acceptance(tally)
+    case_collisions(tally)
+    case_pytest_runs(tally)
+    case_job_summary(tally)
     shared_failed, shared_total = self_test_shared()
     coverage_failed, coverage_total = self_test_coverage()
     total = tally.total + shared_total + coverage_total

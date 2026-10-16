@@ -12,6 +12,27 @@ metrics *args:
 complexity limit="" *args:
     python3 scripts/metrics.py --complexity {{limit}} {{args}}
 
-# Print the fixture coverage of each module, a report and never a check: runs every fixtures entry under coverage.py, minutes in all, coverage.py installed for this python3; extra arguments go to the script (--module <name>, --from <folder>, --json <path>|-)
+# Print the fixture coverage of each module, a report and never a check: runs every fixtures entry under coverage.py, minutes in all, coverage.py and pytest installed for this python3; extra arguments go to the script (--module <name>, --from <folder>, --json <path>|-)
 coverage *args:
     python3 scripts/module-coverage.py {{args}}
+
+# Run a module's tests natively, `coverage run -m pytest`: one line per test, then the coverage of the module's scripts and the shared const_gate, branches included. One module per run, since a run of two stops at collection; with no module, each in turn. Extra arguments go to pytest (-n auto, -k <expr>, -x), so a module must be named to pass them. Needs coverage.py and pytest, pytest-xdist for -n, installed for this python3; its data stays in a temporary folder
+test module="" *args:
+    #!/bin/sh
+    set -u
+    root="{{justfile_directory()}}"
+    modules="{{module}}"
+    [ -n "$modules" ] || modules=$(cd "$root/modules" && ls -d const-*)
+    worst=0
+    for m in $modules; do
+        work=$(mktemp -d)
+        printf '[run]\nbranch = true\nparallel = true\npatch = subprocess\ndata_file = %s/data\nsource =\n    %s/modules/%s/scripts\n    %s/shared/const_gate\n' "$work" "$root" "$m" "$root" > "$work/rc"
+        echo "== $m"
+        (cd "$root" && python3 -m coverage run --rcfile "$work/rc" -m pytest "modules/$m/tests" -p no:cacheprovider -W error -v {{args}})
+        code=$?
+        python3 -m coverage combine --quiet --rcfile "$work/rc" "$work" >/dev/null 2>&1
+        (cd "$root" && python3 -m coverage report --rcfile "$work/rc")
+        rm -rf "$work"
+        [ "$code" -gt "$worst" ] && worst=$code
+    done
+    exit "$worst"

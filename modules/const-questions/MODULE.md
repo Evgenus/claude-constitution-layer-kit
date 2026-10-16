@@ -79,7 +79,7 @@ The advisory rules beside it, each `advisory` in its own text and carried by the
 | skill | `skills/ask-or-decide/SKILL.md` | Rules Q-a to Q-i in plain words: the threshold with the seed pairs and the two dials, derivation, enum-first, defaults, restatement, the message shape, the tool and the fallback, the named blocker with the hook named as its marker half, the commit note; its description asks for the skill to be loaded before any message that puts a choice to the user. Model-invocable and user-invocable, the default; no `paths`, no `context: fork`: the decision lives in the dialog that raised it. Advisory. |
 | install note | `INSTALL.md` | Requirements, zero-configuration behaviour, the six dials with a worked example, adoption through `severity: warn`, the scan for CI, the output log, what the module does not check, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
-| tests | `tests/run.py`; `harness.py`, `consumer.py`, `shared_items.py` linked from the kit's `shared/tests/`, `const_gate` from its `shared/const_gate`, `questions_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
+| tests | `tests/`: `test_questions.py`, `conftest.py`, the shared test files linked from `shared/tests/`, `const_gate` from `shared/const_gate`, `questions_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
 | command | none | no act here is one a human deliberately types: a question arises in the dialog, and the scan is a line of CI. |
 | agent | none | a question is one step of the dialog that raised it, not a delegation. |
 
@@ -174,7 +174,7 @@ The gate validates the two dials it reads at each read, and a key of this namesp
 <a id="t10"></a>
 ## 10. Acceptance
 
-Runner: `python3 tests/run.py` (needs git, Python 3.12, the declared libraries), 77 items green. It builds the shared three-policy consumer in a temporary git repository, fresh for every half of every case, and drives the real entry point — POSIX wrapper, stdin, exit code — with real `PreToolUse` events. A red→green case fails when its red half does not exit 2, when red does not teach the expected message — all three lines, compared with what the `messages` function returns — or prints any `RED` line but that finding's headline and the count line, or when green still fails. Verification kinds: `fixture` (the shared consumer in a temp repository), `live` (the kit as consumer zero, or a consumer project), `review` (the human, at the one yes).
+Runner: `python3 -m pytest tests` (needs git, Python 3.12, the declared libraries), 77 items green. It builds the shared three-policy consumer in a temporary git repository, fresh for every half of every case, and drives the real entry point — POSIX wrapper, stdin, exit code — with real `PreToolUse` events. A red→green case fails when its red half does not exit 2, when red does not teach the expected message — all three lines, compared with what the `messages` function returns — or prints any `RED` line but that finding's headline and the count line, or when green still fails. Verification kinds: `fixture` (the shared consumer in a temp repository), `live` (the kit as consumer zero, or a consumer project), `review` (the human, at the one yes).
 
 | item | kind | rows | what it proves |
 |---|---|---|---|

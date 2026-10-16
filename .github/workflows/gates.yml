@@ -6,7 +6,7 @@
 # The job "gates" waits for all of them and is the one check the ruleset requires, so a new module or
 # entry never changes the ruleset; after its verdict it runs the module metrics and the list of the most
 # complex functions, reports whose JSON it uploads as the artifact `metrics`, and whose failure never
-# changes that verdict. A module's job runs its fixtures under coverage.py, which writes the module's
+# changes that verdict. A module's job runs its fixtures one by one under coverage.py, which writes the module's
 # coverage file, uploaded as `coverage-<module>`; the job "gates", after its verdict, reads every such
 # file into the fixture coverage report, uploaded as `coverage` — a report, whose numbers no check holds
 # (decision dec-0089-module-coverage-report).
@@ -52,7 +52,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Python tools
-        run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518" "coverage==7.16.2"
+        run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518" "coverage==7.16.2" "pytest==9.1.1" "pytest-xdist==3.8.0"
       - name: Vale and lychee
         run: |
           mkdir -p "$HOME/.local/bin"
@@ -94,6 +94,8 @@ jobs:
           # there (scripts/kit_coverage.py); a coverage failure is a BROKEN line of that entry, and so turns
           # the module's job red, the price decision dec-0089-module-coverage-report chose
           CONSTITUTION_KIT_COVERAGE: ${{ startsWith(matrix.job, 'const-') && format('{0}/coverage', runner.temp) || '' }}
+          # no CONSTITUTION_KIT_JOBS: a module's tests run one by one, never side by side, which would add load to
+          # the runner the gates' own time limits are measured on (decision dec-0091-module-fixtures-run-as-pytest)
         run: sh scripts/gate-list.sh --run "$JOB"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && startsWith(matrix.job, 'const-') }}

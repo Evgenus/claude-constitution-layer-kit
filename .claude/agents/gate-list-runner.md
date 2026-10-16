@@ -36,12 +36,12 @@ any, a `claude` of another version included, is reported as such, never skipped.
 run was made with it, and keep the note that ends each headline line.
 
 When the message asks, run the extra group too, `sh scripts/gate-list.sh --names extra`: the
-branch gate's fixture, the fixture of `scripts/setup-claude.sh`, each module's fixtures — its runner, run through
-`python3 scripts/check-aspects.py --run --module <module>`, which also holds the runner's items against the module's
-acceptance table (the runner writes temporary repositories in the system's temporary directory, never in the kit) —
+branch gate's fixture, the fixture of `scripts/setup-claude.sh`, each module's fixtures — its tests under pytest, one by one as CI runs them, with no `CONSTITUTION_KIT_JOBS`, run through
+`python3 scripts/check-aspects.py --run --module <module>`, which also holds their items against the module's
+acceptance table (the tests write temporary repositories in the system's temporary directory, never in the kit) —
 the lint and the type commands. And, only when
 asked, `python3 scripts/check-aspects.py --run`, the per-row report over the whole matrix, which runs
-every module's runner — a second time when the extra group ran too.
+every module's tests — a second time when the extra group ran too.
 
 Run each entry on its own, capture its exit code and its whole output, and never chain one
 into another. A command that cannot start — a missing interpreter, a missing file — is reported
@@ -49,5 +49,4 @@ as such, with its exit code; it is never skipped in silence.
 
 Report: the git readings; a table with one row per entry — its name, its exit code, its last
 line verbatim; then, grouped by gate, every line beginning `RED:`, `BROKEN:` or `NOTE:` verbatim,
-and for the fixture runner every `[FAIL]` block whole; the number of items examined where the
-last line says it. Nothing else: no summary of what the findings mean, no fix, no advice.
+and for the fixtures every failure block pytest prints, whole, and its summary line, `N failed, M passed`. Nothing else: no summary of what the findings mean, no fix, no advice.

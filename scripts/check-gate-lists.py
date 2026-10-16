@@ -70,9 +70,20 @@ entry that is no object with a string `name`, since it is then no marketplace th
 `enabledPlugins` or `extraKnownMarketplaces` present and no object. A key the platform lets stand
 absent, `enabledPlugins` or `extraKnownMarketplaces` in the settings, is read as empty and is RED for
 what it leaves out. The green line counts the marketplace's entries and the enabled keys it read.
-No line of the list script or of the workflow, comments aside, passes a fixture runner's filter,
-`--item <n>` or `--item=<n>`: a filtered run runs only the items named and is never a full pass,
-so the gate list and CI always run every item.
+No code line of the list script or of the workflow, comments aside, names pytest save in an exact pin, so that
+the gate list and CI never run pytest themselves and so never select some tests only: a module's tests run
+through `python3 scripts/check-aspects.py --run --module <module>` (decision
+dec-0080-fixtures-run-through-check-aspects), which builds the pytest command and runs it whole. That the
+lists run them that way is held by review; this check holds the names. A word names pytest when it is `pytest`
+or `py.test` standing as a word, after a path, `~/.venv/bin/pytest`, or stuck to `-m`, `-mpytest`; a name that
+goes on, `pytest-xdist`, `pytest_plugins`, `pytest.ini`, one with another name before it, `allure-pytest`, and
+an exact pin, `pytest==9.1.1`, name none, while an unpinned install and a range pin do. No code line passes
+`--item`, the old runners' filter, or names `PYTEST_ADDOPTS`, through which any option reaches every run, a
+line that clears it included. And no pytest configuration file in the folders a run of a module's tests reads
+from the kit down — `pytest.toml`, `.pytest.toml`, `pytest.ini`, `.pytest.ini`, `pyproject.toml`, `tox.ini`,
+`setup.cfg`, at the kit root, in `modules/`, in a module's folder or its `tests/` — holds a line `addopts =`
+or `addopts:`, which adds its options to every run. A file above the kit root, which pytest may also read, is
+outside the kit and not held; a code line ends at its first ` #`, inside quotes too.
 Every `scripts/check-*.py` that git tracks at the top of `scripts/` (`git ls-files`; an untracked
 file, a library such as `kit_module_doc.py` and a file in a folder are none) is run by an entry of the
 gate group: a code line of that entry's `--show`, comments aside, holds `python3 scripts/check-<x>.py`
@@ -124,7 +135,12 @@ Modes:  no arguments   check the kit;
                        module's job red; a module folder the list leaves out, and a listed module
                        with no folder, red, its fix offering to restore the folder only to a name
                        `const-<aspect>`; an `--item` in the list or the workflow red, and one in
-                       a comment green; the folder name over a whole set of names; a manifest, a
+                       a comment green; a word that names pytest — `-m pytest`, a path, `py.test`,
+                       `-mpytest`, an unpinned install or a range pin — PYTEST_ADDOPTS and an
+                       addopts line of a configuration file in the kit's folders a module's run
+                       reads red, one in another folder green, an exact pin,
+                       a name that goes on or has another before it and a comment green; the
+                       folder name over a whole set of names; a manifest, a
                        marketplace entry, its description included, an enabled key and the
                        declaration each changed one at a time, the platform's other keys allowed,
                        the marketplace renamed in all three places green and in each pair of them
@@ -207,7 +223,32 @@ WHY_MISSING = "a module the list leaves out is never installed, run, linted or t
 WHY_STRAY = (
     "the list's modules are exactly the module folders, and an entry of a missing module checks nothing"
 )
-ITEM_FILTER = re.compile(r"(?<![\w-])--item(?![\w-])")  # the runners' filter, `--item <n>` or `--item=<n>`
+ITEM_FILTER = re.compile(
+    r"(?<![\w-])--item(?![\w-])"
+)  # the old runners' filter, `--item <n>` or `--item=<n>`
+PYTEST_NAME = re.compile(r"py\.?test")  # pytest's two command names, `pytest` and `py.test`
+NAME_GOES_ON = re.compile(
+    r"[\w-]|\.\w|=="
+)  # after the name: `pytest-xdist`, `pytest.ini`, a pin `pytest==9.1.1`
+STUCK_TO_M = re.compile(
+    r"(?:^|[\s'\"])-[A-Za-z]*m$"
+)  # before the name: `-mpytest`, `-Impytest`, `"-mpytest"`
+WORD_START = re.compile(
+    r"(?:-[A-Za-z]*m|[\w.~${}/-]*/)?$"
+)  # the part of the word before the name: `~/.venv/bin/`, `-m`
+# the configuration files pytest 9 looks for, in the folder of its arguments and each one above it
+PYTEST_CONFIGS = (
+    "pytest.toml",
+    ".pytest.toml",
+    "pytest.ini",
+    ".pytest.ini",
+    "pyproject.toml",
+    "tox.ini",
+    "setup.cfg",
+)
+ADDOPTS = re.compile(r"^\s*addopts\s*[=:]")  # an ini file takes `addopts =` and `addopts:`
+EVERY_RUN = "through which any option, a selection included, reaches every pytest run"
+ASPECTS_RUN = "python3 scripts/check-aspects.py --run --module <module>"  # the one way a module's tests run
 WHY_FILTER = "the gate list and CI run every item of every runner, so that their green is a full pass"
 WHY_FORM = "a scan the check cannot read is never held in the gate list and CI"
 KIT_CHECK = re.compile(
@@ -354,7 +395,7 @@ class Where(StrEnum):
     JOB = "module's job"
     MISSING = "list's modules"
     STRAY = "module folders"
-    FILTER = "item filter"
+    FILTER = "test selection"
     FORM = "enforcement table"
     CHECK = "kit checks"
     NAME = "folder name"
@@ -413,7 +454,7 @@ class Finding:
     runner: str = ""  # the list's entry that runs the scan
     job: str = ""  # the job that entry stands in, empty for none
     names: tuple[str, ...] = field(default=())  # the list's entries of a module
-    line: int = 0  # an item filter or a form: its line in the file, `module` holding the file's path
+    line: int = 0  # a selection or a form: its line in the file, `module` holding the file's path
     fault: Fault = Fault.SPAN  # a form: what is wrong; `entry` then holds the first cell or the span
     said: str = ""  # a registry finding: what the file holds, as JSON text; empty: it holds nothing there
     tag: str = ""  # a registry finding: the marketplace name, read from marketplace.json
@@ -430,11 +471,31 @@ class Finding:
     def report_alone(self) -> str:
         """The whole report of a finding about a line of a file, a kit check or a form, whose `module` holds
         the path: it names no module."""
-        if self.where is Where.FILTER:
+        if self.where is Where.FILTER and self.entry == "PYTEST_ADDOPTS":
             return (
-                f"RED: {self.module}:{self.line}: it runs a fixture runner with `--item`, which runs only"
-                f" the items named\n  why: {WHY_FILTER}\n  fix: remove the `--item` option and its numbers"
-                f" from line {self.line} of {self.module}"
+                f"RED: {self.module}:{self.line}: it names `PYTEST_ADDOPTS`, {EVERY_RUN}\n  why: {WHY_FILTER}"
+                f"\n  fix: remove `PYTEST_ADDOPTS` and its value from line {self.line} of {self.module}"
+            )
+        if self.where is Where.FILTER and self.entry == "addopts":  # a line of a configuration file
+            return (
+                f"RED: {self.module}:{self.line}: it sets `addopts`, {EVERY_RUN}\n  why: {WHY_FILTER}"
+                f"\n  fix: remove the `addopts` setting at line {self.line}, with any lines that continue it,"
+                f" from {self.module}"
+            )
+        if self.where is Where.FILTER and self.entry == "--item":
+            return (
+                f"RED: {self.module}:{self.line}: it passes `--item`, which selects some tests only"
+                f"\n  why: {WHY_FILTER}\n  fix: remove `--item` and what it selects from line {self.line} of"
+                f" {self.module}"
+            )
+        if self.where is Where.FILTER:  # a word that names pytest
+            return (
+                f"RED: {self.module}:{self.line}: it names `{self.entry}`, and the lists' code lines "
+                "name pytest only in an exact pin `pytest==<version>`: a module's tests run only "
+                f"through `{ASPECTS_RUN}`, which runs them whole\n  why: {WHY_FILTER}\n  fix: where "
+                f"line {self.line} of {self.module} runs pytest, run the module's tests through "
+                f"`{ASPECTS_RUN}` in its place; where it installs pytest, pin it as "
+                "`pytest==<version>`; elsewhere, reword the line so that it names pytest no more"
             )
         if self.where is Where.CHECK:  # `module` holds the check's path
             return (
@@ -817,15 +878,64 @@ def ci_reads_list(root: Path) -> bool:
     return all(phrase in steps for phrase in READS_LIST)
 
 
+def pytest_names(code: str) -> list[str]:
+    """Each word of a code line that names pytest — `pytest` or `py.test` standing as a word, after a
+    path or stuck to `-m` — quoted with that path or `-m`, without brackets or quotes around it; a name
+    that goes on, `pytest-xdist`, `pytest_plugins`, `pytest.ini`, one with another name before it,
+    `allure-pytest`, and an exact pin, `pytest==9.1.1`, name none."""
+    found = []
+    for match in PYTEST_NAME.finditer(code):
+        before, after = code[: match.start()], code[match.end() :]
+        if NAME_GOES_ON.match(after):
+            continue
+        if re.search(r"[\w.-]$", before) and not STUCK_TO_M.search(before):
+            continue  # the end of another name, `allure-pytest`, `xpytest`, never `-mpytest`
+        start = WORD_START.search(before)  # always matches: the pattern may match nothing at the end
+        found.append((start[0] if start else "") + match[0])
+    return found
+
+
+def selections(code: str) -> list[str]:
+    """The entries of a code line that may run a module's tests otherwise than whole, or reach every run:
+    `--item`, each `PYTEST_ADDOPTS`, and each word that names pytest (pytest_names)."""
+    found = [match[0] for match in ITEM_FILTER.finditer(code)]
+    found += ["PYTEST_ADDOPTS"] * code.count("PYTEST_ADDOPTS")
+    return found + pytest_names(code)
+
+
+def config_folders(root: Path) -> list[Path]:
+    """The folders where pytest may find its configuration for a run of a module's tests: the kit root,
+    `modules/`, and each module's folder and its `tests/`, the folders pytest walks up from its argument."""
+    modules = root / "modules"
+    folders = [root, modules]
+    for module in sorted(modules.iterdir()) if modules.is_dir() else []:
+        if module.is_dir():
+            folders += [module, module / "tests"]
+    return folders
+
+
 def item_filters(root: Path) -> list[Finding]:
-    """Every line of the list script and of the workflow, comments aside, that passes a runner's
-    `--item`: a filtered run is never a full pass, so neither list may run one."""
-    return [
-        Finding(path, Where.FILTER, line=number)
+    """Every entry of selections on a code line of the list script and of the workflow, and every
+    `addopts` line of a pytest configuration file where a run of a module's tests finds it: a run that
+    selects is never a full pass, so neither list may run one."""
+    found = [
+        Finding(path, Where.FILTER, entry=word, line=number)
         for path in (GATE_LIST, WORKFLOW)
         if (root / path).is_file()
         for number, line in enumerate(read(root, path).splitlines(), start=1)
-        if ITEM_FILTER.search(code_of(line))
+        for word in selections(code_of(line))
+    ]
+    configs = [
+        (folder / name).relative_to(root).as_posix()
+        for folder in config_folders(root)
+        for name in PYTEST_CONFIGS
+        if (folder / name).is_file()
+    ]
+    return found + [
+        Finding(path, Where.FILTER, entry="addopts", line=number)
+        for path in configs
+        for number, line in enumerate(read(root, path).splitlines(), start=1)
+        if ADDOPTS.match(line)
     ]
 
 
@@ -1316,13 +1426,14 @@ def report(findings: list[Finding], modules: int, scans: int, checks: int, plugi
         print(f"RED: {len(findings)} finding(s) — {counts}")
         return EXIT_RED
     print(
-        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the"
-        " list's modules are the module folders, each named const-<aspect> and by its manifest, listed"
-        " once in the marketplace and enabled in the kit's settings, which declare the marketplace,"
-        " neither list filters a runner's items, every kit check is run by an entry of the gate group, the"
-        " install guide's scan block names exactly the declared scans, and the coverage map of the range"
-        f" check holds one pair for each module folder — {counts}, {plugins} marketplace plugin(s),"
-        f" {enabled} enabled plugin(s)"
+        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's "
+        "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
+        "marketplace and enabled in the kit's settings, which declare the marketplace, neither list, "
+        "comments aside, names pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest "
+        "configuration file of the kit's folders a module's run reads sets addopts, every kit check is run "
+        "by an entry of the gate group, the install guide's scan block names exactly the declared scans, and "
+        f"the coverage map of the range check holds one pair for each module folder — {counts}, {plugins} "
+        f"marketplace plugin(s), {enabled} enabled plugin(s)"
     )
     return EXIT_GREEN
 
@@ -2906,10 +3017,9 @@ def scans_of(text: str) -> list[str]:
 READS = f'jobs:\n  list:\n    run: {READS_LIST[0]}\n  check:\n    run: {READS_LIST[1]} "$JOB"\n'
 
 FILTER_LINES = [
-    "RED: .github/workflows/gates.yml:7: it runs a fixture runner with `--item`, which runs only the"
-    " items named",
+    "RED: .github/workflows/gates.yml:7: it passes `--item`, which selects some tests only",
     "  why: the gate list and CI run every item of every runner, so that their green is a full pass",
-    "  fix: remove the `--item` option and its numbers from line 7 of .github/workflows/gates.yml",
+    "  fix: remove `--item` and what it selects from line 7 of .github/workflows/gates.yml",
     "RED: 1 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
 ]
 
@@ -3305,6 +3415,134 @@ def cases_gate_list(tally: Tally) -> None:
     for name, (case, wanted) in cases.items():
         ok = [f.where for f in findings_of(case)] == wanted
         tally.judge(ok, f"{name}")
+
+
+def cases_selections(tally: Tally) -> None:
+    """A word of a code line of the list or the workflow that names pytest is red — a run by `-m pytest`,
+    by a path, as `py.test` or stuck to `-m`, an unpinned install, a range pin, a message — one finding
+    for each, and so is one that names PYTEST_ADDOPTS; an exact pin, a name that goes on or has another
+    before it, a run of check-aspects and a comment are green. An `addopts` line of a pytest configuration
+    file in the kit's folders a module's run reads is red, one in another folder green, and the reports
+    are literal lines."""
+    aspects = "python3 scripts/check-aspects.py --run --module const-x"
+    cases: dict[str, tuple[Case, list[str]]] = {  # case: the tree, the entries its findings name, in order
+        "the list runs python3 -m pytest": (
+            Case({"x": SCAN}, {"run": "python3 -m pytest modules/const-x/tests"}),
+            ["pytest"],
+        ),
+        "the list runs pytest by its path, and runs it twice": (
+            Case({"x": SCAN}, {"run": "venv/bin/pytest modules/const-x/tests -k slow; pytest -q"}),
+            ["venv/bin/pytest", "pytest"],
+        ),
+        "the workflow runs pytest after coverage": (
+            Case({"x": SCAN}, workflow=f"{READS}  more:\n    run: python3 -m coverage run -m pytest t\n"),
+            ["pytest"],
+        ),
+        "the workflow sets PYTEST_ADDOPTS": (
+            Case({"x": SCAN}, workflow=f"{READS}  more:\n    env:\n      PYTEST_ADDOPTS: -k slow\n"),
+            ["PYTEST_ADDOPTS"],
+        ),
+        "pytest's exact pin, its plugin, its configuration file and check-aspects name no pytest": (
+            Case(
+                {"x": SCAN},
+                {"run": f'{aspects} && pip install "pytest==9.1.1" pytest-xdist && cat pytest.ini'},
+            ),
+            [],
+        ),
+        "py.test, -mpytest and -Impytest run pytest": (
+            Case({"x": SCAN}, {"run": "py.test t; python3 -mpytest t; python3 -Impytest t"}),
+            ["py.test", "-mpytest", "-Impytest"],
+        ),
+        "a path to pytest is named whole": (
+            Case({"x": SCAN}, {"run": "~/.venv/bin/pytest modules/const-x/tests"}),
+            ["~/.venv/bin/pytest"],
+        ),
+        "an unpinned install, a range pin and a message name pytest": (
+            Case({"x": SCAN}, {"run": 'pip install pytest "pytest>=9.1" && echo "runs under pytest"'}),
+            ["pytest", "pytest", "pytest"],
+        ),
+        "a quoted stuck -m, and a name in brackets, quoted without them; a name with another before it": (
+            Case({"x": SCAN}, {"run": 'python3 "-mpytest" t; echo "(pytest)" allure-pytest'}),
+            ["-mpytest", "pytest"],
+        ),
+        "names that go on name no pytest": (
+            Case({"x": SCAN}, {"run": "echo pytest_plugins PYTEST_CURRENT_TEST pytest.toml pytest_cov"}),
+            [],
+        ),
+        "pytest only in a comment runs nothing": (
+            Case({"x": SCAN}, {"run": f"{aspects}  # not python3 -m pytest -k slow"}),
+            [],
+        ),
+    }
+    for name, (case, wanted) in cases.items():
+        found = findings_of(case)
+        ok = [f.where for f in found] == [Where.FILTER] * len(wanted) and [f.entry for f in found] == wanted
+        tally.judge(ok, name)
+    for config, text, wanted_line in (  # a pytest configuration file a module's run finds, its addopts red
+        ("pyproject.toml", "[tool.pytest.ini_options]\naddopts = -k slow\n", 2),
+        ("pytest.ini", "[pytest]\n  addopts=--lf\n", 2),
+        ("pytest.toml", '[pytest]\naddopts = ["-k", "slow"]\n', 2),
+        (".pytest.ini", "[pytest]\naddopts = -ra\n", 2),
+        ("modules/const-x/tests/pytest.ini", "[pytest]\naddopts = -k slow\n", 2),
+        ("modules/tox.ini", "[pytest]\naddopts = --lf\n", 2),
+        ("tox.ini", "[pytest]\naddopts: -k slow\n", 2),
+        ("setup.cfg", "[tool:pytest]\nmarkers = item\n", 0),
+        ("docs/pytest.ini", "[pytest]\naddopts = -k slow\n", 0),
+    ):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            build(root, Case({"x": SCAN}))
+            (root / config).parent.mkdir(parents=True, exist_ok=True)
+            (root / config).write_text(text, encoding="utf-8")
+            with coverage_owner(COVERAGE.owner):
+                found = check_kit(root)[0]
+        got = [(f.module, f.entry, f.line) for f in found]
+        ok = got == ([(config, "addopts", wanted_line)] if wanted_line else [])
+        tally.judge(ok, f"{config} {'with' if wanted_line else 'without'} an addopts line read")
+    why = "  why: the gate list and CI run every item of every runner, so that their green is a full pass"
+    addopts_lines = [  # typed by hand: the report of a configuration file's addopts line
+        "RED: pytest.ini:2: it sets `addopts`, through which any option, a selection included, reaches every"
+        " pytest run",
+        why,
+        "  fix: remove the `addopts` setting at line 2, with any lines that continue it, from pytest.ini",
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        build(root, Case({"x": SCAN}))
+        (root / "pytest.ini").write_text("[pytest]\naddopts = -ra\n", encoding="utf-8")
+        with coverage_owner(COVERAGE.owner):
+            found = check_kit(root)[0]
+    tally.judge(
+        [line for f in found for line in f.render().splitlines()] == addopts_lines,
+        "the report of an addopts line is its literal text",
+    )
+    reports = {  # typed by hand: the reports of PYTEST_ADDOPTS and of a run of pytest itself
+        "PYTEST_ADDOPTS": (
+            Case({"x": SCAN}, workflow=f"{READS}  more:\n    env:\n      PYTEST_ADDOPTS: -k slow\n"),
+            [
+                "RED: .github/workflows/gates.yml:8: it names `PYTEST_ADDOPTS`, through which any option, a"
+                " selection included, reaches every pytest run",
+                why,
+                "  fix: remove `PYTEST_ADDOPTS` and its value from line 8 of .github/workflows/gates.yml",
+            ],
+        ),
+        "a run of pytest itself": (
+            Case({"x": SCAN}, workflow=f"{READS}  more:\n    run: python3 -m pytest t -k slow\n"),
+            [
+                "RED: .github/workflows/gates.yml:7: it names `pytest`, and the lists' code lines name "
+                "pytest only in an exact pin `pytest==<version>`: a module's tests run only through "
+                "`python3 scripts/check-aspects.py --run --module <module>`, which runs them whole",
+                why,
+                "  fix: where line 7 of .github/workflows/gates.yml runs pytest, run the module's tests"
+                " through `python3 scripts/check-aspects.py --run --module <module>` in its place; where it"
+                " installs pytest, pin it as `pytest==<version>`; elsewhere, reword the line so that it names"
+                " pytest no more",
+            ],
+        ),
+    }
+    for name, (case, wanted_lines) in reports.items():
+        got_lines = [line for f in findings_of(case) for line in f.render().splitlines()]
+        tally.judge(got_lines == wanted_lines, f"the report of {name} is its literal text")
 
 
 def cases_kit_check_names(tally: Tally) -> None:
@@ -3757,13 +3995,14 @@ def report_of_a_green_kit(tally: Tally) -> None:
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
     green_line = (
-        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's"
-        " modules are the module folders, each named const-<aspect> and by its manifest, listed once in the"
-        " marketplace and enabled in the kit's settings, which declare the marketplace, neither list filters"
-        " a runner's items, every kit check is run by an entry of the gate group, the install guide's"
-        " scan block names exactly the declared scans, and the coverage map of the range check holds one pair"
-        " for each module folder — 2 module document(s) examined, 1 declared scan(s),"
-        " 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
+        "GREEN: every declared scan stands in the gate list, the CI list and its module's job, the list's "
+        "modules are the module folders, each named const-<aspect> and by its manifest, listed once in the "
+        "marketplace and enabled in the kit's settings, which declare the marketplace, neither list, "
+        "comments aside, names pytest save in an exact pin, passes --item or names PYTEST_ADDOPTS, no pytest "
+        "configuration file of the kit's folders a module's run reads sets addopts, every kit check is run "
+        "by an entry of the gate group, the install guide's scan block names exactly the declared scans, and "
+        "the coverage map of the range check holds one pair for each module folder — 2 module document(s) "
+        "examined, 1 declared scan(s), 1 kit check(s), 2 marketplace plugin(s), 2 enabled plugin(s)"
     )
     ok = code == EXIT_GREEN and printed.getvalue().splitlines() == [green_line]
     tally.judge(ok, "the report of a kit whose checks all run is its literal green line")
@@ -4295,6 +4534,7 @@ def self_test() -> int:
     BROKEN line with exit 1)."""
     tally = Tally()
     cases_gate_list(tally)
+    cases_selections(tally)
     cases_kit_check_names(tally)
     cases_module_folder_names(tally)
     cases_folder_renames(tally)

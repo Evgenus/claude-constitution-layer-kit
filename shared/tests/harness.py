@@ -1,17 +1,17 @@
 """The case runner. It drives a module's real entry point — the POSIX wrapper, stdin, exit
-code — with real PreToolUse events, exactly as the platform does.
+code — with real PreToolUse events, as the platform does, save that git is asked with no clock
+(`UNCLOCKED_GIT`).
 
 A Case is one acceptance item with both halves: the red half must exit 2 AND teach the
 expected message, its RED lines exactly that finding's headline and the count line, so a
 second finding or a stray line fails it; the green half must pass, printing the whole green
 line the case names. A fixture that proves only one half cannot tell a working check from
-one that always answers the same. An Assertion is an acceptance item with no failing half
-(an exit-code property, a count, a log line); the two kinds are reported separately so they
-are never mistaken for each other.
+one that always answers the same. The other items, with no failing half (an exit-code
+property, a count, a log line), are plain tests; `acceptance` holds the checks that assert.
 
-The runner that imports this file reaches the shared package and the module's own packages
-through links in its own folder, which Python puts first on the import path: no Python file a
-module ships edits the import path of its own process, the runner included.
+The tests that import this file reach the shared package and the module's own packages through
+links in their own folder, which pytest puts first on the import path: no Python file a module
+ships edits the import path of its own process, the tests included.
 """
 
 from __future__ import annotations
@@ -19,14 +19,11 @@ from __future__ import annotations
 import atexit
 import json
 import os
-import re
-import shlex
 import shutil
 import signal
 import subprocess
-import sys
 import tempfile
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -57,6 +54,41 @@ class Result:
 
 
 NO_ANSWER = 124  # the code of a run that did not end within its bound, as timeout(1) gives it
+WARM = "CONSTITUTION_KIT_FAKE_WARM"  # set only for the one start `fake_program` makes
+# Run at the start of every gate process `run_gate` starts, through a `sitecustomize` last on PYTHONPATH:
+# git is asked with no clock. In a hook the gate gives each git call 3 s, and on a loaded machine a real git
+# that answers in 0.02 s at rest has taken longer (2026-10-16, -n auto at a load average of 16), so a
+# verdict no case is about would hang on the machine's speed. Python loads the first `sitecustomize` on the
+# path, so a test that puts one of its own on PYTHONPATH (`git_patch` of the shared items, or a patch of
+# its own) sets the clocks itself: a test that proves a time limit keeps the one it proves. A folder that
+# only hides a library holds none, and this one still loads. It imports only the standard library and
+# prints nothing.
+UNCLOCKED_GIT = """\
+import subprocess
+
+_run = subprocess.run
+
+
+def _unclocked(command, *args, **kwargs):
+    if command and command[0] == "git":
+        kwargs.pop("timeout", None)
+    return _run(command, *args, **kwargs)
+
+
+subprocess.run = _unclocked
+"""
+
+
+def fake_program(path: Path, body: str) -> Path:
+    """A fake program at `path`: a shell script that runs `body`, made executable and started once. The
+    first start of a file just made executable is slow on a loaded machine (0.2 to 3.1 s measured on macOS
+    on 2026-10-16, then 0.02 s each time), and inside a gate's clock it can cut a wait no case chose to
+    cut. So the script's first line ends it at once under `WARM`, and that start is made here, before any
+    clock: nothing the body does, logs or waits for happens in it."""
+    path.write_text(f'#!/bin/sh\n[ -z "${WARM}" ] || exit 0\n{body}', encoding="utf-8")
+    path.chmod(0o755)
+    subprocess.run([str(path)], env={WARM: "1"}, capture_output=True, check=False)
+    return path
 
 
 @dataclass(frozen=True)
@@ -72,13 +104,6 @@ class Case:
     setup: Sequence[Write] = ()
     count: str | None = None  # a gate without a hook mode only: the scan's count line for the red
     # half, typed by hand, since "1 document examined" is a hook's
-
-
-@dataclass(frozen=True)
-class Assertion:
-    number: int
-    title: str
-    check: Callable[[], tuple[bool, str]]
 
 
 def event_json(
@@ -163,6 +188,9 @@ class Harness:
         self.bound: float | None = None  # set by `bounded`: the seconds a run may take
         self.scratch = Path(tempfile.mkdtemp(prefix=namespace + "-fixtures-"))
         atexit.register(shutil.rmtree, self.scratch, ignore_errors=True)
+        self.unclocked = self.scratch / "unclocked-git"  # the folder of `UNCLOCKED_GIT`, put on PYTHONPATH
+        self.unclocked.mkdir()
+        (self.unclocked / "sitecustomize.py").write_text(UNCLOCKED_GIT, encoding="utf-8")
 
     def run_gate(
         self,
@@ -173,10 +201,13 @@ class Harness:
         cwd: Path | None = None,
     ) -> Result:
         """`cwd` is where the entry point runs — a generator that locates the repository from where it
-        stands is run inside a consumer; a gate, which reads the path from its event, runs anywhere."""
+        stands is run inside a consumer; a gate, which reads the path from its event, runs anywhere. The
+        gate asks git with no clock (`UNCLOCKED_GIT`, last on PYTHONPATH) unless a `sitecustomize` the test
+        puts before it sets the clocks."""
         merged = dict(os.environ)
         merged.pop("CLAUDE_PLUGIN_DATA", None)
         merged.update(env or {})
+        merged["PYTHONPATH"] = os.pathsep.join(filter(None, [merged.get("PYTHONPATH"), str(self.unclocked)]))
         argv = [*(command or [self.sh, str(self.wrapper)]), *args]
         if self.bound is not None:
             return self.run_bounded(argv, stdin, merged, cwd, self.bound)
@@ -291,166 +322,3 @@ class Harness:
                 f"green half did not print {line!r} (exit {green.code}): {green.stdout}{green.stderr}",
             )
         return True, f"red → {case.expect.key}: {case.expect.headline}"
-
-    def run_all(
-        self, cases: Sequence[Case], assertions: Sequence[Assertion], argv: Sequence[str] | None = None
-    ) -> int:
-        """Run every item, or with `--item <n>[,<n>…]` on the command line only the items named.
-        A filtered run never prints the full line, `N/T acceptance items green — …`, which only a full
-        run may print: its last line says how many items of how many ran and that it is not a full
-        pass. A filter the runner cannot honour — an unknown number, a malformed list, any other
-        argument — is a configuration failure, exit 1, never a silent full or empty run. Before the
-        filter is read and before any item runs, a number that two items carry — a module's own and a
-        shared one, or any two — is the same kind of failure: one BROKEN line for each such number, in
-        number order, then the could-not-run line (a number names one item, and rule 4 of plc-0009-shared-code
-        never reissues one)."""
-        items: list[Case | Assertion] = sorted([*cases, *assertions], key=lambda i: i.number)
-        total = len(items)
-        doubled = number_collisions(items)
-        if doubled:
-            for line in doubled:
-                print(f"BROKEN: {line}", file=sys.stderr)
-            print(f"BROKEN: the runner could not run — 0 of {total} items run", file=sys.stderr)
-            return 1
-        try:
-            wanted = item_filter(sys.argv[1:] if argv is None else argv, [i.number for i in items])
-        except Misuse as misuse:
-            print(f"BROKEN: {misuse}", file=sys.stderr)
-            print(f"BROKEN: the runner could not run — 0 of {total} items run", file=sys.stderr)
-            return 1
-        failed = run = 0
-        for item in items:
-            if wanted is not None and item.number not in wanted:
-                continue
-            kind = "red→green" if isinstance(item, Case) else "assertion"
-            ok, evidence = self.run_case(item) if isinstance(item, Case) else item.check()
-            failed += 0 if ok else 1
-            run += 1
-            print(f"[{'ok' if ok else 'FAIL'}] {item.number:>3}. ({kind}) {item.title}\n        {evidence}")
-        if wanted is not None:
-            print(f"{run - failed}/{run} selected items green — {run} of {total} items run, not a full pass")
-        else:
-            print(
-                f"{total - failed}/{total} acceptance items green — {len(cases)} red→green cases,"
-                f" {len(assertions)} assertions examined"
-            )
-        return 0 if failed == 0 else 2
-
-
-FIRST_SHARED = 101  # the number of the first shared item; the shared numbers are never moved or reissued
-
-
-def number_collisions(items: Sequence[Case | Assertion]) -> list[str]:
-    """One message for each number that two or more of `items` carry, in number order — what failed,
-    why, and the exact fix. The harness does not know which item is a shared one, so a number from the
-    first shared one up is worded conditionally. The fix names the free numbers below the first shared
-    one — those above the highest number the items hold there, since a number an item left free is
-    never reissued — as many as the items that must move need; the items left without one are counted,
-    and that is a decision to raise, since the shared numbers never move."""
-    titles: dict[int, list[str]] = {}
-    for item in items:
-        titles.setdefault(item.number, []).append(item.title)
-    free = list(range(max((n for n in titles if n < FIRST_SHARED), default=0) + 1, FIRST_SHARED))
-    lines: list[str] = []
-    for number in sorted(n for n, held in titles.items() if len(held) > 1):
-        held = titles[number]
-        named = ", ".join(repr(title) for title in held)
-        moving = len(held) - 1
-        given, free = free[:moving], free[moving:]
-        left = moving - len(given)
-        keep = f"keep one of them at {number}"
-        if number >= FIRST_SHARED:
-            keep += " — the shared one, if one is shared, since a shared number is never moved or reissued"
-        others = "the other one" if moving == 1 else f"each of the other {moving}"
-        decision = "raise it as a decision, since the shared numbers are never moved"
-        if not given:
-            fix = f"{keep}; but no number is free below {FIRST_SHARED} for {others} — {decision}"
-        else:
-            noun, other = ("number", "a number") if len(given) == 1 else ("numbers", "numbers")
-            who = others if not left else f"{len(given)} of the other {moving}"
-            fix = (
-                f"{keep}, and in the module's own tests/run.py give {who} the {noun}"
-                f" {', '.join(map(str, given))} — {other} no other item holds, below {FIRST_SHARED}"
-            )
-            if left:
-                are = "item is" if left == 1 else "items are"
-                fix += f"; {left} {are} then left with no free number — {decision}"
-        lines.append(
-            f"item number {number} is carried by {len(held)} items, {named} — why: one number, one"
-            f" item, or a result and an {ITEM_FLAG} cannot say which item they mean — fix: {fix}"
-        )
-    return lines
-
-
-class Misuse(Exception):
-    """The runner's command line cannot be honoured; the message says what, why and the fix."""
-
-
-ITEM_FLAG = "--item"
-ITEM_LIST = re.compile(r"[0-9]+(?:,[0-9]+)*")
-RUN_FORMS = f"run with no arguments for a full run, or with {ITEM_FLAG} <n>[,<n>…] to run only those items"
-
-
-def item_filter(argv: Sequence[str], numbers: Sequence[int]) -> frozenset[int] | None:
-    """The item numbers `--item <n>[,<n>…]` (or `--item=<n>[,<n>…]`) names, or None for a full run
-    when the command line is empty. Every number must be one of `numbers`."""
-    if not argv:
-        return None
-    if len(argv) == 2 and argv[0] == ITEM_FLAG:
-        given = argv[1]
-    elif len(argv) == 1 and argv[0].startswith(ITEM_FLAG + "="):
-        given = argv[0].removeprefix(ITEM_FLAG + "=")
-    else:
-        raise Misuse(
-            f"misinvocation: {shlex.join(argv)} — why: the runner takes one option, and an argument it"
-            f" ignored could pass for a filter — fix: {RUN_FORMS}"
-        )
-    if ITEM_LIST.fullmatch(given) is None:
-        raise Misuse(
-            f"{ITEM_FLAG} {given!r} is no list of item numbers — why: a filter the runner cannot read"
-            f" would run nothing, or everything — fix: {RUN_FORMS}"
-        )
-    wanted = frozenset(int(part) for part in given.split(","))
-    unknown = sorted(wanted - set(numbers))
-    if unknown:
-        held = ", ".join(spans(sorted(set(numbers))))
-        raise Misuse(
-            f"{ITEM_FLAG} {given}: no item numbered {', '.join(map(str, unknown))} in this runner — why: a"
-            f" filter that matches nothing runs nothing, and nothing run looks green — fix: name items this"
-            f" runner holds: {held}"
-        )
-    return wanted
-
-
-def spans(numbers: Sequence[int]) -> list[str]:
-    """Sorted numbers as runs: [1, 2, 3, 101] gives ["1–3", "101"]."""
-    runs: list[list[int]] = []
-    for number in numbers:
-        if runs and number == runs[-1][1] + 1:
-            runs[-1][1] = number
-        else:
-            runs.append([number, number])
-    return [f"{a}–{b}" if a != b else f"{a}" for a, b in runs]
-
-
-def expect(result: Result, code: int, text: str, where: str = "both") -> tuple[bool, str]:
-    haystack = {"stdout": result.stdout, "stderr": result.stderr, "both": result.stdout + result.stderr}[
-        where
-    ]
-    ok = result.code == code and text in haystack
-    return ok, (
-        f"exit {result.code}: {text}"
-        if ok
-        else f"wanted exit {code} teaching {text!r}; got exit {result.code}: {haystack.strip()}"
-    )
-
-
-def broken_first_line(result: Result, first_line: str) -> tuple[bool, str]:
-    """A configuration failure: exit 1 — never 2, never 0 — and its line is the FIRST stderr line."""
-    first = result.stderr.splitlines()[0] if result.stderr else ""
-    ok = result.code == 1 and first == first_line
-    return ok, (
-        f"exit 1, first stderr line: {first}"
-        if ok
-        else f"wanted exit 1 with first line {first_line!r}; got exit {result.code}: {result.stderr.strip()}"
-    )

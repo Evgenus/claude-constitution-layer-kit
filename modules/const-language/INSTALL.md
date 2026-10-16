@@ -15,7 +15,7 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    it (183 characters, advisory); a line after the count line of every red names it too.
    A copy of this plugin's folder made outside
    the repository it comes from must follow links (`cp -RL`): `scripts/const_gate`, and
-   `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are links to code the plugin
+   `const_gate` and the shared test files in `tests/`, are links to code the plugin
    shares with its siblings, and an install from the marketplace copies what they point at; `tests/language_gate` is a link to this plugin's own `scripts/language_gate`, which an install from the marketplace keeps as a link. A
    checkout made without symlink support leaves one-line text files in their place
    (`git config core.symlinks true`, then check out again).
@@ -83,7 +83,7 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    module, gate, mode, session, stream, text), to `const-language.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the check refuses to run otherwise.
-9. Verify the install: `python3 <plugin root>/tests/run.py` — every item green; the runner needs
+9. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green; the tests need
    `vale` on PATH like the check.
 10. CLAUDE.md pointer: none. The skill is named by the pointer line at session start, by the same
     line at every subagent's start and by the line after the count line of every red of the check, so no line in

@@ -15,7 +15,7 @@ not, and every write says so until it is installed.
    and what the write broke is reported — this cannot block, the write has happened; and at
    session start two sentences about references in chat are added to the session's context.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in
+   (`cp -RL`): `scripts/const_gate`, and `const_gate` and the shared test files in
    `tests/`, are links to code the plugin shares with its siblings, and an install from the
    marketplace copies what they point at; `tests/referencing_gate` is a link to this plugin's own `scripts/referencing_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves
    one-line text files in their place (`git config core.symlinks true`, then check out again).
@@ -90,7 +90,7 @@ not, and every write says so until it is installed.
    blocked writes and reports after a write leave no trace in git. By default it lives
    in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository;
    the directory must be git-ignored, and the gate refuses to run otherwise.
-8. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+8. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
 9. CLAUDE.md pointer: none. The rule about chat arrives through the session-start hook. The skill
    is named by a pointer line of 209 characters printed at session start, by the same line at the
    start of every subagent, and by the line after the count line of every red of the gate.

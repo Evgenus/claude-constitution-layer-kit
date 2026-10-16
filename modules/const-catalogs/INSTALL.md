@@ -12,7 +12,7 @@ one of a Markdown file, each with the fix on the first line; nothing is silently
    session start and at every subagent's start, one line naming the skill (step 7). The write-time hook fires on
    every `Write` and `Edit`; it examines Markdown files in a listed catalog's territory and nothing else.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
+   (`cp -RL`): `scripts/const_gate`, and `const_gate` and the shared test files in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
    what they point at; `tests/catalogs_gate` is a link to this plugin's own `scripts/catalogs_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in
    their place (`git config core.symlinks true`, then check out again). A plugin without it says so on
@@ -68,7 +68,7 @@ one of a Markdown file, each with the fix on the first line; nothing is silently
    By default it lives in the platform's per-plugin data directory, outside the repository.
    Set `log_dir` to keep it inside the repository instead; the directory must be git-ignored,
    and the gate refuses to run otherwise. The log rotates at 1 MiB.
-6. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+6. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
 7. CLAUDE.md pointer: none. The skill `/const-catalogs:catalog-item` is named at the moments it
    applies: by a pointer line printed at every session start and at every subagent's start (226
    characters, advisory), and by a line after every red of the gate.

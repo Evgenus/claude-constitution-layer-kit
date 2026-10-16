@@ -16,8 +16,8 @@ starts with neither `.` nor `_`, as for the links of item 7 of kit-shared-gate-c
 as the one argument of a call of `Path` — the name, or `pathlib.Path` — whose result is at once
 resolved, `.resolve()`; any other use is a finding: `Path(__file__).parent`, `os.path.dirname(__file__)`,
 `Path(__file__).absolute()`, the name passed on or bound to another name. The entry files at the top
-of a module's `scripts/` and the runner `tests/run.py` are run by path, never through a link, and are
-not read.
+of a module's `scripts/`, run by path, and the module's own test files in `tests/`, which pytest imports
+from where they stand, are never reached through a link, and are not read.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a resolved read green in a module's package,

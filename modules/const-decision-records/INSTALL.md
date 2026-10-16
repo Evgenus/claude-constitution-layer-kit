@@ -12,7 +12,7 @@ skipped.
    fires on every `Write` and `Edit`; it examines Markdown files governed by a record policy and
    nothing else.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in `tests/`, are
+   (`cp -RL`): `scripts/const_gate`, and `const_gate` and the shared test files in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
    what they point at; `tests/decision_records_gate` is a link to this plugin's own `scripts/decision_records_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in
    their place (`git config core.symlinks true`, then check out again). A plugin without it says so on
@@ -56,7 +56,7 @@ skipped.
    survive. By default it lives in the platform's per-plugin data directory, outside the
    repository. Set `log_dir` to keep it inside the repository instead; the directory must
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
-6. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+6. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
 7. CLAUDE.md pointer: none. The skills `/const-decision-records:record-decision` and
    `/const-decision-records:promote-recurring-notes` load on their own when a ruling is
    being made or commit notes are being reviewed.

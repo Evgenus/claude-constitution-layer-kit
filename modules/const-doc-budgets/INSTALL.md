@@ -10,7 +10,7 @@ reported by the check with the fix on its first line; nothing is silently skippe
    document a ceiling holds and hands an excess back to the model; it never refuses a write. The
    skill, `set-ceilings`, is offered to the model when a ceiling is set and when a finding is read.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/const_gate`, and `const_gate`, `harness.py`, `consumer.py` and `shared_items.py` in
+   (`cp -RL`): `scripts/const_gate`, and `const_gate` and the shared test files in
    `tests/`, are links to code the plugin shares with its siblings, and an install from the
    marketplace copies what they point at; `tests/budgets_gate` is a link to this plugin's own `scripts/budgets_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line
    text files in their place (`git config core.symlinks true`, then check out again).
@@ -81,7 +81,7 @@ reported by the check with the fix on its first line; nothing is silently skippe
    module, gate, mode, session, stream, text), to `const-doc-budgets.jsonl`. By default it lives
    in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository;
    the directory must be git-ignored, and the check refuses to run otherwise.
-10. Verify the install: `python3 <plugin root>/tests/run.py` — every item green.
+10. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
 11. CLAUDE.md pointer: none. The rules ride on the check and the skill.
 
 What this module does not check: whether a long document says what it needs to; whether the
