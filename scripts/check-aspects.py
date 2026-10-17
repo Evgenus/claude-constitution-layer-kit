@@ -11,8 +11,14 @@ rollout plan (decision dec-0054-acceptance-items-name-their-rows).
 The gate, a plain run, reads the documents and runs nothing. It is red on:
   - an acceptance table without the `rows` column;
   - an item cell that is not a list of handles and closed ranges, `T1–T4, T7`, `S101`, `L1b`;
-  - a kind that opens with none of the words fixture, kit check, live, review — `live,
+  - a kind that opens with none of the words fixture, kit check, live, eval, review — `live,
     deferred` opening with live;
+  - an eval item, whose "what it proves" cell names its case as the one code span `evals/<case>/`
+    (a case's name: lowercase letters, digits and hyphens), that names no case in that form, or names
+    more than one; one that names a case folder its module does not have; a case folder of the module
+    that no eval item names; a case two eval items name. A case folder is a folder of the module's
+    `evals/` that holds a `case.yaml` or a `prompt.md`, `evals/results/` being none (decision
+    dec-0093-module-evals-with-local-receipts, rule 9);
   - a `rows` cell that is empty, or holds anything but row links or the one word `none`;
   - a link to a row the matrix does not hold;
   - an item that names a row its module's rows section does not hold;
@@ -75,6 +81,17 @@ items green`, the first such line outside code fences, the first such match on i
 runner's total T; a Runner line without that form, or none, is no finding, and the gate, which runs no
 runner, compares nothing.
 
+Under `--run`, with or without `--module`, an eval item's result comes from its module's receipt in
+`scripts/eval-receipts.json`, read once for the module with `kit_evals`, and only for a module that has an
+eval item: `green` where the receipt is current — its hash the module's eval hash now, its Claude Code
+version the one `scripts/claude-code.version` pins, its model the one `scripts/eval-model` names — and its
+last attempt passes; `red` where it is current and the last attempt does not pass, which makes the run red
+as a red fixture item does; otherwise no result, the item's label `eval, no current receipt`, never green
+and never red, since `scripts/check-eval-receipts.py` turns a stale receipt red. A receipt with no attempt
+is no current receipt. The item's line reads `eval — green (receipt of <date of the last attempt>)` or
+`eval, no current receipt — not run`. A receipt, a pin or a hash that cannot be read is BROKEN with the
+fix, never a pass. The gate reads no receipt.
+
 Each row a module holds is printed with its destination as the matrix states it, every module
 that holds a part of it with the version of its manifest, and every item that names it — from
 every such module alike — with its kind and its result. Then one verdict. `red` when an item of
@@ -85,7 +102,8 @@ matrix opens with the word `advisory` and holds the word `gate` or `gates` nowhe
 whole words, so that "ungateable" is no gate and "gate-lite" is one — since a fixture there
 proves the carrier of a judgment, never the judgment. Otherwise the kinds of its items joined
 by " + ": `live, done <date>`, `live` for a live item that names no date, `live, deferred`,
-`review`, `kit check`, and `fixture, not read` for a fixture item the runner did not report —
+`review`, `kit check`, `eval` for an eval item no run examined, `eval, no current receipt` for one a run
+found no current receipt for, and `fixture, not read` for a fixture item the runner did not report —
 none of them a green. A row a module holds that no item names is `no item`, a finding of the
 gate as well. A row no module holds is printed as
 "held by" its destination and its enforcement cell as the matrix states them, counted as
@@ -122,7 +140,19 @@ Modes:  no arguments         the gate;
                              number carried twice stopping the run, serially and with xdist, the
                              message of a number carried twice over its cases as literal lines,
                              and the number in the JUnit report — it needs coverage.py, pytest and
-                             pytest-xdist, at the versions .github/workflows/gates.yml pins.
+                             pytest-xdist, at the versions .github/workflows/gates.yml pins; the eval
+                             kind: an item for a case folder green, and each of an item with no case,
+                             with a case in capitals or with no closing slash, with two cases, with a
+                             folder the module does not have, with one that holds no case file, with
+                             `evals/results/`, a folder no item names, with or without a prompt.md, and
+                             a case two or three items name red with one finding, the report of one as
+                             literal lines, and under `--run`, a git tree with a receipt: an item green on
+                             a current receipt whose last attempt passes, red on one whose last attempt
+                             fails, no current receipt after an edit of a script or of the case, another
+                             Claude Code pin or model, no entry, no file and no attempt — the edit of a
+                             test or of MODULE.md leaving it current — and a receipts file, a model file
+                             or a pin that cannot be read, and a tree that is no git repository, each a
+                             BROKEN line with the fix while the gate stays green.
 With CONSTITUTION_KIT_COVERAGE naming a folder, `--run` runs each runner under coverage.py and writes
 `<folder>/<module>.json`, a red run too, before it reads the runner's lines (scripts/kit_coverage.py
 says how); a runner that runs past its time is a BROKEN line, as without the variable, and writes no
@@ -165,7 +195,19 @@ from typing import Any
 from xml.etree import ElementTree
 
 import kit_coverage
-from kit_module_doc import DocumentError, cells, module_folders, section
+from kit_evals import (
+    EVAL_MODEL,
+    EVALS,
+    RECEIPTS,
+    Attempt,
+    EvalError,
+    Receipt,
+    eval_hash,
+    eval_model,
+    read_receipts,
+    write_receipts,
+)
+from kit_module_doc import CLAUDE_PIN, DocumentError, cells, module_folders, pinned_claude, section
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -201,6 +243,7 @@ DEST_CLASSES: dict[str, re.Pattern[str]] = {
 }
 CLASSES_SENTENCE = "Destination classes:"
 CODE_SPAN = re.compile(r"`[^`\n]*`")
+CASE_SPAN = re.compile(r"evals/([a-z0-9-]+)/")  # an eval case as an item names it, between backticks
 SENTENCE_END = re.compile(r"\.(?:\s|$)")
 BOLD_SPAN = re.compile(r"\*\*([^*]+)\*\*")
 ACCEPTANCE_HEADER = ["item", "kind", "rows", "what it proves"]
@@ -210,6 +253,10 @@ WHY_HANDLES = (
     "the full run matches each item to the runner's numbered lines, and a cell it cannot read matches nothing"
 )
 WHY_KIND = "the kind says whether a run examines the item, and a kind outside the set cannot be judged"
+WHY_EVAL = (
+    "an eval case is a run on the pinned model whose receipt the kit keeps, so one item per case traces every"
+    " case to the rows it proves (law 4 of CLAUDE.md)"
+)
 WHY_SCOPE = "a module implements exactly the rows its rows section holds (law 4 of CLAUDE.md)"
 WHY_RUN = "a row is green only where a run examined it, so every item the runner prints must be in the table"
 WHY_COUNT = "a count typed by hand drifts without a sound, and the runner's total is the one count"
@@ -272,19 +319,27 @@ class Item:
     module: str
     line: int
     handles: str
-    kind: str  # fixture | kit check | live | live, deferred | review
+    kind: str  # fixture | kit check | live | live, deferred | eval | review
     rows: list[str]  # anchors; empty for `none`
     numbers: list[int]  # runner numbers, fixture items only
     done: str | None
     results: dict[int, bool] = field(default_factory=dict)
+    case: str | None = None  # the case folder under evals/, eval items only
+    eval_state: str | None = None  # eval items read under --run: green | red | stale (no current receipt)
+    eval_day: str = ""  # the date of the receipt's last attempt, when eval_state is green or red
 
     def label(self) -> str:
         if self.kind == "live" and self.done:
             return f"live, done {self.done}"
+        if self.kind == "eval" and self.eval_state == "stale":
+            return "eval, no current receipt"
         return "fixture, not read" if self.kind == "fixture" else self.kind
 
     def outcome(self) -> str | None:
-        """'green' or 'red' for a fixture item every number of which was read; None otherwise."""
+        """'green' or 'red' for a fixture item every number of which was read, and for an eval item whose
+        receipt is current; None otherwise."""
+        if self.kind == "eval":
+            return self.eval_state if self.eval_state in ("green", "red") else None
         if self.kind != "fixture" or not self.numbers or any(n not in self.results for n in self.numbers):
             return None
         return "green" if all(self.results[n] for n in self.numbers) else "red"
@@ -577,6 +632,7 @@ def kind_of(cell: str) -> str | None:
         ("kit check", "kit check"),
         ("live, deferred", "live, deferred"),
         ("live", "live"),
+        ("eval", "eval"),
         ("review", "review"),
     ):
         if re.match(rf"{re.escape(prefix)}\b", text):
@@ -630,6 +686,94 @@ def fixture_numbers(
             "write a fixture item as its runner number, bare or under `T` or `S`",
         )
     return [n for _, first, last, _ in parsed for n in range(first, last + 1)]
+
+
+def eval_case(module: Module, number: int, handles: str, proves: str, findings: list[Finding]) -> str | None:
+    """The case an eval item's 'what it proves' cell names, as the one code span `evals/<case>/`; None
+    after a finding for a cell that names no case in that form, or more than one."""
+    spans = [s[1:-1] for s in CODE_SPAN.findall(proves) if s[1:-1].startswith(f"{EVALS}/")]
+    named = [m[1] for s in spans if (m := CASE_SPAN.fullmatch(s))]
+    if len(spans) == 1 and len(named) == 1:
+        return named[0]
+    if len(spans) > 1:
+        what = f"the eval item {handles} names {len(spans)} cases in its 'what it proves' cell, not one"
+        fix = "keep one case in the cell, and give the other case an eval item of its own"
+    else:
+        what = f"the eval item {handles} names no case as `evals/<case>/` in its 'what it proves' cell"
+        fix = (
+            "write the case the item proves in that cell as a code span `evals/<case>/`, the folder's name"
+            " of lowercase letters, digits and hyphens"
+        )
+    findings.append(Finding(module.path, number, what, WHY_EVAL, fix))
+    return None
+
+
+def case_folders(directory: Path) -> list[str]:
+    """The eval cases of a module: each folder of `evals/` that holds a `case.yaml` or a `prompt.md`,
+    `evals/results/` being no case, sorted by name."""
+    base = directory / EVALS
+    if not base.is_dir():
+        return []
+    return sorted(
+        d.name
+        for d in base.iterdir()
+        if d.is_dir() and d.name != "results" and any((d / f).is_file() for f in ("case.yaml", "prompt.md"))
+    )
+
+
+def listed(handles: list[str]) -> str:
+    """`L3`, `L3 and L4`, `L3, L4 and L5`."""
+    return handles[0] if len(handles) == 1 else f"{', '.join(handles[:-1])} and {handles[-1]}"
+
+
+def eval_findings(module: Module, directory: Path, header: int) -> list[Finding]:
+    """The findings where the module's eval items and its case folders do not agree one to one: an item
+    that names a folder the module does not have, a folder no item names, a case two items name."""
+    folders = case_folders(directory)
+    by_case: dict[str, list[Item]] = {}
+    found: list[Finding] = []
+    for item in module.items:
+        if item.kind != "eval" or item.case is None:
+            continue
+        by_case.setdefault(item.case, []).append(item)
+        if item.case not in folders:
+            found.append(
+                Finding(
+                    module.path,
+                    item.line,
+                    f"the eval item {item.handles} names `evals/{item.case}/`, a case folder the module"
+                    " does not have",
+                    WHY_EVAL,
+                    f"add the case folder `evals/{item.case}/` holding a `case.yaml` or a `prompt.md`, or"
+                    " name a case folder the module has",
+                )
+            )
+    for case, same in by_case.items():
+        if len(same) > 1:
+            names = listed([i.handles for i in same])
+            found.append(
+                Finding(
+                    module.path,
+                    same[1].line,
+                    f"the case `evals/{case}/` is named by the eval items {names}",
+                    WHY_EVAL,
+                    "keep one eval item for the case: merge the items, or name another case folder in one"
+                    " of them",
+                )
+            )
+    for case in folders:
+        if case not in by_case:
+            found.append(
+                Finding(
+                    module.path,
+                    header,
+                    f"the case folder `evals/{case}/` is named by no eval item",
+                    WHY_EVAL,
+                    f"add an eval item whose 'what it proves' cell names `evals/{case}/` and whose rows"
+                    " cell links the rows the case proves, or remove the folder",
+                )
+            )
+    return found
 
 
 def row_findings(
@@ -698,9 +842,13 @@ def read_item(
                 number,
                 f"the kind '{kind_cell}' of item {handles} is none of the set",
                 WHY_KIND,
-                "open the cell with one of `fixture`, `kit check`, `live`, `live, deferred`, `review`",
+                "open the cell with one of `fixture`, `kit check`, `live`, `live, deferred`, `eval`,"
+                " `review`",
             )
         )
+        return None
+    case = eval_case(module, number, handles, proves, findings) if kind == "eval" else None
+    if kind == "eval" and case is None:
         return None
     numbers: list[int] = []
     if kind == "fixture":
@@ -734,6 +882,7 @@ def read_item(
         [a for a in anchors if a in module.held],
         numbers,
         done[1] if done else None,
+        case=case,
     )
 
 
@@ -771,6 +920,7 @@ def read_module(root: Path, directory: Path, matrix: dict[str, Row], findings: l
         item = read_item(module, number, parts, matrix, findings)
         if item is not None:
             module.items.append(item)
+    findings.extend(eval_findings(module, directory, header[0]))
     for anchor, number in held.items():
         if not any(anchor in item.rows for item in module.items):
             findings.append(
@@ -1100,11 +1250,12 @@ def verdict(items: list[Item], advisory: bool = False) -> str:
 
 def item_line(item: Item) -> str:
     outcome = item.outcome()
-    result = (
-        f"{outcome} ({len(item.numbers)} run)"
-        if outcome
-        else ("not read" if item.kind == "fixture" else "not run")
-    )
+    if outcome and item.kind == "eval":
+        result = f"{outcome} (receipt of {item.eval_day})"
+    elif outcome:
+        result = f"{outcome} ({len(item.numbers)} run)"
+    else:
+        result = "not read" if item.kind == "fixture" else "not run"
     kind = item.kind if item.kind == "fixture" else item.label()
     return f"      {item.module} {item.handles}: {kind} — {result}"
 
@@ -1140,6 +1291,38 @@ def attach_results(module: Module, results: dict[int, bool], findings: list[Find
         )
 
 
+def attach_evals(root: Path, module: Module) -> None:
+    """Give each eval item of the module the result of the module's receipt, read once: green where the
+    receipt is current (its hash the module's eval hash now, its Claude Code the pinned one, its model the
+    pinned one) and its last attempt passes, red where it is current and the last attempt does not, else
+    `stale`, no result. A module with no eval item reads nothing; a read that fails is no pass."""
+    items = [i for i in module.items if i.kind == "eval"]
+    if not items:
+        return
+    try:
+        now, claude, model = eval_hash(root, module.name), pinned_claude(root), eval_model(root)
+        receipt = read_receipts(root).get(module.name)
+    except (DocumentError, EvalError) as bad:
+        raise Broken(f"the eval items of {module.name} cannot be judged: {bad}") from bad
+    if (
+        receipt is None
+        or not receipt.attempts
+        or (receipt.hash, receipt.claude, receipt.model)
+        != (
+            now,
+            claude,
+            model,
+        )
+    ):
+        for item in items:
+            item.eval_state = "stale"
+        return
+    last = receipt.attempts[-1]
+    for item in items:
+        item.eval_state = "green" if last.passing else "red"
+        item.eval_day = last.at.partition("T")[0]
+
+
 def run_modules(
     root: Path,
     modules: list[Module],
@@ -1155,6 +1338,7 @@ def run_modules(
         if mismatch is not None:
             findings.append(mismatch)
         attach_results(module, results, findings)
+        attach_evals(root, module)
     return read_items
 
 
@@ -3599,6 +3783,358 @@ def case_collisions(tally: Tally) -> None:
         print(f"        exit {done.returncode}: {done.stderr.strip()[-600:]}")
 
 
+LOAD_CASE = {"evals/load/case.yaml": "name: load\n"}  # a case folder of the sample module
+LOAD_NOTE = "the load case `evals/load/`"
+WHY_EVAL_TYPED = (
+    "an eval case is a run on the pinned model whose receipt the kit keeps, so one item per case traces every"
+    " case to the rows it proves (law 4 of CLAUDE.md)"
+)
+FIX_NO_CASE_TYPED = (
+    "write the case the item proves in that cell as a code span `evals/<case>/`, the folder's name of"
+    " lowercase letters, digits and hyphens"
+)
+FIX_KINDS_TYPED = (
+    "open the cell with one of `fixture`, `kit check`, `live`, `live, deferred`, `eval`, `review`"
+)
+
+
+def eval_row(handle: str, proves: str, rows: str = LINK_1) -> str:
+    return f"| {handle} | eval | {rows} | {proves} |\n"
+
+
+def eval_tree(root: Path, table: str, files: dict[str, str]) -> None:
+    """The sample tree with `table` as its acceptance table and `files` written into the sample module."""
+    build(root, table)
+    for name, text in files.items():
+        path = root / "modules" / "const-sample" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+
+def eval_green_data() -> dict[str, tuple[str, dict[str, str]]]:
+    """case: the rows added to GOOD_TABLE, the files of the sample module; the gate reads no finding."""
+    return {
+        "one item for a case folder": (eval_row("L3", LOAD_NOTE), LOAD_CASE),
+        "one item for each of two case folders": (
+            eval_row("L3", LOAD_NOTE) + eval_row("L4", "the start case `evals/start-2/`", LINK_3),
+            {**LOAD_CASE, "evals/start-2/case.yaml": "name: start\n"},
+        ),
+        "a case folder that holds a prompt.md alone": (
+            eval_row("L3", "the ask case `evals/ask/`"),
+            {"evals/ask/prompt.md": "ask\n"},
+        ),
+        "evals/results/ and a folder with no case file are no case": (
+            eval_row("L3", LOAD_NOTE),
+            {**LOAD_CASE, "evals/results/r.json": "{}\n", "evals/notes/README.md": "notes\n"},
+        ),
+        "a kind that opens with eval and goes on after a comma": (
+            eval_row("L3", LOAD_NOTE).replace("| eval |", "| eval, on the pinned model |"),
+            LOAD_CASE,
+        ),
+    }
+
+
+def eval_red_data() -> dict[str, tuple[str, dict[str, str], str, str, str]]:
+    """case: the rows added to GOOD_TABLE, the files of the sample module, the one finding's what and fix,
+    typed, and the text the finding's line holds."""
+    no_case = "the eval item L3 names no case as `evals/<case>/` in its 'what it proves' cell"
+    missing = "the eval item L3 names `evals/gone/`, a case folder the module does not have"
+    missing_fix = (
+        "add the case folder `evals/gone/` holding a `case.yaml` or a `prompt.md`, or name a case folder the"
+        " module has"
+    )
+    no_item = "the case folder `evals/load/` is named by no eval item"
+    no_item_fix = (
+        "add an eval item whose 'what it proves' cell names `evals/load/` and whose rows cell links the rows"
+        " the case proves, or remove the folder"
+    )
+    twice = "the case `evals/load/` is named by the eval items L3 and L4"
+    twice_fix = "keep one eval item for the case: merge the items, or name another case folder in one of them"
+    two_cases = "the eval item L3 names 2 cases in its 'what it proves' cell, not one"
+    two_cases_fix = "keep one case in the cell, and give the other case an eval item of its own"
+    return {  # typed by hand: a message function cannot check itself
+        "an eval item that names no case": (
+            eval_row("L3", "the load case"),
+            {},
+            no_case,
+            FIX_NO_CASE_TYPED,
+            "L3",
+        ),
+        "a case in capital letters": (eval_row("L3", "`evals/Load/`"), {}, no_case, FIX_NO_CASE_TYPED, "L3"),
+        "a case without its closing slash": (
+            eval_row("L3", "`evals/load`"),
+            {},
+            no_case,
+            FIX_NO_CASE_TYPED,
+            "L3",
+        ),
+        "an eval item that names two cases": (
+            eval_row("L3", "`evals/load/` and `evals/other/`"),
+            {},
+            two_cases,
+            two_cases_fix,
+            "L3",
+        ),
+        "a case folder the module does not have": (
+            eval_row("L3", "`evals/gone/`"),
+            {},
+            missing,
+            missing_fix,
+            "L3",
+        ),
+        "a folder with neither case.yaml nor prompt.md": (
+            eval_row("L3", "`evals/gone/`"),
+            {"evals/gone/notes.md": "x\n"},
+            missing,
+            missing_fix,
+            "L3",
+        ),
+        "an item that names evals/results/": (
+            eval_row("L3", "`evals/results/`"),
+            {"evals/results/r.json": "{}\n"},
+            missing.replace("gone", "results"),
+            missing_fix.replace("gone", "results"),
+            "L3",
+        ),
+        "a case folder no eval item names": ("", LOAD_CASE, no_item, no_item_fix, "| item |"),
+        "a case folder with a prompt.md no eval item names": (
+            "",
+            {"evals/load/prompt.md": "load\n"},
+            no_item,
+            no_item_fix,
+            "| item |",
+        ),
+        "a case named by two eval items": (
+            eval_row("L3", LOAD_NOTE) + eval_row("L4", LOAD_NOTE, LINK_3),
+            LOAD_CASE,
+            twice,
+            twice_fix,
+            "L4",
+        ),
+        "a case named by three eval items": (
+            eval_row("L3", LOAD_NOTE) + eval_row("L4", LOAD_NOTE, LINK_3) + eval_row("L5", LOAD_NOTE),
+            LOAD_CASE,
+            twice.replace("L3 and L4", "L3, L4 and L5"),
+            twice_fix,
+            "L4",
+        ),
+    }
+
+
+def case_eval_gate(tally: Tally) -> None:
+    """The eval kind in the gate: a case folder and its item agree both ways, one item to one case; each
+    finding red on its tree and no finding on a tree the fix would leave."""
+    for name, (rows, files) in eval_green_data().items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            eval_tree(root, GOOD_TABLE + rows, files)
+            found = check_structure(root)[2]
+        ok = not found
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] eval items: {name} is green")
+        if not ok:
+            print(f"        got: {[f.what for f in found]}")
+    for name, (rows, files, what, fix, at) in eval_red_data().items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            eval_tree(root, GOOD_TABLE + rows, files)
+            found = check_structure(root)[2]
+            lines = (root / "modules/const-sample/MODULE.md").read_text(encoding="utf-8").splitlines()
+        ok = len(found) == 1 and found[0].what == what and found[0].fix == fix
+        ok = ok and found[0].why == WHY_EVAL_TYPED and found[0].path == "modules/const-sample/MODULE.md"
+        ok = ok and found[0].line > 0 and at in lines[found[0].line - 1]
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] eval items: {name} is red with one finding")
+        if not ok:
+            print(f"        got: {[(f.line, f.what, f.fix) for f in found]}")
+    with tempfile.TemporaryDirectory() as tmp:  # the kind word is whole, and the fix lists the kind
+        root = Path(tmp).resolve()
+        eval_tree(root, GOOD_TABLE + "| T9 | evaluation | " + LINK_1 + " | x |\n", {})
+        found = check_structure(root)[2]
+    ok = len(found) == 1 and "is none of the set" in found[0].what and found[0].fix == FIX_KINDS_TYPED
+    tally.record(ok)
+    print(f"[{'ok' if ok else 'FAIL'}] eval items: `evaluation` is no kind, and the fix lists eval")
+    literal = [
+        "RED: modules/const-sample/MODULE.md:22: the eval item L3 names no case as `evals/<case>/` in its"
+        " 'what it proves' cell",
+        f"  why: {WHY_EVAL_TYPED}",
+        f"  fix: {FIX_NO_CASE_TYPED}",
+        "RED: 1 finding(s) — 3 row(s) of the matrix, 1 module document(s), 5 acceptance item(s) examined,"
+        " 3 shared item(s)",
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp).resolve()
+        eval_tree(root, GOOD_TABLE + eval_row("L3", "the load case"), {})
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = gate(root)
+    ok = code == EXIT_RED and printed.getvalue().splitlines() == literal
+    tally.record(ok)
+    print(f"[{'ok' if ok else 'FAIL'}] eval items: the report of a finding is its literal text, exit 2")
+    if not ok:
+        print(printed.getvalue())
+
+
+RUN_TABLE = (
+    TABLE_HEAD
+    + f"| T1–T2 | fixture | {LINK_1} | the gate |\n"
+    + "| T3 | fixture | none | the hooks file |\n"
+    + f"| S101 | fixture, shared | {LINK_1} | shared |\n"
+    + eval_row("L3", LOAD_NOTE, LINK_3)
+)
+PASSED = Attempt("2026-10-16T00:00:00Z", 1, 1, 1.0)
+FAILED_EARLY = Attempt("2026-10-15T00:00:00Z", 2, 1, 0.5)
+FAILED_LAST = Attempt("2026-10-17T01:00:00Z", 2, 1, 0.5)
+
+
+def eval_git_tree(root: Path, attempts: tuple[Attempt, ...]) -> None:
+    """The sample tree with the eval pins and its case, made a git repository that tracks it, and a receipt
+    that is current for the files as they stand."""
+    eval_tree(root, RUN_TABLE, LOAD_CASE)
+    (root / "scripts").mkdir(exist_ok=True)
+    (root / EVAL_MODEL).write_text("claude-opus-5-5\n", encoding="utf-8")
+    (root / CLAUDE_PIN).write_text("2.1.282\n", encoding="utf-8")
+    env = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+    for args in (["init", "-q"], ["add", "-A"]):
+        subprocess.run(["git", *args], cwd=root, env=env, capture_output=True, check=True)
+    receipt = Receipt(eval_hash(root, "const-sample"), "2.1.282", "claude-opus-5-5", attempts)
+    write_receipts(root, {"const-sample": receipt})
+
+
+def eval_edit(path: str, text: str = "changed\n") -> Callable[[Path], None]:
+    def act(root: Path) -> None:
+        (root / path).write_text(text, encoding="utf-8")
+
+    return act
+
+
+def eval_append(path: str) -> Callable[[Path], None]:
+    def act(root: Path) -> None:
+        with (root / path).open("a", encoding="utf-8") as handle:
+            handle.write("\nappended\n")
+
+    return act
+
+
+def eval_run_data() -> dict[str, tuple[tuple[Attempt, ...], Callable[[Path], None], int, str, str]]:
+    """case: the receipt's attempts, what is done to the tree after the receipt, the run's exit, the line of
+    the eval item and the line of the row it alone proves; typed by hand."""
+    green = (
+        "      const-sample L3: eval — green (receipt of 2026-10-16)",
+        "  A1.3  carrier green — M1 skill — const-sample 0.0.1",
+    )
+    red = (
+        "      const-sample L3: eval — red (receipt of 2026-10-17)",
+        "  A1.3  red — M1 skill — const-sample 0.0.1",
+    )
+    stale = (
+        "      const-sample L3: eval, no current receipt — not run",
+        "  A1.3  eval, no current receipt — M1 skill — const-sample 0.0.1",
+    )
+    untracked = eval_edit("scripts/untracked.txt")  # a file git does not track: no file a session loads
+    appended = eval_append("modules/const-sample/MODULE.md")  # the document, left out of the hash
+    gate_py = "modules/const-sample/scripts/gate.py"
+    return {
+        "a current receipt whose last attempt passes": ((PASSED,), untracked, EXIT_GREEN, *green),
+        "a pass after an earlier failure": ((FAILED_EARLY, PASSED), untracked, EXIT_GREEN, *green),
+        "a current receipt whose last attempt fails": ((PASSED, FAILED_LAST), untracked, EXIT_RED, *red),
+        "an edit of MODULE.md after the receipt": ((PASSED,), appended, EXIT_GREEN, *green),
+        "an edit of a test after the receipt": (
+            (PASSED,),
+            eval_edit("modules/const-sample/tests/test_sample.py", "pass\n"),
+            EXIT_GREEN,
+            *green,
+        ),
+        "an edit of a script after a passing receipt": ((PASSED,), eval_edit(gate_py), EXIT_GREEN, *stale),
+        "an edit of a script after a failing receipt": (
+            (PASSED, FAILED_LAST),
+            eval_edit(gate_py),
+            EXIT_GREEN,
+            *stale,
+        ),
+        "an edit of the case after a passing receipt": (
+            (PASSED,),
+            eval_edit("modules/const-sample/evals/load/case.yaml"),
+            EXIT_GREEN,
+            *stale,
+        ),
+        "another Claude Code pin": ((PASSED,), eval_edit(CLAUDE_PIN, "2.1.251\n"), EXIT_GREEN, *stale),
+        "another model pin": ((PASSED,), eval_edit(EVAL_MODEL, "claude-haiku-5-5\n"), EXIT_GREEN, *stale),
+        "a receipts file with no entry of the module": (
+            (PASSED,),
+            partial(write_receipts, receipts={}),
+            EXIT_GREEN,
+            *stale,
+        ),
+        "no receipts file": ((PASSED,), lambda root: (root / RECEIPTS).unlink(), EXIT_GREEN, *stale),
+        "a receipt with no attempt": ((), untracked, EXIT_GREEN, *stale),
+    }
+
+
+def eval_broken_data() -> dict[str, tuple[Callable[[Path], None], str]]:
+    """case: what is done to the tree, what the BROKEN line says; each a read of the receipt that fails."""
+    return {
+        "a receipts file that is no JSON": (eval_edit(RECEIPTS, "{\n"), "cannot be read as JSON"),
+        "a model file that is no model id": (eval_edit(EVAL_MODEL, "Opus 5.5\n"), "is not one model id"),
+        "a pin that is no version": (eval_edit(CLAUDE_PIN, "latest\n"), "is not one version"),
+    }
+
+
+def case_eval_runs(tally: Tally) -> None:
+    """The eval kind under --run: the item's result is read from the module's receipt, green or red only
+    where the receipt is current, else no result; a read that fails is a BROKEN line; the gate reads none."""
+    for name, (attempts, act, want, item_line_text, row_line) in eval_run_data().items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            eval_git_tree(root, attempts)
+            act(root)
+            outs = []
+            for only in (None, "const-sample"):
+                printed = io.StringIO()
+                with contextlib.redirect_stdout(printed):
+                    code = full_run(root, only, sample_results)
+                outs.append((code, printed.getvalue()))
+        ok = all(code == want and item_line_text in out and row_line in out for code, out in outs)
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] eval items: {name}, a run exits {want} with the item's line")
+        if not ok:
+            print(outs[0][1])
+    for name, (act, said) in eval_broken_data().items():
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            eval_git_tree(root, (PASSED,))
+            act(root)
+            printed = io.StringIO()
+            with contextlib.redirect_stdout(printed):
+                gate_code = gate(root)
+            try:
+                with contextlib.redirect_stdout(printed):
+                    full_run(root, None, sample_results)
+                message = ""
+            except Broken as broken:
+                message = str(broken)
+        ok = gate_code == EXIT_GREEN and said in message and "fix:" in message
+        ok = ok and message.startswith("the eval items of const-sample cannot be judged: ")
+        tally.record(ok)
+        print(f"[{'ok' if ok else 'FAIL'}] eval items: {name} is a BROKEN line with the fix, the gate green")
+        if not ok:
+            print(f"        got: {gate_code} {message}")
+    with tempfile.TemporaryDirectory() as tmp:  # a tree that is no git repository: the hash cannot be read
+        root = Path(tmp).resolve()
+        eval_tree(root, RUN_TABLE, LOAD_CASE)
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                full_run(root, None, sample_results)
+            message = ""
+        except Broken as broken:
+            message = str(broken)
+    ok = "git ls-files exited" in message and "fix: run the command from a clone of the kit" in message
+    tally.record(ok)
+    print(f"[{'ok' if ok else 'FAIL'}] eval items: a tree that is no git repository is a BROKEN line")
+    if not ok:
+        print(f"        got: {message}")
+
+
 def self_test() -> int:
     """Red→green on a throwaway tree: every finding of the gate red with its table broken one way
     and green with the good table; the report of one finding as literal lines; a full run green,
@@ -3632,6 +4168,8 @@ def self_test() -> int:
     case_runner_echo(tally)
     case_acceptance(tally)
     case_collisions(tally)
+    case_eval_gate(tally)
+    case_eval_runs(tally)
     case_pytest_runs(tally)
     case_job_summary(tally)
     shared_failed, shared_total = self_test_shared()
