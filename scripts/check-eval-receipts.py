@@ -2,9 +2,9 @@
 """Kit check: every module has a passing eval receipt for the files it has now (decision
 dec-0093-module-evals-with-local-receipts).
 
-The receipts stand in scripts/eval-receipts.json, written by scripts/run-evals.py in a throwaway
-container on the subscription token of the person who runs the evals; `kit_evals` defines the file, the eval
-hash and the model pin. For each module folder, the check is red when:
+The receipts stand in scripts/eval-receipts.json, written by scripts/run-evals.py, which runs each case in a
+throwaway container on the subscription token of the person who runs the evals; `kit_evals` defines the
+file, the eval hash and the model pin. For each module folder, the check is red when:
   the module has no entry;
   the entry's hash is not the module's eval hash now, a file a session loads, or a case, having changed since
   the run;
@@ -12,7 +12,7 @@ hash and the model pin. For each module folder, the check is red when:
   the entry's model is not the one scripts/eval-model names;
   the entry's last attempt did not pass, or there is none.
 An entry for a name that is no module folder is red too. The check holds that a passing run was declared
-for the files as they are, never that it ran: the run uses a model and a login that CI does not have. A
+for the files as they are, never that it ran: the run uses a model and a token that CI does not have. A
 module whose receipt is stale owes a local run before the merge, `python3 scripts/run-evals.py --token-file
 <file> --module <module>`, and the receipts file it writes, committed.
 

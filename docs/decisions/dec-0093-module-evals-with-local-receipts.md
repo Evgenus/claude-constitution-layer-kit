@@ -275,7 +275,7 @@ A, recommended by the session: the decider already had Docker and the token file
 
 ### Choice
 
-A, by the decider in chat on 2026-10-17.
+A, by the decider in chat on 2026-10-17. With every case in the container, the reason section 8 gave for taking `Bash` from twelve cases was gone, and two of them failed there for want of the command their skill names; so R12 gives every skill or command case the tools a session at its moment would have.
 
 ## Ruling
 
@@ -320,6 +320,6 @@ A, by the decider in chat on 2026-10-17.
 9. R9 — [template §10](../../module-template/MODULE.md#t10); [rule 8 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8) and [its rule 10](../policies/plc-0006-module-documents.md#r10); [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring; [CLAUDE.md](../../CLAUDE.md), step 5 of "Developing a module". Which live items became eval items, and that the narrowing and the widening are this record's, is history.
 10. R10 — [`scripts/check-session-load.py`](../../scripts/check-session-load.py), its docstring; [`scripts/kit_install.py`](../../scripts/kit_install.py), its docstring; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
 11. R11 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
-12. R12 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring.
+12. R12 — the eval case row of [template §6](../../module-template/MODULE.md#t6); [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring. That twelve cases lost `Bash` for a day, and got it back, is history.
 13. R13 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring; [the image](../../scripts/eval-container/Dockerfile), its header; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
 14. R14 — [`scripts/gate-list.sh`](../../scripts/gate-list.sh), its header and `run_entry`; [`scripts/setup-claude.sh`](../../scripts/setup-claude.sh), its header; [the workflow](../../.github/workflows/gates.yml), its header, its step that installs Claude Code and the comment on the install source; [`scripts/kit_module_doc.py`](../../scripts/kit_module_doc.py), the fix `put_first` words; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI". That it widens R4 of dec-0075 and R5 of dec-0061 is history.

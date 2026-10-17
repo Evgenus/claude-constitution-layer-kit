@@ -23,7 +23,9 @@ module, in turn:
      subscription login, `oauth_token` or `claude.ai`, then runs `claude plugin eval` on the copy, `--case
      <name>`, with `--model` from scripts/eval-model, `--runs 3 --threshold 1 --ablation none`,
      `--trust-plugin --no-publish --scaffold`, and `--allow-tools` granting those of Bash, Write and Edit
-     that the case lists in its `allowed_tools`; its JSON result and report are kept in
+     that the case lists in its `allowed_tools` — a skill or command case lists Read, Glob, Grep, Write,
+     Edit, Skill and Bash, the tools a session at its moment would have, and a start-rule case only what
+     its rule needs; its JSON result and report are kept in
      local/evals/<module>/. The runs count against the subscription's plan, never against usage;
   4. the cases' `casesTotal` and `casesPassed` summed, and their `overallScore` weighted by cases, become
      one attempt, stamped with the time in UTC, appended to the module's entry of scripts/eval-receipts.json.
@@ -356,15 +358,17 @@ def self_test() -> int:
         fake_bin.mkdir()
         (fake_bin / "claude").write_text(
             '#!/bin/sh\ncase "$1" in --version) echo "$FAKE_VERSION (Claude Code)" ;;'
-            ' auth) echo "{\\"authMethod\\": \\"$FAKE_METHOD\\"}" ;; esac\n',
+            ' auth) m=$FAKE_METHOD; [ -n "$ANTHROPIC_API_KEY$ANTHROPIC_AUTH_TOKEN" ] && m=api_key;'
+            ' echo "{\\"authMethod\\": \\"$m\\"}" ;; esac\n',
             encoding="utf-8",
         )
         (fake_bin / "claude").chmod(0o755)
-        then = 'echo "ran key=${ANTHROPIC_API_KEY:-unset} provider=${CLAUDE_CODE_USE_BEDROCK:-unset}"'
+        then = "echo ran " + " ".join(f"{name}=${{{name}:-unset}}" for name in USAGE_BILLED)
+        unset_all = " ".join(f"{name}=unset" for name in USAGE_BILLED)
         runs = (
-            ("the pinned version and a token login run the case, the billing variables unset",
-             "2.1.282", "oauth_token", 0, "ran key=unset provider=unset"),
-            ("a claude.ai login runs the case", "2.1.282", "claude.ai", 0, "ran key=unset"),
+            ("the pinned version and a token login run the case, all five billing variables unset first",
+             "2.1.282", "oauth_token", 0, f"ran {unset_all}"),
+            ("a claude.ai login runs the case", "2.1.282", "claude.ai", 0, f"ran {unset_all}"),
             ("an API key login is refused with exit 3, the case not run", "2.1.282", "api_key", 3,
              "not a subscription login: api_key"),
             ("no login is refused with exit 3", "2.1.282", "", 3, "not a subscription login: none"),
@@ -378,9 +382,7 @@ def self_test() -> int:
                 "PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}",
                 "FAKE_VERSION": version,
                 "FAKE_METHOD": method,
-                "ANTHROPIC_API_KEY": "k",
-                "CLAUDE_CODE_USE_BEDROCK": "1",
-            }
+            } | {name: "1" for name in USAGE_BILLED}
             done = subprocess.run(
                 ["sh", "-c", guard("2.1.282", then)], env=env, capture_output=True, text=True, check=False
             )
