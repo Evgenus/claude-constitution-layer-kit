@@ -3,6 +3,7 @@
 attempt into the receipts file (decision dec-0093-module-evals-with-local-receipts).
 
     python3 scripts/run-evals.py [--module <module>]... [--container --token-file <file>]
+    python3 scripts/run-evals.py --self-test
 
 With no `--module`, every module folder. For each module, in turn:
   1. its eval files (`kit_evals.eval_files`) must all be committed, else the module is refused with the fix,
@@ -15,9 +16,9 @@ With no `--module`, every module folder. For each module, in turn:
      grant is asked only for a case that needs it: the eval refuses one on a machine whose Docker credential
      store holds a link it cannot exclude, and one grant in a module's run would refuse every case of it.
      The run uses the subscription login of the person who runs this script and counts against that plan;
-     before the first case, on the host as in the container, the runner asks `claude auth status` and refuses
-     to run unless it reports a subscription login, `oauth_token` or `claude.ai`, so a login billed by
-     usage, a Console login or an API key helper among them, never runs a case;
+     on the host before the first case, and in the container before each case, the runner asks `claude auth
+     status` and refuses to run unless it reports a subscription login, `oauth_token` or `claude.ai`, so a
+     login billed by usage, a Console login or an API key helper among them, never runs a case;
   4. the cases' `casesTotal` and `casesPassed` summed, and their `overallScore` weighted by cases, become
      one attempt, stamped with the time in UTC, appended to the module's entry of scripts/eval-receipts.json.
      An entry whose hash, Claude Code version or model differs from the run's is replaced by a new one. A
@@ -48,6 +49,8 @@ Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could n
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import shlex
@@ -58,6 +61,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest import mock
 
 import yaml
 from kit_evals import (
@@ -115,14 +119,18 @@ class Outcome:
 
 
 def pinned_path(env: dict[str, str]) -> dict[str, str]:
-    """`env` with the clone's pinned Claude Code first on PATH, when scripts/setup-claude.sh installed it."""
-    common = subprocess.run(
-        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-        cwd=KIT,
-        capture_output=True,
-        text=True,
-        check=False,
-    ).stdout.strip()
+    """`env` with the clone's pinned Claude Code first on PATH, when scripts/setup-claude.sh installed it; as
+    it is when git cannot say where the clone's common directory is."""
+    try:
+        common = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=KIT,
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+    except OSError:
+        return env
     pinned = Path(common).parent / ".claude-code-pinned/node_modules/.bin"
     if common and os.access(pinned / "claude", os.X_OK):
         return env | {"PATH": f"{pinned}{os.pathsep}{env.get('PATH', '')}"}
@@ -402,6 +410,27 @@ def self_test() -> int:
     ):
         case(f"claude auth status {said!r} reads as {method or 'none'}", auth_method(said) == method)
     case("api_key is no subscription login", "api_key" not in SUBSCRIPTION)
+    with tempfile.TemporaryDirectory() as tmp:
+        fake = Path(tmp) / "claude"
+        for said, accepted in (('{"authMethod": "oauth_token"}', True), ('{"authMethod": "api_key"}', False)):
+            fake.write_text(f"#!/bin/sh\necho '{said}'\n", encoding="utf-8")
+            fake.chmod(0o755)
+            try:
+                subscription_login({"PATH": tmp})
+                ok = accepted
+            except Broken as broken:
+                ok = not accepted and "not logged in by subscription" in str(broken)
+            case(f"the host's claude reporting {said} is {'taken' if accepted else 'refused'}", ok)
+        token = Path(tmp) / "token.env"
+        token.write_text("CLAUDE_CODE_OAUTH_TOKEN=x\n", encoding="utf-8")
+        token.chmod(0o644)
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed), mock.patch.dict(os.environ, {"PATH": tmp}):
+            code = main(["--container", "--token-file", str(token)])
+        case(
+            "a token file readable by others is refused before docker is asked for an image",
+            code == EXIT_BROKEN and "is readable by others" in printed.getvalue(),
+        )
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 

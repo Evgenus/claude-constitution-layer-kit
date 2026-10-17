@@ -27,10 +27,10 @@ BROKEN line with the fix; a refusal of the install is a finding.
 
 Modes:  --module <name> [--from <source>]   check one module;
         --self-test    prove the reading of a stream on a toy module: a full stream green; a missing plugin,
-                       a missing skill, one hook too few, a hook that exits 1 and one that prints nothing each
-                       a finding; the report of one finding as literal lines with exit 2; a stream with no
-                       init event a BROKEN line; and the whole run, install and session, against a fake
-                       `claude` on PATH, green.
+                       a missing skill, one hook too few, one too many, a hook that exits 1, one whose outcome
+                       is no success with exit 0, and one that prints nothing each a finding; the report of
+                       one finding as literal lines with exit 2; a stream with no init event a BROKEN line;
+                       and the whole run, install and session, against a fake `claude` on PATH, green.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 

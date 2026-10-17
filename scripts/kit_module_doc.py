@@ -59,7 +59,8 @@ which stays as it is, that the fix of `claude_note` carries, and off the pin tho
 `command_fix` and the guide's `cache_fix`. It names two ways, the kit's own first and a hand install
 second: run `sh scripts/setup-claude.sh` in the kit's clone, which installs the pin into
 `.claude-code-pinned/` beside git's common directory, then the check through
-`sh scripts/gate-list.sh --run install-<module>` (`--run guide` for the guide's check), which puts that
+`sh scripts/gate-list.sh --run install-<module>`
+(`--run session-<module>` for the session check, `--run guide` for the guide's check), which puts that
 folder first on PATH for those entries alone; or install the pin beside one's own by hand
 (`npm install --prefix <folder> @anthropic-ai/claude-code@<pin>`) and put `<folder>/node_modules/.bin`
 first on PATH. Both checks prove it in theirs, as literal lines.
@@ -293,12 +294,14 @@ def claude_note(root: Path, env: Mapping[str, str], timeout: float = 60) -> Note
 def put_first(pinned: str) -> str:
     """How to run on the pinned version beside one's own `claude`, which stays as it is, in two ways, the
     kit's own first: `sh scripts/setup-claude.sh`, which installs the pin into the clone's
-    `.claude-code-pinned/`, then the check through the gate list, `--run install-<module>` or `--run guide`,
+    `.claude-code-pinned/`, then the check through the gate list, `--run install-<module>`,
+    `--run session-<module>` or `--run guide`,
     which puts that folder first on PATH for those entries alone; second, an install by hand into a folder of
     one's own with that folder's `node_modules/.bin` put first on PATH."""
     return (
         f"put Claude Code {pinned} first on PATH for this run: either run sh scripts/setup-claude.sh in the"
-        " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
+        " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module>"
+        " (--run session-<module> for the session check, --run guide"
         " for the guide's check), which puts it first, or install it beside your own by hand"
         f" (npm install --prefix <folder> @anthropic-ai/claude-code@{pinned}, then"
         " PATH=<folder>/node_modules/.bin:$PATH)"

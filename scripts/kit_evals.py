@@ -166,7 +166,7 @@ def dirty(root: Path, module: str) -> list[str]:
             continue
         if len(entry) > 3:
             changed.add(entry[3:])
-        skip = entry[:1] in ("R", "C")
+        skip = any(mark in entry[:2] for mark in ("R", "C"))
     return [p for p in sorted(changed) if not left_out(p.removeprefix(f"modules/{module}/"))]
 
 

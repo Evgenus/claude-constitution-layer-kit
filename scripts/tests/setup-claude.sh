@@ -94,7 +94,7 @@ red() {  # red <clone> <pin> <what>
   fix: sh scripts/setup-claude.sh"
 }
 off_pin() {  # the install check's line for a claude of version $1
-    echo "BROKEN: claude is $1, and the kit's install checks read the platform as 2.1.282 writes it (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide for the guide's check), which puts it first, or install it beside your own by hand (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:\$PATH), or set CONSTITUTION_KIT_ANY_CLAUDE=1 to run on $1 with a note on every headline line
+    echo "BROKEN: claude is $1, and the kit's install checks read the platform as 2.1.282 writes it (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run session-<module> for the session check, --run guide for the guide's check), which puts it first, or install it beside your own by hand (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:\$PATH), or set CONSTITUTION_KIT_ANY_CLAUDE=1 to run on $1 with a note on every headline line
 BROKEN: the check could not run — 0 modules examined"
 }
 

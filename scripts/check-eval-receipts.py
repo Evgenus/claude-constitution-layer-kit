@@ -18,9 +18,10 @@ module whose receipt is stale owes a local run before the merge, `python3 script
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a current receipt green; an edit of a skill, of a
-                       script and of a file a link leads to each a finding; an edit of MODULE.md, of a test
-                       and of a result left out, green; a missing entry, an entry for no module, another
-                       version, another model and a failed last attempt each a finding; the report of one
+                       script, of a case and of a file a link leads to each a finding; an edit of MODULE.md,
+                       README.md, INSTALL.md, a test and a tracked result left out, green; a missing entry,
+                       an entry for no module, another version, another model, no attempt, a failed last
+                       attempt and a last attempt that ran no case each a finding; the report of one
                        finding as literal lines with exit 2; a receipts file that is no JSON, a model file
                        that is no model id and a link that leads out of the kit each a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
@@ -165,7 +166,8 @@ def git_quiet(root: Path, *args: str) -> None:
 
 def make_kit(tmp: Path) -> Path:
     """A throwaway kit: one module const-x with a skill, a script, a test, a document, a case, a result and a
-    link to shared code; the pins; and a git repository that tracks all of it but the result."""
+    link to shared code; the pins; and a git repository that tracks all of it, the result added by force, so
+    that its exclusion from the hash is held."""
     root = tmp / "kit"
     files = {
         "modules/const-x/MODULE.md": "# const-x\n",

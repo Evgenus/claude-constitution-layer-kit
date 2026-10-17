@@ -96,7 +96,7 @@ Each row a module holds is printed with its destination as the matrix states it,
 that holds a part of it with the version of its manifest, and every item that names it — from
 every such module alike — with its kind and its result. Then one verdict. `red` when an item of
 it is red. `green` when at least one of its items was run and every item run was green, an eval item
-counting as run when its module's receipt is current and passing — a run declared, not one the kit sees,
+counting as run when its module's receipt is current — a run declared, not one the kit sees,
 which narrows R1 and R10 of dec-0054-acceptance-items-name-their-rows (R9 of
 dec-0093-module-evals-with-local-receipts); the
 items no run examines, of any module that holds a part of the row, are listed beside and do not
@@ -713,8 +713,7 @@ def eval_case(module: Module, number: int, handles: str, proves: str, findings: 
 
 def case_folders(directory: Path) -> list[str]:
     """The eval cases of a module: each folder of `evals/` that holds a `case.yaml`, the one form the kit's
-    runner runs,
-    `evals/results/` being no case, sorted by name."""
+    runner runs, `evals/results/` being no case, sorted by name."""
     base = directory / EVALS
     if not base.is_dir():
         return []
