@@ -54,7 +54,7 @@ jobs:
       - name: Python tools
         run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518" "coverage==7.16.2" "pytest==9.1.1" "pytest-xdist==3.8.0"
       - name: Vale and lychee
-        # the versions scripts/eval-container/Dockerfile installs too; a change of either follows
+        # the versions scripts/eval-container/Dockerfile installs too; a change of either file follows in the other
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz \
