@@ -42,7 +42,7 @@ MODULES="const-catalogs const-decision-records const-doc-budgets const-interacti
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links yaml-style module-links handle-forms aspects portability gate-lists
-schema-mirror copies dials-schema resolved-paths eval-receipts bare-install guide $(for m in $MODULES; do printf 'install-%s ' "$m"; done)task-close"
+schema-mirror copies dials-schema resolved-paths eval-receipts bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
 EXTRAS="branch-gate setup-claude $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types"
 
 job() {
@@ -58,7 +58,7 @@ job() {
         list-handles) echo const-interaction ;;
         task-close) echo const-task-close ;;
         guide) echo install-guide ;;
-        install-* | fixtures-* | lint-* | types-*) echo "${1#*-}" ;;
+        install-* | session-const-* | fixtures-* | lint-* | types-*) echo "${1#*-}" ;;
         *) echo kit ;;
     esac
 }
@@ -91,14 +91,16 @@ commands() {
             echo "python3 scripts/check-$1.py"
             echo "python3 scripts/check-$1.py --self-test" ;;
         bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;
+        session-load) echo "python3 scripts/check-session-load.py --self-test" ;;
         guide)
             echo "python3 scripts/check-install-guide.py"
             echo "python3 scripts/check-install-guide.py --self-test" ;;
-        install-* | fixtures-* | lint-* | types-*)
+        install-* | session-const-* | fixtures-* | lint-* | types-*)
             for m in $MODULES; do
                 [ "${1#*-}" = "$m" ] || continue
                 case "$1" in
                     install-*) echo "python3 scripts/check-bare-install.py --module $m" ;;
+                    session-*) echo "python3 scripts/check-session-load.py --module $m" ;;
                     fixtures-*) echo "python3 scripts/check-aspects.py --run --module $m" ;;
                     lint-*)
                         echo "python3 -m ruff format --check modules/$m"
@@ -146,7 +148,7 @@ run_entry() {
     # alone, and only when it is there; <main> is derived as setup-claude.sh derives it
     pinned_bin=""
     case "$1" in
-        install-* | guide)
+        install-* | session-const-* | guide)
             common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) && [ -n "$common" ] &&
                 [ -x "$(dirname "$common")/.claude-code-pinned/node_modules/.bin/claude" ] &&
                 pinned_bin="$(dirname "$common")/.claude-code-pinned/node_modules/.bin" ;;
