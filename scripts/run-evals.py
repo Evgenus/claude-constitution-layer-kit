@@ -2,32 +2,29 @@
 """Kit tooling, never shipped in a module, and no check: run the eval cases of modules and write each run's
 attempt into the receipts file (decision dec-0093-module-evals-with-local-receipts).
 
-    python3 scripts/run-evals.py [--module <module>]... [--docker-config-empty]
+    python3 scripts/run-evals.py [--module <module>]...
 
 With no `--module`, every module folder. For each module, in turn:
   1. its eval files (`kit_evals.eval_files`) must all be committed, else the module is refused with the fix,
      so that the receipt names what CI checks;
   2. those files are copied, links followed, into a temporary folder, the plugin the run loads;
-  3. `claude plugin eval` runs on the copy, from the temporary folder, with `--model` from scripts/eval-model,
-     `--runs 3 --threshold 1 --ablation none`, `--trust-plugin --no-publish --scaffold`, and `--allow-tools`
-     granting those of Bash, Write and Edit that a case of the module lists in its `allowed_tools`, its JSON
-     result written beside the copy. A Bash grant is asked only where a case needs it: the eval refuses one
-     on a machine whose Docker credential store holds a link it cannot exclude. The run uses the login of
-     the person who runs this script: it counts against that account's plan or bill;
-  4. the result's `casesTotal`, `casesPassed` and `overallScore` become one attempt, stamped with the time in
-     UTC, appended to the module's entry of scripts/eval-receipts.json. An entry whose hash, Claude Code
-     version or model differs from the run's is replaced by a new one. A partial result counts as a failed
-     attempt.
-With `--docker-config-empty`, and only then, the runs of a module whose cases grant Bash get DOCKER_CONFIG
-pointing at an empty folder of the run's own, and the run prints a note line saying so. The eval refuses a
-Bash grant on a machine whose Docker credential store holds a link, as Docker Desktop's own plugin links
-do; with the flag, its sandbox guards that empty folder and not the person's own store, which a Bash
-command of the run could then read. The decider chose the flag, opt-in per run, in chat on 2026-10-17.
+  3. `claude plugin eval` runs on the copy once per case, `--case <name>`, from the temporary folder,
+     with `--model` from scripts/eval-model, `--runs 3 --threshold 1 --ablation none`, `--trust-plugin
+     --no-publish --scaffold`, and `--allow-tools` granting those of Bash, Write and Edit that the case
+     lists in its `allowed_tools`; its JSON result and report are kept in local/evals/<module>/. A Bash
+     grant is asked only for a case that needs it: the eval refuses one on a machine whose Docker credential
+     store holds a link it cannot exclude, and one grant in a module's run would refuse every case of it.
+     The run uses the login of the person who runs this script: it counts against that account's plan or
+     bill;
+  4. the cases' `casesTotal` and `casesPassed` summed, and their `overallScore` weighted by cases, become
+     one attempt, stamped with the time in UTC, appended to the module's entry of scripts/eval-receipts.json.
+     An entry whose hash, Claude Code version or model differs from the run's is replaced by a new one. A
+     partial result counts as a failed attempt.
 The `claude` used is the one scripts/claude-code.version pins: the clone's `.claude-code-pinned/` from
 `sh scripts/setup-claude.sh`, put first on PATH when it is there; on any other version the script refuses.
 The environment of each run drops the four variables of `kit_module_doc.claude_env`.
 
-Prints one line per case and one per module, and the path of the run's HTML report.
+Prints one line per case and one per module, and where the results are kept.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
 
@@ -99,10 +96,10 @@ def case_count(module: Path) -> int:
     )
 
 
-def granted(module: Path) -> list[str]:
-    """The gated tools the module's cases list, of Bash, Write and Edit, for `--allow-tools`."""
+def granted(paths: list[Path]) -> list[str]:
+    """The gated tools the cases at `paths` list, of Bash, Write and Edit, for `--allow-tools`."""
     listed: set[str] = set()
-    for path in sorted((module / EVALS).glob("*/case.yaml")):
+    for path in paths:
         try:
             data = yaml.safe_load(path.read_text(encoding="utf-8"))
             tools = data["execution"]["allowed_tools"]
@@ -137,9 +134,49 @@ def outcome_of(result: Path) -> Outcome:
     return Outcome(cases, passed, score, lines)
 
 
-def run_module(module: str, model: str, env: dict[str, str], docker_empty: bool = False) -> Outcome:
+def cases_of(module: Path) -> list[Path]:
+    return sorted(p.parent for p in (module / EVALS).glob("*/case.yaml"))
+
+
+def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path) -> Outcome:
+    """One case of the module's copy, granted only the gated tools it lists, its result kept in local/."""
+    result = tmp / f"{case.name}.json"
+    report = tmp / f"{case.name}.html"
+    argv = [
+        "claude", "plugin", "eval", str(copy), "--case", case.name,
+        "--model", model, "--runs", str(RUNS), "--threshold", "1", "--ablation", "none",
+        "--trust-plugin", "--no-publish", "--scaffold", "--json", str(result), "--report", str(report),
+    ]  # fmt: skip
+    tools = granted([case / "case.yaml"])
+    if tools:
+        argv += ["--allow-tools", *tools]
+    timeout = RUNS * TURN_SECONDS + 300
+    try:
+        done = subprocess.run(
+            argv, cwd=tmp, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout,
+            check=False,
+        )  # fmt: skip
+    except subprocess.TimeoutExpired as late:
+        raise Broken(f"the eval of case {case.name} ran past {timeout} s — fix: run it again") from late
+    if not result.is_file():
+        said = (done.stderr or done.stdout).strip().splitlines()
+        raise Broken(
+            f"the eval of case {case.name} exited {done.returncode} with no result"
+            f" ({said[-1] if said else 'no output'})"
+            " — fix: run `claude plugin eval` on the module by hand and read why it stops"
+        )
+    kept = KIT / "local" / "evals" / copy.name
+    kept.mkdir(parents=True, exist_ok=True)
+    for made in (result, report):
+        if made.is_file():
+            shutil.copy2(made, kept / made.name)
+    return outcome_of(result)
+
+
+def run_module(module: str, model: str, env: dict[str, str]) -> Outcome:
     root = KIT / "modules" / module
-    if case_count(root) == 0:
+    cases = cases_of(root)
+    if not cases:
         raise Broken(
             f"{module} has no eval case — fix: add one under modules/{module}/{EVALS}/<case>/case.yaml"
         )
@@ -154,53 +191,11 @@ def run_module(module: str, model: str, env: dict[str, str], docker_empty: bool 
         for name, path in eval_files(KIT, module):
             (copy / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, copy / name)
-        result = Path(tmp) / "result.json"
-        argv = [
-            "claude", "plugin", "eval", str(copy),
-            "--model", model, "--runs", str(RUNS), "--threshold", "1", "--ablation", "none",
-            "--trust-plugin", "--no-publish", "--scaffold",
-            "--json", str(result), "--report", str(Path(tmp) / "report.html"),
-        ]  # fmt: skip
-        tools = granted(root)
-        if tools:
-            argv += ["--allow-tools", *tools]
-        notes: tuple[str, ...] = ()
-        if docker_empty and "Bash" in tools:
-            empty = Path(tmp) / "docker-config"
-            empty.mkdir()
-            env = env | {"DOCKER_CONFIG": str(empty)}
-            notes = (
-                f"  note: DOCKER_CONFIG points at an empty folder for the runs of {module}, which grant Bash:"
-                " the eval's sandbox guards it, not your own Docker store",
-            )
-        timeout = case_count(root) * RUNS * TURN_SECONDS + 300
-        try:
-            done = subprocess.run(
-                argv,
-                cwd=tmp,
-                env=env,
-                stdin=subprocess.DEVNULL,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                check=False,
-            )
-        except subprocess.TimeoutExpired as late:
-            raise Broken(f"the eval of {module} ran past {timeout} s — fix: run it again") from late
-        if not result.is_file():
-            said = (done.stderr or done.stdout).strip().splitlines()
-            raise Broken(
-                f"the eval of {module} exited {done.returncode} with no result"
-                f" ({said[-1] if said else 'no output'})"
-                f" — fix: run `claude plugin eval` on the module by hand and read why it stops"
-            )
-        kept = KIT / "local" / "evals" / module
-        kept.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(result, kept / "result.json")
-        if (Path(tmp) / "report.html").is_file():
-            shutil.copy2(Path(tmp) / "report.html", kept / "report.html")
-        found = outcome_of(result)
-        return Outcome(found.cases, found.passed, found.score, notes + found.lines)
+        outcomes = [run_case(case, copy, model, env, Path(tmp)) for case in cases]
+    total = sum(o.cases for o in outcomes)
+    score = sum(o.score * o.cases for o in outcomes) / total if total else 0.0
+    lines = tuple(line for o in outcomes for line in o.lines)
+    return Outcome(total, sum(o.passed for o in outcomes), score, lines)
 
 
 def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
@@ -218,14 +213,10 @@ def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="run-evals", add_help=False, allow_abbrev=False)
     parser.add_argument("--module", action="append", default=[])
-    parser.add_argument("--docker-config-empty", action="store_true")
     try:
         args = parser.parse_args(argv)
     except SystemExit:
-        print(
-            "BROKEN: misinvocation — fix: python3 scripts/run-evals.py [--module <module>]..."
-            " [--docker-config-empty]"
-        )
+        print("BROKEN: misinvocation — fix: python3 scripts/run-evals.py [--module <module>]...")
         return EXIT_BROKEN
     env = pinned_path(claude_env(dict(os.environ)))
     try:
@@ -248,7 +239,7 @@ def main(argv: list[str]) -> int:
     worst = EXIT_GREEN
     for module in args.module or known:
         try:
-            outcome = run_module(module, model, env, args.docker_config_empty)
+            outcome = run_module(module, model, env)
             record(module, outcome, note.pinned, model)
         except (Broken, EvalError) as bad:
             print(f"BROKEN: {bad}")

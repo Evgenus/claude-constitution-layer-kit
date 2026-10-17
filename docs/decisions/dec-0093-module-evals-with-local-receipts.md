@@ -222,7 +222,7 @@ A, recommended by the session: opt-in, limited to the runs asked for, and the co
 
 ### Choice
 
-A, by the decider in chat on 2026-10-17.
+A, by the decider in chat on 2026-10-17. Tried that day, A did not work: the eval checks `~/.docker` itself as well as the folder `DOCKER_CONFIG` names, and refused the runs as before. The flag was removed in the same change. The same runs showed that one case's `Bash` grant refuses every case of a module run as a whole. So the runner now runs each case on its own.
 
 ## Ruling
 
@@ -248,7 +248,7 @@ A, by the decider in chat on 2026-10-17.
 
 <a id="r11"></a>**R11.** A change that makes a module's receipt stale is merged only with a new passing receipt, made by a local run before the merge; this narrows the guide's "No local run is required" to the gate list.
 
-<a id="r12"></a>**R12.** A case grants `Bash` only where it needs it, and the runner grants the eval only the tools of `Bash`, `Write` and `Edit` that a module's cases list. With its flag `--docker-config-empty`, and only then, the runner points `DOCKER_CONFIG` at an empty folder for the runs of a module whose cases grant `Bash`, and prints a note saying so.
+<a id="r12"></a>**R12.** A case grants `Bash` only where it needs it. The runner runs each case on its own and grants it only the tools of `Bash`, `Write` and `Edit` that the case lists.
 
 ## Carry list
 
