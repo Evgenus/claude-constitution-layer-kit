@@ -21,9 +21,14 @@ graders:
     tool: Skill
     input_match: set-ceilings
   - type: tool_order
-    name: set-ceilings-before-edit
+    name: set-ceilings-before-bash
     before:
       tool: Skill
       input_match: set-ceilings
     after:
-      tool: Edit
+      tool: Bash
+  - type: regex
+    name: the-ceiling-is-set
+    target: { source: file, path: constitution.yaml }
+    pattern: 'ceilings:'
+    flags: "m"

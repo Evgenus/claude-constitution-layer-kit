@@ -7,9 +7,9 @@ dec-0093-module-evals-with-local-receipts).
     python3 scripts/run-evals.py --self-test
 
 With no `--module`, every module folder. Every case runs in a throwaway container of the image
-scripts/eval-container/Dockerfile defines, built once through `docker` as kit-evalbox:<version>, the Claude
-Code version scripts/claude-code.version pins; no case runs on the host, so every receipt comes from one
-environment. The container holds no secret of the host: the module's copy is mounted read-only and a
+scripts/eval-container/Dockerfile defines, built once through `docker` as kit-evalbox:<version>-<hash>, the
+Claude Code version scripts/claude-code.version pins and the Dockerfile's hash; no case runs on the host,
+so every receipt comes from one environment. The container holds no secret of the host: the module's copy is mounted read-only and a
 results folder of the run's own writable. It runs with Docker's seccomp filter and its /proc mask lifted
 (`--security-opt seccomp=unconfined --security-opt systempaths=unconfined`), which the eval's own Bash
 sandbox, bwrap, needs to start; under Docker's defaults every Bash command of a case fails before it runs.
@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -250,9 +251,17 @@ def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path,
     return outcome_of(result)
 
 
+def image_name(pinned: str) -> str:
+    """kit-evalbox:<pinned version>-<the first twelve hex digits of the Dockerfile's SHA-256>, so that a
+    changed Dockerfile, or a new pin, is always built again."""
+    recipe = (KIT / "scripts" / "eval-container" / "Dockerfile").read_bytes()
+    return f"{IMAGE}:{pinned}-{hashlib.sha256(recipe).hexdigest()[:12]}"
+
+
 def ensure_image(pinned: str, env: dict[str, str]) -> str:
-    """The image of the pinned version, built from scripts/eval-container/ when Docker does not have it."""
-    image = f"{IMAGE}:{pinned}"
+    """The image of the pinned version and the Dockerfile as it is, built from scripts/eval-container/ when
+    Docker does not have it."""
+    image = image_name(pinned)
     try:
         found = subprocess.run(
             ["docker", "image", "inspect", image], env=env, capture_output=True, check=False
@@ -436,6 +445,11 @@ def self_test() -> int:
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = main(["--module", "const-x"])
+        recipe = (KIT / "scripts" / "eval-container" / "Dockerfile").read_bytes()
+        case(
+            "the image's tag names the pin and the Dockerfile's hash, so a changed file is built again",
+            image_name("2.1.282") == f"kit-evalbox:2.1.282-{hashlib.sha256(recipe).hexdigest()[:12]}",
+        )
         case(
             "a run without --token-file is a misinvocation",
             code == EXIT_BROKEN and "--token-file" in printed.getvalue(),
