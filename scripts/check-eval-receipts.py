@@ -2,9 +2,9 @@
 """Kit check: every module has a passing eval receipt for the files it has now (decision
 dec-0093-module-evals-with-local-receipts).
 
-The receipts stand in scripts/eval-receipts.json, written by scripts/run-evals.py on the login of the person
-who runs the evals; `kit_evals` defines the file, the eval hash and the model pin. For each module folder,
-the check is red when:
+The receipts stand in scripts/eval-receipts.json, written by scripts/run-evals.py in a throwaway
+container on the subscription token of the person who runs the evals; `kit_evals` defines the file, the eval
+hash and the model pin. For each module folder, the check is red when:
   the module has no entry;
   the entry's hash is not the module's eval hash now, a file a session loads, or a case, having changed since
   the run;
@@ -75,10 +75,7 @@ class Finding:
 
 
 def run_fix(module: str) -> str:
-    return (
-        f"run python3 scripts/run-evals.py --token-file <file> --module {module},"
-        f" then commit {RECEIPTS}"
-    )
+    return f"run python3 scripts/run-evals.py --token-file <file> --module {module}, then commit {RECEIPTS}"
 
 
 def judge(module: str, receipt: Receipt | None, now: str, claude: str, model: str) -> list[Finding]:

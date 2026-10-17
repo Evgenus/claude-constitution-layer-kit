@@ -166,24 +166,28 @@ def eval_argv(plugin: str, case: str, model: str, out: str, tools: list[str]) ->
     return argv + (["--allow-tools", *tools] if tools else [])
 
 
-def in_box(box: Box, copy: Path, out: Path, argv: list[str]) -> list[str]:
-    """The `docker run` that runs `argv` in a throwaway container, after its guard: the usage-billing
-    variables unset, the pinned version and a subscription login required."""
-    accepted = " ".join(SUBSCRIPTION)
-    guard = (
+def guard(pinned: str, then: str) -> str:
+    """The shell a container runs before its case, `then` last: the usage-billing variables unset, then the
+    pinned version required (exit 4), then a subscription login (exit 3)."""
+    return (
         f"unset {' '.join(USAGE_BILLED)}; "
         "version=$(claude --version 2>/dev/null | awk '{print $1; exit}'); "
-        f'[ "$version" = "{box.pinned}" ] || '
-        f'{{ echo "claude in the image is ${{version:-none}}, not the pinned {box.pinned}" >&2; exit 4; }}; '
+        f'[ "$version" = "{pinned}" ] || '
+        f'{{ echo "claude in the image is ${{version:-none}}, not the pinned {pinned}" >&2; exit 4; }}; '
         "method=$(claude auth status 2>/dev/null | python3 -c "
         '\'import json,sys; print(json.load(sys.stdin).get("authMethod", ""))\' 2>/dev/null); '
-        f'case " {accepted} " in *" $method "*) ;; '
+        f'case "$method" in {"|".join(SUBSCRIPTION)}) ;; '
         '*) echo "not a subscription login: ${method:-none}" >&2; exit 3 ;; esac; '
-        f"cp -r /plugin {CONTAINER_HOME}/{copy.name} && cd {CONTAINER_HOME} && exec {shlex.join(argv)}"
+        f"{then}"
     )
+
+
+def in_box(box: Box, copy: Path, out: Path, argv: list[str]) -> list[str]:
+    """The `docker run` that runs `argv` in a throwaway container, after its guard."""
+    then = f"cp -r /plugin {CONTAINER_HOME}/{copy.name} && cd {CONTAINER_HOME} && exec {shlex.join(argv)}"
     return [
         "docker", "run", "--rm", "--env-file", str(box.token_file),
-        "-v", f"{copy}:/plugin:ro", "-v", f"{out}:/out", box.image, "sh", "-c", guard,
+        "-v", f"{copy}:/plugin:ro", "-v", f"{out}:/out", box.image, "sh", "-c", guard(box.pinned, then),
     ]  # fmt: skip
 
 
@@ -211,7 +215,9 @@ def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path,
         raise Broken(
             f"the eval of case {case.name} exited {done.returncode} with no result"
             f" ({said[-1] if said else 'no output'})"
-            " — fix: the line in brackets says why; a login it refuses needs a token from claude setup-token"
+            " — fix: the line in brackets says why: for a version not the pinned one, run docker image rm"
+            f" {box.image} and run again, which rebuilds it; for a login, save a token from claude"
+            " setup-token in the token file"
         )
     kept = KIT / "local" / "evals" / copy.name
     kept.mkdir(parents=True, exist_ok=True)
@@ -334,7 +340,6 @@ def self_test() -> int:
         token.chmod(0o600)
         box = Box("img", "2.1.282", token)
         argv = in_box(box, Path(tmp) / "const-x", Path(tmp) / "out", ["claude", "plugin", "eval"])
-        guard = argv[-1]
         case(
             "the container gets the token file as --env-file, never its text",
             argv[3:5] == ["--env-file", str(token)],
@@ -343,17 +348,47 @@ def self_test() -> int:
             "the container mounts the module's copy read-only", f"{Path(tmp) / 'const-x'}:/plugin:ro" in argv
         )
         case(
-            "the container's guard unsets every usage-billing variable before claude runs",
-            guard.startswith(f"unset {' '.join(USAGE_BILLED)};"),
+            "the container runs the guard before its case",
+            argv[-1] == guard("2.1.282", argv[-1].split("; ")[-1])
+            and argv[-1].endswith("exec claude plugin eval"),
         )
-        case(
-            "the container's guard requires the pinned version",
-            '[ "$version" = "2.1.282" ]' in guard and "exit 4" in guard,
+        fake_bin = Path(tmp) / "bin"
+        fake_bin.mkdir()
+        (fake_bin / "claude").write_text(
+            '#!/bin/sh\ncase "$1" in --version) echo "$FAKE_VERSION (Claude Code)" ;;'
+            ' auth) echo "{\\"authMethod\\": \\"$FAKE_METHOD\\"}" ;; esac\n',
+            encoding="utf-8",
         )
-        case(
-            "the container's guard refuses a login other than a subscription's",
-            "exit 3" in guard and all(f" {m} " in guard for m in SUBSCRIPTION) and "api_key" not in guard,
-        )
+        (fake_bin / "claude").chmod(0o755)
+        then = 'echo "ran key=${ANTHROPIC_API_KEY:-unset} provider=${CLAUDE_CODE_USE_BEDROCK:-unset}"'
+        runs = (
+            ("the pinned version and a token login run the case, the billing variables unset",
+             "2.1.282", "oauth_token", 0, "ran key=unset provider=unset"),
+            ("a claude.ai login runs the case", "2.1.282", "claude.ai", 0, "ran key=unset"),
+            ("an API key login is refused with exit 3, the case not run", "2.1.282", "api_key", 3,
+             "not a subscription login: api_key"),
+            ("no login is refused with exit 3", "2.1.282", "", 3, "not a subscription login: none"),
+            ("two accepted words together are no login", "2.1.282", "oauth_token claude.ai", 3,
+             "not a subscription login"),
+            ("another version is refused with exit 4, before the login is asked", "2.1.283", "api_key", 4,
+             "not the pinned 2.1.282"),
+        )  # fmt: skip
+        for name, version, method, code, said in runs:
+            env = {
+                "PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}",
+                "FAKE_VERSION": version,
+                "FAKE_METHOD": method,
+                "ANTHROPIC_API_KEY": "k",
+                "CLAUDE_CODE_USE_BEDROCK": "1",
+            }
+            done = subprocess.run(
+                ["sh", "-c", guard("2.1.282", then)], env=env, capture_output=True, text=True, check=False
+            )
+            ran = "ran " in done.stdout
+            case(
+                f"the guard run: {name}",
+                done.returncode == code and said in done.stdout + done.stderr and ran == (code == 0),
+            )
         billed = {name: "x" for name in USAGE_BILLED} | {"CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "/bin"}
         kept = run_env(billed)
         case(

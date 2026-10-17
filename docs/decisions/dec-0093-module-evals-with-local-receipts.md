@@ -301,7 +301,7 @@ A, by the decider in chat on 2026-10-17.
 
 <a id="r11"></a>**R11.** A change that makes a module's receipt stale is merged only with a new passing receipt, made by a local run before the merge; this narrows the guide's "No local run is required" to the gate list.
 
-<a id="r12"></a>**R12.** A case grants `Bash` only where it needs it. The runner runs each case on its own and grants it only the tools of `Bash`, `Write` and `Edit` that the case lists.
+<a id="r12"></a>**R12.** A case lists the tools a session at its moment would have, so that the model can follow the module's skill as written: a skill or command case `Read`, `Glob`, `Grep`, `Write`, `Edit`, `Skill` and `Bash`; a start-rule case only what its rule needs. The runner runs each case on its own and grants it only the tools of `Bash`, `Write` and `Edit` that the case lists.
 
 <a id="r13"></a>**R13.** Every case runs in a throwaway container of the image `scripts/eval-container/Dockerfile` defines, built from the version the kit pins, one container per case; no case runs on the host, so every receipt comes from one environment. The runner takes `--token-file <file>`: a subscription token from `claude setup-token`, which the runner never opens, refuses unless its owner alone can read it, judges before it asks docker for the image, and hands the container as Docker's `--env-file`. The module's copy is mounted read-only, and a results folder of the run's own writable. Inside, the usage-billing variables of R7 are unset, and the case runs only when `claude --version` is the pinned version and `claude auth status` reports a subscription login.
 
