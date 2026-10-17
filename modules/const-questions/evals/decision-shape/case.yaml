@@ -10,7 +10,7 @@ graders:
   - type: regex
     name: lettered-options
     target: last_message
-    pattern: '\*\*A\.'
+    pattern: '^\s*[-*] \*\*A\b'
     flags: "m"
     match: contains
   - type: regex
