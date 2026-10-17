@@ -12,8 +12,8 @@ With no `--module`, every module folder. For each module, in turn:
      `--runs 3 --threshold 1 --ablation none`, `--trust-plugin --no-publish --scaffold`, and `--allow-tools`
      granting those of Bash, Write and Edit that a case of the module lists in its `allowed_tools`, its JSON
      result written beside the copy. A Bash grant is asked only where a case needs it: the eval refuses one
-     on a machine whose Docker credential store holds a link it cannot exclude. The run uses the login of the person who runs
-     this script: it counts against that account's plan or bill;
+     on a machine whose Docker credential store holds a link it cannot exclude. The run uses the login of
+     the person who runs this script: it counts against that account's plan or bill;
   4. the result's `casesTotal`, `casesPassed` and `overallScore` become one attempt, stamped with the time in
      UTC, appended to the module's entry of scripts/eval-receipts.json. An entry whose hash, Claude Code
      version or model differs from the run's is replaced by a new one. A partial result counts as a failed
