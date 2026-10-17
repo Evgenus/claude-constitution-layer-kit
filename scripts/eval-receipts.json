@@ -12,6 +12,19 @@
     "hash": "sha256:c2f2182f95bd5919cbd1f96dafb365073ca911f6bb3f71ac894d4a5aa0489bb4",
     "model": "claude-opus-5-5"
   },
+  "const-decision-records": {
+    "attempts": [
+      {
+        "at": "2026-10-17T01:03:09Z",
+        "cases": 2,
+        "passed": 0,
+        "score": 0.3333333333333333
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:962185930501aee6257d7d02de6a88804354389fd017e79470d17d1c70f4ff51",
+    "model": "claude-opus-5-5"
+  },
   "const-doc-budgets": {
     "attempts": [
       {
@@ -51,6 +64,19 @@
     "hash": "sha256:caa333c4dffa86392f26b2ec79ba731bd31ce5ae6aa241afd2dc1f9836314fe8",
     "model": "claude-opus-5-5"
   },
+  "const-locations": {
+    "attempts": [
+      {
+        "at": "2026-10-17T01:06:54Z",
+        "cases": 2,
+        "passed": 0,
+        "score": 0.3333333333333333
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:b09ad3e3d74448f66afd04f98741506e2279dbb000cf646dd4e54d9fcced8d80",
+    "model": "claude-opus-5-5"
+  },
   "const-meta-types": {
     "attempts": [
       {
@@ -77,6 +103,19 @@
     "hash": "sha256:2a2e834d9c6ae9e82631261356f251e729d24126ba8c5ef8eab17f8d1a95f14e",
     "model": "claude-opus-5-5"
   },
+  "const-referencing": {
+    "attempts": [
+      {
+        "at": "2026-10-17T01:07:11Z",
+        "cases": 2,
+        "passed": 1,
+        "score": 0.5
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:18ec8361c12ac334bb1bc2c35d3ccaa5ebd7246ecfc20abc923b307d64c55c92",
+    "model": "claude-opus-5-5"
+  },
   "const-styling": {
     "attempts": [
       {
@@ -88,6 +127,19 @@
     ],
     "claude": "2.1.282",
     "hash": "sha256:2f3b9f2b13134c245d7d84da5c852afc0bb2060bfe0a9dda8176f5c81a8aea1d",
+    "model": "claude-opus-5-5"
+  },
+  "const-task-close": {
+    "attempts": [
+      {
+        "at": "2026-10-17T01:09:18Z",
+        "cases": 2,
+        "passed": 1,
+        "score": 0.5
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:ce09b6f8a019e5b53d581dff7ae5c2672e9cdc675a51e41f0261067215935e52",
     "model": "claude-opus-5-5"
   }
 }

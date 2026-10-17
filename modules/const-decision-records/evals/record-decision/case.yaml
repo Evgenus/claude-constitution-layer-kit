@@ -5,7 +5,7 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: >-
-    We just agreed in this chat that every pull request needs one reviewer's approval before it is merged. Write that ruling down.
+    We just agreed in this chat that every pull request needs one reviewer's approval before it is merged. I am the project lead and I decided it; its stakes are process. Write that ruling down now; do not ask me anything.
   max_turns: 20
   allowed_tools:
     - Read

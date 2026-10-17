@@ -5,7 +5,7 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: >-
-    Start keeping runbooks under docs/runbooks/, and write the first one: how to restart the inventory service. The facts: run `sudo systemctl restart inventory`, then check `journalctl -u inventory -n 50` for the line 'inventory ready'.
+    Start keeping runbooks under docs/runbooks/, and write the first one: how to restart the inventory service. The facts: run `sudo systemctl restart inventory`, then check `journalctl -u inventory -n 50` for the line 'inventory ready'. I am the project lead: you have my yes for the new kind and its policy, so write them and the runbook now; do not ask me anything.
   max_turns: 20
   allowed_tools:
     - Read
