@@ -43,6 +43,14 @@ def one_line(text: str, width: int = WIDTH) -> str:
     return flat if len(flat) <= width else flat[: width - 1] + "…"
 
 
+def tool_spec(spec: object) -> str:
+    """A tool a grader names, `{tool, input_match}`, as `Skill (input matches 'x')`."""
+    if not isinstance(spec, dict):
+        return "?"
+    matching = f" (input matches {spec['input_match']!r})" if spec.get("input_match") else ""
+    return f"{spec.get('tool', '?')}{matching}"
+
+
 def grader_rule(grader: dict[str, Any]) -> str:
     """One grader as the case states it: its name, its type and the rule it holds."""
     name, kind = grader.get("name", "?"), grader.get("type", "?")
@@ -58,7 +66,7 @@ def grader_rule(grader: dict[str, Any]) -> str:
         matching = f" whose input matches {conf['input_match']!r}" if conf.get("input_match") else ""
         rule = f"tool_used: {conf.get('tool', '?')}{matching}"
     elif kind == "tool_order":
-        rule = f"tool_order: {' before '.join(str(t) for t in conf.get('tools', conf.get('order', [])))}"
+        rule = f"tool_order: {tool_spec(conf.get('before'))} before {tool_spec(conf.get('after'))}"
     elif kind == "file_exists":
         rule = f"file_exists: {conf.get('path', conf.get('glob', '?'))}"
     elif kind == "llm":

@@ -75,6 +75,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -123,6 +124,7 @@ USAGE_BILLED = (  # the variables Claude Code prefers over a subscription login,
     "CLAUDE_CODE_USE_FOUNDRY",
 )
 TURN_SECONDS = 300  # a case's default `timeout_seconds`, the bound of one run
+HEARTBEAT = 30  # seconds between the verbose mode's lines while a case runs
 ARCH_REFUSAL = "no Vale and lychee for TARGETARCH"  # the first words of the Dockerfile's refusal
 # a line of the failed step's own log that opens with the refusal, as BuildKit prints it, "#7 0.215 …" in
 # its progress and "0.215 …" in its error summary, and as the legacy builder prints it once its colour is
@@ -256,7 +258,9 @@ def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str) -> list[
     ]  # fmt: skip
 
 
-def streamed(argv: list[str], cwd: Path, env: dict[str, str], timeout: int) -> tuple[int, str]:
+def streamed(
+    argv: list[str], cwd: Path, env: dict[str, str], timeout: float, heartbeat: float = HEARTBEAT
+) -> tuple[int, str]:
     """Run `argv`, printing each line of its output, stdout and stderr together, as it comes; its exit code
     and the whole output. Past `timeout` seconds it is killed and `subprocess.TimeoutExpired` raised."""
     said: list[str] = []
@@ -273,11 +277,17 @@ def streamed(argv: list[str], cwd: Path, env: dict[str, str], timeout: int) -> t
 
         reader = threading.Thread(target=echo, daemon=True)
         reader.start()
-        try:
-            code = running.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
-            running.kill()
-            raise
+        started = time.monotonic()
+        while True:  # a line every `heartbeat` seconds, since the eval prints little while a case runs
+            elapsed = time.monotonic() - started
+            if elapsed >= timeout:
+                running.kill()
+                raise subprocess.TimeoutExpired(argv, timeout)
+            try:
+                code = running.wait(timeout=min(heartbeat, timeout - elapsed))
+                break
+            except subprocess.TimeoutExpired:
+                print(f"  … running, {int(time.monotonic() - started)} s", flush=True)
         reader.join()
     return code, "".join(said)
 
@@ -449,7 +459,8 @@ def report_story(folder: Path) -> list[str]:
         "execution:\n  prompt: Rename count_items to total_items.\ngraders:\n"
         "  - {type: tool_used, name: loads, tool: Skill, input_match: commit-before-edit}\n"
         "  - {type: regex, name: renamed, target: {source: file, path: src/a.py},"
-        " pattern: def total_items}\n",
+        " pattern: def total_items}\n"
+        "  - {type: tool_order, name: order, before: {tool: Skill, input_match: x}, after: {tool: Bash}}\n",
         encoding="utf-8",
     )
 
@@ -714,6 +725,25 @@ def self_test() -> int:
             "the container keeps the eval's exit code and copies each run's trace, whatever its folder",
             boxed.returncode == 7 and copied == ["load-trace1.jsonl", "load-trace2.jsonl"],
         )
+        heard = io.StringIO()
+        with contextlib.redirect_stdout(heard):
+            code_said = streamed(
+                ["sh", "-c", "echo one; sleep 1; echo two >&2"], Path(tmp), dict(os.environ), 20, 0.2
+            )
+        echoed = heard.getvalue().splitlines()
+        case(
+            "the verbose mode echoes the container's output as it comes, stderr too, with a line while it"
+            " runs",
+            code_said == (0, "one\ntwo\n")
+            and echoed[0] == "  | one" and echoed[-1] == "  | two"
+            and any(line.startswith("  … running, ") for line in echoed[1:-1]),
+        )  # fmt: skip
+        with contextlib.redirect_stdout(io.StringIO()):
+            try:
+                streamed(["sh", "-c", "sleep 30"], Path(tmp), dict(os.environ), 1, 0.3)
+                case("the verbose mode stops a case past its time", False)
+            except subprocess.TimeoutExpired:
+                case("the verbose mode stops a case past its time", True)
         mapped = trace_map(box_root / "out" / "load-traces.txt")
         case(
             "the container maps each copied trace to the path the eval's result names, so that a run finds"
@@ -729,7 +759,8 @@ def self_test() -> int:
             " the reply, a tool's failure, and each grader's verdict with its explanation, run by run",
             all(any(want in line for line in story) for want in (
                 "Rename count_items", "regex on file src/a.py, contains: def total_items",
-                "tool_used: Skill whose input matches 'commit-before-edit'", "load the skill X",
+                "tool_used: Skill whose input matches 'commit-before-edit'",
+                "tool_order: Skill (input matches 'x') before Bash", "load the skill X",
                 "→ Skill const-x:commit-before-edit", "→ Edit src/a.py", "Renamed it.", "the tool failed: no",
                 "run 1: passed", "run 2: FAILED", "✓ loads: called Skill", "✗ renamed: pattern not found",
             )) and story.index("  run 1: passed, score 1.00, 3 turn(s), 9 s")
