@@ -3,7 +3,7 @@
 container and write each run's attempt into the receipts file (decision
 dec-0093-module-evals-with-local-receipts).
 
-    python3 scripts/run-evals.py --token-file <file> [--module <module>]...
+    python3 scripts/run-evals.py --token-file <file> [--module <module>]... [--verbose]
     python3 scripts/run-evals.py --self-test
 
 With no `--module`, every module folder. Every case runs in a throwaway container of the image
@@ -39,19 +39,23 @@ asks docker for the image. For each module, in turn:
 The `docker` commands run in the person's environment less the four variables of `kit_module_doc.claude_env`
 and the usage-billing ones above; the container gets none of it but the token file.
 
-Prints one line per case and one per module, and where the results are kept. `--self-test` proves the
-guards without a model or docker: the token file's mode and a token file that does not exist; the
-container's options (the token as an env file, never its text, the copy read-only, the seccomp filter and
-the /proc mask lifted); its guard, run under sh against a fake claude (the billing variables unset, the
-pinned version and a subscription login required, in that order); its command after the guard, run under
-sh (the eval's exit code kept, each run's trace copied whatever its folder); the environment of the docker
-commands; the image's tag following the pin and the Dockerfile's text, and the image inspected and built
-under that tag, against a fake docker; a token file judged before docker is asked
-for an image; the Dockerfile's refusal of an architecture reaching the person with its own fix, from
-BuildKit's log and from the legacy builder's coloured output, and a failed download in the same step,
-whose ERROR line quotes the step's command, the refusal's echo included, told apart and given the exact
-build to run; the Dockerfile's refusal opening with the words the runner looks for; a missing
-token file argument; the files a rename leaves not committed; an eval image not committed; and a missing git.
+Prints one line per case and one per module, and where the results are kept. With `--verbose`, which
+`just evals` passes, each case first prints what the model is told and each grader's rule, then the
+container's output as it comes, then for each run its verdict, the start hooks' output, every tool call and
+text of the model, and each grader's verdict with the eval's explanation (`scripts/kit_eval_report.py`).
+`--self-test` proves the guards without a model or docker: the token file's mode and a token file that does
+not exist; the container's options (the token as an env file, never its text, the copy read-only, the
+seccomp filter and the /proc mask lifted); its guard, run under sh against a fake claude (the billing
+variables unset, the pinned version and a subscription login required, in that order); its command after the
+guard, run under sh (the eval's exit code kept, each run's trace copied whatever its folder, and mapped to
+the path the eval's result names); the environment of the docker commands; the image's tag following the pin
+and the Dockerfile's text, and the image inspected and built under that tag, against a fake docker; a token
+file judged before docker is asked for an image; the Dockerfile's refusal of an architecture reaching the
+person with its own fix, from BuildKit's log and from the legacy builder's coloured output, and a failed
+download in the same step, whose ERROR line quotes the step's command, the refusal's echo included, told
+apart and given the exact build to run; the Dockerfile's refusal opening with the words the runner looks
+for; the verbose story of a fixed case, run by run; a missing token file argument; the files a rename leaves
+not committed; an eval image not committed; and a missing git.
 The gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
@@ -70,12 +74,14 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest import mock
 
 import yaml
+from kit_eval_report import case_preamble, case_story, trace_map
 from kit_evals import (
     EVAL_IMAGE,
     EVALS,
@@ -226,14 +232,17 @@ def then_for(
     home: str = CONTAINER_HOME,
 ) -> str:
     """What a container runs after its guard: the eval, then each run's trace, which `--keep-temp` leaves in a
-    read-only folder under /tmp, copied to /out as <case>-trace<n>.jsonl; the container exits with the eval's
+    read-only folder under /tmp, copied to /out as <case>-trace<n>.jsonl, and a line `<n> <its path>` in
+    /out/<case>-traces.txt, the path the eval's result names for its run; the container exits with the eval's
     code. The paths are the container's; the self-test passes its own."""
     return (
         f"cp -r {shlex.quote(plugin)} {shlex.quote(f'{home}/{copy.name}')} && cd {shlex.quote(home)} && "
         f"{shlex.join(argv)}; code=$?; "
+        f": > {shlex.quote(f'{out}/{case}-traces.txt')}; "
         f"find {shlex.quote(tmp)} -name trace.jsonl -path '*/out/trace.jsonl' 2>/dev/null | "
         "{ n=0; while IFS= read -r t; do n=$((n+1)); "
-        f'cp "$t" {shlex.quote(out)}/{shlex.quote(case)}-trace$n.jsonl; done; }}; exit $code'
+        f'cp "$t" {shlex.quote(out)}/{shlex.quote(case)}-trace$n.jsonl; '
+        f'printf \'%s %s\\n\' "$n" "$t" >> {shlex.quote(f"{out}/{case}-traces.txt")}; done; }}; exit $code'
     )
 
 
@@ -247,20 +256,57 @@ def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str) -> list[
     ]  # fmt: skip
 
 
-def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path, box: Box) -> Outcome:
+def streamed(argv: list[str], cwd: Path, env: dict[str, str], timeout: int) -> tuple[int, str]:
+    """Run `argv`, printing each line of its output, stdout and stderr together, as it comes; its exit code
+    and the whole output. Past `timeout` seconds it is killed and `subprocess.TimeoutExpired` raised."""
+    said: list[str] = []
+    with subprocess.Popen(
+        argv, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True,
+    ) as running:  # fmt: skip
+
+        def echo() -> None:
+            assert running.stdout is not None
+            for line in running.stdout:
+                said.append(line)
+                print(f"  | {line.rstrip()}", flush=True)
+
+        reader = threading.Thread(target=echo, daemon=True)
+        reader.start()
+        try:
+            code = running.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            running.kill()
+            raise
+        reader.join()
+    return code, "".join(said)
+
+
+def run_case(
+    case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path, box: Box, verbose: bool = False
+) -> Outcome:
     """One case of the module's copy, in its own container, granted only the gated tools it lists, its result
-    kept in local/."""
+    kept in local/. With `verbose`, its prompt and graders first, the container's output as it comes, and then
+    the story of each run."""
     out = tmp / "out"
     out.mkdir(exist_ok=True)
     tools = granted([case / "case.yaml"])
     plugin = f"{CONTAINER_HOME}/{copy.name}"
     argv = in_box(box, copy, out, eval_argv(plugin, case.name, model, CONTAINER_OUT, tools), case.name)
     timeout = RUNS * TURN_SECONDS + 300
+    if verbose:
+        print(f"── case {case.name}, {RUNS} runs on {model}", flush=True)
+        for line in case_preamble(case / "case.yaml"):
+            print(line, flush=True)
     try:
-        done = subprocess.run(
-            argv, cwd=tmp, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=timeout,
-            check=False,
-        )  # fmt: skip
+        if verbose:
+            code, output = streamed(argv, tmp, env, timeout)
+            done = subprocess.CompletedProcess(argv, code, output, "")
+        else:
+            done = subprocess.run(
+                argv, cwd=tmp, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                timeout=timeout, check=False,
+            )  # fmt: skip
     except FileNotFoundError as missing:
         raise Broken("docker is not installed — fix: install Docker and put docker on PATH") from missing
     except subprocess.TimeoutExpired as late:
@@ -277,11 +323,14 @@ def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path,
         )
     kept = KIT / "local" / "evals" / copy.name
     kept.mkdir(parents=True, exist_ok=True)
-    for stale in kept.glob(f"{case.name}-trace*.jsonl"):  # an earlier attempt's, never mixed with this one's
+    for stale in kept.glob(f"{case.name}-trace*"):  # an earlier attempt's, never mixed with this one's
         stale.unlink()
-    for made in (result, out / f"{case.name}.html", *sorted(out.glob(f"{case.name}-trace*.jsonl"))):
+    for made in (result, out / f"{case.name}.html", *sorted(out.glob(f"{case.name}-trace*"))):
         if made.is_file():
             shutil.copy2(made, kept / made.name)
+    if verbose:
+        for line in case_story(kept / result.name, kept / f"{case.name}-traces.txt"):
+            print(line, flush=True)
     return outcome_of(result)
 
 
@@ -354,7 +403,7 @@ def token_file(given: str) -> Path:
     return path
 
 
-def run_module(module: str, model: str, env: dict[str, str], box: Box) -> Outcome:
+def run_module(module: str, model: str, env: dict[str, str], box: Box, verbose: bool = False) -> Outcome:
     root = KIT / "modules" / module
     cases = cases_of(root)
     if not cases:
@@ -373,7 +422,7 @@ def run_module(module: str, model: str, env: dict[str, str], box: Box) -> Outcom
         for name, path in eval_files(KIT, module):
             (copy / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, copy / name)
-        outcomes = [run_case(case, copy, model, env, Path(tmp), box) for case in cases]
+        outcomes = [run_case(case, copy, model, env, Path(tmp), box, verbose) for case in cases]
     total = sum(o.cases for o in outcomes)
     score = sum(o.score * o.cases for o in outcomes) / total if total else 0.0
     lines = tuple(line for o in outcomes for line in o.lines)
@@ -390,6 +439,53 @@ def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
     kept = old.attempts if old and (old.hash, old.claude, old.model) == (now, claude, model) else ()
     receipts[module] = Receipt(now, claude, model, (*kept, attempt))
     write_receipts(KIT, receipts)
+
+
+def report_story(folder: Path) -> list[str]:
+    """The verbose story of a fixed case of two runs, the second failing, written into `folder`, for the
+    self-test."""
+    folder.mkdir(parents=True)
+    (folder / "case.yaml").write_text(
+        "execution:\n  prompt: Rename count_items to total_items.\ngraders:\n"
+        "  - {type: tool_used, name: loads, tool: Skill, input_match: commit-before-edit}\n"
+        "  - {type: regex, name: renamed, target: {source: file, path: src/a.py},"
+        " pattern: def total_items}\n",
+        encoding="utf-8",
+    )
+
+    def run(n: int, passed: bool, score: float, turns: int, seconds: int, renamed: str) -> dict[str, object]:
+        return {
+            "passed": passed, "score": score, "turns": turns, "durationSeconds": seconds, "error": None,
+            "tracePath": f"/tmp/e-{n}/out/trace.jsonl",
+            "graders": [
+                {"name": "loads", "passed": True, "explanation": "called Skill"},
+                {"name": "renamed", "passed": passed, "explanation": renamed},
+            ],
+        }  # fmt: skip
+
+    result = {"cases": [{"arms": {"with": [run(1, True, 1.0, 3, 9, "matched"),
+                                           run(2, False, 0.5, 2, 7, "pattern not found")]}}]}  # fmt: skip
+    (folder / "c.json").write_text(json.dumps(result), encoding="utf-8")
+
+    def said(kind: str, part: dict[str, object]) -> str:
+        return json.dumps({"type": kind, "message": {"content": [part]}})
+
+    first = [
+        json.dumps({"type": "system", "subtype": "hook_response", "hook_name": "SessionStart:startup",
+                    "output": "load the skill X\n"}),
+        said("assistant", {"type": "tool_use", "name": "Skill",
+                           "input": {"skill": "const-x:commit-before-edit"}}),
+        said("assistant", {"type": "tool_use", "name": "Edit", "input": {"file_path": "src/a.py"}}),
+        said("user", {"type": "tool_result", "is_error": True, "content": "no"}),
+        said("assistant", {"type": "text", "text": "Renamed it."}),
+    ]  # fmt: skip
+    (folder / "c-trace2.jsonl").write_text("\n".join(first) + "\n", encoding="utf-8")
+    (folder / "c-trace1.jsonl").write_text(said("assistant", {"type": "text", "text": "Done."}) + "\n",
+                                          encoding="utf-8")  # fmt: skip
+    (folder / "c-traces.txt").write_text(
+        "1 /tmp/e-2/out/trace.jsonl\n2 /tmp/e-1/out/trace.jsonl\n", encoding="utf-8"
+    )  # find's order, against the runs': run 1's trace was copied second
+    return case_preamble(folder / "case.yaml") + case_story(folder / "c.json", folder / "c-traces.txt")
 
 
 def self_test() -> int:
@@ -618,6 +714,29 @@ def self_test() -> int:
             "the container keeps the eval's exit code and copies each run's trace, whatever its folder",
             boxed.returncode == 7 and copied == ["load-trace1.jsonl", "load-trace2.jsonl"],
         )
+        mapped = trace_map(box_root / "out" / "load-traces.txt")
+        case(
+            "the container maps each copied trace to the path the eval's result names, so that a run finds"
+            " its own",
+            sorted(mapped) == sorted(f"{box_root}/tmp/{d}/out/trace.jsonl" for d in ("claude-eval-a", "e-b"))
+            and sorted(path.name for path in mapped.values()) == copied
+            and all(path.read_text(encoding="utf-8") == ("1\n" if "claude-eval-a" in key else "2\n")
+                    for key, path in mapped.items()),
+        )  # fmt: skip
+        story = report_story(Path(tmp) / "report")
+        case(
+            "the verbose story names the prompt, each grader's rule, the start hook's text, the tool calls,"
+            " the reply, a tool's failure, and each grader's verdict with its explanation, run by run",
+            all(any(want in line for line in story) for want in (
+                "Rename count_items", "regex on file src/a.py, contains: def total_items",
+                "tool_used: Skill whose input matches 'commit-before-edit'", "load the skill X",
+                "→ Skill const-x:commit-before-edit", "→ Edit src/a.py", "Renamed it.", "the tool failed: no",
+                "run 1: passed", "run 2: FAILED", "✓ loads: called Skill", "✗ renamed: pattern not found",
+            )) and story.index("  run 1: passed, score 1.00, 3 turn(s), 9 s")
+            < next(n for n, line in enumerate(story) if "→ Skill" in line)
+            < story.index("  run 2: FAILED, score 0.50, 2 turn(s), 7 s")
+            < next(n for n, line in enumerate(story) if "Done." in line),
+        )  # fmt: skip
         case(
             "a run without --token-file is a misinvocation",
             code == EXIT_BROKEN and "--token-file" in printed.getvalue(),
@@ -668,14 +787,15 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--module", action="append", default=[])
     parser.add_argument("--token-file")
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
     try:
         args = parser.parse_args(argv)
-        if args.self_test == bool(args.token_file) or (args.self_test and args.module):
+        if args.self_test == bool(args.token_file) or (args.self_test and (args.module or args.verbose)):
             raise SystemExit(2)
     except SystemExit:
         print(
             "BROKEN: misinvocation — fix: python3 scripts/run-evals.py --token-file <file>"
-            " [--module <module>]..., or --self-test"
+            " [--module <module>]... [--verbose], or --self-test"
         )
         return EXIT_BROKEN
     if args.self_test:
@@ -697,7 +817,9 @@ def main(argv: list[str]) -> int:
     worst = EXIT_GREEN
     for module in args.module or known:
         try:
-            outcome = run_module(module, model, env, box)
+            if args.verbose:
+                print(f"══ {module}", flush=True)
+            outcome = run_module(module, model, env, box, args.verbose)
             record(module, outcome, pinned, model)
         except (Broken, EvalError) as bad:
             print(f"BROKEN: {bad}")

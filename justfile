@@ -37,7 +37,7 @@ test module="" *args:
     done
     exit "$worst"
 
-# Run the eval cases of the modules named, or of every module, through scripts/run-evals.py: each case in a throwaway container on the pinned Claude Code and model, logged in with a subscription token from `claude setup-token` and never billed by usage. The token file's path comes from KIT_EVAL_TOKEN_FILE; the file must be readable by its owner alone. Each module's attempt is added to scripts/eval-receipts.json, which you commit. Needs Docker running; the kit's tree must be committed
+# Run the eval cases of the modules named, or of every module, through scripts/run-evals.py: each case in a throwaway container on the pinned Claude Code and model, logged in with a subscription token from `claude setup-token` and never billed by usage. The token file's path comes from KIT_EVAL_TOKEN_FILE; the file must be readable by its owner alone. Verbose: for each case, what the model is told and each grader's rule, the container's output as it comes, then per run the start hooks' text, every tool call and reply of the model, and each grader's verdict with its explanation. Each module's attempt is added to scripts/eval-receipts.json, which you commit. Needs Docker running; the kit's tree must be committed
 evals *modules:
     #!/bin/sh
     set -u
@@ -48,7 +48,7 @@ evals *modules:
     fi
     set --
     for m in {{modules}}; do set -- "$@" --module "$m"; done
-    cd "{{justfile_directory()}}" && exec python3 scripts/run-evals.py --token-file "$token" "$@"
+    cd "{{justfile_directory()}}" && exec python3 scripts/run-evals.py --token-file "$token" --verbose "$@"
 
 # Tell which modules' eval receipts are missing, stale or failing, as CI would: scripts/check-eval-receipts.py, no run and no token
 eval-receipts:

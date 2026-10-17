@@ -6,6 +6,12 @@
         "cases": 1,
         "passed": 1,
         "score": 1.0
+      },
+      {
+        "at": "2026-10-17T23:08:58Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
       }
     ],
     "claude": "2.1.282",
@@ -19,6 +25,12 @@
         "cases": 2,
         "passed": 2,
         "score": 1.0
+      },
+      {
+        "at": "2026-10-17T23:11:43Z",
+        "cases": 2,
+        "passed": 2,
+        "score": 1.0
       }
     ],
     "claude": "2.1.282",
@@ -29,6 +41,12 @@
     "attempts": [
       {
         "at": "2026-10-17T20:46:23Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      },
+      {
+        "at": "2026-10-17T23:13:13Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
@@ -51,6 +69,12 @@
         "cases": 1,
         "passed": 1,
         "score": 1.0
+      },
+      {
+        "at": "2026-10-17T23:13:24Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
       }
     ],
     "claude": "2.1.282",
@@ -61,6 +85,12 @@
     "attempts": [
       {
         "at": "2026-10-17T20:47:21Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      },
+      {
+        "at": "2026-10-17T23:14:32Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
