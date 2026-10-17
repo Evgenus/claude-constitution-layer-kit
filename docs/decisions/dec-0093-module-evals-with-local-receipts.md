@@ -29,7 +29,7 @@ Facts that settle the mechanism, from experiments on 2026-10-16 on Claude Code 2
 5. In a run with a no-plugin baseline, a `tool_used` grader on `Skill` is shown but not scored; under `--ablation none`, or marked `arm: both`, it is scored.
 6. The run's result JSON names the Claude Code version, the plugin's name and version, and per case its score and pass rate. It names the model only when one is passed with `--model`, as `suite.modelOverride`.
 
-A change to the kit's checks, its CI and its module documents changes the kit's harness, so this is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A model's behaviour can never be a deterministic gate under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5). So the decider was asked, in chat on 2026-10-16, how to enforce it without a credential in CI. The options were a run on the decider's own login with a receipt that CI checks, a subscription token kept as a secret of the repository, or a local hook alone. The decider chose the receipt. Asked then whether the change owes a research comparison, the decider chose none, in chat on 2026-10-16, as the session recommended: the facts above, from the platform's own documentation and two probes, settle every question below. The record answers eight questions, in the order the decider was asked them; the eighth came from the first runs.
+A change to the kit's checks, its CI and its module documents changes the kit's harness, so this is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A model's behaviour can never be a deterministic gate under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5). So the decider was asked, in chat on 2026-10-16, how to enforce it without a credential in CI. The options were a run on the decider's own login with a receipt that CI checks, a subscription token kept as a secret of the repository, or a local hook alone. The decider chose the receipt. Asked then whether the change owes a research comparison, the decider chose none, in chat on 2026-10-16, as the session recommended: the facts above, from the platform's own documentation and two probes, settle every question below. The record answers nine questions, in the order the decider was asked them; the last two came from the first runs.
 
 ## 1. Where the eval cases live
 
@@ -224,6 +224,35 @@ A, recommended by the session: opt-in, limited to the runs asked for, and the co
 
 A, by the decider in chat on 2026-10-17. Tried that day, A did not work: the eval checks `~/.docker` itself as well as the folder `DOCKER_CONFIG` names, and refused the runs as before. The flag was removed in the same change. The same runs showed that one case's `Bash` grant refuses every case of a module run as a whole. So the runner now runs each case on its own.
 
+The decider then chose C in chat: the session moved the plugin links out of `~/.docker` and pointed Docker at the app's own folder by its documented key `cliPluginsExtraDirs`. The eval still refused, for 16 more links in `~/.docker/bin/lib/`, and the session undid both edits. The decider then chose B, a cloud session. It never started, and its request was withdrawn once question 9 was answered.
+
+## 9. How a case that needs Bash is isolated
+
+The cases that need `Bash` prove what a module's rules make mandatory, so they cannot lose it; and a run with `Bash` needs a sandbox that keeps the person's secrets out of reach. The decider set one more rule that day: no run is billed by usage, never an API key.
+
+### Options
+
+- **A. A narrowed grant**, `Bash(sh *<script>*)`, so the model may run the module's own scripts alone.
+  - **Pros:** it would run on the decider's machine with the least power given.
+  - **Cons:** unverified whether the eval counts a narrowed grant as a `Bash` grant.
+- **B. A throwaway container** holding nothing secret, logged in with a subscription token from `claude setup-token`.
+  - **Pros:** even a gap in the eval's sandbox finds no secret to read; the token bills the plan, not usage.
+  - **Cons:** unverified whether the token reaches the eval's runs; Docker is needed; the token is a long-lived credential of the decider's, kept in a file.
+- **C. A cloud session** of the repository.
+  - **Pros:** clean infrastructure.
+  - **Cons:** nothing tells the session that asked when it ends; every stale receipt of those modules needs another.
+- **D. CI with a token.**
+  - **Pros:** the most reliable sandbox, each runner thrown away.
+  - **Cons:** a long-lived credential of the decider's account kept on GitHub, which section 2 turned away from.
+
+### Recommendation
+
+A first, since a refusal costs nothing, then B, recommended by the session.
+
+### Choice
+
+The decider chose to probe A, in chat on 2026-10-17: the eval refused a narrowed grant as it refuses a full one. The decider then chose to probe B. In a container of the official `node:22-bookworm` image, logged in with a token the decider made with `claude setup-token`, Claude Code reported `oauth_token` on `firstParty`, a subscription login. The case `move-document` passed every grader. The decider then chose B as a mode of the runner, that day.
+
 ## Ruling
 
 <a id="r1"></a>**R1.** Every module ships its eval cases in `evals/` at its root, one folder per case holding a `case.yaml`, in the form `claude plugin eval` reads. The results a run writes under `evals/results/` are ignored by git and never committed.
@@ -250,6 +279,8 @@ A, by the decider in chat on 2026-10-17. Tried that day, A did not work: the eva
 
 <a id="r12"></a>**R12.** A case grants `Bash` only where it needs it. The runner runs each case on its own and grants it only the tools of `Bash`, `Write` and `Edit` that the case lists.
 
+<a id="r13"></a>**R13.** The runner's container mode, `--container --token-file <file>`, runs each case in a throwaway container of the image `scripts/eval-container/Dockerfile` defines, built from the version the kit pins. The module's copy is mounted read-only and its results folder writable. The token file, a subscription token from `claude setup-token` that the runner never opens and refuses unless its owner alone can read it, reaches the container as Docker's `--env-file`. Inside, the usage-billing variables of R7 are dropped, and the run refuses to start unless `claude auth status` reports a subscription login. A case that needs `Bash` runs there on a machine where the eval refuses a `Bash` grant on the host.
+
 ## Carry list
 
 1. R1 — the eval case row of [template §6](../../module-template/MODULE.md#t6); [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [the kit's ignore file](../../.gitignore).
@@ -264,3 +295,4 @@ A, by the decider in chat on 2026-10-17. Tried that day, A did not work: the eva
 10. R10 — [`scripts/check-session-load.py`](../../scripts/check-session-load.py), its docstring; [`scripts/kit_install.py`](../../scripts/kit_install.py), its docstring; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
 11. R11 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
 12. R12 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring.
+13. R13 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring; [the image](../../scripts/eval-container/Dockerfile), its header; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
