@@ -2,64 +2,40 @@
   "const-catalogs": {
     "attempts": [
       {
-        "at": "2026-10-17T15:18:33Z",
-        "cases": 1,
-        "passed": 1,
-        "score": 1.0
-      },
-      {
-        "at": "2026-10-17T16:01:12Z",
-        "cases": 1,
-        "passed": 1,
-        "score": 1.0
-      },
-      {
-        "at": "2026-10-17T17:23:44Z",
+        "at": "2026-10-17T17:49:34Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:a558a249b24088c524e76bc4eb4164f4c841a8ad79629b91f603cec59e89cf98",
+    "hash": "sha256:79df81ec6fc8ead5f74d8032ce8c8a24e2601055175bafc0c6fe91f5598f559a",
     "model": "claude-opus-5-5"
   },
   "const-decision-records": {
     "attempts": [
       {
-        "at": "2026-10-17T15:21:45Z",
-        "cases": 2,
-        "passed": 2,
-        "score": 1.0
-      },
-      {
-        "at": "2026-10-17T16:04:06Z",
-        "cases": 2,
-        "passed": 2,
-        "score": 1.0
-      },
-      {
-        "at": "2026-10-17T17:26:12Z",
+        "at": "2026-10-17T17:51:58Z",
         "cases": 2,
         "passed": 2,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:dfe3dfc24831a5038b39e9538e190704b1e3aeb09d5d3b480c3d4e2b72086800",
+    "hash": "sha256:7e801fc135525c75b7ed325e7f38d36449b5d52c76acc91dd4c9c2257a5f5ac0",
     "model": "claude-opus-5-5"
   },
   "const-doc-budgets": {
     "attempts": [
       {
-        "at": "2026-10-17T17:27:38Z",
+        "at": "2026-10-17T17:53:55Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:e7b9e43de9d83f95e94ac5aeb703506c5239bccf178304611e18d4e6de33a0e2",
+    "hash": "sha256:d0cdfd9ff2a361499d07dc0332cc4b8b3af7bdc4f88c8a68c84318122cba375e",
     "model": "claude-opus-5-5"
   },
   "const-interaction": {
@@ -96,26 +72,14 @@
   "const-language": {
     "attempts": [
       {
-        "at": "2026-10-17T15:24:22Z",
-        "cases": 1,
-        "passed": 1,
-        "score": 1.0
-      },
-      {
-        "at": "2026-10-17T16:06:47Z",
-        "cases": 1,
-        "passed": 1,
-        "score": 1.0
-      },
-      {
-        "at": "2026-10-17T17:28:38Z",
+        "at": "2026-10-17T17:54:33Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:6d1bf354ecf80093bcb9c47cf6b10ed5a31f558f8730c7a3af29497c15861eb4",
+    "hash": "sha256:ebdcbf164740ec75751cb3663a56f0f8ba7dac468fdc18deccde81b127360e2c",
     "model": "claude-opus-5-5"
   },
   "const-locations": {

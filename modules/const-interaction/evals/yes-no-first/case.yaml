@@ -12,3 +12,4 @@ graders:
     target: last_message
     pattern: '^\s*(\*\*)?(Yes|No)\b'
     flags: ""
+    match: contains

@@ -23,8 +23,9 @@ graders:
   - type: regex
     name: plain-language-before-any-edit
     target: trace
-    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*plain-language"'
     flags: "s"
+    match: contains
   - type: file_exists
     name: the-note-is-written
     path: "docs/notes/backup.md"

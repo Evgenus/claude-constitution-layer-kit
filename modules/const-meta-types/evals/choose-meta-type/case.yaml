@@ -23,8 +23,9 @@ graders:
   - type: regex
     name: choose-meta-type-before-any-edit
     target: trace
-    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*choose-meta-type"'
     flags: "s"
+    match: contains
   - type: file_exists
     name: the-plan-is-written
     path: "**/*.md"

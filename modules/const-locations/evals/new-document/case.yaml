@@ -20,6 +20,12 @@ graders:
     name: loads-new-document
     tool: Skill
     input_match: new-document
+  - type: regex
+    name: new-document-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*new-document"'
+    flags: "s"
+    match: contains
   - type: tool_used
     name: runs-the-create-command
     tool: Bash
@@ -29,6 +35,7 @@ graders:
     target: trace
     pattern: 'CREATED: docs/notes/'
     flags: "m"
+    match: contains
   - type: tool_order
     name: new-document-before-bash
     before:

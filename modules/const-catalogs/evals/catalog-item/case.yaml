@@ -23,8 +23,9 @@ graders:
   - type: regex
     name: catalog-item-before-any-edit
     target: trace
-    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*catalog-item"'
     flags: "s"
+    match: contains
   - type: file_exists
     name: the-record-is-made
     path: "docs/decisions/adr-0002-*.md"

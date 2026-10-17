@@ -20,6 +20,12 @@ graders:
     name: loads-promote-recurring-notes
     tool: Skill
     input_match: promote-recurring-notes
+  - type: regex
+    name: promote-recurring-notes-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*promote-recurring-notes"'
+    flags: "s"
+    match: contains
   - type: tool_order
     name: promote-recurring-notes-before-bash
     before:

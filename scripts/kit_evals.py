@@ -12,8 +12,11 @@ receipt per module in `scripts/eval-receipts.json`, written by `scripts/run-eval
                  module's root and the folders `tests/` and `evals/results/`. A link to a folder stands for
                  every file git tracks under the folder it leads to, each named through the link; a link to a
                  file, for that file. A link that leads outside the kit, or to nothing, is an `EvalError`.
-  `eval_hash`    `sha256:` and the hex digest over those files in name order, each its name, a zero byte, its
-                 size in decimal, a zero byte and its bytes, as the working tree holds them.
+  `eval_hash`    `sha256:` and the hex digest over those files in name order, and last over the kit's
+                 scripts/eval-container/Dockerfile, named `<kit>/scripts/eval-container/Dockerfile`, when the
+                 kit has one, so that a change to the image every case runs in stales every receipt; each its
+                 name, a zero byte, its size in decimal, a zero byte and its bytes, as the working tree holds
+                 them.
   `dirty`        the files of `eval_files` that differ from HEAD or that git does not track yet, read by
                  `git status`: a run is made only on committed files, so that its receipt names what CI sees.
   `read_receipts` / `write_receipts`  the receipts file: one JSON object, a key per module, each entry an
@@ -38,6 +41,9 @@ from pathlib import Path
 EVAL_MODEL = "scripts/eval-model"
 RECEIPTS = "scripts/eval-receipts.json"
 EVALS = "evals"
+EVAL_IMAGE = (
+    "scripts/eval-container/Dockerfile"  # the image every case runs in; a change to it stales every receipt
+)
 LEFT_OUT_FILES = ("MODULE.md", "README.md", "INSTALL.md")  # at the module's root
 LEFT_OUT_FOLDERS = ("tests", "evals/results")
 MODEL = re.compile(r"[a-z0-9][a-z0-9.-]*")
@@ -149,7 +155,9 @@ def eval_files(root: Path, module: str) -> list[tuple[str, Path]]:
 
 def eval_hash(root: Path, module: str) -> str:
     digest = hashlib.sha256()
-    for name, path in eval_files(root, module):
+    image = root / EVAL_IMAGE
+    named = [*eval_files(root, module), *([(f"<kit>/{EVAL_IMAGE}", image)] if image.is_file() else [])]
+    for name, path in named:
         data = path.read_bytes()
         digest.update(name.encode("utf-8") + b"\0" + str(len(data)).encode("ascii") + b"\0" + data)
     return f"sha256:{digest.hexdigest()}"

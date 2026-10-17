@@ -12,13 +12,16 @@ graders:
     target: last_message
     pattern: '\*\*A\.'
     flags: "m"
+    match: contains
   - type: regex
     name: pros
     target: last_message
     pattern: '\*\*Pros:\*\*'
     flags: "m"
+    match: contains
   - type: regex
     name: cons
     target: last_message
     pattern: '\*\*Cons:\*\*'
     flags: "m"
+    match: contains

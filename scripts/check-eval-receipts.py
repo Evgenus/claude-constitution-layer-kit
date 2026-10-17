@@ -18,12 +18,12 @@ module whose receipt is stale owes a local run before the merge, `python3 script
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a current receipt green; an edit of a skill, of a
-                       script, of a case and of a file a link leads to each a finding; an edit of MODULE.md,
-                       README.md, INSTALL.md, a test and a tracked result left out, green; a missing entry,
-                       an entry for no module, another version, another model, no attempt, a failed last
-                       attempt and a last attempt that ran no case each a finding; the report of one
-                       finding as literal lines with exit 2; a receipts file that is no JSON, a model file
-                       that is no model id and a link that leads out of the kit each a BROKEN line.
+                       script, of a case, of the eval image's Dockerfile and of a file a link leads to each a
+                       finding; an edit of MODULE.md, README.md, INSTALL.md, a test and a tracked result left
+                       out, green; a missing entry, an entry for no module, another version, another model, no
+                       attempt, a failed last attempt and a last attempt that ran no case each a finding; the
+                       report of one finding as literal lines with exit 2; a receipts file that is no JSON, a
+                       model file that is no model id and a link that leads out of the kit each a BROKEN line.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -176,6 +176,7 @@ def make_kit(tmp: Path) -> Path:
         "modules/const-x/evals/load/case.yaml": "name: load\n",
         "shared/const_gate/core.py": "x = 1\n",
         "scripts/eval-model": "claude-opus-5-5\n",
+        "scripts/eval-container/Dockerfile": "FROM base\n",
         CLAUDE_PIN: "2.1.282\n",
         ".gitignore": "evals/results/\n",
     }
@@ -247,6 +248,7 @@ def self_test() -> int:
         "an edited script is a finding": (edit("modules/const-x/scripts/start.sh"), ["const-x"]),
         "an edited file behind a link is a finding": (edit("shared/const_gate/core.py"), ["const-x"]),
         "an edited case is a finding": (edit("modules/const-x/evals/load/case.yaml"), ["const-x"]),
+        "an edited eval image is a finding": (edit("scripts/eval-container/Dockerfile"), ["const-x"]),
         "an edited MODULE.md is green": (edit("modules/const-x/MODULE.md"), []),
         "an edited test is green": (edit("modules/const-x/tests/test_x.py"), []),
         "an edited README.md is green": (edit("modules/const-x/README.md"), []),

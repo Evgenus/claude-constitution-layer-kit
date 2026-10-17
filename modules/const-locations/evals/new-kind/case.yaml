@@ -23,8 +23,9 @@ graders:
   - type: regex
     name: new-kind-before-any-edit
     target: trace
-    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*new-kind"'
     flags: "s"
+    match: contains
   - type: file_exists
     name: the-runbook-is-written
     path: "docs/runbooks/*.md"

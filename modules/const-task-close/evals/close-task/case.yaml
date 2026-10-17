@@ -20,6 +20,12 @@ graders:
     name: loads-close-task
     tool: Skill
     input_match: close-task
+  - type: regex
+    name: close-task-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*close-task"'
+    flags: "s"
+    match: contains
   - type: tool_used
     name: runs-the-range-check
     tool: Bash
@@ -29,6 +35,7 @@ graders:
     target: trace
     pattern: '[0-9]+ pair\(s\) examined'
     flags: "m"
+    match: contains
   - type: tool_order
     name: close-task-before-bash
     before:

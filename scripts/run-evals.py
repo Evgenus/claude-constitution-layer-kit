@@ -97,6 +97,8 @@ SANDBOX_OPTIONS = (  # what the eval's own Bash sandbox, bwrap, needs to start i
     "systempaths=unconfined",
 )
 CONTAINER_HOME = "/home/node"
+CONTAINER_PLUGIN = "/plugin"  # where the module's copy is mounted, read-only
+CONTAINER_OUT = "/out"  # where the results folder is mounted, writable
 SUBSCRIPTION = (
     "oauth_token",
     "claude.ai",
@@ -205,17 +207,18 @@ def then_for(
     case: str,
     argv: list[str],
     tmp: str = "/tmp",
-    out: str = "/out",
-    plugin: str = "/plugin",
+    out: str = CONTAINER_OUT,
+    plugin: str = CONTAINER_PLUGIN,
     home: str = CONTAINER_HOME,
 ) -> str:
     """What a container runs after its guard: the eval, then each run's trace, which `--keep-temp` leaves in a
     read-only folder under /tmp, copied to /out as <case>-trace<n>.jsonl; the container exits with the eval's
     code. The paths are the container's; the self-test passes its own."""
     return (
-        f"cp -r {plugin} {home}/{copy.name} && cd {home} && {shlex.join(argv)}; code=$?; "
-        f"n=0; for t in $(find {tmp} -name trace.jsonl -path '*/out/trace.jsonl' 2>/dev/null); do "
-        f'n=$((n+1)); cp "$t" "{out}/{case}-trace$n.jsonl"; done; exit $code'
+        f"cp -r {shlex.quote(plugin)} {shlex.quote(f'{home}/{copy.name}')} && cd {shlex.quote(home)} && "
+        f"{shlex.join(argv)}; code=$?; n=0; "
+        f"for t in $(find {shlex.quote(tmp)} -name trace.jsonl -path '*/out/trace.jsonl' 2>/dev/null); do "
+        f'n=$((n+1)); cp "$t" {shlex.quote(out)}/{shlex.quote(case)}-trace$n.jsonl; done; exit $code'
     )
 
 
@@ -224,7 +227,8 @@ def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str) -> list[
     then = then_for(copy, case, argv)
     return [
         "docker", "run", "--rm", *SANDBOX_OPTIONS, "--env-file", str(box.token_file),
-        "-v", f"{copy}:/plugin:ro", "-v", f"{out}:/out", box.image, "sh", "-c", guard(box.pinned, then),
+        "-v", f"{copy}:{CONTAINER_PLUGIN}:ro", "-v", f"{out}:{CONTAINER_OUT}",
+        box.image, "sh", "-c", guard(box.pinned, then),
     ]  # fmt: skip
 
 
@@ -235,7 +239,7 @@ def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path,
     out.mkdir(exist_ok=True)
     tools = granted([case / "case.yaml"])
     plugin = f"{CONTAINER_HOME}/{copy.name}"
-    argv = in_box(box, copy, out, eval_argv(plugin, case.name, model, "/out", tools), case.name)
+    argv = in_box(box, copy, out, eval_argv(plugin, case.name, model, CONTAINER_OUT, tools), case.name)
     timeout = RUNS * TURN_SECONDS + 300
     try:
         done = subprocess.run(
@@ -460,15 +464,31 @@ def self_test() -> int:
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = main(["--module", "const-x"])
-        first, second = Path(tmp) / "Dockerfile.a", Path(tmp) / "Dockerfile.b"
-        first.write_text("FROM a\n", encoding="utf-8")
-        second.write_text("FROM b\n", encoding="utf-8")
-        names = (image_name("2.1.282", first), image_name("2.1.282", second))
+        recipe = Path(tmp) / "Dockerfile"
+        recipe.write_text("FROM a\n", encoding="utf-8")
+        before = image_name("2.1.282", recipe)
+        recipe.write_text("FROM b\n", encoding="utf-8")
+        after = image_name("2.1.282", recipe)
         case(
-            "the image's tag names the pin and changes with the Dockerfile, so a changed file is built again",
-            names[0] != names[1]
-            and all(re.fullmatch(r"kit-evalbox:2\.1\.282-[0-9a-f]{12}", n) for n in names)
-            and image_name("2.1.283", first) != names[0],
+            "the image's tag names the pin and follows the Dockerfile's text, so a new text is built again",
+            before != after
+            and all(re.fullmatch(r"kit-evalbox:2\.1\.282-[0-9a-f]{12}", n) for n in (before, after))
+            and image_name("2.1.283", recipe) != after,
+        )
+        docker_bin = Path(tmp) / "docker-bin"
+        docker_bin.mkdir()
+        log = Path(tmp) / "docker.log"
+        (docker_bin / "docker").write_text(
+            f'#!/bin/sh\necho "$*" >> {log}\n[ "$1" = image ] && exit 1\nexit 0\n', encoding="utf-8"
+        )
+        (docker_bin / "docker").chmod(0o755)
+        built = ensure_image("2.1.282", {"PATH": f"{docker_bin}{os.pathsep}{os.environ['PATH']}"})
+        logged = log.read_text(encoding="utf-8").splitlines()
+        case(
+            "the runner inspects and builds the image under the tag with the Dockerfile's hash",
+            built == image_name("2.1.282")
+            and logged[0] == f"image inspect {built}"
+            and logged[1].startswith(f"build -q -t {built} --build-arg CLAUDE_CODE=2.1.282"),
         )
         box_root = Path(tmp) / "box"
         for folder in ("tmp/claude-eval-a/out", "tmp/e-b/out", "out", "plugin", "home", "bin"):

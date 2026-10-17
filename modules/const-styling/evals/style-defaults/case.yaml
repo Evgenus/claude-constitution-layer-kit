@@ -23,10 +23,12 @@ graders:
   - type: regex
     name: style-defaults-before-any-edit
     target: trace
-    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*style-defaults"'
     flags: "s"
+    match: contains
   - type: regex
     name: the-table-is-written
     target: { source: file, path: docs/notes/tables.md }
     pattern: '\|\s*`?stock_items`?\s*\|'
     flags: "m"
+    match: contains

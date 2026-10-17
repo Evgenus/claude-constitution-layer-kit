@@ -23,10 +23,12 @@ graders:
   - type: regex
     name: commit-before-edit-before-any-edit
     target: trace
-    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*commit-before-edit"'
     flags: "s"
+    match: contains
   - type: regex
     name: the-rename-is-made
     target: { source: file, path: src/inventory.py }
     pattern: 'def total_items'
     flags: "m"
+    match: contains

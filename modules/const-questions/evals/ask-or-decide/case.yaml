@@ -18,3 +18,9 @@ graders:
     name: loads-ask-or-decide
     tool: Skill
     input_match: ask-or-decide
+  - type: regex
+    name: ask-or-decide-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*ask-or-decide"'
+    flags: "s"
+    match: contains

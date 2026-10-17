@@ -20,6 +20,12 @@ graders:
     name: loads-referencing
     tool: Skill
     input_match: referencing
+  - type: regex
+    name: referencing-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*referencing"'
+    flags: "s"
+    match: contains
   - type: tool_used
     name: runs-the-mover
     tool: Bash
@@ -29,6 +35,13 @@ graders:
     target: trace
     pattern: 'MOVED: docs/notes/tables\.md'
     flags: "m"
+    match: contains
+  - type: regex
+    name: no-hand-move-repaired
+    target: trace
+    pattern: 'move-document\.sh\S*\s+--moved'
+    flags: "m"
+    match: not_contains
   - type: tool_order
     name: referencing-before-bash
     before:

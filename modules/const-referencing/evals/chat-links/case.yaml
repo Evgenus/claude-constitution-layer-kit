@@ -17,3 +17,4 @@ graders:
     target: last_message
     pattern: '\]\([^)]*tables\.md'
     flags: "m"
+    match: contains
