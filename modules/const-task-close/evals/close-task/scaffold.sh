@@ -22,7 +22,7 @@ const-decision-records:
     - decision-records
 const-catalogs:
   catalogs:
-    - prefix: dec
+    - prefix: adr
       width: 4
       territory:
         - docs/decisions/**
@@ -60,7 +60,7 @@ status: active
 # Decision records
 
 A decision record holds one ruling that is not cheap to revert: its options, the choice and who
-made it. Records live in docs/decisions/ and are numbered dec-<nnnn>-<slug>.md.
+made it. Records live in docs/decisions/ and are numbered adr-<nnnn>-<slug>.md.
 END_OF_FILE
 mkdir -p docs/policies
 cat > docs/policies/notes.md <<'END_OF_FILE'
@@ -76,9 +76,9 @@ status: active
 A note describes how one part of the project works today. Notes live in docs/notes/.
 END_OF_FILE
 mkdir -p docs/decisions
-cat > docs/decisions/dec-0001-use-python.md <<'END_OF_FILE'
+cat > docs/decisions/adr-0001-use-python.md <<'END_OF_FILE'
 ---
-id: dec-0001-use-python
+id: adr-0001-use-python
 type: task-record
 title: The inventory tool is written in Python
 status: inactive
