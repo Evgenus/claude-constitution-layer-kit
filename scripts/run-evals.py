@@ -186,12 +186,12 @@ def guard(pinned: str, then: str) -> str:
 
 
 def then_for(copy: Path, case: str, argv: list[str]) -> str:
-    """What a container runs after its guard: the eval, then each run's trace, which `--keep-temp` leaves
-    sealed under /tmp, copied to /out as <case>-trace<n>.jsonl; the container exits with the eval's code."""
+    """What a container runs after its guard: the eval, then each run's trace, which `--keep-temp` leaves in a
+    read-only folder under /tmp, copied to /out as <case>-trace<n>.jsonl; the container exits with the eval's
+    code."""
     return (
         f"cp -r /plugin {CONTAINER_HOME}/{copy.name} && cd {CONTAINER_HOME} && {shlex.join(argv)}; code=$?; "
-        "chmod -R u+rwx /tmp/e-* 2>/dev/null; n=0; "
-        "for t in $(find /tmp -path '/tmp/e-*/out/trace.jsonl' 2>/dev/null); do "
+        "n=0; for t in $(find /tmp -name trace.jsonl -path '*/out/trace.jsonl' 2>/dev/null); do "
         f'n=$((n+1)); cp "$t" "/out/{case}-trace$n.jsonl"; done; exit $code'
     )
 
