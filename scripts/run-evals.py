@@ -2,7 +2,7 @@
 """Kit tooling, never shipped in a module, and no check: run the eval cases of modules and write each run's
 attempt into the receipts file (decision dec-0093-module-evals-with-local-receipts).
 
-    python3 scripts/run-evals.py [--module <module>]...
+    python3 scripts/run-evals.py [--module <module>]... [--docker-config-empty]
 
 With no `--module`, every module folder. For each module, in turn:
   1. its eval files (`kit_evals.eval_files`) must all be committed, else the module is refused with the fix,
@@ -18,6 +18,11 @@ With no `--module`, every module folder. For each module, in turn:
      UTC, appended to the module's entry of scripts/eval-receipts.json. An entry whose hash, Claude Code
      version or model differs from the run's is replaced by a new one. A partial result counts as a failed
      attempt.
+With `--docker-config-empty`, and only then, the runs of a module whose cases grant Bash get DOCKER_CONFIG
+pointing at an empty folder of the run's own, and the run prints a note line saying so. The eval refuses a
+Bash grant on a machine whose Docker credential store holds a link, as Docker Desktop's own plugin links
+do; with the flag, its sandbox guards that empty folder and not the person's own store, which a Bash
+command of the run could then read. The decider chose the flag, opt-in per run, in chat on 2026-10-17.
 The `claude` used is the one scripts/claude-code.version pins: the clone's `.claude-code-pinned/` from
 `sh scripts/setup-claude.sh`, put first on PATH when it is there; on any other version the script refuses.
 The environment of each run drops the four variables of `kit_module_doc.claude_env`.
@@ -132,7 +137,7 @@ def outcome_of(result: Path) -> Outcome:
     return Outcome(cases, passed, score, lines)
 
 
-def run_module(module: str, model: str, env: dict[str, str]) -> Outcome:
+def run_module(module: str, model: str, env: dict[str, str], docker_empty: bool = False) -> Outcome:
     root = KIT / "modules" / module
     if case_count(root) == 0:
         raise Broken(
@@ -159,6 +164,15 @@ def run_module(module: str, model: str, env: dict[str, str]) -> Outcome:
         tools = granted(root)
         if tools:
             argv += ["--allow-tools", *tools]
+        notes: tuple[str, ...] = ()
+        if docker_empty and "Bash" in tools:
+            empty = Path(tmp) / "docker-config"
+            empty.mkdir()
+            env = env | {"DOCKER_CONFIG": str(empty)}
+            notes = (
+                f"  note: DOCKER_CONFIG points at an empty folder for the runs of {module}, which grant Bash:"
+                " the eval's sandbox guards it, not your own Docker store",
+            )
         timeout = case_count(root) * RUNS * TURN_SECONDS + 300
         try:
             done = subprocess.run(
@@ -185,7 +199,8 @@ def run_module(module: str, model: str, env: dict[str, str]) -> Outcome:
         shutil.copy2(result, kept / "result.json")
         if (Path(tmp) / "report.html").is_file():
             shutil.copy2(Path(tmp) / "report.html", kept / "report.html")
-        return outcome_of(result)
+        found = outcome_of(result)
+        return Outcome(found.cases, found.passed, found.score, notes + found.lines)
 
 
 def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
@@ -203,10 +218,14 @@ def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="run-evals", add_help=False, allow_abbrev=False)
     parser.add_argument("--module", action="append", default=[])
+    parser.add_argument("--docker-config-empty", action="store_true")
     try:
         args = parser.parse_args(argv)
     except SystemExit:
-        print("BROKEN: misinvocation — fix: python3 scripts/run-evals.py [--module <module>]...")
+        print(
+            "BROKEN: misinvocation — fix: python3 scripts/run-evals.py [--module <module>]..."
+            " [--docker-config-empty]"
+        )
         return EXIT_BROKEN
     env = pinned_path(claude_env(dict(os.environ)))
     try:
@@ -229,7 +248,7 @@ def main(argv: list[str]) -> int:
     worst = EXIT_GREEN
     for module in args.module or known:
         try:
-            outcome = run_module(module, model, env)
+            outcome = run_module(module, model, env, args.docker_config_empty)
             record(module, outcome, note.pinned, model)
         except (Broken, EvalError) as bad:
             print(f"BROKEN: {bad}")

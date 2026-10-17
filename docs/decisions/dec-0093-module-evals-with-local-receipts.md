@@ -29,7 +29,7 @@ Facts that settle the mechanism, from experiments on 2026-10-16 on Claude Code 2
 5. In a run with a no-plugin baseline, a `tool_used` grader on `Skill` is shown but not scored; under `--ablation none`, or marked `arm: both`, it is scored.
 6. The run's result JSON names the Claude Code version, the plugin's name and version, and per case its score and pass rate. It names the model only when one is passed with `--model`, as `suite.modelOverride`.
 
-A change to the kit's checks, its CI and its module documents changes the kit's harness, so this is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A model's behaviour can never be a deterministic gate under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5). So the decider was asked, in chat on 2026-10-16, how to enforce it without a credential in CI. The options were a run on the decider's own login with a receipt that CI checks, a subscription token kept as a secret of the repository, or a local hook alone. The decider chose the receipt. Asked then whether the change owes a research comparison, the decider chose none, in chat on 2026-10-16, as the session recommended: the facts above, from the platform's own documentation and two probes, settle every question below. The record answers seven questions, in the order the decider was asked them.
+A change to the kit's checks, its CI and its module documents changes the kit's harness, so this is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A model's behaviour can never be a deterministic gate under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5). So the decider was asked, in chat on 2026-10-16, how to enforce it without a credential in CI. The options were a run on the decider's own login with a receipt that CI checks, a subscription token kept as a secret of the repository, or a local hook alone. The decider chose the receipt. Asked then whether the change owes a research comparison, the decider chose none, in chat on 2026-10-16, as the session recommended: the facts above, from the platform's own documentation and two probes, settle every question below. The record answers eight questions, in the order the decider was asked them; the eighth came from the first runs.
 
 ## 1. Where the eval cases live
 
@@ -200,6 +200,30 @@ A, recommended by the session: the new hold is a short step on work CI already p
 
 B, by the decider in chat on 2026-10-16, over the recommendation; the cost of a second install stands as the price chosen.
 
+## 8. How the cases that need Bash run on the decider's machine
+
+On 2026-10-17 the first runs showed that `claude plugin eval` 2.1.282 refuses any run that grants `Bash` on a machine whose Docker credential store, `~/.docker`, holds a symbolic link, since its sandbox "cannot reliably exclude" the store. Docker Desktop keeps its own plugin links there, on the decider's machine too. Twelve cases need no `Bash` and lost it; four need it, the three command cases and one that reads the history.
+
+### Options
+
+- **A. An opt-in flag of the runner** that points `DOCKER_CONFIG` at an empty folder for the runs that grant `Bash`, and says so.
+  - **Pros:** the four cases run on the decider's machine; nothing there changes; the decider chooses it per run.
+  - **Cons:** in those runs the sandbox guards the empty folder, not the real store, so a `Bash` command of the run could read the decider's Docker credentials.
+- **B. Run the four cases on another machine** with the decider's login and no Docker Desktop.
+  - **Pros:** the safeguard stays whole.
+  - **Cons:** a second machine to keep on the pinned Claude Code, for every change that makes those receipts stale.
+- **C. Replace Docker Desktop's links** in `cli-plugins/` with copies of their targets.
+  - **Pros:** every run works, with the safeguard whole.
+  - **Cons:** it edits Docker Desktop's own install, which its updates may break or undo.
+
+### Recommendation
+
+A, recommended by the session: opt-in, limited to the runs asked for, and the commands those runs execute are the kit's own scripts and the cases' scaffolds.
+
+### Choice
+
+A, by the decider in chat on 2026-10-17.
+
 ## Ruling
 
 <a id="r1"></a>**R1.** Every module ships its eval cases in `evals/` at its root, one folder per case holding a `case.yaml`, in the form `claude plugin eval` reads. The results a run writes under `evals/results/` are ignored by git and never committed.
@@ -224,6 +248,8 @@ B, by the decider in chat on 2026-10-16, over the recommendation; the cost of a 
 
 <a id="r11"></a>**R11.** A change that makes a module's receipt stale is merged only with a new passing receipt, made by a local run before the merge; this narrows the guide's "No local run is required" to the gate list.
 
+<a id="r12"></a>**R12.** A case grants `Bash` only where it needs it, and the runner grants the eval only the tools of `Bash`, `Write` and `Edit` that a module's cases list. With its flag `--docker-config-empty`, and only then, the runner points `DOCKER_CONFIG` at an empty folder for the runs of a module whose cases grant `Bash`, and prints a note saying so.
+
 ## Carry list
 
 1. R1 — the eval case row of [template §6](../../module-template/MODULE.md#t6); [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [the kit's ignore file](../../.gitignore).
@@ -237,3 +263,4 @@ B, by the decider in chat on 2026-10-16, over the recommendation; the cost of a 
 9. R9 — [template §10](../../module-template/MODULE.md#t10); [rule 8 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8); [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring. Which live items became eval items is history.
 10. R10 — [`scripts/check-session-load.py`](../../scripts/check-session-load.py), its docstring; [`scripts/kit_install.py`](../../scripts/kit_install.py), its docstring; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
 11. R11 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
+12. R12 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring.
