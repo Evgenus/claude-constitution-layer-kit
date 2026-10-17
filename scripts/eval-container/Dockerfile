@@ -13,11 +13,13 @@ RUN test -n "$CLAUDE_CODE" \
  && rm -rf /var/lib/apt/lists/* \
  && npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE}"
 # The tools the modules' scripts call, at the versions the kit's CI installs: Vale for const-language, lychee
-# for const-referencing; without them a case's command stops before it does its work.
+# for const-referencing; without them a case's command stops before it does its work. Their versions are typed
+# again in .github/workflows/gates.yml, which a change of either follows.
 ARG TARGETARCH
 RUN case "$TARGETARCH" in \
       arm64) vale=Linux_arm64; lychee=aarch64-unknown-linux-gnu ;; \
-      *) vale=Linux_64-bit; lychee=x86_64-unknown-linux-gnu ;; \
+      amd64) vale=Linux_64-bit; lychee=x86_64-unknown-linux-gnu ;; \
+      *) echo "no Vale and lychee for TARGETARCH '$TARGETARCH': build with BuildKit, on amd64 or arm64" >&2; exit 1 ;; \
     esac \
  && curl -fsSL "https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_${vale}.tar.gz" \
     | tar -xz -C /usr/local/bin vale \

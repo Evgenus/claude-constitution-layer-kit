@@ -165,7 +165,7 @@ def eval_hash(root: Path, module: str) -> str:
 
 
 def dirty(root: Path, module: str) -> list[str]:
-    """The kit paths behind the module's eval files that differ from HEAD or are not tracked yet."""
+    """The kit paths behind the module's eval files and the eval image that differ from HEAD or git lacks."""
     kit = root.resolve()
     files = [path for _, path in eval_files(root, module)]
     if (root / EVAL_IMAGE).is_file():

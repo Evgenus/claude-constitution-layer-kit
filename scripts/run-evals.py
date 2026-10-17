@@ -18,8 +18,8 @@ Docker Desktop's Linux machine still separates the container from the host. The 
 runner never opens, reaches it as Docker's `--env-file`; it holds CLAUDE_CODE_OAUTH_TOKEN, a subscription
 token from `claude setup-token`, and must be readable by its owner alone, which the runner checks before it
 asks docker for the image. For each module, in turn:
-  1. its eval files (`kit_evals.eval_files`) must all be committed, else the module is refused with the fix,
-     so that the receipt names what CI checks;
+  1. its eval files (`kit_evals.eval_files`) and the image's Dockerfile must all be committed
+     (`kit_evals.dirty`), else the module is refused with the fix, so that the receipt names what CI checks;
   2. those files are copied, links followed, into a temporary folder, the plugin the run loads;
   3. one container per case: its guard unsets the variables that would bill by usage (ANTHROPIC_API_KEY,
      ANTHROPIC_AUTH_TOKEN, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX, CLAUDE_CODE_USE_FOUNDRY), refuses
@@ -332,7 +332,8 @@ def run_module(module: str, model: str, env: dict[str, str], box: Box) -> Outcom
     changed = dirty(KIT, module)
     if changed:
         raise Broken(
-            f"{module} has files not committed ({', '.join(changed[:3])}) — fix: commit them, then run again,"
+            f"{module}: the files its receipt names are not all committed ({', '.join(changed[:3])})"
+            " — fix: commit them, then run again,"
             " so that the receipt names what CI checks"
         )
     with tempfile.TemporaryDirectory(prefix="run-evals-") as tmp:
@@ -542,6 +543,13 @@ def self_test() -> int:
                 "a rename not committed, marked in the working tree's column, names its new path and no"
                 " fragment of its source",
                 dirty(kit, "const-x") == ["modules/const-x/skills/s/OTHER.md"],
+            )
+            image = kit / "scripts/eval-container/Dockerfile"
+            image.parent.mkdir(parents=True)
+            image.write_text("FROM scratch\n", encoding="utf-8")
+            case(
+                "an eval image not committed refuses the run too, since the receipt's hash names it",
+                "scripts/eval-container/Dockerfile" in dirty(kit, "const-x"),
             )
         with mock.patch.dict(os.environ, {"PATH": tmp}):
             try:
