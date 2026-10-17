@@ -10,10 +10,13 @@ With no `--module`, every module folder. Every case runs in a throwaway containe
 scripts/eval-container/Dockerfile defines, built once through `docker` as kit-evalbox:<version>, the Claude
 Code version scripts/claude-code.version pins; no case runs on the host, so every receipt comes from one
 environment. The container holds no secret of the host: the module's copy is mounted read-only and a
-results folder of the run's own writable. The token file, which the runner never opens, reaches it as
-Docker's `--env-file`; it holds CLAUDE_CODE_OAUTH_TOKEN, a subscription token from `claude setup-token`, and
-must be readable by its owner alone, which the runner checks before it asks docker for the image. For each
-module, in turn:
+results folder of the run's own writable. It runs with Docker's seccomp filter and its /proc mask lifted
+(`--security-opt seccomp=unconfined --security-opt systempaths=unconfined`), which the eval's own Bash
+sandbox, bwrap, needs to start; under Docker's defaults every Bash command of a case fails before it runs.
+Docker Desktop's Linux machine still separates the container from the host. The token file, which the
+runner never opens, reaches it as Docker's `--env-file`; it holds CLAUDE_CODE_OAUTH_TOKEN, a subscription
+token from `claude setup-token`, and must be readable by its owner alone, which the runner checks before it
+asks docker for the image. For each module, in turn:
   1. its eval files (`kit_evals.eval_files`) must all be committed, else the module is refused with the fix,
      so that the receipt names what CI checks;
   2. those files are copied, links followed, into a temporary folder, the plugin the run loads;
@@ -81,6 +84,12 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 RUNS = 3
 GATED = ("Bash", "Write", "Edit")  # the tools `claude plugin eval` grants only through --allow-tools
 IMAGE = "kit-evalbox"
+SANDBOX_OPTIONS = (  # what the eval's own Bash sandbox, bwrap, needs to start inside the container
+    "--security-opt",
+    "seccomp=unconfined",
+    "--security-opt",
+    "systempaths=unconfined",
+)
 CONTAINER_HOME = "/home/node"
 SUBSCRIPTION = (
     "oauth_token",
@@ -200,7 +209,7 @@ def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str = "case")
     """The `docker run` that runs `argv` in a throwaway container, after its guard."""
     then = then_for(copy, case, argv)
     return [
-        "docker", "run", "--rm", "--env-file", str(box.token_file),
+        "docker", "run", "--rm", *SANDBOX_OPTIONS, "--env-file", str(box.token_file),
         "-v", f"{copy}:/plugin:ro", "-v", f"{out}:/out", box.image, "sh", "-c", guard(box.pinned, then),
     ]  # fmt: skip
 
@@ -356,7 +365,14 @@ def self_test() -> int:
         argv = in_box(box, Path(tmp) / "const-x", Path(tmp) / "out", ["claude", "plugin", "eval"])
         case(
             "the container gets the token file as --env-file, never its text",
-            argv[3:5] == ["--env-file", str(token)],
+            argv[argv.index("--env-file") + 1] == str(token) and token.read_text() not in " ".join(argv),
+        )
+        case(
+            "the container lifts the seccomp filter and the /proc mask, so the eval's own sandbox can start",
+            all(
+                f"--security-opt {o}" in " ".join(argv)
+                for o in ("seccomp=unconfined", "systempaths=unconfined")
+            ),
         )
         case(
             "the container mounts the module's copy read-only", f"{Path(tmp) / 'const-x'}:/plugin:ro" in argv

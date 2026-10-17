@@ -24,6 +24,9 @@ graders:
     name: runs-the-mover
     tool: Bash
     input_match: move-document
+  - type: file_exists
+    name: the-document-moved
+    path: docs/notes/table-names.md
   - type: tool_order
     name: referencing-before-bash
     before:

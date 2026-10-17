@@ -29,7 +29,7 @@ Facts that settle the mechanism, from experiments on 2026-10-16 on Claude Code 2
 5. In a run with a no-plugin baseline, a `tool_used` grader on `Skill` is shown but not scored; under `--ablation none`, or marked `arm: both`, it is scored.
 6. The run's result JSON names the Claude Code version, the plugin's name and version, and per case its score and pass rate. It names the model only when one is passed with `--model`, as `suite.modelOverride`.
 
-A change to the kit's checks, its CI and its module documents changes the kit's harness, so this is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A model's behaviour can never be a deterministic gate under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5). So the decider was asked, in chat on 2026-10-16, how to enforce it without a credential in CI. The options were a run on the decider's own login with a receipt that CI checks, a subscription token kept as a secret of the repository, or a local hook alone. The decider chose the receipt. Asked then whether the change owes a research comparison, the decider chose none, in chat on 2026-10-16, as the session recommended: the facts above, from the platform's own documentation and two probes, settle every question below. The record answers ten questions, in the order the decider was asked them; the last three came from the first runs.
+A change to the kit's checks, its CI and its module documents changes the kit's harness, so this is a `process` change under [law 9 of CLAUDE.md](../../CLAUDE.md#law-9). A model's behaviour can never be a deterministic gate under [law 5 of CLAUDE.md](../../CLAUDE.md#law-5). So the decider was asked, in chat on 2026-10-16, how to enforce it without a credential in CI. The options were a run on the decider's own login with a receipt that CI checks, a subscription token kept as a secret of the repository, or a local hook alone. The decider chose the receipt. Asked then whether the change owes a research comparison, the decider chose none, in chat on 2026-10-16, as the session recommended: the facts above, from the platform's own documentation and two probes, settle every question below. The record answers eleven questions, in the order the decider was asked them; the last four came from the first runs.
 
 ## 1. Where the eval cases live
 
@@ -277,11 +277,35 @@ A, recommended by the session: the decider already had Docker and the token file
 
 A, by the decider in chat on 2026-10-17. With every case in the container, the reason section 8 gave for taking `Bash` from twelve cases was gone, and two of them failed there for want of the command their skill names; so R12 gives every skill or command case the tools a session at its moment would have.
 
+## 11. How a case's Bash runs in the container
+
+The traces the runner kept showed that, under Docker's default settings, every `Bash` command of a case failed before it ran: the eval's own sandbox, bwrap, could not create its namespace. The command cases had passed only because their grader counted the call, not what it did. Probes on 2026-10-17 showed bwrap starts with Docker's seccomp filter and its `/proc` mask lifted, and with nothing less.
+
+### Options
+
+- **A. Lift the seccomp filter and the `/proc` mask of each case's container,** and grade each command case by what its command did.
+  - **Pros:** commands run, under the eval's own sandbox, in a container that holds nothing of the decider's but the token; the command proofs become real.
+  - **Cons:** the container's own system-call filter is off and `/proc` unmasked, so a process in it reaches more of the kernel of Docker Desktop's Linux machine, which still separates it from the host.
+- **B. Keep Docker's defaults, and drop the command proofs** to `live` items run by hand.
+  - **Pros:** the container keeps Docker's default hardening.
+  - **Cons:** the mandatory commands lose their repeatable proof; a skill whose procedure needs a command is tested without it.
+- **C. As it was,** a counted call the proof.
+  - **Pros:** no change.
+  - **Cons:** receipts that claim proofs which never ran.
+
+### Recommendation
+
+A, recommended by the session: the container exists to keep the decider's files and credentials out of reach, which A keeps; what it turns off is an inner layer of Docker's hardening, in exchange for the eval's own sandbox, the layer made for exactly this.
+
+### Choice
+
+A, by the decider in chat on 2026-10-17. Every module's receipt is made again after it, since no `Bash` command of an earlier container run had run.
+
 ## Ruling
 
 <a id="r1"></a>**R1.** Every module ships its eval cases in `evals/` at its root, one folder per case holding a `case.yaml`, in the form `claude plugin eval` reads. The results a run writes under `evals/results/` are ignored by git and never committed.
 
-<a id="r2"></a>**R2.** Every module ships at least one case. A module has one case per skill, which holds by `tool_used` that the model calls `Skill` with the skill's name and by `tool_order` that it does so before the tool the skill's moment names, where the moment names one. It has one case per command a rule of the module makes mandatory, a script the module ships, which holds by `tool_used` on `Bash` that the command runs; where a skill makes the command mandatory at the skill's own moment, one case holds both, the skill before the command. It has one case per start rule that carries a rule of its own, not a pointer to a skill, graded by `regex` where a pattern can see the rule and by `llm` only where none can. A case that needs files seeds them by its `scaffold_script`.
+<a id="r2"></a>**R2.** Every module ships at least one case. A module has one case per skill, which holds by `tool_used` that the model calls `Skill` with the skill's name and by `tool_order` that it does so before the tool the skill's moment names, where the moment names one. It has one case per command a rule of the module makes mandatory, a script the module ships, which holds by `tool_used` on `Bash` that the command is called and by a grader on what it did, a file it made or the line it printed, that it ran; where a skill makes the command mandatory at the skill's own moment, one case holds both, the skill before the command. It has one case per start rule that carries a rule of its own, not a pointer to a skill, graded by `regex` where a pattern can see the rule and by `llm` only where none can. A case that needs files seeds them by its `scaffold_script`.
 
 <a id="r3"></a>**R3.** Every case runs 3 times, the tool's default; the runner passes the count and the threshold, so they hold whatever a case sets. A case passes when every grader passes in every run, the threshold 1.0. The runs take `--ablation none`, so that a grader on `Skill` is scored.
 
@@ -303,7 +327,7 @@ A, by the decider in chat on 2026-10-17. With every case in the container, the r
 
 <a id="r12"></a>**R12.** A case lists the tools a session at its moment would have, so that the model can follow the module's skill as written: a skill or command case `Read`, `Glob`, `Grep`, `Write`, `Edit`, `Skill` and `Bash`; a start-rule case only what its rule needs. The runner runs each case on its own and grants it only the tools of `Bash`, `Write` and `Edit` that the case lists.
 
-<a id="r13"></a>**R13.** Every case runs in a throwaway container of the image `scripts/eval-container/Dockerfile` defines, built from the version the kit pins, one container per case; no case runs on the host, so every receipt comes from one environment. The runner takes `--token-file <file>`: a subscription token from `claude setup-token`, which the runner never opens, refuses unless its owner alone can read it, judges before it asks docker for the image, and hands the container as Docker's `--env-file`. The module's copy is mounted read-only, and a results folder of the run's own writable. Inside, the usage-billing variables of R7 are unset, and the case runs only when `claude --version` is the pinned version and `claude auth status` reports a subscription login.
+<a id="r13"></a>**R13.** Every case runs in a throwaway container of the image `scripts/eval-container/Dockerfile` defines, built from the version the kit pins, one container per case; no case runs on the host, so every receipt comes from one environment. The runner takes `--token-file <file>`: a subscription token from `claude setup-token`, which the runner never opens, refuses unless its owner alone can read it, judges before it asks docker for the image, and hands the container as Docker's `--env-file`. The module's copy is mounted read-only, and a results folder of the run's own writable. The container runs with Docker's seccomp filter and its `/proc` mask lifted, `--security-opt seccomp=unconfined --security-opt systempaths=unconfined`, which the eval's own sandbox needs to start. Inside, the usage-billing variables of R7 are unset, and the case runs only when `claude --version` is the pinned version and `claude auth status` reports a subscription login.
 
 <a id="r14"></a>**R14.** The session-load check of R10 runs on the pinned Claude Code like the install check, and reads the same install source. So the gate list puts the pinned version first on `PATH` for the `session-<module>` entries too, which widens R4 of [dec-0075-install-checks-read-the-init-event-keep-plugin-variables-and-run-locally-on-the-pin](dec-0075-install-checks-read-the-init-event-keep-plugin-variables-and-run-locally-on-the-pin.md#r4); and a module's job carries the install source for its session entry too, which widens R5 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md#r5).
 

@@ -24,6 +24,11 @@ graders:
     name: runs-the-create-command
     tool: Bash
     input_match: new-document
+  - type: regex
+    name: the-command-created-it
+    target: trace
+    pattern: 'CREATED: docs/notes/'
+    flags: "m"
   - type: tool_order
     name: new-document-before-bash
     before:

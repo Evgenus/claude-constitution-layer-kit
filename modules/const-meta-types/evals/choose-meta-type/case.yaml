@@ -5,7 +5,7 @@ context:
   scaffold_script: scaffold.sh
 execution:
   prompt: >-
-    Create docs/notes/roadmap.md describing where we want the inventory tool to go next quarter.
+    Write docs/notes/roadmap.md: where we want the inventory tool to go next quarter, a plan and not how things work today. The plans: keep the stock in SQLite, warn when an item runs low, and add a report per supplier.
   max_turns: 20
   allowed_tools:
     - Read

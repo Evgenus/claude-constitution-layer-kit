@@ -24,6 +24,11 @@ graders:
     name: runs-the-range-check
     tool: Bash
     input_match: check-task-close
+  - type: regex
+    name: the-range-check-ran
+    target: trace
+    pattern: '[0-9]+ pair\(s\) examined'
+    flags: "m"
   - type: tool_order
     name: close-task-before-bash
     before:
