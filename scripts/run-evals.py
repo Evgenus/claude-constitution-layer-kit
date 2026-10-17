@@ -47,8 +47,10 @@ pinned version and a subscription login required, in that order); its command af
 sh (the eval's exit code kept, each run's trace copied whatever its folder); the environment of the docker
 commands; the image's tag following the pin and the Dockerfile's text, and the image inspected and built
 under that tag, against a fake docker; a token file judged before docker is asked
-for an image; the Dockerfile's refusal of an architecture reaching the person with its own fix, and a
-failed download in the same step, which BuildKit quotes with the refusal's echo, told apart; a missing
+for an image; the Dockerfile's refusal of an architecture reaching the person with its own fix, from
+BuildKit's log and from the legacy builder's coloured output, and a failed download in the same step,
+whose ERROR line quotes the step's command, the refusal's echo included, told apart and given the exact
+build to run; the Dockerfile's refusal opening with the words the runner looks for; a missing
 token file argument; the files a rename leaves not committed; an eval image not committed; and a missing git.
 The gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
@@ -117,8 +119,9 @@ USAGE_BILLED = (  # the variables Claude Code prefers over a subscription login,
 TURN_SECONDS = 300  # a case's default `timeout_seconds`, the bound of one run
 ARCH_REFUSAL = "no Vale and lychee for TARGETARCH"  # the first words of the Dockerfile's refusal
 # a line of the failed step's own log that opens with the refusal, as BuildKit prints it, "#7 0.215 …" in
-# its progress and "0.215 …" in its error summary; the builder's ERROR line quotes the whole command, the
-# refusal's echo included, and so never opens with it
+# its progress and "0.215 …" in its error summary, and the legacy builder bare; each builder's ERROR line
+# quotes the whole command, the refusal's echo included, and so never opens with it
+COLOUR = re.compile(r"\x1b\[[0-9;]*m")  # the legacy builder colours a step's stderr
 REFUSAL_LINE = re.compile(r"(?:#\d+ )?(?:\d+(?:\.\d+)? )?" + re.escape(ARCH_REFUSAL))
 
 
@@ -297,27 +300,37 @@ def ensure_image(pinned: str, env: dict[str, str]) -> str:
         if found.returncode == 0:
             return image
         built = subprocess.run(
-            ["docker", "build", "-q", "-t", image, "--build-arg", f"CLAUDE_CODE={pinned}",
-             str(KIT / "scripts" / "eval-container")],
-            env=env, capture_output=True, text=True, check=False,
-        )  # fmt: skip
+            build_command(image, pinned), env=env, capture_output=True, text=True, check=False
+        )
     except FileNotFoundError as missing:
         raise Broken("docker is not installed — fix: install Docker and put docker on PATH") from missing
     if built.returncode != 0:
-        said = (built.stderr or built.stdout).strip().splitlines()
-        refused = [line for line in said if REFUSAL_LINE.match(line.strip())]
+        # the legacy builder writes the step's output to stdout, in colour; BuildKit its log to stderr
+        said = [COLOUR.sub("", line).strip() for line in f"{built.stdout}\n{built.stderr}".splitlines()]
+        said = [line for line in said if line]
+        refused = [line for line in said if REFUSAL_LINE.match(line)]
         if refused:  # the Dockerfile's own refusal, which the builder's last line would hide
             words = refused[-1][refused[-1].index(ARCH_REFUSAL) :]  # without the log's step and time
             raise Broken(
                 f"docker build of {image} refused: {words} — fix: build with BuildKit, Docker Desktop's"
                 " default, on an amd64 or arm64 machine, then run again"
             )
+        errors = [line for line in said if line.startswith("ERROR") or "returned a non-zero code" in line]
+        last = (errors or said or ["no output"])[-1]
         raise Broken(
-            f"docker build of {image} exited {built.returncode} ({said[-1] if said else 'no output'})"
-            " — fix: start Docker if it is stopped; else run docker build scripts/eval-container and fix"
-            " what its output names, then run again"
+            f"docker build of {image} exited {built.returncode} ({last}) — fix: start Docker if it is"
+            f" stopped; else run {shlex.join(build_command(image, pinned))} and fix what its output"
+            " names, then run again"
         )
     return image
+
+
+def build_command(image: str, pinned: str) -> list[str]:
+    """The build of the image; no -q, which would keep BuildKit from printing the failed step's log."""
+    return [
+        "docker", "build", "-t", image, "--build-arg", f"CLAUDE_CODE={pinned}",
+        str(KIT / "scripts" / "eval-container"),
+    ]  # fmt: skip
 
 
 def run_env(environ: dict[str, str]) -> dict[str, str]:
@@ -380,8 +393,9 @@ def self_test() -> int:
     """The runner's guards, run without a model or docker: the token file's mode and its absence, the
     container's options, its guard and its command after the guard, each run under sh, the environment of
     the docker commands, the image's tag, the token file judged before the image, a missing token file
-    argument, the Dockerfile's refusal of an architecture and a failed download in the same step, an eval
-    image not committed, the files a rename leaves not committed, and a missing git."""
+    argument, the Dockerfile's refusal of an architecture from either builder and a failed download in the
+    same step, the refusal's words in the Dockerfile, an eval image not committed, the files a rename leaves
+    not committed, and a missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -508,44 +522,62 @@ def self_test() -> int:
             "the runner inspects and builds the image under the tag with the Dockerfile's hash",
             built == image_name("2.1.282")
             and logged[0] == f"image inspect {built}"
-            and logged[1].startswith(f"build -q -t {built} --build-arg CLAUDE_CODE=2.1.282"),
+            and logged[1]
+            == f"build -t {built} --build-arg CLAUDE_CODE=2.1.282 {KIT / 'scripts/eval-container'}",
         )
         command = (
             f'process "/bin/sh -c case \\"$TARGETARCH\\" in *) echo \\"{ARCH_REFUSAL} …\\" ;; esac && curl …"'
         )
-        failures = {  # what BuildKit prints when the step fails, quoting the command, the echo included
-            "refusal": [
-                f"#7 0.215 {ARCH_REFUSAL} '': build with BuildKit, on amd64 or arm64",
+        details = "View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/x"
+        failures = {  # what each builder printed on a failed step, as seen on Docker 28; stream 2 is stderr
+            "buildkit refusal": (2, [
+                f"#7 0.215 {ARCH_REFUSAL} 'arm64': build with BuildKit, on amd64 or arm64",
                 f"#7 ERROR: {command} did not complete successfully: exit code: 1",
-                f"0.215 {ARCH_REFUSAL} '': build with BuildKit, on amd64 or arm64",
-                f"ERROR: failed to solve: {command} did not complete successfully: exit code: 1",
-            ],
-            "download": [
+                f"0.215 {ARCH_REFUSAL} 'arm64': build with BuildKit, on amd64 or arm64",
+                f"ERROR: failed to build: failed to solve: {command} did not complete successfully:"
+                " exit code: 1",
+                details,
+            ]),
+            "legacy refusal": (1, [
+                f"Step 3/3 : RUN case \"$TARGETARCH\" in *) echo \"{ARCH_REFUSAL} …\" ;; esac",
+                f"\x1b[91m{ARCH_REFUSAL} '': build with BuildKit, on amd64 or arm64",
+                f"\x1b[0mThe command '/bin/sh -c case \"$TARGETARCH\" in *) echo \"{ARCH_REFUSAL} …\"'"
+                " returned a non-zero code: 1",
+            ]),
+            "download": (2, [
                 "#7 0.512 curl: (22) The requested URL returned error: 404",
                 f"#7 ERROR: {command} did not complete successfully: exit code: 2",
-                f"ERROR: failed to solve: {command} did not complete successfully: exit code: 2",
-            ],
-        }
+                f"ERROR: failed to build: failed to solve: {command} did not complete successfully:"
+                " exit code: 2",
+                details,
+            ]),
+        }  # fmt: skip
         told: dict[str, str] = {}
-        for name, lines in failures.items():
-            output = Path(tmp) / f"build-{name}.txt"
+        for name, (stream, lines) in failures.items():
+            output = Path(tmp) / f"build-{name.replace(' ', '-')}.txt"
             output.write_text("\n".join(lines) + "\n", encoding="utf-8")
             (docker_bin / "docker").write_text(
-                f'#!/bin/sh\n[ "$1" = image ] && exit 1\ncat "{output}" >&2\nexit 1\n', encoding="utf-8"
+                f'#!/bin/sh\n[ "$1" = image ] && exit 1\ncat "{output}" >&{stream}\nexit 1\n',
+                encoding="utf-8",
             )
             try:
                 ensure_image("2.1.282", {"PATH": f"{docker_bin}{os.pathsep}{os.environ['PATH']}"})
             except Broken as failure:
                 told[name] = str(failure)
+        for name in ("buildkit refusal", "legacy refusal"):
+            case(
+                f"the Dockerfile's refusal of an architecture reaches the person with its own fix: {name}",
+                f"refused: {ARCH_REFUSAL} '" in told.get(name, "")
+                and "Docker Desktop's default" in told.get(name, "")
+                and "start Docker" not in told.get(name, ""),
+            )
+        download = told.get("download", "refused")
         case(
-            "the Dockerfile's refusal of an architecture reaches the person with its own fix",
-            "refused: " + ARCH_REFUSAL in told.get("refusal", "")
-            and "Docker Desktop's default" in told.get("refusal", "")
-            and "start Docker" not in told.get("refusal", ""),
-        )
-        case(
-            "a download that fails in the same step is no refusal, though BuildKit quotes the echo",
-            "refused" not in told.get("download", "refused") and "exit code: 2" in told.get("download", ""),
+            "a download that fails in the same step is no refusal, though the builder quotes the command"
+            " with the echo; the message names its ERROR line and the exact build to run",
+            "refused" not in download
+            and "exit code: 2)" in download
+            and shlex.join(build_command(image_name("2.1.282"), "2.1.282")) in download,
         )
         case(
             "the Dockerfile's refusal opens with the words the runner looks for",
