@@ -226,14 +226,14 @@ B, by the decider in chat on 2026-10-16, over the recommendation; the cost of a 
 
 ## Carry list
 
-1. R1 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-2. R2 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-3. R3 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-4. R4 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-5. R5 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-6. R6 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-7. R7 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-8. R8 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-9. R9 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-10. R10 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
-11. R11 — pending: [the rollout plan](../rollout-plan.md#s9), step 9, the module evals of this record.
+1. R1 — the eval case row of [template §6](../../module-template/MODULE.md#t6); [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module"; [the kit's ignore file](../../.gitignore).
+2. R2 — the eval case row of [template §6](../../module-template/MODULE.md#t6); [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
+3. R3 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
+4. R4 — [`scripts/kit_evals.py`](../../scripts/kit_evals.py), its docstring of `eval_model`; [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring.
+5. R5 — [`scripts/kit_evals.py`](../../scripts/kit_evals.py), its docstring of `eval_files`.
+6. R6 — [`scripts/kit_evals.py`](../../scripts/kit_evals.py), its docstring of the receipts file.
+7. R7 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring.
+8. R8 — [`scripts/check-eval-receipts.py`](../../scripts/check-eval-receipts.py), its docstring; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
+9. R9 — [template §10](../../module-template/MODULE.md#t10); [rule 8 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r8); [`scripts/check-aspects.py`](../../scripts/check-aspects.py), its docstring. Which live items became eval items is history.
+10. R10 — [`scripts/check-session-load.py`](../../scripts/check-session-load.py), its docstring; [`scripts/kit_install.py`](../../scripts/kit_install.py), its docstring; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
+11. R11 — [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
