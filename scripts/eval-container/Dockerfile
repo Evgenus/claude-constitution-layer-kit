@@ -1,5 +1,5 @@
-# Kit tooling, never shipped in a module: the throwaway image scripts/run-evals.py --container runs the eval
-# cases in (decision dec-0093-module-evals-with-local-receipts). It holds no secret of the host: the module's
+# Kit tooling, never shipped in a module: the throwaway image scripts/run-evals.py runs every eval case in
+# (decision dec-0093-module-evals-with-local-receipts). It holds no secret of the host: the module's
 # copy is mounted read-only, the results folder writable, and the subscription token arrives as an env file.
 # The runner builds it as kit-evalbox:<version>, the version scripts/claude-code.version pins.
 FROM node:22-bookworm

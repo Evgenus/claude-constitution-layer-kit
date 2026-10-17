@@ -1,50 +1,43 @@
 #!/usr/bin/env python3
-"""Kit tooling, never shipped in a module, and no check: run the eval cases of modules and write each run's
-attempt into the receipts file (decision dec-0093-module-evals-with-local-receipts).
+"""Kit tooling, never shipped in a module, and no check: run the eval cases of modules in a throwaway
+container and write each run's attempt into the receipts file (decision
+dec-0093-module-evals-with-local-receipts).
 
-    python3 scripts/run-evals.py [--module <module>]... [--container --token-file <file>]
+    python3 scripts/run-evals.py --token-file <file> [--module <module>]...
     python3 scripts/run-evals.py --self-test
 
-With no `--module`, every module folder. For each module, in turn:
+With no `--module`, every module folder. Every case runs in a throwaway container of the image
+scripts/eval-container/Dockerfile defines, built once through `docker` as kit-evalbox:<version>, the Claude
+Code version scripts/claude-code.version pins; no case runs on the host, so every receipt comes from one
+environment. The container holds no secret of the host: the module's copy is mounted read-only and a
+results folder of the run's own writable. The token file, which the runner never opens, reaches it as
+Docker's `--env-file`; it holds CLAUDE_CODE_OAUTH_TOKEN, a subscription token from `claude setup-token`, and
+must be readable by its owner alone, which the runner checks before it asks docker for the image. For each
+module, in turn:
   1. its eval files (`kit_evals.eval_files`) must all be committed, else the module is refused with the fix,
      so that the receipt names what CI checks;
   2. those files are copied, links followed, into a temporary folder, the plugin the run loads;
-  3. `claude plugin eval` runs on the copy once per case, `--case <name>`, from the temporary folder,
-     with `--model` from scripts/eval-model, `--runs 3 --threshold 1 --ablation none`, `--trust-plugin
-     --no-publish --scaffold`, and `--allow-tools` granting those of Bash, Write and Edit that the case
-     lists in its `allowed_tools`; its JSON result and report are kept in local/evals/<module>/. A Bash
-     grant is asked only for a case that needs it: the eval refuses one on a machine whose Docker credential
-     store holds a link it cannot exclude, and one grant in a module's run would refuse every case of it.
-     The run uses the subscription login of the person who runs this script and counts against that plan;
-     on the host before the first case, and in the container before each case, the runner asks `claude auth
-     status` and refuses to run unless it reports a subscription login, `oauth_token` or `claude.ai`, so a
-     login billed by usage, a Console login or an API key helper among them, never runs a case;
+  3. one container per case: its guard unsets the variables that would bill by usage (ANTHROPIC_API_KEY,
+     ANTHROPIC_AUTH_TOKEN, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX, CLAUDE_CODE_USE_FOUNDRY), refuses
+     to go on unless `claude --version` is the pinned version and `claude auth status` reports a
+     subscription login, `oauth_token` or `claude.ai`, then runs `claude plugin eval` on the copy, `--case
+     <name>`, with `--model` from scripts/eval-model, `--runs 3 --threshold 1 --ablation none`,
+     `--trust-plugin --no-publish --scaffold`, and `--allow-tools` granting those of Bash, Write and Edit
+     that the case lists in its `allowed_tools`; its JSON result and report are kept in
+     local/evals/<module>/. The runs count against the subscription's plan, never against usage;
   4. the cases' `casesTotal` and `casesPassed` summed, and their `overallScore` weighted by cases, become
      one attempt, stamped with the time in UTC, appended to the module's entry of scripts/eval-receipts.json.
      An entry whose hash, Claude Code version or model differs from the run's is replaced by a new one. A
      partial result counts as a failed attempt.
-With `--container --token-file <file>`, each case runs instead in a throwaway container of the image
-scripts/eval-container/Dockerfile defines, built once as kit-evalbox:<version> with the version the kit pins,
-through `docker`. The container holds no secret of the host: the module's copy is mounted read-only and the
-results folder writable, and the file, which the runner never opens, reaches it as Docker's `--env-file`. The
-file holds CLAUDE_CODE_OAUTH_TOKEN, a subscription token from `claude setup-token`, and must be readable by
-its owner alone. Inside, the run drops the same usage-billing variables, and refuses to start unless
-`claude auth status` reports a subscription login, `oauth_token` or `claude.ai`. A case that grants Bash runs
-there on a machine whose Docker credential store holds links, which the eval refuses on the host.
-The `claude` used is the one scripts/claude-code.version pins: the clone's `.claude-code-pinned/` from
-`sh scripts/setup-claude.sh`, put first on PATH when it is there; on any other version the script refuses.
-The environment of each run drops the four variables of `kit_module_doc.claude_env`, and those that would
-bill the runs by usage rather than to the person's subscription: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN and
-the three that select a cloud provider, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX and
-CLAUDE_CODE_USE_FOUNDRY. Claude Code prefers each of them over a subscription login, so a key set in the
-shell would otherwise bill the runs without a word. A subscription token from `claude setup-token`,
-CLAUDE_CODE_OAUTH_TOKEN, stays.
+The `docker` commands run in the person's environment less the four variables of `kit_module_doc.claude_env`
+and the usage-billing ones above; the container gets none of it but the token file.
 
 Prints one line per case and one per module, and where the results are kept. `--self-test` proves the
-guards without a model: the token file's mode and a token file that does not exist, the container's guard,
-the environment of a run, the reading of `claude auth status`, the host's login check against a fake
-`claude`, the runner's own refusal off the pin, a token file judged before docker is asked for an image, the
-files a rename leaves not committed, and a missing git; the gate list runs it.
+guards without a model or docker: the token file's mode and a token file that does not exist, the
+container's guard (the token as an env file, the copy read-only, the billing variables unset, the pinned
+version and a subscription login required), the environment of the docker commands, a token file judged
+before docker is asked for an image, a missing token file argument, the files a rename leaves not committed,
+and a missing git; the gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
 
@@ -78,7 +71,7 @@ from kit_evals import (
     read_receipts,
     write_receipts,
 )
-from kit_module_doc import ANY_CLAUDE, DocumentError, claude_env, claude_note, module_folders, pinned_claude
+from kit_module_doc import DocumentError, claude_env, module_folders, pinned_claude
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -106,9 +99,10 @@ class Broken(Exception):
 
 @dataclass(frozen=True)
 class Box:
-    """Where a case runs in container mode: the image and the token file Docker reads."""
+    """Where every case runs: the image, the version it must hold, and the token file Docker reads."""
 
     image: str
+    pinned: str
     token_file: Path
 
 
@@ -118,25 +112,6 @@ class Outcome:
     passed: int
     score: float
     lines: tuple[str, ...]
-
-
-def pinned_path(env: dict[str, str]) -> dict[str, str]:
-    """`env` with the clone's pinned Claude Code first on PATH, when scripts/setup-claude.sh installed it; as
-    it is when git cannot say where the clone's common directory is."""
-    try:
-        common = subprocess.run(
-            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-            cwd=KIT,
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip()
-    except OSError:
-        return env
-    pinned = Path(common).parent / ".claude-code-pinned/node_modules/.bin"
-    if common and os.access(pinned / "claude", os.X_OK):
-        return env | {"PATH": f"{pinned}{os.pathsep}{env.get('PATH', '')}"}
-    return env
 
 
 def granted(paths: list[Path]) -> list[str]:
@@ -193,10 +168,13 @@ def eval_argv(plugin: str, case: str, model: str, out: str, tools: list[str]) ->
 
 def in_box(box: Box, copy: Path, out: Path, argv: list[str]) -> list[str]:
     """The `docker run` that runs `argv` in a throwaway container, after its guard: the usage-billing
-    variables dropped, and a subscription login required."""
+    variables unset, the pinned version and a subscription login required."""
     accepted = " ".join(SUBSCRIPTION)
     guard = (
         f"unset {' '.join(USAGE_BILLED)}; "
+        "version=$(claude --version 2>/dev/null | awk '{print $1; exit}'); "
+        f'[ "$version" = "{box.pinned}" ] || '
+        f'{{ echo "claude in the image is ${{version:-none}}, not the pinned {box.pinned}" >&2; exit 4; }}; '
         "method=$(claude auth status 2>/dev/null | python3 -c "
         '\'import json,sys; print(json.load(sys.stdin).get("authMethod", ""))\' 2>/dev/null); '
         f'case " {accepted} " in *" $method "*) ;; '
@@ -209,18 +187,14 @@ def in_box(box: Box, copy: Path, out: Path, argv: list[str]) -> list[str]:
     ]  # fmt: skip
 
 
-def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path, box: Box | None) -> Outcome:
-    """One case of the module's copy, granted only the gated tools it lists, on the host or in the container,
-    its result kept in local/."""
+def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path, box: Box) -> Outcome:
+    """One case of the module's copy, in its own container, granted only the gated tools it lists, its result
+    kept in local/."""
     out = tmp / "out"
     out.mkdir(exist_ok=True)
     tools = granted([case / "case.yaml"])
-    if box is None:
-        argv = eval_argv(str(copy), case.name, model, str(out), tools)
-    else:
-        argv = in_box(
-            box, copy, out, eval_argv(f"{CONTAINER_HOME}/{copy.name}", case.name, model, "/out", tools)
-        )
+    plugin = f"{CONTAINER_HOME}/{copy.name}"
+    argv = in_box(box, copy, out, eval_argv(plugin, case.name, model, "/out", tools))
     timeout = RUNS * TURN_SECONDS + 300
     try:
         done = subprocess.run(
@@ -228,7 +202,7 @@ def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path,
             check=False,
         )  # fmt: skip
     except FileNotFoundError as missing:
-        raise Broken(f"{argv[0]} is not installed — fix: install it and put it on PATH") from missing
+        raise Broken("docker is not installed — fix: install Docker and put docker on PATH") from missing
     except subprocess.TimeoutExpired as late:
         raise Broken(f"the eval of case {case.name} ran past {timeout} s — fix: run it again") from late
     result = out / f"{case.name}.json"
@@ -237,7 +211,7 @@ def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path,
         raise Broken(
             f"the eval of case {case.name} exited {done.returncode} with no result"
             f" ({said[-1] if said else 'no output'})"
-            " — fix: run `claude plugin eval` on the module by hand and read why it stops"
+            " — fix: the line in brackets says why; a login it refuses needs a token from claude setup-token"
         )
     kept = KIT / "local" / "evals" / copy.name
     kept.mkdir(parents=True, exist_ok=True)
@@ -272,42 +246,14 @@ def ensure_image(pinned: str, env: dict[str, str]) -> str:
     return image
 
 
-def auth_method(said: str) -> str:
-    """The `authMethod` that `claude auth status` printed as JSON, or "" when it printed none."""
-    try:
-        data = json.loads(said)
-    except ValueError:
-        return ""
-    method = data.get("authMethod") if isinstance(data, dict) else None
-    return method if isinstance(method, str) else ""
-
-
-def subscription_login(env: dict[str, str]) -> None:
-    """Refuse unless the host's `claude` is logged in by subscription."""
-    try:
-        done = subprocess.run(
-            ["claude", "auth", "status"], env=env, capture_output=True, text=True, timeout=60, check=False
-        )
-    except (OSError, subprocess.TimeoutExpired) as bad:
-        raise Broken(
-            f"`claude auth status` could not run ({bad}) — fix: check that claude is on PATH"
-        ) from bad
-    method = auth_method(done.stdout)
-    if method not in SUBSCRIPTION:
-        raise Broken(
-            f"claude is not logged in by subscription (authMethod {method or 'none'}), and the evals are"
-            " never billed by usage — fix: run claude /login with your claude.ai account, or use"
-            " --container --token-file with a token from claude setup-token"
-        )
-
-
 def run_env(environ: dict[str, str]) -> dict[str, str]:
-    """The environment of every run: the person's, less the plugin-place and the usage-billing variables."""
+    """The environment of the docker commands: the person's, less the plugin-place and usage-billing
+    variables."""
     return {k: v for k, v in claude_env(environ).items() if k not in USAGE_BILLED}
 
 
-def token_box(token_file: str, image: str) -> Box:
-    path = Path(token_file).expanduser()
+def token_file(given: str) -> Path:
+    path = Path(given).expanduser()
     if not path.is_file():
         raise Broken(
             f"no token file {path} — fix: run `claude setup-token`, then save its token as one line"
@@ -315,10 +261,10 @@ def token_box(token_file: str, image: str) -> Box:
         )
     if path.stat().st_mode & 0o077:
         raise Broken(f"{path} is readable by others — fix: chmod 600 {path}")
-    return Box(image, path)
+    return path
 
 
-def run_module(module: str, model: str, env: dict[str, str], box: Box | None) -> Outcome:
+def run_module(module: str, model: str, env: dict[str, str], box: Box) -> Outcome:
     root = KIT / "modules" / module
     cases = cases_of(root)
     if not cases:
@@ -356,10 +302,9 @@ def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
 
 
 def self_test() -> int:
-    """The runner's guards, run without a model: the token file's mode and its absence, the container's
-    guard, the environment of a run, the reading of `claude auth status`, the host's login check, the refusal
-    off the pin, the token file judged before the image, the files a rename leaves not committed, and a
-    missing git."""
+    """The runner's guards, run without a model or docker: the token file's mode and its absence, the
+    container's guard, the environment of the docker commands, the token file judged before the image, a
+    missing token file argument, the files a rename leaves not committed, and a missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -374,7 +319,7 @@ def self_test() -> int:
         for mode, wanted in ((0o600, True), (0o400, True), (0o640, False), (0o604, False), (0o660, False)):
             token.chmod(mode)
             try:
-                token_box(str(token), "img")
+                token_file(str(token))
                 ok = wanted
             except Broken as broken:
                 ok = not wanted and f"chmod 600 {token}" in str(broken)
@@ -382,11 +327,12 @@ def self_test() -> int:
                 f"a token file of mode {mode:o} is {'taken' if wanted else 'refused, the fix chmod 600'}", ok
             )
         try:
-            token_box(str(Path(tmp) / "none.env"), "img")
+            token_file(str(Path(tmp) / "none.env"))
             case("a token file that does not exist is refused", False)
         except Broken as broken:
             case("a token file that does not exist is refused", "claude setup-token" in str(broken))
-        box = Box("img", token)
+        token.chmod(0o600)
+        box = Box("img", "2.1.282", token)
         argv = in_box(box, Path(tmp) / "const-x", Path(tmp) / "out", ["claude", "plugin", "eval"])
         guard = argv[-1]
         case(
@@ -394,77 +340,63 @@ def self_test() -> int:
             argv[3:5] == ["--env-file", str(token)],
         )
         case(
+            "the container mounts the module's copy read-only", f"{Path(tmp) / 'const-x'}:/plugin:ro" in argv
+        )
+        case(
             "the container's guard unsets every usage-billing variable before claude runs",
             guard.startswith(f"unset {' '.join(USAGE_BILLED)};"),
         )
         case(
-            "the container's guard refuses a login other than a subscription's",
-            "exit 3" in guard and all(f" {m} " in guard for m in ("oauth_token", "claude.ai")),
+            "the container's guard requires the pinned version",
+            '[ "$version" = "2.1.282" ]' in guard and "exit 4" in guard,
         )
-    billed = {name: "x" for name in USAGE_BILLED} | {"CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "/bin"}
-    kept = run_env(billed)
-    case("a run's environment drops every usage-billing variable", not set(kept) & set(USAGE_BILLED))
-    case("a run's environment keeps a subscription token", kept.get("CLAUDE_CODE_OAUTH_TOKEN") == "t")
-    for said, method in (
-        ('{"loggedIn": true, "authMethod": "claude.ai"}', "claude.ai"),
-        ('{"loggedIn": true, "authMethod": "oauth_token"}', "oauth_token"),
-        ('{"loggedIn": true, "authMethod": "api_key"}', "api_key"),
-        ("Not logged in", ""),
-        ("[1]", ""),
-    ):
-        case(f"claude auth status {said!r} reads as {method or 'none'}", auth_method(said) == method)
-    case("api_key is no subscription login", "api_key" not in SUBSCRIPTION)
-    with tempfile.TemporaryDirectory() as tmp:
-        fake = Path(tmp) / "claude"
-        for said, accepted in (('{"authMethod": "oauth_token"}', True), ('{"authMethod": "api_key"}', False)):
-            fake.write_text(f"#!/bin/sh\necho '{said}'\n", encoding="utf-8")
-            fake.chmod(0o755)
-            try:
-                subscription_login({"PATH": tmp})
-                ok = accepted
-            except Broken as broken:
-                ok = not accepted and "not logged in by subscription" in str(broken)
-            case(f"the host's claude reporting {said} is {'taken' if accepted else 'refused'}", ok)
-        fake.write_text("#!/bin/sh\necho '9.9.9 (Claude Code)'\n", encoding="utf-8")
-        printed = io.StringIO()
-        with contextlib.redirect_stdout(printed), mock.patch.dict(os.environ, {"PATH": tmp}):
-            code = main(["--module", "const-styling"])
-        said = printed.getvalue()
         case(
-            "off the pin, the runner refuses with its own fix, never the install checks' override",
-            code == EXIT_BROKEN and "claude is 9.9.9, not the pinned" in said and ANY_CLAUDE not in said,
+            "the container's guard refuses a login other than a subscription's",
+            "exit 3" in guard and all(f" {m} " in guard for m in SUBSCRIPTION) and "api_key" not in guard,
         )
-        token = Path(tmp) / "token.env"
-        token.write_text("CLAUDE_CODE_OAUTH_TOKEN=x\n", encoding="utf-8")
+        billed = {name: "x" for name in USAGE_BILLED} | {"CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "/bin"}
+        kept = run_env(billed)
+        case(
+            "the docker commands' environment drops every usage-billing variable",
+            not set(kept) & set(USAGE_BILLED),
+        )
         token.chmod(0o644)
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed), mock.patch.dict(os.environ, {"PATH": tmp}):
-            code = main(["--container", "--token-file", str(token)])
+            code = main(["--token-file", str(token)])
         case(
             "a token file readable by others is refused before docker is asked for an image",
             code == EXIT_BROKEN and "is readable by others" in printed.getvalue(),
+        )
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = main(["--module", "const-x"])
+        case(
+            "a run without --token-file is a misinvocation",
+            code == EXIT_BROKEN and "--token-file" in printed.getvalue(),
         )
         kit = Path(tmp) / "kit"
         (kit / "modules/const-x/skills/s").mkdir(parents=True)
         (kit / "modules/const-x/skills/s/SKILL.md").write_text("skill\n", encoding="utf-8")
         quiet = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "PATH": os.environ["PATH"]}
-        for argv in (
+        for git_args in (
             ["init", "-q"],
             ["add", "-A"],
             ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
         ):
-            subprocess.run(["git", *argv], cwd=kit, env=quiet, capture_output=True, check=True)
+            subprocess.run(["git", *git_args], cwd=kit, env=quiet, capture_output=True, check=True)
         skill = kit / "modules/const-x/skills/s"
         (skill / "SKILL.md").rename(skill / "OTHER.md")  # a rename in the working tree, ` R` in porcelain
         subprocess.run(
             ["git", "add", "-N", "modules/const-x/skills/s/OTHER.md"],
             cwd=kit, env=quiet, capture_output=True, check=True,
         )  # fmt: skip
-        case(
-            "a rename not committed, marked in the working tree's column, names its new path and no fragment"
-            " of its source",
-            dirty(kit, "const-x") == ["modules/const-x/skills/s/OTHER.md"],
-        )
+        with mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}):
+            case(
+                "a rename not committed, marked in the working tree's column, names its new path and no"
+                " fragment of its source",
+                dirty(kit, "const-x") == ["modules/const-x/skills/s/OTHER.md"],
+            )
         with mock.patch.dict(os.environ, {"PATH": tmp}):
             try:
                 dirty(kit, "const-x")
@@ -480,42 +412,27 @@ def self_test() -> int:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="run-evals", add_help=False, allow_abbrev=False)
     parser.add_argument("--module", action="append", default=[])
-    parser.add_argument("--container", action="store_true")
     parser.add_argument("--token-file")
     parser.add_argument("--self-test", action="store_true")
     try:
         args = parser.parse_args(argv)
-        if bool(args.container) != bool(args.token_file) or (
-            args.self_test and (args.module or args.container)
-        ):
+        if args.self_test == bool(args.token_file) or (args.self_test and args.module):
             raise SystemExit(2)
     except SystemExit:
         print(
-            "BROKEN: misinvocation — fix: python3 scripts/run-evals.py [--module <module>]..."
-            " [--container --token-file <file>], or --self-test"
+            "BROKEN: misinvocation — fix: python3 scripts/run-evals.py --token-file <file>"
+            " [--module <module>]..., or --self-test"
         )
         return EXIT_BROKEN
     if args.self_test:
         return self_test()
-    env = pinned_path(run_env(dict(os.environ)))
-    box: Box | None = None
+    env = run_env(dict(os.environ))
     try:
         known = [m.name for m in module_folders(KIT)]
         model = eval_model(KIT)
-        if args.container:
-            pinned = pinned_claude(KIT)
-            token_box(args.token_file, "")  # the token file is judged before an image is built
-            box = token_box(args.token_file, ensure_image(pinned, env))
-        else:
-            note = claude_note(KIT, env | {ANY_CLAUDE: "1"})  # the runner words its own refusal off the pin
-            if note.found:
-                raise Broken(
-                    f"claude is {note.found}, not the pinned {note.pinned}, and the receipt must name the pin"
-                    " — fix: run sh scripts/setup-claude.sh in the kit's clone, then run the evals again; the"
-                    " runner puts that copy first on PATH itself"
-                )
-            pinned = note.pinned
-            subscription_login(env)
+        pinned = pinned_claude(KIT)
+        token = token_file(args.token_file)  # judged before docker is asked for an image
+        box = Box(ensure_image(pinned, env), pinned, token)
     except (DocumentError, EvalError, Broken) as bad:
         print(f"BROKEN: {bad}")
         return EXIT_BROKEN

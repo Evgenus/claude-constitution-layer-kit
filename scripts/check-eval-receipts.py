@@ -13,8 +13,8 @@ the check is red when:
   the entry's last attempt did not pass, or there is none.
 An entry for a name that is no module folder is red too. The check holds that a passing run was declared
 for the files as they are, never that it ran: the run uses a model and a login that CI does not have. A
-module whose receipt is stale owes a local run before the merge, `python3 scripts/run-evals.py --module
-<module>`, and the receipts file it writes, committed.
+module whose receipt is stale owes a local run before the merge, `python3 scripts/run-evals.py --token-file
+<file> --module <module>`, and the receipts file it writes, committed.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a current receipt green; an edit of a skill, of a
@@ -76,7 +76,7 @@ class Finding:
 
 def run_fix(module: str) -> str:
     return (
-        f"run python3 scripts/run-evals.py --module {module} on the pinned Claude Code,"
+        f"run python3 scripts/run-evals.py --token-file <file> --module {module},"
         f" then commit {RECEIPTS}"
     )
 
@@ -286,7 +286,7 @@ def self_test() -> int:
     report_lines = [  # typed by hand: a message function cannot check itself
         "RED: const-x: the receipt was made on claude-haiku-5-5, not the pinned claude-opus-5-5",
         f"  why: {WHY}",
-        "  fix: run python3 scripts/run-evals.py --module const-x on the pinned Claude Code, then commit"
+        "  fix: run python3 scripts/run-evals.py --token-file <file> --module const-x, then commit"
         " scripts/eval-receipts.json",
         "RED: 1 finding(s) — 1 module(s) examined against scripts/eval-receipts.json",
     ]
