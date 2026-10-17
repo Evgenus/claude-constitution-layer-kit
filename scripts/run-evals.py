@@ -9,8 +9,10 @@ With no `--module`, every module folder. For each module, in turn:
      so that the receipt names what CI checks;
   2. those files are copied, links followed, into a temporary folder, the plugin the run loads;
   3. `claude plugin eval` runs on the copy, from the temporary folder, with `--model` from scripts/eval-model,
-     `--runs 3 --threshold 1 --ablation none`, `--trust-plugin --no-publish --scaffold` and `--allow-tools
-     Bash Write Edit`, its JSON result written beside the copy. The run uses the login of the person who runs
+     `--runs 3 --threshold 1 --ablation none`, `--trust-plugin --no-publish --scaffold`, and `--allow-tools`
+     granting those of Bash, Write and Edit that a case of the module lists in its `allowed_tools`, its JSON
+     result written beside the copy. A Bash grant is asked only where a case needs it: the eval refuses one
+     on a machine whose Docker credential store holds a link it cannot exclude. The run uses the login of the person who runs
      this script: it counts against that account's plan or bill;
   4. the result's `casesTotal`, `casesPassed` and `overallScore` become one attempt, stamped with the time in
      UTC, appended to the module's entry of scripts/eval-receipts.json. An entry whose hash, Claude Code
@@ -37,6 +39,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+import yaml
 from kit_evals import (
     EVALS,
     Attempt,
@@ -54,6 +57,7 @@ from kit_module_doc import DocumentError, claude_env, claude_note, module_folder
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 RUNS = 3
+GATED = ("Bash", "Write", "Edit")  # the tools `claude plugin eval` grants only through --allow-tools
 TURN_SECONDS = 300  # a case's default `timeout_seconds`, the bound of one run
 
 
@@ -88,6 +92,19 @@ def case_count(module: Path) -> int:
     return sum(1 for _ in (module / EVALS).glob("*/case.yaml")) + sum(
         1 for _ in (module / EVALS).glob("*/prompt.md")
     )
+
+
+def granted(module: Path) -> list[str]:
+    """The gated tools the module's cases list, of Bash, Write and Edit, for `--allow-tools`."""
+    listed: set[str] = set()
+    for path in sorted((module / EVALS).glob("*/case.yaml")):
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+            tools = data["execution"]["allowed_tools"]
+        except (OSError, yaml.YAMLError, KeyError, TypeError) as bad:
+            raise Broken(f"{path} cannot be read as a case ({bad!r}) — fix: restore the case.yaml") from bad
+        listed |= {str(t) for t in tools or []}
+    return [t for t in GATED if t in listed]
 
 
 def outcome_of(result: Path) -> Outcome:
@@ -136,9 +153,12 @@ def run_module(module: str, model: str, env: dict[str, str]) -> Outcome:
         argv = [
             "claude", "plugin", "eval", str(copy),
             "--model", model, "--runs", str(RUNS), "--threshold", "1", "--ablation", "none",
-            "--trust-plugin", "--no-publish", "--scaffold", "--allow-tools", "Bash", "Write", "Edit",
+            "--trust-plugin", "--no-publish", "--scaffold",
             "--json", str(result), "--report", str(Path(tmp) / "report.html"),
         ]  # fmt: skip
+        tools = granted(root)
+        if tools:
+            argv += ["--allow-tools", *tools]
         timeout = case_count(root) * RUNS * TURN_SECONDS + 300
         try:
             done = subprocess.run(
