@@ -119,9 +119,11 @@ USAGE_BILLED = (  # the variables Claude Code prefers over a subscription login,
 TURN_SECONDS = 300  # a case's default `timeout_seconds`, the bound of one run
 ARCH_REFUSAL = "no Vale and lychee for TARGETARCH"  # the first words of the Dockerfile's refusal
 # a line of the failed step's own log that opens with the refusal, as BuildKit prints it, "#7 0.215 …" in
-# its progress and "0.215 …" in its error summary, and the legacy builder bare; each builder's ERROR line
-# quotes the whole command, the refusal's echo included, and so never opens with it
-COLOUR = re.compile(r"\x1b\[[0-9;]*m")  # the legacy builder colours a step's stderr
+# its progress and "0.215 …" in its error summary, and as the legacy builder prints it once its colour is
+# stripped; BuildKit's ERROR lines and the legacy builder's "Step n/n : RUN …" and "The command '…'
+# returned a non-zero code" lines quote the whole command, the refusal's echo included, and so never open
+# with it
+COLOUR = re.compile(r"\x1b\[[0-9;]*m")  # the legacy builder colours a step's stderr on its stdout
 REFUSAL_LINE = re.compile(r"(?:#\d+ )?(?:\d+(?:\.\d+)? )?" + re.escape(ARCH_REFUSAL))
 
 
@@ -313,7 +315,8 @@ def ensure_image(pinned: str, env: dict[str, str]) -> str:
             words = refused[-1][refused[-1].index(ARCH_REFUSAL) :]  # without the log's step and time
             raise Broken(
                 f"docker build of {image} refused: {words} — fix: build with BuildKit, Docker Desktop's"
-                " default, on an amd64 or arm64 machine, then run again"
+                " default (unset DOCKER_BUILDKIT, or install the docker buildx plugin), on an amd64 or"
+                " arm64 machine, then run again"
             )
         errors = [line for line in said if line.startswith("ERROR") or "returned a non-zero code" in line]
         last = (errors or said or ["no output"])[-1]
@@ -394,8 +397,8 @@ def self_test() -> int:
     container's options, its guard and its command after the guard, each run under sh, the environment of
     the docker commands, the image's tag, the token file judged before the image, a missing token file
     argument, the Dockerfile's refusal of an architecture from either builder and a failed download in the
-    same step, the refusal's words in the Dockerfile, an eval image not committed, the files a rename leaves
-    not committed, and a missing git."""
+    same step, told the exact build to run, the refusal's words in the Dockerfile, an eval image not
+    committed, the files a rename leaves not committed, and a missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -529,36 +532,43 @@ def self_test() -> int:
             f'process "/bin/sh -c case \\"$TARGETARCH\\" in *) echo \\"{ARCH_REFUSAL} …\\" ;; esac && curl …"'
         )
         details = "View build details: docker-desktop://dashboard/build/desktop-linux/desktop-linux/x"
-        failures = {  # what each builder printed on a failed step, as seen on Docker 28; stream 2 is stderr
-            "buildkit refusal": (2, [
-                f"#7 0.215 {ARCH_REFUSAL} 'arm64': build with BuildKit, on amd64 or arm64",
-                f"#7 ERROR: {command} did not complete successfully: exit code: 1",
-                f"0.215 {ARCH_REFUSAL} 'arm64': build with BuildKit, on amd64 or arm64",
-                f"ERROR: failed to build: failed to solve: {command} did not complete successfully:"
-                " exit code: 1",
-                details,
-            ]),
-            "legacy refusal": (1, [
-                f"Step 3/3 : RUN case \"$TARGETARCH\" in *) echo \"{ARCH_REFUSAL} …\" ;; esac",
-                f"\x1b[91m{ARCH_REFUSAL} '': build with BuildKit, on amd64 or arm64",
-                f"\x1b[0mThe command '/bin/sh -c case \"$TARGETARCH\" in *) echo \"{ARCH_REFUSAL} …\"'"
-                " returned a non-zero code: 1",
-            ]),
-            "download": (2, [
-                "#7 0.512 curl: (22) The requested URL returned error: 404",
-                f"#7 ERROR: {command} did not complete successfully: exit code: 2",
-                f"ERROR: failed to build: failed to solve: {command} did not complete successfully:"
-                " exit code: 2",
-                details,
-            ]),
+        legacy_command = f'\'/bin/sh -c case "$TARGETARCH" in *) echo "{ARCH_REFUSAL} …" ;; esac\''
+        failures = {  # what each builder printed on a failed step, on Docker 28, each line with its stream
+            "buildkit refusal": [
+                (2, f"#7 0.215 {ARCH_REFUSAL} 'arm64': build with BuildKit, on amd64 or arm64"),
+                (2, f"#7 ERROR: {command} did not complete successfully: exit code: 1"),
+                (2, f"0.215 {ARCH_REFUSAL} 'arm64': build with BuildKit, on amd64 or arm64"),
+                (2, f"ERROR: failed to build: failed to solve: {command} did not complete successfully:"
+                    " exit code: 1"),
+                (2, details),
+            ],
+            "legacy refusal": [  # the step's output on stdout, in colour; the warning and verdict on stderr
+                (1, f"Step 3/3 : RUN case \"$TARGETARCH\" in *) echo \"{ARCH_REFUSAL} …\" ;; esac"),
+                (1, " ---> Running in 09b32a11094f"),
+                (1, f"\x1b[91m{ARCH_REFUSAL} '': build with BuildKit, on amd64 or arm64"),
+                (1, "\x1b[0m"),
+                (2, "DEPRECATED: The legacy builder is deprecated and will be removed in a future release."),
+                (2, f"The command {legacy_command} returned a non-zero code: 1"),
+            ],
+            "download": [
+                (2, "#7 0.512 curl: (22) The requested URL returned error: 404"),
+                (2, f"#7 ERROR: {command} did not complete successfully: exit code: 2"),
+                (2, f"ERROR: failed to build: failed to solve: {command} did not complete successfully:"
+                    " exit code: 2"),
+                (2, details),
+            ],
         }  # fmt: skip
         told: dict[str, str] = {}
-        for name, (stream, lines) in failures.items():
-            output = Path(tmp) / f"build-{name.replace(' ', '-')}.txt"
-            output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        for name, lines in failures.items():
+            outputs = []
+            for stream in (1, 2):
+                output = Path(tmp) / f"build-{name.replace(' ', '-')}-{stream}.txt"
+                output.write_text(
+                    "".join(f"{line}\n" for to, line in lines if to == stream), encoding="utf-8"
+                )
+                outputs.append(f'cat "{output}" >&{stream}')
             (docker_bin / "docker").write_text(
-                f'#!/bin/sh\n[ "$1" = image ] && exit 1\ncat "{output}" >&{stream}\nexit 1\n',
-                encoding="utf-8",
+                f'#!/bin/sh\n[ "$1" = image ] && exit 1\n{chr(10).join(outputs)}\nexit 1\n', encoding="utf-8"
             )
             try:
                 ensure_image("2.1.282", {"PATH": f"{docker_bin}{os.pathsep}{os.environ['PATH']}"})
