@@ -2,11 +2,11 @@
 name: commit-before-edit
 description: >
   Load this skill first, before the first edit of any change, such as a rename, a refactor or an
-  edit of more than one file, and when a change is done; every time, whether or not the tree seems clean.
-  Commit before you edit: commit a dirty tree before the first edit of a change, commit again
-  after each coherent change, never end a turn with uncommitted work. Use when
-  a turn is ending, when the turn-end hook reports a dirty tree, or when rolling back to an
-  earlier state. Advisory: the hook only reports the tree.
+  edit of more than one file, and when a change is done — every time, whether or not the tree
+  seems clean. Commit before you edit: commit a dirty tree before the first edit of any change,
+  commit again after each coherent change, never end a turn with uncommitted work. Use when a turn
+  is ending, when the turn-end hook reports a dirty tree, or when rolling back to an earlier state.
+  Advisory: the hook only reports the tree.
 ---
 
 # Commit before you edit
