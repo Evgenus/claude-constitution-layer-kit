@@ -41,14 +41,14 @@
   "const-language": {
     "attempts": [
       {
-        "at": "2026-10-17T00:53:33Z",
+        "at": "2026-10-17T00:59:44Z",
         "cases": 1,
-        "passed": 0,
-        "score": 0.5
+        "passed": 1,
+        "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:6586cc65ce2195c8afaf4a0b0d807ba1aa68fece81838f00ab6943eb7bbe1c8d",
+    "hash": "sha256:caa333c4dffa86392f26b2ec79ba731bd31ce5ae6aa241afd2dc1f9836314fe8",
     "model": "claude-opus-5-5"
   },
   "const-meta-types": {
