@@ -2,7 +2,7 @@
 id: dec-0093-module-evals-with-local-receipts
 type: task-record
 title: Every module ships eval cases, run locally on the pinned model, with a receipt CI checks; a load check runs in CI
-status: active
+status: inactive
 stakes: process
 decider: Eugene Chernyshov
 ---
