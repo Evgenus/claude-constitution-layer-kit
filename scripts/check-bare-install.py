@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Kit check: a module installs through Claude Code and operates on a bare repository with its
 defaults alone — requirements A12.1 to A12.3, kernel plus one module (decision
-dec-0059-bare-repo-install-in-ci).
+dec-0059-bare-repo-install-in-ci). The bare repository and the install of steps 1 and 2 are the
+functions of scripts/kit_install.py, which scripts/check-session-load.py shares (decision
+dec-0093-module-evals-with-local-receipts, R10).
 
 Before any other `claude` command the check asks `claude --version` (`kit_module_doc.claude_note`) and
 compares it with the version the kit pins in scripts/claude-code.version, which the CI workflow
@@ -101,8 +103,9 @@ worded by `kit_module_doc.command_fix` from the state of the run, which off the 
 pinned version, no reply having been written for a reader to read. Any other result, list or record that
 cannot be read as step 2 says (a record of a remote source that names no commit, or one that is no object
 id, included) is a configuration failure whose fix is worded by `kit_module_doc.platform_fix` from the
-state of the run: on the pinned version, to update the kit's reader that the line names (`install_scope`,
-`listed_install` or `installed_commit`), to what that version writes; off the pin, to run again on the
+state of the run: on the pinned version, to update the kit's reader that the line names (`install_scope`
+or `listed_install` in scripts/kit_install.py, `installed_commit` here), to what that version writes; off
+the pin, to run again on the
 pinned version. A hooks file the check cannot run is a configuration failure that names the file and, for a
 fault inside it, the event and the place of the group and the hook, counted from 1, never another exception
 or a hook left unrun: a file that is no JSON, no object, or without a "hooks" object of events, an event that
@@ -241,20 +244,36 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
 from unittest import mock
 
+import kit_install
+from kit_install import (
+    FROM_ENV,
+    Broken,
+    Refused,
+    bare_repository,
+    blocking_folder,
+    file_at,
+    folder_at,
+    git_command,
+    install,
+    kit_marketplace,
+    last_line,
+    link_at,
+    listed_install,
+    run,
+    shown,
+    there,
+)
 from kit_module_doc import (
     DocumentError,
     Note,
-    claude_env,
     claude_note,
-    command_fix,
     enforcement,
-    marketplace_name,
     own_packages,
     platform_fix,
 )
@@ -263,13 +282,8 @@ KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 WHY = "a module must install and operate on a bare repository with its defaults alone (requirement A12.1)"
 NOTE = "docs/note.md"
-FROM_ENV = "CONSTITUTION_KIT_INSTALL_FROM"
-INSTALL_TIMEOUT = 300  # seconds the install is given, kit tuning and no platform fact
 OBJECT_ID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")  # a git object id as git writes one: SHA-1 or SHA-256
 SCRIPT = "scripts/check-bare-install.py"  # named in the fix of a reply the check's readers do not read
-LIST_WHERE = (
-    "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"  # where the failed list is run again
-)
 # How long a `command` hook that declares no `timeout` is waited for: the platform's own default on its event
 # (the hooks reference, "Common fields" of a hook, and the sections of SessionEnd and MessageDisplay, read on
 # 2026-10-08): 600 seconds, but 30 on UserPromptSubmit, PreModelSwitch and PostModelSwitch, 10 on
@@ -283,14 +297,6 @@ EVENT_HOOK_TIMEOUT = {
     "MessageDisplay": 10.0,
     "SessionEnd": 1.5,
 }
-
-
-class Broken(Exception):
-    """The check could not run; the message says why and how to fix it."""
-
-
-class Refused(Exception):
-    """The platform refused to install the module: a finding against the module."""
 
 
 @dataclass(frozen=True)
@@ -313,125 +319,11 @@ class Hook:
     timeout: float
 
 
-RUN_FIX = (
-    "give it a command that exists and can run, with no NUL byte in it or its arguments: a program on"
-    " PATH, or a file with the execute permission (`chmod u+x` it), then run the check again"
-)
-
-
 HOOK_RUN_FIX = (
     'give the hook\'s "command" and "args" in the module\'s hooks/hooks.json a command that exists and can'
     " run, with no NUL byte in it or its arguments: a program on PATH, or a file of the module with the"
     " execute permission (`chmod u+x` it, and commit the mode), then run the check again"
 )
-
-
-def plain(command: str) -> str:
-    """A command as a message echoes it: a plain word as it is, else as `shown` quotes it, so that one with a
-    space, a quote, a line break or no characters at all reads as one token."""
-    return command if re.fullmatch(r"[\w@%+=:,./-]+", command) else shown(command)
-
-
-def run(
-    argv: list[str],
-    cwd: Path,
-    env: dict[str, str],
-    stdin: str = "",
-    timeout: float = 300,
-    fix: str = RUN_FIX,
-) -> tuple[int, str, str]:
-    """The exit, the standard output and the standard error of one command. A command that is not found
-    is a Broken saying to install it, as `plain` echoes it, and a working folder that does not exist a
-    Broken of its own, naming the folder; any other `OSError` of starting it (an empty command, a file with no
-    execute permission, a folder that cannot be searched) and a `ValueError` (a NUL byte) are a Broken that
-    names the command, as `shown` quotes it, and the reason, with `fix` to follow; one that outlasts its
-    `timeout` is the exit 124."""
-    try:
-        done = subprocess.run(
-            argv, cwd=cwd, env=env, input=stdin, capture_output=True, text=True, timeout=timeout, check=False
-        )
-    except FileNotFoundError as bad:
-        if not os.path.isdir(cwd):  # the working folder is what is missing, whichever command is asked for
-            raise Broken(
-                f"the working folder {cwd} does not exist — fix: make the folder"
-                f" (`mkdir -p {shlex.quote(str(cwd))}`), then run the check again"
-            ) from bad
-        raise Broken(
-            f"{plain(argv[0])} is not installed ({bad.strerror}) — fix: install it and put it on PATH"
-        ) from bad
-    except subprocess.TimeoutExpired:
-        return 124, "", f"timed out after {timeout} s"
-    except (OSError, ValueError) as bad:
-        why = (bad.strerror if isinstance(bad, OSError) else None) or str(bad)
-        raise Broken(f"the command {shown(argv)} could not be started ({why}) — fix: {fix}") from bad
-    return done.returncode, done.stdout.strip(), done.stderr.strip()
-
-
-def looked_up(path: Path, follow: bool = True) -> os.stat_result | None:
-    """What `os.stat` says of a path (`os.lstat` when `follow` is False): None for a path that is not
-    there (no entry, a path through a file, a link loop, a name that holds a NUL byte), a Broken for a
-    path that cannot be looked up (a folder on the way cannot be searched, an I/O error). The check asks
-    this and not `Path.is_file`, `is_dir` or `exists`: from release 3.14 of the language on they return
-    False for the error that earlier releases raise, and the answer would differ by version, a path the
-    check cannot look at read as a missing one."""
-    try:
-        return path.stat() if follow else path.lstat()
-    except (FileNotFoundError, NotADirectoryError, ValueError):
-        return None
-    except OSError as bad:
-        if bad.errno == errno.ELOOP:
-            return None
-        why = bad.strerror or str(bad)
-        if bad.errno == errno.EACCES:
-            folder = blocking_folder(path)
-            fix = f"give the folder {folder} search permission, `chmod u+rx {shlex.quote(str(folder))}`"
-        else:
-            folder = path.parent
-            fix = f"make the folder {folder} searchable, `ls -ld {shlex.quote(str(folder))}` shows why not"
-        raise Broken(f"{path} cannot be searched ({why}) — fix: {fix}, then run the check again") from bad
-
-
-def blocking_folder(path: Path) -> Path:
-    """The folder on the way to a path that refuses the search: the first, from the root down, below which
-    `os.stat` is denied; the path's own folder when none is."""
-    chain = [*reversed(path.parents), path]
-    for folder, below in zip(chain, chain[1:], strict=False):
-        try:
-            os.stat(below)
-        except PermissionError:
-            return folder
-        except OSError:
-            continue
-    return path.parent
-
-
-def file_at(path: Path) -> bool:
-    """Whether a regular file (or a link to one) stands at the path; a Broken where it cannot be looked up."""
-    found = looked_up(path)
-    return found is not None and stat.S_ISREG(found.st_mode)
-
-
-def folder_at(path: Path) -> bool:
-    """Whether a folder (or a link to one) stands at the path; a Broken where it cannot be looked up."""
-    found = looked_up(path)
-    return found is not None and stat.S_ISDIR(found.st_mode)
-
-
-def there(path: Path) -> bool:
-    """Whether anything stands at the path (a link is followed); a Broken where it cannot be looked up."""
-    return looked_up(path) is not None
-
-
-def link_at(path: Path) -> bool:
-    """Whether a link stands at the path, itself and not what it leads to; a Broken where it cannot be
-    looked up."""
-    found = looked_up(path, follow=False)
-    return found is not None and stat.S_ISLNK(found.st_mode)
-
-
-def last_line(out: str, err: str) -> str:
-    said = err or out
-    return said.splitlines()[-1] if said else "no output"
 
 
 def hooks_of(plugin: Path) -> list[Hook]:
@@ -866,70 +758,6 @@ def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: P
     return findings
 
 
-def git_command(argv: list[str]) -> str:
-    """The name of a git command: `git <subcommand>`, the subcommand being the first argument after `git`
-    that is neither an option nor the value of one. `-c` and `-C` take the next argument as their value (an
-    option joined to its value with `=` takes none); the commands of `bare_repository` use no other option
-    that does. An argv with no subcommand is named `git`."""
-    skip = False
-    for arg in argv[1:]:
-        if skip:
-            skip = False
-        elif arg in ("-c", "-C"):
-            skip = True
-        elif not arg.startswith("-"):
-            return f"git {arg}"
-    return "git"
-
-
-def git_failed(argv: list[str], out: str, err: str) -> Broken:
-    """The BROKEN line of a git command of `bare_repository` that exited other than 0. `run` has turned a
-    missing git into its own line, so git ran and "install git" would be no fix: run the command by hand."""
-    name = git_command(argv)
-    return Broken(
-        f"{name} failed in the bare repository ({last_line(out, err)}) — fix: run {name} in a new"
-        " repository by hand and read why it fails"
-    )
-
-
-def bare_repository(root: Path) -> Path:
-    repo = root / "repo"
-    repo.mkdir()
-    env = os.environ | {"GIT_CONFIG_GLOBAL": os.devnull}
-    for argv in (["git", "init", "-q", "-b", "main"],):
-        code, out, err = run(argv, repo, env)
-        if code != 0:
-            raise git_failed(argv, out, err)
-    shutil.copytree(KIT / "kernel", repo / "docs" / "constitution")
-    for argv in (
-        ["git", "add", "-A"],
-        [
-            "git",
-            "-c",
-            "user.name=bare",
-            "-c",
-            "user.email=bare@example.invalid",
-            "commit",
-            "-q",
-            "-m",
-            "kernel",
-        ],
-    ):
-        code, out, err = run(argv, repo, env)
-        if code != 0:
-            raise git_failed(argv, out, err)
-    return repo
-
-
-def kit_marketplace(kit: Path) -> str:
-    """The name of the marketplace the kit at `kit` declares, read from its marketplace.json by
-    `kit_module_doc.marketplace_name`; a file that gives none is a Broken with that function's line."""
-    try:
-        return marketplace_name(kit)
-    except DocumentError as bad:
-        raise Broken(str(bad)) from bad
-
-
 def claude_noted(kit: Path, env: dict[str, str]) -> Note:
     """The note for a run on another Claude Code than the kit pins, empty on the pinned one, from
     `kit_module_doc.claude_note`; its refusal is a Broken with that function's line."""
@@ -937,87 +765,6 @@ def claude_noted(kit: Path, env: dict[str, str]) -> Note:
         return claude_note(kit, env)
     except DocumentError as bad:
         raise Broken(str(bad)) from bad
-
-
-def shown(value: object) -> str:
-    """A reply of Claude Code, or a field of it, as a message quotes it: its repr, at most 200 characters."""
-    text = repr(value)
-    return text if len(text) <= 200 else text[:200] + "…"
-
-
-def install_scope(key: str, code: int, out: str, timeout: float, note: Note) -> str:
-    """The scope the install of `key` wrote, from the result of `claude plugin install --json`: the
-    last non-empty line of its standard output, one JSON object whose `outcome` is "ok" or "failed". The
-    run's own timeout (exit 124), no such line, an `outcome` of neither value, and "ok" with an exit other
-    than 0 or with no `scope` string are a Broken; "failed" is a Refused, carrying the result's
-    `failureCode` and `message` when present."""
-    command = f"`claude plugin install {key} --json`"
-    fix = platform_fix(note, SCRIPT, "install_scope", "a reply")
-    if code == 124:
-        raise Broken(
-            f"{command} gave no result in {timeout:g} s — fix: run the check again, and check that git can"
-            " reach the source"
-        )
-    lines = [line for line in out.splitlines() if line.strip()]
-    if not lines:
-        raise Broken(f"{command} printed nothing on standard output (exit {code}){fix}")
-    try:
-        result = json.loads(lines[-1])
-    except ValueError:
-        result = None
-    if not isinstance(result, dict):
-        raise Broken(f"{command} ended with {shown(lines[-1])}, not one JSON object (exit {code}){fix}")
-    outcome = result.get("outcome")
-    if outcome == "failed":
-        said = [str(result[k]) for k in ("failureCode", "message") if isinstance(result.get(k), str)]
-        raise Refused(": ".join(s for s in said if s) or f"exit {code}")
-    if outcome != "ok":
-        what = "has no outcome" if "outcome" not in result else f"has the outcome {shown(outcome)}"
-        raise Broken(f'{command} ended with an object that {what}, not "ok" or "failed" (exit {code}){fix}')
-    if code != 0:
-        raise Broken(f"{command} said ok and exited {code}{fix}")
-    scope = result.get("scope")
-    if not isinstance(scope, str):
-        what = "absent" if "scope" not in result else shown(scope)
-        raise Broken(f"{command} said ok without a scope string (scope is {what}){fix}")
-    return scope
-
-
-def listed_install(key: str, scope: str, repo: Path, env: dict[str, str], note: Note) -> Path:
-    """The installed copy's folder, from `claude plugin list --json` run in the bare repository: a JSON
-    list with exactly one entry whose `id` is `key` and whose `scope` is the one the install wrote, its
-    `installPath` a string naming an existing folder; anything else is a Broken saying what was found."""
-    command = "`claude plugin list --json`"
-    fix = platform_fix(note, SCRIPT, "listed_install", "a reply")
-    code, out, err = run(["claude", "plugin", "list", "--json"], repo, env)
-    if code != 0:  # no reply was written: no reader to update, whatever the exit; 124 is `run`'s timeout
-        said = command_fix(note, "claude plugin list --json", LIST_WHERE, timed_out=code == 124)
-        raise Broken(f"{command} exited {code} ({last_line(out, err)}){said}")
-    try:
-        entries = json.loads(out)
-    except ValueError as bad:
-        raise Broken(f"{command} printed no JSON ({shown(out)}: {bad}){fix}") from bad
-    if not isinstance(entries, list):
-        raise Broken(f"{command} printed a JSON {type(entries).__name__}, not a list{fix}")
-    own = [e for e in entries if isinstance(e, dict) and e.get("id") == key and e.get("scope") == scope]
-    if len(own) != 1:
-        found = ", ".join(
-            f"{e.get('id')!r} at {e.get('scope')!r}" if isinstance(e, dict) else shown(e) for e in entries[:5]
-        )
-        listed = f"entries: {found}{', …' if len(entries) > 5 else ''}" if entries else "no entries"
-        what = f"lists {len(own)} entries" if own else "lists no entry"
-        raise Broken(
-            f"{command} {what} whose id is {key} at the scope {scope} the install wrote ({listed}){fix}"
-        )
-    path = own[0].get("installPath")
-    if not isinstance(path, str):
-        raise Broken(
-            f"{command} gives no installPath string for {key} at scope {scope} (installPath is"
-            f" {shown(path) if 'installPath' in own[0] else 'absent'}){fix}"
-        )
-    if not folder_at(Path(path)):
-        raise Broken(f"{command} names an installPath that is no folder ({path}){fix}")
-    return Path(path)
 
 
 def installed_commit(config: Path, key: str, plugin: Path, note: Note) -> str:
@@ -1095,40 +842,6 @@ def source_at(commit: str, module: str, root: Path) -> Path:
     return target / "modules" / module
 
 
-def install(
-    module: str,
-    root: Path,
-    repo: Path,
-    source: str,
-    marketplace: str,
-    note: Note,
-    timeout: float = INSTALL_TIMEOUT,
-) -> Path:
-    """Add the marketplace and install the module at the default scope, in the bare repository and an
-    empty configuration folder `root/config`, every `claude` command in the person's environment less the
-    four variables of `claude_env` that steer where Claude Code finds, keeps or loads plugins, so that the
-    platform's plugins root is that folder's `plugins`; the installed copy's folder, as `listed_install`
-    finds it."""
-    if source.startswith("#"):
-        raise Broken(
-            f"the source {source} names a branch of no repository — the pull request's head repository is"
-            " gone — fix: open the change again from a branch of a repository that exists"
-        )
-    config = root / "config"
-    config.mkdir()
-    env = claude_env(os.environ) | {"CLAUDE_CONFIG_DIR": str(config)}
-    code, out, err = run(["claude", "plugin", "marketplace", "add", source], repo, env)
-    if code != 0:
-        last = last_line(out, err)
-        raise Broken(
-            f"`claude plugin marketplace add {source}` exited {code} ({last}) — fix: check the kit's"
-            " marketplace.json, and that git can reach the source"
-        )
-    key = f"{module}@{marketplace}"
-    code, out, _ = run(["claude", "plugin", "install", key, "--json"], repo, env, timeout=timeout)
-    return listed_install(key, install_scope(key, code, out, timeout, note), repo, env, note)
-
-
 def counted(source: Path) -> str:
     links = sum(1 for p in entries_under(source) if link_at(p))
     return f"{len(hooks_of(source))} hook(s), {len(declared_scans(source))} scan(s), {links} link(s)"
@@ -1191,6 +904,15 @@ def version_case(tally: Tally, name: str, ok: bool, got: str) -> None:
 
 
 # The fixtures of the link, hook and scan cases: a throwaway source and the copy an install made of it.
+@contextlib.contextmanager
+def patched_globals(values: dict[str, object]) -> Iterator[None]:
+    """Patch names of this check for a case, and the same names in `kit_install`, whose install steps this
+    check shares and which reads its own `run` and `KIT`."""
+    shared = {name: value for name, value in values.items() if name in vars(kit_install)}
+    with mock.patch.dict(globals(), values), mock.patch.dict(vars(kit_install), shared):
+        yield
+
+
 FIXTURE_MODULE_TEXT = (
     '<a id="t9"></a>\n| E1 | `check-x --scan`: all | `gate` |\n| E2 | `check-p.py --scan` | `gate` |\n'
     '<a id="t10"></a>\n'
@@ -1756,7 +1478,7 @@ def hook_spied_wait_case(tally: Tally, hooked: Path) -> None:
         {"PreToolUse": [BARE_HOOK | {"timeout": 5}], "UserPromptSubmit": [BARE_HOOK]}
         | {"Stop": [BARE_HOOK | {"timeout": 90}], "SessionEnd": [BARE_HOOK]},
     )
-    with mock.patch.dict(globals(), {"run": run_spy}):
+    with patched_globals({"run": run_spy}):
         found = check_installed("const-x", hooked, hooked, hooked / "repo", hooked / "data")
     version_case(
         tally,
@@ -2490,7 +2212,7 @@ def lookup_cases(tally: Tally) -> None:
         )
         toy_missing = miss_root / "kit"
         toy_missing.mkdir()
-        with mock.patch.dict(globals(), {"KIT": toy_missing}):
+        with patched_globals({"KIT": toy_missing}):
             got_miss = result_of(lambda: check_module("m", str(miss_root), Note("2.1.282")))
         version_case(
             tally,
@@ -2500,7 +2222,7 @@ def lookup_cases(tally: Tally) -> None:
             got_miss,
         )
         with (
-            mock.patch.dict(globals(), {"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}),
+            patched_globals({"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}),
             contextlib.redirect_stdout(io.StringIO()) as printed_miss,
         ):
             status_miss = main(["--module", "m", "--from", str(miss_root / "nothing")])
@@ -2668,7 +2390,7 @@ def shut_folder_cases(tally: Tally) -> None:
                 got_shut == cannot_search(document / "MODULE.md", closed),
                 got_shut,
             )
-            with mock.patch.dict(globals(), {"KIT": closed / "kit"}):
+            with patched_globals({"KIT": closed / "kit"}):
                 got_shut = result_of(lambda: check_module("m", "owner/repo", Note("2.1.282")))
             version_case(
                 tally,
@@ -2677,7 +2399,7 @@ def shut_folder_cases(tally: Tally) -> None:
                 == cannot_search(closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json", closed),
                 got_shut,
             )
-            with mock.patch.dict(globals(), {"run": lambda *args, **kwargs: (0, listing_json, "")}):
+            with patched_globals({"run": lambda *args, **kwargs: (0, listing_json, "")}):
                 got_shut = result_of(lambda: listed_install("m@mp", "user", shut_root, {}, Note("2.1.282")))
             version_case(
                 tally,
@@ -2686,7 +2408,7 @@ def shut_folder_cases(tally: Tally) -> None:
                 got_shut,
             )
             with (
-                mock.patch.dict(globals(), {"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}),
+                patched_globals({"claude_noted": mock.Mock(side_effect=Broken("stopped here"))}),
                 contextlib.redirect_stdout(io.StringIO()) as printed_shut,
             ):
                 status_shut = main(["--module", "m", "--from", str(closed / "src")])
@@ -2852,7 +2574,7 @@ def bare_repository_cases(tally: Tally) -> None:
         `path`, the real `run` and that PATH."""
         ran.clear()
         with tempfile.TemporaryDirectory() as tmp:
-            with mock.patch.dict(globals(), {"run": failing_at(word, failure)} if path is None else {}):
+            with patched_globals({"run": failing_at(word, failure)} if path is None else {}):
                 with mock.patch.dict(os.environ, {} if path is None else {"PATH": path}):
                     try:
                         bare_repository(Path(tmp))
@@ -2959,7 +2681,8 @@ STRICT = (
     "claude is {0}, and the kit's install checks read the platform as 2.1.282 writes it"
     " (scripts/claude-code.version) — fix: put Claude Code 2.1.282 first on PATH for this run:"
     " either run sh scripts/setup-claude.sh in the kit's clone, then the check through"
-    " sh scripts/gate-list.sh --run install-<module> (--run guide for the guide's check), which puts"
+    " sh scripts/gate-list.sh --run install-<module>"
+    " (--run session-<module> for the session check, --run guide for the guide's check), which puts"
     " it first, or install it beside your own by hand (npm install --prefix <folder>"
     " @anthropic-ai/claude-code@2.1.282, then PATH=<folder>/node_modules/.bin:$PATH), or set"
     " CONSTITUTION_KIT_ANY_CLAUDE=1 to run on"
@@ -3107,7 +2830,7 @@ class ClaudeStub:
         printed_lines = io.StringIO()
         with (
             mock.patch.dict(os.environ, self.claude_env(said, code, optout)),
-            mock.patch.dict(globals(), {"KIT": self.toy_kit}),
+            patched_globals({"KIT": self.toy_kit}),
             contextlib.redirect_stdout(printed_lines),
         ):
             if optout is None:  # patch.dict adds to the environment, so the ambient variable goes by hand
@@ -3331,10 +3054,10 @@ INSTALL_COMMAND = f"`claude plugin install {TOY_KEY} --json`"
 LISTING_COMMAND = "`claude plugin list --json`"
 
 
-def fix_of(reader: str, wrote: str = "a reply") -> str:  # typed by hand: a message function cannot
-    return (  # check itself
+def fix_of(reader: str, wrote: str = "a reply", script: str = "scripts/check-bare-install.py") -> str:
+    return (  # typed by hand: a message function cannot check itself
         f" — fix: Claude Code 2.1.282 wrote {wrote} that the kit's reader, `{reader}` in"
-        " scripts/check-bare-install.py, does not read: update that reader to what 2.1.282 writes"
+        f" {script}, does not read: update that reader to what 2.1.282 writes"
     )
 
 
@@ -3342,11 +3065,13 @@ OFF_FIX = (  # typed by hand: the run is on 2.1.286, not the pinned 2.1.282
     " — fix: this run is on 2.1.286, not the pinned 2.1.282: run it again on the pinned version,"
     " put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh"
     " in the kit's clone, then the check through sh scripts/gate-list.sh --run install-<module>"
-    " (--run guide for the guide's check), which puts it first, or install it beside your own by hand"
+    " (--run session-<module> for the session check,"
+    " --run guide for the guide's check), which puts it first, or install it beside your own by hand"
     " (npm install --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
     " then PATH=<folder>/node_modules/.bin:$PATH)"
 )
-INSTALL_FIX, LIST_FIX = fix_of("install_scope"), fix_of("listed_install")
+INSTALL_FIX = fix_of("install_scope", script="scripts/kit_install.py")
+LIST_FIX = fix_of("listed_install", script="scripts/kit_install.py")
 REFUSED = "RED: Claude Code refuses to install it ({}) | fix its manifest or its entry in marketplace.json"
 NO_OBJECT = "not one JSON object (exit {})"
 BAD_OUTCOME = 'an object that {}, not "ok" or "failed" (exit 0)'
@@ -3500,7 +3225,8 @@ NO_ENTRY = "lists no entry whose id is " + TOY_KEY + " at the scope user the ins
 CASE_LIST_WHERE = "a folder of your own, CLAUDE_CONFIG_DIR set to an empty folder"
 PUT_FIRST = (
     "put Claude Code 2.1.282 first on PATH for this run: either run sh scripts/setup-claude.sh in the"
-    " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module> (--run guide"
+    " kit's clone, then the check through sh scripts/gate-list.sh --run install-<module>"
+    " (--run session-<module> for the session check, --run guide"
     " for the guide's check), which puts it first, or install it beside your own by hand (npm install"
     " --prefix <folder> @anthropic-ai/claude-code@2.1.282,"
     " then PATH=<folder>/node_modules/.bin:$PATH)"
@@ -3626,7 +3352,7 @@ class StepTwo:
         patched = {"KIT": self.toy, "source_at": source_spy, "check_installed": installed_spy}
         with (
             mock.patch.dict(os.environ, self.environment(scene) | (extra or {})),
-            mock.patch.dict(globals(), patched),
+            patched_globals(patched),
         ):
             try:
                 found, _ = check_module("const-x", self.where(scene), PIN_NOTE)
@@ -3661,7 +3387,7 @@ class StepTwo:
         printed_lines = io.StringIO()
         with (
             mock.patch.dict(os.environ, self.environment(scene, says)),
-            mock.patch.dict(globals(), {"KIT": self.toy if kit is None else kit}),
+            patched_globals({"KIT": self.toy if kit is None else kit}),
             contextlib.redirect_stdout(printed_lines),
         ):
             os.environ.pop("CONSTITUTION_KIT_ANY_CLAUDE", None)
@@ -3731,7 +3457,7 @@ def install_reply_cases(tally: Tally, step: StepTwo) -> None:
 
     with (
         mock.patch.dict(os.environ, environment(new_scene()) | {"FAKE_HANG_INSTALL": "1"}),
-        mock.patch.dict(globals(), {"run": run_cut}),
+        patched_globals({"run": run_cut}),
     ):
         try:
             install("const-x", work, repo, "owner/repo", "toy-mp", PIN_NOTE, timeout=0.3)
@@ -4072,7 +3798,7 @@ def record_form_cases(tally: Tally, step: StepTwo) -> None:
         run(argv, git_kit, os.environ | {"GIT_CONFIG_GLOBAL": os.devnull})
     with (
         mock.patch.dict(os.environ, environment(new_scene(record=recorded(commit(gitCommitSha=option))))),
-        mock.patch.dict(globals(), {"KIT": git_kit}),
+        patched_globals({"KIT": git_kit}),
     ):
         try:
             check_module("const-x", "owner/repo", PIN_NOTE)
@@ -4279,7 +4005,7 @@ def person_variable_run_case(tally: Tally, step: StepTwo, person_values: dict[st
     printed_kit = io.StringIO()
     with (
         mock.patch.dict(os.environ, env_kit),
-        mock.patch.dict(globals(), {"KIT": toy}),
+        patched_globals({"KIT": toy}),
         contextlib.redirect_stdout(printed_kit),
     ):
         status_kit = main(["--module", "const-x"])

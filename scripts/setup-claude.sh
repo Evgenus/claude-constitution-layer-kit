@@ -1,6 +1,6 @@
 #!/bin/sh
 # Kit routine, never shipped in a module: the Claude Code that scripts/claude-code.version pins, installed
-# for local runs of the gate list. The install entries and the guide fail to run on any other version, and
+# for local runs of the gate list. The install and session entries and the guide fail to run on any other version, and
 # a person's own claude is rarely the pin; this puts the pin beside it, where scripts/gate-list.sh --run
 # finds it and puts it first on PATH for those entries alone.
 #   sh scripts/setup-claude.sh           install the pinned version into <main>/.claude-code-pinned, then --check
@@ -60,14 +60,14 @@ check() {
     found=$(printf '%s\n' "$said" | awk 'NF { print $1; exit }')
     [ "$code" -eq 0 ] && [ -n "$found" ] || red "its claude exited $code without a version (${found:-no output})"
     [ "$found" = "$pin" ] || red "its claude answers $found, not $pin"
-    echo "GREEN: $folder holds Claude Code $pin, which scripts/gate-list.sh --run puts first on PATH for the install entries and the guide"
+    echo "GREEN: $folder holds Claude Code $pin, which scripts/gate-list.sh --run puts first on PATH for the install and session entries and the guide"
     exit 0
 }
 
 red() {
     cat >&2 <<MSG
 RED: the pinned Claude Code $pin is not set up — $1
-  why: the install entries and the guide fail to run on any other version, and the gate list finds the pinned one only in $folder
+  why: the install and session entries and the guide fail to run on any other version, and the gate list finds the pinned one only in $folder
   fix: sh scripts/setup-claude.sh
 MSG
     exit 2

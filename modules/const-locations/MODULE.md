@@ -69,6 +69,7 @@ None: an advisory module claims no invariant. In its place, the rules, each `adv
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_locations.py`, `conftest.py`, the shared test files linked from `shared/tests/`, `const_gate` from `shared/const_gate`, `locations_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
 | hook | none | nothing here blocks, and a handler that only teaches is advisory content on a gate's channel; the comparison's live runs also show the model creating files through the shell, where no handler fires. |
+| eval case | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `new-document`, `new-kind`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
 | command | none | a command file is the legacy form of a skill and cannot carry the named arguments or the pre-approval. |
 | agent | none | creating a document is one step of the dialog that asked for it, not a delegation. |
 
@@ -170,7 +171,7 @@ Namespace `const-locations`. No `severity`: this module blocks nothing, and the 
 <a id="t10"></a>
 ## 10. Acceptance
 
-Numbered items in `test_locations.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the `Subject` widened for a module that is only a generator (ruling R3 of [dec-0035-locations-module-rulings](../../docs/decisions/dec-0035-locations-module-rulings.md#r3)). Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `review`.
+Numbered items in `test_locations.py`: the module's own from 1, the shared items of [kit-shared-gate-code §5](../../shared/GATE.md#g5) from 101 through the `Subject` widened for a module that is only a generator (ruling R3 of [dec-0035-locations-module-rulings](../../docs/decisions/dec-0035-locations-module-rulings.md#r3)). Verification kinds: `fixture` (the shared three-policy consumer in a temp repository), `live`, `eval`, `review`.
 
 | item | kind | rows | what it proves |
 |---|---|---|---|
@@ -198,6 +199,8 @@ Numbered items in `test_locations.py`: the module's own from 1, the shared items
 | V2 | live | [A2.4](../../docs/requirements.md#a2-4) | done 2026-09-22, Claude Code 2.1.251: the plugin loaded with `--plugin-dir`, beside `const-catalogs`, in a headless session on a detached worktree of this repository, asked for a policy: the model invoked `new-document` first, took the number from the catalog procedure's scan, ran the command as a dry run and then for real, and the policy landed where policies live with a valid envelope and its number, every gate green on the result. It filled the body by rewriting the whole file through a shell heredoc, the envelope repeated unchanged — the limit 1 path, here harmless, recorded |
 | V3 | live, deferred | [A2.4](../../docs/requirements.md#a2-4) | the consumer-live proof, a named step of the consumer's bootstrap ([step 5 of the rollout plan](../../docs/rollout-plan.md#s5)): this runner against the project, a document of each of its kinds created through the command, and the install shown to carry the linked `const_gate` (platform fact 6, shared limit 3); a finding there is a fix, with a version bump once the module is published |
 | V4 | review | [A2.4](../../docs/requirements.md#a2-4), [A2.5](../../docs/requirements.md#a2-5) | the boundary examples of [§8](#t8), the skills and the error texts of [§6](#t6), at the one yes |
+| V5 | eval | none | case `evals/new-document/`: a new note loads the new-document skill and is created through the plugin's command; three runs on the pinned model, its result read from the kit's receipt |
+| V6 | eval | none | case `evals/new-kind/`: a document of a kind no policy covers loads the new-kind skill first; three runs on the pinned model, its result read from the kit's receipt |
 
 **Examined count.** L4 in every completed run: one document created, or zero in a dry run, said as such.
 

@@ -1,0 +1,34 @@
+schema_version: "1.1"
+name: style-defaults
+description: writing a table in a document loads the style skill before the edit
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Add to docs/notes/tables.md a short Markdown table of our three tables and what each holds: stock_items, suppliers, orders.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-style-defaults
+    tool: Skill
+    input_match: style-defaults
+  - type: regex
+    name: style-defaults-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*style-defaults"'
+    flags: "s"
+    match: contains
+  - type: regex
+    name: the-table-is-written
+    target: { source: file, path: docs/notes/tables.md }
+    pattern: '\|\s*`?stock_items`?\s*\|'
+    flags: "m"
+    match: contains

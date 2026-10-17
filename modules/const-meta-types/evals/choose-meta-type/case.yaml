@@ -1,0 +1,31 @@
+schema_version: "1.1"
+name: choose-meta-type
+description: a new governed document loads the meta-type skill before it is written
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Write down where we want the inventory tool to go next quarter, a plan and not how things work today. The plans: keep the stock in SQLite, warn when an item runs low, and add a report per supplier. Put it where this project keeps such a document; if no kind of document fits, you have my yes to start one.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-choose-meta-type
+    tool: Skill
+    input_match: choose-meta-type
+  - type: regex
+    name: choose-meta-type-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*choose-meta-type"'
+    flags: "s"
+    match: contains
+  - type: file_exists
+    name: the-plan-is-written
+    path: "**/*.md"

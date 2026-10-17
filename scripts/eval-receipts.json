@@ -1,0 +1,145 @@
+{
+  "const-catalogs": {
+    "attempts": [
+      {
+        "at": "2026-10-17T20:42:12Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:4f98e74803cf1fe3f1458828d4daf11792bb2c6bda30d49a9a38098f01a18747",
+    "model": "claude-opus-5-5"
+  },
+  "const-decision-records": {
+    "attempts": [
+      {
+        "at": "2026-10-17T20:45:08Z",
+        "cases": 2,
+        "passed": 2,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:fc2043fd2d0e1a62689abf41852de1885035cedbfebbad2b1e78ac052313a84f",
+    "model": "claude-opus-5-5"
+  },
+  "const-doc-budgets": {
+    "attempts": [
+      {
+        "at": "2026-10-17T20:46:23Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:8c591003243e001fad7aff50f97eab2180e3522c8f6ba1816f7b21ec8ad575d7",
+    "model": "claude-opus-5-5"
+  },
+  "const-interaction": {
+    "attempts": [
+      {
+        "at": "2026-10-17T20:46:35Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:bc01e028fb210676c1276995365e6d0a50e0392b38f610b52b32fa91faa166c0",
+    "model": "claude-opus-5-5"
+  },
+  "const-language": {
+    "attempts": [
+      {
+        "at": "2026-10-17T20:47:21Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:2ed3688a611bf0e9cfd99cbd6edddf47fb87d5020c41c382d1d727db70db91ed",
+    "model": "claude-opus-5-5"
+  },
+  "const-locations": {
+    "attempts": [
+      {
+        "at": "2026-10-17T20:51:05Z",
+        "cases": 2,
+        "passed": 2,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:bbbf9736f9d79d52261006b651959b275615e86e291ab3b7bc49418c0876d2d5",
+    "model": "claude-opus-5-5"
+  },
+  "const-meta-types": {
+    "attempts": [
+      {
+        "at": "2026-10-17T20:52:42Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:2d6ae2cd8895f9815b1c4b0b2da6c55dc38348ef2626769ae61137c00505dd6b",
+    "model": "claude-opus-5-5"
+  },
+  "const-questions": {
+    "attempts": [
+      {
+        "at": "2026-10-17T21:35:51Z",
+        "cases": 2,
+        "passed": 2,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:dcb488469e3fa12282b8163c425d7f20dd137ddf7327c3cd6891ef30eaaa0601",
+    "model": "claude-opus-5-5"
+  },
+  "const-referencing": {
+    "attempts": [
+      {
+        "at": "2026-10-17T20:54:57Z",
+        "cases": 2,
+        "passed": 2,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:c1ff4b5cd4a0ed326ed992af46711da0e7b9abfdbe873110a9ae8620385d7b45",
+    "model": "claude-opus-5-5"
+  },
+  "const-styling": {
+    "attempts": [
+      {
+        "at": "2026-10-17T20:56:12Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:a337c16631541d29f81c918a948729efd93650821561594c436fed215167b3b2",
+    "model": "claude-opus-5-5"
+  },
+  "const-task-close": {
+    "attempts": [
+      {
+        "at": "2026-10-17T22:19:20Z",
+        "cases": 2,
+        "passed": 2,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:93b61300e596f4a9f71c4d490d7458dc0d82eebebedc964a6424688fb2c0850e",
+    "model": "claude-opus-5-5"
+  }
+}

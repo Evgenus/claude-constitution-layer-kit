@@ -1,0 +1,31 @@
+schema_version: "1.1"
+name: record-decision
+description: a ruling made in the dialog loads the record skill before it is written down
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    We just agreed in this chat that every pull request needs one reviewer's approval before it is merged. I am the project lead and I decided it; its stakes are process. Write that ruling down now; do not ask me anything.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-record-decision
+    tool: Skill
+    input_match: record-decision
+  - type: regex
+    name: record-decision-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*record-decision"'
+    flags: "s"
+    match: contains
+  - type: file_exists
+    name: the-record-is-made
+    path: "docs/decisions/*.md"

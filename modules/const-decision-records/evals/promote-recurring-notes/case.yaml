@@ -1,0 +1,35 @@
+schema_version: "1.1"
+name: promote-recurring-notes
+description: a question about recurring commit notes loads the promotion skill before the history is read
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Which small questions have we answered again and again in our commit messages? Should any of them become a rule?
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-promote-recurring-notes
+    tool: Skill
+    input_match: promote-recurring-notes
+  - type: regex
+    name: promote-recurring-notes-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*promote-recurring-notes"'
+    flags: "s"
+    match: contains
+  - type: tool_order
+    name: promote-recurring-notes-before-bash
+    before:
+      tool: Skill
+      input_match: promote-recurring-notes
+    after:
+      tool: Bash

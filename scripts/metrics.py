@@ -21,7 +21,7 @@ these keys, the JSON keys as written:
   deferred          the items, numbered or bulleted and unindented, of t12, plus the acceptance items
                     whose kind holds the word `deferred`;
   proof_kinds       the acceptance items of the first table of t10, per kind: fixture, kit check, live,
-                    review, deferred (a kind that holds the word), other; a cell of handles counts each
+                    review, eval, deferred (a kind that holds the word), other; a cell of handles counts each
                     handle, and a range `T1–T5` counts five;
   skills,           the files skills/*/SKILL.md, and their characters;
   skill_chars
@@ -110,7 +110,7 @@ CHURN_DAYS = 90
 CC_LIMIT = 10  # cc_over_10 counts the functions above it
 HOOK_TIMEOUT = 60  # seconds, for a SessionStart handler that names no timeout
 EVENT = {"hook_event_name": "SessionStart", "source": "startup", "session_id": "metrics", "cwd": str(KIT)}
-KINDS = ("fixture", "kit check", "live", "review", "deferred", "other")
+KINDS = ("fixture", "kit check", "live", "review", "eval", "deferred", "other")
 SEPARATOR = re.compile(r"\|(?:\s*:?-+:?\s*\|)+")
 ENTRY = re.compile(r"\**E\d+\**")  # an enforcement row's first cell, `E<n>` or `**E<n>**`
 NUMBERED = re.compile(r"\d+\. ")
@@ -221,7 +221,7 @@ def kind(cell: str) -> str:
     text = plain(cell)
     if re.search(r"\bdeferred\b", text):
         return "deferred"
-    for name in KINDS[:4]:
+    for name in KINDS[:5]:
         if re.match(rf"{re.escape(name)}\b", text):
             return name
     return "other"

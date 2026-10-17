@@ -54,7 +54,8 @@ POINTER_SCAN = (
 )
 # the pointer line of the session start, typed by hand; its size in characters is stated in MODULE.md
 SKILL_POINTER = (
-    "const-task-close (advisory): before a batch of edits, and when a change is done, load the skill"
+    "const-task-close (advisory): before the first edit of any change, such as a rename, a refactor or"
+    " an edit of more than one file, and when a change is done, load the skill"
     " const-task-close:commit-before-edit; when a task, a branch or a pull request is finished,"
     " merged or handed off, load the skill const-task-close:close-task."
 )

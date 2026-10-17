@@ -25,7 +25,7 @@ RED: api: the change touches 1 path(s) this pair describes (src/a.py) and none o
   fix: update docs/notes/api.md in this change, or declare no impact: add the trailer "No-Doc-Impact: api — <why the documents are unaffected>" to a commit of the range, in its last paragraph, where every line is Key: value — or the same line on its own in the pull request's description, given to the scan with --body <file>
 ```
 
-Two skills load on their own. `close-task` loads when a task, a branch or a pull request is being finished. It merges the deltas into the documents the map names and runs the range check. It deletes the task's working files, sets the task's record inactive, and commits the close as one change. `commit-before-edit` loads when a batch of edits is about to start or a turn is ending. Commit first, commit after each coherent change, never end a turn dirty: git is the rollback layer, and the chat's rewind is not.
+Two skills load on their own. `close-task` loads when a task, a branch or a pull request is being finished. It merges the deltas into the documents the map names and runs the range check. It deletes the task's working files, sets the task's record inactive, and commits the close as one change. `commit-before-edit` loads before the first edit of any change, and when a change is done. Commit first, commit after each coherent change, never end a turn dirty: git is the rollback layer, and the chat's rewind is not.
 
 <a id="a4"></a>
 ## How it works

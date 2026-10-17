@@ -27,7 +27,7 @@ The entry `task-close` runs the range check with a bare `--scan`: on a work bran
 branch, on the trunk the last landed change; when the message names a landed merge, run
 `sh modules/const-task-close/scripts/check-task-close.sh --scan --change <merge>` instead.
 `language` needs `vale` 3.23.0 or newer on PATH, `references` `lychee` 0.24.2 or newer, and the
-install entries and `guide` the `claude` that `scripts/claude-code.version` pins. When `sh scripts/setup-claude.sh`
+install and session entries and `guide` the `claude` that `scripts/claude-code.version` pins. When `sh scripts/setup-claude.sh`
 has run in the clone, the list puts the clone's `.claude-code-pinned/` copy first on PATH for those entries alone; when it
 has not, they run on the `claude` already on PATH, and a version other than the pin gives the `BROKEN` line whose fix names that
 script. You never run it: it installs, and you change nothing; report the line verbatim. A `BROKEN` line naming

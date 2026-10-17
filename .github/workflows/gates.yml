@@ -1,6 +1,6 @@
 # Kit tooling, never shipped in a module: the kit's checks on every pull request and on main.
-# One CI job per job scripts/gate-list.sh names — each module with its scan, install, fixtures, lint and
-# types, `install-guide` for the run of INSTALL.md, and `kit` for the rest — in parallel; the jobs and their entries are read from the script, never
+# One CI job per job scripts/gate-list.sh names — each module with its scan, install, session-load check,
+# fixtures, lint and types, `install-guide` for the run of INSTALL.md, and `kit` for the rest — in parallel; the jobs and their entries are read from the script, never
 # written here. Every job runs on every run, none skipped for the paths a change touched: the scans
 # read the whole tree or the change's whole range, and the shared gate code sits in every module.
 # The job "gates" waits for all of them and is the one check the ruleset requires, so a new module or
@@ -54,6 +54,7 @@ jobs:
       - name: Python tools
         run: python3 -m pip install --quiet "PyYAML==6.0.2" "ruff==0.16.8" "mypy==1.8.0" "jsonschema==4.26.0" "referencing==0.37.0" "types-PyYAML==6.0.12.20260815" "types-jsonschema==4.26.0.20260518" "coverage==7.16.2" "pytest==9.1.1" "pytest-xdist==3.8.0"
       - name: Vale and lychee
+        # the versions scripts/eval-container/Dockerfile installs too; a change of either file follows in the other
         run: |
           mkdir -p "$HOME/.local/bin"
           curl -fsSL https://github.com/errata-ai/vale/releases/download/v3.23.0/vale_3.23.0_Linux_64-bit.tar.gz \
@@ -67,9 +68,10 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "22"
-      - name: Claude Code, for the bare-repo install and the install guide
+      - name: Claude Code, for the bare-repo install, the session-load check and the install guide
         if: startsWith(matrix.job, 'const-') || matrix.job == 'install-guide'
-        # the version is scripts/claude-code.version, which both install checks ask `claude --version` against
+        # the version is scripts/claude-code.version, which the install checks and the session-load check ask
+        # `claude --version` against
         run: npm install --global --silent "@anthropic-ai/claude-code@$(cat scripts/claude-code.version)"
       - name: Git credentials, so Claude Code can clone the private repository
         if: startsWith(matrix.job, 'const-') || matrix.job == 'install-guide'
@@ -86,7 +88,7 @@ jobs:
           # git's credential helper, set by `gh auth setup-git`, reads the token when Claude Code clones
           GH_TOKEN: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && github.token || '' }}
           CLAUDE_CODE_PLUGIN_PREFER_HTTPS: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && '1' || '' }}
-          # a module's install, and the install guide's marketplace, install from the GitHub repository and branch
+          # a module's install and its session-load check, and the install guide's marketplace, install from the GitHub repository and branch
           # of the change — the pull request's head, or main on a push — the copy a consumer's install writes; a
           # fork the token cannot read fails
           CONSTITUTION_KIT_INSTALL_FROM: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && (github.event_name == 'pull_request' && format('{0}#{1}', github.event.pull_request.head.repo.full_name, github.head_ref) || format('{0}#{1}', github.repository, github.ref_name)) || '' }}

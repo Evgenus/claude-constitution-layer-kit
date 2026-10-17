@@ -1,0 +1,46 @@
+schema_version: "1.1"
+name: new-document
+description: a new note loads the new-document skill and is created through the plugin's command
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Add a note about how we back up the stock database every night. The facts: at 02:00 a cron job runs scripts/backup.sh, which copies data/stock.db into backups/ under a name with the date, and keeps the last 14 copies.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-new-document
+    tool: Skill
+    input_match: new-document
+  - type: regex
+    name: new-document-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*new-document"'
+    flags: "s"
+    match: contains
+  - type: tool_used
+    name: runs-the-create-command
+    tool: Bash
+    input_match: new-document
+  - type: regex
+    name: the-command-created-it
+    target: trace
+    pattern: 'CREATED: docs/notes/'
+    flags: "m"
+    match: contains
+  - type: tool_order
+    name: new-document-before-bash
+    before:
+      tool: Skill
+      input_match: new-document
+    after:
+      tool: Bash
+      input_match: new-document

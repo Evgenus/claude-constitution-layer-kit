@@ -1,11 +1,12 @@
 ---
 name: commit-before-edit
 description: >
-  Load this skill first, before a batch of edits and when a change is done — every time, whether
-  or not the tree seems clean. Commit before you edit: commit a dirty tree before a batch of
-  edits, commit again after each coherent change, never end a turn with uncommitted work. Use when
-  a turn is ending, when the turn-end hook reports a dirty tree, or when rolling back to an
-  earlier state. Advisory: the hook only reports the tree.
+  Load this skill first, before the first edit of any change, such as a rename, a refactor or an
+  edit of more than one file, and when a change is done — every time, whether or not the tree
+  seems clean. Commit before you edit: commit a dirty tree before the first edit of any change,
+  commit again after each coherent change, never end a turn with uncommitted work. Use when a turn
+  is ending, when the turn-end hook reports a dirty tree, or when rolling back to an earlier state.
+  Advisory: the hook only reports the tree.
 ---
 
 # Commit before you edit
@@ -24,8 +25,9 @@ lets it end. Whether a commit is coherent, and what its message says: yours.
 
 ## The three moments
 
-1. **Before a batch of edits.** If the tree is dirty, commit it first — whatever it holds is
-   someone's work, and the batch must be revertible on its own:
+1. **Before the first edit of any change,** such as a rename, a refactor or an edit of more
+   than one file. If the tree is dirty, commit it first — whatever it holds is someone's work, and the
+   change must be revertible on its own:
    ```bash
    git add -A && git commit -m '<what is here and why>'
    ```

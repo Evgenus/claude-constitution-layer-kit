@@ -1,0 +1,26 @@
+schema_version: "1.1"
+name: ask-or-decide
+description: a choice put to the user loads the question skill before the reply
+execution:
+  prompt: >-
+    We need a database for a small internal inventory tool: SQLite or PostgreSQL. Lay out the options for me to decide; do not decide yourself.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-ask-or-decide
+    tool: Skill
+    input_match: ask-or-decide
+  - type: regex
+    name: ask-or-decide-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*ask-or-decide"'
+    flags: "s"
+    match: contains

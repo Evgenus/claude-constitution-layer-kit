@@ -1,0 +1,31 @@
+schema_version: "1.1"
+name: plain-language
+description: writing prose in a covered document loads the plain-language skill first
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Write docs/notes/backup.md: two short paragraphs telling a new team member how the nightly backup of the stock database works. The facts: every night at 02:00 a cron job runs scripts/backup.sh, which copies data/stock.db into backups/ under a name with the date, and keeps the last 14 copies.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-plain-language
+    tool: Skill
+    input_match: plain-language
+  - type: regex
+    name: plain-language-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill","input":\{"skill":"[^"]*plain-language"'
+    flags: "s"
+    match: contains
+  - type: file_exists
+    name: the-note-is-written
+    path: "docs/notes/backup.md"
