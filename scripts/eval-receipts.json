@@ -1,4 +1,17 @@
 {
+  "const-catalogs": {
+    "attempts": [
+      {
+        "at": "2026-10-17T00:48:39Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:c2f2182f95bd5919cbd1f96dafb365073ca911f6bb3f71ac894d4a5aa0489bb4",
+    "model": "claude-opus-5-5"
+  },
   "const-styling": {
     "attempts": [
       {
