@@ -12,17 +12,82 @@
     "hash": "sha256:c2f2182f95bd5919cbd1f96dafb365073ca911f6bb3f71ac894d4a5aa0489bb4",
     "model": "claude-opus-5-5"
   },
-  "const-styling": {
+  "const-doc-budgets": {
     "attempts": [
       {
-        "at": "2026-10-17T00:43:40Z",
+        "at": "2026-10-17T00:52:28Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:ac0a47aadcbbf139e0c5e6e82cd369965dc6953ccdab7a73b2ffc7a808afc222",
+    "hash": "sha256:86c79cc056bd6104ab198ff863fffbbc29447e6bc621bc8a5d20b2b7eaaee5a1",
+    "model": "claude-opus-5-5"
+  },
+  "const-interaction": {
+    "attempts": [
+      {
+        "at": "2026-10-17T00:52:41Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:f94f990dda280b0067ae23595fe6cca4065ef742bdc265df730b905959279472",
+    "model": "claude-opus-5-5"
+  },
+  "const-language": {
+    "attempts": [
+      {
+        "at": "2026-10-17T00:53:33Z",
+        "cases": 1,
+        "passed": 0,
+        "score": 0.5
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:6586cc65ce2195c8afaf4a0b0d807ba1aa68fece81838f00ab6943eb7bbe1c8d",
+    "model": "claude-opus-5-5"
+  },
+  "const-meta-types": {
+    "attempts": [
+      {
+        "at": "2026-10-17T00:55:05Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:771750bbc5d5d7d03aebe13666a66c219296c9fc9af526ebfb2aa591aa39be33",
+    "model": "claude-opus-5-5"
+  },
+  "const-questions": {
+    "attempts": [
+      {
+        "at": "2026-10-17T00:56:38Z",
+        "cases": 2,
+        "passed": 2,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:2a2e834d9c6ae9e82631261356f251e729d24126ba8c5ef8eab17f8d1a95f14e",
+    "model": "claude-opus-5-5"
+  },
+  "const-styling": {
+    "attempts": [
+      {
+        "at": "2026-10-17T00:57:50Z",
+        "cases": 1,
+        "passed": 1,
+        "score": 1.0
+      }
+    ],
+    "claude": "2.1.282",
+    "hash": "sha256:2f3b9f2b13134c245d7d84da5c852afc0bb2060bfe0a9dda8176f5c81a8aea1d",
     "model": "claude-opus-5-5"
   }
 }
