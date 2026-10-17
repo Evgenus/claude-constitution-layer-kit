@@ -22,7 +22,11 @@ With no `--module`, every module folder. For each module, in turn:
      partial result counts as a failed attempt.
 The `claude` used is the one scripts/claude-code.version pins: the clone's `.claude-code-pinned/` from
 `sh scripts/setup-claude.sh`, put first on PATH when it is there; on any other version the script refuses.
-The environment of each run drops the four variables of `kit_module_doc.claude_env`.
+The environment of each run drops the four variables of `kit_module_doc.claude_env`, and those that would
+bill the runs by usage rather than to the person's subscription: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN and
+the three that select a cloud provider, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX and
+CLAUDE_CODE_USE_FOUNDRY. Claude Code prefers each of them over a subscription login, so a key set in the
+shell would otherwise bill the runs without a word. A subscription token from `claude setup-token`, CLAUDE_CODE_OAUTH_TOKEN, stays.
 
 Prints one line per case and one per module, and where the results are kept.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
@@ -59,7 +63,14 @@ from kit_module_doc import DocumentError, claude_env, claude_note, module_folder
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 RUNS = 3
-GATED = ("Bash", "Write", "Edit")  # the tools `claude plugin eval` grants only through --allow-tools
+GATED = ("Bash", "Write", "Edit")
+USAGE_BILLED = (  # the variables Claude Code prefers over a subscription login, each billing by usage
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "CLAUDE_CODE_USE_FOUNDRY",
+)  # the tools `claude plugin eval` grants only through --allow-tools
 TURN_SECONDS = 300  # a case's default `timeout_seconds`, the bound of one run
 
 
@@ -218,7 +229,8 @@ def main(argv: list[str]) -> int:
     except SystemExit:
         print("BROKEN: misinvocation — fix: python3 scripts/run-evals.py [--module <module>]...")
         return EXIT_BROKEN
-    env = pinned_path(claude_env(dict(os.environ)))
+    kept = {k: v for k, v in claude_env(dict(os.environ)).items() if k not in USAGE_BILLED}
+    env = pinned_path(kept)
     try:
         known = [m.name for m in module_folders(KIT)]
         note = claude_note(KIT, env)
