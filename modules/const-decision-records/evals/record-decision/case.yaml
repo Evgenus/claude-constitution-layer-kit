@@ -20,10 +20,11 @@ graders:
     name: loads-record-decision
     tool: Skill
     input_match: record-decision
-  - type: tool_order
-    name: record-decision-before-write
-    before:
-      tool: Skill
-      input_match: record-decision
-    after:
-      tool: Write
+  - type: regex
+    name: record-decision-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    flags: "s"
+  - type: file_exists
+    name: the-record-is-made
+    path: "docs/decisions/*.md"

@@ -20,10 +20,13 @@ graders:
     name: loads-commit-before-edit
     tool: Skill
     input_match: commit-before-edit
-  - type: tool_order
-    name: commit-before-edit-before-edit
-    before:
-      tool: Skill
-      input_match: commit-before-edit
-    after:
-      tool: Edit
+  - type: regex
+    name: commit-before-edit-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    flags: "s"
+  - type: regex
+    name: the-rename-is-made
+    target: { source: file, path: src/inventory.py }
+    pattern: 'def total_items'
+    flags: "m"

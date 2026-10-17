@@ -20,10 +20,11 @@ graders:
     name: loads-catalog-item
     tool: Skill
     input_match: catalog-item
-  - type: tool_order
-    name: catalog-item-before-write
-    before:
-      tool: Skill
-      input_match: catalog-item
-    after:
-      tool: Write
+  - type: regex
+    name: catalog-item-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    flags: "s"
+  - type: file_exists
+    name: the-record-is-made
+    path: "docs/decisions/adr-0002-*.md"

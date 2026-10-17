@@ -20,10 +20,11 @@ graders:
     name: loads-plain-language
     tool: Skill
     input_match: plain-language
-  - type: tool_order
-    name: plain-language-before-write
-    before:
-      tool: Skill
-      input_match: plain-language
-    after:
-      tool: Write
+  - type: regex
+    name: plain-language-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    flags: "s"
+  - type: file_exists
+    name: the-note-is-written
+    path: "docs/notes/backup.md"

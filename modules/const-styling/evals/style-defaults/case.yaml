@@ -20,10 +20,13 @@ graders:
     name: loads-style-defaults
     tool: Skill
     input_match: style-defaults
-  - type: tool_order
-    name: style-defaults-before-edit
-    before:
-      tool: Skill
-      input_match: style-defaults
-    after:
-      tool: Edit
+  - type: regex
+    name: style-defaults-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    flags: "s"
+  - type: regex
+    name: the-table-is-written
+    target: { source: file, path: docs/notes/tables.md }
+    pattern: '\|\s*`?stock_items`?\s*\|'
+    flags: "m"

@@ -20,10 +20,11 @@ graders:
     name: loads-new-kind
     tool: Skill
     input_match: new-kind
-  - type: tool_order
-    name: new-kind-before-write
-    before:
-      tool: Skill
-      input_match: new-kind
-    after:
-      tool: Write
+  - type: regex
+    name: new-kind-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    flags: "s"
+  - type: file_exists
+    name: the-runbook-is-written
+    path: "docs/runbooks/*.md"

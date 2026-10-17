@@ -20,10 +20,11 @@ graders:
     name: loads-choose-meta-type
     tool: Skill
     input_match: choose-meta-type
-  - type: tool_order
-    name: choose-meta-type-before-write
-    before:
-      tool: Skill
-      input_match: choose-meta-type
-    after:
-      tool: Write
+  - type: regex
+    name: choose-meta-type-before-any-edit
+    target: trace
+    pattern: '^(?:(?!"name":"(?:Write|Edit)").)*?"type":"tool_use","id":"[^"]*","name":"Skill"'
+    flags: "s"
+  - type: file_exists
+    name: the-plan-is-written
+    path: "**/*.md"
