@@ -9,8 +9,9 @@ dec-0093-module-evals-with-local-receipts).
 With no `--module`, every module folder. Every case runs in a throwaway container of the image
 scripts/eval-container/Dockerfile defines, built once through `docker` as kit-evalbox:<version>-<hash>, the
 Claude Code version scripts/claude-code.version pins and the Dockerfile's hash; no case runs on the host,
-so every receipt comes from one environment. The container holds no secret of the host: the module's copy is mounted read-only and a
-results folder of the run's own writable. It runs with Docker's seccomp filter and its /proc mask lifted
+so every receipt comes from one environment. The container holds no secret of the host: the module's copy
+is mounted read-only and a results folder of the run's own writable. It runs with Docker's seccomp filter
+and its /proc mask lifted
 (`--security-opt seccomp=unconfined --security-opt systempaths=unconfined`), which the eval's own Bash
 sandbox, bwrap, needs to start; under Docker's defaults every Bash command of a case fails before it runs.
 Docker Desktop's Linux machine still separates the container from the host. The token file, which the
