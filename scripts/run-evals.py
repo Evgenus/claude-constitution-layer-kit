@@ -40,11 +40,14 @@ The `docker` commands run in the person's environment less the four variables of
 and the usage-billing ones above; the container gets none of it but the token file.
 
 Prints one line per case and one per module, and where the results are kept. `--self-test` proves the
-guards without a model or docker: the token file's mode and a token file that does not exist, the
-container's guard (the token as an env file, the copy read-only, the billing variables unset, the pinned
-version and a subscription login required), the environment of the docker commands, a token file judged
-before docker is asked for an image, a missing token file argument, the files a rename leaves not committed,
-and a missing git; the gate list runs it.
+guards without a model or docker: the token file's mode and a token file that does not exist; the
+container's options (the token as an env file, never its text, the copy read-only, the seccomp filter and
+the /proc mask lifted); its guard, run under sh against a fake claude (the billing variables unset, the
+pinned version and a subscription login required, in that order); its command after the guard, run under
+sh (the eval's exit code kept, each run's trace copied whatever its folder); the environment of the docker
+commands; the image's tag following the pin and the Dockerfile; a token file judged before docker is asked
+for an image; a missing token file argument; the files a rename leaves not committed; and a missing git.
+The gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
 
@@ -56,6 +59,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -196,18 +200,26 @@ def guard(pinned: str, then: str) -> str:
     )
 
 
-def then_for(copy: Path, case: str, argv: list[str]) -> str:
+def then_for(
+    copy: Path,
+    case: str,
+    argv: list[str],
+    tmp: str = "/tmp",
+    out: str = "/out",
+    plugin: str = "/plugin",
+    home: str = CONTAINER_HOME,
+) -> str:
     """What a container runs after its guard: the eval, then each run's trace, which `--keep-temp` leaves in a
     read-only folder under /tmp, copied to /out as <case>-trace<n>.jsonl; the container exits with the eval's
-    code."""
+    code. The paths are the container's; the self-test passes its own."""
     return (
-        f"cp -r /plugin {CONTAINER_HOME}/{copy.name} && cd {CONTAINER_HOME} && {shlex.join(argv)}; code=$?; "
-        "n=0; for t in $(find /tmp -name trace.jsonl -path '*/out/trace.jsonl' 2>/dev/null); do "
-        f'n=$((n+1)); cp "$t" "/out/{case}-trace$n.jsonl"; done; exit $code'
+        f"cp -r {plugin} {home}/{copy.name} && cd {home} && {shlex.join(argv)}; code=$?; "
+        f"n=0; for t in $(find {tmp} -name trace.jsonl -path '*/out/trace.jsonl' 2>/dev/null); do "
+        f'n=$((n+1)); cp "$t" "{out}/{case}-trace$n.jsonl"; done; exit $code'
     )
 
 
-def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str = "case") -> list[str]:
+def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str) -> list[str]:
     """The `docker run` that runs `argv` in a throwaway container, after its guard."""
     then = then_for(copy, case, argv)
     return [
@@ -246,17 +258,18 @@ def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path,
         )
     kept = KIT / "local" / "evals" / copy.name
     kept.mkdir(parents=True, exist_ok=True)
+    for stale in kept.glob(f"{case.name}-trace*.jsonl"):  # an earlier attempt's, never mixed with this one's
+        stale.unlink()
     for made in (result, out / f"{case.name}.html", *sorted(out.glob(f"{case.name}-trace*.jsonl"))):
         if made.is_file():
             shutil.copy2(made, kept / made.name)
     return outcome_of(result)
 
 
-def image_name(pinned: str) -> str:
+def image_name(pinned: str, recipe: Path = KIT / "scripts" / "eval-container" / "Dockerfile") -> str:
     """kit-evalbox:<pinned version>-<the first twelve hex digits of the Dockerfile's SHA-256>, so that a
     changed Dockerfile, or a new pin, is always built again."""
-    recipe = (KIT / "scripts" / "eval-container" / "Dockerfile").read_bytes()
-    return f"{IMAGE}:{pinned}-{hashlib.sha256(recipe).hexdigest()[:12]}"
+    return f"{IMAGE}:{pinned}-{hashlib.sha256(recipe.read_bytes()).hexdigest()[:12]}"
 
 
 def ensure_image(pinned: str, env: dict[str, str]) -> str:
@@ -342,8 +355,9 @@ def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
 
 def self_test() -> int:
     """The runner's guards, run without a model or docker: the token file's mode and its absence, the
-    container's guard, the environment of the docker commands, the token file judged before the image, a
-    missing token file argument, the files a rename leaves not committed, and a missing git."""
+    container's options, its guard and its command after the guard, each run under sh, the environment of
+    the docker commands, the image's tag, the token file judged before the image, a missing token file
+    argument, the files a rename leaves not committed, and a missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -354,7 +368,7 @@ def self_test() -> int:
 
     with tempfile.TemporaryDirectory() as tmp:
         token = Path(tmp) / "token.env"
-        token.write_text("CLAUDE_CODE_OAUTH_TOKEN=x\n", encoding="utf-8")
+        token.write_text("CLAUDE_CODE_OAUTH_TOKEN=probe-token-value\n", encoding="utf-8")
         for mode, wanted in ((0o600, True), (0o400, True), (0o640, False), (0o604, False), (0o660, False)):
             token.chmod(mode)
             try:
@@ -372,10 +386,10 @@ def self_test() -> int:
             case("a token file that does not exist is refused", "claude setup-token" in str(broken))
         token.chmod(0o600)
         box = Box("img", "2.1.282", token)
-        argv = in_box(box, Path(tmp) / "const-x", Path(tmp) / "out", ["claude", "plugin", "eval"])
+        argv = in_box(box, Path(tmp) / "const-x", Path(tmp) / "out", ["claude", "plugin", "eval"], "case")
         case(
             "the container gets the token file as --env-file, never its text",
-            argv[argv.index("--env-file") + 1] == str(token) and token.read_text() not in " ".join(argv),
+            argv[argv.index("--env-file") + 1] == str(token) and "probe-token-value" not in " ".join(argv),
         )
         case(
             "the container lifts the seccomp filter and the /proc mask, so the eval's own sandbox can start",
@@ -446,10 +460,40 @@ def self_test() -> int:
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = main(["--module", "const-x"])
-        recipe = (KIT / "scripts" / "eval-container" / "Dockerfile").read_bytes()
+        first, second = Path(tmp) / "Dockerfile.a", Path(tmp) / "Dockerfile.b"
+        first.write_text("FROM a\n", encoding="utf-8")
+        second.write_text("FROM b\n", encoding="utf-8")
+        names = (image_name("2.1.282", first), image_name("2.1.282", second))
         case(
-            "the image's tag names the pin and the Dockerfile's hash, so a changed file is built again",
-            image_name("2.1.282") == f"kit-evalbox:2.1.282-{hashlib.sha256(recipe).hexdigest()[:12]}",
+            "the image's tag names the pin and changes with the Dockerfile, so a changed file is built again",
+            names[0] != names[1]
+            and all(re.fullmatch(r"kit-evalbox:2\.1\.282-[0-9a-f]{12}", n) for n in names)
+            and image_name("2.1.283", first) != names[0],
+        )
+        box_root = Path(tmp) / "box"
+        for folder in ("tmp/claude-eval-a/out", "tmp/e-b/out", "out", "plugin", "home", "bin"):
+            (box_root / folder).mkdir(parents=True)
+        (box_root / "plugin" / "case.yaml").write_text("x\n", encoding="utf-8")
+        (box_root / "bin" / "claude").write_text(
+            f"#!/bin/sh\necho 1 > {box_root}/tmp/claude-eval-a/out/trace.jsonl\n"
+            f"echo 2 > {box_root}/tmp/e-b/out/trace.jsonl\nexit 7\n",
+            encoding="utf-8",
+        )
+        (box_root / "bin" / "claude").chmod(0o755)
+        script = then_for(
+            Path("const-x"), "load", ["claude", "plugin", "eval"], tmp=str(box_root / "tmp"),
+            out=str(box_root / "out"), plugin=str(box_root / "plugin"), home=str(box_root / "home"),
+        )  # fmt: skip
+        boxed = subprocess.run(
+            ["sh", "-c", script],
+            env={"PATH": f"{box_root / 'bin'}{os.pathsep}{os.environ['PATH']}"},
+            capture_output=True,
+            check=False,
+        )
+        copied = sorted(p.name for p in (box_root / "out").glob("load-trace*.jsonl"))
+        case(
+            "the container keeps the eval's exit code and copies each run's trace, whatever its folder",
+            boxed.returncode == 7 and copied == ["load-trace1.jsonl", "load-trace2.jsonl"],
         )
         case(
             "a run without --token-file is a misinvocation",
