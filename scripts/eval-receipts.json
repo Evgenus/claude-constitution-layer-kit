@@ -15,14 +15,14 @@
   "const-decision-records": {
     "attempts": [
       {
-        "at": "2026-10-17T01:03:09Z",
+        "at": "2026-10-17T01:11:22Z",
         "cases": 2,
-        "passed": 0,
-        "score": 0.3333333333333333
+        "passed": 1,
+        "score": 0.5
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:962185930501aee6257d7d02de6a88804354389fd017e79470d17d1c70f4ff51",
+    "hash": "sha256:e8750df049519558d26b82a105331e07d860d0e002a0cffe0bc0c725599fa1ac",
     "model": "claude-opus-5-5"
   },
   "const-doc-budgets": {
@@ -67,14 +67,14 @@
   "const-locations": {
     "attempts": [
       {
-        "at": "2026-10-17T01:06:54Z",
+        "at": "2026-10-17T01:13:21Z",
         "cases": 2,
-        "passed": 0,
-        "score": 0.3333333333333333
+        "passed": 1,
+        "score": 0.5
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:b09ad3e3d74448f66afd04f98741506e2279dbb000cf646dd4e54d9fcced8d80",
+    "hash": "sha256:d5a3f65b7100277b0e02f06e0e0d6ab3b55e6938d81ca46d015a823030d3a540",
     "model": "claude-opus-5-5"
   },
   "const-meta-types": {
