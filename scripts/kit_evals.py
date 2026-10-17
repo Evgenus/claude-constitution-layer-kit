@@ -17,7 +17,8 @@ receipt per module in `scripts/eval-receipts.json`, written by `scripts/run-eval
                  kit has one, so that a change to the image every case runs in stales every receipt; each its
                  name, a zero byte, its size in decimal, a zero byte and its bytes, as the working tree holds
                  them.
-  `dirty`        the files of `eval_files` that differ from HEAD or that git does not track yet, read by
+  `dirty`        the files of `eval_files`, and the eval image's Dockerfile, that differ from HEAD or that
+                 git does not track yet, read by
                  `git status`: a run is made only on committed files, so that its receipt names what CI sees.
   `read_receipts` / `write_receipts`  the receipts file: one JSON object, a key per module, each entry an
                  object with `hash`, `claude` (the version of `scripts/claude-code.version` the run used),
@@ -166,7 +167,10 @@ def eval_hash(root: Path, module: str) -> str:
 def dirty(root: Path, module: str) -> list[str]:
     """The kit paths behind the module's eval files that differ from HEAD or are not tracked yet."""
     kit = root.resolve()
-    paths = sorted({path.resolve().relative_to(kit).as_posix() for _, path in eval_files(root, module)})
+    files = [path for _, path in eval_files(root, module)]
+    if (root / EVAL_IMAGE).is_file():
+        files.append(root / EVAL_IMAGE)  # hashed too, so a run is made only on a committed image
+    paths = sorted({path.resolve().relative_to(kit).as_posix() for path in files})
     said = git(
         root, "status", "--porcelain", "-z", "--untracked-files=all", "--", f"modules/{module}", *paths
     )

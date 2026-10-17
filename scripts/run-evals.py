@@ -45,7 +45,8 @@ container's options (the token as an env file, never its text, the copy read-onl
 the /proc mask lifted); its guard, run under sh against a fake claude (the billing variables unset, the
 pinned version and a subscription login required, in that order); its command after the guard, run under
 sh (the eval's exit code kept, each run's trace copied whatever its folder); the environment of the docker
-commands; the image's tag following the pin and the Dockerfile; a token file judged before docker is asked
+commands; the image's tag following the pin and the Dockerfile's text, and the image inspected and built
+under that tag, against a fake docker; a token file judged before docker is asked
 for an image; a missing token file argument; the files a rename leaves not committed; and a missing git.
 The gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
@@ -216,9 +217,10 @@ def then_for(
     code. The paths are the container's; the self-test passes its own."""
     return (
         f"cp -r {shlex.quote(plugin)} {shlex.quote(f'{home}/{copy.name}')} && cd {shlex.quote(home)} && "
-        f"{shlex.join(argv)}; code=$?; n=0; "
-        f"for t in $(find {shlex.quote(tmp)} -name trace.jsonl -path '*/out/trace.jsonl' 2>/dev/null); do "
-        f'n=$((n+1)); cp "$t" {shlex.quote(out)}/{shlex.quote(case)}-trace$n.jsonl; done; exit $code'
+        f"{shlex.join(argv)}; code=$?; "
+        f"find {shlex.quote(tmp)} -name trace.jsonl -path '*/out/trace.jsonl' 2>/dev/null | "
+        "{ n=0; while IFS= read -r t; do n=$((n+1)); "
+        f'cp "$t" {shlex.quote(out)}/{shlex.quote(case)}-trace$n.jsonl; done; }}; exit $code'
     )
 
 
@@ -490,13 +492,13 @@ def self_test() -> int:
             and logged[0] == f"image inspect {built}"
             and logged[1].startswith(f"build -q -t {built} --build-arg CLAUDE_CODE=2.1.282"),
         )
-        box_root = Path(tmp) / "box"
+        box_root = Path(tmp) / "box root"  # a space, so that then_for's quoting is held
         for folder in ("tmp/claude-eval-a/out", "tmp/e-b/out", "out", "plugin", "home", "bin"):
             (box_root / folder).mkdir(parents=True)
         (box_root / "plugin" / "case.yaml").write_text("x\n", encoding="utf-8")
         (box_root / "bin" / "claude").write_text(
-            f"#!/bin/sh\necho 1 > {box_root}/tmp/claude-eval-a/out/trace.jsonl\n"
-            f"echo 2 > {box_root}/tmp/e-b/out/trace.jsonl\nexit 7\n",
+            f"#!/bin/sh\necho 1 > '{box_root}/tmp/claude-eval-a/out/trace.jsonl'\n"
+            f"echo 2 > '{box_root}/tmp/e-b/out/trace.jsonl'\nexit 7\n",
             encoding="utf-8",
         )
         (box_root / "bin" / "claude").chmod(0o755)

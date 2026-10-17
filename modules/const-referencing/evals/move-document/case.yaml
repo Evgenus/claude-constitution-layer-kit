@@ -39,7 +39,7 @@ graders:
   - type: regex
     name: no-hand-move-repaired
     target: trace
-    pattern: 'move-document\.sh\S*\s+--moved'
+    pattern: '"name":"Bash","input":\{"command":"(?:[^"\\]|\\.)*move-document\.sh(?:[^"\\]|\\.)*--moved'
     flags: "m"
     match: not_contains
   - type: tool_order
