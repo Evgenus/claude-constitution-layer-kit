@@ -86,6 +86,8 @@ def eval_model(root: Path) -> str:
 
 
 def git(root: Path, *args: str) -> str:
+    if not root.is_dir():
+        raise EvalError(f"{root} is no folder — fix: run the command from a clone of the kit")
     try:
         done = subprocess.run(
             ["git", *args],

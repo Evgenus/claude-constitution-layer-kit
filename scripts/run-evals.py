@@ -41,10 +41,10 @@ shell would otherwise bill the runs without a word. A subscription token from `c
 CLAUDE_CODE_OAUTH_TOKEN, stays.
 
 Prints one line per case and one per module, and where the results are kept. `--self-test` proves the
-guards without a model: the token file's mode, the container's guard, the environment of a run, the
-reading of `claude auth status`, the host's login check against a fake `claude`, a token file judged before
-docker is asked for an image, the files a rename leaves not committed, and a missing git; the gate list runs
-it.
+guards without a model: the token file's mode and a token file that does not exist, the container's guard,
+the environment of a run, the reading of `claude auth status`, the host's login check against a fake
+`claude`, the runner's own refusal off the pin, a token file judged before docker is asked for an image, the
+files a rename leaves not committed, and a missing git; the gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
 
@@ -78,7 +78,7 @@ from kit_evals import (
     read_receipts,
     write_receipts,
 )
-from kit_module_doc import DocumentError, claude_env, claude_note, module_folders, pinned_claude
+from kit_module_doc import ANY_CLAUDE, DocumentError, claude_env, claude_note, module_folders, pinned_claude
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
@@ -356,9 +356,10 @@ def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
 
 
 def self_test() -> int:
-    """The runner's guards, run without a model: the token file's mode, the container's guard, the
-    environment of a run, the reading of `claude auth status`, the host's login check, the token file judged
-    before the image, the files a rename leaves not committed, and a missing git."""
+    """The runner's guards, run without a model: the token file's mode and its absence, the container's
+    guard, the environment of a run, the reading of `claude auth status`, the host's login check, the refusal
+    off the pin, the token file judged before the image, the files a rename leaves not committed, and a
+    missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -424,6 +425,15 @@ def self_test() -> int:
             except Broken as broken:
                 ok = not accepted and "not logged in by subscription" in str(broken)
             case(f"the host's claude reporting {said} is {'taken' if accepted else 'refused'}", ok)
+        fake.write_text("#!/bin/sh\necho '9.9.9 (Claude Code)'\n", encoding="utf-8")
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed), mock.patch.dict(os.environ, {"PATH": tmp}):
+            code = main(["--module", "const-styling"])
+        said = printed.getvalue()
+        case(
+            "off the pin, the runner refuses with its own fix, never the install checks' override",
+            code == EXIT_BROKEN and "claude is 9.9.9, not the pinned" in said and ANY_CLAUDE not in said,
+        )
         token = Path(tmp) / "token.env"
         token.write_text("CLAUDE_CODE_OAUTH_TOKEN=x\n", encoding="utf-8")
         token.chmod(0o644)
@@ -444,12 +454,15 @@ def self_test() -> int:
             ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
         ):
             subprocess.run(["git", *argv], cwd=kit, env=quiet, capture_output=True, check=True)
+        skill = kit / "modules/const-x/skills/s"
+        (skill / "SKILL.md").rename(skill / "OTHER.md")  # a rename in the working tree, ` R` in porcelain
         subprocess.run(
-            ["git", "mv", "modules/const-x/skills/s/SKILL.md", "modules/const-x/skills/s/OTHER.md"],
+            ["git", "add", "-N", "modules/const-x/skills/s/OTHER.md"],
             cwd=kit, env=quiet, capture_output=True, check=True,
         )  # fmt: skip
         case(
-            "a rename not committed names its new path, and no fragment of its source",
+            "a rename not committed, marked in the working tree's column, names its new path and no fragment"
+            " of its source",
             dirty(kit, "const-x") == ["modules/const-x/skills/s/OTHER.md"],
         )
         with mock.patch.dict(os.environ, {"PATH": tmp}):
@@ -458,6 +471,8 @@ def self_test() -> int:
                 case("a missing git is a teaching error, never a traceback", False)
             except EvalError as missing:
                 case("a missing git is a teaching error, never a traceback", "install it" in str(missing))
+            except OSError:
+                case("a missing git is a teaching error, never a traceback", False)
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
@@ -492,11 +507,12 @@ def main(argv: list[str]) -> int:
             token_box(args.token_file, "")  # the token file is judged before an image is built
             box = token_box(args.token_file, ensure_image(pinned, env))
         else:
-            note = claude_note(KIT, env)
+            note = claude_note(KIT, env | {ANY_CLAUDE: "1"})  # the runner words its own refusal off the pin
             if note.found:
                 raise Broken(
-                    f"claude is {note.found}, not the pinned {note.pinned}"
-                    " — fix: run sh scripts/setup-claude.sh"
+                    f"claude is {note.found}, not the pinned {note.pinned}, and the receipt must name the pin"
+                    " — fix: run sh scripts/setup-claude.sh in the kit's clone, then run the evals again; the"
+                    " runner puts that copy first on PATH itself"
                 )
             pinned = note.pinned
             subscription_login(env)
