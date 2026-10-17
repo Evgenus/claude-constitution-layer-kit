@@ -1,0 +1,14 @@
+schema_version: "1.1"
+name: yes-no-first
+description: a yes/no question is answered with the word first, as the start rule asks
+execution:
+  prompt: >-
+    Is SQLite a reasonable database for a single-user command-line tool? Answer briefly.
+  max_turns: 20
+  allowed_tools: []
+graders:
+  - type: regex
+    name: answer-word-first
+    target: last_message
+    pattern: '^\s*(\*\*)?(Yes|No)\b'
+    flags: ""

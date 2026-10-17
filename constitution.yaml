@@ -164,6 +164,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-meta-types/hooks/**"
         - "modules/const-meta-types/skills/**"
         - "modules/const-meta-types/tests/**"
+        - "modules/const-meta-types/evals/**"
       docs:
         - "modules/const-meta-types/MODULE.md"
     - name: const-decision-records
@@ -172,6 +173,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-decision-records/hooks/**"
         - "modules/const-decision-records/skills/**"
         - "modules/const-decision-records/tests/**"
+        - "modules/const-decision-records/evals/**"
       docs:
         - "modules/const-decision-records/MODULE.md"
     - name: const-catalogs
@@ -180,6 +182,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-catalogs/hooks/**"
         - "modules/const-catalogs/skills/**"
         - "modules/const-catalogs/tests/**"
+        - "modules/const-catalogs/evals/**"
       docs:
         - "modules/const-catalogs/MODULE.md"
     - name: const-referencing
@@ -188,6 +191,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-referencing/hooks/**"
         - "modules/const-referencing/skills/**"
         - "modules/const-referencing/tests/**"
+        - "modules/const-referencing/evals/**"
       docs:
         - "modules/const-referencing/MODULE.md"
     - name: const-locations
@@ -195,6 +199,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-locations/scripts/**"
         - "modules/const-locations/skills/**"
         - "modules/const-locations/tests/**"
+        - "modules/const-locations/evals/**"
       docs:
         - "modules/const-locations/MODULE.md"
     - name: const-task-close
@@ -203,6 +208,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-task-close/hooks/**"
         - "modules/const-task-close/skills/**"
         - "modules/const-task-close/tests/**"
+        - "modules/const-task-close/evals/**"
       docs:
         - "modules/const-task-close/MODULE.md"
     - name: const-questions
@@ -211,6 +217,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-questions/hooks/**"
         - "modules/const-questions/skills/**"
         - "modules/const-questions/tests/**"
+        - "modules/const-questions/evals/**"
       docs:
         - "modules/const-questions/MODULE.md"
     - name: const-interaction
@@ -219,6 +226,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-interaction/hooks/**"
         - "modules/const-interaction/skills/**"
         - "modules/const-interaction/tests/**"
+        - "modules/const-interaction/evals/**"
       docs:
         - "modules/const-interaction/MODULE.md"
     - name: const-styling
@@ -227,6 +235,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-styling/hooks/**"
         - "modules/const-styling/skills/**"
         - "modules/const-styling/tests/**"
+        - "modules/const-styling/evals/**"
       docs:
         - "modules/const-styling/MODULE.md"
     - name: const-language
@@ -235,6 +244,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-language/hooks/**"
         - "modules/const-language/skills/**"
         - "modules/const-language/tests/**"
+        - "modules/const-language/evals/**"
       docs:
         - "modules/const-language/MODULE.md"
     - name: const-doc-budgets
@@ -243,6 +253,7 @@ const-task-close:                     # task close as one act: a change that tou
         - "modules/const-doc-budgets/hooks/**"
         - "modules/const-doc-budgets/skills/**"
         - "modules/const-doc-budgets/tests/**"
+        - "modules/const-doc-budgets/evals/**"
       docs:
         - "modules/const-doc-budgets/MODULE.md"
     - name: kit-scripts   # the git hooks, the clone setup, the kit gates and the development routine

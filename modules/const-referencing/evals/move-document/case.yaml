@@ -1,0 +1,34 @@
+schema_version: "1.1"
+name: move-document
+description: renaming a document loads the referencing skill and moves it with the plugin's mover
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Rename docs/notes/tables.md to docs/notes/table-names.md.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-referencing
+    tool: Skill
+    input_match: referencing
+  - type: tool_used
+    name: runs-the-mover
+    tool: Bash
+    input_match: move-document
+  - type: tool_order
+    name: referencing-before-bash
+    before:
+      tool: Skill
+      input_match: referencing
+    after:
+      tool: Bash
+      input_match: move-document

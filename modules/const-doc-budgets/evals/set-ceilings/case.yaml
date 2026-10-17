@@ -1,0 +1,29 @@
+schema_version: "1.1"
+name: set-ceilings
+description: setting a character ceiling loads the ceiling skill before the dials file is edited
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Set a character ceiling for the notes in docs/notes/ in constitution.yaml.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-set-ceilings
+    tool: Skill
+    input_match: set-ceilings
+  - type: tool_order
+    name: set-ceilings-before-edit
+    before:
+      tool: Skill
+      input_match: set-ceilings
+    after:
+      tool: Edit

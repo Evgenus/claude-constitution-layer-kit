@@ -1,0 +1,29 @@
+schema_version: "1.1"
+name: choose-meta-type
+description: a new governed document loads the meta-type skill before it is written
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Create docs/notes/roadmap.md describing where we want the inventory tool to go next quarter.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-choose-meta-type
+    tool: Skill
+    input_match: choose-meta-type
+  - type: tool_order
+    name: choose-meta-type-before-write
+    before:
+      tool: Skill
+      input_match: choose-meta-type
+    after:
+      tool: Write

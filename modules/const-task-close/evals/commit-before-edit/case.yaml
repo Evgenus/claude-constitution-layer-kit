@@ -1,0 +1,29 @@
+schema_version: "1.1"
+name: commit-before-edit
+description: a batch of edits on a dirty tree loads the commit skill before the first edit
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Rename the function count_items to total_items everywhere in src/ and docs/.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-commit-before-edit
+    tool: Skill
+    input_match: commit-before-edit
+  - type: tool_order
+    name: commit-before-edit-before-edit
+    before:
+      tool: Skill
+      input_match: commit-before-edit
+    after:
+      tool: Edit

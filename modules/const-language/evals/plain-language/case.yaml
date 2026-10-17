@@ -1,0 +1,29 @@
+schema_version: "1.1"
+name: plain-language
+description: writing prose in a covered document loads the plain-language skill first
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: >-
+    Write docs/notes/backup.md: two short paragraphs telling a new team member how the nightly backup of the stock database works.
+  max_turns: 20
+  allowed_tools:
+    - Read
+    - Glob
+    - Grep
+    - Write
+    - Edit
+    - Skill
+    - Bash
+graders:
+  - type: tool_used
+    name: loads-plain-language
+    tool: Skill
+    input_match: plain-language
+  - type: tool_order
+    name: plain-language-before-write
+    before:
+      tool: Skill
+      input_match: plain-language
+    after:
+      tool: Write

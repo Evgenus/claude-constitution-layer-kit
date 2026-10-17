@@ -119,7 +119,7 @@ current-state documents, each an entry with a `name`, a `code` list and a `docs`
 the guide's scan block, for each module folder: exactly one entry whose `name` is the folder's name (a
 module with two is judged by that finding alone); its `docs` the one path `modules/<m>/MODULE.md`; every
 `code` pattern opening with `modules/<m>/`, one finding for each that does not; and for each of the folders
-`scripts`, `hooks`, `skills` and `tests` that is a directory directly under the module, the pattern
+`scripts`, `hooks`, `skills`, `tests` and `evals` that is a directory directly under the module, the pattern
 `modules/<m>/<folder>/**` among its `code`, a pattern for a folder that does not exist being allowed. The
 range check of module `const-task-close` asks a change for a module's document only through its pair, so a
 module with no pair, or code outside its pair, is never asked. A missing entry's fix is the whole entry in
@@ -322,7 +322,7 @@ WHY_GUIDE = (
 )
 COVERAGE_OWNER = "const-task-close"  # the dials namespace whose `coverage` key is the range check's map
 COVERAGE_KEY = "coverage"
-COVERAGE_FOLDERS = ("scripts", "hooks", "skills", "tests")  # the folders of a module that carry code
+COVERAGE_FOLDERS = ("scripts", "hooks", "skills", "tests", "evals")  # the folders of a module that carry code
 WHY_COVERAGE = (
     "the range check of module const-task-close asks a change for a module's document only through the"
     " module's pair, so a module with no pair, or code outside its pair, is never asked"
@@ -2629,7 +2629,7 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "a pattern missing and a pattern outside, the folders existing: by kind": (
             case(with_code("scripts/**", "modules/const-x/scripts/**"), quiet, dirs=all_folders),
-            [outside, folder, folder, folder],
+            [outside, *[folder] * (len(COVERAGE_FOLDERS) - 1)],
         ),
         "a wrong doc, a pattern outside and a folder without a pattern: in that order": (
             case(
