@@ -26,7 +26,8 @@ The environment of each run drops the four variables of `kit_module_doc.claude_e
 bill the runs by usage rather than to the person's subscription: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN and
 the three that select a cloud provider, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX and
 CLAUDE_CODE_USE_FOUNDRY. Claude Code prefers each of them over a subscription login, so a key set in the
-shell would otherwise bill the runs without a word. A subscription token from `claude setup-token`, CLAUDE_CODE_OAUTH_TOKEN, stays.
+shell would otherwise bill the runs without a word. A subscription token from `claude setup-token`,
+CLAUDE_CODE_OAUTH_TOKEN, stays.
 
 Prints one line per case and one per module, and where the results are kept.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
