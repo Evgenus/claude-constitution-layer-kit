@@ -84,7 +84,7 @@ The advisory rules beside it, each `advisory` in its own text and carried always
 | install note | `INSTALL.md` | The copy-into-guide fallback labelled manual and version-drifting; no CLAUDE.md pointer. |
 | tests | `tests/test_interaction.py`, `conftest.py` and the shared test files and packages linked beside them | The fixtures of [§10](#t10). |
 | skill | none | the rules have no trigger — they govern every reply — so a skill would fire every turn and its body never be reached ([res-0008-const-interaction](../../docs/research/res-0008-const-interaction.md), a9). |
-| eval cases | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `yes-no-first`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
+| eval case | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `yes-no-first`. No case needs a project, so none has a scaffold. Each case is an eval item of [§10](#t10). |
 | command | none | no act here is one a human deliberately types: the scans are lines of CI, the explain a debugging aid. |
 | agent | none | a reply's shape is the reply's own, not a delegation. |
 

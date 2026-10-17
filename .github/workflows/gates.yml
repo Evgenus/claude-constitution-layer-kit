@@ -1,6 +1,6 @@
 # Kit tooling, never shipped in a module: the kit's checks on every pull request and on main.
-# One CI job per job scripts/gate-list.sh names — each module with its scan, install, fixtures, lint and
-# types, `install-guide` for the run of INSTALL.md, and `kit` for the rest — in parallel; the jobs and their entries are read from the script, never
+# One CI job per job scripts/gate-list.sh names — each module with its scan, install, session-load check,
+# fixtures, lint and types, `install-guide` for the run of INSTALL.md, and `kit` for the rest — in parallel; the jobs and their entries are read from the script, never
 # written here. Every job runs on every run, none skipped for the paths a change touched: the scans
 # read the whole tree or the change's whole range, and the shared gate code sits in every module.
 # The job "gates" waits for all of them and is the one check the ruleset requires, so a new module or
@@ -86,7 +86,7 @@ jobs:
           # git's credential helper, set by `gh auth setup-git`, reads the token when Claude Code clones
           GH_TOKEN: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && github.token || '' }}
           CLAUDE_CODE_PLUGIN_PREFER_HTTPS: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && '1' || '' }}
-          # a module's install, and the install guide's marketplace, install from the GitHub repository and branch
+          # a module's install and its session-load check, and the install guide's marketplace, install from the GitHub repository and branch
           # of the change — the pull request's head, or main on a push — the copy a consumer's install writes; a
           # fork the token cannot read fails
           CONSTITUTION_KIT_INSTALL_FROM: ${{ (startsWith(matrix.job, 'const-') || matrix.job == 'install-guide') && (github.event_name == 'pull_request' && format('{0}#{1}', github.event.pull_request.head.repo.full_name, github.head_ref) || format('{0}#{1}', github.repository, github.ref_name)) || '' }}

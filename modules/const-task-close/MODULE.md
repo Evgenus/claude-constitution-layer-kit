@@ -70,7 +70,7 @@ The advisory rules beside it, each `advisory` in its own text, are these. (T-a) 
 | install note | `INSTALL.md` | Requirements, the hooks' behaviour (the turn-end check under both severities, the pointer line), the map with a worked example, the declaration's two forms and the trailer paragraph's rule, the scan for CI with the base from the pull request's event, adoption through `warn`, what the module does not check, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_task_close.py`, `conftest.py`, the shared test files linked from `shared/tests/`, `const_gate` from `shared/const_gate`, `task_close_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
-| eval cases | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `close-task`, `commit-before-edit`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
+| eval case | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `close-task`, `commit-before-edit`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
 | command | none | closing a task is asked for in words, and the skill carries it; the scan is a command line, not a slash command. |
 | agent | none | a close is one step of the dialog that did the work, not a delegation. |
 

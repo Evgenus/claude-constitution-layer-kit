@@ -70,7 +70,7 @@ The advisory rules beside it, each `advisory` in its own text, are these. (C-a) 
 | tests | `tests/`: `test_catalogs.py`, `conftest.py`, the shared test files linked from `shared/tests/`, `const_gate` from `shared/const_gate`, `catalogs_gate` from this module's `scripts/` | The fixtures of [§10](#t10): this module's numbered case records and assertions, and the shared acceptance items that apply to a gate resolving no policy, all driving the real entry point with real hook events. |
 | listing script | none | the catalog is the set of files carrying its prefix, which one git pathspec glob lists; a script would add a command-line mode to the shared code for an assist. |
 | allocation script | none | the scan already holds every item's number, so its count line names the highest; a separate mode would compute the same number twice. |
-| eval cases | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `catalog-item`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
+| eval case | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `catalog-item`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
 | command | none | no act here is one a human deliberately types: numbers are taken while a document is being written. |
 | agent | none | taking a number and naming a file is one step of the dialog that writes the document, not a delegation. |
 

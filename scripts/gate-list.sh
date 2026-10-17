@@ -15,20 +15,20 @@
 # run through `check-aspects.py --run --module <module>`, which collects its tests under pytest, runs
 # them once, prints pytest's own output whenever it exits other than 0, and holds the items against the
 # module's acceptance table both ways (decision dec-0080-fixtures-run-through-check-aspects).
-# A CI job is a module — its scan, its install, its fixtures, its lint and its types — or `install-guide`,
+# A CI job is a module — its scan, its install, its session-load check, its fixtures, its lint and its types — or `install-guide`,
 # the run of the install guide, or `kit`, every other entry no module holds; an entry is in exactly one job, and one no line of job() maps falls into `kit`.
 # The jobs are read from the entries, never listed apart, so no entry is left out of CI. A module's
 # scan reads the whole tree, or for task-close the change's whole range, so a red scan on a module's
 # job means the tree, or the change, breaks that module's rule, not that the module's code is broken;
 # the annotation names the entry.
-# The install-<module> gates and the guide gate need the `claude` that scripts/claude-code.version pins on
+# The install-<module> and session-<module> gates and the guide gate need the `claude` that scripts/claude-code.version pins on
 # PATH and no Claude account login: on any other version they fail to run, unless CONSTITUTION_KIT_ANY_CLAUDE=1,
 # when they run with a note naming both versions on every headline line of their report after the version
 # check; each installs from the change's GitHub branch, a private remote, so each needs git's credentials
 # for it. A clone runs `sh scripts/setup-claude.sh` once, and again after the pin moves, which installs the
 # pinned version into <main>/.claude-code-pinned, <main> the folder that holds git's common directory, so
 # every worktree shares it; --run then puts that folder's node_modules/.bin first on PATH for the commands
-# of the install-<module> entries and the guide alone, and only when its `claude` is executable. Every
+# of the install-<module> and session-<module> entries and the guide alone, and only when its `claude` is executable. Every
 # other entry, and every run where the folder does not exist, as in CI, runs as it would without it.
 # --run runs every command of the entry, and every entry of the job, even after a red one and prints
 # each command's exit; it exits 0 when every command did, else 2 when every failing command exited 2
@@ -42,7 +42,7 @@ MODULES="const-catalogs const-decision-records const-doc-budgets const-interacti
 const-locations const-meta-types const-questions const-referencing const-styling const-task-close"
 GATES="references meta-types catalogs decision-records open-questions style language budgets
 list-handles carry-lists shared-links yaml-style module-links handle-forms aspects portability gate-lists
-schema-mirror copies dials-schema resolved-paths eval-receipts bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
+schema-mirror copies dials-schema resolved-paths eval-receipts run-evals bare-install session-load guide $(for m in $MODULES; do printf 'install-%s session-%s ' "$m" "$m"; done)task-close"
 EXTRAS="branch-gate setup-claude $(for m in $MODULES; do printf 'fixtures-%s lint-%s types-%s ' "$m" "$m" "$m"; done)lint types"
 
 job() {
@@ -92,6 +92,7 @@ commands() {
             echo "python3 scripts/check-$1.py --self-test" ;;
         bare-install) echo "python3 scripts/check-bare-install.py --self-test" ;;
         session-load) echo "python3 scripts/check-session-load.py --self-test" ;;
+        run-evals) echo "python3 scripts/run-evals.py --self-test" ;;
         guide)
             echo "python3 scripts/check-install-guide.py"
             echo "python3 scripts/check-install-guide.py --self-test" ;;
@@ -144,7 +145,7 @@ run_entry() {
         worst=1
         return
     }
-    # the pinned claude of scripts/setup-claude.sh goes first on PATH for the install entries and the guide
+    # the pinned claude of scripts/setup-claude.sh goes first on PATH for the install and session entries and the guide
     # alone, and only when it is there; <main> is derived as setup-claude.sh derives it
     pinned_bin=""
     case "$1" in

@@ -6,7 +6,8 @@ The receipts stand in scripts/eval-receipts.json, written by scripts/run-evals.p
 who runs the evals; `kit_evals` defines the file, the eval hash and the model pin. For each module folder,
 the check is red when:
   the module has no entry;
-  the entry's hash is not the module's eval hash now, a file a session loads having changed since the run;
+  the entry's hash is not the module's eval hash now, a file a session loads, or a case, having changed since
+  the run;
   the entry's Claude Code version is not the one scripts/claude-code.version pins;
   the entry's model is not the one scripts/eval-model names;
   the entry's last attempt did not pass, or there is none.
@@ -88,7 +89,8 @@ def judge(module: str, receipt: Receipt | None, now: str, claude: str, model: st
         found.append(
             Finding(
                 module,
-                f"the receipt names {receipt.hash}, but the files a session loads hash to {now}",
+                f"the receipt names {receipt.hash},"
+                f" but the files a session loads and the cases hash to {now}",
                 run_fix(module),
             )
         )
@@ -167,6 +169,8 @@ def make_kit(tmp: Path) -> Path:
     root = tmp / "kit"
     files = {
         "modules/const-x/MODULE.md": "# const-x\n",
+        "modules/const-x/README.md": "# const-x\n",
+        "modules/const-x/INSTALL.md": "# install\n",
         "modules/const-x/skills/s/SKILL.md": "skill\n",
         "modules/const-x/scripts/start.sh": "echo rule\n",
         "modules/const-x/tests/test_x.py": "pass\n",
@@ -180,10 +184,13 @@ def make_kit(tmp: Path) -> Path:
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_text(text, encoding="utf-8")
     (root / "modules/const-x/scripts/const_gate").symlink_to("../../../shared/const_gate")
-    git_quiet(root, "init", "-q")
-    git_quiet(root, "add", "-A")
     (root / "modules/const-x/evals/results").mkdir(parents=True)
     (root / "modules/const-x/evals/results/r.json").write_text("{}\n", encoding="utf-8")
+    git_quiet(root, "init", "-q")
+    git_quiet(root, "add", "-A")
+    git_quiet(
+        root, "add", "-f", "modules/const-x/evals/results/r.json"
+    )  # tracked, so that its exclusion is held
     passing = Attempt("2026-10-16T00:00:00Z", 1, 1, 1.0)
     write_receipts(
         root, {"const-x": Receipt(eval_hash(root, "const-x"), "2.1.282", "claude-opus-5-5", (passing,))}
@@ -236,19 +243,26 @@ def self_test() -> int:
     """Red→green on throwaway kits, one per case."""
     failing = (Attempt("2026-10-16T00:00:00Z", 1, 1, 1.0), Attempt("2026-10-16T01:00:00Z", 2, 1, 0.5))
     cases: dict[str, tuple[Act, list[str]]] = {
-        "a current receipt is green": (edit("modules/const-x/evals/results/r.json"), []),
+        "a current receipt is green": (edit("modules/const-x/scripts/start.sh", "echo rule\n"), []),
         "an edited skill is a finding": (edit("modules/const-x/skills/s/SKILL.md"), ["const-x"]),
         "an edited script is a finding": (edit("modules/const-x/scripts/start.sh"), ["const-x"]),
         "an edited file behind a link is a finding": (edit("shared/const_gate/core.py"), ["const-x"]),
         "an edited case is a finding": (edit("modules/const-x/evals/load/case.yaml"), ["const-x"]),
         "an edited MODULE.md is green": (edit("modules/const-x/MODULE.md"), []),
         "an edited test is green": (edit("modules/const-x/tests/test_x.py"), []),
+        "an edited README.md is green": (edit("modules/const-x/README.md"), []),
+        "an edited INSTALL.md is green": (edit("modules/const-x/INSTALL.md"), []),
+        "an edited result, tracked, is green": (edit("modules/const-x/evals/results/r.json", "[]\n"), []),
         "a missing entry is a finding": (no_entry, ["const-x"]),
         "an entry for no module is a finding": (extra_entry, ["const-y"]),
         "another Claude Code version is a finding": (with_receipt(claude="2.1.251"), ["const-x"]),
         "another model is a finding": (with_receipt(model="claude-haiku-5-5"), ["const-x"]),
         "a failed last attempt is a finding": (with_receipt(attempts=failing), ["const-x"]),
         "no attempt is a finding": (with_receipt(attempts=()), ["const-x"]),
+        "a last attempt that ran no case is a finding": (
+            with_receipt(attempts=(Attempt("2026-10-16T02:00:00Z", 0, 0, 0.0),)),
+            ["const-x"],
+        ),
     }
     failed = 0
     for name, (act, wanted) in cases.items():

@@ -17,8 +17,8 @@ The gate, a plain run, reads the documents and runs nothing. It is red on:
     (a case's name: lowercase letters, digits and hyphens), that names no case in that form, or names
     more than one; one that names a case folder its module does not have; a case folder of the module
     that no eval item names; a case two eval items name. A case folder is a folder of the module's
-    `evals/` that holds a `case.yaml` or a `prompt.md`, `evals/results/` being none (decision
-    dec-0093-module-evals-with-local-receipts, rule 9);
+    `evals/` that holds a `case.yaml`, `evals/results/` and a folder holding a `prompt.md` alone being none
+    (decision dec-0093-module-evals-with-local-receipts, R9);
   - a `rows` cell that is empty, or holds anything but row links or the one word `none`;
   - a link to a row the matrix does not hold;
   - an item that names a row its module's rows section does not hold;
@@ -95,7 +95,10 @@ fix, never a pass. The gate reads no receipt.
 Each row a module holds is printed with its destination as the matrix states it, every module
 that holds a part of it with the version of its manifest, and every item that names it — from
 every such module alike — with its kind and its result. Then one verdict. `red` when an item of
-it is red. `green` when at least one of its items was run and every item run was green; the
+it is red. `green` when at least one of its items was run and every item run was green, an eval item
+counting as run when its module's receipt is current and passing — a run declared, not one the kit sees,
+which narrows R1 and R10 of dec-0054-acceptance-items-name-their-rows (R9 of
+dec-0093-module-evals-with-local-receipts); the
 items no run examines, of any module that holds a part of the row, are listed beside and do not
 lower it. `carrier green` instead of `green` for an advisory row — its enforcement cell in the
 matrix opens with the word `advisory` and holds the word `gate` or `gates` nowhere, matched as
@@ -144,7 +147,7 @@ Modes:  no arguments         the gate;
                              kind: an item for a case folder green, and each of an item with no case,
                              with a case in capitals or with no closing slash, with two cases, with a
                              folder the module does not have, with one that holds no case file, with
-                             `evals/results/`, a folder no item names, with or without a prompt.md, and
+                             `evals/results/`, a folder no item names, a folder with a prompt.md alone, and
                              a case two or three items name red with one finding, the report of one as
                              literal lines, and under `--run`, a git tree with a receipt: an item green on
                              a current receipt whose last attempt passes, red on one whose last attempt
@@ -709,15 +712,14 @@ def eval_case(module: Module, number: int, handles: str, proves: str, findings: 
 
 
 def case_folders(directory: Path) -> list[str]:
-    """The eval cases of a module: each folder of `evals/` that holds a `case.yaml` or a `prompt.md`,
+    """The eval cases of a module: each folder of `evals/` that holds a `case.yaml`, the one form the kit's
+    runner runs,
     `evals/results/` being no case, sorted by name."""
     base = directory / EVALS
     if not base.is_dir():
         return []
     return sorted(
-        d.name
-        for d in base.iterdir()
-        if d.is_dir() and d.name != "results" and any((d / f).is_file() for f in ("case.yaml", "prompt.md"))
+        d.name for d in base.iterdir() if d.is_dir() and d.name != "results" and (d / "case.yaml").is_file()
     )
 
 
@@ -744,7 +746,7 @@ def eval_findings(module: Module, directory: Path, header: int) -> list[Finding]
                     f"the eval item {item.handles} names `evals/{item.case}/`, a case folder the module"
                     " does not have",
                     WHY_EVAL,
-                    f"add the case folder `evals/{item.case}/` holding a `case.yaml` or a `prompt.md`, or"
+                    f"add the case folder `evals/{item.case}/` holding a `case.yaml`, or"
                     " name a case folder the module has",
                 )
             )
@@ -3819,9 +3821,9 @@ def eval_green_data() -> dict[str, tuple[str, dict[str, str]]]:
             eval_row("L3", LOAD_NOTE) + eval_row("L4", "the start case `evals/start-2/`", LINK_3),
             {**LOAD_CASE, "evals/start-2/case.yaml": "name: start\n"},
         ),
-        "a case folder that holds a prompt.md alone": (
-            eval_row("L3", "the ask case `evals/ask/`"),
-            {"evals/ask/prompt.md": "ask\n"},
+        "a folder that holds a prompt.md alone is no case": (
+            eval_row("L3", LOAD_NOTE),
+            {**LOAD_CASE, "evals/ask/prompt.md": "ask\n"},
         ),
         "evals/results/ and a folder with no case file are no case": (
             eval_row("L3", LOAD_NOTE),
@@ -3840,8 +3842,7 @@ def eval_red_data() -> dict[str, tuple[str, dict[str, str], str, str, str]]:
     no_case = "the eval item L3 names no case as `evals/<case>/` in its 'what it proves' cell"
     missing = "the eval item L3 names `evals/gone/`, a case folder the module does not have"
     missing_fix = (
-        "add the case folder `evals/gone/` holding a `case.yaml` or a `prompt.md`, or name a case folder the"
-        " module has"
+        "add the case folder `evals/gone/` holding a `case.yaml`, or name a case folder the module has"
     )
     no_item = "the case folder `evals/load/` is named by no eval item"
     no_item_fix = (
@@ -3882,7 +3883,7 @@ def eval_red_data() -> dict[str, tuple[str, dict[str, str], str, str, str]]:
             missing_fix,
             "L3",
         ),
-        "a folder with neither case.yaml nor prompt.md": (
+        "a folder with no case.yaml": (
             eval_row("L3", "`evals/gone/`"),
             {"evals/gone/notes.md": "x\n"},
             missing,
@@ -3897,12 +3898,12 @@ def eval_red_data() -> dict[str, tuple[str, dict[str, str], str, str, str]]:
             "L3",
         ),
         "a case folder no eval item names": ("", LOAD_CASE, no_item, no_item_fix, "| item |"),
-        "a case folder with a prompt.md no eval item names": (
-            "",
-            {"evals/load/prompt.md": "load\n"},
-            no_item,
-            no_item_fix,
-            "| item |",
+        "an item that names a folder with a prompt.md alone": (
+            eval_row("L3", "`evals/gone/`"),
+            {"evals/gone/prompt.md": "gone\n"},
+            missing,
+            missing_fix,
+            "L3",
         ),
         "a case named by two eval items": (
             eval_row("L3", LOAD_NOTE) + eval_row("L4", LOAD_NOTE, LINK_3),

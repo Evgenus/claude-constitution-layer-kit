@@ -7,11 +7,11 @@ receipt per module in `scripts/eval-receipts.json`, written by `scripts/run-eval
 
   `eval_model`   the model the runs use: the text of `scripts/eval-model`, with at most one final line break
                  removed, one model id of lowercase letters, digits, `.` and `-`.
-  `eval_files`   what a session of the module loads: every file git tracks under `modules/<module>/`, links
-                 followed, save `MODULE.md`, `README.md` and `INSTALL.md` at the module's root and the folders
-                 `tests/` and `evals/results/`. A link to a folder stands for every file git tracks under the
-                 folder it leads to, each named through the link; a link to a file, for that file. A link that
-                 leads outside the kit, or to nothing, is an `EvalError`.
+  `eval_files`   what a session of the module loads, and its cases: every file git tracks under
+                 `modules/<module>/`, links followed, save `MODULE.md`, `README.md` and `INSTALL.md` at the
+                 module's root and the folders `tests/` and `evals/results/`. A link to a folder stands for
+                 every file git tracks under the folder it leads to, each named through the link; a link to a
+                 file, for that file. A link that leads outside the kit, or to nothing, is an `EvalError`.
   `eval_hash`    `sha256:` and the hex digest over those files in name order, each its name, a zero byte, its
                  size in decimal, a zero byte and its bytes, as the working tree holds them.
   `dirty`        the files of `eval_files` that differ from HEAD or that git does not track yet, read by
@@ -157,9 +157,17 @@ def dirty(root: Path, module: str) -> list[str]:
     said = git(
         root, "status", "--porcelain", "-z", "--untracked-files=all", "--", f"modules/{module}", *paths
     )
-    entries = [e for e in said.split("\0") if e]
-    changed = sorted({e[3:] for e in entries if len(e) > 3})
-    return [p for p in changed if not left_out(p.removeprefix(f"modules/{module}/"))]
+    fields = [e for e in said.split("\0") if e]
+    changed: set[str] = set()
+    skip = False
+    for entry in fields:  # a rename or copy names its source in the field after its own entry
+        if skip:
+            skip = False
+            continue
+        if len(entry) > 3:
+            changed.add(entry[3:])
+        skip = entry[:1] in ("R", "C")
+    return [p for p in sorted(changed) if not left_out(p.removeprefix(f"modules/{module}/"))]
 
 
 def number(value: object, what: str) -> float:

@@ -64,7 +64,7 @@ A session opens a research note, a stale structure description, or a half-migrat
 | install note | `INSTALL.md` | Requirements, the two dials, the scan command for CI, where the output log goes, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_meta_types.py`, `conftest.py`, the shared test files linked from `shared/tests/`, `const_gate` from `shared/const_gate`, `meta_types_gate` from this module's `scripts/` | The fixtures of [§10](#t10): this module's numbered case records and assertions, and the shared acceptance items, all driving the real entry point with real hook events. |
-| eval cases | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `choose-meta-type`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
+| eval case | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `choose-meta-type`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
 | command | none | no act here is one a human deliberately initiates; the scan is a shell command, documented in the install note. |
 | agent | none | no delegation boundary. |
 

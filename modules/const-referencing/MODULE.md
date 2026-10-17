@@ -71,7 +71,7 @@ The advisory rules beside it, each `advisory` in its own text, are these. (F-a) 
 | install note | `INSTALL.md` | Requirements with the install address for `lychee`, zero-configuration behaviour, a negated pattern that takes a tree out (`!dir/**`, not `!dir/` — tried), `lanes` with a worked example and the rule to write a pattern in single quotes (in double quotes YAML reads `\b` as a backspace — tried; the gate refuses such a pattern), `mentions`, adoption through `severity: warn` and `heading_anchors: allow`, the scan command for CI, what the module does not check, no CLAUDE.md pointer. |
 | manifest | `.claude-plugin/plugin.json` | The plugin's name, version and description — the only file inside `.claude-plugin/`; `0.0.x` marks a draft. |
 | tests | `tests/`: `test_referencing.py`, `conftest.py`, the shared test files linked from `shared/tests/`, `const_gate` from `shared/const_gate`, `referencing_gate` from this module's `scripts/` | The fixtures of [§10](#t10). |
-| eval cases | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `move-document`, `chat-links`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
+| eval case | `evals/<case>/case.yaml`, with `scaffold.sh` where the run needs a project | The cases `claude plugin eval` runs against the module: `move-document`, `chat-links`. A scaffold seeds the run's empty folder with a small governed project. Each case is an eval item of [§10](#t10). |
 | command | none | no act here is one a human types: a move is asked for in words, and the skill carries it. |
 | agent | none | a move is one step of the dialog that asked for it, not a delegation. |
 

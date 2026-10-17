@@ -14,8 +14,10 @@ With no `--module`, every module folder. For each module, in turn:
      lists in its `allowed_tools`; its JSON result and report are kept in local/evals/<module>/. A Bash
      grant is asked only for a case that needs it: the eval refuses one on a machine whose Docker credential
      store holds a link it cannot exclude, and one grant in a module's run would refuse every case of it.
-     The run uses the login of the person who runs this script: it counts against that account's plan or
-     bill;
+     The run uses the subscription login of the person who runs this script and counts against that plan;
+     before the first case, on the host as in the container, the runner asks `claude auth status` and refuses
+     to run unless it reports a subscription login, `oauth_token` or `claude.ai`, so a login billed by
+     usage, a Console login or an API key helper among them, never runs a case;
   4. the cases' `casesTotal` and `casesPassed` summed, and their `overallScore` weighted by cases, become
      one attempt, stamped with the time in UTC, appended to the module's entry of scripts/eval-receipts.json.
      An entry whose hash, Claude Code version or model differs from the run's is replaced by a new one. A
@@ -37,7 +39,9 @@ CLAUDE_CODE_USE_FOUNDRY. Claude Code prefers each of them over a subscription lo
 shell would otherwise bill the runs without a word. A subscription token from `claude setup-token`,
 CLAUDE_CODE_OAUTH_TOKEN, stays.
 
-Prints one line per case and one per module, and where the results are kept.
+Prints one line per case and one per module, and where the results are kept. `--self-test` proves the
+guards without a model: the token file's mode, the container's guard, the environment of a run and the
+reading of `claude auth status`; the gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
 
@@ -73,7 +77,7 @@ from kit_module_doc import DocumentError, claude_env, claude_note, module_folder
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 RUNS = 3
-GATED = ("Bash", "Write", "Edit")
+GATED = ("Bash", "Write", "Edit")  # the tools `claude plugin eval` grants only through --allow-tools
 IMAGE = "kit-evalbox"
 CONTAINER_HOME = "/home/node"
 SUBSCRIPTION = (
@@ -86,7 +90,7 @@ USAGE_BILLED = (  # the variables Claude Code prefers over a subscription login,
     "CLAUDE_CODE_USE_BEDROCK",
     "CLAUDE_CODE_USE_VERTEX",
     "CLAUDE_CODE_USE_FOUNDRY",
-)  # the tools `claude plugin eval` grants only through --allow-tools
+)
 TURN_SECONDS = 300  # a case's default `timeout_seconds`, the bound of one run
 
 
@@ -123,12 +127,6 @@ def pinned_path(env: dict[str, str]) -> dict[str, str]:
     if common and os.access(pinned / "claude", os.X_OK):
         return env | {"PATH": f"{pinned}{os.pathsep}{env.get('PATH', '')}"}
     return env
-
-
-def case_count(module: Path) -> int:
-    return sum(1 for _ in (module / EVALS).glob("*/case.yaml")) + sum(
-        1 for _ in (module / EVALS).glob("*/prompt.md")
-    )
 
 
 def granted(paths: list[Path]) -> list[str]:
@@ -264,6 +262,40 @@ def ensure_image(pinned: str, env: dict[str, str]) -> str:
     return image
 
 
+def auth_method(said: str) -> str:
+    """The `authMethod` that `claude auth status` printed as JSON, or "" when it printed none."""
+    try:
+        data = json.loads(said)
+    except ValueError:
+        return ""
+    method = data.get("authMethod") if isinstance(data, dict) else None
+    return method if isinstance(method, str) else ""
+
+
+def subscription_login(env: dict[str, str]) -> None:
+    """Refuse unless the host's `claude` is logged in by subscription."""
+    try:
+        done = subprocess.run(
+            ["claude", "auth", "status"], env=env, capture_output=True, text=True, timeout=60, check=False
+        )
+    except (OSError, subprocess.TimeoutExpired) as bad:
+        raise Broken(
+            f"`claude auth status` could not run ({bad}) — fix: check that claude is on PATH"
+        ) from bad
+    method = auth_method(done.stdout)
+    if method not in SUBSCRIPTION:
+        raise Broken(
+            f"claude is not logged in by subscription (authMethod {method or 'none'}), and the evals are"
+            " never billed by usage — fix: run claude /login with your claude.ai account, or use"
+            " --container --token-file with a token from claude setup-token"
+        )
+
+
+def run_env(environ: dict[str, str]) -> dict[str, str]:
+    """The environment of every run: the person's, less the plugin-place and the usage-billing variables."""
+    return {k: v for k, v in claude_env(environ).items() if k not in USAGE_BILLED}
+
+
 def token_box(token_file: str, image: str) -> Box:
     path = Path(token_file).expanduser()
     if not path.is_file():
@@ -313,29 +345,95 @@ def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
     write_receipts(KIT, receipts)
 
 
+def self_test() -> int:
+    """The runner's guards, run without a model: the token file's mode, the container's guard, the
+    environment of a run and the reading of `claude auth status`."""
+    failed, total = 0, 0
+
+    def case(name: str, ok: bool) -> None:
+        nonlocal failed, total
+        total += 1
+        failed += 0 if ok else 1
+        print(f"[{'ok' if ok else 'FAIL'}] {name}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        token = Path(tmp) / "token.env"
+        token.write_text("CLAUDE_CODE_OAUTH_TOKEN=x\n", encoding="utf-8")
+        for mode, wanted in ((0o600, True), (0o400, True), (0o640, False), (0o604, False), (0o660, False)):
+            token.chmod(mode)
+            try:
+                token_box(str(token), "img")
+                ok = wanted
+            except Broken as broken:
+                ok = not wanted and f"chmod 600 {token}" in str(broken)
+            case(
+                f"a token file of mode {mode:o} is {'taken' if wanted else 'refused, the fix chmod 600'}", ok
+            )
+        try:
+            token_box(str(Path(tmp) / "none.env"), "img")
+            case("a token file that does not exist is refused", False)
+        except Broken as broken:
+            case("a token file that does not exist is refused", "claude setup-token" in str(broken))
+        box = Box("img", token)
+        argv = in_box(box, Path(tmp) / "const-x", Path(tmp) / "out", ["claude", "plugin", "eval"])
+        guard = argv[-1]
+        case(
+            "the container gets the token file as --env-file, never its text",
+            argv[3:5] == ["--env-file", str(token)],
+        )
+        case(
+            "the container's guard unsets every usage-billing variable before claude runs",
+            guard.startswith(f"unset {' '.join(USAGE_BILLED)};"),
+        )
+        case(
+            "the container's guard refuses a login other than a subscription's",
+            "exit 3" in guard and all(f" {m} " in guard for m in ("oauth_token", "claude.ai")),
+        )
+    billed = {name: "x" for name in USAGE_BILLED} | {"CLAUDE_CODE_OAUTH_TOKEN": "t", "PATH": "/bin"}
+    kept = run_env(billed)
+    case("a run's environment drops every usage-billing variable", not set(kept) & set(USAGE_BILLED))
+    case("a run's environment keeps a subscription token", kept.get("CLAUDE_CODE_OAUTH_TOKEN") == "t")
+    for said, method in (
+        ('{"loggedIn": true, "authMethod": "claude.ai"}', "claude.ai"),
+        ('{"loggedIn": true, "authMethod": "oauth_token"}', "oauth_token"),
+        ('{"loggedIn": true, "authMethod": "api_key"}', "api_key"),
+        ("Not logged in", ""),
+        ("[1]", ""),
+    ):
+        case(f"claude auth status {said!r} reads as {method or 'none'}", auth_method(said) == method)
+    case("api_key is no subscription login", "api_key" not in SUBSCRIPTION)
+    print(f"{total - failed}/{total} cases green")
+    return EXIT_GREEN if failed == 0 else EXIT_RED
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="run-evals", add_help=False, allow_abbrev=False)
     parser.add_argument("--module", action="append", default=[])
     parser.add_argument("--container", action="store_true")
     parser.add_argument("--token-file")
+    parser.add_argument("--self-test", action="store_true")
     try:
         args = parser.parse_args(argv)
-        if bool(args.container) != bool(args.token_file):
+        if bool(args.container) != bool(args.token_file) or (
+            args.self_test and (args.module or args.container)
+        ):
             raise SystemExit(2)
     except SystemExit:
         print(
             "BROKEN: misinvocation — fix: python3 scripts/run-evals.py [--module <module>]..."
-            " [--container --token-file <file>]"
+            " [--container --token-file <file>], or --self-test"
         )
         return EXIT_BROKEN
-    kept = {k: v for k, v in claude_env(dict(os.environ)).items() if k not in USAGE_BILLED}
-    env = pinned_path(kept)
+    if args.self_test:
+        return self_test()
+    env = pinned_path(run_env(dict(os.environ)))
     box: Box | None = None
     try:
         known = [m.name for m in module_folders(KIT)]
         model = eval_model(KIT)
         if args.container:
             pinned = pinned_claude(KIT)
+            token_box(args.token_file, "")  # the token file is judged before an image is built
             box = token_box(args.token_file, ensure_image(pinned, env))
         else:
             note = claude_note(KIT, env)
@@ -345,6 +443,7 @@ def main(argv: list[str]) -> int:
                     " — fix: run sh scripts/setup-claude.sh"
                 )
             pinned = note.pinned
+            subscription_login(env)
     except (DocumentError, EvalError, Broken) as bad:
         print(f"BROKEN: {bad}")
         return EXIT_BROKEN

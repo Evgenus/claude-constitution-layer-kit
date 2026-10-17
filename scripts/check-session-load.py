@@ -323,6 +323,14 @@ def self_test() -> int:
         ),
         "a missing skill is a finding": (stream(["const-x"], [], [GOOD]), ["const-x"]),
         "one start hook too few is a finding": (stream(["const-x"], ["const-x:s"], []), ["const-x"]),
+        "one start hook too many is a finding": (
+            stream(["const-x"], ["const-x:s"], [GOOD, GOOD]),
+            ["const-x"],
+        ),
+        "a start hook whose outcome is no success, with exit 0, is a finding": (
+            stream(["const-x"], ["const-x:s"], [GOOD | {"outcome": "cancelled"}]),
+            ["const-x"],
+        ),
         "a start hook that exits 1 is a finding": (
             stream(["const-x"], ["const-x:s"], [GOOD | {"exit_code": 1, "outcome": "error"}]),
             ["const-x"],

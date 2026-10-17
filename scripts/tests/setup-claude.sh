@@ -80,17 +80,17 @@ holds() {
 
 mkclone() {  # mkclone <dir>: a repository holding the scripts the cases run
     git init -q -b main "$1" && mkdir "$1/scripts" && cp "$kit/.gitignore" "$1/" || exit 1
-    for f in setup-claude.sh gate-list.sh claude-code.version check-bare-install.py check-install-guide.py kit_module_doc.py; do
+    for f in setup-claude.sh gate-list.sh claude-code.version check-bare-install.py check-install-guide.py kit_module_doc.py kit_install.py; do
         cp "$kit/scripts/$f" "$1/scripts/" || exit 1
     done
     git -C "$1" add -A && git -C "$1" -c user.name=fixture -c user.email=fixture@example.invalid commit -q -m kit || exit 1
 }
 
 pin_fix="write the one version Claude Code's npm package carries, e.g. 2.1.282, as the file's only line"
-green() { echo "GREEN: $1/.claude-code-pinned holds Claude Code $2, which scripts/gate-list.sh --run puts first on PATH for the install entries and the guide"; }
+green() { echo "GREEN: $1/.claude-code-pinned holds Claude Code $2, which scripts/gate-list.sh --run puts first on PATH for the install and session entries and the guide"; }
 red() {  # red <clone> <pin> <what>
     echo "RED: the pinned Claude Code $2 is not set up — $3
-  why: the install entries and the guide fail to run on any other version, and the gate list finds the pinned one only in $1/.claude-code-pinned
+  why: the install and session entries and the guide fail to run on any other version, and the gate list finds the pinned one only in $1/.claude-code-pinned
   fix: sh scripts/setup-claude.sh"
 }
 off_pin() {  # the install check's line for a claude of version $1
@@ -264,7 +264,7 @@ mkdir "$tmp/plain"
 run_in "$tmp/plain" sh "$fails/scripts/setup-claude.sh"
 is "outside a repository is BROKEN" 1 "BROKEN: not inside a git repository — fix: run it from a clone of the kit"
 
-# the gate list: the pinned folder goes first on PATH for the install entries and the guide, and for no other
+# the gate list: the pinned folder goes first on PATH for the install and session entries and the guide, and for no other
 mkclone "$tmp/list"
 list=$tmp/list
 bin=$list/.claude-code-pinned/node_modules/.bin
@@ -317,7 +317,7 @@ run_in "$list" sh scripts/gate-list.sh --run "install-$install_entry"
 is "no folder, again: the person's own claude, as CI runs it" 1 "$(off_pin 2.1.286)
 $ran"
 
-# the folder goes first on PATH for the install entries and the guide ALONE, over every entry of the list.
+# the folder goes first on PATH for the install and session entries and the guide ALONE, over every entry of the list.
 # A tree of the list alone, where every command fails fast, and a sh in the folder that logs the command
 # it is given and runs the real sh: run_entry runs each command as sh -c, so that sh is reached exactly
 # when the folder is first on PATH
@@ -335,17 +335,17 @@ for entry in $entries; do
     (cd "$sweep" && sh scripts/gate-list.sh --run "$entry") >/dev/null 2>&1
     ran=$((ran + 1))
     case $entry in
-        install-* | guide) (cd "$sweep" && sh scripts/gate-list.sh --show "$entry") >>"$tmp/want.all" ;;
+        install-* | session-const-* | guide) (cd "$sweep" && sh scripts/gate-list.sh --show "$entry") >>"$tmp/want.all" ;;
     esac
 done
 holds "every entry of the list was run alone ($ran)" test "$ran" -gt 50
-holds "the commands of the install entries and the guide were all that reached the folder's sh" cmp -s "$MARKER" "$tmp/want.all"
-holds "and they are not none: a command for each install entry and two for the guide" test "$(wc -l <"$tmp/want.all" | tr -d ' ')" -ge 11
+holds "the commands of the install and session entries and the guide were all that reached the folder's sh" cmp -s "$MARKER" "$tmp/want.all"
+holds "and they are not none: a command for each install and session entry and two for the guide" test "$(wc -l <"$tmp/want.all" | tr -d ' ')" -ge 22
 holds "the guide's two among them" test "$(grep -c 'check-install-guide.py' "$tmp/want.all")" -eq 2
 : >"$MARKER"
 (cd "$sweep" && sh scripts/gate-list.sh --run "$install_entry") >/dev/null 2>&1
-printf 'python3 scripts/check-bare-install.py --module %s\n' "$install_entry" >"$tmp/want.one"
-holds "a job run goes through run_entry the same way: a module's job reaches the folder with its install entry alone" cmp -s "$MARKER" "$tmp/want.one"
+printf 'python3 scripts/check-bare-install.py --module %s\npython3 scripts/check-session-load.py --module %s\n' "$install_entry" "$install_entry" >"$tmp/want.one"
+holds "a job run goes through run_entry the same way: a module's job reaches the folder with its install and session entries alone" cmp -s "$MARKER" "$tmp/want.one"
 : >"$MARKER"
 (cd "$sweep" && sh scripts/gate-list.sh --run install-guide) >/dev/null 2>&1
 printf 'python3 scripts/check-install-guide.py\npython3 scripts/check-install-guide.py --self-test\n' >"$tmp/want.guide"
