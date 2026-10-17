@@ -301,6 +301,30 @@ A, recommended by the session: the container exists to keep the decider's files 
 
 A, by the decider in chat on 2026-10-17. Every module's receipt is made again after it, since no `Bash` command of an earlier container run had run.
 
+## 12. The moment of rule T-c, and its requirement row
+
+On the image with Vale and lychee, the case `commit-before-edit` of module [`const-task-close`](../requirements.md#const-task-close) failed one run in three. Asked to rename a function across two folders, the model loaded the skill only after its edits. The start rule named the moment "before a batch of edits", and a rename that starts with one edit is not seen as a batch. On 2026-10-17 the decider chose to fix the cause in the module: its start rule, the skill's description and its rule T-c now name the moment "before the first edit of any change, such as a rename, a refactor or an edit of more than one file", and the case passed every run after it. [Requirement A4.7](../requirements.md#a4-7) still said "dirty tree committed before a batch of edits". Amending a row is a `process` decision under [rule 2 of plc-0007-requirements](../policies/plc-0007-requirements.md#r2).
+
+### Options
+
+- **A. Amend the row in this record,** to "dirty tree committed before the first edit of any change", so that the merge that accepts this record accepts the row too.
+  - **Pros:** the row and the module's rule say the same words, as [law 4 of CLAUDE.md](../../CLAUDE.md#law-4) asks; the change is reviewed at the one yes already due; nothing rests on reading a single edit as a batch.
+  - **Cons:** a record about evals gains a ruling on another module's row; one more confirming round before the merge.
+- **B. Keep the row,** and read a change's first edit as the start of its batch.
+  - **Pros:** no row is amended, so no record is needed.
+  - **Cons:** the row and the rule differ in wording; their agreement rests on the fuzzy moment that made the case fail.
+- **C. Keep the row now, and amend it later** in a record and pull request of its own.
+  - **Pros:** each record stays on its own topic; the row ends up matching the rule.
+  - **Cons:** a second pull request and record for one row; until then the row and the rule differ.
+
+### Recommendation
+
+A, recommended by the session: the merge's yes is already the ceremony a `process` decision needs, and an explicit row is better than a reading.
+
+### Choice
+
+A, by the decider in chat on 2026-10-18.
+
 ## Ruling
 
 <a id="r1"></a>**R1.** Every module ships its eval cases in `evals/` at its root, one folder per case holding a `case.yaml`, in the form `claude plugin eval` reads. The results a run writes under `evals/results/` are ignored by git and never committed.
@@ -319,7 +343,7 @@ A, by the decider in chat on 2026-10-17. Every module's receipt is made again af
 
 <a id="r8"></a>**R8.** The kit's `scripts/check-eval-receipts.py`, an entry of the gate group with `--self-test` as its fixture, turns red for a module whose entry is missing; whose hash differs from the module's current eval hash; whose version or model differs from the pinned ones; or whose last attempt did not pass. It holds that a passing run was declared for the current files, not that it was run, as the receipt of [rule 5 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r5) does for an audit.
 
-<a id="r9"></a>**R9.** A module document's acceptance table gains the kind `eval`: one item per case, naming the rows it proves, its status derived by `scripts/check-aspects.py` from the receipt. An `eval` item counts as run when its module's receipt is current, green when its last attempt passes and red when it does not, a run declared and not one the kit sees; this narrows R1 and R10 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r1). Its date, platform version and model are its receipt's, which widens [rule 10 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r10). Each `live` item that proves a session's behaviour alone, and that a case covers whole, becomes an `eval` item. A `live` item that proves a scan over the kit's tree, and a deferred consumer-live item, stay `live`: an eval proves a session's behaviour in the folder a run starts in, which a scaffold seeds where a case needs a project, never the module's live proof in the kit or in a consumer.
+<a id="r9"></a>**R9.** A module document's acceptance table gains the kind `eval`: one item per case, naming the rows it proves, its status derived by `scripts/check-aspects.py` from the receipt. An `eval` item counts as run when its module's receipt is current, green when its last attempt passes and red when it does not, a run declared and not one the kit sees; this narrows R1 and R10 of [dec-0054-acceptance-items-name-their-rows](dec-0054-acceptance-items-name-their-rows.md#r1). Its date, platform version and model are its receipt's, which widens [rule 10 of plc-0006-module-documents](../policies/plc-0006-module-documents.md#r10). Each `live` item that proves a session's behaviour alone, and that a case covers whole, becomes an `eval` item, which replaces it, so that no live proof of that behaviour stays owed. A `live` item that proves a scan over the kit's tree, and a deferred consumer-live item, stay `live`: an eval proves a session's behaviour in the folder a run starts in, which a scaffold seeds where a case needs a project, never the module's live proof in the kit or in a consumer.
 
 <a id="r10"></a>**R10.** The kit's `scripts/check-session-load.py`, an entry of the gate group in each module's job with `--self-test` as its fixture, installs the module as `scripts/check-bare-install.py` does, the shared steps in one place. It then starts one headless session with no login in the bare repository and holds two things. The `init` event lists every skill under the module's `skills/`. Every `SessionStart` hook of the module has a `hook_response` with exit 0 and output that is not empty.
 
@@ -330,6 +354,8 @@ A, by the decider in chat on 2026-10-17. Every module's receipt is made again af
 <a id="r13"></a>**R13.** Every case runs in a throwaway container of the image `scripts/eval-container/Dockerfile` defines, one container per case. The image holds the Claude Code version the kit pins, a Python at or above the kit's floor, and the Vale and lychee the kit's CI installs, which the modules' scripts call. The image's tag names the pinned Claude Code version and the Dockerfile's hash, so that a changed file is built again; no case runs on the host, so every receipt comes from one environment. The runner takes `--token-file <file>`: a subscription token from `claude setup-token`, which the runner never opens, refuses unless its owner alone can read it, judges before it asks docker for the image, and hands the container as Docker's `--env-file`. The module's copy is mounted read-only, and a results folder of the run's own writable. The container runs with Docker's seccomp filter and its `/proc` mask lifted, `--security-opt seccomp=unconfined --security-opt systempaths=unconfined`, which the eval's own sandbox needs to start. Inside, the usage-billing variables of R7 are unset, and the case runs only when `claude --version` is the pinned version and `claude auth status` reports a subscription login.
 
 <a id="r14"></a>**R14.** The session-load check of R10 runs on the pinned Claude Code like the install check, and reads the same install source. So the gate list puts the pinned version first on `PATH` for the `session-<module>` entries too, which widens R4 of [dec-0075-install-checks-read-the-init-event-keep-plugin-variables-and-run-locally-on-the-pin](dec-0075-install-checks-read-the-init-event-keep-plugin-variables-and-run-locally-on-the-pin.md#r4); and a module's job carries the install source for its session entry too, which widens R5 of [dec-0061-ci-runs-one-job-per-module](dec-0061-ci-runs-one-job-per-module.md#r5).
+
+<a id="r15"></a>**R15.** [Requirement A4.7](../requirements.md#a4-7) has a dirty tree committed before the first edit of any change, not before a batch of edits. Rule T-c of module [`const-task-close`](../requirements.md#const-task-close), the description of its skill `commit-before-edit` and its start rule name the same moment, with a rename, a refactor and an edit of more than one file as examples.
 
 ## Carry list
 
@@ -347,3 +373,4 @@ A, by the decider in chat on 2026-10-17. Every module's receipt is made again af
 12. R12 — the eval case row of [template §6](../../module-template/MODULE.md#t6); [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring. That eight cases lost `Bash` for a day, and got it back, is history.
 13. R13 — [`scripts/run-evals.py`](../../scripts/run-evals.py), its docstring; [the image](../../scripts/eval-container/Dockerfile), its header and its comment on the tools it installs; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI".
 14. R14 — [`scripts/gate-list.sh`](../../scripts/gate-list.sh), its header and `run_entry`; [`scripts/setup-claude.sh`](../../scripts/setup-claude.sh), its header; [the workflow](../../.github/workflows/gates.yml), its header, its step that installs Claude Code and the comment on the install source; [`scripts/kit_module_doc.py`](../../scripts/kit_module_doc.py), the fix `put_first` words; [CLAUDE.md](../../CLAUDE.md), the bullet "The gate list and CI". That it widens R4 of dec-0075 and R5 of dec-0061 is history.
+15. R15 — [requirement A4.7](../requirements.md#a4-7); [the module document of `const-task-close`](../../modules/const-task-close/MODULE.md), rule T-c; [its skill `commit-before-edit`](../../modules/const-task-close/skills/commit-before-edit/SKILL.md), its description; [its start rule](../../modules/const-task-close/scripts/print-skill-pointer.sh).
