@@ -86,15 +86,18 @@ def eval_model(root: Path) -> str:
 
 
 def git(root: Path, *args: str) -> str:
-    done = subprocess.run(
-        ["git", *args],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=False,
-    )
+    try:
+        done = subprocess.run(
+            ["git", *args],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except FileNotFoundError as missing:
+        raise EvalError("git is not installed — fix: install it and put it on PATH") from missing
     if done.returncode != 0:
         said = done.stderr.strip().splitlines()
         raise EvalError(

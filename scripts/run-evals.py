@@ -41,8 +41,10 @@ shell would otherwise bill the runs without a word. A subscription token from `c
 CLAUDE_CODE_OAUTH_TOKEN, stays.
 
 Prints one line per case and one per module, and where the results are kept. `--self-test` proves the
-guards without a model: the token file's mode, the container's guard, the environment of a run and the
-reading of `claude auth status`; the gate list runs it.
+guards without a model: the token file's mode, the container's guard, the environment of a run, the
+reading of `claude auth status`, the host's login check against a fake `claude`, a token file judged before
+docker is asked for an image, the files a rename leaves not committed, and a missing git; the gate list runs
+it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
 
@@ -355,7 +357,8 @@ def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
 
 def self_test() -> int:
     """The runner's guards, run without a model: the token file's mode, the container's guard, the
-    environment of a run and the reading of `claude auth status`."""
+    environment of a run, the reading of `claude auth status`, the host's login check, the token file judged
+    before the image, the files a rename leaves not committed, and a missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -431,6 +434,30 @@ def self_test() -> int:
             "a token file readable by others is refused before docker is asked for an image",
             code == EXIT_BROKEN and "is readable by others" in printed.getvalue(),
         )
+        kit = Path(tmp) / "kit"
+        (kit / "modules/const-x/skills/s").mkdir(parents=True)
+        (kit / "modules/const-x/skills/s/SKILL.md").write_text("skill\n", encoding="utf-8")
+        quiet = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "PATH": os.environ["PATH"]}
+        for argv in (
+            ["init", "-q"],
+            ["add", "-A"],
+            ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
+        ):
+            subprocess.run(["git", *argv], cwd=kit, env=quiet, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "mv", "modules/const-x/skills/s/SKILL.md", "modules/const-x/skills/s/OTHER.md"],
+            cwd=kit, env=quiet, capture_output=True, check=True,
+        )  # fmt: skip
+        case(
+            "a rename not committed names its new path, and no fragment of its source",
+            dirty(kit, "const-x") == ["modules/const-x/skills/s/OTHER.md"],
+        )
+        with mock.patch.dict(os.environ, {"PATH": tmp}):
+            try:
+                dirty(kit, "const-x")
+                case("a missing git is a teaching error, never a traceback", False)
+            except EvalError as missing:
+                case("a missing git is a teaching error, never a traceback", "install it" in str(missing))
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
