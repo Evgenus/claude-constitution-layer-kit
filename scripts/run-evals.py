@@ -25,8 +25,9 @@ module, in turn:
      `--trust-plugin --no-publish --scaffold`, and `--allow-tools` granting those of Bash, Write and Edit
      that the case lists in its `allowed_tools` — a skill or command case lists Read, Glob, Grep, Write,
      Edit, Skill and Bash, the tools a session at its moment would have, and a start-rule case only what
-     its rule needs; its JSON result and report are kept in
-     local/evals/<module>/. The runs count against the subscription's plan, never against usage;
+     its rule needs; its JSON result and report are kept in local/evals/<module>/, with each run's trace,
+     which `--keep-temp` leaves in the container, copied out as <case>-trace<n>.jsonl, so that a failing run
+     can be read. The runs count against the subscription's plan, never against usage;
   4. the cases' `casesTotal` and `casesPassed` summed, and their `overallScore` weighted by cases, become
      one attempt, stamped with the time in UTC, appended to the module's entry of scripts/eval-receipts.json.
      An entry whose hash, Claude Code version or model differs from the run's is replaced by a new one. A
@@ -162,7 +163,7 @@ def eval_argv(plugin: str, case: str, model: str, out: str, tools: list[str]) ->
     argv = [
         "claude", "plugin", "eval", plugin, "--case", case,
         "--model", model, "--runs", str(RUNS), "--threshold", "1", "--ablation", "none",
-        "--trust-plugin", "--no-publish", "--scaffold",
+        "--trust-plugin", "--no-publish", "--scaffold", "--keep-temp",
         "--json", f"{out}/{case}.json", "--report", f"{out}/{case}.html",
     ]  # fmt: skip
     return argv + (["--allow-tools", *tools] if tools else [])
@@ -184,9 +185,20 @@ def guard(pinned: str, then: str) -> str:
     )
 
 
-def in_box(box: Box, copy: Path, out: Path, argv: list[str]) -> list[str]:
+def then_for(copy: Path, case: str, argv: list[str]) -> str:
+    """What a container runs after its guard: the eval, then each run's trace, which `--keep-temp` leaves
+    sealed under /tmp, copied to /out as <case>-trace<n>.jsonl; the container exits with the eval's code."""
+    return (
+        f"cp -r /plugin {CONTAINER_HOME}/{copy.name} && cd {CONTAINER_HOME} && {shlex.join(argv)}; code=$?; "
+        "chmod -R u+rwx /tmp/e-* 2>/dev/null; n=0; "
+        "for t in $(find /tmp -path '/tmp/e-*/out/trace.jsonl' 2>/dev/null); do "
+        f'n=$((n+1)); cp "$t" "/out/{case}-trace$n.jsonl"; done; exit $code'
+    )
+
+
+def in_box(box: Box, copy: Path, out: Path, argv: list[str], case: str = "case") -> list[str]:
     """The `docker run` that runs `argv` in a throwaway container, after its guard."""
-    then = f"cp -r /plugin {CONTAINER_HOME}/{copy.name} && cd {CONTAINER_HOME} && exec {shlex.join(argv)}"
+    then = then_for(copy, case, argv)
     return [
         "docker", "run", "--rm", "--env-file", str(box.token_file),
         "-v", f"{copy}:/plugin:ro", "-v", f"{out}:/out", box.image, "sh", "-c", guard(box.pinned, then),
@@ -200,7 +212,7 @@ def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path,
     out.mkdir(exist_ok=True)
     tools = granted([case / "case.yaml"])
     plugin = f"{CONTAINER_HOME}/{copy.name}"
-    argv = in_box(box, copy, out, eval_argv(plugin, case.name, model, "/out", tools))
+    argv = in_box(box, copy, out, eval_argv(plugin, case.name, model, "/out", tools), case.name)
     timeout = RUNS * TURN_SECONDS + 300
     try:
         done = subprocess.run(
@@ -223,7 +235,7 @@ def run_case(case: Path, copy: Path, model: str, env: dict[str, str], tmp: Path,
         )
     kept = KIT / "local" / "evals" / copy.name
     kept.mkdir(parents=True, exist_ok=True)
-    for made in (result, out / f"{case.name}.html"):
+    for made in (result, out / f"{case.name}.html", *sorted(out.glob(f"{case.name}-trace*.jsonl"))):
         if made.is_file():
             shutil.copy2(made, kept / made.name)
     return outcome_of(result)
@@ -351,8 +363,8 @@ def self_test() -> int:
         )
         case(
             "the container runs the guard before its case",
-            argv[-1] == guard("2.1.282", argv[-1].split("; ")[-1])
-            and argv[-1].endswith("exec claude plugin eval"),
+            argv[-1]
+            == guard("2.1.282", then_for(Path(tmp) / "const-x", "case", ["claude", "plugin", "eval"])),
         )
         fake_bin = Path(tmp) / "bin"
         fake_bin.mkdir()
