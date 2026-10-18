@@ -61,7 +61,8 @@ person with its own fix, from BuildKit's log and from the legacy builder's colou
 download in the same step, whose ERROR line quotes the step's command, the refusal's echo included, told
 apart and given the exact build to run; the Dockerfile's refusal opening with the words the runner looks
 for; the shell the Dockerfile names in CLAUDE_CODE_SHELL, run with a socket on stdin, reading no ~/.bashrc
-where bash itself does, so that no Bash call of a case opens with that file's error; the verbose story of a
+where bash itself does, so that no Bash call of a case opens with that file's error; each scaffold that makes
+a git repository leaving out of git the sandbox's placeholders the runs showed; the verbose story of a
 fixed case, run by run; an attempt recorded only when it changes the receipt's verdict; a missing token file
 argument; the files a rename leaves not committed; an eval image not committed; and a missing git.
 The gate list runs it.
@@ -511,6 +512,48 @@ def startup_errors(recipe: Path, folder: Path) -> tuple[str, str | None]:
     return said[0], said[1] if shell else None
 
 
+# The sandbox's placeholders in a case's folder, as the kept traces of runs on Claude Code 2.1.282 list them;
+# golden data of the self-test, so that each scaffold's exclude list is held against what the runs showed.
+SEEN_PLACEHOLDERS = (
+    ".bash_profile", ".bashrc", ".eval-artifacts", ".gitconfig", ".gitmodules", ".idea", ".mcp.json",
+    ".profile", ".ripgreprc", ".vscode", ".zprofile", ".zshrc",
+    ".claude/agents", ".claude/commands", ".claude/hooks", ".claude/launch.json", ".claude/loop.md",
+    ".claude/output-styles", ".claude/routines", ".claude/scheduled_tasks.json", ".claude/settings.json",
+    ".claude/settings.local.json", ".claude/skills", ".claude/workflows",
+)  # fmt: skip
+
+
+def placeholders_shown(root: Path, folder: Path) -> list[str]:
+    """For each case of the kit at `root` whose scaffold makes a git repository: the case and the
+    placeholders the runs showed that `git status` still lists as untracked once the scaffold has run in
+    `folder` and they are made there as 0-byte files, under no system or global config, as the eval's git
+    has. For the self-test; an empty list when every such scaffold leaves them all out."""
+    env = {
+        "PATH": os.environ["PATH"], "HOME": str(folder), "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_CONFIG_GLOBAL": os.devnull,
+    }  # fmt: skip
+    shown: list[str] = []
+    for module in module_folders(root):
+        for case in cases_of(module):
+            scaffold = case / "scaffold.sh"
+            if not scaffold.is_file() or "git init" not in scaffold.read_text(encoding="utf-8"):
+                continue
+            work = folder / module.name / case.name
+            work.mkdir(parents=True)
+            subprocess.run(["sh", str(scaffold)], cwd=work, env=env, capture_output=True, check=True)
+            for name in SEEN_PLACEHOLDERS:
+                (work / name).parent.mkdir(parents=True, exist_ok=True)
+                (work / name).write_text("", encoding="utf-8")
+            status = subprocess.run(
+                ["git", "status", "--porcelain", "--untracked-files=all"], cwd=work, env=env,
+                capture_output=True, text=True, check=True,
+            ).stdout  # fmt: skip
+            left = [n for n in SEEN_PLACEHOLDERS if f"?? {n}\n" in status]
+            if left:
+                shown.append(f"{module.name}/{case.name}: {' '.join(left)}")
+    return shown
+
+
 def report_story(folder: Path) -> list[str]:
     """The verbose story of a fixed case of two runs, the second failing, written into `folder`, for the
     self-test."""
@@ -589,8 +632,9 @@ def self_test() -> int:
     the docker commands, the image's tag, the token file judged before the image, a missing token file
     argument, the Dockerfile's refusal of an architecture from either builder and a failed download in the
     same step, told the exact build to run, the refusal's words in the Dockerfile, the image's shell reading
-    no ~/.bashrc, an attempt recorded only when it changes the receipt's verdict, an eval image not
-    committed, the files a rename leaves not committed, and a missing git."""
+    no ~/.bashrc, each git scaffold leaving out the sandbox's placeholders, an attempt recorded only when it
+    changes the receipt's verdict, an eval image not committed, the files a rename leaves not committed, and a
+    missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -790,6 +834,12 @@ def self_test() -> int:
             "the image's shell, which the Dockerfile names in CLAUDE_CODE_SHELL, reads no ~/.bashrc with a"
             " socket on stdin, where bash itself does",
             ".bashrc" in bare and wrapped == "",
+        )
+        shown = placeholders_shown(KIT, Path(tmp) / "scaffolds")
+        case(
+            "every scaffold that makes a git repository leaves out of git each placeholder the sandbox put in"
+            " a case's folder in the runs" + "".join(f"\n        shown: {line}" for line in shown),
+            not shown,
         )
         box_root = Path(tmp) / "box root"  # a space, so that then_for's quoting is held
         for folder in ("tmp/claude-eval-a/out", "tmp/e-b/out", "out", "plugin", "home", "bin"):
