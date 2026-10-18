@@ -36,7 +36,7 @@ if [ "$1" = "--check" ]; then
     cat >&2 <<MSG
 RED: this clone is not set up — core.hooksPath is "$hooks"$([ -n "$dir" ] || echo ", which names no scripts/git-hooks of this repository"), merge.ff is "$(git config --get merge.ff)", pull.ff is "$(git config --get pull.ff)", the hook is $([ -x "${dir:-scripts/git-hooks}/prepare-commit-msg" ] && echo executable || echo "missing or not executable")
   why: git never versions the three settings or runs a hook that is not executable, and without all four main can take a commit no rule allowed
-  fix: sh scripts/setup-clone.sh   — in a worktree whose own config names another hooks path: git config --worktree core.hooksPath scripts/git-hooks; if the hook is not executable: chmod +x "$hookdir/prepare-commit-msg"; if it is missing: git -C "${hookdir%/scripts/git-hooks}" checkout -- scripts/git-hooks
+  fix: sh "$top/scripts/setup-clone.sh"   — in a worktree whose own config names another hooks path: git config --worktree core.hooksPath scripts/git-hooks; if the hook is not executable: chmod +x "$hookdir/prepare-commit-msg"; if it is missing: git -C "${hookdir%/scripts/git-hooks}" checkout -- scripts/git-hooks/prepare-commit-msg
 MSG
     exit 2
 fi

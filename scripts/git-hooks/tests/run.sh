@@ -74,6 +74,9 @@ expect 0 "after setup a pull onto main only fast-forwards" git pull -q "$tmp/rem
 expect 0 "to the remote's main exactly, no merge of its own" test "$(git rev-parse HEAD)" = "$remote_main"
 chmod -x scripts/git-hooks/prepare-commit-msg
 expect 2 "a hook that is not executable makes the clone red" sh scripts/setup-clone.sh --check
+mkdir -p deep && (cd deep && sh ../scripts/setup-clone.sh --check) >"$tmp/msg" 2>&1
+expect 0 "and from a subfolder its fixes name the setup and the hook by absolute path" \
+    grep -q "fix: sh \"$tmp/repo/scripts/setup-clone.sh\" .*chmod +x \"$tmp/repo/scripts/git-hooks/prepare-commit-msg\"; if it is missing: git -C \"$tmp/repo\" checkout -- scripts/git-hooks/prepare-commit-msg$" "$tmp/msg"
 chmod +x scripts/git-hooks/prepare-commit-msg
 git config extensions.worktreeConfig true && git worktree add -q "$tmp/wt" -b work/wt
 (cd "$tmp/wt" && git config --worktree core.hooksPath "$tmp/repo/scripts/git-hooks")
