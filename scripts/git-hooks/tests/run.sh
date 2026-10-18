@@ -75,6 +75,18 @@ expect 0 "to the remote's main exactly, no merge of its own" test "$(git rev-par
 chmod -x scripts/git-hooks/prepare-commit-msg
 expect 2 "a hook that is not executable makes the clone red" sh scripts/setup-clone.sh --check
 chmod +x scripts/git-hooks/prepare-commit-msg
+git config extensions.worktreeConfig true && git worktree add -q "$tmp/wt" -b work/wt
+(cd "$tmp/wt" && git config --worktree core.hooksPath "$tmp/repo/scripts/git-hooks")
+expect 0 "a worktree whose own config names this repository's hooks folder by its absolute path, as the desktop app writes, is green" \
+    sh -c 'cd "$1" && sh "$2" --check' - "$tmp/wt" "$tmp/repo/scripts/setup-clone.sh"
+git config core.hooksPath "$tmp/repo/scripts/git-hooks"
+expect 0 "so is the clone itself with that absolute path"  sh scripts/setup-clone.sh --check
+mkdir -p sub/scripts && cp -R scripts/git-hooks sub/scripts/ && git config core.hooksPath "$tmp/repo/sub/scripts/git-hooks"
+expect 2 "a hooks folder in a plain folder of the clone is red" sh scripts/setup-clone.sh --check
+git init -q "$tmp/stranger" && mkdir -p "$tmp/stranger/scripts" && cp -R scripts/git-hooks "$tmp/stranger/scripts/"
+git config core.hooksPath "$tmp/stranger/scripts/git-hooks"
+expect 2 "another repository's hooks folder is red"      sh scripts/setup-clone.sh --check
+sh scripts/setup-clone.sh >/dev/null 2>&1
 git switch -q --detach
 expect 0 "a detached HEAD is not main"                    git commit -q --allow-empty -m "detached"
 
