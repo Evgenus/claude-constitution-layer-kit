@@ -50,20 +50,21 @@ receipt stands, …, so nothing is recorded" when its attempt was not written. W
 container's output as it comes, then for each run its verdict, the start hooks' output, every tool call and
 text of the model, and each grader's verdict with the eval's explanation (`scripts/kit_eval_report.py`).
 `--self-test` proves the guards without a model or docker: the token file's mode and a token file that does
-not exist; the container's options (the token as an env file, never its text, the copy read-only, the
-seccomp filter and the /proc mask lifted); its guard, run under sh against a fake claude (the billing
-variables unset, the pinned version and a subscription login required, in that order); its command after the
-guard, run under sh (the eval's exit code kept, each run's trace copied whatever its folder, and mapped to
-the path the eval's result names); the environment of the docker commands; the image's tag following the pin
-and the Dockerfile's text, and the image inspected and built under that tag, against a fake docker; a token
-file judged before docker is asked for an image; the Dockerfile's refusal of an architecture reaching the
-person with its own fix, from BuildKit's log and from the legacy builder's coloured output, and a failed
-download in the same step, whose ERROR line quotes the step's command, the refusal's echo included, told
-apart and given the exact build to run; the Dockerfile's refusal opening with the words the runner looks
-for; the shell the Dockerfile names in CLAUDE_CODE_SHELL, run with a socket on stdin, reading no ~/.bashrc
-where bash itself does, so that no Bash call of a case opens with that file's error; the verbose story of a
-fixed case, run by run; an attempt recorded only when it changes the receipt's verdict; a missing token file
-argument; the files a rename leaves not committed; an eval image not committed; and a missing git.
+not exist; the container's options (the token as an env file, never its text, the copy read-only, the seccomp
+filter and the /proc mask lifted); its guard, run under sh against a fake claude (the billing variables unset,
+the pinned version and a subscription login required, in that order); its command after the guard, run under
+sh (the eval's exit code kept, each run's trace copied whatever its folder, and mapped to the path the eval's
+result names); the environment of the docker commands; the image's tag following the pin and the Dockerfile's
+text, and the image inspected and built under that tag, against a fake docker; a token file judged before
+docker is asked for an image; the Dockerfile's refusal of an architecture reaching the person with its own
+fix, from BuildKit's log and from the legacy builder's coloured output, and a failed download in the same
+step, whose ERROR line quotes the step's command, the refusal's echo included, told apart and given the exact
+build to run; the Dockerfile's refusal opening with the words the runner looks for; the shell the Dockerfile
+names in CLAUDE_CODE_SHELL, run with a socket on stdin, reading no ~/.bashrc where bash itself does, so that
+no Bash call of a case opens with that file's error; git under the image's system config leaving out the
+sandbox's placeholders the runs showed in a case's folder, and showing a new file beside them; the verbose
+story of a fixed case, run by run; an attempt recorded only when it changes the receipt's verdict; a missing
+token file argument; the files a rename leaves not committed; an eval image not committed; and a missing git.
 The gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
@@ -511,6 +512,56 @@ def startup_errors(recipe: Path, folder: Path) -> tuple[str, str | None]:
     return said[0], said[1] if shell else None
 
 
+# The sandbox's placeholders in a case's folder, as the kept traces of runs on Claude Code 2.1.282 list them;
+# golden data of the self-test, so that the Dockerfile's list is held against what the runs showed.
+SEEN_PLACEHOLDERS = (
+    ".bash_profile", ".bashrc", ".eval-artifacts", ".gitconfig", ".gitmodules", ".idea", ".mcp.json",
+    ".profile", ".ripgreprc", ".vscode", ".zprofile", ".zshrc",
+    ".claude/agents", ".claude/commands", ".claude/hooks", ".claude/launch.json", ".claude/loop.md",
+    ".claude/output-styles", ".claude/routines", ".claude/scheduled_tasks.json", ".claude/settings.json",
+    ".claude/settings.local.json", ".claude/skills", ".claude/workflows",
+)  # fmt: skip
+
+
+def system_ignore(recipe: Path, folder: Path) -> Path | None:
+    """A system git config naming, as core.excludesFile, the ignore file the Dockerfile writes, written into
+    `folder` from the `printf` that makes it in the image, for the self-test; None when the Dockerfile does
+    not make the file or does not name it in the system config."""
+    text = recipe.read_text(encoding="utf-8").replace("\\\n", " ")
+    named = re.search(r"git config --system core\.excludesFile (\S+)", text)
+    if not named:
+        return None
+    made = re.search(r"printf '%s\\n' ([^>]*) > " + re.escape(named.group(1)) + r"\s", text)
+    if not made:
+        return None
+    ignore = folder / "gitignore"
+    ignore.write_text("".join(f"{name}\n" for name in shlex.split(made.group(1))), encoding="utf-8")
+    config = folder / "gitconfig"
+    config.write_text(f"[core]\n\texcludesFile = {ignore}\n", encoding="utf-8")
+    return config
+
+
+def untracked_beside_placeholders(recipe: Path, folder: Path) -> str:
+    """`git status --porcelain --untracked-files=all` of a repository holding one new file and, as 0-byte
+    files, every placeholder the runs showed, under the system config the Dockerfile makes, or none when it
+    makes none. For the self-test."""
+    repo = folder / "repo"
+    for name in SEEN_PLACEHOLDERS:
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_text("", encoding="utf-8")
+    (repo / "kept.txt").write_text("kept\n", encoding="utf-8")
+    config = system_ignore(recipe, folder)
+    env = {
+        "PATH": os.environ["PATH"], "HOME": str(folder), "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_SYSTEM": str(config) if config else os.devnull,
+    }  # fmt: skip
+    subprocess.run(["git", "init", "-q"], cwd=repo, env=env, check=True)
+    return subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"], cwd=repo, env=env,
+        capture_output=True, text=True, check=True,
+    ).stdout  # fmt: skip
+
+
 def report_story(folder: Path) -> list[str]:
     """The verbose story of a fixed case of two runs, the second failing, written into `folder`, for the
     self-test."""
@@ -585,12 +636,13 @@ def recording_holds() -> bool:
 
 def self_test() -> int:
     """The runner's guards, run without a model or docker: the token file's mode and its absence, the
-    container's options, its guard and its command after the guard, each run under sh, the environment of
-    the docker commands, the image's tag, the token file judged before the image, a missing token file
-    argument, the Dockerfile's refusal of an architecture from either builder and a failed download in the
-    same step, told the exact build to run, the refusal's words in the Dockerfile, the image's shell reading
-    no ~/.bashrc, an attempt recorded only when it changes the receipt's verdict, an eval image not
-    committed, the files a rename leaves not committed, and a missing git."""
+    container's options, its guard and its command after the guard, each run under sh, the environment of the
+    docker commands, the image's tag, the token file judged before the image, a missing token file argument,
+    the Dockerfile's refusal of an architecture from either builder and a failed download in the same step,
+    told the exact build to run, the refusal's words in the Dockerfile, the image's shell reading no
+    ~/.bashrc, the image's git leaving out the sandbox's placeholders, an attempt recorded only when it
+    changes the receipt's verdict, an eval image not committed, the files a rename leaves not committed, and a
+    missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -790,6 +842,11 @@ def self_test() -> int:
             "the image's shell, which the Dockerfile names in CLAUDE_CODE_SHELL, reads no ~/.bashrc with a"
             " socket on stdin, where bash itself does",
             ".bashrc" in bare and wrapped == "",
+        )
+        case(
+            "git under the image's system config leaves out every placeholder the sandbox put in a case's"
+            " folder in the runs, and shows a new file beside them",
+            untracked_beside_placeholders(KIT / EVAL_IMAGE, Path(tmp) / "ignore") == "?? kept.txt\n",
         )
         box_root = Path(tmp) / "box root"  # a space, so that then_for's quoting is held
         for folder in ("tmp/claude-eval-a/out", "tmp/e-b/out", "out", "plugin", "home", "bin"):
