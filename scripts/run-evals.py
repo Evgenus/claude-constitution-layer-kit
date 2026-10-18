@@ -60,9 +60,10 @@ file judged before docker is asked for an image; the Dockerfile's refusal of an 
 person with its own fix, from BuildKit's log and from the legacy builder's coloured output, and a failed
 download in the same step, whose ERROR line quotes the step's command, the refusal's echo included, told
 apart and given the exact build to run; the Dockerfile's refusal opening with the words the runner looks
-for; the verbose story of a fixed case, run by run; an attempt recorded only when it changes the receipt's
-verdict; a missing token file argument; the files a rename leaves not committed; an eval image not
-committed; and a missing git.
+for; the shell the Dockerfile names in CLAUDE_CODE_SHELL, run with a socket on stdin, reading no ~/.bashrc
+where bash itself does, so that no Bash call of a case opens with that file's error; the verbose story of a
+fixed case, run by run; an attempt recorded only when it changes the receipt's verdict; a missing token file
+argument; the files a rename leaves not committed; an eval image not committed; and a missing git.
 The gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
@@ -78,6 +79,7 @@ import os
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -472,6 +474,43 @@ def record(module: str, outcome: Outcome, claude: str, model: str) -> bool:
     return True
 
 
+def case_shell(recipe: Path, folder: Path) -> Path | None:
+    """The shell the Dockerfile names in CLAUDE_CODE_SHELL, written into `folder` from the `printf` that makes
+    it in the image, for the self-test; None when the Dockerfile names no such shell or does not make it."""
+    text = recipe.read_text(encoding="utf-8")
+    named = re.search(r"^ENV CLAUDE_CODE_SHELL=(\S+)$", text, re.M)
+    if not named:
+        return None
+    made = re.search(r"printf '([^']*)' > " + re.escape(named.group(1)) + r"\s", text)
+    if not made:
+        return None
+    shell = folder / "bash"
+    shell.write_text(made.group(1).replace("\\n", "\n"), encoding="utf-8")
+    shell.chmod(0o755)
+    return shell
+
+
+def startup_errors(recipe: Path, folder: Path) -> tuple[str, str | None]:
+    """What /bin/bash and the image's shell print on stderr for `-c true` with a socket on stdin, as Claude
+    Code gives each Bash call, and a ~/.bashrc they cannot read, as under the eval's sandbox; None for the
+    image's shell when the Dockerfile makes none. For the self-test."""
+    home = folder / "home"
+    (home / ".bashrc").mkdir(parents=True)  # a directory: unreadable as a file, whoever runs the self-test
+    shell = case_shell(recipe, folder)
+    said: list[str] = []
+    env = {"PATH": os.environ["PATH"], "HOME": str(home)}
+    for program in ("/bin/bash", *([str(shell)] if shell else [])):
+        left, right = socket.socketpair()
+        with left, right:
+            said.append(
+                subprocess.run(
+                    [program, "-c", "true"], stdin=left.fileno(), env=env,
+                    capture_output=True, text=True, check=False,
+                ).stderr
+            )  # fmt: skip
+    return said[0], said[1] if shell else None
+
+
 def report_story(folder: Path) -> list[str]:
     """The verbose story of a fixed case of two runs, the second failing, written into `folder`, for the
     self-test."""
@@ -549,9 +588,9 @@ def self_test() -> int:
     container's options, its guard and its command after the guard, each run under sh, the environment of
     the docker commands, the image's tag, the token file judged before the image, a missing token file
     argument, the Dockerfile's refusal of an architecture from either builder and a failed download in the
-    same step, told the exact build to run, the refusal's words in the Dockerfile, an attempt recorded only
-    when it changes the receipt's verdict, an eval image not committed, the files a rename leaves not
-    committed, and a missing git."""
+    same step, told the exact build to run, the refusal's words in the Dockerfile, the image's shell reading
+    no ~/.bashrc, an attempt recorded only when it changes the receipt's verdict, an eval image not
+    committed, the files a rename leaves not committed, and a missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -745,6 +784,12 @@ def self_test() -> int:
         case(
             "the Dockerfile's refusal opens with the words the runner looks for",
             f'echo "{ARCH_REFUSAL} ' in (KIT / EVAL_IMAGE).read_text(encoding="utf-8"),
+        )
+        bare, wrapped = startup_errors(KIT / EVAL_IMAGE, Path(tmp) / "shell")
+        case(
+            "the image's shell, which the Dockerfile names in CLAUDE_CODE_SHELL, reads no ~/.bashrc with a"
+            " socket on stdin, where bash itself does",
+            ".bashrc" in bare and wrapped == "",
         )
         box_root = Path(tmp) / "box root"  # a space, so that then_for's quoting is held
         for folder in ("tmp/claude-eval-a/out", "tmp/e-b/out", "out", "plugin", "home", "bin"):
