@@ -36,9 +36,9 @@ asks docker for the image. For each module, in turn:
   4. the cases' `casesTotal` and `casesPassed` summed, and their `overallScore` weighted by cases, become
      one attempt, stamped with the time in UTC. It is appended to the module's entry of
      scripts/eval-receipts.json unless the entry names the run's hash, Claude Code version and model, its
-     last attempt passed and this one passed too: then the receipt stands and nothing is written, so a run
-     made only to watch owes no commit, while every failure, and the pass after it, is kept; an attempt
-     that is written is committed, a failure as much as a pass (decision
+     last attempt passed and this one passed too: then the receipt stands and nothing is written, so a
+     passing run made only to watch owes no commit, while every failure since the entry began, and the pass
+     after it, is kept; an attempt that is written is committed, a failure as much as a pass (decision
      dec-0094-eval-runs-record-only-what-changes-the-verdict). An entry whose hash, Claude Code version or
      model differs from the run's is replaced by a new one. A partial result counts as a failed attempt.
 The `docker` commands run in the person's environment less the four variables of `kit_module_doc.claude_env`
