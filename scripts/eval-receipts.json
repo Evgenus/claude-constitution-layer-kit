@@ -122,26 +122,14 @@
   "const-meta-types": {
     "attempts": [
       {
-        "at": "2026-10-17T20:52:42Z",
-        "cases": 1,
-        "passed": 1,
-        "score": 1.0
-      },
-      {
-        "at": "2026-10-17T23:19:44Z",
-        "cases": 1,
-        "passed": 1,
-        "score": 1.0
-      },
-      {
-        "at": "2026-10-17T23:28:34Z",
+        "at": "2026-10-18T07:16:33Z",
         "cases": 1,
         "passed": 1,
         "score": 1.0
       }
     ],
     "claude": "2.1.282",
-    "hash": "sha256:2d6ae2cd8895f9815b1c4b0b2da6c55dc38348ef2626769ae61137c00505dd6b",
+    "hash": "sha256:741ac179e4c43c8fcaa2ea214548c623169f79f5b7060a6e3388a835d3a513e8",
     "model": "claude-opus-5-5"
   },
   "const-questions": {
