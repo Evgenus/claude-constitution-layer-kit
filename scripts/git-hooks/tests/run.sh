@@ -84,7 +84,7 @@ expect 2 "that worktree is red when the hook its path names is not executable" \
     sh -c 'cd "$1" && sh "$2" --check' - "$tmp/wt" "$tmp/repo/scripts/setup-clone.sh"
 cp "$tmp/out" "$tmp/msg"
 fix=$(sed -n 's/.*if the hook is not executable: \(chmod +x [^;]*\);.*/\1/p' "$tmp/msg")
-expect 0 "and its fix names that hook, not the worktree's own copy" test "$fix" = "chmod +x $tmp/repo/scripts/git-hooks/prepare-commit-msg"
+expect 0 "and its fix names that hook, not the worktree's own copy" test "$fix" = "chmod +x \"$tmp/repo/scripts/git-hooks/prepare-commit-msg\""
 expect 0 "the taught fix works: run it, the worktree is green" \
     sh -c 'cd "$1" && sh -c "$3" && sh "$2" --check' - "$tmp/wt" "$tmp/repo/scripts/setup-clone.sh" "$fix"
 git config core.hooksPath "$tmp/repo/scripts/git-hooks"
@@ -98,6 +98,17 @@ cp "$tmp/out" "$tmp/msg"
 expect 0 "and the red says the path names no hooks folder of this repository" grep -q 'which names no scripts/git-hooks of this repository' "$tmp/msg"
 expect 0 "and gives the fix for a worktree's own config"   grep -q 'git config --worktree core.hooksPath scripts/git-hooks' "$tmp/msg"
 sh scripts/setup-clone.sh >/dev/null 2>&1
+git init -q -b main "$tmp/tracked" && cp -R scripts "$tmp/tracked/" \
+    && (cd "$tmp/tracked" && git add scripts && git -c user.name=f -c user.email=f@example.invalid commit -q -m hooks \
+        && git config merge.ff false && git config pull.ff only && git config extensions.worktreeConfig true \
+        && git worktree add -q "$tmp/tracked-wt" -b work/wt && rm scripts/git-hooks/prepare-commit-msg) \
+    && (cd "$tmp/tracked-wt" && git config --worktree core.hooksPath "$tmp/tracked/scripts/git-hooks")
+expect 2 "a worktree whose path names a checkout that lost its hook is red" \
+    sh -c 'cd "$1" && sh scripts/setup-clone.sh --check' - "$tmp/tracked-wt"
+cp "$tmp/out" "$tmp/msg"
+fix=$(sed -n 's/.*if it is missing: \(git -C .*\)$/\1/p' "$tmp/msg")
+expect 0 "the taught fix works: run it, the hook is back and the worktree is green" \
+    sh -c 'cd "$1" && sh -c "$2" && sh scripts/setup-clone.sh --check' - "$tmp/tracked-wt" "$fix"
 git switch -q --detach
 expect 0 "a detached HEAD is not main"                    git commit -q --allow-empty -m "detached"
 
