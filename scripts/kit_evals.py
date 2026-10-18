@@ -23,7 +23,11 @@ receipt per module in `scripts/eval-receipts.json`, written by `scripts/run-eval
   `read_receipts` / `write_receipts`  the receipts file: one JSON object, a key per module, each entry an
                  object with `hash`, `claude` (the version of `scripts/claude-code.version` the run used),
                  `model`, and `attempts`, a list of objects each with `at` (UTC, ISO 8601), `cases`, `passed`
-                 and `score`. An attempt passes when it ran at least one case and every case passed. A file
+                 and `score`: the attempts that changed the entry's verdict, the first for its hash, Claude
+                 Code version and model, every failure since and each pass after a failure, as `recorded` of
+                 scripts/run-evals.py keeps them; a run on another hash, version or model starts a new entry
+                 (decision dec-0094-eval-runs-record-only-what-changes-the-verdict). An attempt passes when
+                 it ran at least one case and every case passed. A file
                  that is absent reads as no receipts; one that is no such object is an `EvalError`. The file
                  is written with sorted keys, an indent of 2 and a final line break.
 

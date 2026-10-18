@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Kit tooling, never shipped in a module, and no check: run the eval cases of modules in a throwaway
-container and write each run's attempt into the receipts file (decision
-dec-0093-module-evals-with-local-receipts).
+container and write each run's attempt into the receipts file, save a passing rerun of a passing receipt
+(decisions dec-0093-module-evals-with-local-receipts and
+dec-0094-eval-runs-record-only-what-changes-the-verdict).
 
     python3 scripts/run-evals.py --token-file <file> [--module <module>]... [--verbose]
     python3 scripts/run-evals.py --self-test
@@ -33,13 +34,18 @@ asks docker for the image. For each module, in turn:
      which `--keep-temp` leaves in the container, copied out as <case>-trace<n>.jsonl, so that a failing run
      can be read. The runs count against the subscription's plan, never against usage;
   4. the cases' `casesTotal` and `casesPassed` summed, and their `overallScore` weighted by cases, become
-     one attempt, stamped with the time in UTC, appended to the module's entry of scripts/eval-receipts.json.
-     An entry whose hash, Claude Code version or model differs from the run's is replaced by a new one. A
-     partial result counts as a failed attempt.
+     one attempt, stamped with the time in UTC. It is appended to the module's entry of
+     scripts/eval-receipts.json unless the entry names the run's hash, Claude Code version and model, its
+     last attempt passed and this one passed too: then the receipt stands and nothing is written, so a
+     passing run made only to watch owes no commit, while every failure since the entry began, and the pass
+     after it, is kept; an attempt that is written is committed, a failure as much as a pass (decision
+     dec-0094-eval-runs-record-only-what-changes-the-verdict). An entry whose hash, Claude Code version or
+     model differs from the run's is replaced by a new one. A partial result counts as a failed attempt.
 The `docker` commands run in the person's environment less the four variables of `kit_module_doc.claude_env`
 and the usage-billing ones above; the container gets none of it but the token file.
 
-Prints one line per case and one per module, and where the results are kept. With `--verbose`, which
+Prints one line per case and one per module, and where the results are kept; a module's line ends "the
+receipt stands, …, so nothing is recorded" when its attempt was not written. With `--verbose`, which
 `just evals` passes, each case first prints what the model is told and each grader's rule, then the
 container's output as it comes, then for each run its verdict, the start hooks' output, every tool call and
 text of the model, and each grader's verdict with the eval's explanation (`scripts/kit_eval_report.py`).
@@ -56,8 +62,8 @@ download in the same step, whose ERROR line quotes the step's command, the refus
 apart and given the exact build to run; the Dockerfile's refusal opening with the words the runner looks
 for; the shell the Dockerfile names in CLAUDE_CODE_SHELL, run with a socket on stdin, reading no ~/.bashrc
 where bash itself does, so that no Bash call of a case opens with that file's error; the verbose story of a
-fixed case, run by run; a missing token file argument; the files a rename leaves
-not committed; an eval image not committed; and a missing git.
+fixed case, run by run; an attempt recorded only when it changes the receipt's verdict; a missing token file
+argument; the files a rename leaves not committed; an eval image not committed; and a missing git.
 The gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
@@ -442,16 +448,30 @@ def run_module(module: str, model: str, env: dict[str, str], box: Box, verbose: 
     return Outcome(total, sum(o.passed for o in outcomes), score, lines)
 
 
-def record(module: str, outcome: Outcome, claude: str, model: str) -> None:
+def recorded(old: Receipt | None, now: str, claude: str, model: str, attempt: Attempt) -> Receipt | None:
+    """The module's entry after a run's `attempt`, or None when nothing is recorded: the entry names the
+    run's eval hash, Claude Code version and model, its last attempt passed, and this one passed too
+    (decision dec-0094-eval-runs-record-only-what-changes-the-verdict). Else the attempt is added, to a new
+    entry when the hash, the version or the model differs."""
+    current = old is not None and (old.hash, old.claude, old.model) == (now, claude, model)
+    kept = old.attempts if old is not None and current else ()
+    if kept and kept[-1].passing and attempt.passing:
+        return None
+    return Receipt(now, claude, model, (*kept, attempt))
+
+
+def record(module: str, outcome: Outcome, claude: str, model: str) -> bool:
+    """Record the run's attempt in the receipts file as `recorded` rules; whether it was recorded."""
     receipts = read_receipts(KIT)
-    now = eval_hash(KIT, module)
     attempt = Attempt(
         datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), outcome.cases, outcome.passed, outcome.score
     )
-    old = receipts.get(module)
-    kept = old.attempts if old and (old.hash, old.claude, old.model) == (now, claude, model) else ()
-    receipts[module] = Receipt(now, claude, model, (*kept, attempt))
+    entry = recorded(receipts.get(module), eval_hash(KIT, module), claude, model, attempt)
+    if entry is None:
+        return False
+    receipts[module] = entry
     write_receipts(KIT, receipts)
+    return True
 
 
 def case_shell(recipe: Path, folder: Path) -> Path | None:
@@ -539,13 +559,37 @@ def report_story(folder: Path) -> list[str]:
     return case_preamble(folder / "case.yaml") + case_story(folder / "c.json", folder / "c-traces.txt")
 
 
+def recording_holds() -> bool:
+    """Whether `recorded` keeps exactly the attempts that change a receipt's verdict, for the self-test."""
+    good, bad, once = Attempt("t2", 2, 2, 1.0), Attempt("t2", 2, 1, 0.5), Attempt("t1", 2, 2, 1.0)
+    failed_once = Attempt("t1", 2, 1, 0.5)
+
+    def entry(*attempts: Attempt, of: str = "sha256:h", claude: str = "2.1.282", model: str = "m") -> Receipt:
+        return Receipt(of, claude, model, attempts)
+
+    def then(
+        old: Receipt | None, attempt: Attempt, of: str = "sha256:h", claude: str = "2.1.282", model: str = "m"
+    ) -> Receipt | None:
+        return recorded(old, of, claude, model, attempt)
+
+    return (
+        then(None, good) == entry(good)
+        and then(entry(once), good) is None
+        and then(entry(once), bad) == entry(once, bad)
+        and then(entry(failed_once), good) == entry(failed_once, good)
+        and then(entry(once), good, of="sha256:other") == entry(good, of="sha256:other")
+        and then(entry(once), good, claude="2.1.283") == entry(good, claude="2.1.283")
+        and then(entry(once), good, model="other") == entry(good, model="other")
+    )  # fmt: skip
+
+
 def self_test() -> int:
     """The runner's guards, run without a model or docker: the token file's mode and its absence, the
     container's options, its guard and its command after the guard, each run under sh, the environment of
     the docker commands, the image's tag, the token file judged before the image, a missing token file
     argument, the Dockerfile's refusal of an architecture from either builder and a failed download in the
     same step, told the exact build to run, the refusal's words in the Dockerfile, the image's shell reading
-    no ~/.bashrc, an eval image not
+    no ~/.bashrc, an attempt recorded only when it changes the receipt's verdict, an eval image not
     committed, the files a rename leaves not committed, and a missing git."""
     failed, total = 0, 0
 
@@ -856,6 +900,12 @@ def self_test() -> int:
                 case("a missing git is a teaching error, never a traceback", "install it" in str(missing))
             except OSError:
                 case("a missing git is a teaching error, never a traceback", False)
+    case(
+        "a run records its attempt only when it changes what the receipt says: a first run, a failure, a pass"
+        " after a failure and a run on other files, version or model are recorded; a pass on a passing"
+        " receipt is not",
+        recording_holds(),
+    )
     print(f"{total - failed}/{total} cases green")
     return EXIT_GREEN if failed == 0 else EXIT_RED
 
@@ -898,7 +948,7 @@ def main(argv: list[str]) -> int:
             if args.verbose:
                 print(f"══ {module}", flush=True)
             outcome = run_module(module, model, env, box, args.verbose)
-            record(module, outcome, pinned, model)
+            kept = record(module, outcome, pinned, model)
         except (Broken, EvalError) as bad:
             print(f"BROKEN: {bad}")
             worst = EXIT_BROKEN
@@ -910,6 +960,12 @@ def main(argv: list[str]) -> int:
         print(
             f"{verdict}: {module}: {outcome.passed} of {outcome.cases} case(s) passed,"
             f" score {outcome.score:.2f} — report in local/evals/{module}/"
+            + (
+                ""
+                if kept
+                else "; the receipt stands, already passing for these files, this Claude Code and this model,"
+                " so nothing is recorded"
+            )
         )
         if not passing and worst == EXIT_GREEN:
             worst = EXIT_RED
