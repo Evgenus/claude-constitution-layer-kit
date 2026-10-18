@@ -37,13 +37,15 @@ asks docker for the image. For each module, in turn:
      one attempt, stamped with the time in UTC. It is appended to the module's entry of
      scripts/eval-receipts.json unless the entry names the run's hash, Claude Code version and model, its
      last attempt passed and this one passed too: then the receipt stands and nothing is written, so a run
-     made only to watch owes no commit, while every failure, and the pass after it, is kept (decision
+     made only to watch owes no commit, while every failure, and the pass after it, is kept; an attempt
+     that is written is committed, a failure as much as a pass (decision
      dec-0094-eval-runs-record-only-what-changes-the-verdict). An entry whose hash, Claude Code version or
      model differs from the run's is replaced by a new one. A partial result counts as a failed attempt.
 The `docker` commands run in the person's environment less the four variables of `kit_module_doc.claude_env`
 and the usage-billing ones above; the container gets none of it but the token file.
 
-Prints one line per case and one per module, and where the results are kept. With `--verbose`, which
+Prints one line per case and one per module, and where the results are kept; a module's line ends "the
+receipt stands, …, so nothing is recorded" when its attempt was not written. With `--verbose`, which
 `just evals` passes, each case first prints what the model is told and each grader's rule, then the
 container's output as it comes, then for each run its verdict, the start hooks' output, every tool call and
 text of the model, and each grader's verdict with the eval's explanation (`scripts/kit_eval_report.py`).
@@ -58,8 +60,9 @@ file judged before docker is asked for an image; the Dockerfile's refusal of an 
 person with its own fix, from BuildKit's log and from the legacy builder's coloured output, and a failed
 download in the same step, whose ERROR line quotes the step's command, the refusal's echo included, told
 apart and given the exact build to run; the Dockerfile's refusal opening with the words the runner looks
-for; the verbose story of a fixed case, run by run; a missing token file argument; the files a rename leaves
-not committed; an eval image not committed; and a missing git.
+for; the verbose story of a fixed case, run by run; an attempt recorded only when it changes the receipt's
+verdict; a missing token file argument; the files a rename leaves not committed; an eval image not
+committed; and a missing git.
 The gate list runs it.
 Exit:   0 every module's attempt passed; 2 an attempt failed; 1 a module could not be run.
 """
@@ -546,8 +549,9 @@ def self_test() -> int:
     container's options, its guard and its command after the guard, each run under sh, the environment of
     the docker commands, the image's tag, the token file judged before the image, a missing token file
     argument, the Dockerfile's refusal of an architecture from either builder and a failed download in the
-    same step, told the exact build to run, the refusal's words in the Dockerfile, an eval image not
-    committed, the files a rename leaves not committed, and a missing git."""
+    same step, told the exact build to run, the refusal's words in the Dockerfile, an attempt recorded only
+    when it changes the receipt's verdict, an eval image not committed, the files a rename leaves not
+    committed, and a missing git."""
     failed, total = 0, 0
 
     def case(name: str, ok: bool) -> None:
@@ -914,7 +918,8 @@ def main(argv: list[str]) -> int:
             + (
                 ""
                 if kept
-                else "; the receipt stands, already passing for these files, so nothing is recorded"
+                else "; the receipt stands, already passing for these files, this Claude Code and this model,"
+                " so nothing is recorded"
             )
         )
         if not passing and worst == EXIT_GREEN:
