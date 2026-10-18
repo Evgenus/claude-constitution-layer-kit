@@ -79,6 +79,14 @@ git config extensions.worktreeConfig true && git worktree add -q "$tmp/wt" -b wo
 (cd "$tmp/wt" && git config --worktree core.hooksPath "$tmp/repo/scripts/git-hooks")
 expect 0 "a worktree whose own config names this repository's hooks folder by its absolute path, as the desktop app writes, is green" \
     sh -c 'cd "$1" && sh "$2" --check' - "$tmp/wt" "$tmp/repo/scripts/setup-clone.sh"
+chmod -x scripts/git-hooks/prepare-commit-msg
+expect 2 "that worktree is red when the hook its path names is not executable" \
+    sh -c 'cd "$1" && sh "$2" --check' - "$tmp/wt" "$tmp/repo/scripts/setup-clone.sh"
+cp "$tmp/out" "$tmp/msg"
+fix=$(sed -n 's/.*if the hook is not executable: \(chmod +x [^;]*\);.*/\1/p' "$tmp/msg")
+expect 0 "and its fix names that hook, not the worktree's own copy" test "$fix" = "chmod +x $tmp/repo/scripts/git-hooks/prepare-commit-msg"
+expect 0 "the taught fix works: run it, the worktree is green" \
+    sh -c 'cd "$1" && sh -c "$3" && sh "$2" --check' - "$tmp/wt" "$tmp/repo/scripts/setup-clone.sh" "$fix"
 git config core.hooksPath "$tmp/repo/scripts/git-hooks"
 expect 0 "so is the clone itself with that absolute path"  sh scripts/setup-clone.sh --check
 mkdir -p sub/scripts && cp -R scripts/git-hooks sub/scripts/ && git config core.hooksPath "$tmp/repo/sub/scripts/git-hooks"
@@ -86,6 +94,9 @@ expect 2 "a hooks folder in a plain folder of the clone is red" sh scripts/setup
 git init -q "$tmp/stranger" && mkdir -p "$tmp/stranger/scripts" && cp -R scripts/git-hooks "$tmp/stranger/scripts/"
 git config core.hooksPath "$tmp/stranger/scripts/git-hooks"
 expect 2 "another repository's hooks folder is red"      sh scripts/setup-clone.sh --check
+cp "$tmp/out" "$tmp/msg"
+expect 0 "and the red says the path names no hooks folder of this repository" grep -q 'which names no scripts/git-hooks of this repository' "$tmp/msg"
+expect 0 "and gives the fix for a worktree's own config"   grep -q 'git config --worktree core.hooksPath scripts/git-hooks' "$tmp/msg"
 sh scripts/setup-clone.sh >/dev/null 2>&1
 git switch -q --detach
 expect 0 "a detached HEAD is not main"                    git commit -q --allow-empty -m "detached"

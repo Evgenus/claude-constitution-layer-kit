@@ -4,8 +4,10 @@
 #   sh scripts/setup-clone.sh           set them
 #   sh scripts/setup-clone.sh --check   exit 0 when all three are set and the hook file is executable, 2 when not
 # core.hooksPath  scripts/git-hooks  — git runs the kit's tracked hooks; --check also takes an absolute path to
-#                                      scripts/git-hooks in a checkout of this same repository, which the Claude
-#                                      desktop app writes into the config of each worktree it makes
+#                                      scripts/git-hooks in the top folder of a checkout sharing this clone's git
+#                                      common directory — the main checkout or one of its worktrees, never another
+#                                      clone — which the Claude desktop app writes into the config of each worktree
+#                                      it makes; git then runs that checkout's copy of the hook
 # merge.ff        false              — a merge into main is always a merge commit, never a fast-forward
 # pull.ff         only               — a pull onto main only fast-forwards to the remote's merge; with merge.ff
 #                                      false alone, a plain git pull would make a merge commit of its own
@@ -22,6 +24,7 @@ case $hooks in  # the folder git runs this clone's hooks from, when it is the ki
     /*/scripts/git-hooks) dir=$hooks; [ -n "$(common .)" ] && [ "$(common "${hooks%/scripts/git-hooks}")" = "$(common .)" ] || dir= ;;
     *) dir= ;;
 esac
+case $dir in /*) checkout=${dir%/scripts/git-hooks} ;; *) checkout=. ;; esac  # the checkout the hooks folder is in
 
 if [ "$1" = "--check" ]; then
     if [ -n "$dir" ] && [ "$(git config --get merge.ff)" = "false" ] \
@@ -33,7 +36,7 @@ if [ "$1" = "--check" ]; then
     cat >&2 <<MSG
 RED: this clone is not set up — core.hooksPath is "$hooks"$([ -n "$dir" ] || echo ", which names no scripts/git-hooks of this repository"), merge.ff is "$(git config --get merge.ff)", pull.ff is "$(git config --get pull.ff)", the hook is $([ -x "${dir:-scripts/git-hooks}/prepare-commit-msg" ] && echo executable || echo "missing or not executable")
   why: git never versions the three settings or runs a hook that is not executable, and without all four main can take a commit no rule allowed
-  fix: sh scripts/setup-clone.sh   — in a worktree whose own config names another hooks path: git config --worktree core.hooksPath scripts/git-hooks; if the hook is not executable: chmod +x scripts/git-hooks/prepare-commit-msg; if it is missing: git checkout -- scripts/git-hooks
+  fix: sh scripts/setup-clone.sh   — in a worktree whose own config names another hooks path: git config --worktree core.hooksPath scripts/git-hooks; if the hook is not executable: chmod +x ${dir:-scripts/git-hooks}/prepare-commit-msg; if it is missing: git -C $checkout checkout -- scripts/git-hooks
 MSG
     exit 2
 fi
