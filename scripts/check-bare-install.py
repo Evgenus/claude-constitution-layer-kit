@@ -71,7 +71,7 @@ For the module named, in throwaway folders that the check removes:
      leads inside the module, save the fixture runner's link tests/<package> -> ../scripts/<package>
      to a package of the module's own (as own_packages of kit_module_doc derives them: a folder of
      scripts/, itself no link, holding an __init__.py, its name starting with neither `.` nor `_`,
-     save const_gate), which arrives as a link leading to that
+     save constitution_layer_kit), which arrives as a link leading to that
      package in the copy — the platform keeps a link that stays inside the plugin; every
      other link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
@@ -993,10 +993,12 @@ def fixture_runner_package(root: Path, change: str, source: Path) -> tuple[str, 
     """The package and the folder of the runner's link in the source, as a case named runner-link-* asks."""
     package = {
         "runner-link-no-package": "data",
-        "runner-link-const-gate": "const_gate",
+        "runner-link-constitution-layer-kit": "constitution_layer_kit",
         "runner-link-underscore": "_own_gate",
     }.get(change, "own_gate")
-    if change == "runner-link-to-a-link":  # scripts/own_gate a link out of the module, as const_gate
+    if (
+        change == "runner-link-to-a-link"
+    ):  # scripts/own_gate a link out of the module, as constitution_layer_kit
         (root / "outside_gate").mkdir()
         (root / "outside_gate" / "__init__.py").write_text("", encoding="utf-8")
         (source / "scripts" / package).symlink_to(root / "outside_gate")
@@ -1135,9 +1137,9 @@ LINK_CASES = {
         "runner-link-to-a-link",
         "the link tests/own_gate is left a link",
     ),
-    "a link of tests/ to a real folder scripts/const_gate leads inside the module": (
-        "runner-link-const-gate",
-        "the link tests/const_gate is left a link",
+    "a link of tests/ to a real folder scripts/constitution_layer_kit leads inside the module": (
+        "runner-link-constitution-layer-kit",
+        "the link tests/constitution_layer_kit is left a link",
     ),
     "a link of tests/ to a package named with a leading _ leads inside the module": (
         "runner-link-underscore",
@@ -4074,9 +4076,11 @@ def source_at_commit_case(tally: Tally) -> None:
         extracted = source_at(head, "const-meta-types", root)
         ok = extracted == root / "source" / "modules" / "const-meta-types"
         ok = (
-            ok and (extracted / "MODULE.md").is_file() and (extracted / "scripts" / "const_gate").is_symlink()
+            ok
+            and (extracted / "MODULE.md").is_file()
+            and (extracted / "scripts" / "constitution_layer_kit").is_symlink()
         )
-        target = (extracted / "scripts" / "const_gate").resolve()
+        target = (extracted / "scripts" / "constitution_layer_kit").resolve()
         ok = ok and target.is_relative_to(root / "source" / "shared") and target.is_dir()
     tally.failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the source at a commit is read from the kit's history")

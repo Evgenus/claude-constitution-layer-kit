@@ -7,8 +7,8 @@ dec-0056-portability-grep-and-gate-lists. It reads the installed components of e
 the files git lists under `skills/`, `hooks/`, `scripts/`, `commands/`, `agents/`, the install
 note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md`, never a module's
 `README.md`, which is reader prose like `MODULE.md` and held by review, nor `tests/` —
-and the shared gate code under `shared/const_gate/`, which every module installs as its
-`scripts/const_gate`. A symbolic link is read at its source, once. A module is every folder under
+and the shared gate code under `shared/constitution_layer_kit/`, which every module installs as its
+`scripts/constitution_layer_kit`. A symbolic link is read at its source, once. A module is every folder under
 `modules/` whose name opens with neither a dot nor an underscore, as `kit_module_doc.module_folders`
 lists them for every kit check: a plain file there is none, a name without `const-` is one, and a
 module folder without its `MODULE.md` is no tree the check can read (BROKEN), nor is a tree with no
@@ -52,7 +52,8 @@ finding, with its why and its fix:
 It is read in every line, a fenced block and a code span too, since the forms of A12.1 read every
 installed text; a public URL is no exception either. The kit's own `MODULE.md` is no installed
 component and is not read, and neither are a module's `README.md`, `tests/` or `shared/GATE.md` —
-of `shared/`, only `shared/const_gate/`, which each module installs as its `scripts/const_gate`, is
+of `shared/`, only `shared/constitution_layer_kit/`, which each module installs as its
+`scripts/constitution_layer_kit`, is
 read. A prefix is
 looked for only where the dials declare it: a `constitution.yaml` that is missing, is no YAML, lacks
 a `const-catalogs` mapping or its `catalogs` list, or holds an entry that the catalog module would
@@ -112,7 +113,7 @@ except ImportError:
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 INSTALLED = ("skills/", "hooks/", "scripts/", "commands/", "agents/", "INSTALL.md", ".claude-plugin/")
-SHARED = "shared/const_gate"
+SHARED = "shared/constitution_layer_kit"
 DIALS = "constitution.yaml"
 NAMESPACE = "const-catalogs"  # the dials namespace that declares the kit's numbered kinds
 DEFAULT_WIDTH, MAX_WIDTH = 4, 9  # the catalog module's own: a width is a whole number from 1 to 9

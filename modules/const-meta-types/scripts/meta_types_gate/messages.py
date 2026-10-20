@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from const_gate import identity
-from const_gate.messages import echoed, escaped, patterns
-from const_gate.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, Status
+from constitution_layer_kit import identity
+from constitution_layer_kit.messages import echoed, escaped, patterns
+from constitution_layer_kit.model import DECLARATION, DIALS_FILE, Broken, Finding, Match, MetaType, Status
 
 from .model import TITLE_MAX, Key
 

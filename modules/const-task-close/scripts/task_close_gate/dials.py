@@ -6,9 +6,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from const_gate import identity
-from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns, relative_path
-from const_gate.errors import ConfigurationFailure
+from constitution_layer_kit import identity
+from constitution_layer_kit.dials import (
+    GATE_KEYS,
+    refuse_unknown_keys,
+    refuse_unreadable_patterns,
+    relative_path,
+)
+from constitution_layer_kit.errors import ConfigurationFailure
 
 from . import messages
 from .model import (

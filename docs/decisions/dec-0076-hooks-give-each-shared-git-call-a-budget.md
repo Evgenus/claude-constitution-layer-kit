@@ -68,8 +68,8 @@ The commits of this branch apply every item. The commits before the one that add
 ## Carry list
 
 1. R1 — history only: how this change was recorded and landed.
-2. R2 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `repository` row of section 1, and [its limit 16](../../shared/GATE.md#g4); [the repository module](../../shared/const_gate/repository.py), the docstrings of `git` and `budget`.
-3. R3 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `identity` row of section 1, and [item 1 of its section 2](../../shared/GATE.md#g2); [the identity module](../../shared/const_gate/identity.py), its docstrings.
+2. R2 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `repository` row of section 1, and [its limit 16](../../shared/GATE.md#g4); [the repository module](../../shared/constitution_layer_kit/repository.py), the docstrings of `git` and `budget`.
+3. R3 — [kit-shared-gate-code](../../shared/GATE.md#g1), the `identity` row of section 1, and [item 1 of its section 2](../../shared/GATE.md#g2); [the identity module](../../shared/constitution_layer_kit/identity.py), its docstrings.
 4. R4 — [kit-shared-gate-code](../../shared/GATE.md#g3), rows C12.12 and C12.13 of section 3.
 5. R5 — [kit-shared-gate-code](../../shared/GATE.md#g5), row S165 of section 5, and [its limit 16](../../shared/GATE.md#g4).
 6. R6 — [kit-shared-gate-code](../../shared/GATE.md#g4), limit 16.

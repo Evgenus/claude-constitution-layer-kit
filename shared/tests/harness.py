@@ -28,7 +28,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-from const_gate.model import Finding
+from constitution_layer_kit.model import Finding
 from consumer import Consumer
 
 

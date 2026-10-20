@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Kit check: the gates' hand-written validation is never more lenient than the kernel's
-JSON Schemas — the shared code's mirror of the dials schema (const_gate/dials.py, read by
+JSON Schemas — the shared code's mirror of the dials schema (constitution_layer_kit/dials.py, read by
 every gate), const-meta-types for the envelope (exactly equal), const-decision-records for
 what a decision record adds to the envelope (equal, except where the mirror is stricter on
 purpose: a decider of blanks).
@@ -56,11 +56,11 @@ except ImportError as exc:
     print("BROKEN: the check could not run — 0 cases examined")
     sys.exit(1)
 
-from const_gate import identity  # noqa: E402
-from const_gate.dials import load_dials  # noqa: E402
-from const_gate.envelope import parse_envelope  # noqa: E402
-from const_gate.errors import ConfigurationFailure  # noqa: E402
-from const_gate.model import MetaType, Status  # noqa: E402
+from constitution_layer_kit import identity  # noqa: E402
+from constitution_layer_kit.dials import load_dials  # noqa: E402
+from constitution_layer_kit.envelope import parse_envelope  # noqa: E402
+from constitution_layer_kit.errors import ConfigurationFailure  # noqa: E402
+from constitution_layer_kit.model import MetaType, Status  # noqa: E402
 from decision_records_gate import checks as record_checks  # noqa: E402
 from decision_records_gate.checks import check_record  # noqa: E402
 from decision_records_gate.model import ROUTINE, Stakes  # noqa: E402
@@ -81,7 +81,7 @@ THIS_FILE = "scripts/check-schema-mirror.py"
 WHY_MIRROR = "the module's mirror is the only copy of the kernel schema a consumer has"
 WHY_EXEMPTION = "an exemption that no longer holds would hide the next real disagreement on its case"
 ALIGN = (
-    "align with kernel/schemas/ — dials.py of shared/const_gate/,"
+    "align with kernel/schemas/ — dials.py of shared/constitution_layer_kit/,"
     " or checks.py or model.py of the module the line names"
 )
 
@@ -314,7 +314,8 @@ def dials_disagreement(name: str, mirror: bool, schema: bool) -> Disagreement | 
     return Disagreement(
         f"dials '{name}': listed as another reader's, but the mirror rejects it",
         WHY_EXEMPTION,
-        f"{remove}, or, where kernel §6 keeps the key another reader's, stop dials.py of shared/const_gate/"
+        f"{remove}, or, where kernel §6 keeps the key another reader's, stop dials.py of"
+        " shared/constitution_layer_kit/"
         " from judging it",
     )
 

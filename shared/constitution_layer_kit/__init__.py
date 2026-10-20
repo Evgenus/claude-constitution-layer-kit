@@ -3,7 +3,7 @@ file; territories, policies and resolution; the output log; the command line and
 guard; the texts of every shared message.
 
 The package has one source, and each plugin that uses it reaches it through the link
-`scripts/const_gate`; an installed plugin carries the code. Nothing here knows which plugin
+`scripts/constitution_layer_kit`; an installed plugin carries the code. Nothing here knows which plugin
 it serves until the entry point declares it (``identity``).
 
 Modules, in reading order: ``identity``, ``model`` (enums and dataclasses), ``messages``,

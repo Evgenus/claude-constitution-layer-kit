@@ -14,7 +14,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from const_gate.envelope import Bounds, envelope_bounds
+from constitution_layer_kit.envelope import Bounds, envelope_bounds
 
 _FENCE = re.compile(r" {0,3}(`{3,}|~{3,})")
 _FENCE_IN_LIST = re.compile(r"[ \t]*(`{3,}|~{3,})")  # a list item's content is indented with it

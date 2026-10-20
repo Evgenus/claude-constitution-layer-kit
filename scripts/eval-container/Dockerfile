@@ -3,7 +3,7 @@
 # copy is mounted read-only, the results folder writable, and the subscription token arrives as an env file.
 # The runner builds it as kit-evalbox:<version>-<hash>, the version scripts/claude-code.version pins and the
 # first twelve hexadecimal digits of this file's SHA-256, so that a changed file is always built again. Its
-# Debian release gives a Python at or above the floor of shared/const_gate/preflight.py, which every module's
+# Debian release gives a Python at or above the floor of shared/constitution_layer_kit/preflight.py, which every module's
 # scripts need.
 FROM node:22-trixie
 ARG CLAUDE_CODE

@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from const_gate.envelope import parse_envelope, string_field
-from const_gate.index import Index
-from const_gate.model import Envelope, EnvelopeState, Examination, Finding, MetaType, Resolution
-from const_gate.resolution import resolve
+from constitution_layer_kit.envelope import parse_envelope, string_field
+from constitution_layer_kit.index import Index
+from constitution_layer_kit.model import Envelope, EnvelopeState, Examination, Finding, MetaType, Resolution
+from constitution_layer_kit.resolution import resolve
 
 from . import messages
 from .model import ROUTINE, Stakes

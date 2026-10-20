@@ -8,11 +8,11 @@ import os
 from collections.abc import Sequence
 from pathlib import Path
 
-from const_gate import messages as shared
-from const_gate.errors import ConfigurationFailure
-from const_gate.model import Finding
-from const_gate.repository import first_line, git, is_markdown
-from const_gate.territory import Matcher
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import Finding
+from constitution_layer_kit.repository import first_line, git, is_markdown
+from constitution_layer_kit.territory import Matcher
 
 from . import messages
 from .model import Ids, Mention

@@ -12,7 +12,7 @@ one of a Markdown file, each with the fix on the first line; nothing is silently
    session start and at every subagent's start, one line naming the skill (step 7). The write-time hook fires on
    every `Write` and `Edit`; it examines Markdown files in a listed catalog's territory and nothing else.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/const_gate`, and `const_gate` and the shared test files in `tests/`, are
+   (`cp -RL`): `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
    what they point at; `tests/catalogs_gate` is a link to this plugin's own `scripts/catalogs_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in
    their place (`git config core.symlinks true`, then check out again). A plugin without it says so on

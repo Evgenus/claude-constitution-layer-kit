@@ -20,9 +20,9 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, item
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.model import Broken, Finding
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.model import Broken, Finding
 from consumer import Consumer, document
 from harness import (
     Case,

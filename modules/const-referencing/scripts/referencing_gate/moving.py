@@ -9,13 +9,20 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from const_gate import pipeline
-from const_gate.dials import load_dials
-from const_gate.errors import ConfigurationFailure
-from const_gate.output import Output
-from const_gate.pipeline import ScanTarget
-from const_gate.repository import first_line, git, is_markdown, list_markdown, read_text, repo_root
-from const_gate.territory import Matcher
+from constitution_layer_kit import pipeline
+from constitution_layer_kit.dials import load_dials
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.output import Output
+from constitution_layer_kit.pipeline import ScanTarget
+from constitution_layer_kit.repository import (
+    first_line,
+    git,
+    is_markdown,
+    list_markdown,
+    read_text,
+    repo_root,
+)
+from constitution_layer_kit.territory import Matcher
 
 from . import dials as own_dials
 from . import lychee, messages, modes, repair

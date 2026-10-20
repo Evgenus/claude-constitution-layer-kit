@@ -1975,7 +1975,7 @@ def mypypath(*folders: str) -> str:
 def types_with(setting: str) -> str:
     """The `types` entry's commands, the scripts' one with `setting` first."""
     return (
-        "cd shared && python3 -m mypy --strict const_gate\n"
+        "cd shared && python3 -m mypy --strict constitution_layer_kit\n"
         f"cd scripts && {setting}python3 -m mypy --strict *.py"
     )
 
@@ -2562,7 +2562,11 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "the three entries of no module are not judged, whatever they hold": (
             case(
-                {"name": "shared-gate-code", "code": ["shared/const_gate/**"], "docs": ["shared/GATE.md"]},
+                {
+                    "name": "shared-gate-code",
+                    "code": ["shared/constitution_layer_kit/**"],
+                    "docs": ["shared/GATE.md"],
+                },
                 x,
                 {"name": "kit-scripts", "code": ["scripts/**", "/pyproject.toml"], "docs": ["CLAUDE.md"]},
                 quiet,
@@ -4188,7 +4192,10 @@ def reports_in_order(tally: Tally) -> None:
         f' named "const-x" of plugins in {MARKET}',
         "RED: 2 finding(s) — 2 module document(s) examined, 1 declared scan(s), 0 kit check(s)",
     ]
-    no_path = "cd shared && python3 -m mypy --strict const_gate\ncd scripts && python3 -m mypy --strict *.py"
+    no_path = (
+        "cd shared && python3 -m mypy --strict constitution_layer_kit\n"
+        "cd scripts && python3 -m mypy --strict *.py"
+    )
     for name, case, lines in (
         (
             "a description that continues its manifest's and one that is cut short of it",

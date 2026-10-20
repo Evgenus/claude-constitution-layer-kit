@@ -10,7 +10,7 @@ reported by the check with the fix on its first line; nothing is silently skippe
    document a ceiling holds and hands an excess back to the model; it never refuses a write. The
    skill, `set-ceilings`, is offered to the model when a ceiling is set and when a finding is read.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/const_gate`, and `const_gate` and the shared test files in
+   (`cp -RL`): `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in
    `tests/`, are links to code the plugin shares with its siblings, and an install from the
    marketplace copies what they point at; `tests/budgets_gate` is a link to this plugin's own `scripts/budgets_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line
    text files in their place (`git config core.symlinks true`, then check out again).

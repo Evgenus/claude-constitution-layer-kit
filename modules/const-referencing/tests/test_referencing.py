@@ -26,9 +26,9 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, item
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.model import Broken, Finding
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.model import Broken, Finding
 from consumer import Consumer, document
 from harness import Case, Edit, Harness, Result, Write, event_json, fake_program, red_lines
 from referencing_gate import lychee, messages, start
@@ -1964,7 +1964,9 @@ def test_mover_entry_absences() -> None:
     )
     plugin = H.scratch_dir() / "plugin"
     shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True)
-    shared_code = plugin / "scripts" / "const_gate"  # a link in a checkout, a directory in an install
+    shared_code = (
+        plugin / "scripts" / "constitution_layer_kit"
+    )  # a link in a checkout, a directory in an install
     shared_code.unlink() if shared_code.is_symlink() else shutil.rmtree(shared_code)
     no_shared = subprocess.run(
         [H.sh, str(plugin / "scripts" / "move-document.sh"), OLD, NEW],
@@ -2198,7 +2200,7 @@ import sys
 import types
 
 sys.path.insert(0, {scripts!r})
-from const_gate import identity
+from constitution_layer_kit import identity
 from referencing_gate import lychee, modes, start, tree
 
 # the hook's one deadline reads a clock that stands still, so it is the whole of its seconds at every wait:

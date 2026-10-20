@@ -19,11 +19,11 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from const_gate.errors import ConfigurationFailure
-from const_gate.model import EXIT_GREEN
-from const_gate.output import Output
-from const_gate.repository import first_line, git, is_markdown
-from const_gate.territory import Matcher
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import EXIT_GREEN
+from constitution_layer_kit.output import Output
+from constitution_layer_kit.repository import first_line, git, is_markdown
+from constitution_layer_kit.territory import Matcher
 
 from . import messages
 from .model import BudgetDials, Ceiling, characters, longer, longest, rule_of_thumb

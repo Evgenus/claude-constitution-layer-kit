@@ -9,13 +9,13 @@ from dataclasses import replace
 from pathlib import Path
 from typing import TextIO
 
-from const_gate import identity, pipeline
-from const_gate import messages as shared
-from const_gate.errors import ConfigurationFailure
-from const_gate.output import Output
-from const_gate.pipeline import Skip, WriteTarget
-from const_gate.repository import list_markdown, read_text
-from const_gate.territory import Matcher
+from constitution_layer_kit import identity, pipeline
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.output import Output
+from constitution_layer_kit.pipeline import Skip, WriteTarget
+from constitution_layer_kit.repository import list_markdown, read_text
+from constitution_layer_kit.territory import Matcher
 
 from . import dials as catalog_dials
 from . import messages

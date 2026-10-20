@@ -13,7 +13,7 @@ file, each with the fix on the first line; nothing is silently skipped.
    a Markdown file the document as it will be after the write is checked for open-question
    markers, and a finding blocks the write. A copy
    of this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/const_gate`, and `const_gate` and the shared test files in `tests/`, are
+   `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in `tests/`, are
    links to code the plugin shares with its siblings, and an install from the marketplace copies
    what they point at; `tests/questions_gate` is a link to this plugin's own `scripts/questions_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in their
    place (`git config core.symlinks true`, then check out again).

@@ -10,7 +10,8 @@ that derives a path from `__file__` without resolving it finds one thing under i
 another in a hook run. Resolving it first gives the file's own place in both.
 
 The files read: every `.py` file, at any depth, of each module's own packages, as `own_packages` of
-`kit_module_doc` derives them, of `shared/const_gate/`, and at the top of `shared/tests/` whose name
+`kit_module_doc` derives them, of `shared/constitution_layer_kit/`, and at the top of `shared/tests/` whose
+name
 starts with neither `.` nor `_`, as for the links of item 7 of kit-shared-gate-code §2; a
 `__pycache__` is never read, nor a folder that is a link. Each use of the name `__file__` must stand
 as the one argument of a call of `Path` — the name, or `pathlib.Path` — whose result is at once
@@ -76,7 +77,7 @@ def files_of(kit: Path) -> tuple[list[Path], int]:
     except DocumentError as bad:
         raise Broken(str(bad)) from None
     roots = [package for module in modules for package in own_packages(module)]
-    roots.append(kit / "shared" / "const_gate")
+    roots.append(kit / "shared" / "constitution_layer_kit")
     files: list[Path] = []
     for root in roots:
         if root.is_dir():
@@ -176,12 +177,14 @@ def toy_kit(root: Path, start: str, shared: str = "") -> None:
         if marker:
             (module / "scripts" / folder / "__init__.py").write_text("", encoding="utf-8")
         (module / "scripts" / folder / "x.py").write_text(unread, encoding="utf-8")
-    (root / "shared" / "const_gate").mkdir(parents=True)
+    (root / "shared" / "constitution_layer_kit").mkdir(parents=True)
     (root / "shared" / "tests").mkdir()
-    (root / "shared" / "const_gate" / "__init__.py").write_text("", encoding="utf-8")
-    (root / "shared" / "const_gate" / "where.py").write_text(shared, encoding="utf-8")
+    (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "shared" / "constitution_layer_kit" / "where.py").write_text(shared, encoding="utf-8")
     (root / "shared" / "tests" / "harness.py").write_text("", encoding="utf-8")
-    (module / "scripts" / "const_gate").symlink_to(Path("..", "..", "..", "shared", "const_gate"))
+    (module / "scripts" / "constitution_layer_kit").symlink_to(
+        Path("..", "..", "..", "shared", "constitution_layer_kit")
+    )
     (root / "shared" / "tests" / "_private.py").write_text(unread, encoding="utf-8")
     outside = root / "elsewhere" / "pkg"
     outside.mkdir(parents=True)
@@ -237,7 +240,7 @@ def self_test() -> int:
             "an unresolved read in the shared package is a finding",
             ok_read,
             "from pathlib import Path\nHERE = Path(__file__).parent\n",
-            ["shared/const_gate/where.py:2"],
+            ["shared/constitution_layer_kit/where.py:2"],
         ),
     ]
     failed = 0

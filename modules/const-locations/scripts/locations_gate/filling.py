@@ -6,9 +6,9 @@ from __future__ import annotations
 import re
 
 import yaml
-from const_gate.envelope import envelope_bounds, envelope_lines, parse_envelope
-from const_gate.errors import ConfigurationFailure
-from const_gate.model import Envelope, EnvelopeState, MetaType, Status
+from constitution_layer_kit.envelope import envelope_bounds, envelope_lines, parse_envelope
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import Envelope, EnvelopeState, MetaType, Status
 
 from . import messages
 

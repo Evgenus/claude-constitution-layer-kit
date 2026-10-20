@@ -7,12 +7,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TextIO
 
-from const_gate import cli, pipeline
-from const_gate.errors import ConfigurationFailure
-from const_gate.model import STOP
-from const_gate.output import Output
-from const_gate.pipeline import ScanTarget, Skip
-from const_gate.territory import Matcher
+from constitution_layer_kit import cli, pipeline
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import STOP
+from constitution_layer_kit.output import Output
+from constitution_layer_kit.pipeline import ScanTarget, Skip
+from constitution_layer_kit.territory import Matcher
 
 from . import checks, history, messages
 from . import dials as own_dials

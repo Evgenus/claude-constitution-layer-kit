@@ -9,17 +9,17 @@ import sys
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from const_gate import cli, preflight
-from const_gate import messages as shared
-from const_gate.errors import ConfigurationFailure
-from const_gate.identity import Identity
-from const_gate.model import EXIT_GREEN, Mode, SkipKind
-from const_gate.output import Output
+from constitution_layer_kit import cli, preflight
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.identity import Identity
+from constitution_layer_kit.model import EXIT_GREEN, Mode, SkipKind
+from constitution_layer_kit.output import Output
 
 from . import messages
 
 if TYPE_CHECKING:
-    from const_gate.pipeline import Skip
+    from constitution_layer_kit.pipeline import Skip
 
 USAGE = "session-start takes no arguments; it reads one SessionStart event on stdin"
 
@@ -30,8 +30,8 @@ def body(output: Output, argv: Sequence[str]) -> int:
     preflight.check()
     # Necessary here, not at the top: the pipeline and the dials import the declared library, and
     # only after the preflight does a missing one become its designed message instead of a traceback.
-    from const_gate import pipeline  # noqa: PLC0415
-    from const_gate.pipeline import Skip  # noqa: PLC0415
+    from constitution_layer_kit import pipeline  # noqa: PLC0415
+    from constitution_layer_kit.pipeline import Skip  # noqa: PLC0415
 
     from . import dials as own_dials  # noqa: PLC0415
 

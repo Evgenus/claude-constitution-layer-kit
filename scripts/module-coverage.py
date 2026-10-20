@@ -11,20 +11,22 @@ files of every module job (decision dec-0089-module-coverage-report). Mutation s
 this report: it stays a work item of its own, pending at step 9 of the rollout plan.
 
 The measured code is the module's own Python under modules/<module>/scripts (`own`) and the shared
-const_gate it links, read at shared/const_gate (`shared`). Per module, the JSON keys as written:
+constitution_layer_kit it links, read at shared/constitution_layer_kit (`shared`). Per module, the JSON keys
+as written:
   own_lines, own_lines_covered        the statements of the module's own Python, and those run;
   own_branches, own_branches_covered  its branch destinations, and those taken;
   own_line_percent,                   the two ratios as percentages, rounded to one decimal,
   own_branch_percent                  null when there is nothing to count;
   shared_lines, …, shared_branch_percent
-                                      the same six for shared/const_gate, as this module's fixtures
+                                      the same six for shared/constitution_layer_kit, as this module's
+                                      fixtures
                                       reach it;
   runner_exit                         the runner's exit: 0 when every item was green;
   seconds                             the run's wall-clock time under coverage.py, whole seconds.
 The JSON object holds `advisory`, the line that it judges nothing; `commit`, the HEAD it was run at;
 `modules`, these keys per module; `totals`, the same keys for the totals row; and `notes`, the notes.
 The totals row joins the modules: its own keys count every module's own code, its shared keys the
-union of every module's runs over shared/const_gate, never a sum; its seconds are the sum, and its
+union of every module's runs over shared/constitution_layer_kit, never a sum; its seconds are the sum, and its
 runner_exit the largest.
 
 Modes:  --from <folder>   read the files in <folder>, one per module, and print one table;
@@ -66,7 +68,7 @@ import kit_coverage
 from kit_module_doc import DocumentError, module_folders
 
 KIT = Path(__file__).resolve().parent.parent
-SHARED = "shared/const_gate/"
+SHARED = "shared/constitution_layer_kit/"
 OK, BROKEN = 0, 1
 
 
@@ -262,7 +264,8 @@ def table(measured: dict[str, Module], total: Module) -> str:
 
     rule = "-" * len(line(head))
     title = (
-        "Fixture coverage per module (coverage.py, Python only; shared: shared/const_gate as the module's"
+        "Fixture coverage per module (coverage.py, Python only; shared: shared/constitution_layer_kit as the"
+        " module's"
         " fixtures reach it, totals: the union), advisory: a report, never a verdict"
     )
     return "\n".join([title, line(head), rule, *map(line, body[:-1]), rule, line(body[-1])])

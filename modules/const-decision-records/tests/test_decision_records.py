@@ -21,10 +21,10 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, item
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.envelope import yaml_error_line
-from const_gate.model import EnvelopeState
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.envelope import yaml_error_line
+from constitution_layer_kit.model import EnvelopeState
 from consumer import Consumer, envelope
 from decision_records_gate import messages, start
 from decision_records_gate.model import Stakes

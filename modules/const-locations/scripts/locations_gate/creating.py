@@ -7,15 +7,15 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from const_gate import pipeline
-from const_gate.dials import load_dials
-from const_gate.envelope import id_of_text
-from const_gate.errors import ConfigurationFailure
-from const_gate.index import Index, build_index
-from const_gate.model import EXIT_GREEN, Dials, Policy
-from const_gate.output import Output
-from const_gate.repository import repo_root
-from const_gate.territory import Matcher
+from constitution_layer_kit import pipeline
+from constitution_layer_kit.dials import load_dials
+from constitution_layer_kit.envelope import id_of_text
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.index import Index, build_index
+from constitution_layer_kit.model import EXIT_GREEN, Dials, Policy
+from constitution_layer_kit.output import Output
+from constitution_layer_kit.repository import repo_root
+from constitution_layer_kit.territory import Matcher
 
 from . import dials as own_dials
 from . import filling, homes, messages

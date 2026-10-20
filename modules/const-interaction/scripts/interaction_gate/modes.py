@@ -6,11 +6,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TextIO
 
-from const_gate import cli, pipeline
-from const_gate.errors import ConfigurationFailure
-from const_gate.model import PRE_WRITE, SHELL, Finding
-from const_gate.output import Output
-from const_gate.pipeline import Skip
+from constitution_layer_kit import cli, pipeline
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import PRE_WRITE, SHELL, Finding
+from constitution_layer_kit.output import Output
+from constitution_layer_kit.pipeline import Skip
 
 from . import checks, messages, tokens
 from . import dials as own_dials
