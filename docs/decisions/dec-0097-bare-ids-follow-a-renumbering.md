@@ -17,7 +17,7 @@ The carry audit of [dec-0096-shared-package-named-constitution-layer-kit](https:
 - **Comparisons.** [Rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7) let a frozen comparison take "five kinds of edit and no other". After a renumbering it let only a link be "rewritten to the item's new id". A bare id outside a link had no allowed edit, so the policy forbade what the kernel asks.
 - **Records.** [Rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) said a migration that follows a document renumbered "is the kernel's, at any time", but its next sentence named only a link. [Kernel §5](../../kernel/CONVENTIONS.md#k5) calls a reference-form migration a rewrite of *how* a record cites, and a wording edit alters no existing handle. So for a record the text was unclear rather than closed.
 - **No case yet.** Git's history held three renumberings. Two were made on their own branch before they landed. Only one, dec-0076 to dec-0077 on 2026-10-09, renumbered an item already on the main branch, and no record or comparison held its id.
-- **The exposure.** On 2026-10-21, outside links, fences and envelopes, the session counted 6 bare ids in the prose of two comparisons and 34 in code spans of comparisons, most of them examples of a form. It counted 159 in the prose of records, in about 34 files. A change to a catalog's form, the third exception, would rename every item and reach all of them at once.
+- **The exposure.** On 2026-10-21, outside links, fences and envelopes, the session counted 6 bare ids in the prose of two comparisons and 34 in code spans of comparisons, each of them a form shown or the data of a measurement. It counted 159 in the prose of records, in about 34 files. A change to a catalog's form, the third exception, would rename every item and reach all of them at once.
 
 ## Options
 
@@ -50,9 +50,9 @@ A, by the decider in chat on 2026-10-21.
 
 ## Applied
 
-The change that lands this record adds four sentences to rule 7 of plc-0005-research and four to rule 14 of plc-0004-decision-records, so the record is born `inactive`. No bare id is rewritten: the one renumbering of an item already on the main branch left none in a frozen document. The prose mentions of a record by its old slug that item 3 of the section "Rulings carried" of [dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) left as written are not taken up here.
+The commit that creates this record applies both rulings, to rule 7 of plc-0005-research and to rule 14 of plc-0004-decision-records, so the record is born `inactive`. The carry audit's corrections, made in place before the yes, leave four sentences in each rule. No bare id is rewritten: the one renumbering of an item already on the main branch left none in a frozen document. The prose mentions of a record by its old slug that item 3 of the section "Rulings carried" of [dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) left as written are not taken up here.
 
 ## Carry list
 
-1. R1 — [plc-0005-research](../policies/plc-0005-research.md#r7), rule 7, the four sentences after the five kinds of edit, from "The second kind covers a bare id too".
+1. R1 — [plc-0005-research](../policies/plc-0005-research.md#r7), rule 7, the four sentences after the five kinds of edit, from "The second kind covers a bare id too"; the sentence of the five kinds states that the commit names the migration with the renumbering or the rename.
 2. R2 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), rule 14, the four sentences after the link to a renumbered record, from "So is rewriting"; the sentence before that link states that a renumbering is no edit of the record's own body.
