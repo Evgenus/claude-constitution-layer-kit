@@ -44,9 +44,9 @@ A, by the decider in chat on 2026-10-21.
 
 ## Ruling
 
-<a id="r1"></a>**R1.** In a frozen comparison, the edit after a renumbering or a rename that [kernel §1](../../kernel/CONVENTIONS.md#k1) allows also rewrites, to the item's new id, each bare id that means the item, whether it stands in prose or in a code span outside a link. An id that stands as an example of a form, or that means another item, such as the one that kept the number, stays as written.
+<a id="r1"></a>**R1.** In a frozen comparison, the edit after a renumbering or a rename that [kernel §1](../../kernel/CONVENTIONS.md#k1) allows also rewrites each bare id that means the item, in prose or in a code span outside a link, to the item's new id in the form it stood in: the full id, or the prefix and the number alone. It is the second of the five kinds of edit, widened, and the commit names it a migration with the renumbering or the rename. An id quoted as evidence stays as written: a form shown, the data of a measurement, the words of a quotation, and any id in a fenced or indented block or an HTML comment. So does an id that means another item, such as the one that kept the number.
 
-<a id="r2"></a>**R2.** In an accepted record, rewriting such a bare id, of a renumbered or renamed item of any catalog, is a reference-form migration in the kernel's sense, as rewriting a link is, with the same exceptions as R1. The commit names it a migration and names the renumbering or the rename.
+<a id="r2"></a>**R2.** Inside another accepted record, rewriting such a bare id, of a renumbered or renamed item of any catalog, is a reference-form migration in the kernel's sense, as rewriting a link is, in the same form and with the same exceptions as R1. The commit names it a migration and names the renumbering or the rename. A record's own body is not edited by its own renumbering, as before. An old id that the renames bringing the first records and policies into their catalog's form left in place also stays as written.
 
 ## Applied
 
