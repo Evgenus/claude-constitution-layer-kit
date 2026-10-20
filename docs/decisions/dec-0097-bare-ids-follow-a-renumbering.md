@@ -44,15 +44,15 @@ A, by the decider in chat on 2026-10-21.
 
 ## Ruling
 
-<a id="r1"></a>**R1.** In a frozen comparison, the edit after a renumbering or a rename that [kernel §1](../../kernel/CONVENTIONS.md#k1) allows also rewrites each bare id that means the item, in prose or in a code span outside a link, to the item's new id in the form it stood in: the full id, or the prefix and the number alone. It is the second of the five kinds of edit, widened, and the commit names it a migration with the renumbering or the rename. An id quoted as evidence stays as written: a form shown, the data of a measurement, the words of a quotation, and any id in a fenced or indented block or an HTML comment. So does an id that means another item, such as the one that kept the number.
+<a id="r1"></a>**R1.** In a frozen comparison, the edit after a renumbering or a rename that [kernel §1](../../kernel/CONVENTIONS.md#k1) allows also rewrites each bare id that means the item, one outside a link, in prose or in a code span, to the item's new id in the form it stood in: the full id, or the prefix and the number alone. It is the second of the five kinds of edit, widened, and the commit names it a migration with the renumbering or the rename. An id quoted as evidence stays as written: a form shown, the data of a measurement, the words of a quotation, and any id in a fenced or indented block or an HTML comment. So does an id that means another item, such as the one that kept the number.
 
-<a id="r2"></a>**R2.** Inside another accepted record, rewriting such a bare id, of a renumbered or renamed item of any catalog, is a reference-form migration in the kernel's sense, as rewriting a link is, in the same form and with the same exceptions as R1. The commit names it a migration and names the renumbering or the rename. A record's own body is not edited by its own renumbering, as before. An old id that the renames bringing the first records and policies into their catalog's form left in place also stays as written.
+<a id="r2"></a>**R2.** Inside another accepted record, rewriting such a bare id, of a renumbered or renamed item of any catalog, is a reference-form migration in the kernel's sense, as rewriting a link is, in the same form and with the same exceptions as R1. The commit names it a migration and names the renumbering or the rename. A record's own body is not edited by its own renumbering, as before.
 
 ## Applied
 
-The commit that creates this record adds one sentence to rule 7 of plc-0005-research and one to rule 14 of plc-0004-decision-records, so the record is born `inactive`. No bare id is rewritten: no item that one names has been renumbered.
+The change that lands this record adds four sentences to rule 7 of plc-0005-research and four to rule 14 of plc-0004-decision-records, so the record is born `inactive`. No bare id is rewritten: the one renumbering of an item already on the main branch left none in a frozen document. The prose mentions of a record by its old slug that item 3 of the section "Rulings carried" of [dec-0017-records-numbered-now](dec-0017-records-numbered-now.md) left as written are not taken up here.
 
 ## Carry list
 
-1. R1 — [plc-0005-research](../policies/plc-0005-research.md#r7), rule 7, the sentence after the five kinds of edit.
-2. R2 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), rule 14, the sentence after the link to a renumbered record.
+1. R1 — [plc-0005-research](../policies/plc-0005-research.md#r7), rule 7, the four sentences after the five kinds of edit, from "The second kind covers a bare id too".
+2. R2 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), rule 14, the four sentences after the link to a renumbered record, from "So is rewriting"; the sentence before that link states that a renumbering is no edit of the record's own body.
