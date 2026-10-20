@@ -16,7 +16,7 @@ complexity limit="" *args:
 coverage *args:
     python3 scripts/module-coverage.py {{args}}
 
-# Run a module's tests natively, `coverage run -m pytest`: one line per test, then the coverage of the module's scripts and the shared const_gate, branches included. One module per run, since a run of two stops at collection; with no module, each in turn. Extra arguments go to pytest (-n auto, -k <expr>, -x), so a module must be named to pass them. Needs coverage.py and pytest, pytest-xdist for -n, installed for this python3; its data stays in a temporary folder
+# Run a module's tests natively, `coverage run -m pytest`: one line per test, then the coverage of the module's scripts and the shared constitution_layer_kit, branches included. One module per run, since a run of two stops at collection; with no module, each in turn. Extra arguments go to pytest (-n auto, -k <expr>, -x), so a module must be named to pass them. Needs coverage.py and pytest, pytest-xdist for -n, installed for this python3; its data stays in a temporary folder
 test module="" *args:
     #!/bin/sh
     set -u
@@ -26,7 +26,7 @@ test module="" *args:
     worst=0
     for m in $modules; do
         work=$(mktemp -d)
-        printf '[run]\nbranch = true\nparallel = true\npatch = subprocess\ndata_file = %s/data\nsource =\n    %s/modules/%s/scripts\n    %s/shared/const_gate\n' "$work" "$root" "$m" "$root" > "$work/rc"
+        printf '[run]\nbranch = true\nparallel = true\npatch = subprocess\ndata_file = %s/data\nsource =\n    %s/modules/%s/scripts\n    %s/shared/constitution_layer_kit\n' "$work" "$root" "$m" "$root" > "$work/rc"
         echo "== $m"
         (cd "$root" && python3 -m coverage run --rcfile "$work/rc" -m pytest "modules/$m/tests" -p no:cacheprovider -W error -v {{args}})
         code=$?

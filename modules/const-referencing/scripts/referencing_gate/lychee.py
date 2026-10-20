@@ -23,8 +23,8 @@ from pathlib import Path
 from time import monotonic
 from urllib.parse import unquote, urlsplit
 
-from const_gate import identity
-from const_gate.errors import ConfigurationFailure
+from constitution_layer_kit import identity
+from constitution_layer_kit.errors import ConfigurationFailure
 
 from . import messages
 

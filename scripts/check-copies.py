@@ -2,8 +2,8 @@
 """Kit check: every copy of the Python floor names the floor's one minor, and each entry's three
 first lines close with its Identity's clause.
 
-The floor's one source is `FLOOR` in `shared/const_gate/preflight.py`, read here by `ast` and never
-imported: a module-level assignment, the last one, plain or annotated, of a tuple of two integer
+The floor's one source is `FLOOR` in `shared/constitution_layer_kit/preflight.py`, read here by `ast` and
+never imported: a module-level assignment, the last one, plain or annotated, of a tuple of two integer
 literals, `(3, <minor>)`. A tuple of any other shape, a major other than 3, a missing `FLOOR`, and a
 file that is missing or no Python are BROKEN, with the fix. No gate reads the source at run time: each
 entry file keeps its own literal, since it must parse on any Python 3 (template §6, rule 3), and this
@@ -39,15 +39,15 @@ file `modules/<module>/scripts/<stem>.py` directly under the `scripts/` of a mod
 line elsewhere, in `scripts/` of the kit or in a folder that is no module, is none. Its Identity is the
 `Identity(...)` call, bare or through a module, found by `ast` in a `.py` file under
 `modules/<module>/scripts/*_gate/` (at any depth), whose `gate=` keyword is the string `<stem>`, a call
-that gives its gate any other way being none: exactly one, else BROKEN with the fix. Its clause is
-the `until_installed=` keyword, a string literal, or, where the call has none, the default of the
-`until_installed` field of the `Identity` class in `shared/const_gate/identity.py`, also read by `ast`.
-The texts are the first echo `BROKEN: ... needs python3 ...` of `<stem>.sh` (C1), and the string constants
-`TOO_OLD` (C14) and `NO_SHARED_CODE` (C15) of the entry, the last top-level plain assignment of each, read by
-`ast`; their first line is the text up to the first line feed. A first line reads `<what> — fix: <fix>`,
-and what follows ` — ` after the fix is its clause. For a gate each of the three first lines must close
-with ` — <the Identity's clause>` exactly. An entry is a generator when the second line of `TOO_OLD` opens
-with neither `BROKEN: the check could not run` (C11) nor `BROKEN: the session-start line could not be
+that gives its gate any other way being none: exactly one, else BROKEN with the fix. Its clause is the
+`until_installed=` keyword, a string literal, or, where the call has none, the default of the
+`until_installed` field of the `Identity` class in `shared/constitution_layer_kit/identity.py`, also read by
+`ast`. The texts are the first echo `BROKEN: ... needs python3 ...` of `<stem>.sh` (C1), and the string
+constants `TOO_OLD` (C14) and `NO_SHARED_CODE` (C15) of the entry, the last top-level plain assignment of
+each, read by `ast`; their first line is the text up to the first line feed. A first line reads `<what> — fix:
+<fix>`, and what follows ` — ` after the fix is its clause. For a gate each of the three first lines must
+close with ` — <the Identity's clause>` exactly. An entry is a generator when the second line of `TOO_OLD`
+opens with neither `BROKEN: the check could not run` (C11) nor `BROKEN: the session-start line could not be
 printed` (S1): its three first lines carry no clause, and its Identity's clause closes C2 alone, whatever
 it is (template §6, rule 3; GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
 the clause found, the clause the Identity names and where, why and the fix. BROKEN, with the fix: no entry
@@ -104,7 +104,7 @@ from kit_module_doc import DocumentError, module_folders
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
-SOURCE = "shared/const_gate/preflight.py"
+SOURCE = "shared/constitution_layer_kit/preflight.py"
 NOT_READ = ("docs/decisions/", "docs/research/")  # records and frozen comparisons keep their words
 REGULAR = ("100644", "100755")  # a symbolic link (120000) and a submodule (160000) are never read
 GIT_BINARY = 8000  # git's own test: a NUL byte among the first 8000 bytes
@@ -113,7 +113,7 @@ WHY = (
     " teaching line should stand (law 6 of CLAUDE.md)"
 )
 GUARD = r"(?!\d|\.\d)"  # not followed by a digit nor `.<digit>`: a longer minor, or a measured `3.N.M`
-IDENTITY = "shared/const_gate/identity.py"  # the default clause's source
+IDENTITY = "shared/constitution_layer_kit/identity.py"  # the default clause's source
 ENTRY_FLOOR = re.compile(
     r"^FLOOR = \(3, ", re.MULTILINE
 )  # what makes a `.py` of a module's scripts/ an entry
@@ -723,7 +723,7 @@ def put_identity(root: Path, spec: Spec, clause: str | None, name: str = "start.
     put(
         root,
         f"modules/{spec.module}/scripts/{spec.package}/{name}",
-        "from const_gate.identity import Identity\n\nGATE = Identity(\n"
+        "from constitution_layer_kit.identity import Identity\n\nGATE = Identity(\n"
         f"    namespace={spec.module!r},\n    gate={(gate or spec.stem)!r},\n"
         f"    plugin_root=None,\n{until})\n",
     )
@@ -870,7 +870,8 @@ def self_test() -> int:
             code == EXIT_GREEN
             and lines
             == [
-                f"GREEN: every copy of the Python floor names 3.{BASE} (shared/const_gate/preflight.py)"
+                f"GREEN: every copy of the Python floor names 3.{BASE}"
+                " (shared/constitution_layer_kit/preflight.py)"
                 f" — {BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined, and each of"
                 f" {BASE_ENTRIES} entries' C1, C14 and C15 closes with its Identity's clause"
             ],
@@ -899,9 +900,9 @@ def self_test_reds(cases: Cases) -> None:
     )
     counts = (
         f"{BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined and {BASE_ENTRIES} entries read,"
-        f" the floor 3.{BASE} (shared/const_gate/preflight.py)"
+        f" the floor 3.{BASE} (shared/constitution_layer_kit/preflight.py)"
     )
-    move = "or move the floor in shared/const_gate/preflight.py and every copy together"
+    move = "or move the floor in shared/constitution_layer_kit/preflight.py and every copy together"
     fix = f"  fix: write 3.{BASE}, {move}"
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
@@ -917,7 +918,7 @@ def self_test_reds(cases: Cases) -> None:
             and lines
             == [
                 f"RED: modules/const-a/scripts/check-a.py:5: '(3, {OLD})' names 3.{OLD},"
-                f" the floor is 3.{BASE} (shared/const_gate/preflight.py)",
+                f" the floor is 3.{BASE} (shared/constitution_layer_kit/preflight.py)",
                 why,
                 fix,
                 f"RED: 1 finding(s) — {counts}",
@@ -934,7 +935,7 @@ def self_test_reds(cases: Cases) -> None:
             and lines
             == [
                 f"RED: modules/const-c/INSTALL.md:1: 'Python 3.{OVER}' names 3.{OVER}, the floor is 3.{BASE}"
-                " (shared/const_gate/preflight.py)",
+                " (shared/constitution_layer_kit/preflight.py)",
                 why,
                 fix,
                 f"RED: 1 finding(s) — {counts}",
@@ -950,7 +951,7 @@ def self_test_reds(cases: Cases) -> None:
             code == EXIT_RED
             and lines[0]
             == f"RED: modules/const-a/tests/run.py:1: 'found 3.{BASE}' names 3.{BASE}, and one minor below"
-            f" the floor, 3.{BASE} (shared/const_gate/preflight.py), is 3.{OLD}"
+            f" the floor, 3.{BASE} (shared/constitution_layer_kit/preflight.py), is 3.{OLD}"
             and lines[2] == f"  fix: write 3.{OLD}, {move}",
             "a form for the minor below the floor, naming the floor itself, is red with its literal lines",
         )
@@ -1350,9 +1351,11 @@ def self_test_clause_reports(cases: Cases) -> None:
     )
     summary = (
         f"RED: 1 finding(s) — {BASE_MENTIONS} mention(s) in {BASE_FILES} file(s) examined and"
-        f" {BASE_ENTRIES} entries read, the floor 3.{BASE} (shared/const_gate/preflight.py)"
+        f" {BASE_ENTRIES} entries read, the floor 3.{BASE} (shared/constitution_layer_kit/preflight.py)"
     )
-    default_where = f"the default of until_installed, shared/const_gate/identity.py:{IDENTITY_LINE}"
+    default_where = (
+        f"the default of until_installed, shared/constitution_layer_kit/identity.py:{IDENTITY_LINE}"
+    )
     printer_where = f"modules/const-c/scripts/c_gate/start.py:{UNTIL_LINE}"
     generator_where = f"modules/const-d/scripts/d_gate/start.py:{UNTIL_LINE}"
     for name, spec, text, clause, expected in (

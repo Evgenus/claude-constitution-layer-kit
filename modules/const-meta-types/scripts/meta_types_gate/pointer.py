@@ -19,8 +19,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from const_gate import identity
-from const_gate.output import Output
+from constitution_layer_kit import identity
+from constitution_layer_kit.output import Output
 
 from . import messages
 

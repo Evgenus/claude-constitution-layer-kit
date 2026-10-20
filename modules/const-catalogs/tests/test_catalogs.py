@@ -32,10 +32,10 @@ from acceptance import item as acceptance_item
 from catalogs_gate import messages, start
 from catalogs_gate.history import HOOK_SECONDS
 from catalogs_gate.model import Advice, Catalog, NameToTake, Reach, Read
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.envelope import yaml_error_line
-from const_gate.model import Broken, EnvelopeState, Finding
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.envelope import yaml_error_line
+from constitution_layer_kit.model import Broken, EnvelopeState, Finding
 from consumer import BASE_MARKDOWN, ROOT_POLICY, Consumer
 from harness import Case, Edit, Harness, Result, Write, event_json, fake_program
 from test_shared_items import NO_ENVELOPE, PatternDial, Subject, git_patch, git_timeouts, hook_budget

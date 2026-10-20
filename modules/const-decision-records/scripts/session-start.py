@@ -40,7 +40,7 @@ if sys.version_info < FLOOR:
 # The shared code is a directory beside this file. An install that dropped it must say so
 # in words, not in a traceback: only the first stderr line reaches the user.
 NO_SHARED_CODE = (
-    "BROKEN: const-decision-records is installed without its shared code (scripts/const_gate is"
+    "BROKEN: const-decision-records is installed without its shared code (scripts/constitution_layer_kit is"
     " missing or is not a directory) — fix: install the plugin from its marketplace, or load it from a"
     " full checkout of the repository it comes from; a copy of the plugin's folder must be made"
     " with links followed (cp -RL) — until then the gate's state is not said at session start\n"
@@ -48,7 +48,9 @@ NO_SHARED_CODE = (
 )
 
 try:
-    from const_gate import cli  # noqa: E402, F401  (after the floor check; an empty directory fails here too)
+    from constitution_layer_kit import (
+        cli,  # noqa: E402, F401  (after the floor check; an empty directory fails here too)
+    )
 except ImportError:
     sys.stderr.write(NO_SHARED_CODE)
     sys.exit(1)

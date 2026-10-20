@@ -11,7 +11,7 @@
 #   sh scripts/gate-list.sh --run <entry>|<job>        run one entry's commands, or every entry of a job, in turn, from the kit root
 # The gates are the list the kit runs before a merge; the extras are the fixtures, lint and types: each
 # module's, the branch gate's fixture, the fixture of scripts/setup-claude.sh, and the kit's own lint of scripts/ and shared/ and types of its
-# checks and shared/const_gate, the shared tests typed through each module's links. A module's fixtures
+# checks and shared/constitution_layer_kit, the shared tests typed through each module's links. A module's fixtures
 # run through `check-aspects.py --run --module <module>`, which collects its tests under pytest, runs
 # them once, prints pytest's own output whenever it exits other than 0, and holds the items against the
 # module's acceptance table both ways (decision dec-0080-fixtures-run-through-check-aspects).
@@ -109,9 +109,9 @@ commands() {
                     types-*)
                         # the module's own packages, as own_packages of scripts/kit_module_doc.py derives them: each folder at
                         # the top of scripts/, itself no link, that holds an __init__.py, whose name starts with
-                        # neither . nor _ (the glob skips . already), save const_gate
+                        # neither . nor _ (the glob skips . already), save constitution_layer_kit
                         for p in modules/"$m"/scripts/*; do
-                            case "${p##*/}" in _* | const_gate) continue ;; esac
+                            case "${p##*/}" in _* | constitution_layer_kit) continue ;; esac
                             [ -d "$p" ] && [ ! -L "$p" ] && [ -f "$p/__init__.py" ] && echo "cd modules/$m/scripts && python3 -m mypy --strict ${p##*/}"
                         done
                         echo "cd modules/$m/scripts && python3 -m mypy --strict *.py"
@@ -127,7 +127,7 @@ commands() {
             echo "python3 -m ruff format --check scripts shared"
             echo "python3 -m ruff check scripts shared" ;;
         types)
-            echo "cd shared && python3 -m mypy --strict const_gate"
+            echo "cd shared && python3 -m mypy --strict constitution_layer_kit"
             echo "cd scripts && MYPYPATH=../modules/const-meta-types/scripts:../modules/const-decision-records/scripts python3 -m mypy --strict *.py" ;;
         *) return 1 ;;
     esac

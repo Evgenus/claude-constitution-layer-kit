@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from const_gate.model import Finding
-from const_gate.territory import Matcher
+from constitution_layer_kit.model import Finding
+from constitution_layer_kit.territory import Matcher
 
 from . import messages
 from .model import Declaration, Pair, PairVerdict, Range

@@ -27,12 +27,12 @@ from typing import Protocol
 
 import pytest
 from acceptance import broken_first_line, expect, item
-from const_gate import envelope as envelope_reader
-from const_gate import identity, messages, pipeline, preflight, repository
-from const_gate.envelope import ID_RE, declared_policy, document_id, parse_envelope
-from const_gate.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, SharedKey
-from const_gate.output import ROTATE_AT, log_name
-from const_gate.repository import list_markdown
+from constitution_layer_kit import envelope as envelope_reader
+from constitution_layer_kit import identity, messages, pipeline, preflight, repository
+from constitution_layer_kit.envelope import ID_RE, declared_policy, document_id, parse_envelope
+from constitution_layer_kit.model import DECLARATION, DIALECT, Broken, EnvelopeState, Finding, SharedKey
+from constitution_layer_kit.output import ROTATE_AT, log_name
+from constitution_layer_kit.repository import list_markdown
 from consumer import ROOT_POLICY
 from harness import (
     Edit,
@@ -68,7 +68,7 @@ import types
 
 scripts = os.environ["GIT_PATCH_SCRIPTS"]
 sys.path.insert(0, scripts)
-from const_gate import identity, repository
+from constitution_layer_kit import identity, repository
 
 sys.path.remove(scripts)
 lowered = os.environ.get("GIT_PATCH_SECONDS")
@@ -521,8 +521,8 @@ class SharedItems:
             "import json, sys\n"
             "from pathlib import Path\n"
             "sys.path.insert(0, sys.argv[1])\n"
-            "from const_gate import identity, repository\n"
-            "from const_gate.model import Mode\n"
+            "from constitution_layer_kit import identity, repository\n"
+            "from constitution_layer_kit.model import Mode\n"
             "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
             "identity.declare(identity.Identity('x', 'y', Path('.')), mode)\n"
             "print(json.dumps(repository.budget()))\n"
@@ -567,8 +567,8 @@ class SharedItems:
             "import sys\n"
             "from pathlib import Path\n"
             "sys.path.insert(0, sys.argv[1])\n"
-            "from const_gate import identity\n"
-            "from const_gate.model import Mode\n"
+            "from constitution_layer_kit import identity\n"
+            "from constitution_layer_kit.model import Mode\n"
             "who = identity.Identity('x', 'y', Path('.'))\n"
             "identity.declare(who, Mode.HOOK)\n"
             "identity.declare(who, Mode.HOOK)\n"
@@ -871,8 +871,8 @@ class SharedItems:
             "import json, sys\n"
             "from pathlib import Path\n"
             "sys.path.insert(0, sys.argv[1])\n"
-            "from const_gate import identity, repository\n"
-            "from const_gate.model import Mode\n"
+            "from constitution_layer_kit import identity, repository\n"
+            "from constitution_layer_kit.model import Mode\n"
             "mode = {'hook': Mode.HOOK, 'scan': Mode.SCAN, 'act': Mode.ACT, 'none': None}[sys.argv[2]]\n"
             "identity.declare(identity.Identity('x', 'y', Path('.'), hook_seconds=2), mode)\n"
             "asked = [identity.remaining(10, 'x'), identity.remaining(0.5, 'x'), repository.budget()]\n"
@@ -910,9 +910,9 @@ class SharedItems:
             "import subprocess, sys, time\n"
             "from pathlib import Path\n"
             "sys.path.insert(0, sys.argv[1])\n"
-            "from const_gate import identity, repository\n"
-            "from const_gate.errors import ConfigurationFailure\n"
-            "from const_gate.model import Mode\n"
+            "from constitution_layer_kit import identity, repository\n"
+            "from constitution_layer_kit.errors import ConfigurationFailure\n"
+            "from constitution_layer_kit.model import Mode\n"
             "identity.declare(identity.Identity('x', 'y', Path('.'), hook_seconds=2), Mode.HOOK)\n"
             "real, started = time.monotonic, []\n"
             "time.monotonic = lambda: real() + 100\n"
@@ -1425,7 +1425,7 @@ def test_shared_code_absent(subject: Subject) -> None:
     it = shared(subject, "shared_code_absent")
     plugin = it.h.scratch_dir() / "plugin"
     shutil.copytree(it.h.scripts, plugin / "scripts", symlinks=True)
-    gate_code = plugin / "scripts" / "const_gate"
+    gate_code = plugin / "scripts" / "constitution_layer_kit"
     gate_code.unlink() if gate_code.is_symlink() else shutil.rmtree(gate_code)
     consumer = it.h.fresh_consumer()
     result = it.h.run_gate(

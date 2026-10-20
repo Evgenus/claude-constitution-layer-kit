@@ -2155,7 +2155,7 @@ ACCEPTANCE_CONFTEST = (
 )
 ACCEPTANCE_TESTS = (
     "from enum import StrEnum\nfrom pathlib import Path\n\nimport pytest\n"
-    "from acceptance import check_case, item\nfrom const_gate.model import Finding\n"
+    "from acceptance import check_case, item\nfrom constitution_layer_kit.model import Finding\n"
     "from harness import Case, Harness, Write\n\n\n"
     "class Key(StrEnum):\n    X1 = 'X1'\n\n\n"
     "H = Harness(Path(__file__).resolve().parent.parent / 'scripts', 'gate.sh', 'gate.py', 'const-sample')\n"
@@ -2178,7 +2178,7 @@ def acceptance_tree(root: Path, mode: str, extra: str = "") -> Path:
     (scripts / "gate.py").write_text(f"MODE = {mode!r}\n{ACCEPTANCE_GATE}", encoding="utf-8")
     for name in ("acceptance.py", "harness.py", "consumer.py"):
         (tests / name).symlink_to(KIT / "shared" / "tests" / name)
-    (tests / "const_gate").symlink_to(KIT / "shared" / "const_gate")
+    (tests / "constitution_layer_kit").symlink_to(KIT / "shared" / "constitution_layer_kit")
     (tests / "conftest.py").write_text(ACCEPTANCE_CONFTEST, encoding="utf-8")
     (tests / "test_sample.py").write_text(ACCEPTANCE_TESTS + extra, encoding="utf-8")
     return tests
@@ -2370,7 +2370,7 @@ def sample_module(root: Path, module: str = "const-sample") -> None:
     (scripts / "gate.py").write_text(COVERED_GATE, encoding="utf-8")
     (scripts / "unused.py").write_text("print('never run')\n", encoding="utf-8")
     links = {name: KIT / "shared" / "tests" / name for name in ("acceptance.py", "harness.py", "consumer.py")}
-    links["const_gate"] = KIT / "shared" / "const_gate"
+    links["constitution_layer_kit"] = KIT / "shared" / "constitution_layer_kit"
     for name, target in links.items():
         if not (tests / name).is_symlink():
             (tests / name).symlink_to(target)
@@ -2573,8 +2573,8 @@ def case_pytest_runs(tally: Tally) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE)
-            (root / "shared" / "const_gate").mkdir()
-            (root / "shared" / "const_gate" / "__init__.py").write_text("", encoding="utf-8")
+            (root / "shared" / "constitution_layer_kit").mkdir()
+            (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
             folder = root / "coverage-out"
             os.environ[kit_coverage.ENV] = str(folder)
             if jobs is not None:
@@ -2652,8 +2652,8 @@ def self_test_coverage() -> tuple[int, int]:
             root = Path(tmp).resolve()
             build(root, GOOD_TABLE)
             sample_tests(root, red)
-            (root / "shared" / "const_gate").mkdir()
-            (root / "shared" / "const_gate" / "__init__.py").write_text("", encoding="utf-8")
+            (root / "shared" / "constitution_layer_kit").mkdir()
+            (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
             out = root / "coverage-out"
             if variable == "file":
                 out.write_text("a file where the folder would go\n", encoding="utf-8")

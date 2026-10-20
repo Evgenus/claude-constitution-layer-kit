@@ -1,7 +1,7 @@
 """The gate on references, as a package beside its entry points.
 
 The entry points in the parent directory are thin files; Python puts that directory on the
-import path, so this package and the shared one beside it, ``const_gate``, are imported with
+import path, so this package and the shared one beside it, ``constitution_layer_kit``, are imported with
 no path manipulation anywhere.
 
 Modules, in reading order: ``model`` (the dials, a link, the keys of the findings),

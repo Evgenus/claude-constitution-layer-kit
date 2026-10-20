@@ -6,9 +6,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from const_gate import cli
-from const_gate.identity import HOOK_SECONDS, Identity
-from const_gate.model import Mode
+from constitution_layer_kit import cli
+from constitution_layer_kit.identity import HOOK_SECONDS, Identity
+from constitution_layer_kit.model import Mode
 
 GATE = Identity(
     namespace="const-referencing",

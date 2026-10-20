@@ -174,7 +174,7 @@ def make_kit(tmp: Path) -> Path:
         "modules/const-x/scripts/start.sh": "echo rule\n",
         "modules/const-x/tests/test_x.py": "pass\n",
         "modules/const-x/evals/load/case.yaml": "name: load\n",
-        "shared/const_gate/core.py": "x = 1\n",
+        "shared/constitution_layer_kit/core.py": "x = 1\n",
         "scripts/eval-model": "claude-opus-5-5\n",
         "scripts/eval-container/Dockerfile": "FROM base\n",
         CLAUDE_PIN: "2.1.282\n",
@@ -183,7 +183,9 @@ def make_kit(tmp: Path) -> Path:
     for name, text in files.items():
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_text(text, encoding="utf-8")
-    (root / "modules/const-x/scripts/const_gate").symlink_to("../../../shared/const_gate")
+    (root / "modules/const-x/scripts/constitution_layer_kit").symlink_to(
+        "../../../shared/constitution_layer_kit"
+    )
     (root / "modules/const-x/evals/results").mkdir(parents=True)
     (root / "modules/const-x/evals/results/r.json").write_text("{}\n", encoding="utf-8")
     git_quiet(root, "init", "-q")
@@ -232,7 +234,7 @@ def extra_entry(root: Path) -> None:
 
 def link_out(outside: Path) -> Act:
     def act(root: Path) -> None:
-        link = root / "modules/const-x/scripts/const_gate"
+        link = root / "modules/const-x/scripts/constitution_layer_kit"
         link.unlink()
         link.symlink_to(outside)
 
@@ -246,7 +248,10 @@ def self_test() -> int:
         "a current receipt is green": (edit("modules/const-x/scripts/start.sh", "echo rule\n"), []),
         "an edited skill is a finding": (edit("modules/const-x/skills/s/SKILL.md"), ["const-x"]),
         "an edited script is a finding": (edit("modules/const-x/scripts/start.sh"), ["const-x"]),
-        "an edited file behind a link is a finding": (edit("shared/const_gate/core.py"), ["const-x"]),
+        "an edited file behind a link is a finding": (
+            edit("shared/constitution_layer_kit/core.py"),
+            ["const-x"],
+        ),
         "an edited case is a finding": (edit("modules/const-x/evals/load/case.yaml"), ["const-x"]),
         "an edited eval image is a finding": (edit("scripts/eval-container/Dockerfile"), ["const-x"]),
         "an edited MODULE.md is green": (edit("modules/const-x/MODULE.md"), []),

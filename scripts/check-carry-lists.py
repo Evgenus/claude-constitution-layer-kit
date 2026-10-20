@@ -93,7 +93,7 @@ except ImportError:
 KIT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(KIT / "shared"))  # kit-side tooling only
 
-from const_gate.envelope import envelope_bounds, envelope_lines  # noqa: E402
+from constitution_layer_kit.envelope import envelope_bounds, envelope_lines  # noqa: E402
 
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 
@@ -1350,8 +1350,8 @@ def run_old_git(t: Tally) -> None:
                 (Path(__file__).parent / script).read_text(encoding="utf-8"), encoding="utf-8"
             )
         shutil.copytree(  # the shared reader the check imports, from the kit's `shared` folder
-            KIT / "shared" / "const_gate",
-            root / "shared" / "const_gate",
+            KIT / "shared" / "constitution_layer_kit",
+            root / "shared" / "constitution_layer_kit",
             ignore=shutil.ignore_patterns("__pycache__"),
         )
         old_log = fake_old_git(Path(tools).resolve(), real or "git")

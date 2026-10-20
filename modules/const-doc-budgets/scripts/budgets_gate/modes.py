@@ -11,14 +11,14 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
 
-from const_gate import cli, pipeline
-from const_gate import messages as shared
-from const_gate.errors import ConfigurationFailure
-from const_gate.model import POST_WRITE, PRE_WRITE, Finding
-from const_gate.output import Output
-from const_gate.pipeline import Skip
-from const_gate.repository import list_markdown, read_text
-from const_gate.territory import Matcher
+from constitution_layer_kit import cli, pipeline
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import POST_WRITE, PRE_WRITE, Finding
+from constitution_layer_kit.output import Output
+from constitution_layer_kit.pipeline import Skip
+from constitution_layer_kit.repository import list_markdown, read_text
+from constitution_layer_kit.territory import Matcher
 
 from . import dials as own_dials
 from . import history, messages

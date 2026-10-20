@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 
-from const_gate.model import MetaType
+from constitution_layer_kit.model import MetaType
 
 
 class ActKey(StrEnum):

@@ -29,10 +29,10 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, failure_of, item
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.model import Finding
-from const_gate.repository import list_markdown
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.model import Finding
+from constitution_layer_kit.repository import list_markdown
 from consumer import Consumer
 from harness import Case, Edit, Harness, Result, Write, event_json, fake_program, red_lines, stop_json
 from language_gate import dials as own_dials

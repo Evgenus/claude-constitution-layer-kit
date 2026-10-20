@@ -14,8 +14,8 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    The two pointer hooks, at session start and at each subagent's start, print one line naming
    it (183 characters, advisory); a line after the count line of every red names it too.
    A copy of this plugin's folder made outside
-   the repository it comes from must follow links (`cp -RL`): `scripts/const_gate`, and
-   `const_gate` and the shared test files in `tests/`, are links to code the plugin
+   the repository it comes from must follow links (`cp -RL`): `scripts/constitution_layer_kit`, and
+   `constitution_layer_kit` and the shared test files in `tests/`, are links to code the plugin
    shares with its siblings, and an install from the marketplace copies what they point at; `tests/language_gate` is a link to this plugin's own `scripts/language_gate`, which an install from the marketplace keeps as a link. A
    checkout made without symlink support leaves one-line text files in their place
    (`git config core.symlinks true`, then check out again).

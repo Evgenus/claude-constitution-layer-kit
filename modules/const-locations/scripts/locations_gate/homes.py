@@ -6,8 +6,8 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-from const_gate.envelope import ID_RE
-from const_gate.repository import is_markdown
+from constitution_layer_kit.envelope import ID_RE
+from constitution_layer_kit.repository import is_markdown
 
 from .model import HomeClass, HomeRule
 

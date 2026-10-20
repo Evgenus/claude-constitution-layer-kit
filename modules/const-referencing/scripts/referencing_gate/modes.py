@@ -8,16 +8,16 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
 
-from const_gate import identity, pipeline
-from const_gate import messages as shared
-from const_gate.envelope import id_of_text
-from const_gate.errors import ConfigurationFailure
-from const_gate.index import build_index
-from const_gate.model import POST_WRITE, PRE_WRITE, Finding, PendingDocument
-from const_gate.output import Output
-from const_gate.pipeline import ScanTarget, Skip, WriteTarget
-from const_gate.repository import is_ignored, list_markdown, read_text
-from const_gate.territory import Matcher
+from constitution_layer_kit import identity, pipeline
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.envelope import id_of_text
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.index import build_index
+from constitution_layer_kit.model import POST_WRITE, PRE_WRITE, Finding, PendingDocument
+from constitution_layer_kit.output import Output
+from constitution_layer_kit.pipeline import ScanTarget, Skip, WriteTarget
+from constitution_layer_kit.repository import is_ignored, list_markdown, read_text
+from constitution_layer_kit.territory import Matcher
 
 from . import dials as own_dials
 from . import lint, lychee, mentions, messages, tree

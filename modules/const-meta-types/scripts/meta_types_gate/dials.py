@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from const_gate.dials import GATE_KEYS, refuse_unknown_keys
+from constitution_layer_kit.dials import GATE_KEYS, refuse_unknown_keys
 
 KEYS = GATE_KEYS
 

@@ -8,11 +8,11 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import NoReturn
 
-from const_gate import cli, preflight
-from const_gate.errors import ConfigurationFailure
-from const_gate.identity import HOOK_SECONDS, Identity
-from const_gate.model import MetaType, Mode
-from const_gate.output import Output
+from constitution_layer_kit import cli, preflight
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.identity import HOOK_SECONDS, Identity
+from constitution_layer_kit.model import MetaType, Mode
+from constitution_layer_kit.output import Output
 
 from . import messages
 from .model import Request

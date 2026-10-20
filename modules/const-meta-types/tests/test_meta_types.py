@@ -18,10 +18,10 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, check_case, expect, item
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.envelope import parse_envelope, yaml_error_line
-from const_gate.model import Match, MetaType
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.envelope import parse_envelope, yaml_error_line
+from constitution_layer_kit.model import Match, MetaType
 from consumer import ROOT_POLICY, document, envelope
 from harness import Case, Edit, Harness, Result, Write, event_json, red_lines
 from meta_types_gate import messages, start

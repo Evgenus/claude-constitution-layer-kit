@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from const_gate.dials import LOG_DIR_KEY, refuse_unknown_keys, relative_path
-from const_gate.errors import ConfigurationFailure
+from constitution_layer_kit.dials import LOG_DIR_KEY, refuse_unknown_keys, relative_path
+from constitution_layer_kit.errors import ConfigurationFailure
 
 from . import messages
 from .model import LocationsDials
