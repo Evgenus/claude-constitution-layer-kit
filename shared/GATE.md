@@ -29,7 +29,7 @@ What may be admitted here, and when a part already admitted may be widened for o
 | `pipeline` | R | from the event — a write, or a `Stop` or a shell event located from its `cwd`, the `EventTarget` carrying the tool's name and the command — or the scan's directory, to the repository and its dials. Whether the dials name a root policy is left to the module, since a gate that reads only its own dials needs none. From findings to the verdict the platform understands: `report_hook` (block; warn as one JSON object, on `Stop` the user's notice alone; `ask` for a gate whose block is the user's yes), `report_scan`, `green_hook`, the green of a hook run on a write, as one JSON object where it has notes, `green_event` for an event without a document; the routing of the log to `log_dir`, public for a second entry point; `within_the_cap`, the first findings of a write that fit the platform's cap on a hook's text, the first always shown, with an optional count limit of a module's own (limit 14 of [§4](#g4)) |
 | `tests/harness`, `tests/consumer`, `tests/acceptance`, `tests/test_shared_items` | R | the case runner driving a module's real entry point; the throwaway three-policy consumer; the pytest marker, the one-number rule and the asserting checks; the acceptance items of [§5](#g5) |
 
-Deferred: delivery of this code through a package index is not built — inside a plugin the link delivers it. Signal: a reader of this code outside plugins appears.
+Deferred: delivery of this code through a package index is not built — inside a plugin the link delivers it. If it is published, its name on the index is `constitution-layer-kit`. Signal: a reader of this code outside plugins appears.
 
 <a id="g2"></a>
 ## 2. The interface a module fills
