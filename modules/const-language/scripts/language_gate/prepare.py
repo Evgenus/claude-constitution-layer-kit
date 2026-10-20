@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from const_gate.envelope import envelope_bounds
+from constitution_layer_kit.envelope import envelope_bounds
 
 from .model import Prepared
 

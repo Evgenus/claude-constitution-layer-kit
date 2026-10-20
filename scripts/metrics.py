@@ -36,13 +36,14 @@ these keys, the JSON keys as written:
   test_lines        `.sh` files git tracks under scripts/ and hooks/ (code) and tests/ (tests), a
                     symbolic link never read;
   functions,        the functions of the module's own Python under scripts/ (links, and so the shared
-  cc_max,           const_gate, never read) and their cyclomatic complexity, counted by this script from
-  cc_over_10        the syntax tree, not by ruff's C901: 1, plus 1 per if, for, while, except, conditional
-                    expression, comprehension, assert and match case, plus n-1 per boolean operation of n
-                    operands; a nested function is its own function and adds nothing to the one around it;
-  shared_imports,   the import statements of that same Python that import const_gate, against those that
-  own_imports       import the module's own packages (`own_packages` of kit_module_doc), a relative
-                    import counted as the module's own;
+  cc_max,           constitution_layer_kit, never read) and their cyclomatic complexity, counted by this
+  cc_over_10        script from the syntax tree, not by ruff's C901: 1, plus 1 per if, for, while, except,
+                    conditional expression, comprehension, assert and match case, plus n-1 per boolean
+                    operation of n operands; a nested function is its own function and adds nothing to
+                    the one around it;
+  shared_imports,   the import statements of that same Python that import constitution_layer_kit, against
+  own_imports       those that import the module's own packages (`own_packages` of kit_module_doc), a
+                    relative import counted as the module's own;
   churn_90d         the commits, merges left out, of the last 90 days that touch modules/<module>.
 A totals row sums every key, save cc_max, which is the largest.
 
@@ -512,11 +513,12 @@ def defined(
 
 
 def own_python(module: Path) -> list[Path]:
-    """The module's own tracked Python under scripts/: links, and so the shared const_gate, left out."""
+    """The module's own tracked Python under scripts/: links, and so the shared constitution_layer_kit, left
+    out."""
     return [
         path
         for path in tracked(module, ("scripts",))
-        if path.suffix == ".py" and "const_gate" not in path.relative_to(module).parts
+        if path.suffix == ".py" and "constitution_layer_kit" not in path.relative_to(module).parts
     ]
 
 
@@ -575,7 +577,7 @@ def read_code(module: Path, into: Metrics) -> None:
                     [node.module or ""] if isinstance(node, ast.ImportFrom) else [a.name for a in node.names]
                 )
                 tops = {name.partition(".")[0] for name in names}
-                into.shared_imports += "const_gate" in tops
+                into.shared_imports += "constitution_layer_kit" in tops
                 into.own_imports += bool(tops & packages)
 
 

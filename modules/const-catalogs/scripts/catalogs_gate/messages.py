@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from const_gate import identity
-from const_gate.messages import echoed, escaped
-from const_gate.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey
+from constitution_layer_kit import identity
+from constitution_layer_kit.messages import echoed, escaped
+from constitution_layer_kit.model import DIALS_FILE, Broken, EnvelopeState, Finding, SharedKey
 
 from .model import DEFAULT_WIDTH, MAX_WIDTH, Advice, Catalog, Key, NameToTake, Reach, Read
 

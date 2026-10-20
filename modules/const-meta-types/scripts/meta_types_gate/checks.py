@@ -5,10 +5,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from const_gate.dials import MODULE_PREFIX
-from const_gate.envelope import ID_RE, declared_policy, document_id, parse_envelope, string_field
-from const_gate.index import Index
-from const_gate.model import (
+from constitution_layer_kit.dials import MODULE_PREFIX
+from constitution_layer_kit.envelope import ID_RE, declared_policy, document_id, parse_envelope, string_field
+from constitution_layer_kit.index import Index
+from constitution_layer_kit.model import (
     DECLARATION,
     Defect,
     Dials,
@@ -20,8 +20,8 @@ from const_gate.model import (
     Resolution,
     Status,
 )
-from const_gate.resolution import resolve
-from const_gate.territory import Matcher
+from constitution_layer_kit.resolution import resolve
+from constitution_layer_kit.territory import Matcher
 
 from . import messages
 from .model import TITLE_MAX

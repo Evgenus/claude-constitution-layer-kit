@@ -9,8 +9,8 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import PurePosixPath
 
-from const_gate.envelope import parse_envelope, string_field
-from const_gate.model import Envelope, EnvelopeState, Finding
+from constitution_layer_kit.envelope import parse_envelope, string_field
+from constitution_layer_kit.model import Envelope, EnvelopeState, Finding
 
 from . import messages
 from .model import EXTENSION, Advice, Catalog, Item, NameToTake, Taken

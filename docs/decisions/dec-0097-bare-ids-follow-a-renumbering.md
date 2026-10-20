@@ -11,7 +11,7 @@ decider: Eugene Chernyshov
 
 ## Context
 
-The carry audit of [dec-0096-shared-package-named-constitution-layer-kit](https://github.com/Evgenus/claude-constitution-layer-kit/pull/79), still open on 2026-10-21, had a confirming reader note an older tension. A session checked it on 2026-10-21 and found it real.
+The carry audit of [dec-0096-shared-package-named-constitution-layer-kit](dec-0096-shared-package-named-constitution-layer-kit.md), in pull request Evgenus/claude-constitution-layer-kit#79, had a confirming reader note an older tension. A session checked it on 2026-10-21 and found it real.
 
 - **The kernel.** The second and third exceptions to the id rule of [kernel §1](../../kernel/CONVENTIONS.md#k1) say that "every reference to it in the tree is rewritten". The skill of module [`const-catalogs`](../requirements.md#const-catalogs), in its section on two items under one number, rewrites the bare form too, in the whole tree, and leaves only commit messages as they are.
 - **Comparisons.** [Rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7) let a frozen comparison take "five kinds of edit and no other". After a renumbering it let only a link be "rewritten to the item's new id". A bare id outside a link had no allowed edit, so the policy forbade what the kernel asks.
@@ -54,5 +54,5 @@ The commit that creates this record applies both rulings, to rule 7 of plc-0005-
 
 ## Carry list
 
-1. R1 — [plc-0005-research](../policies/plc-0005-research.md#r7), rule 7, the four sentences after the five kinds of edit, from "The second kind covers a bare id too"; the sentence of the five kinds states that the commit names the migration with the renumbering or the rename.
+1. R1 — [plc-0005-research](../policies/plc-0005-research.md#r7), rule 7, the four sentences from "The second kind covers a bare id too", after the five kinds of edit and the two sentences on a move or a rename of a file; the sentence of the five kinds states that the commit names the migration with the renumbering or the rename.
 2. R2 — [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14), rule 14, the four sentences after the link to a renumbered record, from "So is rewriting"; the sentence before that link states that a renumbering is no edit of the record's own body.

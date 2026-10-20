@@ -154,7 +154,7 @@ const-task-close:                     # task close as one act: a change that tou
   coverage:                           # the code territories the kit's current-state documents describe; a change touching one updates the document or declares no impact
     - name: shared-gate-code
       code:
-        - "shared/const_gate/**"
+        - "shared/constitution_layer_kit/**"
         - "shared/tests/**"
       docs:
         - "shared/GATE.md"

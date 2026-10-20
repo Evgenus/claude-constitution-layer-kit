@@ -27,10 +27,10 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, expect, failure_of, item
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.errors import ConfigurationFailure
-from const_gate.model import Finding
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.model import Finding
 from consumer import Consumer
 from harness import Edit, Harness, Result, Write, stop_json
 from task_close_gate import dials, messages, start
@@ -1912,11 +1912,14 @@ def test_closing_is_the_gates_own() -> None:
         f" (https://www.python.org/downloads/) and put it first on PATH — {CLOSING}",
     )
     plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
-    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("const_gate"))
+    shutil.copytree(
+        SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("constitution_layer_kit")
+    )
     line_of(
         "C15",
         H.run_gate(stop_json(r.root), command=[H.sh, str(plugin / "scripts" / "check-task-close.sh")]),
-        "BROKEN: const-task-close is installed without its shared code (scripts/const_gate is missing or is"
+        "BROKEN: const-task-close is installed without its shared code (scripts/constitution_layer_kit is"
+        " missing or is"
         " not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout"
         " of the repository it comes from; a copy of the plugin's folder must be made with links followed"
         f" (cp -RL) — {CLOSING}",

@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from const_gate.dials import GATE_KEYS, refuse_unknown_keys
-from const_gate.envelope import ID_RE
-from const_gate.errors import ConfigurationFailure
+from constitution_layer_kit.dials import GATE_KEYS, refuse_unknown_keys
+from constitution_layer_kit.envelope import ID_RE
+from constitution_layer_kit.errors import ConfigurationFailure
 
 from . import messages
 from .model import RecordDials

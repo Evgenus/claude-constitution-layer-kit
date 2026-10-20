@@ -14,9 +14,9 @@ from __future__ import annotations
 import datetime
 from collections.abc import Sequence
 
-from const_gate import identity
-from const_gate.messages import echoed, escaped
-from const_gate.model import DIALS_FILE, Broken, Finding, SharedKey
+from constitution_layer_kit import identity
+from constitution_layer_kit.messages import echoed, escaped
+from constitution_layer_kit.model import DIALS_FILE, Broken, Finding, SharedKey
 
 from .model import MARGIN_PERCENT, ROUND_TO, WINDOW_DAYS, Ceiling, Departure, Key, Level
 

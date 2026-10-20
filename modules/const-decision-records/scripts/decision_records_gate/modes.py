@@ -6,14 +6,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TextIO
 
-from const_gate import pipeline
-from const_gate.errors import ConfigurationFailure
-from const_gate.index import Index, build_index
-from const_gate.messages import governed_by
-from const_gate.model import Finding, PendingDocument
-from const_gate.output import Output
-from const_gate.pipeline import Skip
-from const_gate.territory import Matcher
+from constitution_layer_kit import pipeline
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.index import Index, build_index
+from constitution_layer_kit.messages import governed_by
+from constitution_layer_kit.model import Finding, PendingDocument
+from constitution_layer_kit.output import Output
+from constitution_layer_kit.pipeline import Skip
+from constitution_layer_kit.territory import Matcher
 
 from . import dials as record_dials
 from . import messages

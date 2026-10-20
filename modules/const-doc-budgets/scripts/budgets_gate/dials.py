@@ -8,10 +8,10 @@ import datetime
 import re
 from collections.abc import Callable, Mapping
 
-from const_gate import identity
-from const_gate.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns, texts
-from const_gate.errors import ConfigurationFailure
-from const_gate.messages import echoed
+from constitution_layer_kit import identity
+from constitution_layer_kit.dials import GATE_KEYS, refuse_unknown_keys, refuse_unreadable_patterns, texts
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.messages import echoed
 
 from . import messages
 from .model import WINDOW_DAYS, BudgetDials, Ceiling, Departure, Level, Window

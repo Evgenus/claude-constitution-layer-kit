@@ -23,9 +23,9 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, expect, failure_of, item
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.model import Broken, Finding
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.model import Broken, Finding
 from consumer import ROOT_POLICY, Consumer, document, envelope
 from harness import Edit, Harness, Result, Write
 from locations_gate import filling, messages, start

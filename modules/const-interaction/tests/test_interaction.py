@@ -24,9 +24,9 @@ from pathlib import Path
 import pytest
 import yaml
 from acceptance import broken_first_line, expect, failure_of, item
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.model import Broken, Finding
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.model import Broken, Finding
 from consumer import Consumer
 from harness import Harness, Result, Write, ask_reason, bash_json, event_json, red_lines
 from interaction_gate import messages, start, tokens
@@ -2105,7 +2105,9 @@ def test_t42() -> None:
         "exec(compile(open(path).read(), path, 'exec'), {'__name__': '__main__', '__file__': path})"
     )
     plugin = H.scratch_dir() / "plugin"  # an install that dropped the link to the shared code
-    shutil.copytree(SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("const_gate"))
+    shutil.copytree(
+        SCRIPTS, plugin / "scripts", symlinks=True, ignore=shutil.ignore_patterns("constitution_layer_kit")
+    )
     gates: tuple[tuple[str, Harness, str, str, list[str]], ...] = (
         ("shell gate", H, SHELL_CLOSING, bash_json(root, "ls"), []),
         ("list check", LISTS, LISTS_CLOSING, "", ["--scan", str(root)]),
@@ -2140,7 +2142,8 @@ def test_t42() -> None:
             harness.run_gate(
                 stdin, args, command=[harness.sh, str(plugin / "scripts" / harness.wrapper.name)]
             ),
-            "BROKEN: const-interaction is installed without its shared code (scripts/const_gate is missing"
+            "BROKEN: const-interaction is installed without its shared code (scripts/constitution_layer_kit"
+            " is missing"
             " or is not a directory) — fix: install the plugin from its marketplace, or load it from a full"
             " checkout of the repository it comes from; a copy of the plugin's folder must be made with"
             f" links followed (cp -RL) — {clause}",

@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from urllib.parse import unquote
 
-from const_gate.model import Finding
+from constitution_layer_kit.model import Finding
 
 from . import lychee, messages
 from .anchors import explicit_anchors

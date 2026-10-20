@@ -8,8 +8,8 @@ import os
 import re
 from pathlib import Path
 
-from const_gate.errors import ConfigurationFailure
-from const_gate.repository import first_line, git
+from constitution_layer_kit.errors import ConfigurationFailure
+from constitution_layer_kit.repository import first_line, git
 
 from . import messages
 from .model import BODY, Declaration, Range

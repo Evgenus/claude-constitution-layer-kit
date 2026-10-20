@@ -32,9 +32,9 @@ import yaml
 from acceptance import broken_first_line, check_case, item
 from budgets_gate import messages, start
 from budgets_gate.model import Key, characters, rule_of_thumb
-from const_gate import identity
-from const_gate import messages as shared
-from const_gate.model import Finding
+from constitution_layer_kit import identity
+from constitution_layer_kit import messages as shared
+from constitution_layer_kit.model import Finding
 from consumer import Consumer
 from harness import Case, Edit, Harness, Result, Write, event_json
 from test_shared_items import PatternDial, Subject, git_patch, git_timeouts, hook_budget
@@ -1218,13 +1218,14 @@ def test_t20() -> None:
     )
     copy = H.scratch_dir() / "scripts"
     shutil.copytree(SCRIPTS, copy, symlinks=True, ignore=shutil.ignore_patterns("__pycache__", ".mypy_cache"))
-    (copy / "const_gate").unlink()  # an install that dropped the link to the shared code
+    (copy / "constitution_layer_kit").unlink()  # an install that dropped the link to the shared code
     no_shared = SESSION.run_gate(
         session_json(prepared()), command=[SESSION.sh, str(copy / "session-start.sh")]
     )
     broken_first_line(
         no_shared,
-        "BROKEN: const-doc-budgets is installed without its shared code (scripts/const_gate is missing or is"
+        "BROKEN: const-doc-budgets is installed without its shared code (scripts/constitution_layer_kit is"
+        " missing or is"
         " not a directory) — fix: install the plugin from its marketplace, or load it from a full checkout of"
         " the repository it comes from; a copy of the plugin's folder must be made with links followed"
         " (cp -RL) — until then the gate's state is not said at session start",

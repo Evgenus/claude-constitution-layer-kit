@@ -9,7 +9,7 @@ import re
 from collections.abc import Sequence
 from urllib.parse import unquote
 
-from const_gate.model import Finding
+from constitution_layer_kit.model import Finding
 
 from . import messages
 from .links import find_links, without_links

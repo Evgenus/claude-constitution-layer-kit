@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache
 
-from const_gate.model import Finding
+from constitution_layer_kit.model import Finding
 
 DEFAULT_WIDTH = 4
 MAX_WIDTH = 9  # a billion items; past it a fix line would outgrow what the platform shows
