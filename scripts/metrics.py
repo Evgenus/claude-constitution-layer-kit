@@ -37,13 +37,13 @@ these keys, the JSON keys as written:
                     symbolic link never read;
   functions,        the functions of the module's own Python under scripts/ (links, and so the shared
   cc_max,           constitution_layer_kit, never read) and their cyclomatic complexity, counted by this
-                    script from the syntax tree, not by ruff's C901: 1, plus 1 per if, for, while, except,
-  cc_over_10        conditional expression, comprehension, assert and match case, plus n-1 per boolean
-                    operation of n operands; a nested function is its own function and adds nothing to the one
-                    around it;
+  cc_over_10        script from the syntax tree, not by ruff's C901: 1, plus 1 per if, for, while, except,
+                    conditional expression, comprehension, assert and match case, plus n-1 per boolean
+                    operation of n operands; a nested function is its own function and adds nothing to
+                    the one around it;
   shared_imports,   the import statements of that same Python that import constitution_layer_kit, against
-                    those that import the module's own packages (`own_packages` of kit_module_doc), a relative
-  own_imports       import counted as the module's own;
+  own_imports       those that import the module's own packages (`own_packages` of kit_module_doc), a
+                    relative import counted as the module's own;
   churn_90d         the commits, merges left out, of the last 90 days that touch modules/<module>.
 A totals row sums every key, save cc_max, which is the largest.
 
