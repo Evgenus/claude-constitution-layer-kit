@@ -13,7 +13,7 @@ decider: Eugene Chernyshov
 
 The code every gate shares has one source, [kit-shared-gate-code](../../shared/GATE.md). Until this record its Python package was `const_gate`. Items 1 and 2 of the Ruling of [dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md) put it at `shared/const_gate/` and had each module reach it through links of that name. Three facts made the name a problem:
 
-1. **It reads like a module's package.** Each module has its own package, named `<aspect>_gate`, such as `catalogs_gate`. Beside them, `const_gate` looked like one more module's package, not the kit's shared code.
+1. **It reads like a module's package.** Each module has its own package, with a name that ends in `_gate`, such as `catalogs_gate`. Beside them, `const_gate` looked like one more module's package, not the kit's shared code.
 2. **"const" is unclear.** It is short for "constitution", but a reader can take it for "constant".
 3. **The package may be published.** A second kit is planned on the same kernel, for knowledge documents. It may take this package from a package index for its own modules, and a name there must be unique.
 
@@ -46,17 +46,18 @@ A, by the decider in chat on 2026-10-20.
 
 ## Ruling
 
-<a id="r1"></a>**R1.** The kit's shared gate package is `constitution_layer_kit`. Its source is the folder `shared/constitution_layer_kit/`. A module reaches it through relative symbolic links named `scripts/constitution_layer_kit` and `tests/constitution_layer_kit`. Code imports it as `from constitution_layer_kit import …`. If it is ever published to a package index, its name there is `constitution-layer-kit`. Each module's own package keeps its name `<aspect>_gate`.
+<a id="r1"></a>**R1.** The kit's shared gate package is `constitution_layer_kit`. Its source is the folder `shared/constitution_layer_kit/`. A module reaches it through relative symbolic links named `scripts/constitution_layer_kit` and `tests/constitution_layer_kit`. Code imports it as `from constitution_layer_kit import …`. If it is ever published to a package index, its name there is `constitution-layer-kit`. Each module's own package, such as `catalogs_gate`, keeps its name.
 
-<a id="r2"></a>**R2.** Accepted records and frozen research comparisons keep the old name `const_gate` in their prose, as history. Only their links into the moved folder follow the move, as a link repaired after a move.
+<a id="r2"></a>**R2.** In an accepted record or a frozen research comparison, a link into a file or a folder that moved or was renamed takes the new path, whether the file is a document or not. Only the link's target changes. The link's text, a code span and the prose keep the old name or path as written, as history. So after this rename those documents still say `const_gate`, and only their links lead to `shared/constitution_layer_kit/`.
+
+<a id="r3"></a>**R3.** R1 replaces the path that items 1 and 2 of the Ruling of [dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md) ruled. The rest of that ruling stands.
 
 ## Applied
 
-The commit before this record's own made the rename: the folder, the 22 links, the name in code and in the current-state documents, and the link repairs in four history files. The commit that creates this record adds the published name to the deferred line of section 1 of [kit-shared-gate-code](../../shared/GATE.md#g1). The record is born `inactive`.
-
-That R1 renames the path that items 1 and 2 of the Ruling of [dec-0025-shared-gate-code-linked](dec-0025-shared-gate-code-linked.md) ruled is history. The rest of that ruling stands.
+The commit before this record's own made the rename: the folder, the 22 links, the name in code and in the current-state documents, and the link repairs in four history files. The commit that creates this record adds the published name to the deferred line of section 1 of [kit-shared-gate-code](../../shared/GATE.md#g1). A later commit of the same change, after the carry audit, states R2 in rule 14 of [plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14) and in rule 7 of [plc-0005-research](../policies/plc-0005-research.md#r7). The record is `inactive`: by the last commit of its branch every item has its home.
 
 ## Carry list
 
 1. R1 — [kit-shared-gate-code](../../shared/GATE.md), its opening paragraph; [its section 1](../../shared/GATE.md#g1), the deferred line under the table; [its section 2](../../shared/GATE.md#g2), items 6 and 7; [CLAUDE.md](../../CLAUDE.md), step 4 of "Developing a module".
 2. R2 — [rule 14 of plc-0004-decision-records](../policies/plc-0004-decision-records.md#r14); [rule 7 of plc-0005-research](../policies/plc-0005-research.md#r7).
+3. R3 — history only: the path of items 1 and 2 of the Ruling of dec-0025-shared-gate-code-linked renamed, the rest of that ruling unchanged.

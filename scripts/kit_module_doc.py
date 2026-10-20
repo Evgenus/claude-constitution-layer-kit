@@ -101,12 +101,11 @@ steers where Claude Code finds, keeps or loads plugins; review holds that this i
 Both checks prove it in theirs, with each of the four set in the environment the person runs them in, to a
 value and to nothing, and the kept ones set beside.
 
-`own_packages` is the kit's one derivation of a module's own packages, which the fixture runner
-imports through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link,
-that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save the shared
-`constitution_layer_kit`.
-check-shared-links, check-bare-install, check-resolved-paths and list-message-literals read it; the
-gate list's `types-<module>` entry derives the same set in shell. check-shared-links proves it in its
+`own_packages` is the kit's one derivation of a module's own packages, which the fixture runner imports
+through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link, that holds an
+`__init__.py`, whose name starts with neither `.` nor `_`, save the shared `constitution_layer_kit`.
+check-shared-links, check-bare-install, check-resolved-paths and list-message-literals read it; the gate
+list's `types-<module>` entry derives the same set in shell. check-shared-links proves it in its
 `--self-test`.
 """
 
@@ -346,8 +345,7 @@ def command_fix(note: Note, command: str, where: str, timed_out: bool) -> str:
 def own_packages(module: Path) -> list[Path]:
     """The module's own packages, sorted by name: each folder at the top of `<module>/scripts/`, itself no
     link, that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save
-    `constitution_layer_kit`. A
-    module with no `scripts/` has none."""
+    `constitution_layer_kit`. A module with no `scripts/` has none."""
     scripts = module / "scripts"
     if not scripts.is_dir():
         return []

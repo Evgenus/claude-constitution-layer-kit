@@ -4,9 +4,8 @@ link leads to the one source; its fixture runner reaches the module's own packag
 
 The shared code has one source in the kit: shared/constitution_layer_kit/ for the gates, shared/tests/
 for the fixture harness. A module's scripts/constitution_layer_kit and tests/constitution_layer_kit, and the
-harness files
-in its tests/, are symbolic links to it, relative ones leading straight to it, never through another
-link, so that they survive a clone into any directory. The platform copies what such a link points at
+harness files in its tests/, are symbolic links to it, relative ones leading straight to it, never through
+another link, so that they survive a clone into any directory. The platform copies what such a link points at
 into an installed plugin, so an installed module carries the code; inside the kit there is one copy to
 read, to fix and to review. The tests, run by pytest, import from their own folder, which pytest puts
 first on the import path, so they reach each package of the module's scripts/ through a link
@@ -14,25 +13,21 @@ tests/<package> -> ../scripts/<package>: they never edit their own import path, 
 copy that has drifted from what the gate runs.
 
 The links a module owes are derived from the folders, never typed apart from them:
-scripts/constitution_layer_kit
-and tests/constitution_layer_kit, each `.py` file at the top of shared/tests/ whose name starts with neither
-`.`
-nor `_`, as tests/<name>, and each folder at the top of the module's scripts/, itself no link, that
-holds an `__init__.py`, whose name starts with neither `.` nor `_`, save constitution_layer_kit, as
-tests/<name>.
-The check is a failure to run (BROKEN) when shared/constitution_layer_kit/ is no directory or when
-shared/tests/ lacks one of the four files shared/GATE.md names (the FLOOR), so that a list read from
-the folders cannot shrink in silence. The modules are the folders of `kit_module_doc.module_folders`, the
-kit's one listing — each folder under modules/ whose name starts with neither `.` nor `_` and holds its
-MODULE.md, a folder without it a BROKEN whether it uses the shared code or not. A module owes the links
-when it has hooks/hooks.json, when a line of a `.py` file under its scripts/, at any depth, begins,
-after white space, with `from constitution_layer_kit` or `import constitution_layer_kit` (the link
-scripts/constitution_layer_kit is not
-entered; a comment, a string on one line, a shell script and a
-`__pycache__` are no import, while such a line inside a string of several lines counts), or when it
-already has one of the links.
-A module of skills alone owes none. Findings come by module, the gate package first in scripts/ and
-then in tests/, then the shared files by name, then the module's own packages by name.
+scripts/constitution_layer_kit and tests/constitution_layer_kit, each `.py` file at the top of shared/tests/
+whose name starts with neither `.` nor `_`, as tests/<name>, and each folder at the top of the module's
+scripts/, itself no link, that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save
+constitution_layer_kit, as tests/<name>. The check is a failure to run (BROKEN) when
+shared/constitution_layer_kit/ is no directory or when shared/tests/ lacks one of the four files
+shared/GATE.md names (the FLOOR), so that a list read from the folders cannot shrink in silence. The modules
+are the folders of `kit_module_doc.module_folders`, the kit's one listing — each folder under modules/ whose
+name starts with neither `.` nor `_` and holds its MODULE.md, a folder without it a BROKEN whether it uses the
+shared code or not. A module owes the links when it has hooks/hooks.json, when a line of a `.py` file under
+its scripts/, at any depth, begins, after white space, with `from constitution_layer_kit` or `import
+constitution_layer_kit` (the link scripts/constitution_layer_kit is not entered; a comment, a string on one
+line, a shell script and a `__pycache__` are no import, while such a line inside a string of several lines
+counts), or when it already has one of the links. A module of skills alone owes none. Findings come by module,
+the gate package first in scripts/ and then in tests/, then the shared files by name, then the module's own
+packages by name.
 
 Modes:  no arguments   check every module under modules/;
         --self-test    prove the check on a throwaway tree: red for a missing link, a copy, a dangling
@@ -132,8 +127,8 @@ def own_links_of(kit: Path, module: Path) -> dict[str, str]:
 
 def imports_shared_code(module: Path) -> bool:
     """A line of a .py file under the module's scripts/, at any depth, imports constitution_layer_kit. The
-    link
-    scripts/constitution_layer_kit is not followed into the shared code, and a __pycache__ is not read."""
+    link scripts/constitution_layer_kit is not followed into the shared code, and a __pycache__ is not
+    read."""
     scripts = module / "scripts"
     for folder, directories, files in os.walk(scripts):
         directories[:] = [

@@ -3,8 +3,7 @@
 first lines close with its Identity's clause.
 
 The floor's one source is `FLOOR` in `shared/constitution_layer_kit/preflight.py`, read here by `ast` and
-never
-imported: a module-level assignment, the last one, plain or annotated, of a tuple of two integer
+never imported: a module-level assignment, the last one, plain or annotated, of a tuple of two integer
 literals, `(3, <minor>)`. A tuple of any other shape, a major other than 3, a missing `FLOOR`, and a
 file that is missing or no Python are BROKEN, with the fix. No gate reads the source at run time: each
 entry file keeps its own literal, since it must parse on any Python 3 (template §6, rule 3), and this
@@ -40,16 +39,15 @@ file `modules/<module>/scripts/<stem>.py` directly under the `scripts/` of a mod
 line elsewhere, in `scripts/` of the kit or in a folder that is no module, is none. Its Identity is the
 `Identity(...)` call, bare or through a module, found by `ast` in a `.py` file under
 `modules/<module>/scripts/*_gate/` (at any depth), whose `gate=` keyword is the string `<stem>`, a call
-that gives its gate any other way being none: exactly one, else BROKEN with the fix. Its clause is
-the `until_installed=` keyword, a string literal, or, where the call has none, the default of the
+that gives its gate any other way being none: exactly one, else BROKEN with the fix. Its clause is the
+`until_installed=` keyword, a string literal, or, where the call has none, the default of the
 `until_installed` field of the `Identity` class in `shared/constitution_layer_kit/identity.py`, also read by
-`ast`.
-The texts are the first echo `BROKEN: ... needs python3 ...` of `<stem>.sh` (C1), and the string constants
-`TOO_OLD` (C14) and `NO_SHARED_CODE` (C15) of the entry, the last top-level plain assignment of each, read by
-`ast`; their first line is the text up to the first line feed. A first line reads `<what> — fix: <fix>`,
-and what follows ` — ` after the fix is its clause. For a gate each of the three first lines must close
-with ` — <the Identity's clause>` exactly. An entry is a generator when the second line of `TOO_OLD` opens
-with neither `BROKEN: the check could not run` (C11) nor `BROKEN: the session-start line could not be
+`ast`. The texts are the first echo `BROKEN: ... needs python3 ...` of `<stem>.sh` (C1), and the string
+constants `TOO_OLD` (C14) and `NO_SHARED_CODE` (C15) of the entry, the last top-level plain assignment of
+each, read by `ast`; their first line is the text up to the first line feed. A first line reads `<what> — fix:
+<fix>`, and what follows ` — ` after the fix is its clause. For a gate each of the three first lines must
+close with ` — <the Identity's clause>` exactly. An entry is a generator when the second line of `TOO_OLD`
+opens with neither `BROKEN: the check could not run` (C11) nor `BROKEN: the session-start line could not be
 printed` (S1): its three first lines carry no clause, and its Identity's clause closes C2 alone, whatever
 it is (template §6, rule 3; GATE.md §2, item 6). A disagreement is RED, with the file and line, the text,
 the clause found, the clause the Identity names and where, why and the fix. BROKEN, with the fix: no entry

@@ -13,10 +13,8 @@ folder holding a `python3` that calls the one running the check goes first on th
 started with an environment of its own, without coverage's variable, is not measured, and its lines count
 as missed. coverage.py measures Python alone: a module's `.sh` files are not in these numbers. The
 measured code is the module's own Python under modules/<module>/scripts and the shared constitution_layer_kit
-it
-links, read at shared/constitution_layer_kit; when the run left coverage data, a file there that no run
-imports
-counts with all its lines missed. Nothing else is measured: not the runner, not the module's tests/ or
+it links, read at shared/constitution_layer_kit; when the run left coverage data, a file there that no run
+imports counts with all its lines missed. Nothing else is measured: not the runner, not the module's tests/ or
 hooks/, not the shared test files.
 
 The file of one module, the JSON keys as written:

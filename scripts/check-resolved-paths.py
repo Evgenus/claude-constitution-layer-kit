@@ -11,14 +11,13 @@ another in a hook run. Resolving it first gives the file's own place in both.
 
 The files read: every `.py` file, at any depth, of each module's own packages, as `own_packages` of
 `kit_module_doc` derives them, of `shared/constitution_layer_kit/`, and at the top of `shared/tests/` whose
-name
-starts with neither `.` nor `_`, as for the links of item 7 of kit-shared-gate-code §2; a
-`__pycache__` is never read, nor a folder that is a link. Each use of the name `__file__` must stand
-as the one argument of a call of `Path` — the name, or `pathlib.Path` — whose result is at once
-resolved, `.resolve()`; any other use is a finding: `Path(__file__).parent`, `os.path.dirname(__file__)`,
-`Path(__file__).absolute()`, the name passed on or bound to another name. The entry files at the top
-of a module's `scripts/`, run by path, and the module's own test files in `tests/`, which pytest imports
-from where they stand, are never reached through a link, and are not read.
+name starts with neither `.` nor `_`, as for the links of item 7 of kit-shared-gate-code §2; a `__pycache__`
+is never read, nor a folder that is a link. Each use of the name `__file__` must stand as the one argument of
+a call of `Path` — the name, or `pathlib.Path` — whose result is at once resolved, `.resolve()`; any other use
+is a finding: `Path(__file__).parent`, `os.path.dirname(__file__)`, `Path(__file__).absolute()`, the name
+passed on or bound to another name. The entry files at the top of a module's `scripts/`, run by path, and the
+module's own test files in `tests/`, which pytest imports from where they stand, are never reached through a
+link, and are not read.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a resolved read green in a module's package,

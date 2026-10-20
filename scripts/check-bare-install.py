@@ -996,9 +996,8 @@ def fixture_runner_package(root: Path, change: str, source: Path) -> tuple[str, 
         "runner-link-constitution-layer-kit": "constitution_layer_kit",
         "runner-link-underscore": "_own_gate",
     }.get(change, "own_gate")
-    if (
-        change == "runner-link-to-a-link"
-    ):  # scripts/own_gate a link out of the module, as constitution_layer_kit
+    # scripts/own_gate a link out of the module, as constitution_layer_kit
+    if change == "runner-link-to-a-link":
         (root / "outside_gate").mkdir()
         (root / "outside_gate" / "__init__.py").write_text("", encoding="utf-8")
         (source / "scripts" / package).symlink_to(root / "outside_gate")

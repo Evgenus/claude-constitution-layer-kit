@@ -19,8 +19,7 @@ as written:
   own_branch_percent                  null when there is nothing to count;
   shared_lines, …, shared_branch_percent
                                       the same six for shared/constitution_layer_kit, as this module's
-                                      fixtures
-                                      reach it;
+                                      fixtures reach it;
   runner_exit                         the runner's exit: 0 when every item was green;
   seconds                             the run's wall-clock time under coverage.py, whole seconds.
 The JSON object holds `advisory`, the line that it judges nothing; `commit`, the HEAD it was run at;
