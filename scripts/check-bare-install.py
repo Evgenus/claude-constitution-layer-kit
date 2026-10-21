@@ -49,8 +49,9 @@ For the module named, in throwaway folders that the check removes:
      the platform's own install, which writes a copy of the plugin into the configuration's cache.
      The marketplace's name is the one the kit's own .claude-plugin/marketplace.json gives, read by
      `kit_module_doc.marketplace_name` and typed nowhere in this check; a file that gives none is a
-     configuration failure. The source is --from, else the environment's CONSTITUTION_KIT_INSTALL_FROM,
-     else the kit's working folder. The kit's CI names the change's GitHub repository and branch,
+     configuration failure. The install source is --from, else the environment's
+     CONSTITUTION_KIT_INSTALL_FROM, else the kit's working folder. The kit's CI names the change's GitHub
+     repository and branch,
      `<owner>/<repo>#<branch>` — a pull request's head repository and branch, or the kit's main on
      a push to it — the copy a consumer's install writes; a fork the job's token cannot read fails; git
      clones it with the machine's own credentials, which a private remote needs. The working
@@ -66,7 +67,7 @@ For the module named, in throwaway folders that the check removes:
      value only when it is a git object id, 40 or 64 lower-case hexadecimal characters as git writes one,
      since git is handed it and would read a value that opens with `-` as an option; the source is
      read from the kit's git history and fetched when absent. An install from a local
-     folder is compared with that folder and reads no record;
+     folder is compared with the module's plugin/ folder there and reads no record;
   3. what the kit's source of the module declares, held in that copy; the source is the module's `plugin/`
      folder, the folder the marketplace entry names and the install copies, and every read of its parts
      goes through it: no link of the source leads inside the plugin folder, the source, save a fixture

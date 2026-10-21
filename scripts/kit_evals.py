@@ -1,7 +1,7 @@
 """Kit tooling, never shipped in a module: the module evals and their receipts (decision
 dec-0093-module-evals-with-local-receipts).
 
-A module ships its eval cases in `evals/` at the top of its folder, beside the `plugin/` folder that installs;
+A module has its eval cases in `evals/` at the top of its folder, beside the `plugin/` folder that installs;
 each case names that plugin, and `claude plugin eval` runs them on the module's folder. The kit keeps one
 receipt per module in `scripts/eval-receipts.json`, written by `scripts/run-evals.py` and held by
 `scripts/check-eval-receipts.py`. This file is what both read the same way:

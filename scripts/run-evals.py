@@ -22,7 +22,8 @@ asks docker for the image. For each module, in turn:
   1. its eval files (`kit_evals.eval_files`) and the image's Dockerfile must all be committed
      (`kit_evals.dirty`), else the module is refused with the fix, so that the receipt names what CI checks;
   2. its eval files are copied, links followed, into a temporary folder, a copy of the module's
-     eval files, `plugin/` among them, which the cases load through their `plugins:` line;
+     eval files: its cases, and its `plugin/` save `INSTALL.md`, the plugin the cases load through their
+     `plugins:` line;
   3. one container per case: its guard unsets the variables that would bill by usage (ANTHROPIC_API_KEY,
      ANTHROPIC_AUTH_TOKEN, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX, CLAUDE_CODE_USE_FOUNDRY), refuses
      to go on unless `claude --version` is the pinned version and `claude auth status` reports a
