@@ -52,11 +52,11 @@ name no module folder by name:
   - `.claude-plugin/marketplace.json` is a JSON object with a `name`, a non-empty string, the
     marketplace's name, read there and typed nowhere in this check, and a list `plugins`: for each
     folder exactly one entry, an object, whose `name` is `<m>`, whose `source` is the string
-    `./modules/<m>` and whose `description` is the string the manifest's `description` is, character for
-    character, a description missing or no string on either side being one finding, the manifest's
-    named first, and a module with no entry or two being judged by those findings alone; no entry names
-    anything that is no module folder, and an entry's other keys, the marketplace's other keys and its
-    `owner` are the platform's and are never read;
+    `./modules/<m>/plugin`, the folder that installs, and whose `description` is the string the
+    manifest's `description` is, character for character, a description missing or no string on either
+    side being one finding, the manifest's named first, and a module with no entry or two being judged by
+    those findings alone; no entry names anything that is no module folder, and an entry's other keys,
+    the marketplace's other keys and its `owner` are the platform's and are never read;
   - `.claude/settings.json` is a JSON object: under `enabledPlugins` the key `<m>@<marketplace name>`
     is `true`, the JSON boolean and nothing else, for each folder, a committed `false` included, the one
     switch-off being a clone's git-ignored `.claude/settings.local.json`, which this check never reads;
@@ -97,17 +97,16 @@ namespace is its plugin name), one RED finding for each that does not, by key; a
 a kernel key or a policy's namespace, a key that is no string, and a key below the top level, are not
 judged. A dials file that is missing, is no YAML or is no mapping is BROKEN. The `types` entry of the
 list, `--show types`, puts on `MYPYPATH` exactly the module folders `scripts/check-schema-mirror.py` puts
-on its import path, each as `../modules/<m>/plugin/scripts`: the folders are the strings of the one `for
-module
-in (...)` over a non-empty tuple of strings, read from the syntax tree and never run; the entry's are the
-items of every `MYPYPATH=` setting on a code line of its commands, comments aside, an empty element from
-a stray colon an item like another; the two are compared as sets, and a difference is one RED finding
-naming both. A mirror that is missing, is no Python or has not that one loop is BROKEN, and so is a list
-with no `types` entry. These two holds come after every
-other kind of finding, the dials file's first.
+on its import path, each as `../modules/<m>/plugin/scripts`: the folders are the strings of the one
+`for module in (...)` over a non-empty tuple of strings, read from the syntax tree and never run; the
+entry's are the items of every `MYPYPATH=` setting on a code line of its commands, comments aside, an
+empty element from a stray colon an item like another; the two are compared as sets, and a difference
+is one RED finding naming both. A mirror that is missing, is no Python or has not that one loop is
+BROKEN, and so is a list with no `types` entry. These two holds come after every other kind of finding,
+the dials file's first.
 The install guide, `INSTALL.md` at the kit root, holds one fenced block whose info string is `bash
 check=scan`; its first line is `for s in <path> … ; do …`, and the words between `for s in` and `; do`
-are the paths the guide runs with `sh`, each `<module>/scripts/<stem>.sh`, the POSIX entry point of a
+are the paths the guide runs with `sh`, each `<module>/plugin/scripts/<stem>.sh`, the POSIX entry point of a
 declared scan, its stem the declared name without `.py`. The paths are held against the declared
 scans both ways, after the types hold: a declared scan whose path the block does not list, and a listed
 path no module declares, are one RED finding each, by path, the fix naming the path to add or to
@@ -119,14 +118,17 @@ The coverage map is `const-task-close.coverage` of the dials file, the code terr
 current-state documents, each an entry with a `name`, a `code` list and a `docs` list. It is held after
 the guide's scan block, for each module folder: exactly one entry whose `name` is the folder's name (a
 module with two is judged by that finding alone); its `docs` the one path `modules/<m>/MODULE.md`; every
-`code` pattern opening with `modules/<m>/`, one finding for each that does not; and for each of the folders
-`scripts`, `hooks`, `skills`, `tests` and `evals` that is a directory directly under the module, the pattern
-`modules/<m>/<folder>/**` among its `code`, a pattern for a folder that does not exist being allowed. The
-range check of module `const-task-close` asks a change for a module's document only through its pair, so a
-module with no pair, or code outside its pair, is never asked. A missing entry's fix is the whole entry in
-block style, every existing folder listed. Entries named for no module folder (`shared-gate-code`,
-`kit-scripts`, `kernel-schemas`) are not judged. A map that is absent or no list, or an entry that is no
-mapping with a string `name` and `code` and `docs` lists of strings, is BROKEN.
+`code` pattern opening with `modules/<m>/`, one finding for each that does not; and for each of the paths
+`plugin/scripts`, `plugin/hooks`, `plugin/skills`, `tests` and `evals` that is a directory below the
+module's folder, the pattern `modules/<m>/<path>/**` among its `code`, a pattern for a path that does
+not exist being allowed. The installed parts sit in the module's `plugin/` folder, the tests and the
+evals beside it, so a folder of one of those names at another place, `scripts/` at the module's top or
+`tests/` inside `plugin/`, is none of them and is owed no pattern. The range check of module
+`const-task-close` asks a change for a module's document only through its pair, so a module with no
+pair, or code outside its pair, is never asked. A missing entry's fix is the whole entry in block style,
+every existing folder listed. Entries named for no module folder (`shared-gate-code`, `kit-scripts`,
+`kernel-schemas`) are not judged. A map that is absent or no list, or an entry that is no mapping with
+a string `name` and `code` and `docs` lists of strings, is BROKEN.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on a throwaway tree, itself a git repository: a scan missing
@@ -142,7 +144,8 @@ Modes:  no arguments   check the kit;
                        reads red, one in another folder green, an exact pin,
                        a name that goes on or has another before it and a comment green; the
                        folder name over a whole set of names; a manifest, a
-                       marketplace entry, its description included, an enabled key and the
+                       marketplace entry, its description included, its source the module's folder,
+                       another's plugin folder or one below its own red, an enabled key and the
                        declaration each changed one at a time, the platform's other keys allowed,
                        the marketplace renamed in all three places green and in each pair of them
                        red or green as the rule says,
@@ -169,13 +172,16 @@ Modes:  no arguments   check the kit;
                        comment, another path, a quote, two settings, a stray colon), and PyYAML
                        missing as a BROKEN line with the install command, exit 1; the guide's scan
                        block against the declared scans (a block of exactly those, a scan missing, a
-                       path no module declares, a path twice, a module with no scan), each fix text
+                       path no module declares, a path twice, a module with no scan, a path at the
+                       module's top outside `plugin/`), each fix text
                        followed on the tree until green, and a guide that is missing, has no block,
                        two, or a block that does not begin `for s in … ; do` as a BROKEN line; the
                        coverage map against the module folders (every module with its pair, a module
                        with no entry, two entries, other docs, a pattern outside the module, a folder
                        present with no pattern, an absent folder with one, the three non-module entries
-                       ignored, a map that cannot be read as a BROKEN line), each fix text followed on
+                       ignored, `scripts/`, `hooks/` and `skills/` at the module's top and `tests/`
+                       and `evals/` inside `plugin/` no folders of the map, a map that cannot be read
+                       as a BROKEN line), each fix text followed on
                        the tree until green. The self-test reads the map under a dials key no module
                        bears, so that its trees need no module named for the real one.
 Exit:   0 green; 2 a finding; 1 the check could not run.
@@ -277,7 +283,7 @@ WHY_MANIFEST = (
 WHY_MARKET = "a module the marketplace leaves out cannot be installed, by the kit's CI or by a consumer"
 WHY_SOURCE = (
     "the marketplace tells the platform where a plugin loads from, and a source that is not the module's"
-    " folder loads another plugin or none"
+    " plugin folder loads another plugin or none"
 )
 WHY_TWICE = (
     "a plugin's name must lead to one source, and with two entries it is open which one an install reads"
@@ -323,7 +329,13 @@ WHY_GUIDE = (
 )
 COVERAGE_OWNER = "const-task-close"  # the dials namespace whose `coverage` key is the range check's map
 COVERAGE_KEY = "coverage"
-COVERAGE_FOLDERS = ("scripts", "hooks", "skills", "tests", "evals")  # the folders of a module that carry code
+COVERAGE_FOLDERS = (  # the folders that carry code, as paths below a module folder: the plugin's three, then
+    "plugin/scripts",  # the module's own `tests` and `evals`, which stay outside the plugin folder
+    "plugin/hooks",
+    "plugin/skills",
+    "tests",
+    "evals",
+)
 WHY_COVERAGE = (
     "the range check of module const-task-close asks a change for a module's document only through the"
     " module's pair, so a module with no pair, or code outside its pair, is never asked"
@@ -353,8 +365,9 @@ def coverage_owner(key: str) -> Iterator[None]:
 
 
 def coverage_entry(module: str, folders: tuple[str, ...]) -> str:
-    """The pair of a module as the kit writes it in block style, one pattern for each folder given, the
-    module's document as its docs; an empty `code` is the one flow-style list."""
+    """The pair of a module as the kit writes it in block style, one pattern for each folder given, each a
+    path below the module folder (`plugin/scripts`, `tests`), the module's document as its docs; an empty
+    `code` is the one flow-style list."""
     code = (
         ["      code:", *(f'        - "modules/{module}/{folder}/**"' for folder in folders)]
         if folders
@@ -445,6 +458,11 @@ COVERAGE_WHERE = frozenset(
         Where.COVERAGE_FOLDER,
     }
 )  # the findings about a module's pair in the coverage map, in `Finding.coverage`
+
+
+def plugin_source(module: str) -> str:
+    """The marketplace `source` of the module folder `module`: its plugin folder, the one that installs."""
+    return f"./modules/{module}/plugin"
 
 
 @dataclass(frozen=True)
@@ -687,7 +705,7 @@ class Finding:
     def marketplace_parts(self) -> tuple[str, str, str]:
         """What, why and fix of a module the marketplace has no entry for."""
         m = self.module
-        entry = json.dumps({"name": m, "source": f"./modules/{m}"})
+        entry = json.dumps({"name": m, "source": plugin_source(m)})
         return (
             "the marketplace has no entry for it",
             WHY_MARKET,
@@ -695,11 +713,11 @@ class Finding:
         )
 
     def market_source_parts(self) -> tuple[str, str, str]:
-        """What, why and fix of a marketplace entry whose source is not the module's folder."""
+        """What, why and fix of a marketplace entry whose source is not the module's plugin folder."""
         m = self.module
-        what = f"its marketplace entry has {self.said}, not source {json.dumps(f'./modules/{m}')}"
+        what = f"its marketplace entry has {self.said}, not source {json.dumps(plugin_source(m))}"
         fix = (
-            f'set "source" to {json.dumps(f"./modules/{m}")} in the entry named {json.dumps(m)}'
+            f'set "source" to {json.dumps(plugin_source(m))} in the entry named {json.dumps(m)}'
             f" of plugins in {MARKETPLACE_FILE}"
         )
         return what, WHY_SOURCE, fix
@@ -709,7 +727,7 @@ class Finding:
         m = self.module
         fix = (
             f"remove all but one entry named {json.dumps(m)} from plugins in {MARKETPLACE_FILE},"
-            f" the one whose source is {json.dumps(f'./modules/{m}')}"
+            f" the one whose source is {json.dumps(plugin_source(m))}"
         )
         return f"the marketplace has {self.said} entries for it", WHY_TWICE, fix
 
@@ -1086,12 +1104,12 @@ def manifest_findings(root: Path, modules: list[str]) -> tuple[list[Finding], di
 
 def entry_finding(module: str, got: list[dict[str, Any]]) -> Finding | None:
     """The finding about a module's entries in the marketplace, `got`: none, more than one, or one whose
-    source is not the module's folder."""
+    source is not the module's plugin folder."""
     if not got:
         return Finding(module, Where.MARKETPLACE)
     if len(got) > 1:
         return Finding(module, Where.MARKET_TWICE, said=str(len(got)))
-    if got[0].get("source") != f"./modules/{module}":
+    if got[0].get("source") != plugin_source(module):
         said = f"source {shown(got[0]['source'])}" if "source" in got[0] else "no source"
         return Finding(module, Where.MARKET_SOURCE, said=said)
     return None
@@ -1147,14 +1165,14 @@ def known_findings(tag: str, known: dict[str, Any]) -> list[Finding]:
 
 
 def check_registries(root: Path, modules: list[str]) -> tuple[list[Finding], int, int]:
-    """Each module folder is named `const-<aspect>` (kernel §7), is named so by its manifest, stands once in
-    the marketplace with `./modules/<folder>` as its source, and is enabled, `true`, in the kit's settings,
-    which declare the marketplace by a `directory` source at `.`; neither file names anything else of the
-    marketplace. The marketplace's name is read from marketplace.json. The findings come in a fixed
-    order, whatever the files' key order: by folder, name then manifest; the marketplace entries by folder,
-    each one's source then its description, then the strays by name; the enabled keys the same; the
-    declaration last. Returns them, the entry
-    count of the marketplace and the count of its keys in `enabledPlugins`."""
+    """Each module folder is named `const-<aspect>` (kernel §7), is named so by its manifest, in its plugin
+    folder, stands once in the marketplace with `./modules/<folder>/plugin` as its source, and is enabled,
+    `true`, in the kit's settings, which declare the marketplace by a `directory` source at `.`; neither
+    file names anything else of the marketplace. The marketplace's name is read from marketplace.json. The
+    findings come in a fixed order, whatever the files' key order: by folder, name then manifest; the
+    marketplace entries by folder, each one's source then its description, then the strays by name; the
+    enabled keys the same; the declaration last. Returns them, the entry count of the marketplace and the
+    count of its keys in `enabledPlugins`."""
     findings, manifests = manifest_findings(root, modules)
     tag, entries, plugins = read_marketplace(root)
     findings += marketplace_findings(modules, entries, manifests)
@@ -1225,8 +1243,7 @@ def mirror_folders(root: Path) -> tuple[str, ...]:
 def types_path(root: Path) -> list[Finding]:
     """The `types` entry of the gate list puts on MYPYPATH exactly the module folders the schema mirror
     imports from, each as `../modules/<m>/plugin/scripts`: the items of every MYPYPATH setting on a code line
-    of the
-    entry's commands, comments aside, against the mirror's folders, as sets."""
+    of the entry's commands, comments aside, against the mirror's folders, as sets."""
     items = [
         part
         for line in listed(root, "--show", TYPES_ENTRY).splitlines()
@@ -1240,10 +1257,11 @@ def types_path(root: Path) -> list[Finding]:
 
 
 def scan_path(module: str, entry: str) -> str:
-    """The path the guide's scan block lists for a declared scan: `<module>/scripts/<stem>.sh`, the POSIX
-    entry point every scan has (template §6, gate-script rule 6), which the guide's loop runs with `sh`; the
-    stem is the declared name without `.py`, so `check-x` and `check-x.py` both stand for `check-x.sh`."""
-    return f"{module}/scripts/{entry.removesuffix('.py')}.sh"
+    """The path the guide's scan block lists for a declared scan: `<module>/plugin/scripts/<stem>.sh`, the
+    POSIX entry point every scan has (template §6, gate-script rule 6), which the guide's loop runs with
+    `sh`; the stem is the declared name without `.py`, so `check-x` and `check-x.py` both stand for
+    `check-x.sh`."""
+    return f"{module}/plugin/scripts/{entry.removesuffix('.py')}.sh"
 
 
 def scan_block(root: Path) -> list[str]:
@@ -1295,8 +1313,8 @@ def scan_block(root: Path) -> list[str]:
     if listed_in is None:
         raise Broken(
             f"{GUIDE_FILE}:{line}: the first line of the block {BLOCK} is not `for s in <paths>; do …`"
-            " — fix: begin it with `for s in <module>/scripts/<stem>.sh …; do`, the paths being the scans the"
-            " modules declare, each `<stem>` the declared scan's name without `.py`,"
+            " — fix: begin it with `for s in <module>/plugin/scripts/<stem>.sh …; do`, the paths being the"
+            " scans the modules declare, each `<stem>` the declared scan's name without `.py`,"
             ' and run each as `"$s"` after `do`'
         )
     return listed_in.group(1).split()
@@ -1361,14 +1379,16 @@ def coverage_pairs_of(root: Path) -> list[Pair]:
 def coverage_pairs(root: Path, modules: list[str]) -> list[Finding]:
     """Each module folder has its pair in the coverage map of the range check: exactly one entry named for
     the folder, whose `docs` are the one path `modules/<m>/MODULE.md`, whose `code` patterns all open with
-    `modules/<m>/`, and which lists `modules/<m>/<folder>/**` for each of `scripts`, `hooks`, `skills` and
-    `tests` that is a directory directly under the module; a pattern for a folder that does not exist is
-    allowed. A module with two entries is judged by that finding alone. Entries named for no module folder
-    are not judged. The findings come by module, then docs, patterns outside, folders in the order above."""
+    `modules/<m>/`, and which lists `modules/<m>/<path>/**` for each of `COVERAGE_FOLDERS`, the paths
+    `plugin/scripts`, `plugin/hooks`, `plugin/skills`, `tests` and `evals`, that is a directory below the
+    module's folder; a pattern for a path that does not exist is allowed, and a folder of one of those
+    names at another place is none of them. A module with two entries is judged by that finding alone.
+    Entries named for no module folder are not judged. The findings come by module, then docs, patterns
+    outside, folders in the order above."""
     owner, pairs = COVERAGE.owner, coverage_pairs_of(root)
     findings: list[Finding] = []
     for module in modules:
-        folders = tuple(f for f in COVERAGE_FOLDERS if (root / "modules" / module / f).is_dir())
+        folders = tuple(path for path in COVERAGE_FOLDERS if (root / "modules" / module / path).is_dir())
         mine = [pair for pair in pairs if pair.name == module]
         if len(mine) != 1:
             kind = Where.COVERAGE_TWICE if mine else Where.COVERAGE_MISSING
@@ -1539,7 +1559,7 @@ def registry_tree(folders: tuple[str, ...], tag: str) -> dict[str, Any]:
         "name": tag,
         "owner": {"name": "Someone"},
         "plugins": [
-            {"name": m, "source": f"./modules/{m}", "description": f"The module {m}."} for m in folders
+            {"name": m, "source": plugin_source(m), "description": f"The module {m}."} for m in folders
         ],
     }
     files[SETTINGS_FILE] = {
@@ -2071,16 +2091,28 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         "an entry whose source is another module's folder": edit(
             lambda f: registry_entry(f).update({"source": "./modules/const-quiet"}), [Where.MARKET_SOURCE]
         ),
+        "an entry whose source is another module's plugin folder": edit(
+            lambda f: registry_entry(f).update({"source": plugin_source("const-quiet")}),
+            [Where.MARKET_SOURCE],
+        ),
+        "an entry whose source is the module's folder, not its plugin folder": edit(
+            lambda f: registry_entry(f).update({"source": "./modules/const-x"}), [Where.MARKET_SOURCE]
+        ),
+        "an entry whose source is a folder below the plugin folder": edit(
+            lambda f: registry_entry(f).update({"source": "./modules/const-x/plugin/scripts"}),
+            [Where.MARKET_SOURCE],
+        ),
         "an entry whose source is an object": edit(
             lambda f: registry_entry(f).update({"source": {"source": "github", "repo": "a/b"}}),
             [Where.MARKET_SOURCE],
         ),
         "an entry with no source": edit(lambda f: registry_entry(f).pop("source"), [Where.MARKET_SOURCE]),
         "an entry whose source ends in a slash": edit(
-            lambda f: registry_entry(f).update({"source": "./modules/const-x/"}), [Where.MARKET_SOURCE]
+            lambda f: registry_entry(f).update({"source": f"{plugin_source('const-x')}/"}),
+            [Where.MARKET_SOURCE],
         ),
         "an entry whose source has no `./`": edit(
-            lambda f: registry_entry(f).update({"source": "modules/const-x"}), [Where.MARKET_SOURCE]
+            lambda f: registry_entry(f).update({"source": "modules/const-x/plugin"}), [Where.MARKET_SOURCE]
         ),
         "an entry whose description differs from its manifest's": edit(
             lambda f: registry_entry(f).update({"description": "Another."}), [Where.MARKET_DESCRIPTION]
@@ -2137,13 +2169,13 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "two entries for one module, the second with another description, are not judged on it": edit(
             lambda f: f[market]["plugins"].append(
-                {"name": "const-x", "source": "./modules/const-x", "description": "Another."}
+                {"name": "const-x", "source": plugin_source("const-x"), "description": "Another."}
             ),
             [Where.MARKET_TWICE],
         ),
         "an entry with no folder, whatever its description, is the stray alone": edit(
             lambda f: f[market]["plugins"].append(
-                {"name": "const-gone", "source": "./modules/const-gone", "description": 5}
+                {"name": "const-gone", "source": plugin_source("const-gone"), "description": 5}
             ),
             [Where.MARKET_STRAY],
         ),
@@ -2155,7 +2187,9 @@ def registry_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
             [Where.MARKET_DESCRIPTION, Where.MARKET_DESCRIPTION],
         ),
         "an entry with no folder": edit(
-            lambda f: f[market]["plugins"].append({"name": "const-gone", "source": "./modules/const-gone"}),
+            lambda f: f[market]["plugins"].append(
+                {"name": "const-gone", "source": plugin_source("const-gone")}
+            ),
             [Where.MARKET_STRAY],
         ),
         "two entries of a name with no folder are one finding": edit(
@@ -2329,7 +2363,7 @@ def messy_case(scan: str, reverse: bool) -> Case:
     # six strays, written in neither their sorted order nor its reverse, nor in the order `backwards` gives
     # them: no chance order of a set is likelier than 1 in 720 to be the sorted one, so a sort holds it
     strays = ("const-gone", "const-away", "const-zed", "const-mid", "const-bar", "const-old")
-    plugins += [{"name": name, "source": f"./modules/{name}"} for name in strays]
+    plugins += [{"name": name, "source": plugin_source(name)} for name in strays]
     enabled: dict[str, Any] = files[settings]["enabledPlugins"]
     enabled.update({f"const-m@{tag}": False, f"const-s@{tag}": "true", "other@elsewhere": True})
     enabled.update({f"const-gone@{tag}": True, f"const-away@{tag}": True})
@@ -2346,7 +2380,7 @@ def strays_case(scan: str) -> Case:
     market, settings, tag = MARKETPLACE_FILE, SETTINGS_FILE, REGISTRY_TAG
     names = ("", ".x", "_x", "a/b", "const-gone", "const-plain", "gone")
     files = registry_tree(("const-x", "const-quiet"), tag)
-    files[market]["plugins"] += [{"name": name, "source": f"./modules/{name}"} for name in names]
+    files[market]["plugins"] += [{"name": name, "source": plugin_source(name)} for name in names]
     files[settings]["enabledPlugins"].update({f"{name}@{tag}": True for name in names})
     return Case(
         {"x": scan},
@@ -2355,11 +2389,9 @@ def strays_case(scan: str) -> Case:
     )
 
 
-GUIDE_X = "const-x/scripts/check-x.sh"  # the scan const-x declares, as the guide lists it
-GUIDE_P = (
-    "const-p/scripts/check-p.sh"  # the scan const-p declares as `check-p.py --scan`: its .sh entry point
-)
-GUIDE_GONE = "const-gone/scripts/check-gone.sh"  # a path no module declares
+GUIDE_X = "const-x/plugin/scripts/check-x.sh"  # the scan const-x declares, as the guide lists it
+GUIDE_P = "const-p/plugin/scripts/check-p.sh"  # the scan const-p declares as `check-p.py --scan`: its .sh
+GUIDE_GONE = "const-gone/plugin/scripts/check-gone.sh"  # a path no module declares
 
 
 def guide_case(scan: str, module_text: str, guide: str | None) -> Case:
@@ -2399,12 +2431,16 @@ def guide_cases(scan: str, module_text: str) -> dict[str, tuple[Case, list[Where
             [drop],
         ),
         "the guide's scan block lists a module that declares no scan": (
-            edit(GUIDE_X, GUIDE_P, "const-quiet/scripts/check-q.sh"),
+            edit(GUIDE_X, GUIDE_P, "const-quiet/plugin/scripts/check-q.sh"),
             [drop],
         ),
         "the guide's scan block lists the .py file of a scan its loop runs with sh": (
-            edit("const-x/scripts/check-x.py", GUIDE_P),
+            edit("const-x/plugin/scripts/check-x.py", GUIDE_P),
             [add, drop],
+        ),
+        "the guide's scan block lists every scan at the module's top, outside its plugin folder": (
+            edit("const-x/scripts/check-x.sh", "const-p/scripts/check-p.sh"),
+            [add, add, drop, drop],
         ),
         "the guide's scan block lists a path twice": (edit(GUIDE_X, GUIDE_X, GUIDE_P), []),
         "a module that declares no scan is owed no path": (
@@ -2540,21 +2576,42 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
             case(x, quiet, dirs=all_folders),
             [],
         ),
-        "a module without a hooks/ folder and with no hooks pattern": (
+        "a module without a plugin/hooks/ folder and with no hooks pattern": (
             case(
-                full_pair("const-x", ("scripts", "skills", "tests")),
+                full_pair("const-x", ("plugin/scripts", "plugin/skills", "tests")),
                 quiet,
-                dirs=("const-x/scripts", "const-x/skills", "const-x/tests"),
+                dirs=("const-x/plugin/scripts", "const-x/plugin/skills", "const-x/tests"),
             ),
             [],
         ),
-        "a module with a skills pattern and no skills/ folder": (
-            case(x, quiet, dirs=("const-x/scripts", "const-x/hooks", "const-x/tests")),
+        "a module with a skills pattern and no plugin/skills/ folder": (
+            case(x, quiet, dirs=("const-x/plugin/scripts", "const-x/plugin/hooks", "const-x/tests")),
             [],
         ),
         "a module with a pattern for each folder and none of the folders": (case(x, quiet), []),
-        "a hooks entry that is a plain file is no folder": (
-            case(full_pair("const-x", ("scripts", "skills", "tests")), quiet, plain=("const-x/hooks",)),
+        "a plugin/hooks entry that is a plain file is no folder": (
+            case(
+                full_pair("const-x", ("plugin/scripts", "plugin/skills", "tests")),
+                quiet,
+                dirs=("const-x/plugin",),
+                plain=("const-x/plugin/hooks",),
+            ),
+            [],
+        ),
+        "scripts/, hooks/ and skills/ at the module's top, outside plugin/, are no folders of the map": (
+            case(
+                full_pair("const-x", ("tests", "evals")),
+                quiet,
+                dirs=("const-x/scripts", "const-x/hooks", "const-x/skills", "const-x/tests", "const-x/evals"),
+            ),
+            [],
+        ),
+        "tests/ and evals/ inside plugin/, outside the module's own, are no folders of the map": (
+            case(
+                full_pair("const-x", ("plugin/scripts",)),
+                quiet,
+                dirs=("const-x/plugin/scripts", "const-x/plugin/tests", "const-x/plugin/evals"),
+            ),
             [],
         ),
         "the pairs in another order": (case(quiet, x, dirs=all_folders), []),
@@ -2663,9 +2720,23 @@ def coverage_cases(scan: str) -> dict[str, tuple[Case, list[Where]]]:
         ),
         "two folders present and no pattern for either": (
             case(
-                with_code(*x["code"][2:]), quiet, dirs=("const-x/scripts", "const-x/hooks", "const-x/skills")
+                with_code(*x["code"][2:]),
+                quiet,
+                dirs=("const-x/plugin/scripts", "const-x/plugin/hooks", "const-x/plugin/skills"),
             ),
             [folder, folder],
+        ),
+        "a pattern for scripts/ at the module's top is none for plugin/scripts/": (
+            case(with_code("modules/const-x/scripts/**", *x["code"][1:]), quiet, dirs=all_folders),
+            [folder],
+        ),
+        "a pattern for tests/ inside plugin/ is none for the module's tests/": (
+            case(
+                with_code(*x["code"][:3], "modules/const-x/plugin/tests/**", *x["code"][4:]),
+                quiet,
+                dirs=all_folders,
+            ),
+            [folder],
         ),
     }
     for what, pattern in outside_cases.items():
@@ -2766,8 +2837,8 @@ def broken_cases(scan: str) -> dict[str, tuple[Case, str]]:
         " scan in the guide's verify step, its fence `bash check=scan`"
     )
     form_fix = (
-        " — fix: begin it with `for s in <module>/scripts/<stem>.sh …; do`, the paths being the scans the"
-        " modules declare, each `<stem>` the declared scan's name without `.py`,"
+        " — fix: begin it with `for s in <module>/plugin/scripts/<stem>.sh …; do`, the paths being the"
+        " scans the modules declare, each `<stem>` the declared scan's name without `.py`,"
         ' and run each as `"$s"` after `do`'
     )
     form_line = (
@@ -3111,7 +3182,7 @@ MANIFEST_WHY = (
 
 SOURCE_WHY = (
     "  why: the marketplace tells the platform where a plugin loads from, and a source that is not the"
-    " module's folder loads another plugin or none"
+    " module's plugin folder loads another plugin or none"
 )
 
 STRAY_WHY = (
@@ -3151,9 +3222,8 @@ MESSY_LINES = [
     ' "const-m"',
     MANIFEST_WHY,
     '  fix: set "name": "const-m" in modules/const-m/plugin/.claude-plugin/plugin.json',
-    "RED: const-n: its manifest modules/const-n/plugin/.claude-plugin/plugin.json has no name, where it must"
-    " be"
-    ' "const-n"',
+    "RED: const-n: its manifest modules/const-n/plugin/.claude-plugin/plugin.json has no name, where it"
+    ' must be "const-n"',
     MANIFEST_WHY,
     '  fix: set "name": "const-n" in modules/const-n/plugin/.claude-plugin/plugin.json',
     "RED: glossary: a module folder's name is not const-<aspect>",
@@ -3161,22 +3231,21 @@ MESSY_LINES = [
     f"  fix: rename modules/glossary to modules/const-glossary, {RENAMED}",
     "RED: const-m: the marketplace has no entry for it",
     "  why: a module the marketplace leaves out cannot be installed, by the kit's CI or by a consumer",
-    f'  fix: add {{"name": "const-m", "source": "./modules/const-m"}} to plugins in {MARKET}',
+    f'  fix: add {{"name": "const-m", "source": "./modules/const-m/plugin"}} to plugins in {MARKET}',
     'RED: const-n: its marketplace entry has source {"repo": "a/b", "type": "github"}, not source'
-    ' "./modules/const-n"',
+    ' "./modules/const-n/plugin"',
     SOURCE_WHY,
-    f'  fix: set "source" to "./modules/const-n" in the entry named "const-n" of plugins in {MARKET}',
+    f'  fix: set "source" to "./modules/const-n/plugin" in the entry named "const-n" of plugins in {MARKET}',
     "RED: const-n: its marketplace entry's description differs from its manifest's, first at character"
     " 19 (counting from 1)",
     DESCRIPTION_WHY,
     "  fix: copy `description` of modules/const-n/plugin/.claude-plugin/plugin.json, as written, into the"
-    " entry"
-    f' named "const-n" of plugins in {MARKET}',
+    f' entry named "const-n" of plugins in {MARKET}',
     "RED: const-s: the marketplace has 2 entries for it",
     "  why: a plugin's name must lead to one source, and with two entries it is open which one an install"
     " reads",
     f'  fix: remove all but one entry named "const-s" from plugins in {MARKET}, the one whose source is'
-    ' "./modules/const-s"',
+    ' "./modules/const-s/plugin"',
     "RED: const-x: its manifest modules/const-x/plugin/.claude-plugin/plugin.json has no description",
     DESCRIPTION_WHY,
     "  fix: set `description` in modules/const-x/plugin/.claude-plugin/plugin.json to a string, the words a"
@@ -3184,8 +3253,8 @@ MESSY_LINES = [
     f" in {MARKET}",
     "RED: glossary: its marketplace entry has a description that is 7, not a string",
     DESCRIPTION_WHY,
-    "  fix: copy `description` of modules/glossary/.claude-plugin/plugin.json, as written, into the entry"
-    f' named "glossary" of plugins in {MARKET}',
+    "  fix: copy `description` of modules/glossary/plugin/.claude-plugin/plugin.json, as written, into the"
+    f' entry named "glossary" of plugins in {MARKET}',
     *(  # the six strays of the marketplace, by name
         line
         for stray in ("away", "bar", "gone", "mid", "old", "zed")
@@ -3229,16 +3298,15 @@ KNOWN_WHY = (
 )
 
 ABSENT_LINES = [
-    'RED: const-quiet: its marketplace entry has no source, not source "./modules/const-quiet"',
+    'RED: const-quiet: its marketplace entry has no source, not source "./modules/const-quiet/plugin"',
     SOURCE_WHY,
-    f'  fix: set "source" to "./modules/const-quiet" in the entry named "const-quiet" of plugins in {MARKET}',
+    '  fix: set "source" to "./modules/const-quiet/plugin" in the entry named "const-quiet" of plugins in'
+    f" {MARKET}",
     "RED: const-quiet: its manifest modules/const-quiet/plugin/.claude-plugin/plugin.json has a description"
-    " that"
-    ' is ["a"], not a string',
+    ' that is ["a"], not a string',
     DESCRIPTION_WHY,
     "  fix: set `description` in modules/const-quiet/plugin/.claude-plugin/plugin.json to a string, the words"
-    " a"
-    ' module\'s README opens with, and copy it, as written, into the entry named "const-quiet" of'
+    ' a module\'s README opens with, and copy it, as written, into the entry named "const-quiet" of'
     f" plugins in {MARKET}",
     "RED: const-x: its marketplace entry has no description",
     DESCRIPTION_WHY,
@@ -3818,13 +3886,13 @@ def reports_by_kind(tally: Tally) -> None:
         "RED: const-x: its scan `check-x --scan` is not in the scan block of INSTALL.md",
         "  why: the guide's scan block is what a project runs to verify an install, so a scan it leaves out"
         " is never run there and a path no module declares fails there",
-        "  fix: add `const-x/scripts/check-x.sh` to the list after `for s in` in the `bash check=scan` block"
-        " of INSTALL.md",
-        "RED: const-gone/scripts/check-gone.sh: the scan block of INSTALL.md lists it, but no module"
+        "  fix: add `const-x/plugin/scripts/check-x.sh` to the list after `for s in` in the"
+        " `bash check=scan` block of INSTALL.md",
+        "RED: const-gone/plugin/scripts/check-gone.sh: the scan block of INSTALL.md lists it, but no module"
         " declares that scan",
         "  why: the guide's scan block is what a project runs to verify an install, so a scan it leaves out"
         " is never run there and a path no module declares fails there",
-        "  fix: remove `const-gone/scripts/check-gone.sh` from the list after `for s in` in the"
+        "  fix: remove `const-gone/plugin/scripts/check-gone.sh` from the list after `for s in` in the"
         " `bash check=scan` block of INSTALL.md",
         "RED: 2 finding(s) — 3 module document(s) examined, 2 declared scan(s), 0 kit check(s)",
     ]
@@ -3891,8 +3959,8 @@ def reports_by_kind(tally: Tally) -> None:
                     },
                     full_pair("const-p"),
                 ],
-                "const-x/scripts",
-                "const-x/hooks",
+                "const-x/plugin/scripts",
+                "const-x/plugin/hooks",
                 modules=("const-x", "const-quiet", "const-p"),
             ),
             coverage_lines,
@@ -3902,7 +3970,7 @@ def reports_by_kind(tally: Tally) -> None:
             coverage_case(
                 SCAN,
                 [full_pair("const-task-close")],
-                "const-quiet/hooks",
+                "const-quiet/plugin/hooks",
                 "const-quiet/tests",
                 modules=("const-task-close", "const-quiet"),
                 owner=COVERAGE_OWNER,
@@ -3966,7 +4034,7 @@ def fixes_of_the_guide(tally: Tally) -> None:
 def fixes_of_the_coverage(tally: Tally) -> None:
     """The fixes the coverage hold teaches, followed to the letter, turn it green."""
     x_pair, q_pair = full_pair("const-x"), full_pair("const-quiet")
-    some = ("const-x/scripts", "const-x/hooks")
+    some = ("const-x/plugin/scripts", "const-x/plugin/hooks")
     for name, (case, count) in {  # the fix texts of the coverage hold, followed to the letter on the tree
         "a missing pair, with the folders the module has": (coverage_case(SCAN, [q_pair], *some), 1),
         "no pair at all, the list empty": (coverage_case(SCAN, [], *some), 2),
@@ -4094,7 +4162,8 @@ def reports_in_order(tally: Tally) -> None:
         " fixtures, lint and types entries",
         "RED: const-quiet: the marketplace has no entry for it",
         "  why: a module the marketplace leaves out cannot be installed, by the kit's CI or by a consumer",
-        f'  fix: add {{"name": "const-quiet", "source": "./modules/const-quiet"}} to plugins in {MARKET}',
+        '  fix: add {"name": "const-quiet", "source": "./modules/const-quiet/plugin"} to plugins in'
+        f" {MARKET}",
         *FILTER_LINES[:-1],
         "RED: scripts/check-new.py is run by no entry of the gate group",
         "  why: a kit check no entry runs is never run in CI, and its green says nothing",
