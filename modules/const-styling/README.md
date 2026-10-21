@@ -44,7 +44,7 @@ RED: docs/notes/style.md:3: a fenced block that names no language
 For one session, from a clone of the kit:
 
 ```bash
-claude --plugin-dir <path to this module>
+claude --plugin-dir <path to this module>/plugin
 ```
 
 Or install it from the marketplace the kit's install guide names: `claude plugin install const-styling@<marketplace name> --scope project`. Then run the scan from the project's root:

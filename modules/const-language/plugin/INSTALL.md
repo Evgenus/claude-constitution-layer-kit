@@ -6,7 +6,7 @@ Requires: git, Python 3.12 or newer as `python3`, the libraries in `requirements
 https://vale.sh/docs/install. A missing `python3`, library or `vale`, or a `vale` below the
 floor, is reported by the check with the fix on its first line; nothing is silently skipped.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). One check hook, one scan, one skill, and two pointer hooks. The check hook runs after
    every `Write` and `Edit` of a covered Markdown document and hands the findings back to the
    model; it never refuses a write. The scan reads every covered document. The skill,
@@ -14,9 +14,7 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    The two pointer hooks, at session start and at each subagent's start, print one line naming
    it (183 characters, advisory); a line after the count line of every red names it too.
    A copy of this plugin's folder made outside
-   the repository it comes from must follow links (`cp -RL`): `scripts/constitution_layer_kit`, and
-   `constitution_layer_kit` and the shared test files in `tests/`, are links to code the plugin
-   shares with its siblings, and an install from the marketplace copies what they point at; `tests/language_gate` is a link to this plugin's own `scripts/language_gate`, which an install from the marketplace keeps as a link. A
+   the repository it comes from must follow links (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A
    checkout made without symlink support leaves one-line text files in their place
    (`git config core.symlinks true`, then check out again).
 2. **What is checked.** The prose of a covered document — the envelope, headings, code spans,
@@ -83,7 +81,7 @@ floor, is reported by the check with the fix on its first line; nothing is silen
    module, gate, mode, session, stream, text), to `const-language.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the check refuses to run otherwise.
-9. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green; the tests need
+9. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-language/tests -p no:cacheprovider` — all green; the tests need
    `vale` on PATH like the check.
 10. CLAUDE.md pointer: none. The skill is named by the pointer line at session start, by the same
     line at every subagent's start and by the line after the count line of every red of the check, so no line in

@@ -4,15 +4,13 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 (`python3 -m pip install -r <plugin root>/requirements.txt`). A missing `python3` or library is
 reported by the scan with the fix on its first line; nothing is silently skipped.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). One skill, one scan, and two advisory hooks that name the skill. The skill, `style-defaults`, is offered to the model
    before a diagram, a table, a formula, a heading below level three, a callout, a fenced block or a
    template is written, and reads the project's style guide. The scan reads the covered Markdown
    files for twelve traces of the defaults and reports each that no departure allows. A copy of
    this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in `tests/`, are
-   links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at; `tests/styling_gate` is a link to this plugin's own `scripts/styling_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in their
+   `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line text files in their
    place (`git config core.symlinks true`, then check out again).
 2. **The style guide.** Create the project's guide from `skills/style-defaults/style-guide.md`:
    fill its envelope, put it with the project's documents, and name its path in
@@ -72,7 +70,7 @@ reported by the scan with the fix on its first line; nothing is silently skipped
    module, gate, mode, session, stream, text), to `const-styling.jsonl`. By default it lives in
    the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the scan refuses to run otherwise.
-8. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
+8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-styling/tests -p no:cacheprovider` — all green.
 9. CLAUDE.md pointer: none. The skill is named by a pointer line of 196 characters, advisory, that the
    plugin prints at session start and gives to every subagent at its start, and by the last line of
    every red of the scan; the defaults ride on the skill and the traces on the scan. The scan itself

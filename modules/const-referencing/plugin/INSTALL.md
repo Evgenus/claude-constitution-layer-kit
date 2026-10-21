@@ -9,15 +9,13 @@ first one of a Markdown file, each with the fix on the first line; nothing is si
 Without `lychee` the forms of references are still checked and blocked; whether they resolve is
 not, and every write says so until it is installed.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Three hooks: before every `Write` and `Edit` of a Markdown file the forms of its
    references are checked, and a finding blocks the write; after it the whole tree is checked
    and what the write broke is reported — this cannot block, the write has happened; and at
    session start two sentences about references in chat are added to the session's context.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in
-   `tests/`, are links to code the plugin shares with its siblings, and an install from the
-   marketplace copies what they point at; `tests/referencing_gate` is a link to this plugin's own `scripts/referencing_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves
+   (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves
    one-line text files in their place (`git config core.symlinks true`, then check out again).
 2. **Zero configuration works** in a repository that has a `constitution.yaml`, whatever it
    says: every Markdown file git lists is covered. Without that file every run is a visible
@@ -90,7 +88,7 @@ not, and every write says so until it is installed.
    blocked writes and reports after a write leave no trace in git. By default it lives
    in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository;
    the directory must be git-ignored, and the gate refuses to run otherwise.
-8. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
+8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-referencing/tests -p no:cacheprovider` — all green.
 9. CLAUDE.md pointer: none. The rule about chat arrives through the session-start hook. The skill
    is named by a pointer line of 209 characters printed at session start, by the same line at the
    start of every subagent, and by the line after the count line of every red of the gate.

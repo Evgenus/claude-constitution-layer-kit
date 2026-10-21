@@ -4,15 +4,13 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 (`python3 -m pip install -r <plugin root>/requirements.txt`). A missing `python3` or library is
 reported by the check with the fix on its first line; nothing is silently skipped.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). One hook after every write, one line at session start while nothing is measured, one
    scan, one history report, one skill. The hook runs after every `Write` and `Edit` of a Markdown
    document a ceiling holds and hands an excess back to the model; it never refuses a write. The
    skill, `set-ceilings`, is offered to the model when a ceiling is set and when a finding is read.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in
-   `tests/`, are links to code the plugin shares with its siblings, and an install from the
-   marketplace copies what they point at; `tests/budgets_gate` is a link to this plugin's own `scripts/budgets_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line
+   (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line
    text files in their place (`git config core.symlinks true`, then check out again).
 2. **What is measured.** The length of a document in characters, as the project's conventions
    define one: Unicode code points of the file read as UTF-8, a CRLF counted as one, the whole
@@ -81,7 +79,7 @@ reported by the check with the fix on its first line; nothing is silently skippe
    module, gate, mode, session, stream, text), to `const-doc-budgets.jsonl`. By default it lives
    in the platform's per-plugin data directory. Set `log_dir` to keep it inside the repository;
    the directory must be git-ignored, and the check refuses to run otherwise.
-10. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
+10. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-doc-budgets/tests -p no:cacheprovider` — all green.
 11. CLAUDE.md pointer: none. The rules ride on the check and the skill.
 
 What this module does not check: whether a long document says what it needs to; whether the

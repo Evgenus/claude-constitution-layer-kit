@@ -5,7 +5,7 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported on the first shell command of a session and at session start, each with the fix on the
 first line; nothing is silently skipped.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the plugin
    prints its rules for every reply into the model's context (about 2,400 characters with the verbosity line; the
    transcript does not show them), followed by the value of `verbosity`, by one line when the
@@ -16,9 +16,7 @@ first line; nothing is silently skipped.
    the plugin's name; you confirm at the prompt, once per command. Where no prompt can be shown, in a
    headless session, the platform denies the command with that reason and the model waits. A copy of
    this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in `tests/`, are
-   links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at; `tests/interaction_gate` is a link to this plugin's own `scripts/interaction_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in their
+   `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line text files in their
    place (`git config core.symlinks true`, then check out again).
 2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
    namespace: the default list gates a forced push, a hard reset, a forced checkout, `git restore`,
@@ -91,7 +89,7 @@ first line; nothing is silently skipped.
    prompt's reason and a denied command leave no trace in git. By default it lives in the
    platform's per-plugin data directory. Set `log_dir` to keep it inside the repository; the
    directory must be git-ignored, and the gate refuses to run otherwise.
-8. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
+8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-interaction/tests -p no:cacheprovider` — all green.
 9. CLAUDE.md pointer: none. The rules ride on the session-start hook; the gate on the shell hook.
 
 What this module does not check: a command given to the `PowerShell` tool, which no hook of this

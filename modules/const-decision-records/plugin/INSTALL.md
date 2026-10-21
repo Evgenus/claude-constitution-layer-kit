@@ -5,16 +5,14 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 start and on the first `Write` or `Edit` of any file, with the fix on the first line; nothing is silently
 skipped.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — startup, resume, clear, compaction, fork — the
    plugin prints one line into the model's context while `record_policies` names nothing, saying so
    (the transcript does not show it), and nothing once a record policy is named. The write-time hook
    fires on every `Write` and `Edit`; it examines Markdown files governed by a record policy and
    nothing else.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in `tests/`, are
-   links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at; `tests/decision_records_gate` is a link to this plugin's own `scripts/decision_records_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in
+   (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line text files in
    their place (`git config core.symlinks true`, then check out again). A plugin without it says so on
    the first `Write` or `Edit` and checks nothing until repaired.
 2. **Switch the check on: name the record policy.** A document is a decision record because
@@ -56,7 +54,7 @@ skipped.
    survive. By default it lives in the platform's per-plugin data directory, outside the
    repository. Set `log_dir` to keep it inside the repository instead; the directory must
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
-6. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
+6. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-decision-records/tests -p no:cacheprovider` — all green.
 7. CLAUDE.md pointer: none. The skills `/const-decision-records:record-decision` and
    `/const-decision-records:promote-recurring-notes` load on their own when a ruling is
    being made or commit notes are being reviewed.

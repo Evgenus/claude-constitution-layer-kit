@@ -46,7 +46,7 @@ The skill `catalog-item` is for the moments when a numbered document is created,
 For one session, from a clone of the kit:
 
 ```bash
-claude --plugin-dir <path to this module>
+claude --plugin-dir <path to this module>/plugin
 ```
 
 Or install it from the marketplace the kit's install guide names: `claude plugin install const-catalogs@<marketplace name> --scope project`. Then run the scan from the project's root:

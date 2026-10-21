@@ -46,7 +46,7 @@ A second check holds the handle rule for documents. A scan reports every bullete
 For one session, from a clone of the kit:
 
 ```bash
-claude --plugin-dir <path to this module>
+claude --plugin-dir <path to this module>/plugin
 ```
 
 Or install it from the marketplace the kit's install guide names: `claude plugin install const-interaction@<marketplace name> --scope project`. Then run the list scan from the project's root:

@@ -5,11 +5,10 @@ Requires: git; Python 3.12 or newer as `python3`, with the libraries in `require
 is reported by the command with the fix on its first line and nothing is written; nothing is
 silently skipped.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). No hooks: the plugin ships two skills and one script, and nothing here blocks a
    write. A copy of this plugin's folder made outside the repository it comes from must follow
-   links (`cp -RL`): `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in `tests/`, are links to code the plugin shares with its siblings, and an
-   install from the marketplace copies what they point at; `tests/locations_gate` is a link to this plugin's own `scripts/locations_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink
+   links (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink
    support leaves one-line text files in their place (`git config core.symlinks true`, then
    check out again).
 2. **Zero configuration works** in a repository whose `constitution.yaml` names a `root_policy`
@@ -58,7 +57,7 @@ silently skipped.
    trace in git. By default it lives in the platform's per-plugin data directory. Set `log_dir`
    to keep it inside the repository; the directory must be git-ignored, and the command refuses
    to run otherwise.
-7. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
+7. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-locations/tests -p no:cacheprovider` — all green.
 8. CLAUDE.md pointer: none. The skill's description is in the session's skill listing, and the
    skill loads on its own when a document is about to be created — in a session that cannot
    ask, under the allow rules of step 3.

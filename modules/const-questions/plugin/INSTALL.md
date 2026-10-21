@@ -5,7 +5,7 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported on the first `Write` or `Edit` of any file, a missing git on the first one of a Markdown
 file, each with the fix on the first line; nothing is silently skipped.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks. At every session start — after a resume, a compaction and a clear too — the shape
    of a decision message is printed into the session's context, 648 characters, advisory: lettered
    options with **Pros:** and **Cons:** sub-bullets, one recommendation, the decider named, and
@@ -13,9 +13,7 @@ file, each with the fix on the first line; nothing is silently skipped.
    a Markdown file the document as it will be after the write is checked for open-question
    markers, and a finding blocks the write. A copy
    of this plugin's folder made outside the repository it comes from must follow links (`cp -RL`):
-   `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in `tests/`, are
-   links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at; `tests/questions_gate` is a link to this plugin's own `scripts/questions_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in their
+   `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line text files in their
    place (`git config core.symlinks true`, then check out again).
 2. **Zero configuration works** in a repository that has a `constitution.yaml` with no key of this
    namespace: every Markdown file git lists is covered, and the markers looked for are `[decide:`, `TODO`,
@@ -54,7 +52,7 @@ file, each with the fix on the first line; nothing is silently skipped.
    writes leave no trace in git. By default it lives in the platform's per-plugin data directory.
    Set `log_dir` to keep it inside the repository; the directory must be git-ignored, and the gate
    refuses to run otherwise.
-7. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
+7. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-questions/tests -p no:cacheprovider` — all green.
 8. CLAUDE.md pointer: none. The session-start text carries the shape of a decision message in
    every session; the skill `/const-questions:ask-or-decide` — whose description asks for it to
    be loaded before any message that puts a choice to the user — carries the rest: whether to

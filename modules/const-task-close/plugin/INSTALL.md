@@ -5,7 +5,7 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 reported at the first turn end, a missing git too, each with the fix on the first line; nothing is
 silently skipped.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). Two hooks print the pointer line, below, at session start and at each subagent's start. The third: at the end of every turn the working tree of the session's repository is
    examined, and a dirty tree — any tracked change or untracked file git does not ignore — is
    reported once: under the default `severity: block` the model receives the finding and the
@@ -16,8 +16,7 @@ silently skipped.
    is the compound `git add -A && git commit …`, and a rule must match each part on its own, so
    both `Bash(git add *)` and `Bash(git commit *)` go in `permissions.allow` or `--allowedTools`;
    or set `severity: warn`. A copy of this plugin's folder made outside the repository it comes
-   from must follow links (`cp -RL`): `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in `tests/`, are links to code the plugin shares with its siblings, and an
-   install from the marketplace copies what they point at; `tests/task_close_gate` is a link to this plugin's own `scripts/task_close_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink
+   from must follow links (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink
    support leaves one-line text files in their place (`git config core.symlinks true`, then check
    out again).
 2. **Zero configuration works** in a repository that has a `constitution.yaml`, whatever it
@@ -83,7 +82,7 @@ silently skipped.
    blocked turn ends and warnings leave no trace in git. By default it lives in the platform's
    per-plugin data directory. Set `log_dir` to keep it inside the repository; the directory must
    be git-ignored, and the gate refuses to run otherwise.
-8. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green. The fixtures need
+8. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-task-close/tests -p no:cacheprovider` — all green. The fixtures need
    git 2.45 or newer, since item 36 builds a repository in each ref store; on an older git that item
    is red and the rest run.
 9. CLAUDE.md pointer: none. The skills `/const-task-close:close-task` and

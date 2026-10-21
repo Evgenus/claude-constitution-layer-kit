@@ -43,7 +43,7 @@ A session that cannot ask the user for permission, such as a headless run, needs
 For one session, from a clone of the kit:
 
 ```bash
-claude --plugin-dir <path to this module>
+claude --plugin-dir <path to this module>/plugin
 ```
 
 Or install it from the marketplace the kit's install guide names: `claude plugin install const-locations@<marketplace name> --scope project`. There is no scan: the module checks nothing after the fact. The command, from the project's root:

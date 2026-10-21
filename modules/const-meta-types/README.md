@@ -46,7 +46,7 @@ The skill `choose-meta-type` is there for the moment a document is created or so
 For one session, from a clone of the kit:
 
 ```bash
-claude --plugin-dir <path to this module>
+claude --plugin-dir <path to this module>/plugin
 ```
 
 Or install it from the marketplace the kit's install guide names: `claude plugin install const-meta-types@<marketplace name> --scope project`. Then run the scan from the project's root:

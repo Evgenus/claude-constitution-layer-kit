@@ -48,7 +48,7 @@ At every session start, two sentences are added to the session's context. In cha
 For one session, from a clone of the kit:
 
 ```bash
-claude --plugin-dir <path to this module>
+claude --plugin-dir <path to this module>/plugin
 ```
 
 Or install it from the marketplace the kit's install guide names: `claude plugin install const-referencing@<marketplace name> --scope project`. Then run the scan from the project's root:

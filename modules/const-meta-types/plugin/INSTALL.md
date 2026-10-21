@@ -4,13 +4,11 @@ Requires: git, Python 3.12 or newer as `python3`, and the libraries in `requirem
 (`python3 -m pip install -r <plugin root>/requirements.txt`). A missing one is reported on the
 first `Write` or `Edit` of any file, with the fix on the first line; nothing is silently skipped.
 
-1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>` for a
+1. Install the plugin (marketplace, or `claude --plugin-dir <path to this module>/plugin` for a
    session). The hook fires on every `Write` and `Edit`; it examines Markdown files inside
    the territories declared in the repository's `constitution.yaml` and nothing else.
    A copy of this plugin's folder made outside the repository it comes from must follow links
-   (`cp -RL`): `scripts/constitution_layer_kit`, and `constitution_layer_kit` and the shared test files in `tests/`, are
-   links to code the plugin shares with its siblings, and an install from the marketplace copies
-   what they point at; `tests/meta_types_gate` is a link to this plugin's own `scripts/meta_types_gate`, which an install from the marketplace keeps as a link. A checkout made without symlink support leaves one-line text files in
+   (`cp -RL`): `scripts/constitution_layer_kit` is a link to code the plugin shares with its siblings, and an install from the marketplace copies what it points at. A checkout made without symlink support leaves one-line text files in
    their place (`git config core.symlinks true`, then check out again). A plugin without it says so on
    the first `Write` or `Edit` and checks nothing until repaired.
 2. Optional calibration in the project's `constitution.yaml`; defaults apply otherwise —
@@ -35,7 +33,7 @@ first `Write` or `Edit` of any file, with the fix on the first line; nothing is 
    be git-ignored, and the gate refuses to run otherwise. The log rotates at 1 MiB.
    Beside the log lives `const-meta-types.pointed`, the memo of the pointers below: one line per
    pointer, the session, the repository and the policy, its last 200 lines kept.
-5. Verify with pytest: `python3 -m pytest <plugin root>/tests -p no:cacheprovider` — all green.
+5. Optional, the fixtures: the install holds no tests, so run them from a clone of the kit at the commit the install records (`gitCommitSha` in the platform's `installed_plugins.json`), `python3 -m pytest <kit clone>/modules/const-meta-types/tests -p no:cacheprovider` — all green.
 6. CLAUDE.md pointer: none. The session-start hook prints one pointer line, 182 characters,
    advisory, naming the skill `/const-meta-types:choose-meta-type` and its moment; every
    subagent's start gets the same line, and every red of the gate carries, after its count line, a line naming the skill.
