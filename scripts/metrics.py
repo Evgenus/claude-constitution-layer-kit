@@ -23,24 +23,24 @@ these keys, the JSON keys as written:
   proof_kinds       the acceptance items of the first table of t10, per kind: fixture, kit check, live,
                     review, eval, deferred (a kind that holds the word), other; a cell of handles counts each
                     handle, and a range `T1–T5` counts five;
-  skills,           the files skills/*/SKILL.md, and their characters;
+  skills,           the files plugin/skills/*/SKILL.md, and their characters;
   skill_chars
-  always_on_chars   the characters every SessionStart command of hooks/hooks.json writes to stdout, run
-                    from the kit root with CLAUDE_PLUGIN_ROOT set to the module folder and, on stdin, the
-                    least event a session's start sends (`EVENT`; an empty stdin makes a hook print its
-                    BROKEN line for input that is no JSON, not what a session sees), plus the
-                    `description` of each skill's front matter: what reaches the model at every session
-                    start before anything is asked;
-  hook_events       the event keys of hooks/hooks.json, 0 when it is absent;
+  always_on_chars   the characters every SessionStart command of plugin/hooks/hooks.json writes to stdout,
+                    run from the kit root with CLAUDE_PLUGIN_ROOT set to the module's plugin/ folder and,
+                    on stdin, the least event a session's start sends (`EVENT`; an empty stdin makes a
+                    hook print its BROKEN line for input that is no JSON, not what a session sees), plus
+                    the `description` of each skill's front matter: what reaches the model at every
+                    session start before anything is asked;
+  hook_events       the event keys of plugin/hooks/hooks.json, 0 when it is absent;
   code_lines,       the non-blank lines that are no comment and, in Python, no docstring, of the `.py` and
-  test_lines        `.sh` files git tracks under scripts/ and hooks/ (code) and tests/ (tests), a
-                    symbolic link never read;
-  functions,        the functions of the module's own Python under scripts/ (links, and so the shared
-  cc_max,           constitution_layer_kit, never read) and their cyclomatic complexity, counted by this
-  cc_over_10        script from the syntax tree, not by ruff's C901: 1, plus 1 per if, for, while, except,
-                    conditional expression, comprehension, assert and match case, plus n-1 per boolean
-                    operation of n operands; a nested function is its own function and adds nothing to
-                    the one around it;
+  test_lines        `.sh` files git tracks under plugin/scripts/ and plugin/hooks/ (code) and tests/
+                    (tests), a symbolic link never read;
+  functions,        the functions of the module's own Python under plugin/scripts/ (links, and so the
+  cc_max,           shared constitution_layer_kit, never read) and their cyclomatic complexity, counted
+  cc_over_10        by this script from the syntax tree, not by ruff's C901: 1, plus 1 per if, for, while,
+                    except, conditional expression, comprehension, assert and match case, plus n-1 per
+                    boolean operation of n operands; a nested function is its own function and adds
+                    nothing to the one around it;
   shared_imports,   the import statements of that same Python that import constitution_layer_kit, against
   own_imports       those that import the module's own packages (`own_packages` of kit_module_doc), a
                     relative import counted as the module's own;
@@ -51,8 +51,8 @@ Modes:  no arguments    the three tables on stdout: the documents, the proof kin
         --json <path>   the tables on stdout and the same numbers as one JSON object in <path>;
         --json -        the JSON object on stdout, and no tables;
         --complexity [<n>]
-                        the <n> most complex functions of the modules' own Python under scripts/ (the
-                        functions counted above), 20 when <n> is not given, most complex first, ties
+                        the <n> most complex functions of the modules' own Python under plugin/scripts/
+                        (the functions counted above), 20 when <n> is not given, most complex first, ties
                         by length, as one table on stdout; with --json <path> the table too and the
                         same list as JSON in <path>; with --json -, the JSON on stdout and no table.
                         Per function, the JSON keys as written:
@@ -72,10 +72,10 @@ Notes on stderr: a SessionStart command that exits other than 0 or times out (it
 none when it timed out), and a shallow clone, whose churn is short.
 Exit:   0 whenever the inputs could be read, whatever they measure; 1, with a BROKEN line that says what
         failed, why and the fix, when they cannot: the module folders, a module document whose section
-        is missing or out of order, a module document, a skill, hooks/hooks.json or a tracked file that
-        cannot be read, PyYAML not installed, hooks/hooks.json or a skill's front matter that does not
-        parse, a tracked Python file that does not parse, git that does not answer, the arguments
-        misused, or the JSON file that cannot be written.
+        is missing or out of order, a module document, a skill, plugin/hooks/hooks.json or a tracked file
+        that cannot be read, PyYAML not installed, plugin/hooks/hooks.json or a skill's front matter that
+        does not parse, a tracked Python file that does not parse, git that does not answer, the
+        arguments misused, or the JSON file that cannot be written.
 No --self-test: no list runs it, so a self-test would be a test that nothing runs. The CI step runs the
 script itself on every change, where only its output shows, and the kit's `lint` and `types` entries of
 scripts/gate-list.sh hold its code, as they hold every script at the top of scripts/.
@@ -267,7 +267,7 @@ def read_document(text: str, path: str, into: Metrics) -> None:
 def read_skills(module: Path, into: Metrics) -> int:
     """The skills' count and characters into `into`; returns the characters of their descriptions."""
     described = 0
-    for skill in sorted(module.glob("skills/*/SKILL.md")):
+    for skill in sorted(module.glob("plugin/skills/*/SKILL.md")):
         text = readable(skill)
         into.skills += 1
         into.skill_chars += len(text)
@@ -297,8 +297,8 @@ class Handler:
 
 
 def session_start(module: Path) -> tuple[int, list[Handler]]:
-    """The number of event keys of hooks/hooks.json, and its SessionStart command handlers."""
-    path = module / "hooks" / "hooks.json"
+    """The number of event keys of plugin/hooks/hooks.json, and its SessionStart command handlers."""
+    path = module / "plugin" / "hooks" / "hooks.json"
     if not path.is_file():
         return 0, []
     where = path.relative_to(KIT)
@@ -310,7 +310,7 @@ def session_start(module: Path) -> tuple[int, list[Handler]]:
     events = data.get("hooks") if isinstance(data, dict) else None
     if not isinstance(events, dict):
         raise Broken(f'{where} has no "hooks" object\n  why: {WHY_READ}\n{fix}')
-    root = str(module)
+    root = str(module / "plugin")
     handlers: list[Handler] = []
     for group in events.get("SessionStart", []):
         for hook in group.get("hooks", []) if isinstance(group, dict) else []:
@@ -328,7 +328,7 @@ def session_start(module: Path) -> tuple[int, list[Handler]]:
 def printed(module: Path, handler: Handler, notes: list[str]) -> int:
     """The characters a SessionStart handler writes to stdout, run from the kit root; a note when it
     exits other than 0 or times out."""
-    env = os.environ | {"CLAUDE_PLUGIN_ROOT": str(module), "CLAUDE_PROJECT_DIR": str(KIT)}
+    env = os.environ | {"CLAUDE_PLUGIN_ROOT": str(module / "plugin"), "CLAUDE_PROJECT_DIR": str(KIT)}
     shown = " ".join(handler.argv).replace(str(KIT) + "/", "")
     try:
         done = subprocess.run(
@@ -373,12 +373,11 @@ def git(*args: str) -> str:
     return done.stdout
 
 
-def tracked(module: Path, folders: Iterable[str]) -> list[Path]:
-    """The `.py` and `.sh` files git tracks under the module's folders, symbolic links left out."""
+def tracked(root: Path, folders: Iterable[str]) -> list[Path]:
+    """The `.py` and `.sh` files git tracks under the folders of `root`, a module folder or its plugin/
+    folder, symbolic links left out."""
     out: list[Path] = []
-    for line in git(
-        "ls-files", "-s", "--", *(str(module.relative_to(KIT) / f) for f in folders)
-    ).splitlines():
+    for line in git("ls-files", "-s", "--", *(str(root.relative_to(KIT) / f) for f in folders)).splitlines():
         mode, _, rest = line.partition(" ")
         name = rest.partition("\t")[2]
         if mode != LINK_MODE and name.endswith((".py", ".sh")):
@@ -513,11 +512,11 @@ def defined(
 
 
 def own_python(module: Path) -> list[Path]:
-    """The module's own tracked Python under scripts/: links, and so the shared constitution_layer_kit, left
-    out."""
+    """The module's own tracked Python under plugin/scripts/: links, and so the shared
+    constitution_layer_kit, left out."""
     return [
         path
-        for path in tracked(module, ("scripts",))
+        for path in tracked(module / "plugin", ("scripts",))
         if path.suffix == ".py" and "constitution_layer_kit" not in path.relative_to(module).parts
     ]
 
@@ -559,9 +558,10 @@ def complex_functions(folders: list[Path], top: int) -> list[Function]:
 
 def read_code(module: Path, into: Metrics) -> None:
     """Lines, functions, complexity and imports of the module's tracked code."""
-    into.code_lines = sum(lines_of(p) for p in tracked(module, ("scripts", "hooks")))
+    plugin = module / "plugin"
+    into.code_lines = sum(lines_of(p) for p in tracked(plugin, ("scripts", "hooks")))
     into.test_lines = sum(lines_of(p) for p in tracked(module, ("tests",)))
-    packages = {p.name for p in own_packages(module)}
+    packages = {p.name for p in own_packages(plugin)}
     for path in own_python(module):
         for node in ast.walk(parse(path)):
             if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):

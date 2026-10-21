@@ -232,7 +232,7 @@ def main(argv: list[str]) -> int:
     listed = 0
     try:
         for module in modules:
-            for package in own_packages(module):
+            for package in own_packages(module / "plugin"):
                 if not (package / "messages.py").is_file():
                     print(
                         f"{module.name}: {package.name} holds no messages.py — rule 2 of template §6 asks one"
