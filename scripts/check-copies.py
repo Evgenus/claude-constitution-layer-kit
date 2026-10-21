@@ -34,9 +34,10 @@ copy is read as one: the arguments of a call, `f(3, N)`. A file git sees as text
 BROKEN with the fix, never a crash and never a skip, and so is a file git lists that the working tree lacks.
 
 Each entry holds its clause in three places, which the Identity names a fourth time. An entry is a
-file `modules/<module>/plugin/scripts/<stem>.py` directly under the `scripts/` of a module folder, as
-`kit_module_doc.module_folders` lists them, that has a line opening `FLOOR = (3, `; a `.py` with that
-line elsewhere, in `scripts/` of the kit or in a folder that is no module, is none. Its Identity is the
+file `modules/<module>/plugin/scripts/<stem>.py` directly under the `plugin/scripts/` of a module folder,
+as `kit_module_doc.module_folders` lists them, that has a line opening `FLOOR = (3, `; a `.py` with that
+line elsewhere, in `scripts/` of the kit, in a module's `scripts/` outside its `plugin/`, below
+`plugin/scripts/`, or in a folder that is no module, is none. Its Identity is the
 `Identity(...)` call, bare or through a module, found by `ast` in a `.py` file under
 `modules/<module>/plugin/scripts/*_gate/` (at any depth), whose `gate=` keyword is the string `<stem>`, a call
 that gives its gate any other way being none: exactly one, else BROKEN with the fix. Its clause is the
@@ -81,7 +82,7 @@ Modes:  no arguments   check the kit;
                        a line whose fix dash has no space before it no fix part; the shell files executable,
                        as the kit's are; two Identities, none, no `.sh`, a text missing, no string
                        constant, one line, no fix part and the other BROKEN cases as literal lines;
-                       entries outside any module not read.
+                       entries outside any module's plugin/scripts/ not read.
 Exit:   0 green; 2 a finding; 1 the check could not run.
 """
 
@@ -116,7 +117,7 @@ GUARD = r"(?!\d|\.\d)"  # not followed by a digit nor `.<digit>`: a longer minor
 IDENTITY = "shared/constitution_layer_kit/identity.py"  # the default clause's source
 ENTRY_FLOOR = re.compile(
     r"^FLOOR = \(3, ", re.MULTILINE
-)  # what makes a `.py` of a module's scripts/ an entry
+)  # what makes a `.py` of a module's plugin/scripts/ an entry
 SHELL_C1 = re.compile(r'^[ \t]*echo[ \t]+"(BROKEN: [^"\n]*needs python3[^"\n]*)"', re.MULTILINE)
 CLOSINGS = (
     "BROKEN: the check could not run",
@@ -356,7 +357,7 @@ def string_constant(tree: ast.Module, name: str) -> tuple[str, int] | None:
 
 
 def entries_of(root: Path, tracked: list[str]) -> list[Entry]:
-    """The entries of the kit: a `.py` directly under `scripts/` of a module folder that has a line
+    """The entries of the kit: a `.py` directly under `plugin/scripts/` of a module folder that has a line
     opening `FLOOR = (3, `, sorted by path; `tracked` is every regular file git lists."""
     try:
         modules = [folder.name for folder in module_folders(root)]
@@ -366,17 +367,18 @@ def entries_of(root: Path, tracked: list[str]) -> list[Entry]:
     for path in tracked:
         parts = path.split("/")
         if (
-            len(parts) == 4
+            len(parts) == 5
             and parts[0] == "modules"
             and parts[1] in modules
-            and parts[2] == "scripts"
-            and parts[3].endswith(".py")
+            and parts[2] == "plugin"
+            and parts[3] == "scripts"
+            and parts[4].endswith(".py")
             and ENTRY_FLOOR.search(contents(root, path) or "")
         ):
-            found.append(Entry(parts[1], parts[3].removesuffix(".py"), path))
+            found.append(Entry(parts[1], parts[4].removesuffix(".py"), path))
     if not found:
         raise Broken(
-            "no entry file found, no .py directly under scripts/ of a module with a line opening"
+            "no entry file found, no .py directly under plugin/scripts/ of a module with a line opening"
             " `FLOOR = (3, ` — fix: run the check from a checkout of the kit, whose modules carry them"
         )
     return sorted(found, key=lambda entry: entry.path)
@@ -433,7 +435,7 @@ def identity_clause(root: Path, tracked: list[str], entry: Entry, default: Claus
     calls: list[tuple[str, ast.Call]] = []
     for path in tracked:
         parts = path.split("/")
-        if path.startswith(folder) and path.endswith(".py") and len(parts) > 4 and parts[3].endswith("_gate"):
+        if path.startswith(folder) and path.endswith(".py") and len(parts) > 5 and parts[4].endswith("_gate"):
             calls.extend((path, node) for node in identities_of(parse(root, path), entry.stem))
     calls.sort(key=lambda found: (found[0], found[1].lineno))
     if not calls:
@@ -1073,7 +1075,7 @@ def self_test_not_read(cases: Cases) -> None:
         fresh(root)
         link(root, "modules/const-a/linked.md", "../../docs/research/rfc-0001-survey.md")
         link(root, "modules/const-a/dangling.md", "nowhere.md")
-        link(root, "modules/const-a/INSTALL-copy.md", "INSTALL.md")
+        link(root, "modules/const-a/plugin/INSTALL-copy.md", "INSTALL.md")
         result = check_kit(root)
     cases.check(
         result.findings == [] and result.mentions == BASE_MENTIONS,
@@ -1813,7 +1815,7 @@ def self_test_clause_broken(cases: Cases) -> None:
         (
             "a kit with no entry",
             remove_entries,
-            "no entry file found, no .py directly under scripts/ of a module with a line opening"
+            "no entry file found, no .py directly under plugin/scripts/ of a module with a line opening"
             " `FLOOR = (3, ` — fix: run the check from a checkout of the kit, whose modules carry them",
         ),
         (
@@ -1845,18 +1847,32 @@ def self_test_clause_broken(cases: Cases) -> None:
 
 
 def self_test_entry_scope(cases: Cases) -> None:
-    """What is no entry: only a `.py` directly under `scripts/` of a module folder, with the floor line at a
-    line's start, is read."""
+    """What is no entry: only a `.py` directly under `plugin/scripts/` of a module folder, with the floor line
+    at a line's start, is read."""
     shape = f"FLOOR = (3, {BASE})\n"
     for name, path, text in (
         ("a .py with the floor line in scripts/ of the kit", "scripts/check-z.py", shape),
-        ("a .py with the floor line in a folder that is no module", "modules/_scratch/scripts/x.py", shape),
         (
-            "a .py with the floor line below scripts/ of a module",
+            "a .py with the floor line in a folder that is no module",
+            "modules/_scratch/plugin/scripts/x.py",
+            shape,
+        ),
+        (
+            "a .py with the floor line in scripts/ at the module's top, outside plugin/",
+            "modules/const-a/scripts/x.py",
+            shape,
+        ),
+        (
+            "a .py with the floor line directly under plugin/, outside its scripts/",
+            "modules/const-a/plugin/x.py",
+            shape,
+        ),
+        (
+            "a .py with the floor line below plugin/scripts/ of a module",
             "modules/const-a/plugin/scripts/sub/x.py",
             shape,
         ),
-        ("a .py of a module outside its scripts/", "modules/const-a/tests/x.py", shape),
+        ("a .py of a module outside its plugin/scripts/", "modules/const-a/tests/x.py", shape),
         (
             "a .py with an indented floor line",
             "modules/const-a/plugin/scripts/x.py",
