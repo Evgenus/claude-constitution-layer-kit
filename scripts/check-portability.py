@@ -4,9 +4,10 @@ the kit.
 
 The grep of requirement A12.1, as the row words it since decision
 dec-0056-portability-grep-and-gate-lists. It reads the installed components of every module —
-the files git lists under `skills/`, `hooks/`, `scripts/`, `commands/`, `agents/`, the install
-note `INSTALL.md` and `.claude-plugin/`, never the module document `MODULE.md`, never a module's
-`README.md`, which is reader prose like `MODULE.md` and held by review, nor `tests/` —
+the files git lists under the module's `plugin/` folder, the folder that installs, in `skills/`, `hooks/`,
+`scripts/`, `commands/`, `agents/`, the install note `INSTALL.md` and `.claude-plugin/`, never the module
+document `MODULE.md`, never a module's `README.md`, which is reader prose like `MODULE.md` and held by
+review, nor `tests/` or `evals/`, which stand beside `plugin/` and install nowhere —
 and the shared gate code under `shared/constitution_layer_kit/`, which every module installs as its
 `scripts/constitution_layer_kit`. A symbolic link is read at its source, once. A module is every folder under
 `modules/` whose name opens with neither a dot nor an underscore, as `kit_module_doc.module_folders`
@@ -19,7 +20,8 @@ A finding is one of these forms, outside a public URL:
     Windows user folder;
   - a `file:/` link;
   - a relative path with a slash and a file extension or a glob, `docs/notes.md`, `docs/**` or
-    `**/docs/*.md`, that is no file or directory of the plugin. A glob whose parts before the last
+    `**/docs/*.md`, that is no file or directory of the plugin, the module's `plugin/` folder; for the
+    shared code, of the `plugin/` folder of any module. A glob whose parts before the last
     are all wildcards and whose last part is wildcards before an extension, `**/*.md`, names no
     particular place, so it is no finding; `**/decisions`, `**/.github`, `**/index.md` and `**/*`
     are findings.
@@ -79,7 +81,8 @@ Modes:  no arguments   check the kit;
                        each fixed name and each id form typed by hand, in an install note and in a
                        skill, red or green; the width, its default and a prefix added to the dials,
                        read from the dials file; fenced code, a code span and a URL read, a test,
-                       the module document, a module's README and `shared/GATE.md` not; the order of
+                       the module document, a module's README, a folder named like an installed
+                       part beside `plugin/` and `shared/GATE.md` not; the order of
                        the findings; the report as literal lines; each dials file that cannot be read,
                        and PyYAML missing, as a BROKEN line with its literal text.
 Exit:   0 green; 2 a finding; 1 the check could not run.
@@ -110,6 +113,7 @@ except ImportError:
 
 KIT = Path(__file__).resolve().parent.parent
 EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
+PLUGIN = "plugin"  # the module's folder that installs; MODULE.md, README.md, tests/, evals/ stand beside it
 INSTALLED = ("skills/", "hooks/", "scripts/", "commands/", "agents/", "INSTALL.md", ".claude-plugin/")
 SHARED = "shared/constitution_layer_kit"
 DIALS = "constitution.yaml"
@@ -379,18 +383,19 @@ def check_kit(root: Path) -> tuple[list[Finding], int, int]:
     ids = id_pattern(catalogs_of(root))
     findings: list[Finding] = []
     files = 0
-    for module in modules:
-        prefix = f"modules/{module.name}/"
+    plugins = [module / PLUGIN for module in modules]
+    for module, plugin in zip(modules, plugins, strict=True):
+        prefix = f"modules/{module.name}/{PLUGIN}/"
         for path in listed(root, prefix):
             inside = path[len(prefix) :]
             if not inside.startswith(INSTALLED) or (root / path).is_symlink() or not (root / path).is_file():
                 continue
             files += 1
-            findings.extend(examine(path, read(root, path), [module], ids))
+            findings.extend(examine(path, read(root, path), [plugin], ids))
     for path in listed(root, SHARED):
         if (root / path).is_file():
             files += 1
-            findings.extend(examine(path, read(root, path), modules, ids))
+            findings.extend(examine(path, read(root, path), plugins, ids))
     return findings, files, len(modules)
 
 
@@ -455,15 +460,22 @@ def fresh(root: Path, dials: str | bytes | None = KIT_DIALS) -> None:
     except (OSError, subprocess.CalledProcessError) as failed:
         raise Broken(f"git init failed in {root} — fix: install git, then run the self-test") from failed
     write(root, "modules/const-x/MODULE.md", "A module.\n")
-    write(root, "modules/const-x/skills/s/SKILL.md", "A skill.\n")
-    write(root, "modules/const-x/INSTALL.md", "Install.\n")
+    write(root, "modules/const-x/plugin/skills/s/SKILL.md", "A skill.\n")
+    write(root, "modules/const-x/plugin/INSTALL.md", "Install.\n")
     write(root, f"{SHARED}/model.py", "Y = 2\n")
     if dials is not None:
         write(root, DIALS, dials)
 
 
+BESIDE_PLUGIN = ("MODULE.md", "README.md", "tests/")  # the toy module's files that stand beside `plugin/`
+
+
 def at(path: str) -> str:
-    return f"{SHARED}/state.py" if path == "SHARED" else f"modules/const-x/{path}"
+    """Where the toy kit keeps `path`: a part of the plugin under `plugin/`, a file beside it at the
+    module's top, the shared code at its own place."""
+    if path == "SHARED":
+        return f"{SHARED}/state.py"
+    return f"modules/const-x/{path if path.startswith(BESIDE_PLUGIN) else f'{PLUGIN}/{path}'}"
 
 
 def self_test() -> int:
@@ -573,6 +585,7 @@ def self_test() -> int:
         "inline code": ("skills/s/SKILL.md", "Name `docs/**` in the dial.\n"),
         "a public URL": ("INSTALL.md", "See https://example.org/~/docs/page.md for more.\n"),
         "a file of the plugin": ("INSTALL.md", "The skill is skills/s/SKILL.md.\n"),
+        "a file of the plugin, named in the shared code": ("SHARED", "X = 'skills/s/SKILL.md'\n"),
         "the dials file": ("scripts/gate.py", "NAME = 'constitution.yaml'\n"),
         "a folder of the plugin by its glob": ("INSTALL.md", "Every skills/**/SKILL.md file.\n"),
         "wildcards before wildcards and an extension": ("skills/s/SKILL.md", 'paths: "**/*.md"\n'),
@@ -609,7 +622,7 @@ def self_test() -> int:
         "the second segment alone": ("INSTALL.md", "Put them in decisions or research.\n"),
     }
     report_lines = [  # the report of the tilde case, typed by hand: a message function cannot check itself
-        "RED: modules/const-x/INSTALL.md:1: a path under `~/`, '~/'",
+        "RED: modules/const-x/plugin/INSTALL.md:1: a path under `~/`, '~/'",
         "  why: a module installs into any project, so it names no place in one (law 2 of CLAUDE.md)",
         "  fix: name the place in words, or read it from the dials file",
         "RED: 1 finding(s) — 3 installed file(s) of 1 module(s) and the shared code examined",
@@ -640,8 +653,8 @@ def self_test() -> int:
         root = Path(tmp).resolve()
         fresh(root)
         write(root, "modules/other/MODULE.md", "A module.\n")
-        write(root, "modules/other/INSTALL.md", "Clone into ~/kit.\n")
-        ok = [f.path for f in check_kit(root)[0]] == ["modules/other/INSTALL.md"]
+        write(root, "modules/other/plugin/INSTALL.md", "Clone into ~/kit.\n")
+        ok = [f.path for f in check_kit(root)[0]] == ["modules/other/plugin/INSTALL.md"]
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a module folder not named const- is read as a module")
     # the module folders, as the kit's one listing gives them: each class of what stands under modules/
@@ -656,7 +669,7 @@ def self_test() -> int:
                 if path.endswith("file"):
                     write(root, path, "Clone into ~/kit.\n")
                 else:
-                    write(root, f"{path}/INSTALL.md", "Clone into ~/kit.\n")
+                    write(root, f"{path}/{PLUGIN}/INSTALL.md", "Clone into ~/kit.\n")
             result = check_kit(root)
         ok = result[0] == [] and result[2] == 1
         failed += 0 if ok else 1
@@ -664,7 +677,7 @@ def self_test() -> int:
     with tempfile.TemporaryDirectory() as tmp:  # no MODULE.md: BROKEN, where the folder was read before
         root = Path(tmp).resolve()
         fresh(root)
-        write(root, "modules/other/INSTALL.md", "Install.\n")
+        write(root, "modules/other/plugin/INSTALL.md", "Install.\n")
         try:
             check_kit(root)
             ok = False
@@ -689,10 +702,10 @@ def self_test() -> int:
         fresh(root)
         for module in ("const-b", "const-a"):
             write(root, f"modules/{module}/MODULE.md", "A module.\n")
-            write(root, f"modules/{module}/INSTALL.md", "Clone into ~/kit.\n")
+            write(root, f"modules/{module}/plugin/INSTALL.md", "Clone into ~/kit.\n")
         with listed_in_reverse():  # modules/ is listed reversed, whatever the filesystem lists
             found = [f.path for f in check_kit(root)[0]]
-    ok = found == ["modules/const-a/INSTALL.md", "modules/const-b/INSTALL.md"]
+    ok = found == ["modules/const-a/plugin/INSTALL.md", "modules/const-b/plugin/INSTALL.md"]
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] the modules are read sorted by name, whatever order the folder lists")
     with tempfile.TemporaryDirectory() as tmp:
@@ -710,12 +723,14 @@ def self_test() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
         fresh(root)
-        (root / "modules/const-x/INSTALL.md").write_bytes(b"caf\xe9\n")
+        (root / "modules/const-x/plugin/INSTALL.md").write_bytes(b"caf\xe9\n")
         try:
             check_kit(root)
             ok = False
         except Broken as broken:
-            ok = str(broken).startswith("modules/const-x/INSTALL.md is not UTF-8") and "fix:" in str(broken)
+            ok = str(broken).startswith("modules/const-x/plugin/INSTALL.md is not UTF-8") and "fix:" in str(
+                broken
+            )
     failed += 0 if ok else 1
     print(f"[{'ok' if ok else 'FAIL'}] a file that is not UTF-8 is a teaching BROKEN line, never a traceback")
     named, named_failed = self_test_names()
@@ -847,6 +862,10 @@ def run_unread(c: Cases, root: Path) -> None:
             seen(root, at(path), "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
             f"{path} of a module is not read",
         )
+    c.case(
+        seen(root, "modules/const-x/scripts/gate.py", "MODULE.md dec-0049 /home/ann/x GATE.md\n") == [],
+        "a scripts/ folder beside plugin/ is not read: only plugin/ installs",
+    )
     for path in ("shared/GATE.md", "shared/tests/run.py"):
         c.case(
             seen(root, path, "MODULE.md dec-0049 GATE.md docs/decisions\n") == [],
@@ -1001,11 +1020,11 @@ def run_names_by_module(c: Cases) -> None:
         fresh(root)
         for module in ("const-b", "const-a"):
             write(root, f"modules/{module}/MODULE.md", "A module.\n")
-            write(root, f"modules/{module}/INSTALL.md", "See dec-0049.\n")
+            write(root, f"modules/{module}/plugin/INSTALL.md", "See dec-0049.\n")
         with listed_in_reverse():
             paths = [f.path for f in check_kit(root)[0]]
     c.case(
-        paths == ["modules/const-a/INSTALL.md", "modules/const-b/INSTALL.md"],
+        paths == ["modules/const-a/plugin/INSTALL.md", "modules/const-b/plugin/INSTALL.md"],
         "a name in two modules is reported by module name, whatever order the folder lists",
     )
 
@@ -1089,10 +1108,10 @@ def run_name_reports(c: Cases) -> None:
         " none of them (law 2 of CLAUDE.md)"
     )
     literal = [
-        "RED: modules/const-x/INSTALL.md:1: a file name of the kit, 'MODULE.md'",
+        "RED: modules/const-x/plugin/INSTALL.md:1: a file name of the kit, 'MODULE.md'",
         why,
         "  fix: say in words what the document holds, or drop the mention",
-        "RED: modules/const-x/INSTALL.md:1: an id of a catalog the kit declares, 'dec-0049'",
+        "RED: modules/const-x/plugin/INSTALL.md:1: an id of a catalog the kit declares, 'dec-0049'",
         why,
         "  fix: say in words what the item holds, or drop the mention; an example of a project's own id takes"
         " a prefix that const-catalogs.catalogs in the kit's constitution.yaml does not declare",
@@ -1112,7 +1131,7 @@ def run_name_reports(c: Cases) -> None:
         with contextlib.redirect_stdout(printed):
             code = report(*check_kit(root))
     folder_report = [
-        "RED: modules/const-x/INSTALL.md:1: a document folder of the kit, 'docs/decisions'",
+        "RED: modules/const-x/plugin/INSTALL.md:1: a document folder of the kit, 'docs/decisions'",
         "  why: a module that names the kit's own folders carries the kit's layout into a project, where they"
         " do not exist (law 2 of CLAUDE.md)",
         "  fix: name the place through the dials file, or, in a Markdown file, show it as an example in a"
@@ -1225,7 +1244,7 @@ def run_broken_dials(c: Cases) -> None:
     with tempfile.TemporaryDirectory() as tmp:  # the dials file is read after the module folders
         root = Path(tmp).resolve()
         fresh(root, None)
-        write(root, "modules/other/INSTALL.md", "Install.\n")
+        write(root, "modules/other/plugin/INSTALL.md", "Install.\n")
         c.case(
             broken_line(root) == "modules/other has no MODULE.md — fix: restore the module document",
             "a missing dials file and a module without MODULE.md: the module is reported",

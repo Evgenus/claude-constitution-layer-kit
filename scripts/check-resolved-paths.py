@@ -9,15 +9,15 @@ of a module imported so to the path through the link, never to the file's own pl
 that derives a path from `__file__` without resolving it finds one thing under its fixtures and
 another in a hook run. Resolving it first gives the file's own place in both.
 
-The files read: every `.py` file, at any depth, of each module's own packages, as `own_packages` of
-`kit_module_doc` derives them, of `shared/constitution_layer_kit/`, and at the top of `shared/tests/` whose
-name starts with neither `.` nor `_`, as for the links of item 7 of kit-shared-gate-code §2; a `__pycache__`
-is never read, nor a folder that is a link. Each use of the name `__file__` must stand as the one argument of
-a call of `Path` — the name, or `pathlib.Path` — whose result is at once resolved, `.resolve()`; any other use
-is a finding: `Path(__file__).parent`, `os.path.dirname(__file__)`, `Path(__file__).absolute()`, the name
-passed on or bound to another name. The entry files at the top of a module's `scripts/`, run by path, and the
-module's own test files in `tests/`, which pytest imports from where they stand, are never reached through a
-link, and are not read.
+The files read: every `.py` file, at any depth, of each module's own packages, in the module's
+`plugin/scripts/`, as `own_packages` of `kit_module_doc` derives them, of `shared/constitution_layer_kit/`,
+and at the top of `shared/tests/` whose name starts with neither `.` nor `_`, as for the links of item 7 of
+kit-shared-gate-code §2; a `__pycache__` is never read, nor a folder that is a link. Each use of the name
+`__file__` must stand as the one argument of a call of `Path` — the name, or `pathlib.Path` — whose result
+is at once resolved, `.resolve()`; any other use is a finding: `Path(__file__).parent`,
+`os.path.dirname(__file__)`, `Path(__file__).absolute()`, the name passed on or bound to another name. The
+entry files at the top of a module's `plugin/scripts/`, run by path, and the module's own test files in
+`tests/`, which pytest imports from where they stand, are never reached through a link, and are not read.
 
 Modes:  no arguments   check the kit;
         --self-test    prove the check on throwaway kits: a resolved read green in a module's package,
@@ -75,7 +75,7 @@ def files_of(kit: Path) -> tuple[list[Path], int]:
         modules = module_folders(kit)
     except DocumentError as bad:
         raise Broken(str(bad)) from None
-    roots = [package for module in modules for package in own_packages(module)]
+    roots = [package for module in modules for package in own_packages(module / "plugin")]
     roots.append(kit / "shared" / "constitution_layer_kit")
     files: list[Path] = []
     for root in roots:
@@ -160,37 +160,39 @@ def report(findings: list[Finding], files: int, packages: int) -> int:
 
 
 def toy_kit(root: Path, start: str, shared: str = "") -> None:
-    """One module const-a with its package a_gate, its entry file, a non-package folder, a `_` folder,
-    and links to an outside package from scripts/, from inside a_gate and from shared/tests/; the
-    shared package, one shared test file and a `_` file beside it. Every file the check must not read
-    holds an unresolved read, so reading one turns a green case red."""
+    """One module const-a with its document at the module folder's top and, in its `plugin/` folder, its
+    package a_gate, its entry file, a non-package folder, a `_` folder, and links to an outside package
+    from plugin/scripts/, from inside a_gate and from shared/tests/; the shared package, one shared test
+    file and a `_` file beside it. Every file the check must not read holds an unresolved read, so
+    reading one turns a green case red."""
     module = root / "modules" / "const-a"
-    (module / "scripts" / "a_gate").mkdir(parents=True)
+    scripts = module / "plugin" / "scripts"
+    (scripts / "a_gate").mkdir(parents=True)
     (module / "MODULE.md").write_text("# const-a\n", encoding="utf-8")
-    (module / "scripts" / "a_gate" / "__init__.py").write_text("", encoding="utf-8")
-    (module / "scripts" / "a_gate" / "start.py").write_text(start, encoding="utf-8")
+    (scripts / "a_gate" / "__init__.py").write_text("", encoding="utf-8")
+    (scripts / "a_gate" / "start.py").write_text(start, encoding="utf-8")
     unread = "from pathlib import Path\nHERE = Path(__file__).parent\n"
-    (module / "scripts" / "check-a.py").write_text(unread, encoding="utf-8")
+    (scripts / "check-a.py").write_text(unread, encoding="utf-8")
     for folder, marker in (("data", False), ("_private", True)):
-        (module / "scripts" / folder).mkdir()
+        (scripts / folder).mkdir()
         if marker:
-            (module / "scripts" / folder / "__init__.py").write_text("", encoding="utf-8")
-        (module / "scripts" / folder / "x.py").write_text(unread, encoding="utf-8")
+            (scripts / folder / "__init__.py").write_text("", encoding="utf-8")
+        (scripts / folder / "x.py").write_text(unread, encoding="utf-8")
     (root / "shared" / "constitution_layer_kit").mkdir(parents=True)
     (root / "shared" / "tests").mkdir()
     (root / "shared" / "constitution_layer_kit" / "__init__.py").write_text("", encoding="utf-8")
     (root / "shared" / "constitution_layer_kit" / "where.py").write_text(shared, encoding="utf-8")
     (root / "shared" / "tests" / "harness.py").write_text("", encoding="utf-8")
-    (module / "scripts" / "constitution_layer_kit").symlink_to(
-        Path("..", "..", "..", "shared", "constitution_layer_kit")
+    (scripts / "constitution_layer_kit").symlink_to(
+        Path("..", "..", "..", "..", "shared", "constitution_layer_kit")
     )
     (root / "shared" / "tests" / "_private.py").write_text(unread, encoding="utf-8")
     outside = root / "elsewhere" / "pkg"
     outside.mkdir(parents=True)
     (outside / "__init__.py").write_text("", encoding="utf-8")
     (outside / "x.py").write_text(unread, encoding="utf-8")
-    (module / "scripts" / "linked").symlink_to(Path("..", "..", "..", "elsewhere", "pkg"))
-    (module / "scripts" / "a_gate" / "inner").symlink_to(Path("..", "..", "..", "..", "elsewhere", "pkg"))
+    (scripts / "linked").symlink_to(Path("..", "..", "..", "..", "elsewhere", "pkg"))
+    (scripts / "a_gate" / "inner").symlink_to(Path("..", "..", "..", "..", "..", "elsewhere", "pkg"))
     (root / "shared" / "tests" / "linked.py").symlink_to(Path("..", "..", "elsewhere", "pkg", "x.py"))
 
 
@@ -209,31 +211,37 @@ def self_test() -> int:
             "Path(__file__).parent is a finding",
             "from pathlib import Path\nROOT = Path(__file__).parent\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:2"],
+            ["modules/const-a/plugin/scripts/a_gate/start.py:2"],
         ),
         (
             "os.path.dirname(__file__) is a finding",
             "import os\nROOT = os.path.dirname(__file__)\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:2"],
+            ["modules/const-a/plugin/scripts/a_gate/start.py:2"],
         ),
         (
             "Path(__file__).absolute() is a finding",
             "from pathlib import Path\nROOT = Path(__file__).absolute()\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:2"],
+            ["modules/const-a/plugin/scripts/a_gate/start.py:2"],
         ),
         (
             "an unresolved Path(__file__) and a resolve never called are findings",
             "from pathlib import Path\nA = Path(__file__)\nB = Path(__file__).resolve\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:2", "modules/const-a/scripts/a_gate/start.py:3"],
+            [
+                "modules/const-a/plugin/scripts/a_gate/start.py:2",
+                "modules/const-a/plugin/scripts/a_gate/start.py:3",
+            ],
         ),
         (
             "the bare name bound or passed on is a finding",
             "NAME = __file__\nprint(__file__)\n",
             "",
-            ["modules/const-a/scripts/a_gate/start.py:1", "modules/const-a/scripts/a_gate/start.py:2"],
+            [
+                "modules/const-a/plugin/scripts/a_gate/start.py:1",
+                "modules/const-a/plugin/scripts/a_gate/start.py:2",
+            ],
         ),
         (
             "an unresolved read in the shared package is a finding",
@@ -253,7 +261,8 @@ def self_test() -> int:
         if not ok:
             print(f"        got {got}")
     report_lines = [  # typed by hand: a message function cannot check itself
-        "RED: modules/const-a/scripts/a_gate/start.py:2: `__file__` read without Path(__file__).resolve()",
+        "RED: modules/const-a/plugin/scripts/a_gate/start.py:2: `__file__` read without"
+        " Path(__file__).resolve()",
         "  why: the fixture runner imports this package through a link in tests/, where `__file__` is the "
         "link's path and not the file's own",
         "  fix: write Path(__file__).resolve() and derive every path from it",
@@ -270,7 +279,10 @@ def self_test() -> int:
     if not ok:
         print(printed.getvalue())
     broken_cases = [
-        ("a file that does not parse", "modules/const-a/scripts/a_gate/start.py cannot be read or parsed"),
+        (
+            "a file that does not parse",
+            "modules/const-a/plugin/scripts/a_gate/start.py cannot be read or parsed",
+        ),
         ("a module folder without its document", "modules/const-b has no MODULE.md"),
     ]
     for name, said in broken_cases:

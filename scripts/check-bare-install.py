@@ -49,11 +49,11 @@ For the module named, in throwaway folders that the check removes:
      the platform's own install, which writes a copy of the plugin into the configuration's cache.
      The marketplace's name is the one the kit's own .claude-plugin/marketplace.json gives, read by
      `kit_module_doc.marketplace_name` and typed nowhere in this check; a file that gives none is a
-     configuration failure. The source is --from, else the environment's CONSTITUTION_KIT_INSTALL_FROM,
-     else the kit's working folder. The kit's CI names the change's GitHub repository and branch,
-     `<owner>/<repo>#<branch>` — a pull request's head repository and branch, or the kit's main on
-     a push to it — the copy a consumer's install writes; a fork the job's token cannot read fails; git
-     clones it with the machine's own credentials, which a private remote needs. The working
+     configuration failure. The install source is --from, else the environment's
+     CONSTITUTION_KIT_INSTALL_FROM, else the kit's working folder. The kit's CI names the change's GitHub
+     repository and branch, `<owner>/<repo>#<branch>` — a pull request's head repository and branch, or the
+     kit's main on a push to it — the copy a consumer's install writes; a fork the job's token cannot read
+     fails; git clones it with the machine's own credentials, which a private remote needs. The working
      folder, a local-directory marketplace, gives a copy no session runs (shared/GATE.md, limit 3).
      The install's result is the last non-empty line of its standard output, one JSON object: an
      `outcome` of "failed" is a refusal, which carries the result's `failureCode` and `message`; "ok" with
@@ -66,13 +66,17 @@ For the module named, in throwaway folders that the check removes:
      value only when it is a git object id, 40 or 64 lower-case hexadecimal characters as git writes one,
      since git is handed it and would read a value that opens with `-` as an option; the source is
      read from the kit's git history and fetched when absent. An install from a local
-     folder is compared with that folder and reads no record;
-  3. what the kit's source of the module declares, held in that copy: no link of the source
-     leads inside the module, save the fixture runner's link tests/<package> -> ../scripts/<package>
-     to a package of the module's own (as own_packages of kit_module_doc derives them: a folder of
+     folder is compared with the module's plugin/ folder there and reads no record;
+  3. what the kit's source of the module declares, held in that copy; the source is the module's `plugin/`
+     folder, the folder the marketplace entry names and the install copies, and every read of its parts
+     goes through it: no link of the source leads inside the plugin folder, the source, save a fixture
+     runner's link tests/<package> -> ../scripts/<package> inside it to a package of the module's own
+     (as own_packages of kit_module_doc derives them: a folder of
      scripts/, itself no link, holding an __init__.py, its name starting with neither `.` nor `_`,
      save constitution_layer_kit), which arrives as a link leading to that
-     package in the copy — the platform keeps a link that stays inside the plugin; every
+     package in the copy — the platform keeps a link that stays inside the plugin; no module's plugin
+     folder holds such a link today, since a module's runner's links stand in its `tests/`, beside
+     `plugin/`; every
      other link arrives as a real file, or a real directory, with the
      same files byte for byte; the copy holds no link the source lacks; the copy holds
      the source's hooks file; every hook of the source's hooks/hooks.json, which is a `command` hook
@@ -83,7 +87,8 @@ For the module named, in throwaway folders that the check removes:
      each waited for its own `timeout`, else the seconds the hooks reference gives a `command` hook
      on its event: 600, but 30 on UserPromptSubmit, PreModelSwitch and PostModelSwitch, 10 on
      MessageDisplay and 1.5 on SessionEnd;
-     every scan the source declares in its enforcement section (template §9), run from the copy,
+     every scan the module declares in the enforcement section (template §9) of its MODULE.md, which
+     stays at the module folder's top beside the source and is never installed, run from the copy,
      exits 0 there. The scans are read by `kit_module_doc.enforcement`, whatever a row's indent
      or bold, the last cell of a row whether or not the row closes with a bar; an explain mode that
      carries the words `not a tree scan` is none. The problems with the form of the table are
@@ -482,8 +487,10 @@ def declared_seconds(timeout: object) -> float | None:
     return seconds if math.isfinite(seconds) else None
 
 
-def declared_scans(plugin: Path) -> list[str]:
-    document = plugin / "MODULE.md"
+def declared_scans(module_folder: Path) -> list[str]:
+    """The scans a module declares, read from its MODULE.md, which stays at the module folder's top beside
+    the plugin folder and is never installed."""
+    document = module_folder / "MODULE.md"
     if not file_at(document):
         raise Broken(
             f"{document} does not exist — fix: restore the module's document, which declares its scans"
@@ -619,8 +626,8 @@ def runner_link(source: Path, link: Path) -> bool:
 
 
 def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
-    """No link of the source leads inside the module, save the runner's link to a package of the
-    module's own, which arrives as a link leading to that package in the copy; every other link
+    """No link of the source leads inside the plugin folder, the source, save the runner's link to a
+    package of the module's own, which arrives as a link leading to that package in the copy; every other link
     arrives as a real file, or a real directory, with the same files byte for byte; the copy holds no
     link the source lacks."""
     findings: list[Finding] = []
@@ -645,7 +652,7 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
             continue
         inside = target.is_relative_to(source.resolve())
         fix = (
-            "replace the link inside the module with the file it points at"
+            "replace the link inside the plugin with the file it points at"
             if inside
             else "the install must carry what it runs — fire the fallback of limit 3 of"
             " shared/GATE.md §4, links replaced by copies"
@@ -654,7 +661,7 @@ def link_findings(module: str, source: Path, plugin: Path) -> list[Finding]:
             state = "left a link" if link_at(place) else "missing"
             findings.append(Finding(module, f"the link {where} is {state} in the installed copy", fix))
         elif inside:
-            findings.append(Finding(module, f"the link {where} leads inside the module", fix))
+            findings.append(Finding(module, f"the link {where} leads inside the plugin", fix))
         elif file_at(target) and folder_at(place):
             findings.append(Finding(module, f"the link {where} to a file arrived as a folder", fix))
         elif folder_at(target) and not folder_at(place):
@@ -740,7 +747,7 @@ def check_installed(module: str, source: Path, plugin: Path, repo: Path, data: P
                     "make the hook pass with a visible zero where no constitution.yaml claims anything",
                 )
             )
-    for entry in declared_scans(source):
+    for entry in declared_scans(source.parent):
         script = plugin / "scripts" / (entry if entry.endswith(".py") else f"{entry}.sh")
         # The scan runs as a consumer's machine would run it: `python3` found on PATH for a `.py` scan, `sh`
         # for a shell one, not the interpreter this check runs in.
@@ -811,8 +818,9 @@ def installed_commit(config: Path, key: str, plugin: Path, note: Note) -> str:
 
 
 def source_at(commit: str, module: str, root: Path) -> Path:
-    """The kit's source of the module at a commit — its folder and the shared code its links reach —
-    read from git history into a folder under root, the commit fetched when the clone lacks it."""
+    """The kit's source of the module at a commit — its plugin folder, the module's document beside it, and
+    the shared code its links reach — read from git history into a folder under root, the commit fetched
+    when the clone lacks it; the plugin folder is what it returns."""
     env = os.environ.copy()
     code, _, _ = run(["git", "cat-file", "-e", f"{commit}^{{commit}}"], KIT, env)
     if code != 0:
@@ -839,17 +847,17 @@ def source_at(commit: str, module: str, root: Path) -> Path:
     target = root / "source"
     with tarfile.open(fileobj=io.BytesIO(done.stdout)) as archive:
         archive.extractall(target, filter="data")
-    return target / "modules" / module
+    return target / "modules" / module / "plugin"
 
 
 def counted(source: Path) -> str:
     links = sum(1 for p in entries_under(source) if link_at(p))
-    return f"{len(hooks_of(source))} hook(s), {len(declared_scans(source))} scan(s), {links} link(s)"
+    return f"{len(hooks_of(source))} hook(s), {len(declared_scans(source.parent))} scan(s), {links} link(s)"
 
 
 def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], str]:
     """The findings, and what was examined: the hooks, scans and links of the source compared."""
-    if not file_at(KIT / "modules" / module / ".claude-plugin" / "plugin.json"):
+    if not file_at(KIT / "modules" / module / "plugin" / ".claude-plugin" / "plugin.json"):
         raise Broken(f"no module {module} in the kit — fix: name a folder under modules/ that holds a plugin")
     marketplace = kit_marketplace(KIT)
     with tempfile.TemporaryDirectory() as tmp:
@@ -866,7 +874,7 @@ def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], s
             return [refusal_finding], "no install"
         (root / "data").mkdir()
         if there(Path(source)):  # a local folder is copied as it stands, uncommitted edits included
-            kit_source = Path(source).resolve() / "modules" / module
+            kit_source = Path(source).resolve() / "modules" / module / "plugin"
         else:
             commit = installed_commit(root / "config", f"{module}@{marketplace}", plugin, note)
             kit_source = source_at(commit, module, root)
@@ -953,15 +961,17 @@ def fixture_hook_line(change: str) -> str:
 
 
 def fixture_source(root: Path, change: str) -> tuple[Path, Path]:
-    """The source module and the shared folder its `scripts/shared` links to, as `change` asks."""
-    source, shared = root / "source", root / "shared"
+    """The source, the plugin folder of a module folder that holds its MODULE.md beside it, and the shared
+    folder its `scripts/shared` links to, as `change` asks."""
+    module, shared = root / "module", root / "shared"
+    source = module / "plugin"
     (shared).mkdir()
     (shared / "code.py").write_text("x = 1\n", encoding="utf-8")
     (source / "hooks").mkdir(parents=True)
     (source / "scripts").mkdir()
     (source / "hooks" / "hooks.json").write_text(json.dumps(FIXTURE_HOOKS), encoding="utf-8")
     if change != "no-document":
-        (source / "MODULE.md").write_text(fixture_document(change), encoding="utf-8")
+        (module / "MODULE.md").write_text(fixture_document(change), encoding="utf-8")
     hook = fixture_hook_line(change)
     (source / "scripts" / "hook.sh").write_text(
         f'grep -q \'"hook_event_name": "PreToolUse"\' || exit 3\n{hook}\n', encoding="utf-8"
@@ -980,7 +990,8 @@ def fixture_source(root: Path, change: str) -> tuple[Path, Path]:
 
 
 def fixture_copy_of(root: Path, source: Path, change: str) -> Path:
-    """The copy an install made of the source: its files, and its links left as real files."""
+    """The copy an install made of the source, the plugin folder: its files, and its links left as real
+    files; it holds no MODULE.md, which stays at the module folder's top."""
     copy = root / "copy"
     shutil.copytree(source, copy, symlinks=False)
     if change == "inner-link":
@@ -1059,8 +1070,6 @@ def fixture_copy_changes(change: str, shared: Path, copy: Path) -> None:
         shutil.rmtree(copy / "scripts" / "shared")
     if change == "no-hooks-file":
         (copy / "hooks" / "hooks.json").unlink()
-    if change == "copy-without-document":
-        (copy / "MODULE.md").unlink()
     if change == "link-emptied":
         (copy / "scripts" / "shared" / "code.py").unlink()
     if change == "folder-link-as-file":
@@ -1100,13 +1109,13 @@ LINK_CASES = {
     "a copy whose hook and scans pass, its outside link a real directory, is green": ("", ""),
     "a link left a link in the copy is a finding": ("link-left", "is left a link"),
     "a link missing from the copy is a finding": ("link-missing", "is missing"),
-    "a link inside the module left a link is a finding, fixed by the file it points at": (
+    "a link inside the plugin left a link is a finding, fixed by the file it points at": (
         "inner-link",
         "again",
     ),
-    "a link inside the module that arrived as a real directory is a finding": (
+    "a link inside the plugin that arrived as a real directory is a finding": (
         "inner-link-copied",
-        "leads inside the module",
+        "leads inside the plugin",
     ),
     "the runner's link to a package of the module's own, kept a link to it, is green": (
         "runner-link",
@@ -1128,7 +1137,7 @@ LINK_CASES = {
         "runner-link-missing",
         "the runner's link tests/own_gate did not arrive as a link to its package",
     ),
-    "a link to a package of the module's own from outside tests/ leads inside the module": (
+    "a link to a package of the module's own from outside tests/ leads inside the plugin": (
         "runner-link-outside-tests",
         "the link skills/own_gate is left a link",
     ),
@@ -1136,15 +1145,15 @@ LINK_CASES = {
         "runner-link-to-a-link",
         "the link tests/own_gate is left a link",
     ),
-    "a link of tests/ to a real folder scripts/constitution_layer_kit leads inside the module": (
+    "a link of tests/ to a real folder scripts/constitution_layer_kit leads inside the plugin": (
         "runner-link-constitution-layer-kit",
         "the link tests/constitution_layer_kit is left a link",
     ),
-    "a link of tests/ to a package named with a leading _ leads inside the module": (
+    "a link of tests/ to a package named with a leading _ leads inside the plugin": (
         "runner-link-underscore",
         "the link tests/_own_gate is left a link",
     ),
-    "a link of tests/ to a folder of scripts/ with no __init__.py leads inside the module": (
+    "a link of tests/ to a folder of scripts/ with no __init__.py leads inside the plugin": (
         "runner-link-no-package",
         "the link tests/data is left a link",
     ),
@@ -1160,7 +1169,7 @@ LINK_CASES = {
     "a hook that exits 0 but blocks is a finding": ("hook-blocks", "answers block"),
     "a hook that exits 0 but asks is a finding": ("hook-asks", "answers ask"),
     "a hook that exits 0 but stops is a finding": ("hook-stops", "answers stop"),
-    "a scan the source declares is run though the copy lost its document": (
+    "a scan the source declares is run though the copy holds no document": (
         "copy-without-document",
         "check-x --scan",
     ),
@@ -1219,7 +1228,7 @@ def link_cases(tally: Tally) -> None:
             ok = ok and len(got) == 1  # the file is missing; the hook the source names still runs in the copy
         if change == "inner-link":
             fixes = [f.fix for f in fixture_findings(change)]
-            ok = ok and fixes[:1] == ["replace the link inside the module with the file it points at"]
+            ok = ok and fixes[:1] == ["replace the link inside the plugin with the file it points at"]
         tally.failed += 0 if ok else 1
         print(f"[{'ok' if ok else 'FAIL'}] {name}")
         if not ok:
@@ -1458,7 +1467,7 @@ def hook_spied_wait_case(tally: Tally, hooked: Path) -> None:
     """`check_installed` hands `run` the wait `hooks_of` gives each hook, and no hook is run."""
     # The wait `hooks_of` computes is the one `check_installed` hands `run`: `run` is spied, and
     # answers at once, so that no hook runs and nothing is waited for.
-    (hooked / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+    (hooked.parent / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
     (hooked / "repo").mkdir()
     handed: dict[str, float] = {}
 
@@ -1938,8 +1947,8 @@ def hook_wait_cases(tally: Tally) -> None:
     is a regular file and cannot be read (a denied read, an I/O error) has a line and fix of its own, and
     so has one whose place cannot be looked up (a folder that cannot be searched, an I/O error)."""
     with tempfile.TemporaryDirectory() as tmp:
-        hooked = Path(tmp)
-        (hooked / "hooks").mkdir()
+        hooked = Path(tmp) / "plugin"  # a source: the plugin folder, its module's document beside it
+        (hooked / "hooks").mkdir(parents=True)
         hook_default_wait_cases(tally, hooked)
         hook_spied_wait_case(tally, hooked)
         hooks_file_shape_cases(tally, hooked)
@@ -2158,10 +2167,10 @@ def run_start_cases(tally: Tally) -> None:
                 got_start,
             )
     with tempfile.TemporaryDirectory() as hook_tmp:  # a hook run through check_installed has the hook's fix
-        hooked_root = Path(hook_tmp)
-        (hooked_root / "hooks").mkdir()
+        hooked_root = Path(hook_tmp) / "plugin"  # the source, its module's document beside it
+        (hooked_root / "hooks").mkdir(parents=True)
         (hooked_root / "repo").mkdir()
-        (hooked_root / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+        (hooked_root.parent / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
         nul_hook = {"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "\0tool", "args": []}]}]}}
         (hooked_root / "hooks" / "hooks.json").write_text(json.dumps(nul_hook), encoding="utf-8")
         got_start = result_of(
@@ -2336,8 +2345,8 @@ def shut_folder_cases(tally: Tally) -> None:
         document = closed / "deep" / "plugin"
         document.mkdir(parents=True)
         (document / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
-        (closed / "kit" / "modules" / "m" / ".claude-plugin").mkdir(parents=True)
-        (closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json").write_text(
+        (closed / "kit" / "modules" / "m" / "plugin" / ".claude-plugin").mkdir(parents=True)
+        (closed / "kit" / "modules" / "m" / "plugin" / ".claude-plugin" / "plugin.json").write_text(
             "{}", encoding="utf-8"
         )
         (closed / "src").mkdir()
@@ -2349,11 +2358,14 @@ def shut_folder_cases(tally: Tally) -> None:
         listing = shut_root / "listing folder"  # a folder that lists but cannot be searched
         listing.mkdir()
         (listing / "f.txt").write_text("x", encoding="utf-8")
-        hooks_source, hooks_copy = shut_root / "hooks source", shut_root / "hooks copy"
+        hooks_source = shut_root / "hooks source" / "plugin"  # its module's document stands beside it
+        hooks_copy = shut_root / "hooks copy"
         for tree in (hooks_source, hooks_copy):
             (tree / "hooks").mkdir(parents=True)
             (tree / "hooks" / "hooks.json").write_text('{"hooks": {}}', encoding="utf-8")
-            (tree / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
+        (hooks_source.parent / "MODULE.md").write_text(
+            '<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8"
+        )
         (shut_root / "repo").mkdir()
         listing_json = json.dumps([{"id": "m@mp", "scope": "user", "installPath": str(document)}])
         walk, empty_copy = shut_root / "walk", shut_root / "empty copy"  # a subfolder that lists only
@@ -2397,7 +2409,9 @@ def shut_folder_cases(tally: Tally) -> None:
                 tally,
                 "lookups: a module's plugin.json under such a folder is the same line",
                 got_shut
-                == cannot_search(closed / "kit" / "modules" / "m" / ".claude-plugin" / "plugin.json", closed),
+                == cannot_search(
+                    closed / "kit" / "modules" / "m" / "plugin" / ".claude-plugin" / "plugin.json", closed
+                ),
                 got_shut,
             )
             with patched_globals({"run": lambda *args, **kwargs: (0, listing_json, "")}):
@@ -3344,7 +3358,7 @@ class StepTwo:
 
         def source_spy(at: str, name: str, root: Path) -> Path:
             fetched.append(at)
-            return self.toy / "modules" / name
+            return self.toy / "modules" / name / "plugin"
 
         def installed_spy(name: str, src: Path, plugin: Path, repo: Path, data: Path) -> list[Finding]:
             compared.append(str(plugin))
@@ -3408,11 +3422,12 @@ def step_two_scene(base: Path) -> StepTwo:
     (toy / "kernel").mkdir()
     (toy / "kernel" / "CONVENTIONS.md").write_text("A kernel.\n", encoding="utf-8")
     toy_module = toy / "modules" / "const-x"
-    (toy_module / ".claude-plugin").mkdir(parents=True)
-    (toy_module / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
+    toy_plugin = toy_module / "plugin"
+    (toy_plugin / ".claude-plugin").mkdir(parents=True)
+    (toy_plugin / ".claude-plugin" / "plugin.json").write_text("{}", encoding="utf-8")
     (toy_module / "MODULE.md").write_text('<a id="t9"></a>\n<a id="t10"></a>\n', encoding="utf-8")
     copy, other = cache / "const-x", cache / "other"
-    shutil.copytree(toy_module, copy)  # the installed copy; `other` is a folder that is not it
+    shutil.copytree(toy_plugin, copy)  # the installed copy, of the plugin folder; `other` is not it
     other.mkdir()
     (cache / "a-file").write_text("not a folder\n", encoding="utf-8")
     bin_dir.mkdir()
@@ -3421,7 +3436,7 @@ def step_two_scene(base: Path) -> StepTwo:
     fake_log, calls_log, cache_log = base / "fake.log", base / "calls.log", base / "cache.log"
     linked = base / "linked-kit"  # the toy kit whose module holds a link its installed copy lacks
     shutil.copytree(toy, linked, symlinks=True)
-    (linked / "modules" / "const-x" / "linked").symlink_to("MODULE.md")
+    (linked / "modules" / "const-x" / "plugin" / "linked").symlink_to(".claude-plugin/plugin.json")
     no_kernel = base / "no-kernel"  # the toy kit without its kernel/, which a bare repository copies
     shutil.copytree(toy, no_kernel)
     shutil.rmtree(no_kernel / "kernel")
@@ -3877,7 +3892,7 @@ def step_report_cases(tally: Tally, step: StepTwo) -> None:
     link_lines = [  # typed by hand: a module's link its copy lacks, a finding that is no refusal
         "RED: const-x: the link linked is missing in the installed copy{}",
         f"  why: {WHY}",
-        "  fix: replace the link inside the module with the file it points at",
+        "  fix: replace the link inside the plugin with the file it points at",
         f"RED: 1 finding(s) — 0 hook(s), 0 scan(s), 1 link(s), from {linked}{{}}",
     ]
     reports: list[tuple[str, Scene, str, bool, int, list[str]]] = [
@@ -4073,10 +4088,10 @@ def source_at_commit_case(tally: Tally) -> None:
         head = run(["git", "rev-parse", "HEAD"], KIT, os.environ.copy())[1]
         root = Path(tmp).resolve()
         extracted = source_at(head, "const-meta-types", root)
-        ok = extracted == root / "source" / "modules" / "const-meta-types"
+        ok = extracted == root / "source" / "modules" / "const-meta-types" / "plugin"
         ok = (
             ok
-            and (extracted / "MODULE.md").is_file()
+            and (extracted.parent / "MODULE.md").is_file()
             and (extracted / "scripts" / "constitution_layer_kit").is_symlink()
         )
         target = (extracted / "scripts" / "constitution_layer_kit").resolve()
@@ -4087,10 +4102,10 @@ def source_at_commit_case(tally: Tally) -> None:
 
 def self_test() -> int:
     """Red→green on throwaway source and copy folders, no install: a green copy is green; each branch
-    of the link check — a link inside the module, the runner's link to its own package arrived as a
+    of the link check — a link inside the plugin, the runner's link to its own package arrived as a
     directory, leading elsewhere, dangling or missing, a link left a link, missing, with files lost, added or
     changed, a file link with other bytes or arrived as a folder, a link the source lacks — each branch of
-    the hooks-file, hook and scan checks, and a red scan the source declares where the copy lost its
+    the hooks-file, hook and scan checks, and a red scan the source declares where the copy holds no
     document, are each a finding; a source document that cannot be read is a teaching BROKEN line, and
     the scans are read from rows of each form; the report of one finding is its literal text, exit 2."""
     tally = Tally()

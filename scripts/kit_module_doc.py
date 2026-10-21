@@ -102,7 +102,8 @@ Both checks prove it in theirs, with each of the four set in the environment the
 value and to nothing, and the kept ones set beside.
 
 `own_packages` is the kit's one derivation of a module's own packages, which the fixture runner imports
-through links in `tests/`: each folder at the top of the module's `scripts/`, itself no link, that holds an
+through links in `tests/`. It takes a plugin root, the folder that holds `scripts/`, a module's `plugin/`
+folder, and derives each folder at the top of that `scripts/`, itself no link, that holds an
 `__init__.py`, whose name starts with neither `.` nor `_`, save the shared `constitution_layer_kit`.
 check-shared-links, check-bare-install, check-resolved-paths and list-message-literals read it; the gate
 list's `types-<module>` entry derives the same set in shell. check-shared-links proves it in its
@@ -343,9 +344,10 @@ def command_fix(note: Note, command: str, where: str, timed_out: bool) -> str:
 
 
 def own_packages(module: Path) -> list[Path]:
-    """The module's own packages, sorted by name: each folder at the top of `<module>/scripts/`, itself no
-    link, that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save
-    `constitution_layer_kit`. A module with no `scripts/` has none."""
+    """The module's own packages, sorted by name. `module` is a plugin root, the folder that holds
+    `scripts/`, a module's `plugin/` folder, never the module folder: the packages are each folder at the
+    top of `<plugin root>/scripts/`, itself no link, that holds an `__init__.py`, whose name starts with
+    neither `.` nor `_`, save `constitution_layer_kit`. A plugin with no `scripts/` has none."""
     scripts = module / "scripts"
     if not scripts.is_dir():
         return []

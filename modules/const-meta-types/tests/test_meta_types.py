@@ -28,7 +28,7 @@ from meta_types_gate import messages, start
 from meta_types_gate.checks import envelope_errors
 from test_shared_items import NO_ENVELOPE, Subject
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
@@ -963,7 +963,7 @@ def test_skill_pointer_printed() -> None:
         pytest.fail(f"the subagent form is {nested.stdout!r}")
     size = len(POINTER)
     stated = re.search(
-        r"pointer line, (\d+) characters", (SCRIPTS.parent / "MODULE.md").read_text(encoding="utf-8")
+        r"pointer line, (\d+) characters", (SCRIPTS.parent.parent / "MODULE.md").read_text(encoding="utf-8")
     )
     if not stated or int(stated.group(1)) != size:
         pytest.fail(f"the module document states another size than {size}")

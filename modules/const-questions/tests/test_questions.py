@@ -36,7 +36,7 @@ from harness import (
 from questions_gate import messages, start
 from test_shared_items import PatternDial, Subject
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
@@ -496,7 +496,7 @@ def test_decision_shape_printed() -> None:
     size = len(SHAPE) - 1
     stated = re.search(
         r"printed by the `SessionStart` hook, (\d+) characters",
-        (SCRIPTS.parent / "MODULE.md").read_text(encoding="utf-8"),
+        (SCRIPTS.parent.parent / "MODULE.md").read_text(encoding="utf-8"),
     )
     assert stated and int(stated.group(1)) == size, f"the module document states another size than {size}"
     install = " ".join((SCRIPTS.parent / "INSTALL.md").read_text(encoding="utf-8").split())
@@ -532,7 +532,9 @@ def test_skill_and_install_note() -> None:
     )
     assert "Load this skill first" in front["description"], "the description does not ask to be loaded first"
     size = len(front["description"])
-    stated = re.search(r"skill listing, (\d+) characters", (root / "MODULE.md").read_text(encoding="utf-8"))
+    stated = re.search(
+        r"skill listing, (\d+) characters", (root.parent / "MODULE.md").read_text(encoding="utf-8")
+    )
     assert stated and int(stated.group(1)) == size, f"the module document states another size than {size}"
     install = (root / "INSTALL.md").read_text(encoding="utf-8")
     assert "MODULE.md" not in install, (

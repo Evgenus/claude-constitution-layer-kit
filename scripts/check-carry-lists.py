@@ -160,7 +160,7 @@ class Catalog:
     folder: str  # relative to the kit, no slash at either end
     width: int
     # dec-<width digits>-<slug>, the number its one group; ASCII digits only, as the catalog module's own
-    # pattern (modules/const-catalogs/scripts/catalogs_gate/model.py, line 79) reads them
+    # pattern (modules/const-catalogs/plugin/scripts/catalogs_gate/model.py, line 79) reads them
     stem: re.Pattern[str]
 
 

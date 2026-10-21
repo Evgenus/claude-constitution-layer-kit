@@ -7,7 +7,7 @@ cannot catch a defect in that function's text. This script lists the candidates 
 judge; it decides nothing, and exits 0 whatever it finds.
 
 For each function of shared/constitution_layer_kit/messages.py and of the messages.py of each package of a
-module — every folder at the top of modules/<m>/scripts/, itself no link, that holds an
+module — every folder at the top of modules/<m>/plugin/scripts/, itself no link, that holds an
 __init__.py, whose name starts with neither . nor _, save constitution_layer_kit, as kit_module_doc's
 own_packages derives them — docstrings aside, it takes the constant text the function
 holds — string literals, f-string parts and the module's string constants, split where a value is
@@ -232,7 +232,7 @@ def main(argv: list[str]) -> int:
     listed = 0
     try:
         for module in modules:
-            for package in own_packages(module):
+            for package in own_packages(module / "plugin"):
                 if not (package / "messages.py").is_file():
                     print(
                         f"{module.name}: {package.name} holds no messages.py — rule 2 of template §6 asks one"

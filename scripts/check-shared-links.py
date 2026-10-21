@@ -3,31 +3,31 @@
 link leads to the one source; its fixture runner reaches the module's own packages the same way.
 
 The shared code has one source in the kit: shared/constitution_layer_kit/ for the gates, shared/tests/
-for the fixture harness. A module's scripts/constitution_layer_kit and tests/constitution_layer_kit, and the
-harness files in its tests/, are symbolic links to it, relative ones leading straight to it, never through
-another link, so that they survive a clone into any directory. The platform copies what such a link points at
-into an installed plugin, so an installed module carries the code; inside the kit there is one copy to
-read, to fix and to review. The tests, run by pytest, import from their own folder, which pytest puts
-first on the import path, so they reach each package of the module's scripts/ through a link
-tests/<package> -> ../scripts/<package>: they never edit their own import path, and never import a
+for the fixture harness. A module's plugin/scripts/constitution_layer_kit and tests/constitution_layer_kit,
+and the harness files in its tests/, are symbolic links to it, relative ones leading straight to it, never
+through another link, so that they survive a clone into any directory. The platform copies what such a link
+points at into an installed plugin, so an installed module carries the code; inside the kit there is one
+copy to read, to fix and to review. The tests, run by pytest, import from their own folder, which pytest puts
+first on the import path, so they reach each package of the module's plugin/scripts/ through a link
+tests/<package> -> ../plugin/scripts/<package>: they never edit their own import path, and never import a
 copy that has drifted from what the gate runs.
 
 The links a module owes are derived from the folders, never typed apart from them:
-scripts/constitution_layer_kit and tests/constitution_layer_kit, each `.py` file at the top of shared/tests/
-whose name starts with neither `.` nor `_`, as tests/<name>, and each folder at the top of the module's
-scripts/, itself no link, that holds an `__init__.py`, whose name starts with neither `.` nor `_`, save
-constitution_layer_kit, as tests/<name>. The check is a failure to run (BROKEN) when
+plugin/scripts/constitution_layer_kit and tests/constitution_layer_kit, each `.py` file at the top of
+shared/tests/ whose name starts with neither `.` nor `_`, as tests/<name>, and each folder at the top of the
+module's plugin/scripts/, itself no link, that holds an `__init__.py`, whose name starts with neither `.`
+nor `_`, save constitution_layer_kit, as tests/<name>. The check is a failure to run (BROKEN) when
 shared/constitution_layer_kit/ is no directory or when shared/tests/ lacks one of the four files
 shared/GATE.md names (the FLOOR), so that a list read from the folders cannot shrink in silence. The modules
 are the folders of `kit_module_doc.module_folders`, the kit's one listing — each folder under modules/ whose
 name starts with neither `.` nor `_` and holds its MODULE.md, a folder without it a BROKEN whether it uses the
-shared code or not. A module owes the links when it has hooks/hooks.json, when a line of a `.py` file under
-its scripts/, at any depth, begins, after white space, with `from constitution_layer_kit` or `import
-constitution_layer_kit` (the link scripts/constitution_layer_kit is not entered; a comment, a string on one
-line, a shell script and a `__pycache__` are no import, while such a line inside a string of several lines
-counts), or when it already has one of the links. A module of skills alone owes none. Findings come by module,
-the gate package first in scripts/ and then in tests/, then the shared files by name, then the module's own
-packages by name.
+shared code or not. A module owes the links when it has plugin/hooks/hooks.json, when a line of a `.py` file
+under its plugin/scripts/, at any depth, begins, after white space, with `from constitution_layer_kit` or
+`import constitution_layer_kit` (the link plugin/scripts/constitution_layer_kit is not entered; a comment, a
+string on one line, a shell script and a `__pycache__` are no import, while such a line inside a string of
+several lines counts), or when it already has one of the links. A module of skills alone owes none. Findings
+come by module, the gate package first in plugin/scripts/ and then in tests/, then the shared files by name,
+then the module's own packages by name.
 
 Modes:  no arguments   check every module under modules/;
         --self-test    prove the check on a throwaway tree: red for a missing link, a copy, a dangling
@@ -37,7 +37,7 @@ Modes:  no arguments   check every module under modules/;
                        in one module and in two; a missing, copied, misdirected, dangling or
                        absolute link to the module's own package, one through another link, and
                        a text file in its place; green for the right link, a `.`, `_`, README or
-                       folder in shared/tests/ no one owes, a folder of scripts/ that is no
+                       folder in shared/tests/ no one owes, a folder of plugin/scripts/ that is no
                        package, and the imports read over their cases;
                        a folder `.x` or `_x` skipped, a plain file of modules/ and a name without
                        `const-` by the listing's rule; BROKEN for a missing gate package or a
@@ -66,7 +66,7 @@ EXIT_GREEN, EXIT_BROKEN, EXIT_RED = 0, 1, 2
 
 # The links a module owes are never typed: links_of() derives them from the kit's own folders.
 GATE_LINK = (
-    "scripts/constitution_layer_kit",
+    "plugin/scripts/constitution_layer_kit",
     "shared/constitution_layer_kit",
 )  # the gate package: link in a module -> its source
 RUNNER_GATE_LINK = (
@@ -118,18 +118,20 @@ def links_of(kit: Path) -> dict[str, str]:
 
 def own_links_of(kit: Path, module: Path) -> dict[str, str]:
     """The links the module's fixture runner owes to the module's own packages, link inside the module ->
-    its package in the kit: each folder at the top of scripts/, itself no link, that holds an __init__.py,
-    whose name starts with neither . nor _, save the shared constitution_layer_kit, which links_of()
-    covers."""
+    its package in the kit: each folder at the top of plugin/scripts/, itself no link, that holds an
+    __init__.py, whose name starts with neither . nor _, save the shared constitution_layer_kit, which
+    links_of() covers. own_packages reads <folder>/scripts/, so it is given the module's plugin/ folder."""
     base = module.relative_to(kit).as_posix()
-    return {f"tests/{path.name}": f"{base}/scripts/{path.name}" for path in own_packages(module)}
+    return {
+        f"tests/{path.name}": f"{base}/plugin/scripts/{path.name}" for path in own_packages(module / "plugin")
+    }
 
 
 def imports_shared_code(module: Path) -> bool:
-    """A line of a .py file under the module's scripts/, at any depth, imports constitution_layer_kit. The
-    link scripts/constitution_layer_kit is not followed into the shared code, and a __pycache__ is not
-    read."""
-    scripts = module / "scripts"
+    """A line of a .py file under the module's plugin/scripts/, at any depth, imports
+    constitution_layer_kit. The link plugin/scripts/constitution_layer_kit is not followed into the shared
+    code, and a __pycache__ is not read."""
+    scripts = module / "plugin" / "scripts"
     for folder, directories, files in os.walk(scripts):
         directories[:] = [
             each
@@ -149,7 +151,7 @@ def uses_shared_code(module: Path, links: dict[str, str]) -> bool:
     """A module owes the links when it has a hook, when a script of it imports the shared code — a
     scan or a generator — or when it already has one of the links. A module of skills alone owes none."""
     return (
-        (module / "hooks" / "hooks.json").is_file()
+        (module / "plugin" / "hooks" / "hooks.json").is_file()
         or imports_shared_code(module)
         or any((module / link).is_symlink() for link in links)
     )
@@ -272,14 +274,19 @@ class Tally:
         print(f"[{'ok' if ok else 'FAIL'}] {text}")
 
 
+def module_of(link: Path) -> Path:
+    """The module folder of the gate package link modules/<m>/plugin/scripts/constitution_layer_kit."""
+    return link.parent.parent.parent
+
+
 def root_of(link: Path) -> Path:
-    return link.parent.parent.parent.parent
+    return module_of(link).parent.parent
 
 
 def add_module(root: Path, name: str) -> Path:
     module = root / "modules" / name
-    (module / "hooks").mkdir(parents=True)
-    (module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+    (module / "plugin" / "hooks").mkdir(parents=True)
+    (module / "plugin" / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
     (module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
     for link, source in links_of(root).items():
         (module / link).parent.mkdir(parents=True, exist_ok=True)
@@ -292,7 +299,7 @@ def fresh_kit(root: Path) -> Path:
     (root / "shared" / "tests").mkdir()
     for name in FLOOR:
         (root / "shared" / "tests" / name).write_text("", encoding="utf-8")
-    return add_module(root, "const-sample") / "scripts" / "constitution_layer_kit"
+    return add_module(root, "const-sample") / "plugin" / "scripts" / "constitution_layer_kit"
 
 
 def as_copy(link: Path) -> None:
@@ -301,25 +308,25 @@ def as_copy(link: Path) -> None:
 
 
 def as_package_copy(link: Path) -> None:
-    """scripts/constitution_layer_kit a real folder holding an __init__.py: a copy, and a package by its
-    look."""
+    """plugin/scripts/constitution_layer_kit a real folder holding an __init__.py: a copy, and a package
+    by its look."""
     as_copy(link)
     (link / "__init__.py").write_text("", encoding="utf-8")
 
 
 def as_text_file(link: Path) -> None:
     link.unlink()
-    link.write_text("../../../shared/constitution_layer_kit", encoding="utf-8")
+    link.write_text("../../../../shared/constitution_layer_kit", encoding="utf-8")
 
 
 def as_dangling(link: Path) -> None:
     link.unlink()
-    os.symlink("../../../shared/no_such_gate", link)
+    os.symlink("../../../../shared/no_such_gate", link)
 
 
 def as_elsewhere(link: Path) -> None:
     link.unlink()
-    os.symlink("../tests", link)
+    os.symlink("../../tests", link)
 
 
 def as_absolute(link: Path) -> None:
@@ -333,7 +340,7 @@ def as_missing(link: Path) -> None:
 
 
 def harness_as_copy(link: Path) -> None:
-    harness = link.parent.parent / "tests" / "harness.py"
+    harness = module_of(link) / "tests" / "harness.py"
     harness.unlink()
     harness.write_text("", encoding="utf-8")
 
@@ -356,23 +363,23 @@ def new_file_in_two_modules(link: Path) -> None:
 def new_file_as_copy(link: Path) -> None:
     """The wrong fix: a plain copy of the new file in the module's tests/."""
     new_shared(root_of(link))
-    (link.parent.parent / "tests" / "new.py").write_text("", encoding="utf-8")
+    (module_of(link) / "tests" / "new.py").write_text("", encoding="utf-8")
 
 
 def hookless(path: str, text: str | bytes, keep: str | None = None) -> Callable[[Path], None]:
-    """No hook; the links gone, bar the one kept; one script written at `path` under scripts/."""
+    """No hook; the links gone, bar the one kept; one script written at `path` under plugin/scripts/."""
 
     def damage(link: Path) -> None:
-        module = link.parent.parent
+        module = module_of(link)
         if keep == "new.py":  # a shared file the module alone links
             new_shared(root_of(link))
             os.symlink("../../../shared/tests/new.py", module / "tests" / "new.py")
-        (module / "hooks" / "hooks.json").unlink()
-        (module / "hooks").rmdir()
+        (module / "plugin" / "hooks" / "hooks.json").unlink()
+        (module / "plugin" / "hooks").rmdir()
         for each in links_of(root_of(link)):  # only the import or the kept link can make the module owe
             if each != f"tests/{keep}":
                 (module / each).unlink()
-        script = module / "scripts" / path
+        script = module / "plugin" / "scripts" / path
         script.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(text, bytes):
             script.write_bytes(text)
@@ -383,7 +390,7 @@ def hookless(path: str, text: str | bytes, keep: str | None = None) -> Callable[
 
 
 def beside_dangling_script(damage: Callable[[Path], None]) -> Callable[[Path], None]:
-    """The damage, then a script scripts/x.py that is a dangling symbolic link."""
+    """The damage, then a script plugin/scripts/x.py that is a dangling symbolic link."""
 
     def both(link: Path) -> None:
         damage(link)
@@ -395,8 +402,10 @@ def beside_dangling_script(damage: Callable[[Path], None]) -> Callable[[Path], N
 def hidden_folders(link: Path) -> None:
     """Folders of modules/ that start with . or _ and hold a hook, with no link: no module."""
     for name in (".wip", "_draft"):
-        (root_of(link) / "modules" / name / "hooks").mkdir(parents=True)
-        (root_of(link) / "modules" / name / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+        (root_of(link) / "modules" / name / "plugin" / "hooks").mkdir(parents=True)
+        (root_of(link) / "modules" / name / "plugin" / "hooks" / "hooks.json").write_text(
+            "{}", encoding="utf-8"
+        )
 
 
 def not_shared_files(link: Path) -> None:
@@ -412,8 +421,8 @@ def unlinked_module(name: str, document: bool = True) -> Callable[[Path], None]:
 
     def damage(link: Path) -> None:
         folder = root_of(link) / "modules" / name
-        (folder / "hooks").mkdir(parents=True)
-        (folder / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+        (folder / "plugin" / "hooks").mkdir(parents=True)
+        (folder / "plugin" / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
         if document:
             (folder / "MODULE.md").write_text("A module.\n", encoding="utf-8")
 
@@ -427,7 +436,7 @@ def plain_file(link: Path) -> None:
 
 def skills_only_without_document(link: Path) -> None:
     """A folder of skills alone, owing no link, with no MODULE.md."""
-    (root_of(link) / "modules" / "const-skills" / "skills").mkdir(parents=True)
+    (root_of(link) / "modules" / "const-skills" / "plugin" / "skills").mkdir(parents=True)
 
 
 def modules_gone(link: Path) -> None:
@@ -455,12 +464,12 @@ def tests_gone(link: Path) -> None:
 
 
 def own_package(name: str = "sample_gate", linked: str | None = None) -> Callable[[Path], None]:
-    """A package scripts/<name>/ of the module's own, its link in tests/ made to `linked` or none."""
+    """A package plugin/scripts/<name>/ of the module's own, its link in tests/ made to `linked` or none."""
 
     def damage(link: Path) -> None:
-        module = link.parent.parent
-        (module / "scripts" / name).mkdir()
-        (module / "scripts" / name / "__init__.py").write_text("", encoding="utf-8")
+        module = module_of(link)
+        (link.parent / name).mkdir()
+        (link.parent / name / "__init__.py").write_text("", encoding="utf-8")
         if linked is not None:
             os.symlink(linked, module / "tests" / name)
 
@@ -468,34 +477,36 @@ def own_package(name: str = "sample_gate", linked: str | None = None) -> Callabl
 
 
 def runner_gate_through_scripts(link: Path) -> None:
-    """tests/constitution_layer_kit made a link to ../scripts/constitution_layer_kit: it resolves to the
-    source, not straight."""
-    (link.parent.parent / "tests" / "constitution_layer_kit").unlink(missing_ok=True)
-    os.symlink("../scripts/constitution_layer_kit", link.parent.parent / "tests" / "constitution_layer_kit")
+    """tests/constitution_layer_kit made a link to ../plugin/scripts/constitution_layer_kit: it resolves to
+    the source, not straight."""
+    (module_of(link) / "tests" / "constitution_layer_kit").unlink(missing_ok=True)
+    os.symlink(
+        "../plugin/scripts/constitution_layer_kit", module_of(link) / "tests" / "constitution_layer_kit"
+    )
 
 
 def own_package_as_text(link: Path) -> None:
     """The module's own package, its link in tests/ a one-line text file, as a checkout without links."""
     own_package()(link)
-    (link.parent.parent / "tests" / "sample_gate").write_text("../scripts/sample_gate", encoding="utf-8")
+    (module_of(link) / "tests" / "sample_gate").write_text("../plugin/scripts/sample_gate", encoding="utf-8")
 
 
 def own_package_through_alias(link: Path) -> None:
-    """The module's own package reached from tests/ through a second link in scripts/."""
+    """The module's own package reached from tests/ through a second link in plugin/scripts/."""
     own_package()(link)
     os.symlink("sample_gate", link.parent / "alias")
-    os.symlink("../scripts/alias", link.parent.parent / "tests" / "sample_gate")
+    os.symlink("../plugin/scripts/alias", module_of(link) / "tests" / "sample_gate")
 
 
 def own_package_copied(link: Path) -> None:
     """The module's own package, copied into tests/ instead of linked."""
     own_package()(link)
-    shutil.copytree(link.parent / "sample_gate", link.parent.parent / "tests" / "sample_gate")
+    shutil.copytree(link.parent / "sample_gate", module_of(link) / "tests" / "sample_gate")
 
 
 def not_packages(link: Path) -> None:
-    """Folders of scripts/ that are no package of the module's own: no __init__.py, a `.` or `_` name, and
-    the shared constitution_layer_kit, a package through its link."""
+    """Folders of plugin/scripts/ that are no package of the module's own: no __init__.py, a `.` or `_`
+    name, and the shared constitution_layer_kit, a package through its link."""
     scripts = link.parent
     (scripts / "data").mkdir()
     (scripts / "data" / "x.py").write_text("", encoding="utf-8")
@@ -506,7 +517,7 @@ def not_packages(link: Path) -> None:
     shared_gate = root_of(link) / "shared" / "constitution_layer_kit"
     (shared_gate / "__init__.py").write_text(
         "", encoding="utf-8"
-    )  # scripts/constitution_layer_kit, a package
+    )  # plugin/scripts/constitution_layer_kit, a package
     (scripts / "linked_gate").symlink_to(shared_gate)  # a link to a package, no package of its own
 
 
@@ -529,18 +540,18 @@ def wrong_cases() -> dict[str, tuple[Callable[[Path], None], int]]:
     return {  # the damage, and the findings it earns
         "a missing link": (as_missing, 1),
         "the runner's gate package link missing": (
-            lambda link: (link.parent.parent / "tests/constitution_layer_kit").unlink(missing_ok=True),
+            lambda link: (module_of(link) / "tests/constitution_layer_kit").unlink(missing_ok=True),
             1,
         ),
         "the module's own package with no link in tests/": (own_package(), 1),
-        "the runner's gate package linked through scripts/constitution_layer_kit": (
+        "the runner's gate package linked through plugin/scripts/constitution_layer_kit": (
             runner_gate_through_scripts,
             1,
         ),
         "the module's own package copied into tests/": (own_package_copied, 1),
         "the module's own package linked through another link": (own_package_through_alias, 1),
         "the module's own package's link left a plain file in tests/": (own_package_as_text, 1),
-        "the module's own package's link dangling": (own_package(linked="../scripts/no_such_gate"), 1),
+        "the module's own package's link dangling": (own_package(linked="../plugin/scripts/no_such_gate"), 1),
         "the module's own package linked to the shared gate package": (
             own_package(linked="../../../shared/constitution_layer_kit"),
             1,
@@ -554,21 +565,21 @@ def wrong_cases() -> dict[str, tuple[Callable[[Path], None], int]]:
             hookless("generate.py", "from constitution_layer_kit import cli\n"),
             OWED,
         ),
-        "a hookless module importing the shared code in scripts/lib/, its links missing": (
+        "a hookless module importing the shared code in plugin/scripts/lib/, its links missing": (
             hookless("lib/gen.py", "from constitution_layer_kit import cli\n"),
             OWED,
         ),
-        "a hookless module with `import constitution_layer_kit` in scripts/x.py, its links missing": (
+        "a hookless module with `import constitution_layer_kit` in plugin/scripts/x.py, its links missing": (
             hookless("x.py", "import constitution_layer_kit\n"),
             OWED,
         ),
-        "a hookless module importing the shared code in scripts/lib/constitution_layer_kit/, its links"
-        " missing": (
+        "a hookless module importing the shared code in plugin/scripts/lib/constitution_layer_kit/, its"
+        " links missing": (
             hookless("lib/constitution_layer_kit/x.py", "from constitution_layer_kit import cli\n"),
-            # only the folder scripts/constitution_layer_kit at the top is the link; a nested one is read
+            # only the folder at the top of plugin/scripts/ is the link; a nested one is read
             OWED,
         ),
-        "a hookless module with a dangling scripts/x.py beside a script importing the shared code": (
+        "a hookless module with a dangling plugin/scripts/x.py beside a script importing the shared code": (
             beside_dangling_script(hookless("y.py", "import constitution_layer_kit\n")),
             OWED,
         ),
@@ -635,9 +646,20 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
             ("modules/const-sample/tests/new.py is a plain file, not a link to shared/tests/new.py",),
         ),
         "the module's own package, linked from tests/, taught and counted": (
-            own_package(linked="../scripts/sample_gate"),
+            own_package(linked="../plugin/scripts/sample_gate"),
             EXIT_GREEN,
             ("GREEN:", "7 link(s) in 1 module(s) examined"),
+        ),
+        "the gate package link missing in plugin/scripts/, taught with its ln -s": (
+            as_missing,
+            EXIT_RED,
+            (
+                "RED: modules/const-sample/plugin/scripts/constitution_layer_kit is missing",
+                f"why: {WHY}",
+                "fix: from modules/const-sample/plugin/scripts/ run:"
+                " ln -s ../../../../shared/constitution_layer_kit constitution_layer_kit",
+                "RED: 1 finding(s) — 6 link(s) in 1 module(s) examined",
+            ),
         ),
         "the module's own package missing in tests/, taught with its ln -s": (
             own_package(),
@@ -645,11 +667,11 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
             (
                 "RED: modules/const-sample/tests/sample_gate is missing",
                 f"why: {OWN_WHY}",
-                "fix: from modules/const-sample/tests/ run: ln -s ../scripts/sample_gate sample_gate",
+                "fix: from modules/const-sample/tests/ run: ln -s ../plugin/scripts/sample_gate sample_gate",
                 "RED: 1 finding(s) — 7 link(s) in 1 module(s) examined",
             ),
         ),
-        "folders of scripts/ that are no package of the module's own owe nothing": (
+        "folders of plugin/scripts/ that are no package of the module's own owe nothing": (
             not_packages,
             EXIT_GREEN,
             ("GREEN:", "6 link(s) in 1 module(s) examined"),
@@ -699,12 +721,12 @@ def reads_cases() -> dict[str, tuple[Callable[[Path], None], int, tuple[str, ...
             EXIT_GREEN,
             ("GREEN:", "0 link(s) in 0 module(s) examined"),
         ),
-        "a dangling scripts/x.py alone owes nothing": (
+        "a dangling plugin/scripts/x.py alone owes nothing": (
             beside_dangling_script(hookless("empty.txt", "")),
             EXIT_GREEN,
             ("GREEN:", "0 link(s) in 0 module(s) examined"),
         ),
-        "an import inside a folder scripts/constitution_layer_kit of its own is not read": (
+        "an import inside a folder plugin/scripts/constitution_layer_kit of its own is not read": (
             hookless("constitution_layer_kit/x.py", "from constitution_layer_kit import cli\n"),
             EXIT_GREEN,
             ("GREEN:", "0 link(s) in 0 module(s) examined"),
@@ -805,12 +827,12 @@ def judge_order(tally: Tally) -> None:
         fresh_kit(root)
         shutil.rmtree(root / "modules" / "const-sample")
         for module in ("const-a", "const-b"):
-            (root / "modules" / module / "hooks").mkdir(parents=True)
-            (root / "modules" / module / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
+            (root / "modules" / module / "plugin" / "hooks").mkdir(parents=True)
+            (root / "modules" / module / "plugin" / "hooks" / "hooks.json").write_text("{}", encoding="utf-8")
             (root / "modules" / module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
             for package in ("a_gate", "b_gate"):
-                (root / "modules" / module / "scripts" / package).mkdir(parents=True)
-                (root / "modules" / module / "scripts" / package / "__init__.py").write_text(
+                (root / "modules" / module / "plugin" / "scripts" / package).mkdir(parents=True)
+                (root / "modules" / module / "plugin" / "scripts" / package / "__init__.py").write_text(
                     "", encoding="utf-8"
                 )
         out = io.StringIO()
@@ -822,7 +844,7 @@ def judge_order(tally: Tally) -> None:
         f"RED: modules/{module}/{link} is missing"
         for module in ("const-a", "const-b")
         for link in (
-            "scripts/constitution_layer_kit",
+            "plugin/scripts/constitution_layer_kit",
             "tests/constitution_layer_kit",
             "tests/acceptance.py",
             "tests/consumer.py",
@@ -835,7 +857,7 @@ def judge_order(tally: Tally) -> None:
     ok = code_after == EXIT_RED and heads == expected
     tally.judge(
         ok,
-        "findings by module, the gate package in scripts/ then in tests/,"
+        "findings by module, the gate package in plugin/scripts/ then in tests/,"
         " the shared files by name, then the module's own packages by name",
     )
 

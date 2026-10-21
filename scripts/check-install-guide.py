@@ -81,8 +81,8 @@ Beside every block's exit 0, the check holds at each name:
                marketplace from GitHub alone, so the run cannot put a change where it looks; the guide
                states it as an observed platform fact.
   reinstall    every module is listed as the install claim has it, and its cached copy holds the
-               same files as the module in the marketplace's `installLocation`, read through its
-               links, byte for byte: the install copied what the marketplace holds.
+               same files as the module's `plugin/` folder in the marketplace's `installLocation`, read
+               through its links, byte for byte: the install copied what the marketplace holds.
   uninstall    no module is enabled in the project's settings or listed by `claude plugin list --json`
                with the project as its `projectPath`, at any scope.
 The first finding of the run ends it, since every later block builds on the one before. A finding
@@ -555,15 +555,16 @@ def last_line(said: str) -> str:
 def modules_of(kit: Path) -> dict[str, str]:
     """Each module of the kit with its manifest version, the folders those of the kit's one listing,
     `kit_module_doc.module_folders`: a plain file there is none, a name without `const-` is one, a
-    folder without its MODULE.md, and a tree with no modules/, are BROKEN; so is a manifest that cannot be
-    read, is no JSON object, has no `version`, or whose `version` is no string or number."""
+    folder without its MODULE.md, and a tree with no modules/, are BROKEN; so is a manifest, read in the
+    module's `plugin/` folder, that cannot be read, is no JSON object, has no `version`, or whose `version`
+    is no string or number."""
     found: dict[str, str] = {}
     try:
         folders = module_folders(kit)
     except DocumentError as bad:
         raise Broken(str(bad)) from bad
     for folder in folders:
-        manifest = folder / ".claude-plugin" / "plugin.json"
+        manifest = folder / "plugin" / ".claude-plugin" / "plugin.json"
         try:
             data = json.loads(manifest.read_text(encoding="utf-8"))
         except (OSError, ValueError) as bad:
@@ -981,10 +982,11 @@ def cached_copies(state: Run, project: Path) -> tuple[dict[str, Path], str]:
 
 
 def claim_alike(state: Run, copies: dict[str, Path]) -> str:
-    """What fails of the claim that each cached module is alike in the marketplace."""
+    """What fails of the claim that each cached module is alike in the marketplace: the copy is the
+    module's `plugin/` folder, the one the marketplace's source names, so it is read against that folder."""
     clone = state.clone or platform_clone(state)
     for module in state.modules:
-        odd = differing(copies[module], clone / "modules" / module)
+        odd = differing(copies[module], clone / "modules" / module / "plugin")
         if odd:
             return f"{module}'s {odd} is not alike in the cache and the marketplace"
     return ""
@@ -1444,7 +1446,7 @@ def save(path, data):
 def state():
     return {"marketplaces": [], "plugins": []} | load(store)
 def cache_of(module):
-    manifest = clone / "modules" / module / ".claude-plugin" / "plugin.json"
+    manifest = clone / "modules" / module / "plugin" / ".claude-plugin" / "plugin.json"
     return copies / module / json.loads(manifest.read_text())["version"]
 def reply(variable):
     if variable in os.environ:
@@ -1565,11 +1567,11 @@ elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
     cache = cache_of(module)
     if cache.exists():
         shutil.rmtree(cache)
-    shutil.copytree(clone / "modules" / module, cache)
+    shutil.copytree(clone / "modules" / module / "plugin", cache)
     if mutant == "reinstall-stale" and (config / "fake.reinstall").exists():
         (cache / "stale.txt").write_text("an old copy\\n")
     if mutant == "reinstall-lacks" and (config / "fake.reinstall").exists():
-        (cache / "MODULE.md").unlink()
+        (cache / ".claude-plugin" / "plugin.json").unlink()
     entry = {
         "id": args[2], "version": cache.name, "scope": "project", "enabled": True,
         "installPath": str(cache), "projectPath": str(Path.cwd()),
@@ -1581,7 +1583,7 @@ elif args[:2] == ["plugin", "install"] or args[:2] == ["plugin", "update"]:
     if mutant == "install-for-other-project":
         entry["projectPath"] = "/elsewhere/project"
     if mutant == "install-in-place":
-        entry["installPath"] = str(clone / "modules" / module)
+        entry["installPath"] = str(clone / "modules" / module / "plugin")
     if mutant == "install-other-version":
         entry["installPath"] = str(copies / module / "0.0.0")
         Path(entry["installPath"]).mkdir(parents=True, exist_ok=True)
@@ -1622,7 +1624,8 @@ elif args[:1] == ["-p"]:
     if trusted.get("hasTrustDialogAccepted"):
         for key, on in load(settings).get("enabledPlugins", {}).items():
             module = key.split("@")[0]
-            where = clone / "modules" / module if mutant == "session-in-place" else cache_of(module)
+            in_place = clone / "modules" / module / "plugin"
+            where = in_place if mutant == "session-in-place" else cache_of(module)
             if on and mutant != "session-loads-nothing":
                 found.append({"name": module, "path": str(where), "source": key})
     event = {"type": "system", "subtype": "init", "plugins": found}
@@ -1732,9 +1735,9 @@ def toy_kit(root: Path, market: dict[str, object] | None = None) -> Path:
     (kit / "shared" / "gate").mkdir(parents=True)
     (kit / "shared" / "gate" / "code.py").write_text("x = 1\n", encoding="utf-8")
     for module in ("const-alpha", "const-beta"):
-        (kit / "modules" / module / "scripts").mkdir(parents=True)
-        (kit / "modules" / module / "scripts" / "gate").symlink_to("../../../shared/gate")
-        manifest = kit / "modules" / module / ".claude-plugin"
+        (kit / "modules" / module / "plugin" / "scripts").mkdir(parents=True)
+        (kit / "modules" / module / "plugin" / "scripts" / "gate").symlink_to("../../../../shared/gate")
+        manifest = kit / "modules" / module / "plugin" / ".claude-plugin"
         manifest.mkdir(parents=True)
         (kit / "modules" / module / "MODULE.md").write_text("A module.\n", encoding="utf-8")
         (manifest / "plugin.json").write_text(
@@ -2170,9 +2173,9 @@ def copies_placed(unit: Unit) -> Copies:
     wanted_clone, other_clone = unit.folder / "clone", unit.folder / "other-clone"
     for module in ("const-alpha", "const-beta"):
         for folder, text in (
-            (wanted_clone / "modules" / module, "same\n"),
+            (wanted_clone / "modules" / module / "plugin", "same\n"),
             (unit.held_copy(module), "same\n"),
-            (other_clone / "modules" / module, "odd\n"),
+            (other_clone / "modules" / module / "plugin", "odd\n"),
         ):
             folder.mkdir(parents=True)
             (folder / "a.txt").write_text(text, encoding="utf-8")
@@ -2381,8 +2384,8 @@ class SelfTestRun:
             root = listings.next_folder("tree")
             (root / "modules").mkdir(parents=True)
             for folder in folders:
-                (root / "modules" / folder / ".claude-plugin").mkdir(parents=True)
-                manifest = root / "modules" / folder / ".claude-plugin" / "plugin.json"
+                (root / "modules" / folder / "plugin" / ".claude-plugin").mkdir(parents=True)
+                manifest = root / "modules" / folder / "plugin" / ".claude-plugin" / "plugin.json"
                 manifest.write_text(json.dumps({"version": "1.0"}), encoding="utf-8")
                 if documents:
                     (root / "modules" / folder / "MODULE.md").write_text("A module.\n", encoding="utf-8")
@@ -2429,7 +2432,7 @@ class SelfTestRun:
             said,
         )
         versionless = tree("const-a")
-        (versionless / "modules" / "const-a" / ".claude-plugin" / "plugin.json").write_text(
+        (versionless / "modules" / "const-a" / "plugin" / ".claude-plugin" / "plugin.json").write_text(
             "{}", encoding="utf-8"
         )
         said = broken_said(versionless)
@@ -2445,7 +2448,7 @@ class SelfTestRun:
             ("null", "null", "NoneType"),
         ):
             odd = tree("const-a")
-            odd_manifest = odd / "modules" / "const-a" / ".claude-plugin" / "plugin.json"
+            odd_manifest = odd / "modules" / "const-a" / "plugin" / ".claude-plugin" / "plugin.json"
             odd_manifest.write_text(manifest_text, encoding="utf-8")
             said = broken_said(odd)
             self.case(
@@ -2461,7 +2464,7 @@ class SelfTestRun:
             ("true", '{"version": true}', "bool"),
         ):
             odd = tree("const-a")
-            odd_manifest = odd / "modules" / "const-a" / ".claude-plugin" / "plugin.json"
+            odd_manifest = odd / "modules" / "const-a" / "plugin" / ".claude-plugin" / "plugin.json"
             odd_manifest.write_text(manifest_text, encoding="utf-8")
             said = broken_said(odd)
             self.case(
@@ -2476,7 +2479,7 @@ class SelfTestRun:
             ("a float", '{"version": 1.5}', "1.5"),
         ):
             fine = tree("const-a")
-            (fine / "modules" / "const-a" / ".claude-plugin" / "plugin.json").write_text(
+            (fine / "modules" / "const-a" / "plugin" / ".claude-plugin" / "plugin.json").write_text(
                 manifest_text, encoding="utf-8"
             )
             read_back = modules_of(fine)
@@ -3404,7 +3407,10 @@ class SelfTestRun:
         not_module = alpha_cache.parent  # the module's folder, without its version
         under = alpha_cache / "sub"
         for name, place in (
-            ("in the marketplace's clone, in place", copies.wanted_clone / "modules" / "const-alpha"),
+            (
+                "in the marketplace's clone, in place",
+                copies.wanted_clone / "modules" / "const-alpha" / "plugin",
+            ),
             ("in the right cache at another version", outside),
             ("in another marketplace's cache", other_market),
             ("at the module's folder, without its version", not_module),
@@ -3572,8 +3578,8 @@ class SelfTestRun:
                 "a reinstall copy that lacks a file of the marketplace red",
                 {},
                 "reinstall-lacks",
-                "after check=reinstall: const-alpha's MODULE.md is not alike in the cache and the "
-                "marketplace",
+                "after check=reinstall: const-alpha's .claude-plugin/plugin.json is not alike in the cache "
+                "and the marketplace",
             ),
             (
                 "an uninstall that keeps the plugin red",
@@ -4264,25 +4270,25 @@ class SelfTestRun:
             (
                 "a list",
                 "[]",
-                "/modules/const-alpha/.claude-plugin/plugin.json is no JSON object, it holds a list"
+                "/modules/const-alpha/plugin/.claude-plugin/plugin.json is no JSON object, it holds a list"
                 " — fix: restore it as a JSON object",
             ),
             (
                 "a string",
                 '"const-alpha"',
-                "/modules/const-alpha/.claude-plugin/plugin.json is no JSON object, it holds a str"
+                "/modules/const-alpha/plugin/.claude-plugin/plugin.json is no JSON object, it holds a str"
                 " — fix: restore it as a JSON object",
             ),
             (
                 "an object with no version",
                 "{}",
-                "/modules/const-alpha/.claude-plugin/plugin.json gives no version ('version')"
+                "/modules/const-alpha/plugin/.claude-plugin/plugin.json gives no version ('version')"
                 " — fix: restore the module's manifest",
             ),
         ):
             odd_kit = toy_kit(toy.root / f"manifest-{shape.replace(' ', '-')}")
             (odd_kit / GUIDE).write_text(toy_guide(), encoding="utf-8")
-            (odd_kit / "modules" / "const-alpha" / ".claude-plugin" / "plugin.json").write_text(
+            (odd_kit / "modules" / "const-alpha" / "plugin" / ".claude-plugin" / "plugin.json").write_text(
                 manifest_text, encoding="utf-8"
             )
             run(["git", "add", "-A"], odd_kit, toy.git)

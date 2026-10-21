@@ -34,16 +34,17 @@ from styling_gate import messages, start
 from styling_gate.model import Hit, Signature
 from test_shared_items import PatternDial, Subject
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
+PLUGIN_ROOT = SCRIPTS.parent
+MODULE_ROOT = PLUGIN_ROOT.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-style.sh", "check-style.py", start.GATE.namespace, scan_only=True)
 NAMESPACE = start.GATE.namespace
 SIGNATURES = len(Signature)
-GUIDE = MODULE_ROOT / "skills" / "style-defaults" / "style-guide.md"
-SKILL = MODULE_ROOT / "skills" / "style-defaults" / "SKILL.md"
+GUIDE = PLUGIN_ROOT / "skills" / "style-defaults" / "style-guide.md"
+SKILL = PLUGIN_ROOT / "skills" / "style-defaults" / "SKILL.md"
 
 
 # the line a red ends with (F10), typed by hand
@@ -879,8 +880,8 @@ def test_t17() -> None:
 def test_t18() -> None:
     """The manifest names the plugin; the install note's calibration example is accepted as it stands and
     describes the twelve keys."""
-    texts = {"INSTALL.md": (MODULE_ROOT / "INSTALL.md").read_text(encoding="utf-8")}
-    manifest = json.loads((MODULE_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    texts = {"INSTALL.md": (PLUGIN_ROOT / "INSTALL.md").read_text(encoding="utf-8")}
+    manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     manifest_ok = manifest["name"] == NAMESPACE and manifest["version"].startswith("0.0.")
     example = re.search(r"```yaml\n((?:.*\n)*?)[ ]*```", texts["INSTALL.md"])
     example_ok = False
@@ -930,7 +931,7 @@ def test_t20() -> None:
         "C2",
         H.run_gate("", args, env={"PYTHONPATH": str(shadow)}),
         "BROKEN: const-styling needs PyYAML — fix: run: python3 -m pip install -r"
-        f" '{MODULE_ROOT / 'requirements.txt'}' — {CLOSING}",
+        f" '{PLUGIN_ROOT / 'requirements.txt'}' — {CLOSING}",
     )
     lowered = (  # the entry file run as an interpreter of 3.11 would run it
         "import sys; sys.version_info = (3, 11, 0); path = sys.argv[1]; "
@@ -986,7 +987,7 @@ def test_skill_pointer() -> None:
     if not stated or int(stated.group(1)) != size:
         pytest.fail(f"the module document states another size than {size}")
     named = re.search(r"load the skill (const-styling):([a-z-]+)\.$", POINTER)
-    if not named or not (MODULE_ROOT / "skills" / named.group(2) / "SKILL.md").is_file():
+    if not named or not (PLUGIN_ROOT / "skills" / named.group(2) / "SKILL.md").is_file():
         pytest.fail("the qualified skill name in the line names no folder under skills/")
 
 
@@ -995,7 +996,7 @@ def test_hooks_file() -> None:
     """The hooks file holds the two advisory handlers and nothing else: SessionStart and SubagentStart,
     each without a matcher, exec form sh, the script in args (the second with --subagent), an integer
     timeout, the script present."""
-    hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    hooks = json.loads((PLUGIN_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
     pointer = "${CLAUDE_PLUGIN_ROOT}/scripts/print-skill-pointer.sh"
     wanted = {"SessionStart": [pointer], "SubagentStart": [pointer, "--subagent"]}
     problems = [name for name in wanted if name not in hooks] + [name for name in hooks if name not in wanted]

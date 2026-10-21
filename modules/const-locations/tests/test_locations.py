@@ -33,7 +33,7 @@ from locations_gate.dials import KEYS
 from locations_gate.model import ActKey
 from test_shared_items import Subject
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
 
 identity.declare(start.GENERATOR)  # the expected messages are built by the same functions the generator uses
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)

@@ -21,7 +21,9 @@ token from `claude setup-token`, and must be readable by its owner alone, which 
 asks docker for the image. For each module, in turn:
   1. its eval files (`kit_evals.eval_files`) and the image's Dockerfile must all be committed
      (`kit_evals.dirty`), else the module is refused with the fix, so that the receipt names what CI checks;
-  2. its eval files are copied, links followed, into a temporary folder, the plugin the run loads;
+  2. its eval files are copied, links followed, into a temporary folder, a copy of the module's
+     eval files: its cases, and its `plugin/` save `INSTALL.md`, the plugin the cases load through their
+     `plugins:` line;
   3. one container per case: its guard unsets the variables that would bill by usage (ANTHROPIC_API_KEY,
      ANTHROPIC_AUTH_TOKEN, CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_USE_VERTEX, CLAUDE_CODE_USE_FOUNDRY), refuses
      to go on unless `claude --version` is the pinned version and `claude auth status` reports a
@@ -914,8 +916,8 @@ def self_test() -> int:
             code == EXIT_BROKEN and "--token-file" in printed.getvalue(),
         )
         kit = Path(tmp) / "kit"
-        (kit / "modules/const-x/skills/s").mkdir(parents=True)
-        (kit / "modules/const-x/skills/s/SKILL.md").write_text("skill\n", encoding="utf-8")
+        (kit / "modules/const-x/plugin/skills/s").mkdir(parents=True)
+        (kit / "modules/const-x/plugin/skills/s/SKILL.md").write_text("skill\n", encoding="utf-8")
         quiet = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "PATH": os.environ["PATH"]}
         for git_args in (
             ["init", "-q"],
@@ -923,17 +925,17 @@ def self_test() -> int:
             ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "x"],
         ):
             subprocess.run(["git", *git_args], cwd=kit, env=quiet, capture_output=True, check=True)
-        skill = kit / "modules/const-x/skills/s"
+        skill = kit / "modules/const-x/plugin/skills/s"
         (skill / "SKILL.md").rename(skill / "OTHER.md")  # a rename in the working tree, ` R` in porcelain
         subprocess.run(
-            ["git", "add", "-N", "modules/const-x/skills/s/OTHER.md"],
+            ["git", "add", "-N", "modules/const-x/plugin/skills/s/OTHER.md"],
             cwd=kit, env=quiet, capture_output=True, check=True,
         )  # fmt: skip
         with mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}):
             case(
                 "a rename not committed, marked in the working tree's column, names its new path and no"
                 " fragment of its source",
-                dirty(kit, "const-x") == ["modules/const-x/skills/s/OTHER.md"],
+                dirty(kit, "const-x") == ["modules/const-x/plugin/skills/s/OTHER.md"],
             )
             image = kit / "scripts/eval-container/Dockerfile"
             image.parent.mkdir(parents=True)

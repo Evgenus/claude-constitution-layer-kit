@@ -10,7 +10,7 @@ on every pull request and on main, and the job `gates`, after its verdict, runs 
 files of every module job (decision dec-0089-module-coverage-report). Mutation score is no metric of
 this report: it stays a work item of its own, pending at step 9 of the rollout plan.
 
-The measured code is the module's own Python under modules/<module>/scripts (`own`) and the shared
+The measured code is the module's own Python under modules/<module>/plugin/scripts (`own`) and the shared
 constitution_layer_kit it links, read at shared/constitution_layer_kit (`shared`). Per module, the JSON keys
 as written:
   own_lines, own_lines_covered        the statements of the module's own Python, and those run;
@@ -140,7 +140,7 @@ def read(path: Path) -> tuple[str, Module]:
         data = json.loads(path.read_text(encoding="utf-8"))
         name = str(data["module"])
         module = Module(runner_exit=int(data["runner_exit"]), seconds=int(data["seconds"]))
-        own = f"modules/{name}/scripts/"
+        own = f"modules/{name}/plugin/scripts/"
         for file, one in data["files"].items():
             if file.startswith(own):
                 module.own.add(file, one)

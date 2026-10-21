@@ -33,7 +33,7 @@ The message gives you the module, the branch, the scratch directory, the reposit
 and the runs — each a handle, a prompt, the flags, and the observations wanted. The recipe:
 
 ```bash
-claude -p "<prompt>" --plugin-dir <kit>/modules/<module> --setting-sources project \
+claude -p "<prompt>" --plugin-dir <kit>/modules/<module>/plugin --setting-sources project \
   --permission-mode acceptEdits --allowedTools "<the list given>" \
   --output-format stream-json --verbose --include-hook-events > <scratch>/<handle>.jsonl
 ```

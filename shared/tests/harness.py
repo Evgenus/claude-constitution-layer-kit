@@ -10,8 +10,8 @@ one that always answers the same. The other items, with no failing half (an exit
 property, a count, a log line), are plain tests; `acceptance` holds the checks that assert.
 
 The tests that import this file reach the shared package and the module's own packages through
-links in their own folder, which pytest puts first on the import path: no Python file a module
-ships edits the import path of its own process, the tests included.
+links in their own folder, which pytest puts first on the import path: no Python file of a
+module edits the import path of its own process, the tests included.
 """
 
 from __future__ import annotations

@@ -169,9 +169,9 @@ def make_kit(tmp: Path) -> Path:
     files = {
         "modules/const-x/MODULE.md": "# const-x\n",
         "modules/const-x/README.md": "# const-x\n",
-        "modules/const-x/INSTALL.md": "# install\n",
-        "modules/const-x/skills/s/SKILL.md": "skill\n",
-        "modules/const-x/scripts/start.sh": "echo rule\n",
+        "modules/const-x/plugin/INSTALL.md": "# install\n",
+        "modules/const-x/plugin/skills/s/SKILL.md": "skill\n",
+        "modules/const-x/plugin/scripts/start.sh": "echo rule\n",
         "modules/const-x/tests/test_x.py": "pass\n",
         "modules/const-x/evals/load/case.yaml": "name: load\n",
         "shared/constitution_layer_kit/core.py": "x = 1\n",
@@ -183,8 +183,8 @@ def make_kit(tmp: Path) -> Path:
     for name, text in files.items():
         (root / name).parent.mkdir(parents=True, exist_ok=True)
         (root / name).write_text(text, encoding="utf-8")
-    (root / "modules/const-x/scripts/constitution_layer_kit").symlink_to(
-        "../../../shared/constitution_layer_kit"
+    (root / "modules/const-x/plugin/scripts/constitution_layer_kit").symlink_to(
+        "../../../../shared/constitution_layer_kit"
     )
     (root / "modules/const-x/evals/results").mkdir(parents=True)
     (root / "modules/const-x/evals/results/r.json").write_text("{}\n", encoding="utf-8")
@@ -234,7 +234,7 @@ def extra_entry(root: Path) -> None:
 
 def link_out(outside: Path) -> Act:
     def act(root: Path) -> None:
-        link = root / "modules/const-x/scripts/constitution_layer_kit"
+        link = root / "modules/const-x/plugin/scripts/constitution_layer_kit"
         link.unlink()
         link.symlink_to(outside)
 
@@ -245,9 +245,9 @@ def self_test() -> int:
     """Red→green on throwaway kits, one per case."""
     failing = (Attempt("2026-10-16T00:00:00Z", 1, 1, 1.0), Attempt("2026-10-16T01:00:00Z", 2, 1, 0.5))
     cases: dict[str, tuple[Act, list[str]]] = {
-        "a current receipt is green": (edit("modules/const-x/scripts/start.sh", "echo rule\n"), []),
-        "an edited skill is a finding": (edit("modules/const-x/skills/s/SKILL.md"), ["const-x"]),
-        "an edited script is a finding": (edit("modules/const-x/scripts/start.sh"), ["const-x"]),
+        "a current receipt is green": (edit("modules/const-x/plugin/scripts/start.sh", "echo rule\n"), []),
+        "an edited skill is a finding": (edit("modules/const-x/plugin/skills/s/SKILL.md"), ["const-x"]),
+        "an edited script is a finding": (edit("modules/const-x/plugin/scripts/start.sh"), ["const-x"]),
         "an edited file behind a link is a finding": (
             edit("shared/constitution_layer_kit/core.py"),
             ["const-x"],
@@ -257,7 +257,7 @@ def self_test() -> int:
         "an edited MODULE.md is green": (edit("modules/const-x/MODULE.md"), []),
         "an edited test is green": (edit("modules/const-x/tests/test_x.py"), []),
         "an edited README.md is green": (edit("modules/const-x/README.md"), []),
-        "an edited INSTALL.md is green": (edit("modules/const-x/INSTALL.md"), []),
+        "an edited INSTALL.md is green": (edit("modules/const-x/plugin/INSTALL.md"), []),
         "an edited result, tracked, is green": (edit("modules/const-x/evals/results/r.json", "[]\n"), []),
         "a missing entry is a finding": (no_entry, ["const-x"]),
         "an entry for no module is a finding": (extra_entry, ["const-y"]),

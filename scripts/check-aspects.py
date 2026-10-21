@@ -646,16 +646,18 @@ def kind_of(cell: str) -> str | None:
 def module_version(directory: Path) -> str:
     """The version a module's manifest holds; Broken when the manifest is unreadable or no JSON object."""
     name = directory.name
-    manifest = directory / ".claude-plugin" / "plugin.json"
+    manifest = directory / "plugin" / ".claude-plugin" / "plugin.json"
     try:
         data = json.loads(manifest.read_text(encoding="utf-8"))
     except (OSError, ValueError) as bad:
         raise Broken(
-            f"modules/{name}/.claude-plugin/plugin.json cannot be read ({bad}) — fix: restore the manifest"
+            f"modules/{name}/plugin/.claude-plugin/plugin.json cannot be read ({bad}) — fix: restore the"
+            " manifest"
         ) from bad
     if not isinstance(data, dict):
         raise Broken(
-            f"modules/{name}/.claude-plugin/plugin.json is no JSON object, it holds a {type(data).__name__}"
+            f"modules/{name}/plugin/.claude-plugin/plugin.json is no JSON object, it holds a"
+            f" {type(data).__name__}"
             " — fix: restore it as a JSON object"
         )
     return str(data.get("version", "?"))
@@ -1520,8 +1522,8 @@ def build(
     (root / "docs").mkdir(parents=True, exist_ok=True)
     (root / SPEC).write_text(matrix, encoding="utf-8")
     module = root / "modules" / "const-sample"
-    (module / ".claude-plugin").mkdir(parents=True, exist_ok=True)
-    (module / ".claude-plugin" / "plugin.json").write_text(
+    (module / "plugin" / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+    (module / "plugin" / ".claude-plugin" / "plugin.json").write_text(
         '{"name": "const-sample", "version": "0.0.1"}\n', encoding="utf-8"
     )
     text = module_text(table) if rows is None else module_text(table, rows)
@@ -2158,7 +2160,8 @@ ACCEPTANCE_TESTS = (
     "from acceptance import check_case, item\nfrom constitution_layer_kit.model import Finding\n"
     "from harness import Case, Harness, Write\n\n\n"
     "class Key(StrEnum):\n    X1 = 'X1'\n\n\n"
-    "H = Harness(Path(__file__).resolve().parent.parent / 'scripts', 'gate.sh', 'gate.py', 'const-sample')\n"
+    "H = Harness(Path(__file__).resolve().parent.parent / 'plugin' / 'scripts',\n"
+    "            'gate.sh', 'gate.py', 'const-sample')\n"
     "CASE = Case(1, 'a red text', Write('doc.md', 'RED-TEXT\\n'), Write('doc.md', 'fine\\n'),\n"
     "            Finding(Key.X1, 'doc.md: a red text', 'a fixture', 'take it out'),\n"
     "            'a covered document')\n\n\n"
@@ -2170,8 +2173,9 @@ ACCEPTANCE_TESTS = (
 def acceptance_tree(root: Path, mode: str, extra: str = "") -> Path:
     """A throwaway module whose tests use the kit's own shared test files, linked: the fake gate in
     `mode`, one red→green case, and `extra` appended to its test file. The tests folder."""
-    scripts = root / "modules" / "const-sample" / "scripts"
-    tests = scripts.parent / "tests"
+    module = root / "modules" / "const-sample"
+    scripts = module / "plugin" / "scripts"
+    tests = module / "tests"
     scripts.mkdir(parents=True)
     tests.mkdir()
     (scripts / "gate.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
@@ -2348,7 +2352,7 @@ def sample_tests(
     tests = root / "modules" / module / "tests"
     (tests / "conftest.py").write_text(conftest, encoding="utf-8")
     body = "import subprocess\nfrom pathlib import Path\n\nfrom acceptance import item\n\n"
-    body += "ENTRY = Path(__file__).resolve().parent.parent / 'scripts' / 'entry.sh'\n"
+    body += "ENTRY = Path(__file__).resolve().parent.parent / 'plugin' / 'scripts' / 'entry.sh'\n"
     seen: set[int] = set()
     for index, (number, title) in enumerate(named):
         name = f"test_{number}" if number not in seen else f"test_{number}_{index}"
@@ -2362,8 +2366,9 @@ def sample_tests(
 def sample_module(root: Path, module: str = "const-sample") -> None:
     """The sample module's scripts and tests: a gate one item runs and a file no item runs, the kit's own
     shared test files linked, and the items of SAMPLE_ITEMS, each green."""
-    tests = root / "modules" / module / "tests"
-    scripts = tests.parent / "scripts"
+    folder = root / "modules" / module
+    tests = folder / "tests"
+    scripts = folder / "plugin" / "scripts"
     scripts.mkdir(parents=True, exist_ok=True)
     tests.mkdir(exist_ok=True)
     (scripts / "entry.sh").write_text('exec python3 "$(dirname "$0")/gate.py"\n', encoding="utf-8")
@@ -2589,8 +2594,8 @@ def case_pytest_runs(tally: Tally) -> None:
                 json.loads(written.read_text(encoding="utf-8")) if written.is_file() else {}
             )
         files = measured.get("files", {})
-        gate_file = files.get("modules/const-sample/scripts/gate.py", {})
-        unused = files.get("modules/const-sample/scripts/unused.py", {})
+        gate_file = files.get("modules/const-sample/plugin/scripts/gate.py", {})
+        unused = files.get("modules/const-sample/plugin/scripts/unused.py", {})
         ok = (
             code == EXIT_GREEN
             and measured.get("runner_exit") == 0
@@ -2675,8 +2680,8 @@ def self_test_coverage() -> tuple[int, int]:
             if ok and variable == "folder":
                 saved = json.loads(written.read_text(encoding="utf-8"))
                 files = saved["files"]
-                gate_file = files.get("modules/const-sample/scripts/gate.py", {})
-                unused = files.get("modules/const-sample/scripts/unused.py", {})
+                gate_file = files.get("modules/const-sample/plugin/scripts/gate.py", {})
+                unused = files.get("modules/const-sample/plugin/scripts/unused.py", {})
                 ok = (
                     saved["runner_exit"] == runner_exit
                     and gate_file.get("executed_lines") == [1, 2, 4]
@@ -3067,7 +3072,7 @@ def unreadable_matrix_lines() -> dict[str, tuple[str, str, str]]:
     return unreadable
 
 
-MANIFEST_PATH = "modules/const-sample/.claude-plugin/plugin.json"
+MANIFEST_PATH = "modules/const-sample/plugin/.claude-plugin/plugin.json"
 MANIFEST_FIX = "— fix: restore it as a JSON object"
 
 
@@ -4033,7 +4038,7 @@ def eval_run_data() -> dict[str, tuple[tuple[Attempt, ...], Callable[[Path], Non
     )
     untracked = eval_edit("scripts/untracked.txt")  # a file git does not track: no file a session loads
     appended = eval_append("modules/const-sample/MODULE.md")  # the document, left out of the hash
-    gate_py = "modules/const-sample/scripts/gate.py"
+    gate_py = "modules/const-sample/plugin/scripts/gate.py"
     return {
         "a current receipt whose last attempt passes": ((PASSED,), untracked, EXIT_GREEN, *green),
         "a pass after an earlier failure": ((FAILED_EARLY, PASSED), untracked, EXIT_GREEN, *green),

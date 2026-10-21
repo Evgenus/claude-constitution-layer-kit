@@ -44,7 +44,7 @@ RED: docs/notes/style.md:3: a fenced block that names no language
 For one session, from a clone of the kit:
 
 ```bash
-claude --plugin-dir <path to this module>
+claude --plugin-dir <path to this module>/plugin
 ```
 
 Or install it from the marketplace the kit's install guide names: `claude plugin install const-styling@<marketplace name> --scope project`. Then run the scan from the project's root:
@@ -53,4 +53,4 @@ Or install it from the marketplace the kit's install guide names: `claude plugin
 sh <plugin root>/scripts/check-style.sh --scan
 ```
 
-The full install procedure and every dial are in [INSTALL.md](INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).
+The full install procedure and every dial are in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).

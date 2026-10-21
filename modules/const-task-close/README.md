@@ -44,7 +44,7 @@ Two skills load on their own. `close-task` loads when a task, a branch or a pull
 For one session, from a clone of the kit:
 
 ```bash
-claude --plugin-dir <path to this module>
+claude --plugin-dir <path to this module>/plugin
 ```
 
 Or install it from the marketplace the kit's install guide names: `claude plugin install const-task-close@<marketplace name> --scope project`. Then run the range check from the project's root, on a branch:
@@ -53,4 +53,4 @@ Or install it from the marketplace the kit's install guide names: `claude plugin
 sh <plugin root>/scripts/check-task-close.sh --scan
 ```
 
-The full install procedure and every dial are in [INSTALL.md](INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).
+The full install procedure and every dial are in [INSTALL.md](plugin/INSTALL.md). The complete description of the module, with its rules, its messages and its limits, is [MODULE.md](MODULE.md).

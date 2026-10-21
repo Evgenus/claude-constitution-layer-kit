@@ -1,5 +1,7 @@
 schema_version: "1.1"
 name: record-decision
+plugins:
+  - ../../plugin
 description: a ruling made in the dialog loads the record skill before it is written down
 context:
   scaffold_script: scaffold.sh

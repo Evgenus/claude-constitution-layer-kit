@@ -40,8 +40,9 @@ from consumer import BASE_MARKDOWN, ROOT_POLICY, Consumer
 from harness import Case, Edit, Harness, Result, Write, event_json, fake_program
 from test_shared_items import NO_ENVELOPE, PatternDial, Subject, git_patch, git_timeouts, hook_budget
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
+PLUGIN_ROOT = SCRIPTS.parent
+MODULE_ROOT = PLUGIN_ROOT.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
@@ -1382,7 +1383,7 @@ def test_session_start_absence_paths() -> None:
     no_yaml = SESSION.run_gate(session_json(session_root()), env={"PYTHONPATH": str(shadow)})
     c2 = (
         "BROKEN: const-catalogs needs PyYAML — fix: run: python3 -m pip install -r"
-        f" '{MODULE_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
+        f" '{PLUGIN_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
     )
     broken_first_line(no_yaml, c2)
     yaml_ok = messages.z1_could_not_run() in no_yaml.stderr and no_yaml.stdout == ""
@@ -1407,7 +1408,7 @@ def test_hooks_file_shape() -> None:
     args, integer timeouts, every script present. The module's own wait in one hook run, the history read,
     fits the hook's budget the gate declares (`GATE.hook_seconds`); the handlers' timeouts hold that budget
     and `LEFT_FOR_THE_REST`, which the shared item S165 ties; the two printers read no history."""
-    hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    hooks = json.loads((PLUGIN_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
     root = "${CLAUDE_PLUGIN_ROOT}/scripts/"
     wanted: dict[str, list[list[str]]] = {
         "SessionStart": [[root + "session-start.sh"], [root + "print-skill-pointer.sh"]],
@@ -1428,7 +1429,7 @@ def test_hooks_file_shape() -> None:
                 pytest.fail(f"{event}: not exec form `sh`: {handler}")
             if not isinstance(handler["timeout"], int) or isinstance(handler["timeout"], bool):
                 pytest.fail(f"{event}: timeout is no integer: {handler}")
-            if not (MODULE_ROOT / "scripts" / Path(handler["args"][0]).name).is_file():
+            if not (PLUGIN_ROOT / "scripts" / Path(handler["args"][0]).name).is_file():
                 pytest.fail(f"{event}: no script {handler['args'][0]}")
             if ("matcher" in group) != (event == "PreToolUse"):
                 pytest.fail(f"{event}: matcher wrong: {group}")
@@ -1481,7 +1482,7 @@ def test_skill_pointer_printed() -> None:
     if not stated or int(stated.group(1)) != size:
         pytest.fail(f"the module document states another size than {size}")
     named = re.search(rf"load the skill ({re.escape(NAMESPACE)}):([a-z0-9-]+)\.$", POINTER)
-    if not named or not (MODULE_ROOT / "skills" / named.group(2) / "SKILL.md").is_file():
+    if not named or not (PLUGIN_ROOT / "skills" / named.group(2) / "SKILL.md").is_file():
         pytest.fail("the line names no skill folder of this module")
     pass
 

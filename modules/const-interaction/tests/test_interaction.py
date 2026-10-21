@@ -42,8 +42,9 @@ from interaction_gate.model import (
 )
 from test_shared_items import PatternDial, Subject, git_patch, git_timeouts, hook_budget
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
+PLUGIN_ROOT = SCRIPTS.parent
+MODULE_ROOT = PLUGIN_ROOT.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
@@ -2021,7 +2022,7 @@ def test_t33() -> None:
     no_yaml = SESSION.run_gate(session_json(root), env={"PYTHONPATH": str(shadow)})
     c2 = (
         "BROKEN: const-interaction needs PyYAML — fix: run: python3 -m pip install -r"
-        f" '{MODULE_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
+        f" '{PLUGIN_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start"
     )
     broken_first_line(no_yaml, c2)
     yaml_ok = messages.z1_could_not_run() in no_yaml.stderr and no_yaml.stdout == RULES
@@ -2047,7 +2048,7 @@ def test_t33() -> None:
 def test_t40() -> None:
     """The hooks file's shape: a SessionStart handler with no matcher and a PreToolUse handler on
     Bash, exec form, the placeholder in args, timeouts."""
-    hooks = json.loads((MODULE_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
+    hooks = json.loads((PLUGIN_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))["hooks"]
     start_hook = hooks["SessionStart"][0]
     bash_hook = hooks["PreToolUse"][0]
     ok = (
@@ -2066,8 +2067,8 @@ def test_t40() -> None:
 @item(41, "the manifest names the plugin; the install note's example accepted")
 def test_t41() -> None:
     """The manifest names the plugin; the install note's calibration example is accepted as it stands."""
-    install = (MODULE_ROOT / "INSTALL.md").read_text(encoding="utf-8")
-    manifest = json.loads((MODULE_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    install = (PLUGIN_ROOT / "INSTALL.md").read_text(encoding="utf-8")
+    manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     example = re.search(r"```yaml\n(.*?)```", install, re.S)
     accepted = False
     if example:
@@ -2129,7 +2130,7 @@ def test_t42() -> None:
             "C2",
             harness.run_gate(stdin, args, env={"PYTHONPATH": str(shadow)}),
             "BROKEN: const-interaction needs PyYAML — fix: run: python3 -m pip install -r"
-            f" '{MODULE_ROOT / 'requirements.txt'}' — {clause}",
+            f" '{PLUGIN_ROOT / 'requirements.txt'}' — {clause}",
         )
         line_of(
             "C14",

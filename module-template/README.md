@@ -1,6 +1,6 @@
 # const-<aspect>
 
-*Template. Every module ships this page beside its `INSTALL.md`, as its landing page for a reader on GitHub. It is of the same kind as the kit's root README: user-facing, informational, in no policy's territory, with no envelope, binding nothing. It is written in plain language for a reader whose first language is not English. Sentences are short, and each term is defined where it is first used. It restates no requirement row and cites no row number, no decision and no error-code handle. It links nothing of the kit beyond the module's own `INSTALL.md` and `MODULE.md`. Each heading carries its anchor, `a1` to `a5`. Every list and table row carries a handle. The page links only inside its own folder, so a copy keeps its links. A link that left the folder would gain one `../` level in the copy, as the links of the template's other documents do. Delete this note.*
+*Template. Every module has this page at the top of its folder, beside the `plugin/` folder that holds its `INSTALL.md`, as its landing page for a reader on GitHub. It is of the same kind as the kit's root README: user-facing, informational, in no policy's territory, with no envelope, binding nothing. It is written in plain language for a reader whose first language is not English. Sentences are short, and each term is defined where it is first used. It restates no requirement row and cites no row number, no decision and no error-code handle. It links nothing of the kit beyond the module's own `INSTALL.md` and `MODULE.md`. Each heading carries its anchor, `a1` to `a5`. Every list and table row carries a handle. The page links only inside its own folder, so a copy keeps its links. A link that left the folder would gain one `../` level in the copy, as the links of the template's other documents do. Delete this note.*
 
 <a id="a1"></a>
 ## What it gives you
@@ -25,4 +25,4 @@ One paragraph per tool the module ships, each opening with a bold label. Each ho
 <a id="a5"></a>
 ## Get it
 
-The install line for one session, `claude --plugin-dir <path to this module>`, and the marketplace form. The module's own scan command, `sh <plugin root>/scripts/<entry>.sh --scan`, or the command for a module with no scan. One closing line: the full install procedure and every dial in [INSTALL.md](INSTALL.md), the complete description in [MODULE.md](MODULE.md).
+The install line for one session, `claude --plugin-dir <path to this module>/plugin`, and the marketplace form. The module's own scan command, `sh <plugin root>/scripts/<entry>.sh --scan`, or the command for a module with no scan. One closing line: the full install procedure and every dial in [INSTALL.md](plugin/INSTALL.md), the complete description in [MODULE.md](MODULE.md).

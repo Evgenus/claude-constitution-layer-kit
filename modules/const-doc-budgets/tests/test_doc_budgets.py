@@ -39,16 +39,17 @@ from consumer import Consumer
 from harness import Case, Edit, Harness, Result, Write, event_json
 from test_shared_items import PatternDial, Subject, git_patch, git_timeouts, hook_budget
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
+PLUGIN_ROOT = SCRIPTS.parent
+MODULE_ROOT = PLUGIN_ROOT.parent
 
 identity.declare(start.GATE)  # the shared texts the items compare are built for this gate's name
 H = Harness(SCRIPTS, "check-budgets.sh", "check-budgets.py", start.GATE.namespace)
 SESSION = Harness(SCRIPTS, "session-start.sh", "session-start.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
-SKILL = MODULE_ROOT / "skills" / "set-ceilings" / "SKILL.md"
-MANIFEST = MODULE_ROOT / ".claude-plugin" / "plugin.json"
-HOOKS = MODULE_ROOT / "hooks" / "hooks.json"
+SKILL = PLUGIN_ROOT / "skills" / "set-ceilings" / "SKILL.md"
+MANIFEST = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
+HOOKS = PLUGIN_ROOT / "hooks" / "hooks.json"
 
 NOTES: dict[str, object] = {  # the fixtures' one ceiling: 100 characters over docs/notes, 31 days of data
     "name": "notes",
@@ -1205,7 +1206,7 @@ def test_t20() -> None:
     broken_first_line(
         no_yaml,
         "BROKEN: const-doc-budgets needs PyYAML — fix: run: python3 -m pip install -r"
-        f" '{MODULE_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start",
+        f" '{PLUGIN_ROOT / 'requirements.txt'}' — until then the gate's state is not said at session start",
     )
     bin_dir = H.scratch_dir()
     (bin_dir / "sh").symlink_to(H.sh)

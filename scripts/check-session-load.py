@@ -16,12 +16,15 @@ What it reads of the stream, one JSON object per line, as Claude Code 2.1.282 wr
 `exit_code`, `outcome` and `output`.
 It holds, each failure one finding:
   the `init` event lists the module among its plugins;
-  its skills hold `<module>:<name>` for each folder of the module's `skills/` that holds a SKILL.md;
-  as many SessionStart hooks answered as the module declares in hooks/hooks.json for a start, `command`
-  hooks of a group whose matcher is absent, empty, `*` or names `startup` among its `|` alternatives — the
-  stream does not name a hook's plugin, and in the empty configuration the module's are the only ones;
+  its skills hold `<module>:<name>` for each folder of `skills/` in the module's `plugin/` folder that
+  holds a SKILL.md;
+  as many SessionStart hooks answered as the module declares in its plugin/hooks/hooks.json for a start,
+  `command` hooks of a group whose matcher is absent, empty, `*` or names `startup` among its `|`
+  alternatives — the stream does not name a hook's plugin, and in the empty configuration the module's are
+  the only ones;
   each answered with exit 0, the outcome "success" and output that is not empty.
-What the module declares is read from the kit's working folder, the change CI checks out.
+What the module declares is read from its plugin folder in the kit's working folder, the change CI checks
+out.
 A stream with no `init` event, a session that outlasts its 120 s, and a failure of the install are each a
 BROKEN line with the fix; a refusal of the install is a finding.
 
@@ -218,7 +221,7 @@ def session(repo: Path, config: Path) -> str:
 
 
 def check_module(module: str, source: str, note: Note) -> tuple[list[Finding], str]:
-    kit_source = KIT / "modules" / module
+    kit_source = KIT / "modules" / module / "plugin"  # the module's source as installed: its plugin folder
     if not (kit_source / ".claude-plugin" / "plugin.json").is_file():
         raise Broken(f"no module {module} in the kit — fix: name a folder under modules/ that holds a plugin")
     marketplace = kit_marketplace(KIT)
@@ -249,20 +252,21 @@ def report(module: str, findings: list[Finding], examined: str, note: str = "") 
 
 
 def toy_module(root: Path) -> Path:
-    module = root / "modules" / "const-x"
-    (module / "skills" / "s").mkdir(parents=True)
-    (module / "skills" / "s" / "SKILL.md").write_text("---\nname: s\ndescription: d\n---\n", encoding="utf-8")
-    (module / "skills" / "notes").mkdir()
-    (module / "hooks").mkdir()
+    """The plugin folder of a toy module, `modules/const-x/plugin` under `root`: its skills, its hooks."""
+    plugin = root / "modules" / "const-x" / "plugin"
+    (plugin / "skills" / "s").mkdir(parents=True)
+    (plugin / "skills" / "s" / "SKILL.md").write_text("---\nname: s\ndescription: d\n---\n", encoding="utf-8")
+    (plugin / "skills" / "notes").mkdir()
+    (plugin / "hooks").mkdir()
     hook = {"type": "command", "command": "sh", "args": ["x.sh"]}
     table = {
         "SessionStart": [{"hooks": [hook]}, {"matcher": "resume", "hooks": [hook]}],
         "Stop": [{"hooks": [hook]}],
     }
-    (module / "hooks" / "hooks.json").write_text(json.dumps({"hooks": table}), encoding="utf-8")
-    (module / ".claude-plugin").mkdir()
-    (module / ".claude-plugin" / "plugin.json").write_text('{"name": "const-x"}', encoding="utf-8")
-    return module
+    (plugin / "hooks" / "hooks.json").write_text(json.dumps({"hooks": table}), encoding="utf-8")
+    (plugin / ".claude-plugin").mkdir()
+    (plugin / ".claude-plugin" / "plugin.json").write_text('{"name": "const-x"}', encoding="utf-8")
+    return plugin
 
 
 def stream(plugins: list[str], skills: list[str], answers: list[dict[str, object]]) -> str:
@@ -342,9 +346,9 @@ def self_test() -> int:
     }
     failed = 0
     with tempfile.TemporaryDirectory() as tmp:
-        module = toy_module(Path(tmp))
+        plugin = toy_module(Path(tmp))
         for name, (said, wanted) in cases.items():
-            got = [f.module for f in judge("const-x", module, start_of(said))]
+            got = [f.module for f in judge("const-x", plugin, start_of(said))]
             ok = got == wanted
             failed += 0 if ok else 1
             print(f"[{'ok' if ok else 'FAIL'}] {name}")
@@ -353,7 +357,7 @@ def self_test() -> int:
         printed = io.StringIO()
         with contextlib.redirect_stdout(printed):
             code = report(
-                "const-x", judge("const-x", module, start_of(stream(["const-x"], [], [GOOD]))), "1 skill(s)"
+                "const-x", judge("const-x", plugin, start_of(stream(["const-x"], [], [GOOD]))), "1 skill(s)"
             )
         report_lines = [  # typed by hand: a message function cannot check itself
             "RED: const-x: the session lists no skill const-x:s",
@@ -375,10 +379,10 @@ def self_test() -> int:
         print(f"[{'ok' if ok else 'FAIL'}] a stream with no init event is a teaching BROKEN line")
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp).resolve()
-        module = toy_module(root)
+        plugin = toy_module(root)
         bin_folder = root / "bin"
         bin_folder.mkdir()
-        fake_claude(bin_folder, module, stream(["const-x"], ["const-x:s"], [GOOD]))
+        fake_claude(bin_folder, plugin, stream(["const-x"], ["const-x:s"], [GOOD]))
         path = {"PATH": f"{bin_folder}{os.pathsep}{os.environ.get('PATH', '')}"}
         with toy_kit(root), mock.patch.dict(os.environ, path):
             findings, examined = check_module("const-x", str(root), Note("2.1.282"))

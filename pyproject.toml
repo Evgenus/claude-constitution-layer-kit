@@ -7,8 +7,8 @@
 # Run from the kit root before a module's scripts are reviewed:
 #   python3 -m ruff format --check modules scripts shared && python3 -m ruff check modules scripts shared
 #   (cd shared && mypy --strict constitution_layer_kit)
-#   (cd modules/<name>/scripts && mypy --strict <package>)
-#   (cd modules/<name>/scripts && mypy --strict *.py)   (the entry files beside the packages)
+#   (cd modules/<name>/plugin/scripts && mypy --strict <package>)
+#   (cd modules/<name>/plugin/scripts && mypy --strict *.py)   (the entry files beside the packages)
 #   (cd modules/<name>/tests && mypy --strict *.py)
 #   python3 scripts/check-shared-links.py && python3 scripts/check-shared-links.py --self-test
 #   python3 scripts/check-carry-lists.py && python3 scripts/check-carry-lists.py --self-test

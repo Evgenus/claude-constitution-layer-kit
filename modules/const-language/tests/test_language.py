@@ -40,17 +40,18 @@ from language_gate import messages, rules, start, vale
 from language_gate.model import Departure, Rule
 from test_shared_items import PatternDial, Subject, git_patch
 
-SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
-MODULE_ROOT = SCRIPTS.parent
+SCRIPTS = Path(__file__).resolve().parent.parent / "plugin" / "scripts"
+PLUGIN_ROOT = SCRIPTS.parent
+MODULE_ROOT = PLUGIN_ROOT.parent
 
 identity.declare(start.GATE)  # the expected messages are built by the same functions the gate uses
 # — and each is also typed by hand at least once in these fixtures (rule 14 of the template's §6)
 H = Harness(SCRIPTS, "check-language.sh", "check-language.py", start.GATE.namespace)
 NAMESPACE = start.GATE.namespace
-SKILL = MODULE_ROOT / "skills" / "plain-language" / "SKILL.md"
-INSTALL = MODULE_ROOT / "INSTALL.md"
-MANIFEST = MODULE_ROOT / ".claude-plugin" / "plugin.json"
-HOOKS = MODULE_ROOT / "hooks" / "hooks.json"
+SKILL = PLUGIN_ROOT / "skills" / "plain-language" / "SKILL.md"
+INSTALL = PLUGIN_ROOT / "INSTALL.md"
+MANIFEST = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
+HOOKS = PLUGIN_ROOT / "hooks" / "hooks.json"
 DOC = "docs/notes/c.md"
 # the line after the count line of every red (F10 of the shared gate code), typed by hand once
 F10 = "const-language: load the skill const-language:plain-language before you fix this — it teaches the rule and the fix"  # noqa: E501 — a golden line is typed whole
@@ -1468,7 +1469,7 @@ def test_t20() -> None:
     if not stated or int(stated.group(1)) != len(POINTER):
         pytest.fail(f"the module document states another size than {len(POINTER)}")
     named = re.search(r"load the skill const-language:([a-z-]+)", POINTER)
-    if not named or not (MODULE_ROOT / "skills" / named.group(1) / "SKILL.md").is_file():
+    if not named or not (PLUGIN_ROOT / "skills" / named.group(1) / "SKILL.md").is_file():
         pytest.fail("the line names no folder under skills/")
 
 
